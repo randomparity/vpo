@@ -83,3 +83,10 @@ This project uses **spec-driven development**:
 - Prefer updating existing docs over creating new ones
 - Every new doc must be added to `/docs/INDEX.md` and include a "Related docs" section
 - Keep docs small and focused; link instead of duplicating content
+
+## Active Technologies
+- Python 3.10+ (matching existing codebase) + click (CLI), pydantic (validation), PyYAML (config), importlib.metadata (entry points) (005-plugin-architecture)
+- SQLite (~/.vpo/library.db for plugin acknowledgment records) (005-plugin-architecture)
+
+## Recent Changes
+- 005-plugin-architecture: Added Python 3.10+ (matching existing codebase) + click (CLI), pydantic (validation), PyYAML (config), importlib.metadata (entry points)
