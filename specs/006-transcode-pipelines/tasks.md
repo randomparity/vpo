@@ -197,12 +197,12 @@
 
 **Purpose**: Documentation, validation, and final refinements
 
-- [ ] T072 [P] Add transcode policy documentation in `docs/usage/transcode-policy.md`
-- [ ] T073 [P] Add job system documentation in `docs/usage/jobs.md`
+- [x] T072 [P] Add transcode policy documentation in `docs/usage/transcode-policy.md`
+- [x] T073 [P] Add job system documentation in `docs/usage/jobs.md`
 - [x] T074 Update CLI help text for all new commands in `src/video_policy_orchestrator/cli/`
-- [ ] T075 Add example transcode policy to `examples/policies/transcode-hevc.yaml`
-- [ ] T076 Validate quickstart.md scenarios work end-to-end
-- [ ] T077 Update README.md with transcode feature overview
+- [x] T075 Add example transcode policy to `examples/policies/transcode-hevc.yaml`
+- [x] T076 Validate quickstart.md scenarios work end-to-end
+- [x] T077 Update README.md with transcode feature overview
 
 **Commit Checkpoint**: Commit all Phase 8 changes with message "docs(transcode): add documentation and examples"
 
