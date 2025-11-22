@@ -157,14 +157,14 @@
 
 **Purpose**: Error handling, edge cases, and quality improvements across all user stories
 
-- [ ] T051 [P] Implement graceful Ctrl+C handling with partial commit in src/video_policy_orchestrator/scanner/orchestrator.py
-- [ ] T052 [P] Add progress output for long scans (every 100 files) in src/video_policy_orchestrator/scanner/orchestrator.py
-- [ ] T053 [P] Implement verbose error output with full error list in src/video_policy_orchestrator/cli/scan.py
-- [ ] T054 [P] Add database locked error handling in src/video_policy_orchestrator/db/connection.py
-- [ ] T056 Run full test suite and fix any failures
-- [ ] T057 Run ruff linting and formatting checks
-- [ ] T058 Run cargo clippy and cargo fmt for Rust code
-- [ ] T059 Validate quickstart.md instructions work end-to-end
+- [X] T051 [P] Implement graceful Ctrl+C handling with partial commit in src/video_policy_orchestrator/scanner/orchestrator.py
+- [X] T052 [P] Add progress output for long scans (every 100 files) in src/video_policy_orchestrator/scanner/orchestrator.py
+- [X] T053 [P] Implement verbose error output with full error list in src/video_policy_orchestrator/cli/scan.py
+- [X] T054 [P] Add database locked error handling in src/video_policy_orchestrator/db/connection.py
+- [X] T056 Run full test suite and fix any failures
+- [X] T057 Run ruff linting and formatting checks
+- [X] T058 Run cargo clippy and cargo fmt for Rust code
+- [X] T059 Validate quickstart.md instructions work end-to-end
 
 ---
 

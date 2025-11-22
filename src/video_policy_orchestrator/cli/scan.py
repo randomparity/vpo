@@ -90,6 +90,7 @@ def scan(
         vpo scan --dry-run --verbose /media/videos
     """
     from video_policy_orchestrator.db.connection import (
+        DatabaseLockedError,
         get_connection,
         get_default_db_path,
     )
@@ -103,16 +104,30 @@ def scan(
     # Create scanner
     scanner = ScannerOrchestrator(extensions=ext_list)
 
+    # Progress callback for verbose mode
+    def progress_callback(processed: int, total: int) -> None:
+        if verbose and not json_output:
+            click.echo(f"  Progress: {processed}/{total} files processed...")
+
     # Run scan
-    if dry_run:
-        # Dry run: just scan without database
-        files, result = scanner.scan_directories(directories)
-    else:
-        # Normal run: scan and persist to database
-        effective_db_path = db_path or get_default_db_path()
-        with get_connection(effective_db_path) as conn:
-            initialize_database(conn)
-            files, result = scanner.scan_and_persist(directories, conn)
+    try:
+        if dry_run:
+            # Dry run: just scan without database
+            files, result = scanner.scan_directories(directories)
+        else:
+            # Normal run: scan and persist to database
+            effective_db_path = db_path or get_default_db_path()
+            with get_connection(effective_db_path) as conn:
+                initialize_database(conn)
+                files, result = scanner.scan_and_persist(
+                    directories, conn, progress_callback=progress_callback
+                )
+    except DatabaseLockedError as e:
+        click.echo(f"Error: {e}", err=True)
+        click.echo(
+            "Hint: Close other VPO instances or use a different --db path.", err=True
+        )
+        sys.exit(1)
 
     # Output results
     if json_output:
@@ -120,8 +135,11 @@ def scan(
     else:
         output_human(result, files, verbose, dry_run)
 
-    # Exit with error code if there were errors
-    if result.errors:
+    # Exit with appropriate code
+    if getattr(result, "interrupted", False):
+        click.echo("\nScan interrupted. Partial results saved.", err=True)
+        sys.exit(130)  # Standard exit code for Ctrl+C
+    elif result.errors:
         sys.exit(1) if not files else sys.exit(0)
 
 
@@ -180,9 +198,21 @@ def output_human(result, files, verbose: bool, dry_run: bool = False) -> None:
             click.echo(f"  {f.path} ({size_mb:.2f} MB)")
 
     if result.errors:
-        click.echo(f"\n{len(result.errors)} error(s):")
-        for path, error in result.errors:
-            click.echo(f"  {path}: {error}", err=True)
+        error_count = len(result.errors)
+        click.echo(f"\n{error_count} error(s):", err=True)
+        if verbose:
+            # In verbose mode, show all errors
+            for path, error in result.errors:
+                click.echo(f"  {path}: {error}", err=True)
+        else:
+            # In non-verbose mode, show first 5 errors with hint
+            for path, error in result.errors[:5]:
+                click.echo(f"  {path}: {error}", err=True)
+            if error_count > 5:
+                click.echo(
+                    f"  ... and {error_count - 5} more (use --verbose to see all)",
+                    err=True,
+                )
 
 
 # Register with the CLI group

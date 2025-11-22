@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import signal
 import sqlite3
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -13,6 +15,15 @@ from video_policy_orchestrator._core import discover_videos, hash_files
 
 if TYPE_CHECKING:
     from video_policy_orchestrator.introspector.interface import MediaIntrospector
+
+# Global flag for graceful shutdown
+_interrupted = False
+
+
+def _signal_handler(signum: int, frame) -> None:
+    """Handle interrupt signal (Ctrl+C) for graceful shutdown."""
+    global _interrupted
+    _interrupted = True
 
 
 @dataclass
@@ -27,6 +38,7 @@ class ScanResult:
     errors: list[tuple[str, str]] = field(default_factory=list)
     elapsed_seconds: float = 0.0
     directories_scanned: list[str] = field(default_factory=list)
+    interrupted: bool = False  # True if scan was interrupted by Ctrl+C
 
 
 @dataclass
@@ -129,7 +141,7 @@ class ScannerOrchestrator:
         directories: list[Path],
         conn: sqlite3.Connection,
         compute_hashes: bool = True,
-        progress_callback: callable = None,
+        progress_callback: Callable[[int, int], None] | None = None,
         introspector: MediaIntrospector | None = None,
     ) -> tuple[list[ScannedFile], ScanResult]:
         """Scan directories and persist results to database.
@@ -138,12 +150,15 @@ class ScannerOrchestrator:
             directories: List of directories to scan.
             conn: Database connection.
             compute_hashes: Whether to compute content hashes.
-            progress_callback: Optional callback for progress updates.
+            progress_callback: Optional callback(processed, total) for progress.
             introspector: Optional MediaIntrospector for extracting metadata.
 
         Returns:
             Tuple of (list of scanned files, scan result summary).
         """
+        global _interrupted
+        _interrupted = False
+
         from video_policy_orchestrator.db.models import (
             FileRecord,
             get_file_by_path,
@@ -151,107 +166,129 @@ class ScannerOrchestrator:
         )
         from video_policy_orchestrator.introspector.stub import StubIntrospector
 
-        # Use stub introspector by default
-        if introspector is None:
-            introspector = StubIntrospector()
+        # Set up signal handler for graceful shutdown
+        old_handler = signal.signal(signal.SIGINT, _signal_handler)
 
-        start_time = time.time()
-        result = ScanResult()
-        result.directories_scanned = [str(d) for d in directories]
+        try:
+            # Use stub introspector by default
+            if introspector is None:
+                introspector = StubIntrospector()
 
-        all_files: list[ScannedFile] = []
+            start_time = time.time()
+            result = ScanResult()
+            result.directories_scanned = [str(d) for d in directories]
 
-        # Discover files in all directories
-        for directory in directories:
-            try:
-                discovered = discover_videos(
-                    str(directory),
-                    self.extensions,
-                    self.follow_symlinks,
-                )
+            all_files: list[ScannedFile] = []
 
-                for file_info in discovered:
-                    scanned = ScannedFile(
-                        path=file_info["path"],
-                        size=file_info["size"],
-                        modified_at=datetime.fromtimestamp(file_info["modified"]),
+            # Discover files in all directories
+            for directory in directories:
+                if _interrupted:
+                    break
+                try:
+                    discovered = discover_videos(
+                        str(directory),
+                        self.extensions,
+                        self.follow_symlinks,
                     )
-                    all_files.append(scanned)
 
-            except (FileNotFoundError, NotADirectoryError) as e:
-                result.errors.append((str(directory), str(e)))
-                result.files_errored += 1
+                    for file_info in discovered:
+                        scanned = ScannedFile(
+                            path=file_info["path"],
+                            size=file_info["size"],
+                            modified_at=datetime.fromtimestamp(file_info["modified"]),
+                        )
+                        all_files.append(scanned)
 
-        result.files_found = len(all_files)
+                except (FileNotFoundError, NotADirectoryError) as e:
+                    result.errors.append((str(directory), str(e)))
+                    result.files_errored += 1
 
-        # Check which files need processing (new or modified)
-        files_to_process: list[ScannedFile] = []
-        for scanned in all_files:
-            existing = get_file_by_path(conn, scanned.path)
-            if existing is None:
-                # New file
-                files_to_process.append(scanned)
-            else:
-                # Check if modified
-                existing_modified = existing.modified_at
-                scanned_modified = scanned.modified_at.isoformat()
-                if existing_modified != scanned_modified:
+            result.files_found = len(all_files)
+
+            # Check which files need processing (new or modified)
+            files_to_process: list[ScannedFile] = []
+            for scanned in all_files:
+                if _interrupted:
+                    break
+                existing = get_file_by_path(conn, scanned.path)
+                if existing is None:
+                    # New file
                     files_to_process.append(scanned)
                 else:
-                    result.files_skipped += 1
+                    # Check if modified
+                    existing_modified = existing.modified_at
+                    scanned_modified = scanned.modified_at.isoformat()
+                    if existing_modified != scanned_modified:
+                        files_to_process.append(scanned)
+                    else:
+                        result.files_skipped += 1
 
-        # Compute hashes only for files that need processing
-        if compute_hashes and files_to_process:
-            paths = [f.path for f in files_to_process]
-            hash_results = hash_files(paths)
+            # Compute hashes only for files that need processing
+            if compute_hashes and files_to_process and not _interrupted:
+                paths = [f.path for f in files_to_process]
+                hash_results = hash_files(paths)
 
-            path_to_file = {f.path: f for f in files_to_process}
-            for hash_result in hash_results:
-                file = path_to_file.get(hash_result["path"])
-                if file:
-                    file.content_hash = hash_result["hash"]
-                    file.hash_error = hash_result["error"]
-                    if hash_result["error"]:
-                        result.errors.append(
-                            (hash_result["path"], hash_result["error"])
-                        )
+                path_to_file = {f.path: f for f in files_to_process}
+                for hash_result in hash_results:
+                    file = path_to_file.get(hash_result["path"])
+                    if file:
+                        file.content_hash = hash_result["hash"]
+                        file.hash_error = hash_result["error"]
+                        if hash_result["error"]:
+                            result.errors.append(
+                                (hash_result["path"], hash_result["error"])
+                            )
 
-        # Persist to database
-        now = datetime.now()
-        for scanned in files_to_process:
-            path = Path(scanned.path)
-            existing = get_file_by_path(conn, scanned.path)
+            # Persist to database with progress reporting
+            now = datetime.now()
+            total_to_process = len(files_to_process)
+            for i, scanned in enumerate(files_to_process):
+                if _interrupted:
+                    result.interrupted = True
+                    break
 
-            # Get container format from introspector
-            container_format = None
-            try:
-                file_info = introspector.get_file_info(path)
-                container_format = file_info.container_format
-            except Exception:
-                # If introspection fails, continue without container format
-                pass
+                path = Path(scanned.path)
+                existing = get_file_by_path(conn, scanned.path)
 
-            record = FileRecord(
-                id=None,
-                path=scanned.path,
-                filename=path.name,
-                directory=str(path.parent),
-                extension=path.suffix.lstrip(".").lower(),
-                size_bytes=scanned.size,
-                modified_at=scanned.modified_at.isoformat(),
-                content_hash=scanned.content_hash,
-                container_format=container_format,
-                scanned_at=now.isoformat(),
-                scan_status="error" if scanned.hash_error else "ok",
-                scan_error=scanned.hash_error,
-            )
+                # Get container format from introspector
+                container_format = None
+                try:
+                    file_info = introspector.get_file_info(path)
+                    container_format = file_info.container_format
+                except Exception:
+                    # If introspection fails, continue without container format
+                    pass
 
-            upsert_file(conn, record)
+                record = FileRecord(
+                    id=None,
+                    path=scanned.path,
+                    filename=path.name,
+                    directory=str(path.parent),
+                    extension=path.suffix.lstrip(".").lower(),
+                    size_bytes=scanned.size,
+                    modified_at=scanned.modified_at.isoformat(),
+                    content_hash=scanned.content_hash,
+                    container_format=container_format,
+                    scanned_at=now.isoformat(),
+                    scan_status="error" if scanned.hash_error else "ok",
+                    scan_error=scanned.hash_error,
+                )
 
-            if existing is None:
-                result.files_new += 1
-            else:
-                result.files_updated += 1
+                upsert_file(conn, record)
 
-        result.elapsed_seconds = time.time() - start_time
-        return all_files, result
+                if existing is None:
+                    result.files_new += 1
+                else:
+                    result.files_updated += 1
+
+                # Report progress every 100 files
+                processed = i + 1
+                if progress_callback and processed % 100 == 0:
+                    progress_callback(processed, total_to_process)
+
+            result.elapsed_seconds = time.time() - start_time
+            return all_files, result
+
+        finally:
+            # Restore original signal handler
+            signal.signal(signal.SIGINT, old_handler)
