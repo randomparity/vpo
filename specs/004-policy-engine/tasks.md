@@ -73,10 +73,10 @@
 
 ### Implementation
 
-- [ ] T022 [US5] Add EvaluationError, NoTracksError, UnsupportedContainerError exceptions to policy/evaluator.py
-- [ ] T023 [US5] Implement edge case handling in evaluator: missing language fallback, all-commentary default, no-audio-tracks skip
-- [ ] T024 [US5] Add Plan.summary property for human-readable change description
-- [ ] T025 [US5] Add PlannedAction.description property for individual action descriptions
+- [X] T022 [US5] Add EvaluationError, NoTracksError, UnsupportedContainerError exceptions to policy/evaluator.py
+- [X] T023 [US5] Implement edge case handling in evaluator: missing language fallback, all-commentary default, no-audio-tracks skip
+- [X] T024 [US5] Add Plan.summary property for human-readable change description
+- [X] T025 [US5] Add PlannedAction.description property for individual action descriptions
 
 **Checkpoint**: User Story 5 complete - evaluation engine is deterministic and handles edge cases
 

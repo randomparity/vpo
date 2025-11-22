@@ -18,6 +18,31 @@ from video_policy_orchestrator.policy.models import (
 )
 
 
+# Evaluation exceptions
+class EvaluationError(Exception):
+    """Base class for evaluation errors."""
+
+    pass
+
+
+class NoTracksError(EvaluationError):
+    """File has no tracks to evaluate."""
+
+    pass
+
+
+class UnsupportedContainerError(EvaluationError):
+    """Container format not supported for requested operations."""
+
+    def __init__(self, container: str, operation: str) -> None:
+        self.container = container
+        self.operation = operation
+        super().__init__(
+            f"Container '{container}' does not support {operation}. "
+            "Consider converting to MKV for full track manipulation support."
+        )
+
+
 def classify_track(
     track: TrackInfo,
     policy: PolicySchema,
@@ -236,12 +261,25 @@ def evaluate_policy(
 
     Returns:
         Plan describing all changes needed to make tracks conform to policy.
+
+    Raises:
+        NoTracksError: If no tracks are provided.
+
+    Edge cases handled:
+        - No tracks: Raises NoTracksError
+        - No audio tracks: Skips audio default flag processing
+        - All commentary: Falls back to first track for defaults
+        - Missing language: Uses "und" as fallback
     """
+    # Edge case: no tracks
+    if not tracks:
+        raise NoTracksError("File has no tracks to evaluate")
+
     matcher = CommentaryMatcher(policy.commentary_patterns)
     actions: list[PlannedAction] = []
     requires_remux = False
 
-    # Compute desired track order
+    # Compute desired track order (handles empty tracks gracefully)
     current_order = [t.index for t in sorted(tracks, key=lambda t: t.index)]
     desired_order = compute_desired_order(tracks, policy, matcher)
 
@@ -259,7 +297,10 @@ def evaluate_policy(
             )
             requires_remux = True
 
-    # Compute desired default flags
+    # Compute desired default flags (handles edge cases internally)
+    # - All commentary tracks: uses first track as default
+    # - Missing language: uses "und" as fallback
+    # - No tracks of type: skips that type
     desired_defaults = compute_default_flags(tracks, policy, matcher)
 
     # Create actions for flag changes

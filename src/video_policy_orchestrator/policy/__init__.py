@@ -8,6 +8,9 @@ This module provides policy loading, validation, and evaluation functionality:
 """
 
 from video_policy_orchestrator.policy.evaluator import (
+    EvaluationError,
+    NoTracksError,
+    UnsupportedContainerError,
     classify_track,
     compute_default_flags,
     compute_desired_order,
@@ -41,6 +44,9 @@ __all__ = [
     "load_policy",
     "load_policy_from_dict",
     # Evaluator
+    "EvaluationError",
+    "NoTracksError",
+    "UnsupportedContainerError",
     "classify_track",
     "compute_default_flags",
     "compute_desired_order",
