@@ -1,0 +1,204 @@
+# Policy Schema Definition v1
+# This file documents the YAML policy schema for VPO
+# JSON Schema equivalent can be generated from Pydantic model
+
+$schema_version: 1
+$description: |
+  VPO Policy file format for defining track organization rules.
+  Policies are evaluated against media file track metadata to produce
+  an execution plan for track reordering and metadata changes.
+
+# =============================================================================
+# Schema Definition
+# =============================================================================
+
+schema:
+  schema_version:
+    type: integer
+    required: true
+    minimum: 1
+    maximum: 1  # Current version
+    description: Policy schema version for forward compatibility
+
+  track_order:
+    type: array
+    required: false
+    default: [video, audio_main, audio_alternate, subtitle_main, subtitle_forced, audio_commentary, subtitle_commentary, attachment]
+    items:
+      type: string
+      enum:
+        - video
+        - audio_main
+        - audio_alternate
+        - audio_commentary
+        - subtitle_main
+        - subtitle_forced
+        - subtitle_commentary
+        - attachment
+    minItems: 1
+    description: |
+      Desired ordering of track types. Tracks are sorted according to
+      their position in this list. Tracks matching earlier entries
+      appear before tracks matching later entries.
+
+  audio_language_preference:
+    type: array
+    required: false
+    default: [eng, und]
+    items:
+      type: string
+      pattern: "^[a-z]{2,3}$"  # ISO 639-2/B codes
+    minItems: 1
+    description: |
+      Ordered list of preferred audio languages (ISO 639-2 codes).
+      The first matching language becomes the default audio track.
+      Use "und" for undefined/unknown language as fallback.
+
+  subtitle_language_preference:
+    type: array
+    required: false
+    default: [eng, und]
+    items:
+      type: string
+      pattern: "^[a-z]{2,3}$"
+    minItems: 1
+    description: |
+      Ordered list of preferred subtitle languages (ISO 639-2 codes).
+      Used when set_preferred_subtitle_default is enabled.
+
+  commentary_patterns:
+    type: array
+    required: false
+    default: [commentary, director]
+    items:
+      type: string
+      format: regex
+    description: |
+      Regular expression patterns to identify commentary tracks.
+      Patterns are matched case-insensitively against track titles.
+      Use single quotes in YAML to preserve regex escapes.
+
+  default_flags:
+    type: object
+    required: false
+    properties:
+      set_first_video_default:
+        type: boolean
+        default: true
+        description: Set the first video track as default
+      set_preferred_audio_default:
+        type: boolean
+        default: true
+        description: Set the preferred audio track as default
+      set_preferred_subtitle_default:
+        type: boolean
+        default: false
+        description: Set the preferred subtitle track as default
+      clear_other_defaults:
+        type: boolean
+        default: true
+        description: Clear default flag on non-preferred tracks
+
+# =============================================================================
+# Examples
+# =============================================================================
+
+examples:
+  minimal:
+    description: Minimal policy with just language preference
+    content: |
+      schema_version: 1
+      audio_language_preference:
+        - eng
+
+  standard:
+    description: Standard home media policy
+    content: |
+      schema_version: 1
+
+      track_order:
+        - video
+        - audio_main
+        - audio_alternate
+        - subtitle_main
+        - subtitle_forced
+        - audio_commentary
+        - subtitle_commentary
+        - attachment
+
+      audio_language_preference:
+        - eng
+        - und
+
+      subtitle_language_preference:
+        - eng
+        - und
+
+      commentary_patterns:
+        - 'commentary'
+        - 'director'
+        - 'cast'
+
+      default_flags:
+        set_first_video_default: true
+        set_preferred_audio_default: true
+        set_preferred_subtitle_default: false
+        clear_other_defaults: true
+
+  anime:
+    description: Anime-focused policy preferring Japanese audio
+    content: |
+      schema_version: 1
+
+      audio_language_preference:
+        - jpn
+        - eng
+        - und
+
+      subtitle_language_preference:
+        - eng
+        - und
+
+      commentary_patterns:
+        - 'commentary'
+        - 'director'
+        - 'staff'
+        - 'interview'
+
+      default_flags:
+        set_preferred_subtitle_default: true
+
+  regex_advanced:
+    description: Policy with advanced regex patterns
+    content: |
+      schema_version: 1
+
+      # Use single quotes for regex to preserve backslashes
+      commentary_patterns:
+        - '\bcommentary\b'           # Word boundary match
+        - 'director.?s?\s+cut'       # "director's cut", "directors cut"
+        - '(?:behind|making).+scene' # "behind the scenes", "making of scene"
+        - 'audio\s*description'      # Accessibility track
+
+# =============================================================================
+# Validation Errors
+# =============================================================================
+
+validation_errors:
+  - code: INVALID_SCHEMA_VERSION
+    message: "schema_version must be between 1 and {max_version}"
+
+  - code: INVALID_LANGUAGE_CODE
+    message: "Invalid language code '{value}' at {field}[{index}]. Use ISO 639-2 codes (e.g., 'eng', 'jpn')."
+
+  - code: INVALID_TRACK_TYPE
+    message: "Unknown track type '{value}' at track_order[{index}]. Valid types: video, audio_main, audio_alternate, audio_commentary, subtitle_main, subtitle_forced, subtitle_commentary, attachment."
+
+  - code: INVALID_REGEX
+    message: "Invalid regex pattern at commentary_patterns[{index}]: {error}"
+
+  - code: UNKNOWN_FIELD
+    message: "Unknown field '{field}'. Check for typos. Valid fields: schema_version, track_order, audio_language_preference, subtitle_language_preference, commentary_patterns, default_flags."
+
+  - code: EMPTY_ARRAY
+    message: "{field} cannot be empty."

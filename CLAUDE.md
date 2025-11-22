@@ -53,6 +53,8 @@ Key components:
 - SQLite (~/.vpo/library.db) (002-library-scanner)
 - Python 3.10+ (per pyproject.toml) + click (CLI), subprocess (ffprobe invocation), sqlite3 (stdlib) (003-media-introspection)
 - SQLite (~/.vpo/library.db) - existing schema from 002-library-scanner (003-media-introspection)
+- Python 3.10+ (per pyproject.toml) + click (CLI), PyYAML (policy parsing), subprocess (mkvpropedit/ffmpeg invocation), sqlite3 (stdlib) (004-policy-engine)
+- SQLite (~/.vpo/library.db) - existing schema extended for operation records (004-policy-engine)
 
 ## Documentation Rules
 
@@ -100,5 +102,6 @@ When creating or updating documentation, choose exactly one of these types and w
 - Updating all relevant indexes and Related docs sections to point to the new structure.
 
 ## Recent Changes
+- 004-policy-engine: Added Python 3.10+ (per pyproject.toml) + click (CLI), PyYAML (policy parsing), subprocess (mkvpropedit/ffmpeg invocation), sqlite3 (stdlib)
 - 001-project-skeleton: Added Python 3.10+ (minimum supported; CI will test 3.10, 3.11, 3.12) + ruff (linting/formatting), pytest (testing)
 - 002-library-scanner: Added hybrid Python/Rust architecture with maturin build system, click CLI, MediaIntrospector protocol
