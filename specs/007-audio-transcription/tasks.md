@@ -104,13 +104,13 @@
 
 ### Implementation for User Story 3
 
-- [ ] T031 [US3] Implement WhisperTranscriptionPlugin class in `src/video_policy_orchestrator/plugins/whisper_transcriber/plugin.py`
-- [ ] T032 [US3] Add model size configuration (tiny/base/small/medium/large) to Whisper plugin
-- [ ] T033 [US3] Add GPU detection and configuration support to Whisper plugin
-- [ ] T034 [US3] Implement audio sampling for long tracks (default 60s) in Whisper plugin
-- [ ] T035 [US3] Register Whisper plugin in `src/video_policy_orchestrator/plugins/whisper_transcriber/__init__.py`
-- [ ] T036 [P] [US3] Add integration tests for Whisper plugin in `tests/integration/test_whisper_plugin.py`
-- [ ] T037 Commit Phase 5 changes: "feat(transcription): whisper reference plugin (US3)"
+- [X] T031 [US3] Implement WhisperTranscriptionPlugin class in `src/video_policy_orchestrator/plugins/whisper_transcriber/plugin.py`
+- [X] T032 [US3] Add model size configuration (tiny/base/small/medium/large) to Whisper plugin
+- [X] T033 [US3] Add GPU detection and configuration support to Whisper plugin
+- [X] T034 [US3] Implement audio sampling for long tracks (default 60s) in Whisper plugin
+- [X] T035 [US3] Register Whisper plugin in `src/video_policy_orchestrator/plugins/whisper_transcriber/__init__.py`
+- [X] T036 [P] [US3] Add integration tests for Whisper plugin in `tests/unit/transcription/test_whisper_plugin.py`
+- [X] T037 Commit Phase 5 changes: "feat(transcription): whisper reference plugin (US3)"
 
 **Checkpoint**: User Story 3 complete - offline transcription works with Whisper
 
