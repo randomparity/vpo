@@ -10,5 +10,9 @@ def main() -> None:
     pass
 
 
-# Import subcommands to register them
-from video_policy_orchestrator.cli import scan as _scan  # noqa: E402, F401
+# Defer import to avoid circular dependency
+def _register_commands():
+    from video_policy_orchestrator.cli import scan  # noqa: F401
+
+
+_register_commands()

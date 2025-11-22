@@ -63,24 +63,24 @@
 
 ### Tests for User Story 1
 
-- [ ] T016 [P] [US1] Unit test for Rust discover_videos in tests/unit/test_core.py
-- [ ] T017 [P] [US1] Unit test for Rust hash_files in tests/unit/test_core.py
-- [ ] T018 [P] [US1] Integration test for scan command in tests/integration/test_scan_command.py
-- [ ] T018b [P] [US1] Integration test for --dry-run flag (no DB writes) in tests/integration/test_scan_command.py
+- [X] T016 [P] [US1] Unit test for Rust discover_videos in tests/unit/test_core.py
+- [X] T017 [P] [US1] Unit test for Rust hash_files in tests/unit/test_core.py
+- [X] T018 [P] [US1] Integration test for scan command in tests/integration/test_scan_command.py
+- [X] T018b [P] [US1] Integration test for --dry-run flag (no DB writes) in tests/integration/test_scan_command.py
 
 ### Implementation for User Story 1
 
-- [ ] T019 [US1] Create CLI entry point with click group in src/video_policy_orchestrator/cli/__init__.py
-- [ ] T020 [US1] Implement scan command skeleton with arguments in src/video_policy_orchestrator/cli/scan.py
-- [ ] T021 [US1] Add --extensions option parsing in src/video_policy_orchestrator/cli/scan.py
-- [ ] T022 [US1] Add --db option for database path in src/video_policy_orchestrator/cli/scan.py
-- [ ] T023 [US1] Add --dry-run flag implementation in src/video_policy_orchestrator/cli/scan.py
-- [ ] T024 [US1] Add --verbose and --json output flags in src/video_policy_orchestrator/cli/scan.py
-- [ ] T025 [US1] Create scanner orchestrator that coordinates Rust core in src/video_policy_orchestrator/scanner/orchestrator.py
-- [ ] T026 [US1] Implement scan summary output (human-readable format) in src/video_policy_orchestrator/cli/scan.py
-- [ ] T027 [US1] Implement scan summary output (JSON format) in src/video_policy_orchestrator/cli/scan.py
-- [ ] T028 [US1] Add CLI entry point to pyproject.toml [project.scripts]
-- [ ] T029 [US1] Handle directory validation and error messages in src/video_policy_orchestrator/cli/scan.py
+- [X] T019 [US1] Create CLI entry point with click group in src/video_policy_orchestrator/cli/__init__.py
+- [X] T020 [US1] Implement scan command skeleton with arguments in src/video_policy_orchestrator/cli/scan.py
+- [X] T021 [US1] Add --extensions option parsing in src/video_policy_orchestrator/cli/scan.py
+- [X] T022 [US1] Add --db option for database path in src/video_policy_orchestrator/cli/scan.py
+- [X] T023 [US1] Add --dry-run flag implementation in src/video_policy_orchestrator/cli/scan.py
+- [X] T024 [US1] Add --verbose and --json output flags in src/video_policy_orchestrator/cli/scan.py
+- [X] T025 [US1] Create scanner orchestrator that coordinates Rust core in src/video_policy_orchestrator/scanner/orchestrator.py
+- [X] T026 [US1] Implement scan summary output (human-readable format) in src/video_policy_orchestrator/cli/scan.py
+- [X] T027 [US1] Implement scan summary output (JSON format) in src/video_policy_orchestrator/cli/scan.py
+- [X] T028 [US1] Add CLI entry point to pyproject.toml [project.scripts]
+- [X] T029 [US1] Handle directory validation and error messages in src/video_policy_orchestrator/cli/scan.py
 
 **Checkpoint**: `vpo scan /path` works, discovers files, shows summary. Database connection is wired but data is not yet persisted (added in US2).
 
