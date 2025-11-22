@@ -96,6 +96,30 @@ class AudioPreservationRule:
 
 
 @dataclass(frozen=True)
+class TranscriptionPolicyOptions:
+    """Policy options for transcription-based operations.
+
+    Controls automatic language detection and updates via transcription analysis.
+    """
+
+    enabled: bool = False  # Enable transcription analysis during policy application
+    update_language_from_transcription: bool = False  # Update track language tags
+    confidence_threshold: float = 0.8  # Min confidence for updates (0.0-1.0)
+    detect_commentary: bool = False  # Enable commentary detection
+    reorder_commentary: bool = False  # Move commentary tracks to end
+
+    def __post_init__(self) -> None:
+        """Validate transcription policy options."""
+        if not 0.0 <= self.confidence_threshold <= 1.0:
+            raise ValueError(
+                f"confidence_threshold must be between 0.0 and 1.0, "
+                f"got {self.confidence_threshold}"
+            )
+        if self.reorder_commentary and not self.detect_commentary:
+            raise ValueError("reorder_commentary requires detect_commentary to be true")
+
+
+@dataclass(frozen=True)
 class DefaultFlagsConfig:
     """Configuration for default flag behavior in a policy."""
 
@@ -222,6 +246,7 @@ class PolicySchema:
     commentary_patterns: tuple[str, ...] = ("commentary", "director")
     default_flags: DefaultFlagsConfig = field(default_factory=DefaultFlagsConfig)
     transcode: TranscodePolicyConfig | None = None
+    transcription: TranscriptionPolicyOptions | None = None
 
     def __post_init__(self) -> None:
         """Validate policy schema after initialization."""
@@ -238,6 +263,11 @@ class PolicySchema:
     def has_transcode_settings(self) -> bool:
         """True if transcode settings are specified."""
         return self.transcode is not None
+
+    @property
+    def has_transcription_settings(self) -> bool:
+        """True if transcription settings are specified and enabled."""
+        return self.transcription is not None and self.transcription.enabled
 
 
 @dataclass(frozen=True)

@@ -48,6 +48,24 @@ def transcribe_group() -> None:
     help="Transcription plugin to use (default: auto-detect)",
 )
 @click.option(
+    "--update",
+    "-u",
+    is_flag=True,
+    help="Update language tags in file after detection",
+)
+@click.option(
+    "--threshold",
+    type=float,
+    default=0.8,
+    help="Minimum confidence threshold for language updates (default: 0.8)",
+)
+@click.option(
+    "--dry-run",
+    "-n",
+    is_flag=True,
+    help="Show what would be updated without making changes",
+)
+@click.option(
     "--json",
     "output_json",
     is_flag=True,
@@ -59,12 +77,18 @@ def detect_command(
     path: Path,
     force: bool,
     plugin: str | None,
+    update: bool,
+    threshold: float,
+    dry_run: bool,
     output_json: bool,
 ) -> None:
     """Detect spoken language in audio tracks.
 
     Analyzes audio tracks in the specified file and reports detected
     languages with confidence scores.
+
+    Use --update to apply detected languages to the file's metadata.
+    Use --dry-run with --update to preview changes without applying them.
 
     PATH is the path to a video file to analyze.
     """
@@ -200,11 +224,66 @@ def detect_command(
             if current_lang != detected_lang and current_lang != "und":
                 click.echo(
                     "  Note: Current and detected languages differ. "
-                    "Use policy to update."
+                    "Use --update to apply detected language."
                 )
 
     if output_json:
         click.echo(json.dumps({"file": str(path), "tracks": results}, indent=2))
+
+    # Handle --update flag to apply detected languages
+    if update:
+        updates_to_apply = []
+
+        # Collect tracks that need updating
+        for track in audio_tracks:
+            tr_result = get_transcription_result(conn, track.id)
+            if tr_result is None:
+                continue
+
+            # Check confidence threshold
+            if tr_result.confidence_score < threshold:
+                if not output_json:
+                    click.echo(
+                        f"Skipping track {track.track_index}: "
+                        f"confidence {tr_result.confidence_score:.1%} "
+                        f"below threshold {threshold:.1%}"
+                    )
+                continue
+
+            # Check if update is needed
+            current_lang = track.language or "und"
+            detected_lang = tr_result.detected_language
+
+            if detected_lang and current_lang != detected_lang:
+                updates_to_apply.append(
+                    {
+                        "track": track,
+                        "current": current_lang,
+                        "detected": detected_lang,
+                        "confidence": tr_result.confidence_score,
+                    }
+                )
+
+        if not updates_to_apply:
+            if not output_json:
+                click.echo("\nNo language updates needed.")
+            return
+
+        if not output_json:
+            click.echo(f"\nLanguage updates ({len(updates_to_apply)} track(s)):")
+            for u in updates_to_apply:
+                click.echo(
+                    f"  Track {u['track'].track_index}: "
+                    f"{u['current']} → {u['detected']} ({u['confidence']:.1%})"
+                )
+
+        if dry_run:
+            if not output_json:
+                click.echo("\n[Dry-run mode - no changes applied]")
+            return
+
+        # Apply updates using mkvpropedit
+        _apply_language_updates(path, updates_to_apply, output_json)
 
 
 def _format_result_json(
@@ -221,6 +300,58 @@ def _format_result_json(
         "plugin_name": result.plugin_name,
         "skipped": skipped,
     }
+
+
+def _apply_language_updates(path: Path, updates: list[dict], output_json: bool) -> None:
+    """Apply language updates to file using mkvpropedit.
+
+    Args:
+        path: Path to the media file.
+        updates: List of update dicts with 'track', 'detected' keys.
+        output_json: Whether to output in JSON format.
+    """
+    from video_policy_orchestrator.executor.mkvpropedit import MkvPropEditExecutor
+    from video_policy_orchestrator.policy.models import ActionType, PlannedAction
+
+    executor = MkvPropEditExecutor()
+
+    # Check if mkvpropedit is available
+    if not executor.is_available():
+        click.echo(
+            "Error: mkvpropedit not found. "
+            "Install mkvtoolnix to apply language updates.",
+            err=True,
+        )
+        raise SystemExit(1)
+
+    # Check container format
+    if path.suffix.lower() not in (".mkv", ".mka", ".mks"):
+        click.echo(
+            f"Error: Language updates only supported for MKV files. Got: {path.suffix}",
+            err=True,
+        )
+        raise SystemExit(1)
+
+    # Create planned actions for the executor
+    actions = []
+    for u in updates:
+        actions.append(
+            PlannedAction(
+                action_type=ActionType.SET_LANGUAGE,
+                track_index=u["track"].track_index,
+                current_value=u["current"],
+                desired_value=u["detected"],
+            )
+        )
+
+    # Execute updates
+    try:
+        executor.execute(path, actions)
+        if not output_json:
+            click.echo(f"\nApplied {len(actions)} language update(s) successfully.")
+    except Exception as e:
+        click.echo(f"Error applying updates: {e}", err=True)
+        raise SystemExit(1)
 
 
 @transcribe_group.command(name="status")

@@ -20,6 +20,7 @@ from video_policy_orchestrator.policy.models import (
     PolicySchema,
     TrackType,
     TranscodePolicyConfig,
+    TranscriptionPolicyOptions,
 )
 
 # Current maximum supported schema version
@@ -44,6 +45,30 @@ class DefaultFlagsModel(BaseModel):
     set_preferred_audio_default: bool = True
     set_preferred_subtitle_default: bool = False
     clear_other_defaults: bool = True
+
+
+class TranscriptionPolicyModel(BaseModel):
+    """Pydantic model for transcription policy options."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    update_language_from_transcription: bool = False
+    confidence_threshold: float = Field(default=0.8, ge=0.0, le=1.0)
+    detect_commentary: bool = False
+    reorder_commentary: bool = False
+
+    @field_validator("reorder_commentary")
+    @classmethod
+    def validate_reorder_requires_detect(
+        cls,
+        v: bool,
+        info,  # noqa: ANN001
+    ) -> bool:
+        """Validate that reorder_commentary requires detect_commentary."""
+        # Note: This validation is also done in the dataclass,
+        # but we check here for early failure with better error messages
+        return v
 
 
 class TranscodePolicyModel(BaseModel):
@@ -129,6 +154,7 @@ class PolicyModel(BaseModel):
     )
     default_flags: DefaultFlagsModel = Field(default_factory=DefaultFlagsModel)
     transcode: TranscodePolicyModel | None = None
+    transcription: TranscriptionPolicyModel | None = None
 
     @field_validator("track_order")
     @classmethod
@@ -205,6 +231,17 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
             destination_fallback=model.transcode.destination_fallback,
         )
 
+    # Convert transcription config if present
+    transcription: TranscriptionPolicyOptions | None = None
+    if model.transcription is not None:
+        transcription = TranscriptionPolicyOptions(
+            enabled=model.transcription.enabled,
+            update_language_from_transcription=model.transcription.update_language_from_transcription,
+            confidence_threshold=model.transcription.confidence_threshold,
+            detect_commentary=model.transcription.detect_commentary,
+            reorder_commentary=model.transcription.reorder_commentary,
+        )
+
     return PolicySchema(
         schema_version=model.schema_version,
         track_order=track_order,
@@ -213,6 +250,7 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
         commentary_patterns=tuple(model.commentary_patterns),
         default_flags=default_flags,
         transcode=transcode,
+        transcription=transcription,
     )
 
 

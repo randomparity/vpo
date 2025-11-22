@@ -124,13 +124,13 @@
 
 ### Implementation for User Story 4
 
-- [ ] T038 [US4] Add TranscriptionPolicyOptions to `src/video_policy_orchestrator/policy/models.py`
-- [ ] T039 [US4] Extend policy loader to parse transcription options in `src/video_policy_orchestrator/policy/loader.py`
-- [ ] T040 [US4] Implement language update logic in policy evaluator `src/video_policy_orchestrator/policy/evaluator.py`
-- [ ] T041 [US4] Add confidence threshold check before language updates
-- [ ] T042 [US4] Add `--update` flag to `vpo transcribe detect` to apply updates directly
-- [ ] T043 [P] [US4] Add unit tests for policy transcription options in `tests/unit/policy/test_transcription_policy.py`
-- [ ] T044 Commit Phase 6 changes: "feat(transcription): policy-driven language updates (US4)"
+- [X] T038 [US4] Add TranscriptionPolicyOptions to `src/video_policy_orchestrator/policy/models.py`
+- [X] T039 [US4] Extend policy loader to parse transcription options in `src/video_policy_orchestrator/policy/loader.py`
+- [X] T040 [US4] Implement language update logic in policy evaluator `src/video_policy_orchestrator/policy/evaluator.py`
+- [X] T041 [US4] Add confidence threshold check before language updates
+- [X] T042 [US4] Add `--update` flag to `vpo transcribe detect` to apply updates directly
+- [X] T043 [P] [US4] Add unit tests for policy transcription options in `tests/unit/policy/test_transcription_policy.py`
+- [X] T044 Commit Phase 6 changes: "feat(transcription): policy-driven language updates (US4)"
 
 **Checkpoint**: User Story 4 complete - policies can auto-update language tags
 
