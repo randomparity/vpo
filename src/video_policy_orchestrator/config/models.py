@@ -43,6 +43,24 @@ class BehaviorConfig:
 
 
 @dataclass
+class PluginConfig:
+    """Configuration for plugin system."""
+
+    # Additional directories to search for plugins
+    # Default: ~/.vpo/plugins/
+    plugin_dirs: list[Path] = field(default_factory=list)
+
+    # Entry point group name for plugin discovery
+    entry_point_group: str = "vpo.plugins"
+
+    # Whether to auto-load plugins on startup
+    auto_load: bool = True
+
+    # Whether to warn about unacknowledged directory plugins
+    warn_unacknowledged: bool = True
+
+
+@dataclass
 class VPOConfig:
     """Main configuration container for VPO.
 
@@ -52,6 +70,7 @@ class VPOConfig:
     tools: ToolPathsConfig = field(default_factory=ToolPathsConfig)
     detection: DetectionConfig = field(default_factory=DetectionConfig)
     behavior: BehaviorConfig = field(default_factory=BehaviorConfig)
+    plugins: PluginConfig = field(default_factory=PluginConfig)
 
     # Database path (can be overridden)
     database_path: Path | None = None

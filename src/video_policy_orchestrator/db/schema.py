@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -88,6 +88,19 @@ CREATE TABLE IF NOT EXISTS policies (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+
+-- Plugin acknowledgments table (005-plugin-architecture)
+CREATE TABLE IF NOT EXISTS plugin_acknowledgments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plugin_name TEXT NOT NULL,
+    plugin_hash TEXT NOT NULL,
+    acknowledged_at TEXT NOT NULL,  -- ISO-8601 UTC
+    acknowledged_by TEXT,
+    UNIQUE(plugin_name, plugin_hash)
+);
+
+CREATE INDEX IF NOT EXISTS idx_plugin_ack_name
+    ON plugin_acknowledgments(plugin_name);
 """
 
 
@@ -215,6 +228,46 @@ def migrate_v2_to_v3(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def migrate_v3_to_v4(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 3 to version 4.
+
+    Adds plugin_acknowledgments table for plugin system:
+    - plugin_name, plugin_hash: identify plugin and version
+    - acknowledged_at: UTC timestamp when user acknowledged
+    - acknowledged_by: hostname/user identifier
+
+    This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Check if table already exists
+    cursor = conn.execute(
+        "SELECT name FROM sqlite_master "
+        "WHERE type='table' AND name='plugin_acknowledgments'"
+    )
+    if cursor.fetchone() is None:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS plugin_acknowledgments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                plugin_name TEXT NOT NULL,
+                plugin_hash TEXT NOT NULL,
+                acknowledged_at TEXT NOT NULL,
+                acknowledged_by TEXT,
+                UNIQUE(plugin_name, plugin_hash)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_plugin_ack_name
+                ON plugin_acknowledgments(plugin_name);
+        """)
+
+    # Update schema version to 4
+    conn.execute(
+        "UPDATE _meta SET value = '4' WHERE key = 'schema_version'",
+    )
+    conn.commit()
+
+
 def initialize_database(conn: sqlite3.Connection) -> None:
     """Initialize the database with schema, creating tables if needed.
 
@@ -232,3 +285,6 @@ def initialize_database(conn: sqlite3.Connection) -> None:
             current_version = 2
         if current_version == 2:
             migrate_v2_to_v3(conn)
+            current_version = 3
+        if current_version == 3:
+            migrate_v3_to_v4(conn)

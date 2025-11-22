@@ -22,6 +22,7 @@ from pathlib import Path
 from video_policy_orchestrator.config.models import (
     BehaviorConfig,
     DetectionConfig,
+    PluginConfig,
     ToolPathsConfig,
     VPOConfig,
 )
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
 # Default config location
 DEFAULT_CONFIG_DIR = Path.home() / ".vpo"
 DEFAULT_CONFIG_FILE = DEFAULT_CONFIG_DIR / "config.toml"
+DEFAULT_PLUGINS_DIR = DEFAULT_CONFIG_DIR / "plugins"
 
 
 def get_default_config_path() -> Path:
@@ -318,9 +320,45 @@ def get_config(
         )
     )
 
+    # Build plugin config
+    plugins_file = file_config.get("plugins", {})
+
+    # Parse plugin directories from config file
+    plugin_dirs_from_file: list[Path] = []
+    if plugins_file.get("plugin_dirs"):
+        for dir_str in plugins_file["plugin_dirs"]:
+            plugin_dirs_from_file.append(Path(dir_str).expanduser())
+
+    # Parse plugin directories from environment variable (colon-separated)
+    plugin_dirs_from_env: list[Path] = []
+    env_plugin_dirs = os.environ.get("VPO_PLUGIN_DIRS")
+    if env_plugin_dirs:
+        for dir_str in env_plugin_dirs.split(":"):
+            if dir_str.strip():
+                plugin_dirs_from_env.append(Path(dir_str.strip()).expanduser())
+
+    # Merge directories: env takes precedence, then file, default always included
+    all_plugin_dirs = plugin_dirs_from_env or plugin_dirs_from_file
+    if DEFAULT_PLUGINS_DIR not in all_plugin_dirs:
+        all_plugin_dirs.append(DEFAULT_PLUGINS_DIR)
+
+    plugins = PluginConfig(
+        plugin_dirs=all_plugin_dirs,
+        entry_point_group=plugins_file.get("entry_point_group", "vpo.plugins"),
+        auto_load=_get_env_bool(
+            "VPO_PLUGIN_AUTO_LOAD",
+            plugins_file.get("auto_load", True),
+        ),
+        warn_unacknowledged=_get_env_bool(
+            "VPO_PLUGIN_WARN_UNACKNOWLEDGED",
+            plugins_file.get("warn_unacknowledged", True),
+        ),
+    )
+
     return VPOConfig(
         tools=tools,
         detection=detection,
         behavior=behavior,
+        plugins=plugins,
         database_path=db_path,
     )

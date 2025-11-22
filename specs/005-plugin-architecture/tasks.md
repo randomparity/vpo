@@ -33,11 +33,11 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T006 Extend database schema with plugin_acknowledgments table in src/video_policy_orchestrator/db/schema.py
-- [ ] T007 [P] Add PluginAcknowledgment model to src/video_policy_orchestrator/db/models.py
-- [ ] T008 [P] Add DB operations for plugin acknowledgments in src/video_policy_orchestrator/db/operations.py
-- [ ] T009 [P] Extend config models with plugin_dirs setting in src/video_policy_orchestrator/config/models.py
-- [ ] T010 Add plugin directory configuration loading in src/video_policy_orchestrator/config/loader.py
+- [X] T006 Extend database schema with plugin_acknowledgments table in src/video_policy_orchestrator/db/schema.py
+- [X] T007 [P] Add PluginAcknowledgment model to src/video_policy_orchestrator/db/models.py
+- [X] T008 [P] Add DB operations for plugin acknowledgments in src/video_policy_orchestrator/db/models.py
+- [X] T009 [P] Extend config models with plugin_dirs setting in src/video_policy_orchestrator/config/models.py
+- [X] T010 Add plugin directory configuration loading in src/video_policy_orchestrator/config/loader.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
