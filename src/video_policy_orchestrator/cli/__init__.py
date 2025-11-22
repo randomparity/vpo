@@ -63,6 +63,7 @@ def _register_commands():
     from video_policy_orchestrator.cli.jobs import jobs_group
     from video_policy_orchestrator.cli.plugins import plugins
     from video_policy_orchestrator.cli.transcode import transcode_command
+    from video_policy_orchestrator.cli.transcribe import transcribe_group
 
     main.add_command(inspect_command)
     main.add_command(apply_command)
@@ -70,6 +71,7 @@ def _register_commands():
     main.add_command(plugins)
     main.add_command(transcode_command)
     main.add_command(jobs_group)
+    main.add_command(transcribe_group)
 
 
 _register_commands()

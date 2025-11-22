@@ -62,16 +62,16 @@
 
 ### Implementation for User Story 1
 
-- [ ] T015 [P] [US1] Create TranscriptionPlugin Protocol in `src/video_policy_orchestrator/transcription/interface.py`
-- [ ] T016 [P] [US1] Create TranscriptionError exception class in `src/video_policy_orchestrator/transcription/interface.py`
-- [ ] T017 [US1] Implement audio_extractor module with ffmpeg streaming in `src/video_policy_orchestrator/transcription/audio_extractor.py`
-- [ ] T018 [US1] Implement plugin registry with discovery/selection in `src/video_policy_orchestrator/transcription/registry.py`
-- [ ] T019 [US1] Add `vpo transcribe detect` CLI command with `--force` flag to re-run even if results exist in `src/video_policy_orchestrator/cli/transcribe.py`
-- [ ] T020 [US1] Register transcribe command in `src/video_policy_orchestrator/cli/__init__.py`
-- [ ] T021 [P] [US1] Add unit tests for audio_extractor in `tests/unit/transcription/test_audio_extractor.py`
-- [ ] T022 [P] [US1] Add unit tests for plugin registry in `tests/unit/transcription/test_registry.py`
-- [ ] T023 [P] [US1] Add unit tests for interface protocol in `tests/unit/transcription/test_interface.py`
-- [ ] T024 Commit Phase 3 changes: "feat(transcription): implement language detection core (US1)"
+- [X] T015 [P] [US1] Create TranscriptionPlugin Protocol in `src/video_policy_orchestrator/transcription/interface.py`
+- [X] T016 [P] [US1] Create TranscriptionError exception class in `src/video_policy_orchestrator/transcription/interface.py`
+- [X] T017 [US1] Implement audio_extractor module with ffmpeg streaming in `src/video_policy_orchestrator/transcription/audio_extractor.py`
+- [X] T018 [US1] Implement plugin registry with discovery/selection in `src/video_policy_orchestrator/transcription/registry.py`
+- [X] T019 [US1] Add `vpo transcribe detect` CLI command with `--force` flag to re-run even if results exist in `src/video_policy_orchestrator/cli/transcribe.py`
+- [X] T020 [US1] Register transcribe command in `src/video_policy_orchestrator/cli/__init__.py`
+- [X] T021 [P] [US1] Add unit tests for audio_extractor in `tests/unit/transcription/test_audio_extractor.py`
+- [X] T022 [P] [US1] Add unit tests for plugin registry in `tests/unit/transcription/test_registry.py`
+- [X] T023 [P] [US1] Add unit tests for interface protocol in `tests/unit/transcription/test_interface.py`
+- [X] T024 Commit Phase 3 changes: "feat(transcription): implement language detection core (US1)"
 
 **Checkpoint**: User Story 1 complete - language detection works via CLI
 
