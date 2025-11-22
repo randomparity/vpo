@@ -24,6 +24,7 @@ from video_policy_orchestrator.db.models import (
     delete_old_jobs,
     update_job_progress,
 )
+from video_policy_orchestrator.executor.move import MoveExecutor
 from video_policy_orchestrator.executor.transcode import (
     TranscodeExecutor,
 )
@@ -35,6 +36,8 @@ from video_policy_orchestrator.jobs.queue import (
     release_job,
     update_heartbeat,
 )
+from video_policy_orchestrator.metadata.parser import parse_filename
+from video_policy_orchestrator.metadata.templates import parse_template
 from video_policy_orchestrator.policy.models import TranscodePolicyConfig
 
 logger = logging.getLogger(__name__)
@@ -291,10 +294,63 @@ class JobWorker:
         # Execute transcode
         transcode_result = executor.execute(plan)
 
-        if transcode_result.success:
-            return True, None, str(output_path)
-        else:
+        if not transcode_result.success:
             return False, transcode_result.error_message, None
+
+        final_output_path = output_path
+
+        # Handle destination template if specified
+        destination_template = policy_data.get("destination")
+        destination_base = policy_data.get("destination_base")
+
+        if destination_template and transcode_result.output_path:
+            try:
+                # Parse metadata from filename
+                metadata = parse_filename(input_path)
+                metadata_dict = metadata.as_dict()
+
+                # Parse and render template
+                template = parse_template(destination_template)
+                fallback = policy_data.get("destination_fallback", "Unknown")
+
+                # Use base directory or input file's directory
+                if destination_base:
+                    base_dir = Path(destination_base)
+                else:
+                    base_dir = input_path.parent
+
+                # Compute final destination
+                dest_path = template.render_path(base_dir, metadata_dict, fallback)
+
+                # Add filename to destination
+                final_dest = dest_path / transcode_result.output_path.name
+
+                # Move file to destination
+                move_executor = MoveExecutor(create_directories=True)
+                move_plan = move_executor.create_plan(
+                    source_path=transcode_result.output_path,
+                    destination_path=final_dest,
+                )
+
+                move_result = move_executor.execute(move_plan)
+                if move_result.success:
+                    final_output_path = move_result.destination_path
+                    logger.info("Moved output to: %s", final_output_path)
+                else:
+                    logger.warning(
+                        "File movement failed: %s (transcoded file kept at: %s)",
+                        move_result.error_message,
+                        output_path,
+                    )
+            except Exception as e:
+                logger.warning(
+                    "Destination template processing failed: %s "
+                    "(transcoded file kept at: %s)",
+                    e,
+                    output_path,
+                )
+
+        return True, None, str(final_output_path)
 
     def process_job(self, job: Job) -> None:
         """Process a single job.

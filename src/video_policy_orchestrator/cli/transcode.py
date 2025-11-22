@@ -19,6 +19,8 @@ from video_policy_orchestrator.executor.transcode import (
     should_transcode_video,
 )
 from video_policy_orchestrator.introspector import FFprobeIntrospector
+from video_policy_orchestrator.metadata.parser import parse_filename
+from video_policy_orchestrator.metadata.templates import parse_template
 from video_policy_orchestrator.policy.loader import load_policy
 from video_policy_orchestrator.policy.models import TranscodePolicyConfig
 
@@ -288,6 +290,17 @@ def transcode_command(
                     dst = f"{target_w}x{target_h}"
                     actions.append(f"{src} -> {dst}")
                 click.echo(f"  [QUEUE] {file_path.name}: {', '.join(actions)}")
+
+                # Show destination if configured
+                if final_policy.destination:
+                    metadata = parse_filename(file_path)
+                    metadata_dict = metadata.as_dict()
+                    template = parse_template(final_policy.destination)
+                    fallback = final_policy.destination_fallback or "Unknown"
+                    base_dir = output_dir or file_path.parent
+                    dest = template.render_path(base_dir, metadata_dict, fallback)
+                    click.echo(f"          Destination: {dest}/")
+
                 queued += 1
             else:
                 # Queue the job
@@ -323,6 +336,9 @@ def transcode_command(
                             "audio_bitrate": final_policy.audio_transcode_bitrate,
                             "audio_downmix": final_policy.audio_downmix,
                             "output_dir": str(output_dir) if output_dir else None,
+                            "destination": final_policy.destination,
+                            "destination_base": str(output_dir) if output_dir else None,
+                            "destination_fallback": final_policy.destination_fallback,
                         }
                     ),
                     progress_percent=0.0,

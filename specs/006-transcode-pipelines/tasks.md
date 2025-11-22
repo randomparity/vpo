@@ -150,18 +150,18 @@
 
 ### Implementation for User Story 4
 
-- [ ] T051 [P] [US4] Add ParsedMetadata dataclass in `src/video_policy_orchestrator/metadata/parser.py`
-- [ ] T052 [P] [US4] Add DestinationTemplate dataclass in `src/video_policy_orchestrator/metadata/templates.py`
-- [ ] T053 [US4] Implement filename parsing regex patterns (movie, TV) in `src/video_policy_orchestrator/metadata/parser.py`
-- [ ] T054 [US4] Implement parse_filename() function in `src/video_policy_orchestrator/metadata/parser.py`
-- [ ] T055 [US4] Implement template placeholder extraction in `src/video_policy_orchestrator/metadata/templates.py`
-- [ ] T056 [US4] Implement template render() with fallback values in `src/video_policy_orchestrator/metadata/templates.py`
-- [ ] T057 [US4] Create MoveExecutor for file movement in `src/video_policy_orchestrator/executor/move.py`
-- [ ] T058 [US4] Implement directory creation in MoveExecutor in `src/video_policy_orchestrator/executor/move.py`
-- [ ] T059 [US4] Add destination field handling to TranscodePolicyConfig in `src/video_policy_orchestrator/policy/models.py`
-- [ ] T060 [US4] Integrate file movement after transcode completion in `src/video_policy_orchestrator/jobs/worker.py`
-- [ ] T061 [US4] Update dry-run to show destination path in `src/video_policy_orchestrator/cli/transcode.py`
-- [ ] T062 [P] [US4] Add MetadataExtractedEvent for plugin hook in `src/video_policy_orchestrator/plugin/events.py`
+- [x] T051 [P] [US4] Add ParsedMetadata dataclass in `src/video_policy_orchestrator/metadata/parser.py`
+- [x] T052 [P] [US4] Add DestinationTemplate dataclass in `src/video_policy_orchestrator/metadata/templates.py`
+- [x] T053 [US4] Implement filename parsing regex patterns (movie, TV) in `src/video_policy_orchestrator/metadata/parser.py`
+- [x] T054 [US4] Implement parse_filename() function in `src/video_policy_orchestrator/metadata/parser.py`
+- [x] T055 [US4] Implement template placeholder extraction in `src/video_policy_orchestrator/metadata/templates.py`
+- [x] T056 [US4] Implement template render() with fallback values in `src/video_policy_orchestrator/metadata/templates.py`
+- [x] T057 [US4] Create MoveExecutor for file movement in `src/video_policy_orchestrator/executor/move.py`
+- [x] T058 [US4] Implement directory creation in MoveExecutor in `src/video_policy_orchestrator/executor/move.py`
+- [x] T059 [US4] Add destination field handling to TranscodePolicyConfig in `src/video_policy_orchestrator/policy/models.py`
+- [x] T060 [US4] Integrate file movement after transcode completion in `src/video_policy_orchestrator/jobs/worker.py`
+- [x] T061 [US4] Update dry-run to show destination path in `src/video_policy_orchestrator/cli/transcode.py`
+- [x] T062 [P] [US4] Add MetadataExtractedEvent for plugin hook in `src/video_policy_orchestrator/plugin/events.py`
 
 **Commit Checkpoint**: Commit all US4 changes with message "feat(transcode): implement directory organization policies (US4)"
 
