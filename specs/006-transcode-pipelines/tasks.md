@@ -96,22 +96,22 @@
 
 ### Implementation for User Story 2
 
-- [ ] T027 [P] [US2] Implement job queue operations (enqueue, claim_next, release) in `src/video_policy_orchestrator/jobs/queue.py`
-- [ ] T028 [P] [US2] Implement atomic job claim with BEGIN IMMEDIATE in `src/video_policy_orchestrator/jobs/queue.py`
-- [ ] T029 [US2] Implement stale job recovery (reset orphaned RUNNING to QUEUED) in `src/video_policy_orchestrator/jobs/queue.py`
-- [ ] T030 [US2] Create JobWorker class in `src/video_policy_orchestrator/jobs/worker.py`
-- [ ] T031 [US2] Implement worker limit checks (max_files, max_duration, end_by) in `src/video_policy_orchestrator/jobs/worker.py`
-- [ ] T032 [US2] Implement worker heartbeat updates in `src/video_policy_orchestrator/jobs/worker.py`
-- [ ] T033 [US2] Implement graceful shutdown on SIGTERM/SIGINT in `src/video_policy_orchestrator/jobs/worker.py`
-- [ ] T034 [US2] Implement job progress updates during transcoding in `src/video_policy_orchestrator/jobs/worker.py`
-- [ ] T035 [US2] Implement auto-purge of old jobs on worker startup in `src/video_policy_orchestrator/jobs/worker.py`
-- [ ] T036 [US2] Create jobs CLI command group in `src/video_policy_orchestrator/cli/jobs.py`
-- [ ] T037 [US2] Implement `vpo jobs list` command in `src/video_policy_orchestrator/cli/jobs.py`
-- [ ] T038 [US2] Implement `vpo jobs status <job-id>` command in `src/video_policy_orchestrator/cli/jobs.py`
-- [ ] T039 [US2] Implement `vpo jobs start` command with limit options in `src/video_policy_orchestrator/cli/jobs.py`
-- [ ] T040 [US2] Implement `vpo jobs cancel <job-id>` command in `src/video_policy_orchestrator/cli/jobs.py`
-- [ ] T041 [US2] Register jobs command group in CLI main in `src/video_policy_orchestrator/cli/__init__.py`
-- [ ] T042 [US2] Update transcode CLI to queue jobs instead of executing directly in `src/video_policy_orchestrator/cli/transcode.py`
+- [x] T027 [P] [US2] Implement job queue operations (enqueue, claim_next, release) in `src/video_policy_orchestrator/jobs/queue.py`
+- [x] T028 [P] [US2] Implement atomic job claim with BEGIN IMMEDIATE in `src/video_policy_orchestrator/jobs/queue.py`
+- [x] T029 [US2] Implement stale job recovery (reset orphaned RUNNING to QUEUED) in `src/video_policy_orchestrator/jobs/queue.py`
+- [x] T030 [US2] Create JobWorker class in `src/video_policy_orchestrator/jobs/worker.py`
+- [x] T031 [US2] Implement worker limit checks (max_files, max_duration, end_by) in `src/video_policy_orchestrator/jobs/worker.py`
+- [x] T032 [US2] Implement worker heartbeat updates in `src/video_policy_orchestrator/jobs/worker.py`
+- [x] T033 [US2] Implement graceful shutdown on SIGTERM/SIGINT in `src/video_policy_orchestrator/jobs/worker.py`
+- [x] T034 [US2] Implement job progress updates during transcoding in `src/video_policy_orchestrator/jobs/worker.py`
+- [x] T035 [US2] Implement auto-purge of old jobs on worker startup in `src/video_policy_orchestrator/jobs/worker.py`
+- [x] T036 [US2] Create jobs CLI command group in `src/video_policy_orchestrator/cli/jobs.py`
+- [x] T037 [US2] Implement `vpo jobs list` command in `src/video_policy_orchestrator/cli/jobs.py`
+- [x] T038 [US2] Implement `vpo jobs status <job-id>` command in `src/video_policy_orchestrator/cli/jobs.py`
+- [x] T039 [US2] Implement `vpo jobs start` command with limit options in `src/video_policy_orchestrator/cli/jobs.py`
+- [x] T040 [US2] Implement `vpo jobs cancel <job-id>` command in `src/video_policy_orchestrator/cli/jobs.py`
+- [x] T041 [US2] Register jobs command group in CLI main in `src/video_policy_orchestrator/cli/__init__.py`
+- [x] T042 [US2] Update transcode CLI to queue jobs instead of executing directly in `src/video_policy_orchestrator/cli/transcode.py`
 
 **Commit Checkpoint**: Commit all US2 changes with message "feat(transcode): implement job queue and worker system (US2)"
 
