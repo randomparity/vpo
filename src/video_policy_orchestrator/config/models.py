@@ -76,6 +76,15 @@ class JobsConfig:
     # Keep backup of original after successful transcode
     backup_original: bool = True
 
+    # Disk space estimation ratio for HEVC/AV1 codecs (typically compress better)
+    disk_space_ratio_hevc: float = 0.5
+
+    # Disk space estimation ratio for other codecs
+    disk_space_ratio_other: float = 0.8
+
+    # Buffer multiplier for disk space estimation
+    disk_space_buffer: float = 1.2
+
 
 @dataclass
 class WorkerConfig:

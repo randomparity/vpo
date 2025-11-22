@@ -11,6 +11,7 @@ from video_policy_orchestrator.db.models import (
     JobStatus,
     delete_job,
     get_all_jobs,
+    get_jobs_by_id_prefix,
     get_jobs_by_status,
 )
 from video_policy_orchestrator.jobs.queue import (
@@ -24,8 +25,14 @@ from video_policy_orchestrator.jobs.worker import JobWorker
 logger = logging.getLogger(__name__)
 
 
-def _format_job_row(job: Job) -> tuple[str, str, str, str, str, str]:
-    """Format a job for table display."""
+def _format_job_row(job: Job) -> tuple[str, str, str, str, str, str, str]:
+    """Format a job for table display.
+
+    Returns:
+        Tuple of (job_id, status_value, status_color, job_type,
+        file_name, progress, created). Color is returned separately
+        to allow proper column width formatting.
+    """
     status_colors = {
         JobStatus.QUEUED: "yellow",
         JobStatus.RUNNING: "blue",
@@ -34,7 +41,8 @@ def _format_job_row(job: Job) -> tuple[str, str, str, str, str, str]:
         JobStatus.CANCELLED: "bright_black",
     }
 
-    status = click.style(job.status.value, fg=status_colors.get(job.status, "white"))
+    status_value = job.status.value
+    status_color = status_colors.get(job.status, "white")
     job_id = job.id[:8]
     file_name = Path(job.file_path).name
     if len(file_name) > 40:
@@ -45,7 +53,15 @@ def _format_job_row(job: Job) -> tuple[str, str, str, str, str, str]:
     )
     created = job.created_at[:19].replace("T", " ")
 
-    return (job_id, status, job.job_type.value, file_name, progress, created)
+    return (
+        job_id,
+        status_value,
+        status_color,
+        job.job_type.value,
+        file_name,
+        progress,
+        created,
+    )
 
 
 @click.group("jobs")
@@ -95,8 +111,11 @@ def list_jobs(ctx: click.Context, status: str, limit: int) -> None:
     # Print jobs
     for job in jobs:
         row = _format_job_row(job)
-        line = f"{row[0]:<10} {row[1]:<12} {row[2]:<10} "
-        line += f"{row[3]:<42} {row[4]:<6} {row[5]:<20}"
+        # Format width first, then apply color to avoid ANSI codes affecting alignment
+        status_formatted = f"{row[1]:<12}"
+        status_colored = click.style(status_formatted, fg=row[2])
+        line = f"{row[0]:<10} {status_colored} {row[3]:<10} "
+        line += f"{row[4]:<42} {row[5]:<6} {row[6]:<20}"
         click.echo(line)
 
 
@@ -215,9 +234,8 @@ def cancel_job_cmd(ctx: click.Context, job_id: str) -> None:
     if conn is None:
         raise click.ClickException("Failed to connect to database.")
 
-    # Find job by prefix
-    jobs = get_all_jobs(conn)
-    matching = [j for j in jobs if j.id.startswith(job_id)]
+    # Find job by prefix using efficient SQL LIKE query
+    matching = get_jobs_by_id_prefix(conn, job_id)
 
     if len(matching) == 0:
         raise click.ClickException(f"Job not found: {job_id}")
@@ -249,9 +267,8 @@ def retry_job_cmd(ctx: click.Context, job_id: str) -> None:
     if conn is None:
         raise click.ClickException("Failed to connect to database.")
 
-    # Find job by prefix
-    jobs = get_all_jobs(conn)
-    matching = [j for j in jobs if j.id.startswith(job_id)]
+    # Find job by prefix using efficient SQL LIKE query
+    matching = get_jobs_by_id_prefix(conn, job_id)
 
     if len(matching) == 0:
         raise click.ClickException(f"Job not found: {job_id}")

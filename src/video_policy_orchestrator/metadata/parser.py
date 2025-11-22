@@ -76,10 +76,10 @@ class ParsedMetadata:
 MOVIE_PATTERNS = [
     # Standard scene naming: Movie.Name.2023.1080p.BluRay.x264-GROUP
     (
-        r"^(?P<title>.+?)\.(?P<year>\d{4})\."
-        r"(?P<resolution>\d{3,4}p)?\."
-        r"(?P<source>BluRay|WEB-DL|WEBRip|HDRip|DVDRip|BDRip|HDTV)?\."
-        r"(?P<codec>x264|x265|h264|h265|HEVC|AV1)?",
+        r"^(?P<title>.+?)\.(?P<year>\d{4})"
+        r"(?:\.(?P<resolution>\d{3,4}p))?"
+        r"(?:\.(?P<source>BluRay|WEB-DL|WEBRip|HDRip|DVDRip|BDRip|HDTV))?"
+        r"(?:\.(?P<codec>x264|x265|h264|h265|HEVC|AV1))?",
         "scene_movie",
     ),
     # Movie Name (2023) [1080p] format
@@ -99,6 +99,13 @@ MOVIE_PATTERNS = [
 # Series Name - S01E02 - Episode Title.mkv
 # Series Name 1x02 Episode Title.mkv
 TV_PATTERNS = [
+    # Series Name - S01E02 - Episode Title format (more specific, check first)
+    (
+        r"^(?P<series>.+?)\s+-\s+"
+        r"S(?P<season>\d{1,2})E(?P<episode>\d{1,3})"
+        r"(?:\s+-\s+(?P<title>[^.]+))?",
+        "dash_sxxexx",
+    ),
     # Standard S01E02 format with optional episode title
     (
         r"^(?P<series>.+?)[.\s]+"
@@ -109,16 +116,9 @@ TV_PATTERNS = [
         r"(?:[.\s]+(?P<codec>x264|x265|h264|h265|HEVC))?",
         "sxxexx",
     ),
-    # Series Name - S01E02 - Episode Title format
+    # 1x02 format (with space or dot before season)
     (
-        r"^(?P<series>.+?)\s*-\s*"
-        r"S(?P<season>\d{1,2})E(?P<episode>\d{1,3})\s*-?\s*"
-        r"(?P<title>[^.]+)?",
-        "dash_sxxexx",
-    ),
-    # 1x02 format
-    (
-        r"^(?P<series>.+?)[.\s]+"
+        r"^(?P<series>.+?)[.\s]"
         r"(?P<season>\d{1,2})x(?P<episode>\d{1,3})"
         r"(?:[.\s]+(?P<title>.+?))?(?=[.\s]+\d{3,4}p|$)",
         "nxnn",
@@ -246,12 +246,15 @@ def parse_tv_filename(filename: str) -> ParsedMetadata | None:
         if match:
             groups = match.groupdict()
             res = groups.get("resolution")
+            # Handle title that might be None from regex group
+            raw_title = groups.get("title")
+            title = _clean_title(raw_title) if raw_title else None
             metadata = ParsedMetadata(
                 original_filename=filename,
-                series=_clean_title(groups.get("series", "")),
+                series=_clean_title(groups.get("series") or ""),
                 season=int(groups["season"]) if groups.get("season") else None,
                 episode=int(groups["episode"]) if groups.get("episode") else None,
-                title=_clean_title(groups.get("title", "")) or None,
+                title=title or None,
                 resolution=res.lower() if res else None,
                 source=groups.get("source"),
                 codec=groups.get("codec"),

@@ -426,22 +426,31 @@ class TranscodeExecutor:
         )
         return not needs_transcode
 
-    def _check_disk_space(self, plan: TranscodePlan) -> str | None:
+    def _check_disk_space(
+        self,
+        plan: TranscodePlan,
+        ratio_hevc: float = 0.5,
+        ratio_other: float = 0.8,
+        buffer: float = 1.2,
+    ) -> str | None:
         """Check if there's enough disk space for transcoding.
 
         Args:
             plan: The transcode plan.
+            ratio_hevc: Estimated output/input size ratio for HEVC/AV1 codecs.
+            ratio_other: Estimated output/input size ratio for other codecs.
+            buffer: Buffer multiplier for safety margin.
 
         Returns:
             Error message if insufficient space, None if OK.
         """
         import shutil
 
-        # Estimate output size (rough: 50% of input for HEVC, 80% for others)
+        # Estimate output size based on target codec
         input_size = plan.input_path.stat().st_size
         codec = self.policy.target_video_codec or "hevc"
-        ratio = 0.5 if codec in ("hevc", "h265", "av1") else 0.8
-        estimated_size = int(input_size * ratio * 1.2)  # 20% buffer
+        ratio = ratio_hevc if codec in ("hevc", "h265", "av1") else ratio_other
+        estimated_size = int(input_size * ratio * buffer)
 
         # Check temp directory space if using temp
         if self.temp_directory:

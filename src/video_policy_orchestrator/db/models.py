@@ -1027,6 +1027,32 @@ def get_all_jobs(conn: sqlite3.Connection, limit: int | None = None) -> list[Job
     return [_row_to_job(row) for row in cursor.fetchall()]
 
 
+def get_jobs_by_id_prefix(conn: sqlite3.Connection, prefix: str) -> list[Job]:
+    """Get jobs by ID prefix.
+
+    Efficient lookup of jobs by UUID prefix using SQL LIKE.
+
+    Args:
+        conn: Database connection.
+        prefix: Job ID prefix to search for.
+
+    Returns:
+        List of matching Job objects.
+    """
+    query = """
+        SELECT id, file_id, file_path, job_type, status, priority,
+               policy_name, policy_json, progress_percent, progress_json,
+               created_at, started_at, completed_at,
+               worker_pid, worker_heartbeat,
+               output_path, backup_path, error_message
+        FROM jobs
+        WHERE id LIKE ?
+        ORDER BY created_at DESC
+    """
+    cursor = conn.execute(query, (f"{prefix}%",))
+    return [_row_to_job(row) for row in cursor.fetchall()]
+
+
 def delete_job(conn: sqlite3.Connection, job_id: str) -> bool:
     """Delete a job.
 
