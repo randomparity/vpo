@@ -112,6 +112,7 @@ def is_valid_event(event_name: str) -> bool:
 
     Returns:
         True if valid, False otherwise.
+
     """
     return event_name in VALID_EVENTS
 
@@ -124,6 +125,7 @@ def is_analyzer_event(event_name: str) -> bool:
 
     Returns:
         True if this is an analyzer event.
+
     """
     return event_name in ANALYZER_EVENTS
 
@@ -136,5 +138,6 @@ def is_mutator_event(event_name: str) -> bool:
 
     Returns:
         True if this is a mutator event.
+
     """
     return event_name in MUTATOR_EVENTS

@@ -44,6 +44,7 @@ class BaseAnalyzerPlugin(ABC):
             def on_file_scanned(self, event):
                 # Enrich metadata
                 return {"my_field": "value"}
+
     """
 
     # Required attributes (must be overridden)
@@ -76,6 +77,7 @@ class BaseAnalyzerPlugin(ABC):
 
         Returns:
             Dict of enriched metadata to merge, or None.
+
         """
         return None
 
@@ -86,6 +88,7 @@ class BaseAnalyzerPlugin(ABC):
 
         Args:
             event: PolicyEvaluateEvent with file_info, policy, and optional plan.
+
         """
         pass
 
@@ -96,6 +99,7 @@ class BaseAnalyzerPlugin(ABC):
 
         Args:
             event: PlanExecuteEvent with plan and result/error.
+
         """
         pass
 
@@ -131,6 +135,7 @@ class BaseMutatorPlugin(ABC):
             def execute(self, plan):
                 # Perform modifications
                 return ExecutorResult(success=True, message="Done")
+
     """
 
     # Required attributes (must be overridden)
@@ -164,6 +169,7 @@ class BaseMutatorPlugin(ABC):
 
         Returns:
             Modified Plan, or None to proceed with original.
+
         """
         return None
 
@@ -177,6 +183,7 @@ class BaseMutatorPlugin(ABC):
 
         Returns:
             ExecutorResult with success status and message.
+
         """
         return ExecutorResult(
             success=False,
@@ -193,6 +200,7 @@ class BaseMutatorPlugin(ABC):
 
         Returns:
             ExecutorResult with success status.
+
         """
         return ExecutorResult(
             success=False,
@@ -217,6 +225,7 @@ class BaseDualPlugin(BaseAnalyzerPlugin, BaseMutatorPlugin):
 
             def execute(self, plan):
                 return ExecutorResult(success=True, message="Done")
+
     """
 
     def __init__(self) -> None:

@@ -51,6 +51,7 @@ class AnalyzerPlugin(Protocol):
 
         Note:
             Only called if 'file.scanned' in self.events.
+
         """
         ...
 
@@ -63,6 +64,7 @@ class AnalyzerPlugin(Protocol):
         Note:
             Only called if 'policy.before_evaluate' or 'policy.after_evaluate'
             in self.events.
+
         """
         ...
 
@@ -75,6 +77,7 @@ class AnalyzerPlugin(Protocol):
         Note:
             Only called if 'plan.after_execute' or 'plan.execution_failed'
             in self.events.
+
         """
         ...
 
@@ -115,6 +118,7 @@ class MutatorPlugin(Protocol):
 
         Note:
             Only called if 'plan.before_execute' in self.events.
+
         """
         ...
 
@@ -130,6 +134,7 @@ class MutatorPlugin(Protocol):
         Note:
             This is the main execution method. Called by the core
             after on_plan_execute hooks have run.
+
         """
         ...
 
@@ -145,5 +150,6 @@ class MutatorPlugin(Protocol):
         Note:
             Only called if supports_rollback is True and execute() succeeded
             but a later step failed.
+
         """
         ...

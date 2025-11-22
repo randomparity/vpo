@@ -41,6 +41,7 @@ class APIVersion:
 
         Raises:
             ValueError: If version string is invalid.
+
         """
         match = cls._VERSION_PATTERN.match(version_str.strip())
         if not match:
@@ -109,6 +110,7 @@ def is_compatible(
 
     Returns:
         True if core version is within plugin's supported range.
+
     """
     if core_version is None:
         core = APIVersion.current()

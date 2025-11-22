@@ -82,6 +82,7 @@ class PluginRegistry:
         Args:
             plugin_dirs: Directories to search for plugins.
             entry_point_group: Entry point group name for plugin discovery.
+
         """
         self._plugins: dict[str, LoadedPlugin] = {}
         self._plugin_dirs = plugin_dirs or []
@@ -111,6 +112,7 @@ class PluginRegistry:
 
         Raises:
             ValueError: If a plugin with the same name is already registered.
+
         """
         if plugin.name in self._plugins:
             existing = self._plugins[plugin.name]
@@ -141,6 +143,7 @@ class PluginRegistry:
 
         Returns:
             True if plugin was unregistered, False if not found.
+
         """
         if name in self._plugins:
             del self._plugins[name]
@@ -156,6 +159,7 @@ class PluginRegistry:
 
         Returns:
             LoadedPlugin or None if not loaded.
+
         """
         return self._plugins.get(name)
 
@@ -164,6 +168,7 @@ class PluginRegistry:
 
         Returns:
             List of all loaded plugins.
+
         """
         return list(self._plugins.values())
 
@@ -172,6 +177,7 @@ class PluginRegistry:
 
         Returns:
             List of enabled plugins only.
+
         """
         return [p for p in self._plugins.values() if p.enabled]
 
@@ -183,6 +189,7 @@ class PluginRegistry:
 
         Returns:
             List of enabled plugins registered for this event.
+
         """
         return [p for p in self._plugins.values() if p.enabled and event in p.events]
 
@@ -191,6 +198,7 @@ class PluginRegistry:
 
         Returns:
             List of plugins implementing AnalyzerPlugin.
+
         """
         return [p for p in self._plugins.values() if p.is_analyzer]
 
@@ -199,6 +207,7 @@ class PluginRegistry:
 
         Returns:
             List of plugins implementing MutatorPlugin.
+
         """
         return [p for p in self._plugins.values() if p.is_mutator]
 
@@ -210,6 +219,7 @@ class PluginRegistry:
 
         Returns:
             True if plugin was enabled, False if not found.
+
         """
         plugin = self._plugins.get(name)
         if plugin is None:
@@ -226,6 +236,7 @@ class PluginRegistry:
 
         Returns:
             True if plugin was disabled, False if not found.
+
         """
         plugin = self._plugins.get(name)
         if plugin is None:
@@ -242,6 +253,7 @@ class PluginRegistry:
 
         Returns:
             True if a plugin with this name is already registered.
+
         """
         return name in self._plugins
 
@@ -258,6 +270,7 @@ class PluginRegistry:
 
         Returns:
             List of loaded built-in plugins.
+
         """
         # Import here to avoid circular import
         from video_policy_orchestrator.plugin.loader import create_loaded_plugin
@@ -288,6 +301,7 @@ class PluginRegistry:
 
         Returns:
             List of plugins with BUILTIN source.
+
         """
         return [p for p in self._plugins.values() if p.source == PluginSource.BUILTIN]
 
@@ -299,6 +313,7 @@ class PluginRegistry:
 
         Returns:
             True if plugin is built-in, False otherwise.
+
         """
         plugin = self._plugins.get(name)
         return plugin is not None and plugin.source == PluginSource.BUILTIN

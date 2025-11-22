@@ -180,13 +180,13 @@
 
 **Purpose**: Documentation, cleanup, and validation
 
-- [ ] T064 [P] Add API version to docs/plugins.md with compatibility guidelines
-- [ ] T065 [P] Add deprecation policy section to docs/plugins.md
-- [ ] T066 Verify example plugin compiles and runs without modification
-- [ ] T067 Run quickstart.md scenarios to validate developer experience
-- [ ] T068 Code cleanup and docstring completion across plugin/ and plugin_sdk/
-- [ ] T069 Verify all existing tests pass (policy engine refactor didn't break anything)
-- [ ] T070 Performance validation: plugin discovery < 1 second for 50 plugins
+- [X] T064 [P] Add API version to docs/plugins.md with compatibility guidelines
+- [X] T065 [P] Add deprecation policy section to docs/plugins.md
+- [X] T066 Verify example plugin compiles and runs without modification
+- [X] T067 Run quickstart.md scenarios to validate developer experience
+- [X] T068 Code cleanup and docstring completion across plugin/ and plugin_sdk/
+- [X] T069 Verify all existing tests pass (policy engine refactor didn't break anything)
+- [X] T070 Performance validation: plugin discovery < 1 second for 50 plugins
 
 ---
 

@@ -158,6 +158,42 @@ If a plugin's version range doesn't include the current API version, it won't lo
 
 The current plugin API version is **1.0.0**.
 
+### Compatibility Guidelines
+
+When specifying version ranges:
+
+1. **For stability**: Set `max_api_version = "1.99.99"` to accept all 1.x releases
+2. **For specific features**: Set `min_api_version` to the version that introduced features you need
+3. **For maximum compatibility**: Test against both min and max versions before release
+
+Example conservative range:
+```python
+min_api_version = "1.0.0"   # Requires at least 1.0.0
+max_api_version = "1.99.99" # Accepts any 1.x release
+```
+
+### Deprecation Policy
+
+VPO follows a structured deprecation policy for plugin API changes:
+
+1. **Minor versions (1.x.0)**: May add new optional methods and events
+   - Existing plugins continue to work without changes
+   - New features are opt-in
+
+2. **Deprecation warnings**: Features slated for removal are marked with warnings
+   - Warnings appear in logs for at least 2 minor versions
+   - Documentation notes the deprecation and migration path
+
+3. **Major versions (2.0.0)**: May remove deprecated features
+   - Breaking changes require major version bump
+   - Changelog documents all breaking changes
+   - Migration guide provided for affected plugins
+
+4. **Support timeline**:
+   - API version 1.x will be supported for the foreseeable future
+   - At least 6 months notice before any breaking changes
+   - LTS (Long Term Support) branches may be maintained for critical fixes
+
 ## Plugin Manifest
 
 Every plugin must have these attributes:

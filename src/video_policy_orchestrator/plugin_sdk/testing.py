@@ -46,6 +46,7 @@ def mock_file_info(
 
     Returns:
         FileInfo instance.
+
     """
     return FileInfo(
         path=Path(path),
@@ -87,6 +88,7 @@ def mock_track_info(
 
     Returns:
         TrackInfo instance.
+
     """
     return TrackInfo(
         index=index,
@@ -118,6 +120,7 @@ def mock_tracks(
 
     Returns:
         List of TrackInfo instances.
+
     """
     tracks = []
     index = 0
@@ -182,6 +185,7 @@ def mock_plan(
 
     Returns:
         Plan instance.
+
     """
     return Plan(
         file_id=file_id,
@@ -207,6 +211,7 @@ def mock_executor_result(
 
     Returns:
         ExecutorResult instance.
+
     """
     return ExecutorResult(
         success=success,
@@ -234,6 +239,7 @@ def create_file_scanned_event(
 
     Returns:
         FileScannedEvent instance.
+
     """
     if file_info is None:
         file_info = mock_file_info(path=file_path)
@@ -263,6 +269,7 @@ def create_policy_evaluate_event(
 
     Returns:
         PolicyEvaluateEvent instance.
+
     """
     if file_info is None:
         file_info = mock_file_info(path=file_path)
@@ -291,6 +298,7 @@ def create_plan_execute_event(
 
     Returns:
         PlanExecuteEvent instance.
+
     """
     if plan is None:
         plan = mock_plan()
@@ -319,6 +327,7 @@ class PluginTestCase:
                 event = self.create_file_scanned_event()
                 result = plugin.on_file_scanned(event)
                 assert result is None
+
     """
 
     def create_file_scanned_event(

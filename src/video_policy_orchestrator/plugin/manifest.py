@@ -61,6 +61,7 @@ class PluginManifest:
 
         Returns:
             List of validation error messages (empty if valid).
+
         """
         errors: list[str] = []
 
@@ -113,6 +114,7 @@ class PluginManifest:
 
         Raises:
             ValueError: If required attributes are missing or invalid.
+
         """
         # Required attributes
         name = getattr(plugin_class, "name", None)

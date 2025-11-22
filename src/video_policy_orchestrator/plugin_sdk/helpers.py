@@ -26,6 +26,7 @@ def get_logger(plugin_name: str) -> logging.Logger:
     Example:
         logger = get_logger("my-plugin")
         logger.info("Plugin initialized")
+
     """
     return logging.getLogger(f"plugin.{plugin_name}")
 
@@ -42,6 +43,7 @@ def get_config() -> dict[str, Any]:
     Example:
         config = get_config()
         plugin_dirs = config.get("plugin_dirs", [])
+
     """
     try:
         from video_policy_orchestrator.config.loader import load_config
@@ -71,6 +73,7 @@ def get_data_dir() -> Path:
     Example:
         data_dir = get_data_dir()
         my_cache = data_dir / "plugins" / "my-plugin" / "cache"
+
     """
     try:
         from video_policy_orchestrator.config.loader import load_config
@@ -100,6 +103,7 @@ def get_plugin_storage_dir(plugin_name: str) -> Path:
     Example:
         storage = get_plugin_storage_dir("my-plugin")
         cache_file = storage / "cache.json"
+
     """
     storage_dir = get_data_dir() / "plugins" / plugin_name
     storage_dir.mkdir(parents=True, exist_ok=True)
@@ -116,6 +120,7 @@ def normalize_path(path: str | Path) -> Path:
 
     Returns:
         Normalized Path object.
+
     """
     return Path(path).expanduser().resolve()
 
@@ -128,6 +133,7 @@ def is_supported_container(container: str) -> bool:
 
     Returns:
         True if supported, False otherwise.
+
     """
     supported = {"mkv", "matroska", "mp4", "m4v", "avi", "mov"}
     return container.lower() in supported
@@ -143,5 +149,6 @@ def is_mkv_container(container: str) -> bool:
 
     Returns:
         True if MKV/Matroska.
+
     """
     return container.lower() in {"mkv", "matroska"}

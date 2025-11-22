@@ -50,6 +50,7 @@ def compute_plugin_hash(path: Path) -> str:
 
     Returns:
         Hex-encoded SHA-256 hash.
+
     """
     hasher = hashlib.sha256()
 
@@ -76,6 +77,7 @@ def discover_entry_point_plugins(
 
     Returns:
         List of (name, plugin_class_or_instance, source) tuples.
+
     """
     discovered: list[tuple[str, Any, PluginSource]] = []
 
@@ -112,6 +114,7 @@ def discover_directory_plugins(
 
     Returns:
         List of (path, module_name) tuples for discovered plugins.
+
     """
     discovered: list[tuple[Path, str]] = []
 
@@ -154,6 +157,7 @@ def load_plugin_from_path(path: Path, module_name: str) -> Any:
 
     Raises:
         PluginLoadError: If loading fails.
+
     """
     try:
         if path.is_file():
@@ -196,6 +200,7 @@ def validate_plugin(plugin_obj: Any, name: str) -> list[str]:
 
     Returns:
         List of validation errors (empty if valid).
+
     """
     errors: list[str] = []
 
@@ -243,6 +248,7 @@ def create_loaded_plugin(
 
     Returns:
         LoadedPlugin ready for registration.
+
     """
     # Get the instance
     if isinstance(plugin_obj, type):
@@ -278,6 +284,7 @@ class PluginLoader:
             db_conn: Database connection for acknowledgment storage.
             force_load: If True, load plugins even if version incompatible.
             interactive: If True, prompt for directory plugin acknowledgment.
+
         """
         self._registry = registry
         self._db_conn = db_conn
@@ -289,6 +296,7 @@ class PluginLoader:
 
         Returns:
             List of (plugin_obj, source, path) tuples.
+
         """
         discovered: list[tuple[Any, PluginSource, Path | None]] = []
 
@@ -313,6 +321,7 @@ class PluginLoader:
 
         Returns:
             List of successfully loaded plugins.
+
         """
         loaded: list[LoadedPlugin] = []
 
@@ -347,6 +356,7 @@ class PluginLoader:
             PluginValidationError: If validation fails.
             PluginVersionError: If version is incompatible.
             PluginNotAcknowledgedError: If directory plugin not acknowledged.
+
         """
         # Get name for error messages
         name = getattr(plugin_obj, "name", None)
@@ -405,6 +415,7 @@ class PluginLoader:
 
         Returns:
             True if acknowledged or if running non-interactively with force.
+
         """
         if self._db_conn is None:
             logger.warning(
@@ -428,6 +439,7 @@ class PluginLoader:
 
         Returns:
             True if acknowledgment was recorded.
+
         """
         if self._db_conn is None:
             logger.error("No database connection, cannot acknowledge plugin '%s'", name)

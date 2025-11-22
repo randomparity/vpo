@@ -44,6 +44,7 @@ Example:
             return {"custom_field": "value"}
 
     plugin = MyPlugin()
+
 """
 
 # Base classes
