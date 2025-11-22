@@ -1,10 +1,9 @@
 """Database connection management for Video Policy Orchestrator."""
 
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
-
 
 DEFAULT_DB_PATH = Path.home() / ".vpo" / "library.db"
 

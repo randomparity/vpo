@@ -104,7 +104,7 @@ class TrackRecord:
 
 # Database operations
 
-import sqlite3
+import sqlite3  # noqa: E402
 
 
 def insert_file(conn: sqlite3.Connection, record: FileRecord) -> int:

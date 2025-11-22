@@ -31,9 +31,9 @@ class TestSchemaCreation:
     def test_create_schema_sets_version(self, temp_db: Path):
         """Test that schema version is set correctly."""
         from video_policy_orchestrator.db.schema import (
+            SCHEMA_VERSION,
             create_schema,
             get_schema_version,
-            SCHEMA_VERSION,
         )
 
         conn = sqlite3.connect(str(temp_db))

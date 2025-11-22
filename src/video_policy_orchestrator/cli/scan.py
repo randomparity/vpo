@@ -36,7 +36,10 @@ def validate_directories(ctx, param, value):
     "--extensions",
     "-e",
     default=None,
-    help=f"Comma-separated list of file extensions to scan. Default: {','.join(DEFAULT_EXTENSIONS)}",
+    help=(
+        f"Comma-separated list of file extensions to scan. "
+        f"Default: {','.join(DEFAULT_EXTENSIONS)}"
+    ),
 )
 @click.option(
     "--db",
@@ -86,7 +89,10 @@ def scan(
 
         vpo scan --dry-run --verbose /media/videos
     """
-    from video_policy_orchestrator.db.connection import get_connection, get_default_db_path
+    from video_policy_orchestrator.db.connection import (
+        get_connection,
+        get_default_db_path,
+    )
     from video_policy_orchestrator.db.schema import initialize_database
 
     # Parse extensions
@@ -152,8 +158,11 @@ def output_json(result, files, verbose: bool, dry_run: bool = False) -> None:
 
 def output_human(result, files, verbose: bool, dry_run: bool = False) -> None:
     """Output scan results in human-readable format."""
-    click.echo(f"\nScanned {len(result.directories_scanned)} director{'y' if len(result.directories_scanned) == 1 else 'ies'}")
-    click.echo(f"Found {result.files_found} video file{'s' if result.files_found != 1 else ''}")
+    dir_count = len(result.directories_scanned)
+    dir_word = "directory" if dir_count == 1 else "directories"
+    click.echo(f"\nScanned {dir_count} {dir_word}")
+    file_word = "file" if result.files_found == 1 else "files"
+    click.echo(f"Found {result.files_found} video {file_word}")
 
     if not dry_run:
         click.echo(f"  New: {result.files_new}")
@@ -177,5 +186,6 @@ def output_human(result, files, verbose: bool, dry_run: bool = False) -> None:
 
 
 # Register with the CLI group
-from video_policy_orchestrator.cli import main
+from video_policy_orchestrator.cli import main  # noqa: E402
+
 main.add_command(scan)

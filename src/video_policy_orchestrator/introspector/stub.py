@@ -6,7 +6,6 @@ from pathlib import Path
 from video_policy_orchestrator.db.models import FileInfo, TrackInfo
 from video_policy_orchestrator.introspector.interface import MediaIntrospectionError
 
-
 # Container format mapping from extension to format name
 CONTAINER_FORMAT_MAP = {
     "mkv": "matroska",

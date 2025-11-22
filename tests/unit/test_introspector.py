@@ -8,7 +8,6 @@ class TestMediaIntrospectorProtocol:
 
     def test_stub_introspector_implements_protocol(self):
         """Test that StubIntrospector implements MediaIntrospector protocol."""
-        from video_policy_orchestrator.introspector.interface import MediaIntrospector
         from video_policy_orchestrator.introspector.stub import StubIntrospector
 
         introspector = StubIntrospector()

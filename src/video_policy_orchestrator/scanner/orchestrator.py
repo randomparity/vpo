@@ -1,12 +1,18 @@
 """Scanner orchestrator that coordinates Rust core with database operations."""
 
+from __future__ import annotations
+
 import sqlite3
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from video_policy_orchestrator._core import discover_videos, hash_files
+
+if TYPE_CHECKING:
+    from video_policy_orchestrator.introspector.interface import MediaIntrospector
 
 
 @dataclass
@@ -124,7 +130,7 @@ class ScannerOrchestrator:
         conn: sqlite3.Connection,
         compute_hashes: bool = True,
         progress_callback: callable = None,
-        introspector: "MediaIntrospector | None" = None,
+        introspector: MediaIntrospector | None = None,
     ) -> tuple[list[ScannedFile], ScanResult]:
         """Scan directories and persist results to database.
 

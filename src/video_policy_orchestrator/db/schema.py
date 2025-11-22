@@ -2,7 +2,6 @@
 
 import sqlite3
 
-
 SCHEMA_VERSION = 1
 
 SCHEMA_SQL = """

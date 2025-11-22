@@ -95,11 +95,9 @@ uv run pytest tests/integration/
 # Run tests for specific module
 uv run pytest tests/unit/test_core.py -v
 
-# Run Rust tests
-cd crates/vpo-core && cargo test
-
-# Run Rust tests with output
-cd crates/vpo-core && cargo test -- --nocapture
+# Note: Rust unit tests for PyO3 extension modules cannot run standalone
+# because they require Python linking. Test through Python instead:
+uv run pytest tests/unit/test_core.py -v
 ```
 
 ## Using the Scanner

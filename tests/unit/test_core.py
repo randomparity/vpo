@@ -66,16 +66,18 @@ class TestDiscoverVideos:
 
     def test_discover_videos_nonexistent_directory(self):
         """Test error handling for nonexistent directory."""
-        from video_policy_orchestrator._core import discover_videos
         import pytest
+
+        from video_policy_orchestrator._core import discover_videos
 
         with pytest.raises(FileNotFoundError):
             discover_videos("/nonexistent/path", ["mkv"])
 
     def test_discover_videos_not_a_directory(self, temp_dir: Path):
         """Test error handling for file path instead of directory."""
-        from video_policy_orchestrator._core import discover_videos
         import pytest
+
+        from video_policy_orchestrator._core import discover_videos
 
         file_path = temp_dir / "file.txt"
         file_path.touch()

@@ -1,3 +1,6 @@
+// False positive with PyO3's PyResult type alias
+#![allow(clippy::useless_conversion)]
+
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use rayon::prelude::*;

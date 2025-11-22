@@ -1,7 +1,6 @@
 """Unit tests for database models."""
 
 import sqlite3
-from datetime import datetime
 from pathlib import Path
 
 
@@ -10,11 +9,11 @@ class TestFileOperations:
 
     def test_insert_file(self, temp_db: Path):
         """Test inserting a new file record."""
-        from video_policy_orchestrator.db.schema import create_schema
         from video_policy_orchestrator.db.models import (
             FileRecord,
             insert_file,
         )
+        from video_policy_orchestrator.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.execute("PRAGMA foreign_keys = ON")
@@ -43,12 +42,12 @@ class TestFileOperations:
 
     def test_upsert_file_updates_existing(self, temp_db: Path):
         """Test that upserting a file with same path updates it."""
-        from video_policy_orchestrator.db.schema import create_schema
         from video_policy_orchestrator.db.models import (
             FileRecord,
-            upsert_file,
             get_file_by_path,
+            upsert_file,
         )
+        from video_policy_orchestrator.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.execute("PRAGMA foreign_keys = ON")
@@ -90,12 +89,12 @@ class TestFileOperations:
 
     def test_get_file_by_path(self, temp_db: Path):
         """Test retrieving a file by path."""
-        from video_policy_orchestrator.db.schema import create_schema
         from video_policy_orchestrator.db.models import (
             FileRecord,
-            insert_file,
             get_file_by_path,
+            insert_file,
         )
+        from video_policy_orchestrator.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.execute("PRAGMA foreign_keys = ON")
@@ -127,8 +126,8 @@ class TestFileOperations:
 
     def test_get_file_by_path_not_found(self, temp_db: Path):
         """Test that get_file_by_path returns None for non-existent file."""
-        from video_policy_orchestrator.db.schema import create_schema
         from video_policy_orchestrator.db.models import get_file_by_path
+        from video_policy_orchestrator.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         create_schema(conn)
@@ -144,13 +143,13 @@ class TestTrackOperations:
 
     def test_insert_track(self, temp_db: Path):
         """Test inserting a track record."""
-        from video_policy_orchestrator.db.schema import create_schema
         from video_policy_orchestrator.db.models import (
             FileRecord,
             TrackRecord,
             insert_file,
             insert_track,
         )
+        from video_policy_orchestrator.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.execute("PRAGMA foreign_keys = ON")
@@ -194,14 +193,14 @@ class TestTrackOperations:
 
     def test_insert_multiple_tracks(self, temp_db: Path):
         """Test inserting multiple tracks for a file."""
-        from video_policy_orchestrator.db.schema import create_schema
         from video_policy_orchestrator.db.models import (
             FileRecord,
             TrackRecord,
+            get_tracks_for_file,
             insert_file,
             insert_track,
-            get_tracks_for_file,
         )
+        from video_policy_orchestrator.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.execute("PRAGMA foreign_keys = ON")
@@ -226,10 +225,19 @@ class TestTrackOperations:
 
         # Insert multiple tracks
         tracks = [
-            TrackRecord(None, file_id, 0, "video", "hevc", None, "Main Video", True, False),
-            TrackRecord(None, file_id, 1, "audio", "aac", "eng", "English Audio", True, False),
-            TrackRecord(None, file_id, 2, "audio", "aac", "jpn", "Japanese Audio", False, False),
-            TrackRecord(None, file_id, 3, "subtitle", "subrip", "eng", "English Subs", True, False),
+            TrackRecord(
+                None, file_id, 0, "video", "hevc", None, "Main Video", True, False
+            ),
+            TrackRecord(
+                None, file_id, 1, "audio", "aac", "eng", "English Audio", True, False
+            ),
+            TrackRecord(
+                None, file_id, 2, "audio", "aac", "jpn", "Japanese Audio", False, False
+            ),
+            TrackRecord(
+                None, file_id, 3, "subtitle", "subrip", "eng", "English Subs",
+                True, False
+            ),
         ]
 
         for track in tracks:
@@ -243,14 +251,14 @@ class TestTrackOperations:
 
     def test_track_fields_per_fr010(self, temp_db: Path):
         """Test that track stores all fields required by FR-010."""
-        from video_policy_orchestrator.db.schema import create_schema
         from video_policy_orchestrator.db.models import (
             FileRecord,
             TrackRecord,
+            get_tracks_for_file,
             insert_file,
             insert_track,
-            get_tracks_for_file,
         )
+        from video_policy_orchestrator.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.execute("PRAGMA foreign_keys = ON")
@@ -304,14 +312,14 @@ class TestTrackOperations:
 
     def test_cascade_delete_tracks(self, temp_db: Path):
         """Test that tracks are deleted when file is deleted."""
-        from video_policy_orchestrator.db.schema import create_schema
         from video_policy_orchestrator.db.models import (
             FileRecord,
             TrackRecord,
+            delete_file,
             insert_file,
             insert_track,
-            delete_file,
         )
+        from video_policy_orchestrator.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.execute("PRAGMA foreign_keys = ON")
@@ -334,14 +342,18 @@ class TestTrackOperations:
         )
         file_id = insert_file(conn, file_record)
 
-        track = TrackRecord(None, file_id, 0, "video", "hevc", None, None, True, False)
+        track = TrackRecord(
+            None, file_id, 0, "video", "hevc", None, None, True, False
+        )
         insert_track(conn, track)
 
         # Delete the file
         delete_file(conn, file_id)
 
         # Verify tracks are also deleted
-        cursor = conn.execute("SELECT COUNT(*) FROM tracks WHERE file_id = ?", (file_id,))
+        cursor = conn.execute(
+            "SELECT COUNT(*) FROM tracks WHERE file_id = ?", (file_id,)
+        )
         count = cursor.fetchone()[0]
         assert count == 0
 
