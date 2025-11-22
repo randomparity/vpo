@@ -199,7 +199,7 @@
 
 - [ ] T072 [P] Add transcode policy documentation in `docs/usage/transcode-policy.md`
 - [ ] T073 [P] Add job system documentation in `docs/usage/jobs.md`
-- [ ] T074 Update CLI help text for all new commands in `src/video_policy_orchestrator/cli/`
+- [x] T074 Update CLI help text for all new commands in `src/video_policy_orchestrator/cli/`
 - [ ] T075 Add example transcode policy to `examples/policies/transcode-hevc.yaml`
 - [ ] T076 Validate quickstart.md scenarios work end-to-end
 - [ ] T077 Update README.md with transcode feature overview
