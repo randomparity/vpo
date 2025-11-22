@@ -13,6 +13,7 @@ from typing import Any
 # Event name constants
 FILE_SCANNED = "file.scanned"
 FILE_METADATA_ENRICHED = "file.metadata_enriched"
+METADATA_EXTRACTED = "metadata.extracted"  # New: filename metadata extracted
 POLICY_BEFORE_EVALUATE = "policy.before_evaluate"
 POLICY_AFTER_EVALUATE = "policy.after_evaluate"
 PLAN_BEFORE_EXECUTE = "plan.before_execute"
@@ -24,6 +25,7 @@ VALID_EVENTS = frozenset(
     [
         FILE_SCANNED,
         FILE_METADATA_ENRICHED,
+        METADATA_EXTRACTED,
         POLICY_BEFORE_EVALUATE,
         POLICY_AFTER_EVALUATE,
         PLAN_BEFORE_EXECUTE,
@@ -37,6 +39,7 @@ ANALYZER_EVENTS = frozenset(
     [
         FILE_SCANNED,
         FILE_METADATA_ENRICHED,
+        METADATA_EXTRACTED,
         POLICY_BEFORE_EVALUATE,
         POLICY_AFTER_EVALUATE,
         PLAN_AFTER_EXECUTE,
@@ -102,6 +105,20 @@ class PlanExecuteEvent:
     plan: Any  # Plan from policy.models
     result: Any | None = None  # ExecutorResult from executor.interface
     error: Exception | None = None
+
+
+@dataclass
+class MetadataExtractedEvent:
+    """Event data for metadata.extracted event.
+
+    Fired after filename metadata has been extracted during directory
+    organization. Plugins can use this to provide external metadata lookups
+    (e.g., TMDb, TVDb) to enrich or override the parsed metadata.
+    """
+
+    file_path: Path
+    parsed_metadata: Any  # ParsedMetadata from metadata.parser
+    metadata_dict: dict[str, str]  # Rendered metadata dictionary
 
 
 def is_valid_event(event_name: str) -> bool:

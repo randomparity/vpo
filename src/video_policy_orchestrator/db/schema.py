@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -101,6 +101,54 @@ CREATE TABLE IF NOT EXISTS plugin_acknowledgments (
 
 CREATE INDEX IF NOT EXISTS idx_plugin_ack_name
     ON plugin_acknowledgments(plugin_name);
+
+-- Jobs table (006-transcode-pipelines)
+CREATE TABLE IF NOT EXISTS jobs (
+    id TEXT PRIMARY KEY,
+    file_id INTEGER NOT NULL,
+    file_path TEXT NOT NULL,
+    job_type TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'queued',
+    priority INTEGER NOT NULL DEFAULT 100,
+
+    -- Policy
+    policy_name TEXT,
+    policy_json TEXT NOT NULL,
+
+    -- Progress
+    progress_percent REAL NOT NULL DEFAULT 0.0,
+    progress_json TEXT,
+
+    -- Timing
+    created_at TEXT NOT NULL,
+    started_at TEXT,
+    completed_at TEXT,
+
+    -- Worker
+    worker_pid INTEGER,
+    worker_heartbeat TEXT,
+
+    -- Results
+    output_path TEXT,
+    backup_path TEXT,
+    error_message TEXT,
+
+    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
+    CONSTRAINT valid_status CHECK (
+        status IN ('queued', 'running', 'completed', 'failed', 'cancelled')
+    ),
+    CONSTRAINT valid_job_type CHECK (
+        job_type IN ('transcode', 'move')
+    ),
+    CONSTRAINT valid_progress CHECK (
+        progress_percent >= 0.0 AND progress_percent <= 100.0
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+CREATE INDEX IF NOT EXISTS idx_jobs_file_id ON jobs(file_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at);
+CREATE INDEX IF NOT EXISTS idx_jobs_priority_created ON jobs(priority, created_at);
 """
 
 
@@ -154,7 +202,17 @@ def migrate_v1_to_v2(conn: sqlite3.Connection) -> None:
     cursor = conn.execute("PRAGMA table_info(tracks)")
     existing_columns = {row[1] for row in cursor.fetchall()}
 
-    # Define new columns to add
+    # Whitelist of allowed columns with their types for validation
+    # This prevents SQL injection through column names
+    ALLOWED_COLUMNS: dict[str, str] = {
+        "channels": "INTEGER",
+        "channel_layout": "TEXT",
+        "width": "INTEGER",
+        "height": "INTEGER",
+        "frame_rate": "TEXT",
+    }
+
+    # Define new columns to add (must be in whitelist)
     new_columns = [
         ("channels", "INTEGER"),
         ("channel_layout", "TEXT"),
@@ -163,10 +221,19 @@ def migrate_v1_to_v2(conn: sqlite3.Connection) -> None:
         ("frame_rate", "TEXT"),
     ]
 
-    # Add missing columns
+    # Add missing columns with validation
     for col_name, col_type in new_columns:
         if col_name not in existing_columns:
-            conn.execute(f"ALTER TABLE tracks ADD COLUMN {col_name} {col_type}")
+            # Validate column name and type against whitelist
+            if col_name not in ALLOWED_COLUMNS:
+                raise ValueError(f"Unexpected column name in migration: {col_name}")
+            if ALLOWED_COLUMNS[col_name] != col_type:
+                raise ValueError(
+                    f"Type mismatch for column {col_name}: "
+                    f"expected {ALLOWED_COLUMNS[col_name]}, got {col_type}"
+                )
+            # Use quoted identifier for safety
+            conn.execute(f'ALTER TABLE tracks ADD COLUMN "{col_name}" {col_type}')
 
     # Update schema version to 2
     conn.execute(
@@ -268,6 +335,80 @@ def migrate_v3_to_v4(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def migrate_v4_to_v5(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 4 to version 5.
+
+    Adds jobs table for transcoding/movement queue:
+    - Job tracking with status, progress, and worker info
+    - Indexes for efficient queue operations
+
+    This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Check if table already exists
+    cursor = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='jobs'"
+    )
+    if cursor.fetchone() is None:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS jobs (
+                id TEXT PRIMARY KEY,
+                file_id INTEGER NOT NULL,
+                file_path TEXT NOT NULL,
+                job_type TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'queued',
+                priority INTEGER NOT NULL DEFAULT 100,
+
+                -- Policy
+                policy_name TEXT,
+                policy_json TEXT NOT NULL,
+
+                -- Progress
+                progress_percent REAL NOT NULL DEFAULT 0.0,
+                progress_json TEXT,
+
+                -- Timing
+                created_at TEXT NOT NULL,
+                started_at TEXT,
+                completed_at TEXT,
+
+                -- Worker
+                worker_pid INTEGER,
+                worker_heartbeat TEXT,
+
+                -- Results
+                output_path TEXT,
+                backup_path TEXT,
+                error_message TEXT,
+
+                FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
+                CONSTRAINT valid_status CHECK (
+                    status IN ('queued', 'running', 'completed', 'failed', 'cancelled')
+                ),
+                CONSTRAINT valid_job_type CHECK (
+                    job_type IN ('transcode', 'move')
+                ),
+                CONSTRAINT valid_progress CHECK (
+                    progress_percent >= 0.0 AND progress_percent <= 100.0
+                )
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+            CREATE INDEX IF NOT EXISTS idx_jobs_file_id ON jobs(file_id);
+            CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at);
+            CREATE INDEX IF NOT EXISTS idx_jobs_priority_created
+                ON jobs(priority, created_at);
+        """)
+
+    # Update schema version to 5
+    conn.execute(
+        "UPDATE _meta SET value = '5' WHERE key = 'schema_version'",
+    )
+    conn.commit()
+
+
 def initialize_database(conn: sqlite3.Connection) -> None:
     """Initialize the database with schema, creating tables if needed.
 
@@ -288,3 +429,6 @@ def initialize_database(conn: sqlite3.Connection) -> None:
             current_version = 3
         if current_version == 3:
             migrate_v3_to_v4(conn)
+            current_version = 4
+        if current_version == 4:
+            migrate_v4_to_v5(conn)

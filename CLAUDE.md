@@ -46,11 +46,14 @@ uv run vpo apply --policy policy.yaml /path/to/file.mkv --dry-run
 ```
 src/video_policy_orchestrator/
 ├── cli/           # Click commands: scan, inspect, apply, doctor
-├── db/            # SQLite schema, models (FileInfo, TrackInfo), operations
-├── introspector/  # MediaIntrospector protocol, ffprobe implementation
-├── policy/        # PolicySchema loading, Plan evaluation, track matchers
-├── executor/      # Tool executors: mkvpropedit, mkvmerge, ffmpeg_metadata
 ├── config/        # Configuration loading and models
+├── db/            # SQLite schema, models (FileInfo, TrackInfo), operations
+├── executor/      # Tool executors: mkvpropedit, mkvmerge, ffmpeg_metadata
+├── introspector/  # MediaIntrospector protocol, ffprobe implementation
+├── plugin/        # Plugin system: registry, loader, interfaces, events
+├── plugin_sdk/    # SDK helpers for plugin authors
+├── plugins/       # Built-in reference plugins
+├── policy/        # PolicySchema loading, Plan evaluation, track matchers
 ├── scanner/       # Orchestrates discovery and introspection
 └── tools/         # External tool detection and capability caching
 
@@ -85,8 +88,8 @@ This project uses **spec-driven development**:
 - Keep docs small and focused; link instead of duplicating content
 
 ## Active Technologies
-- Python 3.10+ (matching existing codebase) + click (CLI), pydantic (validation), PyYAML (config), importlib.metadata (entry points) (005-plugin-architecture)
-- SQLite (~/.vpo/library.db for plugin acknowledgment records) (005-plugin-architecture)
+- Python 3.10+ (per pyproject.toml) + click (CLI), pydantic (models), PyYAML (config), sqlite3 (jobs DB) (006-transcode-pipelines)
+- SQLite (~/.vpo/library.db) - extend existing schema with jobs table (006-transcode-pipelines)
 
 ## Recent Changes
-- 005-plugin-architecture: Added Python 3.10+ (matching existing codebase) + click (CLI), pydantic (validation), PyYAML (config), importlib.metadata (entry points)
+- 006-transcode-pipelines: Added Python 3.10+ (per pyproject.toml) + click (CLI), pydantic (models), PyYAML (config), sqlite3 (jobs DB)

@@ -60,12 +60,16 @@ def _register_commands():
     from video_policy_orchestrator.cli.apply import apply_command
     from video_policy_orchestrator.cli.doctor import doctor_command
     from video_policy_orchestrator.cli.inspect import inspect_command
+    from video_policy_orchestrator.cli.jobs import jobs_group
     from video_policy_orchestrator.cli.plugins import plugins
+    from video_policy_orchestrator.cli.transcode import transcode_command
 
     main.add_command(inspect_command)
     main.add_command(apply_command)
     main.add_command(doctor_command)
     main.add_command(plugins)
+    main.add_command(transcode_command)
+    main.add_command(jobs_group)
 
 
 _register_commands()

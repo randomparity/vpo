@@ -1,0 +1,58 @@
+# HEVC Transcoding Policy Example
+#
+# This policy converts video files to HEVC (H.265) format with high quality
+# settings, preserves lossless audio codecs, and organizes output files
+# by year and title.
+#
+# Usage:
+#   vpo transcode --policy transcode-hevc.yaml /path/to/videos/
+#   vpo jobs start
+#
+# See docs/usage/transcode-policy.md for full documentation.
+
+schema_version: 2
+
+# Video transcoding settings
+transcode:
+  # Target codec: hevc (H.265) provides excellent compression
+  # Alternatives: h264 (max compatibility), vp9 (open format), av1 (best compression)
+  target_video_codec: hevc
+
+  # Quality setting (Constant Rate Factor)
+  # Lower = better quality, larger file
+  # Recommended ranges:
+  #   18: Visually lossless
+  #   20-23: High quality (good default)
+  #   24-28: Good quality, smaller files
+  target_crf: 20
+
+  # Maximum resolution - scales down if source is larger
+  # Options: 480p, 720p, 1080p, 1440p, 4k, 8k
+  max_resolution: 1080p
+
+  # Audio preservation rules
+  # Codecs in this list are stream-copied (preserved exactly)
+  audio_preserve_codecs:
+    - truehd      # Dolby TrueHD (lossless)
+    - dts-hd      # DTS-HD Master Audio (lossless)
+    - flac        # FLAC (lossless)
+    - pcm_s16le   # PCM 16-bit
+    - pcm_s24le   # PCM 24-bit
+
+  # Codecs NOT in the preserve list are transcoded to this codec
+  audio_transcode_to: aac
+
+  # Bitrate for transcoded audio tracks
+  audio_transcode_bitrate: 192k
+
+  # Optional: Create additional downmixed stereo track
+  # Options: stereo, 5.1, or null (disabled)
+  # audio_downmix: stereo
+
+  # Directory organization (optional)
+  # Use placeholders to organize output by metadata parsed from filename
+  # Available: {title}, {year}, {series}, {season}, {episode}, {resolution}, {codec}, {source}
+  destination: "Transcoded/{year}/{title}"
+
+  # Fallback value when metadata cannot be parsed from filename
+  destination_fallback: "Unknown"

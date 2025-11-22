@@ -22,9 +22,11 @@ from pathlib import Path
 from video_policy_orchestrator.config.models import (
     BehaviorConfig,
     DetectionConfig,
+    JobsConfig,
     PluginConfig,
     ToolPathsConfig,
     VPOConfig,
+    WorkerConfig,
 )
 
 logger = logging.getLogger(__name__)
@@ -355,10 +357,52 @@ def get_config(
         ),
     )
 
+    # Build jobs config
+    jobs_file = file_config.get("jobs", {})
+    temp_dir_str = jobs_file.get("temp_directory")
+    jobs = JobsConfig(
+        retention_days=_get_env_int(
+            "VPO_JOBS_RETENTION_DAYS",
+            jobs_file.get("retention_days", 30),
+        ),
+        auto_purge=_get_env_bool(
+            "VPO_JOBS_AUTO_PURGE",
+            jobs_file.get("auto_purge", True),
+        ),
+        temp_directory=Path(temp_dir_str).expanduser() if temp_dir_str else None,
+        backup_original=_get_env_bool(
+            "VPO_JOBS_BACKUP_ORIGINAL",
+            jobs_file.get("backup_original", True),
+        ),
+    )
+
+    # Build worker config
+    worker_file = file_config.get("worker", {})
+    worker = WorkerConfig(
+        max_files=_get_env_int(
+            "VPO_WORKER_MAX_FILES",
+            worker_file.get("max_files", 0),
+        )
+        or None,
+        max_duration=_get_env_int(
+            "VPO_WORKER_MAX_DURATION",
+            worker_file.get("max_duration", 0),
+        )
+        or None,
+        end_by=os.environ.get("VPO_WORKER_END_BY") or worker_file.get("end_by"),
+        cpu_cores=_get_env_int(
+            "VPO_WORKER_CPU_CORES",
+            worker_file.get("cpu_cores", 0),
+        )
+        or None,
+    )
+
     return VPOConfig(
         tools=tools,
         detection=detection,
         behavior=behavior,
         plugins=plugins,
+        jobs=jobs,
+        worker=worker,
         database_path=db_path,
     )
