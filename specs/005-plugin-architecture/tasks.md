@@ -78,25 +78,25 @@
 
 ### Tests for User Story 2
 
-- [ ] T022 [P] [US2] Unit test for directory discovery in tests/unit/plugin/test_loader.py
-- [ ] T023 [P] [US2] Unit test for entry point discovery in tests/unit/plugin/test_loader.py
-- [ ] T024 [P] [US2] Unit test for PluginRegistry operations in tests/unit/plugin/test_registry.py
+- [X] T022 [P] [US2] Unit test for directory discovery in tests/unit/plugin/test_loader.py
+- [X] T023 [P] [US2] Unit test for entry point discovery in tests/unit/plugin/test_loader.py
+- [X] T024 [P] [US2] Unit test for PluginRegistry operations in tests/unit/plugin/test_registry.py
 - [ ] T025 [P] [US2] Integration test for plugin discovery E2E in tests/integration/test_plugin_discovery.py
 
 ### Implementation for User Story 2
 
-- [ ] T026 [US2] Implement directory plugin scanner in src/video_policy_orchestrator/plugin/loader.py
-- [ ] T027 [US2] Implement entry point plugin scanner in src/video_policy_orchestrator/plugin/loader.py
-- [ ] T028 [US2] Implement plugin validation (interface checking) in src/video_policy_orchestrator/plugin/loader.py
-- [ ] T029 [US2] Implement PluginRegistry class in src/video_policy_orchestrator/plugin/registry.py
-- [ ] T030 [US2] Add plugin acknowledgment flow for directory plugins in src/video_policy_orchestrator/plugin/loader.py (includes: warning message, y/N prompt with N default, non-interactive mode rejection, store acknowledgment in DB)
-- [ ] T031 [US2] Implement plugin hash calculation for acknowledgment in src/video_policy_orchestrator/plugin/loader.py
-- [ ] T032 [US2] Add plugin conflict detection and warning in src/video_policy_orchestrator/plugin/registry.py
-- [ ] T033 [US2] Implement graceful error handling for plugin load failures in src/video_policy_orchestrator/plugin/loader.py
-- [ ] T034 [US2] Add structured logging for discovery/loading in src/video_policy_orchestrator/plugin/loader.py
-- [ ] T035 [US2] Implement `vpo plugins` command group (list, enable, disable subcommands) in src/video_policy_orchestrator/cli/plugins.py
-- [ ] T036 [US2] Add --force-load-plugins CLI flag to root command in src/video_policy_orchestrator/cli/__init__.py
-- [ ] T037 [US2] Wire plugins CLI command into main CLI group in src/video_policy_orchestrator/cli/__init__.py
+- [X] T026 [US2] Implement directory plugin scanner in src/video_policy_orchestrator/plugin/loader.py
+- [X] T027 [US2] Implement entry point plugin scanner in src/video_policy_orchestrator/plugin/loader.py
+- [X] T028 [US2] Implement plugin validation (interface checking) in src/video_policy_orchestrator/plugin/loader.py
+- [X] T029 [US2] Implement PluginRegistry class in src/video_policy_orchestrator/plugin/registry.py
+- [X] T030 [US2] Add plugin acknowledgment flow for directory plugins in src/video_policy_orchestrator/plugin/loader.py (includes: warning message, y/N prompt with N default, non-interactive mode rejection, store acknowledgment in DB)
+- [X] T031 [US2] Implement plugin hash calculation for acknowledgment in src/video_policy_orchestrator/plugin/loader.py
+- [X] T032 [US2] Add plugin conflict detection and warning in src/video_policy_orchestrator/plugin/registry.py
+- [X] T033 [US2] Implement graceful error handling for plugin load failures in src/video_policy_orchestrator/plugin/loader.py
+- [X] T034 [US2] Add structured logging for discovery/loading in src/video_policy_orchestrator/plugin/loader.py
+- [X] T035 [US2] Implement `vpo plugins` command group (list, enable, disable subcommands) in src/video_policy_orchestrator/cli/plugins.py
+- [X] T036 [US2] Add --force-load-plugins CLI flag to root command in src/video_policy_orchestrator/cli/__init__.py
+- [X] T037 [US2] Wire plugins CLI command into main CLI group in src/video_policy_orchestrator/cli/__init__.py
 
 **Checkpoint**: Plugin discovery works E2E - users can install plugins and see them in `vpo plugins list`
 

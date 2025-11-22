@@ -25,14 +25,30 @@ from video_policy_orchestrator.plugin.events import (
     is_mutator_event,
     is_valid_event,
 )
+from video_policy_orchestrator.plugin.exceptions import (
+    PluginError,
+    PluginLoadError,
+    PluginNotAcknowledgedError,
+    PluginNotFoundError,
+    PluginValidationError,
+    PluginVersionError,
+)
 from video_policy_orchestrator.plugin.interfaces import (
     AnalyzerPlugin,
     MutatorPlugin,
+)
+from video_policy_orchestrator.plugin.loader import (
+    PluginLoader,
+    compute_plugin_hash,
 )
 from video_policy_orchestrator.plugin.manifest import (
     PluginManifest,
     PluginSource,
     PluginType,
+)
+from video_policy_orchestrator.plugin.registry import (
+    LoadedPlugin,
+    PluginRegistry,
 )
 from video_policy_orchestrator.plugin.version import (
     PLUGIN_API_VERSION,
@@ -70,4 +86,17 @@ __all__ = [
     "is_valid_event",
     "is_analyzer_event",
     "is_mutator_event",
+    # Exceptions
+    "PluginError",
+    "PluginLoadError",
+    "PluginNotFoundError",
+    "PluginValidationError",
+    "PluginVersionError",
+    "PluginNotAcknowledgedError",
+    # Registry
+    "LoadedPlugin",
+    "PluginRegistry",
+    # Loader
+    "PluginLoader",
+    "compute_plugin_hash",
 ]
