@@ -90,9 +90,25 @@ class FFprobeIntrospector:
             ],
             capture_output=True,
             text=True,
+            errors="replace",  # Handle non-UTF8 characters by replacing them
             check=True,
         )
         return json.loads(result.stdout)
+
+    @staticmethod
+    def _sanitize_string(value: str | None) -> str | None:
+        """Sanitize a string by replacing invalid characters.
+
+        Args:
+            value: String value to sanitize.
+
+        Returns:
+            Sanitized string or None if input was None.
+        """
+        if value is None:
+            return None
+        # Replace any remaining problematic characters
+        return value.encode("utf-8", errors="replace").decode("utf-8")
 
     def _parse_output(self, path: Path, data: dict) -> IntrospectionResult:
         """Parse ffprobe JSON output into IntrospectionResult.
@@ -156,10 +172,10 @@ class FFprobeIntrospector:
             is_default = disposition.get("default", 0) == 1
             is_forced = disposition.get("forced", 0) == 1
 
-            # Get tags
+            # Get tags (sanitize strings to handle non-UTF8 characters)
             tags = stream.get("tags", {})
             language = tags.get("language") or "und"
-            title = tags.get("title")
+            title = self._sanitize_string(tags.get("title"))
 
             # Build track info
             track = TrackInfo(

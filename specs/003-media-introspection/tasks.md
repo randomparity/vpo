@@ -102,15 +102,15 @@
 
 ### Implementation for User Story 3
 
-- [ ] T031 [US3] Add default "und" language handling when tags.language missing in src/video_policy_orchestrator/introspector/ffprobe.py
-- [ ] T032 [US3] Add graceful handling for missing disposition field in src/video_policy_orchestrator/introspector/ffprobe.py
-- [ ] T033 [US3] Add graceful handling for missing video dimensions in src/video_policy_orchestrator/introspector/ffprobe.py
-- [ ] T034 [US3] Add graceful handling for missing audio channels in src/video_policy_orchestrator/introspector/ffprobe.py
-- [ ] T035 [US3] Add warnings collection to IntrospectionResult for non-fatal issues in src/video_policy_orchestrator/introspector/ffprobe.py
-- [ ] T036 [US3] Handle "no streams" case (empty tracks list, warning) in src/video_policy_orchestrator/introspector/ffprobe.py
-- [ ] T037 [US3] Handle non-UTF8 characters in metadata by sanitizing in src/video_policy_orchestrator/introspector/ffprobe.py
-- [ ] T038 [US3] Preserve uncommon codec identifiers as-is for policy matching in src/video_policy_orchestrator/introspector/ffprobe.py
-- [ ] T038a [US3] Log warning and skip if duplicate stream index encountered in src/video_policy_orchestrator/introspector/ffprobe.py
+- [x] T031 [US3] Add default "und" language handling when tags.language missing in src/video_policy_orchestrator/introspector/ffprobe.py
+- [x] T032 [US3] Add graceful handling for missing disposition field in src/video_policy_orchestrator/introspector/ffprobe.py
+- [x] T033 [US3] Add graceful handling for missing video dimensions in src/video_policy_orchestrator/introspector/ffprobe.py
+- [x] T034 [US3] Add graceful handling for missing audio channels in src/video_policy_orchestrator/introspector/ffprobe.py
+- [x] T035 [US3] Add warnings collection to IntrospectionResult for non-fatal issues in src/video_policy_orchestrator/introspector/ffprobe.py
+- [x] T036 [US3] Handle "no streams" case (empty tracks list, warning) in src/video_policy_orchestrator/introspector/ffprobe.py
+- [x] T037 [US3] Handle non-UTF8 characters in metadata by sanitizing in src/video_policy_orchestrator/introspector/ffprobe.py
+- [x] T038 [US3] Preserve uncommon codec identifiers as-is for policy matching in src/video_policy_orchestrator/introspector/ffprobe.py
+- [x] T038a [US3] Log warning and skip if duplicate stream index encountered in src/video_policy_orchestrator/introspector/ffprobe.py
 
 **Checkpoint**: Introspection handles all edge cases gracefully without crashes
 
