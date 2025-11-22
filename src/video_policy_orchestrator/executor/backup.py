@@ -3,11 +3,75 @@
 This module provides file backup functionality for safe media file modifications.
 """
 
+import fcntl
 import shutil
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 # Backup file suffix
 BACKUP_SUFFIX = ".vpo-backup"
+
+# Lock file suffix
+LOCK_SUFFIX = ".vpo-lock"
+
+
+class FileLockError(Exception):
+    """Error acquiring file lock (file is being modified by another operation)."""
+
+    pass
+
+
+@contextmanager
+def file_lock(file_path: Path, timeout: float = 0) -> Iterator[None]:
+    """Context manager for acquiring an exclusive lock on a file.
+
+    This prevents concurrent modifications to the same file.
+
+    Args:
+        file_path: Path to the file to lock.
+        timeout: Timeout in seconds. 0 means non-blocking (fail immediately).
+
+    Yields:
+        None when lock is acquired.
+
+    Raises:
+        FileLockError: If the lock cannot be acquired.
+    """
+    lock_path = file_path.with_suffix(file_path.suffix + LOCK_SUFFIX)
+
+    try:
+        # Create lock file
+        lock_file = open(lock_path, "w")
+
+        try:
+            # Try to acquire exclusive lock
+            if timeout == 0:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            else:
+                # For non-zero timeout, we'd need a more complex implementation
+                # For now, just try non-blocking
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except (BlockingIOError, OSError) as e:
+            lock_file.close()
+            raise FileLockError(
+                f"File is being modified by another operation: {file_path}"
+            ) from e
+
+        try:
+            yield
+        finally:
+            # Release lock
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+            lock_file.close()
+            # Remove lock file
+            lock_path.unlink(missing_ok=True)
+    except FileLockError:
+        raise
+    except Exception:
+        # Clean up lock file on any other error
+        lock_path.unlink(missing_ok=True)
+        raise
 
 
 def create_backup(file_path: Path) -> Path:

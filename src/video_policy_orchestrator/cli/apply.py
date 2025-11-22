@@ -8,13 +8,22 @@ import click
 
 from video_policy_orchestrator.db.connection import get_connection
 from video_policy_orchestrator.db.models import (
+    OperationStatus,
     TrackInfo,
     get_file_by_path,
     get_tracks_for_file,
 )
+from video_policy_orchestrator.db.operations import (
+    create_operation,
+    update_operation_status,
+)
+from video_policy_orchestrator.executor.backup import FileLockError, file_lock
+from video_policy_orchestrator.executor.ffmpeg_metadata import FfmpegMetadataExecutor
 from video_policy_orchestrator.executor.interface import check_tool_availability
+from video_policy_orchestrator.executor.mkvpropedit import MkvpropeditExecutor
 from video_policy_orchestrator.policy.evaluator import evaluate_policy
 from video_policy_orchestrator.policy.loader import PolicyValidationError, load_policy
+from video_policy_orchestrator.policy.models import ActionType
 
 # Exit codes per contracts/cli-apply.md
 EXIT_SUCCESS = 0
@@ -287,13 +296,104 @@ def apply_command(
             click.echo("No changes required - file already matches policy.")
         sys.exit(EXIT_SUCCESS)
 
-    # TODO: Implement actual application of changes (Phase 5)
-    # For now, indicate that apply mode is not yet implemented
-    _error_exit(
-        "Apply mode not yet implemented. Use --dry-run to preview changes.",
-        EXIT_GENERAL_ERROR,
-        json_output,
-    )
+    # Check if plan requires remux (track reordering) - not yet supported
+    if plan.requires_remux:
+        has_reorder = any(a.action_type == ActionType.REORDER for a in plan.actions)
+        if has_reorder:
+            _error_exit(
+                "Track reordering requires mkvmerge (not yet implemented). "
+                "Use --dry-run to preview changes.",
+                EXIT_GENERAL_ERROR,
+                json_output,
+            )
+
+    # Determine backup behavior
+    should_keep_backup = keep_backup if keep_backup is not None else True
+    if no_keep_backup:
+        should_keep_backup = False
+
+    # Acquire file lock to prevent concurrent modifications
+    try:
+        with file_lock(target):
+            # Create operation record
+            operation = create_operation(conn, plan, file_record.id, str(policy_path))
+
+            # Update status to IN_PROGRESS
+            update_operation_status(conn, operation.id, OperationStatus.IN_PROGRESS)
+
+            # Select appropriate executor
+            if container.lower() in ("mkv", "matroska"):
+                executor = MkvpropeditExecutor()
+            else:
+                executor = FfmpegMetadataExecutor()
+
+            # Execute the plan
+            import time
+
+            start_time = time.time()
+            result = executor.execute(plan, keep_backup=should_keep_backup)
+            duration = time.time() - start_time
+
+            if result.success:
+                # Update operation status to COMPLETED
+                if result.backup_path:
+                    backup_path_str = str(result.backup_path)
+                else:
+                    backup_path_str = None
+                update_operation_status(
+                    conn,
+                    operation.id,
+                    OperationStatus.COMPLETED,
+                    backup_path=backup_path_str,
+                )
+
+                # Output success
+                if json_output:
+                    output = {
+                        "status": "completed",
+                        "operation_id": operation.id,
+                        "policy": {
+                            "path": str(policy_path),
+                            "version": policy.schema_version,
+                        },
+                        "target": {
+                            "path": str(target),
+                            "container": container,
+                        },
+                        "actions_applied": len(plan.actions),
+                        "duration_seconds": round(duration, 1),
+                        "backup_kept": should_keep_backup,
+                    }
+                    if result.backup_path:
+                        output["backup_path"] = str(result.backup_path)
+                    click.echo(json.dumps(output, indent=2))
+                else:
+                    click.echo(f"Policy: {policy_path} (v{policy.schema_version})")
+                    click.echo(f"Target: {target}")
+                    click.echo("")
+                    msg = f"Applied {len(plan.actions)} changes in {duration:.1f}s"
+                    click.echo(msg)
+                    if result.backup_path:
+                        click.echo(f"Backup: {result.backup_path} (kept)")
+
+                sys.exit(EXIT_SUCCESS)
+            else:
+                # Update operation status to FAILED (backup restored by executor)
+                update_operation_status(
+                    conn,
+                    operation.id,
+                    OperationStatus.ROLLED_BACK,
+                    error_message=result.message,
+                )
+
+                _error_exit(result.message, EXIT_OPERATION_FAILED, json_output)
+
+    except FileLockError:
+        _error_exit(
+            f"File is being modified by another operation: {target}",
+            EXIT_GENERAL_ERROR,
+            json_output,
+        )
 
 
 def _error_exit(message: str, code: int, json_output: bool) -> None:

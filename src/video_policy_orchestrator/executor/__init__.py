@@ -10,12 +10,15 @@ This module provides adapters for external tools:
 
 from video_policy_orchestrator.executor.backup import (
     BACKUP_SUFFIX,
+    FileLockError,
     cleanup_backup,
     create_backup,
+    file_lock,
     get_backup_path,
     has_backup,
     restore_from_backup,
 )
+from video_policy_orchestrator.executor.ffmpeg_metadata import FfmpegMetadataExecutor
 from video_policy_orchestrator.executor.interface import (
     Executor,
     ExecutorResult,
@@ -23,6 +26,7 @@ from video_policy_orchestrator.executor.interface import (
     get_available_tools,
     require_tool,
 )
+from video_policy_orchestrator.executor.mkvpropedit import MkvpropeditExecutor
 
 __all__ = [
     # Interface
@@ -31,11 +35,16 @@ __all__ = [
     "check_tool_availability",
     "get_available_tools",
     "require_tool",
+    # Executors
+    "MkvpropeditExecutor",
+    "FfmpegMetadataExecutor",
     # Backup
     "BACKUP_SUFFIX",
+    "FileLockError",
     "create_backup",
     "restore_from_backup",
     "cleanup_backup",
     "get_backup_path",
     "has_backup",
+    "file_lock",
 ]

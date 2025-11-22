@@ -90,13 +90,13 @@
 
 ### Implementation
 
-- [ ] T026 [P] [US3] Create executor/mkvpropedit.py with MkvpropeditExecutor class for MKV metadata changes (flags, titles, language)
-- [ ] T027 [P] [US3] Create executor/ffmpeg_metadata.py with FfmpegMetadataExecutor class for non-MKV metadata changes
-- [ ] T028 [US3] Implement file locking mechanism in executor/backup.py to prevent concurrent modifications (FR-015)
-- [ ] T029 [US3] Create db/operations.py repository with create_operation(), update_operation_status(), get_pending_operations()
-- [ ] T030 [US3] Implement apply mode (non-dry-run) in cli/apply.py: backup creation, executor dispatch, DB logging
-- [ ] T031 [US3] Implement error handling and rollback in cli/apply.py: restore from backup on failure
-- [ ] T032 [US3] Implement --keep-backup / --no-keep-backup options in cli/apply.py
+- [X] T026 [P] [US3] Create executor/mkvpropedit.py with MkvpropeditExecutor class for MKV metadata changes (flags, titles, language)
+- [X] T027 [P] [US3] Create executor/ffmpeg_metadata.py with FfmpegMetadataExecutor class for non-MKV metadata changes
+- [X] T028 [US3] Implement file locking mechanism in executor/backup.py to prevent concurrent modifications (FR-015)
+- [X] T029 [US3] Create db/operations.py repository with create_operation(), update_operation_status(), get_pending_operations()
+- [X] T030 [US3] Implement apply mode (non-dry-run) in cli/apply.py: backup creation, executor dispatch, DB logging
+- [X] T031 [US3] Implement error handling and rollback in cli/apply.py: restore from backup on failure
+- [X] T032 [US3] Implement --keep-backup / --no-keep-backup options in cli/apply.py
 
 **Checkpoint**: User Story 3 complete - metadata changes applied safely with audit logging
 
