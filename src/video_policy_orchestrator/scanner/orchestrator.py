@@ -8,7 +8,7 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -112,7 +112,9 @@ class ScannerOrchestrator:
                     scanned = ScannedFile(
                         path=file_info["path"],
                         size=file_info["size"],
-                        modified_at=datetime.fromtimestamp(file_info["modified"]),
+                        modified_at=datetime.fromtimestamp(
+                            file_info["modified"], tz=timezone.utc
+                        ),
                     )
                     all_files.append(scanned)
 
@@ -164,20 +166,32 @@ class ScannerOrchestrator:
         # Reset interrupt event for this scan
         self._interrupt_event.clear()
 
+        import logging
+
         from video_policy_orchestrator.db.models import (
             FileRecord,
             get_file_by_path,
             upsert_file,
+            upsert_tracks_for_file,
+        )
+        from video_policy_orchestrator.introspector.ffprobe import FFprobeIntrospector
+        from video_policy_orchestrator.introspector.interface import (
+            MediaIntrospectionError,
         )
         from video_policy_orchestrator.introspector.stub import StubIntrospector
+
+        logger = logging.getLogger(__name__)
 
         # Set up signal handler for graceful shutdown
         old_handler = signal.signal(signal.SIGINT, self._create_signal_handler())
 
         try:
-            # Use stub introspector by default
+            # Use FFprobeIntrospector if available, otherwise fall back to stub
             if introspector is None:
-                introspector = StubIntrospector()
+                if FFprobeIntrospector.is_available():
+                    introspector = FFprobeIntrospector()
+                else:
+                    introspector = StubIntrospector()
 
             start_time = time.time()
             result = ScanResult()
@@ -200,7 +214,9 @@ class ScannerOrchestrator:
                         scanned = ScannedFile(
                             path=file_info["path"],
                             size=file_info["size"],
-                            modified_at=datetime.fromtimestamp(file_info["modified"]),
+                            modified_at=datetime.fromtimestamp(
+                                file_info["modified"], tz=timezone.utc
+                            ),
                         )
                         all_files.append(scanned)
 
@@ -223,8 +239,8 @@ class ScannerOrchestrator:
                     # New file
                     files_to_process.append(scanned)
                 else:
-                    # Check if modified
-                    existing_modified = existing.modified_at
+                    # Check if modified (compare as ISO 8601 strings)
+                    existing_modified = existing.modified_at  # ISO string from DB
                     scanned_modified = scanned.modified_at.isoformat()
                     if existing_modified != scanned_modified:
                         files_to_process.append(scanned)
@@ -248,7 +264,7 @@ class ScannerOrchestrator:
                             )
 
             # Persist to database with progress reporting
-            now = datetime.now()
+            now = datetime.now(timezone.utc)
             total_to_process = len(files_to_process)
             for i, scanned in enumerate(files_to_process):
                 if self._is_interrupted():
@@ -259,14 +275,20 @@ class ScannerOrchestrator:
                 # Use cached lookup result instead of querying again
                 existing = existing_records.get(scanned.path)
 
-                # Get container format from introspector
+                # Get container format and tracks from introspector
                 container_format = None
+                introspection_result = None
                 try:
-                    file_info = introspector.get_file_info(path)
-                    container_format = file_info.container_format
-                except Exception:
-                    # If introspection fails, continue without container format
-                    pass
+                    introspection_result = introspector.get_file_info(path)
+                    container_format = introspection_result.container_format
+                except MediaIntrospectionError as e:
+                    # Log warning and continue without introspection data
+                    logger.warning("Introspection failed for %s: %s", path, e)
+                except Exception as e:
+                    # Catch any other unexpected errors
+                    logger.warning(
+                        "Unexpected error during introspection for %s: %s", path, e
+                    )
 
                 record = FileRecord(
                     id=None,
@@ -283,7 +305,11 @@ class ScannerOrchestrator:
                     scan_error=scanned.hash_error,
                 )
 
-                upsert_file(conn, record)
+                file_id = upsert_file(conn, record)
+
+                # Persist tracks if introspection succeeded
+                if introspection_result is not None and introspection_result.tracks:
+                    upsert_tracks_for_file(conn, file_id, introspection_result.tracks)
 
                 if existing is None:
                     result.files_new += 1

@@ -1,7 +1,7 @@
 """Data models for Video Policy Orchestrator database."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -10,12 +10,19 @@ class TrackInfo:
     """Represents a media track within a video file (domain model)."""
 
     index: int
-    track_type: str  # "video", "audio", "subtitle", "other"
+    track_type: str  # "video", "audio", "subtitle", "attachment", "other"
     codec: str | None = None
     language: str | None = None
     title: str | None = None
     is_default: bool = False
     is_forced: bool = False
+    # Audio-specific fields (003-media-introspection)
+    channels: int | None = None
+    channel_layout: str | None = None  # Human-readable: "stereo", "5.1", etc.
+    # Video-specific fields (003-media-introspection)
+    width: int | None = None
+    height: int | None = None
+    frame_rate: str | None = None  # Stored as string to preserve precision
 
 
 @dataclass
@@ -30,10 +37,26 @@ class FileInfo:
     modified_at: datetime
     content_hash: str | None = None
     container_format: str | None = None
-    scanned_at: datetime = field(default_factory=datetime.now)
+    scanned_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     scan_status: str = "ok"  # "ok", "error", "pending"
     scan_error: str | None = None
     tracks: list[TrackInfo] = field(default_factory=list)
+
+
+@dataclass
+class IntrospectionResult:
+    """Result of media file introspection."""
+
+    file_path: Path
+    container_format: str | None
+    tracks: list[TrackInfo]
+    warnings: list[str] = field(default_factory=list)
+    error: str | None = None
+
+    @property
+    def success(self) -> bool:
+        """Return True if introspection completed without fatal errors."""
+        return self.error is None
 
 
 @dataclass
@@ -85,6 +108,12 @@ class TrackRecord:
     title: str | None
     is_default: bool
     is_forced: bool
+    # New fields (003-media-introspection)
+    channels: int | None = None
+    channel_layout: str | None = None
+    width: int | None = None
+    height: int | None = None
+    frame_rate: str | None = None
 
     @classmethod
     def from_track_info(cls, info: TrackInfo, file_id: int) -> "TrackRecord":
@@ -99,6 +128,11 @@ class TrackRecord:
             title=info.title,
             is_default=info.is_default,
             is_forced=info.is_forced,
+            channels=info.channels,
+            channel_layout=info.channel_layout,
+            width=info.width,
+            height=info.height,
+            frame_rate=info.frame_rate,
         )
 
 
@@ -191,6 +225,8 @@ def upsert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
     )
     result = cursor.fetchone()
     conn.commit()
+    if result is None:
+        raise RuntimeError("RETURNING clause failed to return file ID")
     return result[0]
 
 
@@ -258,8 +294,9 @@ def insert_track(conn: sqlite3.Connection, record: TrackRecord) -> int:
         """
         INSERT INTO tracks (
             file_id, track_index, track_type, codec,
-            language, title, is_default, is_forced
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            language, title, is_default, is_forced,
+            channels, channel_layout, width, height, frame_rate
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             record.file_id,
@@ -270,6 +307,11 @@ def insert_track(conn: sqlite3.Connection, record: TrackRecord) -> int:
             record.title,
             1 if record.is_default else 0,
             1 if record.is_forced else 0,
+            record.channels,
+            record.channel_layout,
+            record.width,
+            record.height,
+            record.frame_rate,
         ),
     )
     conn.commit()
@@ -289,7 +331,8 @@ def get_tracks_for_file(conn: sqlite3.Connection, file_id: int) -> list[TrackRec
     cursor = conn.execute(
         """
         SELECT id, file_id, track_index, track_type, codec,
-               language, title, is_default, is_forced
+               language, title, is_default, is_forced,
+               channels, channel_layout, width, height, frame_rate
         FROM tracks WHERE file_id = ?
         ORDER BY track_index
         """,
@@ -306,8 +349,13 @@ def get_tracks_for_file(conn: sqlite3.Connection, file_id: int) -> list[TrackRec
                 codec=row[4],
                 language=row[5],
                 title=row[6],
-                is_default=bool(row[7]),
-                is_forced=bool(row[8]),
+                is_default=row[7] == 1,
+                is_forced=row[8] == 1,
+                channels=row[9],
+                channel_layout=row[10],
+                width=row[11],
+                height=row[12],
+                frame_rate=row[13],
             )
         )
     return tracks
@@ -321,4 +369,97 @@ def delete_tracks_for_file(conn: sqlite3.Connection, file_id: int) -> None:
         file_id: ID of the file.
     """
     conn.execute("DELETE FROM tracks WHERE file_id = ?", (file_id,))
+    conn.commit()
+
+
+def upsert_tracks_for_file(
+    conn: sqlite3.Connection, file_id: int, tracks: list[TrackInfo]
+) -> None:
+    """Smart merge tracks for a file: update existing, insert new, delete missing.
+
+    Args:
+        conn: Database connection.
+        file_id: ID of the parent file.
+        tracks: List of TrackInfo objects from introspection.
+
+    Algorithm:
+        1. Get existing track indices for file_id
+        2. For each new track:
+           - If track_index exists: UPDATE all fields
+           - If track_index is new: INSERT
+        3. DELETE tracks with indices not in new list
+    """
+    # Get existing track indices
+    cursor = conn.execute(
+        "SELECT track_index FROM tracks WHERE file_id = ?", (file_id,)
+    )
+    existing_indices = {row[0] for row in cursor.fetchall()}
+
+    # Track which indices we've processed
+    new_indices = {track.index for track in tracks}
+
+    for track in tracks:
+        if track.index in existing_indices:
+            # Update existing track
+            conn.execute(
+                """
+                UPDATE tracks SET
+                    track_type = ?, codec = ?, language = ?, title = ?,
+                    is_default = ?, is_forced = ?, channels = ?, channel_layout = ?,
+                    width = ?, height = ?, frame_rate = ?
+                WHERE file_id = ? AND track_index = ?
+                """,
+                (
+                    track.track_type,
+                    track.codec,
+                    track.language,
+                    track.title,
+                    1 if track.is_default else 0,
+                    1 if track.is_forced else 0,
+                    track.channels,
+                    track.channel_layout,
+                    track.width,
+                    track.height,
+                    track.frame_rate,
+                    file_id,
+                    track.index,
+                ),
+            )
+        else:
+            # Insert new track
+            record = TrackRecord.from_track_info(track, file_id)
+            conn.execute(
+                """
+                INSERT INTO tracks (
+                    file_id, track_index, track_type, codec,
+                    language, title, is_default, is_forced,
+                    channels, channel_layout, width, height, frame_rate
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    record.file_id,
+                    record.track_index,
+                    record.track_type,
+                    record.codec,
+                    record.language,
+                    record.title,
+                    1 if record.is_default else 0,
+                    1 if record.is_forced else 0,
+                    record.channels,
+                    record.channel_layout,
+                    record.width,
+                    record.height,
+                    record.frame_rate,
+                ),
+            )
+
+    # Delete tracks that are no longer present
+    stale_indices = existing_indices - new_indices
+    if stale_indices:
+        placeholders = ",".join("?" * len(stale_indices))
+        conn.execute(
+            f"DELETE FROM tracks WHERE file_id = ? AND track_index IN ({placeholders})",
+            (file_id, *stale_indices),
+        )
+
     conn.commit()

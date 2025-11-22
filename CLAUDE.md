@@ -44,6 +44,8 @@ Key components:
 - Python 3.10+ (per pyproject.toml) + click (CLI framework), dataclasses (data structures), sqlite3 (stdlib) (002-library-scanner)
 - Rust 1.70+ with PyO3/maturin for native extension (vpo-core) providing parallel discovery and hashing (002-library-scanner)
 - SQLite (~/.vpo/library.db) (002-library-scanner)
+- Python 3.10+ (per pyproject.toml) + click (CLI), subprocess (ffprobe invocation), sqlite3 (stdlib) (003-media-introspection)
+- SQLite (~/.vpo/library.db) - existing schema from 002-library-scanner (003-media-introspection)
 
 ## Recent Changes
 - 001-project-skeleton: Added Python 3.10+ (minimum supported; CI will test 3.10, 3.11, 3.12) + ruff (linting/formatting), pytest (testing)

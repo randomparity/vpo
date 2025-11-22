@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -19,10 +19,10 @@ CREATE TABLE IF NOT EXISTS files (
     directory TEXT NOT NULL,
     extension TEXT NOT NULL,
     size_bytes INTEGER NOT NULL,
-    modified_at TEXT NOT NULL,
+    modified_at TEXT NOT NULL,  -- ISO 8601 UTC timestamp
     content_hash TEXT,
     container_format TEXT,
-    scanned_at TEXT NOT NULL,
+    scanned_at TEXT NOT NULL,   -- ISO 8601 UTC timestamp
     scan_status TEXT NOT NULL DEFAULT 'pending',
     scan_error TEXT
 );
@@ -42,6 +42,12 @@ CREATE TABLE IF NOT EXISTS tracks (
     title TEXT,
     is_default INTEGER NOT NULL DEFAULT 0,
     is_forced INTEGER NOT NULL DEFAULT 0,
+    -- New columns (003-media-introspection)
+    channels INTEGER,
+    channel_layout TEXT,
+    width INTEGER,
+    height INTEGER,
+    frame_rate TEXT,
     FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
     UNIQUE(file_id, track_index)
 );
@@ -109,6 +115,44 @@ def get_schema_version(conn: sqlite3.Connection) -> int | None:
         return None
 
 
+def migrate_v1_to_v2(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 1 to version 2.
+
+    Adds new columns to tracks table for media introspection:
+    - channels, channel_layout (audio)
+    - width, height, frame_rate (video)
+
+    This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Get existing columns in tracks table
+    cursor = conn.execute("PRAGMA table_info(tracks)")
+    existing_columns = {row[1] for row in cursor.fetchall()}
+
+    # Define new columns to add
+    new_columns = [
+        ("channels", "INTEGER"),
+        ("channel_layout", "TEXT"),
+        ("width", "INTEGER"),
+        ("height", "INTEGER"),
+        ("frame_rate", "TEXT"),
+    ]
+
+    # Add missing columns
+    for col_name, col_type in new_columns:
+        if col_name not in existing_columns:
+            conn.execute(f"ALTER TABLE tracks ADD COLUMN {col_name} {col_type}")
+
+    # Update schema version
+    conn.execute(
+        "UPDATE _meta SET value = ? WHERE key = 'schema_version'",
+        (str(SCHEMA_VERSION),),
+    )
+    conn.commit()
+
+
 def initialize_database(conn: sqlite3.Connection) -> None:
     """Initialize the database with schema, creating tables if needed.
 
@@ -120,5 +164,6 @@ def initialize_database(conn: sqlite3.Connection) -> None:
     if current_version is None:
         create_schema(conn)
     elif current_version < SCHEMA_VERSION:
-        # Future: handle migrations
-        create_schema(conn)
+        # Run migrations
+        if current_version == 1:
+            migrate_v1_to_v2(conn)
