@@ -235,8 +235,15 @@ class TestTrackOperations:
                 None, file_id, 2, "audio", "aac", "jpn", "Japanese Audio", False, False
             ),
             TrackRecord(
-                None, file_id, 3, "subtitle", "subrip", "eng", "English Subs",
-                True, False
+                None,
+                file_id,
+                3,
+                "subtitle",
+                "subrip",
+                "eng",
+                "English Subs",
+                True,
+                False,
             ),
         ]
 
@@ -342,9 +349,7 @@ class TestTrackOperations:
         )
         file_id = insert_file(conn, file_record)
 
-        track = TrackRecord(
-            None, file_id, 0, "video", "hevc", None, None, True, False
-        )
+        track = TrackRecord(None, file_id, 0, "video", "hevc", None, None, True, False)
         insert_track(conn, track)
 
         # Delete the file

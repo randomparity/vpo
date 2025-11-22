@@ -101,9 +101,7 @@ def get_schema_version(conn: sqlite3.Connection) -> int | None:
         The schema version number, or None if not set.
     """
     try:
-        cursor = conn.execute(
-            "SELECT value FROM _meta WHERE key = 'schema_version'"
-        )
+        cursor = conn.execute("SELECT value FROM _meta WHERE key = 'schema_version'")
         row = cursor.fetchone()
         return int(row[0]) if row else None
     except sqlite3.OperationalError:

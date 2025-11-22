@@ -1,0 +1,65 @@
+# Pre-commit hooks for VPO
+# Install: pre-commit install && pre-commit install --hook-type pre-push
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Standard file hygiene hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  # Python formatting and linting with Ruff
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      # Run the formatter
+      - id: ruff-format
+      # Run the linter
+      - id: ruff
+        args: ['--fix']
+
+  # Rust formatting check
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt
+        description: Format Rust code with cargo fmt
+        entry: cargo fmt --manifest-path crates/vpo-core/Cargo.toml --
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: cargo-clippy
+        name: cargo clippy
+        description: Lint Rust code with clippy
+        entry: cargo clippy --manifest-path crates/vpo-core/Cargo.toml --all-targets -- -D warnings
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+  # Pre-push hooks (run only on push, not commit)
+  - repo: local
+    hooks:
+      - id: pytest-unit
+        name: pytest unit tests
+        description: Run Python unit tests before push
+        entry: uv run pytest tests/unit/ -q --tb=short
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: cargo-check
+        name: cargo check
+        description: Verify Rust code compiles before push
+        entry: cargo check --manifest-path crates/vpo-core/Cargo.toml
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

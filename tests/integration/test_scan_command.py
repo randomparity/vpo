@@ -47,9 +47,7 @@ class TestScanCommand:
         (temp_dir / "video.wmv").touch()
 
         runner = CliRunner()
-        result = runner.invoke(
-            main, ["scan", "--extensions", "mkv,avi", str(temp_dir)]
-        )
+        result = runner.invoke(main, ["scan", "--extensions", "mkv,avi", str(temp_dir)])
         assert result.exit_code == 0
         assert "2" in result.output  # Should only find mkv and avi
 
@@ -79,9 +77,7 @@ class TestScanCommand:
     def test_scan_verbose_output(self, temp_video_dir: Path):
         """Test verbose output mode."""
         runner = CliRunner()
-        result = runner.invoke(
-            main, ["scan", "--verbose", str(temp_video_dir)]
-        )
+        result = runner.invoke(main, ["scan", "--verbose", str(temp_video_dir)])
         assert result.exit_code == 0
         # Verbose should show more details
 
@@ -90,9 +86,7 @@ class TestScanCommand:
         import json
 
         runner = CliRunner()
-        result = runner.invoke(
-            main, ["scan", "--json", str(temp_video_dir)]
-        )
+        result = runner.invoke(main, ["scan", "--json", str(temp_video_dir)])
         assert result.exit_code == 0
 
         # Should be valid JSON

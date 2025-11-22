@@ -62,9 +62,7 @@ class TestSchemaCreation:
         initialize_database(conn)
 
         # Verify tables exist
-        cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        )
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = {row[0] for row in cursor.fetchall()}
         assert "files" in tables
 
