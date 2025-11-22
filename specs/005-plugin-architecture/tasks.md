@@ -51,20 +51,20 @@
 
 ### Tests for User Story 1
 
-- [ ] T011 [P] [US1] Contract test for AnalyzerPlugin protocol in tests/contract/test_plugin_contracts.py
-- [ ] T012 [P] [US1] Contract test for MutatorPlugin protocol in tests/contract/test_plugin_contracts.py
-- [ ] T013 [P] [US1] Unit test for APIVersion parsing and comparison in tests/unit/plugin/test_version.py
+- [X] T011 [P] [US1] Contract test for AnalyzerPlugin protocol in tests/contract/test_plugin_contracts.py
+- [X] T012 [P] [US1] Contract test for MutatorPlugin protocol in tests/contract/test_plugin_contracts.py
+- [X] T013 [P] [US1] Unit test for APIVersion parsing and comparison in tests/unit/plugin/test_version.py
 
 ### Implementation for User Story 1
 
-- [ ] T014 [P] [US1] Implement PluginType and PluginSource enums in src/video_policy_orchestrator/plugin/manifest.py
-- [ ] T015 [P] [US1] Implement PluginManifest dataclass in src/video_policy_orchestrator/plugin/manifest.py
-- [ ] T016 [P] [US1] Implement APIVersion class with semver parsing in src/video_policy_orchestrator/plugin/version.py
-- [ ] T017 [US1] Define AnalyzerPlugin protocol in src/video_policy_orchestrator/plugin/interfaces.py
-- [ ] T018 [US1] Define MutatorPlugin protocol in src/video_policy_orchestrator/plugin/interfaces.py
-- [ ] T019 [US1] Implement plugin event types (FileScannedEvent, etc.) in src/video_policy_orchestrator/plugin/events.py
-- [ ] T020 [US1] Add PLUGIN_API_VERSION constant and version compatibility check in src/video_policy_orchestrator/plugin/version.py
-- [ ] T021 [US1] Create public exports in src/video_policy_orchestrator/plugin/__init__.py
+- [X] T014 [P] [US1] Implement PluginType and PluginSource enums in src/video_policy_orchestrator/plugin/manifest.py
+- [X] T015 [P] [US1] Implement PluginManifest dataclass in src/video_policy_orchestrator/plugin/manifest.py
+- [X] T016 [P] [US1] Implement APIVersion class with semver parsing in src/video_policy_orchestrator/plugin/version.py
+- [X] T017 [US1] Define AnalyzerPlugin protocol in src/video_policy_orchestrator/plugin/interfaces.py
+- [X] T018 [US1] Define MutatorPlugin protocol in src/video_policy_orchestrator/plugin/interfaces.py
+- [X] T019 [US1] Implement plugin event types (FileScannedEvent, etc.) in src/video_policy_orchestrator/plugin/events.py
+- [X] T020 [US1] Add PLUGIN_API_VERSION constant and version compatibility check in src/video_policy_orchestrator/plugin/version.py
+- [X] T021 [US1] Create public exports in src/video_policy_orchestrator/plugin/__init__.py
 
 **Checkpoint**: Plugin interfaces defined and testable - developers can implement plugins against the protocol
 
