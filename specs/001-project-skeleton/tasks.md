@@ -79,7 +79,7 @@
 - [X] T018 [US2] Add checkout action and Python setup action with caching in ci.yml
 - [X] T019 [US2] Add lint job that runs `pip install -e ".[dev]"` and `ruff check .` in ci.yml
 - [X] T020 [US2] Add test job that runs `pip install -e ".[dev]"` and `pytest` in ci.yml
-- [ ] T021 [US2] Verify: push branch and confirm CI workflow runs successfully on GitHub
+- [X] T021 [US2] Verify: push branch and confirm CI workflow runs successfully on GitHub
 
 **Checkpoint**: User Story 2 complete - CI validates code on every PR
 
@@ -132,7 +132,7 @@
 - [X] T036 Run quickstart.md validation: follow all setup steps and verify they work
 - [X] T037 Verify all linting passes: `ruff check .` returns zero errors
 - [X] T038 Verify all tests pass: `pytest` returns zero failures
-- [ ] T039 Verify CI passes on feature branch before merging
+- [X] T039 Verify CI passes on feature branch before merging
 - [X] T040 Review all files for consistency (naming, formatting, structure)
 
 **Checkpoint**: Sprint 0 complete - project skeleton ready for Sprint 1
