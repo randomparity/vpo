@@ -21,7 +21,10 @@ from video_policy_orchestrator.plugin.events import (
     PolicyEvaluateEvent,
 )
 from video_policy_orchestrator.plugin.registry import PluginRegistry
-from video_policy_orchestrator.plugins.policy_engine import PolicyEnginePlugin, plugin
+from video_policy_orchestrator.plugins.policy_engine import (
+    PolicyEnginePlugin,
+    plugin_instance,
+)
 from video_policy_orchestrator.policy.models import (
     ActionType,
     DefaultFlagsConfig,
@@ -138,9 +141,9 @@ class TestPolicyEnginePluginDiscovery:
 
     def test_module_exports_plugin_instance(self):
         """Plugin module should export a usable plugin instance."""
-        assert plugin is not None
-        assert isinstance(plugin, PolicyEnginePlugin)
-        assert plugin.name == "policy-engine"
+        assert plugin_instance is not None
+        assert isinstance(plugin_instance, PolicyEnginePlugin)
+        assert plugin_instance.name == "policy-engine"
 
 
 # =============================================================================
@@ -552,7 +555,7 @@ class TestPolicyEngineBackwardsCompatibility:
         )
 
         # Plugin evaluator
-        plugin_plan = plugin.evaluate(
+        plugin_plan = plugin_instance.evaluate(
             file_id="test-uuid",
             file_path=file_path,
             container="mkv",
@@ -613,7 +616,7 @@ class TestPolicyEngineBackwardsCompatibility:
             ),
         ]
 
-        plan = plugin.evaluate(
+        plan = plugin_instance.evaluate(
             file_id="test-uuid",
             file_path=tmp_path / "test.mkv",
             container="mkv",
@@ -657,7 +660,7 @@ class TestPolicyEngineBackwardsCompatibility:
             ),
         ]
 
-        plan = plugin.evaluate(
+        plan = plugin_instance.evaluate(
             file_id="test-uuid",
             file_path=tmp_path / "test.mkv",
             container="mkv",

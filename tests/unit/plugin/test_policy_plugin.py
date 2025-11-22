@@ -337,9 +337,9 @@ class TestPolicyEnginePluginModule:
 
     def test_plugin_instance_exported(self):
         """Module exports plugin instance."""
-        from video_policy_orchestrator.plugins.policy_engine import plugin
+        from video_policy_orchestrator.plugins.policy_engine import plugin_instance
 
-        assert isinstance(plugin, PolicyEnginePlugin)
+        assert isinstance(plugin_instance, PolicyEnginePlugin)
 
     def test_plugin_class_exported(self):
         """Module exports PolicyEnginePlugin class."""

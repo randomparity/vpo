@@ -326,4 +326,6 @@ class PolicyEnginePlugin:
 
 
 # Plugin instance for discovery
-plugin = PolicyEnginePlugin()
+# Named 'plugin_instance' to avoid shadowing the 'plugin' module name
+# when accessed via package imports (e.g., 'from ... import plugin')
+plugin_instance = PolicyEnginePlugin()

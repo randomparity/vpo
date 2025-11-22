@@ -279,10 +279,10 @@ class PluginRegistry:
 
         # Policy Engine is the only built-in plugin for now
         try:
-            from video_policy_orchestrator.plugins.policy_engine import plugin
+            from video_policy_orchestrator.plugins.policy_engine import plugin_instance
 
             builtin_plugin = create_loaded_plugin(
-                plugin,
+                plugin_instance,
                 source=PluginSource.BUILTIN,
                 source_path=None,
             )

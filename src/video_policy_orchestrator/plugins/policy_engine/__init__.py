@@ -6,7 +6,7 @@ functionality as a built-in plugin.
 
 from video_policy_orchestrator.plugins.policy_engine.plugin import (
     PolicyEnginePlugin,
-    plugin,
+    plugin_instance,
 )
 
-__all__ = ["PolicyEnginePlugin", "plugin"]
+__all__ = ["PolicyEnginePlugin", "plugin_instance"]
