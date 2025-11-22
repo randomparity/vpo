@@ -13,13 +13,17 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from video_policy_orchestrator.policy.matchers import validate_regex_patterns
 from video_policy_orchestrator.policy.models import (
     DEFAULT_TRACK_ORDER,
+    VALID_AUDIO_CODECS,
+    VALID_RESOLUTIONS,
+    VALID_VIDEO_CODECS,
     DefaultFlagsConfig,
     PolicySchema,
     TrackType,
+    TranscodePolicyConfig,
 )
 
 # Current maximum supported schema version
-MAX_SCHEMA_VERSION = 1
+MAX_SCHEMA_VERSION = 2
 
 
 class PolicyValidationError(Exception):
@@ -42,6 +46,71 @@ class DefaultFlagsModel(BaseModel):
     clear_other_defaults: bool = True
 
 
+class TranscodePolicyModel(BaseModel):
+    """Pydantic model for transcode policy configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Video settings
+    target_video_codec: str | None = None
+    target_crf: int | None = Field(default=None, ge=0, le=51)
+    target_bitrate: str | None = None
+    max_resolution: str | None = None
+    max_width: int | None = Field(default=None, ge=1)
+    max_height: int | None = Field(default=None, ge=1)
+
+    # Audio preservation
+    audio_preserve_codecs: list[str] = Field(default_factory=list)
+    audio_transcode_to: str = "aac"
+    audio_transcode_bitrate: str = "192k"
+    audio_downmix: str | None = None
+
+    # Destination
+    destination: str | None = None
+    destination_fallback: str = "Unknown"
+
+    @field_validator("target_video_codec")
+    @classmethod
+    def validate_video_codec(cls, v: str | None) -> str | None:
+        """Validate video codec."""
+        if v is not None and v.lower() not in VALID_VIDEO_CODECS:
+            raise ValueError(
+                f"Invalid video codec '{v}'. "
+                f"Must be one of: {', '.join(sorted(VALID_VIDEO_CODECS))}"
+            )
+        return v
+
+    @field_validator("max_resolution")
+    @classmethod
+    def validate_resolution(cls, v: str | None) -> str | None:
+        """Validate resolution preset."""
+        if v is not None and v.lower() not in VALID_RESOLUTIONS:
+            raise ValueError(
+                f"Invalid resolution '{v}'. "
+                f"Must be one of: {', '.join(sorted(VALID_RESOLUTIONS))}"
+            )
+        return v
+
+    @field_validator("audio_transcode_to")
+    @classmethod
+    def validate_audio_codec(cls, v: str) -> str:
+        """Validate audio codec."""
+        if v.lower() not in VALID_AUDIO_CODECS:
+            raise ValueError(
+                f"Invalid audio codec '{v}'. "
+                f"Must be one of: {', '.join(sorted(VALID_AUDIO_CODECS))}"
+            )
+        return v
+
+    @field_validator("audio_downmix")
+    @classmethod
+    def validate_audio_downmix(cls, v: str | None) -> str | None:
+        """Validate audio downmix option."""
+        if v is not None and v not in ("stereo", "5.1"):
+            raise ValueError(f"Invalid audio_downmix '{v}'. Must be 'stereo' or '5.1'.")
+        return v
+
+
 class PolicyModel(BaseModel):
     """Pydantic model for policy YAML validation."""
 
@@ -59,6 +128,7 @@ class PolicyModel(BaseModel):
         default_factory=lambda: ["commentary", "director"]
     )
     default_flags: DefaultFlagsModel = Field(default_factory=DefaultFlagsModel)
+    transcode: TranscodePolicyModel | None = None
 
     @field_validator("track_order")
     @classmethod
@@ -117,6 +187,24 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
         clear_other_defaults=model.default_flags.clear_other_defaults,
     )
 
+    # Convert transcode config if present
+    transcode: TranscodePolicyConfig | None = None
+    if model.transcode is not None:
+        transcode = TranscodePolicyConfig(
+            target_video_codec=model.transcode.target_video_codec,
+            target_crf=model.transcode.target_crf,
+            target_bitrate=model.transcode.target_bitrate,
+            max_resolution=model.transcode.max_resolution,
+            max_width=model.transcode.max_width,
+            max_height=model.transcode.max_height,
+            audio_preserve_codecs=tuple(model.transcode.audio_preserve_codecs),
+            audio_transcode_to=model.transcode.audio_transcode_to,
+            audio_transcode_bitrate=model.transcode.audio_transcode_bitrate,
+            audio_downmix=model.transcode.audio_downmix,
+            destination=model.transcode.destination,
+            destination_fallback=model.transcode.destination_fallback,
+        )
+
     return PolicySchema(
         schema_version=model.schema_version,
         track_order=track_order,
@@ -124,6 +212,7 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
         subtitle_language_preference=tuple(model.subtitle_language_preference),
         commentary_patterns=tuple(model.commentary_patterns),
         default_flags=default_flags,
+        transcode=transcode,
     )
 
 

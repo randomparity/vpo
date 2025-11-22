@@ -33,6 +33,41 @@ class ActionType(Enum):
     CLEAR_FORCED = "clear_forced"  # Set forced flag to false
     SET_TITLE = "set_title"  # Change track title
     SET_LANGUAGE = "set_language"  # Change language tag
+    TRANSCODE = "transcode"  # Transcode video/audio
+    MOVE = "move"  # Move file to new location
+
+
+# Valid video codecs for transcoding
+VALID_VIDEO_CODECS = frozenset({"h264", "hevc", "vp9", "av1"})
+
+# Valid audio codecs for transcoding
+VALID_AUDIO_CODECS = frozenset(
+    {
+        "aac",
+        "ac3",
+        "eac3",
+        "flac",
+        "opus",
+        "mp3",
+        "truehd",
+        "dts",
+        "pcm_s16le",
+        "pcm_s24le",
+    }
+)
+
+# Valid resolution presets
+VALID_RESOLUTIONS = frozenset({"480p", "720p", "1080p", "1440p", "4k", "8k"})
+
+# Resolution to max dimension mapping
+RESOLUTION_MAP = {
+    "480p": (854, 480),
+    "720p": (1280, 720),
+    "1080p": (1920, 1080),
+    "1440p": (2560, 1440),
+    "4k": (3840, 2160),
+    "8k": (7680, 4320),
+}
 
 
 @dataclass(frozen=True)
@@ -43,6 +78,96 @@ class DefaultFlagsConfig:
     set_preferred_audio_default: bool = True
     set_preferred_subtitle_default: bool = False
     clear_other_defaults: bool = True
+
+
+@dataclass(frozen=True)
+class TranscodePolicyConfig:
+    """Transcoding-specific policy configuration."""
+
+    # Video settings
+    target_video_codec: str | None = None  # hevc, h264, vp9, av1
+    target_crf: int | None = None  # 0-51 for x264/x265
+    target_bitrate: str | None = None  # e.g., "5M", "2500k"
+    max_resolution: str | None = None  # 1080p, 720p, 4k, etc.
+    max_width: int | None = None  # Max width in pixels
+    max_height: int | None = None  # Max height in pixels
+
+    # Audio preservation
+    audio_preserve_codecs: tuple[str, ...] = ()  # Codecs to stream copy
+    audio_transcode_to: str = "aac"  # Target codec for non-preserved
+    audio_transcode_bitrate: str = "192k"  # Bitrate for transcoded audio
+    audio_downmix: str | None = None  # None, "stereo", "5.1"
+
+    # Destination
+    destination: str | None = None  # Template string for output location
+    destination_fallback: str = "Unknown"  # Fallback for missing metadata
+
+    def __post_init__(self) -> None:
+        """Validate transcode policy configuration."""
+        if self.target_video_codec is not None:
+            codec = self.target_video_codec.lower()
+            if codec not in VALID_VIDEO_CODECS:
+                raise ValueError(
+                    f"Invalid target_video_codec: {self.target_video_codec}. "
+                    f"Must be one of: {', '.join(sorted(VALID_VIDEO_CODECS))}"
+                )
+
+        if self.target_crf is not None:
+            if not 0 <= self.target_crf <= 51:
+                raise ValueError(
+                    f"Invalid target_crf: {self.target_crf}. Must be 0-51."
+                )
+
+        if self.max_resolution is not None:
+            if self.max_resolution.lower() not in VALID_RESOLUTIONS:
+                raise ValueError(
+                    f"Invalid max_resolution: {self.max_resolution}. "
+                    f"Must be one of: {', '.join(sorted(VALID_RESOLUTIONS))}"
+                )
+
+        if self.audio_transcode_to.lower() not in VALID_AUDIO_CODECS:
+            raise ValueError(
+                f"Invalid audio_transcode_to: {self.audio_transcode_to}. "
+                f"Must be one of: {', '.join(sorted(VALID_AUDIO_CODECS))}"
+            )
+
+        if self.audio_downmix is not None:
+            if self.audio_downmix not in ("stereo", "5.1"):
+                raise ValueError(
+                    f"Invalid audio_downmix: {self.audio_downmix}. "
+                    "Must be 'stereo' or '5.1'."
+                )
+
+    @property
+    def has_video_settings(self) -> bool:
+        """True if any video transcoding settings are specified."""
+        return any(
+            [
+                self.target_video_codec,
+                self.target_crf,
+                self.target_bitrate,
+                self.max_resolution,
+                self.max_width,
+                self.max_height,
+            ]
+        )
+
+    @property
+    def has_audio_settings(self) -> bool:
+        """True if audio processing settings are specified."""
+        return bool(self.audio_preserve_codecs) or self.audio_downmix is not None
+
+    def get_max_dimensions(self) -> tuple[int, int] | None:
+        """Get max dimensions from resolution preset or explicit values.
+
+        Returns:
+            (max_width, max_height) tuple or None if no limit.
+        """
+        if self.max_resolution:
+            return RESOLUTION_MAP.get(self.max_resolution.lower())
+        if self.max_width or self.max_height:
+            return (self.max_width or 99999, self.max_height or 99999)
+        return None
 
 
 # Default track order matching the policy schema
@@ -71,6 +196,7 @@ class PolicySchema:
     subtitle_language_preference: tuple[str, ...] = ("eng", "und")
     commentary_patterns: tuple[str, ...] = ("commentary", "director")
     default_flags: DefaultFlagsConfig = field(default_factory=DefaultFlagsConfig)
+    transcode: TranscodePolicyConfig | None = None
 
     def __post_init__(self) -> None:
         """Validate policy schema after initialization."""
@@ -82,6 +208,11 @@ class PolicySchema:
             raise ValueError("audio_language_preference cannot be empty")
         if not self.subtitle_language_preference:
             raise ValueError("subtitle_language_preference cannot be empty")
+
+    @property
+    def has_transcode_settings(self) -> bool:
+        """True if transcode settings are specified."""
+        return self.transcode is not None
 
 
 @dataclass(frozen=True)

@@ -68,19 +68,19 @@
 
 ### Implementation for User Story 1
 
-- [ ] T014 [P] [US1] Add TranscodePolicyConfig dataclass in `src/video_policy_orchestrator/policy/models.py`
-- [ ] T015 [P] [US1] Add validation for TranscodePolicyConfig (CRF 0-51, valid codecs) in `src/video_policy_orchestrator/policy/models.py`
-- [ ] T016 [US1] Extend PolicySchema to include optional transcode field in `src/video_policy_orchestrator/policy/models.py`
-- [ ] T017 [US1] Update policy loader to parse transcode section in `src/video_policy_orchestrator/policy/loader.py`
-- [ ] T018 [P] [US1] Create FFmpeg progress parser in `src/video_policy_orchestrator/jobs/progress.py`
-- [ ] T019 [US1] Create TranscodeExecutor with FFmpeg subprocess in `src/video_policy_orchestrator/executor/transcode.py`
-- [ ] T020 [US1] Implement codec compliance check (skip if already compliant) in `src/video_policy_orchestrator/executor/transcode.py`
-- [ ] T021 [US1] Implement resolution scaling logic in TranscodeExecutor in `src/video_policy_orchestrator/executor/transcode.py`
-- [ ] T022 [US1] Implement dry-run mode for TranscodeExecutor in `src/video_policy_orchestrator/executor/transcode.py`
-- [ ] T023 [US1] Create transcode CLI command in `src/video_policy_orchestrator/cli/transcode.py`
-- [ ] T024 [US1] Implement --policy, --codec, --crf, --max-resolution options in `src/video_policy_orchestrator/cli/transcode.py`
-- [ ] T025 [US1] Implement --dry-run and --recursive options in `src/video_policy_orchestrator/cli/transcode.py`
-- [ ] T026 [US1] Register transcode command in CLI main in `src/video_policy_orchestrator/cli/__init__.py`
+- [x] T014 [P] [US1] Add TranscodePolicyConfig dataclass in `src/video_policy_orchestrator/policy/models.py`
+- [x] T015 [P] [US1] Add validation for TranscodePolicyConfig (CRF 0-51, valid codecs) in `src/video_policy_orchestrator/policy/models.py`
+- [x] T016 [US1] Extend PolicySchema to include optional transcode field in `src/video_policy_orchestrator/policy/models.py`
+- [x] T017 [US1] Update policy loader to parse transcode section in `src/video_policy_orchestrator/policy/loader.py`
+- [x] T018 [P] [US1] Create FFmpeg progress parser in `src/video_policy_orchestrator/jobs/progress.py`
+- [x] T019 [US1] Create TranscodeExecutor with FFmpeg subprocess in `src/video_policy_orchestrator/executor/transcode.py`
+- [x] T020 [US1] Implement codec compliance check (skip if already compliant) in `src/video_policy_orchestrator/executor/transcode.py`
+- [x] T021 [US1] Implement resolution scaling logic in TranscodeExecutor in `src/video_policy_orchestrator/executor/transcode.py`
+- [x] T022 [US1] Implement dry-run mode for TranscodeExecutor in `src/video_policy_orchestrator/executor/transcode.py`
+- [x] T023 [US1] Create transcode CLI command in `src/video_policy_orchestrator/cli/transcode.py`
+- [x] T024 [US1] Implement --policy, --codec, --crf, --max-resolution options in `src/video_policy_orchestrator/cli/transcode.py`
+- [x] T025 [US1] Implement --dry-run and --recursive options in `src/video_policy_orchestrator/cli/transcode.py`
+- [x] T026 [US1] Register transcode command in CLI main in `src/video_policy_orchestrator/cli/__init__.py`
 
 **Commit Checkpoint**: Commit all US1 changes with message "feat(transcode): implement video transcoding with quality policy (US1)"
 
