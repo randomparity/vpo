@@ -140,6 +140,9 @@ def scan(
         click.echo("\nScan interrupted. Partial results saved.", err=True)
         sys.exit(130)  # Standard exit code for Ctrl+C
     elif result.errors:
+        # Exit 1 only if errors occurred AND no files were found (complete
+        # failure). Exit 0 if some files were processed despite errors
+        # (partial success).
         sys.exit(1) if not files else sys.exit(0)
 
 

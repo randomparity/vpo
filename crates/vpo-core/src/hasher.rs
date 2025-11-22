@@ -38,6 +38,8 @@ fn compute_file_hash(path: &str) -> Result<String, String> {
 
     if size < (CHUNK_SIZE * 2) as u64 {
         // Small file: hash entire content
+        // Note: We repeat the hash twice (first_hash:last_hash) even for small files
+        // to maintain a consistent format with large files, simplifying parsing.
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer).map_err(|e| e.to_string())?;
         let hash = xxh64(&buffer, 0);

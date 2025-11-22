@@ -61,6 +61,9 @@ pub fn discover_videos(
     // Track visited directories to detect symlink cycles
     let visited: std::sync::Mutex<HashSet<PathBuf>> = std::sync::Mutex::new(HashSet::new());
 
+    // Note: walkdir silently skips directories/files that cannot be read due to
+    // permission errors. This is intentional - we want to scan what we can access
+    // rather than failing the entire scan on permission issues.
     let walker = WalkDir::new(&root).follow_links(follow_symlinks);
 
     // Collect all entries first

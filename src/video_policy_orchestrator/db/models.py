@@ -103,7 +103,9 @@ class TrackRecord:
 
 
 # Database operations
-
+# Note: sqlite3 import is placed here (after dataclass definitions) to keep
+# data models at the top of the file for readability. The noqa comment suppresses
+# the E402 "module level import not at top of file" lint warning.
 import sqlite3  # noqa: E402
 
 

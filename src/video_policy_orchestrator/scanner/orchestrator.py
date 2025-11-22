@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import signal
 import sqlite3
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -15,15 +16,6 @@ from video_policy_orchestrator._core import discover_videos, hash_files
 
 if TYPE_CHECKING:
     from video_policy_orchestrator.introspector.interface import MediaIntrospector
-
-# Global flag for graceful shutdown
-_interrupted = False
-
-
-def _signal_handler(signum: int, frame) -> None:
-    """Handle interrupt signal (Ctrl+C) for graceful shutdown."""
-    global _interrupted
-    _interrupted = True
 
 
 @dataclass
@@ -71,12 +63,25 @@ class ScannerOrchestrator:
         """
         self.extensions = extensions or DEFAULT_EXTENSIONS
         self.follow_symlinks = follow_symlinks
+        self._interrupt_event = threading.Event()
+
+    def _create_signal_handler(self) -> Callable[[int, object], None]:
+        """Create a signal handler that sets the interrupt event."""
+
+        def handler(signum: int, frame: object) -> None:
+            self._interrupt_event.set()
+
+        return handler
+
+    def _is_interrupted(self) -> bool:
+        """Check if the scan has been interrupted."""
+        return self._interrupt_event.is_set()
 
     def scan_directories(
         self,
         directories: list[Path],
         compute_hashes: bool = True,
-        progress_callback: callable = None,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> tuple[list[ScannedFile], ScanResult]:
         """Scan directories for video files.
 
@@ -156,8 +161,8 @@ class ScannerOrchestrator:
         Returns:
             Tuple of (list of scanned files, scan result summary).
         """
-        global _interrupted
-        _interrupted = False
+        # Reset interrupt event for this scan
+        self._interrupt_event.clear()
 
         from video_policy_orchestrator.db.models import (
             FileRecord,
@@ -167,7 +172,7 @@ class ScannerOrchestrator:
         from video_policy_orchestrator.introspector.stub import StubIntrospector
 
         # Set up signal handler for graceful shutdown
-        old_handler = signal.signal(signal.SIGINT, _signal_handler)
+        old_handler = signal.signal(signal.SIGINT, self._create_signal_handler())
 
         try:
             # Use stub introspector by default
@@ -182,7 +187,7 @@ class ScannerOrchestrator:
 
             # Discover files in all directories
             for directory in directories:
-                if _interrupted:
+                if self._is_interrupted():
                     break
                 try:
                     discovered = discover_videos(
@@ -206,11 +211,14 @@ class ScannerOrchestrator:
             result.files_found = len(all_files)
 
             # Check which files need processing (new or modified)
+            # Cache existing records to avoid duplicate lookups during persist phase
             files_to_process: list[ScannedFile] = []
+            existing_records: dict[str, FileRecord | None] = {}
             for scanned in all_files:
-                if _interrupted:
+                if self._is_interrupted():
                     break
                 existing = get_file_by_path(conn, scanned.path)
+                existing_records[scanned.path] = existing
                 if existing is None:
                     # New file
                     files_to_process.append(scanned)
@@ -224,7 +232,7 @@ class ScannerOrchestrator:
                         result.files_skipped += 1
 
             # Compute hashes only for files that need processing
-            if compute_hashes and files_to_process and not _interrupted:
+            if compute_hashes and files_to_process and not self._is_interrupted():
                 paths = [f.path for f in files_to_process]
                 hash_results = hash_files(paths)
 
@@ -243,12 +251,13 @@ class ScannerOrchestrator:
             now = datetime.now()
             total_to_process = len(files_to_process)
             for i, scanned in enumerate(files_to_process):
-                if _interrupted:
+                if self._is_interrupted():
                     result.interrupted = True
                     break
 
                 path = Path(scanned.path)
-                existing = get_file_by_path(conn, scanned.path)
+                # Use cached lookup result instead of querying again
+                existing = existing_records.get(scanned.path)
 
                 # Get container format from introspector
                 container_format = None
