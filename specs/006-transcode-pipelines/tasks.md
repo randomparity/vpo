@@ -43,16 +43,16 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Add JobType and JobStatus enums in `src/video_policy_orchestrator/db/models.py`
-- [ ] T005 [P] Add Job dataclass with all fields in `src/video_policy_orchestrator/db/models.py`
-- [ ] T006 [P] Add JobProgress dataclass in `src/video_policy_orchestrator/db/models.py`
-- [ ] T007 Create jobs table SQL schema (v5) in `src/video_policy_orchestrator/db/schema.py`
-- [ ] T008 Implement migrate_v4_to_v5() migration in `src/video_policy_orchestrator/db/schema.py`
-- [ ] T009 Update initialize_database() to call v4→v5 migration in `src/video_policy_orchestrator/db/schema.py`
-- [ ] T010 [P] Add job CRUD operations (insert_job, get_job, update_job_status) in `src/video_policy_orchestrator/db/models.py`
-- [ ] T011 [P] Add job query operations (get_queued_jobs, get_jobs_by_status) in `src/video_policy_orchestrator/db/models.py`
-- [ ] T012 Extend config models with jobs/worker settings in `src/video_policy_orchestrator/config/models.py`
-- [ ] T013 Update config loader to parse jobs/worker settings in `src/video_policy_orchestrator/config/loader.py`
+- [x] T004 Add JobType and JobStatus enums in `src/video_policy_orchestrator/db/models.py`
+- [x] T005 [P] Add Job dataclass with all fields in `src/video_policy_orchestrator/db/models.py`
+- [x] T006 [P] Add JobProgress dataclass in `src/video_policy_orchestrator/db/models.py`
+- [x] T007 Create jobs table SQL schema (v5) in `src/video_policy_orchestrator/db/schema.py`
+- [x] T008 Implement migrate_v4_to_v5() migration in `src/video_policy_orchestrator/db/schema.py`
+- [x] T009 Update initialize_database() to call v4→v5 migration in `src/video_policy_orchestrator/db/schema.py`
+- [x] T010 [P] Add job CRUD operations (insert_job, get_job, update_job_status) in `src/video_policy_orchestrator/db/models.py`
+- [x] T011 [P] Add job query operations (get_queued_jobs, get_jobs_by_status) in `src/video_policy_orchestrator/db/models.py`
+- [x] T012 Extend config models with jobs/worker settings in `src/video_policy_orchestrator/config/models.py`
+- [x] T013 Update config loader to parse jobs/worker settings in `src/video_policy_orchestrator/config/loader.py`
 
 **Commit Checkpoint**: Commit all Phase 2 changes with message "feat(transcode): add Job model, schema v5, and config extensions"
 

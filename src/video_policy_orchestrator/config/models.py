@@ -61,6 +61,40 @@ class PluginConfig:
 
 
 @dataclass
+class JobsConfig:
+    """Configuration for job system."""
+
+    # How long to keep completed jobs (days)
+    retention_days: int = 30
+
+    # Purge old jobs on worker start
+    auto_purge: bool = True
+
+    # Temp directory for transcoding output (None = use source directory)
+    temp_directory: Path | None = None
+
+    # Keep backup of original after successful transcode
+    backup_original: bool = True
+
+
+@dataclass
+class WorkerConfig:
+    """Configuration for job worker defaults."""
+
+    # Maximum number of files to process per worker run
+    max_files: int | None = None
+
+    # Maximum duration in seconds per worker run
+    max_duration: int | None = None
+
+    # End time for worker (HH:MM format, 24h)
+    end_by: str | None = None
+
+    # Number of CPU cores to use for transcoding
+    cpu_cores: int | None = None
+
+
+@dataclass
 class VPOConfig:
     """Main configuration container for VPO.
 
@@ -71,6 +105,8 @@ class VPOConfig:
     detection: DetectionConfig = field(default_factory=DetectionConfig)
     behavior: BehaviorConfig = field(default_factory=BehaviorConfig)
     plugins: PluginConfig = field(default_factory=PluginConfig)
+    jobs: JobsConfig = field(default_factory=JobsConfig)
+    worker: WorkerConfig = field(default_factory=WorkerConfig)
 
     # Database path (can be overridden)
     database_path: Path | None = None

@@ -16,6 +16,23 @@ class OperationStatus(Enum):
     ROLLED_BACK = "ROLLED_BACK"
 
 
+class JobType(Enum):
+    """Type of job in the queue."""
+
+    TRANSCODE = "transcode"
+    MOVE = "move"
+
+
+class JobStatus(Enum):
+    """Status of a job in the queue."""
+
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
 @dataclass
 class TrackInfo:
     """Represents a media track within a video file (domain model)."""
@@ -180,6 +197,59 @@ class PluginAcknowledgment:
     plugin_hash: str  # SHA-256 hash of plugin file(s)
     acknowledged_at: str  # ISO 8601 UTC
     acknowledged_by: str | None = None  # Hostname or user identifier
+
+
+@dataclass
+class JobProgress:
+    """Detailed progress information for a running job."""
+
+    percent: float  # Overall percentage 0-100
+
+    # For transcoding jobs
+    frame_current: int | None = None
+    frame_total: int | None = None
+    time_current: float | None = None  # Seconds
+    time_total: float | None = None  # Seconds
+    fps: float | None = None  # Current encoding FPS
+    bitrate: str | None = None  # Current bitrate
+    size_current: int | None = None  # Output size so far (bytes)
+
+    # Estimates
+    eta_seconds: int | None = None  # Estimated time remaining
+
+
+@dataclass
+class Job:
+    """Database record for jobs table."""
+
+    id: str  # UUID v4
+    file_id: int  # FK to files.id
+    file_path: str  # Path at time of job creation
+    job_type: JobType  # TRANSCODE or MOVE
+    status: JobStatus  # QUEUED, RUNNING, COMPLETED, FAILED, CANCELLED
+    priority: int  # Lower = higher priority (default: 100)
+
+    # Policy reference
+    policy_name: str | None  # Name of policy used
+    policy_json: str  # Serialized policy settings for this job
+
+    # Progress tracking
+    progress_percent: float  # 0.0 - 100.0
+    progress_json: str | None  # Detailed progress (frames, time, etc.)
+
+    # Timing (all ISO-8601 UTC)
+    created_at: str
+    started_at: str | None = None
+    completed_at: str | None = None
+
+    # Worker tracking
+    worker_pid: int | None = None  # PID of worker processing this job
+    worker_heartbeat: str | None = None  # ISO-8601 UTC, updated periodically
+
+    # Results
+    output_path: str | None = None  # Path to output file
+    backup_path: str | None = None  # Path to backup of original
+    error_message: str | None = None  # Error details if FAILED
 
 
 # Database operations
@@ -648,3 +718,354 @@ def delete_plugin_acknowledgment(
     )
     conn.commit()
     return cursor.rowcount > 0
+
+
+# Job operations
+
+
+def _row_to_job(row: tuple) -> Job:
+    """Convert a database row to a Job object."""
+    return Job(
+        id=row[0],
+        file_id=row[1],
+        file_path=row[2],
+        job_type=JobType(row[3]),
+        status=JobStatus(row[4]),
+        priority=row[5],
+        policy_name=row[6],
+        policy_json=row[7],
+        progress_percent=row[8],
+        progress_json=row[9],
+        created_at=row[10],
+        started_at=row[11],
+        completed_at=row[12],
+        worker_pid=row[13],
+        worker_heartbeat=row[14],
+        output_path=row[15],
+        backup_path=row[16],
+        error_message=row[17],
+    )
+
+
+def insert_job(conn: sqlite3.Connection, job: Job) -> str:
+    """Insert a new job record.
+
+    Args:
+        conn: Database connection.
+        job: Job to insert.
+
+    Returns:
+        The ID of the inserted job.
+    """
+    conn.execute(
+        """
+        INSERT INTO jobs (
+            id, file_id, file_path, job_type, status, priority,
+            policy_name, policy_json, progress_percent, progress_json,
+            created_at, started_at, completed_at,
+            worker_pid, worker_heartbeat,
+            output_path, backup_path, error_message
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            job.id,
+            job.file_id,
+            job.file_path,
+            job.job_type.value,
+            job.status.value,
+            job.priority,
+            job.policy_name,
+            job.policy_json,
+            job.progress_percent,
+            job.progress_json,
+            job.created_at,
+            job.started_at,
+            job.completed_at,
+            job.worker_pid,
+            job.worker_heartbeat,
+            job.output_path,
+            job.backup_path,
+            job.error_message,
+        ),
+    )
+    conn.commit()
+    return job.id
+
+
+def get_job(conn: sqlite3.Connection, job_id: str) -> Job | None:
+    """Get a job by ID.
+
+    Args:
+        conn: Database connection.
+        job_id: Job UUID.
+
+    Returns:
+        Job if found, None otherwise.
+    """
+    cursor = conn.execute(
+        """
+        SELECT id, file_id, file_path, job_type, status, priority,
+               policy_name, policy_json, progress_percent, progress_json,
+               created_at, started_at, completed_at,
+               worker_pid, worker_heartbeat,
+               output_path, backup_path, error_message
+        FROM jobs WHERE id = ?
+        """,
+        (job_id,),
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    return _row_to_job(row)
+
+
+def update_job_status(
+    conn: sqlite3.Connection,
+    job_id: str,
+    status: JobStatus,
+    error_message: str | None = None,
+    completed_at: str | None = None,
+) -> bool:
+    """Update a job's status.
+
+    Args:
+        conn: Database connection.
+        job_id: Job UUID.
+        status: New status.
+        error_message: Error message if status is FAILED.
+        completed_at: Completion timestamp (ISO-8601 UTC).
+
+    Returns:
+        True if job was updated, False if job not found.
+    """
+    cursor = conn.execute(
+        """
+        UPDATE jobs SET status = ?, error_message = ?, completed_at = ?
+        WHERE id = ?
+        """,
+        (status.value, error_message, completed_at, job_id),
+    )
+    conn.commit()
+    return cursor.rowcount > 0
+
+
+def update_job_progress(
+    conn: sqlite3.Connection,
+    job_id: str,
+    progress_percent: float,
+    progress_json: str | None = None,
+) -> bool:
+    """Update a job's progress.
+
+    Args:
+        conn: Database connection.
+        job_id: Job UUID.
+        progress_percent: Progress percentage (0-100).
+        progress_json: JSON-encoded detailed progress.
+
+    Returns:
+        True if job was updated, False if job not found.
+    """
+    cursor = conn.execute(
+        """
+        UPDATE jobs SET progress_percent = ?, progress_json = ?
+        WHERE id = ?
+        """,
+        (progress_percent, progress_json, job_id),
+    )
+    conn.commit()
+    return cursor.rowcount > 0
+
+
+def update_job_worker(
+    conn: sqlite3.Connection,
+    job_id: str,
+    worker_pid: int | None,
+    worker_heartbeat: str | None,
+    started_at: str | None = None,
+) -> bool:
+    """Update a job's worker info.
+
+    Args:
+        conn: Database connection.
+        job_id: Job UUID.
+        worker_pid: Worker process ID.
+        worker_heartbeat: Heartbeat timestamp (ISO-8601 UTC).
+        started_at: Start timestamp (ISO-8601 UTC).
+
+    Returns:
+        True if job was updated, False if job not found.
+    """
+    if started_at:
+        cursor = conn.execute(
+            """
+            UPDATE jobs SET worker_pid = ?, worker_heartbeat = ?, started_at = ?
+            WHERE id = ?
+            """,
+            (worker_pid, worker_heartbeat, started_at, job_id),
+        )
+    else:
+        cursor = conn.execute(
+            """
+            UPDATE jobs SET worker_pid = ?, worker_heartbeat = ?
+            WHERE id = ?
+            """,
+            (worker_pid, worker_heartbeat, job_id),
+        )
+    conn.commit()
+    return cursor.rowcount > 0
+
+
+def update_job_output(
+    conn: sqlite3.Connection,
+    job_id: str,
+    output_path: str | None,
+    backup_path: str | None = None,
+) -> bool:
+    """Update a job's output paths.
+
+    Args:
+        conn: Database connection.
+        job_id: Job UUID.
+        output_path: Path to output file.
+        backup_path: Path to backup of original.
+
+    Returns:
+        True if job was updated, False if job not found.
+    """
+    cursor = conn.execute(
+        """
+        UPDATE jobs SET output_path = ?, backup_path = ?
+        WHERE id = ?
+        """,
+        (output_path, backup_path, job_id),
+    )
+    conn.commit()
+    return cursor.rowcount > 0
+
+
+def get_queued_jobs(conn: sqlite3.Connection, limit: int | None = None) -> list[Job]:
+    """Get queued jobs ordered by priority and creation time.
+
+    Args:
+        conn: Database connection.
+        limit: Maximum number of jobs to return.
+
+    Returns:
+        List of Job objects.
+    """
+    query = """
+        SELECT id, file_id, file_path, job_type, status, priority,
+               policy_name, policy_json, progress_percent, progress_json,
+               created_at, started_at, completed_at,
+               worker_pid, worker_heartbeat,
+               output_path, backup_path, error_message
+        FROM jobs
+        WHERE status = 'queued'
+        ORDER BY priority ASC, created_at ASC
+    """
+    if limit:
+        query += f" LIMIT {limit}"
+
+    cursor = conn.execute(query)
+    return [_row_to_job(row) for row in cursor.fetchall()]
+
+
+def get_jobs_by_status(
+    conn: sqlite3.Connection, status: JobStatus, limit: int | None = None
+) -> list[Job]:
+    """Get jobs by status.
+
+    Args:
+        conn: Database connection.
+        status: Job status to filter by.
+        limit: Maximum number of jobs to return.
+
+    Returns:
+        List of Job objects.
+    """
+    query = """
+        SELECT id, file_id, file_path, job_type, status, priority,
+               policy_name, policy_json, progress_percent, progress_json,
+               created_at, started_at, completed_at,
+               worker_pid, worker_heartbeat,
+               output_path, backup_path, error_message
+        FROM jobs
+        WHERE status = ?
+        ORDER BY created_at DESC
+    """
+    if limit:
+        query += f" LIMIT {limit}"
+
+    cursor = conn.execute(query, (status.value,))
+    return [_row_to_job(row) for row in cursor.fetchall()]
+
+
+def get_all_jobs(conn: sqlite3.Connection, limit: int | None = None) -> list[Job]:
+    """Get all jobs ordered by creation time (newest first).
+
+    Args:
+        conn: Database connection.
+        limit: Maximum number of jobs to return.
+
+    Returns:
+        List of Job objects.
+    """
+    query = """
+        SELECT id, file_id, file_path, job_type, status, priority,
+               policy_name, policy_json, progress_percent, progress_json,
+               created_at, started_at, completed_at,
+               worker_pid, worker_heartbeat,
+               output_path, backup_path, error_message
+        FROM jobs
+        ORDER BY created_at DESC
+    """
+    if limit:
+        query += f" LIMIT {limit}"
+
+    cursor = conn.execute(query)
+    return [_row_to_job(row) for row in cursor.fetchall()]
+
+
+def delete_job(conn: sqlite3.Connection, job_id: str) -> bool:
+    """Delete a job.
+
+    Args:
+        conn: Database connection.
+        job_id: Job UUID.
+
+    Returns:
+        True if job was deleted, False if job not found.
+    """
+    cursor = conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
+    conn.commit()
+    return cursor.rowcount > 0
+
+
+def delete_old_jobs(
+    conn: sqlite3.Connection, older_than: str, statuses: list[JobStatus] | None = None
+) -> int:
+    """Delete old jobs.
+
+    Args:
+        conn: Database connection.
+        older_than: ISO-8601 UTC timestamp. Jobs created before this are deleted.
+        statuses: If provided, only delete jobs with these statuses.
+                  Defaults to [COMPLETED, FAILED, CANCELLED].
+
+    Returns:
+        Number of jobs deleted.
+    """
+    if statuses is None:
+        statuses = [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED]
+
+    placeholders = ",".join("?" * len(statuses))
+    cursor = conn.execute(
+        f"""
+        DELETE FROM jobs
+        WHERE created_at < ? AND status IN ({placeholders})
+        """,
+        (older_than, *[s.value for s in statuses]),
+    )
+    conn.commit()
+    return cursor.rowcount
