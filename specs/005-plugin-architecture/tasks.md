@@ -110,16 +110,16 @@
 
 ### Tests for User Story 3
 
-- [ ] T038 [P] [US3] Unit test for PolicyEnginePlugin in tests/unit/plugin/test_policy_plugin.py
+- [X] T038 [P] [US3] Unit test for PolicyEnginePlugin in tests/unit/plugin/test_policy_plugin.py
 - [ ] T039 [P] [US3] Integration test: policy engine as plugin passes existing policy tests in tests/integration/test_policy_plugin.py
 
 ### Implementation for User Story 3
 
-- [ ] T040 [US3] Create PolicyEnginePlugin class in src/video_policy_orchestrator/plugins/policy_engine/plugin.py
-- [ ] T041 [US3] Implement AnalyzerPlugin methods for policy evaluation in src/video_policy_orchestrator/plugins/policy_engine/plugin.py
-- [ ] T042 [US3] Implement MutatorPlugin methods for plan execution in src/video_policy_orchestrator/plugins/policy_engine/plugin.py
-- [ ] T043 [US3] Wire existing policy/evaluator.py logic into plugin in src/video_policy_orchestrator/plugins/policy_engine/plugin.py
-- [ ] T044 [US3] Register policy engine as built-in plugin in src/video_policy_orchestrator/plugins/policy_engine/__init__.py
+- [X] T040 [US3] Create PolicyEnginePlugin class in src/video_policy_orchestrator/plugins/policy_engine/plugin.py
+- [X] T041 [US3] Implement AnalyzerPlugin methods for policy evaluation in src/video_policy_orchestrator/plugins/policy_engine/plugin.py
+- [X] T042 [US3] Implement MutatorPlugin methods for plan execution in src/video_policy_orchestrator/plugins/policy_engine/plugin.py
+- [X] T043 [US3] Wire existing policy/evaluator.py logic into plugin in src/video_policy_orchestrator/plugins/policy_engine/plugin.py
+- [X] T044 [US3] Register policy engine as built-in plugin in src/video_policy_orchestrator/plugins/policy_engine/__init__.py
 - [ ] T045 [US3] Update `vpo apply` to use plugin system in src/video_policy_orchestrator/cli/apply.py
 - [ ] T046 [US3] Add enable/disable support for built-in plugin in src/video_policy_orchestrator/plugin/registry.py
 
