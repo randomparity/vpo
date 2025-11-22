@@ -143,12 +143,12 @@
 
 **Purpose**: Final quality improvements across all stories
 
-- [ ] T049 [P] Update introspector __init__.py docstring to document available implementations in src/video_policy_orchestrator/introspector/__init__.py
-- [ ] T050 [P] Add type hints to all new functions in src/video_policy_orchestrator/introspector/ffprobe.py
-- [ ] T051 Run ruff check and fix any linting issues
-- [ ] T052 Run pytest and ensure all tests pass
-- [ ] T053 Verify quickstart.md examples work end-to-end
-- [ ] T054 Test ffprobe-not-installed error message on system without ffprobe
+- [x] T049 [P] Update introspector __init__.py docstring to document available implementations in src/video_policy_orchestrator/introspector/__init__.py
+- [x] T050 [P] Add type hints to all new functions in src/video_policy_orchestrator/introspector/ffprobe.py
+- [x] T051 Run ruff check and fix any linting issues
+- [x] T052 Run pytest and ensure all tests pass
+- [x] T053 Verify quickstart.md examples work end-to-end
+- [x] T054 Test ffprobe-not-installed error message on system without ffprobe
 
 ---
 
