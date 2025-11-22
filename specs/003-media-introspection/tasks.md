@@ -124,16 +124,16 @@
 
 ### Implementation for User Story 4
 
-- [ ] T039 [P] [US4] Create simple_single_track.json fixture (1 video + 1 audio) in tests/fixtures/ffprobe/simple_single_track.json
-- [ ] T040 [P] [US4] Create multi_audio.json fixture (1 video + 3 audio tracks, different languages) in tests/fixtures/ffprobe/multi_audio.json
-- [ ] T041 [P] [US4] Create subtitle_heavy.json fixture (1 video + 1 audio + 5 subtitles) in tests/fixtures/ffprobe/subtitle_heavy.json
-- [ ] T042 [P] [US4] Create edge_case_missing_metadata.json fixture (missing language, title, disposition) in tests/fixtures/ffprobe/edge_case_missing_metadata.json
-- [ ] T043 [US4] Create fixture loader utility function in tests/conftest.py
-- [ ] T044 [US4] Write unit tests for FFprobeIntrospector._parse_streams() in tests/unit/test_ffprobe_introspector.py
-- [ ] T045 [US4] Write unit tests for channel layout mapping in tests/unit/test_ffprobe_introspector.py
-- [ ] T046 [US4] Write unit tests for track type mapping in tests/unit/test_ffprobe_introspector.py
-- [ ] T047 [US4] Write unit tests for edge case handling in tests/unit/test_ffprobe_introspector.py
-- [ ] T048 [US4] Write integration test for inspect command with fixtures in tests/integration/test_inspect_command.py
+- [x] T039 [P] [US4] Create simple_single_track.json fixture (1 video + 1 audio) in tests/fixtures/ffprobe/simple_single_track.json
+- [x] T040 [P] [US4] Create multi_audio.json fixture (1 video + 3 audio tracks, different languages) in tests/fixtures/ffprobe/multi_audio.json
+- [x] T041 [P] [US4] Create subtitle_heavy.json fixture (1 video + 1 audio + 5 subtitles) in tests/fixtures/ffprobe/subtitle_heavy.json
+- [x] T042 [P] [US4] Create edge_case_missing_metadata.json fixture (missing language, title, disposition) in tests/fixtures/ffprobe/edge_case_missing_metadata.json
+- [x] T043 [US4] Create fixture loader utility function in tests/conftest.py
+- [x] T044 [US4] Write unit tests for FFprobeIntrospector._parse_streams() in tests/unit/test_ffprobe_introspector.py
+- [x] T045 [US4] Write unit tests for channel layout mapping in tests/unit/test_ffprobe_introspector.py
+- [x] T046 [US4] Write unit tests for track type mapping in tests/unit/test_ffprobe_introspector.py
+- [x] T047 [US4] Write unit tests for edge case handling in tests/unit/test_ffprobe_introspector.py
+- [x] T048 [US4] Write integration test for inspect command with fixtures in tests/integration/test_inspect_command.py
 
 **Checkpoint**: All fixtures created, tests pass using fixtures
 

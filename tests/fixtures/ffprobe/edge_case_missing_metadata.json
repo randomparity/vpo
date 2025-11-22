@@ -1,0 +1,29 @@
+{
+  "streams": [
+    {
+      "index": 0,
+      "codec_name": "vp9",
+      "codec_type": "video",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "index": 1,
+      "codec_name": "opus",
+      "codec_type": "audio",
+      "channels": 2
+    },
+    {
+      "index": 2,
+      "codec_name": "webvtt",
+      "codec_type": "subtitle",
+      "tags": {
+        "title": "Subtitles"
+      }
+    }
+  ],
+  "format": {
+    "filename": "/path/to/edge_case.webm",
+    "format_name": "matroska,webm"
+  }
+}
