@@ -29,9 +29,9 @@
 
 **Purpose**: Project initialization and module structure
 
-- [ ] T001 Create jobs module directory structure in `src/video_policy_orchestrator/jobs/__init__.py`
-- [ ] T002 [P] Create metadata module directory structure in `src/video_policy_orchestrator/metadata/__init__.py`
-- [ ] T003 [P] Create test fixtures directory in `tests/fixtures/transcode/`
+- [x] T001 Create jobs module directory structure in `src/video_policy_orchestrator/jobs/__init__.py`
+- [x] T002 [P] Create metadata module directory structure in `src/video_policy_orchestrator/metadata/__init__.py`
+- [x] T003 [P] Create test fixtures directory in `tests/fixtures/transcode/`
 
 **Commit Checkpoint**: Commit all Phase 1 changes with message "feat(transcode): add module structure for jobs and metadata"
 
