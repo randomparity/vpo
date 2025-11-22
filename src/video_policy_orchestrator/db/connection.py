@@ -44,6 +44,19 @@ def get_connection(
     # Enable foreign keys
     conn.execute("PRAGMA foreign_keys = ON")
 
+    # Enable WAL mode for better concurrency (multiple readers, single writer)
+    conn.execute("PRAGMA journal_mode = WAL")
+
+    # Set synchronous to NORMAL for balance of safety and speed
+    # NORMAL is safe with WAL mode and provides good durability
+    conn.execute("PRAGMA synchronous = NORMAL")
+
+    # Increase busy timeout for better handling of lock contention
+    conn.execute("PRAGMA busy_timeout = 10000")
+
+    # Store temp tables in memory for performance
+    conn.execute("PRAGMA temp_store = MEMORY")
+
     # Return rows as dictionaries
     conn.row_factory = sqlite3.Row
 

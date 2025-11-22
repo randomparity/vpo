@@ -964,10 +964,12 @@ def get_queued_jobs(conn: sqlite3.Connection, limit: int | None = None) -> list[
         WHERE status = 'queued'
         ORDER BY priority ASC, created_at ASC
     """
-    if limit:
-        query += f" LIMIT {limit}"
-
-    cursor = conn.execute(query)
+    if limit is not None:
+        if not isinstance(limit, int) or limit <= 0 or limit > 10000:
+            raise ValueError(f"Invalid limit value: {limit}")
+        cursor = conn.execute(query + " LIMIT ?", (limit,))
+    else:
+        cursor = conn.execute(query)
     return [_row_to_job(row) for row in cursor.fetchall()]
 
 
@@ -994,10 +996,12 @@ def get_jobs_by_status(
         WHERE status = ?
         ORDER BY created_at DESC
     """
-    if limit:
-        query += f" LIMIT {limit}"
-
-    cursor = conn.execute(query, (status.value,))
+    if limit is not None:
+        if not isinstance(limit, int) or limit <= 0 or limit > 10000:
+            raise ValueError(f"Invalid limit value: {limit}")
+        cursor = conn.execute(query + " LIMIT ?", (status.value, limit))
+    else:
+        cursor = conn.execute(query, (status.value,))
     return [_row_to_job(row) for row in cursor.fetchall()]
 
 
@@ -1020,10 +1024,12 @@ def get_all_jobs(conn: sqlite3.Connection, limit: int | None = None) -> list[Job
         FROM jobs
         ORDER BY created_at DESC
     """
-    if limit:
-        query += f" LIMIT {limit}"
-
-    cursor = conn.execute(query)
+    if limit is not None:
+        if not isinstance(limit, int) or limit <= 0 or limit > 10000:
+            raise ValueError(f"Invalid limit value: {limit}")
+        cursor = conn.execute(query + " LIMIT ?", (limit,))
+    else:
+        cursor = conn.execute(query)
     return [_row_to_job(row) for row in cursor.fetchall()]
 
 

@@ -461,3 +461,134 @@ class TestGetOperationsForFile:
 
         assert len(operations) == 1
         assert operations[0].file_id == sample_file_id
+
+
+# =============================================================================
+# Database Configuration Tests
+# =============================================================================
+
+
+class TestDatabaseConfiguration:
+    """Tests for database connection configuration and PRAGMAs."""
+
+    def test_wal_mode_enabled(self, temp_db: Path) -> None:
+        """Should enable WAL journal mode for better concurrency."""
+        from video_policy_orchestrator.db.connection import get_connection
+
+        with get_connection(temp_db) as conn:
+            cursor = conn.execute("PRAGMA journal_mode")
+            journal_mode = cursor.fetchone()[0]
+            assert journal_mode.lower() == "wal"
+
+    def test_foreign_keys_enabled(self, temp_db: Path) -> None:
+        """Should enable foreign key enforcement."""
+        from video_policy_orchestrator.db.connection import get_connection
+
+        with get_connection(temp_db) as conn:
+            cursor = conn.execute("PRAGMA foreign_keys")
+            fk_enabled = cursor.fetchone()[0]
+            assert fk_enabled == 1
+
+    def test_synchronous_normal(self, temp_db: Path) -> None:
+        """Should set synchronous to NORMAL for safety with WAL."""
+        from video_policy_orchestrator.db.connection import get_connection
+
+        with get_connection(temp_db) as conn:
+            cursor = conn.execute("PRAGMA synchronous")
+            # NORMAL = 1
+            synchronous = cursor.fetchone()[0]
+            assert synchronous == 1
+
+    def test_busy_timeout_configured(self, temp_db: Path) -> None:
+        """Should set busy_timeout for lock contention handling."""
+        from video_policy_orchestrator.db.connection import get_connection
+
+        with get_connection(temp_db) as conn:
+            cursor = conn.execute("PRAGMA busy_timeout")
+            timeout = cursor.fetchone()[0]
+            assert timeout == 10000  # 10 seconds
+
+    def test_foreign_key_enforcement(self, db_conn: sqlite3.Connection) -> None:
+        """Should enforce foreign key constraints."""
+        # Enable foreign keys (may be disabled in in-memory test connection)
+        db_conn.execute("PRAGMA foreign_keys = ON")
+        # Try to insert a track referencing a non-existent file
+        with pytest.raises(sqlite3.IntegrityError):
+            db_conn.execute(
+                """
+                INSERT INTO tracks (file_id, track_index, track_type, codec,
+                                   language, title, is_default, is_forced)
+                VALUES (99999, 0, 'video', 'h264', 'eng', 'Test', 0, 0)
+                """
+            )
+            db_conn.commit()
+
+
+# =============================================================================
+# Limit Parameter Validation Tests
+# =============================================================================
+
+
+class TestLimitParameterValidation:
+    """Tests for limit parameter validation in query functions."""
+
+    def test_get_queued_jobs_rejects_negative_limit(
+        self, db_conn: sqlite3.Connection
+    ) -> None:
+        """Should reject negative limit values."""
+        from video_policy_orchestrator.db.models import get_queued_jobs
+
+        with pytest.raises(ValueError, match="Invalid limit value"):
+            get_queued_jobs(db_conn, limit=-1)
+
+    def test_get_queued_jobs_rejects_zero_limit(
+        self, db_conn: sqlite3.Connection
+    ) -> None:
+        """Should reject zero limit value."""
+        from video_policy_orchestrator.db.models import get_queued_jobs
+
+        with pytest.raises(ValueError, match="Invalid limit value"):
+            get_queued_jobs(db_conn, limit=0)
+
+    def test_get_queued_jobs_rejects_excessive_limit(
+        self, db_conn: sqlite3.Connection
+    ) -> None:
+        """Should reject limit values over 10000."""
+        from video_policy_orchestrator.db.models import get_queued_jobs
+
+        with pytest.raises(ValueError, match="Invalid limit value"):
+            get_queued_jobs(db_conn, limit=10001)
+
+    def test_get_jobs_by_status_rejects_invalid_limit(
+        self, db_conn: sqlite3.Connection
+    ) -> None:
+        """Should reject invalid limit in get_jobs_by_status."""
+        from video_policy_orchestrator.db.models import JobStatus, get_jobs_by_status
+
+        with pytest.raises(ValueError, match="Invalid limit value"):
+            get_jobs_by_status(db_conn, JobStatus.QUEUED, limit=-5)
+
+    def test_get_all_jobs_rejects_invalid_limit(
+        self, db_conn: sqlite3.Connection
+    ) -> None:
+        """Should reject invalid limit in get_all_jobs."""
+        from video_policy_orchestrator.db.models import get_all_jobs
+
+        with pytest.raises(ValueError, match="Invalid limit value"):
+            get_all_jobs(db_conn, limit=0)
+
+    def test_valid_limit_accepted(self, db_conn: sqlite3.Connection) -> None:
+        """Should accept valid limit values."""
+        from video_policy_orchestrator.db.models import get_queued_jobs
+
+        # Should not raise
+        result = get_queued_jobs(db_conn, limit=100)
+        assert isinstance(result, list)
+
+    def test_none_limit_returns_all(self, db_conn: sqlite3.Connection) -> None:
+        """Should return all results when limit is None."""
+        from video_policy_orchestrator.db.models import get_queued_jobs
+
+        # Should not raise
+        result = get_queued_jobs(db_conn, limit=None)
+        assert isinstance(result, list)

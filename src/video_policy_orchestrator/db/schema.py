@@ -202,7 +202,17 @@ def migrate_v1_to_v2(conn: sqlite3.Connection) -> None:
     cursor = conn.execute("PRAGMA table_info(tracks)")
     existing_columns = {row[1] for row in cursor.fetchall()}
 
-    # Define new columns to add
+    # Whitelist of allowed columns with their types for validation
+    # This prevents SQL injection through column names
+    ALLOWED_COLUMNS: dict[str, str] = {
+        "channels": "INTEGER",
+        "channel_layout": "TEXT",
+        "width": "INTEGER",
+        "height": "INTEGER",
+        "frame_rate": "TEXT",
+    }
+
+    # Define new columns to add (must be in whitelist)
     new_columns = [
         ("channels", "INTEGER"),
         ("channel_layout", "TEXT"),
@@ -211,10 +221,19 @@ def migrate_v1_to_v2(conn: sqlite3.Connection) -> None:
         ("frame_rate", "TEXT"),
     ]
 
-    # Add missing columns
+    # Add missing columns with validation
     for col_name, col_type in new_columns:
         if col_name not in existing_columns:
-            conn.execute(f"ALTER TABLE tracks ADD COLUMN {col_name} {col_type}")
+            # Validate column name and type against whitelist
+            if col_name not in ALLOWED_COLUMNS:
+                raise ValueError(f"Unexpected column name in migration: {col_name}")
+            if ALLOWED_COLUMNS[col_name] != col_type:
+                raise ValueError(
+                    f"Type mismatch for column {col_name}: "
+                    f"expected {ALLOWED_COLUMNS[col_name]}, got {col_type}"
+                )
+            # Use quoted identifier for safety
+            conn.execute(f'ALTER TABLE tracks ADD COLUMN "{col_name}" {col_type}')
 
     # Update schema version to 2
     conn.execute(

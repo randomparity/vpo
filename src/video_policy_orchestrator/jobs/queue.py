@@ -84,9 +84,17 @@ def claim_next_job(
         # Return the claimed job
         return get_job(conn, job_id)
 
-    except Exception as e:
+    except sqlite3.OperationalError as e:
         conn.execute("ROLLBACK")
-        logger.error("Failed to claim job: %s", e)
+        logger.error("Database operational error while claiming job: %s", e)
+        raise
+    except sqlite3.IntegrityError as e:
+        conn.execute("ROLLBACK")
+        logger.error("Database integrity error while claiming job: %s", e)
+        raise
+    except sqlite3.DatabaseError as e:
+        conn.execute("ROLLBACK")
+        logger.error("Database error while claiming job: %s", e)
         raise
 
 
