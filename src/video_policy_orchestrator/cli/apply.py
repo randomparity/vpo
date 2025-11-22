@@ -1,6 +1,7 @@
 """CLI command for applying policies to media files."""
 
 import json
+import logging
 import sqlite3
 import sys
 from pathlib import Path
@@ -19,13 +20,25 @@ from video_policy_orchestrator.db.operations import (
     update_operation_status,
 )
 from video_policy_orchestrator.executor.backup import FileLockError, file_lock
-from video_policy_orchestrator.executor.ffmpeg_metadata import FfmpegMetadataExecutor
 from video_policy_orchestrator.executor.interface import check_tool_availability
-from video_policy_orchestrator.executor.mkvmerge import MkvmergeExecutor
-from video_policy_orchestrator.executor.mkvpropedit import MkvpropeditExecutor
-from video_policy_orchestrator.policy.evaluator import evaluate_policy
 from video_policy_orchestrator.policy.loader import PolicyValidationError, load_policy
 from video_policy_orchestrator.policy.models import ActionType
+
+logger = logging.getLogger(__name__)
+
+
+def _get_policy_engine():
+    """Get the PolicyEnginePlugin instance.
+
+    Returns the built-in policy engine plugin for evaluation and execution.
+
+    Returns:
+        PolicyEnginePlugin instance.
+    """
+    from video_policy_orchestrator.plugins.policy_engine import PolicyEnginePlugin
+
+    return PolicyEnginePlugin()
+
 
 # Exit codes per contracts/cli-apply.md
 EXIT_SUCCESS = 0
@@ -262,11 +275,14 @@ def apply_command(
                 json_output,
             )
 
-    # Evaluate policy
+    # Get policy engine plugin
+    policy_engine = _get_policy_engine()
+
+    # Evaluate policy using the plugin
     if verbose:
         click.echo(f"Evaluating policy against {len(tracks)} tracks...")
 
-    plan = evaluate_policy(
+    plan = policy_engine.evaluate(
         file_id=str(file_record.id),
         file_path=target,
         container=container,
@@ -336,27 +352,15 @@ def apply_command(
             # Update status to IN_PROGRESS
             update_operation_status(conn, operation.id, OperationStatus.IN_PROGRESS)
 
-            # Select appropriate executor
-            if container.lower() in ("mkv", "matroska"):
-                if plan.requires_remux:
-                    # Use mkvmerge for track reordering (handles default flags too)
-                    executor = MkvmergeExecutor()
-                else:
-                    # Use mkvpropedit for metadata-only changes
-                    executor = MkvpropeditExecutor()
-            else:
-                executor = FfmpegMetadataExecutor()
-
-            # Execute the plan
+            # Execute the plan using the policy engine plugin
             import time
 
             if verbose:
-                executor_name = type(executor).__name__
-                click.echo(f"Using executor: {executor_name}")
+                click.echo("Using executor: PolicyEnginePlugin")
                 click.echo(f"Executing {len(plan.actions)} actions...")
 
             start_time = time.time()
-            result = executor.execute(plan, keep_backup=should_keep_backup)
+            result = policy_engine.execute(plan, keep_backup=should_keep_backup)
             duration = time.time() - start_time
 
             if verbose:

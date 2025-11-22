@@ -284,3 +284,74 @@ class TestPluginRegistry:
         assert registry.plugin_dirs == plugin_dirs
         assert registry.entry_point_group == "test.plugins"
         assert registry.api_version == "1.0.0"
+
+
+class TestBuiltinPlugins:
+    """Tests for built-in plugin functionality."""
+
+    def test_load_builtin_plugins(self):
+        """Load built-in plugins into registry."""
+        registry = PluginRegistry()
+
+        loaded = registry.load_builtin_plugins()
+
+        assert len(loaded) == 1
+        assert loaded[0].name == "policy-engine"
+        assert loaded[0].source == PluginSource.BUILTIN
+
+    def test_get_builtin(self):
+        """Get built-in plugins from registry."""
+        registry = PluginRegistry()
+        registry.load_builtin_plugins()
+        # Add a non-builtin plugin
+        registry.register(
+            create_loaded_plugin("external", source=PluginSource.DIRECTORY)
+        )
+
+        builtins = registry.get_builtin()
+
+        assert len(builtins) == 1
+        assert builtins[0].name == "policy-engine"
+
+    def test_is_builtin(self):
+        """Check if plugin is built-in."""
+        registry = PluginRegistry()
+        registry.load_builtin_plugins()
+        registry.register(
+            create_loaded_plugin("external", source=PluginSource.DIRECTORY)
+        )
+
+        assert registry.is_builtin("policy-engine") is True
+        assert registry.is_builtin("external") is False
+        assert registry.is_builtin("nonexistent") is False
+
+    def test_builtin_can_be_disabled(self):
+        """Built-in plugins can be disabled."""
+        registry = PluginRegistry()
+        registry.load_builtin_plugins()
+
+        # Initially enabled
+        plugin = registry.get("policy-engine")
+        assert plugin is not None
+        assert plugin.enabled is True
+
+        # Can be disabled
+        result = registry.disable("policy-engine")
+        assert result is True
+        assert plugin.enabled is False
+
+        # Should not appear in get_by_event when disabled
+        assert len(registry.get_by_event("policy.before_evaluate")) == 0
+
+    def test_builtin_can_be_re_enabled(self):
+        """Disabled built-in plugins can be re-enabled."""
+        registry = PluginRegistry()
+        registry.load_builtin_plugins()
+
+        registry.disable("policy-engine")
+        result = registry.enable("policy-engine")
+
+        assert result is True
+        plugin = registry.get("policy-engine")
+        assert plugin is not None
+        assert plugin.enabled is True

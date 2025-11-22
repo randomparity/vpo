@@ -249,3 +249,56 @@ class PluginRegistry:
         """Clear all registered plugins."""
         self._plugins.clear()
         logger.debug("Cleared all plugins from registry")
+
+    def load_builtin_plugins(self) -> list[LoadedPlugin]:
+        """Load and register all built-in plugins.
+
+        Built-in plugins are shipped with VPO and don't require acknowledgment.
+        They can be disabled but not uninstalled.
+
+        Returns:
+            List of loaded built-in plugins.
+        """
+        # Import here to avoid circular import
+        from video_policy_orchestrator.plugin.loader import create_loaded_plugin
+
+        loaded = []
+
+        # Policy Engine is the only built-in plugin for now
+        try:
+            from video_policy_orchestrator.plugins.policy_engine import plugin
+
+            builtin_plugin = create_loaded_plugin(
+                plugin,
+                source=PluginSource.BUILTIN,
+                source_path=None,
+            )
+            self.register(builtin_plugin)
+            loaded.append(builtin_plugin)
+            logger.info("Loaded built-in plugin: %s", builtin_plugin.name)
+        except ImportError as e:
+            logger.error("Failed to load built-in policy engine: %s", e)
+        except Exception as e:
+            logger.error("Error loading built-in plugin: %s", e)
+
+        return loaded
+
+    def get_builtin(self) -> list[LoadedPlugin]:
+        """Get all built-in plugins.
+
+        Returns:
+            List of plugins with BUILTIN source.
+        """
+        return [p for p in self._plugins.values() if p.source == PluginSource.BUILTIN]
+
+    def is_builtin(self, name: str) -> bool:
+        """Check if a plugin is built-in.
+
+        Args:
+            name: Plugin identifier.
+
+        Returns:
+            True if plugin is built-in, False otherwise.
+        """
+        plugin = self._plugins.get(name)
+        return plugin is not None and plugin.source == PluginSource.BUILTIN

@@ -120,8 +120,8 @@
 - [X] T042 [US3] Implement MutatorPlugin methods for plan execution in src/video_policy_orchestrator/plugins/policy_engine/plugin.py
 - [X] T043 [US3] Wire existing policy/evaluator.py logic into plugin in src/video_policy_orchestrator/plugins/policy_engine/plugin.py
 - [X] T044 [US3] Register policy engine as built-in plugin in src/video_policy_orchestrator/plugins/policy_engine/__init__.py
-- [ ] T045 [US3] Update `vpo apply` to use plugin system in src/video_policy_orchestrator/cli/apply.py
-- [ ] T046 [US3] Add enable/disable support for built-in plugin in src/video_policy_orchestrator/plugin/registry.py
+- [X] T045 [US3] Update `vpo apply` to use plugin system in src/video_policy_orchestrator/cli/apply.py
+- [X] T046 [US3] Add enable/disable support for built-in plugin in src/video_policy_orchestrator/plugin/registry.py
 
 **Checkpoint**: Policy engine works as a plugin - validates architecture, provides reference implementation
 
