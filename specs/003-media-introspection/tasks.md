@@ -24,8 +24,8 @@
 
 **Purpose**: Extend existing project structure for media introspection
 
-- [ ] T001 Create ffprobe fixtures directory at tests/fixtures/ffprobe/
-- [ ] T002 [P] Add IntrospectionResult dataclass to src/video_policy_orchestrator/db/models.py
+- [x] T001 Create ffprobe fixtures directory at tests/fixtures/ffprobe/
+- [x] T002 [P] Add IntrospectionResult dataclass to src/video_policy_orchestrator/db/models.py
 
 ---
 

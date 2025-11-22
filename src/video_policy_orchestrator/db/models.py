@@ -37,6 +37,22 @@ class FileInfo:
 
 
 @dataclass
+class IntrospectionResult:
+    """Result of media file introspection."""
+
+    file_path: Path
+    container_format: str | None
+    tracks: list[TrackInfo]
+    warnings: list[str] = field(default_factory=list)
+    error: str | None = None
+
+    @property
+    def success(self) -> bool:
+        """Return True if introspection completed without fatal errors."""
+        return self.error is None
+
+
+@dataclass
 class FileRecord:
     """Database record for files table."""
 
