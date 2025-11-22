@@ -1,7 +1,7 @@
 """Data models for Video Policy Orchestrator database."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -37,7 +37,7 @@ class FileInfo:
     modified_at: datetime
     content_hash: str | None = None
     container_format: str | None = None
-    scanned_at: datetime = field(default_factory=datetime.now)
+    scanned_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     scan_status: str = "ok"  # "ok", "error", "pending"
     scan_error: str | None = None
     tracks: list[TrackInfo] = field(default_factory=list)

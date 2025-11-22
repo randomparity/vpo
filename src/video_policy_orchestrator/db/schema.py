@@ -19,10 +19,10 @@ CREATE TABLE IF NOT EXISTS files (
     directory TEXT NOT NULL,
     extension TEXT NOT NULL,
     size_bytes INTEGER NOT NULL,
-    modified_at TEXT NOT NULL,
+    modified_at TEXT NOT NULL,  -- ISO 8601 UTC timestamp
     content_hash TEXT,
     container_format TEXT,
-    scanned_at TEXT NOT NULL,
+    scanned_at TEXT NOT NULL,   -- ISO 8601 UTC timestamp
     scan_status TEXT NOT NULL DEFAULT 'pending',
     scan_error TEXT
 );

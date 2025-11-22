@@ -1,6 +1,6 @@
 """Stub implementation of MediaIntrospector for development and testing."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from video_policy_orchestrator.db.models import FileInfo, TrackInfo
@@ -70,9 +70,9 @@ class StubIntrospector:
             directory=path.parent,
             extension=extension,
             size_bytes=stat.st_size,
-            modified_at=datetime.fromtimestamp(stat.st_mtime),
+            modified_at=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
             container_format=container_format,
-            scanned_at=datetime.now(),
+            scanned_at=datetime.now(timezone.utc),
             scan_status="ok",
             tracks=tracks,
         )

@@ -8,7 +8,7 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -112,7 +112,9 @@ class ScannerOrchestrator:
                     scanned = ScannedFile(
                         path=file_info["path"],
                         size=file_info["size"],
-                        modified_at=datetime.fromtimestamp(file_info["modified"]),
+                        modified_at=datetime.fromtimestamp(
+                            file_info["modified"], tz=timezone.utc
+                        ),
                     )
                     all_files.append(scanned)
 
@@ -212,7 +214,9 @@ class ScannerOrchestrator:
                         scanned = ScannedFile(
                             path=file_info["path"],
                             size=file_info["size"],
-                            modified_at=datetime.fromtimestamp(file_info["modified"]),
+                            modified_at=datetime.fromtimestamp(
+                                file_info["modified"], tz=timezone.utc
+                            ),
                         )
                         all_files.append(scanned)
 
@@ -260,7 +264,7 @@ class ScannerOrchestrator:
                             )
 
             # Persist to database with progress reporting
-            now = datetime.now()
+            now = datetime.now(timezone.utc)
             total_to_process = len(files_to_process)
             for i, scanned in enumerate(files_to_process):
                 if self._is_interrupted():
