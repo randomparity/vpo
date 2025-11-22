@@ -17,10 +17,10 @@
 
 **Purpose**: Add new dependencies and create module structure
 
-- [ ] T001 Add PyYAML and pydantic dependencies to pyproject.toml
-- [ ] T002 [P] Create policy module structure: `src/video_policy_orchestrator/policy/__init__.py`
-- [ ] T003 [P] Create executor module structure: `src/video_policy_orchestrator/executor/__init__.py`
-- [ ] T004 [P] Create policy test fixtures directory: `tests/fixtures/policies/`
+- [X] T001 Add PyYAML and pydantic dependencies to pyproject.toml
+- [X] T002 [P] Create policy module structure: `src/video_policy_orchestrator/policy/__init__.py`
+- [X] T003 [P] Create executor module structure: `src/video_policy_orchestrator/executor/__init__.py`
+- [X] T004 [P] Create policy test fixtures directory: `tests/fixtures/policies/`
 
 ---
 
@@ -30,12 +30,12 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Extend db/models.py with OperationRecord dataclass and OperationStatus enum
-- [ ] T006 Extend db/schema.py with operations table (CREATE TABLE, indexes) and migration logic
-- [ ] T007 [P] Create policy/models.py with ActionType enum, PlannedAction, Plan dataclasses per contracts/evaluator-api.md
-- [ ] T008 [P] Create policy/models.py additions: TrackType enum, DefaultFlagsConfig, PolicySchema per contracts/policy-schema.yaml
-- [ ] T009 [P] Create executor/interface.py with Executor protocol and tool availability check function
-- [ ] T010 [P] Create executor/backup.py with backup creation, restoration, and cleanup utilities
+- [X] T005 Extend db/models.py with OperationRecord dataclass and OperationStatus enum
+- [X] T006 Extend db/schema.py with operations table (CREATE TABLE, indexes) and migration logic
+- [X] T007 [P] Create policy/models.py with ActionType enum, PlannedAction, Plan dataclasses per contracts/evaluator-api.md
+- [X] T008 [P] Create policy/models.py additions: TrackType enum, DefaultFlagsConfig, PolicySchema per contracts/policy-schema.yaml
+- [X] T009 [P] Create executor/interface.py with Executor protocol and tool availability check function
+- [X] T010 [P] Create executor/backup.py with backup creation, restoration, and cleanup utilities
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
