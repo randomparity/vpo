@@ -340,3 +340,164 @@ def recover_jobs(ctx: click.Context) -> None:
         click.echo(f"Recovered {count} stale job(s).")
     else:
         click.echo("No stale jobs found.")
+
+
+@jobs_group.command("cleanup")
+@click.option(
+    "--older-than",
+    "-o",
+    type=int,
+    default=30,
+    help="Remove jobs older than N days (default: 30).",
+)
+@click.option(
+    "--include-backups",
+    is_flag=True,
+    help="Also remove .original backup files for cleaned jobs.",
+)
+@click.option(
+    "--remove-temp",
+    is_flag=True,
+    help="Remove orphaned temp files (.vpo_temp_*).",
+)
+@click.option(
+    "--temp-dir",
+    type=click.Path(exists=True, path_type=Path),
+    help="Directory to scan for temp files (default: ~/.vpo/).",
+)
+@click.option("--dry-run", "-n", is_flag=True, help="Show what would be removed.")
+@click.option("--force", "-f", is_flag=True, help="Don't ask for confirmation.")
+@click.pass_context
+def cleanup_jobs(
+    ctx: click.Context,
+    older_than: int,
+    include_backups: bool,
+    remove_temp: bool,
+    temp_dir: Path | None,
+    dry_run: bool,
+    force: bool,
+) -> None:
+    """Clean up old jobs, backups, and temp files.
+
+    Removes completed/failed/cancelled jobs older than --older-than days.
+    Optionally removes associated backup files and orphaned temp files.
+
+    Examples:
+
+        # Preview what would be cleaned
+        vpo jobs cleanup --dry-run
+
+        # Clean jobs older than 7 days
+        vpo jobs cleanup --older-than 7
+
+        # Also remove backup files
+        vpo jobs cleanup --include-backups
+
+        # Clean up orphaned temp files
+        vpo jobs cleanup --remove-temp
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from video_policy_orchestrator.db.models import delete_old_jobs
+
+    conn = ctx.obj.get("db_conn")
+    if conn is None:
+        raise click.ClickException("Failed to connect to database.")
+
+    # Calculate cutoff date
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=older_than)).isoformat()
+
+    # Count jobs to be removed
+    jobs = get_all_jobs(conn)
+    old_jobs = [
+        j
+        for j in jobs
+        if j.created_at < cutoff
+        and j.status in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED)
+    ]
+
+    click.echo(f"Cleanup summary (older than {older_than} days):")
+    click.echo("-" * 40)
+    click.echo(f"  Jobs to remove: {len(old_jobs)}")
+
+    # Find backup files if requested
+    backup_files: list[Path] = []
+    if include_backups:
+        for job in old_jobs:
+            output_path = job.output_path
+            if output_path:
+                original = Path(output_path).with_suffix(
+                    Path(output_path).suffix + ".original"
+                )
+                if original.exists():
+                    backup_files.append(original)
+        click.echo(f"  Backup files: {len(backup_files)}")
+
+    # Find orphaned temp files if requested
+    temp_files: list[Path] = []
+    if remove_temp:
+        search_dir = temp_dir or Path.home() / ".vpo"
+        if search_dir.exists():
+            # Search for .vpo_temp_* files
+            for temp_file in search_dir.glob(".vpo_temp_*"):
+                if temp_file.is_file():
+                    temp_files.append(temp_file)
+            # Also search in common video directories
+            for temp_file in search_dir.rglob(".vpo_temp_*"):
+                if temp_file.is_file() and temp_file not in temp_files:
+                    temp_files.append(temp_file)
+        click.echo(f"  Temp files: {len(temp_files)}")
+
+    total = len(old_jobs) + len(backup_files) + len(temp_files)
+    if total == 0:
+        click.echo("\nNothing to clean up.")
+        return
+
+    if dry_run:
+        click.echo("\n[DRY RUN] Would remove:")
+        for job in old_jobs[:10]:
+            click.echo(f"  Job: {job.id[:8]} ({job.status.value})")
+        if len(old_jobs) > 10:
+            click.echo(f"  ... and {len(old_jobs) - 10} more jobs")
+        for bf in backup_files[:5]:
+            click.echo(f"  Backup: {bf}")
+        if len(backup_files) > 5:
+            click.echo(f"  ... and {len(backup_files) - 5} more backups")
+        for tf in temp_files[:5]:
+            click.echo(f"  Temp: {tf}")
+        if len(temp_files) > 5:
+            click.echo(f"  ... and {len(temp_files) - 5} more temp files")
+        return
+
+    if not force:
+        if not click.confirm(f"Remove {total} item(s)?"):
+            click.echo("Cancelled.")
+            return
+
+    # Delete old jobs
+    deleted_jobs = delete_old_jobs(conn, cutoff)
+
+    # Delete backup files
+    deleted_backups = 0
+    for bf in backup_files:
+        try:
+            bf.unlink()
+            deleted_backups += 1
+        except OSError as e:
+            click.echo(f"  Warning: Could not remove {bf}: {e}")
+
+    # Delete temp files
+    deleted_temp = 0
+    for tf in temp_files:
+        try:
+            tf.unlink()
+            deleted_temp += 1
+        except OSError as e:
+            click.echo(f"  Warning: Could not remove {tf}: {e}")
+
+    click.echo("\nCleaned up:")
+    click.echo(f"  Jobs: {deleted_jobs}")
+    if include_backups:
+        click.echo(f"  Backups: {deleted_backups}")
+    if remove_temp:
+        click.echo(f"  Temp files: {deleted_temp}")

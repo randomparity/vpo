@@ -177,15 +177,15 @@
 
 ### Implementation for User Story 5
 
-- [ ] T063 [P] [US5] Add backup_original and temp_directory to config models in `src/video_policy_orchestrator/config/models.py`
-- [ ] T064 [US5] Implement write-to-temp-then-move pattern in TranscodeExecutor in `src/video_policy_orchestrator/executor/transcode.py`
-- [ ] T065 [US5] Implement original file backup on success in `src/video_policy_orchestrator/executor/transcode.py`
-- [ ] T066 [US5] Implement partial output cleanup on failure in `src/video_policy_orchestrator/executor/transcode.py`
-- [ ] T067 [US5] Implement disk space pre-check before transcoding in `src/video_policy_orchestrator/executor/transcode.py`
-- [ ] T068 [US5] Add detailed operation logging for rollback info in `src/video_policy_orchestrator/jobs/worker.py`
-- [ ] T069 [US5] Implement `vpo jobs cleanup` command in `src/video_policy_orchestrator/cli/jobs.py`
-- [ ] T070 [US5] Implement --older-than and --include-backups options for cleanup in `src/video_policy_orchestrator/cli/jobs.py`
-- [ ] T071 [US5] Implement orphaned temp file cleanup in `src/video_policy_orchestrator/cli/jobs.py`
+- [x] T063 [P] [US5] Add backup_original and temp_directory to config models in `src/video_policy_orchestrator/config/models.py`
+- [x] T064 [US5] Implement write-to-temp-then-move pattern in TranscodeExecutor in `src/video_policy_orchestrator/executor/transcode.py`
+- [x] T065 [US5] Implement original file backup on success in `src/video_policy_orchestrator/executor/transcode.py`
+- [x] T066 [US5] Implement partial output cleanup on failure in `src/video_policy_orchestrator/executor/transcode.py`
+- [x] T067 [US5] Implement disk space pre-check before transcoding in `src/video_policy_orchestrator/executor/transcode.py`
+- [x] T068 [US5] Add detailed operation logging for rollback info in `src/video_policy_orchestrator/jobs/worker.py`
+- [x] T069 [US5] Implement `vpo jobs cleanup` command in `src/video_policy_orchestrator/cli/jobs.py`
+- [x] T070 [US5] Implement --older-than and --include-backups options for cleanup in `src/video_policy_orchestrator/cli/jobs.py`
+- [x] T071 [US5] Implement orphaned temp file cleanup in `src/video_policy_orchestrator/cli/jobs.py`
 
 **Commit Checkpoint**: Commit all US5 changes with message "feat(transcode): implement safety and rollback options (US5)"
 

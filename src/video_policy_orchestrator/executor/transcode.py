@@ -330,6 +330,8 @@ class TranscodeExecutor:
         policy: TranscodePolicyConfig,
         cpu_cores: int | None = None,
         progress_callback: Callable[[FFmpegProgress], None] | None = None,
+        temp_directory: Path | None = None,
+        backup_original: bool = True,
     ) -> None:
         """Initialize the transcode executor.
 
@@ -337,10 +339,14 @@ class TranscodeExecutor:
             policy: Transcode policy configuration.
             cpu_cores: Number of CPU cores to use.
             progress_callback: Optional callback for progress updates.
+            temp_directory: Directory for temp files (None = same as output).
+            backup_original: Whether to backup original after success.
         """
         self.policy = policy
         self.cpu_cores = cpu_cores
         self.progress_callback = progress_callback
+        self.temp_directory = temp_directory
+        self.backup_original = backup_original
 
     def create_plan(
         self,
@@ -420,8 +426,90 @@ class TranscodeExecutor:
         )
         return not needs_transcode
 
+    def _check_disk_space(self, plan: TranscodePlan) -> str | None:
+        """Check if there's enough disk space for transcoding.
+
+        Args:
+            plan: The transcode plan.
+
+        Returns:
+            Error message if insufficient space, None if OK.
+        """
+        import shutil
+
+        # Estimate output size (rough: 50% of input for HEVC, 80% for others)
+        input_size = plan.input_path.stat().st_size
+        codec = self.policy.target_video_codec or "hevc"
+        ratio = 0.5 if codec in ("hevc", "h265", "av1") else 0.8
+        estimated_size = int(input_size * ratio * 1.2)  # 20% buffer
+
+        # Check temp directory space if using temp
+        if self.temp_directory:
+            temp_path = self.temp_directory
+        else:
+            temp_path = plan.output_path.parent
+
+        try:
+            disk_usage = shutil.disk_usage(temp_path)
+            if disk_usage.free < estimated_size:
+                free_gb = disk_usage.free / (1024**3)
+                need_gb = estimated_size / (1024**3)
+                return (
+                    f"Insufficient disk space: "
+                    f"{free_gb:.1f}GB free, need ~{need_gb:.1f}GB"
+                )
+        except OSError as e:
+            logger.warning("Could not check disk space: %s", e)
+
+        return None
+
+    def _backup_original(
+        self, original_path: Path, output_path: Path
+    ) -> tuple[bool, Path | None, str | None]:
+        """Backup the original file after successful transcode.
+
+        Args:
+            original_path: Path to original file.
+            output_path: Path to transcoded file.
+
+        Returns:
+            Tuple of (success, backup_path, error_message).
+        """
+        backup_path = original_path.with_suffix(f"{original_path.suffix}.original")
+
+        # If backup already exists, add number
+        counter = 1
+        while backup_path.exists():
+            backup_path = original_path.with_suffix(
+                f"{original_path.suffix}.original.{counter}"
+            )
+            counter += 1
+
+        try:
+            original_path.rename(backup_path)
+            logger.info("Backed up original: %s", backup_path)
+            return True, backup_path, None
+        except OSError as e:
+            return False, None, str(e)
+
+    def _cleanup_partial(self, path: Path) -> None:
+        """Remove partial output file on failure.
+
+        Args:
+            path: Path to potentially incomplete output file.
+        """
+        if path.exists():
+            try:
+                path.unlink()
+                logger.info("Cleaned up partial output: %s", path)
+            except OSError as e:
+                logger.warning("Could not clean up partial output: %s", e)
+
     def execute(self, plan: TranscodePlan) -> TranscodeResult:
-        """Execute a transcode plan.
+        """Execute a transcode plan with safety features.
+
+        Uses write-to-temp-then-move pattern, backs up originals on success,
+        and cleans up partial outputs on failure.
 
         Args:
             plan: The transcode plan to execute.
@@ -435,12 +523,44 @@ class TranscodeExecutor:
             )
             return TranscodeResult(success=True)
 
-        cmd = build_ffmpeg_command(plan, self.cpu_cores)
+        # Check disk space before starting
+        space_error = self._check_disk_space(plan)
+        if space_error:
+            logger.error("Disk space check failed: %s", space_error)
+            return TranscodeResult(success=False, error_message=space_error)
+
+        # Determine temp path (write to temp, then move to final)
+        if self.temp_directory:
+            temp_output = self.temp_directory / f".vpo_temp_{plan.output_path.name}"
+        else:
+            temp_output = plan.output_path.with_name(
+                f".vpo_temp_{plan.output_path.name}"
+            )
+
+        # Create a modified plan with temp output
+        temp_plan = TranscodePlan(
+            input_path=plan.input_path,
+            output_path=temp_output,
+            policy=plan.policy,
+            video_codec=plan.video_codec,
+            video_width=plan.video_width,
+            video_height=plan.video_height,
+            duration_seconds=plan.duration_seconds,
+            audio_tracks=plan.audio_tracks,
+            needs_video_transcode=plan.needs_video_transcode,
+            needs_video_scale=plan.needs_video_scale,
+            target_width=plan.target_width,
+            target_height=plan.target_height,
+            audio_plan=plan.audio_plan,
+        )
+
+        cmd = build_ffmpeg_command(temp_plan, self.cpu_cores)
         logger.info("Executing transcode: %s -> %s", plan.input_path, plan.output_path)
         logger.debug("FFmpeg command: %s", " ".join(cmd))
 
         try:
             # Ensure output directory exists
+            temp_output.parent.mkdir(parents=True, exist_ok=True)
             plan.output_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Run FFmpeg with progress monitoring
@@ -465,24 +585,49 @@ class TranscodeExecutor:
             if process.returncode != 0:
                 error_msg = "".join(stderr_output[-10:])  # Last 10 lines
                 logger.error("FFmpeg failed: %s", error_msg)
+                self._cleanup_partial(temp_output)
                 msg = f"FFmpeg exited with code {process.returncode}: {error_msg}"
                 return TranscodeResult(success=False, error_message=msg)
 
-            # Verify output exists
-            if not plan.output_path.exists():
+            # Verify temp output exists
+            if not temp_output.exists():
                 return TranscodeResult(
                     success=False,
                     error_message="Output file was not created",
                 )
 
+            # Move temp to final destination
+            import shutil
+
+            try:
+                shutil.move(str(temp_output), str(plan.output_path))
+            except OSError as e:
+                self._cleanup_partial(temp_output)
+                return TranscodeResult(
+                    success=False,
+                    error_message=f"Failed to move temp to final: {e}",
+                )
+
+            # Backup original if requested
+            backup_path = None
+            if self.backup_original and plan.input_path != plan.output_path:
+                success, backup_path, backup_error = self._backup_original(
+                    plan.input_path, plan.output_path
+                )
+                if not success:
+                    logger.warning("Could not backup original: %s", backup_error)
+                    # Not a fatal error - transcode succeeded
+
             logger.info("Transcode completed: %s", plan.output_path)
             return TranscodeResult(
                 success=True,
                 output_path=plan.output_path,
+                backup_path=backup_path,
             )
 
         except Exception as e:
             logger.exception("Transcode failed: %s", e)
+            self._cleanup_partial(temp_output)
             return TranscodeResult(
                 success=False,
                 error_message=str(e),
