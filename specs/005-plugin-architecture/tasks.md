@@ -111,7 +111,7 @@
 ### Tests for User Story 3
 
 - [X] T038 [P] [US3] Unit test for PolicyEnginePlugin in tests/unit/plugin/test_policy_plugin.py
-- [ ] T039 [P] [US3] Integration test: policy engine as plugin passes existing policy tests in tests/integration/test_policy_plugin.py
+- [X] T039 [P] [US3] Integration test: policy engine as plugin passes existing policy tests in tests/integration/test_policy_plugin.py
 
 ### Implementation for User Story 3
 
@@ -146,9 +146,9 @@
 - [X] T052 [US4] Implement SDK helper functions (get_logger, get_config) in src/video_policy_orchestrator/plugin_sdk/helpers.py
 - [X] T053 [US4] Implement test utilities (PluginTestCase, mock helpers) in src/video_policy_orchestrator/plugin_sdk/testing.py
 - [X] T054 [US4] Create public exports in src/video_policy_orchestrator/plugin_sdk/__init__.py
-- [ ] T055 [US4] Create example plugin pyproject.toml in examples/plugins/simple_reorder_plugin/pyproject.toml
-- [ ] T056 [US4] Create example plugin README.md in examples/plugins/simple_reorder_plugin/README.md
-- [ ] T057 [US4] Implement example plugin in examples/plugins/simple_reorder_plugin/src/simple_reorder/__init__.py
+- [X] T055 [US4] Create example plugin pyproject.toml in examples/plugins/simple_reorder_plugin/pyproject.toml
+- [X] T056 [US4] Create example plugin README.md in examples/plugins/simple_reorder_plugin/README.md
+- [X] T057 [US4] Implement example plugin in examples/plugins/simple_reorder_plugin/src/simple_reorder/__init__.py
 
 **Checkpoint**: SDK complete - plugin authors can create plugins with minimal boilerplate
 
