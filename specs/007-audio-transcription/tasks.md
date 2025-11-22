@@ -144,12 +144,12 @@
 
 ### Implementation for User Story 5
 
-- [ ] T045 [US5] Add commentary keyword detection (metadata-based) in `src/video_policy_orchestrator/transcription/models.py`
-- [ ] T046 [US5] Add transcript-based commentary pattern detection in Whisper plugin
-- [ ] T047 [US5] Implement track reordering logic for commentary in `src/video_policy_orchestrator/policy/evaluator.py`
-- [ ] T048 [US5] Add `detect_commentary` and `reorder_commentary` policy options handling
-- [ ] T049 [P] [US5] Add unit tests for commentary detection in `tests/unit/transcription/test_commentary_detection.py`
-- [ ] T050 Commit Phase 7 changes: "feat(transcription): commentary track detection (US5)"
+- [X] T045 [US5] Add commentary keyword detection (metadata-based) in `src/video_policy_orchestrator/transcription/models.py`
+- [X] T046 [US5] Add transcript-based commentary pattern detection in Whisper plugin
+- [X] T047 [US5] Implement track reordering logic for commentary in `src/video_policy_orchestrator/policy/evaluator.py`
+- [X] T048 [US5] Add `detect_commentary` and `reorder_commentary` policy options handling
+- [X] T049 [P] [US5] Add unit tests for commentary detection in `tests/unit/transcription/test_commentary_detection.py`
+- [X] T050 Commit Phase 7 changes: "feat(transcription): commentary track detection (US5)"
 
 **Checkpoint**: User Story 5 complete - commentary tracks identified and reordered
 

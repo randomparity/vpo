@@ -51,6 +51,7 @@ def classify_track(
     track: TrackInfo,
     policy: PolicySchema,
     matcher: CommentaryMatcher,
+    transcription_results: dict[int, TranscriptionResultRecord] | None = None,
 ) -> TrackType:
     """Classify a track according to policy rules.
 
@@ -58,6 +59,9 @@ def classify_track(
         track: Track metadata to classify.
         policy: Policy configuration.
         matcher: Commentary pattern matcher.
+        transcription_results: Optional map of track_id to transcription result.
+            Used for transcription-based commentary detection when policy
+            has detect_commentary enabled.
 
     Returns:
         TrackType enum value for sorting.
@@ -68,9 +72,24 @@ def classify_track(
         return TrackType.VIDEO
 
     if track_type == "audio":
-        # Check for commentary first
+        # Check for commentary first (metadata-based)
         if matcher.is_commentary(track.title):
             return TrackType.AUDIO_COMMENTARY
+
+        # Check for transcription-based commentary detection
+        if (
+            transcription_results is not None
+            and policy.has_transcription_settings
+            and policy.transcription.detect_commentary
+        ):
+            track_id = getattr(track, "id", None)
+            if track_id is None:
+                track_id = getattr(track, "track_index", track.index)
+
+            tr_result = transcription_results.get(track_id)
+            if tr_result is not None and tr_result.track_type == "commentary":
+                return TrackType.AUDIO_COMMENTARY
+
         # Check if language is in preference list
         lang = track.language or "und"
         if lang in policy.audio_language_preference:
@@ -97,6 +116,7 @@ def compute_desired_order(
     tracks: list[TrackInfo],
     policy: PolicySchema,
     matcher: CommentaryMatcher,
+    transcription_results: dict[int, TranscriptionResultRecord] | None = None,
 ) -> list[int]:
     """Compute desired track order according to policy.
 
@@ -104,6 +124,9 @@ def compute_desired_order(
         tracks: List of track metadata.
         policy: Policy configuration.
         matcher: Commentary pattern matcher.
+        transcription_results: Optional map of track_id to transcription result.
+            Used for transcription-based commentary detection when policy
+            has detect_commentary enabled.
 
     Returns:
         List of track indices in desired order.
@@ -122,7 +145,7 @@ def compute_desired_order(
         2. Language preference position (secondary for audio/subtitle main)
         3. Original index (tertiary for stable sort)
         """
-        classification = classify_track(track, policy, matcher)
+        classification = classify_track(track, policy, matcher, transcription_results)
         primary = track_order_map.get(classification, len(policy.track_order))
 
         # Secondary sort by language preference for main tracks
@@ -361,8 +384,11 @@ def evaluate_policy(
     requires_remux = False
 
     # Compute desired track order (handles empty tracks gracefully)
+    # Pass transcription_results to enable transcription-based commentary detection
     current_order = [t.index for t in sorted(tracks, key=lambda t: t.index)]
-    desired_order = compute_desired_order(tracks, policy, matcher)
+    desired_order = compute_desired_order(
+        tracks, policy, matcher, transcription_results
+    )
 
     # Check if reordering is needed
     if current_order != desired_order:

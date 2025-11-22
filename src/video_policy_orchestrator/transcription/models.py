@@ -99,3 +99,75 @@ COMMENTARY_KEYWORDS = [
     "alternate",
     "composer",
 ]
+
+# Patterns for transcript-based commentary detection
+COMMENTARY_TRANSCRIPT_PATTERNS = [
+    # Director/cast commentary phrases
+    r"\bthis scene\b.*\bwe\b",
+    r"\bwhen we (shot|filmed|made)\b",
+    r"\bI (remember|think|wanted)\b",
+    r"\bthe (actor|actress|director)\b",
+    r"\bon set\b",
+    r"\bthe script\b",
+    r"\bthe original\b.*\bversion\b",
+    # Interview-style patterns
+    r"\bwhat (made|inspired)\b.*\byou\b",
+    r"\btell us about\b",
+]
+
+
+def is_commentary_by_metadata(title: str | None) -> bool:
+    """Check if track title suggests commentary based on keywords.
+
+    Args:
+        title: Track title to check.
+
+    Returns:
+        True if title matches any commentary keyword.
+    """
+    if not title:
+        return False
+
+    title_lower = title.lower()
+    return any(keyword in title_lower for keyword in COMMENTARY_KEYWORDS)
+
+
+def detect_commentary_type(
+    title: str | None,
+    transcript_sample: str | None,
+) -> TrackClassification:
+    """Detect track classification using metadata and transcript analysis.
+
+    Uses a two-stage detection approach:
+    1. Metadata-based: Check track title for commentary keywords
+    2. Transcript-based: Analyze transcript sample for commentary patterns
+
+    Args:
+        title: Track title (metadata).
+        transcript_sample: Optional transcript text sample.
+
+    Returns:
+        TrackClassification (MAIN, COMMENTARY, or ALTERNATE).
+    """
+    import re
+
+    # Stage 1: Metadata-based detection
+    if is_commentary_by_metadata(title):
+        return TrackClassification.COMMENTARY
+
+    # Stage 2: Transcript-based detection (if sample available)
+    if transcript_sample:
+        sample_lower = transcript_sample.lower()
+
+        # Count matches against commentary patterns
+        match_count = 0
+        for pattern in COMMENTARY_TRANSCRIPT_PATTERNS:
+            if re.search(pattern, sample_lower, re.IGNORECASE):
+                match_count += 1
+
+        # If 2+ patterns match, likely commentary
+        if match_count >= 2:
+            return TrackClassification.COMMENTARY
+
+    # Default: Main audio track
+    return TrackClassification.MAIN

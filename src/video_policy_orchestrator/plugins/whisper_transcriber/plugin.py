@@ -11,6 +11,7 @@ from video_policy_orchestrator.transcription.models import (
     TrackClassification,
     TranscriptionConfig,
     TranscriptionResult,
+    detect_commentary_type,
 )
 
 
@@ -194,12 +195,16 @@ class WhisperTranscriptionPlugin:
             # Whisper doesn't provide confidence for transcription, use 0.9 as default
             confidence = 0.9 if detected_lang else 0.0
 
+            # Detect track type using transcript analysis
+            # Note: title is not available here, so we pass None
+            track_type = detect_commentary_type(None, transcript_sample)
+
             now = datetime.now(timezone.utc)
             return TranscriptionResult(
                 track_id=0,  # Will be set by caller
                 detected_language=detected_lang,
                 confidence_score=confidence,
-                track_type=TrackClassification.MAIN,
+                track_type=track_type,
                 transcript_sample=transcript_sample,
                 plugin_name=self.name,
                 created_at=now,
