@@ -145,6 +145,12 @@ def detect_ffmpeg(configured_path: Path | None = None) -> FFmpegInfo:
     if version_match:
         info.version = version_match.group(1)
         info.version_tuple = parse_version_string(info.version)
+        if info.version_tuple is None:
+            logger.warning(
+                "Could not parse ffmpeg version '%s' into comparable tuple. "
+                "Please report this format at github.com/anthropics/claude-code/issues",
+                info.version,
+            )
 
     # Parse build configuration
     capabilities = _detect_ffmpeg_capabilities(path, stdout)
@@ -301,6 +307,11 @@ def detect_ffprobe(configured_path: Path | None = None) -> FFprobeInfo:
     if version_match:
         info.version = version_match.group(1)
         info.version_tuple = parse_version_string(info.version)
+        if info.version_tuple is None:
+            logger.warning(
+                "Could not parse ffprobe version '%s' into comparable tuple",
+                info.version,
+            )
 
     info.status = ToolStatus.AVAILABLE
     info.status_message = None
@@ -339,6 +350,11 @@ def detect_mkvmerge(configured_path: Path | None = None) -> MkvmergeInfo:
     if version_match:
         info.version = version_match.group(1)
         info.version_tuple = parse_version_string(info.version)
+        if info.version_tuple is None:
+            logger.warning(
+                "Could not parse mkvmerge version '%s' into comparable tuple",
+                info.version,
+            )
 
     # Check for specific features based on version
     if info.version_tuple:
@@ -384,6 +400,11 @@ def detect_mkvpropedit(configured_path: Path | None = None) -> MkvpropeditInfo:
     if version_match:
         info.version = version_match.group(1)
         info.version_tuple = parse_version_string(info.version)
+        if info.version_tuple is None:
+            logger.warning(
+                "Could not parse mkvpropedit version '%s' into comparable tuple",
+                info.version,
+            )
 
     # All modern versions support these features
     info.supports_track_edit = True

@@ -23,37 +23,33 @@ class FileLockError(Exception):
 
 
 @contextmanager
-def file_lock(file_path: Path, timeout: float = 0) -> Iterator[None]:
+def file_lock(file_path: Path) -> Iterator[None]:
     """Context manager for acquiring an exclusive lock on a file.
 
     This prevents concurrent modifications to the same file.
+    The lock is non-blocking - if the file is already locked, this
+    raises FileLockError immediately rather than waiting.
 
     Args:
         file_path: Path to the file to lock.
-        timeout: Timeout in seconds. 0 means non-blocking (fail immediately).
 
     Yields:
         None when lock is acquired.
 
     Raises:
-        FileLockError: If the lock cannot be acquired.
+        FileLockError: If the lock cannot be acquired (file is in use).
     """
     lock_path = file_path.with_suffix(file_path.suffix + LOCK_SUFFIX)
+    lock_file = None
 
     try:
         # Create lock file
         lock_file = open(lock_path, "w")
 
         try:
-            # Try to acquire exclusive lock
-            if timeout == 0:
-                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            else:
-                # For non-zero timeout, we'd need a more complex implementation
-                # For now, just try non-blocking
-                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            # Try to acquire exclusive lock (non-blocking)
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except (BlockingIOError, OSError) as e:
-            lock_file.close()
             raise FileLockError(
                 f"File is being modified by another operation: {file_path}"
             ) from e
@@ -63,15 +59,13 @@ def file_lock(file_path: Path, timeout: float = 0) -> Iterator[None]:
         finally:
             # Release lock
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
-            lock_file.close()
-            # Remove lock file
-            lock_path.unlink(missing_ok=True)
     except FileLockError:
         raise
-    except Exception:
-        # Clean up lock file on any other error
+    finally:
+        # Always clean up: close file handle and remove lock file
+        if lock_file is not None:
+            lock_file.close()
         lock_path.unlink(missing_ok=True)
-        raise
 
 
 def create_backup(file_path: Path) -> Path:

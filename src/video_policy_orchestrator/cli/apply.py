@@ -1,6 +1,7 @@
 """CLI command for applying policies to media files."""
 
 import json
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -38,7 +39,14 @@ EXIT_OPERATION_FAILED = 5
 def _tracks_from_records(
     track_records: list,
 ) -> list[TrackInfo]:
-    """Convert TrackRecord list to TrackInfo list."""
+    """Convert TrackRecord list to TrackInfo list for policy evaluation.
+
+    Args:
+        track_records: List of TrackRecord objects from database.
+
+    Returns:
+        List of TrackInfo domain objects suitable for policy evaluation.
+    """
     return [
         TrackInfo(
             index=r.track_index,
@@ -209,7 +217,7 @@ def apply_command(
     try:
         conn = get_connection()
         file_record = get_file_by_path(conn, str(target))
-    except Exception as e:
+    except sqlite3.Error as e:
         _error_exit(
             f"Database error: {e}",
             EXIT_GENERAL_ERROR,

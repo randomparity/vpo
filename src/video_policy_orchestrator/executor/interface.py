@@ -5,6 +5,7 @@ to check external tool availability.
 """
 
 import shutil
+import threading
 from pathlib import Path
 from typing import Protocol
 
@@ -65,20 +66,30 @@ class Executor(Protocol):
 # - System PATH fallback
 # - Capability-aware tool registry integration
 
-# Module-level registry cache (lazy-loaded)
+# Thread-safe module-level registry cache (lazy-loaded)
 _tool_registry = None
 _config = None
+_registry_lock = threading.Lock()
 
 
 def _get_tool_registry():
-    """Get or create the tool registry (lazy initialization).
+    """Get or create the tool registry (thread-safe lazy initialization).
 
     Returns:
         ToolRegistry with detected tool capabilities.
     """
     global _tool_registry, _config
 
-    if _tool_registry is None:
+    # Fast path: if already initialized, return without lock
+    if _tool_registry is not None:
+        return _tool_registry
+
+    # Slow path: acquire lock and initialize
+    with _registry_lock:
+        # Double-check after acquiring lock
+        if _tool_registry is not None:
+            return _tool_registry
+
         from video_policy_orchestrator.config import get_config
         from video_policy_orchestrator.tools import get_tool_registry
 
@@ -95,12 +106,13 @@ def _get_tool_registry():
 
 
 def refresh_tool_registry() -> None:
-    """Force refresh of the tool registry.
+    """Force refresh of the tool registry (thread-safe).
 
     Call this if tool paths or availability may have changed.
     """
     global _tool_registry
-    _tool_registry = None
+    with _registry_lock:
+        _tool_registry = None
 
 
 def check_tool_availability() -> dict[str, bool]:
