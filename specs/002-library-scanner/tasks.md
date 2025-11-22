@@ -25,13 +25,13 @@
 
 **Purpose**: Project initialization with hybrid Python/Rust build system
 
-- [ ] T001 Update pyproject.toml with maturin build system and click dependency in pyproject.toml
-- [ ] T002 [P] Create Rust crate structure with Cargo.toml in crates/vpo-core/Cargo.toml
-- [ ] T003 [P] Create Rust lib.rs with PyO3 module skeleton in crates/vpo-core/src/lib.rs
-- [ ] T004 [P] Create Python type stubs for Rust extension in src/video_policy_orchestrator/_core.pyi
-- [ ] T005 [P] Create test fixtures directory structure in tests/fixtures/sample_videos/
-- [ ] T006 [P] Create shared test fixtures in tests/conftest.py
-- [ ] T007 Verify maturin build works with `maturin develop`
+- [X] T001 Update pyproject.toml with maturin build system and click dependency in pyproject.toml
+- [X] T002 [P] Create Rust crate structure with Cargo.toml in crates/vpo-core/Cargo.toml
+- [X] T003 [P] Create Rust lib.rs with PyO3 module skeleton in crates/vpo-core/src/lib.rs
+- [X] T004 [P] Create Python type stubs for Rust extension in src/video_policy_orchestrator/_core.pyi
+- [X] T005 [P] Create test fixtures directory structure in tests/fixtures/sample_videos/
+- [X] T006 [P] Create shared test fixtures in tests/conftest.py
+- [X] T007 Verify maturin build works with `maturin develop`
 
 ---
 
@@ -41,15 +41,15 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T008 Implement discover_videos function in crates/vpo-core/src/discovery.rs
-- [ ] T008b [P] Implement symlink cycle detection in discover_videos in crates/vpo-core/src/discovery.rs
-- [ ] T009 [P] Implement hash_files function in crates/vpo-core/src/hasher.rs
-- [ ] T010 Export Rust functions via PyO3 in crates/vpo-core/src/lib.rs
-- [ ] T011 Verify Rust extension imports in Python with basic smoke test
-- [ ] T012 Create FileInfo and TrackInfo dataclasses in src/video_policy_orchestrator/db/models.py
-- [ ] T013 Create FileRecord and TrackRecord dataclasses in src/video_policy_orchestrator/db/models.py
-- [ ] T014 Implement database connection manager in src/video_policy_orchestrator/db/connection.py
-- [ ] T015 Implement schema creation with all tables in src/video_policy_orchestrator/db/schema.py
+- [X] T008 Implement discover_videos function in crates/vpo-core/src/discovery.rs
+- [X] T008b [P] Implement symlink cycle detection in discover_videos in crates/vpo-core/src/discovery.rs
+- [X] T009 [P] Implement hash_files function in crates/vpo-core/src/hasher.rs
+- [X] T010 Export Rust functions via PyO3 in crates/vpo-core/src/lib.rs
+- [X] T011 Verify Rust extension imports in Python with basic smoke test
+- [X] T012 Create FileInfo and TrackInfo dataclasses in src/video_policy_orchestrator/db/models.py
+- [X] T013 Create FileRecord and TrackRecord dataclasses in src/video_policy_orchestrator/db/models.py
+- [X] T014 Implement database connection manager in src/video_policy_orchestrator/db/connection.py
+- [X] T015 Implement schema creation with all tables in src/video_policy_orchestrator/db/schema.py
 
 **Checkpoint**: Foundation ready - Rust core works, database initializes, models defined
 
