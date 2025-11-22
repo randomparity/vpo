@@ -81,7 +81,7 @@
 - [X] T022 [P] [US2] Unit test for directory discovery in tests/unit/plugin/test_loader.py
 - [X] T023 [P] [US2] Unit test for entry point discovery in tests/unit/plugin/test_loader.py
 - [X] T024 [P] [US2] Unit test for PluginRegistry operations in tests/unit/plugin/test_registry.py
-- [ ] T025 [P] [US2] Integration test for plugin discovery E2E in tests/integration/test_plugin_discovery.py
+- [X] T025 [P] [US2] Integration test for plugin discovery E2E in tests/integration/test_plugin_discovery.py
 
 ### Implementation for User Story 2
 
