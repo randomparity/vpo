@@ -215,25 +215,24 @@ def apply_command(
 
     # Get file info from database
     try:
-        conn = get_connection()
-        file_record = get_file_by_path(conn, str(target))
+        with get_connection() as conn:
+            file_record = get_file_by_path(conn, str(target))
+            if file_record is None:
+                _error_exit(
+                    f"File not found in database. Run 'vpo scan' first: {target}",
+                    EXIT_TARGET_NOT_FOUND,
+                    json_output,
+                )
+
+            # Get tracks from database
+            track_records = get_tracks_for_file(conn, file_record.id)
+            tracks = _tracks_from_records(track_records)
     except sqlite3.Error as e:
         _error_exit(
             f"Database error: {e}",
             EXIT_GENERAL_ERROR,
             json_output,
         )
-
-    if file_record is None:
-        _error_exit(
-            f"File not found in database. Run 'vpo scan' first: {target}",
-            EXIT_TARGET_NOT_FOUND,
-            json_output,
-        )
-
-    # Get tracks from database
-    track_records = get_tracks_for_file(conn, file_record.id)
-    tracks = _tracks_from_records(track_records)
 
     if not tracks:
         _error_exit(
