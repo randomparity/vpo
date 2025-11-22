@@ -26,6 +26,7 @@ from video_policy_orchestrator.executor.interface import (
     get_available_tools,
     require_tool,
 )
+from video_policy_orchestrator.executor.mkvmerge import MkvmergeExecutor
 from video_policy_orchestrator.executor.mkvpropedit import MkvpropeditExecutor
 
 __all__ = [
@@ -37,6 +38,7 @@ __all__ = [
     "require_tool",
     # Executors
     "MkvpropeditExecutor",
+    "MkvmergeExecutor",
     "FfmpegMetadataExecutor",
     # Backup
     "BACKUP_SUFFIX",

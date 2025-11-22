@@ -20,6 +20,7 @@ from video_policy_orchestrator.db.operations import (
 from video_policy_orchestrator.executor.backup import FileLockError, file_lock
 from video_policy_orchestrator.executor.ffmpeg_metadata import FfmpegMetadataExecutor
 from video_policy_orchestrator.executor.interface import check_tool_availability
+from video_policy_orchestrator.executor.mkvmerge import MkvmergeExecutor
 from video_policy_orchestrator.executor.mkvpropedit import MkvpropeditExecutor
 from video_policy_orchestrator.policy.evaluator import evaluate_policy
 from video_policy_orchestrator.policy.loader import PolicyValidationError, load_policy
@@ -240,10 +241,10 @@ def apply_command(
     if not dry_run:
         tools = check_tool_availability()
         if container.lower() in ("mkv", "matroska"):
+            # MKV files need mkvpropedit for metadata, mkvmerge for reordering
             if not tools.get("mkvpropedit"):
                 _error_exit(
-                    "Required tool not available: mkvpropedit. "
-                    "Install mkvtoolnix or ffmpeg.",
+                    "Required tool not available: mkvpropedit. Install mkvtoolnix.",
                     EXIT_TOOL_NOT_AVAILABLE,
                     json_output,
                 )
@@ -296,16 +297,17 @@ def apply_command(
             click.echo("No changes required - file already matches policy.")
         sys.exit(EXIT_SUCCESS)
 
-    # Check if plan requires remux (track reordering) - not yet supported
+    # Check if plan requires remux (track reordering) and mkvmerge is available
     if plan.requires_remux:
         has_reorder = any(a.action_type == ActionType.REORDER for a in plan.actions)
         if has_reorder:
-            _error_exit(
-                "Track reordering requires mkvmerge (not yet implemented). "
-                "Use --dry-run to preview changes.",
-                EXIT_GENERAL_ERROR,
-                json_output,
-            )
+            tools = check_tool_availability()
+            if not tools.get("mkvmerge"):
+                _error_exit(
+                    "Track reordering requires mkvmerge. Install mkvtoolnix.",
+                    EXIT_TOOL_NOT_AVAILABLE,
+                    json_output,
+                )
 
     # Determine backup behavior
     should_keep_backup = keep_backup if keep_backup is not None else True
@@ -323,7 +325,12 @@ def apply_command(
 
             # Select appropriate executor
             if container.lower() in ("mkv", "matroska"):
-                executor = MkvpropeditExecutor()
+                if plan.requires_remux:
+                    # Use mkvmerge for track reordering (handles default flags too)
+                    executor = MkvmergeExecutor()
+                else:
+                    # Use mkvpropedit for metadata-only changes
+                    executor = MkvpropeditExecutor()
             else:
                 executor = FfmpegMetadataExecutor()
 

@@ -110,10 +110,10 @@
 
 ### Implementation
 
-- [ ] T033 [US4] Create executor/mkvmerge.py with MkvmergeExecutor class for track reordering via --track-order
-- [ ] T034 [US4] Implement atomic file replacement in mkvmerge executor: write to temp, rename to original
-- [ ] T035 [US4] Update cli/apply.py to detect requires_remux in plan and dispatch to mkvmerge executor
-- [ ] T036 [US4] Add container format detection and appropriate executor selection in cli/apply.py
+- [X] T033 [US4] Create executor/mkvmerge.py with MkvmergeExecutor class for track reordering via --track-order
+- [X] T034 [US4] Implement atomic file replacement in mkvmerge executor: write to temp, rename to original
+- [X] T035 [US4] Update cli/apply.py to detect requires_remux in plan and dispatch to mkvmerge executor
+- [X] T036 [US4] Add container format detection and appropriate executor selection in cli/apply.py
 
 **Checkpoint**: User Story 4 complete - MKV track reordering works without re-encoding
 
