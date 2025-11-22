@@ -52,3 +52,11 @@ Thumbs.db
 .env
 .env.*
 *.local
+
+# Rust
+target/
+*.rs.bk
+Cargo.lock
+
+# VPO specific
+*.db
