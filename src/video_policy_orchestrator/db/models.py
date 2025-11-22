@@ -33,6 +33,14 @@ class JobStatus(Enum):
     CANCELLED = "cancelled"
 
 
+class TrackClassification(Enum):
+    """Classification of audio track purpose."""
+
+    MAIN = "main"  # Primary audio track
+    COMMENTARY = "commentary"  # Director/cast commentary
+    ALTERNATE = "alternate"  # Alternate mix, isolated score, etc.
+
+
 @dataclass
 class TrackInfo:
     """Represents a media track within a video file (domain model)."""
@@ -250,6 +258,21 @@ class Job:
     output_path: str | None = None  # Path to output file
     backup_path: str | None = None  # Path to backup of original
     error_message: str | None = None  # Error details if FAILED
+
+
+@dataclass
+class TranscriptionResultRecord:
+    """Database record for transcription_results table."""
+
+    id: int | None
+    track_id: int
+    detected_language: str | None
+    confidence_score: float
+    track_type: str  # 'main', 'commentary', 'alternate'
+    transcript_sample: str | None
+    plugin_name: str
+    created_at: str  # ISO-8601 UTC
+    updated_at: str  # ISO-8601 UTC
 
 
 # Database operations
@@ -1098,6 +1121,119 @@ def delete_old_jobs(
         WHERE created_at < ? AND status IN ({placeholders})
         """,
         (older_than, *[s.value for s in statuses]),
+    )
+    conn.commit()
+    return cursor.rowcount
+
+
+# Transcription result operations
+
+
+def upsert_transcription_result(
+    conn: sqlite3.Connection, record: TranscriptionResultRecord
+) -> int:
+    """Insert or update transcription result for a track.
+
+    Uses ON CONFLICT to handle re-detection scenarios.
+
+    Args:
+        conn: Database connection.
+        record: TranscriptionResultRecord to insert/update.
+
+    Returns:
+        The record ID.
+    """
+    cursor = conn.execute(
+        """
+        INSERT INTO transcription_results (
+            track_id, detected_language, confidence_score, track_type,
+            transcript_sample, plugin_name, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(track_id) DO UPDATE SET
+            detected_language = excluded.detected_language,
+            confidence_score = excluded.confidence_score,
+            track_type = excluded.track_type,
+            transcript_sample = excluded.transcript_sample,
+            plugin_name = excluded.plugin_name,
+            updated_at = excluded.updated_at
+        RETURNING id
+        """,
+        (
+            record.track_id,
+            record.detected_language,
+            record.confidence_score,
+            record.track_type,
+            record.transcript_sample,
+            record.plugin_name,
+            record.created_at,
+            record.updated_at,
+        ),
+    )
+    result = cursor.fetchone()
+    conn.commit()
+    if result is None:
+        raise RuntimeError("RETURNING clause failed to return transcription result ID")
+    return result[0]
+
+
+def get_transcription_result(
+    conn: sqlite3.Connection, track_id: int
+) -> TranscriptionResultRecord | None:
+    """Get transcription result for a track, if exists.
+
+    Args:
+        conn: Database connection.
+        track_id: ID of the track.
+
+    Returns:
+        TranscriptionResultRecord if found, None otherwise.
+    """
+    cursor = conn.execute(
+        """
+        SELECT id, track_id, detected_language, confidence_score, track_type,
+               transcript_sample, plugin_name, created_at, updated_at
+        FROM transcription_results
+        WHERE track_id = ?
+        """,
+        (track_id,),
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+
+    return TranscriptionResultRecord(
+        id=row[0],
+        track_id=row[1],
+        detected_language=row[2],
+        confidence_score=row[3],
+        track_type=row[4],
+        transcript_sample=row[5],
+        plugin_name=row[6],
+        created_at=row[7],
+        updated_at=row[8],
+    )
+
+
+def delete_transcription_results_for_file(
+    conn: sqlite3.Connection, file_id: int
+) -> int:
+    """Delete all transcription results for tracks in a file.
+
+    Called when file is re-scanned or deleted.
+
+    Args:
+        conn: Database connection.
+        file_id: ID of the file.
+
+    Returns:
+        Count of deleted records.
+    """
+    cursor = conn.execute(
+        """
+        DELETE FROM transcription_results
+        WHERE track_id IN (SELECT id FROM tracks WHERE file_id = ?)
+        """,
+        (file_id,),
     )
     conn.commit()
     return cursor.rowcount

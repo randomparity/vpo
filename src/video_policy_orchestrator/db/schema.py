@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -149,6 +149,33 @@ CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_jobs_file_id ON jobs(file_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_priority_created ON jobs(priority, created_at);
+
+-- Transcription results table (007-audio-transcription)
+CREATE TABLE IF NOT EXISTS transcription_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    track_id INTEGER NOT NULL UNIQUE,
+    detected_language TEXT,
+    confidence_score REAL NOT NULL,
+    track_type TEXT NOT NULL DEFAULT 'main',
+    transcript_sample TEXT,
+    plugin_name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+    CONSTRAINT valid_confidence CHECK (
+        confidence_score >= 0.0 AND confidence_score <= 1.0
+    ),
+    CONSTRAINT valid_track_type CHECK (
+        track_type IN ('main', 'commentary', 'alternate')
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_transcription_track_id
+    ON transcription_results(track_id);
+CREATE INDEX IF NOT EXISTS idx_transcription_language
+    ON transcription_results(detected_language);
+CREATE INDEX IF NOT EXISTS idx_transcription_type
+    ON transcription_results(track_type);
 """
 
 
@@ -409,6 +436,60 @@ def migrate_v4_to_v5(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def migrate_v5_to_v6(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 5 to version 6.
+
+    Adds transcription_results table for audio transcription feature:
+    - Stores language detection and transcription results per track
+    - Links to tracks via foreign key with cascade delete
+    - Includes constraints for valid confidence and track type values
+
+    This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Check if table already exists
+    cursor = conn.execute(
+        "SELECT name FROM sqlite_master "
+        "WHERE type='table' AND name='transcription_results'"
+    )
+    if cursor.fetchone() is None:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS transcription_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                track_id INTEGER NOT NULL UNIQUE,
+                detected_language TEXT,
+                confidence_score REAL NOT NULL,
+                track_type TEXT NOT NULL DEFAULT 'main',
+                transcript_sample TEXT,
+                plugin_name TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+                CONSTRAINT valid_confidence CHECK (
+                    confidence_score >= 0.0 AND confidence_score <= 1.0
+                ),
+                CONSTRAINT valid_track_type CHECK (
+                    track_type IN ('main', 'commentary', 'alternate')
+                )
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_transcription_track_id
+                ON transcription_results(track_id);
+            CREATE INDEX IF NOT EXISTS idx_transcription_language
+                ON transcription_results(detected_language);
+            CREATE INDEX IF NOT EXISTS idx_transcription_type
+                ON transcription_results(track_type);
+        """)
+
+    # Update schema version to 6
+    conn.execute(
+        "UPDATE _meta SET value = '6' WHERE key = 'schema_version'",
+    )
+    conn.commit()
+
+
 def initialize_database(conn: sqlite3.Connection) -> None:
     """Initialize the database with schema, creating tables if needed.
 
@@ -432,3 +513,6 @@ def initialize_database(conn: sqlite3.Connection) -> None:
             current_version = 4
         if current_version == 4:
             migrate_v4_to_v5(conn)
+            current_version = 5
+        if current_version == 5:
+            migrate_v5_to_v6(conn)

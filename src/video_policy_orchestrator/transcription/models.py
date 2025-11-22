@@ -36,6 +36,33 @@ class TranscriptionResult:
         if not self.plugin_name:
             raise ValueError("plugin_name must be non-empty")
 
+    @classmethod
+    def from_record(cls, record: "TranscriptionResultRecord") -> "TranscriptionResult":
+        """Create domain model from database record.
+
+        Args:
+            record: Database record to convert.
+
+        Returns:
+            TranscriptionResult domain model.
+        """
+        return cls(
+            track_id=record.track_id,
+            detected_language=record.detected_language,
+            confidence_score=record.confidence_score,
+            track_type=TrackClassification(record.track_type),
+            transcript_sample=record.transcript_sample,
+            plugin_name=record.plugin_name,
+            created_at=datetime.fromisoformat(record.created_at),
+            updated_at=datetime.fromisoformat(record.updated_at),
+        )
+
+
+# Import at bottom to avoid circular import
+from video_policy_orchestrator.db.models import (  # noqa: E402
+    TranscriptionResultRecord,
+)
+
 
 @dataclass
 class TranscriptionConfig:

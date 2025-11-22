@@ -26,11 +26,11 @@
 
 **Purpose**: Create module structure and foundational files
 
-- [ ] T001 Create transcription module directory structure at `src/video_policy_orchestrator/transcription/`
-- [ ] T002 [P] Create `src/video_policy_orchestrator/transcription/__init__.py` with module exports
-- [ ] T003 [P] Create `src/video_policy_orchestrator/plugins/whisper_transcriber/__init__.py` with plugin exports
-- [ ] T004 [P] Create `tests/unit/transcription/` directory structure
-- [ ] T005 Commit Phase 1 changes: "feat(transcription): create module structure"
+- [X] T001 Create transcription module directory structure at `src/video_policy_orchestrator/transcription/`
+- [X] T002 [P] Create `src/video_policy_orchestrator/transcription/__init__.py` with module exports
+- [X] T003 [P] Create `src/video_policy_orchestrator/plugins/whisper_transcriber/__init__.py` with plugin exports
+- [X] T004 [P] Create `tests/unit/transcription/` directory structure
+- [X] T005 Commit Phase 1 changes: "feat(transcription): create module structure"
 
 ---
 
@@ -40,15 +40,15 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T006 Add TrackClassification enum to `src/video_policy_orchestrator/db/models.py`
-- [ ] T007 Add TranscriptionResultRecord dataclass to `src/video_policy_orchestrator/db/models.py`
-- [ ] T008 Add TranscriptionResult domain model to `src/video_policy_orchestrator/transcription/models.py`
-- [ ] T009 Add TranscriptionConfig dataclass to `src/video_policy_orchestrator/transcription/models.py`
-- [ ] T010 Add transcription_results table schema (v5→v6 migration) in `src/video_policy_orchestrator/db/schema.py`
-- [ ] T011 Add CRUD operations for transcription_results in `src/video_policy_orchestrator/db/models.py`: upsert_transcription_result, get_transcription_result, delete_transcription_results_for_file
-- [ ] T012 [P] Add unit tests for TranscriptionResult model in `tests/unit/transcription/test_models.py`
-- [ ] T013 [P] Add unit tests for database operations in `tests/unit/db/test_transcription_operations.py`
-- [ ] T014 Commit Phase 2 changes: "feat(transcription): add data models and schema migration"
+- [X] T006 Add TrackClassification enum to `src/video_policy_orchestrator/db/models.py`
+- [X] T007 Add TranscriptionResultRecord dataclass to `src/video_policy_orchestrator/db/models.py`
+- [X] T008 Add TranscriptionResult domain model to `src/video_policy_orchestrator/transcription/models.py`
+- [X] T009 Add TranscriptionConfig dataclass to `src/video_policy_orchestrator/transcription/models.py`
+- [X] T010 Add transcription_results table schema (v5→v6 migration) in `src/video_policy_orchestrator/db/schema.py`
+- [X] T011 Add CRUD operations for transcription_results in `src/video_policy_orchestrator/db/models.py`: upsert_transcription_result, get_transcription_result, delete_transcription_results_for_file
+- [X] T012 [P] Add unit tests for TranscriptionResult model in `tests/unit/transcription/test_models.py`
+- [X] T013 [P] Add unit tests for database operations in `tests/unit/db/test_transcription_operations.py`
+- [X] T014 Commit Phase 2 changes: "feat(transcription): add data models and schema migration"
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
