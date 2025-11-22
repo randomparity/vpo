@@ -1,0 +1,51 @@
+# Default Policy for Video Policy Orchestrator
+# This policy provides sensible defaults for organizing track metadata.
+#
+# Usage: vpo apply --policy default-policy.yaml [--dry-run] <file.mkv>
+
+schema_version: 1
+
+# Track type ordering (first = top priority)
+# Tracks are reordered to match this sequence
+track_order:
+  - video
+  - audio_main
+  - audio_alternate
+  - subtitle_main
+  - subtitle_forced
+  - audio_commentary
+  - subtitle_commentary
+  - attachment
+
+# Preferred audio languages (ISO 639-2 codes)
+# First matching language becomes the default audio track
+audio_language_preference:
+  - eng  # English
+  - und  # Undefined/unknown
+
+# Preferred subtitle languages (ISO 639-2 codes)
+# Used when set_preferred_subtitle_default is enabled
+subtitle_language_preference:
+  - eng  # English
+  - und  # Undefined/unknown
+
+# Patterns to identify commentary tracks (regex, case-insensitive)
+# Tracks matching these patterns are classified as commentary
+commentary_patterns:
+  - 'commentary'
+  - 'director'
+
+# Default flag behavior
+default_flags:
+  # Set the first video track as default (recommended)
+  set_first_video_default: true
+
+  # Set the preferred audio track as default based on language preference
+  set_preferred_audio_default: true
+
+  # Set the preferred subtitle track as default (disabled by default)
+  # Enable this for foreign-language content where subtitles are expected
+  set_preferred_subtitle_default: false
+
+  # Clear the default flag on non-preferred tracks of the same type
+  clear_other_defaults: true

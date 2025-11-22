@@ -2,7 +2,18 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
+
+
+class OperationStatus(Enum):
+    """Status of a policy operation."""
+
+    PENDING = "PENDING"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    ROLLED_BACK = "ROLLED_BACK"
 
 
 @dataclass
@@ -134,6 +145,26 @@ class TrackRecord:
             height=info.height,
             frame_rate=info.frame_rate,
         )
+
+
+@dataclass
+class OperationRecord:
+    """Database record for operations table (audit log).
+
+    Tracks policy operations applied to media files for audit purposes.
+    """
+
+    id: str  # UUID
+    file_id: int
+    file_path: str  # Path at time of operation
+    policy_name: str  # Name/path of policy used
+    policy_version: int  # Schema version of policy
+    actions_json: str  # Serialized list of applied actions
+    status: OperationStatus
+    started_at: str  # ISO 8601 UTC
+    error_message: str | None = None
+    backup_path: str | None = None
+    completed_at: str | None = None  # ISO 8601 UTC
 
 
 # Database operations

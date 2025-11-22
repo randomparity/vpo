@@ -1,0 +1,25 @@
+schema_version: 1
+
+track_order:
+  - video
+  - audio_main
+  - audio_alternate
+  - subtitle_main
+  - subtitle_forced
+  - audio_commentary
+  - subtitle_commentary
+  - attachment
+
+audio_language_preference:
+  - eng
+  - und
+
+subtitle_language_preference:
+  - eng
+  - und
+
+default_flags:
+  set_first_video_default: true
+  set_preferred_audio_default: true
+  set_preferred_subtitle_default: false
+  clear_other_defaults: true

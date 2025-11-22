@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -56,18 +56,28 @@ CREATE INDEX IF NOT EXISTS idx_tracks_file_id ON tracks(file_id);
 CREATE INDEX IF NOT EXISTS idx_tracks_type ON tracks(track_type);
 CREATE INDEX IF NOT EXISTS idx_tracks_language ON tracks(language);
 
--- Operations table (future-ready)
+-- Operations table (policy operation audit log)
 CREATE TABLE IF NOT EXISTS operations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    file_id INTEGER,
-    operation_type TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending',
-    created_at TEXT NOT NULL,
+    id TEXT PRIMARY KEY,
+    file_id INTEGER NOT NULL,
+    file_path TEXT NOT NULL,
+    policy_name TEXT NOT NULL,
+    policy_version INTEGER NOT NULL,
+    actions_json TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'PENDING',
+    error_message TEXT,
+    backup_path TEXT,
+    started_at TEXT NOT NULL,
     completed_at TEXT,
-    parameters TEXT,
-    result TEXT,
-    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE SET NULL
+    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
+    CONSTRAINT valid_status CHECK (
+        status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'ROLLED_BACK')
+    )
 );
+
+CREATE INDEX IF NOT EXISTS idx_operations_file_id ON operations(file_id);
+CREATE INDEX IF NOT EXISTS idx_operations_status ON operations(status);
+CREATE INDEX IF NOT EXISTS idx_operations_started_at ON operations(started_at);
 
 -- Policies table (future-ready)
 CREATE TABLE IF NOT EXISTS policies (
@@ -145,10 +155,62 @@ def migrate_v1_to_v2(conn: sqlite3.Connection) -> None:
         if col_name not in existing_columns:
             conn.execute(f"ALTER TABLE tracks ADD COLUMN {col_name} {col_type}")
 
-    # Update schema version
+    # Update schema version to 2
     conn.execute(
-        "UPDATE _meta SET value = ? WHERE key = 'schema_version'",
-        (str(SCHEMA_VERSION),),
+        "UPDATE _meta SET value = '2' WHERE key = 'schema_version'",
+    )
+    conn.commit()
+
+
+def migrate_v2_to_v3(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 2 to version 3.
+
+    Recreates the operations table with new schema for policy engine:
+    - id: TEXT (UUID) instead of INTEGER
+    - file_path, policy_name, policy_version, actions_json: new required fields
+    - status: now uses OperationStatus enum values
+    - started_at instead of created_at
+    - error_message, backup_path: new optional fields
+    - Adds indexes on file_id, status, started_at
+
+    This migration drops the old operations table if it exists.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Drop old operations table (was future-ready placeholder with different schema)
+    conn.execute("DROP TABLE IF EXISTS operations")
+
+    # Create new operations table with policy engine schema
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS operations (
+            id TEXT PRIMARY KEY,
+            file_id INTEGER NOT NULL,
+            file_path TEXT NOT NULL,
+            policy_name TEXT NOT NULL,
+            policy_version INTEGER NOT NULL,
+            actions_json TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'PENDING',
+            error_message TEXT,
+            backup_path TEXT,
+            started_at TEXT NOT NULL,
+            completed_at TEXT,
+            FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
+            CONSTRAINT valid_status CHECK (
+                status IN (
+                    'PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'ROLLED_BACK'
+                )
+            )
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_operations_file_id ON operations(file_id);
+        CREATE INDEX IF NOT EXISTS idx_operations_status ON operations(status);
+        CREATE INDEX IF NOT EXISTS idx_operations_started_at ON operations(started_at);
+    """)
+
+    # Update schema version to 3
+    conn.execute(
+        "UPDATE _meta SET value = '3' WHERE key = 'schema_version'",
     )
     conn.commit()
 
@@ -164,6 +226,9 @@ def initialize_database(conn: sqlite3.Connection) -> None:
     if current_version is None:
         create_schema(conn)
     elif current_version < SCHEMA_VERSION:
-        # Run migrations
+        # Run migrations sequentially
         if current_version == 1:
             migrate_v1_to_v2(conn)
+            current_version = 2
+        if current_version == 2:
+            migrate_v2_to_v3(conn)

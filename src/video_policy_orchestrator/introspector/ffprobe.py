@@ -1,7 +1,6 @@
 """FFprobe-based implementation of MediaIntrospector protocol."""
 
 import json
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -13,28 +12,52 @@ class FFprobeIntrospector:
     """ffprobe-based implementation of MediaIntrospector protocol.
 
     Extracts track-level metadata from video files using ffprobe.
+    Supports configured ffprobe paths via VPO configuration system.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, ffprobe_path: Path | None = None) -> None:
         """Initialize the introspector.
+
+        Args:
+            ffprobe_path: Optional explicit path to ffprobe. If not provided,
+                uses the path from VPO configuration or system PATH.
 
         Raises:
             MediaIntrospectionError: If ffprobe is not available.
         """
-        if not self.is_available():
+        self._ffprobe_path = ffprobe_path or self._get_configured_path()
+
+        if self._ffprobe_path is None:
             raise MediaIntrospectionError(
                 "ffprobe is not installed or not in PATH. "
-                "Install ffmpeg to use media introspection features."
+                "Install ffmpeg to use media introspection features. "
+                "You can also configure a custom path via VPO_FFPROBE_PATH "
+                "environment variable or ~/.vpo/config.toml"
             )
+
+    @staticmethod
+    def _get_configured_path() -> Path | None:
+        """Get ffprobe path from configuration.
+
+        Returns:
+            Configured path or None if not available.
+        """
+        from video_policy_orchestrator.executor.interface import get_tool_path
+
+        return get_tool_path("ffprobe")
 
     @staticmethod
     def is_available() -> bool:
         """Check if ffprobe is available on the system.
 
+        Uses configuration-aware detection.
+
         Returns:
-            True if ffprobe is found in PATH, False otherwise.
+            True if ffprobe is available, False otherwise.
         """
-        return shutil.which("ffprobe") is not None
+        from video_policy_orchestrator.executor.interface import check_tool_availability
+
+        return check_tool_availability().get("ffprobe", False)
 
     def get_file_info(self, path: Path) -> IntrospectionResult:
         """Extract metadata from a video file.
@@ -79,7 +102,7 @@ class FFprobeIntrospector:
         """
         result = subprocess.run(
             [
-                "ffprobe",
+                str(self._ffprobe_path),
                 "-v",
                 "quiet",
                 "-print_format",

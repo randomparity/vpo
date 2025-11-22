@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Wrapper script to run ffprobe from container (podman/docker)
+# Usage: ffprobe-docker [ffprobe arguments...]
+#
+# This script automatically:
+# - Detects podman or docker (prefers podman)
+# - Mounts directories containing input files
+# - Passes all arguments to containerized ffprobe
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+IMAGE_NAME="${FFMPEG_IMAGE:-ffmpeg-full}"
+
+# Detect container runtime (prefer podman)
+if command -v podman &>/dev/null; then
+    CONTAINER_RT="podman"
+elif command -v docker &>/dev/null; then
+    CONTAINER_RT="docker"
+else
+    echo "Error: Neither podman nor docker found in PATH" >&2
+    exit 1
+fi
+
+# Collect unique directories to mount from arguments
+declare -A MOUNT_DIRS
+
+for arg in "$@"; do
+    # Skip options that start with -
+    if [[ "$arg" == -* ]]; then
+        continue
+    fi
+    # If argument looks like a file path (contains / or exists)
+    if [[ "$arg" == */* ]] || [[ -e "$arg" ]]; then
+        # Resolve to absolute path if file exists
+        if [[ -e "$arg" ]]; then
+            abs_path="$(cd "$(dirname "$arg")" && pwd)"
+        elif [[ "$arg" == /* ]]; then
+            abs_path="$(dirname "$arg")"
+        else
+            abs_path="$(pwd)/$(dirname "$arg")"
+        fi
+        MOUNT_DIRS["$abs_path"]=1
+    fi
+done
+
+# Always mount current working directory
+MOUNT_DIRS["$(pwd)"]=1
+
+# Build mount arguments
+MOUNT_ARGS=()
+for dir in "${!MOUNT_DIRS[@]}"; do
+    MOUNT_ARGS+=("-v" "${dir}:${dir}")
+done
+
+# Run ffprobe in container
+exec "$CONTAINER_RT" run --rm \
+    "${MOUNT_ARGS[@]}" \
+    -w "$(pwd)" \
+    "$IMAGE_NAME" \
+    ffprobe "$@"
