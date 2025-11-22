@@ -32,7 +32,10 @@ Docs focused on tasks and workflows: how to run the tools, configure them, and p
   CLI entry points, subcommands, options, environment variables, and examples.
 
 - [usage/configuration.md](usage/configuration.md)
-  Configuration layout: default paths, command-line options, and extension filtering.
+  Configuration layout: config file, environment variables, tool paths, and extension filtering.
+
+- [usage/external-tools.md](usage/external-tools.md)
+  Guide to installing, configuring, and troubleshooting external tools (ffmpeg, mkvtoolnix).
 
 - [usage/workflows.md](usage/workflows.md)
   End-to-end workflows for scanning libraries and inspecting files.

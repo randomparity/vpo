@@ -78,6 +78,17 @@ Abstracts external media tools into a uniform data model:
 - Normalizes track metadata into internal representations
 - Handles errors and tool availability detection
 
+### Tool Capabilities
+
+Manages external tool detection and capability tracking:
+- **Detection**: Locates tools via configured paths or system PATH
+- **Version Parsing**: Extracts version info for compatibility checks
+- **Capability Enumeration**: Detects ffmpeg codecs, formats, filters
+- **Caching**: Stores detection results in `~/.vpo/tool-capabilities.json`
+- **Requirements**: Defines minimum versions for VPO features
+
+See [External Tools Guide](../usage/external-tools.md) for configuration details.
+
 ### Policy Engine
 
 Processes user-defined policies:
@@ -128,6 +139,30 @@ See [design-database.md](../design/design-database.md) for schema details.
 | mkvmerge/mkvpropedit | MKV container manipulation | Yes (for MKV) |
 | SQLite | Data persistence | Yes (bundled with Python) |
 | Whisper (optional) | Audio transcription | No (plugin) |
+
+### Tool Management
+
+VPO includes a comprehensive tool management system:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Tool Capabilities System                  │
+├─────────────────────────────────────────────────────────────┤
+│  Configuration      Detection         Cache                 │
+│  ─────────────      ─────────         ─────                 │
+│  • CLI args         • Version         • JSON file           │
+│  • Env vars         • Capabilities    • TTL-based           │
+│  • Config file      • Build flags     • Auto-refresh        │
+│  • PATH lookup      • Codecs/formats  • Path-aware          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Use `vpo doctor` to check tool health:
+```bash
+vpo doctor --verbose  # Full capability report
+```
+
+See [External Tools Guide](../usage/external-tools.md) for details.
 
 ---
 

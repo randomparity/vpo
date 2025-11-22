@@ -1,0 +1,68 @@
+"""Configuration data models.
+
+This module defines dataclasses for VPO configuration options.
+"""
+
+from dataclasses import dataclass, field
+from pathlib import Path
+
+
+@dataclass
+class ToolPathsConfig:
+    """Configuration for external tool paths.
+
+    All paths are optional. If not specified, tools are looked up in PATH.
+    """
+
+    ffmpeg: Path | None = None
+    ffprobe: Path | None = None
+    mkvmerge: Path | None = None
+    mkvpropedit: Path | None = None
+
+
+@dataclass
+class DetectionConfig:
+    """Configuration for tool capability detection."""
+
+    # Cache TTL in hours (default 24)
+    cache_ttl_hours: int = 24
+
+    # Whether to auto-detect tools on startup
+    auto_detect_on_startup: bool = True
+
+
+@dataclass
+class BehaviorConfig:
+    """Configuration for VPO runtime behavior."""
+
+    # Warn when features are missing (but operation can proceed)
+    warn_on_missing_features: bool = True
+
+    # Show upgrade suggestions when tools are outdated
+    show_upgrade_suggestions: bool = True
+
+
+@dataclass
+class VPOConfig:
+    """Main configuration container for VPO.
+
+    Aggregates all configuration sections.
+    """
+
+    tools: ToolPathsConfig = field(default_factory=ToolPathsConfig)
+    detection: DetectionConfig = field(default_factory=DetectionConfig)
+    behavior: BehaviorConfig = field(default_factory=BehaviorConfig)
+
+    # Database path (can be overridden)
+    database_path: Path | None = None
+
+    def get_tool_path(self, tool_name: str) -> Path | None:
+        """Get configured path for a tool.
+
+        Args:
+            tool_name: Name of the tool (ffmpeg, ffprobe, mkvmerge, mkvpropedit).
+
+        Returns:
+            Configured path or None if not configured.
+        """
+        return getattr(self.tools, tool_name.lower(), None)
