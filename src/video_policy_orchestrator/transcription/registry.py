@@ -109,11 +109,16 @@ class TranscriptionRegistry:
 _registry: TranscriptionRegistry | None = None
 
 
-def get_registry() -> TranscriptionRegistry:
+def get_registry(
+    config: "TranscriptionPluginConfig | None" = None,
+) -> TranscriptionRegistry:
     """Get the global transcription plugin registry.
 
     Creates the registry on first access and attempts to discover
     available plugins.
+
+    Args:
+        config: Optional configuration for plugin initialization.
 
     Returns:
         The global TranscriptionRegistry instance.
@@ -121,11 +126,14 @@ def get_registry() -> TranscriptionRegistry:
     global _registry
     if _registry is None:
         _registry = TranscriptionRegistry()
-        _discover_plugins(_registry)
+        _discover_plugins(_registry, config)
     return _registry
 
 
-def _discover_plugins(registry: TranscriptionRegistry) -> None:
+def _discover_plugins(
+    registry: TranscriptionRegistry,
+    config: "TranscriptionPluginConfig | None" = None,
+) -> None:
     """Discover and register available transcription plugins.
 
     Currently discovers the built-in Whisper plugin. Can be extended
@@ -133,18 +141,37 @@ def _discover_plugins(registry: TranscriptionRegistry) -> None:
 
     Args:
         registry: Registry to populate with discovered plugins.
+        config: Optional configuration for plugin initialization.
     """
     # Try to load built-in Whisper plugin
     try:
         from video_policy_orchestrator.plugins.whisper_transcriber import (
             WhisperTranscriptionPlugin,
         )
+        from video_policy_orchestrator.transcription.models import TranscriptionConfig
+
+        # Create config from VPO config if provided
+        transcription_config = None
+        if config:
+            transcription_config = TranscriptionConfig(
+                enabled_plugin=config.plugin,
+                model_size=config.model_size,
+                sample_duration=config.sample_duration,
+                gpu_enabled=config.gpu_enabled,
+            )
 
         # Only register if dependencies are available
-        plugin = WhisperTranscriptionPlugin()
+        plugin = WhisperTranscriptionPlugin(config=transcription_config)
         registry.register(plugin)
         logger.info("Discovered Whisper transcription plugin")
     except ImportError:
         logger.debug("Whisper plugin dependencies not available")
     except Exception as e:
         logger.warning("Failed to load Whisper plugin: %s", e)
+
+
+# Import type for type hints
+from typing import TYPE_CHECKING  # noqa: E402
+
+if TYPE_CHECKING:
+    from video_policy_orchestrator.config.models import TranscriptionPluginConfig

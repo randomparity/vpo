@@ -85,12 +85,12 @@
 
 ### Implementation for User Story 2
 
-- [ ] T025 [US2] Add transcription plugin configuration to `src/video_policy_orchestrator/config/models.py`
-- [ ] T026 [US2] Implement plugin loading from configuration in `src/video_policy_orchestrator/transcription/registry.py`
-- [ ] T027 [US2] Add plugin availability check to `vpo doctor` in `src/video_policy_orchestrator/cli/doctor.py`
-- [ ] T028 [US2] Create plugin SDK helpers in `src/video_policy_orchestrator/plugin_sdk/transcription.py`
-- [ ] T029 [P] [US2] Add unit tests for plugin configuration loading in `tests/unit/config/test_transcription_config.py`
-- [ ] T030 Commit Phase 4 changes: "feat(transcription): pluggable engine architecture (US2)"
+- [X] T025 [US2] Add transcription plugin configuration to `src/video_policy_orchestrator/config/models.py`
+- [X] T026 [US2] Implement plugin loading from configuration in `src/video_policy_orchestrator/transcription/registry.py`
+- [X] T027 [US2] Add plugin availability check to `vpo doctor` in `src/video_policy_orchestrator/cli/doctor.py`
+- [X] T028 [US2] Create plugin SDK helpers in `src/video_policy_orchestrator/plugin_sdk/transcription.py`
+- [X] T029 [P] [US2] Add unit tests for plugin configuration loading in `tests/unit/config/test_transcription_config.py`
+- [X] T030 Commit Phase 4 changes: "feat(transcription): pluggable engine architecture (US2)"
 
 **Checkpoint**: User Story 2 complete - plugin system allows swappable backends
 
