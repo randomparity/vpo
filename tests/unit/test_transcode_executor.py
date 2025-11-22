@@ -1,5 +1,8 @@
 """Unit tests for transcode executor."""
 
+from pathlib import Path
+from unittest.mock import patch
+
 import pytest
 
 from video_policy_orchestrator.executor.transcode import (
@@ -8,6 +11,16 @@ from video_policy_orchestrator.executor.transcode import (
     should_transcode_video,
 )
 from video_policy_orchestrator.policy.models import TranscodePolicyConfig
+
+
+@pytest.fixture
+def mock_ffmpeg():
+    """Mock require_tool to return a fake ffmpeg path."""
+    with patch(
+        "video_policy_orchestrator.executor.transcode.require_tool"
+    ) as mock_require:
+        mock_require.return_value = Path("/usr/bin/ffmpeg")
+        yield mock_require
 
 
 class TestShouldTranscodeVideo:
@@ -109,7 +122,7 @@ class TestShouldTranscodeVideo:
 class TestBuildFFmpegCommand:
     """Tests for build_ffmpeg_command function."""
 
-    def test_basic_command_structure(self):
+    def test_basic_command_structure(self, mock_ffmpeg):
         """Command has correct basic structure."""
         policy = TranscodePolicyConfig(target_video_codec="hevc", target_crf=23)
         plan = TranscodePlan(
@@ -126,7 +139,7 @@ class TestBuildFFmpegCommand:
         assert "/input.mkv" in cmd
         assert "/output.mkv" in cmd
 
-    def test_includes_hevc_encoder(self):
+    def test_includes_hevc_encoder(self, mock_ffmpeg):
         """Uses libx265 for HEVC."""
         policy = TranscodePolicyConfig(target_video_codec="hevc")
         plan = TranscodePlan(
@@ -142,7 +155,7 @@ class TestBuildFFmpegCommand:
         idx = cmd.index("-c:v")
         assert cmd[idx + 1] == "libx265"
 
-    def test_includes_h264_encoder(self):
+    def test_includes_h264_encoder(self, mock_ffmpeg):
         """Uses libx264 for H264."""
         policy = TranscodePolicyConfig(target_video_codec="h264")
         plan = TranscodePlan(
@@ -157,7 +170,7 @@ class TestBuildFFmpegCommand:
         idx = cmd.index("-c:v")
         assert cmd[idx + 1] == "libx264"
 
-    def test_includes_crf(self):
+    def test_includes_crf(self, mock_ffmpeg):
         """Includes CRF setting."""
         policy = TranscodePolicyConfig(target_video_codec="hevc", target_crf=18)
         plan = TranscodePlan(
@@ -173,7 +186,7 @@ class TestBuildFFmpegCommand:
         idx = cmd.index("-crf")
         assert cmd[idx + 1] == "18"
 
-    def test_includes_bitrate(self):
+    def test_includes_bitrate(self, mock_ffmpeg):
         """Includes bitrate setting."""
         policy = TranscodePolicyConfig(target_video_codec="hevc", target_bitrate="5M")
         plan = TranscodePlan(
@@ -189,7 +202,7 @@ class TestBuildFFmpegCommand:
         idx = cmd.index("-b:v")
         assert cmd[idx + 1] == "5M"
 
-    def test_includes_scale_filter(self):
+    def test_includes_scale_filter(self, mock_ffmpeg):
         """Includes scale filter when needed."""
         policy = TranscodePolicyConfig(target_video_codec="hevc")
         plan = TranscodePlan(
@@ -208,7 +221,7 @@ class TestBuildFFmpegCommand:
         idx = cmd.index("-vf")
         assert "scale=" in cmd[idx + 1]
 
-    def test_copies_video_when_no_transcode(self):
+    def test_copies_video_when_no_transcode(self, mock_ffmpeg):
         """Uses copy for video when no transcode needed."""
         policy = TranscodePolicyConfig()
         plan = TranscodePlan(
@@ -224,7 +237,7 @@ class TestBuildFFmpegCommand:
         idx = cmd.index("-c:v")
         assert cmd[idx + 1] == "copy"
 
-    def test_includes_cpu_threads(self):
+    def test_includes_cpu_threads(self, mock_ffmpeg):
         """Includes thread count when specified."""
         policy = TranscodePolicyConfig(target_video_codec="hevc")
         plan = TranscodePlan(
@@ -240,7 +253,7 @@ class TestBuildFFmpegCommand:
         idx = cmd.index("-threads")
         assert cmd[idx + 1] == "4"
 
-    def test_copies_subtitles(self):
+    def test_copies_subtitles(self, mock_ffmpeg):
         """Copies subtitle streams."""
         policy = TranscodePolicyConfig(target_video_codec="hevc")
         plan = TranscodePlan(
