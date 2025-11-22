@@ -176,6 +176,8 @@ CREATE INDEX IF NOT EXISTS idx_transcription_language
     ON transcription_results(detected_language);
 CREATE INDEX IF NOT EXISTS idx_transcription_type
     ON transcription_results(track_type);
+CREATE INDEX IF NOT EXISTS idx_transcription_plugin
+    ON transcription_results(plugin_name);
 """
 
 
@@ -448,6 +450,9 @@ def migrate_v5_to_v6(conn: sqlite3.Connection) -> None:
 
     Args:
         conn: An open database connection.
+
+    Raises:
+        sqlite3.Error: If migration fails.
     """
     # Check if table already exists
     cursor = conn.execute(
@@ -455,33 +460,59 @@ def migrate_v5_to_v6(conn: sqlite3.Connection) -> None:
         "WHERE type='table' AND name='transcription_results'"
     )
     if cursor.fetchone() is None:
-        conn.executescript("""
-            CREATE TABLE IF NOT EXISTS transcription_results (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                track_id INTEGER NOT NULL UNIQUE,
-                detected_language TEXT,
-                confidence_score REAL NOT NULL,
-                track_type TEXT NOT NULL DEFAULT 'main',
-                transcript_sample TEXT,
-                plugin_name TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
-                CONSTRAINT valid_confidence CHECK (
-                    confidence_score >= 0.0 AND confidence_score <= 1.0
-                ),
-                CONSTRAINT valid_track_type CHECK (
-                    track_type IN ('main', 'commentary', 'alternate')
-                )
-            );
+        try:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS transcription_results (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    track_id INTEGER NOT NULL UNIQUE,
+                    detected_language TEXT,
+                    confidence_score REAL NOT NULL,
+                    track_type TEXT NOT NULL DEFAULT 'main',
+                    transcript_sample TEXT,
+                    plugin_name TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+                    CONSTRAINT valid_confidence CHECK (
+                        confidence_score >= 0.0 AND confidence_score <= 1.0
+                    ),
+                    CONSTRAINT valid_track_type CHECK (
+                        track_type IN ('main', 'commentary', 'alternate')
+                    )
+                );
 
-            CREATE INDEX IF NOT EXISTS idx_transcription_track_id
-                ON transcription_results(track_id);
-            CREATE INDEX IF NOT EXISTS idx_transcription_language
-                ON transcription_results(detected_language);
-            CREATE INDEX IF NOT EXISTS idx_transcription_type
-                ON transcription_results(track_type);
-        """)
+                CREATE INDEX IF NOT EXISTS idx_transcription_track_id
+                    ON transcription_results(track_id);
+                CREATE INDEX IF NOT EXISTS idx_transcription_language
+                    ON transcription_results(detected_language);
+                CREATE INDEX IF NOT EXISTS idx_transcription_type
+                    ON transcription_results(track_type);
+                CREATE INDEX IF NOT EXISTS idx_transcription_plugin
+                    ON transcription_results(plugin_name);
+            """)
+
+            # Validate table was created correctly
+            cursor = conn.execute("PRAGMA table_info(transcription_results)")
+            columns = {row[1] for row in cursor.fetchall()}
+            required_columns = {
+                "id",
+                "track_id",
+                "detected_language",
+                "confidence_score",
+                "track_type",
+                "transcript_sample",
+                "plugin_name",
+                "created_at",
+                "updated_at",
+            }
+            if not required_columns.issubset(columns):
+                missing = required_columns - columns
+                raise sqlite3.Error(
+                    f"Migration v5→v6 failed: missing columns {missing}"
+                )
+        except sqlite3.Error:
+            conn.rollback()
+            raise
 
     # Update schema version to 6
     conn.execute(

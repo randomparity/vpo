@@ -1142,38 +1142,47 @@ def upsert_transcription_result(
 
     Returns:
         The record ID.
+
+    Raises:
+        sqlite3.Error: If database operation fails.
     """
-    cursor = conn.execute(
-        """
-        INSERT INTO transcription_results (
-            track_id, detected_language, confidence_score, track_type,
-            transcript_sample, plugin_name, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(track_id) DO UPDATE SET
-            detected_language = excluded.detected_language,
-            confidence_score = excluded.confidence_score,
-            track_type = excluded.track_type,
-            transcript_sample = excluded.transcript_sample,
-            plugin_name = excluded.plugin_name,
-            updated_at = excluded.updated_at
-        RETURNING id
-        """,
-        (
-            record.track_id,
-            record.detected_language,
-            record.confidence_score,
-            record.track_type,
-            record.transcript_sample,
-            record.plugin_name,
-            record.created_at,
-            record.updated_at,
-        ),
-    )
-    result = cursor.fetchone()
-    conn.commit()
-    if result is None:
-        raise RuntimeError("RETURNING clause failed to return transcription result ID")
-    return result[0]
+    try:
+        cursor = conn.execute(
+            """
+            INSERT INTO transcription_results (
+                track_id, detected_language, confidence_score, track_type,
+                transcript_sample, plugin_name, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(track_id) DO UPDATE SET
+                detected_language = excluded.detected_language,
+                confidence_score = excluded.confidence_score,
+                track_type = excluded.track_type,
+                transcript_sample = excluded.transcript_sample,
+                plugin_name = excluded.plugin_name,
+                updated_at = excluded.updated_at
+            RETURNING id
+            """,
+            (
+                record.track_id,
+                record.detected_language,
+                record.confidence_score,
+                record.track_type,
+                record.transcript_sample,
+                record.plugin_name,
+                record.created_at,
+                record.updated_at,
+            ),
+        )
+        result = cursor.fetchone()
+        conn.commit()
+        if result is None:
+            raise sqlite3.Error(
+                f"RETURNING clause failed for track_id={record.track_id}"
+            )
+        return result[0]
+    except sqlite3.Error:
+        conn.rollback()
+        raise
 
 
 def get_transcription_result(

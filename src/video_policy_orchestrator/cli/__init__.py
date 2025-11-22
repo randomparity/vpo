@@ -1,5 +1,6 @@
 """CLI module for Video Policy Orchestrator."""
 
+import atexit
 import sqlite3
 
 import click
@@ -9,6 +10,19 @@ from video_policy_orchestrator.db.connection import (
     get_default_db_path,
 )
 from video_policy_orchestrator.db.schema import create_schema
+
+_db_conn: sqlite3.Connection | None = None
+
+
+def _cleanup_db_connection() -> None:
+    """Clean up database connection on exit."""
+    global _db_conn
+    if _db_conn is not None:
+        try:
+            _db_conn.close()
+        except Exception:
+            pass
+        _db_conn = None
 
 
 def _get_db_connection() -> sqlite3.Connection | None:
@@ -21,16 +35,33 @@ def _get_db_connection() -> sqlite3.Connection | None:
     Returns:
         Database connection or None if connection fails.
     """
+    global _db_conn
+
+    if _db_conn is not None:
+        return _db_conn
+
     try:
         db_path = get_default_db_path()
         ensure_db_directory(db_path)
 
         conn = sqlite3.connect(str(db_path), timeout=30.0)
+
+        # Enable same PRAGMAs as get_connection() for consistency
         conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA synchronous = NORMAL")
+        conn.execute("PRAGMA busy_timeout = 10000")
+        conn.execute("PRAGMA temp_store = MEMORY")
+
         conn.row_factory = sqlite3.Row
 
         # Ensure schema exists
         create_schema(conn)
+
+        _db_conn = conn
+
+        # Register cleanup on exit
+        atexit.register(_cleanup_db_connection)
 
         return conn
     except Exception:

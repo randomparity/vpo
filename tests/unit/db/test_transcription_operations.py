@@ -400,6 +400,114 @@ class TestTrackClassificationConstraint:
             )
 
 
+class TestCascadeDelete:
+    """Tests for CASCADE DELETE behavior on transcription_results."""
+
+    def test_cascade_delete_when_track_deleted(self, db_conn, sample_file):
+        """Test that transcription results are deleted when track is deleted."""
+        # Create a track
+        track_record = TrackRecord(
+            id=None,
+            file_id=sample_file,
+            track_index=0,
+            track_type="audio",
+            codec="aac",
+            language="und",
+            title="Test Audio",
+            is_default=True,
+            is_forced=False,
+        )
+        track_id = insert_track(db_conn, track_record)
+
+        # Create a transcription result for this track
+        now = datetime.now(timezone.utc).isoformat()
+        transcription_record = TranscriptionResultRecord(
+            id=None,
+            track_id=track_id,
+            detected_language="en",
+            confidence_score=0.95,
+            track_type="main",
+            transcript_sample="Hello world...",
+            plugin_name="whisper-local",
+            created_at=now,
+            updated_at=now,
+        )
+        upsert_transcription_result(db_conn, transcription_record)
+
+        # Verify transcription result exists
+        result = get_transcription_result(db_conn, track_id)
+        assert result is not None
+        assert result.detected_language == "en"
+
+        # Delete the track
+        db_conn.execute("DELETE FROM tracks WHERE id = ?", (track_id,))
+        db_conn.commit()
+
+        # Verify transcription result was cascade deleted
+        result = get_transcription_result(db_conn, track_id)
+        assert result is None
+
+    def test_cascade_delete_when_file_deleted(self, db_conn):
+        """Test transcription results deleted when parent file is deleted."""
+        # Create a file
+        now = datetime.now(timezone.utc).isoformat()
+        file_record = FileRecord(
+            id=None,
+            path="/test/cascade_test.mkv",
+            filename="cascade_test.mkv",
+            directory="/test",
+            extension=".mkv",
+            size_bytes=1000000,
+            modified_at=now,
+            content_hash="cascade123",
+            container_format="matroska",
+            scanned_at=now,
+            scan_status="ok",
+            scan_error=None,
+        )
+        file_id = insert_file(db_conn, file_record)
+
+        # Create a track for this file
+        track_record = TrackRecord(
+            id=None,
+            file_id=file_id,
+            track_index=0,
+            track_type="audio",
+            codec="aac",
+            language="und",
+            title="Test Audio",
+            is_default=True,
+            is_forced=False,
+        )
+        track_id = insert_track(db_conn, track_record)
+
+        # Create a transcription result
+        transcription_record = TranscriptionResultRecord(
+            id=None,
+            track_id=track_id,
+            detected_language="fr",
+            confidence_score=0.88,
+            track_type="main",
+            transcript_sample="Bonjour...",
+            plugin_name="whisper-local",
+            created_at=now,
+            updated_at=now,
+        )
+        upsert_transcription_result(db_conn, transcription_record)
+
+        # Verify transcription result exists
+        result = get_transcription_result(db_conn, track_id)
+        assert result is not None
+
+        # Delete the file (should cascade to tracks, then to transcription_results)
+        db_conn.execute("DELETE FROM files WHERE id = ?", (file_id,))
+        db_conn.commit()
+
+        # Verify transcription result was cascade deleted
+        result = get_transcription_result(db_conn, track_id)
+        assert result is None
+
+
 class TestConfidenceConstraint:
     """Tests for confidence_score constraint in database."""
 
