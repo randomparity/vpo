@@ -7,7 +7,11 @@ to media file track metadata. All functions are pure (no side effects).
 from datetime import datetime, timezone
 from pathlib import Path
 
-from video_policy_orchestrator.db.models import TrackInfo
+from video_policy_orchestrator.db.models import (
+    TrackInfo,
+    TrackRecord,
+    TranscriptionResultRecord,
+)
 from video_policy_orchestrator.policy.matchers import CommentaryMatcher
 from video_policy_orchestrator.policy.models import (
     ActionType,
@@ -47,6 +51,7 @@ def classify_track(
     track: TrackInfo,
     policy: PolicySchema,
     matcher: CommentaryMatcher,
+    transcription_results: dict[int, TranscriptionResultRecord] | None = None,
 ) -> TrackType:
     """Classify a track according to policy rules.
 
@@ -54,6 +59,9 @@ def classify_track(
         track: Track metadata to classify.
         policy: Policy configuration.
         matcher: Commentary pattern matcher.
+        transcription_results: Optional map of track_id to transcription result.
+            Used for transcription-based commentary detection when policy
+            has detect_commentary enabled.
 
     Returns:
         TrackType enum value for sorting.
@@ -64,9 +72,24 @@ def classify_track(
         return TrackType.VIDEO
 
     if track_type == "audio":
-        # Check for commentary first
+        # Check for commentary first (metadata-based)
         if matcher.is_commentary(track.title):
             return TrackType.AUDIO_COMMENTARY
+
+        # Check for transcription-based commentary detection
+        if (
+            transcription_results is not None
+            and policy.has_transcription_settings
+            and policy.transcription.detect_commentary
+        ):
+            track_id = getattr(track, "id", None)
+            if track_id is None:
+                track_id = getattr(track, "track_index", track.index)
+
+            tr_result = transcription_results.get(track_id)
+            if tr_result is not None and tr_result.track_type == "commentary":
+                return TrackType.AUDIO_COMMENTARY
+
         # Check if language is in preference list
         lang = track.language or "und"
         if lang in policy.audio_language_preference:
@@ -93,6 +116,7 @@ def compute_desired_order(
     tracks: list[TrackInfo],
     policy: PolicySchema,
     matcher: CommentaryMatcher,
+    transcription_results: dict[int, TranscriptionResultRecord] | None = None,
 ) -> list[int]:
     """Compute desired track order according to policy.
 
@@ -100,6 +124,9 @@ def compute_desired_order(
         tracks: List of track metadata.
         policy: Policy configuration.
         matcher: Commentary pattern matcher.
+        transcription_results: Optional map of track_id to transcription result.
+            Used for transcription-based commentary detection when policy
+            has detect_commentary enabled.
 
     Returns:
         List of track indices in desired order.
@@ -118,7 +145,7 @@ def compute_desired_order(
         2. Language preference position (secondary for audio/subtitle main)
         3. Original index (tertiary for stable sort)
         """
-        classification = classify_track(track, policy, matcher)
+        classification = classify_track(track, policy, matcher, transcription_results)
         primary = track_order_map.get(classification, len(policy.track_order))
 
         # Secondary sort by language preference for main tracks
@@ -240,12 +267,85 @@ def _find_preferred_track(
     return non_commentary[0]
 
 
+def compute_language_updates(
+    tracks: list[TrackInfo | TrackRecord],
+    transcription_results: dict[int, TranscriptionResultRecord],
+    policy: PolicySchema,
+) -> dict[int, str]:
+    """Compute desired language updates from transcription results.
+
+    Args:
+        tracks: List of track metadata (either TrackInfo or TrackRecord).
+        transcription_results: Map of track_id (database ID) to transcription result.
+            For TrackRecord tracks, uses track.id.
+            For TrackInfo tracks, uses track.index as fallback key.
+        policy: Policy configuration with transcription settings.
+
+    Returns:
+        Dict mapping track_index to desired language code.
+        Only includes tracks that need language updates.
+    """
+    result: dict[int, str] = {}
+
+    # Skip if transcription is not enabled or language updates disabled
+    if not policy.has_transcription_settings:
+        return result
+    if not policy.transcription.update_language_from_transcription:
+        return result
+
+    threshold = policy.transcription.confidence_threshold
+
+    for track in tracks:
+        # Only process audio tracks
+        if track.track_type.lower() != "audio":
+            continue
+
+        # Get track ID for lookup - TrackRecord has 'id', TrackInfo doesn't
+        # For TrackRecord, use database ID; for TrackInfo, use index as key
+        track_id = getattr(track, "id", None)
+        if track_id is None:
+            # Fallback for TrackInfo: use track_index if it exists, else index
+            track_id = getattr(track, "track_index", track.index)
+
+        # Check if we have a transcription result for this track
+        tr_result = transcription_results.get(track_id)
+        if tr_result is None:
+            continue
+
+        # Skip if no language was detected
+        if tr_result.detected_language is None:
+            continue
+
+        # Check confidence threshold
+        if tr_result.confidence_score < threshold:
+            continue
+
+        # Check if update is needed (language differs or is undefined)
+        current_lang = track.language or "und"
+        detected_lang = tr_result.detected_language
+
+        # Skip if language already matches
+        if current_lang == detected_lang:
+            continue
+
+        # Get track index for output (TrackRecord has track_index, TrackInfo has index)
+        track_index = getattr(track, "track_index", getattr(track, "index", None))
+
+        # Only update if current language is undefined or explicitly differs
+        # This prevents overwriting known-correct language tags
+        if current_lang == "und" or current_lang != detected_lang:
+            result[track_index] = detected_lang
+
+    return result
+
+
 def evaluate_policy(
     file_id: str,
     file_path: Path,
     container: str,
     tracks: list[TrackInfo],
     policy: PolicySchema,
+    transcription_results: dict[int, TranscriptionResultRecord] | None = None,
 ) -> Plan:
     """Evaluate a policy against file tracks to produce an execution plan.
 
@@ -258,6 +358,8 @@ def evaluate_policy(
         container: Container format (mkv, mp4, etc.).
         tracks: List of track metadata from introspection.
         policy: Validated policy configuration.
+        transcription_results: Optional map of track_id to transcription result.
+            Required for transcription-based language updates.
 
     Returns:
         Plan describing all changes needed to make tracks conform to policy.
@@ -270,6 +372,8 @@ def evaluate_policy(
         - No audio tracks: Skips audio default flag processing
         - All commentary: Falls back to first track for defaults
         - Missing language: Uses "und" as fallback
+        - Missing transcription results: Skips language updates for those tracks
+        - Low confidence: Skips update if below threshold
     """
     # Edge case: no tracks
     if not tracks:
@@ -280,8 +384,11 @@ def evaluate_policy(
     requires_remux = False
 
     # Compute desired track order (handles empty tracks gracefully)
+    # Pass transcription_results to enable transcription-based commentary detection
     current_order = [t.index for t in sorted(tracks, key=lambda t: t.index)]
-    desired_order = compute_desired_order(tracks, policy, matcher)
+    desired_order = compute_desired_order(
+        tracks, policy, matcher, transcription_results
+    )
 
     # Check if reordering is needed
     if current_order != desired_order:
@@ -319,6 +426,24 @@ def evaluate_policy(
                     desired_value=desired,
                 )
             )
+
+    # Compute language updates from transcription results
+    if transcription_results is not None:
+        language_updates = compute_language_updates(
+            tracks, transcription_results, policy
+        )
+        for track in tracks:
+            new_lang = language_updates.get(track.index)
+            if new_lang is not None:
+                current_lang = track.language or "und"
+                actions.append(
+                    PlannedAction(
+                        action_type=ActionType.SET_LANGUAGE,
+                        track_index=track.index,
+                        current_value=current_lang,
+                        desired_value=new_lang,
+                    )
+                )
 
     return Plan(
         file_id=file_id,

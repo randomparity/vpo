@@ -104,6 +104,35 @@ class WorkerConfig:
 
 
 @dataclass
+class TranscriptionPluginConfig:
+    """Configuration for transcription plugins."""
+
+    # Plugin to use (None = auto-detect)
+    plugin: str | None = None
+
+    # Whisper model size: tiny, base, small, medium, large
+    model_size: str = "base"
+
+    # Seconds to sample from audio (0 = full track)
+    sample_duration: int = 60
+
+    # Use GPU if available
+    gpu_enabled: bool = True
+
+    def __post_init__(self) -> None:
+        """Validate configuration."""
+        valid_model_sizes = {"tiny", "base", "small", "medium", "large"}
+        if self.model_size not in valid_model_sizes:
+            raise ValueError(
+                f"model_size must be one of {valid_model_sizes}, got {self.model_size}"
+            )
+        if self.sample_duration < 0:
+            raise ValueError(
+                f"sample_duration must be non-negative, got {self.sample_duration}"
+            )
+
+
+@dataclass
 class VPOConfig:
     """Main configuration container for VPO.
 
@@ -116,6 +145,9 @@ class VPOConfig:
     plugins: PluginConfig = field(default_factory=PluginConfig)
     jobs: JobsConfig = field(default_factory=JobsConfig)
     worker: WorkerConfig = field(default_factory=WorkerConfig)
+    transcription: TranscriptionPluginConfig = field(
+        default_factory=TranscriptionPluginConfig
+    )
 
     # Database path (can be overridden)
     database_path: Path | None = None

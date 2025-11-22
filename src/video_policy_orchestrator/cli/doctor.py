@@ -208,6 +208,12 @@ def doctor_command(verbose: bool, refresh: bool, json_output: bool) -> None:
             click.echo("  (using system PATH)")
         click.echo()
 
+    # Transcription Plugins
+    click.echo("Transcription Plugins:")
+    click.echo("-" * 20)
+    _show_transcription_plugins(verbose)
+    click.echo()
+
     # Summary
     click.echo("Summary:")
     click.echo("-" * 20)
@@ -240,3 +246,35 @@ def _output_json(registry) -> None:
 
     data = serialize_registry(registry)
     click.echo(json.dumps(data, indent=2))
+
+
+def _show_transcription_plugins(verbose: bool) -> None:
+    """Show available transcription plugins."""
+    from video_policy_orchestrator.transcription.registry import get_registry
+
+    try:
+        transcription_registry = get_registry()
+        plugins = transcription_registry.list_plugins()
+
+        if not plugins:
+            click.echo("  ✗ No transcription plugins available")
+            click.echo("    └─ Install openai-whisper: pip install openai-whisper")
+            return
+
+        for name in plugins:
+            plugin = transcription_registry.get(name)
+            click.echo(f"  ✓ {plugin.name} (v{plugin.version})")
+
+            if verbose:
+                features = []
+                if plugin.supports_feature("language_detection"):
+                    features.append("language detection")
+                if plugin.supports_feature("transcription"):
+                    features.append("transcription")
+                if plugin.supports_feature("gpu"):
+                    features.append("GPU")
+                if features:
+                    click.echo(f"    └─ Features: {', '.join(features)}")
+
+    except Exception as e:
+        click.echo(f"  ✗ Error loading transcription plugins: {e}")
