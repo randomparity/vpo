@@ -123,10 +123,10 @@
 
 **Purpose**: Error messages, documentation, and final validation
 
-- [ ] T037 [P] Implement user-friendly error messages for all exit codes per contracts/cli-apply.md
-- [ ] T038 [P] Add --verbose flag implementation for detailed operation logging
-- [ ] T039 Validate quickstart.md examples work end-to-end
-- [ ] T040 [P] Create example policy file at `docs/examples/default-policy.yaml` based on quickstart.md
+- [X] T037 [P] Implement user-friendly error messages for all exit codes per contracts/cli-apply.md
+- [X] T038 [P] Add --verbose flag implementation for detailed operation logging
+- [X] T039 Validate quickstart.md examples work end-to-end
+- [X] T040 [P] Create example policy file at `docs/examples/default-policy.yaml` based on quickstart.md
 
 ---
 

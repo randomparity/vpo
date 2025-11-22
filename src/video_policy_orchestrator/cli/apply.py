@@ -256,6 +256,9 @@ def apply_command(
             )
 
     # Evaluate policy
+    if verbose:
+        click.echo(f"Evaluating policy against {len(tracks)} tracks...")
+
     plan = evaluate_policy(
         file_id=str(file_record.id),
         file_path=target,
@@ -263,6 +266,9 @@ def apply_command(
         tracks=tracks,
         policy=policy,
     )
+
+    if verbose:
+        click.echo(f"Plan: {plan.summary}")
 
     # Output results
     if dry_run:
@@ -337,9 +343,17 @@ def apply_command(
             # Execute the plan
             import time
 
+            if verbose:
+                executor_name = type(executor).__name__
+                click.echo(f"Using executor: {executor_name}")
+                click.echo(f"Executing {len(plan.actions)} actions...")
+
             start_time = time.time()
             result = executor.execute(plan, keep_backup=should_keep_backup)
             duration = time.time() - start_time
+
+            if verbose:
+                click.echo(f"Execution completed in {duration:.2f}s")
 
             if result.success:
                 # Update operation status to COMPLETED
