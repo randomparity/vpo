@@ -56,22 +56,22 @@
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Create FFprobeIntrospector class skeleton in src/video_policy_orchestrator/introspector/ffprobe.py
-- [ ] T012 [US1] Implement is_available() static method using shutil.which in src/video_policy_orchestrator/introspector/ffprobe.py
-- [ ] T013 [US1] Implement _run_ffprobe() subprocess invocation in src/video_policy_orchestrator/introspector/ffprobe.py
-- [ ] T014 [US1] Implement _parse_streams() to extract track metadata from JSON in src/video_policy_orchestrator/introspector/ffprobe.py
-- [ ] T015 [US1] Implement _map_track_type() for codec_type to track_type conversion in src/video_policy_orchestrator/introspector/ffprobe.py
-- [ ] T016 [US1] Implement _map_channel_layout() for channel count to label conversion in src/video_policy_orchestrator/introspector/ffprobe.py
-- [ ] T017 [US1] Implement get_file_info() method per MediaIntrospector protocol in src/video_policy_orchestrator/introspector/ffprobe.py
-- [ ] T018 [US1] Export FFprobeIntrospector from src/video_policy_orchestrator/introspector/__init__.py
-- [ ] T019 [US1] Create inspect command skeleton in src/video_policy_orchestrator/cli/inspect.py
-- [ ] T020 [US1] Implement human-readable track output formatter in src/video_policy_orchestrator/cli/inspect.py
-- [ ] T021 [US1] Implement JSON output formatter in src/video_policy_orchestrator/cli/inspect.py
-- [ ] T022 [US1] Add --format option (human/json) to inspect command in src/video_policy_orchestrator/cli/inspect.py
-- [ ] T023 [US1] Handle ffprobe-not-found error with exit code 2 in src/video_policy_orchestrator/cli/inspect.py
-- [ ] T024 [US1] Handle file-not-found error with exit code 1 in src/video_policy_orchestrator/cli/inspect.py
-- [ ] T025 [US1] Handle parse-error with exit code 3 in src/video_policy_orchestrator/cli/inspect.py
-- [ ] T026 [US1] Register inspect command in CLI main group in src/video_policy_orchestrator/cli/__init__.py
+- [x] T011 [US1] Create FFprobeIntrospector class skeleton in src/video_policy_orchestrator/introspector/ffprobe.py
+- [x] T012 [US1] Implement is_available() static method using shutil.which in src/video_policy_orchestrator/introspector/ffprobe.py
+- [x] T013 [US1] Implement _run_ffprobe() subprocess invocation in src/video_policy_orchestrator/introspector/ffprobe.py
+- [x] T014 [US1] Implement _parse_streams() to extract track metadata from JSON in src/video_policy_orchestrator/introspector/ffprobe.py
+- [x] T015 [US1] Implement _map_track_type() for codec_type to track_type conversion in src/video_policy_orchestrator/introspector/ffprobe.py
+- [x] T016 [US1] Implement _map_channel_layout() for channel count to label conversion in src/video_policy_orchestrator/introspector/ffprobe.py
+- [x] T017 [US1] Implement get_file_info() method per MediaIntrospector protocol in src/video_policy_orchestrator/introspector/ffprobe.py
+- [x] T018 [US1] Export FFprobeIntrospector from src/video_policy_orchestrator/introspector/__init__.py
+- [x] T019 [US1] Create inspect command skeleton in src/video_policy_orchestrator/cli/inspect.py
+- [x] T020 [US1] Implement human-readable track output formatter in src/video_policy_orchestrator/cli/inspect.py
+- [x] T021 [US1] Implement JSON output formatter in src/video_policy_orchestrator/cli/inspect.py
+- [x] T022 [US1] Add --format option (human/json) to inspect command in src/video_policy_orchestrator/cli/inspect.py
+- [x] T023 [US1] Handle ffprobe-not-found error with exit code 2 in src/video_policy_orchestrator/cli/inspect.py
+- [x] T024 [US1] Handle file-not-found error with exit code 1 in src/video_policy_orchestrator/cli/inspect.py
+- [x] T025 [US1] Handle parse-error with exit code 3 in src/video_policy_orchestrator/cli/inspect.py
+- [x] T026 [US1] Register inspect command in CLI main group in src/video_policy_orchestrator/cli/__init__.py
 
 **Checkpoint**: `vpo inspect <file>` displays track information - MVP complete
 
