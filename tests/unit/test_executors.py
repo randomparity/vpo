@@ -387,3 +387,267 @@ class TestBackupHandling:
         assert result.success is True
         assert result.backup_path is None
         backup_path.unlink.assert_called_once_with(missing_ok=True)
+
+
+# =============================================================================
+# Error Scenario Tests
+# =============================================================================
+
+
+class TestMkvpropeditErrorScenarios:
+    """Tests for error handling in MkvpropeditExecutor."""
+
+    @patch("video_policy_orchestrator.executor.mkvpropedit.create_backup")
+    @patch("video_policy_orchestrator.executor.mkvpropedit.restore_from_backup")
+    @patch("video_policy_orchestrator.executor.mkvpropedit.require_tool")
+    @patch("subprocess.run")
+    def test_mkvpropedit_timeout_handling(
+        self,
+        mock_run: MagicMock,
+        mock_require: MagicMock,
+        mock_restore: MagicMock,
+        mock_backup: MagicMock,
+        mkv_plan: Plan,
+    ):
+        """Should handle subprocess timeout and restore backup."""
+        import subprocess
+
+        mock_require.return_value = Path("/usr/bin/mkvpropedit")
+        backup_path = Path("/test/video.mkv.vpo-backup")
+        mock_backup.return_value = backup_path
+        mock_run.side_effect = subprocess.TimeoutExpired("mkvpropedit", 600)
+
+        executor = MkvpropeditExecutor()
+        result = executor.execute(mkv_plan)
+
+        assert result.success is False
+        assert (
+            "timeout" in result.message.lower() or "timed out" in result.message.lower()
+        )
+        mock_restore.assert_called_once_with(backup_path)
+
+    @patch("video_policy_orchestrator.executor.mkvpropedit.create_backup")
+    def test_mkvpropedit_backup_failure(
+        self,
+        mock_backup: MagicMock,
+        mkv_plan: Plan,
+    ):
+        """Should handle backup creation failure."""
+        mock_backup.side_effect = FileNotFoundError("Source file not found")
+
+        executor = MkvpropeditExecutor()
+        result = executor.execute(mkv_plan)
+
+        assert result.success is False
+        assert "Backup failed" in result.message
+
+    @patch("video_policy_orchestrator.executor.mkvpropedit.create_backup")
+    @patch("video_policy_orchestrator.executor.mkvpropedit.restore_from_backup")
+    @patch("video_policy_orchestrator.executor.mkvpropedit.require_tool")
+    @patch("subprocess.run")
+    def test_mkvpropedit_returncode_error(
+        self,
+        mock_run: MagicMock,
+        mock_require: MagicMock,
+        mock_restore: MagicMock,
+        mock_backup: MagicMock,
+        mkv_plan: Plan,
+    ):
+        """Should handle non-zero return code from mkvpropedit."""
+        mock_require.return_value = Path("/usr/bin/mkvpropedit")
+        backup_path = Path("/test/video.mkv.vpo-backup")
+        mock_backup.return_value = backup_path
+        mock_run.return_value = MagicMock(
+            returncode=2, stdout="", stderr="Error: Could not write to file"
+        )
+
+        executor = MkvpropeditExecutor()
+        result = executor.execute(mkv_plan)
+
+        assert result.success is False
+        assert (
+            "Could not write to file" in result.message
+            or "mkvpropedit failed" in result.message
+        )
+
+
+class TestMkvmergeErrorScenarios:
+    """Tests for error handling in MkvmergeExecutor."""
+
+    @patch("video_policy_orchestrator.executor.mkvmerge.create_backup")
+    @patch("video_policy_orchestrator.executor.mkvmerge.restore_from_backup")
+    @patch("video_policy_orchestrator.executor.mkvmerge.require_tool")
+    @patch("subprocess.run")
+    @patch("tempfile.NamedTemporaryFile")
+    def test_mkvmerge_timeout_handling(
+        self,
+        mock_tempfile: MagicMock,
+        mock_run: MagicMock,
+        mock_require: MagicMock,
+        mock_restore: MagicMock,
+        mock_backup: MagicMock,
+        mkv_reorder_plan: Plan,
+    ):
+        """Should handle subprocess timeout and restore backup."""
+        import subprocess
+
+        mock_require.return_value = Path("/usr/bin/mkvmerge")
+        backup_path = Path("/test/video.mkv.vpo-backup")
+        mock_backup.return_value = backup_path
+
+        # Mock temp file
+        mock_temp_ctx = MagicMock()
+        mock_temp_ctx.__enter__ = MagicMock(
+            return_value=MagicMock(name="/tmp/temp.mkv")
+        )
+        mock_temp_ctx.__exit__ = MagicMock(return_value=False)
+        mock_tempfile.return_value = mock_temp_ctx
+
+        mock_run.side_effect = subprocess.TimeoutExpired("mkvmerge", 600)
+
+        with patch.object(Path, "unlink"):
+            executor = MkvmergeExecutor()
+            result = executor.execute(mkv_reorder_plan)
+
+        assert result.success is False
+        assert (
+            "timeout" in result.message.lower() or "timed out" in result.message.lower()
+        )
+
+    @patch("video_policy_orchestrator.executor.mkvmerge.create_backup")
+    def test_mkvmerge_backup_failure(
+        self,
+        mock_backup: MagicMock,
+        mkv_reorder_plan: Plan,
+    ):
+        """Should handle backup creation failure."""
+        mock_backup.side_effect = FileNotFoundError("Source file not found")
+
+        executor = MkvmergeExecutor()
+        result = executor.execute(mkv_reorder_plan)
+
+        assert result.success is False
+        assert "Backup failed" in result.message
+
+    @patch("video_policy_orchestrator.executor.mkvmerge.create_backup")
+    @patch("video_policy_orchestrator.executor.mkvmerge.restore_from_backup")
+    @patch("video_policy_orchestrator.executor.mkvmerge.require_tool")
+    @patch("subprocess.run")
+    @patch("tempfile.NamedTemporaryFile")
+    def test_mkvmerge_warning_returncode(
+        self,
+        mock_tempfile: MagicMock,
+        mock_run: MagicMock,
+        mock_require: MagicMock,
+        mock_restore: MagicMock,
+        mock_backup: MagicMock,
+        mkv_reorder_plan: Plan,
+    ):
+        """Should handle returncode 1 (warnings) as success with caution."""
+        mock_require.return_value = Path("/usr/bin/mkvmerge")
+        backup_path = Path("/test/video.mkv.vpo-backup")
+        mock_backup.return_value = backup_path
+
+        # Mock temp file
+        mock_temp_ctx = MagicMock()
+        mock_temp_ctx.__enter__ = MagicMock(
+            return_value=MagicMock(name="/tmp/temp.mkv")
+        )
+        mock_temp_ctx.__exit__ = MagicMock(return_value=False)
+        mock_tempfile.return_value = mock_temp_ctx
+
+        # Return code 1 = warnings in mkvmerge
+        mock_run.return_value = MagicMock(
+            returncode=1, stdout="", stderr="Warning: track title changed"
+        )
+
+        with patch.object(Path, "replace"), patch.object(Path, "unlink"):
+            executor = MkvmergeExecutor()
+            result = executor.execute(mkv_reorder_plan)
+
+        # Returncode 1 should still be treated as success (warnings only)
+        assert result.success is True
+
+    @patch("video_policy_orchestrator.executor.mkvmerge.create_backup")
+    @patch("video_policy_orchestrator.executor.mkvmerge.restore_from_backup")
+    @patch("video_policy_orchestrator.executor.mkvmerge.require_tool")
+    @patch("subprocess.run")
+    @patch("tempfile.NamedTemporaryFile")
+    def test_mkvmerge_error_returncode(
+        self,
+        mock_tempfile: MagicMock,
+        mock_run: MagicMock,
+        mock_require: MagicMock,
+        mock_restore: MagicMock,
+        mock_backup: MagicMock,
+        mkv_reorder_plan: Plan,
+    ):
+        """Should handle returncode 2 (error) as failure."""
+        mock_require.return_value = Path("/usr/bin/mkvmerge")
+        backup_path = Path("/test/video.mkv.vpo-backup")
+        mock_backup.return_value = backup_path
+
+        # Mock temp file
+        mock_temp_ctx = MagicMock()
+        mock_temp_ctx.__enter__ = MagicMock(
+            return_value=MagicMock(name="/tmp/temp.mkv")
+        )
+        mock_temp_ctx.__exit__ = MagicMock(return_value=False)
+        mock_tempfile.return_value = mock_temp_ctx
+
+        # Return code 2 = error in mkvmerge
+        mock_run.return_value = MagicMock(
+            returncode=2, stdout="", stderr="Error: File could not be opened"
+        )
+
+        with patch.object(Path, "unlink"):
+            executor = MkvmergeExecutor()
+            result = executor.execute(mkv_reorder_plan)
+
+        assert result.success is False
+        mock_restore.assert_called_once()
+
+
+# =============================================================================
+# Additional MkvmergeExecutor Tests
+# =============================================================================
+
+
+class TestMkvmergeAdditional:
+    """Additional tests for MkvmergeExecutor."""
+
+    def test_build_command_clear_default(self):
+        """CLEAR_DEFAULT action should generate correct args."""
+        plan = Plan(
+            file_id="test-id",
+            file_path=Path("/test/video.mkv"),
+            policy_version=1,
+            actions=(
+                PlannedAction(
+                    action_type=ActionType.REORDER,
+                    track_index=None,
+                    current_value=[0, 1],
+                    desired_value=[1, 0],
+                ),
+                PlannedAction(
+                    action_type=ActionType.CLEAR_DEFAULT,
+                    track_index=1,
+                    current_value=True,
+                    desired_value=False,
+                ),
+            ),
+            requires_remux=True,
+            created_at=datetime.now(timezone.utc),
+        )
+
+        executor = MkvmergeExecutor()
+        executor._tool_path = Path("/usr/bin/mkvmerge")
+        output_path = Path("/tmp/output.mkv")
+
+        cmd = executor._build_command(plan, output_path)
+
+        # Should have default-track-flag for CLEAR_DEFAULT
+        assert "--default-track-flag" in cmd
+        flag_idx = cmd.index("--default-track-flag")
+        # Track 1, value 0 (clear)
+        assert cmd[flag_idx + 1] == "1:0"
