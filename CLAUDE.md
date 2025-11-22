@@ -15,6 +15,12 @@ This project uses **spec-driven development**:
 
 Use the Specify workflow commands (`/speckit.*`) for feature planning and implementation.
 
+## Development Environment
+
+- **Package Manager:** Use `uv` for all Python package operations (not pip)
+  - Install: `uv pip install -e ".[dev]"`
+  - Run tools: `uv run pytest`, `uv run ruff check .`
+
 ## Tech Stack (Planned)
 
 - **Language:** Python
@@ -31,3 +37,10 @@ Key components:
 - **Policy Engine** - Reads YAML/JSON policies, produces execution plans
 - **Execution Layer & Job Queue** - Handles metadata edits, remuxes, transcodes, file moves
 - **Plugin System** - Analyzer, Mutator, and Transcription plugins
+
+## Active Technologies
+- Python 3.10+ (minimum supported; CI will test 3.10, 3.11, 3.12) + ruff (linting/formatting), pytest (testing) (001-project-skeleton)
+- N/A (infrastructure sprint, no data persistence) (001-project-skeleton)
+
+## Recent Changes
+- 001-project-skeleton: Added Python 3.10+ (minimum supported; CI will test 3.10, 3.11, 3.12) + ruff (linting/formatting), pytest (testing)
