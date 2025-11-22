@@ -35,14 +35,14 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T003 Extend TrackInfo dataclass with audio fields (channels, channel_layout) in src/video_policy_orchestrator/db/models.py
-- [ ] T004 Extend TrackInfo dataclass with video fields (width, height, frame_rate) in src/video_policy_orchestrator/db/models.py
-- [ ] T005 Extend TrackRecord dataclass with new fields (channels, channel_layout, width, height, frame_rate) in src/video_policy_orchestrator/db/models.py
-- [ ] T006 Update tracks table schema with new columns in src/video_policy_orchestrator/db/schema.py
-- [ ] T007 Add schema migration function for existing databases in src/video_policy_orchestrator/db/schema.py
-- [ ] T008 Update insert_track function to handle new fields in src/video_policy_orchestrator/db/models.py
-- [ ] T009 Update get_tracks_for_file function to return new fields in src/video_policy_orchestrator/db/models.py
-- [ ] T010 Add TrackRecord.from_track_info conversion for new fields in src/video_policy_orchestrator/db/models.py
+- [x] T003 Extend TrackInfo dataclass with audio fields (channels, channel_layout) in src/video_policy_orchestrator/db/models.py
+- [x] T004 Extend TrackInfo dataclass with video fields (width, height, frame_rate) in src/video_policy_orchestrator/db/models.py
+- [x] T005 Extend TrackRecord dataclass with new fields (channels, channel_layout, width, height, frame_rate) in src/video_policy_orchestrator/db/models.py
+- [x] T006 Update tracks table schema with new columns in src/video_policy_orchestrator/db/schema.py
+- [x] T007 Add schema migration function for existing databases in src/video_policy_orchestrator/db/schema.py
+- [x] T008 Update insert_track function to handle new fields in src/video_policy_orchestrator/db/models.py
+- [x] T009 Update get_tracks_for_file function to return new fields in src/video_policy_orchestrator/db/models.py
+- [x] T010 Add TrackRecord.from_track_info conversion for new fields in src/video_policy_orchestrator/db/models.py
 
 **Checkpoint**: Data model extensions complete - user story implementation can now begin
 
