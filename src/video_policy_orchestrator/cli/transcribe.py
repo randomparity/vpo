@@ -162,11 +162,27 @@ def detect_command(
             if not output_json:
                 click.echo(f"Processing track {track.track_index} ({track.codec})...")
 
+            logger.info(
+                "Extracting audio for language detection",
+                extra={
+                    "file": str(path),
+                    "track_index": track.track_index,
+                    "codec": track.codec,
+                },
+            )
             audio_data = extract_audio_stream(
                 Path(file_record.path),
                 track.track_index,
             )
         except TranscriptionError as e:
+            logger.warning(
+                "Audio extraction failed",
+                extra={
+                    "file": str(path),
+                    "track_index": track.track_index,
+                    "error": str(e),
+                },
+            )
             if output_json:
                 results.append(
                     {
@@ -181,8 +197,29 @@ def detect_command(
 
         # Detect language
         try:
+            logger.debug(
+                "Running language detection",
+                extra={"plugin": transcriber.name, "track_index": track.track_index},
+            )
             result = transcriber.detect_language(audio_data)
+            logger.info(
+                "Language detection complete",
+                extra={
+                    "track_index": track.track_index,
+                    "detected_language": result.detected_language,
+                    "confidence": result.confidence_score,
+                    "track_type": result.track_type.value,
+                },
+            )
         except TranscriptionError as e:
+            logger.warning(
+                "Language detection failed",
+                extra={
+                    "file": str(path),
+                    "track_index": track.track_index,
+                    "error": str(e),
+                },
+            )
             if output_json:
                 results.append(
                     {
@@ -209,6 +246,10 @@ def detect_command(
             updated_at=now,
         )
         upsert_transcription_result(conn, record)
+        logger.debug(
+            "Transcription result stored",
+            extra={"track_id": track.id, "track_index": track.track_index},
+        )
 
         if output_json:
             results.append(_format_result_json(track, record, skipped=False))

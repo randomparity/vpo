@@ -159,16 +159,16 @@
 
 **Purpose**: CLI completion, documentation, and final integration
 
-- [ ] T051 [P] Implement `vpo transcribe status` subcommand in `src/video_policy_orchestrator/cli/transcribe.py`
-- [ ] T052 [P] Implement `vpo transcribe clear` subcommand in `src/video_policy_orchestrator/cli/transcribe.py`
-- [ ] T053 [P] Add `--json` output format to all transcribe subcommands
-- [ ] T054 [P] Add `--dry-run` support to transcribe detect --update
-- [ ] T055 Add structured logging for transcription operations (Constitution VIII)
-- [ ] T056 [P] Update plugin SDK documentation for TranscriptionPlugin in `docs/`
-- [ ] T057 [P] Add sample transcription policy to `examples/` directory
-- [ ] T058 Run `uv run pytest` to verify all tests pass
-- [ ] T059 Run `uv run ruff check .` and `uv run ruff format .` for code quality
-- [ ] T060 Commit Phase 8 changes: "feat(transcription): CLI polish and documentation"
+- [X] T051 [P] Implement `vpo transcribe status` subcommand in `src/video_policy_orchestrator/cli/transcribe.py`
+- [X] T052 [P] Implement `vpo transcribe clear` subcommand in `src/video_policy_orchestrator/cli/transcribe.py`
+- [X] T053 [P] Add `--json` output format to all transcribe subcommands
+- [X] T054 [P] Add `--dry-run` support to transcribe detect --update
+- [X] T055 Add structured logging for transcription operations (Constitution VIII)
+- [X] T056 [P] Update plugin SDK documentation for TranscriptionPlugin in `docs/`
+- [X] T057 [P] Add sample transcription policy to `examples/` directory
+- [X] T058 Run `uv run pytest` to verify all tests pass
+- [X] T059 Run `uv run ruff check .` and `uv run ruff format .` for code quality
+- [X] T060 Commit Phase 8 changes: "feat(transcription): CLI polish and documentation"
 
 ---
 
