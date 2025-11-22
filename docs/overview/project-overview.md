@@ -1,16 +1,19 @@
-# Product Requirements Document
+# Project Overview
 
-**Product:** Video Policy Orchestrator (VPO)
-**Version:** 0.1.0
-**Last Updated:** 2025-11-21
+**Purpose:**
+This document provides a high-level overview of Video Policy Orchestrator (VPO), including its goals, core use cases, target users, and project roadmap.
 
-## Overview
+---
+
+## What is VPO?
 
 Video Policy Orchestrator (VPO) is a spec-driven tool for scanning, organizing, and transforming video libraries using user-defined policies and an extensible plugin architecture.
 
 VPO acts as a **policy layer** on top of existing media tools (ffmpeg, mkvmerge, etc.):
 - You define *what you want* your library to look like
 - The tool figures out *how to get there* and keeps it that way over time
+
+---
 
 ## Core Use Cases
 
@@ -53,12 +56,16 @@ Extensible via plugins:
 - **Mutator plugins**: modify containers, rewrite metadata, move files
 - **Transcription plugins**: speech-to-text and language detection
 
+---
+
 ## Target Users
 
 - **Media enthusiasts** with large video libraries needing organization
 - **Home server administrators** maintaining Plex, Jellyfin, or similar media servers
 - **Content curators** who need consistent metadata and track ordering
 - **Power users** comfortable with configuration files and CLI tools
+
+---
 
 ## Success Metrics
 
@@ -67,6 +74,8 @@ Extensible via plugins:
 - Policy application is idempotent (running twice produces same result)
 - CI feedback within 5 minutes
 - Plugin API is stable and well-documented
+
+---
 
 ## Roadmap
 
@@ -81,9 +90,20 @@ Extensible via plugins:
 | 6 | Transcription | Transcriber plugins, language detection |
 | 7+ | UX & Packaging | Config profiles, docs, PyPI, containers |
 
+---
+
 ## Out of Scope (Initial Release)
 
 - GUI interface (CLI only)
 - Cloud storage integration
 - Real-time file monitoring
 - Multi-user collaboration features
+
+---
+
+## Related docs
+
+- [Documentation Index](../INDEX.md)
+- [Architecture Overview](architecture.md)
+- [Data Model](data-model.md)
+- [CLI Usage](../usage/cli-usage.md) *(planned)*
