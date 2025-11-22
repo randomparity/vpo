@@ -49,17 +49,17 @@
 
 ### Implementation
 
-- [ ] T011 [P] [US1] Create policy/matchers.py with CommentaryMatcher class implementing regex pattern matching per research.md
-- [ ] T012 [US1] Create policy/loader.py with load_policy() function, YAML parsing, Pydantic validation, error transformation per contracts/policy-schema.yaml
-- [ ] T013 [P] [US1] Create sample policy fixtures: `tests/fixtures/policies/track_order_basic.yaml`
-- [ ] T014 [P] [US1] Create sample policy fixtures: `tests/fixtures/policies/audio_preference.yaml`
-- [ ] T015 [P] [US1] Create sample policy fixtures: `tests/fixtures/policies/commentary_detection.yaml`
-- [ ] T016 [US1] Create policy/evaluator.py with classify_track(), compute_desired_order(), compute_default_flags() functions per contracts/evaluator-api.md
-- [ ] T017 [US1] Implement evaluate_policy() pure function in policy/evaluator.py per contracts/evaluator-api.md
-- [ ] T018 [US1] Create cli/apply.py with `vpo apply` command skeleton, --policy and --dry-run options per contracts/cli-apply.md
-- [ ] T019 [US1] Implement dry-run output formatting (human-readable before/after diff) in cli/apply.py
-- [ ] T020 [US1] Implement JSON output format (--json flag) in cli/apply.py
-- [ ] T021 [US1] Register apply command in cli/__init__.py
+- [X] T011 [P] [US1] Create policy/matchers.py with CommentaryMatcher class implementing regex pattern matching per research.md
+- [X] T012 [US1] Create policy/loader.py with load_policy() function, YAML parsing, Pydantic validation, error transformation per contracts/policy-schema.yaml
+- [X] T013 [P] [US1] Create sample policy fixtures: `tests/fixtures/policies/track_order_basic.yaml`
+- [X] T014 [P] [US1] Create sample policy fixtures: `tests/fixtures/policies/audio_preference.yaml`
+- [X] T015 [P] [US1] Create sample policy fixtures: `tests/fixtures/policies/commentary_detection.yaml`
+- [X] T016 [US1] Create policy/evaluator.py with classify_track(), compute_desired_order(), compute_default_flags() functions per contracts/evaluator-api.md
+- [X] T017 [US1] Implement evaluate_policy() pure function in policy/evaluator.py per contracts/evaluator-api.md
+- [X] T018 [US1] Create cli/apply.py with `vpo apply` command skeleton, --policy and --dry-run options per contracts/cli-apply.md
+- [X] T019 [US1] Implement dry-run output formatting (human-readable before/after diff) in cli/apply.py
+- [X] T020 [US1] Implement JSON output format (--json flag) in cli/apply.py
+- [X] T021 [US1] Register apply command in cli/__init__.py
 
 **Checkpoint**: User Story 1+2 complete - users can define policies and preview changes via dry-run
 

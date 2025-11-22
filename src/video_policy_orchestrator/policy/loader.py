@@ -1,0 +1,198 @@
+"""Policy file loading and validation.
+
+This module provides functions to load YAML policy files and validate
+them using Pydantic models.
+"""
+
+from pathlib import Path
+from typing import Any
+
+import yaml
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from video_policy_orchestrator.policy.matchers import validate_regex_patterns
+from video_policy_orchestrator.policy.models import (
+    DEFAULT_TRACK_ORDER,
+    DefaultFlagsConfig,
+    PolicySchema,
+    TrackType,
+)
+
+# Current maximum supported schema version
+MAX_SCHEMA_VERSION = 1
+
+
+class PolicyValidationError(Exception):
+    """Error during policy validation."""
+
+    def __init__(self, message: str, field: str | None = None) -> None:
+        self.message = message
+        self.field = field
+        super().__init__(message)
+
+
+class DefaultFlagsModel(BaseModel):
+    """Pydantic model for default flags configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    set_first_video_default: bool = True
+    set_preferred_audio_default: bool = True
+    set_preferred_subtitle_default: bool = False
+    clear_other_defaults: bool = True
+
+
+class PolicyModel(BaseModel):
+    """Pydantic model for policy YAML validation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: int = Field(ge=1, le=MAX_SCHEMA_VERSION)
+    track_order: list[str] = Field(
+        default_factory=lambda: [t.value for t in DEFAULT_TRACK_ORDER]
+    )
+    audio_language_preference: list[str] = Field(default_factory=lambda: ["eng", "und"])
+    subtitle_language_preference: list[str] = Field(
+        default_factory=lambda: ["eng", "und"]
+    )
+    commentary_patterns: list[str] = Field(
+        default_factory=lambda: ["commentary", "director"]
+    )
+    default_flags: DefaultFlagsModel = Field(default_factory=DefaultFlagsModel)
+
+    @field_validator("track_order")
+    @classmethod
+    def validate_track_order(cls, v: list[str]) -> list[str]:
+        """Validate track order contains valid track types."""
+        if not v:
+            raise ValueError("track_order cannot be empty")
+
+        valid_types = {t.value for t in TrackType}
+        for idx, track_type in enumerate(v):
+            if track_type not in valid_types:
+                raise ValueError(
+                    f"Unknown track type '{track_type}' at track_order[{idx}]. "
+                    f"Valid types: {', '.join(sorted(valid_types))}"
+                )
+        return v
+
+    @field_validator("audio_language_preference", "subtitle_language_preference")
+    @classmethod
+    def validate_language_preference(cls, v: list[str]) -> list[str]:
+        """Validate language preference contains valid ISO 639-2 codes."""
+        if not v:
+            raise ValueError("Language preference cannot be empty")
+
+        import re
+
+        pattern = re.compile(r"^[a-z]{2,3}$")
+        for idx, lang in enumerate(v):
+            if not pattern.match(lang):
+                raise ValueError(
+                    f"Invalid language code '{lang}' at index {idx}. "
+                    "Use ISO 639-2 codes (e.g., 'eng', 'jpn')."
+                )
+        return v
+
+    @field_validator("commentary_patterns")
+    @classmethod
+    def validate_commentary_patterns(cls, v: list[str]) -> list[str]:
+        """Validate commentary patterns are valid regex."""
+        errors = validate_regex_patterns(v)
+        if errors:
+            raise ValueError(errors[0])
+        return v
+
+
+def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
+    """Convert validated Pydantic model to PolicySchema dataclass."""
+    # Convert track order strings to TrackType enum
+    track_order = tuple(TrackType(t) for t in model.track_order)
+
+    # Convert default flags
+    default_flags = DefaultFlagsConfig(
+        set_first_video_default=model.default_flags.set_first_video_default,
+        set_preferred_audio_default=model.default_flags.set_preferred_audio_default,
+        set_preferred_subtitle_default=model.default_flags.set_preferred_subtitle_default,
+        clear_other_defaults=model.default_flags.clear_other_defaults,
+    )
+
+    return PolicySchema(
+        schema_version=model.schema_version,
+        track_order=track_order,
+        audio_language_preference=tuple(model.audio_language_preference),
+        subtitle_language_preference=tuple(model.subtitle_language_preference),
+        commentary_patterns=tuple(model.commentary_patterns),
+        default_flags=default_flags,
+    )
+
+
+def load_policy(policy_path: Path) -> PolicySchema:
+    """Load and validate a policy from a YAML file.
+
+    Args:
+        policy_path: Path to the YAML policy file.
+
+    Returns:
+        Validated PolicySchema object.
+
+    Raises:
+        PolicyValidationError: If the policy file is invalid.
+        FileNotFoundError: If the policy file does not exist.
+    """
+    if not policy_path.exists():
+        raise FileNotFoundError(f"Policy file not found: {policy_path}")
+
+    try:
+        with open(policy_path) as f:
+            data = yaml.safe_load(f)
+    except yaml.YAMLError as e:
+        raise PolicyValidationError(f"Invalid YAML syntax: {e}") from e
+
+    if data is None:
+        raise PolicyValidationError("Policy file is empty")
+
+    if not isinstance(data, dict):
+        raise PolicyValidationError("Policy file must be a YAML mapping")
+
+    return load_policy_from_dict(data)
+
+
+def load_policy_from_dict(data: dict[str, Any]) -> PolicySchema:
+    """Load and validate a policy from a dictionary.
+
+    Args:
+        data: Dictionary containing policy configuration.
+
+    Returns:
+        Validated PolicySchema object.
+
+    Raises:
+        PolicyValidationError: If the policy data is invalid.
+    """
+    try:
+        model = PolicyModel.model_validate(data)
+    except Exception as e:
+        # Transform Pydantic errors to user-friendly messages
+        error_msg = _format_validation_error(e)
+        raise PolicyValidationError(error_msg) from e
+
+    return _convert_to_policy_schema(model)
+
+
+def _format_validation_error(error: Exception) -> str:
+    """Format a Pydantic validation error into a user-friendly message."""
+    from pydantic import ValidationError
+
+    if isinstance(error, ValidationError):
+        # Get the first error
+        errors = error.errors()
+        if errors:
+            first_error = errors[0]
+            loc = ".".join(str(x) for x in first_error.get("loc", []))
+            msg = first_error.get("msg", str(error))
+            if loc:
+                return f"Policy validation failed: {loc}: {msg}"
+            return f"Policy validation failed: {msg}"
+
+    return f"Policy validation failed: {error}"

@@ -13,9 +13,11 @@ def main() -> None:
 # Defer import to avoid circular dependency
 def _register_commands():
     from video_policy_orchestrator.cli import scan  # noqa: F401
+    from video_policy_orchestrator.cli.apply import apply_command
     from video_policy_orchestrator.cli.inspect import inspect_command
 
     main.add_command(inspect_command)
+    main.add_command(apply_command)
 
 
 _register_commands()
