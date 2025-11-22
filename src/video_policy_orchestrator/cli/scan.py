@@ -86,6 +86,9 @@ def scan(
 
         vpo scan --dry-run --verbose /media/videos
     """
+    from video_policy_orchestrator.db.connection import get_connection, get_default_db_path
+    from video_policy_orchestrator.db.schema import initialize_database
+
     # Parse extensions
     ext_list = None
     if extensions:
@@ -95,26 +98,40 @@ def scan(
     scanner = ScannerOrchestrator(extensions=ext_list)
 
     # Run scan
-    files, result = scanner.scan_directories(directories)
+    if dry_run:
+        # Dry run: just scan without database
+        files, result = scanner.scan_directories(directories)
+    else:
+        # Normal run: scan and persist to database
+        effective_db_path = db_path or get_default_db_path()
+        with get_connection(effective_db_path) as conn:
+            initialize_database(conn)
+            files, result = scanner.scan_and_persist(directories, conn)
 
     # Output results
     if json_output:
-        output_json(result, files, verbose)
+        output_json(result, files, verbose, dry_run)
     else:
-        output_human(result, files, verbose)
+        output_human(result, files, verbose, dry_run)
 
     # Exit with error code if there were errors
     if result.errors:
         sys.exit(1) if not files else sys.exit(0)
 
 
-def output_json(result, files, verbose: bool) -> None:
+def output_json(result, files, verbose: bool, dry_run: bool = False) -> None:
     """Output scan results in JSON format."""
     data = {
         "files_found": result.files_found,
         "elapsed_seconds": round(result.elapsed_seconds, 2),
         "directories_scanned": result.directories_scanned,
+        "dry_run": dry_run,
     }
+
+    if not dry_run:
+        data["files_new"] = result.files_new
+        data["files_updated"] = result.files_updated
+        data["files_skipped"] = result.files_skipped
 
     if result.errors:
         data["errors"] = [{"path": p, "error": e} for p, e in result.errors]
@@ -133,10 +150,18 @@ def output_json(result, files, verbose: bool) -> None:
     click.echo(json.dumps(data, indent=2))
 
 
-def output_human(result, files, verbose: bool) -> None:
+def output_human(result, files, verbose: bool, dry_run: bool = False) -> None:
     """Output scan results in human-readable format."""
     click.echo(f"\nScanned {len(result.directories_scanned)} director{'y' if len(result.directories_scanned) == 1 else 'ies'}")
     click.echo(f"Found {result.files_found} video file{'s' if result.files_found != 1 else ''}")
+
+    if not dry_run:
+        click.echo(f"  New: {result.files_new}")
+        click.echo(f"  Updated: {result.files_updated}")
+        click.echo(f"  Skipped: {result.files_skipped}")
+    else:
+        click.echo("  (dry run - no database changes)")
+
     click.echo(f"Elapsed time: {result.elapsed_seconds:.2f}s")
 
     if verbose and files:

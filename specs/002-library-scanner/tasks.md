@@ -94,20 +94,20 @@
 
 ### Tests for User Story 2
 
-- [ ] T030 [P] [US2] Unit test for schema creation in tests/unit/test_schema.py
-- [ ] T031 [P] [US2] Unit test for file upsert operations in tests/unit/test_models.py
-- [ ] T031b [P] [US2] Unit test for track storage (all fields per FR-010) in tests/unit/test_models.py
-- [ ] T032 [P] [US2] Integration test for database persistence in tests/integration/test_database.py
+- [X] T030 [P] [US2] Unit test for schema creation in tests/unit/test_schema.py
+- [X] T031 [P] [US2] Unit test for file upsert operations in tests/unit/test_models.py
+- [X] T031b [P] [US2] Unit test for track storage (all fields per FR-010) in tests/unit/test_models.py
+- [X] T032 [P] [US2] Integration test for database persistence in tests/integration/test_database.py
 
 ### Implementation for User Story 2
 
-- [ ] T033 [US2] Implement file insert/update (upsert) operations in src/video_policy_orchestrator/db/models.py
-- [ ] T034 [US2] Implement track insert with cascade delete (type, codec, language, title, default, forced, ordering per FR-010) in src/video_policy_orchestrator/db/models.py
-- [ ] T035 [US2] Implement file lookup by path in src/video_policy_orchestrator/db/models.py
-- [ ] T036 [US2] Implement modified_at change detection for skip logic in src/video_policy_orchestrator/scanner/orchestrator.py
-- [ ] T037 [US2] Integrate database writes into scanner orchestrator in src/video_policy_orchestrator/scanner/orchestrator.py
-- [ ] T038 [US2] Update scan summary to show new/updated/skipped counts in src/video_policy_orchestrator/cli/scan.py
-- [ ] T039 [US2] Ensure database directory (~/.vpo/) is created if missing in src/video_policy_orchestrator/db/connection.py
+- [X] T033 [US2] Implement file insert/update (upsert) operations in src/video_policy_orchestrator/db/models.py
+- [X] T034 [US2] Implement track insert with cascade delete (type, codec, language, title, default, forced, ordering per FR-010) in src/video_policy_orchestrator/db/models.py
+- [X] T035 [US2] Implement file lookup by path in src/video_policy_orchestrator/db/models.py
+- [X] T036 [US2] Implement modified_at change detection for skip logic in src/video_policy_orchestrator/scanner/orchestrator.py
+- [X] T037 [US2] Integrate database writes into scanner orchestrator in src/video_policy_orchestrator/scanner/orchestrator.py
+- [X] T038 [US2] Update scan summary to show new/updated/skipped counts in src/video_policy_orchestrator/cli/scan.py
+- [X] T039 [US2] Ensure database directory (~/.vpo/) is created if missing in src/video_policy_orchestrator/db/connection.py
 
 **Checkpoint**: Scan results persist to `~/.vpo/library.db`; re-scanning updates rather than duplicates
 

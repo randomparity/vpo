@@ -100,3 +100,223 @@ class TrackRecord:
             is_default=info.is_default,
             is_forced=info.is_forced,
         )
+
+
+# Database operations
+
+import sqlite3
+
+
+def insert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
+    """Insert a new file record into the database.
+
+    Args:
+        conn: Database connection.
+        record: File record to insert.
+
+    Returns:
+        The ID of the inserted record.
+    """
+    cursor = conn.execute(
+        """
+        INSERT INTO files (
+            path, filename, directory, extension, size_bytes,
+            modified_at, content_hash, container_format,
+            scanned_at, scan_status, scan_error
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            record.path,
+            record.filename,
+            record.directory,
+            record.extension,
+            record.size_bytes,
+            record.modified_at,
+            record.content_hash,
+            record.container_format,
+            record.scanned_at,
+            record.scan_status,
+            record.scan_error,
+        ),
+    )
+    conn.commit()
+    return cursor.lastrowid
+
+
+def upsert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
+    """Insert or update a file record (upsert by path).
+
+    Args:
+        conn: Database connection.
+        record: File record to insert or update.
+
+    Returns:
+        The ID of the inserted/updated record.
+    """
+    cursor = conn.execute(
+        """
+        INSERT INTO files (
+            path, filename, directory, extension, size_bytes,
+            modified_at, content_hash, container_format,
+            scanned_at, scan_status, scan_error
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(path) DO UPDATE SET
+            filename = excluded.filename,
+            directory = excluded.directory,
+            extension = excluded.extension,
+            size_bytes = excluded.size_bytes,
+            modified_at = excluded.modified_at,
+            content_hash = excluded.content_hash,
+            container_format = excluded.container_format,
+            scanned_at = excluded.scanned_at,
+            scan_status = excluded.scan_status,
+            scan_error = excluded.scan_error
+        RETURNING id
+        """,
+        (
+            record.path,
+            record.filename,
+            record.directory,
+            record.extension,
+            record.size_bytes,
+            record.modified_at,
+            record.content_hash,
+            record.container_format,
+            record.scanned_at,
+            record.scan_status,
+            record.scan_error,
+        ),
+    )
+    result = cursor.fetchone()
+    conn.commit()
+    return result[0]
+
+
+def get_file_by_path(conn: sqlite3.Connection, path: str) -> FileRecord | None:
+    """Get a file record by path.
+
+    Args:
+        conn: Database connection.
+        path: File path to look up.
+
+    Returns:
+        FileRecord if found, None otherwise.
+    """
+    cursor = conn.execute(
+        """
+        SELECT id, path, filename, directory, extension, size_bytes,
+               modified_at, content_hash, container_format,
+               scanned_at, scan_status, scan_error
+        FROM files WHERE path = ?
+        """,
+        (path,),
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+
+    return FileRecord(
+        id=row[0],
+        path=row[1],
+        filename=row[2],
+        directory=row[3],
+        extension=row[4],
+        size_bytes=row[5],
+        modified_at=row[6],
+        content_hash=row[7],
+        container_format=row[8],
+        scanned_at=row[9],
+        scan_status=row[10],
+        scan_error=row[11],
+    )
+
+
+def delete_file(conn: sqlite3.Connection, file_id: int) -> None:
+    """Delete a file record and its associated tracks.
+
+    Args:
+        conn: Database connection.
+        file_id: ID of the file to delete.
+    """
+    conn.execute("DELETE FROM files WHERE id = ?", (file_id,))
+    conn.commit()
+
+
+def insert_track(conn: sqlite3.Connection, record: TrackRecord) -> int:
+    """Insert a new track record.
+
+    Args:
+        conn: Database connection.
+        record: Track record to insert.
+
+    Returns:
+        The ID of the inserted record.
+    """
+    cursor = conn.execute(
+        """
+        INSERT INTO tracks (
+            file_id, track_index, track_type, codec,
+            language, title, is_default, is_forced
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            record.file_id,
+            record.track_index,
+            record.track_type,
+            record.codec,
+            record.language,
+            record.title,
+            1 if record.is_default else 0,
+            1 if record.is_forced else 0,
+        ),
+    )
+    conn.commit()
+    return cursor.lastrowid
+
+
+def get_tracks_for_file(conn: sqlite3.Connection, file_id: int) -> list[TrackRecord]:
+    """Get all tracks for a file.
+
+    Args:
+        conn: Database connection.
+        file_id: ID of the file.
+
+    Returns:
+        List of TrackRecord objects.
+    """
+    cursor = conn.execute(
+        """
+        SELECT id, file_id, track_index, track_type, codec,
+               language, title, is_default, is_forced
+        FROM tracks WHERE file_id = ?
+        ORDER BY track_index
+        """,
+        (file_id,),
+    )
+    tracks = []
+    for row in cursor.fetchall():
+        tracks.append(
+            TrackRecord(
+                id=row[0],
+                file_id=row[1],
+                track_index=row[2],
+                track_type=row[3],
+                codec=row[4],
+                language=row[5],
+                title=row[6],
+                is_default=bool(row[7]),
+                is_forced=bool(row[8]),
+            )
+        )
+    return tracks
+
+
+def delete_tracks_for_file(conn: sqlite3.Connection, file_id: int) -> None:
+    """Delete all tracks for a file.
+
+    Args:
+        conn: Database connection.
+        file_id: ID of the file.
+    """
+    conn.execute("DELETE FROM tracks WHERE file_id = ?", (file_id,))
+    conn.commit()
