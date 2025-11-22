@@ -215,5 +215,5 @@ Guidelines for coding style, commit conventions, and branch strategy will be doc
 
 ## License
 
-License is **TBD** for the initial commit.  
+License is **TBD** for the initial commit.
 Once chosen, the license information and `LICENSE` file will be added here.

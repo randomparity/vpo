@@ -41,6 +41,10 @@ Key components:
 ## Active Technologies
 - Python 3.10+ (minimum supported; CI will test 3.10, 3.11, 3.12) + ruff (linting/formatting), pytest (testing) (001-project-skeleton)
 - N/A (infrastructure sprint, no data persistence) (001-project-skeleton)
+- Python 3.10+ (per pyproject.toml) + click (CLI framework), dataclasses (data structures), sqlite3 (stdlib) (002-library-scanner)
+- Rust 1.70+ with PyO3/maturin for native extension (vpo-core) providing parallel discovery and hashing (002-library-scanner)
+- SQLite (~/.vpo/library.db) (002-library-scanner)
 
 ## Recent Changes
 - 001-project-skeleton: Added Python 3.10+ (minimum supported; CI will test 3.10, 3.11, 3.12) + ruff (linting/formatting), pytest (testing)
+- 002-library-scanner: Added hybrid Python/Rust architecture with maturin build system, click CLI, MediaIntrospector protocol

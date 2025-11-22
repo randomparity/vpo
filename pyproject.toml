@@ -17,19 +17,30 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
+dependencies = [
+    "click>=8.0",
+]
 
 [project.optional-dependencies]
 dev = [
     "ruff>=0.14.5",
     "pytest>=9.0.1",
+    "maturin>=1.7",
+    "pre-commit>=4.0",
 ]
 
-[build-system]
-requires = ["setuptools>=80.9.0"]
-build-backend = "setuptools.build_meta"
+[project.scripts]
+vpo = "video_policy_orchestrator.cli:main"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[build-system]
+requires = ["maturin>=1.7"]
+build-backend = "maturin"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "video_policy_orchestrator._core"
+python-source = "src"
+manifest-path = "crates/vpo-core/Cargo.toml"
 
 [tool.ruff]
 target-version = "py310"

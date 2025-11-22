@@ -110,6 +110,98 @@ SQLite-based persistence for:
 - **Jobs**: Status, progress, error logs
 - **History**: Audit trail of all operations
 
+#### Database Schema (ER Diagram)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                            _meta                                 │
+├─────────────────────────────────────────────────────────────────┤
+│ key (TEXT PK)                                                    │
+│ value (TEXT)                                                     │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                            files                                 │
+├─────────────────────────────────────────────────────────────────┤
+│ id (INTEGER PK AUTOINCREMENT)                                    │
+│ path (TEXT UNIQUE NOT NULL)                                      │
+│ filename (TEXT NOT NULL)                                         │
+│ directory (TEXT NOT NULL)                                        │
+│ extension (TEXT NOT NULL)                                        │
+│ size_bytes (INTEGER NOT NULL)                                    │
+│ modified_at (TEXT NOT NULL)  -- ISO 8601 timestamp               │
+│ content_hash (TEXT)          -- xxh64 partial hash               │
+│ container_format (TEXT)      -- e.g., "matroska", "mp4"          │
+│ scanned_at (TEXT NOT NULL)   -- ISO 8601 timestamp               │
+│ scan_status (TEXT NOT NULL)  -- "ok", "error", "pending"         │
+│ scan_error (TEXT)            -- error message if status="error"  │
+└─────────────────────────────────────────────────────────────────┘
+          │
+          │ 1:N
+          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                           tracks                                 │
+├─────────────────────────────────────────────────────────────────┤
+│ id (INTEGER PK AUTOINCREMENT)                                    │
+│ file_id (INTEGER NOT NULL FK → files.id ON DELETE CASCADE)       │
+│ track_index (INTEGER NOT NULL)                                   │
+│ track_type (TEXT NOT NULL)   -- "video", "audio", "subtitle"     │
+│ codec (TEXT)                 -- e.g., "hevc", "aac", "subrip"    │
+│ language (TEXT)              -- ISO 639-2 code, e.g., "eng"      │
+│ title (TEXT)                 -- track label                      │
+│ is_default (INTEGER NOT NULL DEFAULT 0)  -- boolean as 0/1       │
+│ is_forced (INTEGER NOT NULL DEFAULT 0)   -- boolean as 0/1       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+See `specs/002-library-scanner/data-model.md` for the complete schema including future-ready tables (operations, policies).
+
+#### Example Scanned File JSON
+
+```json
+{
+  "path": "/media/movies/movie.mkv",
+  "filename": "movie.mkv",
+  "directory": "/media/movies",
+  "extension": "mkv",
+  "size_bytes": 4831838208,
+  "modified_at": "2024-01-15T10:30:00",
+  "content_hash": "xxh64:a1b2c3d4e5f6a7b8:f8e7d6c5b4a39281:4831838208",
+  "container_format": "matroska",
+  "scanned_at": "2024-01-20T14:00:00",
+  "scan_status": "ok",
+  "tracks": [
+    {
+      "index": 0,
+      "track_type": "video",
+      "codec": "hevc",
+      "language": null,
+      "title": null,
+      "is_default": true,
+      "is_forced": false
+    },
+    {
+      "index": 1,
+      "track_type": "audio",
+      "codec": "opus",
+      "language": "eng",
+      "title": "English Audio",
+      "is_default": true,
+      "is_forced": false
+    },
+    {
+      "index": 2,
+      "track_type": "subtitle",
+      "codec": "subrip",
+      "language": "eng",
+      "title": "English Subtitles",
+      "is_default": true,
+      "is_forced": false
+    }
+  ]
+}
+```
+
 ## Data Flow
 
 ### Scan Operation
