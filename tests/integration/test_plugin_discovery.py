@@ -630,3 +630,248 @@ class TestPluginHashTracking:
         # Load should fail - hash changed
         loaded2 = loader2.load_all()
         assert len(loaded2) == 0
+
+
+class TestPluginVersionCompatibility:
+    """Tests for plugin version compatibility checking."""
+
+    def test_incompatible_plugin_version_blocked(
+        self,
+        plugin_dir: Path,
+        registry: PluginRegistry,
+    ):
+        """Plugin with incompatible version range is not loaded."""
+        # Create plugin with future-only version requirements
+        incompatible_plugin = '''
+"""Plugin that requires future API version."""
+
+class FuturePlugin:
+    """Plugin requiring a future API version."""
+
+    name = "future-plugin"
+    version = "1.0.0"
+    description = "Plugin requiring future API"
+    events = ["file.scanned"]
+    min_api_version = "99.0.0"  # Future version
+    max_api_version = "99.99.99"
+
+    def on_file_scanned(self, event):
+        return None
+
+    def on_policy_evaluate(self, event):
+        pass
+
+    def on_plan_complete(self, event):
+        pass
+
+plugin = FuturePlugin()
+'''
+        plugin_file = plugin_dir / "future_plugin.py"
+        plugin_file.write_text(incompatible_plugin)
+
+        # Create loader without force_load
+        loader = PluginLoader(
+            registry=registry,
+            db_conn=None,
+            force_load=False,  # Don't force load incompatible plugins
+            interactive=False,
+        )
+
+        # Load should fail due to version incompatibility
+        loaded = loader.load_all()
+
+        assert len(loaded) == 0
+        assert registry.get("future-plugin") is None
+
+    def test_incompatible_plugin_loaded_with_force(
+        self,
+        plugin_dir: Path,
+        registry: PluginRegistry,
+    ):
+        """Plugin with incompatible version loads when force_load=True."""
+        # Create plugin with future-only version requirements
+        incompatible_plugin = '''
+"""Plugin that requires future API version."""
+
+class FuturePlugin:
+    """Plugin requiring a future API version."""
+
+    name = "force-loaded-plugin"
+    version = "1.0.0"
+    description = "Plugin requiring future API"
+    events = ["file.scanned"]
+    min_api_version = "99.0.0"  # Future version
+    max_api_version = "99.99.99"
+
+    def on_file_scanned(self, event):
+        return None
+
+    def on_policy_evaluate(self, event):
+        pass
+
+    def on_plan_complete(self, event):
+        pass
+
+plugin = FuturePlugin()
+'''
+        plugin_file = plugin_dir / "force_loaded.py"
+        plugin_file.write_text(incompatible_plugin)
+
+        # Create loader WITH force_load
+        loader = PluginLoader(
+            registry=registry,
+            db_conn=None,
+            force_load=True,  # Force load even incompatible plugins
+            interactive=False,
+        )
+
+        # Load should succeed despite version incompatibility
+        loaded = loader.load_all()
+
+        assert len(loaded) == 1
+        assert loaded[0].name == "force-loaded-plugin"
+        assert registry.get("force-loaded-plugin") is not None
+
+    def test_old_plugin_version_blocked(
+        self,
+        plugin_dir: Path,
+        registry: PluginRegistry,
+    ):
+        """Plugin supporting only old API versions is blocked."""
+        # Create plugin that only supports version 0.x
+        old_plugin = '''
+"""Plugin that only supports old API version."""
+
+class OldPlugin:
+    """Plugin supporting only old API versions."""
+
+    name = "old-plugin"
+    version = "1.0.0"
+    description = "Plugin for old API"
+    events = ["file.scanned"]
+    min_api_version = "0.1.0"
+    max_api_version = "0.9.99"  # Before current 1.0.0
+
+    def on_file_scanned(self, event):
+        return None
+
+    def on_policy_evaluate(self, event):
+        pass
+
+    def on_plan_complete(self, event):
+        pass
+
+plugin = OldPlugin()
+'''
+        plugin_file = plugin_dir / "old_plugin.py"
+        plugin_file.write_text(old_plugin)
+
+        # Create loader without force_load
+        loader = PluginLoader(
+            registry=registry,
+            db_conn=None,
+            force_load=False,
+            interactive=False,
+        )
+
+        # Load should fail - plugin doesn't support current API version
+        loaded = loader.load_all()
+
+        assert len(loaded) == 0
+        assert registry.get("old-plugin") is None
+
+    def test_compatible_version_range_loads(
+        self,
+        plugin_dir: Path,
+        registry: PluginRegistry,
+    ):
+        """Plugin with compatible version range loads successfully."""
+        # Create plugin with broad version support including current
+        compatible_plugin = '''
+"""Plugin with broad version compatibility."""
+
+class CompatiblePlugin:
+    """Plugin supporting current API version."""
+
+    name = "compatible-plugin"
+    version = "1.0.0"
+    description = "Plugin with compatible version"
+    events = ["file.scanned"]
+    min_api_version = "1.0.0"
+    max_api_version = "1.99.99"  # Includes current 1.0.0
+
+    def on_file_scanned(self, event):
+        return None
+
+    def on_policy_evaluate(self, event):
+        pass
+
+    def on_plan_complete(self, event):
+        pass
+
+plugin = CompatiblePlugin()
+'''
+        plugin_file = plugin_dir / "compatible.py"
+        plugin_file.write_text(compatible_plugin)
+
+        # Create loader without force_load
+        loader = PluginLoader(
+            registry=registry,
+            db_conn=None,
+            force_load=True,  # Still need force_load to bypass acknowledgment
+            interactive=False,
+        )
+
+        # Load should succeed - version is compatible
+        loaded = loader.load_all()
+
+        assert len(loaded) == 1
+        assert loaded[0].name == "compatible-plugin"
+
+    def test_version_at_boundary_loads(
+        self,
+        plugin_dir: Path,
+        registry: PluginRegistry,
+    ):
+        """Plugin exactly at version boundary loads successfully."""
+        # Create plugin with exact version match
+        boundary_plugin = '''
+"""Plugin at exact version boundary."""
+
+class BoundaryPlugin:
+    """Plugin at exact version boundary."""
+
+    name = "boundary-plugin"
+    version = "1.0.0"
+    description = "Plugin at version boundary"
+    events = ["file.scanned"]
+    min_api_version = "1.0.0"  # Exactly current
+    max_api_version = "1.0.0"  # Exactly current
+
+    def on_file_scanned(self, event):
+        return None
+
+    def on_policy_evaluate(self, event):
+        pass
+
+    def on_plan_complete(self, event):
+        pass
+
+plugin = BoundaryPlugin()
+'''
+        plugin_file = plugin_dir / "boundary.py"
+        plugin_file.write_text(boundary_plugin)
+
+        # Create loader with force_load for acknowledgment bypass
+        loader = PluginLoader(
+            registry=registry,
+            db_conn=None,
+            force_load=True,
+            interactive=False,
+        )
+
+        # Load should succeed - at exact boundary
+        loaded = loader.load_all()
+
+        assert len(loaded) == 1
+        assert loaded[0].name == "boundary-plugin"

@@ -162,15 +162,15 @@
 
 ### Tests for User Story 5
 
-- [ ] T058 [P] [US5] Unit test for version compatibility checking in tests/unit/plugin/test_version.py
-- [ ] T059 [P] [US5] Integration test for incompatible plugin blocking in tests/integration/test_plugin_discovery.py
+- [X] T058 [P] [US5] Unit test for version compatibility checking in tests/unit/plugin/test_version.py
+- [X] T059 [P] [US5] Integration test for incompatible plugin blocking in tests/integration/test_plugin_discovery.py
 
 ### Implementation for User Story 5
 
-- [ ] T060 [US5] Implement version range validation in plugin loader in src/video_policy_orchestrator/plugin/loader.py
-- [ ] T061 [US5] Add version mismatch error messages in src/video_policy_orchestrator/plugin/loader.py
-- [ ] T062 [US5] Implement --force-load-plugins override behavior in src/video_policy_orchestrator/plugin/registry.py
-- [ ] T063 [US5] Create plugin development documentation in docs/plugins.md
+- [X] T060 [US5] Implement version range validation in plugin loader in src/video_policy_orchestrator/plugin/loader.py
+- [X] T061 [US5] Add version mismatch error messages in src/video_policy_orchestrator/plugin/loader.py
+- [X] T062 [US5] Implement --force-load-plugins override behavior in src/video_policy_orchestrator/plugin/registry.py
+- [X] T063 [US5] Create plugin development documentation in docs/plugins.md
 
 **Checkpoint**: Version contracts enforced - ecosystem stability ensured
 

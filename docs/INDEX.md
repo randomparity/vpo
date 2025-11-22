@@ -40,6 +40,9 @@ Docs focused on tasks and workflows: how to run the tools, configure them, and p
 - [usage/workflows.md](usage/workflows.md)
   End-to-end workflows for scanning libraries and inspecting files.
 
+- [plugins.md](plugins.md)
+  Plugin development guide: creating analyzers and mutators, events, versioning, and SDK usage.
+
 ---
 
 ## 3. Design & Internals
