@@ -41,6 +41,8 @@ Key components:
 ## Active Technologies
 - Python 3.10+ (minimum supported; CI will test 3.10, 3.11, 3.12) + ruff (linting/formatting), pytest (testing) (001-project-skeleton)
 - N/A (infrastructure sprint, no data persistence) (001-project-skeleton)
+- Python 3.10+ (per pyproject.toml) + click (CLI framework), dataclasses (data structures), sqlite3 (stdlib) (002-library-scanner)
+- SQLite (~/.vpo/library.db) (002-library-scanner)
 
 ## Recent Changes
 - 001-project-skeleton: Added Python 3.10+ (minimum supported; CI will test 3.10, 3.11, 3.12) + ruff (linting/formatting), pytest (testing)
