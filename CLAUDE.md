@@ -15,6 +15,12 @@ This project uses **spec-driven development**:
 
 Use the Specify workflow commands (`/speckit.*`) for feature planning and implementation.
 
+## Development Environment
+
+- **Package Manager:** Use `uv` for all Python package operations (not pip)
+  - Install: `uv pip install -e ".[dev]"`
+  - Run tools: `uv run pytest`, `uv run ruff check .`
+
 ## Tech Stack (Planned)
 
 - **Language:** Python
