@@ -145,9 +145,9 @@
 
 ### Implementation for User Story 4
 
-- [ ] T048 [US4] Update docs/ARCHITECTURE.md with database ER diagram reference
-- [ ] T049 [US4] Add example JSON showing scanned file structure to docs/ARCHITECTURE.md
-- [ ] T050 [US4] Update CLAUDE.md with new technologies (Rust, maturin, click)
+- [X] T048 [US4] Update docs/ARCHITECTURE.md with database ER diagram reference
+- [X] T049 [US4] Add example JSON showing scanned file structure to docs/ARCHITECTURE.md
+- [X] T050 [US4] Update CLAUDE.md with new technologies (Rust, maturin, click)
 
 **Checkpoint**: Documentation complete and accurate
 
