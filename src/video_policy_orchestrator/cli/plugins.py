@@ -1,8 +1,12 @@
 """Plugin management CLI commands."""
 
+import logging
+
 import click
 
 from video_policy_orchestrator.config.loader import get_config
+
+logger = logging.getLogger(__name__)
 
 
 @click.group()
@@ -226,12 +230,14 @@ def acknowledge_plugin(ctx: click.Context, name: str, yes: bool) -> None:
                         return
 
                 # Record acknowledgment
-                import socket
                 from datetime import datetime, timezone
 
                 from video_policy_orchestrator.db.models import (
                     PluginAcknowledgment,
                     insert_plugin_acknowledgment,
+                )
+                from video_policy_orchestrator.plugin_sdk.helpers import (
+                    get_host_identifier,
                 )
 
                 plugin_hash = compute_plugin_hash(path)
@@ -240,12 +246,14 @@ def acknowledge_plugin(ctx: click.Context, name: str, yes: bool) -> None:
                     plugin_name=plugin_name,
                     plugin_hash=plugin_hash,
                     acknowledged_at=datetime.now(timezone.utc).isoformat(),
-                    acknowledged_by=socket.gethostname(),
+                    acknowledged_by=get_host_identifier(),
                 )
                 insert_plugin_acknowledgment(db_conn, record)
                 click.echo(f"Plugin '{plugin_name}' acknowledged.")
                 return
-        except Exception:
+        except Exception as e:
+            # Log the error but continue searching for matching plugin
+            logger.debug("Error loading plugin '%s': %s", module_name, e)
             continue
 
     click.echo(f"Plugin '{name}' not found.")

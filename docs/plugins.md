@@ -273,6 +273,16 @@ Directory plugins can execute arbitrary code. Before first use, VPO:
 
 If the plugin's content changes (different hash), re-acknowledgment is required.
 
+### Hash Coverage
+
+Plugin acknowledgment uses SHA-256 hashes to detect changes. **Important limitations:**
+
+- **Only `.py` files are hashed** - Changes to non-Python files (data files, configs, JSON, etc.) will not trigger re-acknowledgment
+- For single-file plugins, only that file is hashed
+- For package plugins (directories with `__init__.py`), all `.py` files in the directory tree are hashed
+
+This means a plugin could potentially modify behavior through non-Python files without triggering a re-acknowledgment. When reviewing directory plugins, examine all files in the plugin directory, not just Python code.
+
 ### Entry Point Plugins
 
 Entry point plugins come from installed Python packages and don't require acknowledgment. They are considered trusted because they went through pip installation.

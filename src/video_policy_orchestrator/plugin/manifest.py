@@ -27,7 +27,14 @@ class PluginSource(Enum):
     BUILTIN = "builtin"
 
 
-# Plugin name validation pattern: kebab-case, 2+ chars
+# Plugin name validation pattern: kebab-case, 2+ characters minimum.
+# Rules:
+#   - Must start with a lowercase letter
+#   - May contain lowercase letters, digits, and hyphens
+#   - Must end with a letter or digit (no trailing hyphen)
+#   - Minimum 2 characters (single-character names are not allowed)
+# Examples: "my-plugin", "analyzer", "foo-bar-v2"
+# Invalid: "a", "My-Plugin", "plugin_name", "plugin-"
 _NAME_PATTERN = re.compile(r"^[a-z][a-z0-9-]*[a-z0-9]$|^[a-z]{2,}$")
 
 

@@ -16,6 +16,7 @@ Helper Functions:
     normalize_path: Normalize file paths
     is_supported_container: Check container format support
     is_mkv_container: Check if MKV format
+    get_host_identifier: Get host identifier for tracking
 
 Testing Utilities:
     PluginTestCase: Base class for plugin tests
@@ -58,6 +59,7 @@ from video_policy_orchestrator.plugin_sdk.base import (
 from video_policy_orchestrator.plugin_sdk.helpers import (
     get_config,
     get_data_dir,
+    get_host_identifier,
     get_logger,
     get_plugin_storage_dir,
     is_mkv_container,
@@ -88,6 +90,7 @@ __all__ = [
     "get_config",
     "get_data_dir",
     "get_plugin_storage_dir",
+    "get_host_identifier",
     "normalize_path",
     "is_supported_container",
     "is_mkv_container",

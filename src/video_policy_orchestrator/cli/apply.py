@@ -26,18 +26,26 @@ from video_policy_orchestrator.policy.models import ActionType
 
 logger = logging.getLogger(__name__)
 
+# Cached policy engine instance (module-level singleton)
+_policy_engine_instance = None
+
 
 def _get_policy_engine():
     """Get the PolicyEnginePlugin instance.
 
-    Returns the built-in policy engine plugin for evaluation and execution.
+    Returns a cached instance of the built-in policy engine plugin for
+    evaluation and execution. The instance is created once and reused
+    across invocations for better performance.
 
     Returns:
         PolicyEnginePlugin instance.
     """
-    from video_policy_orchestrator.plugins.policy_engine import PolicyEnginePlugin
+    global _policy_engine_instance
+    if _policy_engine_instance is None:
+        from video_policy_orchestrator.plugins.policy_engine import PolicyEnginePlugin
 
-    return PolicyEnginePlugin()
+        _policy_engine_instance = PolicyEnginePlugin()
+    return _policy_engine_instance
 
 
 # Exit codes per contracts/cli-apply.md

@@ -1,6 +1,40 @@
 """CLI module for Video Policy Orchestrator."""
 
+import sqlite3
+
 import click
+
+from video_policy_orchestrator.db.connection import (
+    ensure_db_directory,
+    get_default_db_path,
+)
+from video_policy_orchestrator.db.schema import create_schema
+
+
+def _get_db_connection() -> sqlite3.Connection | None:
+    """Get a database connection for CLI context.
+
+    Creates a persistent connection (not context-managed) for use across
+    subcommands. The connection is created with the same settings as
+    get_connection() but without the context manager wrapper.
+
+    Returns:
+        Database connection or None if connection fails.
+    """
+    try:
+        db_path = get_default_db_path()
+        ensure_db_directory(db_path)
+
+        conn = sqlite3.connect(str(db_path), timeout=30.0)
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.row_factory = sqlite3.Row
+
+        # Ensure schema exists
+        create_schema(conn)
+
+        return conn
+    except Exception:
+        return None
 
 
 @click.group()
@@ -15,6 +49,9 @@ def main(ctx: click.Context, force_load_plugins: bool) -> None:
     """Video Policy Orchestrator - Scan, organize, and transform video libraries."""
     ctx.ensure_object(dict)
     ctx.obj["force_load_plugins"] = force_load_plugins
+
+    # Initialize database connection for subcommands
+    ctx.obj["db_conn"] = _get_db_connection()
 
 
 # Defer import to avoid circular dependency

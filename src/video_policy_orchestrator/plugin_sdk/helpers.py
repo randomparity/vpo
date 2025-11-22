@@ -7,6 +7,7 @@ common plugin development patterns.
 from __future__ import annotations
 
 import logging
+import socket
 from pathlib import Path
 from typing import Any
 
@@ -152,3 +153,16 @@ def is_mkv_container(container: str) -> bool:
 
     """
     return container.lower() in {"mkv", "matroska"}
+
+
+def get_host_identifier() -> str:
+    """Get a host identifier for acknowledgment records.
+
+    Returns the hostname of the current machine. Used to track which
+    machine acknowledged a plugin for security auditing.
+
+    Returns:
+        Hostname string.
+
+    """
+    return socket.gethostname()
