@@ -3,6 +3,7 @@
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -170,7 +171,7 @@ def format_json(result: IntrospectionResult) -> str:
     return json.dumps(data, indent=2)
 
 
-def _track_to_dict(track: TrackInfo) -> dict:
+def _track_to_dict(track: TrackInfo) -> dict[str, Any]:
     """Convert TrackInfo to JSON-serializable dict.
 
     Args:
@@ -179,7 +180,7 @@ def _track_to_dict(track: TrackInfo) -> dict:
     Returns:
         Dictionary representation.
     """
-    d: dict = {
+    d: dict[str, Any] = {
         "index": track.index,
         "type": track.track_type,
         "codec": track.codec,

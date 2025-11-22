@@ -235,8 +235,8 @@ class ScannerOrchestrator:
                     # New file
                     files_to_process.append(scanned)
                 else:
-                    # Check if modified
-                    existing_modified = existing.modified_at
+                    # Check if modified (compare as ISO 8601 strings)
+                    existing_modified = existing.modified_at  # ISO string from DB
                     scanned_modified = scanned.modified_at.isoformat()
                     if existing_modified != scanned_modified:
                         files_to_process.append(scanned)

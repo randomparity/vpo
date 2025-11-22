@@ -225,6 +225,8 @@ def upsert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
     )
     result = cursor.fetchone()
     conn.commit()
+    if result is None:
+        raise RuntimeError("RETURNING clause failed to return file ID")
     return result[0]
 
 
@@ -347,8 +349,8 @@ def get_tracks_for_file(conn: sqlite3.Connection, file_id: int) -> list[TrackRec
                 codec=row[4],
                 language=row[5],
                 title=row[6],
-                is_default=bool(row[7]),
-                is_forced=bool(row[8]),
+                is_default=row[7] == 1,
+                is_forced=row[8] == 1,
                 channels=row[9],
                 channel_layout=row[10],
                 width=row[11],
