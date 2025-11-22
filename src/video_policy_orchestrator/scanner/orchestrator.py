@@ -124,6 +124,7 @@ class ScannerOrchestrator:
         conn: sqlite3.Connection,
         compute_hashes: bool = True,
         progress_callback: callable = None,
+        introspector: "MediaIntrospector | None" = None,
     ) -> tuple[list[ScannedFile], ScanResult]:
         """Scan directories and persist results to database.
 
@@ -132,6 +133,7 @@ class ScannerOrchestrator:
             conn: Database connection.
             compute_hashes: Whether to compute content hashes.
             progress_callback: Optional callback for progress updates.
+            introspector: Optional MediaIntrospector for extracting metadata.
 
         Returns:
             Tuple of (list of scanned files, scan result summary).
@@ -141,6 +143,11 @@ class ScannerOrchestrator:
             get_file_by_path,
             upsert_file,
         )
+        from video_policy_orchestrator.introspector.stub import StubIntrospector
+
+        # Use stub introspector by default
+        if introspector is None:
+            introspector = StubIntrospector()
 
         start_time = time.time()
         result = ScanResult()
@@ -209,6 +216,15 @@ class ScannerOrchestrator:
             path = Path(scanned.path)
             existing = get_file_by_path(conn, scanned.path)
 
+            # Get container format from introspector
+            container_format = None
+            try:
+                file_info = introspector.get_file_info(path)
+                container_format = file_info.container_format
+            except Exception:
+                # If introspection fails, continue without container format
+                pass
+
             record = FileRecord(
                 id=None,
                 path=scanned.path,
@@ -218,7 +234,7 @@ class ScannerOrchestrator:
                 size_bytes=scanned.size,
                 modified_at=scanned.modified_at.isoformat(),
                 content_hash=scanned.content_hash,
-                container_format=None,  # Set by introspector in Phase 5
+                container_format=container_format,
                 scanned_at=now.isoformat(),
                 scan_status="error" if scanned.hash_error else "ok",
                 scan_error=scanned.hash_error,

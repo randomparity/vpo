@@ -121,17 +121,17 @@
 
 ### Tests for User Story 3
 
-- [ ] T040 [P] [US3] Unit test for MediaIntrospector protocol in tests/unit/test_introspector.py
-- [ ] T041 [P] [US3] Unit test for StubIntrospector in tests/unit/test_introspector.py
+- [X] T040 [P] [US3] Unit test for MediaIntrospector protocol in tests/unit/test_introspector.py
+- [X] T041 [P] [US3] Unit test for StubIntrospector in tests/unit/test_introspector.py
 
 ### Implementation for User Story 3
 
-- [ ] T042 [US3] Define MediaIntrospector Protocol in src/video_policy_orchestrator/introspector/interface.py
-- [ ] T043 [US3] Define MediaIntrospectionError exception in src/video_policy_orchestrator/introspector/interface.py
-- [ ] T044 [US3] Implement StubIntrospector with extension-based format detection in src/video_policy_orchestrator/introspector/stub.py
-- [ ] T045 [US3] Implement container format mapping (mkv->matroska, mp4->mp4, etc.) in src/video_policy_orchestrator/introspector/stub.py
-- [ ] T046 [US3] Integrate MediaIntrospector into scanner orchestrator in src/video_policy_orchestrator/scanner/orchestrator.py
-- [ ] T047 [US3] Store container_format in database records in src/video_policy_orchestrator/scanner/orchestrator.py
+- [X] T042 [US3] Define MediaIntrospector Protocol in src/video_policy_orchestrator/introspector/interface.py
+- [X] T043 [US3] Define MediaIntrospectionError exception in src/video_policy_orchestrator/introspector/interface.py
+- [X] T044 [US3] Implement StubIntrospector with extension-based format detection in src/video_policy_orchestrator/introspector/stub.py
+- [X] T045 [US3] Implement container format mapping (mkv->matroska, mp4->mp4, etc.) in src/video_policy_orchestrator/introspector/stub.py
+- [X] T046 [US3] Integrate MediaIntrospector into scanner orchestrator in src/video_policy_orchestrator/scanner/orchestrator.py
+- [X] T047 [US3] Store container_format in database records in src/video_policy_orchestrator/scanner/orchestrator.py
 
 **Checkpoint**: Scanner uses MediaIntrospector interface; stub returns container format; ready for future ffprobe integration
 
