@@ -164,20 +164,32 @@ class ScannerOrchestrator:
         # Reset interrupt event for this scan
         self._interrupt_event.clear()
 
+        import logging
+
         from video_policy_orchestrator.db.models import (
             FileRecord,
             get_file_by_path,
             upsert_file,
+            upsert_tracks_for_file,
+        )
+        from video_policy_orchestrator.introspector.ffprobe import FFprobeIntrospector
+        from video_policy_orchestrator.introspector.interface import (
+            MediaIntrospectionError,
         )
         from video_policy_orchestrator.introspector.stub import StubIntrospector
+
+        logger = logging.getLogger(__name__)
 
         # Set up signal handler for graceful shutdown
         old_handler = signal.signal(signal.SIGINT, self._create_signal_handler())
 
         try:
-            # Use stub introspector by default
+            # Use FFprobeIntrospector if available, otherwise fall back to stub
             if introspector is None:
-                introspector = StubIntrospector()
+                if FFprobeIntrospector.is_available():
+                    introspector = FFprobeIntrospector()
+                else:
+                    introspector = StubIntrospector()
 
             start_time = time.time()
             result = ScanResult()
@@ -259,14 +271,20 @@ class ScannerOrchestrator:
                 # Use cached lookup result instead of querying again
                 existing = existing_records.get(scanned.path)
 
-                # Get container format from introspector
+                # Get container format and tracks from introspector
                 container_format = None
+                introspection_result = None
                 try:
-                    file_info = introspector.get_file_info(path)
-                    container_format = file_info.container_format
-                except Exception:
-                    # If introspection fails, continue without container format
-                    pass
+                    introspection_result = introspector.get_file_info(path)
+                    container_format = introspection_result.container_format
+                except MediaIntrospectionError as e:
+                    # Log warning and continue without introspection data
+                    logger.warning("Introspection failed for %s: %s", path, e)
+                except Exception as e:
+                    # Catch any other unexpected errors
+                    logger.warning(
+                        "Unexpected error during introspection for %s: %s", path, e
+                    )
 
                 record = FileRecord(
                     id=None,
@@ -283,7 +301,11 @@ class ScannerOrchestrator:
                     scan_error=scanned.hash_error,
                 )
 
-                upsert_file(conn, record)
+                file_id = upsert_file(conn, record)
+
+                # Persist tracks if introspection succeeded
+                if introspection_result is not None and introspection_result.tracks:
+                    upsert_tracks_for_file(conn, file_id, introspection_result.tracks)
 
                 if existing is None:
                     result.files_new += 1

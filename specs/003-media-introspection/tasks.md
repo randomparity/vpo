@@ -85,10 +85,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T027 [US2] Implement upsert_tracks_for_file() with smart merge logic in src/video_policy_orchestrator/db/models.py
-- [ ] T028 [US2] Update scan orchestrator to use FFprobeIntrospector instead of stub in src/video_policy_orchestrator/scanner/orchestrator.py
-- [ ] T029 [US2] Integrate track persistence into scan workflow in src/video_policy_orchestrator/scanner/orchestrator.py
-- [ ] T030 [US2] Handle introspection errors during scan (log warning, continue) in src/video_policy_orchestrator/scanner/orchestrator.py
+- [x] T027 [US2] Implement upsert_tracks_for_file() with smart merge logic in src/video_policy_orchestrator/db/models.py
+- [x] T028 [US2] Update scan orchestrator to use FFprobeIntrospector instead of stub in src/video_policy_orchestrator/scanner/orchestrator.py
+- [x] T029 [US2] Integrate track persistence into scan workflow in src/video_policy_orchestrator/scanner/orchestrator.py
+- [x] T030 [US2] Handle introspection errors during scan (log warning, continue) in src/video_policy_orchestrator/scanner/orchestrator.py
 
 **Checkpoint**: `vpo scan` now extracts and persists track data to database
 
