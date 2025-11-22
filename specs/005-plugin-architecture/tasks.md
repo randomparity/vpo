@@ -135,17 +135,17 @@
 
 ### Tests for User Story 4
 
-- [ ] T047 [P] [US4] Unit test for BaseAnalyzerPlugin in tests/unit/plugin/test_sdk.py
-- [ ] T048 [P] [US4] Unit test for BaseMutatorPlugin in tests/unit/plugin/test_sdk.py
-- [ ] T049 [P] [US4] Unit test for SDK helpers in tests/unit/plugin/test_sdk.py
+- [X] T047 [P] [US4] Unit test for BaseAnalyzerPlugin in tests/unit/plugin/test_sdk.py
+- [X] T048 [P] [US4] Unit test for BaseMutatorPlugin in tests/unit/plugin/test_sdk.py
+- [X] T049 [P] [US4] Unit test for SDK helpers in tests/unit/plugin/test_sdk.py
 
 ### Implementation for User Story 4
 
-- [ ] T050 [P] [US4] Implement BaseAnalyzerPlugin class in src/video_policy_orchestrator/plugin_sdk/base.py
-- [ ] T051 [P] [US4] Implement BaseMutatorPlugin class in src/video_policy_orchestrator/plugin_sdk/base.py
-- [ ] T052 [US4] Implement SDK helper functions (get_logger, get_config) in src/video_policy_orchestrator/plugin_sdk/helpers.py
-- [ ] T053 [US4] Implement test utilities (PluginTestCase, mock helpers) in src/video_policy_orchestrator/plugin_sdk/testing.py
-- [ ] T054 [US4] Create public exports in src/video_policy_orchestrator/plugin_sdk/__init__.py
+- [X] T050 [P] [US4] Implement BaseAnalyzerPlugin class in src/video_policy_orchestrator/plugin_sdk/base.py
+- [X] T051 [P] [US4] Implement BaseMutatorPlugin class in src/video_policy_orchestrator/plugin_sdk/base.py
+- [X] T052 [US4] Implement SDK helper functions (get_logger, get_config) in src/video_policy_orchestrator/plugin_sdk/helpers.py
+- [X] T053 [US4] Implement test utilities (PluginTestCase, mock helpers) in src/video_policy_orchestrator/plugin_sdk/testing.py
+- [X] T054 [US4] Create public exports in src/video_policy_orchestrator/plugin_sdk/__init__.py
 - [ ] T055 [US4] Create example plugin pyproject.toml in examples/plugins/simple_reorder_plugin/pyproject.toml
 - [ ] T056 [US4] Create example plugin README.md in examples/plugins/simple_reorder_plugin/README.md
 - [ ] T057 [US4] Implement example plugin in examples/plugins/simple_reorder_plugin/src/simple_reorder/__init__.py
