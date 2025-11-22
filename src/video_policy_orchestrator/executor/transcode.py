@@ -15,6 +15,13 @@ from video_policy_orchestrator.jobs.progress import (
 from video_policy_orchestrator.policy.models import (
     TranscodePolicyConfig,
 )
+from video_policy_orchestrator.policy.transcode import (
+    AudioAction,
+    AudioPlan,
+    AudioTrackPlan,
+    create_audio_plan,
+    describe_audio_plan,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,11 +53,23 @@ class TranscodePlan:
     # Audio tracks info
     audio_tracks: list[TrackInfo] | None = None
 
-    # Computed actions
+    # Computed video actions
     needs_video_transcode: bool = False
     needs_video_scale: bool = False
     target_width: int | None = None
     target_height: int | None = None
+
+    # Computed audio plan
+    audio_plan: AudioPlan | None = None
+
+    @property
+    def needs_any_transcode(self) -> bool:
+        """True if any transcoding work is needed."""
+        if self.needs_video_transcode:
+            return True
+        if self.audio_plan and self.audio_plan.has_changes:
+            return True
+        return False
 
 
 def should_transcode_video(
@@ -181,9 +200,12 @@ def build_ffmpeg_command(
         # Copy video stream
         cmd.extend(["-c:v", "copy"])
 
-    # Audio - for Phase 3 (US1), just copy all audio
-    # Audio transcoding is handled in Phase 5 (US3)
-    cmd.extend(["-c:a", "copy"])
+    # Audio settings - per-track handling
+    if plan.audio_plan and plan.audio_plan.has_changes:
+        cmd.extend(_build_audio_args(plan.audio_plan, plan.policy))
+    else:
+        # No audio plan or no changes - copy all audio
+        cmd.extend(["-c:a", "copy"])
 
     # Subtitle - copy all subtitles
     cmd.extend(["-c:s", "copy"])
@@ -199,6 +221,93 @@ def build_ffmpeg_command(
     cmd.append(str(plan.output_path))
 
     return cmd
+
+
+def _build_audio_args(
+    audio_plan: AudioPlan, policy: TranscodePolicyConfig
+) -> list[str]:
+    """Build FFmpeg arguments for audio track handling.
+
+    Args:
+        audio_plan: The audio handling plan.
+        policy: Transcode policy configuration.
+
+    Returns:
+        List of FFmpeg arguments for audio.
+    """
+    args = []
+
+    # Process each audio track
+    for track in audio_plan.tracks:
+        if track.action == AudioAction.COPY:
+            # Stream copy this track
+            args.extend([f"-c:a:{track.stream_index}", "copy"])
+        elif track.action == AudioAction.TRANSCODE:
+            # Transcode this track
+            target = track.target_codec or policy.audio_transcode_to
+            encoder = _get_audio_encoder(target)
+            args.extend([f"-c:a:{track.stream_index}", encoder])
+
+            # Set bitrate for the track
+            bitrate = track.target_bitrate or policy.audio_transcode_bitrate
+            if bitrate:
+                args.extend([f"-b:a:{track.stream_index}", bitrate])
+        elif track.action == AudioAction.REMOVE:
+            # Remove tracks are handled by not mapping them
+            # This requires a different approach - use -map
+            pass
+
+    # Handle downmix as an additional output stream
+    if audio_plan.downmix_track:
+        downmix = audio_plan.downmix_track
+        # Add filter for downmix
+        # This creates a new stereo track from the first audio stream
+        downmix_filter = _build_downmix_filter(downmix)
+        if downmix_filter:
+            args.extend(["-filter_complex", downmix_filter])
+            # The downmixed stream will be added by the filter
+
+    return args
+
+
+def _get_audio_encoder(codec: str) -> str:
+    """Get FFmpeg audio encoder name for a codec."""
+    encoders = {
+        "aac": "aac",
+        "ac3": "ac3",
+        "eac3": "eac3",
+        "flac": "flac",
+        "opus": "libopus",
+        "mp3": "libmp3lame",
+        "vorbis": "libvorbis",
+        "pcm_s16le": "pcm_s16le",
+        "pcm_s24le": "pcm_s24le",
+    }
+    return encoders.get(codec.lower(), "aac")
+
+
+def _build_downmix_filter(downmix_track: AudioTrackPlan) -> str | None:
+    """Build FFmpeg filter for audio downmix.
+
+    Args:
+        downmix_track: The downmix track plan.
+
+    Returns:
+        Filter string or None if no filter needed.
+    """
+    if downmix_track.channel_layout == "stereo":
+        # Downmix to stereo using Dolby Pro Logic II encoding
+        return (
+            "[0:a:0]aresample=matrix_encoding=dplii,"
+            "pan=stereo|FL=FC+0.30*FL+0.30*BL|FR=FC+0.30*FR+0.30*BR[downmix]"
+        )
+    elif downmix_track.channel_layout == "5.1":
+        # Downmix to 5.1 (usually from 7.1)
+        return (
+            "[0:a:0]pan=5.1|FL=FL|FR=FR|FC=FC|LFE=LFE|"
+            "BL=0.5*BL+0.5*SL|BR=0.5*BR+0.5*SR[downmix]"
+        )
+    return None
 
 
 def _get_encoder(codec: str) -> str:
@@ -266,6 +375,11 @@ class TranscodeExecutor:
             )
         )
 
+        # Create audio plan if audio tracks are provided
+        audio_plan = None
+        if audio_tracks:
+            audio_plan = create_audio_plan(audio_tracks, self.policy)
+
         return TranscodePlan(
             input_path=input_path,
             output_path=output_path,
@@ -279,6 +393,7 @@ class TranscodeExecutor:
             needs_video_scale=needs_scale,
             target_width=target_width,
             target_height=target_height,
+            audio_plan=audio_plan,
         )
 
     def is_compliant(
@@ -405,12 +520,49 @@ class TranscodeExecutor:
                 }
             )
 
+        # Add audio operations
+        audio_operations = []
+        if plan.audio_plan:
+            for track in plan.audio_plan.tracks:
+                audio_op = {
+                    "stream_index": track.stream_index,
+                    "codec": track.codec,
+                    "language": track.language,
+                    "channels": track.channels,
+                    "action": track.action.value,
+                }
+                if track.action == AudioAction.TRANSCODE:
+                    audio_op["target_codec"] = track.target_codec
+                    audio_op["target_bitrate"] = track.target_bitrate
+                audio_op["reason"] = track.reason
+                audio_operations.append(audio_op)
+
+            if plan.audio_plan.downmix_track:
+                downmix = plan.audio_plan.downmix_track
+                audio_operations.append(
+                    {
+                        "stream_index": "new",
+                        "action": "downmix",
+                        "channel_layout": downmix.channel_layout,
+                        "target_codec": downmix.target_codec,
+                        "target_bitrate": downmix.target_bitrate,
+                        "reason": downmix.reason,
+                    }
+                )
+
+        # Determine if any work is needed
+        needs_work = plan.needs_any_transcode
+
         return {
             "input": str(plan.input_path),
             "output": str(plan.output_path),
-            "needs_transcode": plan.needs_video_transcode,
-            "operations": operations,
-            "command": build_ffmpeg_command(plan, self.cpu_cores)
-            if operations
-            else None,
+            "needs_transcode": needs_work,
+            "video_operations": operations,
+            "audio_operations": audio_operations,
+            "audio_descriptions": (
+                describe_audio_plan(plan.audio_plan) if plan.audio_plan else []
+            ),
+            "command": (
+                build_ffmpeg_command(plan, self.cpu_cores) if needs_work else None
+            ),
         }

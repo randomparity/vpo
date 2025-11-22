@@ -127,14 +127,14 @@
 
 ### Implementation for User Story 3
 
-- [ ] T043 [P] [US3] Add AudioPreservationRule dataclass in `src/video_policy_orchestrator/policy/models.py`
-- [ ] T044 [US3] Add audio preservation fields to TranscodePolicyConfig in `src/video_policy_orchestrator/policy/models.py`
-- [ ] T045 [US3] Implement audio codec matching logic in `src/video_policy_orchestrator/policy/transcode.py`
-- [ ] T046 [US3] Implement per-track audio handling in TranscodeExecutor in `src/video_policy_orchestrator/executor/transcode.py`
-- [ ] T047 [US3] Implement audio stream copy for preserved codecs in `src/video_policy_orchestrator/executor/transcode.py`
-- [ ] T048 [US3] Implement audio transcoding to target codec in `src/video_policy_orchestrator/executor/transcode.py`
-- [ ] T049 [US3] Implement audio downmix option (stereo track creation) in `src/video_policy_orchestrator/executor/transcode.py`
-- [ ] T050 [US3] Update dry-run to show audio handling plan in `src/video_policy_orchestrator/executor/transcode.py`
+- [x] T043 [P] [US3] Add AudioPreservationRule dataclass in `src/video_policy_orchestrator/policy/models.py`
+- [x] T044 [US3] Add audio preservation fields to TranscodePolicyConfig in `src/video_policy_orchestrator/policy/models.py`
+- [x] T045 [US3] Implement audio codec matching logic in `src/video_policy_orchestrator/policy/transcode.py`
+- [x] T046 [US3] Implement per-track audio handling in TranscodeExecutor in `src/video_policy_orchestrator/executor/transcode.py`
+- [x] T047 [US3] Implement audio stream copy for preserved codecs in `src/video_policy_orchestrator/executor/transcode.py`
+- [x] T048 [US3] Implement audio transcoding to target codec in `src/video_policy_orchestrator/executor/transcode.py`
+- [x] T049 [US3] Implement audio downmix option (stereo track creation) in `src/video_policy_orchestrator/executor/transcode.py`
+- [x] T050 [US3] Update dry-run to show audio handling plan in `src/video_policy_orchestrator/executor/transcode.py`
 
 **Commit Checkpoint**: Commit all US3 changes with message "feat(transcode): implement audio track preservation rules (US3)"
 

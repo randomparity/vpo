@@ -71,6 +71,31 @@ RESOLUTION_MAP = {
 
 
 @dataclass(frozen=True)
+class AudioPreservationRule:
+    """Rule for handling a specific audio codec.
+
+    Used to define fine-grained control over audio codec handling
+    beyond the simple preserve/transcode list.
+    """
+
+    codec_pattern: str  # Codec name or pattern (e.g., "truehd", "dts*")
+    action: str  # "preserve", "transcode", "remove"
+    transcode_to: str | None = None  # Target codec if action=transcode
+    transcode_bitrate: str | None = None  # Target bitrate if action=transcode
+
+    def __post_init__(self) -> None:
+        """Validate the rule configuration."""
+        valid_actions = ("preserve", "transcode", "remove")
+        if self.action not in valid_actions:
+            raise ValueError(
+                f"Invalid action: {self.action}. "
+                f"Must be one of: {', '.join(valid_actions)}"
+            )
+        if self.action == "transcode" and not self.transcode_to:
+            raise ValueError("transcode_to is required when action is 'transcode'")
+
+
+@dataclass(frozen=True)
 class DefaultFlagsConfig:
     """Configuration for default flag behavior in a policy."""
 
