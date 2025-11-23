@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 9
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -24,12 +24,14 @@ CREATE TABLE IF NOT EXISTS files (
     container_format TEXT,
     scanned_at TEXT NOT NULL,   -- ISO 8601 UTC timestamp
     scan_status TEXT NOT NULL DEFAULT 'pending',
-    scan_error TEXT
+    scan_error TEXT,
+    job_id TEXT  -- Links file to scan job that discovered/updated it
 );
 
 CREATE INDEX IF NOT EXISTS idx_files_directory ON files(directory);
 CREATE INDEX IF NOT EXISTS idx_files_extension ON files(extension);
 CREATE INDEX IF NOT EXISTS idx_files_content_hash ON files(content_hash);
+CREATE INDEX IF NOT EXISTS idx_files_job_id ON files(job_id);
 
 -- Tracks table (one-to-many with files)
 CREATE TABLE IF NOT EXISTS tracks (
@@ -102,7 +104,7 @@ CREATE TABLE IF NOT EXISTS plugin_acknowledgments (
 CREATE INDEX IF NOT EXISTS idx_plugin_ack_name
     ON plugin_acknowledgments(plugin_name);
 
--- Jobs table (006-transcode-pipelines, updated 008-operational-ux)
+-- Jobs table (006-transcode-pipelines, updated 008-operational-ux, 016-job-detail-view)
 CREATE TABLE IF NOT EXISTS jobs (
     id TEXT PRIMARY KEY,
     file_id INTEGER,  -- FK to files.id (NULL for scan jobs)
@@ -136,6 +138,9 @@ CREATE TABLE IF NOT EXISTS jobs (
     -- Extended fields (008-operational-ux)
     files_affected_json TEXT,
     summary_json TEXT,
+
+    -- Log file reference (016-job-detail-view)
+    log_path TEXT,
 
     FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
     CONSTRAINT valid_status CHECK (
@@ -617,6 +622,61 @@ def migrate_v6_to_v7(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def migrate_v7_to_v8(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 7 to version 8.
+
+    Adds log_path column to jobs table for job detail view:
+    - log_path: Relative path to log file from VPO data directory
+
+    This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Check existing columns in jobs table
+    cursor = conn.execute("PRAGMA table_info(jobs)")
+    existing_columns = {row[1] for row in cursor.fetchall()}
+
+    # Add log_path column if it doesn't exist
+    if "log_path" not in existing_columns:
+        conn.execute("ALTER TABLE jobs ADD COLUMN log_path TEXT")
+
+    # Update schema version to 8
+    conn.execute(
+        "UPDATE _meta SET value = '8' WHERE key = 'schema_version'",
+    )
+    conn.commit()
+
+
+def migrate_v8_to_v9(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 8 to version 9.
+
+    Adds job_id column to files table to link files to scan jobs:
+    - job_id: TEXT (UUID of the scan job that discovered/updated the file)
+
+    This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Check existing columns in files table
+    cursor = conn.execute("PRAGMA table_info(files)")
+    existing_columns = {row[1] for row in cursor.fetchall()}
+
+    # Add job_id column if it doesn't exist
+    if "job_id" not in existing_columns:
+        conn.execute("ALTER TABLE files ADD COLUMN job_id TEXT")
+
+    # Create index for job_id (idempotent)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_files_job_id ON files(job_id)")
+
+    # Update schema version to 9
+    conn.execute(
+        "UPDATE _meta SET value = '9' WHERE key = 'schema_version'",
+    )
+    conn.commit()
+
+
 def initialize_database(conn: sqlite3.Connection) -> None:
     """Initialize the database with schema, creating tables if needed.
 
@@ -646,3 +706,9 @@ def initialize_database(conn: sqlite3.Connection) -> None:
             current_version = 6
         if current_version == 6:
             migrate_v6_to_v7(conn)
+            current_version = 7
+        if current_version == 7:
+            migrate_v7_to_v8(conn)
+            current_version = 8
+        if current_version == 8:
+            migrate_v8_to_v9(conn)

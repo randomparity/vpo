@@ -105,6 +105,8 @@ This project uses **spec-driven development**:
 - N/A (read-only display of runtime configuration) (014-settings-about-panel)
 - Python 3.10+ (per pyproject.toml) + aiohttp (existing), aiohttp_jinja2 (existing), Jinja2 (existing) (015-jobs-dashboard)
 - SQLite (~/.vpo/library.db) - existing jobs table with schema v7 (015-jobs-dashboard)
+- Python 3.10+ (per pyproject.toml requires-python = ">=3.10") + aiohttp (>=3.9, existing), aiohttp-jinja2 (>=1.6, existing), Jinja2 (>=3.1, existing) (016-job-detail-view)
+- SQLite (~/.vpo/library.db) - existing schema v7, file-based logs (~/.vpo/logs/{job_id}.log) (016-job-detail-view)
 
 ## Recent Changes
 - 006-transcode-pipelines: Added Python 3.10+ (per pyproject.toml) + click (CLI), pydantic (models), PyYAML (config), sqlite3 (jobs DB)

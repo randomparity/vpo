@@ -1,0 +1,264 @@
+openapi: 3.0.3
+info:
+  title: VPO Job Detail API
+  description: API endpoints for job detail view feature
+  version: 1.0.0
+
+paths:
+  /jobs/{job_id}:
+    get:
+      summary: Get job detail page
+      description: Renders the job detail HTML page
+      operationId: getJobDetailPage
+      tags:
+        - UI Pages
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: HTML page with job details
+          content:
+            text/html:
+              schema:
+                type: string
+        '404':
+          description: Job not found
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /api/jobs/{job_id}:
+    get:
+      summary: Get job detail JSON
+      description: Returns full job metadata for the detail view
+      operationId: getJobDetail
+      tags:
+        - Jobs API
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: Job detail data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobDetailResponse'
+        '400':
+          description: Invalid job ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/jobs/{job_id}/logs:
+    get:
+      summary: Get job logs
+      description: Returns log content with pagination support for lazy loading
+      operationId: getJobLogs
+      tags:
+        - Jobs API
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - name: lines
+          in: query
+          description: Number of lines to return (default 500, max 1000)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 500
+        - name: offset
+          in: query
+          description: Number of lines to skip from end (for pagination)
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Log content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobLogsResponse'
+        '400':
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  parameters:
+    JobId:
+      name: job_id
+      in: path
+      description: Job UUID
+      required: true
+      schema:
+        type: string
+        format: uuid
+        example: "550e8400-e29b-41d4-a716-446655440000"
+
+  schemas:
+    JobDetailResponse:
+      type: object
+      required:
+        - id
+        - id_short
+        - job_type
+        - status
+        - priority
+        - file_path
+        - created_at
+        - progress_percent
+        - has_logs
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Full job UUID
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        id_short:
+          type: string
+          description: First 8 characters of UUID for display
+          example: "550e8400"
+        job_type:
+          type: string
+          enum: [scan, apply, transcode, move]
+          description: Type of job
+        status:
+          type: string
+          enum: [queued, running, completed, failed, cancelled]
+          description: Current job status
+        priority:
+          type: integer
+          description: Job priority (lower = higher priority)
+          example: 100
+        file_path:
+          type: string
+          description: Target file or directory path
+          example: "/media/movies"
+        policy_name:
+          type: string
+          nullable: true
+          description: Name of applied policy (if applicable)
+          example: "normalize-audio"
+        created_at:
+          type: string
+          format: date-time
+          description: Job creation timestamp (ISO-8601 UTC)
+          example: "2025-11-23T10:15:30Z"
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Job start timestamp (ISO-8601 UTC)
+          example: "2025-11-23T10:15:31Z"
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Job completion timestamp (ISO-8601 UTC)
+          example: "2025-11-23T10:20:45Z"
+        duration_seconds:
+          type: integer
+          nullable: true
+          description: Job duration in seconds (computed)
+          example: 314
+        progress_percent:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          description: Job progress percentage
+          example: 100.0
+        error_message:
+          type: string
+          nullable: true
+          description: Error details if job failed
+        output_path:
+          type: string
+          nullable: true
+          description: Path to output file (for transcode jobs)
+        summary:
+          type: string
+          nullable: true
+          description: Human-readable summary of job outcome
+          example: "Scanned 150 files in /media/movies, 5 new, 3 changed"
+        summary_raw:
+          type: object
+          nullable: true
+          description: Parsed summary_json for detailed display
+        has_logs:
+          type: boolean
+          description: Whether log file exists for this job
+
+    JobLogsResponse:
+      type: object
+      required:
+        - job_id
+        - lines
+        - total_lines
+        - offset
+        - has_more
+      properties:
+        job_id:
+          type: string
+          format: uuid
+          description: Job UUID
+        lines:
+          type: array
+          items:
+            type: string
+          description: Log lines (chronological order)
+        total_lines:
+          type: integer
+          minimum: 0
+          description: Total number of lines in log file
+          example: 1500
+        offset:
+          type: integer
+          minimum: 0
+          description: Current offset (lines skipped from start)
+          example: 0
+        has_more:
+          type: boolean
+          description: Whether more lines are available to load
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "Job not found"

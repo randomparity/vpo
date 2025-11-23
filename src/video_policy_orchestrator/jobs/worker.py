@@ -29,6 +29,7 @@ from video_policy_orchestrator.executor.transcode import (
     TranscodeExecutor,
 )
 from video_policy_orchestrator.introspector import FFprobeIntrospector
+from video_policy_orchestrator.jobs.logs import JobLogWriter
 from video_policy_orchestrator.jobs.progress import FFmpegProgress
 from video_policy_orchestrator.jobs.queue import (
     claim_next_job,
@@ -221,11 +222,14 @@ class JobWorker:
 
         return callback
 
-    def _process_transcode_job(self, job: Job) -> tuple[bool, str | None, str | None]:
+    def _process_transcode_job(
+        self, job: Job, job_log: JobLogWriter | None = None
+    ) -> tuple[bool, str | None, str | None]:
         """Process a transcode job.
 
         Args:
             job: The job to process.
+            job_log: Optional log writer for this job.
 
         Returns:
             Tuple of (success, error_message, output_path).
@@ -247,24 +251,49 @@ class JobWorker:
                 audio_transcode_bitrate=policy_data.get("audio_bitrate", "192k"),
                 audio_downmix=policy_data.get("audio_downmix"),
             )
+            if job_log:
+                job_log.write_line(f"Parsed policy: {job.policy_name or 'default'}")
         except Exception as e:
+            if job_log:
+                job_log.write_error(f"Invalid policy JSON: {e}")
             return False, f"Invalid policy JSON: {e}", None
 
         # Get input file info
         input_path = Path(job.file_path)
         if not input_path.exists():
-            return False, f"Input file not found: {input_path}", None
+            error = f"Input file not found: {input_path}"
+            if job_log:
+                job_log.write_error(error)
+            return False, error, None
 
         # Introspect file
+        if job_log:
+            job_log.write_section("Introspecting file")
         introspector = FFprobeIntrospector()
         result = introspector.introspect(input_path)
         if not result.success:
-            return False, f"Introspection failed: {result.error}", None
+            error = f"Introspection failed: {result.error}"
+            if job_log:
+                job_log.write_error(error)
+            return False, error, None
+
+        if job_log:
+            job_log.write_line(f"Container: {result.container_format}")
+            job_log.write_line(f"Duration: {result.duration}s")
+            job_log.write_line(f"Tracks: {len(result.tracks)}")
 
         # Get video track info
         video_track = next((t for t in result.tracks if t.track_type == "video"), None)
         if not video_track:
-            return False, "No video track found", None
+            error = "No video track found"
+            if job_log:
+                job_log.write_error(error)
+            return False, error, None
+
+        if job_log:
+            job_log.write_line(
+                f"Video: {video_track.codec} {video_track.width}x{video_track.height}"
+            )
 
         # Determine output path
         output_dir = policy_data.get("output_dir")
@@ -274,6 +303,9 @@ class JobWorker:
             # Same directory with .transcoded suffix before extension
             stem = input_path.stem
             output_path = input_path.with_name(f"{stem}.transcoded{input_path.suffix}")
+
+        if job_log:
+            job_log.write_line(f"Output path: {output_path}")
 
         # Create executor and plan
         executor = TranscodeExecutor(
@@ -292,10 +324,25 @@ class JobWorker:
         )
 
         # Execute transcode
+        if job_log:
+            job_log.write_section("Executing transcode")
+            job_log.write_line(f"Target codec: {policy.target_video_codec}")
+            if policy.target_crf:
+                job_log.write_line(f"Target CRF: {policy.target_crf}")
+            if self.cpu_cores:
+                job_log.write_line(f"CPU cores: {self.cpu_cores}")
+
         transcode_result = executor.execute(plan)
 
         if not transcode_result.success:
+            if job_log:
+                job_log.write_error(
+                    f"Transcode failed: {transcode_result.error_message}"
+                )
             return False, transcode_result.error_message, None
+
+        if job_log:
+            job_log.write_line("Transcode completed successfully")
 
         final_output_path = output_path
 
@@ -304,6 +351,10 @@ class JobWorker:
         destination_base = policy_data.get("destination_base")
 
         if destination_template and transcode_result.output_path:
+            if job_log:
+                job_log.write_section("Moving to destination")
+                job_log.write_line(f"Template: {destination_template}")
+
             try:
                 # Parse metadata from filename
                 metadata = parse_filename(input_path)
@@ -325,6 +376,9 @@ class JobWorker:
                 # Add filename to destination
                 final_dest = dest_path / transcode_result.output_path.name
 
+                if job_log:
+                    job_log.write_line(f"Destination: {final_dest}")
+
                 # Move file to destination
                 move_executor = MoveExecutor(create_directories=True)
                 move_plan = move_executor.create_plan(
@@ -336,12 +390,16 @@ class JobWorker:
                 if move_result.success:
                     final_output_path = move_result.destination_path
                     logger.info("Moved output to: %s", final_output_path)
+                    if job_log:
+                        job_log.write_line(f"Moved to: {final_output_path}")
                 else:
                     logger.warning(
                         "File movement failed: %s (transcoded file kept at: %s)",
                         move_result.error_message,
                         output_path,
                     )
+                    if job_log:
+                        job_log.write_error(f"Move failed: {move_result.error_message}")
             except Exception as e:
                 logger.warning(
                     "Destination template processing failed: %s "
@@ -349,6 +407,8 @@ class JobWorker:
                     e,
                     output_path,
                 )
+                if job_log:
+                    job_log.write_error(f"Template processing failed: {e}")
 
         return True, None, str(final_output_path)
 
@@ -360,21 +420,53 @@ class JobWorker:
         """
         self._current_job = job
         self._start_heartbeat(job.id)
+        job_start_time = time.time()
+
+        # Create job log file
+        job_log: JobLogWriter | None = None
+        try:
+            job_log = JobLogWriter(job.id)
+            job_log.__enter__()
+
+            # Update job with log path
+            self._update_job_log_path(job.id, job_log.relative_path)
+        except Exception as e:
+            logger.warning("Failed to create job log: %s", e)
+            job_log = None
 
         try:
             logger.info("Processing job %s: %s", job.id[:8], job.file_path)
 
+            # Write log header
+            if job_log:
+                job_log.write_header(
+                    job.job_type.value,
+                    job.file_path,
+                    policy=job.policy_name or "default",
+                )
+
             if job.job_type == JobType.TRANSCODE:
-                success, error_msg, output_path = self._process_transcode_job(job)
+                success, error_msg, output_path = self._process_transcode_job(
+                    job, job_log
+                )
             elif job.job_type == JobType.MOVE:
                 # TODO: Implement move job processing
                 success = False
                 error_msg = "Move jobs not yet implemented"
                 output_path = None
+                if job_log:
+                    job_log.write_error(error_msg)
             else:
                 success = False
                 error_msg = f"Unknown job type: {job.job_type}"
                 output_path = None
+                if job_log:
+                    job_log.write_error(error_msg)
+
+            # Write log footer
+            if job_log:
+                duration = time.time() - job_start_time
+                job_log.write_footer(success, duration)
 
             # Release job with result
             status = JobStatus.COMPLETED if success else JobStatus.FAILED
@@ -393,6 +485,9 @@ class JobWorker:
 
         except Exception as e:
             logger.exception("Job %s failed with exception", job.id[:8])
+            if job_log:
+                job_log.write_error("Unexpected exception", e)
+                job_log.write_footer(False, time.time() - job_start_time)
             release_job(
                 self.conn,
                 job.id,
@@ -401,9 +496,29 @@ class JobWorker:
             )
 
         finally:
+            if job_log:
+                job_log.close()
             self._stop_heartbeat()
             self._current_job = None
             self._files_processed += 1
+
+    def _update_job_log_path(self, job_id: str, log_path: str | None) -> None:
+        """Update the job's log_path in the database.
+
+        Args:
+            job_id: The job UUID.
+            log_path: Relative path to the log file.
+        """
+        if log_path is None:
+            return
+        try:
+            self.conn.execute(
+                "UPDATE jobs SET log_path = ? WHERE id = ?",
+                (log_path, job_id),
+            )
+            self.conn.commit()
+        except Exception as e:
+            logger.warning("Failed to update job log path: %s", e)
 
     def run(self) -> int:
         """Run the worker, processing jobs until limits reached or queue empty.

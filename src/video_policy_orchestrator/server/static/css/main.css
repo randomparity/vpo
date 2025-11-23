@@ -457,6 +457,298 @@ html, body {
     cursor: not-allowed;
 }
 
+/* ==========================================================================
+   Job Detail View Styles (016-job-detail-view)
+   ========================================================================== */
+
+/* Back navigation link */
+.job-detail-back {
+    display: inline-block;
+    margin-bottom: var(--spacing-md);
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: var(--font-size-sm);
+    transition: color var(--transition-fast);
+}
+
+.job-detail-back:hover {
+    color: var(--color-primary-dark);
+    text-decoration: underline;
+}
+
+/* Job detail header with status badge (FR-012) */
+.job-detail-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.job-detail-header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--color-sidebar-bg);
+}
+
+/* Error message section */
+.job-detail-error {
+    margin-bottom: var(--spacing-lg);
+    padding: var(--spacing-md);
+    background-color: #fee2e2;
+    border: 1px solid #fecaca;
+    border-radius: 4px;
+}
+
+.job-detail-error h2 {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: #991b1b;
+}
+
+.job-detail-error-message {
+    font-family: monospace;
+    font-size: var(--font-size-sm);
+    color: #991b1b;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* Metadata section */
+.job-detail-meta {
+    margin-bottom: var(--spacing-lg);
+}
+
+.job-detail-meta h2 {
+    margin: 0 0 var(--spacing-md) 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+/* Definition list styling */
+.job-detail-dl {
+    margin: 0;
+    padding: var(--spacing-md);
+    background-color: var(--color-body-bg);
+    border-radius: 4px;
+}
+
+.job-detail-dl-row {
+    display: flex;
+    padding: var(--spacing-sm) 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.job-detail-dl-row:last-child {
+    border-bottom: none;
+}
+
+.job-detail-dl dt {
+    flex: 0 0 120px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
+.job-detail-dl dd {
+    flex: 1;
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+}
+
+/* Job ID styling */
+.job-detail-id {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    word-break: break-all;
+}
+
+/* Path styling with truncation */
+.job-detail-path {
+    max-width: 400px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: help;
+}
+
+/* Progress bar */
+.job-detail-progress {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.job-detail-progress-track {
+    flex: 1;
+    height: 8px;
+    background-color: var(--color-border);
+    border-radius: 4px;
+    max-width: 200px;
+    overflow: hidden;
+}
+
+.job-detail-progress-bar {
+    height: 100%;
+    background-color: var(--color-primary);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.job-detail-progress-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    min-width: 45px;
+}
+
+/* Summary section */
+.job-detail-summary {
+    margin-bottom: var(--spacing-lg);
+}
+
+.job-detail-summary h2 {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.job-detail-summary p {
+    margin: 0;
+    padding: var(--spacing-md);
+    background-color: var(--color-body-bg);
+    border-radius: 4px;
+    color: var(--color-text);
+}
+
+.job-detail-no-summary {
+    color: var(--color-text-hint);
+    font-style: italic;
+}
+
+/* Logs section */
+.job-detail-logs {
+    margin-bottom: var(--spacing-lg);
+}
+
+.job-detail-logs h2 {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.logs-container {
+    font-family: monospace;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    padding: var(--spacing-md);
+    border-radius: 4px;
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.logs-container:empty::before {
+    content: "No logs available";
+    color: #888;
+    font-style: italic;
+}
+
+.logs-loading,
+.logs-empty,
+.logs-error {
+    color: #888;
+    font-style: italic;
+    padding: var(--spacing-md);
+}
+
+.logs-error {
+    color: #f87171;
+}
+
+/* Logs pagination */
+.logs-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+}
+
+.logs-info {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+/* Scan errors section */
+.job-detail-errors {
+    margin-bottom: var(--spacing-lg);
+}
+
+.job-detail-errors h2 {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.errors-container {
+    background-color: rgba(248, 113, 113, 0.1);
+    border: 1px solid rgba(248, 113, 113, 0.3);
+    border-radius: 4px;
+    padding: var(--spacing-md);
+}
+
+.errors-loading,
+.errors-empty,
+.errors-error {
+    color: #888;
+    font-style: italic;
+}
+
+.errors-error {
+    color: #f87171;
+}
+
+.errors-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.error-item {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    padding: var(--spacing-sm);
+}
+
+.error-filename {
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: 4px;
+    word-break: break-all;
+}
+
+.error-message {
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: #f87171;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
 /* Graceful degradation for below minimum supported viewport (< 768px) */
 @media (max-width: 767px) {
     .app-shell {

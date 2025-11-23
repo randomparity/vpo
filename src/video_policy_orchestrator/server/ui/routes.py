@@ -5,6 +5,7 @@ This module provides server-rendered HTML routes for the VPO web interface.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
@@ -21,12 +22,18 @@ from video_policy_orchestrator.server.ui.models import (
     DEFAULT_SECTION,
     NAVIGATION_ITEMS,
     AboutInfo,
+    JobDetailContext,
+    JobDetailItem,
     JobFilterParams,
     JobListContext,
     JobListItem,
     JobListResponse,
+    JobLogsResponse,
     NavigationState,
+    ScanErrorItem,
+    ScanErrorsResponse,
     TemplateContext,
+    generate_summary_text,
 )
 
 logger = logging.getLogger(__name__)
@@ -241,6 +248,370 @@ async def api_jobs_handler(request: web.Request) -> web.Response:
     return web.json_response(response.to_dict())
 
 
+def _is_valid_uuid(value: str) -> bool:
+    """Check if a string is a valid UUID v4 format.
+
+    Args:
+        value: String to validate.
+
+    Returns:
+        True if valid UUID format, False otherwise.
+    """
+    uuid_pattern = re.compile(
+        r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        re.IGNORECASE,
+    )
+    return bool(uuid_pattern.match(value))
+
+
+def _parse_iso_timestamp(timestamp: str) -> datetime:
+    """Parse ISO-8601 timestamp, handling both Z and +00:00 suffixes.
+
+    Args:
+        timestamp: ISO-8601 timestamp string.
+
+    Returns:
+        Parsed datetime object.
+    """
+    normalized = timestamp.replace("Z", "+00:00")
+    return datetime.fromisoformat(normalized)
+
+
+def _job_to_detail_item(job, has_logs: bool) -> JobDetailItem:
+    """Convert a Job database record to a JobDetailItem.
+
+    Args:
+        job: Job database record.
+        has_logs: Whether log file exists for this job.
+
+    Returns:
+        JobDetailItem for API/template use.
+    """
+    import json
+
+    # Calculate duration if completed
+    duration_seconds = None
+    if job.completed_at and job.created_at:
+        try:
+            created = _parse_iso_timestamp(job.created_at)
+            completed = _parse_iso_timestamp(job.completed_at)
+            duration_seconds = int((completed - created).total_seconds())
+        except (ValueError, TypeError):
+            pass
+
+    # Parse summary_json if present
+    summary_raw = None
+    if job.summary_json:
+        try:
+            summary_raw = json.loads(job.summary_json)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    # Generate human-readable summary from summary_raw
+    summary_text = generate_summary_text(job.job_type.value, summary_raw)
+
+    return JobDetailItem(
+        id=job.id,
+        id_short=job.id[:8],
+        job_type=job.job_type.value,
+        status=job.status.value,
+        priority=job.priority,
+        file_path=job.file_path,
+        policy_name=job.policy_name,
+        created_at=job.created_at,
+        started_at=job.started_at,
+        completed_at=job.completed_at,
+        duration_seconds=duration_seconds,
+        progress_percent=job.progress_percent,
+        error_message=job.error_message,
+        output_path=job.output_path,
+        summary=summary_text,
+        summary_raw=summary_raw,
+        has_logs=has_logs,
+    )
+
+
+async def api_job_detail_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/jobs/{job_id} - JSON API for job detail.
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        JSON response with job detail or error.
+    """
+    import asyncio
+
+    from video_policy_orchestrator.db.connection import DaemonConnectionPool
+    from video_policy_orchestrator.jobs.logs import log_file_exists
+
+    # Check if shutting down
+    lifecycle = request.app.get("lifecycle")
+    if lifecycle and lifecycle.is_shutting_down:
+        return web.json_response(
+            {"error": "Service is shutting down"},
+            status=503,
+        )
+
+    job_id = request.match_info["job_id"]
+
+    # Validate UUID format
+    if not _is_valid_uuid(job_id):
+        return web.json_response(
+            {"error": "Invalid job ID format"},
+            status=400,
+        )
+
+    # Get connection pool
+    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
+    if connection_pool is None:
+        return web.json_response(
+            {"error": "Database not available"},
+            status=503,
+        )
+
+    # Query job from database
+    def _query_job():
+        from video_policy_orchestrator.db.models import get_job
+
+        with connection_pool.transaction() as conn:
+            return get_job(conn, job_id)
+
+    job = await asyncio.to_thread(_query_job)
+
+    if job is None:
+        return web.json_response(
+            {"error": "Job not found"},
+            status=404,
+        )
+
+    # Check if log file exists
+    has_logs = log_file_exists(job_id)
+
+    # Convert to detail item
+    detail_item = _job_to_detail_item(job, has_logs)
+
+    return web.json_response(detail_item.to_dict())
+
+
+async def job_detail_handler(request: web.Request) -> dict:
+    """Handle GET /jobs/{job_id} - Job detail HTML page.
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        Template context dict for rendering.
+
+    Raises:
+        HTTPNotFound: If job not found.
+        HTTPBadRequest: If job ID format is invalid.
+
+    Note:
+        TODO: Add authentication when auth system is implemented.
+        This endpoint currently exposes job details without access control.
+        VPO is designed as a local tool, but authentication should be
+        added before exposing the web UI to untrusted networks.
+    """
+    import asyncio
+
+    from video_policy_orchestrator.db.connection import DaemonConnectionPool
+    from video_policy_orchestrator.jobs.logs import log_file_exists
+
+    job_id = request.match_info["job_id"]
+
+    # Validate UUID format
+    if not _is_valid_uuid(job_id):
+        raise web.HTTPBadRequest(reason="Invalid job ID format")
+
+    # Get connection pool
+    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
+    if connection_pool is None:
+        raise web.HTTPServiceUnavailable(reason="Database not available")
+
+    # Query job from database
+    def _query_job():
+        from video_policy_orchestrator.db.models import get_job
+
+        with connection_pool.transaction() as conn:
+            return get_job(conn, job_id)
+
+    job = await asyncio.to_thread(_query_job)
+
+    if job is None:
+        raise web.HTTPNotFound(reason="Job not found")
+
+    # Check if log file exists
+    has_logs = log_file_exists(job_id)
+
+    # Convert to detail item
+    detail_item = _job_to_detail_item(job, has_logs)
+
+    # Get referer for back navigation
+    referer = request.headers.get("Referer")
+
+    # Create context
+    detail_context = JobDetailContext.from_job_and_request(detail_item, referer)
+
+    context = _create_template_context(
+        active_id="jobs",
+        section_title=f"Job {detail_item.id_short}",
+    )
+    context["job"] = detail_item
+    context["back_url"] = detail_context.back_url
+
+    return context
+
+
+async def api_job_logs_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/jobs/{job_id}/logs - JSON API for job logs.
+
+    Query parameters:
+        lines: Number of lines to return (default 500, max 1000)
+        offset: Line offset from start (default 0)
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        JSON response with JobLogsResponse payload.
+
+    Note:
+        TODO: Add authentication when auth system is implemented.
+        TODO: Add CSRF protection if state-changing operations (cancel/retry)
+        are added to this endpoint in the future.
+    """
+    from video_policy_orchestrator.jobs.logs import DEFAULT_LOG_LINES, read_log_tail
+
+    # Check if shutting down
+    lifecycle = request.app.get("lifecycle")
+    if lifecycle and lifecycle.is_shutting_down:
+        return web.json_response(
+            {"error": "Service is shutting down"},
+            status=503,
+        )
+
+    job_id = request.match_info["job_id"]
+
+    # Validate UUID format
+    if not _is_valid_uuid(job_id):
+        return web.json_response(
+            {"error": "Invalid job ID format"},
+            status=400,
+        )
+
+    # Parse query parameters
+    try:
+        lines = int(request.query.get("lines", DEFAULT_LOG_LINES))
+        lines = max(1, min(1000, lines))  # Clamp to 1-1000
+    except (ValueError, TypeError):
+        lines = DEFAULT_LOG_LINES
+
+    try:
+        offset = int(request.query.get("offset", 0))
+        offset = max(0, offset)
+    except (ValueError, TypeError):
+        offset = 0
+
+    # Read logs
+    log_lines, total_lines, has_more = read_log_tail(job_id, lines=lines, offset=offset)
+
+    response = JobLogsResponse(
+        job_id=job_id,
+        lines=log_lines,
+        total_lines=total_lines,
+        offset=offset,
+        has_more=has_more,
+    )
+
+    return web.json_response(response.to_dict())
+
+
+async def api_job_errors_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/jobs/{job_id}/errors - JSON API for scan errors.
+
+    Returns files that failed during a scan job. Only applicable for
+    scan jobs - returns empty list for other job types.
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        JSON response with ScanErrorsResponse payload.
+    """
+    from video_policy_orchestrator.db.connection import DaemonConnectionPool
+
+    # Check if shutting down
+    lifecycle = request.app.get("lifecycle")
+    if lifecycle and lifecycle.is_shutting_down:
+        return web.json_response(
+            {"error": "Service is shutting down"},
+            status=503,
+        )
+
+    job_id = request.match_info["job_id"]
+
+    # Validate UUID format
+    if not _is_valid_uuid(job_id):
+        return web.json_response(
+            {"error": "Invalid job ID format"},
+            status=400,
+        )
+
+    # Get connection pool
+    pool: DaemonConnectionPool | None = request.app.get("connection_pool")
+    if pool is None:
+        return web.json_response(
+            {"error": "Database not available"},
+            status=503,
+        )
+
+    def _query_scan_errors() -> list[ScanErrorItem]:
+        """Query files with scan errors (runs in thread pool)."""
+        with pool.transaction() as conn:
+            # First verify this is a scan job
+            cursor = conn.execute(
+                "SELECT job_type FROM jobs WHERE id = ?",
+                (job_id,),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                return []
+            if row["job_type"] != "scan":
+                return []
+
+            # Get files with errors for this specific job
+            cursor = conn.execute(
+                """
+                SELECT path, filename, scan_error
+                FROM files
+                WHERE job_id = ?
+                  AND scan_status = 'error'
+                  AND scan_error IS NOT NULL
+                ORDER BY filename
+                """,
+                (job_id,),
+            )
+            return [
+                ScanErrorItem(
+                    path=row["path"],
+                    filename=row["filename"],
+                    error=row["scan_error"],
+                )
+                for row in cursor.fetchall()
+            ]
+
+    errors = await asyncio.to_thread(_query_scan_errors)
+
+    response = ScanErrorsResponse(
+        job_id=job_id,
+        errors=errors,
+        total_errors=len(errors),
+    )
+
+    return web.json_response(response.to_dict())
+
+
 async def library_handler(request: web.Request) -> dict:
     """Handle GET /library - Library section page."""
     return _create_template_context(
@@ -434,6 +805,14 @@ def setup_ui_routes(app: web.Application) -> None:
         "/jobs",
         aiohttp_jinja2.template("sections/jobs.html")(jobs_handler),
     )
+    # Job detail routes (016-job-detail-view)
+    app.router.add_get(
+        "/jobs/{job_id}",
+        aiohttp_jinja2.template("sections/job_detail.html")(job_detail_handler),
+    )
+    app.router.add_get("/api/jobs/{job_id}", api_job_detail_handler)
+    app.router.add_get("/api/jobs/{job_id}/logs", api_job_logs_handler)
+    app.router.add_get("/api/jobs/{job_id}/errors", api_job_errors_handler)
     app.router.add_get(
         "/library",
         aiohttp_jinja2.template("sections/library.html")(library_handler),

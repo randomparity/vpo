@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="job-detail">
+    <!-- Back navigation -->
+    <a href="{{ back_url }}" class="job-detail-back">&larr; Back to Jobs</a>
+
+    <!-- Job header with status badge (FR-012) -->
+    <header class="job-detail-header">
+        <h1>Job {{ job.id_short }}</h1>
+        <span class="status-badge status-badge--{{ job.status }}">{{ job.status }}</span>
+    </header>
+
+    <!-- Error message section (if failed) -->
+    {% if job.error_message %}
+    <section class="job-detail-error">
+        <h2>Error</h2>
+        <div class="job-detail-error-message">{{ job.error_message }}</div>
+    </section>
+    {% endif %}
+
+    <!-- Metadata section -->
+    <section class="job-detail-meta">
+        <h2>Details</h2>
+        <dl class="job-detail-dl">
+            <div class="job-detail-dl-row">
+                <dt>Job ID</dt>
+                <dd class="job-detail-id" title="{{ job.id }}">{{ job.id }}</dd>
+            </div>
+            <div class="job-detail-dl-row">
+                <dt>Type</dt>
+                <dd><span class="type-badge">{{ job.job_type }}</span></dd>
+            </div>
+            <div class="job-detail-dl-row">
+                <dt>Status</dt>
+                <dd><span class="status-badge status-badge--{{ job.status }}">{{ job.status }}</span></dd>
+            </div>
+            <div class="job-detail-dl-row">
+                <dt>Target</dt>
+                <dd class="job-detail-path" title="{{ job.file_path }}">{{ job.file_path or '—' }}</dd>
+            </div>
+            {% if job.policy_name %}
+            <div class="job-detail-dl-row">
+                <dt>Policy</dt>
+                <dd>{{ job.policy_name }}</dd>
+            </div>
+            {% endif %}
+            <div class="job-detail-dl-row">
+                <dt>Progress</dt>
+                <dd>
+                    <div class="job-detail-progress">
+                        <div class="job-detail-progress-track">
+                            <div class="job-detail-progress-bar" style="width: {{ job.progress_percent }}%"></div>
+                        </div>
+                        <span class="job-detail-progress-text">{{ job.progress_percent | round(1) }}%</span>
+                    </div>
+                </dd>
+            </div>
+            <div class="job-detail-dl-row">
+                <dt>Created</dt>
+                <dd><time data-timestamp="{{ job.created_at }}" datetime="{{ job.created_at }}">{{ job.created_at }}</time></dd>
+            </div>
+            {% if job.started_at %}
+            <div class="job-detail-dl-row">
+                <dt>Started</dt>
+                <dd><time data-timestamp="{{ job.started_at }}" datetime="{{ job.started_at }}">{{ job.started_at }}</time></dd>
+            </div>
+            {% endif %}
+            {% if job.completed_at %}
+            <div class="job-detail-dl-row">
+                <dt>Completed</dt>
+                <dd><time data-timestamp="{{ job.completed_at }}" datetime="{{ job.completed_at }}">{{ job.completed_at }}</time></dd>
+            </div>
+            {% endif %}
+            {% if job.duration_seconds is not none %}
+            <div class="job-detail-dl-row">
+                <dt>Duration</dt>
+                <dd data-duration="{{ job.duration_seconds }}">{{ job.duration_seconds }}s</dd>
+            </div>
+            {% endif %}
+            {% if job.output_path %}
+            <div class="job-detail-dl-row">
+                <dt>Output</dt>
+                <dd class="job-detail-path" title="{{ job.output_path }}">{{ job.output_path }}</dd>
+            </div>
+            {% endif %}
+        </dl>
+    </section>
+
+    <!-- Summary section -->
+    {% if job.summary %}
+    <section class="job-detail-summary" id="job-summary-section">
+        <h2>Summary</h2>
+        <p id="job-summary-text">{{ job.summary }}</p>
+    </section>
+    {% elif job.status == 'completed' or job.status == 'failed' %}
+    <section class="job-detail-summary" id="job-summary-section">
+        <h2>Summary</h2>
+        <p id="job-summary-text" class="job-detail-no-summary">No summary available</p>
+    </section>
+    {% endif %}
+
+    <!-- Scan errors section (for scan jobs with errors) -->
+    {% if job.has_scan_errors %}
+    <section class="job-detail-errors" id="job-errors-section" data-job-id="{{ job.id }}">
+        <h2>Scan Errors</h2>
+        <div id="errors-container" class="errors-container">
+            <div class="errors-loading">Loading errors...</div>
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Logs section -->
+    {% if job.has_logs %}
+    <section class="job-detail-logs" id="job-logs-section" data-job-id="{{ job.id }}">
+        <h2>Logs</h2>
+        <div id="logs-container" class="logs-container">
+            <div class="logs-loading">Loading logs...</div>
+        </div>
+        <div id="logs-pagination" class="logs-pagination" style="display: none;">
+            <span id="logs-info" class="logs-info"></span>
+            <button id="load-more-logs" class="jobs-pagination-btn">Load More</button>
+        </div>
+    </section>
+    {% elif job.status == 'completed' or job.status == 'failed' %}
+    <section class="job-detail-logs" id="job-logs-section">
+        <h2>Logs</h2>
+        <div class="logs-container logs-empty">No logs available</div>
+    </section>
+    {% endif %}
+</div>
+
+<script src="/static/js/job_detail.js"></script>
+{% endblock %}

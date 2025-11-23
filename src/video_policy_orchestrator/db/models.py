@@ -113,9 +113,10 @@ class FileRecord:
     scanned_at: str  # ISO 8601
     scan_status: str
     scan_error: str | None
+    job_id: str | None = None  # UUID of scan job that discovered/updated this file
 
     @classmethod
-    def from_file_info(cls, info: FileInfo) -> "FileRecord":
+    def from_file_info(cls, info: FileInfo, job_id: str | None = None) -> "FileRecord":
         """Create a FileRecord from a FileInfo domain object."""
         return cls(
             id=None,
@@ -130,6 +131,7 @@ class FileRecord:
             scanned_at=info.scanned_at.isoformat(),
             scan_status=info.scan_status,
             scan_error=info.scan_error,
+            job_id=job_id,
         )
 
 
@@ -265,6 +267,9 @@ class Job:
     files_affected_json: str | None = None  # JSON array of affected file paths
     summary_json: str | None = None  # Job-specific summary (e.g., scan counts)
 
+    # Log file reference (016-job-detail-view)
+    log_path: str | None = None  # Relative path to log file from VPO data directory
+
 
 @dataclass
 class TranscriptionResultRecord:
@@ -303,8 +308,8 @@ def insert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
         INSERT INTO files (
             path, filename, directory, extension, size_bytes,
             modified_at, content_hash, container_format,
-            scanned_at, scan_status, scan_error
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            scanned_at, scan_status, scan_error, job_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             record.path,
@@ -318,6 +323,7 @@ def insert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
             record.scanned_at,
             record.scan_status,
             record.scan_error,
+            record.job_id,
         ),
     )
     conn.commit()
@@ -339,8 +345,8 @@ def upsert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
         INSERT INTO files (
             path, filename, directory, extension, size_bytes,
             modified_at, content_hash, container_format,
-            scanned_at, scan_status, scan_error
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            scanned_at, scan_status, scan_error, job_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(path) DO UPDATE SET
             filename = excluded.filename,
             directory = excluded.directory,
@@ -351,7 +357,8 @@ def upsert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
             container_format = excluded.container_format,
             scanned_at = excluded.scanned_at,
             scan_status = excluded.scan_status,
-            scan_error = excluded.scan_error
+            scan_error = excluded.scan_error,
+            job_id = excluded.job_id
         RETURNING id
         """,
         (
@@ -366,6 +373,7 @@ def upsert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
             record.scanned_at,
             record.scan_status,
             record.scan_error,
+            record.job_id,
         ),
     )
     result = cursor.fetchone()
@@ -391,7 +399,7 @@ def get_file_by_path(conn: sqlite3.Connection, path: str) -> FileRecord | None:
         """
         SELECT id, path, filename, directory, extension, size_bytes,
                modified_at, content_hash, container_format,
-               scanned_at, scan_status, scan_error
+               scanned_at, scan_status, scan_error, job_id
         FROM files WHERE path = ?
         """,
         (path,),
@@ -413,6 +421,7 @@ def get_file_by_path(conn: sqlite3.Connection, path: str) -> FileRecord | None:
         scanned_at=row[9],
         scan_status=row[10],
         scan_error=row[11],
+        job_id=row[12],
     )
 
 
@@ -781,6 +790,7 @@ def _row_to_job(row: tuple) -> Job:
         error_message=row[17],
         files_affected_json=row[18] if len(row) > 18 else None,
         summary_json=row[19] if len(row) > 19 else None,
+        log_path=row[20] if len(row) > 20 else None,
     )
 
 
@@ -802,8 +812,8 @@ def insert_job(conn: sqlite3.Connection, job: Job) -> str:
             created_at, started_at, completed_at,
             worker_pid, worker_heartbeat,
             output_path, backup_path, error_message,
-            files_affected_json, summary_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            files_affected_json, summary_json, log_path
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             job.id,
@@ -826,6 +836,7 @@ def insert_job(conn: sqlite3.Connection, job: Job) -> str:
             job.error_message,
             job.files_affected_json,
             job.summary_json,
+            job.log_path,
         ),
     )
     conn.commit()
@@ -849,7 +860,7 @@ def get_job(conn: sqlite3.Connection, job_id: str) -> Job | None:
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
                output_path, backup_path, error_message,
-               files_affected_json, summary_json
+               files_affected_json, summary_json, log_path
         FROM jobs WHERE id = ?
         """,
         (job_id,),
@@ -1001,7 +1012,7 @@ def get_queued_jobs(conn: sqlite3.Connection, limit: int | None = None) -> list[
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
                output_path, backup_path, error_message,
-               files_affected_json, summary_json
+               files_affected_json, summary_json, log_path
         FROM jobs
         WHERE status = 'queued'
         ORDER BY priority ASC, created_at ASC
@@ -1034,7 +1045,7 @@ def get_jobs_by_status(
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
                output_path, backup_path, error_message,
-               files_affected_json, summary_json
+               files_affected_json, summary_json, log_path
         FROM jobs
         WHERE status = ?
         ORDER BY created_at DESC
@@ -1064,7 +1075,7 @@ def get_all_jobs(conn: sqlite3.Connection, limit: int | None = None) -> list[Job
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
                output_path, backup_path, error_message,
-               files_affected_json, summary_json
+               files_affected_json, summary_json, log_path
         FROM jobs
         ORDER BY created_at DESC
     """
@@ -1095,7 +1106,7 @@ def get_jobs_by_id_prefix(conn: sqlite3.Connection, prefix: str) -> list[Job]:
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
                output_path, backup_path, error_message,
-               files_affected_json, summary_json
+               files_affected_json, summary_json, log_path
         FROM jobs
         WHERE id LIKE ?
         ORDER BY created_at DESC
@@ -1165,7 +1176,7 @@ def get_jobs_filtered(
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
                output_path, backup_path, error_message,
-               files_affected_json, summary_json
+               files_affected_json, summary_json, log_path
         FROM jobs
     """
     base_query += where_clause

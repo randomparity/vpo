@@ -85,6 +85,12 @@ class JobsConfig:
     # Buffer multiplier for disk space estimation
     disk_space_buffer: float = 1.2
 
+    # Days before compressing job log files (gzip)
+    log_compression_days: int = 7
+
+    # Days before deleting job log files (after compression)
+    log_deletion_days: int = 90
+
 
 @dataclass
 class WorkerConfig:

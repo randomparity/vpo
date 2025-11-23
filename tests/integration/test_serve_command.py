@@ -36,11 +36,12 @@ def temp_db(tmp_path: Path) -> Path:
     """Create a temporary database for testing."""
     import sqlite3
 
+    from video_policy_orchestrator.db.schema import initialize_database
+
     db_path = tmp_path / "test.db"
     conn = sqlite3.connect(str(db_path))
-    # Create minimal schema so health check passes
-    conn.execute("CREATE TABLE IF NOT EXISTS files (id TEXT)")
-    conn.commit()
+    # Use proper schema initialization
+    initialize_database(conn)
     conn.close()
     return db_path
 

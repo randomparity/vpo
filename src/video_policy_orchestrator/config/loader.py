@@ -13,6 +13,9 @@ Environment variables:
 - VPO_MKVPROPEDIT_PATH: Path to mkvpropedit executable
 - VPO_DATABASE_PATH: Path to database file
 - VPO_CONFIG_PATH: Path to config file (overrides default location)
+- VPO_DATA_DIR: Path to VPO data directory (overrides ~/.vpo/)
+- VPO_LOG_COMPRESSION_DAYS: Days before compressing job logs (default 7)
+- VPO_LOG_DELETION_DAYS: Days before deleting job logs (default 90)
 """
 
 import logging
@@ -50,6 +53,26 @@ def get_default_config_path() -> Path:
     if env_path:
         return Path(env_path)
     return DEFAULT_CONFIG_FILE
+
+
+def get_data_dir() -> Path:
+    """Get the VPO data directory.
+
+    This is the base directory for all VPO data including:
+    - Database file (library.db)
+    - Configuration file (config.toml)
+    - Plugins directory (plugins/)
+    - Job logs directory (logs/)
+
+    Can be overridden by VPO_DATA_DIR environment variable.
+
+    Returns:
+        Path to the data directory (~/.vpo/ by default).
+    """
+    env_path = os.environ.get("VPO_DATA_DIR")
+    if env_path:
+        return Path(env_path)
+    return DEFAULT_CONFIG_DIR
 
 
 def _parse_toml(content: str) -> dict:
@@ -407,6 +430,14 @@ def get_config(
         backup_original=_get_env_bool(
             "VPO_JOBS_BACKUP_ORIGINAL",
             jobs_file.get("backup_original", True),
+        ),
+        log_compression_days=_get_env_int(
+            "VPO_LOG_COMPRESSION_DAYS",
+            jobs_file.get("log_compression_days", 7),
+        ),
+        log_deletion_days=_get_env_int(
+            "VPO_LOG_DELETION_DAYS",
+            jobs_file.get("log_deletion_days", 90),
         ),
     )
 
