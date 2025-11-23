@@ -103,9 +103,9 @@
 
 ### Implementation for User Story 3
 
-- [ ] T021 [US3] Add type filter dropdown to src/video_policy_orchestrator/server/ui/templates/sections/jobs.html
-- [ ] T022 [US3] Implement handleTypeFilter() in src/video_policy_orchestrator/server/static/js/jobs.js
-- [ ] T023 [US3] Update fetchJobs() to include type query parameter in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T021 [US3] Add type filter dropdown to src/video_policy_orchestrator/server/ui/templates/sections/jobs.html
+- [X] T022 [US3] Implement handleTypeFilter() in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T023 [US3] Update fetchJobs() to include type query parameter in src/video_policy_orchestrator/server/static/js/jobs.js
 
 **Checkpoint**: Type filter dropdown works, combines correctly with status filter (verifies FR-009 AND logic).
 

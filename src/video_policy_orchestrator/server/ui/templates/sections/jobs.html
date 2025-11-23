@@ -20,6 +20,14 @@
                     {% endfor %}
                 </select>
             </div>
+            <div class="jobs-filter">
+                <label for="filter-type">Type</label>
+                <select id="filter-type" onchange="jobsDashboard.handleTypeFilter(this.value)">
+                    {% for option in jobs_context.type_options %}
+                    <option value="{{ option.value }}">{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
         </div>
 
         <!-- Jobs table container -->
