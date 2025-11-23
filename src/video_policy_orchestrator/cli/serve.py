@@ -20,6 +20,42 @@ from video_policy_orchestrator.db.connection import (
 logger = logging.getLogger(__name__)
 
 
+def _configure_daemon_logging(
+    log_level: str | None,
+    log_format: str | None,
+    config_path: Path | None,
+) -> None:
+    """Configure logging for daemon mode.
+
+    Uses the centralized logging configuration with daemon-specific defaults.
+
+    Args:
+        log_level: CLI override for log level.
+        log_format: CLI override for log format.
+        config_path: Path to config file for reading logging settings.
+    """
+    from video_policy_orchestrator.config import get_config
+    from video_policy_orchestrator.config.models import LoggingConfig
+    from video_policy_orchestrator.logging import configure_logging
+
+    # Load base config
+    config = get_config(config_path=config_path)
+    base_logging = config.logging
+
+    # Build logging config with CLI overrides
+    # Daemon defaults to INFO level (not WARNING like some CLI commands)
+    final_config = LoggingConfig(
+        level=log_level or base_logging.level,
+        file=base_logging.file,
+        format=log_format or base_logging.format,
+        include_stderr=True,  # Always include stderr for daemon (journald)
+        max_bytes=base_logging.max_bytes,
+        backup_count=base_logging.backup_count,
+    )
+
+    configure_logging(final_config)
+
+
 async def run_server(
     bind: str,
     port: int,
@@ -110,6 +146,14 @@ async def run_server(
 
 @click.command("serve")
 @click.option(
+    "--config",
+    "-c",
+    "config_path",
+    type=click.Path(exists=True, path_type=Path),
+    default=None,
+    help="Path to configuration file (default: ~/.vpo/config.toml).",
+)
+@click.option(
     "--bind",
     type=str,
     default=None,
@@ -122,11 +166,26 @@ async def run_server(
     default=None,
     help="Port to bind to (default: 8321).",
 )
+@click.option(
+    "--log-level",
+    type=click.Choice(["debug", "info", "warning", "error"], case_sensitive=False),
+    default=None,
+    help="Override log level for daemon mode (default: info).",
+)
+@click.option(
+    "--log-format",
+    type=click.Choice(["text", "json"], case_sensitive=False),
+    default=None,
+    help="Log format: text or json (default: text).",
+)
 @click.pass_context
 def serve_command(
     ctx: click.Context,
+    config_path: Path | None,
     bind: str | None,
     port: int | None,
+    log_level: str | None,
+    log_format: str | None,
 ) -> None:
     """Run VPO as a background daemon.
 
@@ -136,14 +195,25 @@ def serve_command(
     The daemon binds to localhost by default for security. Override with
     --bind to expose on other interfaces.
 
+    Configuration precedence (highest to lowest):
+      1. CLI flags (--bind, --port, --log-level, etc.)
+      2. Config file (--config or ~/.vpo/config.toml)
+      3. Environment variables (VPO_SERVER_*)
+      4. Default values
+
     \b
     Examples:
-        vpo serve                    # Start with defaults
-        vpo serve --port 9000        # Custom port
-        vpo serve --bind 0.0.0.0     # Listen on all interfaces
+        vpo serve                           # Start with defaults
+        vpo serve --port 9000               # Custom port
+        vpo serve --bind 0.0.0.0            # Listen on all interfaces
+        vpo serve --config /etc/vpo/config.toml  # Custom config
+        vpo serve --log-format json         # JSON logging for systemd
     """
+    # Configure logging for daemon mode
+    _configure_daemon_logging(log_level, log_format, config_path)
+
     # Load configuration with CLI overrides
-    config = get_config()
+    config = get_config(config_path=config_path)
 
     # Apply CLI overrides (CLI > config file > env vars > defaults)
     server_bind = bind if bind is not None else config.server.bind

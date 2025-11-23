@@ -97,12 +97,12 @@
 
 ### Implementation for User Story 3
 
-- [ ] T028 [US3] Add --config flag to serve command in src/video_policy_orchestrator/cli/serve.py
-- [ ] T029 [US3] Add --log-level and --log-format flags to serve command
-- [ ] T030 [US3] Implement config precedence (CLI > config file > env > defaults) in serve.py
-- [ ] T031 [US3] Add config validation with clear error messages on malformed config
-- [ ] T032 [US3] Update serve command help text to document all flags
-- [ ] T033 Commit Phase 5 changes with message "feat(012): Add daemon configuration via config file and CLI flags"
+- [X] T028 [US3] Add --config flag to serve command in src/video_policy_orchestrator/cli/serve.py
+- [X] T029 [US3] Add --log-level and --log-format flags to serve command
+- [X] T030 [US3] Implement config precedence (CLI > config file > env > defaults) in serve.py
+- [X] T031 [US3] Add config validation with clear error messages on malformed config
+- [X] T032 [US3] Update serve command help text to document all flags
+- [X] T033 Commit Phase 5 changes with message "feat(012): Add daemon configuration via config file and CLI flags"
 
 **Checkpoint**: User Story 3 complete - daemon fully configurable via file and flags
 
