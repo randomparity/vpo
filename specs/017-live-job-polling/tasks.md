@@ -38,13 +38,13 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Implement PollingState class with start/stop/cleanup methods in src/video_policy_orchestrator/server/static/js/polling.js
-- [ ] T005 Implement BackoffState with exponential backoff logic (10s initial, 2min max, 3 failures trigger) in src/video_policy_orchestrator/server/static/js/polling.js
-- [ ] T006 [P] Add Page Visibility API integration (visibilitychange event handler) in src/video_policy_orchestrator/server/static/js/polling.js
-- [ ] T007 [P] Add connection status indicator element to base template in src/video_policy_orchestrator/server/ui/templates/base.html
-- [ ] T008 Add polling config data attributes to body element in src/video_policy_orchestrator/server/ui/templates/base.html
-- [ ] T009 Add polling config to template context in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T010 [P] Export VPOPolling namespace for use by page-specific scripts in src/video_policy_orchestrator/server/static/js/polling.js
+- [X] T004 Implement PollingState class with start/stop/cleanup methods in src/video_policy_orchestrator/server/static/js/polling.js
+- [X] T005 Implement BackoffState with exponential backoff logic (10s initial, 2min max, 3 failures trigger) in src/video_policy_orchestrator/server/static/js/polling.js
+- [X] T006 [P] Add Page Visibility API integration (visibilitychange event handler) in src/video_policy_orchestrator/server/static/js/polling.js
+- [X] T007 [P] Add connection status indicator element to base template in src/video_policy_orchestrator/server/ui/templates/base.html
+- [X] T008 Add polling config data attributes to body element in src/video_policy_orchestrator/server/ui/templates/base.html
+- [X] T009 Add polling config to template context in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T010 [P] Export VPOPolling namespace for use by page-specific scripts in src/video_policy_orchestrator/server/static/js/polling.js
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 

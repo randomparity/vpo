@@ -131,6 +131,9 @@ html, body {
 }
 
 .content-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     padding: var(--spacing-md) var(--spacing-lg);
     border-bottom: 1px solid var(--color-border);
     background-color: var(--color-content-bg);
