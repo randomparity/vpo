@@ -118,6 +118,23 @@ VPO acts as a **policy layer** on top of existing media tools (ffmpeg, mkvmerge)
 - Plugin SDK with helpers for plugin authors
 - Version compatibility checking and acknowledgment system
 
+### Daemon Mode / Service Deployment
+
+Run VPO as a background service for continuous health monitoring:
+
+```bash
+# Start daemon
+vpo serve
+
+# Start with JSON logging for systemd
+vpo serve --log-format json
+
+# Check health endpoint
+curl http://127.0.0.1:8321/health
+```
+
+See [docs/daemon-mode.md](docs/daemon-mode.md) for configuration and [docs/systemd.md](docs/systemd.md) for systemd deployment.
+
 ### CLI Commands
 
 | Command | Description |
@@ -127,6 +144,7 @@ VPO acts as a **policy layer** on top of existing media tools (ffmpeg, mkvmerge)
 | `vpo apply` | Apply a policy to media files |
 | `vpo transcode` | Queue files for transcoding |
 | `vpo jobs` | Manage job queue (list, start, cancel, cleanup) |
+| `vpo serve` | Run as daemon with health endpoint |
 | `vpo doctor` | Check external tool availability |
 | `vpo plugins` | Manage VPO plugins |
 

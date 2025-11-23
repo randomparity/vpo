@@ -1,1 +1,1 @@
-"""Integration tests for Video Policy Orchestrator."""
+"""Integration tests for VPO."""

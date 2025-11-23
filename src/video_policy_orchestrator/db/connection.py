@@ -1,9 +1,15 @@
 """Database connection management for Video Policy Orchestrator."""
 
+from __future__ import annotations
+
+import logging
 import sqlite3
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_DB_PATH = Path.home() / ".vpo" / "library.db"
 
@@ -88,3 +94,130 @@ def handle_database_locked(func):
             raise
 
     return wrapper
+
+
+def check_database_connectivity(db_path: Path | None = None) -> bool:
+    """Check if the database is accessible.
+
+    Performs a simple SELECT 1 query to verify database connectivity.
+    This is a synchronous operation intended for health checks.
+
+    Args:
+        db_path: Path to the database file. Defaults to ~/.vpo/library.db.
+
+    Returns:
+        True if database is accessible and responds to queries, False otherwise.
+    """
+    if db_path is None:
+        db_path = get_default_db_path()
+
+    if not db_path.exists():
+        return False
+
+    try:
+        conn = sqlite3.connect(str(db_path), timeout=5.0)
+        try:
+            conn.execute("SELECT 1")
+            return True
+        finally:
+            conn.close()
+    except Exception:
+        return False
+
+
+class DaemonConnectionPool:
+    """Thread-safe connection pool for daemon mode.
+
+    Maintains a single connection that's safely shared across threads
+    using a lock. This is appropriate for SQLite with WAL mode where
+    readers don't block each other.
+
+    The pool applies standard PRAGMAs (WAL, foreign keys, busy_timeout)
+    and uses check_same_thread=False with explicit locking for safety.
+    """
+
+    def __init__(self, db_path: Path, timeout: float = 30.0) -> None:
+        """Initialize the connection pool.
+
+        Args:
+            db_path: Path to SQLite database file.
+            timeout: Connection timeout in seconds.
+        """
+        self.db_path = db_path
+        self.timeout = timeout
+        self._conn: sqlite3.Connection | None = None
+        self._lock = threading.Lock()
+        self._closed = False
+
+    def _get_connection_unlocked(self) -> sqlite3.Connection:
+        """Get the shared connection. Must be called with lock held."""
+        if self._closed:
+            raise RuntimeError("Connection pool is closed")
+
+        if self._conn is None:
+            self._conn = sqlite3.connect(
+                str(self.db_path),
+                timeout=self.timeout,
+                check_same_thread=False,  # Safe with our locking
+            )
+
+            # Apply standard PRAGMAs
+            self._conn.execute("PRAGMA foreign_keys = ON")
+            self._conn.execute("PRAGMA journal_mode = WAL")
+            self._conn.execute("PRAGMA synchronous = NORMAL")
+            self._conn.execute("PRAGMA busy_timeout = 10000")
+            self._conn.execute("PRAGMA temp_store = MEMORY")
+            self._conn.row_factory = sqlite3.Row
+
+        return self._conn
+
+    def get_connection(self) -> sqlite3.Connection:
+        """Get the shared connection, creating if needed.
+
+        Returns:
+            The shared SQLite connection.
+
+        Raises:
+            RuntimeError: If the pool has been closed.
+        """
+        with self._lock:
+            return self._get_connection_unlocked()
+
+    def execute_read(self, query: str, params: tuple = ()) -> list[sqlite3.Row]:
+        """Execute a read-only query safely.
+
+        This method acquires the lock to ensure thread-safe access
+        to the shared connection.
+
+        Args:
+            query: SQL query to execute.
+            params: Query parameters.
+
+        Returns:
+            List of result rows.
+        """
+        with self._lock:
+            conn = self._get_connection_unlocked()
+            cursor = conn.execute(query, params)
+            return cursor.fetchall()
+
+    def close(self) -> None:
+        """Close the connection pool.
+
+        After closing, the pool cannot be reused. Any attempts to
+        get a connection will raise RuntimeError.
+        """
+        with self._lock:
+            if self._conn is not None:
+                try:
+                    self._conn.close()
+                except Exception as e:
+                    logger.warning("Error closing connection pool: %s", e)
+                self._conn = None
+            self._closed = True
+
+    @property
+    def is_closed(self) -> bool:
+        """Check if the pool has been closed."""
+        with self._lock:
+            return self._closed

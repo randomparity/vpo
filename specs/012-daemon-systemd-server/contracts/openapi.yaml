@@ -1,0 +1,113 @@
+openapi: 3.0.3
+info:
+  title: VPO Daemon Health API
+  description: |
+    Health check endpoint for the Video Policy Orchestrator daemon.
+    Used by systemd, monitoring systems, and load balancers to verify
+    the daemon is running and responsive.
+  version: 1.0.0
+  contact:
+    name: VPO Project
+  license:
+    name: MIT
+
+servers:
+  - url: http://127.0.0.1:8321
+    description: Default local daemon
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: |
+        Returns the current health status of the daemon.
+
+        **Response codes:**
+        - `200 OK`: Daemon is healthy and database is connected
+        - `503 Service Unavailable`: Database is disconnected or shutdown in progress
+
+        **Performance:** Responds within 100ms under normal conditions.
+      operationId: getHealth
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Daemon is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+              example:
+                status: healthy
+                database: connected
+                uptime_seconds: 3661.5
+                version: 0.1.0
+                shutting_down: false
+        '503':
+          description: Daemon is degraded or shutting down
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+              examples:
+                database_disconnected:
+                  summary: Database unreachable
+                  value:
+                    status: degraded
+                    database: disconnected
+                    uptime_seconds: 120.0
+                    version: 0.1.0
+                    shutting_down: false
+                shutting_down:
+                  summary: Graceful shutdown in progress
+                  value:
+                    status: unhealthy
+                    database: connected
+                    uptime_seconds: 86400.0
+                    version: 0.1.0
+                    shutting_down: true
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      required:
+        - status
+        - database
+        - uptime_seconds
+        - version
+        - shutting_down
+      properties:
+        status:
+          type: string
+          description: Overall daemon health status
+          enum:
+            - healthy
+            - degraded
+            - unhealthy
+          example: healthy
+        database:
+          type: string
+          description: Database connectivity status
+          enum:
+            - connected
+            - disconnected
+          example: connected
+        uptime_seconds:
+          type: number
+          format: float
+          description: Seconds since daemon startup
+          minimum: 0
+          example: 3661.5
+        version:
+          type: string
+          description: VPO version string
+          example: 0.1.0
+        shutting_down:
+          type: boolean
+          description: Whether graceful shutdown is in progress
+          example: false
+
+tags:
+  - name: Health
+    description: Health check operations

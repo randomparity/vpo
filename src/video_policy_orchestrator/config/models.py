@@ -185,6 +185,32 @@ class TranscriptionPluginConfig:
 
 
 @dataclass
+class ServerConfig:
+    """Configuration for daemon server mode (012-daemon-systemd-server).
+
+    Controls bind address, port, and shutdown behavior for `vpo serve`.
+    """
+
+    bind: str = "127.0.0.1"
+    """Network address to bind to. Default localhost for security."""
+
+    port: int = 8321
+    """Port number for HTTP server. Default 8321 (distinctive, avoids conflicts)."""
+
+    shutdown_timeout: float = 30.0
+    """Seconds to wait for graceful shutdown before cancelling tasks."""
+
+    def __post_init__(self) -> None:
+        """Validate configuration."""
+        if not 1 <= self.port <= 65535:
+            raise ValueError(f"port must be 1-65535, got {self.port}")
+        if self.shutdown_timeout <= 0:
+            raise ValueError(
+                f"shutdown_timeout must be positive, got {self.shutdown_timeout}"
+            )
+
+
+@dataclass
 class VPOConfig:
     """Main configuration container for VPO.
 
@@ -201,6 +227,7 @@ class VPOConfig:
         default_factory=TranscriptionPluginConfig
     )
     logging: LoggingConfig = field(default_factory=LoggingConfig)
+    server: ServerConfig = field(default_factory=ServerConfig)
 
     # Database path (can be overridden)
     database_path: Path | None = None

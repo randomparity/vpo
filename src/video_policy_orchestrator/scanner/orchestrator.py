@@ -238,6 +238,7 @@ class ScannerOrchestrator:
         prune: bool = False,
         verify_hash: bool = False,
         scan_progress: ScanProgressCallback | None = None,
+        batch_commit_size: int = 100,
     ) -> tuple[list[ScannedFile], ScanResult]:
         """Scan directories and persist results to database.
 
@@ -251,6 +252,9 @@ class ScannerOrchestrator:
             prune: If True, delete database records for missing files.
             verify_hash: If True, use content hash for change detection (slower).
             scan_progress: Optional progress callback object for detailed progress.
+            batch_commit_size: Number of files to process before committing.
+                Batching commits improves performance and reduces lock contention
+                in daemon mode. Set to 0 to commit after each file (legacy behavior).
 
         Returns:
             Tuple of (list of scanned files, scan result summary).
@@ -364,6 +368,7 @@ class ScannerOrchestrator:
                     db_paths_in_dirs.extend(row[0] for row in cursor.fetchall())
 
                 missing_paths = detect_missing_files(db_paths_in_dirs)
+                missing_count = 0
                 for missing_path in missing_paths:
                     if missing_path not in discovered_paths:
                         if prune:
@@ -372,17 +377,25 @@ class ScannerOrchestrator:
                             if record and record.id:
                                 delete_file(conn, record.id)
                                 result.files_removed += 1
+                                missing_count += 1
                         else:
                             # Mark file as missing
-                            # Note: Commit per-file for immediate visibility during
-                            # long-running scans. WAL mode handles concurrent reads.
                             update_sql = (
                                 "UPDATE files SET scan_status = 'missing' "
                                 "WHERE path = ?"
                             )
                             conn.execute(update_sql, (missing_path,))
-                            conn.commit()
                             result.files_removed += 1
+                            missing_count += 1
+
+                        # Batch commit for missing file updates
+                        should_commit = batch_commit_size > 0
+                        if should_commit and missing_count % batch_commit_size == 0:
+                            conn.commit()
+
+                # Commit any remaining missing file updates
+                if missing_count > 0:
+                    conn.commit()
 
             # Create progress callback for hashing if progress reporting enabled
             hash_cb = None
@@ -498,6 +511,10 @@ class ScannerOrchestrator:
                 else:
                     result.files_updated += 1
 
+                # Batch commit to reduce lock contention in daemon mode
+                if batch_commit_size > 0 and (i + 1) % batch_commit_size == 0:
+                    conn.commit()
+
                 # Report progress
                 processed = i + 1
                 # Use new scan_progress callback if available
@@ -508,6 +525,10 @@ class ScannerOrchestrator:
                 # Fall back to legacy progress_callback (every 100 files)
                 elif progress_callback and processed % 100 == 0:
                     progress_callback(processed, total_to_process)
+
+            # Final commit for any remaining changes
+            if files_to_process and not self._is_interrupted():
+                conn.commit()
 
             result.elapsed_seconds = time.time() - start_time
             return all_files, result

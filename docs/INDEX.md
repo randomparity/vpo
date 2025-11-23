@@ -58,6 +58,12 @@ Docs focused on tasks and workflows: how to run the tools, configure them, and p
 - [plugin-author-guide.md](plugin-author-guide.md)
   Plugin development workflow: project setup, testing, packaging, and publishing.
 
+- [daemon-mode.md](daemon-mode.md)
+  Running VPO as a daemon: configuration, health endpoint, logging, and signal handling.
+
+- [systemd.md](systemd.md)
+  Systemd integration: unit file installation, service management, and troubleshooting.
+
 ---
 
 ## 3. Design & Internals

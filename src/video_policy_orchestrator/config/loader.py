@@ -24,6 +24,7 @@ from video_policy_orchestrator.config.models import (
     DetectionConfig,
     JobsConfig,
     PluginConfig,
+    ServerConfig,
     ToolPathsConfig,
     VPOConfig,
     WorkerConfig,
@@ -225,6 +226,39 @@ def _get_env_int(var_name: str, default: int) -> int:
         return default
 
 
+def _get_env_float(var_name: str, default: float) -> float:
+    """Get a float from environment variable.
+
+    Args:
+        var_name: Environment variable name.
+        default: Default value if not set.
+
+    Returns:
+        Float value.
+    """
+    value = os.environ.get(var_name)
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except ValueError:
+        logger.warning("Invalid float value for %s: %s", var_name, value)
+        return default
+
+
+def _get_env_str(var_name: str, default: str) -> str:
+    """Get a string from environment variable.
+
+    Args:
+        var_name: Environment variable name.
+        default: Default value if not set.
+
+    Returns:
+        String value.
+    """
+    return os.environ.get(var_name, default)
+
+
 def get_config(
     config_path: Path | None = None,
     # CLI overrides (highest precedence)
@@ -397,6 +431,23 @@ def get_config(
         or None,
     )
 
+    # Build server config
+    server_file = file_config.get("server", {})
+    server = ServerConfig(
+        bind=_get_env_str(
+            "VPO_SERVER_BIND",
+            server_file.get("bind", "127.0.0.1"),
+        ),
+        port=_get_env_int(
+            "VPO_SERVER_PORT",
+            server_file.get("port", 8321),
+        ),
+        shutdown_timeout=_get_env_float(
+            "VPO_SERVER_SHUTDOWN_TIMEOUT",
+            server_file.get("shutdown_timeout", 30.0),
+        ),
+    )
+
     return VPOConfig(
         tools=tools,
         detection=detection,
@@ -404,5 +455,6 @@ def get_config(
         plugins=plugins,
         jobs=jobs,
         worker=worker,
+        server=server,
         database_path=db_path,
     )
