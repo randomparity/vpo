@@ -52,20 +52,20 @@
 
 ### Tests for User Story 1
 
-- [ ] T012 [P] [US1] Create tests/unit/server/test_lifecycle.py with tests for DaemonLifecycle class
-- [ ] T013 [P] [US1] Create tests/unit/server/test_signals.py with tests for signal handler registration
+- [X] T012 [P] [US1] Create tests/unit/server/test_lifecycle.py with tests for DaemonLifecycle class
+- [X] T013 [P] [US1] Create tests/unit/server/test_signals.py with tests for signal handler registration
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] Implement DaemonLifecycle class in src/video_policy_orchestrator/server/lifecycle.py (startup/shutdown coordination)
-- [ ] T015 [US1] Implement signal handler setup in src/video_policy_orchestrator/server/signals.py (SIGTERM, SIGINT)
-- [ ] T016 [US1] Implement aiohttp Application with basic route structure in src/video_policy_orchestrator/server/app.py
-- [ ] T017 [US1] Create src/video_policy_orchestrator/cli/serve.py with `vpo serve` command (--bind, --port flags)
-- [ ] T018 [US1] Register serve command in src/video_policy_orchestrator/cli/__init__.py
-- [ ] T019 [US1] Implement graceful shutdown logic (wait for tasks up to timeout, then cancel) in lifecycle.py
-- [ ] T020 [US1] Add startup error handling (DB unreachable, port in use) with non-zero exit codes in serve.py
-- [ ] T021 [US1] Run tests and verify `uv run pytest tests/unit/server/` passes
-- [ ] T022 Commit Phase 3 changes with message "feat(012): Implement vpo serve daemon command with graceful shutdown"
+- [X] T014 [US1] Implement DaemonLifecycle class in src/video_policy_orchestrator/server/lifecycle.py (startup/shutdown coordination)
+- [X] T015 [US1] Implement signal handler setup in src/video_policy_orchestrator/server/signals.py (SIGTERM, SIGINT)
+- [X] T016 [US1] Implement aiohttp Application with basic route structure in src/video_policy_orchestrator/server/app.py
+- [X] T017 [US1] Create src/video_policy_orchestrator/cli/serve.py with `vpo serve` command (--bind, --port flags)
+- [X] T018 [US1] Register serve command in src/video_policy_orchestrator/cli/__init__.py
+- [X] T019 [US1] Implement graceful shutdown logic (wait for tasks up to timeout, then cancel) in lifecycle.py
+- [X] T020 [US1] Add startup error handling (DB unreachable, port in use) with non-zero exit codes in serve.py
+- [X] T021 [US1] Run tests and verify `uv run pytest tests/unit/server/` passes
+- [X] T022 Commit Phase 3 changes with message "feat(012): Implement vpo serve daemon command with graceful shutdown"
 
 **Checkpoint**: User Story 1 complete - `vpo serve` starts, runs, and shuts down gracefully on SIGTERM
 
