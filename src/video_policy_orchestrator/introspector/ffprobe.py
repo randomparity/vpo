@@ -104,7 +104,7 @@ class FFprobeIntrospector:
             [
                 str(self._ffprobe_path),
                 "-v",
-                "quiet",
+                "error",
                 "-print_format",
                 "json",
                 "-show_streams",

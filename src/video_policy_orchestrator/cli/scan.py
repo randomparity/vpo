@@ -292,6 +292,8 @@ def output_human(result, files, verbose: bool, dry_run: bool = False) -> None:
         click.echo(f"  Skipped (unchanged): {result.files_skipped:,}")
         click.echo(f"  Scanned (changed): {result.files_new + result.files_updated:,}")
         click.echo(f"  Added (new): {result.files_new:,}")
+        if result.files_errored > 0:
+            click.echo(f"  Scanned (error): {result.files_errored:,}")
         files_removed = getattr(result, "files_removed", 0)
         if files_removed > 0:
             click.echo(f"  Removed (missing): {files_removed:,}")
