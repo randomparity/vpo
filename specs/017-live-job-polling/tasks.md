@@ -26,9 +26,9 @@
 
 **Purpose**: Project initialization and shared polling infrastructure
 
-- [ ] T001 Create polling.js module with core utilities in src/video_policy_orchestrator/server/static/js/polling.js
-- [ ] T002 Add polling configuration constants (interval, backoff params) in src/video_policy_orchestrator/server/static/js/polling.js
-- [ ] T003 [P] Add connection status CSS styles in src/video_policy_orchestrator/server/static/css/styles.css
+- [X] T001 Create polling.js module with core utilities in src/video_policy_orchestrator/server/static/js/polling.js
+- [X] T002 Add polling configuration constants (interval, backoff params) in src/video_policy_orchestrator/server/static/js/polling.js
+- [X] T003 [P] Add connection status CSS styles in src/video_policy_orchestrator/server/static/css/main.css
 
 ---
 

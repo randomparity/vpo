@@ -749,6 +749,156 @@ html, body {
     word-wrap: break-word;
 }
 
+/* ==========================================================================
+   Connection Status Indicator (017-live-job-polling)
+   ========================================================================== */
+
+.connection-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    transition: all var(--transition-fast);
+}
+
+/* Status indicator dot */
+.connection-status::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    transition: background-color var(--transition-fast);
+}
+
+/* Connected state - green */
+.connection-status--connected {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: #065f46;
+}
+
+.connection-status--connected::before {
+    background-color: #10b981;
+}
+
+/* Reconnecting state - yellow/orange */
+.connection-status--reconnecting {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: #92400e;
+}
+
+.connection-status--reconnecting::before {
+    background-color: #f59e0b;
+    animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+/* Error state - red */
+.connection-status--error {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #991b1b;
+}
+
+.connection-status--error::before {
+    background-color: #ef4444;
+    animation: pulse-dot 1s ease-in-out infinite;
+}
+
+/* Loading indicator overlay */
+.connection-status--loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: inherit;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    animation: shimmer 1.5s infinite;
+}
+
+/* Pulse animation for status dot */
+@keyframes pulse-dot {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(0.8);
+    }
+}
+
+/* Shimmer animation for loading state */
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* ==========================================================================
+   Progress Bar Styles (017-live-job-polling - US3)
+   ========================================================================== */
+
+/* Progress bar in jobs table */
+.job-progress {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.job-progress-track {
+    flex: 1;
+    height: 6px;
+    background-color: var(--color-border);
+    border-radius: 3px;
+    overflow: hidden;
+    min-width: 60px;
+    max-width: 100px;
+}
+
+.job-progress-bar {
+    height: 100%;
+    background-color: var(--color-primary);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.job-progress-bar--completed {
+    background-color: #10b981;
+}
+
+.job-progress-bar--failed {
+    background-color: #ef4444;
+}
+
+.job-progress-text {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    min-width: 35px;
+    text-align: right;
+}
+
+/* Indeterminate progress animation */
+.job-progress-bar--indeterminate {
+    width: 30%;
+    animation: indeterminate 1.5s ease-in-out infinite;
+}
+
+@keyframes indeterminate {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(400%);
+    }
+}
+
 /* Graceful degradation for below minimum supported viewport (< 768px) */
 @media (max-width: 767px) {
     .app-shell {
