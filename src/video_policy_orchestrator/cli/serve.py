@@ -6,6 +6,7 @@ long-lived background service suitable for systemd management.
 
 import asyncio
 import logging
+import re
 import sys
 from pathlib import Path
 
@@ -61,6 +62,7 @@ async def run_server(
     port: int,
     shutdown_timeout: float,
     db_path: Path,
+    profile_name: str | None = None,
 ) -> int:
     """Run the daemon server.
 
@@ -69,6 +71,7 @@ async def run_server(
         port: Port to bind to.
         shutdown_timeout: Seconds to wait for graceful shutdown.
         db_path: Path to database file.
+        profile_name: Optional profile name to store in app context.
 
     Returns:
         Exit code (0 for clean shutdown, non-zero for errors).
@@ -97,6 +100,13 @@ async def run_server(
     # Create the application with database path for connection pooling
     app = create_app(db_path=db_path)
     app["lifecycle"] = lifecycle
+
+    # Validate and store profile name (must be alphanumeric with - or _)
+    validated_profile = profile_name or "Default"
+    if not re.match(r"^[a-zA-Z0-9_-]+$", validated_profile):
+        logger.warning("Invalid profile name '%s', using 'Default'", validated_profile)
+        validated_profile = "Default"
+    app["profile_name"] = validated_profile
 
     # Create the runner and site
     runner = web.AppRunner(app)
@@ -177,6 +187,12 @@ async def run_server(
     default=None,
     help="Log format: text or json (default: text).",
 )
+@click.option(
+    "--profile",
+    type=str,
+    default=None,
+    help="Named configuration profile to use.",
+)
 @click.pass_context
 def serve_command(
     ctx: click.Context,
@@ -185,6 +201,7 @@ def serve_command(
     port: int | None,
     log_level: str | None,
     log_format: str | None,
+    profile: str | None,
 ) -> None:
     """Run VPO as a background daemon.
 
@@ -247,7 +264,7 @@ def serve_command(
     # Run the async server
     try:
         exit_code = asyncio.run(
-            run_server(server_bind, server_port, shutdown_timeout, db_path)
+            run_server(server_bind, server_port, shutdown_timeout, db_path, profile)
         )
         sys.exit(exit_code)
     except KeyboardInterrupt:

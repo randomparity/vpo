@@ -101,6 +101,8 @@ This project uses **spec-driven development**:
 - SQLite (~/.vpo/library.db, existing schema v7) (012-daemon-systemd-server)
 - Python 3.10+ (server), HTML5/CSS3/JavaScript (client) + aiohttp (existing server), Jinja2 (templating) (013-web-ui-shell)
 - N/A (no new storage required for shell - static UI served via daemon) (013-web-ui-shell)
+- Python 3.10+ (existing) + aiohttp (existing), Jinja2 (existing), aiohttp_jinja2 (existing) (014-settings-about-panel)
+- N/A (read-only display of runtime configuration) (014-settings-about-panel)
 
 ## Recent Changes
 - 006-transcode-pipelines: Added Python 3.10+ (per pyproject.toml) + click (CLI), pydantic (models), PyYAML (config), sqlite3 (jobs DB)

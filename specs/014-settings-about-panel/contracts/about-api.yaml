@@ -1,0 +1,82 @@
+openapi: 3.0.3
+info:
+  title: VPO About API
+  description: API endpoint for About page information
+  version: 1.0.0
+
+paths:
+  /api/about:
+    get:
+      summary: Get application information
+      description: Returns version, configuration, and metadata for the About page
+      operationId: getAboutInfo
+      tags:
+        - System
+      responses:
+        '200':
+          description: Application information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AboutInfo'
+              example:
+                version: "0.1.0"
+                git_hash: "abc1234"
+                profile_name: "Default"
+                api_url: "http://localhost:8080"
+                docs_url: "https://github.com/randomparity/vpo/tree/main/docs"
+                is_read_only: true
+
+  /about:
+    get:
+      summary: About page (HTML)
+      description: Server-rendered HTML page displaying application information
+      operationId: getAboutPage
+      tags:
+        - UI
+      responses:
+        '200':
+          description: HTML page
+          content:
+            text/html:
+              schema:
+                type: string
+
+components:
+  schemas:
+    AboutInfo:
+      type: object
+      required:
+        - version
+        - profile_name
+        - api_url
+        - docs_url
+        - is_read_only
+      properties:
+        version:
+          type: string
+          description: Application version string
+          example: "0.1.0"
+        git_hash:
+          type: string
+          nullable: true
+          description: Git commit hash if available
+          example: "abc1234def5678"
+        profile_name:
+          type: string
+          description: Current configuration profile name
+          example: "Default"
+        api_url:
+          type: string
+          format: uri
+          description: Base URL for API access
+          example: "http://localhost:8080"
+        docs_url:
+          type: string
+          format: uri
+          description: URL to project documentation
+          example: "https://github.com/randomparity/vpo/tree/main/docs"
+        is_read_only:
+          type: boolean
+          description: Indicates settings are read-only (always true in this version)
+          example: true

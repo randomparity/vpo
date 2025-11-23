@@ -126,6 +126,7 @@ def create_app(db_path: Path | None = None) -> web.Application:
 
     # Register API routes
     app.router.add_get("/health", health_handler)
+    app.router.add_get("/api/about", api_about_handler)
 
     # Setup UI routes and templates
     setup_ui_routes(app)
@@ -205,3 +206,20 @@ async def health_handler(request: web.Request) -> web.Response:
     http_status = 200 if status == "healthy" else 503
 
     return web.json_response(health.to_dict(), status=http_status)
+
+
+async def api_about_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/about requests.
+
+    Returns JSON with application information for programmatic access.
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        JSON response with AboutInfo payload.
+    """
+    from video_policy_orchestrator.server.ui.routes import get_about_info
+
+    about_info = get_about_info(request)
+    return web.json_response(about_info.to_dict())
