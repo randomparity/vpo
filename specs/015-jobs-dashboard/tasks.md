@@ -121,9 +121,9 @@
 
 ### Implementation for User Story 4
 
-- [ ] T024 [US4] Add time range filter dropdown to src/video_policy_orchestrator/server/ui/templates/sections/jobs.html
-- [ ] T025 [US4] Implement handleTimeFilter() in src/video_policy_orchestrator/server/static/js/jobs.js
-- [ ] T026 [US4] Update fetchJobs() to include since query parameter in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T024 [US4] Add time range filter dropdown to src/video_policy_orchestrator/server/ui/templates/sections/jobs.html
+- [X] T025 [US4] Implement handleTimeFilter() in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T026 [US4] Update fetchJobs() to include since query parameter in src/video_policy_orchestrator/server/static/js/jobs.js
 
 **Checkpoint**: Time range filter works, combines correctly with status and type filters.
 

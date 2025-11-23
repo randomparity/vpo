@@ -28,6 +28,14 @@
                     {% endfor %}
                 </select>
             </div>
+            <div class="jobs-filter">
+                <label for="filter-time">Time Range</label>
+                <select id="filter-time" onchange="jobsDashboard.handleTimeFilter(this.value)">
+                    {% for option in jobs_context.time_options %}
+                    <option value="{{ option.value }}">{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
         </div>
 
         <!-- Jobs table container -->
