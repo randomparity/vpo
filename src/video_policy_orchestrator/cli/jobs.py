@@ -1,6 +1,9 @@
 """CLI commands for job queue management."""
 
+import json
 import logging
+import re
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import click
@@ -9,10 +12,12 @@ from video_policy_orchestrator.config import get_config
 from video_policy_orchestrator.db.models import (
     Job,
     JobStatus,
+    JobType,
     delete_job,
     get_all_jobs,
     get_jobs_by_id_prefix,
     get_jobs_by_status,
+    get_jobs_filtered,
 )
 from video_policy_orchestrator.jobs.queue import (
     cancel_job,
@@ -23,6 +28,42 @@ from video_policy_orchestrator.jobs.queue import (
 from video_policy_orchestrator.jobs.worker import JobWorker
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_relative_date(relative: str) -> datetime:
+    """Parse relative date string like '1d', '1w', '2h'.
+
+    Supports:
+        - Nd: N days ago (e.g., "1d", "7d")
+        - Nw: N weeks ago (e.g., "1w", "2w")
+        - Nh: N hours ago (e.g., "2h", "24h")
+
+    Args:
+        relative: Relative date string.
+
+    Returns:
+        datetime in UTC.
+
+    Raises:
+        ValueError: If format is invalid.
+    """
+    match = re.match(r"^(\d+)([dwh])$", relative.lower())
+    if not match:
+        raise ValueError(
+            f"Invalid relative date '{relative}'. Use format: Nd, Nw, or Nh "
+            "(e.g., '1d' for 1 day, '1w' for 1 week, '2h' for 2 hours)"
+        )
+
+    amount = int(match.group(1))
+    unit = match.group(2)
+
+    now = datetime.now(timezone.utc)
+    if unit == "d":
+        return now - timedelta(days=amount)
+    elif unit == "w":
+        return now - timedelta(weeks=amount)
+    else:  # unit == "h"
+        return now - timedelta(hours=amount)
 
 
 def _format_job_row(job: Job) -> tuple[str, str, str, str, str, str, str]:
@@ -79,23 +120,85 @@ def jobs_group() -> None:
     help="Filter by job status.",
 )
 @click.option(
+    "--type",
+    "-t",
+    "job_type",
+    type=click.Choice(["scan", "apply", "transcode", "all"]),
+    default="all",
+    help="Filter by job type.",
+)
+@click.option(
+    "--since",
+    help="Show jobs since (relative: 1d, 1w, 2h or ISO-8601 date).",
+)
+@click.option(
     "--limit",
     "-n",
     type=int,
     default=50,
     help="Maximum number of jobs to show.",
 )
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    help="Output in JSON format.",
+)
 @click.pass_context
-def list_jobs(ctx: click.Context, status: str, limit: int) -> None:
-    """List jobs in the queue."""
+def list_jobs(
+    ctx: click.Context,
+    status: str,
+    job_type: str,
+    since: str | None,
+    limit: int,
+    json_output: bool,
+) -> None:
+    """List jobs in the queue.
+
+    Examples:
+
+        # List all jobs
+        vpo jobs list
+
+        # List failed scan jobs
+        vpo jobs list --status failed --type scan
+
+        # List jobs from last 24 hours
+        vpo jobs list --since 1d
+
+        # List jobs from last week in JSON
+        vpo jobs list --since 1w --json
+    """
     conn = ctx.obj.get("db_conn")
     if conn is None:
         raise click.ClickException("Failed to connect to database.")
 
-    if status == "all":
-        jobs = get_all_jobs(conn, limit=limit)
-    else:
-        jobs = get_jobs_by_status(conn, JobStatus(status), limit=limit)
+    # Parse since parameter
+    since_iso: str | None = None
+    if since:
+        try:
+            # Try parsing as relative date first
+            since_dt = _parse_relative_date(since)
+            since_iso = since_dt.isoformat()
+        except ValueError:
+            # Assume it's an ISO-8601 date
+            since_iso = since
+
+    # Get jobs with filters
+    status_filter = None if status == "all" else JobStatus(status)
+    type_filter = None if job_type == "all" else JobType(job_type)
+
+    jobs = get_jobs_filtered(
+        conn,
+        status=status_filter,
+        job_type=type_filter,
+        since=since_iso,
+        limit=limit,
+    )
+
+    if json_output:
+        _output_jobs_json(jobs)
+        return
 
     if not jobs:
         click.echo("No jobs found.")
@@ -117,6 +220,164 @@ def list_jobs(ctx: click.Context, status: str, limit: int) -> None:
         line = f"{row[0]:<10} {status_colored} {row[3]:<10} "
         line += f"{row[4]:<42} {row[5]:<6} {row[6]:<20}"
         click.echo(line)
+
+
+def _output_jobs_json(jobs: list[Job]) -> None:
+    """Output jobs list in JSON format."""
+    data = []
+    for job in jobs:
+        job_data = {
+            "id": job.id,
+            "status": job.status.value,
+            "type": job.job_type.value,
+            "file_path": job.file_path,
+            "progress_percent": job.progress_percent,
+            "created_at": job.created_at,
+            "started_at": job.started_at,
+            "completed_at": job.completed_at,
+            "policy_name": job.policy_name,
+            "error_message": job.error_message,
+        }
+        data.append(job_data)
+    click.echo(json.dumps(data, indent=2))
+
+
+@jobs_group.command("show")
+@click.argument("job_id")
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    help="Output in JSON format.",
+)
+@click.pass_context
+def show_job(ctx: click.Context, job_id: str, json_output: bool) -> None:
+    """Show detailed information about a job.
+
+    JOB_ID can be the full UUID or a prefix (minimum 4 characters).
+
+    Examples:
+
+        # Show job by full ID
+        vpo jobs show 12345678-1234-1234-1234-123456789abc
+
+        # Show job by prefix
+        vpo jobs show 1234
+
+        # Output as JSON
+        vpo jobs show 1234 --json
+    """
+    conn = ctx.obj.get("db_conn")
+    if conn is None:
+        raise click.ClickException("Failed to connect to database.")
+
+    # Find job by prefix
+    matching = get_jobs_by_id_prefix(conn, job_id)
+
+    if len(matching) == 0:
+        raise click.ClickException(f"Job not found: {job_id}")
+    if len(matching) > 1:
+        click.echo(f"Multiple jobs match '{job_id}':", err=True)
+        for job in matching[:5]:
+            click.echo(f"  {job.id[:8]} - {job.status.value}", err=True)
+        if len(matching) > 5:
+            click.echo(f"  ... and {len(matching) - 5} more", err=True)
+        raise click.ClickException("Be more specific.")
+
+    job = matching[0]
+
+    if json_output:
+        _output_job_json(job)
+    else:
+        _output_job_human(job)
+
+
+def _output_job_json(job: Job) -> None:
+    """Output detailed job info in JSON format."""
+    data = {
+        "id": job.id,
+        "file_id": job.file_id,
+        "file_path": job.file_path,
+        "job_type": job.job_type.value,
+        "status": job.status.value,
+        "priority": job.priority,
+        "policy_name": job.policy_name,
+        "policy_json": job.policy_json,
+        "progress_percent": job.progress_percent,
+        "progress_json": job.progress_json,
+        "created_at": job.created_at,
+        "started_at": job.started_at,
+        "completed_at": job.completed_at,
+        "worker_pid": job.worker_pid,
+        "worker_heartbeat": job.worker_heartbeat,
+        "output_path": job.output_path,
+        "backup_path": job.backup_path,
+        "error_message": job.error_message,
+        "files_affected_json": job.files_affected_json,
+        "summary_json": job.summary_json,
+    }
+    click.echo(json.dumps(data, indent=2))
+
+
+def _output_job_human(job: Job) -> None:
+    """Output detailed job info in human-readable format."""
+    status_colors = {
+        JobStatus.QUEUED: "yellow",
+        JobStatus.RUNNING: "blue",
+        JobStatus.COMPLETED: "green",
+        JobStatus.FAILED: "red",
+        JobStatus.CANCELLED: "bright_black",
+    }
+
+    status_colored = click.style(
+        job.status.value.upper(), fg=status_colors.get(job.status, "white")
+    )
+
+    click.echo(f"\nJob: {job.id}")
+    click.echo("-" * 50)
+    click.echo(f"  Status:      {status_colored}")
+    click.echo(f"  Type:        {job.job_type.value}")
+    click.echo(f"  File:        {job.file_path}")
+    if job.policy_name:
+        click.echo(f"  Policy:      {job.policy_name}")
+    click.echo(f"  Priority:    {job.priority}")
+    click.echo("")
+    click.echo(f"  Created:     {job.created_at}")
+    if job.started_at:
+        click.echo(f"  Started:     {job.started_at}")
+    if job.completed_at:
+        click.echo(f"  Completed:   {job.completed_at}")
+
+    if job.status == JobStatus.RUNNING:
+        click.echo("")
+        click.echo(f"  Progress:    {job.progress_percent:.1f}%")
+        if job.worker_pid:
+            click.echo(f"  Worker PID:  {job.worker_pid}")
+        if job.worker_heartbeat:
+            click.echo(f"  Heartbeat:   {job.worker_heartbeat}")
+
+    if job.error_message:
+        click.echo("")
+        click.echo(f"  Error:       {click.style(job.error_message, fg='red')}")
+
+    if job.output_path:
+        click.echo("")
+        click.echo(f"  Output:      {job.output_path}")
+    if job.backup_path:
+        click.echo(f"  Backup:      {job.backup_path}")
+
+    # Parse and display summary if available
+    if job.summary_json:
+        try:
+            summary = json.loads(job.summary_json)
+            click.echo("")
+            click.echo("  Summary:")
+            for key, value in summary.items():
+                click.echo(f"    {key}: {value}")
+        except json.JSONDecodeError:
+            pass
+
+    click.echo("")
 
 
 @jobs_group.command("status")

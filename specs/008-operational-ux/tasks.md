@@ -86,23 +86,23 @@
 
 ### Tests for User Story 2
 
-- [ ] T023 [P] [US2] Integration test for jobs list command in tests/integration/test_jobs_cli.py
-- [ ] T024 [P] [US2] Integration test for jobs show command in tests/integration/test_jobs_cli.py
+- [x] T023 [P] [US2] Integration test for jobs list command in tests/integration/test_jobs_cli.py
+- [x] T024 [P] [US2] Integration test for jobs show command in tests/integration/test_jobs_cli.py
 
 ### Implementation for User Story 2
 
-- [ ] T025 [US2] Implement get_jobs_filtered() with status/type/since filters in src/video_policy_orchestrator/db/models.py
-- [ ] T026 [US2] Create jobs CLI command group in src/video_policy_orchestrator/cli/jobs.py
-- [ ] T027 [US2] Implement `vpo jobs list` command with table output in src/video_policy_orchestrator/cli/jobs.py
-- [ ] T028 [US2] Add --status filter to jobs list in src/video_policy_orchestrator/cli/jobs.py
-- [ ] T029 [US2] Add --type filter to jobs list in src/video_policy_orchestrator/cli/jobs.py
-- [ ] T030 [US2] Add --since filter (relative dates: 1d, 1w) to jobs list in src/video_policy_orchestrator/cli/jobs.py
-- [ ] T031 [US2] Add --limit option to jobs list in src/video_policy_orchestrator/cli/jobs.py
-- [ ] T032 [US2] Add --json output option to jobs list in src/video_policy_orchestrator/cli/jobs.py
-- [ ] T033 [US2] Implement `vpo jobs show <id>` command with detailed output in src/video_policy_orchestrator/cli/jobs.py
-- [ ] T034 [US2] Add prefix matching for job IDs in jobs show in src/video_policy_orchestrator/cli/jobs.py
-- [ ] T035 [US2] Add --json output option to jobs show in src/video_policy_orchestrator/cli/jobs.py
-- [ ] T036 [US2] Register jobs command group in CLI main in src/video_policy_orchestrator/cli/__init__.py
+- [x] T025 [US2] Implement get_jobs_filtered() with status/type/since filters in src/video_policy_orchestrator/db/models.py
+- [x] T026 [US2] Create jobs CLI command group in src/video_policy_orchestrator/cli/jobs.py (already existed)
+- [x] T027 [US2] Implement `vpo jobs list` command with table output in src/video_policy_orchestrator/cli/jobs.py (already existed)
+- [x] T028 [US2] Add --status filter to jobs list in src/video_policy_orchestrator/cli/jobs.py (already existed)
+- [x] T029 [US2] Add --type filter to jobs list in src/video_policy_orchestrator/cli/jobs.py
+- [x] T030 [US2] Add --since filter (relative dates: 1d, 1w) to jobs list in src/video_policy_orchestrator/cli/jobs.py
+- [x] T031 [US2] Add --limit option to jobs list in src/video_policy_orchestrator/cli/jobs.py (already existed)
+- [x] T032 [US2] Add --json output option to jobs list in src/video_policy_orchestrator/cli/jobs.py
+- [x] T033 [US2] Implement `vpo jobs show <id>` command with detailed output in src/video_policy_orchestrator/cli/jobs.py
+- [x] T034 [US2] Add prefix matching for job IDs in jobs show in src/video_policy_orchestrator/cli/jobs.py
+- [x] T035 [US2] Add --json output option to jobs show in src/video_policy_orchestrator/cli/jobs.py
+- [x] T036 [US2] Register jobs command group in CLI main in src/video_policy_orchestrator/cli/__init__.py (already existed)
 
 **Checkpoint**: User Story 2 complete - Commit "feat(008): Phase 4 - US2 Job history and status commands"
 
