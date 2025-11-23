@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS plugin_acknowledgments (
 CREATE INDEX IF NOT EXISTS idx_plugin_ack_name
     ON plugin_acknowledgments(plugin_name);
 
--- Jobs table (006-transcode-pipelines, updated 008-operational-ux)
+-- Jobs table (006-transcode-pipelines, updated 008-operational-ux, 016-job-detail-view)
 CREATE TABLE IF NOT EXISTS jobs (
     id TEXT PRIMARY KEY,
     file_id INTEGER,  -- FK to files.id (NULL for scan jobs)
@@ -136,6 +136,9 @@ CREATE TABLE IF NOT EXISTS jobs (
     -- Extended fields (008-operational-ux)
     files_affected_json TEXT,
     summary_json TEXT,
+
+    -- Log file reference (016-job-detail-view)
+    log_path TEXT,
 
     FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
     CONSTRAINT valid_status CHECK (
@@ -617,6 +620,32 @@ def migrate_v6_to_v7(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def migrate_v7_to_v8(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 7 to version 8.
+
+    Adds log_path column to jobs table for job detail view:
+    - log_path: Relative path to log file from VPO data directory
+
+    This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Check existing columns in jobs table
+    cursor = conn.execute("PRAGMA table_info(jobs)")
+    existing_columns = {row[1] for row in cursor.fetchall()}
+
+    # Add log_path column if it doesn't exist
+    if "log_path" not in existing_columns:
+        conn.execute("ALTER TABLE jobs ADD COLUMN log_path TEXT")
+
+    # Update schema version to 8
+    conn.execute(
+        "UPDATE _meta SET value = '8' WHERE key = 'schema_version'",
+    )
+    conn.commit()
+
+
 def initialize_database(conn: sqlite3.Connection) -> None:
     """Initialize the database with schema, creating tables if needed.
 
@@ -646,3 +675,6 @@ def initialize_database(conn: sqlite3.Connection) -> None:
             current_version = 6
         if current_version == 6:
             migrate_v6_to_v7(conn)
+            current_version = 7
+        if current_version == 7:
+            migrate_v7_to_v8(conn)

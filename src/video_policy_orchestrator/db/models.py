@@ -265,6 +265,9 @@ class Job:
     files_affected_json: str | None = None  # JSON array of affected file paths
     summary_json: str | None = None  # Job-specific summary (e.g., scan counts)
 
+    # Log file reference (016-job-detail-view)
+    log_path: str | None = None  # Relative path to log file from VPO data directory
+
 
 @dataclass
 class TranscriptionResultRecord:
@@ -781,6 +784,7 @@ def _row_to_job(row: tuple) -> Job:
         error_message=row[17],
         files_affected_json=row[18] if len(row) > 18 else None,
         summary_json=row[19] if len(row) > 19 else None,
+        log_path=row[20] if len(row) > 20 else None,
     )
 
 
@@ -802,8 +806,8 @@ def insert_job(conn: sqlite3.Connection, job: Job) -> str:
             created_at, started_at, completed_at,
             worker_pid, worker_heartbeat,
             output_path, backup_path, error_message,
-            files_affected_json, summary_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            files_affected_json, summary_json, log_path
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             job.id,
@@ -826,6 +830,7 @@ def insert_job(conn: sqlite3.Connection, job: Job) -> str:
             job.error_message,
             job.files_affected_json,
             job.summary_json,
+            job.log_path,
         ),
     )
     conn.commit()
@@ -849,7 +854,7 @@ def get_job(conn: sqlite3.Connection, job_id: str) -> Job | None:
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
                output_path, backup_path, error_message,
-               files_affected_json, summary_json
+               files_affected_json, summary_json, log_path
         FROM jobs WHERE id = ?
         """,
         (job_id,),
@@ -1001,7 +1006,7 @@ def get_queued_jobs(conn: sqlite3.Connection, limit: int | None = None) -> list[
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
                output_path, backup_path, error_message,
-               files_affected_json, summary_json
+               files_affected_json, summary_json, log_path
         FROM jobs
         WHERE status = 'queued'
         ORDER BY priority ASC, created_at ASC
@@ -1034,7 +1039,7 @@ def get_jobs_by_status(
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
                output_path, backup_path, error_message,
-               files_affected_json, summary_json
+               files_affected_json, summary_json, log_path
         FROM jobs
         WHERE status = ?
         ORDER BY created_at DESC
@@ -1064,7 +1069,7 @@ def get_all_jobs(conn: sqlite3.Connection, limit: int | None = None) -> list[Job
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
                output_path, backup_path, error_message,
-               files_affected_json, summary_json
+               files_affected_json, summary_json, log_path
         FROM jobs
         ORDER BY created_at DESC
     """
@@ -1095,7 +1100,7 @@ def get_jobs_by_id_prefix(conn: sqlite3.Connection, prefix: str) -> list[Job]:
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
                output_path, backup_path, error_message,
-               files_affected_json, summary_json
+               files_affected_json, summary_json, log_path
         FROM jobs
         WHERE id LIKE ?
         ORDER BY created_at DESC
@@ -1165,7 +1170,7 @@ def get_jobs_filtered(
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
                output_path, backup_path, error_message,
-               files_affected_json, summary_json
+               files_affected_json, summary_json, log_path
         FROM jobs
     """
     base_query += where_clause

@@ -267,3 +267,145 @@ class JobListContext:
                 {"value": "7d", "label": "Last 7 days"},
             ],
         )
+
+
+@dataclass
+class JobDetailItem:
+    """Full job data for detail view API response.
+
+    Extends JobListItem with additional fields for the detail view.
+
+    Attributes:
+        id: Full job UUID.
+        id_short: First 8 characters of UUID for display.
+        job_type: Job type value (scan, apply, transcode, move).
+        status: Job status value (queued, running, completed, failed, cancelled).
+        priority: Job priority (lower = higher priority).
+        file_path: Target file/directory path.
+        policy_name: Name of policy used, if any.
+        created_at: ISO-8601 UTC timestamp when job was created.
+        started_at: ISO-8601 UTC timestamp when job started, or None.
+        completed_at: ISO-8601 UTC timestamp when job completed, or None.
+        duration_seconds: Computed duration or None if still running.
+        progress_percent: Job progress (0.0-100.0).
+        error_message: Error details if job failed.
+        output_path: Path to output file, if any.
+        summary: Human-readable summary text generated from summary_json.
+        summary_raw: Parsed summary_json for detailed display.
+        has_logs: Whether log file exists for this job.
+    """
+
+    id: str
+    id_short: str
+    job_type: str
+    status: str
+    priority: int
+    file_path: str
+    policy_name: str | None
+    created_at: str
+    started_at: str | None
+    completed_at: str | None
+    duration_seconds: int | None
+    progress_percent: float
+    error_message: str | None
+    output_path: str | None
+    summary: str | None
+    summary_raw: dict | None
+    has_logs: bool
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "id": self.id,
+            "id_short": self.id_short,
+            "job_type": self.job_type,
+            "status": self.status,
+            "priority": self.priority,
+            "file_path": self.file_path,
+            "policy_name": self.policy_name,
+            "created_at": self.created_at,
+            "started_at": self.started_at,
+            "completed_at": self.completed_at,
+            "duration_seconds": self.duration_seconds,
+            "progress_percent": self.progress_percent,
+            "error_message": self.error_message,
+            "output_path": self.output_path,
+            "summary": self.summary,
+            "summary_raw": self.summary_raw,
+            "has_logs": self.has_logs,
+        }
+
+
+@dataclass
+class JobLogsResponse:
+    """API response for job logs endpoint.
+
+    Supports lazy loading with pagination.
+
+    Attributes:
+        job_id: The job UUID.
+        lines: Log lines for this chunk.
+        total_lines: Total lines in log file.
+        offset: Current offset (lines from start).
+        has_more: Whether more lines are available.
+    """
+
+    job_id: str
+    lines: list[str]
+    total_lines: int
+    offset: int
+    has_more: bool
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "job_id": self.job_id,
+            "lines": self.lines,
+            "total_lines": self.total_lines,
+            "offset": self.offset,
+            "has_more": self.has_more,
+        }
+
+
+@dataclass
+class JobDetailContext:
+    """Template context for job_detail.html.
+
+    Passed to Jinja2 template for server-side rendering.
+
+    Attributes:
+        job: The job detail item.
+        back_url: URL to return to jobs list (with preserved filters).
+    """
+
+    job: JobDetailItem
+    back_url: str
+
+    @classmethod
+    def from_job_and_request(
+        cls,
+        job: JobDetailItem,
+        referer: str | None,
+    ) -> JobDetailContext:
+        """Create context from job and request data.
+
+        Args:
+            job: The job detail item.
+            referer: HTTP Referer header value, if present.
+
+        Returns:
+            JobDetailContext with appropriate back URL.
+        """
+        # Default back URL, or preserve filters from referer
+        back_url = "/jobs"
+        if referer and "/jobs?" in referer:
+            # Extract just the path and query from referer
+            # Handle both absolute and relative URLs
+            if referer.startswith("/"):
+                back_url = referer
+            elif "/jobs?" in referer:
+                # Extract path from absolute URL
+                idx = referer.find("/jobs?")
+                if idx != -1:
+                    back_url = referer[idx:]
+        return cls(job=job, back_url=back_url)
