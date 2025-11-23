@@ -34,9 +34,9 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T001 Add AboutInfo dataclass to `src/video_policy_orchestrator/server/ui/models.py`
-- [ ] T002 Add "About" NavigationItem to NAVIGATION_ITEMS list in `src/video_policy_orchestrator/server/ui/models.py`
-- [ ] T003 Create about.html template in `src/video_policy_orchestrator/server/ui/templates/sections/about.html`
+- [X] T001 Add AboutInfo dataclass to `src/video_policy_orchestrator/server/ui/models.py`
+- [X] T002 Add "About" NavigationItem to NAVIGATION_ITEMS list in `src/video_policy_orchestrator/server/ui/models.py`
+- [X] T003 Create about.html template in `src/video_policy_orchestrator/server/ui/templates/sections/about.html`
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -52,11 +52,11 @@
 
 ### Implementation for User Story 1
 
-- [ ] T004 [US1] Implement `get_about_info()` helper function in `src/video_policy_orchestrator/server/ui/routes.py`
-- [ ] T005 [US1] Implement `about_handler()` route handler in `src/video_policy_orchestrator/server/ui/routes.py`
-- [ ] T006 [US1] Register /about route in `setup_ui_routes()` in `src/video_policy_orchestrator/server/ui/routes.py`
-- [ ] T007 [US1] Update about.html template to display version, API URL, git hash, and read-only notice in `src/video_policy_orchestrator/server/ui/templates/sections/about.html`
-- [ ] T008 [P] [US1] Add unit tests for about_handler (including edge cases: version unavailable fallback, git_hash None) in `tests/unit/server/ui/test_about_routes.py`
+- [X] T004 [US1] Implement `get_about_info()` helper function in `src/video_policy_orchestrator/server/ui/routes.py`
+- [X] T005 [US1] Implement `about_handler()` route handler in `src/video_policy_orchestrator/server/ui/routes.py`
+- [X] T006 [US1] Register /about route in `setup_ui_routes()` in `src/video_policy_orchestrator/server/ui/routes.py`
+- [X] T007 [US1] Update about.html template to display version, API URL, git hash, and read-only notice in `src/video_policy_orchestrator/server/ui/templates/sections/about.html`
+- [X] T008 [P] [US1] Add unit tests for about_handler (including edge cases: version unavailable fallback, git_hash None) in `tests/unit/server/ui/test_about_routes.py`
 
 **Checkpoint**: User Story 1 complete - About page shows version and API URL
 
@@ -72,10 +72,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T009 [US2] Store profile_name in app context during daemon startup in `src/video_policy_orchestrator/cli/serve.py`
-- [ ] T010 [US2] Update `get_about_info()` to read profile from app context in `src/video_policy_orchestrator/server/ui/routes.py`
-- [ ] T011 [US2] Update about.html template to display profile name in `src/video_policy_orchestrator/server/ui/templates/sections/about.html`
-- [ ] T012 [P] [US2] Add unit tests for profile display (with/without profile) in `tests/unit/server/ui/test_about_routes.py`
+- [X] T009 [US2] Store profile_name in app context during daemon startup in `src/video_policy_orchestrator/cli/serve.py`
+- [X] T010 [US2] Update `get_about_info()` to read profile from app context in `src/video_policy_orchestrator/server/ui/routes.py`
+- [X] T011 [US2] Update about.html template to display profile name in `src/video_policy_orchestrator/server/ui/templates/sections/about.html`
+- [X] T012 [P] [US2] Add unit tests for profile display (with/without profile) in `tests/unit/server/ui/test_about_routes.py`
 
 **Checkpoint**: User Story 2 complete - Profile information visible on About page
 
@@ -91,8 +91,8 @@
 
 ### Implementation for User Story 3
 
-- [ ] T013 [US3] Update about.html template with documentation links section in `src/video_policy_orchestrator/server/ui/templates/sections/about.html`
-- [ ] T014 [P] [US3] Add test verifying docs_url is present in response in `tests/unit/server/ui/test_about_routes.py`
+- [X] T013 [US3] Update about.html template with documentation links section in `src/video_policy_orchestrator/server/ui/templates/sections/about.html`
+- [X] T014 [P] [US3] Add test verifying docs_url is present in response in `tests/unit/server/ui/test_about_routes.py`
 
 **Checkpoint**: User Story 3 complete - Documentation links accessible from About page
 
@@ -104,8 +104,8 @@
 
 **Purpose**: JSON API endpoint for programmatic access to about info
 
-- [ ] T015 [P] Implement `/api/about` JSON endpoint in `src/video_policy_orchestrator/server/app.py`
-- [ ] T016 [P] Add unit tests for /api/about endpoint in `tests/unit/server/test_app.py`
+- [X] T015 [P] Implement `/api/about` JSON endpoint in `src/video_policy_orchestrator/server/app.py`
+- [X] T016 [P] Add unit tests for /api/about endpoint in `tests/unit/server/ui/test_about_routes.py`
 
 **Phase 6 Commit**: Commit API endpoint to branch after completing this phase
 
@@ -115,8 +115,8 @@
 
 **Purpose**: Final validation and cleanup
 
-- [ ] T017 Run all tests with `uv run pytest tests/unit/server/`
-- [ ] T018 Run linting with `uv run ruff check .`
+- [X] T017 Run all tests with `uv run pytest tests/unit/server/`
+- [X] T018 Run linting with `uv run ruff check .`
 - [ ] T019 Manual validation using quickstart.md checklist
 - [ ] T020 Verify all navigation items highlight correctly when switching pages
 

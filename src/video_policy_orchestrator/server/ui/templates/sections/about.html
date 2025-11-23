@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="about-section">
+    <div class="about-card">
+        <h3>Application</h3>
+        <dl class="about-list">
+            <dt>Version</dt>
+            <dd>{{ about.version }}{% if about.git_hash %} ({{ about.git_hash[:8] }}){% endif %}</dd>
+            <dt>API URL</dt>
+            <dd><code>{{ about.api_url }}</code></dd>
+            <dt>Profile</dt>
+            <dd>{{ about.profile_name }}</dd>
+        </dl>
+    </div>
+
+    <div class="about-card">
+        <h3>Documentation</h3>
+        <p>
+            <a href="{{ about.docs_url }}" target="_blank" rel="noopener noreferrer">
+                View Documentation
+            </a>
+        </p>
+    </div>
+
+    {% if about.is_read_only %}
+    <div class="about-notice">
+        <p>This panel is read-only. Configuration changes must be made via CLI or config files.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

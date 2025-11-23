@@ -10,6 +10,38 @@ from dataclasses import dataclass
 
 
 @dataclass
+class AboutInfo:
+    """Information displayed on the About page.
+
+    Attributes:
+        version: Application version (e.g., "0.1.0").
+        git_hash: Git commit hash if available.
+        profile_name: Current profile name or "Default".
+        api_url: Base URL for API access.
+        docs_url: URL to documentation.
+        is_read_only: Always True for this version.
+    """
+
+    version: str
+    git_hash: str | None
+    profile_name: str
+    api_url: str
+    docs_url: str
+    is_read_only: bool = True
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "version": self.version,
+            "git_hash": self.git_hash,
+            "profile_name": self.profile_name,
+            "api_url": self.api_url,
+            "docs_url": self.docs_url,
+            "is_read_only": self.is_read_only,
+        }
+
+
+@dataclass
 class NavigationItem:
     """Represents a single navigation link in the sidebar.
 
@@ -72,6 +104,7 @@ NAVIGATION_ITEMS: list[NavigationItem] = [
     NavigationItem(id="transcriptions", label="Transcriptions", path="/transcriptions"),
     NavigationItem(id="policies", label="Policies", path="/policies"),
     NavigationItem(id="approvals", label="Approvals", path="/approvals"),
+    NavigationItem(id="about", label="About", path="/about"),
 ]
 
 DEFAULT_SECTION = "jobs"

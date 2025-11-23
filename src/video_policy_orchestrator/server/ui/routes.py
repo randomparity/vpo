@@ -6,6 +6,7 @@ This module provides server-rendered HTML routes for the VPO web interface.
 from __future__ import annotations
 
 import logging
+import os
 import time
 from pathlib import Path
 
@@ -13,9 +14,11 @@ import aiohttp_jinja2
 import jinja2
 from aiohttp import web
 
+from video_policy_orchestrator import __version__
 from video_policy_orchestrator.server.ui.models import (
     DEFAULT_SECTION,
     NAVIGATION_ITEMS,
+    AboutInfo,
     NavigationState,
     TemplateContext,
 )
@@ -118,6 +121,55 @@ async def approvals_handler(request: web.Request) -> dict:
         section_title="Approvals",
         section_content="<p>Approvals section - coming soon</p>",
     )
+
+
+# Documentation URL constant
+DOCS_URL = "https://github.com/randomparity/vpo/tree/main/docs"
+
+
+def get_about_info(request: web.Request) -> AboutInfo:
+    """Build AboutInfo from request context and environment.
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        AboutInfo populated from app context, request, and package metadata.
+    """
+    # Get version from package
+    version = __version__
+
+    # Get git hash from environment (set during build/deployment)
+    git_hash = os.environ.get("VPO_GIT_HASH")
+
+    # Get profile name from app context (set at daemon startup)
+    profile_name = request.app.get("profile_name", "Default")
+
+    # Build API URL from request origin
+    api_url = str(request.url.origin())
+
+    return AboutInfo(
+        version=version,
+        git_hash=git_hash,
+        profile_name=profile_name,
+        api_url=api_url,
+        docs_url=DOCS_URL,
+        is_read_only=True,
+    )
+
+
+async def about_handler(request: web.Request) -> dict:
+    """Handle GET /about - About section page."""
+    about_info = get_about_info(request)
+
+    context = _create_template_context(
+        active_id="about",
+        section_title="About",
+    )
+    # Add about info to context for template
+    context["about"] = about_info
+
+    return context
 
 
 async def handle_404(request: web.Request) -> web.Response:
@@ -239,6 +291,10 @@ def setup_ui_routes(app: web.Application) -> None:
     app.router.add_get(
         "/approvals",
         aiohttp_jinja2.template("sections/approvals.html")(approvals_handler),
+    )
+    app.router.add_get(
+        "/about",
+        aiohttp_jinja2.template("sections/about.html")(about_handler),
     )
 
     # Add middleware (order matters: logging -> security -> error handling)
