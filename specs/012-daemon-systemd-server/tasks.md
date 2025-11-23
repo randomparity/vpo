@@ -140,11 +140,11 @@
 
 ### Implementation for User Story 5
 
-- [ ] T042 [US5] Verify existing JSONFormatter in src/video_policy_orchestrator/logging/handlers.py includes required fields
-- [ ] T043 [US5] Add daemon=True context to log records in daemon mode
-- [ ] T044 [US5] Ensure no print() calls in daemon code path - all output via logger
-- [ ] T045 [US5] Test JSON log output is valid and parseable
-- [ ] T046 Commit Phase 7 changes with message "feat(012): Ensure structured JSON logging works in daemon mode"
+- [X] T042 [US5] Verify existing JSONFormatter in src/video_policy_orchestrator/logging/handlers.py includes required fields
+- [X] T043 [US5] Add daemon=True context to log records in daemon mode
+- [X] T044 [US5] Ensure no print() calls in daemon code path - all output via logger
+- [X] T045 [US5] Test JSON log output is valid and parseable
+- [X] T046 Commit Phase 7 changes with message "feat(012): Ensure structured JSON logging works in daemon mode"
 
 **Checkpoint**: User Story 5 complete - JSON logging operational
 
