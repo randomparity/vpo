@@ -108,12 +108,19 @@
 
     /**
      * Create a status badge element.
+     * Handles unknown status values gracefully.
      * @param {string} status - Job status
      * @returns {string} HTML string for status badge
      */
     function createStatusBadge(status) {
-        const statusClass = 'status-badge--' + status;
-        return '<span class="status-badge ' + statusClass + '">' + status + '</span>';
+        // Known statuses have specific styling
+        const knownStatuses = ['queued', 'running', 'completed', 'failed', 'cancelled'];
+        const normalizedStatus = (status || 'unknown').toLowerCase();
+        const statusClass = knownStatuses.includes(normalizedStatus)
+            ? 'status-badge--' + normalizedStatus
+            : 'status-badge--queued';  // Default to neutral gray styling
+        const displayStatus = status || 'unknown';
+        return '<span class="status-badge ' + statusClass + '">' + escapeHtml(displayStatus) + '</span>';
     }
 
     /**

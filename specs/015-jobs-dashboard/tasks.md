@@ -154,13 +154,13 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T031 [P] Add pagination controls to src/video_policy_orchestrator/server/ui/templates/sections/jobs.html
-- [ ] T032 [P] Implement pagination handling in src/video_policy_orchestrator/server/static/js/jobs.js
-- [ ] T033 [P] Add path truncation with tooltip for long file paths in src/video_policy_orchestrator/server/static/js/jobs.js
-- [ ] T034 [P] Add status color indicators (visual badges) in src/video_policy_orchestrator/server/static/css/main.css
-- [ ] T035 [P] Add loading state while fetching jobs in src/video_policy_orchestrator/server/static/js/jobs.js
-- [ ] T036 [P] Handle unknown/invalid job status gracefully in src/video_policy_orchestrator/server/static/js/jobs.js
-- [ ] T037 Run quickstart.md validation: verify all API endpoints and UI interactions work
+- [X] T031 [P] Add pagination controls to src/video_policy_orchestrator/server/ui/templates/sections/jobs.html
+- [X] T032 [P] Implement pagination handling in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T033 [P] Add path truncation with tooltip for long file paths in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T034 [P] Add status color indicators (visual badges) in src/video_policy_orchestrator/server/static/css/main.css
+- [X] T035 [P] Add loading state while fetching jobs in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T036 [P] Handle unknown/invalid job status gracefully in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T037 Run quickstart.md validation: verify all API endpoints and UI interactions work
 
 **Commit after Phase 8**: `git commit -m "feat(015): Add pagination, polish, and visual improvements"`
 
