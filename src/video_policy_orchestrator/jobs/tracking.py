@@ -16,7 +16,6 @@ from video_policy_orchestrator.db.models import (
     JobStatus,
     JobType,
     insert_job,
-    update_job_status,
 )
 
 if TYPE_CHECKING:
@@ -92,18 +91,23 @@ def complete_scan_job(
     """
     now = datetime.now(timezone.utc).isoformat()
     status = JobStatus.FAILED if error_message else JobStatus.COMPLETED
-
-    # Update status and summary
-    update_job_status(
-        conn, job_id, status, error_message=error_message, completed_at=now
-    )
-
-    # Update summary_json (direct SQL since update_job_status doesn't handle it)
     summary_json = json.dumps(summary)
-    conn.execute(
-        "UPDATE jobs SET summary_json = ?, progress_percent = 100.0 WHERE id = ?",
-        (summary_json, job_id),
+
+    # Single atomic update for all completion fields
+    cursor = conn.execute(
+        """
+        UPDATE jobs SET
+            status = ?,
+            error_message = ?,
+            completed_at = ?,
+            summary_json = ?,
+            progress_percent = 100.0
+        WHERE id = ?
+        """,
+        (status.value, error_message, now, summary_json, job_id),
     )
+    if cursor.rowcount == 0:
+        raise ValueError(f"Job {job_id} not found")
     conn.commit()
 
 

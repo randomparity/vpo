@@ -34,6 +34,13 @@ def _get_db_connection() -> sqlite3.Connection | None:
     subcommands. The connection is created with the same settings as
     get_connection() but without the context manager wrapper.
 
+    Connection Lifecycle:
+        This uses a module-level singleton pattern with atexit cleanup.
+        This is appropriate for CLI usage where the process runs a single
+        command and exits. The atexit handler ensures the connection is
+        closed on normal process termination. If the process is killed
+        (SIGKILL), SQLite's WAL mode handles recovery safely.
+
     Returns:
         Database connection or None if connection fails.
     """

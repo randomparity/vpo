@@ -341,6 +341,8 @@ class ScannerOrchestrator:
                                 result.files_removed += 1
                         else:
                             # Mark file as missing
+                            # Note: Commit per-file for immediate visibility during
+                            # long-running scans. WAL mode handles concurrent reads.
                             update_sql = (
                                 "UPDATE files SET scan_status = 'missing' "
                                 "WHERE path = ?"

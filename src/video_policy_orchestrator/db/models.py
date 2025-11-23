@@ -371,7 +371,9 @@ def upsert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
     result = cursor.fetchone()
     conn.commit()
     if result is None:
-        raise RuntimeError("RETURNING clause failed to return file ID")
+        raise sqlite3.IntegrityError(
+            f"RETURNING clause failed to return file ID for path: {record.path}"
+        )
     return result[0]
 
 
@@ -522,6 +524,10 @@ def upsert_tracks_for_file(
 ) -> None:
     """Smart merge tracks for a file: update existing, insert new, delete missing.
 
+    Note:
+        This function does NOT commit. The caller is responsible for transaction
+        management to ensure atomicity with the parent file record.
+
     Args:
         conn: Database connection.
         file_id: ID of the parent file.
@@ -607,7 +613,7 @@ def upsert_tracks_for_file(
             (file_id, *stale_indices),
         )
 
-    conn.commit()
+    # Note: commit removed - caller (upsert_file) handles transaction boundaries
 
 
 # Plugin acknowledgment operations
