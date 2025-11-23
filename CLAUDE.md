@@ -92,6 +92,7 @@ This project uses **spec-driven development**:
 - SQLite (~/.vpo/library.db) - extend existing schema with jobs table (006-transcode-pipelines)
 - Python 3.10+ (per pyproject.toml) + click (CLI), pydantic (models), PyYAML (config), sqlite3 (database), openai-whisper (reference plugin) (007-audio-transcription)
 - SQLite (~/.vpo/library.db) - extend existing schema with transcription_results table (007-audio-transcription)
+- SQLite (~/.vpo/library.db) - extend existing schema v6 (008-operational-ux)
 
 ## Recent Changes
 - 006-transcode-pipelines: Added Python 3.10+ (per pyproject.toml) + click (CLI), pydantic (models), PyYAML (config), sqlite3 (jobs DB)
