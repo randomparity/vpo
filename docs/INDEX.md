@@ -43,6 +43,9 @@ Docs focused on tasks and workflows: how to run the tools, configure them, and p
 - [usage/jobs.md](usage/jobs.md)
   Job queue management: listing, starting workers, canceling, and cleanup.
 
+- [reports.md](reports.md)
+  Report generation: job history, library exports, scan history, transcodes, and policy applications.
+
 - [usage/external-tools.md](usage/external-tools.md)
   Guide to installing, configuring, and troubleshooting external tools (ffmpeg, mkvtoolnix).
 
