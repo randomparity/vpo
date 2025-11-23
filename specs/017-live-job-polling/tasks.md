@@ -58,13 +58,13 @@
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Create fetchJobsForPolling() function that preserves filter state in src/video_policy_orchestrator/server/static/js/jobs.js
-- [ ] T012 [US1] Implement updateJobsTable() for targeted DOM updates (update changed rows only) in src/video_policy_orchestrator/server/static/js/jobs.js
-- [ ] T013 [US1] Add job data comparison logic to detect changes in src/video_policy_orchestrator/server/static/js/jobs.js
-- [ ] T014 [US1] Integrate VPOPolling.start() on page load in src/video_policy_orchestrator/server/static/js/jobs.js
-- [ ] T015 [US1] Add updateJobRow() function to update individual job cells without re-rendering in src/video_policy_orchestrator/server/static/js/jobs.js
-- [ ] T016 [US1] Add appendJobRow() function to add new jobs to table in src/video_policy_orchestrator/server/static/js/jobs.js
-- [ ] T017 [US1] Wire up polling start/stop with visibility change events (pause/resume) in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T011 [US1] Create fetchJobsForPolling() function that preserves filter state in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T012 [US1] Implement updateJobsTable() for targeted DOM updates (update changed rows only) in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T013 [US1] Add job data comparison logic to detect changes in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T014 [US1] Integrate VPOPolling.start() on page load in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T015 [US1] Add updateJobRow() function to update individual job cells without re-rendering in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T016 [US1] Add appendJobRow() function to add new jobs to table in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T017 [US1] Wire up polling start/stop with visibility change events (pause/resume) in src/video_policy_orchestrator/server/static/js/jobs.js
 
 **Checkpoint**: User Story 1 complete - Jobs dashboard updates automatically
 

@@ -2,7 +2,7 @@
  * Jobs Dashboard JavaScript
  *
  * Handles fetching jobs from the API, rendering the table,
- * filtering, and pagination.
+ * filtering, pagination, and live polling updates (017-live-job-polling).
  */
 
 (function() {
@@ -17,6 +17,12 @@
         since: ''
     };
     let totalJobs = 0;
+
+    // Cached job data for comparison (T013)
+    var cachedJobs = {};
+
+    // Polling instance (T014)
+    var pollingInstance = null;
 
     // DOM elements
     const loadingEl = document.getElementById('jobs-loading');
@@ -153,11 +159,11 @@
         // Make row clickable - link to job detail view (016-job-detail-view)
         return '<tr class="job-row-clickable" data-job-id="' + escapeHtml(job.id) + '" onclick="window.location.href=\'/jobs/' + escapeHtml(job.id) + '\'" style="cursor: pointer;">' +
             '<td class="job-id" title="' + escapeHtml(job.id) + '">' + escapeHtml(shortId) + '</td>' +
-            '<td>' + createTypeBadge(job.job_type) + '</td>' +
-            '<td>' + createStatusBadge(job.status) + '</td>' +
+            '<td class="job-type">' + createTypeBadge(job.job_type) + '</td>' +
+            '<td class="job-status">' + createStatusBadge(job.status) + '</td>' +
             '<td class="job-path"' + (hasFullPath ? ' title="' + escapeHtml(job.file_path) + '"' : '') + '>' + escapeHtml(truncatedPath) + '</td>' +
-            '<td>' + formatDateTime(job.created_at) + '</td>' +
-            '<td>' + formatDuration(duration) + '</td>' +
+            '<td class="job-created">' + formatDateTime(job.created_at) + '</td>' +
+            '<td class="job-duration">' + formatDuration(duration) + '</td>' +
             '</tr>';
     }
 
@@ -259,6 +265,9 @@
             renderJobsTable(data.jobs, data.has_filters);
             updatePagination();
 
+            // Update cache with fetched jobs (T013)
+            updateJobsCache(data.jobs);
+
             // Show content, hide loading
             loadingEl.style.display = 'none';
             contentEl.style.display = 'block';
@@ -269,6 +278,191 @@
             loadingEl.textContent = 'Error loading jobs. Please refresh the page.';
             loadingEl.style.color = 'var(--color-error)';
         }
+    }
+
+    // ==========================================================================
+    // Polling Support (017-live-job-polling)
+    // ==========================================================================
+
+    /**
+     * Update the jobs cache with new data (T013).
+     * @param {Array} jobs - Array of job objects
+     */
+    function updateJobsCache(jobs) {
+        cachedJobs = {};
+        for (var i = 0; i < jobs.length; i++) {
+            cachedJobs[jobs[i].id] = jobs[i];
+        }
+    }
+
+    /**
+     * Check if a job has changed compared to cached data (T013).
+     * @param {Object} newJob - New job data
+     * @returns {boolean} True if job has changed
+     */
+    function hasJobChanged(newJob) {
+        var cached = cachedJobs[newJob.id];
+        if (!cached) {
+            return true; // New job
+        }
+
+        // Compare key fields
+        return cached.status !== newJob.status ||
+               cached.progress_percent !== newJob.progress_percent ||
+               cached.duration_seconds !== newJob.duration_seconds ||
+               cached.completed_at !== newJob.completed_at;
+    }
+
+    /**
+     * Update a single job row without re-rendering the entire table (T015).
+     * @param {string} jobId - Job UUID
+     * @param {Object} newData - New job data
+     */
+    function updateJobRow(jobId, newData) {
+        var row = tableBodyEl.querySelector('tr[data-job-id="' + jobId + '"]');
+        if (!row) {
+            return false; // Row not found
+        }
+
+        // Calculate duration for running jobs
+        var duration = newData.duration_seconds;
+        if (newData.status === 'running' && newData.created_at && duration === null) {
+            var created = new Date(newData.created_at);
+            var now = new Date();
+            duration = Math.floor((now - created) / 1000);
+        }
+
+        // Update status cell
+        var statusCell = row.querySelector('.job-status');
+        if (statusCell) {
+            statusCell.innerHTML = createStatusBadge(newData.status);
+        }
+
+        // Update duration cell
+        var durationCell = row.querySelector('.job-duration');
+        if (durationCell) {
+            durationCell.textContent = formatDuration(duration);
+        }
+
+        return true;
+    }
+
+    /**
+     * Append a new job row to the table (T016).
+     * @param {Object} job - Job data
+     */
+    function appendJobRow(job) {
+        if (!tableBodyEl) return;
+
+        // If table is hidden (empty state), switch to showing it
+        if (tableEl.style.display === 'none') {
+            tableEl.style.display = 'table';
+            emptyEl.style.display = 'none';
+        }
+
+        // Prepend row (newest jobs first)
+        var rowHtml = renderJobRow(job);
+        var temp = document.createElement('tbody');
+        temp.innerHTML = rowHtml;
+        var newRow = temp.firstChild;
+
+        if (tableBodyEl.firstChild) {
+            tableBodyEl.insertBefore(newRow, tableBodyEl.firstChild);
+        } else {
+            tableBodyEl.appendChild(newRow);
+        }
+    }
+
+    /**
+     * Fetch jobs for polling, preserving filter state (T011).
+     * Returns a promise that resolves when fetch is complete.
+     * @returns {Promise} Resolves when fetch is complete
+     */
+    function fetchJobsForPolling() {
+        return fetch('/api/jobs' + buildQueryString())
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch jobs: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(function(data) {
+                // Update total and pagination
+                var totalChanged = totalJobs !== data.total;
+                totalJobs = data.total;
+
+                // Check for changes and update (T012)
+                var hasChanges = false;
+                var newJobIds = {};
+
+                for (var i = 0; i < data.jobs.length; i++) {
+                    var job = data.jobs[i];
+                    newJobIds[job.id] = true;
+
+                    if (hasJobChanged(job)) {
+                        hasChanges = true;
+                        // Try to update existing row
+                        if (!updateJobRow(job.id, job)) {
+                            // Job not in current view - could be new
+                            // For simplicity, do a full re-render if we have new jobs
+                            renderJobsTable(data.jobs, data.has_filters);
+                            updateJobsCache(data.jobs);
+                            updatePagination();
+                            return;
+                        }
+                    }
+                }
+
+                // Check for removed jobs (jobs in cache but not in new data)
+                for (var cachedId in cachedJobs) {
+                    if (!newJobIds[cachedId]) {
+                        // Job was removed - do full re-render
+                        hasChanges = true;
+                        renderJobsTable(data.jobs, data.has_filters);
+                        updateJobsCache(data.jobs);
+                        updatePagination();
+                        return;
+                    }
+                }
+
+                // Update cache with new data
+                updateJobsCache(data.jobs);
+
+                // Update pagination if total changed
+                if (totalChanged) {
+                    updatePagination();
+                }
+            });
+    }
+
+    /**
+     * Initialize polling for jobs dashboard (T014, T017).
+     */
+    function initPolling() {
+        // Check if VPOPolling is available
+        if (typeof window.VPOPolling === 'undefined') {
+            console.warn('[Jobs] VPOPolling not available, polling disabled');
+            return;
+        }
+
+        // Create polling instance
+        pollingInstance = window.VPOPolling.create({
+            fetchFn: fetchJobsForPolling,
+            onStatusChange: function(status) {
+                // Connection status is handled by VPOPolling
+            }
+        });
+
+        // Start polling
+        pollingInstance.start();
+
+        // Register cleanup
+        window.VPOPolling.onCleanup(function() {
+            if (pollingInstance) {
+                pollingInstance.cleanup();
+                pollingInstance = null;
+            }
+        });
     }
 
     /**
@@ -357,13 +551,24 @@
         handleTimeFilter: handleTimeFilter
     };
 
-    // Initial fetch on page load
-    document.addEventListener('DOMContentLoaded', function() {
+    /**
+     * Initialize the jobs dashboard.
+     */
+    function init() {
+        // Initial fetch
         fetchJobs();
-    });
+
+        // Initialize polling after initial fetch
+        setTimeout(function() {
+            initPolling();
+        }, 100);
+    }
+
+    // Initial fetch on page load
+    document.addEventListener('DOMContentLoaded', init);
 
     // Also fetch immediately if DOM is already ready
     if (document.readyState !== 'loading') {
-        fetchJobs();
+        init();
     }
 })();
