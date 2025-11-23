@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import sqlite3
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -68,8 +70,14 @@ async def check_database_health(connection_pool: DaemonConnectionPool | None) ->
             # Use pool's thread-safe execute method
             connection_pool.execute_read("SELECT 1")
             return True
+        except sqlite3.OperationalError as e:
+            logger.warning("Database locked or inaccessible: %s", e)
+            return False
+        except sqlite3.DatabaseError as e:
+            logger.warning("Database error during health check: %s", e)
+            return False
         except Exception as e:
-            logger.warning("Database health check failed: %s", e)
+            logger.error("Unexpected error during health check: %s", e)
             return False
 
     try:
@@ -106,8 +114,13 @@ def create_app(db_path: Path | None = None) -> web.Application:
 
     # Create connection pool if database path provided
     if db_path is not None and db_path.exists():
-        app["connection_pool"] = DaemonConnectionPool(db_path)
-        logger.debug("Created database connection pool for %s", db_path)
+        pool_timeout = float(os.environ.get("VPO_DB_TIMEOUT", "30.0"))
+        app["connection_pool"] = DaemonConnectionPool(db_path, timeout=pool_timeout)
+        logger.debug(
+            "Created database connection pool for %s with timeout %.1fs",
+            db_path,
+            pool_timeout,
+        )
     else:
         app["connection_pool"] = None
 
