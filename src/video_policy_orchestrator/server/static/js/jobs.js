@@ -129,7 +129,7 @@
      * @returns {string} HTML string for type badge
      */
     function createTypeBadge(type) {
-        return '<span class="type-badge">' + type + '</span>';
+        return '<span class="type-badge">' + escapeHtml(type) + '</span>';
     }
 
     /**
@@ -151,7 +151,7 @@
         }
 
         return '<tr>' +
-            '<td class="job-id" title="' + job.id + '">' + shortId + '</td>' +
+            '<td class="job-id" title="' + escapeHtml(job.id) + '">' + escapeHtml(shortId) + '</td>' +
             '<td>' + createTypeBadge(job.job_type) + '</td>' +
             '<td>' + createStatusBadge(job.status) + '</td>' +
             '<td class="job-path"' + (hasFullPath ? ' title="' + escapeHtml(job.file_path) + '"' : '') + '>' + escapeHtml(truncatedPath) + '</td>' +
@@ -264,7 +264,9 @@
 
         } catch (error) {
             console.error('Error fetching jobs:', error);
-            loadingEl.innerHTML = '<p style="color: var(--color-error);">Error loading jobs. Please refresh the page.</p>';
+            // Use textContent to prevent XSS in error display
+            loadingEl.textContent = 'Error loading jobs. Please refresh the page.';
+            loadingEl.style.color = 'var(--color-error)';
         }
     }
 
@@ -318,7 +320,7 @@
         fetchJobs();
     }
 
-    // Event listeners
+    // Event listeners for pagination
     if (prevBtnEl) {
         prevBtnEl.addEventListener('click', handlePrevPage);
     }
@@ -326,7 +328,28 @@
         nextBtnEl.addEventListener('click', handleNextPage);
     }
 
-    // Export functions for filter handlers
+    // Event listeners for filters (attached via JS instead of inline handlers)
+    const statusFilterEl = document.getElementById('filter-status');
+    const typeFilterEl = document.getElementById('filter-type');
+    const timeFilterEl = document.getElementById('filter-time');
+
+    if (statusFilterEl) {
+        statusFilterEl.addEventListener('change', function(e) {
+            handleStatusFilter(e.target.value);
+        });
+    }
+    if (typeFilterEl) {
+        typeFilterEl.addEventListener('change', function(e) {
+            handleTypeFilter(e.target.value);
+        });
+    }
+    if (timeFilterEl) {
+        timeFilterEl.addEventListener('change', function(e) {
+            handleTimeFilter(e.target.value);
+        });
+    }
+
+    // Export functions for filter handlers (kept for backwards compatibility)
     window.jobsDashboard = {
         handleStatusFilter: handleStatusFilter,
         handleTypeFilter: handleTypeFilter,

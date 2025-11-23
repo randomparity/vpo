@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "SAMEORIGIN",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
 }
 
 # Template directory path
