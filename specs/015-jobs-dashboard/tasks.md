@@ -27,9 +27,9 @@
 
 **Purpose**: Project verification and baseline validation
 
-- [ ] T001 Verify existing project structure matches plan.md expectations
-- [ ] T002 Verify jobs table schema exists in src/video_policy_orchestrator/db/schema.py
-- [ ] T003 Verify existing daemon server runs: `uv run vpo serve --help`
+- [X] T001 Verify existing project structure matches plan.md expectations
+- [X] T002 Verify jobs table schema exists in src/video_policy_orchestrator/db/schema.py
+- [X] T003 Verify existing daemon server runs: `uv run vpo serve --help`
 
 **Commit after Phase 1**: N/A (no code changes - verification only)
 
@@ -41,13 +41,13 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 [P] Add JobFilterParams dataclass in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T005 [P] Add JobListItem dataclass in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T006 [P] Add JobListResponse dataclass in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T007 [P] Add JobListContext dataclass in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T008 Implement api_jobs_handler function in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T009 Register /api/jobs route in src/video_policy_orchestrator/server/app.py
-- [ ] T010 Add jobs table CSS styles in src/video_policy_orchestrator/server/static/css/main.css
+- [X] T004 [P] Add JobFilterParams dataclass in src/video_policy_orchestrator/server/ui/models.py
+- [X] T005 [P] Add JobListItem dataclass in src/video_policy_orchestrator/server/ui/models.py
+- [X] T006 [P] Add JobListResponse dataclass in src/video_policy_orchestrator/server/ui/models.py
+- [X] T007 [P] Add JobListContext dataclass in src/video_policy_orchestrator/server/ui/models.py
+- [X] T008 Implement api_jobs_handler function in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T009 Register /api/jobs route in src/video_policy_orchestrator/server/app.py
+- [X] T010 Add jobs table CSS styles in src/video_policy_orchestrator/server/static/css/main.css
 
 **Checkpoint**: API endpoint `/api/jobs` returns JSON data. Foundation ready for UI implementation.
 
