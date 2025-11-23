@@ -5,7 +5,7 @@ and graceful shutdown coordination.
 """
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 
 @dataclass
@@ -31,7 +31,7 @@ class ShutdownState:
         """Returns True if shutdown timeout has been exceeded."""
         if self.timeout_deadline is None:
             return False
-        return datetime.now(UTC) >= self.timeout_deadline
+        return datetime.now(timezone.utc) >= self.timeout_deadline
 
 
 @dataclass
@@ -45,7 +45,7 @@ class DaemonLifecycle:
     shutdown_timeout: float = 30.0
     """Seconds to wait for graceful shutdown before cancelling tasks."""
 
-    start_time: datetime = field(default_factory=lambda: datetime.now(UTC))
+    start_time: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     """UTC timestamp when daemon started."""
 
     shutdown_state: ShutdownState = field(default_factory=ShutdownState)
@@ -54,7 +54,7 @@ class DaemonLifecycle:
     @property
     def uptime_seconds(self) -> float:
         """Returns seconds since daemon startup."""
-        return (datetime.now(UTC) - self.start_time).total_seconds()
+        return (datetime.now(timezone.utc) - self.start_time).total_seconds()
 
     @property
     def is_shutting_down(self) -> bool:
@@ -72,7 +72,7 @@ class DaemonLifecycle:
 
         from datetime import timedelta
 
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         self.shutdown_state.initiated = now
         self.shutdown_state.timeout_deadline = now + timedelta(
             seconds=self.shutdown_timeout
