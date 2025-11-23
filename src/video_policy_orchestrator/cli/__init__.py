@@ -166,6 +166,7 @@ def _register_commands():
     from video_policy_orchestrator.cli.doctor import doctor_command
     from video_policy_orchestrator.cli.inspect import inspect_command
     from video_policy_orchestrator.cli.jobs import jobs_group
+    from video_policy_orchestrator.cli.maintain import maintain_group
     from video_policy_orchestrator.cli.plugins import plugins
     from video_policy_orchestrator.cli.profiles import profiles_group
     from video_policy_orchestrator.cli.report import report_group
@@ -183,6 +184,7 @@ def _register_commands():
     main.add_command(profiles_group)
     main.add_command(report_group)
     main.add_command(serve_command)
+    main.add_command(maintain_group)
 
 
 _register_commands()

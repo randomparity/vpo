@@ -385,3 +385,329 @@ class TestConstants:
     def test_max_log_size_is_reasonable(self):
         """MAX_LOG_SIZE_BYTES should be 10MB."""
         assert MAX_LOG_SIZE_BYTES == 10 * 1024 * 1024
+
+
+# =============================================================================
+# Tests for new functionality (JobLogWriter, compression, deletion)
+# =============================================================================
+
+
+class TestJobLogWriter:
+    """Tests for JobLogWriter class."""
+
+    def test_writer_creates_log_file(self, tmp_path: Path):
+        """Writer should create log file on enter."""
+        from video_policy_orchestrator.jobs.logs import JobLogWriter
+
+        job_id = "12345678-1234-1234-1234-123456789abc"
+
+        with patch(
+            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            return_value=tmp_path,
+        ):
+            with JobLogWriter(job_id) as writer:
+                writer.write_line("Test message")
+
+        log_file = tmp_path / f"{job_id}.log"
+        assert log_file.exists()
+        content = log_file.read_text()
+        assert "Test message" in content
+
+    def test_writer_adds_timestamp(self, tmp_path: Path):
+        """Each line should have a timestamp prefix."""
+        from video_policy_orchestrator.jobs.logs import JobLogWriter
+
+        job_id = "12345678-1234-1234-1234-123456789abc"
+
+        with patch(
+            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            return_value=tmp_path,
+        ):
+            with JobLogWriter(job_id) as writer:
+                writer.write_line("Test message")
+
+        log_file = tmp_path / f"{job_id}.log"
+        content = log_file.read_text()
+        # Timestamp format: [2024-01-01T12:00:00.000000Z]
+        assert content.startswith("[")
+        assert "Z]" in content
+
+    def test_writer_header_footer(self, tmp_path: Path):
+        """Header and footer methods should write structured output."""
+        from video_policy_orchestrator.jobs.logs import JobLogWriter
+
+        job_id = "12345678-1234-1234-1234-123456789abc"
+
+        with patch(
+            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            return_value=tmp_path,
+        ):
+            with JobLogWriter(job_id) as writer:
+                writer.write_header("transcode", "/path/to/file.mkv", policy="test")
+                writer.write_footer(success=True, duration_seconds=10.5)
+
+        log_file = tmp_path / f"{job_id}.log"
+        content = log_file.read_text()
+        assert "JOB START" in content
+        assert "transcode" in content
+        assert "JOB END: SUCCESS" in content
+        assert "10.50s" in content
+
+    def test_writer_subprocess_output(self, tmp_path: Path):
+        """Subprocess output should be logged with command info."""
+        from video_policy_orchestrator.jobs.logs import JobLogWriter
+
+        job_id = "12345678-1234-1234-1234-123456789abc"
+
+        with patch(
+            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            return_value=tmp_path,
+        ):
+            with JobLogWriter(job_id) as writer:
+                writer.write_subprocess(
+                    "ffprobe",
+                    stdout="output line",
+                    stderr="error line",
+                    returncode=0,
+                )
+
+        log_file = tmp_path / f"{job_id}.log"
+        content = log_file.read_text()
+        assert "ffprobe" in content
+        assert "Exit code: 0" in content
+        assert "output line" in content
+        assert "error line" in content
+
+    def test_writer_relative_path(self, tmp_path: Path):
+        """relative_path property should return path for database."""
+        from video_policy_orchestrator.jobs.logs import JobLogWriter
+
+        job_id = "12345678-1234-1234-1234-123456789abc"
+
+        with patch(
+            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            return_value=tmp_path,
+        ):
+            with JobLogWriter(job_id) as writer:
+                assert writer.relative_path == f"logs/{job_id}.log"
+
+    def test_invalid_job_id_raises(self, tmp_path: Path):
+        """Invalid job ID should raise ValueError."""
+        from video_policy_orchestrator.jobs.logs import JobLogWriter
+
+        with pytest.raises(ValueError, match="Invalid job ID format"):
+            JobLogWriter("../invalid")
+
+
+class TestLogCompression:
+    """Tests for log compression functions."""
+
+    def test_compress_old_logs_basic(self, tmp_path: Path):
+        """Should compress logs older than threshold."""
+        import os
+        import time
+
+        from video_policy_orchestrator.jobs.logs import compress_old_logs
+
+        job_id = "12345678-1234-1234-1234-123456789abc"
+        log_file = tmp_path / f"{job_id}.log"
+        log_file.write_text("Test content" * 100)
+
+        # Set mtime to 10 days ago
+        old_time = time.time() - (10 * 86400)
+        os.utime(log_file, (old_time, old_time))
+
+        with patch(
+            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            return_value=tmp_path,
+        ):
+            stats = compress_old_logs(older_than_days=7)
+
+        assert stats.compressed_count == 1
+        assert not log_file.exists()
+        assert (tmp_path / f"{job_id}.log.gz").exists()
+
+    def test_compress_skips_recent_logs(self, tmp_path: Path):
+        """Should not compress recent logs."""
+        from video_policy_orchestrator.jobs.logs import compress_old_logs
+
+        job_id = "12345678-1234-1234-1234-123456789abc"
+        log_file = tmp_path / f"{job_id}.log"
+        log_file.write_text("Test content")
+
+        with patch(
+            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            return_value=tmp_path,
+        ):
+            stats = compress_old_logs(older_than_days=7)
+
+        assert stats.compressed_count == 0
+        assert log_file.exists()
+
+    def test_compress_dry_run(self, tmp_path: Path):
+        """Dry run should not actually compress."""
+        import os
+        import time
+
+        from video_policy_orchestrator.jobs.logs import compress_old_logs
+
+        job_id = "12345678-1234-1234-1234-123456789abc"
+        log_file = tmp_path / f"{job_id}.log"
+        log_file.write_text("Test content")
+
+        old_time = time.time() - (10 * 86400)
+        os.utime(log_file, (old_time, old_time))
+
+        with patch(
+            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            return_value=tmp_path,
+        ):
+            stats = compress_old_logs(older_than_days=7, dry_run=True)
+
+        assert stats.compressed_count == 1
+        assert log_file.exists()  # Not deleted in dry run
+        assert not (tmp_path / f"{job_id}.log.gz").exists()
+
+
+class TestLogDeletion:
+    """Tests for log deletion functions."""
+
+    def test_delete_old_logs_basic(self, tmp_path: Path):
+        """Should delete logs older than threshold."""
+        import os
+        import time
+
+        from video_policy_orchestrator.jobs.logs import delete_old_logs
+
+        job_id = "12345678-1234-1234-1234-123456789abc"
+        log_file = tmp_path / f"{job_id}.log"
+        log_file.write_text("Test content")
+
+        old_time = time.time() - (100 * 86400)
+        os.utime(log_file, (old_time, old_time))
+
+        with patch(
+            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            return_value=tmp_path,
+        ):
+            stats = delete_old_logs(older_than_days=90)
+
+        assert stats.deleted_count == 1
+        assert not log_file.exists()
+
+    def test_delete_skips_recent_logs(self, tmp_path: Path):
+        """Should not delete recent logs."""
+        from video_policy_orchestrator.jobs.logs import delete_old_logs
+
+        job_id = "12345678-1234-1234-1234-123456789abc"
+        log_file = tmp_path / f"{job_id}.log"
+        log_file.write_text("Test content")
+
+        with patch(
+            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            return_value=tmp_path,
+        ):
+            stats = delete_old_logs(older_than_days=90)
+
+        assert stats.deleted_count == 0
+        assert log_file.exists()
+
+    def test_delete_dry_run(self, tmp_path: Path):
+        """Dry run should not actually delete."""
+        import os
+        import time
+
+        from video_policy_orchestrator.jobs.logs import delete_old_logs
+
+        job_id = "12345678-1234-1234-1234-123456789abc"
+        log_file = tmp_path / f"{job_id}.log"
+        log_file.write_text("Test content")
+
+        old_time = time.time() - (100 * 86400)
+        os.utime(log_file, (old_time, old_time))
+
+        with patch(
+            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            return_value=tmp_path,
+        ):
+            stats = delete_old_logs(older_than_days=90, dry_run=True)
+
+        assert stats.deleted_count == 1
+        assert log_file.exists()  # Not deleted in dry run
+
+
+class TestLogStats:
+    """Tests for get_log_stats function."""
+
+    def test_empty_directory(self, tmp_path: Path):
+        """Empty directory should return zero counts."""
+        from video_policy_orchestrator.jobs.logs import get_log_stats
+
+        with patch(
+            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            return_value=tmp_path,
+        ):
+            stats = get_log_stats()
+
+        assert stats["total_count"] == 0
+        assert stats["total_bytes"] == 0
+
+    def test_counts_log_files(self, tmp_path: Path):
+        """Should count both compressed and uncompressed logs."""
+        from video_policy_orchestrator.jobs.logs import get_log_stats
+
+        (tmp_path / "test1.log").write_text("content1")
+        (tmp_path / "test2.log").write_text("content2")
+        (tmp_path / "test3.log.gz").write_bytes(b"compressed")
+
+        with patch(
+            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            return_value=tmp_path,
+        ):
+            stats = get_log_stats()
+
+        assert stats["uncompressed_count"] == 2
+        assert stats["compressed_count"] == 1
+        assert stats["total_count"] == 3
+
+
+class TestCompressedLogReading:
+    """Tests for reading compressed log files."""
+
+    def test_read_compressed_log(self, tmp_path: Path):
+        """Should read compressed .log.gz files."""
+        import gzip
+
+        job_id = "12345678-1234-1234-1234-123456789abc"
+        log_file = tmp_path / f"{job_id}.log.gz"
+        content = "Line 1\nLine 2\nLine 3\n"
+
+        with gzip.open(log_file, "wt") as f:
+            f.write(content)
+
+        with patch(
+            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            return_value=tmp_path,
+        ):
+            lines, total, has_more = read_log_tail(job_id)
+
+        assert lines == ["Line 1", "Line 2", "Line 3"]
+        assert total == 3
+
+    def test_compressed_log_file_exists(self, tmp_path: Path):
+        """log_file_exists should return True for compressed files."""
+        import gzip
+
+        job_id = "12345678-1234-1234-1234-123456789abc"
+        log_file = tmp_path / f"{job_id}.log.gz"
+
+        with gzip.open(log_file, "wt") as f:
+            f.write("content")
+
+        with patch(
+            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            return_value=tmp_path,
+        ):
+            result = log_file_exists(job_id)
+
+        assert result is True

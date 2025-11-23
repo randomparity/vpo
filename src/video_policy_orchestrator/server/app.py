@@ -115,8 +115,16 @@ def create_app(db_path: Path | None = None) -> web.Application:
 
     # Create connection pool if database path provided
     if db_path is not None and db_path.exists():
+        from video_policy_orchestrator.db.schema import initialize_database
+
         pool_timeout = float(os.environ.get("VPO_DB_TIMEOUT", "30.0"))
-        app["connection_pool"] = DaemonConnectionPool(db_path, timeout=pool_timeout)
+        pool = DaemonConnectionPool(db_path, timeout=pool_timeout)
+        app["connection_pool"] = pool
+
+        # Run database migrations if needed
+        with pool.transaction() as conn:
+            initialize_database(conn)
+
         logger.debug(
             "Created database connection pool for %s with timeout %.1fs",
             db_path,
@@ -124,6 +132,10 @@ def create_app(db_path: Path | None = None) -> web.Application:
         )
     else:
         app["connection_pool"] = None
+
+    # Initialize maintenance task (will be started on server startup)
+    app["maintenance_task"] = None
+    app["maintenance_task_handle"] = None
 
     # Register API routes
     app.router.add_get("/health", health_handler)
@@ -157,10 +169,45 @@ def create_app(db_path: Path | None = None) -> web.Application:
     # Insert at beginning so it runs after static handler
     app.middlewares.insert(0, static_cache_middleware)
 
-    # Register cleanup handler
+    # Register startup and cleanup handlers
+    app.on_startup.append(_start_maintenance_task)
+    app.on_cleanup.append(_stop_maintenance_task)
     app.on_cleanup.append(_cleanup_connection_pool)
 
     return app
+
+
+async def _start_maintenance_task(app: web.Application) -> None:
+    """Start the background maintenance task."""
+    from video_policy_orchestrator.server.maintenance import MaintenanceTask
+
+    maintenance = MaintenanceTask()
+    app["maintenance_task"] = maintenance
+    app["maintenance_task_handle"] = asyncio.create_task(maintenance.run())
+    logger.debug("Started background maintenance task")
+
+
+async def _stop_maintenance_task(app: web.Application) -> None:
+    """Stop the background maintenance task."""
+    maintenance = app.get("maintenance_task")
+    task_handle = app.get("maintenance_task_handle")
+
+    if maintenance:
+        maintenance.stop()
+
+    if task_handle and not task_handle.done():
+        # Wait for task to finish (with timeout)
+        try:
+            await asyncio.wait_for(task_handle, timeout=5.0)
+        except asyncio.TimeoutError:
+            logger.warning("Maintenance task did not stop in time, cancelling")
+            task_handle.cancel()
+            try:
+                await task_handle
+            except asyncio.CancelledError:
+                pass
+
+    logger.debug("Stopped background maintenance task")
 
 
 async def health_handler(request: web.Request) -> web.Response:
