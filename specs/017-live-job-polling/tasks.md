@@ -78,13 +78,13 @@
 
 ### Implementation for User Story 2
 
-- [ ] T018 [US2] Create fetchJobDetailForPolling() function in src/video_policy_orchestrator/server/static/js/job_detail.js
-- [ ] T019 [US2] Implement updateJobDetailFields() for targeted field updates in src/video_policy_orchestrator/server/static/js/job_detail.js
-- [ ] T020 [US2] Add terminal state detection (completed/failed/cancelled) to stop polling in src/video_policy_orchestrator/server/static/js/job_detail.js
-- [ ] T021 [US2] Integrate VPOPolling.start() on page load in src/video_policy_orchestrator/server/static/js/job_detail.js
-- [ ] T022 [US2] Implement log polling with 15s interval (separate from job status polling) in src/video_policy_orchestrator/server/static/js/job_detail.js
-- [ ] T023 [US2] Add appendNewLogLines() function for incremental log updates in src/video_policy_orchestrator/server/static/js/job_detail.js
-- [ ] T024 [US2] Handle 404 response gracefully (job deleted while viewing) in src/video_policy_orchestrator/server/static/js/job_detail.js
+- [X] T018 [US2] Create fetchJobDetailForPolling() function in src/video_policy_orchestrator/server/static/js/job_detail.js
+- [X] T019 [US2] Implement updateJobDetailFields() for targeted field updates in src/video_policy_orchestrator/server/static/js/job_detail.js
+- [X] T020 [US2] Add terminal state detection (completed/failed/cancelled) to stop polling in src/video_policy_orchestrator/server/static/js/job_detail.js
+- [X] T021 [US2] Integrate VPOPolling.start() on page load in src/video_policy_orchestrator/server/static/js/job_detail.js
+- [X] T022 [US2] Implement log polling with 15s interval (separate from job status polling) in src/video_policy_orchestrator/server/static/js/job_detail.js
+- [X] T023 [US2] Add appendNewLogLines() function for incremental log updates in src/video_policy_orchestrator/server/static/js/job_detail.js
+- [X] T024 [US2] Handle 404 response gracefully (job deleted while viewing) in src/video_policy_orchestrator/server/static/js/job_detail.js
 
 **Checkpoint**: User Story 2 complete - Job detail view updates automatically
 
