@@ -111,6 +111,64 @@ def complete_scan_job(
     conn.commit()
 
 
+def cancel_scan_job(
+    conn: sqlite3.Connection,
+    job_id: str,
+    reason: str = "Cancelled by user",
+) -> None:
+    """Mark a scan job as cancelled (e.g., user pressed Ctrl+C).
+
+    Args:
+        conn: Database connection.
+        job_id: ID of the job to cancel.
+        reason: Reason for cancellation.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+
+    cursor = conn.execute(
+        """
+        UPDATE jobs SET
+            status = ?,
+            error_message = ?,
+            completed_at = ?
+        WHERE id = ?
+        """,
+        (JobStatus.CANCELLED.value, reason, now, job_id),
+    )
+    if cursor.rowcount == 0:
+        raise ValueError(f"Job {job_id} not found")
+    conn.commit()
+
+
+def fail_scan_job(
+    conn: sqlite3.Connection,
+    job_id: str,
+    error_message: str,
+) -> None:
+    """Mark a scan job as failed due to an error.
+
+    Args:
+        conn: Database connection.
+        job_id: ID of the job to fail.
+        error_message: Description of the error.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+
+    cursor = conn.execute(
+        """
+        UPDATE jobs SET
+            status = ?,
+            error_message = ?,
+            completed_at = ?
+        WHERE id = ?
+        """,
+        (JobStatus.FAILED.value, error_message, now, job_id),
+    )
+    if cursor.rowcount == 0:
+        raise ValueError(f"Job {job_id} not found")
+    conn.commit()
+
+
 def maybe_purge_old_jobs(conn: sqlite3.Connection, config: JobsConfig) -> int:
     """Purge old jobs if auto_purge is enabled.
 

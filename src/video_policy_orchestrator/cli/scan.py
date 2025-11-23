@@ -236,8 +236,10 @@ def scan(
         else:
             # Normal run: scan and persist to database
             from video_policy_orchestrator.jobs.tracking import (
+                cancel_scan_job,
                 complete_scan_job,
                 create_scan_job,
+                fail_scan_job,
             )
 
             effective_db_path = db_path or get_default_db_path()
@@ -257,30 +259,43 @@ def scan(
                     verify_hash=verify_hash,
                 )
 
-                files, result = scanner.scan_and_persist(
-                    directories,
-                    conn,
-                    progress_callback=progress_callback,
-                    full=full,
-                    prune=prune,
-                    verify_hash=verify_hash,
-                    scan_progress=progress,
-                )
+                try:
+                    files, result = scanner.scan_and_persist(
+                        directories,
+                        conn,
+                        progress_callback=progress_callback,
+                        full=full,
+                        prune=prune,
+                        verify_hash=verify_hash,
+                        scan_progress=progress,
+                    )
 
-                # Update job record with results
-                result.job_id = job.id
-                summary = {
-                    "total_discovered": result.files_found,
-                    "scanned": result.files_new + result.files_updated,
-                    "skipped": result.files_skipped,
-                    "added": result.files_new,
-                    "removed": result.files_removed,
-                    "errors": result.files_errored,
-                }
-                error_msg = None
-                if result.interrupted:
-                    error_msg = "Scan interrupted by user"
-                complete_scan_job(conn, job.id, summary, error_message=error_msg)
+                    # Update job record with results
+                    result.job_id = job.id
+                    summary = {
+                        "total_discovered": result.files_found,
+                        "scanned": result.files_new + result.files_updated,
+                        "skipped": result.files_skipped,
+                        "added": result.files_new,
+                        "removed": result.files_removed,
+                        "errors": result.files_errored,
+                    }
+                    error_msg = None
+                    if result.interrupted:
+                        error_msg = "Scan interrupted by user"
+                    complete_scan_job(conn, job.id, summary, error_message=error_msg)
+
+                except KeyboardInterrupt:
+                    # User pressed Ctrl+C - mark job as cancelled
+                    cancel_scan_job(conn, job.id, "Scan aborted by user (Ctrl+C)")
+                    progress.finish()
+                    click.echo("\nScan aborted by user.", err=True)
+                    sys.exit(130)  # Standard exit code for Ctrl+C
+
+                except Exception as e:
+                    # Unexpected error - mark job as failed
+                    fail_scan_job(conn, job.id, f"Scan failed: {e}")
+                    raise  # Re-raise to be handled by outer exception handler
 
     except DatabaseLockedError as e:
         progress.finish()
@@ -288,6 +303,11 @@ def scan(
         click.echo(
             "Hint: Close other VPO instances or use a different --db path.", err=True
         )
+        sys.exit(1)
+
+    except Exception as e:
+        progress.finish()
+        click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
     # Finish progress display before outputting results
