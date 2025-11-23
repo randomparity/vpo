@@ -93,6 +93,8 @@ This project uses **spec-driven development**:
 - Python 3.10+ (per pyproject.toml) + click (CLI), pydantic (models), PyYAML (config), sqlite3 (database), openai-whisper (reference plugin) (007-audio-transcription)
 - SQLite (~/.vpo/library.db) - extend existing schema with transcription_results table (007-audio-transcription)
 - SQLite (~/.vpo/library.db) - extend existing schema v6 (008-operational-ux)
+- Python 3.10+ (existing), Rust (PyO3/maturin for extension) + click, pydantic, PyYAML (existing); maturin (build), GitHub Actions (CI/CD) (009-polish-packaging-plugins)
+- N/A (no new storage requirements) (009-polish-packaging-plugins)
 
 ## Recent Changes
 - 006-transcode-pipelines: Added Python 3.10+ (per pyproject.toml) + click (CLI), pydantic (models), PyYAML (config), sqlite3 (jobs DB)
