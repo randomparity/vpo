@@ -137,11 +137,11 @@ This feature has no foundational blocking tasks - each user story is independent
 
 ### Implementation for User Story 5
 
-- [ ] T022 [P] [US5] Create GitHub issue labels (epic, good-first-issue, help-wanted, priority:*) via gh CLI
-- [ ] T023 [P] [US5] Create GitHub issue templates in .github/ISSUE_TEMPLATE/
-- [ ] T024 [US5] Create GitHub issues for future epics (Windows support, GPU transcoding, Web UI, etc.)
-- [ ] T025 [US5] Add Roadmap section to README.md
-- [ ] T026 [US5] Identify and label 2-3 existing issues as good-first-issue
+- [x] T022 [P] [US5] Create GitHub issue labels (epic, good-first-issue, help-wanted, priority:*) via gh CLI
+- [x] T023 [P] [US5] Create GitHub issue templates in .github/ISSUE_TEMPLATE/
+- [x] T024 [US5] Create GitHub issues for future epics (Windows support, GPU transcoding, Web UI, etc.)
+- [x] T025 [US5] Add Roadmap section to README.md
+- [x] T026 [US5] Identify and label 2-3 existing issues as good-first-issue
 
 **Checkpoint**: All user stories complete and independently testable.
 

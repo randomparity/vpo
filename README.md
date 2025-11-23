@@ -153,6 +153,23 @@ VPO acts as a **policy layer** on top of existing media tools (ffmpeg, mkvmerge)
 
 ---
 
+## Roadmap
+
+Future development priorities:
+
+| Epic | Description | Status |
+|------|-------------|--------|
+| [Windows Support](https://github.com/randomparity/vpo/issues/147) | Pre-built Windows wheels and CI testing | Planned |
+| [GPU Transcoding](https://github.com/randomparity/vpo/issues/148) | NVENC, VAAPI, VideoToolbox acceleration | Planned |
+| [Web UI Dashboard](https://github.com/randomparity/vpo/issues/149) | Browser-based library management | Planned |
+| [Watch Mode](https://github.com/randomparity/vpo/issues/150) | Auto-process new files | Planned |
+
+See [GitHub Issues](https://github.com/randomparity/vpo/issues?q=is%3Aissue+is%3Aopen+label%3Aepic) for all planned features.
+
+**Want to contribute?** Check out issues labeled [`good first issue`](https://github.com/randomparity/vpo/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) for entry points.
+
+---
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
