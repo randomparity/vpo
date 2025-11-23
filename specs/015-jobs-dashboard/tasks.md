@@ -139,10 +139,10 @@
 
 ### Implementation for User Story 5
 
-- [ ] T027 [US5] Add empty state HTML structure in src/video_policy_orchestrator/server/ui/templates/sections/jobs.html
-- [ ] T028 [US5] Implement renderEmptyState() in src/video_policy_orchestrator/server/static/js/jobs.js
-- [ ] T029 [US5] Add empty state styles in src/video_policy_orchestrator/server/static/css/main.css
-- [ ] T030 [US5] Update renderJobsTable() to handle has_filters flag in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T027 [US5] Add empty state HTML structure in src/video_policy_orchestrator/server/ui/templates/sections/jobs.html
+- [X] T028 [US5] Implement renderEmptyState() in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T029 [US5] Add empty state styles in src/video_policy_orchestrator/server/static/css/main.css
+- [X] T030 [US5] Update renderJobsTable() to handle has_filters flag in src/video_policy_orchestrator/server/static/js/jobs.js
 
 **Checkpoint**: Empty states display appropriate messages for no jobs and no matching jobs scenarios.
 
