@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import time
+from datetime import datetime
 from pathlib import Path
 
 import aiohttp_jinja2
@@ -170,27 +171,34 @@ async def api_jobs_handler(request: web.Request) -> web.Response:
             status=503,
         )
 
-    # Query jobs from database
+    # Query jobs from database using thread-safe connection access
     def _query_jobs() -> tuple[list, int]:
         from video_policy_orchestrator.db.models import get_jobs_filtered
 
-        # Get total count first (without limit/offset)
-        all_matching = get_jobs_filtered(
-            connection_pool._get_connection(),
-            status=status_enum,
-            job_type=job_type_enum,
-            since=since_timestamp,
-        )
-        total = len(all_matching)
-
-        # Apply pagination
-        paginated = all_matching[params.offset : params.offset + params.limit]
-
-        return paginated, total
+        # Use transaction context manager to hold lock during entire operation
+        with connection_pool.transaction() as conn:
+            # Use SQL-level pagination for efficiency
+            jobs, total = get_jobs_filtered(
+                conn,
+                status=status_enum,
+                job_type=job_type_enum,
+                since=since_timestamp,
+                limit=params.limit,
+                offset=params.offset,
+                return_total=True,
+            )
+            return jobs, total
 
     import asyncio
 
     jobs_data, total = await asyncio.to_thread(_query_jobs)
+
+    # Helper to parse ISO-8601 timestamps (handles both Z and +00:00 suffixes)
+    def _parse_iso_timestamp(timestamp: str) -> datetime:
+        # Normalize Z suffix to +00:00 for fromisoformat compatibility (Python 3.10)
+        # This is safe even if timestamp already has +00:00 (Z won't be present)
+        normalized = timestamp.replace("Z", "+00:00")
+        return datetime.fromisoformat(normalized)
 
     # Convert to JobListItem
     job_items = []
@@ -199,12 +207,8 @@ async def api_jobs_handler(request: web.Request) -> web.Response:
         duration_seconds = None
         if job.completed_at and job.created_at:
             try:
-                from datetime import datetime
-
-                created = datetime.fromisoformat(job.created_at.replace("Z", "+00:00"))
-                completed = datetime.fromisoformat(
-                    job.completed_at.replace("Z", "+00:00")
-                )
+                created = _parse_iso_timestamp(job.created_at)
+                completed = _parse_iso_timestamp(job.completed_at)
                 duration_seconds = int((completed - created).total_seconds())
             except (ValueError, TypeError):
                 pass
