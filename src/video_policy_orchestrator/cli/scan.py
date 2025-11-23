@@ -12,6 +12,67 @@ from video_policy_orchestrator.scanner.orchestrator import (
 )
 
 
+class ProgressDisplay:
+    """Display progress for scan operations.
+
+    Shows simple counters that update in place using carriage return.
+    Only active when output is a TTY and not JSON mode.
+    """
+
+    def __init__(self, *, enabled: bool = True):
+        """Initialize the progress display.
+
+        Args:
+            enabled: Whether to show progress output.
+        """
+        self._enabled = enabled and sys.stdout.isatty()
+        self._phase = ""
+        self._last_line_len = 0
+
+    def _write(self, text: str) -> None:
+        """Write text to stdout, clearing previous line."""
+        if not self._enabled:
+            return
+        # Clear previous line and write new text
+        clear = "\r" + " " * self._last_line_len + "\r"
+        sys.stdout.write(clear + text)
+        sys.stdout.flush()
+        self._last_line_len = len(text)
+
+    def _finish_line(self) -> None:
+        """Finish current line with newline."""
+        if self._enabled and self._last_line_len > 0:
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+            self._last_line_len = 0
+
+    def on_discover_progress(self, files_found: int, files_per_sec: int) -> None:
+        """Called during discovery with count of files found and rate."""
+        if self._phase != "discover":
+            self._finish_line()
+            self._phase = "discover"
+        self._write(f"Discovering... {files_found:,} files ({files_per_sec:,}/sec)")
+
+    def on_hash_progress(self, processed: int, total: int, files_per_sec: int) -> None:
+        """Called during hashing with processed/total counts and rate."""
+        if self._phase != "hash":
+            self._finish_line()
+            self._phase = "hash"
+        self._write(f"Hashing... {processed:,}/{total:,} ({files_per_sec:,}/sec)")
+
+    def on_scan_progress(self, processed: int, total: int, files_per_sec: int) -> None:
+        """Called during scanning/introspection with processed/total counts and rate."""
+        if self._phase != "scan":
+            self._finish_line()
+            self._phase = "scan"
+        self._write(f"Scanning... {processed:,}/{total:,} ({files_per_sec:,}/sec)")
+
+    def finish(self) -> None:
+        """Finish all progress display."""
+        self._finish_line()
+        self._phase = ""
+
+
 def validate_directories(ctx, param, value):
     """Validate that all directories exist."""
     paths = []
@@ -157,16 +218,21 @@ def scan(
     # Create scanner
     scanner = ScannerOrchestrator(extensions=ext_list)
 
-    # Progress callback for verbose mode
+    # Progress callback for verbose mode (legacy)
     def progress_callback(processed: int, total: int) -> None:
         if verbose and not json_output:
             click.echo(f"  Progress: {processed}/{total} files processed...")
+
+    # Create progress display (only if not JSON and TTY)
+    progress = ProgressDisplay(enabled=not json_output)
 
     # Run scan
     try:
         if dry_run:
             # Dry run: just scan without database
-            files, result = scanner.scan_directories(directories)
+            files, result = scanner.scan_directories(
+                directories, scan_progress=progress
+            )
         else:
             # Normal run: scan and persist to database
             from video_policy_orchestrator.jobs.tracking import (
@@ -198,6 +264,7 @@ def scan(
                     full=full,
                     prune=prune,
                     verify_hash=verify_hash,
+                    scan_progress=progress,
                 )
 
                 # Update job record with results
@@ -216,11 +283,15 @@ def scan(
                 complete_scan_job(conn, job.id, summary, error_message=error_msg)
 
     except DatabaseLockedError as e:
+        progress.finish()
         click.echo(f"Error: {e}", err=True)
         click.echo(
             "Hint: Close other VPO instances or use a different --db path.", err=True
         )
         sys.exit(1)
+
+    # Finish progress display before outputting results
+    progress.finish()
 
     # Output results
     if json_output:

@@ -10,13 +10,29 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from video_policy_orchestrator._core import discover_videos, hash_files
 from video_policy_orchestrator.db.models import FileRecord
 
 if TYPE_CHECKING:
     from video_policy_orchestrator.introspector.interface import MediaIntrospector
+
+
+class ScanProgressCallback(Protocol):
+    """Protocol for scan progress callbacks."""
+
+    def on_discover_progress(self, files_found: int, files_per_sec: int) -> None:
+        """Called during discovery with count of files found and rate."""
+        ...
+
+    def on_hash_progress(self, processed: int, total: int, files_per_sec: int) -> None:
+        """Called during hashing with processed/total counts and rate."""
+        ...
+
+    def on_scan_progress(self, processed: int, total: int, files_per_sec: int) -> None:
+        """Called during scanning/introspection with processed/total counts and rate."""
+        ...
 
 
 @dataclass
@@ -136,13 +152,15 @@ class ScannerOrchestrator:
         directories: list[Path],
         compute_hashes: bool = True,
         progress_callback: Callable[[int, int], None] | None = None,
+        scan_progress: ScanProgressCallback | None = None,
     ) -> tuple[list[ScannedFile], ScanResult]:
         """Scan directories for video files.
 
         Args:
             directories: List of directories to scan.
             compute_hashes: Whether to compute content hashes.
-            progress_callback: Optional callback for progress updates.
+            progress_callback: Optional callback for progress updates (deprecated).
+            scan_progress: Optional progress callback object for detailed progress.
 
         Returns:
             Tuple of (list of scanned files, scan result summary).
@@ -153,6 +171,11 @@ class ScannerOrchestrator:
 
         all_files: list[ScannedFile] = []
 
+        # Create progress callback for discovery if progress reporting enabled
+        discover_cb = None
+        if scan_progress is not None:
+            discover_cb = scan_progress.on_discover_progress
+
         # Discover files in all directories
         for directory in directories:
             try:
@@ -160,6 +183,7 @@ class ScannerOrchestrator:
                     str(directory),
                     self.extensions,
                     self.follow_symlinks,
+                    progress_callback=discover_cb,
                 )
 
                 for file_info in discovered:
@@ -178,10 +202,15 @@ class ScannerOrchestrator:
 
         result.files_found = len(all_files)
 
+        # Create progress callback for hashing if progress reporting enabled
+        hash_cb = None
+        if scan_progress is not None:
+            hash_cb = scan_progress.on_hash_progress
+
         # Compute hashes if requested
         if compute_hashes and all_files:
             paths = [f.path for f in all_files]
-            hash_results = hash_files(paths)
+            hash_results = hash_files(paths, progress_callback=hash_cb)
 
             path_to_file = {f.path: f for f in all_files}
             for hash_result in hash_results:
@@ -208,6 +237,7 @@ class ScannerOrchestrator:
         full: bool = False,
         prune: bool = False,
         verify_hash: bool = False,
+        scan_progress: ScanProgressCallback | None = None,
     ) -> tuple[list[ScannedFile], ScanResult]:
         """Scan directories and persist results to database.
 
@@ -220,6 +250,7 @@ class ScannerOrchestrator:
             full: If True, force full scan bypassing incremental detection.
             prune: If True, delete database records for missing files.
             verify_hash: If True, use content hash for change detection (slower).
+            scan_progress: Optional progress callback object for detailed progress.
 
         Returns:
             Tuple of (list of scanned files, scan result summary).
@@ -258,6 +289,11 @@ class ScannerOrchestrator:
 
             all_files: list[ScannedFile] = []
 
+            # Create progress callback for discovery if progress reporting enabled
+            discover_cb = None
+            if scan_progress is not None:
+                discover_cb = scan_progress.on_discover_progress
+
             # Discover files in all directories
             for directory in directories:
                 if self._is_interrupted():
@@ -267,6 +303,7 @@ class ScannerOrchestrator:
                         str(directory),
                         self.extensions,
                         self.follow_symlinks,
+                        progress_callback=discover_cb,
                     )
 
                     for file_info in discovered:
@@ -347,10 +384,15 @@ class ScannerOrchestrator:
                             conn.commit()
                             result.files_removed += 1
 
+            # Create progress callback for hashing if progress reporting enabled
+            hash_cb = None
+            if scan_progress is not None:
+                hash_cb = scan_progress.on_hash_progress
+
             # Compute hashes only for files that need processing
             if compute_hashes and files_to_process and not self._is_interrupted():
                 paths = [f.path for f in files_to_process]
-                hash_results = hash_files(paths)
+                hash_results = hash_files(paths, progress_callback=hash_cb)
 
                 path_to_file = {f.path: f for f in files_to_process}
                 for hash_result in hash_results:
@@ -372,7 +414,9 @@ class ScannerOrchestrator:
                 ]
                 if skipped_files:
                     skipped_paths = [f.path for f in skipped_files]
-                    verify_hash_results = hash_files(skipped_paths)
+                    verify_hash_results = hash_files(
+                        skipped_paths, progress_callback=hash_cb
+                    )
 
                     # Check if hash changed for any skipped file
                     for hash_result in verify_hash_results:
@@ -391,6 +435,7 @@ class ScannerOrchestrator:
             # Persist to database with progress reporting
             now = datetime.now(timezone.utc)
             total_to_process = len(files_to_process)
+            scan_start_time = time.time()
             for i, scanned in enumerate(files_to_process):
                 if self._is_interrupted():
                     result.interrupted = True
@@ -453,9 +498,15 @@ class ScannerOrchestrator:
                 else:
                     result.files_updated += 1
 
-                # Report progress every 100 files
+                # Report progress
                 processed = i + 1
-                if progress_callback and processed % 100 == 0:
+                # Use new scan_progress callback if available
+                if scan_progress is not None:
+                    elapsed = time.time() - scan_start_time
+                    rate = int(processed / elapsed) if elapsed > 0 else 0
+                    scan_progress.on_scan_progress(processed, total_to_process, rate)
+                # Fall back to legacy progress_callback (every 100 files)
+                elif progress_callback and processed % 100 == 0:
                     progress_callback(processed, total_to_process)
 
             result.elapsed_seconds = time.time() - start_time
