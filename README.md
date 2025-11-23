@@ -21,11 +21,28 @@ brew install ffmpeg
 ### Installation
 
 ```bash
-# Install from source (development)
+# Install from PyPI (recommended)
+pip install video-policy-orchestrator
+
+# Verify installation
+vpo --version
+vpo doctor
+```
+
+Pre-built wheels are available for:
+- Linux x86_64
+- macOS x86_64 (Intel)
+- macOS arm64 (Apple Silicon)
+
+**For unsupported platforms** (e.g., Windows, ARM Linux), you'll need to build from source:
+
+```bash
+# Requires Rust toolchain (https://rustup.rs)
+pip install maturin
 git clone https://github.com/randomparity/vpo.git
 cd vpo
-uv pip install -e ".[dev]"
-uv run maturin develop  # Build Rust extension
+pip install -e ".[dev]"
+maturin develop --release
 ```
 
 ### Basic Usage

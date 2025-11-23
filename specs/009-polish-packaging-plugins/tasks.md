@@ -55,11 +55,11 @@ This feature has no foundational blocking tasks - each user story is independent
 
 ### Implementation for User Story 1
 
-- [ ] T001 [P] [US1] Create release workflow for wheel building in .github/workflows/release.yml
-- [ ] T002 [P] [US1] Update pyproject.toml with PyPI metadata (description, classifiers, URLs, dependencies) in pyproject.toml
-- [ ] T002a [US1] Document installation fallback for unsupported platforms in README.md (requires Rust toolchain)
+- [x] T001 [P] [US1] Create release workflow for wheel building in .github/workflows/release.yml
+- [x] T002 [P] [US1] Update pyproject.toml with PyPI metadata (description, classifiers, URLs, dependencies) in pyproject.toml
+- [x] T002a [US1] Document installation fallback for unsupported platforms in README.md (requires Rust toolchain)
 - [ ] T003 [US1] Configure PyPI trusted publishing in GitHub repository settings (manual step - document in PR)
-- [ ] T004 [US1] Test wheel build locally with `maturin build --release` to verify configuration
+- [x] T004 [US1] Test wheel build locally with `maturin build --release` to verify configuration
 - [ ] T005 [US1] Create test release to TestPyPI to validate workflow (tag with v0.1.0-rc1)
 
 **Checkpoint**: At this point, User Story 1 should be fully functional - wheels build on GitHub Actions and can be published to PyPI.
