@@ -104,6 +104,58 @@ class WorkerConfig:
 
 
 @dataclass
+class LoggingConfig:
+    """Configuration for structured logging (008-operational-ux)."""
+
+    # Log level: debug, info, warning, error
+    level: str = "info"
+
+    # Log file path (None = stderr only)
+    file: Path | None = None
+
+    # Log format: text or json
+    format: str = "text"
+
+    # Also log to stderr when file is set
+    include_stderr: bool = True
+
+    # Rotation threshold in bytes (default 10MB)
+    max_bytes: int = 10_485_760
+
+    # Number of rotated files to keep
+    backup_count: int = 5
+
+    def __post_init__(self) -> None:
+        """Validate configuration."""
+        valid_levels = {"debug", "info", "warning", "error"}
+        if self.level.lower() not in valid_levels:
+            raise ValueError(f"level must be one of {valid_levels}, got {self.level}")
+        valid_formats = {"text", "json"}
+        if self.format.lower() not in valid_formats:
+            raise ValueError(
+                f"format must be one of {valid_formats}, got {self.format}"
+            )
+
+
+@dataclass
+class Profile:
+    """Named configuration profile (008-operational-ux).
+
+    Profiles allow users to store named configurations for different libraries.
+    """
+
+    name: str  # Profile identifier
+    description: str | None = None  # Human-readable description
+    default_policy: Path | None = None  # Default policy file
+
+    # Override sections (optional, merged with base config)
+    tools: ToolPathsConfig | None = None
+    behavior: BehaviorConfig | None = None
+    logging: LoggingConfig | None = None
+    jobs: JobsConfig | None = None
+
+
+@dataclass
 class TranscriptionPluginConfig:
     """Configuration for transcription plugins."""
 
@@ -148,6 +200,7 @@ class VPOConfig:
     transcription: TranscriptionPluginConfig = field(
         default_factory=TranscriptionPluginConfig
     )
+    logging: LoggingConfig = field(default_factory=LoggingConfig)
 
     # Database path (can be overridden)
     database_path: Path | None = None

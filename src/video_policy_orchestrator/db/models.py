@@ -21,6 +21,8 @@ class JobType(Enum):
 
     TRANSCODE = "transcode"
     MOVE = "move"
+    SCAN = "scan"  # Directory scan operation
+    APPLY = "apply"  # Policy application operation
 
 
 class JobStatus(Enum):
@@ -231,15 +233,15 @@ class Job:
     """Database record for jobs table."""
 
     id: str  # UUID v4
-    file_id: int  # FK to files.id
+    file_id: int | None  # FK to files.id (None for scan jobs)
     file_path: str  # Path at time of job creation
-    job_type: JobType  # TRANSCODE or MOVE
+    job_type: JobType  # TRANSCODE, MOVE, SCAN, or APPLY
     status: JobStatus  # QUEUED, RUNNING, COMPLETED, FAILED, CANCELLED
     priority: int  # Lower = higher priority (default: 100)
 
     # Policy reference
     policy_name: str | None  # Name of policy used
-    policy_json: str  # Serialized policy settings for this job
+    policy_json: str | None  # Serialized policy settings for this job
 
     # Progress tracking
     progress_percent: float  # 0.0 - 100.0
@@ -258,6 +260,10 @@ class Job:
     output_path: str | None = None  # Path to output file
     backup_path: str | None = None  # Path to backup of original
     error_message: str | None = None  # Error details if FAILED
+
+    # Extended fields (008-operational-ux)
+    files_affected_json: str | None = None  # JSON array of affected file paths
+    summary_json: str | None = None  # Job-specific summary (e.g., scan counts)
 
 
 @dataclass
@@ -365,7 +371,9 @@ def upsert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
     result = cursor.fetchone()
     conn.commit()
     if result is None:
-        raise RuntimeError("RETURNING clause failed to return file ID")
+        raise sqlite3.IntegrityError(
+            f"RETURNING clause failed to return file ID for path: {record.path}"
+        )
     return result[0]
 
 
@@ -516,6 +524,10 @@ def upsert_tracks_for_file(
 ) -> None:
     """Smart merge tracks for a file: update existing, insert new, delete missing.
 
+    Note:
+        This function does NOT commit. The caller is responsible for transaction
+        management to ensure atomicity with the parent file record.
+
     Args:
         conn: Database connection.
         file_id: ID of the parent file.
@@ -601,7 +613,7 @@ def upsert_tracks_for_file(
             (file_id, *stale_indices),
         )
 
-    conn.commit()
+    # Note: commit removed - caller (upsert_file) handles transaction boundaries
 
 
 # Plugin acknowledgment operations
@@ -767,6 +779,8 @@ def _row_to_job(row: tuple) -> Job:
         output_path=row[15],
         backup_path=row[16],
         error_message=row[17],
+        files_affected_json=row[18] if len(row) > 18 else None,
+        summary_json=row[19] if len(row) > 19 else None,
     )
 
 
@@ -787,8 +801,9 @@ def insert_job(conn: sqlite3.Connection, job: Job) -> str:
             policy_name, policy_json, progress_percent, progress_json,
             created_at, started_at, completed_at,
             worker_pid, worker_heartbeat,
-            output_path, backup_path, error_message
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            output_path, backup_path, error_message,
+            files_affected_json, summary_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             job.id,
@@ -809,6 +824,8 @@ def insert_job(conn: sqlite3.Connection, job: Job) -> str:
             job.output_path,
             job.backup_path,
             job.error_message,
+            job.files_affected_json,
+            job.summary_json,
         ),
     )
     conn.commit()
@@ -831,7 +848,8 @@ def get_job(conn: sqlite3.Connection, job_id: str) -> Job | None:
                policy_name, policy_json, progress_percent, progress_json,
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
-               output_path, backup_path, error_message
+               output_path, backup_path, error_message,
+               files_affected_json, summary_json
         FROM jobs WHERE id = ?
         """,
         (job_id,),
@@ -982,7 +1000,8 @@ def get_queued_jobs(conn: sqlite3.Connection, limit: int | None = None) -> list[
                policy_name, policy_json, progress_percent, progress_json,
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
-               output_path, backup_path, error_message
+               output_path, backup_path, error_message,
+               files_affected_json, summary_json
         FROM jobs
         WHERE status = 'queued'
         ORDER BY priority ASC, created_at ASC
@@ -1014,7 +1033,8 @@ def get_jobs_by_status(
                policy_name, policy_json, progress_percent, progress_json,
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
-               output_path, backup_path, error_message
+               output_path, backup_path, error_message,
+               files_affected_json, summary_json
         FROM jobs
         WHERE status = ?
         ORDER BY created_at DESC
@@ -1043,7 +1063,8 @@ def get_all_jobs(conn: sqlite3.Connection, limit: int | None = None) -> list[Job
                policy_name, policy_json, progress_percent, progress_json,
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
-               output_path, backup_path, error_message
+               output_path, backup_path, error_message,
+               files_affected_json, summary_json
         FROM jobs
         ORDER BY created_at DESC
     """
@@ -1073,12 +1094,74 @@ def get_jobs_by_id_prefix(conn: sqlite3.Connection, prefix: str) -> list[Job]:
                policy_name, policy_json, progress_percent, progress_json,
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
-               output_path, backup_path, error_message
+               output_path, backup_path, error_message,
+               files_affected_json, summary_json
         FROM jobs
         WHERE id LIKE ?
         ORDER BY created_at DESC
     """
     cursor = conn.execute(query, (f"{prefix}%",))
+    return [_row_to_job(row) for row in cursor.fetchall()]
+
+
+def get_jobs_filtered(
+    conn: sqlite3.Connection,
+    *,
+    status: JobStatus | None = None,
+    job_type: JobType | None = None,
+    since: str | None = None,
+    limit: int | None = None,
+) -> list[Job]:
+    """Get jobs with flexible filtering (008-operational-ux).
+
+    Supports filtering by status, type, and date range.
+
+    Args:
+        conn: Database connection.
+        status: Filter by job status (None = all statuses).
+        job_type: Filter by job type (None = all types).
+        since: ISO-8601 timestamp - only return jobs created after this time.
+        limit: Maximum number of jobs to return.
+
+    Returns:
+        List of Job objects, ordered by created_at DESC.
+    """
+    base_query = """
+        SELECT id, file_id, file_path, job_type, status, priority,
+               policy_name, policy_json, progress_percent, progress_json,
+               created_at, started_at, completed_at,
+               worker_pid, worker_heartbeat,
+               output_path, backup_path, error_message,
+               files_affected_json, summary_json
+        FROM jobs
+    """
+    conditions = []
+    params: list[str | int] = []
+
+    if status is not None:
+        conditions.append("status = ?")
+        params.append(status.value)
+
+    if job_type is not None:
+        conditions.append("job_type = ?")
+        params.append(job_type.value)
+
+    if since is not None:
+        conditions.append("created_at >= ?")
+        params.append(since)
+
+    if conditions:
+        base_query += " WHERE " + " AND ".join(conditions)
+
+    base_query += " ORDER BY created_at DESC"
+
+    if limit is not None:
+        if not isinstance(limit, int) or limit <= 0 or limit > 10000:
+            raise ValueError(f"Invalid limit value: {limit}")
+        base_query += " LIMIT ?"
+        params.append(limit)
+
+    cursor = conn.execute(base_query, params)
     return [_row_to_job(row) for row in cursor.fetchall()]
 
 

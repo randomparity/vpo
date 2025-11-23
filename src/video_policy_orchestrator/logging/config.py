@@ -1,0 +1,79 @@
+"""Logging configuration for VPO.
+
+Provides configure_logging() to set up logging based on LoggingConfig.
+"""
+
+from __future__ import annotations
+
+import logging
+import sys
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from video_policy_orchestrator.logging.handlers import JSONFormatter
+
+if TYPE_CHECKING:
+    from video_policy_orchestrator.config.models import LoggingConfig
+
+
+def configure_logging(config: LoggingConfig) -> None:
+    """Configure logging based on LoggingConfig.
+
+    Sets up handlers for file and/or stderr output with appropriate formatters.
+
+    Args:
+        config: Logging configuration.
+    """
+    # Map string level to logging constant
+    level_map = {
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+    }
+    level = level_map.get(config.level.lower(), logging.INFO)
+
+    # Get root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
+
+    # Clear existing handlers
+    root_logger.handlers.clear()
+
+    # Create formatter based on format
+    if config.format.lower() == "json":
+        formatter: logging.Formatter = JSONFormatter()
+    else:
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            datefmt="%Y-%m-%dT%H:%M:%S%z",
+        )
+
+    # Add file handler if configured
+    file_handler_added = False
+    if config.file:
+        try:
+            file_path = Path(config.file).expanduser()
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+
+            file_handler = RotatingFileHandler(
+                file_path,
+                maxBytes=config.max_bytes,
+                backupCount=config.backup_count,
+                encoding="utf-8",
+            )
+            file_handler.setLevel(level)
+            file_handler.setFormatter(formatter)
+            root_logger.addHandler(file_handler)
+            file_handler_added = True
+        except (OSError, PermissionError) as e:
+            # Log file unavailable - fall back to stderr
+            sys.stderr.write(f"Warning: Could not open log file {config.file}: {e}\n")
+
+    # Add stderr handler if configured or as fallback
+    if config.include_stderr or not file_handler_added:
+        stderr_handler = logging.StreamHandler(sys.stderr)
+        stderr_handler.setLevel(level)
+        stderr_handler.setFormatter(formatter)
+        root_logger.addHandler(stderr_handler)

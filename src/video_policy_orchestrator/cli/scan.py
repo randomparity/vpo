@@ -49,6 +49,29 @@ def validate_directories(ctx, param, value):
     help="Database path. Default: ~/.vpo/library.db",
 )
 @click.option(
+    "--full",
+    is_flag=True,
+    default=False,
+    help="Force full scan, bypass incremental detection.",
+)
+@click.option(
+    "--prune",
+    is_flag=True,
+    default=False,
+    help="Delete database records for missing files.",
+)
+@click.option(
+    "--verify-hash",
+    is_flag=True,
+    default=False,
+    help="Use content hash for change detection (slower).",
+)
+@click.option(
+    "--profile",
+    default=None,
+    help="Use named configuration profile from ~/.vpo/profiles/.",
+)
+@click.option(
     "--dry-run",
     is_flag=True,
     default=False,
@@ -72,6 +95,10 @@ def scan(
     directories: list[Path],
     extensions: str | None,
     db_path: Path | None,
+    full: bool,
+    prune: bool,
+    verify_hash: bool,
+    profile: str | None,
     dry_run: bool,
     verbose: bool,
     json_output: bool,
@@ -81,6 +108,9 @@ def scan(
     Recursively discovers video files in the specified directories,
     computes content hashes, and stores results in the database.
 
+    By default, scans are incremental - only files that have changed since
+    the last scan are introspected. Use --full to force a complete rescan.
+
     Examples:
 
         vpo scan /media/videos
@@ -88,6 +118,8 @@ def scan(
         vpo scan --extensions mkv,mp4 /media/movies /media/tv
 
         vpo scan --dry-run --verbose /media/videos
+
+        vpo scan --profile movies /media/movies
     """
     from video_policy_orchestrator.db.connection import (
         DatabaseLockedError,
@@ -95,6 +127,27 @@ def scan(
         get_default_db_path,
     )
     from video_policy_orchestrator.db.schema import initialize_database
+
+    # Load profile if specified
+    if profile:
+        from video_policy_orchestrator.config.profiles import (
+            ProfileError,
+            list_profiles,
+            load_profile,
+        )
+
+        try:
+            loaded_profile = load_profile(profile)
+            if verbose and not json_output:
+                click.echo(f"Using profile: {loaded_profile.name}")
+        except ProfileError as e:
+            available = list_profiles()
+            click.echo(f"Error: {e}", err=True)
+            if available:
+                click.echo("\nAvailable profiles:", err=True)
+                for name in sorted(available):
+                    click.echo(f"  - {name}", err=True)
+            sys.exit(1)
 
     # Parse extensions
     ext_list = None
@@ -116,12 +169,52 @@ def scan(
             files, result = scanner.scan_directories(directories)
         else:
             # Normal run: scan and persist to database
+            from video_policy_orchestrator.jobs.tracking import (
+                complete_scan_job,
+                create_scan_job,
+            )
+
             effective_db_path = db_path or get_default_db_path()
             with get_connection(effective_db_path) as conn:
                 initialize_database(conn)
-                files, result = scanner.scan_and_persist(
-                    directories, conn, progress_callback=progress_callback
+
+                # Create job record
+                if len(directories) == 1:
+                    directory_str = str(directories[0])
+                else:
+                    directory_str = ",".join(str(d) for d in directories)
+                job = create_scan_job(
+                    conn,
+                    directory_str,
+                    incremental=not full,
+                    prune=prune,
+                    verify_hash=verify_hash,
                 )
+
+                files, result = scanner.scan_and_persist(
+                    directories,
+                    conn,
+                    progress_callback=progress_callback,
+                    full=full,
+                    prune=prune,
+                    verify_hash=verify_hash,
+                )
+
+                # Update job record with results
+                result.job_id = job.id
+                summary = {
+                    "total_discovered": result.files_found,
+                    "scanned": result.files_new + result.files_updated,
+                    "skipped": result.files_skipped,
+                    "added": result.files_new,
+                    "removed": result.files_removed,
+                    "errors": result.files_errored,
+                }
+                error_msg = None
+                if result.interrupted:
+                    error_msg = "Scan interrupted by user"
+                complete_scan_job(conn, job.id, summary, error_message=error_msg)
+
     except DatabaseLockedError as e:
         click.echo(f"Error: {e}", err=True)
         click.echo(
@@ -159,6 +252,10 @@ def output_json(result, files, verbose: bool, dry_run: bool = False) -> None:
         data["files_new"] = result.files_new
         data["files_updated"] = result.files_updated
         data["files_skipped"] = result.files_skipped
+        data["files_removed"] = getattr(result, "files_removed", 0)
+        data["incremental"] = getattr(result, "incremental", True)
+        if hasattr(result, "job_id") and result.job_id:
+            data["job_id"] = result.job_id
 
     if result.errors:
         data["errors"] = [{"path": p, "error": e} for p, e in result.errors]
@@ -181,18 +278,34 @@ def output_human(result, files, verbose: bool, dry_run: bool = False) -> None:
     """Output scan results in human-readable format."""
     dir_count = len(result.directories_scanned)
     dir_word = "directory" if dir_count == 1 else "directories"
-    click.echo(f"\nScanned {dir_count} {dir_word}")
-    file_word = "file" if result.files_found == 1 else "files"
-    click.echo(f"Found {result.files_found} video {file_word}")
+
+    # Build header
+    if dir_count == 1:
+        scan_target = result.directories_scanned[0]
+    else:
+        scan_target = f"{dir_count} {dir_word}"
+
+    click.echo(f"\nScanning {scan_target}...")
+    click.echo(f"  Discovered: {result.files_found:,} files")
 
     if not dry_run:
-        click.echo(f"  New: {result.files_new}")
-        click.echo(f"  Updated: {result.files_updated}")
-        click.echo(f"  Skipped: {result.files_skipped}")
+        click.echo(f"  Skipped (unchanged): {result.files_skipped:,}")
+        click.echo(f"  Scanned (changed): {result.files_new + result.files_updated:,}")
+        click.echo(f"  Added (new): {result.files_new:,}")
+        files_removed = getattr(result, "files_removed", 0)
+        if files_removed > 0:
+            click.echo(f"  Removed (missing): {files_removed:,}")
     else:
         click.echo("  (dry run - no database changes)")
 
-    click.echo(f"Elapsed time: {result.elapsed_seconds:.2f}s")
+    # Show job ID if available
+    job_id = getattr(result, "job_id", None)
+    if job_id:
+        job_short = job_id[:8]
+        elapsed = result.elapsed_seconds
+        click.echo(f"\nScan complete in {elapsed:.1f}s (job: {job_short})")
+    else:
+        click.echo(f"\nScan complete in {result.elapsed_seconds:.1f}s")
 
     if verbose and files:
         click.echo("\nFiles found:")

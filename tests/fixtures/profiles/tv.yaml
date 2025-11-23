@@ -1,0 +1,8 @@
+name: tv
+description: TV show processing rules
+
+default_policy: ~/policies/tv-shows.yaml
+
+logging:
+  level: debug
+  format: json

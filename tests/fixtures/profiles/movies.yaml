@@ -1,0 +1,12 @@
+name: movies
+description: Settings for movie library processing
+
+default_policy: ~/policies/movies-standard.yaml
+
+behavior:
+  warn_on_missing_features: false
+  show_upgrade_suggestions: true
+
+logging:
+  level: info
+  file: ~/.vpo/logs/movies.log

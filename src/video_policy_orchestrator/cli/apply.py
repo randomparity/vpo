@@ -155,9 +155,14 @@ def _format_dry_run_json(
     "--policy",
     "-p",
     "policy_path",
-    required=True,
+    required=False,
     type=click.Path(exists=False, path_type=Path),
-    help="Path to YAML policy file",
+    help="Path to YAML policy file (or use --profile for default)",
+)
+@click.option(
+    "--profile",
+    default=None,
+    help="Use named configuration profile from ~/.vpo/profiles/.",
 )
 @click.option(
     "--dry-run",
@@ -198,7 +203,8 @@ def _format_dry_run_json(
     type=click.Path(exists=False, path_type=Path),
 )
 def apply_command(
-    policy_path: Path,
+    policy_path: Path | None,
+    profile: str | None,
     dry_run: bool,
     keep_backup: bool | None,
     no_keep_backup: bool | None,
@@ -209,7 +215,47 @@ def apply_command(
     """Apply a policy to a media file.
 
     TARGET is the path to the media file to process.
+
+    You must specify either --policy or --profile (with default_policy).
+
+    Examples:
+
+        vpo apply --policy policy.yaml file.mkv
+
+        vpo apply --profile movies file.mkv
     """
+    # Load profile if specified
+    loaded_profile = None
+    if profile:
+        from video_policy_orchestrator.config.profiles import (
+            ProfileError,
+            list_profiles,
+            load_profile,
+        )
+
+        try:
+            loaded_profile = load_profile(profile)
+            if verbose and not json_output:
+                click.echo(f"Using profile: {loaded_profile.name}")
+        except ProfileError as e:
+            available = list_profiles()
+            _error_exit(str(e), EXIT_GENERAL_ERROR, json_output)
+            if available:
+                click.echo("\nAvailable profiles:", err=True)
+                for name in sorted(available):
+                    click.echo(f"  - {name}", err=True)
+
+    # Determine policy path from CLI or profile
+    if policy_path is None:
+        if loaded_profile and loaded_profile.default_policy:
+            policy_path = loaded_profile.default_policy
+        else:
+            _error_exit(
+                "No policy specified. Use --policy or --profile with default_policy.",
+                EXIT_POLICY_VALIDATION_ERROR,
+                json_output,
+            )
+
     # Resolve paths
     policy_path = policy_path.expanduser().resolve()
     target = target.expanduser().resolve()
