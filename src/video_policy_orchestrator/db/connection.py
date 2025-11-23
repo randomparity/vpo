@@ -201,6 +201,57 @@ class DaemonConnectionPool:
             cursor = conn.execute(query, params)
             return cursor.fetchall()
 
+    def execute_write(self, query: str, params: tuple = ()) -> int:
+        """Execute a write query safely (INSERT/UPDATE/DELETE).
+
+        This method acquires the lock to ensure thread-safe access
+        to the shared connection and commits the transaction.
+
+        Args:
+            query: SQL query to execute.
+            params: Query parameters.
+
+        Returns:
+            Number of affected rows.
+        """
+        with self._lock:
+            conn = self._get_connection_unlocked()
+            cursor = conn.execute(query, params)
+            conn.commit()
+            return cursor.rowcount
+
+    @contextmanager
+    def transaction(self) -> Iterator[sqlite3.Connection]:
+        """Context manager for atomic database transactions.
+
+        Automatically commits on success, rolls back on exception.
+        Uses BEGIN IMMEDIATE for write-intent transactions.
+
+        The connection is yielded to allow direct execution of multiple
+        statements within the transaction. Do NOT use execute_write()
+        inside a transaction as it will commit automatically.
+
+        Example:
+            with pool.transaction() as conn:
+                conn.execute("INSERT INTO ...", (...))
+                conn.execute("UPDATE ...", (...))
+
+        Yields:
+            The database connection for direct query execution.
+
+        Raises:
+            Exception: Re-raises any exception after rollback.
+        """
+        with self._lock:
+            conn = self._get_connection_unlocked()
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                yield conn
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
+
     def close(self) -> None:
         """Close the connection pool.
 

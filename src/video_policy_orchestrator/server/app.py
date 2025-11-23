@@ -1,20 +1,24 @@
 """HTTP application for daemon mode.
 
-This module provides the aiohttp Application with health check endpoint
-and runtime state management.
+This module provides the aiohttp Application with health check endpoint,
+Web UI routes, and runtime state management.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import sqlite3
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from aiohttp import web
+from aiohttp.web import RequestHandler
 
 from video_policy_orchestrator import __version__
+from video_policy_orchestrator.server.ui import setup_ui_routes
 
 if TYPE_CHECKING:
     from video_policy_orchestrator.db.connection import DaemonConnectionPool
@@ -66,8 +70,14 @@ async def check_database_health(connection_pool: DaemonConnectionPool | None) ->
             # Use pool's thread-safe execute method
             connection_pool.execute_read("SELECT 1")
             return True
+        except sqlite3.OperationalError as e:
+            logger.warning("Database locked or inaccessible: %s", e)
+            return False
+        except sqlite3.DatabaseError as e:
+            logger.warning("Database error during health check: %s", e)
+            return False
         except Exception as e:
-            logger.warning("Database health check failed: %s", e)
+            logger.error("Unexpected error during health check: %s", e)
             return False
 
     try:
@@ -104,13 +114,45 @@ def create_app(db_path: Path | None = None) -> web.Application:
 
     # Create connection pool if database path provided
     if db_path is not None and db_path.exists():
-        app["connection_pool"] = DaemonConnectionPool(db_path)
-        logger.debug("Created database connection pool for %s", db_path)
+        pool_timeout = float(os.environ.get("VPO_DB_TIMEOUT", "30.0"))
+        app["connection_pool"] = DaemonConnectionPool(db_path, timeout=pool_timeout)
+        logger.debug(
+            "Created database connection pool for %s with timeout %.1fs",
+            db_path,
+            pool_timeout,
+        )
     else:
         app["connection_pool"] = None
 
-    # Register routes
+    # Register API routes
     app.router.add_get("/health", health_handler)
+
+    # Setup UI routes and templates
+    setup_ui_routes(app)
+
+    # Setup static file serving with cache headers
+    static_path = Path(__file__).parent / "static"
+    app.router.add_static(
+        "/static",
+        static_path,
+        name="static",
+        append_version=True,  # Adds ?v=hash for cache busting
+    )
+
+    # Add middleware for static file cache headers
+    @web.middleware
+    async def static_cache_middleware(
+        request: web.Request, handler: RequestHandler
+    ) -> web.StreamResponse:
+        """Add Cache-Control headers to static file responses."""
+        response = await handler(request)
+        if request.path.startswith("/static/"):
+            # Cache static files for 1 hour
+            response.headers["Cache-Control"] = "public, max-age=3600"
+        return response
+
+    # Insert at beginning so it runs after static handler
+    app.middlewares.insert(0, static_cache_middleware)
 
     # Register cleanup handler
     app.on_cleanup.append(_cleanup_connection_pool)

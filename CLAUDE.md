@@ -99,6 +99,8 @@ This project uses **spec-driven development**:
 - SQLite (~/.vpo/library.db) - read-only access to existing schema v7 (011-report-export-cli)
 - Python 3.10+ (per pyproject.toml requires-python = ">=3.10") + click (>=8.0, existing), pydantic (>=2.10, existing), aiohttp (new - lightweight async HTTP server) (012-daemon-systemd-server)
 - SQLite (~/.vpo/library.db, existing schema v7) (012-daemon-systemd-server)
+- Python 3.10+ (server), HTML5/CSS3/JavaScript (client) + aiohttp (existing server), Jinja2 (templating) (013-web-ui-shell)
+- N/A (no new storage required for shell - static UI served via daemon) (013-web-ui-shell)
 
 ## Recent Changes
 - 006-transcode-pipelines: Added Python 3.10+ (per pyproject.toml) + click (CLI), pydantic (models), PyYAML (config), sqlite3 (jobs DB)
