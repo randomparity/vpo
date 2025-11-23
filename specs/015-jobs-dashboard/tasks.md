@@ -63,12 +63,12 @@
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Replace placeholder in src/video_policy_orchestrator/server/ui/templates/sections/jobs.html with jobs table structure
-- [ ] T012 [US1] Create src/video_policy_orchestrator/server/static/js/jobs.js with fetchJobs() function
-- [ ] T013 [US1] Implement renderJobsTable() in src/video_policy_orchestrator/server/static/js/jobs.js
-- [ ] T014 [US1] Implement formatDuration() helper for elapsed time display in src/video_policy_orchestrator/server/static/js/jobs.js
-- [ ] T015 [US1] Update jobs_handler in src/video_policy_orchestrator/server/ui/routes.py to pass JobListContext
-- [ ] T016 [US1] Add script tag for jobs.js in src/video_policy_orchestrator/server/ui/templates/sections/jobs.html
+- [X] T011 [US1] Replace placeholder in src/video_policy_orchestrator/server/ui/templates/sections/jobs.html with jobs table structure
+- [X] T012 [US1] Create src/video_policy_orchestrator/server/static/js/jobs.js with fetchJobs() function
+- [X] T013 [US1] Implement renderJobsTable() in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T014 [US1] Implement formatDuration() helper for elapsed time display in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T015 [US1] Update jobs_handler in src/video_policy_orchestrator/server/ui/routes.py to pass JobListContext
+- [X] T016 [US1] Add script tag for jobs.js in src/video_policy_orchestrator/server/ui/templates/sections/jobs.html
 
 **Checkpoint**: Jobs page displays all jobs in a table with correct columns and sorting.
 
