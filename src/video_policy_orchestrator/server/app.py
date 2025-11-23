@@ -4,13 +4,22 @@ This module provides the aiohttp Application with health check endpoint
 and runtime state management.
 """
 
+from __future__ import annotations
+
 import asyncio
+import logging
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from aiohttp import web
 
 from video_policy_orchestrator import __version__
+
+if TYPE_CHECKING:
+    from video_policy_orchestrator.db.connection import DaemonConnectionPool
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -37,53 +46,74 @@ class HealthStatus:
         return asdict(self)
 
 
-async def check_database_health(db_path: Path | None) -> bool:
-    """Check database connectivity asynchronously.
+async def check_database_health(connection_pool: DaemonConnectionPool | None) -> bool:
+    """Check database connectivity using connection pool.
 
     Runs SELECT 1 query in a thread pool to avoid blocking the event loop.
+    Uses the daemon's connection pool for thread-safe access.
 
     Args:
-        db_path: Path to SQLite database file.
+        connection_pool: DaemonConnectionPool instance or None.
 
     Returns:
         True if database is accessible, False otherwise.
     """
-    if db_path is None:
+    if connection_pool is None:
         return False
 
     def _sync_check() -> bool:
-        import sqlite3
-
         try:
-            conn = sqlite3.connect(str(db_path), timeout=5.0)
-            try:
-                conn.execute("SELECT 1")
-                return True
-            finally:
-                conn.close()
-        except Exception:
+            # Use pool's thread-safe execute method
+            connection_pool.execute_read("SELECT 1")
+            return True
+        except Exception as e:
+            logger.warning("Database health check failed: %s", e)
             return False
 
     try:
         return await asyncio.to_thread(_sync_check)
-    except Exception:
+    except Exception as e:
+        logger.error("Failed to run health check: %s", e)
         return False
 
 
-def create_app() -> web.Application:
+async def _cleanup_connection_pool(app: web.Application) -> None:
+    """Cleanup handler to close the connection pool on shutdown."""
+    pool: DaemonConnectionPool | None = app.get("connection_pool")
+    if pool is not None:
+        logger.debug("Closing database connection pool")
+        pool.close()
+
+
+def create_app(db_path: Path | None = None) -> web.Application:
     """Create and configure the aiohttp Application.
+
+    Args:
+        db_path: Path to database file for connection pooling.
+            If provided and exists, a connection pool will be created.
 
     Returns:
         Configured aiohttp Application instance.
     """
+    from video_policy_orchestrator.db.connection import DaemonConnectionPool
+
     app = web.Application()
 
     # Store runtime state in app dict
     app["lifecycle"] = None  # Will be set by serve command
-    app["db_path"] = None  # Will be set by serve command
+
+    # Create connection pool if database path provided
+    if db_path is not None and db_path.exists():
+        app["connection_pool"] = DaemonConnectionPool(db_path)
+        logger.debug("Created database connection pool for %s", db_path)
+    else:
+        app["connection_pool"] = None
 
     # Register routes
     app.router.add_get("/health", health_handler)
+
+    # Register cleanup handler
+    app.on_cleanup.append(_cleanup_connection_pool)
 
     return app
 
@@ -104,10 +134,10 @@ async def health_handler(request: web.Request) -> web.Response:
     from video_policy_orchestrator.server.lifecycle import DaemonLifecycle
 
     lifecycle: DaemonLifecycle | None = request.app.get("lifecycle")
-    db_path: Path | None = request.app.get("db_path")
+    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
 
-    # Check database connectivity
-    db_connected = await check_database_health(db_path)
+    # Check database connectivity using connection pool
+    db_connected = await check_database_health(connection_pool)
 
     # Determine shutdown state
     shutting_down = lifecycle.is_shutting_down if lifecycle else False

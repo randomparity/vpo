@@ -180,3 +180,137 @@ class TestHealthEndpoint:
 
         assert status.shutting_down is True
         assert status.status == "unhealthy"
+
+
+class TestConcurrentHealthRequests:
+    """Tests for concurrent health endpoint access."""
+
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Signal handling tests not supported on Windows",
+    )
+    def test_concurrent_health_requests_no_connection_exhaustion(
+        self, temp_db: Path
+    ) -> None:
+        """Test that health endpoint handles concurrent requests safely.
+
+        This verifies that the connection pool properly handles many
+        simultaneous health check requests without exhausting file
+        descriptors or database connections.
+        """
+        import concurrent.futures
+        import urllib.request
+
+        port = find_free_port()
+
+        env = os.environ.copy()
+        env["VPO_DATABASE_PATH"] = str(temp_db)
+
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "video_policy_orchestrator.cli",
+                "serve",
+                "--port",
+                str(port),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+
+        try:
+            # Wait for server to start
+            assert wait_for_port(port, timeout=10.0), f"Server didn't start on {port}"
+
+            def make_health_request():
+                """Make a single health request."""
+                try:
+                    with urllib.request.urlopen(
+                        f"http://127.0.0.1:{port}/health", timeout=5.0
+                    ) as response:
+                        return response.status
+                except Exception as e:
+                    return str(e)
+
+            # Make 50 concurrent health check requests using thread pool
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                futures = [executor.submit(make_health_request) for _ in range(50)]
+                results = [f.result() for f in futures]
+
+            # Count successful responses
+            successes = sum(1 for r in results if r in (200, 503))
+            errors = [r for r in results if r not in (200, 503)]
+
+            # All requests should succeed
+            assert successes == 50, f"Only {successes}/50 succeeded. Errors: {errors}"
+
+        finally:
+            proc.send_signal(signal.SIGTERM)
+            try:
+                proc.wait(timeout=10.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Signal handling tests not supported on Windows",
+    )
+    def test_daemon_shutdown_closes_connections(self, temp_db: Path) -> None:
+        """Test that connection pool is properly closed on shutdown.
+
+        Verifies that no database connections are leaked when the
+        daemon shuts down gracefully.
+        """
+        port = find_free_port()
+
+        env = os.environ.copy()
+        env["VPO_DATABASE_PATH"] = str(temp_db)
+
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "video_policy_orchestrator.cli",
+                "serve",
+                "--port",
+                str(port),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+
+        try:
+            # Wait for server to start
+            assert wait_for_port(port, timeout=10.0), "Server didn't start"
+
+            # Make a health request to ensure pool is initialized
+            import urllib.request
+
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/health", timeout=5.0
+            ) as response:
+                assert response.status == 200
+
+            # Send SIGTERM for graceful shutdown
+            proc.send_signal(signal.SIGTERM)
+
+            # Should exit cleanly
+            exit_code = proc.wait(timeout=15.0)
+            assert exit_code in (0, -signal.SIGTERM), f"Unexpected exit: {exit_code}"
+
+            # After shutdown, the database should be accessible
+            # (not locked by leaked connections)
+            import sqlite3
+
+            conn = sqlite3.connect(str(temp_db), timeout=1.0)
+            conn.execute("SELECT 1")
+            conn.close()
+
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait()

@@ -94,10 +94,9 @@ async def run_server(
     # Set up signal handlers
     setup_signal_handlers(loop, lifecycle, shutdown_event)
 
-    # Create the application
-    app = create_app()
+    # Create the application with database path for connection pooling
+    app = create_app(db_path=db_path)
     app["lifecycle"] = lifecycle
-    app["db_path"] = db_path
 
     # Create the runner and site
     runner = web.AppRunner(app)
