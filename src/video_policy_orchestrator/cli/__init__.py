@@ -2,6 +2,7 @@
 
 import atexit
 import sqlite3
+from pathlib import Path
 
 import click
 
@@ -12,6 +13,7 @@ from video_policy_orchestrator.db.connection import (
 from video_policy_orchestrator.db.schema import create_schema
 
 _db_conn: sqlite3.Connection | None = None
+_logging_configured: bool = False
 
 
 def _cleanup_db_connection() -> None:
@@ -68,6 +70,44 @@ def _get_db_connection() -> sqlite3.Connection | None:
         return None
 
 
+def _configure_logging(
+    log_level: str | None,
+    log_file: Path | None,
+    log_json: bool,
+) -> None:
+    """Configure logging from CLI options.
+
+    Args:
+        log_level: Override log level (debug, info, warning, error).
+        log_file: Override log file path.
+        log_json: Use JSON log format.
+    """
+    global _logging_configured
+    if _logging_configured:
+        return
+
+    from video_policy_orchestrator.config import get_config
+    from video_policy_orchestrator.config.models import LoggingConfig
+    from video_policy_orchestrator.logging import configure_logging
+
+    # Start with config file settings
+    config = get_config()
+    logging_config = config.logging
+
+    # Build final logging config with CLI overrides
+    final_config = LoggingConfig(
+        level=log_level or logging_config.level,
+        file=log_file or logging_config.file,
+        format="json" if log_json else logging_config.format,
+        include_stderr=logging_config.include_stderr,
+        max_bytes=logging_config.max_bytes,
+        backup_count=logging_config.backup_count,
+    )
+
+    configure_logging(final_config)
+    _logging_configured = True
+
+
 @click.group()
 @click.version_option(package_name="video-policy-orchestrator")
 @click.option(
@@ -75,11 +115,38 @@ def _get_db_connection() -> sqlite3.Connection | None:
     is_flag=True,
     help="Force load plugins even if version incompatible or unacknowledged",
 )
+@click.option(
+    "--log-level",
+    type=click.Choice(["debug", "info", "warning", "error"], case_sensitive=False),
+    default=None,
+    help="Override log level (default: info).",
+)
+@click.option(
+    "--log-file",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Override log file path.",
+)
+@click.option(
+    "--log-json",
+    is_flag=True,
+    default=False,
+    help="Use JSON log format.",
+)
 @click.pass_context
-def main(ctx: click.Context, force_load_plugins: bool) -> None:
+def main(
+    ctx: click.Context,
+    force_load_plugins: bool,
+    log_level: str | None,
+    log_file: Path | None,
+    log_json: bool,
+) -> None:
     """Video Policy Orchestrator - Scan, organize, and transform video libraries."""
     ctx.ensure_object(dict)
     ctx.obj["force_load_plugins"] = force_load_plugins
+
+    # Configure logging from CLI options
+    _configure_logging(log_level, log_file, log_json)
 
     # Initialize database connection for subcommands
     ctx.obj["db_conn"] = _get_db_connection()
@@ -93,6 +160,7 @@ def _register_commands():
     from video_policy_orchestrator.cli.inspect import inspect_command
     from video_policy_orchestrator.cli.jobs import jobs_group
     from video_policy_orchestrator.cli.plugins import plugins
+    from video_policy_orchestrator.cli.profiles import profiles_group
     from video_policy_orchestrator.cli.transcode import transcode_command
     from video_policy_orchestrator.cli.transcribe import transcribe_group
 
@@ -103,6 +171,7 @@ def _register_commands():
     main.add_command(transcode_command)
     main.add_command(jobs_group)
     main.add_command(transcribe_group)
+    main.add_command(profiles_group)
 
 
 _register_commands()

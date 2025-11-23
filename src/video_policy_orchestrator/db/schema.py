@@ -102,10 +102,10 @@ CREATE TABLE IF NOT EXISTS plugin_acknowledgments (
 CREATE INDEX IF NOT EXISTS idx_plugin_ack_name
     ON plugin_acknowledgments(plugin_name);
 
--- Jobs table (006-transcode-pipelines)
+-- Jobs table (006-transcode-pipelines, updated 008-operational-ux)
 CREATE TABLE IF NOT EXISTS jobs (
     id TEXT PRIMARY KEY,
-    file_id INTEGER NOT NULL,
+    file_id INTEGER,  -- FK to files.id (NULL for scan jobs)
     file_path TEXT NOT NULL,
     job_type TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'queued',
@@ -113,7 +113,7 @@ CREATE TABLE IF NOT EXISTS jobs (
 
     -- Policy
     policy_name TEXT,
-    policy_json TEXT NOT NULL,
+    policy_json TEXT,  -- Serialized settings (NULL for scan jobs)
 
     -- Progress
     progress_percent REAL NOT NULL DEFAULT 0.0,
@@ -529,26 +529,105 @@ def migrate_v6_to_v7(conn: sqlite3.Connection) -> None:
     """Migrate database from schema version 6 to version 7.
 
     Extends jobs table for unified operation tracking (008-operational-ux):
+    - Expands job_type CHECK constraint to include 'scan' and 'apply'
     - Adds files_affected_json for multi-file operations
     - Adds summary_json for job-specific results (e.g., scan counts)
-    - Note: job_type constraint cannot be altered in SQLite; new types work fine
 
+    SQLite doesn't allow altering CHECK constraints, so we must recreate the table.
     This migration is idempotent - safe to run multiple times.
 
     Args:
         conn: An open database connection.
     """
-    # Get existing columns in jobs table
+    # Check if jobs table needs migration by checking columns
     cursor = conn.execute("PRAGMA table_info(jobs)")
     existing_columns = {row[1] for row in cursor.fetchall()}
 
-    # Add files_affected_json if missing
-    if "files_affected_json" not in existing_columns:
-        conn.execute("ALTER TABLE jobs ADD COLUMN files_affected_json TEXT")
+    # If new columns already exist, migration was already done
+    if "summary_json" in existing_columns and "files_affected_json" in existing_columns:
+        # Just update version and return
+        conn.execute(
+            "UPDATE _meta SET value = '7' WHERE key = 'schema_version'",
+        )
+        conn.commit()
+        return
 
-    # Add summary_json if missing
-    if "summary_json" not in existing_columns:
-        conn.execute("ALTER TABLE jobs ADD COLUMN summary_json TEXT")
+    # Recreate jobs table with expanded constraint and new columns
+    conn.executescript("""
+        -- Create new table with expanded job_type constraint
+        CREATE TABLE IF NOT EXISTS jobs_new (
+            id TEXT PRIMARY KEY,
+            file_id INTEGER,
+            file_path TEXT NOT NULL,
+            job_type TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'queued',
+            priority INTEGER NOT NULL DEFAULT 100,
+
+            -- Policy
+            policy_name TEXT,
+            policy_json TEXT,
+
+            -- Progress
+            progress_percent REAL NOT NULL DEFAULT 0.0,
+            progress_json TEXT,
+
+            -- Timing
+            created_at TEXT NOT NULL,
+            started_at TEXT,
+            completed_at TEXT,
+
+            -- Worker
+            worker_pid INTEGER,
+            worker_heartbeat TEXT,
+
+            -- Results
+            output_path TEXT,
+            backup_path TEXT,
+            error_message TEXT,
+
+            -- New columns for 008-operational-ux
+            files_affected_json TEXT,
+            summary_json TEXT,
+
+            FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
+            CONSTRAINT valid_status CHECK (
+                status IN ('queued', 'running', 'completed', 'failed', 'cancelled')
+            ),
+            CONSTRAINT valid_job_type CHECK (
+                job_type IN ('transcode', 'move', 'scan', 'apply')
+            ),
+            CONSTRAINT valid_progress CHECK (
+                progress_percent >= 0.0 AND progress_percent <= 100.0
+            )
+        );
+
+        -- Copy data from old table
+        INSERT INTO jobs_new (
+            id, file_id, file_path, job_type, status, priority,
+            policy_name, policy_json, progress_percent, progress_json,
+            created_at, started_at, completed_at,
+            worker_pid, worker_heartbeat, output_path, backup_path, error_message
+        )
+        SELECT
+            id, file_id, file_path, job_type, status, priority,
+            policy_name, policy_json, progress_percent, progress_json,
+            created_at, started_at, completed_at,
+            worker_pid, worker_heartbeat, output_path, backup_path, error_message
+        FROM jobs;
+
+        -- Drop old table
+        DROP TABLE jobs;
+
+        -- Rename new table
+        ALTER TABLE jobs_new RENAME TO jobs;
+
+        -- Recreate indexes
+        CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+        CREATE INDEX IF NOT EXISTS idx_jobs_file_id ON jobs(file_id);
+        CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at);
+        CREATE INDEX IF NOT EXISTS idx_jobs_priority_created
+            ON jobs(priority, created_at);
+    """)
 
     # Update schema version to 7
     conn.execute(

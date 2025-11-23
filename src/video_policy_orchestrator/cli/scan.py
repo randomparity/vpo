@@ -67,6 +67,11 @@ def validate_directories(ctx, param, value):
     help="Use content hash for change detection (slower).",
 )
 @click.option(
+    "--profile",
+    default=None,
+    help="Use named configuration profile from ~/.vpo/profiles/.",
+)
+@click.option(
     "--dry-run",
     is_flag=True,
     default=False,
@@ -93,6 +98,7 @@ def scan(
     full: bool,
     prune: bool,
     verify_hash: bool,
+    profile: str | None,
     dry_run: bool,
     verbose: bool,
     json_output: bool,
@@ -102,6 +108,9 @@ def scan(
     Recursively discovers video files in the specified directories,
     computes content hashes, and stores results in the database.
 
+    By default, scans are incremental - only files that have changed since
+    the last scan are introspected. Use --full to force a complete rescan.
+
     Examples:
 
         vpo scan /media/videos
@@ -109,6 +118,8 @@ def scan(
         vpo scan --extensions mkv,mp4 /media/movies /media/tv
 
         vpo scan --dry-run --verbose /media/videos
+
+        vpo scan --profile movies /media/movies
     """
     from video_policy_orchestrator.db.connection import (
         DatabaseLockedError,
@@ -116,6 +127,27 @@ def scan(
         get_default_db_path,
     )
     from video_policy_orchestrator.db.schema import initialize_database
+
+    # Load profile if specified
+    if profile:
+        from video_policy_orchestrator.config.profiles import (
+            ProfileError,
+            list_profiles,
+            load_profile,
+        )
+
+        try:
+            loaded_profile = load_profile(profile)
+            if verbose and not json_output:
+                click.echo(f"Using profile: {loaded_profile.name}")
+        except ProfileError as e:
+            available = list_profiles()
+            click.echo(f"Error: {e}", err=True)
+            if available:
+                click.echo("\nAvailable profiles:", err=True)
+                for name in sorted(available):
+                    click.echo(f"  - {name}", err=True)
+            sys.exit(1)
 
     # Parse extensions
     ext_list = None

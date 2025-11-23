@@ -116,24 +116,24 @@
 
 ### Tests for User Story 3
 
-- [ ] T037 [P] [US3] Unit test for profile loading and validation in tests/unit/test_profiles.py
-- [ ] T038 [P] [US3] Unit test for profile merging precedence in tests/unit/test_profiles.py
-- [ ] T039 [P] [US3] Create sample profile fixtures in tests/fixtures/profiles/
+- [x] T037 [P] [US3] Unit test for profile loading and validation in tests/unit/test_profiles.py
+- [x] T038 [P] [US3] Unit test for profile merging precedence in tests/unit/test_profiles.py
+- [x] T039 [P] [US3] Create sample profile fixtures in tests/fixtures/profiles/
 
 ### Implementation for User Story 3
 
-- [ ] T040 [US3] Implement load_profile() in src/video_policy_orchestrator/config/profiles.py
-- [ ] T041 [US3] Implement list_profiles() in src/video_policy_orchestrator/config/profiles.py
-- [ ] T042 [US3] Implement merge_profile_with_config() for precedence handling in src/video_policy_orchestrator/config/profiles.py
-- [ ] T043 [US3] Add profile validation (name, policy file exists) in src/video_policy_orchestrator/config/profiles.py
-- [ ] T044 [US3] Create profiles CLI command group in src/video_policy_orchestrator/cli/profiles.py
-- [ ] T045 [US3] Implement `vpo profiles list` command in src/video_policy_orchestrator/cli/profiles.py
-- [ ] T046 [US3] Implement `vpo profiles show <name>` command in src/video_policy_orchestrator/cli/profiles.py
-- [ ] T047 [US3] Add --json output options to profiles commands in src/video_policy_orchestrator/cli/profiles.py
-- [ ] T048 [US3] Add global --profile option to CLI main in src/video_policy_orchestrator/cli/__init__.py
-- [ ] T049 [US3] Wire --profile into scan command in src/video_policy_orchestrator/cli/scan.py
-- [ ] T050 [US3] Wire --profile into apply command (if exists) in src/video_policy_orchestrator/cli/apply.py
-- [ ] T051 [US3] Register profiles command group in CLI main in src/video_policy_orchestrator/cli/__init__.py
+- [x] T040 [US3] Implement load_profile() in src/video_policy_orchestrator/config/profiles.py
+- [x] T041 [US3] Implement list_profiles() in src/video_policy_orchestrator/config/profiles.py
+- [x] T042 [US3] Implement merge_profile_with_config() for precedence handling in src/video_policy_orchestrator/config/profiles.py
+- [x] T043 [US3] Add profile validation (name, policy file exists) in src/video_policy_orchestrator/config/profiles.py
+- [x] T044 [US3] Create profiles CLI command group in src/video_policy_orchestrator/cli/profiles.py
+- [x] T045 [US3] Implement `vpo profiles list` command in src/video_policy_orchestrator/cli/profiles.py
+- [x] T046 [US3] Implement `vpo profiles show <name>` command in src/video_policy_orchestrator/cli/profiles.py
+- [x] T047 [US3] Add --json output options to profiles commands in src/video_policy_orchestrator/cli/profiles.py
+- [x] T048 [US3] Add global --profile option to CLI main in src/video_policy_orchestrator/cli/__init__.py (added to scan/apply)
+- [x] T049 [US3] Wire --profile into scan command in src/video_policy_orchestrator/cli/scan.py
+- [x] T050 [US3] Wire --profile into apply command (if exists) in src/video_policy_orchestrator/cli/apply.py
+- [x] T051 [US3] Register profiles command group in CLI main in src/video_policy_orchestrator/cli/__init__.py
 
 **Checkpoint**: User Story 3 complete - Commit "feat(008): Phase 5 - US3 Configuration profiles"
 
@@ -147,21 +147,21 @@
 
 ### Tests for User Story 4
 
-- [ ] T052 [P] [US4] Unit test for logging configuration in tests/unit/test_logging_config.py
-- [ ] T053 [P] [US4] Unit test for JSON formatter output in tests/unit/test_logging_config.py
+- [x] T052 [P] [US4] Unit test for logging configuration in tests/unit/test_logging_config.py
+- [x] T053 [P] [US4] Unit test for JSON formatter output in tests/unit/test_logging_config.py
 
 ### Implementation for User Story 4
 
-- [ ] T054 [US4] Implement JSONFormatter class in src/video_policy_orchestrator/logging/handlers.py
-- [ ] T055 [US4] Implement configure_logging() from LoggingConfig in src/video_policy_orchestrator/logging/config.py
-- [ ] T056 [US4] Add RotatingFileHandler setup with max_bytes/backup_count in src/video_policy_orchestrator/logging/config.py
-- [ ] T057 [US4] Add stderr fallback when log file unavailable in src/video_policy_orchestrator/logging/config.py
-- [ ] T058 [US4] Export configure_logging in src/video_policy_orchestrator/logging/__init__.py
-- [ ] T059 [US4] Add global --log-level option to CLI main in src/video_policy_orchestrator/cli/__init__.py
-- [ ] T060 [US4] Add global --log-file option to CLI main in src/video_policy_orchestrator/cli/__init__.py
-- [ ] T061 [US4] Add global --log-json flag to CLI main in src/video_policy_orchestrator/cli/__init__.py
-- [ ] T062 [US4] Wire logging configuration into CLI startup in src/video_policy_orchestrator/cli/__init__.py
-- [ ] T063 [US4] Add structured logging calls to scan operations in src/video_policy_orchestrator/scanner/orchestrator.py
+- [x] T054 [US4] Implement JSONFormatter class in src/video_policy_orchestrator/logging/handlers.py
+- [x] T055 [US4] Implement configure_logging() from LoggingConfig in src/video_policy_orchestrator/logging/config.py
+- [x] T056 [US4] Add RotatingFileHandler setup with max_bytes/backup_count in src/video_policy_orchestrator/logging/config.py
+- [x] T057 [US4] Add stderr fallback when log file unavailable in src/video_policy_orchestrator/logging/config.py
+- [x] T058 [US4] Export configure_logging in src/video_policy_orchestrator/logging/__init__.py
+- [x] T059 [US4] Add global --log-level option to CLI main in src/video_policy_orchestrator/cli/__init__.py
+- [x] T060 [US4] Add global --log-file option to CLI main in src/video_policy_orchestrator/cli/__init__.py
+- [x] T061 [US4] Add global --log-json flag to CLI main in src/video_policy_orchestrator/cli/__init__.py
+- [x] T062 [US4] Wire logging configuration into CLI startup in src/video_policy_orchestrator/cli/__init__.py
+- [x] T063 [US4] Add structured logging calls to scan operations in src/video_policy_orchestrator/scanner/orchestrator.py (logging already in place)
 
 **Checkpoint**: User Story 4 complete - Commit "feat(008): Phase 6 - US4 Structured logging and observability"
 
@@ -171,12 +171,12 @@
 
 **Purpose**: Final integration, documentation, and cleanup
 
-- [ ] T064 [P] Update CLI help text for all new commands and options in src/video_policy_orchestrator/cli/
-- [ ] T065 [P] Add auto job purge at scan/apply start using JobsConfig in src/video_policy_orchestrator/jobs/tracking.py
-- [ ] T066 Verify all commands respect precedence: CLI > profile > config > defaults
-- [ ] T067 [P] Run ruff check and fix any linting issues
-- [ ] T068 [P] Run pytest and ensure all tests pass
-- [ ] T069 Validate feature against quickstart.md scenarios
+- [x] T064 [P] Update CLI help text for all new commands and options in src/video_policy_orchestrator/cli/
+- [x] T065 [P] Add auto job purge at scan/apply start using JobsConfig in src/video_policy_orchestrator/jobs/tracking.py
+- [x] T066 Verify all commands respect precedence: CLI > profile > config > defaults
+- [x] T067 [P] Run ruff check and fix any linting issues
+- [x] T068 [P] Run pytest and ensure all tests pass
+- [x] T069 Validate feature against quickstart.md scenarios
 
 **Checkpoint**: Feature complete - Commit "feat(008): Phase 7 - Polish and cross-cutting concerns"
 

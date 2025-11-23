@@ -153,7 +153,12 @@ class TestApplyCommandBasics:
         result = runner.invoke(main, ["apply", str(test_mkv)])
 
         assert result.exit_code == 2  # Click's error for missing required option
-        assert "Missing option" in result.output or "required" in result.output.lower()
+        # Now accepts --policy or --profile, so error message changed
+        assert (
+            "Missing option" in result.output
+            or "required" in result.output.lower()
+            or "No policy specified" in result.output
+        )
 
     def test_apply_missing_target(self, policy_file: Path) -> None:
         """Test that apply fails when target file is not provided."""

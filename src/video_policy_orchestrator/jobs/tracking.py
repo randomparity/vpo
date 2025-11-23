@@ -57,7 +57,7 @@ def create_scan_job(
 
     job = Job(
         id=job_id,
-        file_id=0,  # Not applicable for scan jobs
+        file_id=None,  # Scan jobs don't target a specific file
         file_path=directory,
         job_type=JobType.SCAN,
         status=JobStatus.RUNNING,

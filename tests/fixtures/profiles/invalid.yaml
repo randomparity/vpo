@@ -1,0 +1,5 @@
+name: invalid
+
+logging:
+  level: invalid_level
+  format: text

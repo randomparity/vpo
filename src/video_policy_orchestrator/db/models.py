@@ -233,15 +233,15 @@ class Job:
     """Database record for jobs table."""
 
     id: str  # UUID v4
-    file_id: int  # FK to files.id
+    file_id: int | None  # FK to files.id (None for scan jobs)
     file_path: str  # Path at time of job creation
-    job_type: JobType  # TRANSCODE or MOVE
+    job_type: JobType  # TRANSCODE, MOVE, SCAN, or APPLY
     status: JobStatus  # QUEUED, RUNNING, COMPLETED, FAILED, CANCELLED
     priority: int  # Lower = higher priority (default: 100)
 
     # Policy reference
     policy_name: str | None  # Name of policy used
-    policy_json: str  # Serialized policy settings for this job
+    policy_json: str | None  # Serialized policy settings for this job
 
     # Progress tracking
     progress_percent: float  # 0.0 - 100.0

@@ -89,8 +89,26 @@ class TestScanCommand:
         result = runner.invoke(main, ["scan", "--json", str(temp_video_dir)])
         assert result.exit_code == 0
 
+        # Extract JSON from output (may have log lines before/after it)
+        output = result.output
+        # Find the JSON object by looking for {"files_found" which is our output
+        json_start = output.find('{"')
+        if json_start < 0:
+            json_start = output.find("{\n")  # Indented JSON
+        if json_start >= 0:
+            # Find the matching closing brace
+            depth = 0
+            for i, c in enumerate(output[json_start:]):
+                if c == "{":
+                    depth += 1
+                elif c == "}":
+                    depth -= 1
+                    if depth == 0:
+                        output = output[json_start : json_start + i + 1]
+                        break
+
         # Should be valid JSON
-        data = json.loads(result.output)
+        data = json.loads(output)
         assert "files_found" in data or "total" in data or isinstance(data, dict)
 
     def test_scan_multiple_directories(self, temp_dir: Path):
