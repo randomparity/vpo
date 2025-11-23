@@ -19,10 +19,10 @@
 
 **Purpose**: Add aiohttp dependency and create server module structure
 
-- [ ] T001 Add aiohttp>=3.9 dependency to pyproject.toml
-- [ ] T002 Create server module directory structure at src/video_policy_orchestrator/server/
-- [ ] T003 [P] Create src/video_policy_orchestrator/server/__init__.py with module exports
-- [ ] T004 Commit Phase 1 changes with message "feat(012): Setup server module structure and aiohttp dependency"
+- [X] T001 Add aiohttp>=3.9 dependency to pyproject.toml
+- [X] T002 Create server module directory structure at src/video_policy_orchestrator/server/
+- [X] T003 [P] Create src/video_policy_orchestrator/server/__init__.py with module exports
+- [X] T004 Commit Phase 1 changes with message "feat(012): Setup server module structure and aiohttp dependency"
 
 ---
 
@@ -32,13 +32,13 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Add ServerConfig dataclass to src/video_policy_orchestrator/config/models.py per data-model.md
-- [ ] T006 Add server field to VPOConfig dataclass in src/video_policy_orchestrator/config/models.py
-- [ ] T007 Add server config loading (TOML + env vars) to src/video_policy_orchestrator/config/loader.py
-- [ ] T008 [P] Create ShutdownState dataclass in src/video_policy_orchestrator/server/lifecycle.py per data-model.md
-- [ ] T009 [P] Create HealthStatus dataclass in src/video_policy_orchestrator/server/app.py per data-model.md
-- [ ] T010 Add database health check helper function to src/video_policy_orchestrator/db/connection.py
-- [ ] T011 Commit Phase 2 changes with message "feat(012): Add ServerConfig and foundational data models"
+- [X] T005 Add ServerConfig dataclass to src/video_policy_orchestrator/config/models.py per data-model.md
+- [X] T006 Add server field to VPOConfig dataclass in src/video_policy_orchestrator/config/models.py
+- [X] T007 Add server config loading (TOML + env vars) to src/video_policy_orchestrator/config/loader.py
+- [X] T008 [P] Create ShutdownState dataclass in src/video_policy_orchestrator/server/lifecycle.py per data-model.md
+- [X] T009 [P] Create HealthStatus dataclass in src/video_policy_orchestrator/server/app.py per data-model.md
+- [X] T010 Add database health check helper function to src/video_policy_orchestrator/db/connection.py
+- [X] T011 Commit Phase 2 changes with message "feat(012): Add ServerConfig and foundational data models"
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 

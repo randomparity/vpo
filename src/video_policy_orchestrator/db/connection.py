@@ -88,3 +88,32 @@ def handle_database_locked(func):
             raise
 
     return wrapper
+
+
+def check_database_connectivity(db_path: Path | None = None) -> bool:
+    """Check if the database is accessible.
+
+    Performs a simple SELECT 1 query to verify database connectivity.
+    This is a synchronous operation intended for health checks.
+
+    Args:
+        db_path: Path to the database file. Defaults to ~/.vpo/library.db.
+
+    Returns:
+        True if database is accessible and responds to queries, False otherwise.
+    """
+    if db_path is None:
+        db_path = get_default_db_path()
+
+    if not db_path.exists():
+        return False
+
+    try:
+        conn = sqlite3.connect(str(db_path), timeout=5.0)
+        try:
+            conn.execute("SELECT 1")
+            return True
+        finally:
+            conn.close()
+    except Exception:
+        return False

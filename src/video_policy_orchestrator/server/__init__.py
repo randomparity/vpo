@@ -11,7 +11,9 @@ Exports:
     create_app: Factory function to create the aiohttp Application
 """
 
-# Exports will be populated as classes are implemented
+from video_policy_orchestrator.server.app import HealthStatus, create_app
+from video_policy_orchestrator.server.lifecycle import DaemonLifecycle, ShutdownState
+
 __all__ = [
     "DaemonLifecycle",
     "ShutdownState",
