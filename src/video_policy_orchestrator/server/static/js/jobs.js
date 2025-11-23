@@ -150,7 +150,8 @@
             duration = Math.floor((now - created) / 1000);
         }
 
-        return '<tr>' +
+        // Make row clickable - link to job detail view (016-job-detail-view)
+        return '<tr class="job-row-clickable" data-job-id="' + escapeHtml(job.id) + '" onclick="window.location.href=\'/jobs/' + escapeHtml(job.id) + '\'" style="cursor: pointer;">' +
             '<td class="job-id" title="' + escapeHtml(job.id) + '">' + escapeHtml(shortId) + '</td>' +
             '<td>' + createTypeBadge(job.job_type) + '</td>' +
             '<td>' + createStatusBadge(job.status) + '</td>' +
