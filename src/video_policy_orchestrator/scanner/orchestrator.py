@@ -22,16 +22,16 @@ if TYPE_CHECKING:
 class ScanProgressCallback(Protocol):
     """Protocol for scan progress callbacks."""
 
-    def on_discover_progress(self, files_found: int) -> None:
-        """Called during discovery with count of files found."""
+    def on_discover_progress(self, files_found: int, files_per_sec: int) -> None:
+        """Called during discovery with count of files found and rate."""
         ...
 
-    def on_hash_progress(self, processed: int, total: int) -> None:
-        """Called during hashing with processed/total counts."""
+    def on_hash_progress(self, processed: int, total: int, files_per_sec: int) -> None:
+        """Called during hashing with processed/total counts and rate."""
         ...
 
-    def on_scan_progress(self, processed: int, total: int) -> None:
-        """Called during scanning/introspection with processed/total counts."""
+    def on_scan_progress(self, processed: int, total: int, files_per_sec: int) -> None:
+        """Called during scanning/introspection with processed/total counts and rate."""
         ...
 
 
@@ -435,6 +435,7 @@ class ScannerOrchestrator:
             # Persist to database with progress reporting
             now = datetime.now(timezone.utc)
             total_to_process = len(files_to_process)
+            scan_start_time = time.time()
             for i, scanned in enumerate(files_to_process):
                 if self._is_interrupted():
                     result.interrupted = True
@@ -501,7 +502,9 @@ class ScannerOrchestrator:
                 processed = i + 1
                 # Use new scan_progress callback if available
                 if scan_progress is not None:
-                    scan_progress.on_scan_progress(processed, total_to_process)
+                    elapsed = time.time() - scan_start_time
+                    rate = int(processed / elapsed) if elapsed > 0 else 0
+                    scan_progress.on_scan_progress(processed, total_to_process, rate)
                 # Fall back to legacy progress_callback (every 100 files)
                 elif progress_callback and processed % 100 == 0:
                     progress_callback(processed, total_to_process)

@@ -6,6 +6,7 @@ use pyo3::types::PyDict;
 use rayon::prelude::*;
 use std::collections::HashSet;
 use std::path::PathBuf;
+use std::time::Instant;
 use walkdir::WalkDir;
 
 /// Discovered file information returned to Python.
@@ -32,7 +33,8 @@ impl IntoPy<PyObject> for DiscoveredFile {
 ///     root_path: The root directory to scan
 ///     extensions: List of file extensions to match (e.g., ["mkv", "mp4"])
 ///     follow_symlinks: Whether to follow symbolic links
-///     progress_callback: Optional callback called with (files_found,) as files are discovered
+///     progress_callback: Optional callback called with (files_found, files_per_sec) as files
+///         are discovered.
 ///
 /// Returns:
 ///     List of dicts with path, size, and modified timestamp for each file
@@ -73,6 +75,7 @@ pub fn discover_videos(
     let mut entries: Vec<_> = Vec::new();
     let mut files_found: usize = 0;
     let mut last_reported: usize = 0;
+    let start_time = Instant::now();
 
     for e in walker
         .into_iter()
@@ -113,7 +116,13 @@ pub fn discover_videos(
                         py.check_signals()?;
 
                         if let Some(ref cb) = progress_callback {
-                            cb.call1(py, (files_found,))?;
+                            let elapsed = start_time.elapsed().as_secs_f64();
+                            let rate = if elapsed > 0.0 {
+                                (files_found as f64 / elapsed) as u64
+                            } else {
+                                0
+                            };
+                            cb.call1(py, (files_found, rate))?;
                         }
                         last_reported = files_found;
                     }
@@ -126,7 +135,13 @@ pub fn discover_videos(
     // Final progress callback
     if let Some(ref cb) = progress_callback {
         if files_found != last_reported {
-            cb.call1(py, (files_found,))?;
+            let elapsed = start_time.elapsed().as_secs_f64();
+            let rate = if elapsed > 0.0 {
+                (files_found as f64 / elapsed) as u64
+            } else {
+                0
+            };
+            cb.call1(py, (files_found, rate))?;
         }
     }
 

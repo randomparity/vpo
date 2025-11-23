@@ -6,6 +6,7 @@ use pyo3::types::PyDict;
 use rayon::prelude::*;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
+use std::time::Instant;
 use xxhash_rust::xxh64::xxh64;
 
 const CHUNK_SIZE: usize = 65536; // 64KB
@@ -73,7 +74,8 @@ fn compute_file_hash(path: &str) -> Result<String, String> {
 ///
 /// Args:
 ///     paths: List of file paths to hash
-///     progress_callback: Optional callback called with (processed, total) as files are hashed
+///     progress_callback: Optional callback called with (processed, total, files_per_sec)
+///         as files are hashed
 ///
 /// Returns:
 ///     List of dicts with path, hash (or None), and error (or None) for each file
@@ -90,6 +92,7 @@ pub fn hash_files(
         // Use batched processing to allow progress callbacks between batches
         let mut results: Vec<FileHash> = Vec::with_capacity(total);
         let mut processed: usize = 0;
+        let start_time = Instant::now();
 
         for chunk in paths.chunks(PROGRESS_BATCH_SIZE) {
             // Check for Ctrl+C before each batch
@@ -118,7 +121,13 @@ pub fn hash_files(
             results.extend(chunk_results);
 
             // Call progress callback (holding GIL)
-            cb.call1(py, (processed, total))?;
+            let elapsed = start_time.elapsed().as_secs_f64();
+            let rate = if elapsed > 0.0 {
+                (processed as f64 / elapsed) as u64
+            } else {
+                0
+            };
+            cb.call1(py, (processed, total, rate))?;
         }
 
         Ok(results)

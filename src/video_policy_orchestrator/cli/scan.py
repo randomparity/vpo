@@ -46,26 +46,26 @@ class ProgressDisplay:
             sys.stdout.flush()
             self._last_line_len = 0
 
-    def on_discover_progress(self, files_found: int) -> None:
-        """Called during discovery with count of files found."""
+    def on_discover_progress(self, files_found: int, files_per_sec: int) -> None:
+        """Called during discovery with count of files found and rate."""
         if self._phase != "discover":
             self._finish_line()
             self._phase = "discover"
-        self._write(f"Discovering... {files_found:,} files")
+        self._write(f"Discovering... {files_found:,} files ({files_per_sec:,}/sec)")
 
-    def on_hash_progress(self, processed: int, total: int) -> None:
-        """Called during hashing with processed/total counts."""
+    def on_hash_progress(self, processed: int, total: int, files_per_sec: int) -> None:
+        """Called during hashing with processed/total counts and rate."""
         if self._phase != "hash":
             self._finish_line()
             self._phase = "hash"
-        self._write(f"Hashing... {processed:,}/{total:,}")
+        self._write(f"Hashing... {processed:,}/{total:,} ({files_per_sec:,}/sec)")
 
-    def on_scan_progress(self, processed: int, total: int) -> None:
-        """Called during scanning/introspection with processed/total counts."""
+    def on_scan_progress(self, processed: int, total: int, files_per_sec: int) -> None:
+        """Called during scanning/introspection with processed/total counts and rate."""
         if self._phase != "scan":
             self._finish_line()
             self._phase = "scan"
-        self._write(f"Scanning... {processed:,}/{total:,}")
+        self._write(f"Scanning... {processed:,}/{total:,} ({files_per_sec:,}/sec)")
 
     def finish(self) -> None:
         """Finish all progress display."""
