@@ -85,11 +85,18 @@
         </dl>
     </section>
 
-    <!-- Summary section placeholder (US2 will enhance) -->
-    <section class="job-detail-summary" id="job-summary-section" style="display: none;">
+    <!-- Summary section -->
+    {% if job.summary %}
+    <section class="job-detail-summary" id="job-summary-section">
         <h2>Summary</h2>
-        <p id="job-summary-text">—</p>
+        <p id="job-summary-text">{{ job.summary }}</p>
     </section>
+    {% elif job.status == 'completed' or job.status == 'failed' %}
+    <section class="job-detail-summary" id="job-summary-section">
+        <h2>Summary</h2>
+        <p id="job-summary-text" class="job-detail-no-summary">No summary available</p>
+    </section>
+    {% endif %}
 
     <!-- Logs section placeholder (US3 will enhance) -->
     <section class="job-detail-logs" id="job-logs-section" style="display: none;">

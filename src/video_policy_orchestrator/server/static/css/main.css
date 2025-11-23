@@ -621,6 +621,11 @@ html, body {
     color: var(--color-text);
 }
 
+.job-detail-no-summary {
+    color: var(--color-text-hint);
+    font-style: italic;
+}
+
 /* Logs section */
 .job-detail-logs {
     margin-bottom: var(--spacing-lg);

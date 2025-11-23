@@ -29,6 +29,7 @@ from video_policy_orchestrator.server.ui.models import (
     JobListResponse,
     NavigationState,
     TemplateContext,
+    generate_summary_text,
 )
 
 logger = logging.getLogger(__name__)
@@ -302,6 +303,9 @@ def _job_to_detail_item(job, has_logs: bool) -> JobDetailItem:
         except (json.JSONDecodeError, TypeError):
             pass
 
+    # Generate human-readable summary from summary_raw
+    summary_text = generate_summary_text(job.job_type.value, summary_raw)
+
     return JobDetailItem(
         id=job.id,
         id_short=job.id[:8],
@@ -317,7 +321,7 @@ def _job_to_detail_item(job, has_logs: bool) -> JobDetailItem:
         progress_percent=job.progress_percent,
         error_message=job.error_message,
         output_path=job.output_path,
-        summary=None,  # Will be generated in User Story 2
+        summary=summary_text,
         summary_raw=summary_raw,
         has_logs=has_logs,
     )
