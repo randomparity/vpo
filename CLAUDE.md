@@ -107,6 +107,8 @@ This project uses **spec-driven development**:
 - SQLite (~/.vpo/library.db) - existing jobs table with schema v7 (015-jobs-dashboard)
 - Python 3.10+ (per pyproject.toml requires-python = ">=3.10") + aiohttp (>=3.9, existing), aiohttp-jinja2 (>=1.6, existing), Jinja2 (>=3.1, existing) (016-job-detail-view)
 - SQLite (~/.vpo/library.db) - existing schema v7, file-based logs (~/.vpo/logs/{job_id}.log) (016-job-detail-view)
+- Python 3.10+ (server), JavaScript ES6+ (client) + aiohttp (existing), Jinja2 (existing), vanilla JavaScript (no new dependencies) (017-live-job-polling)
+- SQLite (~/.vpo/library.db) - existing schema v7, read-only access (017-live-job-polling)
 
 ## Recent Changes
 - 006-transcode-pipelines: Added Python 3.10+ (per pyproject.toml) + click (CLI), pydantic (models), PyYAML (config), sqlite3 (jobs DB)
