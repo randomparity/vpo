@@ -229,6 +229,82 @@
     }
 
     /**
+     * Fetch scan errors from the API.
+     * @param {string} jobId - Job UUID
+     */
+    async function fetchScanErrors(jobId) {
+        const container = document.getElementById('errors-container');
+        if (!container) return;
+
+        try {
+            const response = await fetch('/api/jobs/' + jobId + '/errors');
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch errors: ' + response.status);
+            }
+
+            const data = await response.json();
+
+            // Clear loading state
+            container.textContent = '';
+
+            if (data.errors.length === 0) {
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'errors-empty';
+                emptyDiv.textContent = 'No errors found';
+                container.appendChild(emptyDiv);
+                return;
+            }
+
+            // Render error list
+            const errorList = document.createElement('div');
+            errorList.className = 'errors-list';
+
+            data.errors.forEach(function(error) {
+                const errorItem = document.createElement('div');
+                errorItem.className = 'error-item';
+
+                const errorFilename = document.createElement('div');
+                errorFilename.className = 'error-filename';
+                errorFilename.textContent = error.filename;
+                errorFilename.setAttribute('title', error.path);
+
+                const errorMessage = document.createElement('div');
+                errorMessage.className = 'error-message';
+                errorMessage.textContent = error.error;
+
+                errorItem.appendChild(errorFilename);
+                errorItem.appendChild(errorMessage);
+                errorList.appendChild(errorItem);
+            });
+
+            container.appendChild(errorList);
+
+        } catch (error) {
+            console.error('Error fetching scan errors:', error);
+            container.textContent = '';
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'errors-error';
+            errorDiv.textContent = 'Unable to load error details';
+            container.appendChild(errorDiv);
+        }
+    }
+
+    /**
+     * Initialize scan errors section.
+     */
+    function initScanErrors() {
+        const section = document.getElementById('job-errors-section');
+        if (!section) return;
+
+        const jobId = section.getAttribute('data-job-id');
+        if (!jobId) return;
+
+        // Fetch errors
+        fetchScanErrors(jobId);
+    }
+
+    /**
      * Initialize the job detail page.
      */
     function init() {
@@ -240,6 +316,9 @@
 
         // Initialize logs section
         initLogs();
+
+        // Initialize scan errors section
+        initScanErrors();
 
         // Update timestamps periodically (every minute)
         setInterval(updateTimestamps, 60000);

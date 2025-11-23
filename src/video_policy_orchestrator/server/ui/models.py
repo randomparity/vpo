@@ -410,6 +410,15 @@ class JobDetailItem:
     summary_raw: dict | None
     has_logs: bool
 
+    @property
+    def has_scan_errors(self) -> bool:
+        """Check if this is a scan job with errors to display."""
+        if self.job_type != "scan":
+            return False
+        if self.summary_raw is None:
+            return False
+        return self.summary_raw.get("errors", 0) > 0
+
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
@@ -430,6 +439,7 @@ class JobDetailItem:
             "summary": self.summary,
             "summary_raw": self.summary_raw,
             "has_logs": self.has_logs,
+            "has_scan_errors": self.has_scan_errors,
         }
 
 
@@ -461,6 +471,52 @@ class JobLogsResponse:
             "total_lines": self.total_lines,
             "offset": self.offset,
             "has_more": self.has_more,
+        }
+
+
+@dataclass
+class ScanErrorItem:
+    """A file that failed during scan.
+
+    Attributes:
+        path: Full path to the file.
+        filename: Just the filename.
+        error: Error message from ffprobe or other tool.
+    """
+
+    path: str
+    filename: str
+    error: str
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "path": self.path,
+            "filename": self.filename,
+            "error": self.error,
+        }
+
+
+@dataclass
+class ScanErrorsResponse:
+    """API response for scan errors endpoint.
+
+    Attributes:
+        job_id: The scan job UUID.
+        errors: List of files that failed during the scan.
+        total_errors: Total count of errors.
+    """
+
+    job_id: str
+    errors: list[ScanErrorItem]
+    total_errors: int
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "job_id": self.job_id,
+            "errors": [e.to_dict() for e in self.errors],
+            "total_errors": self.total_errors,
         }
 
 

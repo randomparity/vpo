@@ -692,6 +692,63 @@ html, body {
     color: var(--color-text-muted);
 }
 
+/* Scan errors section */
+.job-detail-errors {
+    margin-bottom: var(--spacing-lg);
+}
+
+.job-detail-errors h2 {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.errors-container {
+    background-color: rgba(248, 113, 113, 0.1);
+    border: 1px solid rgba(248, 113, 113, 0.3);
+    border-radius: 4px;
+    padding: var(--spacing-md);
+}
+
+.errors-loading,
+.errors-empty,
+.errors-error {
+    color: #888;
+    font-style: italic;
+}
+
+.errors-error {
+    color: #f87171;
+}
+
+.errors-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.error-item {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    padding: var(--spacing-sm);
+}
+
+.error-filename {
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: 4px;
+    word-break: break-all;
+}
+
+.error-message {
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: #f87171;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
 /* Graceful degradation for below minimum supported viewport (< 768px) */
 @media (max-width: 767px) {
     .app-shell {

@@ -100,6 +100,16 @@
     </section>
     {% endif %}
 
+    <!-- Scan errors section (for scan jobs with errors) -->
+    {% if job.has_scan_errors %}
+    <section class="job-detail-errors" id="job-errors-section" data-job-id="{{ job.id }}">
+        <h2>Scan Errors</h2>
+        <div id="errors-container" class="errors-container">
+            <div class="errors-loading">Loading errors...</div>
+        </div>
+    </section>
+    {% endif %}
+
     <!-- Logs section -->
     {% if job.has_logs %}
     <section class="job-detail-logs" id="job-logs-section" data-job-id="{{ job.id }}">

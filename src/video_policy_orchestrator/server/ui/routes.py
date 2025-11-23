@@ -5,6 +5,7 @@ This module provides server-rendered HTML routes for the VPO web interface.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
@@ -29,6 +30,8 @@ from video_policy_orchestrator.server.ui.models import (
     JobListResponse,
     JobLogsResponse,
     NavigationState,
+    ScanErrorItem,
+    ScanErrorsResponse,
     TemplateContext,
     generate_summary_text,
 )
@@ -524,6 +527,90 @@ async def api_job_logs_handler(request: web.Request) -> web.Response:
     return web.json_response(response.to_dict())
 
 
+async def api_job_errors_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/jobs/{job_id}/errors - JSON API for scan errors.
+
+    Returns files that failed during a scan job. Only applicable for
+    scan jobs - returns empty list for other job types.
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        JSON response with ScanErrorsResponse payload.
+    """
+    from video_policy_orchestrator.db.connection import DaemonConnectionPool
+
+    # Check if shutting down
+    lifecycle = request.app.get("lifecycle")
+    if lifecycle and lifecycle.is_shutting_down:
+        return web.json_response(
+            {"error": "Service is shutting down"},
+            status=503,
+        )
+
+    job_id = request.match_info["job_id"]
+
+    # Validate UUID format
+    if not _is_valid_uuid(job_id):
+        return web.json_response(
+            {"error": "Invalid job ID format"},
+            status=400,
+        )
+
+    # Get connection pool
+    pool: DaemonConnectionPool | None = request.app.get("connection_pool")
+    if pool is None:
+        return web.json_response(
+            {"error": "Database not available"},
+            status=503,
+        )
+
+    def _query_scan_errors() -> list[ScanErrorItem]:
+        """Query files with scan errors (runs in thread pool)."""
+        with pool.read() as conn:
+            # First verify this is a scan job
+            cursor = conn.execute(
+                "SELECT job_type FROM jobs WHERE id = ?",
+                (job_id,),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                return []
+            if row["job_type"] != "scan":
+                return []
+
+            # Get files with errors
+            # We can't directly link files to jobs, so we get all files with errors
+            # In the future, could add a job_id column to files table
+            cursor = conn.execute(
+                """
+                SELECT path, filename, scan_error
+                FROM files
+                WHERE scan_status = 'error' AND scan_error IS NOT NULL
+                ORDER BY filename
+                """,
+            )
+            return [
+                ScanErrorItem(
+                    path=row["path"],
+                    filename=row["filename"],
+                    error=row["scan_error"],
+                )
+                for row in cursor.fetchall()
+            ]
+
+    errors = await asyncio.to_thread(_query_scan_errors)
+
+    response = ScanErrorsResponse(
+        job_id=job_id,
+        errors=errors,
+        total_errors=len(errors),
+    )
+
+    return web.json_response(response.to_dict())
+
+
 async def library_handler(request: web.Request) -> dict:
     """Handle GET /library - Library section page."""
     return _create_template_context(
@@ -724,6 +811,7 @@ def setup_ui_routes(app: web.Application) -> None:
     )
     app.router.add_get("/api/jobs/{job_id}", api_job_detail_handler)
     app.router.add_get("/api/jobs/{job_id}/logs", api_job_logs_handler)
+    app.router.add_get("/api/jobs/{job_id}/errors", api_job_errors_handler)
     app.router.add_get(
         "/library",
         aiohttp_jinja2.template("sections/library.html")(library_handler),
