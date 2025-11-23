@@ -116,17 +116,17 @@
 
 ### Tests for User Story 4
 
-- [ ] T034 [P] [US4] Create tests/integration/test_serve_command.py with health endpoint tests
+- [X] T034 [P] [US4] Create tests/integration/test_serve_command.py with health endpoint tests
 
 ### Implementation for User Story 4
 
-- [ ] T035 [US4] Implement /health route handler in src/video_policy_orchestrator/server/app.py
-- [ ] T036 [US4] Implement database connectivity check (async wrapper around sync SELECT 1) in app.py
-- [ ] T037 [US4] Implement HealthStatus JSON serialization per contracts/openapi.yaml
-- [ ] T038 [US4] Add uptime tracking to DaemonLifecycle in lifecycle.py
-- [ ] T039 [US4] Return 503 when shutting_down=True or database disconnected
-- [ ] T040 [US4] Run integration tests and verify `uv run pytest tests/integration/test_serve_command.py` passes
-- [ ] T041 Commit Phase 6 changes with message "feat(012): Implement /health endpoint for daemon monitoring"
+- [X] T035 [US4] Implement /health route handler in src/video_policy_orchestrator/server/app.py
+- [X] T036 [US4] Implement database connectivity check (async wrapper around sync SELECT 1) in app.py
+- [X] T037 [US4] Implement HealthStatus JSON serialization per contracts/openapi.yaml
+- [X] T038 [US4] Add uptime tracking to DaemonLifecycle in lifecycle.py
+- [X] T039 [US4] Return 503 when shutting_down=True or database disconnected
+- [X] T040 [US4] Run integration tests and verify `uv run pytest tests/integration/test_serve_command.py` passes
+- [X] T041 Commit Phase 6 changes with message "feat(012): Implement /health endpoint for daemon monitoring"
 
 **Checkpoint**: User Story 4 complete - health endpoint operational
 
