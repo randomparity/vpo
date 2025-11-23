@@ -28,6 +28,9 @@ High-level context for humans and agents: what this project is, what it does, an
 
 Docs focused on tasks and workflows: how to run the tools, configure them, and perform common operations.
 
+- [tutorial.md](tutorial.md)
+  Getting started guide: install VPO, scan your library, create and apply your first policy.
+
 - [usage/cli-usage.md](usage/cli-usage.md)
   CLI entry points, subcommands, options, environment variables, and examples.
 
