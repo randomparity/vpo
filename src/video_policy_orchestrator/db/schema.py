@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -133,12 +133,16 @@ CREATE TABLE IF NOT EXISTS jobs (
     backup_path TEXT,
     error_message TEXT,
 
+    -- Extended fields (008-operational-ux)
+    files_affected_json TEXT,
+    summary_json TEXT,
+
     FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
     CONSTRAINT valid_status CHECK (
         status IN ('queued', 'running', 'completed', 'failed', 'cancelled')
     ),
     CONSTRAINT valid_job_type CHECK (
-        job_type IN ('transcode', 'move')
+        job_type IN ('transcode', 'move', 'scan', 'apply')
     ),
     CONSTRAINT valid_progress CHECK (
         progress_percent >= 0.0 AND progress_percent <= 100.0
@@ -521,6 +525,38 @@ def migrate_v5_to_v6(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def migrate_v6_to_v7(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 6 to version 7.
+
+    Extends jobs table for unified operation tracking (008-operational-ux):
+    - Adds files_affected_json for multi-file operations
+    - Adds summary_json for job-specific results (e.g., scan counts)
+    - Note: job_type constraint cannot be altered in SQLite; new types work fine
+
+    This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Get existing columns in jobs table
+    cursor = conn.execute("PRAGMA table_info(jobs)")
+    existing_columns = {row[1] for row in cursor.fetchall()}
+
+    # Add files_affected_json if missing
+    if "files_affected_json" not in existing_columns:
+        conn.execute("ALTER TABLE jobs ADD COLUMN files_affected_json TEXT")
+
+    # Add summary_json if missing
+    if "summary_json" not in existing_columns:
+        conn.execute("ALTER TABLE jobs ADD COLUMN summary_json TEXT")
+
+    # Update schema version to 7
+    conn.execute(
+        "UPDATE _meta SET value = '7' WHERE key = 'schema_version'",
+    )
+    conn.commit()
+
+
 def initialize_database(conn: sqlite3.Connection) -> None:
     """Initialize the database with schema, creating tables if needed.
 
@@ -547,3 +583,6 @@ def initialize_database(conn: sqlite3.Connection) -> None:
             current_version = 5
         if current_version == 5:
             migrate_v5_to_v6(conn)
+            current_version = 6
+        if current_version == 6:
+            migrate_v6_to_v7(conn)

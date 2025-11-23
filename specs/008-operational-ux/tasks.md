@@ -38,14 +38,14 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Extend JobType enum with SCAN and APPLY values in src/video_policy_orchestrator/db/models.py
-- [ ] T005 Add Job dataclass fields (files_affected_json, summary_json) in src/video_policy_orchestrator/db/models.py
-- [ ] T006 Create schema migration v6→v7 in src/video_policy_orchestrator/db/schema.py
-- [ ] T007 Update initialize_database to call migrate_v6_to_v7 in src/video_policy_orchestrator/db/schema.py
-- [ ] T008 [P] Add LoggingConfig dataclass in src/video_policy_orchestrator/config/models.py
-- [ ] T009 [P] Add Profile dataclass in src/video_policy_orchestrator/config/models.py
-- [ ] T010 [P] Create ScanResult dataclass in src/video_policy_orchestrator/scanner/models.py
-- [ ] T011 Update VPOConfig to include logging field in src/video_policy_orchestrator/config/models.py
+- [x] T004 Extend JobType enum with SCAN and APPLY values in src/video_policy_orchestrator/db/models.py
+- [x] T005 Add Job dataclass fields (files_affected_json, summary_json) in src/video_policy_orchestrator/db/models.py
+- [x] T006 Create schema migration v6→v7 in src/video_policy_orchestrator/db/schema.py
+- [x] T007 Update initialize_database to call migrate_v6_to_v7 in src/video_policy_orchestrator/db/schema.py
+- [x] T008 [P] Add LoggingConfig dataclass in src/video_policy_orchestrator/config/models.py
+- [x] T009 [P] Add Profile dataclass in src/video_policy_orchestrator/config/models.py
+- [x] T010 [P] Create ScanResult dataclass in src/video_policy_orchestrator/scanner/models.py
+- [x] T011 Update VPOConfig to include logging field in src/video_policy_orchestrator/config/models.py
 
 **Checkpoint**: Foundation ready - Commit "feat(008): Phase 2 - Foundational data models and schema migration"
 

@@ -21,6 +21,8 @@ class JobType(Enum):
 
     TRANSCODE = "transcode"
     MOVE = "move"
+    SCAN = "scan"  # Directory scan operation
+    APPLY = "apply"  # Policy application operation
 
 
 class JobStatus(Enum):
@@ -258,6 +260,10 @@ class Job:
     output_path: str | None = None  # Path to output file
     backup_path: str | None = None  # Path to backup of original
     error_message: str | None = None  # Error details if FAILED
+
+    # Extended fields (008-operational-ux)
+    files_affected_json: str | None = None  # JSON array of affected file paths
+    summary_json: str | None = None  # Job-specific summary (e.g., scan counts)
 
 
 @dataclass
@@ -767,6 +773,8 @@ def _row_to_job(row: tuple) -> Job:
         output_path=row[15],
         backup_path=row[16],
         error_message=row[17],
+        files_affected_json=row[18] if len(row) > 18 else None,
+        summary_json=row[19] if len(row) > 19 else None,
     )
 
 
@@ -787,8 +795,9 @@ def insert_job(conn: sqlite3.Connection, job: Job) -> str:
             policy_name, policy_json, progress_percent, progress_json,
             created_at, started_at, completed_at,
             worker_pid, worker_heartbeat,
-            output_path, backup_path, error_message
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            output_path, backup_path, error_message,
+            files_affected_json, summary_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             job.id,
@@ -809,6 +818,8 @@ def insert_job(conn: sqlite3.Connection, job: Job) -> str:
             job.output_path,
             job.backup_path,
             job.error_message,
+            job.files_affected_json,
+            job.summary_json,
         ),
     )
     conn.commit()
@@ -831,7 +842,8 @@ def get_job(conn: sqlite3.Connection, job_id: str) -> Job | None:
                policy_name, policy_json, progress_percent, progress_json,
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
-               output_path, backup_path, error_message
+               output_path, backup_path, error_message,
+               files_affected_json, summary_json
         FROM jobs WHERE id = ?
         """,
         (job_id,),
@@ -982,7 +994,8 @@ def get_queued_jobs(conn: sqlite3.Connection, limit: int | None = None) -> list[
                policy_name, policy_json, progress_percent, progress_json,
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
-               output_path, backup_path, error_message
+               output_path, backup_path, error_message,
+               files_affected_json, summary_json
         FROM jobs
         WHERE status = 'queued'
         ORDER BY priority ASC, created_at ASC
@@ -1014,7 +1027,8 @@ def get_jobs_by_status(
                policy_name, policy_json, progress_percent, progress_json,
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
-               output_path, backup_path, error_message
+               output_path, backup_path, error_message,
+               files_affected_json, summary_json
         FROM jobs
         WHERE status = ?
         ORDER BY created_at DESC
@@ -1043,7 +1057,8 @@ def get_all_jobs(conn: sqlite3.Connection, limit: int | None = None) -> list[Job
                policy_name, policy_json, progress_percent, progress_json,
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
-               output_path, backup_path, error_message
+               output_path, backup_path, error_message,
+               files_affected_json, summary_json
         FROM jobs
         ORDER BY created_at DESC
     """
@@ -1073,7 +1088,8 @@ def get_jobs_by_id_prefix(conn: sqlite3.Connection, prefix: str) -> list[Job]:
                policy_name, policy_json, progress_percent, progress_json,
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
-               output_path, backup_path, error_message
+               output_path, backup_path, error_message,
+               files_affected_json, summary_json
         FROM jobs
         WHERE id LIKE ?
         ORDER BY created_at DESC
