@@ -10,8 +10,17 @@
 
     <!-- Main content (hidden until loaded) -->
     <div id="jobs-content" style="display: none;">
-        <!-- Filter bar (will be populated later) -->
-        <div id="jobs-filters" class="jobs-filters" style="display: none;"></div>
+        <!-- Filter bar -->
+        <div id="jobs-filters" class="jobs-filters">
+            <div class="jobs-filter">
+                <label for="filter-status">Status</label>
+                <select id="filter-status" onchange="jobsDashboard.handleStatusFilter(this.value)">
+                    {% for option in jobs_context.status_options %}
+                    <option value="{{ option.value }}">{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
 
         <!-- Jobs table container -->
         <div class="jobs-table-container">

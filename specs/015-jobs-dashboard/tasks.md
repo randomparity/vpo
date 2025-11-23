@@ -84,10 +84,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T017 [US2] Add status filter dropdown to src/video_policy_orchestrator/server/ui/templates/sections/jobs.html
-- [ ] T018 [US2] Implement handleStatusFilter() in src/video_policy_orchestrator/server/static/js/jobs.js
-- [ ] T019 [US2] Update fetchJobs() to include status query parameter in src/video_policy_orchestrator/server/static/js/jobs.js
-- [ ] T020 [US2] Add status filter styles in src/video_policy_orchestrator/server/static/css/main.css
+- [X] T017 [US2] Add status filter dropdown to src/video_policy_orchestrator/server/ui/templates/sections/jobs.html
+- [X] T018 [US2] Implement handleStatusFilter() in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T019 [US2] Update fetchJobs() to include status query parameter in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T020 [US2] Add status filter styles in src/video_policy_orchestrator/server/static/css/main.css
 
 **Checkpoint**: Status filter dropdown works, filters jobs correctly, clear filter restores all jobs.
 
