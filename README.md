@@ -21,11 +21,28 @@ brew install ffmpeg
 ### Installation
 
 ```bash
-# Install from source (development)
+# Install from PyPI (recommended)
+pip install video-policy-orchestrator
+
+# Verify installation
+vpo --version
+vpo doctor
+```
+
+Pre-built wheels are available for:
+- Linux x86_64
+- macOS x86_64 (Intel)
+- macOS arm64 (Apple Silicon)
+
+**For unsupported platforms** (e.g., Windows, ARM Linux), you'll need to build from source:
+
+```bash
+# Requires Rust toolchain (https://rustup.rs)
+pip install maturin
 git clone https://github.com/randomparity/vpo.git
 cd vpo
-uv pip install -e ".[dev]"
-uv run maturin develop  # Build Rust extension
+pip install -e ".[dev]"
+maturin develop --release
 ```
 
 ### Basic Usage
@@ -133,6 +150,23 @@ VPO acts as a **policy layer** on top of existing media tools (ffmpeg, mkvmerge)
 - [Transcode Policy](docs/usage/transcode-policy.md) - Video transcoding settings
 - [Job Queue](docs/usage/jobs.md) - Managing long-running operations
 - [Plugin Development](docs/plugins.md) - Creating custom plugins
+
+---
+
+## Roadmap
+
+Future development priorities:
+
+| Epic | Description | Status |
+|------|-------------|--------|
+| [Windows Support](https://github.com/randomparity/vpo/issues/147) | Pre-built Windows wheels and CI testing | Planned |
+| [GPU Transcoding](https://github.com/randomparity/vpo/issues/148) | NVENC, VAAPI, VideoToolbox acceleration | Planned |
+| [Web UI Dashboard](https://github.com/randomparity/vpo/issues/149) | Browser-based library management | Planned |
+| [Watch Mode](https://github.com/randomparity/vpo/issues/150) | Auto-process new files | Planned |
+
+See [GitHub Issues](https://github.com/randomparity/vpo/issues?q=is%3Aissue+is%3Aopen+label%3Aepic) for all planned features.
+
+**Want to contribute?** Check out issues labeled [`good first issue`](https://github.com/randomparity/vpo/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) for entry points.
 
 ---
 

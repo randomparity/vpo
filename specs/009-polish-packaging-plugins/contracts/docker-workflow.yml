@@ -1,0 +1,94 @@
+# Docker Workflow Contract: Container Image Publishing
+# This is a specification for the .github/workflows/docker.yml workflow
+
+name: Docker
+
+# Trigger on releases and manual dispatch
+trigger:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag (default: latest)"
+        required: false
+        default: "latest"
+
+# Environment
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+# Job definitions
+jobs:
+
+  build-and-push:
+    name: Build and push container image
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - checkout: true
+
+      - setup-docker-buildx: true
+
+      - login-ghcr:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - extract-metadata:
+          # Extract version from release tag for image tagging
+          # e.g., v0.1.0 -> 0.1.0, latest
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ github.event_name == 'release' }}
+
+      - docker-build-push:
+          context: .
+          file: docker/vpo/Dockerfile
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+# Container Image Specification
+
+image:
+  base: python:3.12-slim
+
+  packages:
+    apt:
+      - ffmpeg           # Video transcoding and metadata
+      - mkvtoolnix       # MKV container manipulation
+      - mediainfo        # Optional: detailed media info
+
+  python:
+    package: video-policy-orchestrator
+    version: from-release-tag
+
+  entrypoint: vpo
+
+  workdir: /data
+
+  volumes:
+    - /data  # Default mount point for video files
+
+# Size Constraints
+constraints:
+  max_size_mb: 500
+  target_size_mb: 350
+
+# Acceptance Criteria:
+# - Image builds successfully on release
+# - Image size is under 500MB
+# - `vpo --help` runs correctly inside container
+# - Volume mounts work for video file access
+# - Image is tagged with version and latest
+# - Image is published to ghcr.io

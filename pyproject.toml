@@ -8,20 +8,37 @@ authors = [
 ]
 readme = "README.md"
 license = {text = "MIT"}
+keywords = ["video", "media", "policy", "ffmpeg", "mkv", "transcoding", "cli"]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
     "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Rust",
+    "Topic :: Multimedia :: Video",
+    "Topic :: System :: Systems Administration",
+    "Typing :: Typed",
 ]
+
 dependencies = [
     "click>=8.0",
     "pyyaml>=6.0.2",
     "pydantic>=2.10",
 ]
+
+[project.urls]
+Homepage = "https://github.com/randomparity/vpo"
+Documentation = "https://github.com/randomparity/vpo/tree/main/docs"
+Repository = "https://github.com/randomparity/vpo.git"
+Issues = "https://github.com/randomparity/vpo/issues"
+Changelog = "https://github.com/randomparity/vpo/releases"
 
 [project.optional-dependencies]
 dev = [
