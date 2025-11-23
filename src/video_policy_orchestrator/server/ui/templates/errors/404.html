@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="error-container">
+    <h3>404 - Page Not Found</h3>
+    {% if error_message %}
+    <p class="error-message">{{ error_message }}</p>
+    {% else %}
+    <p class="error-message">The page you requested could not be found.</p>
+    {% endif %}
+    <p class="error-hint">Use the navigation menu to return to a valid section.</p>
+</div>
+{% endblock %}

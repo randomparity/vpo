@@ -1,7 +1,7 @@
 """HTTP application for daemon mode.
 
-This module provides the aiohttp Application with health check endpoint
-and runtime state management.
+This module provides the aiohttp Application with health check endpoint,
+Web UI routes, and runtime state management.
 """
 
 from __future__ import annotations
@@ -13,8 +13,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from aiohttp import web
+from aiohttp.web import RequestHandler
 
 from video_policy_orchestrator import __version__
+from video_policy_orchestrator.server.ui import setup_ui_routes
 
 if TYPE_CHECKING:
     from video_policy_orchestrator.db.connection import DaemonConnectionPool
@@ -109,8 +111,35 @@ def create_app(db_path: Path | None = None) -> web.Application:
     else:
         app["connection_pool"] = None
 
-    # Register routes
+    # Register API routes
     app.router.add_get("/health", health_handler)
+
+    # Setup UI routes and templates
+    setup_ui_routes(app)
+
+    # Setup static file serving with cache headers
+    static_path = Path(__file__).parent / "static"
+    app.router.add_static(
+        "/static",
+        static_path,
+        name="static",
+        append_version=True,  # Adds ?v=hash for cache busting
+    )
+
+    # Add middleware for static file cache headers
+    @web.middleware
+    async def static_cache_middleware(
+        request: web.Request, handler: RequestHandler
+    ) -> web.StreamResponse:
+        """Add Cache-Control headers to static file responses."""
+        response = await handler(request)
+        if request.path.startswith("/static/"):
+            # Cache static files for 1 hour
+            response.headers["Cache-Control"] = "public, max-age=3600"
+        return response
+
+    # Insert at beginning so it runs after static handler
+    app.middlewares.insert(0, static_cache_middleware)
 
     # Register cleanup handler
     app.on_cleanup.append(_cleanup_connection_pool)

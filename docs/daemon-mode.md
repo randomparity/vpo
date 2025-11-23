@@ -61,6 +61,41 @@ shutdown_timeout = 30   # Graceful shutdown timeout in seconds
 3. Environment variables
 4. Default values (lowest priority)
 
+## Web UI
+
+The daemon includes a web-based user interface for monitoring and management. Access it at:
+
+```
+http://127.0.0.1:8321/
+```
+
+### Navigation Sections
+
+The UI provides five main sections accessible via the sidebar:
+
+| Section | Path | Description |
+|---------|------|-------------|
+| Jobs | `/jobs` | View and manage processing jobs |
+| Library | `/library` | Browse media library |
+| Transcriptions | `/transcriptions` | View transcription results |
+| Policies | `/policies` | Manage policies |
+| Approvals | `/approvals` | Review pending approvals |
+
+### Responsive Design
+
+The Web UI supports:
+- **Desktop** (1024px+): Full sidebar navigation
+- **Tablet** (768-1023px): Compact sidebar
+- **Below 768px**: Horizontal navigation (graceful degradation)
+
+### Security Headers
+
+All HTML responses include security headers:
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: SAMEORIGIN`
+
+Static files include `Cache-Control: public, max-age=3600` for caching.
+
 ## Health Endpoint
 
 The daemon exposes a health check at `/health`:
