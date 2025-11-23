@@ -286,20 +286,22 @@ def generate_summary_text(job_type: str, summary_raw: dict | None) -> str | None
 
     try:
         if job_type == "scan":
-            # Scan job summary: "Scanned X files in /path, Y new, Z changed"
-            total = summary_raw.get("total_files", 0)
-            new = summary_raw.get("new_files", 0)
-            changed = summary_raw.get("changed_files", 0)
-            target = summary_raw.get("target_directory", "")
+            # Scan job summary: "Scanned X files, Y new, Z errors"
+            # Fields from cli/scan.py: total_discovered, scanned, skipped,
+            # added, removed, errors
+            scanned = summary_raw.get("scanned", 0)
+            added = summary_raw.get("added", 0)
+            removed = summary_raw.get("removed", 0)
+            skipped = summary_raw.get("skipped", 0)
             errors = summary_raw.get("errors", 0)
 
-            parts = [f"Scanned {total} files"]
-            if target:
-                parts[0] += f" in {target}"
-            if new > 0:
-                parts.append(f"{new} new")
-            if changed > 0:
-                parts.append(f"{changed} changed")
+            parts = [f"Scanned {scanned} files"]
+            if added > 0:
+                parts.append(f"{added} new")
+            if removed > 0:
+                parts.append(f"{removed} removed")
+            if skipped > 0:
+                parts.append(f"{skipped} unchanged")
             if errors > 0:
                 parts.append(f"{errors} errors")
 
