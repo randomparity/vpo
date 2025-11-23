@@ -154,9 +154,6 @@ class TestGetAboutInfo:
     @patch.dict(os.environ, {}, clear=True)
     def test_get_about_info_handles_missing_git_hash(self) -> None:
         """Test that get_about_info handles missing git hash gracefully."""
-        # Ensure VPO_GIT_HASH is not set
-        os.environ.pop("VPO_GIT_HASH", None)
-
         mock_app = {}
         mock_url = MagicMock()
         mock_url.origin.return_value = "http://localhost:8080"
@@ -167,6 +164,38 @@ class TestGetAboutInfo:
 
         info = get_about_info(mock_request)
 
+        assert info.git_hash is None
+
+    @patch.dict(os.environ, {"VPO_GIT_HASH": "not-a-valid-hash!"})
+    def test_get_about_info_rejects_invalid_git_hash(self) -> None:
+        """Test that get_about_info rejects invalid git hash format."""
+        mock_app = {}
+        mock_url = MagicMock()
+        mock_url.origin.return_value = "http://localhost:8080"
+
+        mock_request = MagicMock(spec=web.Request)
+        mock_request.app = mock_app
+        mock_request.url = mock_url
+
+        info = get_about_info(mock_request)
+
+        # Invalid hash should be treated as None
+        assert info.git_hash is None
+
+    @patch.dict(os.environ, {"VPO_GIT_HASH": "abc"})
+    def test_get_about_info_rejects_too_short_git_hash(self) -> None:
+        """Test that get_about_info rejects git hash that is too short."""
+        mock_app = {}
+        mock_url = MagicMock()
+        mock_url.origin.return_value = "http://localhost:8080"
+
+        mock_request = MagicMock(spec=web.Request)
+        mock_request.app = mock_app
+        mock_request.url = mock_url
+
+        info = get_about_info(mock_request)
+
+        # Hash shorter than 7 chars should be rejected
         assert info.git_hash is None
 
     def test_get_about_info_is_read_only(self) -> None:

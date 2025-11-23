@@ -6,6 +6,7 @@ long-lived background service suitable for systemd management.
 
 import asyncio
 import logging
+import re
 import sys
 from pathlib import Path
 
@@ -99,7 +100,13 @@ async def run_server(
     # Create the application with database path for connection pooling
     app = create_app(db_path=db_path)
     app["lifecycle"] = lifecycle
-    app["profile_name"] = profile_name or "Default"
+
+    # Validate and store profile name (must be alphanumeric with - or _)
+    validated_profile = profile_name or "Default"
+    if not re.match(r"^[a-zA-Z0-9_-]+$", validated_profile):
+        logger.warning("Invalid profile name '%s', using 'Default'", validated_profile)
+        validated_profile = "Default"
+    app["profile_name"] = validated_profile
 
     # Create the runner and site
     runner = web.AppRunner(app)

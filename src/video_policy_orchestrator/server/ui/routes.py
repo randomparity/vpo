@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import time
 from pathlib import Path
 
@@ -140,7 +141,11 @@ def get_about_info(request: web.Request) -> AboutInfo:
     version = __version__
 
     # Get git hash from environment (set during build/deployment)
-    git_hash = os.environ.get("VPO_GIT_HASH")
+    # Validate format: 7-64 hex characters (short SHA to SHA-256)
+    git_hash_raw = os.environ.get("VPO_GIT_HASH")
+    git_hash = None
+    if git_hash_raw and re.match(r"^[a-fA-F0-9]{7,64}$", git_hash_raw):
+        git_hash = git_hash_raw
 
     # Get profile name from app context (set at daemon startup)
     profile_name = request.app.get("profile_name", "Default")
