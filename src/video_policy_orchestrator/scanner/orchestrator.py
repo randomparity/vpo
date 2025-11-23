@@ -227,8 +227,6 @@ class ScannerOrchestrator:
         # Reset interrupt event for this scan
         self._interrupt_event.clear()
 
-        import logging
-
         from video_policy_orchestrator.db.models import (
             FileRecord,
             delete_file,
@@ -241,8 +239,6 @@ class ScannerOrchestrator:
             MediaIntrospectionError,
         )
         from video_policy_orchestrator.introspector.stub import StubIntrospector
-
-        logger = logging.getLogger(__name__)
 
         # Set up signal handler for graceful shutdown
         old_handler = signal.signal(signal.SIGINT, self._create_signal_handler())
@@ -407,17 +403,29 @@ class ScannerOrchestrator:
                 # Get container format and tracks from introspector
                 container_format = None
                 introspection_result = None
+                introspection_error = None
                 try:
                     introspection_result = introspector.get_file_info(path)
                     container_format = introspection_result.container_format
                 except MediaIntrospectionError as e:
-                    # Log warning and continue without introspection data
-                    logger.warning("Introspection failed for %s: %s", path, e)
+                    # Capture error for database storage
+                    introspection_error = str(e)
+                    result.files_errored += 1
                 except Exception as e:
                     # Catch any other unexpected errors
-                    logger.warning(
-                        "Unexpected error during introspection for %s: %s", path, e
-                    )
+                    introspection_error = f"Unexpected error: {e}"
+                    result.files_errored += 1
+
+                # Determine scan status: hash_error takes precedence
+                if scanned.hash_error:
+                    scan_status = "error"
+                    scan_error = scanned.hash_error
+                elif introspection_error:
+                    scan_status = "error"
+                    scan_error = introspection_error
+                else:
+                    scan_status = "ok"
+                    scan_error = None
 
                 record = FileRecord(
                     id=None,
@@ -430,8 +438,8 @@ class ScannerOrchestrator:
                     content_hash=scanned.content_hash,
                     container_format=container_format,
                     scanned_at=now.isoformat(),
-                    scan_status="error" if scanned.hash_error else "ok",
-                    scan_error=scanned.hash_error,
+                    scan_status=scan_status,
+                    scan_error=scan_error,
                 )
 
                 file_id = upsert_file(conn, record)
