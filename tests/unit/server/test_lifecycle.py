@@ -1,6 +1,6 @@
 """Unit tests for server lifecycle management."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from video_policy_orchestrator.server.lifecycle import DaemonLifecycle, ShutdownState
 
@@ -19,18 +19,18 @@ class TestShutdownState:
 
     def test_is_shutting_down_when_initiated_set(self) -> None:
         """is_shutting_down should be True when initiated is set."""
-        state = ShutdownState(initiated=datetime.now(UTC))
+        state = ShutdownState(initiated=datetime.now(timezone.utc))
         assert state.is_shutting_down
 
     def test_is_timed_out_before_deadline(self) -> None:
         """is_timed_out should be False before deadline."""
-        future = datetime.now(UTC) + timedelta(hours=1)
+        future = datetime.now(timezone.utc) + timedelta(hours=1)
         state = ShutdownState(timeout_deadline=future)
         assert not state.is_timed_out
 
     def test_is_timed_out_after_deadline(self) -> None:
         """is_timed_out should be True after deadline."""
-        past = datetime.now(UTC) - timedelta(seconds=1)
+        past = datetime.now(timezone.utc) - timedelta(seconds=1)
         state = ShutdownState(timeout_deadline=past)
         assert state.is_timed_out
 
