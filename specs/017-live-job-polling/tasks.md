@@ -117,10 +117,10 @@
 
 ### Implementation for User Story 4
 
-- [ ] T031 [US4] Implement pausePolling() function in src/video_policy_orchestrator/server/static/js/polling.js
-- [ ] T032 [US4] Implement resumePolling() with immediate data fetch in src/video_policy_orchestrator/server/static/js/polling.js
-- [ ] T033 [US4] Add beforeunload handler to cleanup timers in src/video_policy_orchestrator/server/static/js/polling.js
-- [ ] T034 [US4] Wire visibility change to pause/resume in job_detail.js in src/video_policy_orchestrator/server/static/js/job_detail.js
+- [X] T031 [US4] Implement pausePolling() function in src/video_policy_orchestrator/server/static/js/polling.js
+- [X] T032 [US4] Implement resumePolling() with immediate data fetch in src/video_policy_orchestrator/server/static/js/polling.js
+- [X] T033 [US4] Add beforeunload handler to cleanup timers in src/video_policy_orchestrator/server/static/js/polling.js
+- [X] T034 [US4] Wire visibility change to pause/resume in job_detail.js in src/video_policy_orchestrator/server/static/js/job_detail.js
 
 **Checkpoint**: User Story 4 complete - Polling is visibility-aware
 
@@ -134,9 +134,9 @@
 
 ### Implementation for User Story 5
 
-- [ ] T035 [US5] Add polling_interval_ms config option to server configuration in src/video_policy_orchestrator/server/app.py or existing config module
-- [ ] T036 [US5] Read polling config from data attributes in polling.js init in src/video_policy_orchestrator/server/static/js/polling.js
-- [ ] T037 [US5] Validate polling interval range (2000-60000ms) with fallback to default in src/video_policy_orchestrator/server/static/js/polling.js
+- [X] T035 [US5] Add polling_interval_ms config option to server configuration in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T036 [US5] Read polling config from data attributes in polling.js init in src/video_policy_orchestrator/server/static/js/polling.js
+- [X] T037 [US5] Validate polling interval range (2000-60000ms) with fallback to default in src/video_policy_orchestrator/server/static/js/polling.js
 
 **Checkpoint**: User Story 5 complete - Polling interval is configurable
 
@@ -146,10 +146,10 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T038 [P] Add subtle loading indicator during polling refresh in src/video_policy_orchestrator/server/static/js/polling.js
-- [ ] T039 [P] Add console logging for polling debug (with DEBUG flag) in src/video_policy_orchestrator/server/static/js/polling.js
-- [ ] T040 Verify all polling timers cleaned up on page unload (memory leak prevention) in src/video_policy_orchestrator/server/static/js/polling.js
-- [ ] T041 [P] Update connection status indicator UI state on error/reconnect in src/video_policy_orchestrator/server/static/js/polling.js
+- [X] T038 [P] Add subtle loading indicator during polling refresh in src/video_policy_orchestrator/server/static/js/polling.js
+- [X] T039 [P] Add console logging for polling debug (with DEBUG flag) in src/video_policy_orchestrator/server/static/js/polling.js
+- [X] T040 Verify all polling timers cleaned up on page unload (memory leak prevention) in src/video_policy_orchestrator/server/static/js/polling.js
+- [X] T041 [P] Update connection status indicator UI state on error/reconnect in src/video_policy_orchestrator/server/static/js/polling.js
 - [ ] T042 Run quickstart.md manual validation checklist
 - [ ] T043 Browser testing: Chrome, Firefox, Safari, Edge
 
