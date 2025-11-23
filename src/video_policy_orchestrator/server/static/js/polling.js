@@ -323,6 +323,7 @@
     // ==========================================================================
 
     var visibilityHandlers = [];
+    var MAX_HANDLERS = 100;
 
     /**
      * Register a handler for visibility changes.
@@ -330,6 +331,18 @@
      * @returns {Function} Unregister function
      */
     function onVisibilityChange(handler) {
+        // Check for duplicate handler
+        if (visibilityHandlers.indexOf(handler) !== -1) {
+            log('Warning: Duplicate visibility handler registration ignored');
+            return function unregister() {};
+        }
+
+        // Check handler limit
+        if (visibilityHandlers.length >= MAX_HANDLERS) {
+            console.warn('[Polling] Maximum visibility handlers reached (' + MAX_HANDLERS + ')');
+            return function unregister() {};
+        }
+
         visibilityHandlers.push(handler);
 
         return function unregister() {
@@ -451,6 +464,18 @@
      * @returns {Function} Unregister function
      */
     function onCleanup(handler) {
+        // Check for duplicate handler
+        if (cleanupHandlers.indexOf(handler) !== -1) {
+            log('Warning: Duplicate cleanup handler registration ignored');
+            return function unregister() {};
+        }
+
+        // Check handler limit
+        if (cleanupHandlers.length >= MAX_HANDLERS) {
+            console.warn('[Polling] Maximum cleanup handlers reached (' + MAX_HANDLERS + ')');
+            return function unregister() {};
+        }
+
         cleanupHandlers.push(handler);
 
         return function unregister() {
