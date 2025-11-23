@@ -568,7 +568,7 @@ async def api_job_errors_handler(request: web.Request) -> web.Response:
 
     def _query_scan_errors() -> list[ScanErrorItem]:
         """Query files with scan errors (runs in thread pool)."""
-        with pool.read() as conn:
+        with pool.transaction() as conn:
             # First verify this is a scan job
             cursor = conn.execute(
                 "SELECT job_type FROM jobs WHERE id = ?",
