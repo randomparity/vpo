@@ -98,12 +98,12 @@
 
 ### Implementation for User Story 3
 
-- [ ] T025 [US3] Add progress bar/percentage display element to jobs table rows in src/video_policy_orchestrator/server/static/js/jobs.js
-- [ ] T026 [US3] Update renderJobRow() to include progress percentage for running jobs in src/video_policy_orchestrator/server/static/js/jobs.js
-- [ ] T027 [P] [US3] Add progress bar CSS styles in src/video_policy_orchestrator/server/static/css/styles.css
-- [ ] T028 [US3] Add indeterminate progress indicator for jobs without progress data in src/video_policy_orchestrator/server/static/js/jobs.js
-- [ ] T029 [US3] Display processed file count (e.g., "25 of 100 files") in job detail view in src/video_policy_orchestrator/server/static/js/job_detail.js
-- [ ] T030 [US3] Parse summary_raw for file count information in src/video_policy_orchestrator/server/static/js/job_detail.js
+- [X] T025 [US3] Add progress bar/percentage display element to jobs table rows in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T026 [US3] Update renderJobRow() to include progress percentage for running jobs in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T027 [P] [US3] Add progress bar CSS styles in src/video_policy_orchestrator/server/static/css/main.css
+- [X] T028 [US3] Add indeterminate progress indicator for jobs without progress data in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T029 [US3] Display processed file count (e.g., "25 of 100 files") in job detail view in src/video_policy_orchestrator/server/static/js/job_detail.js
+- [X] T030 [US3] Parse summary_raw for file count information in src/video_policy_orchestrator/server/static/js/job_detail.js
 
 **Checkpoint**: User Story 3 complete - Progress information displays correctly
 

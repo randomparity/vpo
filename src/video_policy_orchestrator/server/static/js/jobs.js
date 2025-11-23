@@ -139,6 +139,65 @@
     }
 
     /**
+     * Create a progress bar element (T025, T026, T028).
+     * @param {Object} job - Job data from API
+     * @returns {string} HTML string for progress bar
+     */
+    function createProgressBar(job) {
+        var status = job.status;
+        var percent = job.progress_percent;
+
+        // For completed/failed/cancelled jobs, show 100% or appropriate state
+        if (status === 'completed') {
+            return '<div class="job-progress">' +
+                '<div class="job-progress-track">' +
+                '<div class="job-progress-bar job-progress-bar--completed" style="width: 100%"></div>' +
+                '</div>' +
+                '<span class="job-progress-text">100%</span>' +
+                '</div>';
+        }
+
+        if (status === 'failed' || status === 'cancelled') {
+            var barClass = status === 'failed' ? 'job-progress-bar--failed' : '';
+            var displayPercent = percent !== null && percent !== undefined ? percent : 0;
+            return '<div class="job-progress">' +
+                '<div class="job-progress-track">' +
+                '<div class="job-progress-bar ' + barClass + '" style="width: ' + displayPercent + '%"></div>' +
+                '</div>' +
+                '<span class="job-progress-text">' + displayPercent + '%</span>' +
+                '</div>';
+        }
+
+        // For queued jobs, show empty progress
+        if (status === 'queued') {
+            return '<div class="job-progress">' +
+                '<div class="job-progress-track">' +
+                '<div class="job-progress-bar" style="width: 0%"></div>' +
+                '</div>' +
+                '<span class="job-progress-text">—</span>' +
+                '</div>';
+        }
+
+        // For running jobs with no progress data, show indeterminate (T028)
+        if (percent === null || percent === undefined) {
+            return '<div class="job-progress">' +
+                '<div class="job-progress-track">' +
+                '<div class="job-progress-bar job-progress-bar--indeterminate"></div>' +
+                '</div>' +
+                '<span class="job-progress-text">...</span>' +
+                '</div>';
+        }
+
+        // For running jobs with progress data
+        return '<div class="job-progress">' +
+            '<div class="job-progress-track">' +
+            '<div class="job-progress-bar" style="width: ' + percent + '%"></div>' +
+            '</div>' +
+            '<span class="job-progress-text">' + percent + '%</span>' +
+            '</div>';
+    }
+
+    /**
      * Render a single job row.
      * @param {Object} job - Job data from API
      * @returns {string} HTML string for table row
@@ -161,6 +220,7 @@
             '<td class="job-id" title="' + escapeHtml(job.id) + '">' + escapeHtml(shortId) + '</td>' +
             '<td class="job-type">' + createTypeBadge(job.job_type) + '</td>' +
             '<td class="job-status">' + createStatusBadge(job.status) + '</td>' +
+            '<td class="job-progress-cell">' + createProgressBar(job) + '</td>' +
             '<td class="job-path"' + (hasFullPath ? ' title="' + escapeHtml(job.file_path) + '"' : '') + '>' + escapeHtml(truncatedPath) + '</td>' +
             '<td class="job-created">' + formatDateTime(job.created_at) + '</td>' +
             '<td class="job-duration">' + formatDuration(duration) + '</td>' +
@@ -336,6 +396,12 @@
         var statusCell = row.querySelector('.job-status');
         if (statusCell) {
             statusCell.innerHTML = createStatusBadge(newData.status);
+        }
+
+        // Update progress cell (T025)
+        var progressCell = row.querySelector('.job-progress-cell');
+        if (progressCell) {
+            progressCell.innerHTML = createProgressBar(newData);
         }
 
         // Update duration cell
