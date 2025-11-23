@@ -1,6 +1,7 @@
 """Database query functions for reports."""
 
 import json
+import logging
 import sqlite3
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -12,6 +13,8 @@ from video_policy_orchestrator.reports.formatters import (
     format_duration,
     format_timestamp_local,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -115,6 +118,25 @@ class PolicyApplyDetailRow:
         return asdict(self)
 
 
+MAX_LIMIT = 10000
+
+
+def _validate_limit(limit: int | None) -> None:
+    """Validate limit parameter.
+
+    Args:
+        limit: Limit value to validate.
+
+    Raises:
+        ValueError: If limit is negative or exceeds MAX_LIMIT.
+    """
+    if limit is not None:
+        if limit < 0:
+            raise ValueError(f"Limit must be non-negative, got {limit}")
+        if limit > MAX_LIMIT:
+            raise ValueError(f"Limit too large (max {MAX_LIMIT}), got {limit}")
+
+
 def get_resolution_category(width: int | None, height: int | None) -> str:
     """Categorize resolution from dimensions.
 
@@ -159,7 +181,8 @@ def extract_scan_summary(summary_json: str | None) -> dict[str, int]:
             "files_new": data.get("files_new", data.get("new", 0)),
             "files_changed": data.get("files_changed", data.get("changed", 0)),
         }
-    except (json.JSONDecodeError, TypeError):
+    except (json.JSONDecodeError, TypeError) as e:
+        logger.warning("Failed to parse scan summary JSON: %s, returning defaults", e)
         return default
 
 
@@ -217,7 +240,11 @@ def get_jobs_report(
 
     Returns:
         List of job row dictionaries.
+
+    Raises:
+        ValueError: If limit is negative or exceeds MAX_LIMIT.
     """
+    _validate_limit(limit)
     query = """
         SELECT
             id,
@@ -290,7 +317,11 @@ def get_library_report(
 
     Returns:
         List of library row dictionaries.
+
+    Raises:
+        ValueError: If limit is negative or exceeds MAX_LIMIT.
     """
+    _validate_limit(limit)
     # First, get file info with aggregated track data
     query = """
         SELECT
@@ -404,7 +435,11 @@ def get_scans_report(
 
     Returns:
         List of scan row dictionaries.
+
+    Raises:
+        ValueError: If limit is negative or exceeds MAX_LIMIT.
     """
+    _validate_limit(limit)
     query = """
         SELECT
             id,
@@ -467,7 +502,11 @@ def get_transcodes_report(
 
     Returns:
         List of transcode row dictionaries.
+
+    Raises:
+        ValueError: If limit is negative or exceeds MAX_LIMIT.
     """
+    _validate_limit(limit)
     query = """
         SELECT
             j.id,
@@ -555,7 +594,11 @@ def get_policy_apply_report(
 
     Returns:
         List of policy apply row dictionaries.
+
+    Raises:
+        ValueError: If limit is negative or exceeds MAX_LIMIT.
     """
+    _validate_limit(limit)
     query = """
         SELECT
             id,
@@ -570,8 +613,11 @@ def get_policy_apply_report(
     params: list[Any] = []
 
     if policy_name:
-        query += " AND policy_name LIKE ?"
-        params.append(f"%{policy_name}%")
+        query += " AND policy_name LIKE ? ESCAPE '\\'"
+        # Escape SQL wildcards to prevent injection
+        escaped = policy_name.replace("\\", "\\\\")
+        escaped = escaped.replace("%", "\\%").replace("_", "\\_")
+        params.append(f"%{escaped}%")
 
     time_clause, time_params = _build_time_filter_clause(time_filter, "created_at")
     query += time_clause

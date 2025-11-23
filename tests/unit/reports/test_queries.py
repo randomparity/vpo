@@ -8,6 +8,7 @@ import pytest
 
 from video_policy_orchestrator.reports.filters import TimeFilter
 from video_policy_orchestrator.reports.queries import (
+    MAX_LIMIT,
     JobReportRow,
     LibraryReportRow,
     extract_scan_summary,
@@ -25,6 +26,9 @@ def test_db():
     """Create a test database with sample data."""
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
+
+    # Enable foreign keys for referential integrity
+    conn.execute("PRAGMA foreign_keys = ON")
 
     # Create minimal schema for testing
     conn.executescript("""
@@ -571,3 +575,122 @@ class TestDataclassesToDict:
         d = row.to_dict()
         assert d["path"] == "/path/movie.mkv"
         assert d["resolution"] == "1080p"
+
+
+class TestLimitValidation:
+    """Tests for limit parameter validation."""
+
+    def test_negative_limit_rejected(self, test_db):
+        """Test that negative limits are rejected."""
+        with pytest.raises(ValueError, match="non-negative"):
+            get_jobs_report(test_db, limit=-1)
+
+    def test_zero_limit_accepted(self, test_db):
+        """Test that zero limit is accepted."""
+        # Zero is valid - returns empty result
+        result = get_jobs_report(test_db, limit=0)
+        assert result == []
+
+    def test_huge_limit_rejected(self, test_db):
+        """Test that limits exceeding MAX_LIMIT are rejected."""
+        with pytest.raises(ValueError, match="too large"):
+            get_jobs_report(test_db, limit=MAX_LIMIT + 1)
+
+    def test_max_limit_accepted(self, test_db):
+        """Test that MAX_LIMIT is accepted."""
+        # Should not raise
+        result = get_jobs_report(test_db, limit=MAX_LIMIT)
+        assert result == []
+
+    def test_none_limit_accepted(self, test_db):
+        """Test that None limit (no limit) is accepted."""
+        result = get_jobs_report(test_db, limit=None)
+        assert result == []
+
+    def test_library_report_limit_validation(self, test_db):
+        """Test limit validation in get_library_report."""
+        with pytest.raises(ValueError, match="non-negative"):
+            get_library_report(test_db, limit=-1)
+
+    def test_scans_report_limit_validation(self, test_db):
+        """Test limit validation in get_scans_report."""
+        with pytest.raises(ValueError, match="non-negative"):
+            get_scans_report(test_db, limit=-1)
+
+    def test_transcodes_report_limit_validation(self, test_db):
+        """Test limit validation in get_transcodes_report."""
+        with pytest.raises(ValueError, match="non-negative"):
+            get_transcodes_report(test_db, limit=-1)
+
+    def test_policy_apply_report_limit_validation(self, test_db):
+        """Test limit validation in get_policy_apply_report."""
+        with pytest.raises(ValueError, match="non-negative"):
+            get_policy_apply_report(test_db, limit=-1)
+
+
+class TestPolicyNameWildcardEscaping:
+    """Tests for SQL wildcard escaping in policy name filter."""
+
+    def test_percent_in_policy_name(self, test_db):
+        """Test that % in policy names is escaped and matched literally."""
+        # Insert job with policy name containing %
+        test_db.execute(
+            """
+            INSERT INTO jobs (id, job_type, status, policy_name, created_at)
+            VALUES (?, 'apply', 'completed', ?, '2025-01-15T12:00:00Z')
+            """,
+            ("job-1", "policy_50%_discount"),
+        )
+        test_db.execute(
+            """
+            INSERT INTO jobs (id, job_type, status, policy_name, created_at)
+            VALUES (?, 'apply', 'completed', ?, '2025-01-15T12:00:00Z')
+            """,
+            ("job-2", "policy_normal"),
+        )
+
+        # Search for literal "50%" should find only the first one
+        result = get_policy_apply_report(test_db, policy_name="50%")
+        assert len(result) == 1
+        assert "50%" in result[0]["policy_name"]
+
+    def test_underscore_in_policy_name(self, test_db):
+        """Test that _ in policy names is escaped and matched literally."""
+        # Insert jobs with similar names
+        test_db.execute("""
+            INSERT INTO jobs (id, job_type, status, policy_name, created_at)
+            VALUES ('job-1', 'apply', 'completed', 'policy_v1', '2025-01-15T12:00:00Z')
+        """)
+        test_db.execute("""
+            INSERT INTO jobs (id, job_type, status, policy_name, created_at)
+            VALUES ('job-2', 'apply', 'completed', 'policyXv1', '2025-01-15T12:00:00Z')
+        """)
+
+        # Search for "_v1" should match only "policy_v1", not "policyXv1"
+        result = get_policy_apply_report(test_db, policy_name="_v1")
+        assert len(result) == 1
+        assert "_v1" in result[0]["policy_name"]
+
+    def test_backslash_in_policy_name(self, test_db):
+        """Test that backslash in policy names is escaped."""
+        # Insert job with policy name containing backslash
+        test_db.execute(
+            """
+            INSERT INTO jobs (id, job_type, status, policy_name, created_at)
+            VALUES (?, 'apply', 'completed', ?, '2025-01-15T12:00:00Z')
+            """,
+            ("job-1", "path\\to\\policy"),
+        )
+
+        # Search for backslash should work
+        result = get_policy_apply_report(test_db, policy_name="\\")
+        assert len(result) == 1
+
+
+class TestForeignKeysEnabled:
+    """Tests to verify foreign keys are enabled in test database."""
+
+    def test_foreign_keys_pragma_enabled(self, test_db):
+        """Verify foreign keys are enabled in test database."""
+        cursor = test_db.execute("PRAGMA foreign_keys")
+        assert cursor.fetchone()[0] == 1
