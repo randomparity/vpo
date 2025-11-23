@@ -116,12 +116,12 @@ This feature has no foundational blocking tasks - each user story is independent
 
 ### Implementation for User Story 4
 
-- [ ] T016 [P] [US4] Create VPO container directory structure in docker/vpo/
-- [ ] T017 [US4] Create multi-stage Dockerfile for VPO with all dependencies in docker/vpo/Dockerfile
-- [ ] T018 [US4] Create Docker workflow for building and pushing images in .github/workflows/docker.yml
-- [ ] T019 [US4] Create container usage documentation in docker/vpo/README.md (include volume mount permissions guidance)
-- [ ] T020 [US4] Test container build locally with `docker build -t vpo:test docker/vpo/`
-- [ ] T021 [US4] Verify container size is under 500MB and includes ffmpeg, mkvtoolnix
+- [x] T016 [P] [US4] Create VPO container directory structure in docker/vpo/
+- [x] T017 [US4] Create multi-stage Dockerfile for VPO with all dependencies in docker/vpo/Dockerfile
+- [x] T018 [US4] Create Docker workflow for building and pushing images in .github/workflows/docker.yml
+- [x] T019 [US4] Create container usage documentation in docker/vpo/README.md (include volume mount permissions guidance)
+- [x] T020 [US4] Test container build locally with `docker build -t vpo:test docker/vpo/`
+- [x] T021 [US4] Verify container size is under 500MB and includes ffmpeg, mkvtoolnix
 
 **Checkpoint**: At this point, User Stories 1-4 should all work independently.
 

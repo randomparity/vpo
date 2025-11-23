@@ -1,0 +1,78 @@
+# Git
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Linting
+.ruff_cache/
+.mypy_cache/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.*
+*.local
+
+# Rust build artifacts (we rebuild in container)
+target/
+*.rs.bk
+Cargo.lock
+
+# VPO specific
+*.db
+
+# Documentation and specs (not needed in container)
+docs/
+specs/
+*.md
+!README.md
+
+# Docker (avoid recursive copy)
+docker/
+Dockerfile*
+.dockerignore
