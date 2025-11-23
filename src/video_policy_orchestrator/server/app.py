@@ -19,6 +19,7 @@ from aiohttp.web import RequestHandler
 
 from video_policy_orchestrator import __version__
 from video_policy_orchestrator.server.ui import setup_ui_routes
+from video_policy_orchestrator.server.ui.routes import api_jobs_handler
 
 if TYPE_CHECKING:
     from video_policy_orchestrator.db.connection import DaemonConnectionPool
@@ -127,6 +128,7 @@ def create_app(db_path: Path | None = None) -> web.Application:
     # Register API routes
     app.router.add_get("/health", health_handler)
     app.router.add_get("/api/about", api_about_handler)
+    app.router.add_get("/api/jobs", api_jobs_handler)
 
     # Setup UI routes and templates
     setup_ui_routes(app)

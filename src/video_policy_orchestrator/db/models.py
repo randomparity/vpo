@@ -1111,7 +1111,9 @@ def get_jobs_filtered(
     job_type: JobType | None = None,
     since: str | None = None,
     limit: int | None = None,
-) -> list[Job]:
+    offset: int | None = None,
+    return_total: bool = False,
+) -> list[Job] | tuple[list[Job], int]:
     """Get jobs with flexible filtering (008-operational-ux).
 
     Supports filtering by status, type, and date range.
@@ -1122,19 +1124,14 @@ def get_jobs_filtered(
         job_type: Filter by job type (None = all types).
         since: ISO-8601 timestamp - only return jobs created after this time.
         limit: Maximum number of jobs to return.
+        offset: Number of jobs to skip (for pagination).
+        return_total: If True, return tuple of (jobs, total_count).
 
     Returns:
         List of Job objects, ordered by created_at DESC.
+        If return_total=True, returns tuple of (jobs, total_count).
     """
-    base_query = """
-        SELECT id, file_id, file_path, job_type, status, priority,
-               policy_name, policy_json, progress_percent, progress_json,
-               created_at, started_at, completed_at,
-               worker_pid, worker_heartbeat,
-               output_path, backup_path, error_message,
-               files_affected_json, summary_json
-        FROM jobs
-    """
+    # Build WHERE clause
     conditions = []
     params: list[str | int] = []
 
@@ -1150,19 +1147,50 @@ def get_jobs_filtered(
         conditions.append("created_at >= ?")
         params.append(since)
 
+    where_clause = ""
     if conditions:
-        base_query += " WHERE " + " AND ".join(conditions)
+        where_clause = " WHERE " + " AND ".join(conditions)
 
+    # Get total count if requested (before applying LIMIT/OFFSET)
+    total = 0
+    if return_total:
+        count_query = "SELECT COUNT(*) FROM jobs" + where_clause
+        cursor = conn.execute(count_query, params)
+        total = cursor.fetchone()[0]
+
+    # Build main query
+    base_query = """
+        SELECT id, file_id, file_path, job_type, status, priority,
+               policy_name, policy_json, progress_percent, progress_json,
+               created_at, started_at, completed_at,
+               worker_pid, worker_heartbeat,
+               output_path, backup_path, error_message,
+               files_affected_json, summary_json
+        FROM jobs
+    """
+    base_query += where_clause
     base_query += " ORDER BY created_at DESC"
 
+    # Apply pagination
+    pagination_params = list(params)  # Copy params for pagination query
     if limit is not None:
         if not isinstance(limit, int) or limit <= 0 or limit > 10000:
             raise ValueError(f"Invalid limit value: {limit}")
         base_query += " LIMIT ?"
-        params.append(limit)
+        pagination_params.append(limit)
 
-    cursor = conn.execute(base_query, params)
-    return [_row_to_job(row) for row in cursor.fetchall()]
+        if offset is not None:
+            if not isinstance(offset, int) or offset < 0:
+                raise ValueError(f"Invalid offset value: {offset}")
+            base_query += " OFFSET ?"
+            pagination_params.append(offset)
+
+    cursor = conn.execute(base_query, pagination_params)
+    jobs = [_row_to_job(row) for row in cursor.fetchall()]
+
+    if return_total:
+        return jobs, total
+    return jobs
 
 
 def delete_job(conn: sqlite3.Connection, job_id: str) -> bool:

@@ -1,8 +1,81 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="section-placeholder">
-    <p>Jobs section - coming soon</p>
-    <p class="placeholder-hint">This section will display processing job queues and status.</p>
+<div class="jobs-dashboard">
+    <!-- Loading state -->
+    <div id="jobs-loading" class="jobs-loading" role="status" aria-label="Loading jobs">
+        <div class="jobs-loading-spinner" aria-hidden="true"></div>
+        <p>Loading jobs...</p>
+    </div>
+
+    <!-- Main content (hidden until loaded) -->
+    <div id="jobs-content" style="display: none;">
+        <!-- Filter bar -->
+        <div id="jobs-filters" class="jobs-filters">
+            <div class="jobs-filter">
+                <label for="filter-status">Status</label>
+                <select id="filter-status">
+                    {% for option in jobs_context.status_options %}
+                    <option value="{{ option.value }}">{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="jobs-filter">
+                <label for="filter-type">Type</label>
+                <select id="filter-type">
+                    {% for option in jobs_context.type_options %}
+                    <option value="{{ option.value }}">{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="jobs-filter">
+                <label for="filter-time">Time Range</label>
+                <select id="filter-time">
+                    {% for option in jobs_context.time_options %}
+                    <option value="{{ option.value }}">{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <!-- Jobs table container -->
+        <div class="jobs-table-container">
+            <table class="jobs-table" id="jobs-table" aria-label="Jobs list">
+                <thead>
+                    <tr>
+                        <th>Job ID</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Target</th>
+                        <th>Started</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody id="jobs-table-body">
+                    <!-- Jobs will be rendered here by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Empty state (hidden by default) -->
+        <div id="jobs-empty" class="jobs-empty" style="display: none;" role="status" aria-live="polite">
+            <div class="jobs-empty-icon" aria-hidden="true">📋</div>
+            <div class="jobs-empty-title" id="jobs-empty-title">No jobs found</div>
+            <div class="jobs-empty-hint" id="jobs-empty-hint">Jobs will appear here when you run scan, apply, or transcode operations.</div>
+        </div>
+
+        <!-- Pagination (hidden until needed) -->
+        <div id="jobs-pagination" class="jobs-pagination" style="display: none;">
+            <div class="jobs-pagination-info" id="jobs-pagination-info">
+                Showing 1-50 of 100 jobs
+            </div>
+            <div class="jobs-pagination-controls">
+                <button class="jobs-pagination-btn" id="jobs-prev-btn" aria-label="Previous page" disabled>Previous</button>
+                <button class="jobs-pagination-btn" id="jobs-next-btn" aria-label="Next page">Next</button>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script src="/static/js/jobs.js"></script>
 {% endblock %}

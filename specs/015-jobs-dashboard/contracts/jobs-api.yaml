@@ -1,0 +1,192 @@
+openapi: 3.0.3
+info:
+  title: VPO Jobs API
+  description: API endpoints for the Jobs Dashboard feature
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /api/jobs:
+    get:
+      summary: List jobs with filtering and pagination
+      description: |
+        Returns a paginated list of jobs with optional filtering by status, type, and time range.
+        Jobs are sorted by created_at descending (most recent first).
+      operationId: listJobs
+      tags:
+        - Jobs
+      parameters:
+        - name: status
+          in: query
+          description: Filter by job status
+          required: false
+          schema:
+            type: string
+            enum: [queued, running, completed, failed, cancelled]
+        - name: type
+          in: query
+          description: Filter by job type
+          required: false
+          schema:
+            type: string
+            enum: [scan, apply, transcode, move]
+        - name: since
+          in: query
+          description: Filter by time range
+          required: false
+          schema:
+            type: string
+            enum: ["24h", "7d"]
+            default: null
+        - name: limit
+          in: query
+          description: Maximum number of jobs to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          description: Number of jobs to skip for pagination
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Successful response with jobs list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobListResponse"
+              example:
+                jobs:
+                  - id: "550e8400-e29b-41d4-a716-446655440000"
+                    job_type: "transcode"
+                    status: "completed"
+                    file_path: "/media/movies/example.mkv"
+                    progress_percent: 100.0
+                    created_at: "2025-01-15T14:30:00Z"
+                    completed_at: "2025-01-15T14:35:00Z"
+                    duration_seconds: 300
+                  - id: "550e8400-e29b-41d4-a716-446655440001"
+                    job_type: "scan"
+                    status: "running"
+                    file_path: "/media/tv"
+                    progress_percent: 45.5
+                    created_at: "2025-01-15T14:40:00Z"
+                    completed_at: null
+                    duration_seconds: null
+                total: 150
+                limit: 50
+                offset: 0
+                has_filters: false
+        "400":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Invalid status value: 'invalid'"
+        "503":
+          description: Service unavailable (shutting down)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Service is shutting down"
+
+components:
+  schemas:
+    JobListResponse:
+      type: object
+      required:
+        - jobs
+        - total
+        - limit
+        - offset
+        - has_filters
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobListItem"
+          description: List of jobs for the current page
+        total:
+          type: integer
+          minimum: 0
+          description: Total number of jobs matching the filters
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Page size used for this request
+        offset:
+          type: integer
+          minimum: 0
+          description: Offset used for this request
+        has_filters:
+          type: boolean
+          description: True if any filter (status, type, since) was applied
+
+    JobListItem:
+      type: object
+      required:
+        - id
+        - job_type
+        - status
+        - file_path
+        - progress_percent
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique job identifier
+        job_type:
+          type: string
+          enum: [scan, apply, transcode, move]
+          description: Type of job
+        status:
+          type: string
+          enum: [queued, running, completed, failed, cancelled]
+          description: Current job status
+        file_path:
+          type: string
+          description: Target file or directory path
+        progress_percent:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 100.0
+          description: Job progress percentage
+        created_at:
+          type: string
+          format: date-time
+          description: Job creation timestamp (ISO-8601 UTC)
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Job completion timestamp (null if not completed)
+        duration_seconds:
+          type: integer
+          nullable: true
+          description: Duration in seconds (null if still running)
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message

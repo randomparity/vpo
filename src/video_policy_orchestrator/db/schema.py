@@ -153,6 +153,7 @@ CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_jobs_file_id ON jobs(file_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_priority_created ON jobs(priority, created_at);
+CREATE INDEX IF NOT EXISTS idx_jobs_job_type ON jobs(job_type);
 
 -- Transcription results table (007-audio-transcription)
 CREATE TABLE IF NOT EXISTS transcription_results (

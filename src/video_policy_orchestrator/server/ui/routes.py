@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import time
+from datetime import datetime
 from pathlib import Path
 
 import aiohttp_jinja2
@@ -20,6 +21,10 @@ from video_policy_orchestrator.server.ui.models import (
     DEFAULT_SECTION,
     NAVIGATION_ITEMS,
     AboutInfo,
+    JobFilterParams,
+    JobListContext,
+    JobListItem,
+    JobListResponse,
     NavigationState,
     TemplateContext,
 )
@@ -30,6 +35,7 @@ logger = logging.getLogger(__name__)
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "SAMEORIGIN",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
 }
 
 # Template directory path
@@ -81,11 +87,158 @@ async def root_redirect(request: web.Request) -> web.Response:
 
 async def jobs_handler(request: web.Request) -> dict:
     """Handle GET /jobs - Jobs section page."""
-    return _create_template_context(
+    context = _create_template_context(
         active_id="jobs",
         section_title="Jobs",
-        section_content="<p>Jobs section - coming soon</p>",
     )
+    # Add jobs filter options for template
+    context["jobs_context"] = JobListContext.default()
+    return context
+
+
+async def api_jobs_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/jobs - JSON API for jobs listing.
+
+    Query parameters:
+        status: Filter by job status (queued, running, completed, failed, cancelled)
+        type: Filter by job type (scan, apply, transcode, move)
+        since: Time filter (24h, 7d)
+        limit: Page size (1-100, default 50)
+        offset: Pagination offset (default 0)
+
+    Returns:
+        JSON response with JobListResponse payload.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from video_policy_orchestrator.db.connection import DaemonConnectionPool
+    from video_policy_orchestrator.db.models import JobStatus, JobType
+
+    # Check if shutting down
+    lifecycle = request.app.get("lifecycle")
+    if lifecycle and lifecycle.is_shutting_down:
+        return web.json_response(
+            {"error": "Service is shutting down"},
+            status=503,
+        )
+
+    # Parse query parameters
+    params = JobFilterParams.from_query(dict(request.query))
+
+    # Validate status parameter
+    status_enum = None
+    if params.status:
+        try:
+            status_enum = JobStatus(params.status)
+        except ValueError:
+            return web.json_response(
+                {"error": f"Invalid status value: '{params.status}'"},
+                status=400,
+            )
+
+    # Validate job_type parameter
+    job_type_enum = None
+    if params.job_type:
+        try:
+            job_type_enum = JobType(params.job_type)
+        except ValueError:
+            return web.json_response(
+                {"error": f"Invalid type value: '{params.job_type}'"},
+                status=400,
+            )
+
+    # Calculate 'since' timestamp
+    since_timestamp = None
+    if params.since:
+        if params.since == "24h":
+            since_timestamp = (
+                datetime.now(timezone.utc) - timedelta(hours=24)
+            ).isoformat()
+        elif params.since == "7d":
+            since_timestamp = (
+                datetime.now(timezone.utc) - timedelta(days=7)
+            ).isoformat()
+        elif params.since:
+            return web.json_response(
+                {"error": f"Invalid since value: '{params.since}'"},
+                status=400,
+            )
+
+    # Get connection pool
+    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
+    if connection_pool is None:
+        return web.json_response(
+            {"error": "Database not available"},
+            status=503,
+        )
+
+    # Query jobs from database using thread-safe connection access
+    def _query_jobs() -> tuple[list, int]:
+        from video_policy_orchestrator.db.models import get_jobs_filtered
+
+        # Use transaction context manager to hold lock during entire operation
+        with connection_pool.transaction() as conn:
+            # Use SQL-level pagination for efficiency
+            jobs, total = get_jobs_filtered(
+                conn,
+                status=status_enum,
+                job_type=job_type_enum,
+                since=since_timestamp,
+                limit=params.limit,
+                offset=params.offset,
+                return_total=True,
+            )
+            return jobs, total
+
+    import asyncio
+
+    jobs_data, total = await asyncio.to_thread(_query_jobs)
+
+    # Helper to parse ISO-8601 timestamps (handles both Z and +00:00 suffixes)
+    def _parse_iso_timestamp(timestamp: str) -> datetime:
+        # Normalize Z suffix to +00:00 for fromisoformat compatibility (Python 3.10)
+        # This is safe even if timestamp already has +00:00 (Z won't be present)
+        normalized = timestamp.replace("Z", "+00:00")
+        return datetime.fromisoformat(normalized)
+
+    # Convert to JobListItem
+    job_items = []
+    for job in jobs_data:
+        # Calculate duration if completed
+        duration_seconds = None
+        if job.completed_at and job.created_at:
+            try:
+                created = _parse_iso_timestamp(job.created_at)
+                completed = _parse_iso_timestamp(job.completed_at)
+                duration_seconds = int((completed - created).total_seconds())
+            except (ValueError, TypeError):
+                pass
+
+        job_items.append(
+            JobListItem(
+                id=job.id,
+                job_type=job.job_type.value,
+                status=job.status.value,
+                file_path=job.file_path,
+                progress_percent=job.progress_percent,
+                created_at=job.created_at,
+                completed_at=job.completed_at,
+                duration_seconds=duration_seconds,
+            )
+        )
+
+    # Determine if any filters are active
+    has_filters = bool(params.status or params.job_type or params.since)
+
+    response = JobListResponse(
+        jobs=job_items,
+        total=total,
+        limit=params.limit,
+        offset=params.offset,
+        has_filters=has_filters,
+    )
+
+    return web.json_response(response.to_dict())
 
 
 async def library_handler(request: web.Request) -> dict:
