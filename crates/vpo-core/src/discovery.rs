@@ -107,12 +107,15 @@ pub fn discover_videos(
                 if extensions.contains(&ext.to_lowercase()) {
                     files_found += 1;
 
-                    // Report progress every 100 files
-                    if let Some(ref cb) = progress_callback {
-                        if files_found - last_reported >= 100 {
+                    // Report progress and check for signals every 100 files
+                    if files_found - last_reported >= 100 {
+                        // Check for Ctrl+C (raises KeyboardInterrupt if signaled)
+                        py.check_signals()?;
+
+                        if let Some(ref cb) = progress_callback {
                             cb.call1(py, (files_found,))?;
-                            last_reported = files_found;
                         }
+                        last_reported = files_found;
                     }
                 }
             }

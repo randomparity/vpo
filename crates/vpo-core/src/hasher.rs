@@ -92,6 +92,9 @@ pub fn hash_files(
         let mut processed: usize = 0;
 
         for chunk in paths.chunks(PROGRESS_BATCH_SIZE) {
+            // Check for Ctrl+C before each batch
+            py.check_signals()?;
+
             // Release GIL during parallel hashing
             let chunk_results: Vec<FileHash> = py.allow_threads(|| {
                 chunk
@@ -120,22 +123,36 @@ pub fn hash_files(
 
         Ok(results)
     } else {
-        // No callback - use simple parallel processing
-        Ok(paths
-            .par_iter()
-            .map(|path| match compute_file_hash(path) {
-                Ok(hash) => FileHash {
-                    path: path.clone(),
-                    hash: Some(hash),
-                    error: None,
-                },
-                Err(e) => FileHash {
-                    path: path.clone(),
-                    hash: None,
-                    error: Some(e),
-                },
-            })
-            .collect())
+        // No callback - use batched processing to allow signal checking
+        let mut results: Vec<FileHash> = Vec::with_capacity(total);
+
+        for chunk in paths.chunks(PROGRESS_BATCH_SIZE) {
+            // Check for Ctrl+C before each batch
+            py.check_signals()?;
+
+            // Release GIL during parallel hashing
+            let chunk_results: Vec<FileHash> = py.allow_threads(|| {
+                chunk
+                    .par_iter()
+                    .map(|path| match compute_file_hash(path) {
+                        Ok(hash) => FileHash {
+                            path: path.clone(),
+                            hash: Some(hash),
+                            error: None,
+                        },
+                        Err(e) => FileHash {
+                            path: path.clone(),
+                            hash: None,
+                            error: Some(e),
+                        },
+                    })
+                    .collect()
+            });
+
+            results.extend(chunk_results);
+        }
+
+        Ok(results)
     }
 }
 
