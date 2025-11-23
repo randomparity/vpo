@@ -580,16 +580,17 @@ async def api_job_errors_handler(request: web.Request) -> web.Response:
             if row["job_type"] != "scan":
                 return []
 
-            # Get files with errors
-            # We can't directly link files to jobs, so we get all files with errors
-            # In the future, could add a job_id column to files table
+            # Get files with errors for this specific job
             cursor = conn.execute(
                 """
                 SELECT path, filename, scan_error
                 FROM files
-                WHERE scan_status = 'error' AND scan_error IS NOT NULL
+                WHERE job_id = ?
+                  AND scan_status = 'error'
+                  AND scan_error IS NOT NULL
                 ORDER BY filename
                 """,
+                (job_id,),
             )
             return [
                 ScanErrorItem(

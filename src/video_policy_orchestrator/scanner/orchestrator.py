@@ -239,6 +239,7 @@ class ScannerOrchestrator:
         verify_hash: bool = False,
         scan_progress: ScanProgressCallback | None = None,
         batch_commit_size: int = 100,
+        job_id: str | None = None,
     ) -> tuple[list[ScannedFile], ScanResult]:
         """Scan directories and persist results to database.
 
@@ -255,6 +256,7 @@ class ScannerOrchestrator:
             batch_commit_size: Number of files to process before committing.
                 Batching commits improves performance and reduces lock contention
                 in daemon mode. Set to 0 to commit after each file (legacy behavior).
+            job_id: Optional job UUID to associate scanned files with.
 
         Returns:
             Tuple of (list of scanned files, scan result summary).
@@ -290,6 +292,7 @@ class ScannerOrchestrator:
             result = ScanResult()
             result.directories_scanned = [str(d) for d in directories]
             result.incremental = not full
+            result.job_id = job_id
 
             all_files: list[ScannedFile] = []
 
@@ -498,6 +501,7 @@ class ScannerOrchestrator:
                     scanned_at=now.isoformat(),
                     scan_status=scan_status,
                     scan_error=scan_error,
+                    job_id=job_id,
                 )
 
                 file_id = upsert_file(conn, record)

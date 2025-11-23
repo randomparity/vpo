@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -24,12 +24,14 @@ CREATE TABLE IF NOT EXISTS files (
     container_format TEXT,
     scanned_at TEXT NOT NULL,   -- ISO 8601 UTC timestamp
     scan_status TEXT NOT NULL DEFAULT 'pending',
-    scan_error TEXT
+    scan_error TEXT,
+    job_id TEXT  -- Links file to scan job that discovered/updated it
 );
 
 CREATE INDEX IF NOT EXISTS idx_files_directory ON files(directory);
 CREATE INDEX IF NOT EXISTS idx_files_extension ON files(extension);
 CREATE INDEX IF NOT EXISTS idx_files_content_hash ON files(content_hash);
+CREATE INDEX IF NOT EXISTS idx_files_job_id ON files(job_id);
 
 -- Tracks table (one-to-many with files)
 CREATE TABLE IF NOT EXISTS tracks (
@@ -646,6 +648,35 @@ def migrate_v7_to_v8(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def migrate_v8_to_v9(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 8 to version 9.
+
+    Adds job_id column to files table to link files to scan jobs:
+    - job_id: TEXT (UUID of the scan job that discovered/updated the file)
+
+    This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Check existing columns in files table
+    cursor = conn.execute("PRAGMA table_info(files)")
+    existing_columns = {row[1] for row in cursor.fetchall()}
+
+    # Add job_id column if it doesn't exist
+    if "job_id" not in existing_columns:
+        conn.execute("ALTER TABLE files ADD COLUMN job_id TEXT")
+
+    # Create index for job_id (idempotent)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_files_job_id ON files(job_id)")
+
+    # Update schema version to 9
+    conn.execute(
+        "UPDATE _meta SET value = '9' WHERE key = 'schema_version'",
+    )
+    conn.commit()
+
+
 def initialize_database(conn: sqlite3.Connection) -> None:
     """Initialize the database with schema, creating tables if needed.
 
@@ -678,3 +709,6 @@ def initialize_database(conn: sqlite3.Connection) -> None:
             current_version = 7
         if current_version == 7:
             migrate_v7_to_v8(conn)
+            current_version = 8
+        if current_version == 8:
+            migrate_v8_to_v9(conn)

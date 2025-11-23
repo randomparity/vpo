@@ -268,10 +268,10 @@ def scan(
                         prune=prune,
                         verify_hash=verify_hash,
                         scan_progress=progress,
+                        job_id=job.id,
                     )
 
-                    # Update job record with results
-                    result.job_id = job.id
+                    # job_id is already set in result by scan_and_persist
                     summary = {
                         "total_discovered": result.files_found,
                         "scanned": result.files_new + result.files_updated,
