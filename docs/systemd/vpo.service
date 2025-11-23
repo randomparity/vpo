@@ -1,0 +1,55 @@
+# VPO Daemon Systemd Unit File
+#
+# Installation:
+#   sudo cp vpo.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable vpo
+#   sudo systemctl start vpo
+#
+# Configuration:
+#   1. Create config file: /etc/vpo/config.toml (see docs/daemon-mode.md)
+#   2. Create user: sudo useradd --system --create-home --shell /bin/false vpo
+#   3. Set permissions on database directory
+#
+# Logs:
+#   journalctl -u vpo -f          # Follow logs
+#   journalctl -u vpo --since today
+
+[Unit]
+Description=Video Policy Orchestrator Daemon
+Documentation=https://github.com/randomparity/vpo
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=vpo
+Group=vpo
+
+# Main executable - adjust path as needed
+ExecStart=/usr/local/bin/vpo serve --config /etc/vpo/config.toml
+
+# Graceful shutdown
+TimeoutStopSec=35
+KillMode=mixed
+KillSignal=SIGTERM
+
+# Restart policy
+Restart=on-failure
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+
+# Allow write access to VPO data directories
+ReadWritePaths=/var/lib/vpo
+ReadWritePaths=/home/vpo/.vpo
+
+# Environment (can override with Environment= or EnvironmentFile=)
+Environment=VPO_CONFIG_PATH=/etc/vpo/config.toml
+
+[Install]
+WantedBy=multi-user.target

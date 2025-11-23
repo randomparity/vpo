@@ -79,11 +79,11 @@
 
 ### Implementation for User Story 2
 
-- [ ] T023 [US2] Create docs/systemd/ directory
-- [ ] T024 [US2] Create example systemd unit file at docs/systemd/vpo.service per research.md
-- [ ] T025 [US2] Create docs/systemd.md with installation and usage instructions
-- [ ] T026 [US2] Ensure daemon logs go to stderr (journald compatible) - verify in server/app.py
-- [ ] T027 Commit Phase 4 changes with message "feat(012): Add systemd unit file and deployment documentation"
+- [X] T023 [US2] Create docs/systemd/ directory
+- [X] T024 [US2] Create example systemd unit file at docs/systemd/vpo.service per research.md
+- [X] T025 [US2] Create docs/systemd.md with installation and usage instructions
+- [X] T026 [US2] Ensure daemon logs go to stderr (journald compatible) - verify in server/app.py
+- [X] T027 Commit Phase 4 changes with message "feat(012): Add systemd unit file and deployment documentation"
 
 **Checkpoint**: User Story 2 complete - systemd unit file ready for deployment
 
