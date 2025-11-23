@@ -27,6 +27,7 @@ from video_policy_orchestrator.server.ui.models import (
     JobListContext,
     JobListItem,
     JobListResponse,
+    JobLogsResponse,
     NavigationState,
     TemplateContext,
     generate_summary_text,
@@ -453,6 +454,65 @@ async def job_detail_handler(request: web.Request) -> dict:
     return context
 
 
+async def api_job_logs_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/jobs/{job_id}/logs - JSON API for job logs.
+
+    Query parameters:
+        lines: Number of lines to return (default 500, max 1000)
+        offset: Line offset from start (default 0)
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        JSON response with JobLogsResponse payload.
+    """
+    from video_policy_orchestrator.jobs.logs import DEFAULT_LOG_LINES, read_log_tail
+
+    # Check if shutting down
+    lifecycle = request.app.get("lifecycle")
+    if lifecycle and lifecycle.is_shutting_down:
+        return web.json_response(
+            {"error": "Service is shutting down"},
+            status=503,
+        )
+
+    job_id = request.match_info["job_id"]
+
+    # Validate UUID format
+    if not _is_valid_uuid(job_id):
+        return web.json_response(
+            {"error": "Invalid job ID format"},
+            status=400,
+        )
+
+    # Parse query parameters
+    try:
+        lines = int(request.query.get("lines", DEFAULT_LOG_LINES))
+        lines = max(1, min(1000, lines))  # Clamp to 1-1000
+    except (ValueError, TypeError):
+        lines = DEFAULT_LOG_LINES
+
+    try:
+        offset = int(request.query.get("offset", 0))
+        offset = max(0, offset)
+    except (ValueError, TypeError):
+        offset = 0
+
+    # Read logs
+    log_lines, total_lines, has_more = read_log_tail(job_id, lines=lines, offset=offset)
+
+    response = JobLogsResponse(
+        job_id=job_id,
+        lines=log_lines,
+        total_lines=total_lines,
+        offset=offset,
+        has_more=has_more,
+    )
+
+    return web.json_response(response.to_dict())
+
+
 async def library_handler(request: web.Request) -> dict:
     """Handle GET /library - Library section page."""
     return _create_template_context(
@@ -652,6 +712,7 @@ def setup_ui_routes(app: web.Application) -> None:
         aiohttp_jinja2.template("sections/job_detail.html")(job_detail_handler),
     )
     app.router.add_get("/api/jobs/{job_id}", api_job_detail_handler)
+    app.router.add_get("/api/jobs/{job_id}/logs", api_job_logs_handler)
     app.router.add_get(
         "/library",
         aiohttp_jinja2.template("sections/library.html")(library_handler),

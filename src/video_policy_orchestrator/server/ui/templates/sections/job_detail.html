@@ -98,14 +98,24 @@
     </section>
     {% endif %}
 
-    <!-- Logs section placeholder (US3 will enhance) -->
-    <section class="job-detail-logs" id="job-logs-section" style="display: none;">
+    <!-- Logs section -->
+    {% if job.has_logs %}
+    <section class="job-detail-logs" id="job-logs-section" data-job-id="{{ job.id }}">
         <h2>Logs</h2>
         <div id="logs-container" class="logs-container">
-            <!-- Loaded by JavaScript in US3 -->
+            <div class="logs-loading">Loading logs...</div>
         </div>
-        <button id="load-more-logs" class="jobs-pagination-btn" style="display: none;">Load More</button>
+        <div id="logs-pagination" class="logs-pagination" style="display: none;">
+            <span id="logs-info" class="logs-info"></span>
+            <button id="load-more-logs" class="jobs-pagination-btn">Load More</button>
+        </div>
     </section>
+    {% elif job.status == 'completed' or job.status == 'failed' %}
+    <section class="job-detail-logs" id="job-logs-section">
+        <h2>Logs</h2>
+        <div class="logs-container logs-empty">No logs available</div>
+    </section>
+    {% endif %}
 </div>
 
 <script src="/static/js/job_detail.js"></script>

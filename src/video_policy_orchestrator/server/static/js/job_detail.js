@@ -1,11 +1,17 @@
 /**
  * Job Detail Page JavaScript
  *
- * Handles relative timestamps and client-side enhancements for the job detail view.
+ * Handles relative timestamps, logs fetching/display, and client-side enhancements.
  */
 
 (function() {
     'use strict';
+
+    // Logs state
+    let currentLogsOffset = 0;
+    let totalLogLines = 0;
+    let hasMoreLogs = false;
+    const logsPageSize = 500;
 
     /**
      * Format a duration in seconds to a human-readable string.
@@ -108,6 +114,114 @@
     }
 
     /**
+     * Escape HTML to prevent XSS.
+     * @param {string} str - String to escape
+     * @returns {string} Escaped string
+     */
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    /**
+     * Fetch logs from the API.
+     * @param {string} jobId - Job UUID
+     * @param {number} offset - Line offset
+     * @param {boolean} append - Whether to append to existing logs
+     */
+    async function fetchLogs(jobId, offset, append) {
+        const container = document.getElementById('logs-container');
+        const pagination = document.getElementById('logs-pagination');
+        const logsInfo = document.getElementById('logs-info');
+        const loadMoreBtn = document.getElementById('load-more-logs');
+
+        if (!container) return;
+
+        try {
+            const response = await fetch('/api/jobs/' + jobId + '/logs?lines=' + logsPageSize + '&offset=' + offset);
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch logs: ' + response.status);
+            }
+
+            const data = await response.json();
+
+            totalLogLines = data.total_lines;
+            hasMoreLogs = data.has_more;
+            currentLogsOffset = offset + data.lines.length;
+
+            // Render logs
+            if (data.lines.length === 0) {
+                container.innerHTML = '<div class="logs-empty">No logs available</div>';
+                if (pagination) pagination.style.display = 'none';
+                return;
+            }
+
+            const logsHtml = data.lines.map(function(line) {
+                return escapeHtml(line);
+            }).join('\n');
+
+            if (append && offset > 0) {
+                // Append to existing content
+                container.innerHTML += '\n' + logsHtml;
+            } else {
+                // Replace content
+                container.innerHTML = logsHtml;
+            }
+
+            // Update pagination
+            if (pagination && totalLogLines > 0) {
+                const showing = Math.min(currentLogsOffset, totalLogLines);
+                logsInfo.textContent = 'Showing ' + showing + ' of ' + totalLogLines + ' lines';
+                pagination.style.display = hasMoreLogs ? 'flex' : 'none';
+
+                if (loadMoreBtn) {
+                    loadMoreBtn.disabled = !hasMoreLogs;
+                }
+            }
+
+        } catch (error) {
+            console.error('Error fetching logs:', error);
+            container.innerHTML = '<div class="logs-error">Unable to load logs</div>';
+        }
+    }
+
+    /**
+     * Handle "Load More" button click.
+     */
+    function handleLoadMore() {
+        const section = document.getElementById('job-logs-section');
+        if (!section) return;
+
+        const jobId = section.getAttribute('data-job-id');
+        if (!jobId) return;
+
+        fetchLogs(jobId, currentLogsOffset, true);
+    }
+
+    /**
+     * Initialize logs section.
+     */
+    function initLogs() {
+        const section = document.getElementById('job-logs-section');
+        if (!section) return;
+
+        const jobId = section.getAttribute('data-job-id');
+        if (!jobId) return;
+
+        // Initial fetch
+        fetchLogs(jobId, 0, false);
+
+        // Bind load more button
+        const loadMoreBtn = document.getElementById('load-more-logs');
+        if (loadMoreBtn) {
+            loadMoreBtn.addEventListener('click', handleLoadMore);
+        }
+    }
+
+    /**
      * Initialize the job detail page.
      */
     function init() {
@@ -116,6 +230,9 @@
 
         // Format durations
         updateDurations();
+
+        // Initialize logs section
+        initLogs();
 
         // Update timestamps periodically (every minute)
         setInterval(updateTimestamps, 60000);

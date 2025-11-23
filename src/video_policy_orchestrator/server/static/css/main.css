@@ -658,6 +658,32 @@ html, body {
     font-style: italic;
 }
 
+.logs-loading,
+.logs-empty,
+.logs-error {
+    color: #888;
+    font-style: italic;
+    padding: var(--spacing-md);
+}
+
+.logs-error {
+    color: #f87171;
+}
+
+/* Logs pagination */
+.logs-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+}
+
+.logs-info {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
 /* Graceful degradation for below minimum supported viewport (< 768px) */
 @media (max-width: 767px) {
     .app-shell {
