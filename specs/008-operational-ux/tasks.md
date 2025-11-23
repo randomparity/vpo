@@ -59,20 +59,20 @@
 
 ### Tests for User Story 1
 
-- [ ] T012 [P] [US1] Unit test for change detection logic in tests/unit/test_incremental_scan.py
-- [ ] T013 [P] [US1] Unit test for missing file handling in tests/unit/test_incremental_scan.py
+- [x] T012 [P] [US1] Unit test for change detection logic in tests/unit/test_incremental_scan.py
+- [x] T013 [P] [US1] Unit test for missing file handling in tests/unit/test_incremental_scan.py
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] Implement file_needs_rescan() function in src/video_policy_orchestrator/scanner/orchestrator.py
-- [ ] T015 [US1] Implement detect_missing_files() function in src/video_policy_orchestrator/scanner/orchestrator.py
-- [ ] T016 [US1] Modify scan_directory() to use incremental detection by default in src/video_policy_orchestrator/scanner/orchestrator.py
-- [ ] T017 [US1] Add --full flag to scan command in src/video_policy_orchestrator/cli/scan.py
-- [ ] T018 [US1] Add --prune flag to scan command in src/video_policy_orchestrator/cli/scan.py
-- [ ] T019 [US1] Add --verify-hash flag to scan command in src/video_policy_orchestrator/cli/scan.py
-- [ ] T020 [US1] Implement incremental scan summary output (scanned/skipped/added/removed) in src/video_policy_orchestrator/cli/scan.py
-- [ ] T021 [US1] Create scan job record with config (incremental, prune, verify_hash flags serialized to policy_json) in src/video_policy_orchestrator/jobs/tracking.py
-- [ ] T022 [US1] Wire scan job tracking into scan_directory() in src/video_policy_orchestrator/scanner/orchestrator.py
+- [x] T014 [US1] Implement file_needs_rescan() function in src/video_policy_orchestrator/scanner/orchestrator.py
+- [x] T015 [US1] Implement detect_missing_files() function in src/video_policy_orchestrator/scanner/orchestrator.py
+- [x] T016 [US1] Modify scan_directory() to use incremental detection by default in src/video_policy_orchestrator/scanner/orchestrator.py
+- [x] T017 [US1] Add --full flag to scan command in src/video_policy_orchestrator/cli/scan.py
+- [x] T018 [US1] Add --prune flag to scan command in src/video_policy_orchestrator/cli/scan.py
+- [x] T019 [US1] Add --verify-hash flag to scan command in src/video_policy_orchestrator/cli/scan.py
+- [x] T020 [US1] Implement incremental scan summary output (scanned/skipped/added/removed) in src/video_policy_orchestrator/cli/scan.py
+- [x] T021 [US1] Create scan job record with config (incremental, prune, verify_hash flags serialized to policy_json) in src/video_policy_orchestrator/jobs/tracking.py
+- [x] T022 [US1] Wire scan job tracking into scan_directory() in src/video_policy_orchestrator/scanner/orchestrator.py
 
 **Checkpoint**: User Story 1 complete - Commit "feat(008): Phase 3 - US1 Incremental directory scanning"
 
