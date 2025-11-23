@@ -154,21 +154,24 @@
 
             // Render logs
             if (data.lines.length === 0) {
-                container.innerHTML = '<div class="logs-empty">No logs available</div>';
+                container.textContent = '';
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'logs-empty';
+                emptyDiv.textContent = 'No logs available';
+                container.appendChild(emptyDiv);
                 if (pagination) pagination.style.display = 'none';
                 return;
             }
 
-            const logsHtml = data.lines.map(function(line) {
-                return escapeHtml(line);
-            }).join('\n');
+            // Build log content safely using textContent (defense-in-depth)
+            const logContent = data.lines.join('\n');
 
             if (append && offset > 0) {
                 // Append to existing content
-                container.innerHTML += '\n' + logsHtml;
+                container.textContent += '\n' + logContent;
             } else {
-                // Replace content
-                container.innerHTML = logsHtml;
+                // Replace content using textContent for safety
+                container.textContent = logContent;
             }
 
             // Update pagination
@@ -184,7 +187,11 @@
 
         } catch (error) {
             console.error('Error fetching logs:', error);
-            container.innerHTML = '<div class="logs-error">Unable to load logs</div>';
+            container.textContent = '';
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'logs-error';
+            errorDiv.textContent = 'Unable to load logs';
+            container.appendChild(errorDiv);
         }
     }
 

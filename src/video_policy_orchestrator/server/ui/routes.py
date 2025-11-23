@@ -403,6 +403,12 @@ async def job_detail_handler(request: web.Request) -> dict:
     Raises:
         HTTPNotFound: If job not found.
         HTTPBadRequest: If job ID format is invalid.
+
+    Note:
+        TODO: Add authentication when auth system is implemented.
+        This endpoint currently exposes job details without access control.
+        VPO is designed as a local tool, but authentication should be
+        added before exposing the web UI to untrusted networks.
     """
     import asyncio
 
@@ -466,6 +472,11 @@ async def api_job_logs_handler(request: web.Request) -> web.Response:
 
     Returns:
         JSON response with JobLogsResponse payload.
+
+    Note:
+        TODO: Add authentication when auth system is implemented.
+        TODO: Add CSRF protection if state-changing operations (cancel/retry)
+        are added to this endpoint in the future.
     """
     from video_policy_orchestrator.jobs.logs import DEFAULT_LOG_LINES, read_log_tail
 
