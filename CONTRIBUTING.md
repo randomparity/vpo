@@ -189,6 +189,71 @@ When making changes:
 - Update specs if behavior is changing
 - Reference specs in PR descriptions
 
+## Release Process
+
+VPO uses automated releases via GitHub Actions. Here's how releases work:
+
+### Version Numbering
+
+VPO follows [Semantic Versioning](https://semver.org/):
+- **MAJOR**: Breaking changes to CLI or plugin API
+- **MINOR**: New features (backward compatible)
+- **PATCH**: Bug fixes and minor improvements
+
+### Creating a Release
+
+1. **Update version** in `pyproject.toml`:
+   ```toml
+   [project]
+   version = "X.Y.Z"
+   ```
+
+2. **Create and push a version tag**:
+   ```bash
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
+   ```
+
+3. **Automated workflows** (triggered by tag push):
+   - `release.yml`: Builds wheels for Linux/macOS and publishes to PyPI
+   - `docker.yml`: Builds and pushes container image to GHCR
+
+### PyPI Trusted Publishing
+
+VPO uses [PyPI Trusted Publishing](https://docs.pypi.org/trusted-publishers/) for secure releases:
+- No API tokens needed in repository secrets
+- GitHub Actions authenticates directly with PyPI
+- Configured via PyPI project settings (requires maintainer access)
+
+### Pre-release Testing
+
+Before creating a release tag:
+
+1. **Run full test suite**:
+   ```bash
+   uv run pytest
+   uv run ruff check .
+   ```
+
+2. **Test wheel build locally**:
+   ```bash
+   uv run maturin build --release
+   ```
+
+3. **For major releases**, consider a release candidate:
+   ```bash
+   git tag vX.Y.Z-rc1
+   git push origin vX.Y.Z-rc1
+   # Test installation from TestPyPI
+   ```
+
+### Container Images
+
+Container images are published to GitHub Container Registry (ghcr.io):
+- `ghcr.io/randomparity/vpo:latest` - Latest stable release
+- `ghcr.io/randomparity/vpo:vX.Y.Z` - Specific version
+- `ghcr.io/randomparity/vpo:main` - Latest main branch (may be unstable)
+
 ## Getting Help
 
 - Open an issue for questions or feature ideas
