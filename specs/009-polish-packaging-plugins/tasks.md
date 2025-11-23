@@ -94,13 +94,13 @@ This feature has no foundational blocking tasks - each user story is independent
 
 ### Implementation for User Story 3
 
-- [ ] T009 [P] [US3] Create hello_world plugin template directory structure in examples/plugins/hello_world/
-- [ ] T010 [P] [US3] Create plugin template pyproject.toml with entry point in examples/plugins/hello_world/pyproject.toml
-- [ ] T011 [P] [US3] Create plugin template implementation in examples/plugins/hello_world/src/hello_world/__init__.py
-- [ ] T012 [P] [US3] Create plugin template README in examples/plugins/hello_world/README.md
-- [ ] T013 [US3] Create plugin author guide document in docs/plugin-author-guide.md
-- [ ] T014 [US3] Update documentation index to include plugin author guide in docs/INDEX.md
-- [ ] T015 [US3] Verify hello_world template passes ruff check, installs correctly, and has no type errors (if type hints used)
+- [x] T009 [P] [US3] Create hello_world plugin template directory structure in examples/plugins/hello_world/
+- [x] T010 [P] [US3] Create plugin template pyproject.toml with entry point in examples/plugins/hello_world/pyproject.toml
+- [x] T011 [P] [US3] Create plugin template implementation in examples/plugins/hello_world/src/hello_world/__init__.py
+- [x] T012 [P] [US3] Create plugin template README in examples/plugins/hello_world/README.md
+- [x] T013 [US3] Create plugin author guide document in docs/plugin-author-guide.md
+- [x] T014 [US3] Update documentation index to include plugin author guide in docs/INDEX.md
+- [x] T015 [US3] Verify hello_world template passes ruff check, installs correctly, and has no type errors (if type hints used)
 
 **Checkpoint**: At this point, User Stories 1, 2, AND 3 should all work independently.
 

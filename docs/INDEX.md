@@ -50,7 +50,10 @@ Docs focused on tasks and workflows: how to run the tools, configure them, and p
   End-to-end workflows for scanning libraries and inspecting files.
 
 - [plugins.md](plugins.md)
-  Plugin development guide: creating analyzers and mutators, events, versioning, and SDK usage.
+  Plugin API reference: events, base classes, versioning, and SDK usage.
+
+- [plugin-author-guide.md](plugin-author-guide.md)
+  Plugin development workflow: project setup, testing, packaging, and publishing.
 
 ---
 
