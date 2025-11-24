@@ -686,7 +686,26 @@ async def library_api_handler(request: web.Request) -> web.Response:
         )
 
     # Parse query parameters
-    params = LibraryFilterParams.from_query(dict(request.query))
+    # Handle audio_lang as a list (can appear multiple times in query)
+    query_dict = dict(request.query)
+    if "audio_lang" in request.query:
+        query_dict["audio_lang"] = request.query.getall("audio_lang")
+    params = LibraryFilterParams.from_query(query_dict)
+
+    # Log filter request for debugging (019-library-filters-search)
+    active_filters = []
+    if params.status:
+        active_filters.append(f"status={params.status}")
+    if params.search:
+        active_filters.append(f"search={params.search!r}")
+    if params.resolution:
+        active_filters.append(f"resolution={params.resolution}")
+    if params.audio_lang:
+        active_filters.append(f"audio_lang={params.audio_lang}")
+    if params.subtitles:
+        active_filters.append(f"subtitles={params.subtitles}")
+    if active_filters:
+        logger.debug("Library API filter request: %s", ", ".join(active_filters))
 
     # Get connection pool
     connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
