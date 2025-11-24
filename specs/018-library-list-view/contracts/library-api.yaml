@@ -1,0 +1,166 @@
+openapi: 3.0.3
+info:
+  title: VPO Library API
+  description: API endpoints for the Library list view feature
+  version: 1.0.0
+
+paths:
+  /api/library:
+    get:
+      summary: List library files
+      description: |
+        Returns a paginated list of scanned video files with track metadata.
+        Files are sorted by scanned_at descending (most recent first).
+      operationId: listLibraryFiles
+      tags:
+        - Library
+      parameters:
+        - name: status
+          in: query
+          description: Filter by scan status
+          required: false
+          schema:
+            type: string
+            enum: [ok, error]
+            example: ok
+        - name: limit
+          in: query
+          description: Maximum number of files to return (1-100)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          description: Number of files to skip for pagination
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Successful response with file list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileListResponse'
+              example:
+                files:
+                  - id: 42
+                    filename: "movie.mkv"
+                    path: "/media/movies/movie.mkv"
+                    title: "The Movie Title"
+                    resolution: "1080p"
+                    audio_languages: "eng, jpn"
+                    scanned_at: "2025-11-23T10:30:00Z"
+                    scan_status: "ok"
+                    scan_error: null
+                total: 150
+                limit: 50
+                offset: 0
+                has_filters: false
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    FileListItem:
+      type: object
+      required:
+        - id
+        - filename
+        - path
+        - resolution
+        - audio_languages
+        - scanned_at
+        - scan_status
+      properties:
+        id:
+          type: integer
+          description: Database file ID
+          example: 42
+        filename:
+          type: string
+          description: Short filename for display
+          example: "movie.mkv"
+        path:
+          type: string
+          description: Full file path (for tooltip)
+          example: "/media/movies/movie.mkv"
+        title:
+          type: string
+          nullable: true
+          description: Video track title if available
+          example: "The Movie Title"
+        resolution:
+          type: string
+          description: Human-readable resolution label
+          example: "1080p"
+          enum: ["4K", "1440p", "1080p", "720p", "480p", "360p", "—"]
+        audio_languages:
+          type: string
+          description: Formatted audio language list
+          example: "eng, jpn"
+        scanned_at:
+          type: string
+          format: date-time
+          description: ISO-8601 UTC timestamp of last scan
+          example: "2025-11-23T10:30:00Z"
+        scan_status:
+          type: string
+          description: Scan result status
+          enum: [ok, error]
+          example: "ok"
+        scan_error:
+          type: string
+          nullable: true
+          description: Error message if scan_status is "error"
+          example: null
+
+    FileListResponse:
+      type: object
+      required:
+        - files
+        - total
+        - limit
+        - offset
+        - has_filters
+      properties:
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileListItem'
+          description: File items for current page
+        total:
+          type: integer
+          description: Total files matching filters
+          example: 150
+        limit:
+          type: integer
+          description: Page size used
+          example: 50
+        offset:
+          type: integer
+          description: Current offset
+          example: 0
+        has_filters:
+          type: boolean
+          description: True if any filter was applied
+          example: false
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "Database connection failed"

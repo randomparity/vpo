@@ -104,3 +104,10 @@ The web UI uses server-rendered HTML with JavaScript enhancements:
 - **CSS**: Plain CSS in `server/static/css/`
 - **API**: REST endpoints at `/api/*` return JSON
 - **Security**: CSP headers applied to HTML responses (see `SECURITY_HEADERS` in routes.py)
+
+## Active Technologies
+- Python 3.10+ (existing codebase) + aiohttp, Jinja2, aiohttp-jinja2 (existing web stack) (018-library-list-view)
+- SQLite via existing `db/models.py` and `db/connection.py` (018-library-list-view)
+
+## Recent Changes
+- 018-library-list-view: Added Python 3.10+ (existing codebase) + aiohttp, Jinja2, aiohttp-jinja2 (existing web stack)
