@@ -313,3 +313,78 @@ class TestPolicySummaryToDict:
 
         assert d["name"] == "broken"
         assert d["parse_error"] == "YAML error: something went wrong"
+
+
+class TestPolicyCaching:
+    """Tests for policy file caching."""
+
+    def test_cache_hit_on_unchanged_file(self, tmp_path: Path) -> None:
+        """Cached result returned when file hasn't changed."""
+        from video_policy_orchestrator.policy.discovery import clear_policy_cache
+
+        # Ensure clean cache
+        clear_policy_cache()
+
+        # Create a policy file
+        policy_path = tmp_path / "cached.yaml"
+        policy_path.write_text("schema_version: 2\n")
+
+        # First parse (cache miss)
+        result1 = _parse_policy_file(policy_path)
+        assert result1.schema_version == 2
+
+        # Second parse (cache hit - same content returned)
+        result2 = _parse_policy_file(policy_path)
+        assert result2.schema_version == 2
+        assert result1 == result2
+
+    def test_cache_invalidation_on_modification(self, tmp_path: Path) -> None:
+        """Cache invalidated when file is modified."""
+        import os
+        import time
+
+        from video_policy_orchestrator.policy.discovery import clear_policy_cache
+
+        # Ensure clean cache
+        clear_policy_cache()
+
+        # Create a policy file
+        policy_path = tmp_path / "modified.yaml"
+        policy_path.write_text("schema_version: 1\n")
+
+        # First parse
+        result1 = _parse_policy_file(policy_path)
+        assert result1.schema_version == 1
+
+        # Ensure mtime changes (some filesystems have 1-second resolution)
+        time.sleep(0.1)
+        # Modify the file
+        policy_path.write_text("schema_version: 2\n")
+        # Force mtime update
+        os.utime(policy_path, None)
+
+        # Second parse should return new content
+        result2 = _parse_policy_file(policy_path)
+        assert result2.schema_version == 2
+
+    def test_clear_policy_cache(self, tmp_path: Path) -> None:
+        """clear_policy_cache() clears all cached entries."""
+        from video_policy_orchestrator.policy.discovery import (
+            _policy_cache,
+            clear_policy_cache,
+        )
+
+        # Ensure clean state
+        clear_policy_cache()
+
+        # Create and parse a policy
+        policy_path = tmp_path / "test.yaml"
+        policy_path.write_text("schema_version: 1\n")
+        _parse_policy_file(policy_path)
+
+        # Cache should have entry
+        assert len(_policy_cache) > 0
+
+        # Clear cache
+        clear_policy_cache()
+        assert len(_policy_cache) == 0

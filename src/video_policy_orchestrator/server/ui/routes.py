@@ -1304,8 +1304,8 @@ async def policies_handler(request: web.Request) -> dict:
         profile = get_active_profile()
         if profile and profile.default_policy:
             default_policy_path = profile.default_policy
-    except Exception:
-        pass
+    except (ImportError, AttributeError) as e:
+        logger.debug("Could not load default policy from profile: %s", e)
 
     # Discover policies
     policies_dir = DEFAULT_POLICIES_DIR
@@ -1379,8 +1379,8 @@ async def policies_api_handler(request: web.Request) -> web.Response:
         profile = get_active_profile()
         if profile and profile.default_policy:
             default_policy_path = profile.default_policy
-    except Exception:
-        pass
+    except (ImportError, AttributeError) as e:
+        logger.debug("Could not load default policy from profile: %s", e)
 
     # Discover policies
     policies_dir = DEFAULT_POLICIES_DIR
