@@ -569,29 +569,28 @@
         // Clear previous content
         validationErrors.innerHTML = '';
 
-        // Create message text
+        // Create message text with proper styling
         const messageText = document.createElement('span');
+        messageText.className = 'error-message-text';
         messageText.textContent = message;
         validationErrors.appendChild(messageText);
 
-        // Add close button if not already present
-        if (!validationErrors.querySelector('.error-close')) {
-            const closeBtn = document.createElement('button');
-            closeBtn.className = 'error-close';
-            closeBtn.innerHTML = '×';
-            closeBtn.setAttribute('aria-label', 'Dismiss error');
-            closeBtn.tabIndex = 0;
-            closeBtn.onclick = () => {
+        // Create close button
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'error-close';
+        closeBtn.innerHTML = '×';
+        closeBtn.setAttribute('aria-label', 'Dismiss error');
+        closeBtn.tabIndex = 0;
+        closeBtn.onclick = () => {
+            validationErrors.style.display = 'none';
+        };
+        closeBtn.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
                 validationErrors.style.display = 'none';
-            };
-            closeBtn.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    validationErrors.style.display = 'none';
-                }
-            });
-            validationErrors.appendChild(closeBtn);
-        }
+            }
+        });
+        validationErrors.appendChild(closeBtn);
 
         validationErrors.style.display = 'block';
         validationErrors.setAttribute('role', 'alert');
