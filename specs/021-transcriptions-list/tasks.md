@@ -106,11 +106,11 @@
 
 **Purpose**: Final validation and code quality improvements
 
-- [ ] T024 Verify all edge cases: error status files (including files no longer accessible showing error indicator), boundary confidence values (0.0, 1.0), files with multiple languages
-- [ ] T025 Test pagination with varying data sizes
-- [ ] T026 Run `uv run ruff check .` and fix any linting issues
-- [ ] T027 Run `uv run ruff format .` to ensure consistent formatting
-- [ ] T028 Manual testing: Follow quickstart.md verification checklist
+- [X] T024 Verify all edge cases: error status files (including files no longer accessible showing error indicator), boundary confidence values (0.0, 1.0), files with multiple languages
+- [X] T025 Test pagination with varying data sizes
+- [X] T026 Run `uv run ruff check .` and fix any linting issues
+- [X] T027 Run `uv run ruff format .` to ensure consistent formatting
+- [X] T028 Manual testing: Follow quickstart.md verification checklist
 
 ---
 
