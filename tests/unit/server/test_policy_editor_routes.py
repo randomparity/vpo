@@ -7,12 +7,13 @@ Tests the GET and PUT endpoints for policy editing:
 """
 
 import pytest
+import pytest_asyncio
 from aiohttp import web
 
 from video_policy_orchestrator.server.ui.routes import setup_ui_routes
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_app(tmp_path):
     """Create test aiohttp app with routes."""
     app = web.Application()
