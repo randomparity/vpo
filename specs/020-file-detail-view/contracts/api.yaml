@@ -1,0 +1,279 @@
+openapi: 3.0.3
+info:
+  title: VPO File Detail API
+  version: 1.0.0
+  description: API endpoint for retrieving file detail information
+
+paths:
+  /api/library/{file_id}:
+    get:
+      summary: Get file detail
+      description: Returns comprehensive metadata for a single file including all tracks
+      operationId: getFileDetail
+      tags:
+        - Library
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          description: File database ID (integer primary key)
+          schema:
+            type: integer
+            minimum: 1
+            example: 123
+      responses:
+        '200':
+          description: File detail successfully retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileDetailResponse'
+        '400':
+          description: Invalid file ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Invalid file ID format"
+        '404':
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "File not found"
+        '503':
+          description: Service unavailable (database unavailable or shutting down)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Database not available"
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+
+    FileDetailResponse:
+      type: object
+      required:
+        - file
+      properties:
+        file:
+          $ref: '#/components/schemas/FileDetailItem'
+
+    FileDetailItem:
+      type: object
+      required:
+        - id
+        - path
+        - filename
+        - directory
+        - extension
+        - size_bytes
+        - size_human
+        - modified_at
+        - scanned_at
+        - scan_status
+        - video_tracks
+        - audio_tracks
+        - subtitle_tracks
+        - other_tracks
+        - total_tracks
+        - has_many_tracks
+      properties:
+        id:
+          type: integer
+          description: Database file ID
+          example: 123
+        path:
+          type: string
+          description: Full file path
+          example: "/media/movies/Movie (2024)/Movie.mkv"
+        filename:
+          type: string
+          description: Filename only
+          example: "Movie.mkv"
+        directory:
+          type: string
+          description: Parent directory path
+          example: "/media/movies/Movie (2024)"
+        extension:
+          type: string
+          description: File extension
+          example: ".mkv"
+        container_format:
+          type: string
+          nullable: true
+          description: Container format name
+          example: "matroska"
+        size_bytes:
+          type: integer
+          description: File size in bytes
+          example: 4294967296
+        size_human:
+          type: string
+          description: Human-readable file size
+          example: "4.0 GB"
+        modified_at:
+          type: string
+          format: date-time
+          description: File modification timestamp (ISO-8601 UTC)
+          example: "2024-01-15T10:30:00Z"
+        scanned_at:
+          type: string
+          format: date-time
+          description: Last scan timestamp (ISO-8601 UTC)
+          example: "2024-01-20T14:00:00Z"
+        scan_status:
+          type: string
+          enum: [ok, error]
+          description: Scan result status
+          example: "ok"
+        scan_error:
+          type: string
+          nullable: true
+          description: Error message if scan_status is "error"
+        scan_job_id:
+          type: string
+          nullable: true
+          format: uuid
+          description: UUID of scan job that discovered this file
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        video_tracks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackDetailItem'
+        audio_tracks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackDetailItem'
+        subtitle_tracks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackDetailItem'
+        other_tracks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackDetailItem'
+        total_tracks:
+          type: integer
+          description: Total number of tracks
+          example: 7
+        has_many_tracks:
+          type: boolean
+          description: True if 5+ tracks (for collapsible UI hint)
+          example: true
+
+    TrackDetailItem:
+      type: object
+      required:
+        - id
+        - index
+        - track_type
+        - is_default
+        - is_forced
+      properties:
+        id:
+          type: integer
+          description: Database track ID
+          example: 456
+        index:
+          type: integer
+          minimum: 0
+          description: Track index within file (0-based)
+          example: 0
+        track_type:
+          type: string
+          enum: [video, audio, subtitle, other]
+          description: Track type
+          example: "audio"
+        codec:
+          type: string
+          nullable: true
+          description: Codec name
+          example: "aac"
+        language:
+          type: string
+          nullable: true
+          description: ISO 639-2/B language code
+          example: "eng"
+        title:
+          type: string
+          nullable: true
+          description: Track title
+          example: "English 5.1"
+        is_default:
+          type: boolean
+          description: Whether track is marked as default
+          example: true
+        is_forced:
+          type: boolean
+          description: Whether track is marked as forced
+          example: false
+        # Video-specific fields
+        width:
+          type: integer
+          nullable: true
+          description: Video width in pixels
+          example: 1920
+        height:
+          type: integer
+          nullable: true
+          description: Video height in pixels
+          example: 1080
+        frame_rate:
+          type: string
+          nullable: true
+          description: Frame rate
+          example: "23.976"
+        # Audio-specific fields
+        channels:
+          type: integer
+          nullable: true
+          description: Number of audio channels
+          example: 6
+        channel_layout:
+          type: string
+          nullable: true
+          description: Human-readable channel layout
+          example: "5.1"
+        # Transcription data (audio tracks only)
+        transcription:
+          $ref: '#/components/schemas/TrackTranscriptionInfo'
+
+    TrackTranscriptionInfo:
+      type: object
+      nullable: true
+      properties:
+        detected_language:
+          type: string
+          nullable: true
+          description: Detected language code
+          example: "eng"
+        confidence_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Confidence score (0.0-1.0)
+          example: 0.95
+        track_type:
+          type: string
+          enum: [main, commentary, alternate]
+          description: Track classification
+          example: "main"
+        plugin_name:
+          type: string
+          description: Plugin that performed detection
+          example: "whisper-detector"

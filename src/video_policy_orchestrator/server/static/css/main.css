@@ -1236,6 +1236,298 @@ html, body {
     cursor: not-allowed;
 }
 
+/* ==========================================================================
+   File Detail View Styles (020-file-detail-view)
+   ========================================================================== */
+
+/* Back navigation link */
+.file-detail-back {
+    display: inline-block;
+    margin-bottom: var(--spacing-md);
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: var(--font-size-sm);
+    transition: color var(--transition-fast);
+}
+
+.file-detail-back:hover {
+    color: var(--color-primary-dark);
+    text-decoration: underline;
+}
+
+/* File detail header */
+.file-detail-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.file-detail-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--color-sidebar-bg);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Error message section */
+.file-detail-error {
+    margin-bottom: var(--spacing-lg);
+    padding: var(--spacing-md);
+    background-color: #fee2e2;
+    border: 1px solid #fecaca;
+    border-radius: 4px;
+}
+
+.file-detail-error h2 {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: #991b1b;
+}
+
+.file-detail-error-message {
+    font-family: monospace;
+    font-size: var(--font-size-sm);
+    color: #991b1b;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+/* File information section */
+.file-detail-info,
+.file-detail-jobs {
+    margin-bottom: var(--spacing-lg);
+}
+
+.file-detail-info h2,
+.file-detail-jobs h2 {
+    margin: 0 0 var(--spacing-md) 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+/* Definition list styling - reuses job detail pattern */
+.file-detail-dl {
+    margin: 0;
+    padding: var(--spacing-md);
+    background-color: var(--color-body-bg);
+    border-radius: 4px;
+}
+
+.file-detail-dl-row {
+    display: flex;
+    padding: var(--spacing-sm) 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.file-detail-dl-row:last-child {
+    border-bottom: none;
+}
+
+.file-detail-dl dt {
+    flex: 0 0 120px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
+.file-detail-dl dd {
+    flex: 1;
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+}
+
+/* Path styling with truncation */
+.file-detail-path {
+    max-width: 500px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: help;
+    font-family: monospace;
+    font-size: 0.8rem;
+}
+
+/* Job link styling */
+.file-detail-job-link {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+.file-detail-job-link:hover {
+    text-decoration: underline;
+}
+
+/* Track sections */
+.file-detail-tracks {
+    margin-bottom: var(--spacing-lg);
+}
+
+.file-detail-tracks h2 {
+    margin: 0 0 var(--spacing-md) 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+/* Collapsible sections (FR-013: 5+ tracks) */
+.collapsible .collapsible-header {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.collapsible .collapsible-header:hover {
+    color: var(--color-primary);
+}
+
+.collapse-icon {
+    font-size: 0.75rem;
+    transition: transform 0.2s ease;
+}
+
+.collapsible-content.collapsed {
+    display: none;
+}
+
+/* Track list */
+.track-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.track-item {
+    padding: var(--spacing-md);
+    background-color: var(--color-body-bg);
+    border-radius: 4px;
+    border-left: 3px solid var(--color-border);
+}
+
+.track-item--video {
+    border-left-color: #3b82f6;
+}
+
+.track-item--audio {
+    border-left-color: #10b981;
+}
+
+.track-item--subtitle {
+    border-left-color: #f59e0b;
+}
+
+.track-item--other {
+    border-left-color: #6b7280;
+}
+
+/* Track header */
+.track-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+}
+
+.track-index {
+    font-weight: 600;
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+}
+
+.track-codec {
+    font-family: monospace;
+    font-size: 0.75rem;
+    padding: 0.125rem 0.375rem;
+    background-color: #e5e7eb;
+    border-radius: 4px;
+    color: var(--color-text-muted);
+}
+
+.track-language {
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+    font-weight: 500;
+}
+
+.track-type {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+/* Track flags (default, forced) */
+.track-flag {
+    display: inline-block;
+    padding: 0.125rem 0.375rem;
+    border-radius: 9999px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.track-flag--default {
+    background-color: #dbeafe;
+    color: #1d4ed8;
+}
+
+.track-flag--forced {
+    background-color: #ffedd5;
+    color: #9a3412;
+}
+
+/* Track details */
+.track-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+.track-detail strong {
+    color: var(--color-text);
+    font-weight: 500;
+}
+
+.track-detail--transcription {
+    padding: 0.25rem 0.5rem;
+    background-color: rgba(16, 185, 129, 0.1);
+    border-radius: 4px;
+    color: #065f46;
+}
+
+/* Empty state for no tracks */
+.file-detail-empty {
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--color-text-muted);
+    background-color: var(--color-body-bg);
+    border-radius: 4px;
+}
+
+/* Clickable library rows (020-file-detail-view) */
+.library-table tbody tr[data-file-id] {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.library-table tbody tr[data-file-id]:hover {
+    background-color: rgba(52, 152, 219, 0.08);
+}
+
 /* Graceful degradation for below minimum supported viewport (< 768px) */
 @media (max-width: 767px) {
     .app-shell {
