@@ -32,29 +32,37 @@ uv run vpo --help
 uv run vpo scan /path/to/videos
 uv run vpo inspect /path/to/file.mkv
 uv run vpo apply --policy policy.yaml /path/to/file.mkv --dry-run
+
+# Run web UI daemon
+uv run vpo serve --port 8080          # Start daemon with web UI
 ```
 
 ## Tech Stack
 
-- **Python 3.10+** with click (CLI), pydantic, PyYAML
+- **Python 3.10+** with click (CLI), pydantic, PyYAML, aiohttp (daemon), Jinja2 (templates)
 - **Rust** (PyO3/maturin) for parallel file discovery and hashing in `crates/vpo-core/`
-- **SQLite** database at `~/.vpo/library.db`
+- **SQLite** database at `~/.vpo/library.db` (schema v7)
+- **Web UI**: Vanilla JavaScript (ES6+), no frameworks - uses polling for live updates
 - **External tools:** ffprobe (introspection), mkvpropedit/mkvmerge (MKV editing), ffmpeg (metadata editing)
 
 ## Architecture
 
 ```
 src/video_policy_orchestrator/
-├── cli/           # Click commands: scan, inspect, apply, doctor
+├── cli/           # Click commands: scan, inspect, apply, doctor, serve
 ├── config/        # Configuration loading and models
 ├── db/            # SQLite schema, models (FileInfo, TrackInfo), operations
 ├── executor/      # Tool executors: mkvpropedit, mkvmerge, ffmpeg_metadata
 ├── introspector/  # MediaIntrospector protocol, ffprobe implementation
+├── jobs/          # Background job management, logging, queue operations
 ├── plugin/        # Plugin system: registry, loader, interfaces, events
 ├── plugin_sdk/    # SDK helpers for plugin authors
 ├── plugins/       # Built-in reference plugins
 ├── policy/        # PolicySchema loading, Plan evaluation, track matchers
 ├── scanner/       # Orchestrates discovery and introspection
+├── server/        # aiohttp daemon: app, routes, lifecycle, signals
+│   ├── ui/        # Web UI: Jinja2 templates, routes, models
+│   └── static/    # CSS, JavaScript (vanilla JS, no frameworks)
 └── tools/         # External tool detection and capability caching
 
 crates/vpo-core/   # Rust extension for parallel discovery/hashing
@@ -64,6 +72,7 @@ crates/vpo-core/   # Rust extension for parallel discovery/hashing
 1. `scan` → discovers files (Rust) → introspects via ffprobe → stores in SQLite
 2. `inspect` → reads file from DB or live introspection → displays track info
 3. `apply` → loads policy YAML → evaluates against file → produces Plan → executes via mkvpropedit/ffmpeg
+4. `serve` → starts aiohttp daemon → serves web UI and REST API → manages background jobs
 
 ## Development Guidelines
 
@@ -87,28 +96,11 @@ This project uses **spec-driven development**:
 - Every new doc must be added to `/docs/INDEX.md` and include a "Related docs" section
 - Keep docs small and focused; link instead of duplicating content
 
-## Active Technologies
-- Python 3.10+ (per pyproject.toml) + click (CLI), pydantic (models), PyYAML (config), sqlite3 (jobs DB) (006-transcode-pipelines)
-- SQLite (~/.vpo/library.db) - extend existing schema with jobs table (006-transcode-pipelines)
-- Python 3.10+ (per pyproject.toml) + click (CLI), pydantic (models), PyYAML (config), sqlite3 (database), openai-whisper (reference plugin) (007-audio-transcription)
-- SQLite (~/.vpo/library.db) - extend existing schema with transcription_results table (007-audio-transcription)
-- SQLite (~/.vpo/library.db) - extend existing schema v6 (008-operational-ux)
-- Python 3.10+ (existing), Rust (PyO3/maturin for extension) + click, pydantic, PyYAML (existing); maturin (build), GitHub Actions (CI/CD) (009-polish-packaging-plugins)
-- N/A (no new storage requirements) (009-polish-packaging-plugins)
-- Python 3.10+ (per pyproject.toml) + click (CLI), sqlite3 (database), csv (stdlib), json (stdlib) (011-report-export-cli)
-- SQLite (~/.vpo/library.db) - read-only access to existing schema v7 (011-report-export-cli)
-- Python 3.10+ (per pyproject.toml requires-python = ">=3.10") + click (>=8.0, existing), pydantic (>=2.10, existing), aiohttp (new - lightweight async HTTP server) (012-daemon-systemd-server)
-- SQLite (~/.vpo/library.db, existing schema v7) (012-daemon-systemd-server)
-- Python 3.10+ (server), HTML5/CSS3/JavaScript (client) + aiohttp (existing server), Jinja2 (templating) (013-web-ui-shell)
-- N/A (no new storage required for shell - static UI served via daemon) (013-web-ui-shell)
-- Python 3.10+ (existing) + aiohttp (existing), Jinja2 (existing), aiohttp_jinja2 (existing) (014-settings-about-panel)
-- N/A (read-only display of runtime configuration) (014-settings-about-panel)
-- Python 3.10+ (per pyproject.toml) + aiohttp (existing), aiohttp_jinja2 (existing), Jinja2 (existing) (015-jobs-dashboard)
-- SQLite (~/.vpo/library.db) - existing jobs table with schema v7 (015-jobs-dashboard)
-- Python 3.10+ (per pyproject.toml requires-python = ">=3.10") + aiohttp (>=3.9, existing), aiohttp-jinja2 (>=1.6, existing), Jinja2 (>=3.1, existing) (016-job-detail-view)
-- SQLite (~/.vpo/library.db) - existing schema v7, file-based logs (~/.vpo/logs/{job_id}.log) (016-job-detail-view)
-- Python 3.10+ (server), JavaScript ES6+ (client) + aiohttp (existing), Jinja2 (existing), vanilla JavaScript (no new dependencies) (017-live-job-polling)
-- SQLite (~/.vpo/library.db) - existing schema v7, read-only access (017-live-job-polling)
+## Web UI Development
 
-## Recent Changes
-- 006-transcode-pipelines: Added Python 3.10+ (per pyproject.toml) + click (CLI), pydantic (models), PyYAML (config), sqlite3 (jobs DB)
+The web UI uses server-rendered HTML with JavaScript enhancements:
+- **Templates**: Jinja2 templates in `server/ui/templates/`
+- **JavaScript**: Vanilla JS modules in `server/static/js/` (no build step)
+- **CSS**: Plain CSS in `server/static/css/`
+- **API**: REST endpoints at `/api/*` return JSON
+- **Security**: CSP headers applied to HTML responses (see `SECURITY_HEADERS` in routes.py)
