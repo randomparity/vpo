@@ -229,6 +229,28 @@
     .save-status--error {
         color: var(--status-failed-color);
     }
+
+    /* Policies page adjustments */
+    .policies-info code,
+    .policies-info-secondary code,
+    .policies-warning code,
+    .policies-empty code {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .policies-table .policy-error {
+        background-color: rgba(239, 68, 68, 0.1);
+    }
+
+    .policies-table .policy-error:hover {
+        background-color: rgba(239, 68, 68, 0.15);
+    }
+
+    /* Policy editor validation errors */
+    .validation-errors {
+        background-color: rgba(239, 68, 68, 0.9);
+        color: #fff;
+    }
 }
 
 /* ==========================================================================
@@ -463,8 +485,8 @@ html, body {
 .content-header h2 {
     margin: 0;
     font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--color-sidebar-bg);
+    font-weight: 700;
+    color: var(--color-text);
 }
 
 .content-body {
@@ -813,8 +835,8 @@ html, body {
 .job-detail-header h1 {
     margin: 0;
     font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--color-sidebar-bg);
+    font-weight: 700;
+    color: var(--color-text);
 }
 
 /* Error message section */
@@ -1589,8 +1611,8 @@ html, body {
 .file-detail-title {
     margin: 0;
     font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--color-sidebar-bg);
+    font-weight: 700;
+    color: var(--color-text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2203,8 +2225,8 @@ html, body {
 .transcription-detail-title {
     margin: 0;
     font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--color-sidebar-bg);
+    font-weight: 700;
+    color: var(--color-text);
 }
 
 .transcription-detail-subtitle {
@@ -2482,8 +2504,8 @@ html, body {
 /* Info and warning banners */
 .policies-info {
     padding: var(--spacing-sm) var(--spacing-md);
-    background-color: #e8f4fc;
-    border: 1px solid #b8daef;
+    background-color: rgba(52, 152, 219, 0.1);
+    border: 1px solid rgba(52, 152, 219, 0.3);
     border-radius: 4px;
     color: var(--color-text);
     font-size: var(--font-size-sm);
@@ -2498,7 +2520,7 @@ html, body {
 
 .policies-info-secondary {
     padding: var(--spacing-sm) var(--spacing-md);
-    background-color: #f5f5f5;
+    background-color: var(--color-body-bg);
     border: 1px solid var(--color-border);
     border-radius: 4px;
     color: var(--color-text-muted);
@@ -2563,13 +2585,13 @@ html, body {
 }
 
 .policies-table th {
-    background-color: #f9fafb;
+    background-color: var(--color-body-bg);
     font-weight: 600;
     color: var(--color-text);
 }
 
 .policies-table tbody tr:hover {
-    background-color: #f5f7fa;
+    background-color: rgba(52, 152, 219, 0.05);
 }
 
 .policies-table .policy-error {
@@ -2740,12 +2762,13 @@ html, body {
 .policy-editor-title {
     margin: 0;
     font-size: 1.75rem;
-    font-weight: 600;
+    font-weight: 700;
+    color: var(--color-text);
 }
 
 .policy-editor-error {
-    background: #fff3cd;
-    border: 1px solid #ffc107;
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.3);
     border-radius: 4px;
     padding: var(--spacing-md);
     margin-bottom: var(--spacing-lg);
@@ -2753,7 +2776,7 @@ html, body {
 
 .policy-editor-error-message {
     font-family: 'Courier New', monospace;
-    background: #f8f9fa;
+    background: var(--color-body-bg);
     padding: var(--spacing-sm);
     border-radius: 2px;
     margin-top: var(--spacing-sm);
@@ -2766,7 +2789,7 @@ html, body {
 }
 
 .editor-section {
-    background: white;
+    background: var(--color-content-bg);
     border: 1px solid var(--color-border);
     border-radius: 6px;
     padding: var(--spacing-lg);
@@ -2799,7 +2822,7 @@ html, body {
     justify-content: space-between;
     align-items: center;
     padding: var(--spacing-sm) var(--spacing-md);
-    background: #f8f9fa;
+    background: var(--color-body-bg);
     border: 1px solid var(--color-border);
     border-radius: 4px;
 }
@@ -2849,7 +2872,7 @@ html, body {
     justify-content: space-between;
     align-items: center;
     padding: var(--spacing-sm) var(--spacing-md);
-    background: #f8f9fa;
+    background: var(--color-body-bg);
     border: 1px solid var(--color-border);
     border-radius: 4px;
 }
@@ -2874,7 +2897,7 @@ html, body {
 /* Buttons */
 .btn-icon {
     border: none;
-    background: white;
+    background: var(--color-content-bg);
     color: var(--color-text);
     padding: var(--spacing-xs) var(--spacing-sm);
     cursor: pointer;
@@ -2886,7 +2909,7 @@ html, body {
 }
 
 .btn-icon:hover:not(:disabled) {
-    background: #e9ecef;
+    background: var(--color-body-bg);
 }
 
 .btn-icon:disabled {
@@ -2923,7 +2946,7 @@ html, body {
 }
 
 .btn-secondary {
-    background: white;
+    background: var(--color-content-bg);
     color: var(--color-text);
     border: 1px solid var(--color-border);
     padding: var(--spacing-sm) var(--spacing-md);
@@ -2933,7 +2956,7 @@ html, body {
 }
 
 .btn-secondary:hover {
-    background: #f8f9fa;
+    background: var(--color-body-bg);
 }
 
 .btn-action {
@@ -2990,12 +3013,17 @@ html, body {
 /* Validation Errors */
 .validation-errors {
     display: none;
-    background: #fee;
+    background: rgba(239, 68, 68, 0.9);
     border: 1px solid var(--color-error);
     border-radius: 4px;
     padding: var(--spacing-md);
-    color: var(--color-error);
-    margin-top: var(--spacing-md);
+    color: #fff;
+    margin-bottom: var(--spacing-lg);
+    font-weight: 500;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 /* Commentary Patterns (US4) */
@@ -3033,7 +3061,7 @@ html, body {
     justify-content: space-between;
     align-items: center;
     padding: var(--spacing-sm) var(--spacing-md);
-    background: #f8f9fa;
+    background: var(--color-body-bg);
     border: 1px solid var(--color-border);
     border-radius: 4px;
 }
@@ -3079,7 +3107,7 @@ html, body {
 .yaml-preview-panel {
     position: sticky;
     top: var(--spacing-md);
-    background: white;
+    background: var(--color-content-bg);
     border: 1px solid var(--color-border);
     border-radius: 6px;
     padding: var(--spacing-lg);
@@ -3104,7 +3132,7 @@ html, body {
     padding: var(--spacing-md);
     border: 1px solid var(--color-border);
     border-radius: 4px;
-    background: #f8f9fa;
+    background: var(--color-body-bg);
     resize: vertical;
     overflow-y: auto;
 }

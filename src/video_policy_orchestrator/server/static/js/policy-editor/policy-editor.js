@@ -520,6 +520,11 @@
     function showError(message) {
         validationErrors.textContent = message;
         validationErrors.style.display = 'block';
+
+        // Scroll to the very top of the page to ensure error is visible
+        // Using window.scrollTo for more control
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
         setTimeout(() => {
             validationErrors.style.display = 'none';
         }, 5000);

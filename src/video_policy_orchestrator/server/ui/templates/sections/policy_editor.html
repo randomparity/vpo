@@ -26,6 +26,9 @@
 
     <!-- Editor form -->
     <form id="policy-editor-form" class="policy-editor-form">
+        <!-- Validation errors (at top for visibility) -->
+        <div id="validation-errors" class="validation-errors" role="alert" aria-live="assertive"></div>
+
         <!-- Track Ordering Section (US1) -->
         <section class="editor-section">
             <h2>Track Ordering</h2>
@@ -150,9 +153,6 @@
             <button type="button" id="cancel-btn" class="btn-secondary">Cancel</button>
             <span id="save-status" class="save-status" role="status" aria-live="polite"></span>
         </div>
-
-        <!-- Validation errors -->
-        <div id="validation-errors" class="validation-errors" role="alert" aria-live="assertive"></div>
     </form>
 
     <!-- YAML Preview Panel (US5) -->

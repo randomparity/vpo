@@ -1480,19 +1480,41 @@ async def policy_editor_handler(request: web.Request) -> dict:
     # Build context
     from video_policy_orchestrator.server.ui.models import PolicyEditorContext
 
+    # Provide sensible defaults for policies that don't have track ordering configured
+    default_track_order = [
+        "video",
+        "audio_main",
+        "audio_alternate",
+        "audio_commentary",
+        "subtitle_main",
+        "subtitle_forced",
+        "subtitle_commentary",
+        "attachment",
+    ]
+    default_audio_langs = ["eng"]
+    default_subtitle_langs = ["eng"]
+    default_flags = {
+        "set_first_video_default": True,
+        "set_preferred_audio_default": True,
+        "set_preferred_subtitle_default": False,
+        "clear_other_defaults": True,
+    }
+
     editor_context = PolicyEditorContext(
         name=policy_name,
         filename=policy_path.name,
         file_path=str(policy_path),
         last_modified=last_modified,
         schema_version=policy_data.get("schema_version", 2),
-        track_order=policy_data.get("track_order", []),
-        audio_language_preference=policy_data.get("audio_language_preference", []),
+        track_order=policy_data.get("track_order", default_track_order),
+        audio_language_preference=policy_data.get(
+            "audio_language_preference", default_audio_langs
+        ),
         subtitle_language_preference=policy_data.get(
-            "subtitle_language_preference", []
+            "subtitle_language_preference", default_subtitle_langs
         ),
         commentary_patterns=policy_data.get("commentary_patterns", []),
-        default_flags=policy_data.get("default_flags", {}),
+        default_flags=policy_data.get("default_flags", default_flags),
         transcode=policy_data.get("transcode"),
         transcription=policy_data.get("transcription"),
         parse_error=parse_error,
