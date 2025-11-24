@@ -41,6 +41,48 @@ def _get_whisper():
         )
 
 
+def _find_wav_data_offset(audio_data: bytes) -> int:
+    """Find the offset to the 'data' chunk in a WAV file.
+
+    WAV files have variable-length headers due to optional chunks like LIST.
+    This function properly parses the RIFF structure to find where audio
+    data actually starts.
+
+    Args:
+        audio_data: Raw WAV file bytes.
+
+    Returns:
+        Byte offset where PCM audio data begins.
+
+    Raises:
+        ValueError: If the data is not a valid WAV file.
+    """
+    import struct
+
+    if len(audio_data) < 44:
+        raise ValueError("Audio data too short to be a valid WAV file")
+
+    # Verify RIFF header
+    if audio_data[0:4] != b"RIFF" or audio_data[8:12] != b"WAVE":
+        raise ValueError("Not a valid WAV file")
+
+    # Iterate through chunks to find 'data'
+    pos = 12  # Start after RIFF header
+    while pos < len(audio_data) - 8:
+        chunk_id = audio_data[pos : pos + 4]
+        chunk_size = struct.unpack("<I", audio_data[pos + 4 : pos + 8])[0]
+
+        if chunk_id == b"data":
+            return pos + 8  # Data starts after chunk header
+
+        # Move to next chunk (header size + chunk size, word-aligned)
+        pos += 8 + chunk_size
+        if chunk_size % 2:  # Word alignment
+            pos += 1
+
+    raise ValueError("No 'data' chunk found in WAV file")
+
+
 class WhisperTranscriptionPlugin:
     """Whisper-based transcription plugin.
 
@@ -111,15 +153,11 @@ class WhisperTranscriptionPlugin:
             model = self._load_model()
 
             # Load audio from bytes
-            import io
-
             import numpy as np
 
-            # Parse WAV header to get to raw PCM data
-            audio_file = io.BytesIO(audio_data)
-            # Skip WAV header (44 bytes for standard WAV)
-            audio_file.seek(44)
-            raw_audio = np.frombuffer(audio_file.read(), dtype=np.int16)
+            # Parse WAV header to find actual audio data
+            data_offset = _find_wav_data_offset(audio_data)
+            raw_audio = np.frombuffer(audio_data[data_offset:], dtype=np.int16)
             audio = raw_audio.astype(np.float32) / 32768.0
 
             # Pad/trim to 30 seconds for language detection
@@ -175,13 +213,11 @@ class WhisperTranscriptionPlugin:
             model = self._load_model()
 
             # Load audio from bytes
-            import io
-
             import numpy as np
 
-            audio_file = io.BytesIO(audio_data)
-            audio_file.seek(44)  # Skip WAV header
-            raw_audio = np.frombuffer(audio_file.read(), dtype=np.int16)
+            # Parse WAV header to find actual audio data
+            data_offset = _find_wav_data_offset(audio_data)
+            raw_audio = np.frombuffer(audio_data[data_offset:], dtype=np.int16)
             audio = raw_audio.astype(np.float32) / 32768.0
 
             # Transcribe
