@@ -1094,6 +1094,153 @@ class FileDetailContext:
         return cls(file=file, back_url=back_url)
 
 
+# ==========================================================================
+# Transcriptions Overview List Models (021-transcriptions-list)
+# ==========================================================================
+
+
+def get_confidence_level(confidence: float | None) -> str | None:
+    """Map confidence score to categorical level.
+
+    Args:
+        confidence: Average confidence score (0.0-1.0), or None.
+
+    Returns:
+        "high" if >= 0.8
+        "medium" if >= 0.5 and < 0.8
+        "low" if < 0.5
+        None if confidence is None
+    """
+    if confidence is None:
+        return None
+    if confidence >= 0.8:
+        return "high"
+    if confidence >= 0.5:
+        return "medium"
+    return "low"
+
+
+def format_detected_languages(languages_csv: str | None) -> list[str]:
+    """Parse CSV language codes into list.
+
+    Args:
+        languages_csv: Comma-separated language codes from GROUP_CONCAT.
+
+    Returns:
+        List of unique language codes, or empty list.
+    """
+    if not languages_csv:
+        return []
+    return list(set(lang.strip() for lang in languages_csv.split(",") if lang.strip()))
+
+
+@dataclass
+class TranscriptionFilterParams:
+    """Query parameters for /api/transcriptions.
+
+    Attributes:
+        show_all: If False (default), show only files with transcriptions.
+                  If True, show all files.
+        limit: Page size (1-100, default 50).
+        offset: Pagination offset (>= 0, default 0).
+    """
+
+    show_all: bool = False
+    limit: int = 50
+    offset: int = 0
+
+    @classmethod
+    def from_query(cls, query: dict) -> TranscriptionFilterParams:
+        """Create from request query dict with validation.
+
+        Args:
+            query: Query parameters from request.
+
+        Returns:
+            Validated TranscriptionFilterParams instance.
+        """
+        show_all = query.get("show_all", "").lower() == "true"
+        try:
+            limit = max(1, min(100, int(query.get("limit", 50))))
+        except (ValueError, TypeError):
+            limit = 50
+        try:
+            offset = max(0, int(query.get("offset", 0)))
+        except (ValueError, TypeError):
+            offset = 0
+        return cls(show_all=show_all, limit=limit, offset=offset)
+
+
+@dataclass
+class TranscriptionListItem:
+    """File data for Transcriptions list.
+
+    Attributes:
+        id: Database file ID.
+        filename: Short filename for display.
+        path: Full file path (for tooltip).
+        has_transcription: Whether file has any transcription results.
+        detected_languages: List of detected language codes.
+        confidence_level: Categorical level ("high", "medium", "low", or None).
+        confidence_avg: Average confidence score (0.0-1.0), or None.
+        transcription_count: Number of tracks with transcription results.
+        scan_status: "ok" or "error".
+    """
+
+    id: int
+    filename: str
+    path: str
+    has_transcription: bool
+    detected_languages: list[str]
+    confidence_level: str | None
+    confidence_avg: float | None
+    transcription_count: int
+    scan_status: str
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "id": self.id,
+            "filename": self.filename,
+            "path": self.path,
+            "has_transcription": self.has_transcription,
+            "detected_languages": self.detected_languages,
+            "confidence_level": self.confidence_level,
+            "confidence_avg": self.confidence_avg,
+            "transcription_count": self.transcription_count,
+            "scan_status": self.scan_status,
+        }
+
+
+@dataclass
+class TranscriptionListResponse:
+    """API response for /api/transcriptions.
+
+    Attributes:
+        files: File items for current page.
+        total: Total files matching filters.
+        limit: Page size used.
+        offset: Current offset.
+        has_filters: True if show_all filter is active.
+    """
+
+    files: list[TranscriptionListItem]
+    total: int
+    limit: int
+    offset: int
+    has_filters: bool
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "files": [f.to_dict() for f in self.files],
+            "total": self.total,
+            "limit": self.limit,
+            "offset": self.offset,
+            "has_filters": self.has_filters,
+        }
+
+
 def group_tracks_by_type(
     tracks: list,
     transcriptions: dict,

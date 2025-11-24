@@ -1599,6 +1599,105 @@ def get_file_by_id(conn: sqlite3.Connection, file_id: int) -> FileRecord | None:
     )
 
 
+# ==========================================================================
+# Transcriptions Overview List Query Functions (021-transcriptions-list)
+# ==========================================================================
+
+
+def get_files_with_transcriptions(
+    conn: sqlite3.Connection,
+    *,
+    show_all: bool = False,
+    limit: int | None = None,
+    offset: int | None = None,
+    return_total: bool = False,
+) -> list[dict] | tuple[list[dict], int]:
+    """Get files with aggregated transcription data.
+
+    Args:
+        conn: Database connection.
+        show_all: If False, only return files with transcriptions.
+                  If True, return all files.
+        limit: Maximum files to return.
+        offset: Pagination offset.
+        return_total: If True, return tuple of (files, total_count).
+
+    Returns:
+        List of file dicts with transcription data:
+        {
+            "id": int,
+            "filename": str,
+            "path": str,
+            "scan_status": str,
+            "transcription_count": int,
+            "detected_languages": str | None,  # CSV from GROUP_CONCAT
+            "avg_confidence": float | None,
+        }
+    """
+    # Build HAVING clause for filtering
+    having_clause = ""
+    if not show_all:
+        having_clause = "HAVING COUNT(tr.id) > 0"
+
+    # Count query (with same filter logic)
+    total = 0
+    if return_total:
+        count_query = f"""
+            SELECT COUNT(*) FROM (
+                SELECT f.id
+                FROM files f
+                LEFT JOIN tracks t ON f.id = t.file_id AND t.track_type = 'audio'
+                LEFT JOIN transcription_results tr ON t.id = tr.track_id
+                GROUP BY f.id
+                {having_clause}
+            )
+        """
+        cursor = conn.execute(count_query)
+        total = cursor.fetchone()[0]
+
+    # Main query
+    query = f"""
+        SELECT
+            f.id, f.filename, f.path, f.scan_status,
+            COUNT(tr.id) as transcription_count,
+            GROUP_CONCAT(DISTINCT tr.detected_language) as detected_languages,
+            AVG(tr.confidence_score) as avg_confidence
+        FROM files f
+        LEFT JOIN tracks t ON f.id = t.file_id AND t.track_type = 'audio'
+        LEFT JOIN transcription_results tr ON t.id = tr.track_id
+        GROUP BY f.id
+        {having_clause}
+        ORDER BY f.filename
+    """
+
+    # Add pagination
+    params: list[int] = []
+    if limit is not None:
+        query += " LIMIT ?"
+        params.append(limit)
+        if offset is not None:
+            query += " OFFSET ?"
+            params.append(offset)
+
+    cursor = conn.execute(query, params)
+    files = [
+        {
+            "id": row[0],
+            "filename": row[1],
+            "path": row[2],
+            "scan_status": row[3],
+            "transcription_count": row[4],
+            "detected_languages": row[5],
+            "avg_confidence": row[6],
+        }
+        for row in cursor.fetchall()
+    ]
+
+    if return_total:
+        return files, total
+    return files
+
+
 def get_transcriptions_for_tracks(
     conn: sqlite3.Connection, track_ids: list[int]
 ) -> dict[int, TranscriptionResultRecord]:

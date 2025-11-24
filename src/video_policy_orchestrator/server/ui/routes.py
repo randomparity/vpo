@@ -40,9 +40,14 @@ from video_policy_orchestrator.server.ui.models import (
     ScanErrorItem,
     ScanErrorsResponse,
     TemplateContext,
+    TranscriptionFilterParams,
+    TranscriptionListItem,
+    TranscriptionListResponse,
     format_audio_languages,
+    format_detected_languages,
     format_file_size,
     generate_summary_text,
+    get_confidence_level,
     get_resolution_label,
     group_tracks_by_type,
 )
@@ -1006,8 +1011,82 @@ async def transcriptions_handler(request: web.Request) -> dict:
     return _create_template_context(
         active_id="transcriptions",
         section_title="Transcriptions",
-        section_content="<p>Transcriptions section - coming soon</p>",
     )
+
+
+async def api_transcriptions_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/transcriptions - JSON API for transcriptions listing.
+
+    Query parameters:
+        show_all: If true, show all files. Default: false (transcribed only).
+        limit: Page size (1-100, default 50).
+        offset: Pagination offset (default 0).
+
+    Returns:
+        JSON response with TranscriptionListResponse payload.
+    """
+    from video_policy_orchestrator.db.connection import DaemonConnectionPool
+    from video_policy_orchestrator.db.models import get_files_with_transcriptions
+
+    # Check if shutting down
+    lifecycle = request.app.get("lifecycle")
+    if lifecycle and lifecycle.is_shutting_down:
+        return web.json_response(
+            {"error": "Service is shutting down"},
+            status=503,
+        )
+
+    # Parse query parameters
+    params = TranscriptionFilterParams.from_query(dict(request.query))
+
+    # Get connection pool
+    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
+    if connection_pool is None:
+        return web.json_response(
+            {"error": "Database not available"},
+            status=503,
+        )
+
+    # Query files from database using thread-safe connection access
+    def _query_files() -> tuple[list[dict], int]:
+        with connection_pool.transaction() as conn:
+            result = get_files_with_transcriptions(
+                conn,
+                show_all=params.show_all,
+                limit=params.limit,
+                offset=params.offset,
+                return_total=True,
+            )
+            # Type narrowing: return_total=True always returns tuple
+            return result  # type: ignore[return-value]
+
+    files_data, total = await asyncio.to_thread(_query_files)
+
+    # Transform to TranscriptionListItem
+    files = [
+        TranscriptionListItem(
+            id=f["id"],
+            filename=f["filename"],
+            path=f["path"],
+            has_transcription=f["transcription_count"] > 0,
+            detected_languages=format_detected_languages(f["detected_languages"]),
+            confidence_level=get_confidence_level(f["avg_confidence"]),
+            confidence_avg=f["avg_confidence"],
+            transcription_count=f["transcription_count"],
+            scan_status=f["scan_status"],
+        )
+        for f in files_data
+    ]
+
+    response = TranscriptionListResponse(
+        files=files,
+        total=total,
+        limit=params.limit,
+        offset=params.offset,
+        has_filters=params.show_all,
+    )
+
+    return web.json_response(response.to_dict())
 
 
 async def policies_handler(request: web.Request) -> dict:
@@ -1220,6 +1299,8 @@ def setup_ui_routes(app: web.Application) -> None:
         "/transcriptions",
         aiohttp_jinja2.template("sections/transcriptions.html")(transcriptions_handler),
     )
+    # Transcriptions API route (021-transcriptions-list)
+    app.router.add_get("/api/transcriptions", api_transcriptions_handler)
     app.router.add_get(
         "/policies",
         aiohttp_jinja2.template("sections/policies.html")(policies_handler),
