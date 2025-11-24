@@ -184,14 +184,14 @@ Phase 4 (US3)   Phase 4 (US4)   Phase 4 (US5)
 
 #### Tasks
 
-- [ ] T042 [P] [US4] Add commentary section HTML in src/video_policy_orchestrator/server/ui/templates/policy_editor.html
-- [ ] T043 [US4] Implement commentary patterns list with add/remove in src/video_policy_orchestrator/server/static/js/policy-editor/commentary-patterns.js
-- [ ] T044 [US4] Wire commentary patterns to form state in src/video_policy_orchestrator/server/static/js/policy-editor/form-bindings.js
-- [ ] T045 [US4] Add commentary_patterns validation (valid regex) in src/video_policy_orchestrator/server/static/js/policy-editor/validators.js
-- [ ] T046 [US4] Add transcription settings toggles (detect_commentary, reorder_commentary) in src/video_policy_orchestrator/server/ui/templates/policy_editor.html
-- [ ] T047 [US4] Add cross-field validation (reorder_commentary requires detect_commentary) in src/video_policy_orchestrator/server/static/js/policy-editor/validators.js
+- [X] T042 [P] [US4] Add commentary section HTML in src/video_policy_orchestrator/server/ui/templates/policy_editor.html
+- [X] T043 [US4] Implement commentary patterns list with add/remove in src/video_policy_orchestrator/server/static/js/policy-editor/commentary-patterns.js (integrated into policy-editor.js)
+- [X] T044 [US4] Wire commentary patterns to form state in src/video_policy_orchestrator/server/static/js/policy-editor/form-bindings.js (integrated into policy-editor.js)
+- [X] T045 [US4] Add commentary_patterns validation (valid regex) in src/video_policy_orchestrator/server/static/js/policy-editor/validators.js (integrated into policy-editor.js)
+- [X] T046 [US4] Add transcription settings toggles (detect_commentary, reorder_commentary) in src/video_policy_orchestrator/server/ui/templates/policy_editor.html
+- [X] T047 [US4] Add cross-field validation (reorder_commentary requires detect_commentary) in src/video_policy_orchestrator/server/static/js/policy-editor/validators.js (integrated into policy-editor.js)
 
-**Commit Point**: `git commit -m "feat(US4): Implement commentary detection configuration editor"`
+**Commit Point**: `git commit -m "feat(US4): Implement commentary detection configuration editor"` ✅ **READY TO COMMIT**
 
 ---
 

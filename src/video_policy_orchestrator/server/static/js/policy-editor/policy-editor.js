@@ -23,6 +23,7 @@
         subtitle_language_preference: [...window.POLICY_DATA.subtitle_language_preference],
         commentary_patterns: [...window.POLICY_DATA.commentary_patterns],
         default_flags: {...window.POLICY_DATA.default_flags},
+        transcription: window.POLICY_DATA.transcription ? {...window.POLICY_DATA.transcription} : null,
         isDirty: false,
         isSaving: false
     };
@@ -49,6 +50,11 @@
     const subtitleLangInput = document.getElementById('subtitle-lang-input');
     const subtitleLangAddBtn = document.getElementById('subtitle-lang-add-btn');
     const subtitleLangList = document.getElementById('subtitle-lang-list');
+    const commentaryPatternInput = document.getElementById('commentary-pattern-input');
+    const commentaryPatternAddBtn = document.getElementById('commentary-pattern-add-btn');
+    const commentaryPatternsList = document.getElementById('commentary-patterns-list');
+    const detectCommentaryCheckbox = document.getElementById('detect_commentary');
+    const reorderCommentaryCheckbox = document.getElementById('reorder_commentary');
     const saveBtn = document.getElementById('save-btn');
     const cancelBtn = document.getElementById('cancel-btn');
     const saveStatus = document.getElementById('save-status');
@@ -281,6 +287,115 @@
     }
 
     /**
+     * Render commentary patterns list
+     */
+    function renderCommentaryPatterns() {
+        commentaryPatternsList.innerHTML = '';
+
+        if (formState.commentary_patterns.length === 0) {
+            const emptyMsg = document.createElement('li');
+            emptyMsg.className = 'patterns-list-empty';
+            emptyMsg.textContent = 'No patterns configured';
+            commentaryPatternsList.appendChild(emptyMsg);
+            return;
+        }
+
+        formState.commentary_patterns.forEach((pattern, index) => {
+            const li = document.createElement('li');
+            li.className = 'pattern-list-item';
+
+            const label = document.createElement('span');
+            label.className = 'pattern-text';
+            label.textContent = pattern;
+
+            const buttons = document.createElement('div');
+            buttons.className = 'pattern-buttons';
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn-icon btn-remove';
+            removeBtn.innerHTML = '×';
+            removeBtn.title = 'Remove pattern';
+            removeBtn.addEventListener('click', () => removeCommentaryPattern(index));
+
+            buttons.appendChild(removeBtn);
+
+            li.appendChild(label);
+            li.appendChild(buttons);
+            commentaryPatternsList.appendChild(li);
+        });
+    }
+
+    /**
+     * Validate regex pattern
+     */
+    function isValidRegex(pattern) {
+        try {
+            new RegExp(pattern);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /**
+     * Add commentary pattern
+     */
+    function addCommentaryPattern(pattern) {
+        const trimmed = pattern.trim();
+
+        if (trimmed === '') {
+            showError('Pattern cannot be empty');
+            return;
+        }
+
+        // Validate regex
+        if (!isValidRegex(trimmed)) {
+            showError(`Invalid regex pattern: "${trimmed}". Check syntax and try again.`);
+            return;
+        }
+
+        // Check for duplicates
+        if (formState.commentary_patterns.includes(trimmed)) {
+            showError(`Pattern "${trimmed}" is already in the list.`);
+            return;
+        }
+
+        formState.commentary_patterns.push(trimmed);
+        renderCommentaryPatterns();
+        markDirty();
+
+        // Clear input
+        commentaryPatternInput.value = '';
+        commentaryPatternInput.focus();
+    }
+
+    /**
+     * Remove commentary pattern
+     */
+    function removeCommentaryPattern(index) {
+        formState.commentary_patterns.splice(index, 1);
+        renderCommentaryPatterns();
+        markDirty();
+    }
+
+    /**
+     * Update transcription checkboxes state
+     */
+    function updateTranscriptionCheckboxes() {
+        if (formState.transcription) {
+            if (detectCommentaryCheckbox) {
+                detectCommentaryCheckbox.checked = formState.transcription.detect_commentary || false;
+            }
+            if (reorderCommentaryCheckbox) {
+                reorderCommentaryCheckbox.checked = formState.transcription.reorder_commentary || false;
+                // Disable reorder if detect is not enabled
+                reorderCommentaryCheckbox.disabled = !formState.transcription.detect_commentary;
+            }
+        }
+    }
+
+    /**
      * Validate form data
      */
     function validateForm() {
@@ -296,6 +411,18 @@
 
         if (formState.subtitle_language_preference.length === 0) {
             errors.push('Subtitle language preferences cannot be empty');
+        }
+
+        // Validate commentary patterns (all must be valid regex)
+        formState.commentary_patterns.forEach((pattern, index) => {
+            if (!isValidRegex(pattern)) {
+                errors.push(`Invalid regex pattern at position ${index + 1}: "${pattern}"`);
+            }
+        });
+
+        // Cross-field validation: reorder_commentary requires detect_commentary
+        if (formState.transcription && formState.transcription.reorder_commentary && !formState.transcription.detect_commentary) {
+            errors.push('Reorder commentary requires detect commentary to be enabled');
         }
 
         return errors;
@@ -346,7 +473,7 @@
             commentary_patterns: formState.commentary_patterns,
             default_flags: formState.default_flags,
             transcode: window.POLICY_DATA.transcode,
-            transcription: window.POLICY_DATA.transcription,
+            transcription: formState.transcription,
             last_modified_timestamp: formState.last_modified
         };
 
@@ -414,6 +541,43 @@
             }
         });
 
+        // Commentary pattern add
+        if (commentaryPatternAddBtn && commentaryPatternInput) {
+            commentaryPatternAddBtn.addEventListener('click', () => {
+                addCommentaryPattern(commentaryPatternInput.value);
+            });
+
+            commentaryPatternInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addCommentaryPattern(commentaryPatternInput.value);
+                }
+            });
+        }
+
+        // Transcription checkboxes
+        if (detectCommentaryCheckbox && formState.transcription) {
+            detectCommentaryCheckbox.addEventListener('change', () => {
+                formState.transcription.detect_commentary = detectCommentaryCheckbox.checked;
+                // Update reorder checkbox state (disable if detect is off)
+                if (reorderCommentaryCheckbox) {
+                    reorderCommentaryCheckbox.disabled = !detectCommentaryCheckbox.checked;
+                    if (!detectCommentaryCheckbox.checked) {
+                        reorderCommentaryCheckbox.checked = false;
+                        formState.transcription.reorder_commentary = false;
+                    }
+                }
+                markDirty();
+            });
+        }
+
+        if (reorderCommentaryCheckbox && formState.transcription) {
+            reorderCommentaryCheckbox.addEventListener('change', () => {
+                formState.transcription.reorder_commentary = reorderCommentaryCheckbox.checked;
+                markDirty();
+            });
+        }
+
         // Default flags checkboxes
         Object.keys(defaultFlagCheckboxes).forEach(key => {
             const checkbox = defaultFlagCheckboxes[key];
@@ -457,6 +621,8 @@
     function init() {
         renderTrackOrder();
         renderLanguageLists();
+        renderCommentaryPatterns();
+        updateTranscriptionCheckboxes();
         initEventListeners();
         updateSaveButtonState();
     }
