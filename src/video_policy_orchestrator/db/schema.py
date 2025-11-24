@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -32,6 +32,8 @@ CREATE INDEX IF NOT EXISTS idx_files_directory ON files(directory);
 CREATE INDEX IF NOT EXISTS idx_files_extension ON files(extension);
 CREATE INDEX IF NOT EXISTS idx_files_content_hash ON files(content_hash);
 CREATE INDEX IF NOT EXISTS idx_files_job_id ON files(job_id);
+CREATE INDEX IF NOT EXISTS idx_files_status_scanned
+    ON files(scan_status, scanned_at DESC);
 
 -- Tracks table (one-to-many with files)
 CREATE TABLE IF NOT EXISTS tracks (
@@ -677,6 +679,33 @@ def migrate_v8_to_v9(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def migrate_v9_to_v10(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 9 to version 10.
+
+    Adds composite index for library view queries:
+    - idx_files_status_scanned: (scan_status, scanned_at DESC)
+
+    This index optimizes the library list view which filters by status
+    and orders by scanned_at descending.
+
+    This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Create composite index for library view queries (idempotent)
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_files_status_scanned "
+        "ON files(scan_status, scanned_at DESC)"
+    )
+
+    # Update schema version to 10
+    conn.execute(
+        "UPDATE _meta SET value = '10' WHERE key = 'schema_version'",
+    )
+    conn.commit()
+
+
 def initialize_database(conn: sqlite3.Connection) -> None:
     """Initialize the database with schema, creating tables if needed.
 
@@ -712,3 +741,6 @@ def initialize_database(conn: sqlite3.Connection) -> None:
             current_version = 8
         if current_version == 8:
             migrate_v8_to_v9(conn)
+            current_version = 9
+        if current_version == 9:
+            migrate_v9_to_v10(conn)

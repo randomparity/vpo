@@ -1392,7 +1392,7 @@ def get_files_filtered(
         cursor = conn.execute(count_query, params)
         total = cursor.fetchone()[0]
 
-    # Main query with subqueries for track data
+    # Main query using JOIN with conditional aggregation (faster than subqueries)
     query = """
         SELECT
             f.id,
@@ -1401,17 +1401,18 @@ def get_files_filtered(
             f.scanned_at,
             f.scan_status,
             f.scan_error,
-            (SELECT title FROM tracks
-             WHERE file_id = f.id AND track_type = 'video' LIMIT 1) as video_title,
-            (SELECT width FROM tracks
-             WHERE file_id = f.id AND track_type = 'video' LIMIT 1) as width,
-            (SELECT height FROM tracks
-             WHERE file_id = f.id AND track_type = 'video' LIMIT 1) as height,
-            (SELECT GROUP_CONCAT(DISTINCT language) FROM tracks
-             WHERE file_id = f.id AND track_type = 'audio') as audio_languages
+            MAX(CASE WHEN t.track_type = 'video' THEN t.title END) as video_title,
+            MAX(CASE WHEN t.track_type = 'video' THEN t.width END) as width,
+            MAX(CASE WHEN t.track_type = 'video' THEN t.height END) as height,
+            GROUP_CONCAT(DISTINCT CASE WHEN t.track_type = 'audio' THEN t.language END)
+                as audio_languages
         FROM files f
+        LEFT JOIN tracks t ON f.id = t.file_id
     """
     query += where_clause
+    query += (
+        " GROUP BY f.id, f.path, f.filename, f.scanned_at, f.scan_status, f.scan_error"  # noqa: E501
+    )
     query += " ORDER BY f.scanned_at DESC"
 
     # Apply pagination
