@@ -122,8 +122,11 @@ def create_app(db_path: Path | None = None) -> web.Application:
         app["connection_pool"] = pool
 
         # Run database migrations if needed
-        with pool.transaction() as conn:
-            initialize_database(conn)
+        # Note: initialize_database is NOT wrapped in transaction() because:
+        # - create_schema uses executescript() which commits implicitly
+        # - Migrations are idempotent and safe to re-run on failure
+        conn = pool.get_connection()
+        initialize_database(conn)
 
         logger.debug(
             "Created database connection pool for %s with timeout %.1fs",

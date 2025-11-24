@@ -22,6 +22,8 @@ from video_policy_orchestrator.server.ui.models import (
     DEFAULT_SECTION,
     NAVIGATION_ITEMS,
     AboutInfo,
+    FileListItem,
+    FileListResponse,
     JobDetailContext,
     JobDetailItem,
     JobFilterParams,
@@ -29,11 +31,15 @@ from video_policy_orchestrator.server.ui.models import (
     JobListItem,
     JobListResponse,
     JobLogsResponse,
+    LibraryContext,
+    LibraryFilterParams,
     NavigationState,
     ScanErrorItem,
     ScanErrorsResponse,
     TemplateContext,
+    format_audio_languages,
     generate_summary_text,
+    get_resolution_label,
 )
 
 logger = logging.getLogger(__name__)
@@ -644,12 +650,95 @@ async def api_job_errors_handler(request: web.Request) -> web.Response:
 
 
 async def library_handler(request: web.Request) -> dict:
-    """Handle GET /library - Library section page."""
-    return _create_template_context(
+    """Handle GET /library - Library section page.
+
+    Renders the Library page HTML with filter options for client-side JavaScript.
+    """
+    context = _create_template_context(
         active_id="library",
         section_title="Library",
-        section_content="<p>Library section - coming soon</p>",
     )
+    # Add library filter options for template
+    context["library_context"] = LibraryContext.default()
+    return context
+
+
+async def library_api_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/library - JSON API for library files listing.
+
+    Query parameters:
+        status: Filter by scan status (ok, error)
+        limit: Page size (1-100, default 50)
+        offset: Pagination offset (default 0)
+
+    Returns:
+        JSON response with FileListResponse payload.
+    """
+    from video_policy_orchestrator.db.connection import DaemonConnectionPool
+    from video_policy_orchestrator.db.models import get_files_filtered
+
+    # Check if shutting down
+    lifecycle = request.app.get("lifecycle")
+    if lifecycle and lifecycle.is_shutting_down:
+        return web.json_response(
+            {"error": "Service is shutting down"},
+            status=503,
+        )
+
+    # Parse query parameters
+    params = LibraryFilterParams.from_query(dict(request.query))
+
+    # Get connection pool
+    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
+    if connection_pool is None:
+        return web.json_response(
+            {"error": "Database not available"},
+            status=503,
+        )
+
+    # Query files from database using thread-safe connection access
+    def _query_files() -> tuple[list[dict], int]:
+        with connection_pool.transaction() as conn:
+            result = get_files_filtered(
+                conn,
+                status=params.status,
+                limit=params.limit,
+                offset=params.offset,
+                return_total=True,
+            )
+            # Type narrowing: return_total=True always returns tuple
+            return result  # type: ignore[return-value]
+
+    files_data, total = await asyncio.to_thread(_query_files)
+
+    # Transform to FileListItem
+    files = [
+        FileListItem(
+            id=f["id"],
+            filename=f["filename"],
+            path=f["path"],
+            title=f["video_title"],
+            resolution=get_resolution_label(f["width"], f["height"]),
+            audio_languages=format_audio_languages(f["audio_languages"]),
+            scanned_at=f["scanned_at"],
+            scan_status=f["scan_status"],
+            scan_error=f["scan_error"],
+        )
+        for f in files_data
+    ]
+
+    # Determine if any filters are active
+    has_filters = params.status is not None
+
+    response = FileListResponse(
+        files=files,
+        total=total,
+        limit=params.limit,
+        offset=params.offset,
+        has_filters=has_filters,
+    )
+
+    return web.json_response(response.to_dict())
 
 
 async def transcriptions_handler(request: web.Request) -> dict:
@@ -848,6 +937,8 @@ def setup_ui_routes(app: web.Application) -> None:
         "/library",
         aiohttp_jinja2.template("sections/library.html")(library_handler),
     )
+    # Library API route (018-library-list-view)
+    app.router.add_get("/api/library", library_api_handler)
     app.router.add_get(
         "/transcriptions",
         aiohttp_jinja2.template("sections/transcriptions.html")(transcriptions_handler),

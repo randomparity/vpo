@@ -520,6 +520,205 @@ class ScanErrorsResponse:
         }
 
 
+# ==========================================================================
+# Library List View Models (018-library-list-view)
+# ==========================================================================
+
+
+def get_resolution_label(width: int | None, height: int | None) -> str:
+    """Map video dimensions to human-readable resolution label.
+
+    Args:
+        width: Video width in pixels.
+        height: Video height in pixels.
+
+    Returns:
+        Resolution label (e.g., "1080p", "4K") or "\u2014" if unknown.
+    """
+    if width is None or height is None:
+        return "\u2014"
+
+    if height >= 2160:
+        return "4K"
+    elif height >= 1440:
+        return "1440p"
+    elif height >= 1080:
+        return "1080p"
+    elif height >= 720:
+        return "720p"
+    elif height >= 480:
+        return "480p"
+    elif height > 0:
+        return f"{height}p"
+    else:
+        return "\u2014"
+
+
+def format_audio_languages(languages_csv: str | None) -> str:
+    """Format comma-separated language codes for display.
+
+    Args:
+        languages_csv: Comma-separated language codes from GROUP_CONCAT.
+
+    Returns:
+        Formatted string (e.g., "eng, jpn" or "eng, jpn +2 more").
+    """
+    if not languages_csv:
+        return "\u2014"
+
+    languages = [lang.strip() for lang in languages_csv.split(",") if lang.strip()]
+
+    if not languages:
+        return "\u2014"
+
+    if len(languages) <= 3:
+        return ", ".join(languages)
+
+    return f"{', '.join(languages[:3])} +{len(languages) - 3} more"
+
+
+@dataclass
+class LibraryFilterParams:
+    """Validate and parse query parameters for /api/library.
+
+    Attributes:
+        status: Filter by scan status (None = all, "ok", "error").
+        limit: Page size (1-100, default 50).
+        offset: Pagination offset (>= 0, default 0).
+    """
+
+    status: str | None = None
+    limit: int = 50
+    offset: int = 0
+
+    @classmethod
+    def from_query(cls, query: dict) -> LibraryFilterParams:
+        """Create LibraryFilterParams from request query dict.
+
+        Args:
+            query: Query parameters from request.
+
+        Returns:
+            Validated LibraryFilterParams instance.
+        """
+        # Parse limit with bounds checking
+        try:
+            limit = int(query.get("limit", 50))
+            limit = max(1, min(100, limit))
+        except (ValueError, TypeError):
+            limit = 50
+
+        # Parse offset with bounds checking
+        try:
+            offset = int(query.get("offset", 0))
+            offset = max(0, offset)
+        except (ValueError, TypeError):
+            offset = 0
+
+        # Validate status - only allow specific values
+        status = query.get("status")
+        if status not in (None, "", "ok", "error"):
+            status = None
+
+        return cls(
+            status=status if status else None,
+            limit=limit,
+            offset=offset,
+        )
+
+
+@dataclass
+class FileListItem:
+    """File data for Library API response.
+
+    Attributes:
+        id: Database file ID.
+        filename: Short filename for display.
+        path: Full file path (for tooltip).
+        title: Track title if available, else None.
+        resolution: Human-readable resolution (e.g., "1080p", "4K").
+        audio_languages: Formatted language list (e.g., "eng, jpn").
+        scanned_at: ISO-8601 UTC timestamp.
+        scan_status: "ok" or "error".
+        scan_error: Error message if scan_status == "error".
+    """
+
+    id: int
+    filename: str
+    path: str
+    title: str | None
+    resolution: str
+    audio_languages: str
+    scanned_at: str
+    scan_status: str
+    scan_error: str | None = None
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "id": self.id,
+            "filename": self.filename,
+            "path": self.path,
+            "title": self.title,
+            "resolution": self.resolution,
+            "audio_languages": self.audio_languages,
+            "scanned_at": self.scanned_at,
+            "scan_status": self.scan_status,
+            "scan_error": self.scan_error,
+        }
+
+
+@dataclass
+class FileListResponse:
+    """API response wrapper for /api/library.
+
+    Attributes:
+        files: File items for current page.
+        total: Total files matching filters.
+        limit: Page size used.
+        offset: Current offset.
+        has_filters: True if any filter was applied.
+    """
+
+    files: list[FileListItem]
+    total: int
+    limit: int
+    offset: int
+    has_filters: bool
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "files": [f.to_dict() for f in self.files],
+            "total": self.total,
+            "limit": self.limit,
+            "offset": self.offset,
+            "has_filters": self.has_filters,
+        }
+
+
+@dataclass
+class LibraryContext:
+    """Template context for library.html.
+
+    Attributes:
+        status_options: Available scan status filter options.
+    """
+
+    status_options: list[dict]
+
+    @classmethod
+    def default(cls) -> LibraryContext:
+        """Create default context with filter options."""
+        return cls(
+            status_options=[
+                {"value": "", "label": "All files"},
+                {"value": "ok", "label": "Scanned OK"},
+                {"value": "error", "label": "Scan errors"},
+            ],
+        )
+
+
 @dataclass
 class JobDetailContext:
     """Template context for job_detail.html.
