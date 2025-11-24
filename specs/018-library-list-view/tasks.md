@@ -44,13 +44,13 @@ This feature builds on existing VPO web infrastructure (aiohttp, Jinja2, SQLite)
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T001 [P] Add `get_resolution_label()` helper function in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T002 [P] Add `format_audio_languages()` helper function in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T003 Add `LibraryFilterParams` dataclass in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T004 Add `FileListItem` dataclass in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T005 Add `FileListResponse` dataclass in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T006 Add `LibraryContext` dataclass in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T007 Add `get_files_filtered()` query function in src/video_policy_orchestrator/db/models.py
+- [X] T001 [P] Add `get_resolution_label()` helper function in src/video_policy_orchestrator/server/ui/models.py
+- [X] T002 [P] Add `format_audio_languages()` helper function in src/video_policy_orchestrator/server/ui/models.py
+- [X] T003 Add `LibraryFilterParams` dataclass in src/video_policy_orchestrator/server/ui/models.py
+- [X] T004 Add `FileListItem` dataclass in src/video_policy_orchestrator/server/ui/models.py
+- [X] T005 Add `FileListResponse` dataclass in src/video_policy_orchestrator/server/ui/models.py
+- [X] T006 Add `LibraryContext` dataclass in src/video_policy_orchestrator/server/ui/models.py
+- [X] T007 Add `get_files_filtered()` query function in src/video_policy_orchestrator/db/models.py
 
 **Checkpoint**: Foundation ready - all view models and database query exist. User story implementation can now begin.
 
@@ -64,16 +64,16 @@ This feature builds on existing VPO web infrastructure (aiohttp, Jinja2, SQLite)
 
 ### Implementation for User Story 1
 
-- [ ] T008 [US1] Add `library_api_handler()` API endpoint in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T009 [US1] Register `/api/library` route in `setup_ui_routes()` in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T010 [US1] Add `library_handler()` HTML page handler in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T011 [US1] Register `/library` route in `setup_ui_routes()` in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T012 [US1] Create library table HTML structure in src/video_policy_orchestrator/server/ui/templates/sections/library.html
-- [ ] T013 [US1] Create library.js with `fetchLibrary()` and `renderLibraryTable()` in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T014 [US1] Add `formatRelativeTime()` function in library.js for timestamp display
-- [ ] T015 [US1] Add library table CSS styles in src/video_policy_orchestrator/server/static/css/main.css
-- [ ] T016 [US1] Add status filter dropdown to library.html template
-- [ ] T017 [US1] Add filter change handler in library.js
+- [X] T008 [US1] Add `library_api_handler()` API endpoint in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T009 [US1] Register `/api/library` route in `setup_ui_routes()` in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T010 [US1] Add `library_handler()` HTML page handler in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T011 [US1] Register `/library` route in `setup_ui_routes()` in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T012 [US1] Create library table HTML structure in src/video_policy_orchestrator/server/ui/templates/sections/library.html
+- [X] T013 [US1] Create library.js with `fetchLibrary()` and `renderLibraryTable()` in src/video_policy_orchestrator/server/static/js/library.js
+- [X] T014 [US1] Add `formatRelativeTime()` function in library.js for timestamp display
+- [X] T015 [US1] Add library table CSS styles in src/video_policy_orchestrator/server/static/css/main.css
+- [X] T016 [US1] Add status filter dropdown to library.html template
+- [X] T017 [US1] Add filter change handler in library.js
 
 **Checkpoint**: At this point, User Story 1 should be fully functional - users can view scanned files in a table with all columns.
 
@@ -87,10 +87,10 @@ This feature builds on existing VPO web infrastructure (aiohttp, Jinja2, SQLite)
 
 ### Implementation for User Story 2
 
-- [ ] T018 [US2] Add empty state HTML section to library.html in src/video_policy_orchestrator/server/ui/templates/sections/library.html
-- [ ] T019 [US2] Add `renderEmptyState()` function in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T020 [US2] Add empty state CSS styles (`.library-empty`) in src/video_policy_orchestrator/server/static/css/main.css
-- [ ] T021 [US2] Update `renderLibraryTable()` to show/hide empty state based on file count
+- [X] T018 [US2] Add empty state HTML section to library.html in src/video_policy_orchestrator/server/ui/templates/sections/library.html
+- [X] T019 [US2] Add `renderEmptyState()` function in src/video_policy_orchestrator/server/static/js/library.js
+- [X] T020 [US2] Add empty state CSS styles (`.library-empty`) in src/video_policy_orchestrator/server/static/css/main.css
+- [X] T021 [US2] Update `renderLibraryTable()` to show/hide empty state based on file count
 
 **Checkpoint**: At this point, User Story 2 should be functional - empty library shows helpful guidance message.
 
@@ -104,12 +104,12 @@ This feature builds on existing VPO web infrastructure (aiohttp, Jinja2, SQLite)
 
 ### Implementation for User Story 3
 
-- [ ] T022 [US3] Add pagination HTML section to library.html in src/video_policy_orchestrator/server/ui/templates/sections/library.html
-- [ ] T023 [US3] Add pagination state variables (currentOffset, pageSize, totalFiles) in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T024 [US3] Add `updatePagination()` function in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T025 [US3] Add `handlePrevPage()` and `handleNextPage()` handlers in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T026 [US3] Add pagination CSS styles (`.library-pagination`) in src/video_policy_orchestrator/server/static/css/main.css
-- [ ] T027 [US3] Update `fetchLibrary()` to include offset parameter for pagination
+- [X] T022 [US3] Add pagination HTML section to library.html in src/video_policy_orchestrator/server/ui/templates/sections/library.html
+- [X] T023 [US3] Add pagination state variables (currentOffset, pageSize, totalFiles) in src/video_policy_orchestrator/server/static/js/library.js
+- [X] T024 [US3] Add `updatePagination()` function in src/video_policy_orchestrator/server/static/js/library.js
+- [X] T025 [US3] Add `handlePrevPage()` and `handleNextPage()` handlers in src/video_policy_orchestrator/server/static/js/library.js
+- [X] T026 [US3] Add pagination CSS styles (`.library-pagination`) in src/video_policy_orchestrator/server/static/css/main.css
+- [X] T027 [US3] Update `fetchLibrary()` to include offset parameter for pagination
 
 **Checkpoint**: All user stories should now be independently functional - full library browsing with empty state and pagination.
 
@@ -119,11 +119,11 @@ This feature builds on existing VPO web infrastructure (aiohttp, Jinja2, SQLite)
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T028 Add loading state spinner while fetching library data in library.html and library.js
-- [ ] T029 Add error state handling for API failures in library.js
-- [ ] T030 [P] Add scan error visual indicator (warning icon) for files with scan_status="error" in library.js
-- [ ] T031 [P] Add tooltip for full file path on hover in library.js
-- [ ] T032 Run manual validation against quickstart.md test scenarios
+- [X] T028 Add loading state spinner while fetching library data in library.html and library.js
+- [X] T029 Add error state handling for API failures in library.js
+- [X] T030 [P] Add scan error visual indicator (warning icon) for files with scan_status="error" in library.js
+- [X] T031 [P] Add tooltip for full file path on hover in library.js
+- [X] T032 Run manual validation against quickstart.md test scenarios
 
 ---
 

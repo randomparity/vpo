@@ -902,6 +902,284 @@ html, body {
     }
 }
 
+/* ==========================================================================
+   Library Dashboard Styles (018-library-list-view)
+   ========================================================================== */
+
+/* Library filter bar - reuses jobs patterns */
+.library-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    padding: var(--spacing-md);
+    background-color: var(--color-body-bg);
+    border-radius: 4px;
+}
+
+.library-filter {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.library-filter label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    font-weight: 500;
+}
+
+.library-filter select {
+    padding: 0.5rem 2rem 0.5rem 0.75rem;
+    font-size: var(--font-size-base);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background-color: #fff;
+    cursor: pointer;
+    min-width: 150px;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+}
+
+.library-filter select:hover {
+    border-color: var(--color-primary);
+}
+
+.library-filter select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Library table */
+.library-table-container {
+    overflow-x: auto;
+}
+
+.library-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+}
+
+.library-table th,
+.library-table td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.library-table th {
+    background-color: var(--color-body-bg);
+    font-weight: 600;
+    color: var(--color-text);
+    white-space: nowrap;
+}
+
+.library-table tbody tr:hover {
+    background-color: rgba(52, 152, 219, 0.05);
+}
+
+.library-table .library-filename {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.library-table .library-filename[title] {
+    cursor: help;
+}
+
+.library-table .library-title {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-muted);
+}
+
+.library-table .library-resolution {
+    white-space: nowrap;
+}
+
+.library-table .library-audio {
+    white-space: nowrap;
+}
+
+.library-table .library-scanned {
+    white-space: nowrap;
+    color: var(--color-text-muted);
+}
+
+.library-table .library-policy {
+    white-space: nowrap;
+    color: var(--color-text-hint);
+}
+
+/* Scan error indicator in filename cell */
+.scan-error-icon {
+    color: #ef4444;
+    font-size: 0.875rem;
+    margin-right: 2px;
+}
+
+/* Row with scan error - subtle highlight */
+.library-row-error {
+    background-color: rgba(239, 68, 68, 0.05);
+}
+
+.library-row-error:hover {
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* Empty state */
+.library-empty {
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--color-text-muted);
+}
+
+.library-empty-icon {
+    font-size: 3rem;
+    margin-bottom: var(--spacing-md);
+    opacity: 0.5;
+}
+
+.library-empty-title {
+    font-size: var(--font-size-lg);
+    font-weight: 500;
+    color: var(--color-text);
+    margin-bottom: var(--spacing-sm);
+}
+
+.library-empty-hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-hint);
+    line-height: 1.6;
+}
+
+.library-empty-hint code {
+    display: inline-block;
+    margin-top: var(--spacing-sm);
+    padding: 0.25rem 0.5rem;
+    background-color: var(--color-body-bg);
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--color-text);
+}
+
+/* Loading state */
+.library-loading {
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--color-text-muted);
+}
+
+.library-loading-spinner {
+    display: inline-block;
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid var(--color-border);
+    border-radius: 50%;
+    border-top-color: var(--color-primary);
+    animation: spin 1s linear infinite;
+}
+
+/* Error state */
+.library-error {
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--color-text-muted);
+}
+
+.library-error-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background-color: #fee2e2;
+    color: #991b1b;
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: var(--spacing-md);
+}
+
+.library-error-title {
+    font-size: var(--font-size-lg);
+    font-weight: 500;
+    color: var(--color-text);
+    margin-bottom: var(--spacing-sm);
+}
+
+.library-error-message {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-hint);
+    margin-bottom: var(--spacing-md);
+}
+
+.library-retry-btn {
+    padding: 0.5rem 1rem;
+    font-size: var(--font-size-sm);
+    border: 1px solid var(--color-primary);
+    border-radius: 4px;
+    background-color: var(--color-primary);
+    color: #fff;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.library-retry-btn:hover {
+    background-color: var(--color-primary-dark);
+    border-color: var(--color-primary-dark);
+}
+
+/* Pagination */
+.library-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--color-border);
+}
+
+.library-pagination-info {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+.library-pagination-controls {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.library-pagination-btn {
+    padding: 0.5rem 1rem;
+    font-size: var(--font-size-sm);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background-color: #fff;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.library-pagination-btn:hover:not(:disabled) {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.library-pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Graceful degradation for below minimum supported viewport (< 768px) */
 @media (max-width: 767px) {
     .app-shell {

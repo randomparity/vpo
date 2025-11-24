@@ -1345,6 +1345,106 @@ def get_transcription_result(
     )
 
 
+# ==========================================================================
+# Library List View Query Functions (018-library-list-view)
+# ==========================================================================
+
+
+def get_files_filtered(
+    conn: sqlite3.Connection,
+    *,
+    status: str | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
+    return_total: bool = False,
+) -> list[dict] | tuple[list[dict], int]:
+    """Get files with track metadata for Library view.
+
+    Returns file records with aggregated track data (resolution, languages).
+    Files are ordered by scanned_at descending (most recent first).
+
+    Args:
+        conn: Database connection.
+        status: Filter by scan_status (None = all, "ok", "error").
+        limit: Maximum files to return.
+        offset: Pagination offset.
+        return_total: If True, return tuple of (files, total_count).
+
+    Returns:
+        List of file dicts with track data, or tuple with total count.
+    """
+    # Build WHERE clause
+    conditions: list[str] = []
+    params: list[str | int] = []
+
+    if status is not None:
+        conditions.append("f.scan_status = ?")
+        params.append(status)
+
+    where_clause = ""
+    if conditions:
+        where_clause = " WHERE " + " AND ".join(conditions)
+
+    # Get total count if requested
+    total = 0
+    if return_total:
+        count_query = "SELECT COUNT(*) FROM files f" + where_clause
+        cursor = conn.execute(count_query, params)
+        total = cursor.fetchone()[0]
+
+    # Main query with subqueries for track data
+    query = """
+        SELECT
+            f.id,
+            f.path,
+            f.filename,
+            f.scanned_at,
+            f.scan_status,
+            f.scan_error,
+            (SELECT title FROM tracks
+             WHERE file_id = f.id AND track_type = 'video' LIMIT 1) as video_title,
+            (SELECT width FROM tracks
+             WHERE file_id = f.id AND track_type = 'video' LIMIT 1) as width,
+            (SELECT height FROM tracks
+             WHERE file_id = f.id AND track_type = 'video' LIMIT 1) as height,
+            (SELECT GROUP_CONCAT(DISTINCT language) FROM tracks
+             WHERE file_id = f.id AND track_type = 'audio') as audio_languages
+        FROM files f
+    """
+    query += where_clause
+    query += " ORDER BY f.scanned_at DESC"
+
+    # Apply pagination
+    pagination_params = list(params)
+    if limit is not None:
+        query += " LIMIT ?"
+        pagination_params.append(limit)
+        if offset is not None:
+            query += " OFFSET ?"
+            pagination_params.append(offset)
+
+    cursor = conn.execute(query, pagination_params)
+    files = [
+        {
+            "id": row[0],
+            "path": row[1],
+            "filename": row[2],
+            "scanned_at": row[3],
+            "scan_status": row[4],
+            "scan_error": row[5],
+            "video_title": row[6],
+            "width": row[7],
+            "height": row[8],
+            "audio_languages": row[9],
+        }
+        for row in cursor.fetchall()
+    ]
+
+    if return_total:
+        return files, total
+    return files
+
+
 def delete_transcription_results_for_file(
     conn: sqlite3.Connection, file_id: int
 ) -> int:
