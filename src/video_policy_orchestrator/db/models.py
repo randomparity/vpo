@@ -1740,3 +1740,78 @@ def get_transcriptions_for_tracks(
         result[record.track_id] = record
 
     return result
+
+
+# ==========================================================================
+# Transcription Detail View Query Functions (022-transcription-detail)
+# ==========================================================================
+
+
+def get_transcription_detail(
+    conn: sqlite3.Connection,
+    transcription_id: int,
+) -> dict | None:
+    """Get transcription detail with track and file info.
+
+    Args:
+        conn: Database connection.
+        transcription_id: ID of transcription_results record.
+
+    Returns:
+        Dictionary with transcription, track, and file data:
+        {
+            "id": int,
+            "track_id": int,
+            "detected_language": str | None,
+            "confidence_score": float,
+            "track_type": str,
+            "transcript_sample": str | None,
+            "plugin_name": str,
+            "created_at": str,
+            "updated_at": str,
+            "track_index": int,
+            "codec": str | None,
+            "original_language": str | None,
+            "title": str | None,
+            "channels": int | None,
+            "channel_layout": str | None,
+            "is_default": int,
+            "is_forced": int,
+            "file_id": int,
+            "filename": str,
+            "path": str,
+        }
+        Returns None if transcription not found.
+    """
+    cursor = conn.execute(
+        """
+        SELECT
+            tr.id,
+            tr.track_id,
+            tr.detected_language,
+            tr.confidence_score,
+            tr.track_type,
+            tr.transcript_sample,
+            tr.plugin_name,
+            tr.created_at,
+            tr.updated_at,
+            t.track_index,
+            t.codec,
+            t.language AS original_language,
+            t.title,
+            t.channels,
+            t.channel_layout,
+            t.is_default,
+            t.is_forced,
+            f.id AS file_id,
+            f.filename,
+            f.path
+        FROM transcription_results tr
+        JOIN tracks t ON tr.track_id = t.id
+        JOIN files f ON t.file_id = f.id
+        WHERE tr.id = ?
+        """,
+        (transcription_id,),
+    )
+    row = cursor.fetchone()
+    return dict(row) if row else None

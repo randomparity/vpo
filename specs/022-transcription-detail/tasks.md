@@ -36,10 +36,10 @@ This feature follows the existing VPO structure:
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T001 Add `get_transcription_detail()` query function in `src/video_policy_orchestrator/db/models.py`
-- [ ] T002 [P] Add `get_classification_reasoning()` helper function in `src/video_policy_orchestrator/server/ui/models.py`
-- [ ] T003 [P] Add `highlight_keywords_in_transcript()` helper function in `src/video_policy_orchestrator/server/ui/models.py`
-- [ ] T004 [P] Add `TRANSCRIPT_DISPLAY_LIMIT` constant (10000) in `src/video_policy_orchestrator/server/ui/models.py`
+- [X] T001 Add `get_transcription_detail()` query function in `src/video_policy_orchestrator/db/models.py`
+- [X] T002 [P] Add `get_classification_reasoning()` helper function in `src/video_policy_orchestrator/server/ui/models.py`
+- [X] T003 [P] Add `highlight_keywords_in_transcript()` helper function in `src/video_policy_orchestrator/server/ui/models.py`
+- [X] T004 [P] Add `TRANSCRIPT_DISPLAY_LIMIT` constant (10000) in `src/video_policy_orchestrator/server/ui/models.py`
 
 **Checkpoint**: Foundation ready - all helper functions and DB query available for user stories
 

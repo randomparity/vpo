@@ -1241,6 +1241,118 @@ class TranscriptionListResponse:
         }
 
 
+# ==========================================================================
+# Transcription Detail View Models (022-transcription-detail)
+# ==========================================================================
+
+# Max characters to display before truncation
+TRANSCRIPT_DISPLAY_LIMIT = 10000
+
+
+def get_classification_reasoning(
+    track_title: str | None,
+    transcript_sample: str | None,
+    track_type: str,
+) -> tuple[str | None, list[str]]:
+    """Determine classification source and matched keywords.
+
+    Args:
+        track_title: Track title from metadata.
+        transcript_sample: Transcription text sample.
+        track_type: Track classification ("main", "commentary", "alternate").
+
+    Returns:
+        Tuple of (classification_source, matched_keywords):
+        - classification_source: "metadata", "transcript", or None
+        - matched_keywords: List of matched keywords/patterns
+    """
+    import re
+
+    from video_policy_orchestrator.transcription.models import (
+        COMMENTARY_KEYWORDS,
+        COMMENTARY_TRANSCRIPT_PATTERNS,
+        is_commentary_by_metadata,
+    )
+
+    if track_type != "commentary":
+        return None, []
+
+    matched = []
+
+    # Check metadata first
+    if track_title and is_commentary_by_metadata(track_title):
+        title_lower = track_title.lower()
+        for keyword in COMMENTARY_KEYWORDS:
+            if keyword in title_lower:
+                matched.append(f"Title contains: '{keyword}'")
+        return "metadata", matched
+
+    # Check transcript patterns
+    if transcript_sample:
+        sample_lower = transcript_sample.lower()
+        for pattern in COMMENTARY_TRANSCRIPT_PATTERNS:
+            if re.search(pattern, sample_lower, re.IGNORECASE):
+                # Convert regex to readable form
+                readable = pattern.replace(r"\b", "").replace("\\", "")
+                matched.append(f"Pattern: {readable}")
+        if matched:
+            return "transcript", matched
+
+    return None, []
+
+
+def highlight_keywords_in_transcript(
+    transcript: str | None,
+    track_type: str,
+) -> tuple[str | None, bool]:
+    """Generate HTML with highlighted commentary keywords.
+
+    Args:
+        transcript: Raw transcript text.
+        track_type: Track classification.
+
+    Returns:
+        Tuple of (html_content, is_truncated):
+        - html_content: HTML-escaped text with <mark> tags, or None
+        - is_truncated: True if text was truncated
+    """
+    import html
+    import re
+
+    if not transcript:
+        return None, False
+
+    from video_policy_orchestrator.transcription.models import (
+        COMMENTARY_TRANSCRIPT_PATTERNS,
+    )
+
+    # Truncate if too long
+    is_truncated = len(transcript) > TRANSCRIPT_DISPLAY_LIMIT
+    display_text = transcript[:TRANSCRIPT_DISPLAY_LIMIT] if is_truncated else transcript
+
+    # Escape HTML first
+    escaped = html.escape(display_text)
+
+    # Only highlight if commentary track
+    if track_type != "commentary":
+        return escaped, is_truncated
+
+    # Apply highlighting for each pattern
+    for pattern in COMMENTARY_TRANSCRIPT_PATTERNS:
+        try:
+            # Find matches and wrap with <mark>
+            escaped = re.sub(
+                f"({pattern})",
+                r'<mark class="commentary-match">\1</mark>',
+                escaped,
+                flags=re.IGNORECASE,
+            )
+        except re.error:
+            continue  # Skip invalid patterns
+
+    return escaped, is_truncated
+
+
 def group_tracks_by_type(
     tracks: list,
     transcriptions: dict,
