@@ -178,7 +178,7 @@ class TestTranscriptionConfig:
         config = TranscriptionConfig()
         assert config.enabled_plugin is None
         assert config.model_size == "base"
-        assert config.sample_duration == 60
+        assert config.sample_duration == 30
         assert config.gpu_enabled is True
 
     def test_custom_values(self):

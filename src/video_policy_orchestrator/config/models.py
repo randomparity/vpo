@@ -172,10 +172,20 @@ class TranscriptionPluginConfig:
     model_size: str = "base"
 
     # Seconds to sample from audio (0 = full track)
-    sample_duration: int = 60
+    sample_duration: int = 30
 
     # Use GPU if available
     gpu_enabled: bool = True
+
+    # Multi-sample detection settings
+    max_samples: int = 3
+    """Maximum number of samples to take when detecting language."""
+
+    confidence_threshold: float = 0.85
+    """Confidence level to stop sampling early (0.0-1.0)."""
+
+    incumbent_bonus: float = 0.15
+    """Bonus vote weight for track's existing language tag."""
 
     def __post_init__(self) -> None:
         """Validate configuration."""
@@ -187,6 +197,17 @@ class TranscriptionPluginConfig:
         if self.sample_duration < 0:
             raise ValueError(
                 f"sample_duration must be non-negative, got {self.sample_duration}"
+            )
+        if self.max_samples < 1:
+            raise ValueError(f"max_samples must be at least 1, got {self.max_samples}")
+        if not 0.0 <= self.confidence_threshold <= 1.0:
+            raise ValueError(
+                f"confidence_threshold must be between 0.0 and 1.0, "
+                f"got {self.confidence_threshold}"
+            )
+        if self.incumbent_bonus < 0.0:
+            raise ValueError(
+                f"incumbent_bonus must be non-negative, got {self.incumbent_bonus}"
             )
 
 

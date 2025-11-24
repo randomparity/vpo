@@ -70,7 +70,7 @@ class TranscriptionConfig:
 
     enabled_plugin: str | None = None  # Plugin to use (None = auto-detect)
     model_size: str = "base"  # Whisper model: tiny, base, small, medium, large
-    sample_duration: int = 60  # Seconds to sample (0 = full track)
+    sample_duration: int = 30  # Seconds to sample (0 = full track)
     gpu_enabled: bool = True  # Use GPU if available
 
     def __post_init__(self) -> None:
