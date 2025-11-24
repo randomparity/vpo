@@ -1,0 +1,166 @@
+openapi: 3.0.3
+info:
+  title: VPO Policies API
+  description: API endpoints for the Policies list view feature
+  version: 1.0.0
+
+paths:
+  /api/policies:
+    get:
+      summary: List policy files
+      description: |
+        Returns a list of policy files from the policies directory (~/.vpo/policies/).
+        Policies are sorted with the default policy first, then alphabetically by name.
+        No pagination is used as typical installations have fewer than 50 policy files.
+      operationId: listPolicies
+      tags:
+        - Policies
+      responses:
+        '200':
+          description: Successful response with policy list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyListResponse'
+              example:
+                policies:
+                  - name: "movies-high-quality"
+                    filename: "movies-high-quality.yaml"
+                    file_path: "/home/user/.vpo/policies/movies-high-quality.yaml"
+                    last_modified: "2025-11-20T14:30:00Z"
+                    schema_version: 2
+                    audio_languages: "eng, jpn"
+                    subtitle_languages: "eng"
+                    has_transcode: true
+                    has_transcription: false
+                    is_default: true
+                    parse_error: null
+                  - name: "tv-standard"
+                    filename: "tv-standard.yaml"
+                    file_path: "/home/user/.vpo/policies/tv-standard.yaml"
+                    last_modified: "2025-11-15T09:00:00Z"
+                    schema_version: 2
+                    audio_languages: "eng"
+                    subtitle_languages: "eng, spa"
+                    has_transcode: false
+                    has_transcription: true
+                    is_default: false
+                    parse_error: null
+                total: 2
+                policies_directory: "/home/user/.vpo/policies"
+                default_policy_path: "/home/user/.vpo/policies/movies-high-quality.yaml"
+                default_policy_missing: false
+                directory_exists: true
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    PolicyListItem:
+      type: object
+      required:
+        - name
+        - filename
+        - file_path
+        - last_modified
+        - has_transcode
+        - has_transcription
+        - is_default
+      properties:
+        name:
+          type: string
+          description: Policy name (filename without extension)
+          example: "movies-high-quality"
+        filename:
+          type: string
+          description: Full filename with extension
+          example: "movies-high-quality.yaml"
+        file_path:
+          type: string
+          description: Absolute path to the policy file
+          example: "/home/user/.vpo/policies/movies-high-quality.yaml"
+        last_modified:
+          type: string
+          format: date-time
+          description: ISO-8601 UTC timestamp of last file modification
+          example: "2025-11-20T14:30:00Z"
+        schema_version:
+          type: integer
+          nullable: true
+          description: Policy schema version (null if parse error)
+          example: 2
+        audio_languages:
+          type: string
+          description: Formatted audio language preferences
+          example: "eng, jpn"
+        subtitle_languages:
+          type: string
+          description: Formatted subtitle language preferences
+          example: "eng"
+        has_transcode:
+          type: boolean
+          description: True if policy includes transcode settings
+          example: true
+        has_transcription:
+          type: boolean
+          description: True if policy has transcription.enabled=true
+          example: false
+        is_default:
+          type: boolean
+          description: True if this is the profile's default policy
+          example: true
+        parse_error:
+          type: string
+          nullable: true
+          description: Error message if YAML parsing failed
+          example: null
+
+    PolicyListResponse:
+      type: object
+      required:
+        - policies
+        - total
+        - policies_directory
+        - default_policy_missing
+        - directory_exists
+      properties:
+        policies:
+          type: array
+          items:
+            $ref: '#/components/schemas/PolicyListItem'
+          description: List of policy items (sorted, default first)
+        total:
+          type: integer
+          description: Total number of policies found
+          example: 2
+        policies_directory:
+          type: string
+          description: Path to the policies directory
+          example: "/home/user/.vpo/policies"
+        default_policy_path:
+          type: string
+          nullable: true
+          description: Configured default policy path from profile (may be null)
+          example: "/home/user/.vpo/policies/movies-high-quality.yaml"
+        default_policy_missing:
+          type: boolean
+          description: True if default_policy_path is set but file doesn't exist
+          example: false
+        directory_exists:
+          type: boolean
+          description: True if policies directory exists
+          example: true
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "Failed to read policies directory"

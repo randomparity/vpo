@@ -37,6 +37,9 @@ from video_policy_orchestrator.server.ui.models import (
     LibraryContext,
     LibraryFilterParams,
     NavigationState,
+    PoliciesContext,
+    PolicyListItem,
+    PolicyListResponse,
     ScanErrorItem,
     ScanErrorsResponse,
     TemplateContext,
@@ -49,6 +52,7 @@ from video_policy_orchestrator.server.ui.models import (
     format_audio_languages,
     format_detected_languages,
     format_file_size,
+    format_language_preferences,
     generate_summary_text,
     get_classification_reasoning,
     get_confidence_level,
@@ -1282,12 +1286,138 @@ async def api_transcription_detail_handler(request: web.Request) -> web.Response
 
 
 async def policies_handler(request: web.Request) -> dict:
-    """Handle GET /policies - Policies section page."""
-    return _create_template_context(
+    """Handle GET /policies - Policies section page.
+
+    Renders the Policies list page with all policy files discovered
+    from ~/.vpo/policies/ directory.
+    """
+    from video_policy_orchestrator.policy.discovery import (
+        DEFAULT_POLICIES_DIR,
+        discover_policies,
+    )
+
+    # Get default policy from active profile
+    default_policy_path = None
+    try:
+        from video_policy_orchestrator.config.profiles import get_active_profile
+
+        profile = get_active_profile()
+        if profile and profile.default_policy:
+            default_policy_path = profile.default_policy
+    except (ImportError, AttributeError) as e:
+        logger.debug("Could not load default policy from profile: %s", e)
+
+    # Discover policies
+    policies_dir = DEFAULT_POLICIES_DIR
+    summaries, default_missing = await asyncio.to_thread(
+        discover_policies,
+        policies_dir,
+        default_policy_path,
+    )
+
+    # Convert to PolicyListItem
+    policies = [
+        PolicyListItem(
+            name=s.name,
+            filename=s.filename,
+            file_path=s.file_path,
+            last_modified=s.last_modified,
+            schema_version=s.schema_version,
+            audio_languages=format_language_preferences(s.audio_languages),
+            subtitle_languages=format_language_preferences(s.subtitle_languages),
+            has_transcode=s.has_transcode,
+            has_transcription=s.has_transcription,
+            is_default=s.is_default,
+            parse_error=s.parse_error,
+        )
+        for s in summaries
+    ]
+
+    response = PolicyListResponse(
+        policies=policies,
+        total=len(policies),
+        policies_directory=str(policies_dir),
+        default_policy_path=str(default_policy_path) if default_policy_path else None,
+        default_policy_missing=default_missing,
+        directory_exists=policies_dir.exists(),
+    )
+
+    context = _create_template_context(
         active_id="policies",
         section_title="Policies",
-        section_content="<p>Policies section - coming soon</p>",
     )
+    context["policies_context"] = PoliciesContext.default()
+    context["policies_response"] = response
+
+    return context
+
+
+async def policies_api_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/policies - JSON API for policy files listing.
+
+    Returns:
+        JSON response with PolicyListResponse payload.
+    """
+    from video_policy_orchestrator.policy.discovery import (
+        DEFAULT_POLICIES_DIR,
+        discover_policies,
+    )
+
+    # Check if shutting down
+    lifecycle = request.app.get("lifecycle")
+    if lifecycle and lifecycle.is_shutting_down:
+        return web.json_response(
+            {"error": "Service is shutting down"},
+            status=503,
+        )
+
+    # Get default policy from active profile
+    default_policy_path = None
+    try:
+        from video_policy_orchestrator.config.profiles import get_active_profile
+
+        profile = get_active_profile()
+        if profile and profile.default_policy:
+            default_policy_path = profile.default_policy
+    except (ImportError, AttributeError) as e:
+        logger.debug("Could not load default policy from profile: %s", e)
+
+    # Discover policies
+    policies_dir = DEFAULT_POLICIES_DIR
+    summaries, default_missing = await asyncio.to_thread(
+        discover_policies,
+        policies_dir,
+        default_policy_path,
+    )
+
+    # Convert to PolicyListItem
+    policies = [
+        PolicyListItem(
+            name=s.name,
+            filename=s.filename,
+            file_path=s.file_path,
+            last_modified=s.last_modified,
+            schema_version=s.schema_version,
+            audio_languages=format_language_preferences(s.audio_languages),
+            subtitle_languages=format_language_preferences(s.subtitle_languages),
+            has_transcode=s.has_transcode,
+            has_transcription=s.has_transcription,
+            is_default=s.is_default,
+            parse_error=s.parse_error,
+        )
+        for s in summaries
+    ]
+
+    response = PolicyListResponse(
+        policies=policies,
+        total=len(policies),
+        policies_directory=str(policies_dir),
+        default_policy_path=str(default_policy_path) if default_policy_path else None,
+        default_policy_missing=default_missing,
+        directory_exists=policies_dir.exists(),
+    )
+
+    return web.json_response(response.to_dict())
 
 
 async def approvals_handler(request: web.Request) -> dict:
@@ -1507,6 +1637,8 @@ def setup_ui_routes(app: web.Application) -> None:
         "/policies",
         aiohttp_jinja2.template("sections/policies.html")(policies_handler),
     )
+    # Policies API route (023-policies-list-view)
+    app.router.add_get("/api/policies", policies_api_handler)
     app.router.add_get(
         "/approvals",
         aiohttp_jinja2.template("sections/approvals.html")(approvals_handler),

@@ -5,8 +5,14 @@ This module provides policy loading, validation, and evaluation functionality:
 - models: Policy, Plan, and PlannedAction dataclasses
 - evaluator: Pure-function policy evaluation
 - matchers: Commentary pattern matching utilities
+- discovery: Policy file discovery and metadata extraction
 """
 
+from video_policy_orchestrator.policy.discovery import (
+    DEFAULT_POLICIES_DIR,
+    PolicySummary,
+    discover_policies,
+)
 from video_policy_orchestrator.policy.evaluator import (
     EvaluationError,
     NoTracksError,
@@ -53,4 +59,8 @@ __all__ = [
     "evaluate_policy",
     # Matchers
     "CommentaryMatcher",
+    # Discovery
+    "DEFAULT_POLICIES_DIR",
+    "PolicySummary",
+    "discover_policies",
 ]

@@ -315,3 +315,340 @@ class TestConcurrentHealthRequests:
             if proc.poll() is None:
                 proc.kill()
                 proc.wait()
+
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Signal handling tests not supported on Windows",
+    )
+    def test_api_policies_endpoint(self, temp_db: Path, tmp_path: Path) -> None:
+        """Test that /api/policies returns policy files.
+
+        Integration test for 023-policies-list-view: Verify the API endpoint
+        correctly discovers and returns policy files from the filesystem.
+        """
+        import json
+        import urllib.request
+
+        port = find_free_port()
+
+        # Create test policies directory with sample policy files
+        policies_dir = tmp_path / ".vpo" / "policies"
+        policies_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create a valid basic policy
+        basic_policy = policies_dir / "test-basic.yaml"
+        basic_policy.write_text(
+            "schema_version: 2\naudio_language_preference:\n  - eng\n"
+        )
+
+        # Create a policy with features
+        full_policy = policies_dir / "test-full.yaml"
+        full_policy.write_text(
+            "schema_version: 2\n"
+            "audio_language_preference:\n  - eng\n  - jpn\n"
+            "transcode:\n  target_video_codec: hevc\n"
+            "transcription:\n  enabled: true\n"
+        )
+
+        env = os.environ.copy()
+        env["VPO_DATABASE_PATH"] = str(temp_db)
+        env["HOME"] = str(tmp_path)  # Override home for policies discovery
+
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "video_policy_orchestrator.cli",
+                "serve",
+                "--port",
+                str(port),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+
+        try:
+            assert wait_for_port(port, timeout=10.0), "Server didn't start"
+
+            # Request policies API
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/api/policies", timeout=5.0
+            ) as response:
+                assert response.status == 200
+                data = json.loads(response.read().decode())
+
+            # Verify response structure
+            assert "policies" in data
+            assert "total" in data
+            assert "policies_directory" in data
+            assert data["total"] == 2
+
+            # Verify policy names
+            names = [p["name"] for p in data["policies"]]
+            assert "test-basic" in names
+            assert "test-full" in names
+
+            # Verify policy metadata
+            full = next(p for p in data["policies"] if p["name"] == "test-full")
+            assert full["schema_version"] == 2
+            assert full["has_transcode"] is True
+            assert full["has_transcription"] is True
+
+        finally:
+            proc.send_signal(signal.SIGTERM)
+            try:
+                proc.wait(timeout=10.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Signal handling tests not supported on Windows",
+    )
+    def test_policies_page_loads(self, temp_db: Path) -> None:
+        """Test that /policies HTML page loads successfully.
+
+        Integration test for 023-policies-list-view: Verify the HTML page
+        renders without errors.
+        """
+        import urllib.request
+
+        port = find_free_port()
+
+        env = os.environ.copy()
+        env["VPO_DATABASE_PATH"] = str(temp_db)
+
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "video_policy_orchestrator.cli",
+                "serve",
+                "--port",
+                str(port),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+
+        try:
+            assert wait_for_port(port, timeout=10.0), "Server didn't start"
+
+            # Request policies page
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/policies", timeout=5.0
+            ) as response:
+                assert response.status == 200
+                html = response.read().decode()
+
+            # Verify it's an HTML page with expected content
+            assert "<!DOCTYPE html>" in html or "<html" in html
+            assert "Policies" in html
+
+        finally:
+            proc.send_signal(signal.SIGTERM)
+            try:
+                proc.wait(timeout=10.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Signal handling tests not supported on Windows",
+    )
+    def test_api_policies_malformed_yaml(self, temp_db: Path, tmp_path: Path) -> None:
+        """Test that /api/policies handles malformed YAML files gracefully.
+
+        Integration test for 023-policies-list-view: Verify parse errors
+        are captured and returned in the response.
+        """
+        import json
+        import urllib.request
+
+        port = find_free_port()
+
+        # Create test policies directory with malformed policy
+        policies_dir = tmp_path / ".vpo" / "policies"
+        policies_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create a malformed YAML file
+        malformed_policy = policies_dir / "bad-policy.yaml"
+        malformed_policy.write_text("invalid: yaml: content: [unclosed")
+
+        # Create a valid policy for comparison
+        valid_policy = policies_dir / "good-policy.yaml"
+        valid_policy.write_text("schema_version: 2\n")
+
+        env = os.environ.copy()
+        env["VPO_DATABASE_PATH"] = str(temp_db)
+        env["HOME"] = str(tmp_path)
+
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "video_policy_orchestrator.cli",
+                "serve",
+                "--port",
+                str(port),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+
+        try:
+            assert wait_for_port(port, timeout=10.0), "Server didn't start"
+
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/api/policies", timeout=5.0
+            ) as response:
+                assert response.status == 200
+                data = json.loads(response.read().decode())
+
+            assert data["total"] == 2
+
+            # Find the malformed policy
+            bad = next(p for p in data["policies"] if p["name"] == "bad-policy")
+            assert bad["parse_error"] is not None
+            assert "YAML" in bad["parse_error"]
+
+            # Valid policy should have no error
+            good = next(p for p in data["policies"] if p["name"] == "good-policy")
+            assert good["parse_error"] is None
+            assert good["schema_version"] == 2
+
+        finally:
+            proc.send_signal(signal.SIGTERM)
+            try:
+                proc.wait(timeout=10.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Signal handling tests not supported on Windows",
+    )
+    def test_api_policies_empty_directory(self, temp_db: Path, tmp_path: Path) -> None:
+        """Test that /api/policies handles empty directory.
+
+        Integration test for 023-policies-list-view: Verify correct response
+        when policies directory exists but is empty.
+        """
+        import json
+        import urllib.request
+
+        port = find_free_port()
+
+        # Create empty policies directory
+        policies_dir = tmp_path / ".vpo" / "policies"
+        policies_dir.mkdir(parents=True, exist_ok=True)
+
+        env = os.environ.copy()
+        env["VPO_DATABASE_PATH"] = str(temp_db)
+        env["HOME"] = str(tmp_path)
+
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "video_policy_orchestrator.cli",
+                "serve",
+                "--port",
+                str(port),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+
+        try:
+            assert wait_for_port(port, timeout=10.0), "Server didn't start"
+
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/api/policies", timeout=5.0
+            ) as response:
+                assert response.status == 200
+                data = json.loads(response.read().decode())
+
+            assert data["total"] == 0
+            assert data["policies"] == []
+            assert data["directory_exists"] is True
+
+        finally:
+            proc.send_signal(signal.SIGTERM)
+            try:
+                proc.wait(timeout=10.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Signal handling tests not supported on Windows",
+    )
+    def test_api_policies_both_extensions(self, temp_db: Path, tmp_path: Path) -> None:
+        """Test that /api/policies discovers both .yaml and .yml files.
+
+        Integration test for 023-policies-list-view: Verify both file
+        extensions are discovered correctly.
+        """
+        import json
+        import urllib.request
+
+        port = find_free_port()
+
+        # Create policies directory with both extensions
+        policies_dir = tmp_path / ".vpo" / "policies"
+        policies_dir.mkdir(parents=True, exist_ok=True)
+
+        yaml_policy = policies_dir / "policy-yaml.yaml"
+        yaml_policy.write_text("schema_version: 2\n")
+
+        yml_policy = policies_dir / "policy-yml.yml"
+        yml_policy.write_text("schema_version: 2\n")
+
+        env = os.environ.copy()
+        env["VPO_DATABASE_PATH"] = str(temp_db)
+        env["HOME"] = str(tmp_path)
+
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "video_policy_orchestrator.cli",
+                "serve",
+                "--port",
+                str(port),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+
+        try:
+            assert wait_for_port(port, timeout=10.0), "Server didn't start"
+
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/api/policies", timeout=5.0
+            ) as response:
+                assert response.status == 200
+                data = json.loads(response.read().decode())
+
+            assert data["total"] == 2
+            names = [p["name"] for p in data["policies"]]
+            assert "policy-yaml" in names
+            assert "policy-yml" in names
+
+        finally:
+            proc.send_signal(signal.SIGTERM)
+            try:
+                proc.wait(timeout=10.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()

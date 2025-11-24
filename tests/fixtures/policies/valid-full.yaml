@@ -1,0 +1,12 @@
+schema_version: 2
+audio_language_preference:
+  - eng
+  - jpn
+  - spa
+subtitle_language_preference:
+  - eng
+  - spa
+transcode:
+  target_video_codec: hevc
+transcription:
+  enabled: true
