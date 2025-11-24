@@ -2676,3 +2676,133 @@ html, body {
     color: var(--color-error);
     margin-top: var(--spacing-md);
 }
+
+/* Commentary Patterns (US4) */
+.commentary-patterns-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.pattern-input-group {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: flex-end;
+}
+
+.pattern-input-group input {
+    flex: 1;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    font-size: var(--font-size-base);
+}
+
+.patterns-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.pattern-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: #f8f9fa;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+}
+
+.patterns-list-empty {
+    padding: var(--spacing-md);
+    color: var(--color-text-muted);
+    font-style: italic;
+    text-align: center;
+}
+
+.pattern-text {
+    font-family: 'Courier New', monospace;
+    font-size: var(--font-size-sm);
+}
+
+.pattern-buttons {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.transcription-settings {
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--color-border);
+}
+
+.transcription-settings h3 {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+/* Policy Editor Container with Side-by-Side Layout (US5) */
+.policy-editor-container {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: var(--spacing-xl);
+    align-items: start;
+}
+
+/* YAML Preview Panel (US5) */
+.yaml-preview-panel {
+    position: sticky;
+    top: var(--spacing-md);
+    background: white;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: var(--spacing-lg);
+    max-height: calc(100vh - 2 * var(--spacing-md));
+    display: flex;
+    flex-direction: column;
+}
+
+.yaml-preview-panel h2 {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.yaml-preview-textarea {
+    flex: 1;
+    width: 100%;
+    min-height: 500px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    padding: var(--spacing-md);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: #f8f9fa;
+    resize: vertical;
+    overflow-y: auto;
+}
+
+.yaml-preview-textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Responsive: Stack on smaller screens */
+@media (max-width: 1200px) {
+    .policy-editor-container {
+        grid-template-columns: 1fr;
+    }
+
+    .yaml-preview-panel {
+        position: relative;
+        top: 0;
+        max-height: 600px;
+    }
+}

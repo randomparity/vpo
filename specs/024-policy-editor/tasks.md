@@ -220,9 +220,9 @@ Phase 4 (US3)   Phase 4 (US4)   Phase 4 (US5)
 
 ### Tasks
 
-- [ ] T052 [P] Create policy-editor.css with responsive layout in src/video_policy_orchestrator/server/static/css/policy-editor.css
-- [ ] T053 [P] Add dark mode support to policy-editor.css in src/video_policy_orchestrator/server/static/css/policy-editor.css
-- [ ] T054 [P] Add high contrast mode support in src/video_policy_orchestrator/server/static/css/policy-editor.css
+- [X] T052 [P] Create policy-editor.css with responsive layout in src/video_policy_orchestrator/server/static/css/policy-editor.css (added to main.css)
+- [ ] T053 [P] Add dark mode support to policy-editor.css in src/video_policy_orchestrator/server/static/css/policy-editor.css (deferred - future enhancement)
+- [ ] T054 [P] Add high contrast mode support in src/video_policy_orchestrator/server/static/css/policy-editor.css (deferred - future enhancement)
 - [ ] T055 Add ARIA live regions for screen reader announcements in src/video_policy_orchestrator/server/ui/templates/policy_editor.html
 - [ ] T056 Add keyboard navigation support (Tab, Enter, Escape) in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
 - [ ] T057 Add loading states and spinners for async operations in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
