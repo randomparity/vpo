@@ -1,8 +1,94 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="section-placeholder">
-    <p>Policies section - coming soon</p>
-    <p class="placeholder-hint">This section will display and manage policies.</p>
+<div class="policies-section">
+    {# Info banner showing policies directory #}
+    <div class="policies-info">
+        Policies directory: <code>{{ policies_context.policies_directory }}</code>
+    </div>
+
+    {% if policies_response.default_policy_missing %}
+    {# Warning: Default policy configured but file not found #}
+    <div class="policies-warning">
+        Warning: Default policy <code>{{ policies_response.default_policy_path }}</code> is configured but the file was not found.
+    </div>
+    {% elif not policies_response.default_policy_path and policies_response.total > 0 %}
+    {# Info: No default policy configured #}
+    <div class="policies-info-secondary">
+        No default policy configured. Set <code>default_policy</code> in your profile to designate a policy as the default.
+    </div>
+    {% endif %}
+
+    {% if not policies_response.directory_exists %}
+    {# Directory doesn't exist #}
+    <div class="policies-empty">
+        <p>Policies directory does not exist.</p>
+        <p class="placeholder-hint">Create <code>{{ policies_context.policies_directory }}</code> and add YAML policy files to get started.</p>
+    </div>
+    {% elif policies_response.total == 0 %}
+    {# Directory exists but is empty #}
+    <div class="policies-empty">
+        <p>No policy files found.</p>
+        <p class="placeholder-hint">Add <code>.yaml</code> or <code>.yml</code> policy files to <code>{{ policies_context.policies_directory }}</code></p>
+    </div>
+    {% else %}
+    {# Display policies table #}
+    <div class="policies-table-container">
+        <table class="policies-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Version</th>
+                    <th>Audio Languages</th>
+                    <th>Subtitle Languages</th>
+                    <th>Features</th>
+                    <th>Modified</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for policy in policies_response.policies %}
+                <tr class="{% if policy.parse_error %}policy-error{% endif %}">
+                    <td class="policy-name">
+                        {{ policy.name }}
+                        {% if policy.is_default %}
+                        <span class="badge badge-default">Default</span>
+                        {% endif %}
+                        {% if policy.parse_error %}
+                        <span class="badge badge-error" title="{{ policy.parse_error }}">Error</span>
+                        {% endif %}
+                    </td>
+                    <td class="policy-version">
+                        {% if policy.schema_version %}
+                        v{{ policy.schema_version }}
+                        {% else %}
+                        &mdash;
+                        {% endif %}
+                    </td>
+                    <td class="policy-languages">{{ policy.audio_languages }}</td>
+                    <td class="policy-languages">{{ policy.subtitle_languages }}</td>
+                    <td class="policy-features">
+                        {% if policy.has_transcode %}
+                        <span class="badge badge-transcode">Transcode</span>
+                        {% endif %}
+                        {% if policy.has_transcription %}
+                        <span class="badge badge-transcription">Transcription</span>
+                        {% endif %}
+                        {% if not policy.has_transcode and not policy.has_transcription and not policy.parse_error %}
+                        &mdash;
+                        {% endif %}
+                    </td>
+                    <td class="policy-modified" title="{{ policy.file_path }}">
+                        <span class="relative-time" data-timestamp="{{ policy.last_modified }}">{{ policy.last_modified }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="policies-count">
+        Showing {{ policies_response.total }} polic{{ 'y' if policies_response.total == 1 else 'ies' }}
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
