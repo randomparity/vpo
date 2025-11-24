@@ -5,6 +5,36 @@ This module defines dataclasses for VPO configuration options.
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal
+
+
+@dataclass
+class LanguageConfig:
+    """Configuration for language code handling.
+
+    VPO normalizes all language codes to a consistent ISO standard.
+    The default is ISO 639-2/B (3-letter bibliographic codes like "eng", "ger")
+    which is used natively by MKV containers and FFmpeg.
+    """
+
+    standard: Literal["639-1", "639-2/B", "639-2/T"] = "639-2/B"
+    """ISO standard to normalize language codes to.
+
+    - "639-1": 2-letter codes (en, de, ja). Compact but not all languages have codes.
+    - "639-2/B": 3-letter bibliographic codes (eng, ger, jpn). Default. Used by MKV.
+    - "639-2/T": 3-letter terminological codes (eng, deu, jpn). Preferred by linguists.
+    """
+
+    warn_on_conversion: bool = True
+    """Log warnings when converting between different ISO standards."""
+
+    def __post_init__(self) -> None:
+        """Validate configuration."""
+        valid_standards = {"639-1", "639-2/B", "639-2/T"}
+        if self.standard not in valid_standards:
+            raise ValueError(
+                f"standard must be one of {valid_standards}, got {self.standard}"
+            )
 
 
 @dataclass
@@ -255,6 +285,7 @@ class VPOConfig:
     )
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     server: ServerConfig = field(default_factory=ServerConfig)
+    language: LanguageConfig = field(default_factory=LanguageConfig)
 
     # Database path (can be overridden)
     database_path: Path | None = None

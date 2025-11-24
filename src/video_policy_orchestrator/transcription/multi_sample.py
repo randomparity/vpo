@@ -9,6 +9,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from video_policy_orchestrator.language import languages_match, normalize_language
 from video_policy_orchestrator.transcription.audio_extractor import (
     extract_audio_stream,
 )
@@ -156,29 +157,49 @@ def aggregate_results(
             sample_results=samples,
         )
 
+    # Normalize incumbent language to ensure consistent comparison
+    # This allows "de" (ISO 639-1) to match "ger" (ISO 639-2/B)
+    incumbent_normalized = (
+        normalize_language(incumbent_language) if incumbent_language else None
+    )
+
     # Weight votes by confidence score
     # This ensures high-confidence detections outweigh low-confidence guesses
+    # All languages are normalized to ensure consistent aggregation
     votes: dict[str, float] = {}
     for sample in valid_samples:
         if sample.language:
-            if sample.language not in votes:
-                votes[sample.language] = 0.0
-            votes[sample.language] += sample.confidence
+            # Normalize to ensure "de" and "ger" are treated as the same language
+            lang_normalized = normalize_language(sample.language)
+            if lang_normalized not in votes:
+                votes[lang_normalized] = 0.0
+            votes[lang_normalized] += sample.confidence
 
-    # Add incumbent bonus if it has votes
-    if incumbent_language and incumbent_language in votes:
-        votes[incumbent_language] += incumbent_bonus
+    # Add incumbent bonus if incumbent language has votes
+    # Use languages_match for comparison to handle different ISO standards
+    incumbent_key = None
+    if incumbent_normalized:
+        for lang in votes:
+            if languages_match(lang, incumbent_normalized):
+                incumbent_key = lang
+                break
+
+    if incumbent_key:
+        votes[incumbent_key] += incumbent_bonus
         logger.debug(
             "Added %.2f bonus vote for incumbent language '%s'",
             incumbent_bonus,
-            incumbent_language,
+            incumbent_normalized,
         )
 
     # Find winner (highest weighted vote)
     winner = max(votes, key=lambda k: votes[k])
 
     # Calculate average confidence for winning language
-    winner_samples = [s for s in valid_samples if s.language == winner]
+    # Use languages_match to handle samples that might have different ISO formats
+    winner_samples = [
+        s for s in valid_samples if s.language and languages_match(s.language, winner)
+    ]
     avg_confidence = sum(s.confidence for s in winner_samples) / len(winner_samples)
 
     # Find best transcript sample (highest confidence sample with transcript)

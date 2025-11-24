@@ -58,8 +58,9 @@ class TestParseStreams:
         assert video.height == 2160
 
         # Check audio tracks have different languages
+        # Note: "fra" in fixture is normalized to "fre" (ISO 639-2/B)
         languages = [t.language for t in tracks if t.track_type == "audio"]
-        assert languages == ["eng", "jpn", "fra"]
+        assert languages == ["eng", "jpn", "fre"]
 
         # Check channel layouts
         audio_tracks = [t for t in tracks if t.track_type == "audio"]

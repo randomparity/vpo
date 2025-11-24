@@ -6,6 +6,7 @@ offline transcription and language detection.
 
 from datetime import datetime, timezone
 
+from video_policy_orchestrator.language import normalize_language
 from video_policy_orchestrator.transcription.interface import TranscriptionError
 from video_policy_orchestrator.transcription.models import (
     TrackClassification,
@@ -173,8 +174,12 @@ class WhisperTranscriptionPlugin:
             _, probs = model.detect_language(mel)
 
             # Get top language and confidence
-            detected_lang = max(probs, key=probs.get)
-            confidence = float(probs[detected_lang])
+            # Whisper returns ISO 639-1 codes (e.g., "en", "de")
+            detected_lang_raw = max(probs, key=probs.get)
+            confidence = float(probs[detected_lang_raw])
+
+            # Normalize to project standard (ISO 639-2/B by default)
+            detected_lang = normalize_language(detected_lang_raw)
 
             now = datetime.now(timezone.utc)
             return TranscriptionResult(
@@ -231,7 +236,9 @@ class WhisperTranscriptionPlugin:
             transcript = result.get("text", "").strip()
             transcript_sample = transcript[:100] if transcript else None
 
-            detected_lang = result.get("language", language)
+            # Whisper returns ISO 639-1 codes, normalize to project standard
+            detected_lang_raw = result.get("language", language)
+            detected_lang = normalize_language(detected_lang_raw)
 
             # Confidence scoring based on transcript quality
             # Empty or very short transcripts indicate no speech was detected,

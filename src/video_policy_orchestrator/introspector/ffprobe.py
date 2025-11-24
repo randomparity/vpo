@@ -6,6 +6,7 @@ from pathlib import Path
 
 from video_policy_orchestrator.db.models import IntrospectionResult, TrackInfo
 from video_policy_orchestrator.introspector.interface import MediaIntrospectionError
+from video_policy_orchestrator.language import normalize_language
 
 
 class FFprobeIntrospector:
@@ -197,7 +198,9 @@ class FFprobeIntrospector:
 
             # Get tags (sanitize strings to handle non-UTF8 characters)
             tags = stream.get("tags", {})
-            language = tags.get("language") or "und"
+            raw_language = tags.get("language") or "und"
+            # Normalize language code to configured standard (default: ISO 639-2/B)
+            language = normalize_language(raw_language)
             title = self._sanitize_string(tags.get("title"))
 
             # Build track info

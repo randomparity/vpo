@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -710,6 +710,87 @@ def migrate_v9_to_v10(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def migrate_v10_to_v11(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 10 to version 11.
+
+    Normalizes all language codes to ISO 639-2/B standard:
+    - tracks.language: Converts ISO 639-1 (2-letter) and ISO 639-2/T codes
+      to ISO 639-2/B (3-letter bibliographic) codes
+    - transcription_results.detected_language: Same normalization
+
+    Examples of conversions:
+    - "de" -> "ger" (ISO 639-1 to 639-2/B)
+    - "deu" -> "ger" (ISO 639-2/T to 639-2/B)
+    - "en" -> "eng"
+    - "eng" -> "eng" (already 639-2/B, unchanged)
+
+    This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    import logging
+
+    from video_policy_orchestrator.language import normalize_language
+
+    logger = logging.getLogger(__name__)
+
+    # Normalize language codes in tracks table
+    cursor = conn.execute(
+        "SELECT DISTINCT language FROM tracks WHERE language IS NOT NULL"
+    )
+    track_languages = [row[0] for row in cursor.fetchall()]
+
+    normalized_count = 0
+    for lang in track_languages:
+        normalized = normalize_language(lang, warn_on_conversion=False)
+        if normalized != lang:
+            conn.execute(
+                "UPDATE tracks SET language = ? WHERE language = ?",
+                (normalized, lang),
+            )
+            logger.info(
+                "Migration v10→v11: Normalized track language '%s' -> '%s'",
+                lang,
+                normalized,
+            )
+            normalized_count += 1
+
+    # Normalize language codes in transcription_results table
+    cursor = conn.execute(
+        "SELECT DISTINCT detected_language FROM transcription_results "
+        "WHERE detected_language IS NOT NULL"
+    )
+    transcription_languages = [row[0] for row in cursor.fetchall()]
+
+    for lang in transcription_languages:
+        normalized = normalize_language(lang, warn_on_conversion=False)
+        if normalized != lang:
+            conn.execute(
+                "UPDATE transcription_results SET detected_language = ? "
+                "WHERE detected_language = ?",
+                (normalized, lang),
+            )
+            logger.info(
+                "Migration v10→v11: Normalized transcription language '%s' -> '%s'",
+                lang,
+                normalized,
+            )
+            normalized_count += 1
+
+    if normalized_count > 0:
+        logger.info(
+            "Migration v10→v11: Normalized %d distinct language codes to ISO 639-2/B",
+            normalized_count,
+        )
+
+    # Update schema version to 11
+    conn.execute(
+        "UPDATE _meta SET value = '11' WHERE key = 'schema_version'",
+    )
+    conn.commit()
+
+
 def initialize_database(conn: sqlite3.Connection) -> None:
     """Initialize the database with schema, creating tables if needed.
 
@@ -748,3 +829,6 @@ def initialize_database(conn: sqlite3.Connection) -> None:
             current_version = 9
         if current_version == 9:
             migrate_v9_to_v10(conn)
+            current_version = 10
+        if current_version == 10:
+            migrate_v10_to_v11(conn)

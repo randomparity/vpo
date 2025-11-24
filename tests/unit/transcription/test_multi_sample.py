@@ -202,7 +202,8 @@ class TestAggregateResults:
             SampleResult(position=0.0, language="en", confidence=0.95),
         ]
         result = aggregate_results(samples)
-        assert result.language == "en"
+        # Language is normalized to ISO 639-2/B
+        assert result.language == "eng"
         assert result.confidence == 0.95
         assert result.samples_taken == 1
 
@@ -214,7 +215,8 @@ class TestAggregateResults:
             SampleResult(position=2000.0, language="en", confidence=0.95),
         ]
         result = aggregate_results(samples)
-        assert result.language == "en"
+        # Language is normalized to ISO 639-2/B
+        assert result.language == "eng"
         assert result.confidence == pytest.approx(0.9)  # Average of 0.9, 0.85, 0.95
 
     def test_majority_vote_two_vs_one(self):
@@ -225,7 +227,8 @@ class TestAggregateResults:
             SampleResult(position=2000.0, language="en", confidence=0.85),
         ]
         result = aggregate_results(samples)
-        assert result.language == "en"  # 2 votes vs 1
+        # Language is normalized to ISO 639-2/B
+        assert result.language == "eng"  # 2 votes vs 1
         assert result.confidence == pytest.approx(0.825)  # Average of 0.80, 0.85
 
     def test_incumbent_bonus(self):
@@ -239,7 +242,8 @@ class TestAggregateResults:
         result = aggregate_results(
             samples, incumbent_language="es", incumbent_bonus=0.5
         )
-        assert result.language == "es"
+        # Language is normalized to ISO 639-2/B
+        assert result.language == "spa"
 
     def test_incumbent_bonus_doesnt_add_phantom_votes(self):
         """Test incumbent bonus only applies if language is in votes."""
@@ -251,7 +255,8 @@ class TestAggregateResults:
         result = aggregate_results(
             samples, incumbent_language="de", incumbent_bonus=0.5
         )
-        assert result.language == "en"
+        # Language is normalized to ISO 639-2/B
+        assert result.language == "eng"
 
     def test_best_transcript_selected(self):
         """Test highest confidence transcript is selected."""
@@ -279,7 +284,8 @@ class TestAggregateResults:
             SampleResult(position=1000.0, language="en", confidence=0.85),
         ]
         result = aggregate_results(samples)
-        assert result.language == "en"
+        # Language is normalized to ISO 639-2/B
+        assert result.language == "eng"
         assert result.samples_taken == 2
 
     def test_all_none_languages(self):
@@ -344,7 +350,8 @@ class TestSmartDetect:
             config=config,
         )
 
-        assert result.language == "en"
+        # Language is normalized to ISO 639-2/B
+        assert result.language == "eng"
         assert result.samples_taken == 1
         # Should only call transcribe once due to early exit
         assert transcriber.transcribe.call_count == 1
@@ -374,7 +381,8 @@ class TestSmartDetect:
             config=config,
         )
 
-        assert result.language == "en"
+        # Language is normalized to ISO 639-2/B
+        assert result.language == "eng"
         assert result.samples_taken == 3
         assert transcriber.transcribe.call_count == 3
 
@@ -407,7 +415,8 @@ class TestSmartDetect:
         )
 
         # With 0.5 bonus for incumbent "en", it should win
-        assert result.language == "en"
+        # Language is normalized to ISO 639-2/B
+        assert result.language == "eng"
 
     @patch("video_policy_orchestrator.transcription.multi_sample.extract_audio_stream")
     def test_extraction_failure_continues(self, mock_extract):
@@ -436,7 +445,8 @@ class TestSmartDetect:
             config=config,
         )
 
-        assert result.language == "en"
+        # Language is normalized to ISO 639-2/B
+        assert result.language == "eng"
         assert result.samples_taken == 1
 
     @patch("video_policy_orchestrator.transcription.multi_sample.extract_audio_stream")
@@ -474,7 +484,8 @@ class TestSmartDetect:
             config=None,  # Use defaults
         )
 
-        assert result.language == "en"
+        # Language is normalized to ISO 639-2/B
+        assert result.language == "eng"
 
     @patch("video_policy_orchestrator.transcription.multi_sample.extract_audio_stream")
     def test_sample_positions_used(self, mock_extract):
