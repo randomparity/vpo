@@ -727,8 +727,16 @@ async def library_api_handler(request: web.Request) -> web.Response:
         for f in files_data
     ]
 
-    # Determine if any filters are active
-    has_filters = params.status is not None
+    # Determine if any filters are active (019-library-filters-search)
+    has_filters = any(
+        [
+            params.status is not None,
+            params.search is not None,
+            params.resolution is not None,
+            params.audio_lang is not None,
+            params.subtitles is not None,
+        ]
+    )
 
     response = FileListResponse(
         files=files,

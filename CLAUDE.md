@@ -108,6 +108,7 @@ The web UI uses server-rendered HTML with JavaScript enhancements:
 ## Active Technologies
 - Python 3.10+ (existing codebase) + aiohttp, Jinja2, aiohttp-jinja2 (existing web stack) (018-library-list-view)
 - SQLite via existing `db/models.py` and `db/connection.py` (018-library-list-view)
+- Python 3.10+ (existing codebase) + aiohttp, Jinja2, aiohttp-jinja2 (existing web stack), SQLite (019-library-filters-search)
 
 ## Recent Changes
 - 018-library-list-view: Added Python 3.10+ (existing codebase) + aiohttp, Jinja2, aiohttp-jinja2 (existing web stack)
