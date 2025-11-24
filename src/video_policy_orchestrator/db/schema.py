@@ -725,6 +725,8 @@ def migrate_v10_to_v11(conn: sqlite3.Connection) -> None:
     - "eng" -> "eng" (already 639-2/B, unchanged)
 
     This migration is idempotent - safe to run multiple times.
+    Uses an exclusive transaction for atomicity - all changes succeed or
+    all are rolled back on error.
 
     Args:
         conn: An open database connection.
@@ -735,60 +737,89 @@ def migrate_v10_to_v11(conn: sqlite3.Connection) -> None:
 
     logger = logging.getLogger(__name__)
 
-    # Normalize language codes in tracks table
-    cursor = conn.execute(
-        "SELECT DISTINCT language FROM tracks WHERE language IS NOT NULL"
-    )
-    track_languages = [row[0] for row in cursor.fetchall()]
+    # Start exclusive transaction for atomicity
+    conn.execute("BEGIN EXCLUSIVE")
+    try:
+        # Normalize language codes in tracks table
+        cursor = conn.execute(
+            "SELECT DISTINCT language FROM tracks WHERE language IS NOT NULL"
+        )
+        track_languages = [row[0] for row in cursor.fetchall()]
 
-    normalized_count = 0
-    for lang in track_languages:
-        normalized = normalize_language(lang, warn_on_conversion=False)
-        if normalized != lang:
-            conn.execute(
-                "UPDATE tracks SET language = ? WHERE language = ?",
-                (normalized, lang),
-            )
+        normalized_count = 0
+        for lang in track_languages:
+            normalized = normalize_language(lang, warn_on_conversion=False)
+            if normalized != lang:
+                # Skip unrecognized codes that would become "und"
+                if normalized == "und" and lang.lower().strip() not in ("", "und"):
+                    logger.warning(
+                        "Migration v10→v11: Skipping unrecognized language code '%s' "
+                        "(would become 'und')",
+                        lang,
+                    )
+                    continue
+
+                conn.execute(
+                    "UPDATE tracks SET language = ? WHERE language = ?",
+                    (normalized, lang),
+                )
+                logger.info(
+                    "Migration v10→v11: Normalized track language '%s' -> '%s'",
+                    lang,
+                    normalized,
+                )
+                normalized_count += 1
+
+        # Normalize language codes in transcription_results table
+        cursor = conn.execute(
+            "SELECT DISTINCT detected_language FROM transcription_results "
+            "WHERE detected_language IS NOT NULL"
+        )
+        transcription_languages = [row[0] for row in cursor.fetchall()]
+
+        for lang in transcription_languages:
+            normalized = normalize_language(lang, warn_on_conversion=False)
+            if normalized != lang:
+                # Skip unrecognized codes that would become "und"
+                if normalized == "und" and lang.lower().strip() not in ("", "und"):
+                    logger.warning(
+                        "Migration v10→v11: Skipping unrecognized language code '%s' "
+                        "(would become 'und')",
+                        lang,
+                    )
+                    continue
+
+                conn.execute(
+                    "UPDATE transcription_results SET detected_language = ? "
+                    "WHERE detected_language = ?",
+                    (normalized, lang),
+                )
+                logger.info(
+                    "Migration v10→v11: Normalized transcription language '%s' -> '%s'",
+                    lang,
+                    normalized,
+                )
+                normalized_count += 1
+
+        if normalized_count > 0:
             logger.info(
-                "Migration v10→v11: Normalized track language '%s' -> '%s'",
-                lang,
-                normalized,
+                "Migration v10→v11: Normalized %d distinct language codes",
+                normalized_count,
             )
-            normalized_count += 1
 
-    # Normalize language codes in transcription_results table
-    cursor = conn.execute(
-        "SELECT DISTINCT detected_language FROM transcription_results "
-        "WHERE detected_language IS NOT NULL"
-    )
-    transcription_languages = [row[0] for row in cursor.fetchall()]
-
-    for lang in transcription_languages:
-        normalized = normalize_language(lang, warn_on_conversion=False)
-        if normalized != lang:
-            conn.execute(
-                "UPDATE transcription_results SET detected_language = ? "
-                "WHERE detected_language = ?",
-                (normalized, lang),
-            )
-            logger.info(
-                "Migration v10→v11: Normalized transcription language '%s' -> '%s'",
-                lang,
-                normalized,
-            )
-            normalized_count += 1
-
-    if normalized_count > 0:
-        logger.info(
-            "Migration v10→v11: Normalized %d distinct language codes to ISO 639-2/B",
-            normalized_count,
+        # Update schema version to 11
+        conn.execute(
+            "UPDATE _meta SET value = '11' WHERE key = 'schema_version'",
         )
 
-    # Update schema version to 11
-    conn.execute(
-        "UPDATE _meta SET value = '11' WHERE key = 'schema_version'",
-    )
-    conn.commit()
+        # Commit transaction
+        conn.execute("COMMIT")
+
+    except Exception as e:
+        # Rollback on any error
+        conn.execute("ROLLBACK")
+        logger.error("Migration v10→v11 failed, rolling back: %s", e)
+        raise
 
 
 def initialize_database(conn: sqlite3.Connection) -> None:
