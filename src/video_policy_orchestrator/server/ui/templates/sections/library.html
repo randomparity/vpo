@@ -18,8 +18,14 @@
 
     <!-- Main content (hidden until loaded) -->
     <div id="library-content" style="display: none;">
-        <!-- Filter bar -->
+        <!-- Filter bar (019-library-filters-search) -->
         <div id="library-filters" class="library-filters">
+            <!-- Text search -->
+            <div class="library-filter library-filter-search">
+                <label for="filter-search">Search</label>
+                <input type="text" id="filter-search" placeholder="Search filename or title..." maxlength="200">
+            </div>
+            <!-- Status filter -->
             <div class="library-filter">
                 <label for="filter-status">Status</label>
                 <select id="filter-status">
@@ -27,6 +33,37 @@
                     <option value="{{ option.value }}">{{ option.label }}</option>
                     {% endfor %}
                 </select>
+            </div>
+            <!-- Resolution filter -->
+            <div class="library-filter">
+                <label for="filter-resolution">Resolution</label>
+                <select id="filter-resolution">
+                    {% for option in library_context.resolution_options %}
+                    <option value="{{ option.value }}">{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <!-- Audio language filter -->
+            <div class="library-filter">
+                <label for="filter-audio-lang">Audio</label>
+                <select id="filter-audio-lang" multiple size="1">
+                    <!-- Options populated via JavaScript from /api/library/languages -->
+                </select>
+            </div>
+            <!-- Subtitles filter -->
+            <div class="library-filter">
+                <label for="filter-subtitles">Subtitles</label>
+                <select id="filter-subtitles">
+                    {% for option in library_context.subtitles_options %}
+                    <option value="{{ option.value }}">{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <!-- Clear filters button -->
+            <div class="library-filter library-filter-actions">
+                <button type="button" id="clear-filters-btn" class="library-clear-filters-btn" style="display: none;">
+                    Clear filters
+                </button>
             </div>
         </div>
 
