@@ -206,6 +206,10 @@ def create_schema(conn: sqlite3.Connection) -> None:
         "INSERT OR IGNORE INTO _meta (key, value) VALUES ('schema_version', ?)",
         (str(SCHEMA_VERSION),),
     )
+    # Commit required: executescript() above commits implicitly, and this
+    # INSERT starts a new implicit transaction that must be committed.
+    # Without this commit, the connection remains in a transaction which
+    # breaks code that tries to start its own transaction (e.g., claim_next_job).
     conn.commit()
 
 
