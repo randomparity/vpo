@@ -110,6 +110,8 @@ The web UI uses server-rendered HTML with JavaScript enhancements:
 - SQLite via existing `db/models.py` and `db/connection.py` (018-library-list-view)
 - Python 3.10+ (existing codebase) + aiohttp, Jinja2, aiohttp-jinja2 (existing web stack), SQLite (019-library-filters-search)
 - Python 3.10+ + aiohttp, Jinja2, aiohttp-jinja2 (existing web stack) (020-file-detail-view)
+- Python 3.10+ (existing codebase) + aiohttp, Jinja2, aiohttp-jinja2, PyYAML (existing web stack + policy loader) (023-policies-list-view)
+- Filesystem (YAML files in ~/.vpo/policies/); no database changes (023-policies-list-view)
 
 ## Recent Changes
 - 018-library-list-view: Added Python 3.10+ (existing codebase) + aiohttp, Jinja2, aiohttp-jinja2 (existing web stack)
