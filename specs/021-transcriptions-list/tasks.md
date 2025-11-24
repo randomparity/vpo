@@ -54,15 +54,15 @@
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Update `transcriptions_handler()` to return proper template context in `src/video_policy_orchestrator/server/ui/routes.py`
-- [ ] T008 [US1] Implement `api_transcriptions_handler()` endpoint in `src/video_policy_orchestrator/server/ui/routes.py`
-- [ ] T009 [US1] Register `/api/transcriptions` route in `setup_ui_routes()` in `src/video_policy_orchestrator/server/ui/routes.py`
-- [ ] T010 [US1] Create transcriptions table template in `src/video_policy_orchestrator/server/ui/templates/sections/transcriptions.html`
-- [ ] T011 [US1] Add confidence badge CSS styles in `src/video_policy_orchestrator/server/static/css/main.css`
-- [ ] T012 [US1] Create `transcriptions.js` with API fetch and table rendering (including "Not analyzed" indicator for files without transcription data) in `src/video_policy_orchestrator/server/static/js/transcriptions.js`
-- [ ] T013 [US1] Implement loading state in `transcriptions.js`
-- [ ] T014 [US1] Implement empty state handling (no transcriptions) in `transcriptions.js`
-- [ ] T015 [US1] Implement pagination controls in `transcriptions.js`
+- [X] T007 [US1] Update `transcriptions_handler()` to return proper template context in `src/video_policy_orchestrator/server/ui/routes.py`
+- [X] T008 [US1] Implement `api_transcriptions_handler()` endpoint in `src/video_policy_orchestrator/server/ui/routes.py`
+- [X] T009 [US1] Register `/api/transcriptions` route in `setup_ui_routes()` in `src/video_policy_orchestrator/server/ui/routes.py`
+- [X] T010 [US1] Create transcriptions table template in `src/video_policy_orchestrator/server/ui/templates/sections/transcriptions.html`
+- [X] T011 [US1] Add confidence badge CSS styles in `src/video_policy_orchestrator/server/static/css/main.css`
+- [X] T012 [US1] Create `transcriptions.js` with API fetch and table rendering (including "Not analyzed" indicator for files without transcription data) in `src/video_policy_orchestrator/server/static/js/transcriptions.js`
+- [X] T013 [US1] Implement loading state in `transcriptions.js`
+- [X] T014 [US1] Implement empty state handling (no transcriptions) in `transcriptions.js`
+- [X] T015 [US1] Implement pagination controls in `transcriptions.js`
 
 **Checkpoint**: User Story 1 complete - Transcriptions page displays files with transcription data, languages, and confidence levels
 
@@ -76,11 +76,11 @@
 
 ### Implementation for User Story 2
 
-- [ ] T016 [US2] Add "Show all files" toggle HTML to `src/video_policy_orchestrator/server/ui/templates/sections/transcriptions.html`
-- [ ] T017 [US2] Add toggle CSS styling in `src/video_policy_orchestrator/server/static/css/main.css`
-- [ ] T018 [US2] Implement toggle state management in `transcriptions.js`
-- [ ] T019 [US2] Update API calls to include `show_all` parameter in `transcriptions.js`
-- [ ] T020 [US2] Update empty state message based on filter in `transcriptions.js`
+- [X] T016 [US2] Add "Show all files" toggle HTML to `src/video_policy_orchestrator/server/ui/templates/sections/transcriptions.html`
+- [X] T017 [US2] Add toggle CSS styling in `src/video_policy_orchestrator/server/static/css/main.css`
+- [X] T018 [US2] Implement toggle state management in `transcriptions.js`
+- [X] T019 [US2] Update API calls to include `show_all` parameter in `transcriptions.js`
+- [X] T020 [US2] Update empty state message based on filter in `transcriptions.js`
 
 **Checkpoint**: User Story 2 complete - Toggle switches between transcribed-only and all-files views
 
@@ -94,9 +94,9 @@
 
 ### Implementation for User Story 3
 
-- [ ] T021 [US3] Make table rows clickable links to `/library/{file_id}` in `src/video_policy_orchestrator/server/ui/templates/sections/transcriptions.html`
-- [ ] T022 [US3] Add row hover styles for clickable indication in `src/video_policy_orchestrator/server/static/css/main.css`
-- [ ] T023 [US3] Preserve filter state in URL for back navigation in `transcriptions.js`
+- [X] T021 [US3] Make table rows clickable links to `/library/{file_id}` in `src/video_policy_orchestrator/server/ui/templates/sections/transcriptions.html`
+- [X] T022 [US3] Add row hover styles for clickable indication in `src/video_policy_orchestrator/server/static/css/main.css`
+- [X] T023 [US3] Preserve filter state in URL for back navigation in `transcriptions.js`
 
 **Checkpoint**: User Story 3 complete - File rows navigate to detail view with back navigation preserved
 
