@@ -59,12 +59,12 @@ Phase 4 (US3)   Phase 4 (US4)   Phase 4 (US5)
 
 ### Tasks
 
-- [ ] T001 Add ruamel.yaml dependency to pyproject.toml
-- [ ] T002 Install dependencies via `uv pip install -e ".[dev]"`
-- [ ] T003 Verify ruamel.yaml import works in Python REPL
-- [ ] T004 Create test policy fixtures directory at tests/fixtures/policies/
+- [X] T001 Add ruamel.yaml dependency to pyproject.toml
+- [X] T002 Install dependencies via `uv pip install -e ".[dev]"`
+- [X] T003 Verify ruamel.yaml import works in Python REPL
+- [X] T004 Create test policy fixtures directory at tests/fixtures/policies/
 
-**Commit Point**: `git commit -m "chore: Add ruamel.yaml dependency and test fixtures directory"`
+**Commit Point**: `git commit -m "chore: Add ruamel.yaml dependency and test fixtures directory"` ✅ **COMPLETED**
 
 ---
 
@@ -78,16 +78,16 @@ Phase 4 (US3)   Phase 4 (US4)   Phase 4 (US5)
 
 ### Tasks
 
-- [ ] T005 Create PolicyRoundTripEditor class in src/video_policy_orchestrator/policy/editor.py
-- [ ] T006 Implement load() method using ruamel.yaml with round-trip mode in src/video_policy_orchestrator/policy/editor.py
-- [ ] T007 Implement save() method with selective field updates in src/video_policy_orchestrator/policy/editor.py
-- [ ] T008 Add structured logging for policy edits (policy name, fields changed) in src/video_policy_orchestrator/policy/editor.py
-- [ ] T009 Create unit tests for unknown field preservation in tests/unit/policy/test_policy_roundtrip.py
-- [ ] T010 Create unit tests for comment preservation (best-effort) in tests/unit/policy/test_policy_roundtrip.py
-- [ ] T011 Add PolicyEditorContext dataclass in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T012 Add PolicyEditorRequest dataclass in src/video_policy_orchestrator/server/ui/models.py
+- [X] T005 Create PolicyRoundTripEditor class in src/video_policy_orchestrator/policy/editor.py
+- [X] T006 Implement load() method using ruamel.yaml with round-trip mode in src/video_policy_orchestrator/policy/editor.py
+- [X] T007 Implement save() method with selective field updates in src/video_policy_orchestrator/policy/editor.py
+- [X] T008 Add structured logging for policy edits (policy name, fields changed) in src/video_policy_orchestrator/policy/editor.py
+- [X] T009 Create unit tests for unknown field preservation in tests/unit/policy/test_policy_roundtrip.py
+- [X] T010 Create unit tests for comment preservation (best-effort) in tests/unit/policy/test_policy_roundtrip.py
+- [X] T011 Add PolicyEditorContext dataclass in src/video_policy_orchestrator/server/ui/models.py
+- [X] T012 Add PolicyEditorRequest dataclass in src/video_policy_orchestrator/server/ui/models.py
 
-**Commit Point**: `git commit -m "feat: Implement policy round-trip editor with field preservation"`
+**Commit Point**: `git commit -m "feat: Implement policy round-trip editor with field preservation"` ✅ **COMPLETED**
 
 ---
 
