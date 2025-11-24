@@ -862,12 +862,14 @@ class TrackTranscriptionInfo:
     """Transcription data for an audio track.
 
     Attributes:
+        id: Transcription result ID (for linking to detail view).
         detected_language: Detected language code.
         confidence_score: Confidence as float (0.0-1.0).
         track_type: Classification ("main", "commentary", "alternate").
         plugin_name: Name of plugin that performed detection.
     """
 
+    id: int  # Transcription result ID for detail view link (022-transcription-detail)
     detected_language: str | None
     confidence_score: float
     track_type: str
@@ -881,6 +883,7 @@ class TrackTranscriptionInfo:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
+            "id": self.id,
             "detected_language": self.detected_language,
             "confidence_score": self.confidence_score,
             "track_type": self.track_type,
@@ -1559,6 +1562,7 @@ def group_tracks_by_type(
         if track.track_type == "audio" and track.id in transcriptions:
             tr = transcriptions[track.id]
             transcription_info = TrackTranscriptionInfo(
+                id=tr.id,  # For transcription detail link (022)
                 detected_language=tr.detected_language,
                 confidence_score=tr.confidence_score,
                 track_type=tr.track_type,

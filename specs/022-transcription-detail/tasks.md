@@ -108,11 +108,11 @@ This feature follows the existing VPO structure:
 
 **Purpose**: Integration with existing views and final polish
 
-- [ ] T025 [P] Add link from File Detail audio track transcription info to `/transcriptions/{id}` in `src/video_policy_orchestrator/server/ui/templates/sections/file_detail.html`
-- [ ] T026 [P] Add link from Transcriptions List to individual transcription detail pages in `src/video_policy_orchestrator/server/ui/templates/sections/transcriptions.html`
-- [ ] T027 Update imports in `src/video_policy_orchestrator/server/ui/models.py` exports if needed
-- [ ] T028 Run linting and formatting (`uv run ruff check . && uv run ruff format .`)
-- [ ] T029 Validate feature against quickstart.md test scenarios
+- [X] T025 [P] Add link from File Detail audio track transcription info to `/transcriptions/{id}` in `src/video_policy_orchestrator/server/ui/templates/sections/file_detail.html`
+- [X] T026 [P] Add link from Transcriptions List to individual transcription detail pages in `src/video_policy_orchestrator/server/ui/templates/sections/transcriptions.html`
+- [X] T027 Update imports in `src/video_policy_orchestrator/server/ui/models.py` exports if needed
+- [X] T028 Run linting and formatting (`uv run ruff check . && uv run ruff format .`)
+- [X] T029 Validate feature against quickstart.md test scenarios
 
 ---
 

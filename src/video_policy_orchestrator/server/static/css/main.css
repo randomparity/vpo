@@ -1507,6 +1507,18 @@ html, body {
     color: #065f46;
 }
 
+/* Clickable transcription link (022-transcription-detail) */
+.track-detail--link {
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.track-detail--link:hover {
+    background-color: rgba(16, 185, 129, 0.2);
+    color: #047857;
+}
+
 /* Empty state for no tracks */
 .file-detail-empty {
     text-align: center;

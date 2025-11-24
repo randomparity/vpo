@@ -125,10 +125,10 @@
                     <span class="track-detail"><strong>Title:</strong> {{ track.title }}</span>
                     {% endif %}
                     {% if track.transcription %}
-                    <span class="track-detail track-detail--transcription">
+                    <a href="/transcriptions/{{ track.transcription.id }}" class="track-detail track-detail--transcription track-detail--link">
                         <strong>Detected:</strong> {{ track.transcription.detected_language or '—' }}
                         ({{ track.transcription.confidence_percent }}% confidence, {{ track.transcription.track_type }})
-                    </span>
+                    </a>
                     {% endif %}
                 </div>
             </div>
