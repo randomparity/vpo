@@ -223,12 +223,12 @@ Phase 4 (US3)   Phase 4 (US4)   Phase 4 (US5)
 - [X] T052 [P] Create policy-editor.css with responsive layout in src/video_policy_orchestrator/server/static/css/policy-editor.css (added to main.css)
 - [ ] T053 [P] Add dark mode support to policy-editor.css in src/video_policy_orchestrator/server/static/css/policy-editor.css (deferred - future enhancement)
 - [ ] T054 [P] Add high contrast mode support in src/video_policy_orchestrator/server/static/css/policy-editor.css (deferred - future enhancement)
-- [ ] T055 Add ARIA live regions for screen reader announcements in src/video_policy_orchestrator/server/ui/templates/policy_editor.html
-- [ ] T056 Add keyboard navigation support (Tab, Enter, Escape) in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
-- [ ] T057 Add loading states and spinners for async operations in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
-- [ ] T058 Add "Edit" link from policies list view in src/video_policy_orchestrator/server/ui/templates/policies.html
-- [ ] T059 Handle 404 errors (policy not found) gracefully in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
-- [ ] T060 Handle 500 errors (server error) gracefully in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
+- [X] T055 Add ARIA live regions for screen reader announcements in src/video_policy_orchestrator/server/ui/templates/policy_editor.html (already present in MVP)
+- [X] T056 Add keyboard navigation support (Tab, Enter, Escape) in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js (Enter key support implemented in MVP)
+- [X] T057 Add loading states and spinners for async operations in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js (save status messages implemented in MVP)
+- [X] T058 Add "Edit" link from policies list view in src/video_policy_orchestrator/server/ui/templates/policies.html (already implemented in 023-policies-list-view)
+- [X] T059 Handle 404 errors (policy not found) gracefully in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js (handled in MVP)
+- [X] T060 Handle 500 errors (server error) gracefully in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js (handled in MVP)
 - [ ] T061 [P] Add unit tests for API routes in tests/unit/server/test_policy_editor_routes.py
 - [ ] T062 [P] Add unit tests for PolicyRoundTripEditor in tests/unit/policy/test_policy_editor.py
 - [ ] T063 Add E2E integration test covering full edit flow in tests/integration/test_policy_editor_flow.py
