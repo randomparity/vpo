@@ -315,3 +315,143 @@ class TestConcurrentHealthRequests:
             if proc.poll() is None:
                 proc.kill()
                 proc.wait()
+
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Signal handling tests not supported on Windows",
+    )
+    def test_api_policies_endpoint(self, temp_db: Path, tmp_path: Path) -> None:
+        """Test that /api/policies returns policy files.
+
+        Integration test for 023-policies-list-view: Verify the API endpoint
+        correctly discovers and returns policy files from the filesystem.
+        """
+        import json
+        import urllib.request
+
+        port = find_free_port()
+
+        # Create test policies directory with sample policy files
+        policies_dir = tmp_path / ".vpo" / "policies"
+        policies_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create a valid basic policy
+        basic_policy = policies_dir / "test-basic.yaml"
+        basic_policy.write_text(
+            "schema_version: 2\naudio_language_preference:\n  - eng\n"
+        )
+
+        # Create a policy with features
+        full_policy = policies_dir / "test-full.yaml"
+        full_policy.write_text(
+            "schema_version: 2\n"
+            "audio_language_preference:\n  - eng\n  - jpn\n"
+            "transcode:\n  target_video_codec: hevc\n"
+            "transcription:\n  enabled: true\n"
+        )
+
+        env = os.environ.copy()
+        env["VPO_DATABASE_PATH"] = str(temp_db)
+        env["HOME"] = str(tmp_path)  # Override home for policies discovery
+
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "video_policy_orchestrator.cli",
+                "serve",
+                "--port",
+                str(port),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+
+        try:
+            assert wait_for_port(port, timeout=10.0), "Server didn't start"
+
+            # Request policies API
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/api/policies", timeout=5.0
+            ) as response:
+                assert response.status == 200
+                data = json.loads(response.read().decode())
+
+            # Verify response structure
+            assert "policies" in data
+            assert "total" in data
+            assert "policies_directory" in data
+            assert data["total"] == 2
+
+            # Verify policy names
+            names = [p["name"] for p in data["policies"]]
+            assert "test-basic" in names
+            assert "test-full" in names
+
+            # Verify policy metadata
+            full = next(p for p in data["policies"] if p["name"] == "test-full")
+            assert full["schema_version"] == 2
+            assert full["has_transcode"] is True
+            assert full["has_transcription"] is True
+
+        finally:
+            proc.send_signal(signal.SIGTERM)
+            try:
+                proc.wait(timeout=10.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Signal handling tests not supported on Windows",
+    )
+    def test_policies_page_loads(self, temp_db: Path) -> None:
+        """Test that /policies HTML page loads successfully.
+
+        Integration test for 023-policies-list-view: Verify the HTML page
+        renders without errors.
+        """
+        import urllib.request
+
+        port = find_free_port()
+
+        env = os.environ.copy()
+        env["VPO_DATABASE_PATH"] = str(temp_db)
+
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "video_policy_orchestrator.cli",
+                "serve",
+                "--port",
+                str(port),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+
+        try:
+            assert wait_for_port(port, timeout=10.0), "Server didn't start"
+
+            # Request policies page
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/policies", timeout=5.0
+            ) as response:
+                assert response.status == 200
+                html = response.read().decode()
+
+            # Verify it's an HTML page with expected content
+            assert "<!DOCTYPE html>" in html or "<html" in html
+            assert "Policies" in html
+
+        finally:
+            proc.send_signal(signal.SIGTERM)
+            try:
+                proc.wait(timeout=10.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
