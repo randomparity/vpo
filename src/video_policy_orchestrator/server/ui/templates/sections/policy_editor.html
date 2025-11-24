@@ -21,6 +21,9 @@
         <p>Please fix the YAML syntax errors before editing.</p>
     </section>
     {% else %}
+    <!-- Editor container with form and preview -->
+    <div class="policy-editor-container">
+
     <!-- Editor form -->
     <form id="policy-editor-form" class="policy-editor-form">
         <!-- Track Ordering Section (US1) -->
@@ -151,6 +154,21 @@
         <!-- Validation errors -->
         <div id="validation-errors" class="validation-errors" role="alert" aria-live="assertive"></div>
     </form>
+
+    <!-- YAML Preview Panel (US5) -->
+    <aside class="yaml-preview-panel">
+        <h2>YAML Preview</h2>
+        <p class="section-description">Real-time preview of the policy file</p>
+        <textarea
+            id="yaml-preview"
+            class="yaml-preview-textarea"
+            readonly
+            aria-label="YAML policy preview"
+            spellcheck="false"
+        ></textarea>
+    </aside>
+
+    </div><!-- End policy-editor-container -->
     {% endif %}
 </div>
 

@@ -55,6 +55,7 @@
     const commentaryPatternsList = document.getElementById('commentary-patterns-list');
     const detectCommentaryCheckbox = document.getElementById('detect_commentary');
     const reorderCommentaryCheckbox = document.getElementById('reorder_commentary');
+    const yamlPreview = document.getElementById('yaml-preview');
     const saveBtn = document.getElementById('save-btn');
     const cancelBtn = document.getElementById('cancel-btn');
     const saveStatus = document.getElementById('save-status');
@@ -68,6 +69,9 @@
         clear_other_defaults: document.getElementById('clear_other_defaults')
     };
 
+    // Debounce timer for YAML preview
+    let yamlPreviewTimeout;
+
     /**
      * Mark form as dirty
      */
@@ -75,6 +79,7 @@
         const currentState = JSON.stringify(formState);
         formState.isDirty = (currentState !== originalState);
         updateSaveButtonState();
+        updateYAMLPreview();
     }
 
     /**
@@ -396,6 +401,87 @@
     }
 
     /**
+     * Generate YAML from form state
+     */
+    function generateYAML() {
+        let yaml = `schema_version: ${window.POLICY_DATA.schema_version}\n\n`;
+
+        // Track order
+        yaml += 'track_order:\n';
+        formState.track_order.forEach(track => {
+            yaml += `  - ${track}\n`;
+        });
+        yaml += '\n';
+
+        // Audio language preference
+        yaml += 'audio_language_preference:\n';
+        formState.audio_language_preference.forEach(lang => {
+            yaml += `  - ${lang}\n`;
+        });
+        yaml += '\n';
+
+        // Subtitle language preference
+        yaml += 'subtitle_language_preference:\n';
+        formState.subtitle_language_preference.forEach(lang => {
+            yaml += `  - ${lang}\n`;
+        });
+        yaml += '\n';
+
+        // Commentary patterns
+        yaml += 'commentary_patterns:\n';
+        if (formState.commentary_patterns.length === 0) {
+            yaml += '  []\n';
+        } else {
+            formState.commentary_patterns.forEach(pattern => {
+                yaml += `  - ${pattern}\n`;
+            });
+        }
+        yaml += '\n';
+
+        // Default flags
+        yaml += 'default_flags:\n';
+        Object.keys(formState.default_flags).forEach(key => {
+            yaml += `  ${key}: ${formState.default_flags[key]}\n`;
+        });
+        yaml += '\n';
+
+        // Transcode (if exists)
+        if (window.POLICY_DATA.transcode) {
+            yaml += '# Transcode settings preserved (not editable in UI)\n';
+            yaml += 'transcode:\n';
+            yaml += '  # ... (original settings preserved)\n\n';
+        }
+
+        // Transcription (if exists)
+        if (formState.transcription) {
+            yaml += 'transcription:\n';
+            yaml += `  enabled: ${formState.transcription.enabled}\n`;
+            if (formState.transcription.update_language_from_transcription !== undefined) {
+                yaml += `  update_language_from_transcription: ${formState.transcription.update_language_from_transcription}\n`;
+            }
+            if (formState.transcription.confidence_threshold !== undefined) {
+                yaml += `  confidence_threshold: ${formState.transcription.confidence_threshold}\n`;
+            }
+            yaml += `  detect_commentary: ${formState.transcription.detect_commentary}\n`;
+            yaml += `  reorder_commentary: ${formState.transcription.reorder_commentary}\n`;
+        }
+
+        return yaml;
+    }
+
+    /**
+     * Update YAML preview with debouncing
+     */
+    function updateYAMLPreview() {
+        if (!yamlPreview) return;
+
+        clearTimeout(yamlPreviewTimeout);
+        yamlPreviewTimeout = setTimeout(() => {
+            yamlPreview.value = generateYAML();
+        }, 300); // 300ms debounce as per spec
+    }
+
+    /**
      * Validate form data
      */
     function validateForm() {
@@ -623,6 +709,7 @@
         renderLanguageLists();
         renderCommentaryPatterns();
         updateTranscriptionCheckboxes();
+        updateYAMLPreview();
         initEventListeners();
         updateSaveButtonState();
     }

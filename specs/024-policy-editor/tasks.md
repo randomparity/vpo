@@ -203,12 +203,12 @@ Phase 4 (US3)   Phase 4 (US4)   Phase 4 (US5)
 
 #### Tasks
 
-- [ ] T048 [P] [US5] Add YAML preview panel HTML (read-only textarea) in src/video_policy_orchestrator/server/ui/templates/policy_editor.html
-- [ ] T049 [US5] Create yaml-preview.js with YAML generation from state in src/video_policy_orchestrator/server/static/js/policy-editor/yaml-preview.js
-- [ ] T050 [US5] Wire form state changes to YAML preview with 300ms debounce in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
-- [ ] T051 [US5] Add syntax highlighting for YAML preview (optional) in src/video_policy_orchestrator/server/static/js/policy-editor/yaml-preview.js
+- [X] T048 [P] [US5] Add YAML preview panel HTML (read-only textarea) in src/video_policy_orchestrator/server/ui/templates/policy_editor.html
+- [X] T049 [US5] Create yaml-preview.js with YAML generation from state in src/video_policy_orchestrator/server/static/js/policy-editor/yaml-preview.js (integrated into policy-editor.js)
+- [X] T050 [US5] Wire form state changes to YAML preview with 300ms debounce in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
+- [ ] T051 [US5] Add syntax highlighting for YAML preview (optional) in src/video_policy_orchestrator/server/static/js/policy-editor/yaml-preview.js (deferred - not needed for MVP)
 
-**Commit Point**: `git commit -m "feat(US5): Add real-time YAML preview panel"`
+**Commit Point**: `git commit -m "feat(US5): Add real-time YAML preview panel"` ✅ **READY TO COMMIT**
 
 ---
 
