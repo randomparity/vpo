@@ -228,12 +228,26 @@ class WhisperTranscriptionPlugin:
             result = model.transcribe(audio, language=language, fp16=fp16)
 
             # Extract sample (first ~100 chars)
-            transcript = result.get("text", "")
+            transcript = result.get("text", "").strip()
             transcript_sample = transcript[:100] if transcript else None
 
             detected_lang = result.get("language", language)
-            # Whisper doesn't provide confidence for transcription, use 0.9 as default
-            confidence = 0.9 if detected_lang else 0.0
+
+            # Confidence scoring based on transcript quality
+            # Empty or very short transcripts indicate no speech was detected,
+            # which means the language detection is unreliable
+            if not transcript:
+                # No speech detected - very low confidence
+                confidence = 0.3
+            elif len(transcript) < 20:
+                # Very short transcript - low confidence
+                confidence = 0.5
+            elif len(transcript) < 50:
+                # Short transcript - moderate confidence
+                confidence = 0.7
+            else:
+                # Substantial transcript - high confidence
+                confidence = 0.9
 
             # Detect track type using transcript analysis
             # Note: title is not available here, so we pass None

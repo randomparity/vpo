@@ -6,7 +6,6 @@ incumbent language bias for final result aggregation.
 """
 
 import logging
-from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -157,11 +156,14 @@ def aggregate_results(
             sample_results=samples,
         )
 
-    # Count votes per language
-    votes: Counter[str] = Counter()
+    # Weight votes by confidence score
+    # This ensures high-confidence detections outweigh low-confidence guesses
+    votes: dict[str, float] = {}
     for sample in valid_samples:
         if sample.language:
-            votes[sample.language] += 1
+            if sample.language not in votes:
+                votes[sample.language] = 0.0
+            votes[sample.language] += sample.confidence
 
     # Add incumbent bonus if it has votes
     if incumbent_language and incumbent_language in votes:
@@ -172,8 +174,8 @@ def aggregate_results(
             incumbent_language,
         )
 
-    # Find winner
-    winner = votes.most_common(1)[0][0]
+    # Find winner (highest weighted vote)
+    winner = max(votes, key=lambda k: votes[k])
 
     # Calculate average confidence for winning language
     winner_samples = [s for s in valid_samples if s.language == winner]
