@@ -112,6 +112,7 @@ The web UI uses server-rendered HTML with JavaScript enhancements:
 - Python 3.10+ + aiohttp, Jinja2, aiohttp-jinja2 (existing web stack) (020-file-detail-view)
 - Python 3.10+ (existing codebase) + aiohttp, Jinja2, aiohttp-jinja2, PyYAML (existing web stack + policy loader) (023-policies-list-view)
 - Filesystem (YAML files in ~/.vpo/policies/); no database changes (023-policies-list-view)
+- Python 3.10+ + aiohttp, Jinja2, aiohttp-jinja2, PyYAML, pydantic (024-policy-editor)
 
 ## Recent Changes
 - 018-library-list-view: Added Python 3.10+ (existing codebase) + aiohttp, Jinja2, aiohttp-jinja2 (existing web stack)
