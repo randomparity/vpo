@@ -43,6 +43,16 @@ SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "SAMEORIGIN",
     "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Content-Security-Policy": (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "font-src 'self'; "
+        "object-src 'none'; "
+        "frame-ancestors 'self'"
+    ),
 }
 
 # Template directory path
@@ -84,7 +94,28 @@ def _create_template_context(
         section_content=section_content,
         error_message=error_message,
     )
-    return context.to_dict()
+    result = context.to_dict()
+    # Add polling configuration for client-side JavaScript
+    result.update(_get_polling_config())
+    return result
+
+
+# Default polling configuration values
+DEFAULT_POLLING_INTERVAL = 5000  # 5 seconds
+DEFAULT_POLLING_LOG_INTERVAL = 15000  # 15 seconds
+
+
+def _get_polling_config() -> dict:
+    """Get polling configuration for templates.
+
+    Returns:
+        Dictionary with polling configuration values.
+    """
+    return {
+        "polling_interval": DEFAULT_POLLING_INTERVAL,
+        "polling_enabled": "true",
+        "polling_log_interval": DEFAULT_POLLING_LOG_INTERVAL,
+    }
 
 
 async def root_redirect(request: web.Request) -> web.Response:

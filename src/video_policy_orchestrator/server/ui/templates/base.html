@@ -6,7 +6,9 @@
     <title>{{ section_title }} - VPO</title>
     <link rel="stylesheet" href="/static/css/main.css">
 </head>
-<body>
+<body data-polling-interval="{{ polling_interval | default(5000) }}"
+      data-polling-enabled="{{ polling_enabled | default('true') }}"
+      data-polling-log-interval="{{ polling_log_interval | default(15000) }}">
     <div class="app-shell">
         <nav class="sidebar" aria-label="Main navigation">
             <div class="sidebar-header">
@@ -27,6 +29,7 @@
         <main class="content">
             <header class="content-header">
                 <h2>{{ section_title }}</h2>
+                <span id="connection-status" class="connection-status connection-status--connected" title="Live updates active" aria-label="Live updates active" aria-live="polite" role="status">Live</span>
             </header>
             <div class="content-body">
                 {% block content %}
