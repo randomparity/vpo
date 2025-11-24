@@ -3024,6 +3024,7 @@ html, body {
     border: 1px solid var(--color-error);
     border-radius: 4px;
     padding: var(--spacing-md);
+    padding-right: calc(var(--spacing-md) + 32px); /* Extra space for close button */
     color: #fff;
     margin-bottom: var(--spacing-lg);
     font-weight: 500;
@@ -3034,18 +3035,18 @@ html, body {
 }
 
 .validation-errors[style*="display: block"] {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing-md);
+    display: block;
+    position: relative;
 }
 
 .error-message-text {
-    flex: 1;
     color: inherit;
 }
 
 .error-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
     background: none;
     border: none;
     color: inherit;
@@ -3059,7 +3060,6 @@ html, body {
     align-items: center;
     justify-content: center;
     border-radius: 4px;
-    flex-shrink: 0;
 }
 
 .error-close:hover {
