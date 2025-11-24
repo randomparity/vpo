@@ -1251,6 +1251,10 @@ class TranscriptionListResponse:
 # Max characters to display before truncation
 TRANSCRIPT_DISPLAY_LIMIT = 10000
 
+# Max characters for regex highlighting (ReDoS protection)
+# Skip highlighting for very long transcripts to prevent CPU exhaustion
+TRANSCRIPT_HIGHLIGHT_LIMIT = 50000
+
 
 def get_classification_reasoning(
     track_title: str | None,
@@ -1318,6 +1322,10 @@ def highlight_keywords_in_transcript(
         Tuple of (html_content, is_truncated):
         - html_content: HTML-escaped text with <mark> tags, or None
         - is_truncated: True if text was truncated
+
+    Note:
+        ReDoS protection: Regex highlighting is skipped for transcripts
+        exceeding TRANSCRIPT_HIGHLIGHT_LIMIT to prevent CPU exhaustion.
     """
     import html
     import re
@@ -1340,6 +1348,10 @@ def highlight_keywords_in_transcript(
     if track_type != "commentary":
         return escaped, is_truncated
 
+    # ReDoS protection: skip highlighting for very long transcripts
+    if len(transcript) > TRANSCRIPT_HIGHLIGHT_LIMIT:
+        return escaped, is_truncated
+
     # Apply highlighting for each pattern
     for pattern in COMMENTARY_TRANSCRIPT_PATTERNS:
         try:
@@ -1350,8 +1362,8 @@ def highlight_keywords_in_transcript(
                 escaped,
                 flags=re.IGNORECASE,
             )
-        except re.error:
-            continue  # Skip invalid patterns
+        except (re.error, RecursionError):
+            continue  # Skip invalid patterns or catastrophic backtracking
 
     return escaped, is_truncated
 
@@ -1493,6 +1505,22 @@ class TranscriptionDetailContext:
     back_url: str
     back_label: str
 
+    @staticmethod
+    def _is_safe_back_url(url: str) -> bool:
+        """Validate URL is safe for back navigation (prevent open redirect).
+
+        Args:
+            url: URL path to validate.
+
+        Returns:
+            True if URL is a safe internal path.
+        """
+        if not url or not isinstance(url, str):
+            return False
+        # Only allow relative paths starting with known safe prefixes
+        safe_prefixes = ("/library/", "/library", "/transcriptions", "/")
+        return url.startswith(safe_prefixes) and "//" not in url
+
     @classmethod
     def from_transcription_and_request(
         cls,
@@ -1507,6 +1535,10 @@ class TranscriptionDetailContext:
 
         Returns:
             TranscriptionDetailContext with appropriate back URL.
+
+        Note:
+            Referer is validated to prevent open redirect attacks.
+            Only paths starting with /library/ or /transcriptions are allowed.
         """
         # Default: back to parent file detail
         back_url = f"/library/{transcription.file_id}"
@@ -1514,16 +1546,23 @@ class TranscriptionDetailContext:
 
         # If came from transcriptions list, go back there
         if referer:
+            # Extract path portion from referer (handles full URLs)
+            extracted_path = None
+            if referer.startswith("/"):
+                extracted_path = referer
+            else:
+                idx = referer.find("/transcriptions")
+                if idx != -1:
+                    extracted_path = referer[idx:]
+
+            # Validate and use if safe
             if (
-                "/transcriptions" in referer
-                and f"/transcriptions/{transcription.id}" not in referer
+                extracted_path
+                and cls._is_safe_back_url(extracted_path)
+                and "/transcriptions" in extracted_path
+                and f"/transcriptions/{transcription.id}" not in extracted_path
             ):
-                if referer.startswith("/"):
-                    back_url = referer
-                else:
-                    idx = referer.find("/transcriptions")
-                    if idx != -1:
-                        back_url = referer[idx:]
+                back_url = extracted_path
                 back_label = "Transcriptions"
 
         return cls(
