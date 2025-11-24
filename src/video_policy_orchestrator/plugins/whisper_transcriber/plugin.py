@@ -98,6 +98,7 @@ class WhisperTranscriptionPlugin:
         """
         self._config = config or TranscriptionConfig()
         self._model = None
+        self._device = "cpu"  # Will be set properly in _load_model()
         self._name = "whisper-local"
         self._version = "1.0.0"
 
@@ -119,16 +120,18 @@ class WhisperTranscriptionPlugin:
         """
         if self._model is None:
             whisper = _get_whisper()
-            device = "cuda" if self._config.gpu_enabled else "cpu"
+            self._device = "cuda" if self._config.gpu_enabled else "cpu"
             try:
                 import torch
 
-                if device == "cuda" and not torch.cuda.is_available():
-                    device = "cpu"
+                if self._device == "cuda" and not torch.cuda.is_available():
+                    self._device = "cpu"
             except ImportError:
-                device = "cpu"
+                self._device = "cpu"
 
-            self._model = whisper.load_model(self._config.model_size, device=device)
+            self._model = whisper.load_model(
+                self._config.model_size, device=self._device
+            )
         return self._model
 
     def detect_language(
@@ -220,8 +223,9 @@ class WhisperTranscriptionPlugin:
             raw_audio = np.frombuffer(audio_data[data_offset:], dtype=np.int16)
             audio = raw_audio.astype(np.float32) / 32768.0
 
-            # Transcribe
-            result = model.transcribe(audio, language=language)
+            # Transcribe (use fp16=False on CPU to avoid warning)
+            fp16 = self._device == "cuda"
+            result = model.transcribe(audio, language=language, fp16=fp16)
 
             # Extract sample (first ~100 chars)
             transcript = result.get("text", "")
