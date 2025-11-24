@@ -2,7 +2,9 @@
  * Library Dashboard JavaScript
  *
  * Handles fetching files from the API, rendering the table,
- * filtering, pagination, and display formatting (018-library-list-view).
+ * filtering, pagination, and display formatting.
+ * Extended with search, resolution, audio language, and subtitle filters
+ * (019-library-filters-search).
  */
 
 (function() {
@@ -12,9 +14,15 @@
     let currentOffset = 0;
     const pageSize = 50;
     let currentFilters = {
-        status: ''
+        status: '',
+        search: '',
+        resolution: '',
+        audio_lang: [],
+        subtitles: ''
     };
     let totalFiles = 0;
+    let debounceTimer = null;
+    const DEBOUNCE_DELAY = 300; // ms
 
     // DOM elements
     const loadingEl = document.getElementById('library-loading');
@@ -31,6 +39,28 @@
     const paginationInfoEl = document.getElementById('library-pagination-info');
     const prevBtnEl = document.getElementById('library-prev-btn');
     const nextBtnEl = document.getElementById('library-next-btn');
+
+    // Filter elements (019-library-filters-search)
+    // Note: These are queried when script loads (after DOM due to script placement at bottom)
+    let searchInputEl = null;
+    let statusFilterEl = null;
+    let resolutionFilterEl = null;
+    let audioLangFilterEl = null;
+    let subtitlesFilterEl = null;
+    let clearFiltersBtnEl = null;
+
+    /**
+     * Initialize DOM element references.
+     * Called during init() to ensure DOM is ready.
+     */
+    function initElements() {
+        searchInputEl = document.getElementById('filter-search');
+        statusFilterEl = document.getElementById('filter-status');
+        resolutionFilterEl = document.getElementById('filter-resolution');
+        audioLangFilterEl = document.getElementById('filter-audio-lang');
+        subtitlesFilterEl = document.getElementById('filter-subtitles');
+        clearFiltersBtnEl = document.getElementById('clear-filters-btn');
+    }
 
     /**
      * Format an ISO timestamp to a relative time string.
@@ -172,7 +202,15 @@
 
             if (hasFilters) {
                 emptyTitleEl.textContent = 'No matching files';
-                emptyHintEl.innerHTML = 'Try adjusting your filters or clear them to see all files.';
+                emptyHintEl.innerHTML = 'Try adjusting your filters or <a href="#" id="clear-filters-link">clear all filters</a> to see all files.';
+                // Add click handler for the clear link
+                const clearLink = document.getElementById('clear-filters-link');
+                if (clearLink) {
+                    clearLink.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        clearAllFilters();
+                    });
+                }
             } else {
                 emptyTitleEl.textContent = 'No files in library';
                 emptyHintEl.innerHTML = 'Scan a directory to add files to your library using the CLI:<br>' +
@@ -217,11 +255,161 @@
         if (currentFilters.status) {
             params.set('status', currentFilters.status);
         }
+        if (currentFilters.search) {
+            params.set('search', currentFilters.search);
+        }
+        if (currentFilters.resolution) {
+            params.set('resolution', currentFilters.resolution);
+        }
+        if (currentFilters.audio_lang && currentFilters.audio_lang.length > 0) {
+            currentFilters.audio_lang.forEach(function(lang) {
+                params.append('audio_lang', lang);
+            });
+        }
+        if (currentFilters.subtitles) {
+            params.set('subtitles', currentFilters.subtitles);
+        }
 
         params.set('limit', pageSize.toString());
         params.set('offset', currentOffset.toString());
 
         return '?' + params.toString();
+    }
+
+    /**
+     * Update the browser URL with current filter state.
+     * Uses replaceState to avoid polluting history.
+     */
+    function updateUrl() {
+        const params = new URLSearchParams();
+
+        if (currentFilters.status) {
+            params.set('status', currentFilters.status);
+        }
+        if (currentFilters.search) {
+            params.set('search', currentFilters.search);
+        }
+        if (currentFilters.resolution) {
+            params.set('resolution', currentFilters.resolution);
+        }
+        if (currentFilters.audio_lang && currentFilters.audio_lang.length > 0) {
+            currentFilters.audio_lang.forEach(function(lang) {
+                params.append('audio_lang', lang);
+            });
+        }
+        if (currentFilters.subtitles) {
+            params.set('subtitles', currentFilters.subtitles);
+        }
+
+        const queryString = params.toString();
+        const newUrl = window.location.pathname + (queryString ? '?' + queryString : '');
+        history.replaceState(null, '', newUrl);
+    }
+
+    /**
+     * Parse URL query params and initialize filters.
+     */
+    function initFiltersFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+
+        currentFilters.status = params.get('status') || '';
+        currentFilters.search = params.get('search') || '';
+        currentFilters.resolution = params.get('resolution') || '';
+        currentFilters.audio_lang = params.getAll('audio_lang');
+        currentFilters.subtitles = params.get('subtitles') || '';
+
+        // Update form controls to match
+        if (statusFilterEl) {
+            statusFilterEl.value = currentFilters.status;
+        }
+        if (searchInputEl) {
+            searchInputEl.value = currentFilters.search;
+        }
+        if (resolutionFilterEl) {
+            resolutionFilterEl.value = currentFilters.resolution;
+        }
+        if (subtitlesFilterEl) {
+            subtitlesFilterEl.value = currentFilters.subtitles;
+        }
+        // Audio lang handled after languages are fetched
+    }
+
+    /**
+     * Check if any filters are currently active.
+     * @returns {boolean} True if any filter is active
+     */
+    function hasActiveFilters() {
+        return Boolean(
+            currentFilters.status ||
+            currentFilters.search ||
+            currentFilters.resolution ||
+            (currentFilters.audio_lang && currentFilters.audio_lang.length > 0) ||
+            currentFilters.subtitles
+        );
+    }
+
+    /**
+     * Update the visibility and state of the clear filters button.
+     */
+    function updateClearFiltersButton() {
+        if (clearFiltersBtnEl) {
+            if (hasActiveFilters()) {
+                clearFiltersBtnEl.style.display = 'inline-block';
+            } else {
+                clearFiltersBtnEl.style.display = 'none';
+            }
+        }
+    }
+
+    /**
+     * Update visual indicators for active filters.
+     */
+    function updateFilterVisuals() {
+        // Add 'active' class to filters with non-default values
+        if (searchInputEl) {
+            searchInputEl.classList.toggle('filter-active', Boolean(currentFilters.search));
+        }
+        if (statusFilterEl) {
+            statusFilterEl.classList.toggle('filter-active', Boolean(currentFilters.status));
+        }
+        if (resolutionFilterEl) {
+            resolutionFilterEl.classList.toggle('filter-active', Boolean(currentFilters.resolution));
+        }
+        if (audioLangFilterEl) {
+            audioLangFilterEl.classList.toggle('filter-active',
+                currentFilters.audio_lang && currentFilters.audio_lang.length > 0);
+        }
+        if (subtitlesFilterEl) {
+            subtitlesFilterEl.classList.toggle('filter-active', Boolean(currentFilters.subtitles));
+        }
+
+        updateClearFiltersButton();
+    }
+
+    /**
+     * Clear all filters and reset to default state.
+     */
+    function clearAllFilters() {
+        currentFilters = {
+            status: '',
+            search: '',
+            resolution: '',
+            audio_lang: [],
+            subtitles: ''
+        };
+        currentOffset = 0;
+
+        // Reset form controls
+        if (searchInputEl) searchInputEl.value = '';
+        if (statusFilterEl) statusFilterEl.value = '';
+        if (resolutionFilterEl) resolutionFilterEl.value = '';
+        if (audioLangFilterEl) audioLangFilterEl.value = '';
+        if (subtitlesFilterEl) subtitlesFilterEl.value = '';
+
+        updateFilterVisuals();
+        updateUrl();
+        showLoading();
+        fetchLibrary();
     }
 
     /**
@@ -269,6 +457,7 @@
             totalFiles = data.total;
             renderLibraryTable(data.files, data.has_filters);
             updatePagination();
+            updateFilterVisuals();
 
             // Show content
             showContent();
@@ -276,6 +465,52 @@
         } catch (error) {
             console.error('Error fetching library:', error);
             showError('Error loading library. Please refresh the page or try again.');
+        }
+    }
+
+    /**
+     * Fetch available audio languages and populate dropdown.
+     */
+    async function fetchLanguages() {
+        if (!audioLangFilterEl) return;
+
+        try {
+            const response = await fetch('/api/library/languages');
+            if (!response.ok) {
+                console.warn('Failed to fetch languages:', response.status);
+                return;
+            }
+
+            const data = await response.json();
+
+            // Clear existing options
+            audioLangFilterEl.innerHTML = '';
+
+            // Add "All languages" option
+            const allOption = document.createElement('option');
+            allOption.value = '';
+            allOption.textContent = 'All languages';
+            audioLangFilterEl.appendChild(allOption);
+
+            // Add language options
+            if (data.languages && data.languages.length > 0) {
+                data.languages.forEach(function(lang) {
+                    const option = document.createElement('option');
+                    option.value = lang.code;
+                    option.textContent = lang.label;
+                    audioLangFilterEl.appendChild(option);
+                });
+            }
+
+            // Restore selected value from URL params (single select - use first value)
+            if (currentFilters.audio_lang && currentFilters.audio_lang.length > 0) {
+                audioLangFilterEl.value = currentFilters.audio_lang[0];
+            }
+
+            updateFilterVisuals();
+
+        } catch (error) {
+            console.error('Error fetching languages:', error);
         }
     }
 
@@ -302,14 +537,33 @@
     }
 
     /**
-     * Handle status filter change.
-     * @param {string} status - New status filter value
+     * Handle filter change (generic).
+     * Resets pagination and triggers fetch.
      */
-    function handleStatusFilter(status) {
-        currentFilters.status = status;
+    function handleFilterChange() {
         currentOffset = 0;
+        updateUrl();
+        updateFilterVisuals();
         showLoading();
         fetchLibrary();
+    }
+
+    /**
+     * Debounce function for search input.
+     * @param {Function} fn - Function to debounce
+     * @param {number} delay - Delay in ms
+     * @returns {Function} Debounced function
+     */
+    function debounce(fn, delay) {
+        return function() {
+            const args = arguments;
+            if (debounceTimer) {
+                clearTimeout(debounceTimer);
+            }
+            debounceTimer = setTimeout(function() {
+                fn.apply(null, args);
+            }, delay);
+        };
     }
 
     // Event listeners for pagination
@@ -328,25 +582,91 @@
         });
     }
 
-    // Event listeners for filters
-    const statusFilterEl = document.getElementById('filter-status');
-
-    if (statusFilterEl) {
-        statusFilterEl.addEventListener('change', function(e) {
-            handleStatusFilter(e.target.value);
-        });
-    }
-
     // Export functions for external access if needed
     window.libraryDashboard = {
-        handleStatusFilter: handleStatusFilter,
-        refresh: fetchLibrary
+        refresh: fetchLibrary,
+        clearFilters: clearAllFilters
     };
+
+    /**
+     * Setup event listeners for filter controls.
+     * Called after elements are initialized.
+     */
+    function setupFilterListeners() {
+        if (searchInputEl) {
+            const debouncedSearch = debounce(function() {
+                currentFilters.search = searchInputEl.value.trim();
+                handleFilterChange();
+            }, DEBOUNCE_DELAY);
+
+            searchInputEl.addEventListener('input', debouncedSearch);
+
+            // Also handle Enter key for immediate search
+            searchInputEl.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    if (debounceTimer) {
+                        clearTimeout(debounceTimer);
+                    }
+                    currentFilters.search = searchInputEl.value.trim();
+                    handleFilterChange();
+                }
+            });
+        }
+
+        if (statusFilterEl) {
+            statusFilterEl.addEventListener('change', function(e) {
+                currentFilters.status = e.target.value;
+                handleFilterChange();
+            });
+        }
+
+        if (resolutionFilterEl) {
+            resolutionFilterEl.addEventListener('change', function(e) {
+                currentFilters.resolution = e.target.value;
+                handleFilterChange();
+            });
+        }
+
+        if (audioLangFilterEl) {
+            audioLangFilterEl.addEventListener('change', function(e) {
+                // Single select - wrap in array for backend compatibility
+                var value = e.target.value;
+                currentFilters.audio_lang = value ? [value] : [];
+                handleFilterChange();
+            });
+        }
+
+        if (subtitlesFilterEl) {
+            subtitlesFilterEl.addEventListener('change', function(e) {
+                currentFilters.subtitles = e.target.value;
+                handleFilterChange();
+            });
+        }
+
+        if (clearFiltersBtnEl) {
+            clearFiltersBtnEl.addEventListener('click', clearAllFilters);
+        }
+    }
 
     /**
      * Initialize the library dashboard.
      */
-    function init() {
+    async function init() {
+        // Initialize DOM element references first
+        initElements();
+
+        // Setup event listeners for filter controls
+        setupFilterListeners();
+
+        // Parse URL params first
+        initFiltersFromUrl();
+
+        // Fetch languages for dropdown
+        await fetchLanguages();
+
+        // Update visual state
+        updateFilterVisuals();
+
         // Initial fetch
         fetchLibrary();
     }

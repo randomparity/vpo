@@ -1354,6 +1354,10 @@ def get_files_filtered(
     conn: sqlite3.Connection,
     *,
     status: str | None = None,
+    search: str | None = None,
+    resolution: str | None = None,
+    audio_lang: list[str] | None = None,
+    subtitles: str | None = None,
     limit: int | None = None,
     offset: int | None = None,
     return_total: bool = False,
@@ -1366,6 +1370,10 @@ def get_files_filtered(
     Args:
         conn: Database connection.
         status: Filter by scan_status (None = all, "ok", "error").
+        search: Text search for filename/title (case-insensitive LIKE).
+        resolution: Filter by resolution category (4k, 1080p, 720p, 480p, other).
+        audio_lang: Filter by audio language codes (OR logic).
+        subtitles: Filter by subtitle presence ("yes" or "no").
         limit: Maximum files to return.
         offset: Pagination offset.
         return_total: If True, return tuple of (files, total_count).
@@ -1373,7 +1381,7 @@ def get_files_filtered(
     Returns:
         List of file dicts with track data, or tuple with total count.
     """
-    # Build WHERE clause
+    # Build WHERE clause conditions
     conditions: list[str] = []
     params: list[str | int] = []
 
@@ -1381,14 +1389,64 @@ def get_files_filtered(
         conditions.append("f.scan_status = ?")
         params.append(status)
 
+    # Text search on filename and video title (019-library-filters-search)
+    if search is not None:
+        search_pattern = f"%{search}%"
+        conditions.append(
+            "(LOWER(f.filename) LIKE LOWER(?) OR "
+            "LOWER(f.path) LIKE LOWER(?) OR "
+            "EXISTS (SELECT 1 FROM tracks t2 WHERE t2.file_id = f.id "
+            "AND t2.track_type = 'video' AND LOWER(t2.title) LIKE LOWER(?)))"
+        )
+        params.extend([search_pattern, search_pattern, search_pattern])
+
+    # Resolution filter using height ranges (019-library-filters-search)
+    if resolution is not None:
+        # Map resolution to height condition
+        resolution_conditions = {
+            "4k": "t_video.height >= 2160",
+            "1080p": "t_video.height >= 1080 AND t_video.height < 2160",
+            "720p": "t_video.height >= 720 AND t_video.height < 1080",
+            "480p": "t_video.height >= 480 AND t_video.height < 720",
+            "other": "t_video.height < 480 OR t_video.height IS NULL",
+        }
+        if resolution in resolution_conditions:
+            conditions.append(
+                f"EXISTS (SELECT 1 FROM tracks t_video WHERE t_video.file_id = f.id "
+                f"AND t_video.track_type = 'video' AND "
+                f"({resolution_conditions[resolution]}))"
+            )
+
+    # Audio language filter with OR logic (019-library-filters-search)
+    if audio_lang is not None and len(audio_lang) > 0:
+        placeholders = ",".join("?" * len(audio_lang))
+        conditions.append(
+            f"EXISTS (SELECT 1 FROM tracks t_audio WHERE t_audio.file_id = f.id "
+            f"AND t_audio.track_type = 'audio' "
+            f"AND LOWER(t_audio.language) IN ({placeholders}))"
+        )
+        params.extend([lang.lower() for lang in audio_lang])
+
+    # Subtitle presence filter (019-library-filters-search)
+    if subtitles == "yes":
+        conditions.append(
+            "EXISTS (SELECT 1 FROM tracks t_sub WHERE t_sub.file_id = f.id "
+            "AND t_sub.track_type = 'subtitle')"
+        )
+    elif subtitles == "no":
+        conditions.append(
+            "NOT EXISTS (SELECT 1 FROM tracks t_sub WHERE t_sub.file_id = f.id "
+            "AND t_sub.track_type = 'subtitle')"
+        )
+
     where_clause = ""
     if conditions:
         where_clause = " WHERE " + " AND ".join(conditions)
 
-    # Get total count if requested
+    # Get total count if requested (count distinct files)
     total = 0
     if return_total:
-        count_query = "SELECT COUNT(*) FROM files f" + where_clause
+        count_query = "SELECT COUNT(DISTINCT f.id) FROM files f" + where_clause
         cursor = conn.execute(count_query, params)
         total = cursor.fetchone()[0]
 
@@ -1411,7 +1469,7 @@ def get_files_filtered(
     """
     query += where_clause
     query += (
-        " GROUP BY f.id, f.path, f.filename, f.scanned_at, f.scan_status, f.scan_error"  # noqa: E501
+        " GROUP BY f.id, f.path, f.filename, f.scanned_at, f.scan_status, f.scan_error"
     )
     query += " ORDER BY f.scanned_at DESC"
 
@@ -1444,6 +1502,31 @@ def get_files_filtered(
     if return_total:
         return files, total
     return files
+
+
+def get_distinct_audio_languages(conn: sqlite3.Connection) -> list[dict]:
+    """Get distinct audio language codes present in the library.
+
+    Returns list of language options for the filter dropdown.
+
+    Args:
+        conn: Database connection.
+
+    Returns:
+        List of dicts with 'code' and 'label' keys, sorted by code.
+    """
+    query = """
+        SELECT DISTINCT language
+        FROM tracks
+        WHERE track_type = 'audio' AND language IS NOT NULL AND language != ''
+        ORDER BY language
+    """
+    cursor = conn.execute(query)
+    languages = []
+    for (code,) in cursor.fetchall():
+        # Use code as label for now (could map to full names later)
+        languages.append({"code": code, "label": code})
+    return languages
 
 
 def delete_transcription_results_for_file(

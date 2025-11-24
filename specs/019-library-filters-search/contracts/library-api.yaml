@@ -1,0 +1,200 @@
+openapi: 3.0.3
+info:
+  title: VPO Library API - Filters and Search
+  version: 019-library-filters-search
+  description: |
+    Extended API contract for Library view filtering and search.
+    Builds on existing /api/library endpoint from 018-library-list-view.
+
+paths:
+  /api/library:
+    get:
+      summary: Get filtered library files
+      description: |
+        Returns paginated list of files with optional filtering by search term,
+        resolution, audio language, subtitle presence, and scan status.
+      parameters:
+        # Existing parameters (018)
+        - name: status
+          in: query
+          description: Filter by scan status
+          schema:
+            type: string
+            enum: [ok, error]
+        - name: limit
+          in: query
+          description: Page size (1-100, default 50)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          description: Pagination offset (default 0)
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+
+        # New parameters (019)
+        - name: search
+          in: query
+          description: Text search for filename or title (case-insensitive)
+          schema:
+            type: string
+            maxLength: 200
+        - name: resolution
+          in: query
+          description: Filter by video resolution category
+          schema:
+            type: string
+            enum: [4k, 1080p, 720p, 480p, other]
+        - name: audio_lang
+          in: query
+          description: Filter by audio language codes (OR logic)
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+              pattern: '^[a-z]{2,3}$'
+        - name: subtitles
+          in: query
+          description: Filter by subtitle presence
+          schema:
+            type: string
+            enum: [yes, no]
+
+      responses:
+        '200':
+          description: Filtered file list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileListResponse'
+        '503':
+          description: Service unavailable (shutting down or database unavailable)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/library/languages:
+    get:
+      summary: Get available audio languages
+      description: |
+        Returns list of distinct audio language codes present in the library.
+        Used to populate the language filter dropdown.
+      responses:
+        '200':
+          description: List of available languages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LanguagesResponse'
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    FileListResponse:
+      type: object
+      required:
+        - files
+        - total
+        - limit
+        - offset
+        - has_filters
+      properties:
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileListItem'
+        total:
+          type: integer
+          description: Total files matching current filters
+        limit:
+          type: integer
+          description: Page size used
+        offset:
+          type: integer
+          description: Current offset
+        has_filters:
+          type: boolean
+          description: True if any filter is active
+
+    FileListItem:
+      type: object
+      required:
+        - id
+        - filename
+        - path
+        - resolution
+        - audio_languages
+        - scanned_at
+        - scan_status
+      properties:
+        id:
+          type: integer
+        filename:
+          type: string
+        path:
+          type: string
+        title:
+          type: string
+          nullable: true
+        resolution:
+          type: string
+          description: Human-readable resolution (e.g., "1080p", "4K")
+        audio_languages:
+          type: string
+          description: Formatted language list (e.g., "eng, jpn")
+        scanned_at:
+          type: string
+          format: date-time
+        scan_status:
+          type: string
+          enum: [ok, error]
+        scan_error:
+          type: string
+          nullable: true
+
+    LanguagesResponse:
+      type: object
+      required:
+        - languages
+      properties:
+        languages:
+          type: array
+          items:
+            $ref: '#/components/schemas/LanguageOption'
+
+    LanguageOption:
+      type: object
+      required:
+        - code
+        - label
+      properties:
+        code:
+          type: string
+          description: ISO 639 language code
+          example: "eng"
+        label:
+          type: string
+          description: Human-readable label
+          example: "English"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message

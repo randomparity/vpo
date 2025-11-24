@@ -577,6 +577,10 @@ def format_audio_languages(languages_csv: str | None) -> str:
     return f"{', '.join(languages[:3])} +{len(languages) - 3} more"
 
 
+# Valid resolution filter values (019-library-filters-search)
+VALID_RESOLUTIONS = ("4k", "1080p", "720p", "480p", "other")
+
+
 @dataclass
 class LibraryFilterParams:
     """Validate and parse query parameters for /api/library.
@@ -585,11 +589,20 @@ class LibraryFilterParams:
         status: Filter by scan status (None = all, "ok", "error").
         limit: Page size (1-100, default 50).
         offset: Pagination offset (>= 0, default 0).
+        search: Text search for filename/title.
+        resolution: Filter by resolution category.
+        audio_lang: Filter by audio language codes, OR logic.
+        subtitles: Filter by subtitle presence.
     """
 
     status: str | None = None
     limit: int = 50
     offset: int = 0
+    # New fields (019-library-filters-search)
+    search: str | None = None
+    resolution: str | None = None
+    audio_lang: list[str] | None = None
+    subtitles: str | None = None
 
     @classmethod
     def from_query(cls, query: dict) -> LibraryFilterParams:
@@ -620,10 +633,50 @@ class LibraryFilterParams:
         if status not in (None, "", "ok", "error"):
             status = None
 
+        # Parse search - trim and limit length (019-library-filters-search)
+        search = query.get("search")
+        if search:
+            search = search.strip()[:200]  # Max 200 chars
+            if not search:
+                search = None
+
+        # Validate resolution (019-library-filters-search)
+        resolution = query.get("resolution")
+        if resolution not in (None, "", *VALID_RESOLUTIONS):
+            resolution = None
+
+        # Parse audio_lang - can be single value or list (019-library-filters-search)
+        audio_lang_raw = query.get("audio_lang")
+        audio_lang: list[str] | None = None
+        if audio_lang_raw:
+            # Handle both single value and list (from getall())
+            if isinstance(audio_lang_raw, list):
+                audio_lang = [
+                    lang.lower().strip()
+                    for lang in audio_lang_raw
+                    if lang and len(lang.strip()) in (2, 3)
+                ]
+            elif isinstance(audio_lang_raw, str) and len(audio_lang_raw.strip()) in (
+                2,
+                3,
+            ):
+                audio_lang = [audio_lang_raw.lower().strip()]
+            if not audio_lang:
+                audio_lang = None
+
+        # Validate subtitles (019-library-filters-search)
+        subtitles = query.get("subtitles")
+        if subtitles not in (None, "", "yes", "no"):
+            subtitles = None
+
         return cls(
             status=status if status else None,
             limit=limit,
             offset=offset,
+            search=search,
+            resolution=resolution if resolution else None,
+            audio_lang=audio_lang,
+            subtitles=subtitles if subtitles else None,
         )
 
 
@@ -703,9 +756,13 @@ class LibraryContext:
 
     Attributes:
         status_options: Available scan status filter options.
+        resolution_options: Available resolution filter options.
+        subtitles_options: Available subtitle filter options.
     """
 
     status_options: list[dict]
+    resolution_options: list[dict]
+    subtitles_options: list[dict]
 
     @classmethod
     def default(cls) -> LibraryContext:
@@ -715,6 +772,19 @@ class LibraryContext:
                 {"value": "", "label": "All files"},
                 {"value": "ok", "label": "Scanned OK"},
                 {"value": "error", "label": "Scan errors"},
+            ],
+            resolution_options=[
+                {"value": "", "label": "All resolutions"},
+                {"value": "4k", "label": "4K / UHD"},
+                {"value": "1080p", "label": "1080p"},
+                {"value": "720p", "label": "720p"},
+                {"value": "480p", "label": "480p"},
+                {"value": "other", "label": "Other"},
+            ],
+            subtitles_options=[
+                {"value": "", "label": "All files"},
+                {"value": "yes", "label": "Has subtitles"},
+                {"value": "no", "label": "No subtitles"},
             ],
         )
 

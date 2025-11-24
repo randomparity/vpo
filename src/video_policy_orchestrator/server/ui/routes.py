@@ -686,7 +686,26 @@ async def library_api_handler(request: web.Request) -> web.Response:
         )
 
     # Parse query parameters
-    params = LibraryFilterParams.from_query(dict(request.query))
+    # Handle audio_lang as a list (can appear multiple times in query)
+    query_dict = dict(request.query)
+    if "audio_lang" in request.query:
+        query_dict["audio_lang"] = request.query.getall("audio_lang")
+    params = LibraryFilterParams.from_query(query_dict)
+
+    # Log filter request for debugging (019-library-filters-search)
+    active_filters = []
+    if params.status:
+        active_filters.append(f"status={params.status}")
+    if params.search:
+        active_filters.append(f"search={params.search!r}")
+    if params.resolution:
+        active_filters.append(f"resolution={params.resolution}")
+    if params.audio_lang:
+        active_filters.append(f"audio_lang={params.audio_lang}")
+    if params.subtitles:
+        active_filters.append(f"subtitles={params.subtitles}")
+    if active_filters:
+        logger.debug("Library API filter request: %s", ", ".join(active_filters))
 
     # Get connection pool
     connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
@@ -702,6 +721,10 @@ async def library_api_handler(request: web.Request) -> web.Response:
             result = get_files_filtered(
                 conn,
                 status=params.status,
+                search=params.search,
+                resolution=params.resolution,
+                audio_lang=params.audio_lang,
+                subtitles=params.subtitles,
                 limit=params.limit,
                 offset=params.offset,
                 return_total=True,
@@ -727,8 +750,16 @@ async def library_api_handler(request: web.Request) -> web.Response:
         for f in files_data
     ]
 
-    # Determine if any filters are active
-    has_filters = params.status is not None
+    # Determine if any filters are active (019-library-filters-search)
+    has_filters = any(
+        [
+            params.status is not None,
+            params.search is not None,
+            params.resolution is not None,
+            params.audio_lang is not None,
+            params.subtitles is not None,
+        ]
+    )
 
     response = FileListResponse(
         files=files,
@@ -739,6 +770,42 @@ async def library_api_handler(request: web.Request) -> web.Response:
     )
 
     return web.json_response(response.to_dict())
+
+
+async def api_library_languages_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/library/languages - Get available audio languages.
+
+    Returns list of distinct audio language codes present in the library
+    for populating the language filter dropdown (019-library-filters-search).
+    """
+    # Check if shutting down
+    lifecycle = request.app.get("lifecycle")
+    if lifecycle and lifecycle.is_shutting_down:
+        return web.json_response(
+            {"error": "Service is shutting down"},
+            status=503,
+        )
+
+    from video_policy_orchestrator.db.connection import DaemonConnectionPool
+
+    # Get connection pool
+    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
+    if connection_pool is None:
+        return web.json_response(
+            {"error": "Database not available"},
+            status=503,
+        )
+
+    # Query distinct languages from database
+    from video_policy_orchestrator.db.models import get_distinct_audio_languages
+
+    def _query_languages() -> list[dict]:
+        with connection_pool.transaction() as conn:
+            return get_distinct_audio_languages(conn)
+
+    languages = await asyncio.to_thread(_query_languages)
+
+    return web.json_response({"languages": languages})
 
 
 async def transcriptions_handler(request: web.Request) -> dict:
@@ -937,8 +1004,9 @@ def setup_ui_routes(app: web.Application) -> None:
         "/library",
         aiohttp_jinja2.template("sections/library.html")(library_handler),
     )
-    # Library API route (018-library-list-view)
+    # Library API routes (018-library-list-view, 019-library-filters-search)
     app.router.add_get("/api/library", library_api_handler)
+    app.router.add_get("/api/library/languages", api_library_languages_handler)
     app.router.add_get(
         "/transcriptions",
         aiohttp_jinja2.template("sections/transcriptions.html")(transcriptions_handler),
