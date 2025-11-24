@@ -41,12 +41,26 @@
     const nextBtnEl = document.getElementById('library-next-btn');
 
     // Filter elements (019-library-filters-search)
-    const searchInputEl = document.getElementById('filter-search');
-    const statusFilterEl = document.getElementById('filter-status');
-    const resolutionFilterEl = document.getElementById('filter-resolution');
-    const audioLangFilterEl = document.getElementById('filter-audio-lang');
-    const subtitlesFilterEl = document.getElementById('filter-subtitles');
-    const clearFiltersBtnEl = document.getElementById('clear-filters-btn');
+    // Note: These are queried when script loads (after DOM due to script placement at bottom)
+    let searchInputEl = null;
+    let statusFilterEl = null;
+    let resolutionFilterEl = null;
+    let audioLangFilterEl = null;
+    let subtitlesFilterEl = null;
+    let clearFiltersBtnEl = null;
+
+    /**
+     * Initialize DOM element references.
+     * Called during init() to ensure DOM is ready.
+     */
+    function initElements() {
+        searchInputEl = document.getElementById('filter-search');
+        statusFilterEl = document.getElementById('filter-status');
+        resolutionFilterEl = document.getElementById('filter-resolution');
+        audioLangFilterEl = document.getElementById('filter-audio-lang');
+        subtitlesFilterEl = document.getElementById('filter-subtitles');
+        clearFiltersBtnEl = document.getElementById('clear-filters-btn');
+    }
 
     /**
      * Format an ISO timestamp to a relative time string.
@@ -389,12 +403,7 @@
         if (searchInputEl) searchInputEl.value = '';
         if (statusFilterEl) statusFilterEl.value = '';
         if (resolutionFilterEl) resolutionFilterEl.value = '';
-        if (audioLangFilterEl) {
-            // Clear multi-select
-            Array.from(audioLangFilterEl.options).forEach(function(opt) {
-                opt.selected = false;
-            });
-        }
+        if (audioLangFilterEl) audioLangFilterEl.value = '';
         if (subtitlesFilterEl) subtitlesFilterEl.value = '';
 
         updateFilterVisuals();
@@ -474,7 +483,7 @@
 
             const data = await response.json();
 
-            // Clear existing options except the first "All" option
+            // Clear existing options
             audioLangFilterEl.innerHTML = '';
 
             // Add "All languages" option
@@ -489,12 +498,13 @@
                     const option = document.createElement('option');
                     option.value = lang.code;
                     option.textContent = lang.label;
-                    // Check if this was in the URL params
-                    if (currentFilters.audio_lang.includes(lang.code)) {
-                        option.selected = true;
-                    }
                     audioLangFilterEl.appendChild(option);
                 });
+            }
+
+            // Restore selected value from URL params (single select - use first value)
+            if (currentFilters.audio_lang && currentFilters.audio_lang.length > 0) {
+                audioLangFilterEl.value = currentFilters.audio_lang[0];
             }
 
             updateFilterVisuals();
@@ -572,62 +582,6 @@
         });
     }
 
-    // Event listeners for filters (019-library-filters-search)
-    if (searchInputEl) {
-        const debouncedSearch = debounce(function() {
-            currentFilters.search = searchInputEl.value.trim();
-            handleFilterChange();
-        }, DEBOUNCE_DELAY);
-
-        searchInputEl.addEventListener('input', debouncedSearch);
-
-        // Also handle Enter key for immediate search
-        searchInputEl.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                if (debounceTimer) {
-                    clearTimeout(debounceTimer);
-                }
-                currentFilters.search = searchInputEl.value.trim();
-                handleFilterChange();
-            }
-        });
-    }
-
-    if (statusFilterEl) {
-        statusFilterEl.addEventListener('change', function(e) {
-            currentFilters.status = e.target.value;
-            handleFilterChange();
-        });
-    }
-
-    if (resolutionFilterEl) {
-        resolutionFilterEl.addEventListener('change', function(e) {
-            currentFilters.resolution = e.target.value;
-            handleFilterChange();
-        });
-    }
-
-    if (audioLangFilterEl) {
-        audioLangFilterEl.addEventListener('change', function() {
-            // Get all selected values
-            currentFilters.audio_lang = Array.from(audioLangFilterEl.selectedOptions)
-                .map(function(opt) { return opt.value; })
-                .filter(function(v) { return v !== ''; });
-            handleFilterChange();
-        });
-    }
-
-    if (subtitlesFilterEl) {
-        subtitlesFilterEl.addEventListener('change', function(e) {
-            currentFilters.subtitles = e.target.value;
-            handleFilterChange();
-        });
-    }
-
-    if (clearFiltersBtnEl) {
-        clearFiltersBtnEl.addEventListener('click', clearAllFilters);
-    }
-
     // Export functions for external access if needed
     window.libraryDashboard = {
         refresh: fetchLibrary,
@@ -635,9 +589,75 @@
     };
 
     /**
+     * Setup event listeners for filter controls.
+     * Called after elements are initialized.
+     */
+    function setupFilterListeners() {
+        if (searchInputEl) {
+            const debouncedSearch = debounce(function() {
+                currentFilters.search = searchInputEl.value.trim();
+                handleFilterChange();
+            }, DEBOUNCE_DELAY);
+
+            searchInputEl.addEventListener('input', debouncedSearch);
+
+            // Also handle Enter key for immediate search
+            searchInputEl.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    if (debounceTimer) {
+                        clearTimeout(debounceTimer);
+                    }
+                    currentFilters.search = searchInputEl.value.trim();
+                    handleFilterChange();
+                }
+            });
+        }
+
+        if (statusFilterEl) {
+            statusFilterEl.addEventListener('change', function(e) {
+                currentFilters.status = e.target.value;
+                handleFilterChange();
+            });
+        }
+
+        if (resolutionFilterEl) {
+            resolutionFilterEl.addEventListener('change', function(e) {
+                currentFilters.resolution = e.target.value;
+                handleFilterChange();
+            });
+        }
+
+        if (audioLangFilterEl) {
+            audioLangFilterEl.addEventListener('change', function(e) {
+                // Single select - wrap in array for backend compatibility
+                var value = e.target.value;
+                currentFilters.audio_lang = value ? [value] : [];
+                handleFilterChange();
+            });
+        }
+
+        if (subtitlesFilterEl) {
+            subtitlesFilterEl.addEventListener('change', function(e) {
+                currentFilters.subtitles = e.target.value;
+                handleFilterChange();
+            });
+        }
+
+        if (clearFiltersBtnEl) {
+            clearFiltersBtnEl.addEventListener('click', clearAllFilters);
+        }
+    }
+
+    /**
      * Initialize the library dashboard.
      */
     async function init() {
+        // Initialize DOM element references first
+        initElements();
+
+        // Setup event listeners for filter controls
+        setupFilterListeners();
+
         // Parse URL params first
         initFiltersFromUrl();
 
