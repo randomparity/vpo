@@ -25,11 +25,11 @@ Based on plan.md structure:
 
 **Purpose**: Test fixtures and project structure verification
 
-- [ ] T001 [P] Create test policy fixtures directory at tests/fixtures/policies/
-- [ ] T002 [P] Create valid-basic.yaml test fixture in tests/fixtures/policies/
-- [ ] T003 [P] Create valid-full.yaml test fixture with transcode and transcription in tests/fixtures/policies/
-- [ ] T004 [P] Create invalid-syntax.yaml test fixture in tests/fixtures/policies/
-- [ ] T005 [P] Create invalid-format.yaml test fixture (list not mapping) in tests/fixtures/policies/
+- [x] T001 [P] Create test policy fixtures directory at tests/fixtures/policies/
+- [x] T002 [P] Create valid-basic.yaml test fixture in tests/fixtures/policies/
+- [x] T003 [P] Create valid-full.yaml test fixture with transcode and transcription in tests/fixtures/policies/
+- [x] T004 [P] Create invalid-syntax.yaml test fixture in tests/fixtures/policies/
+- [x] T005 [P] Create invalid-format.yaml test fixture (list not mapping) in tests/fixtures/policies/
 
 ---
 
@@ -39,13 +39,13 @@ Based on plan.md structure:
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T006 Create PolicySummary dataclass in src/video_policy_orchestrator/policy/discovery.py
-- [ ] T007 Implement _parse_policy_file() helper in src/video_policy_orchestrator/policy/discovery.py
-- [ ] T008 Implement _is_default_policy() helper in src/video_policy_orchestrator/policy/discovery.py
-- [ ] T009 Implement discover_policies() main function in src/video_policy_orchestrator/policy/discovery.py
-- [ ] T010 Add __init__.py exports for discovery module in src/video_policy_orchestrator/policy/__init__.py
-- [ ] T011 [P] Create unit tests for _parse_policy_file() in tests/unit/policy/test_discovery.py
-- [ ] T012 [P] Create unit tests for discover_policies() in tests/unit/policy/test_discovery.py
+- [x] T006 Create PolicySummary dataclass in src/video_policy_orchestrator/policy/discovery.py
+- [x] T007 Implement _parse_policy_file() helper in src/video_policy_orchestrator/policy/discovery.py
+- [x] T008 Implement _is_default_policy() helper in src/video_policy_orchestrator/policy/discovery.py
+- [x] T009 Implement discover_policies() main function in src/video_policy_orchestrator/policy/discovery.py
+- [x] T010 Add __init__.py exports for discovery module in src/video_policy_orchestrator/policy/__init__.py
+- [x] T011 [P] Create unit tests for _parse_policy_file() in tests/unit/policy/test_discovery.py
+- [x] T012 [P] Create unit tests for discover_policies() in tests/unit/policy/test_discovery.py
 
 **Checkpoint**: Foundation ready - policy discovery module is complete and tested
 
