@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="file-detail">
+    <!-- Back navigation -->
+    <a href="{{ back_url }}" class="file-detail-back">&larr; Back to Library</a>
+
+    <!-- File header -->
+    <header class="file-detail-header">
+        <h1 class="file-detail-title" title="{{ file.path }}">{{ file.filename }}</h1>
+        {% if file.scan_status == 'error' %}
+        <span class="status-badge status-badge--failed">scan error</span>
+        {% endif %}
+    </header>
+
+    <!-- Scan error message (if failed) -->
+    {% if file.scan_error %}
+    <section class="file-detail-error">
+        <h2>Scan Error</h2>
+        <div class="file-detail-error-message">{{ file.scan_error }}</div>
+    </section>
+    {% endif %}
+
+    <!-- File information section (US3) -->
+    <section class="file-detail-info">
+        <h2>File Information</h2>
+        <dl class="file-detail-dl">
+            <div class="file-detail-dl-row">
+                <dt>Filename</dt>
+                <dd class="file-detail-path" title="{{ file.filename }}">{{ file.filename }}</dd>
+            </div>
+            <div class="file-detail-dl-row">
+                <dt>Directory</dt>
+                <dd class="file-detail-path" title="{{ file.directory }}">{{ file.directory }}</dd>
+            </div>
+            {% if file.container_format %}
+            <div class="file-detail-dl-row">
+                <dt>Container</dt>
+                <dd>{{ file.container_format }}</dd>
+            </div>
+            {% endif %}
+            <div class="file-detail-dl-row">
+                <dt>Size</dt>
+                <dd>{{ file.size_human }} ({{ file.size_bytes | string | format_number }} bytes)</dd>
+            </div>
+            <div class="file-detail-dl-row">
+                <dt>Modified</dt>
+                <dd><time data-timestamp="{{ file.modified_at }}" datetime="{{ file.modified_at }}">{{ file.modified_at }}</time></dd>
+            </div>
+            <div class="file-detail-dl-row">
+                <dt>Scanned</dt>
+                <dd><time data-timestamp="{{ file.scanned_at }}" datetime="{{ file.scanned_at }}">{{ file.scanned_at }}</time></dd>
+            </div>
+        </dl>
+    </section>
+
+    <!-- Scan job link (US4) -->
+    {% if file.scan_job_id %}
+    <section class="file-detail-jobs">
+        <h2>Related Jobs</h2>
+        <dl class="file-detail-dl">
+            <div class="file-detail-dl-row">
+                <dt>Scan Job</dt>
+                <dd><a href="/jobs/{{ file.scan_job_id }}" class="file-detail-job-link">{{ file.scan_job_id[:8] }}...</a></dd>
+            </div>
+        </dl>
+    </section>
+    {% endif %}
+
+    <!-- Video tracks section (US2) -->
+    {% if file.video_tracks %}
+    <section class="file-detail-tracks {% if file.has_many_tracks %}collapsible{% endif %}" data-track-type="video">
+        <h2 class="{% if file.has_many_tracks %}collapsible-header{% endif %}">
+            {% if file.has_many_tracks %}<span class="collapse-icon">▼</span>{% endif %}
+            Video Tracks ({{ file.video_tracks | length }})
+        </h2>
+        <div class="track-list {% if file.has_many_tracks %}collapsible-content{% endif %}">
+            {% for track in file.video_tracks %}
+            <div class="track-item track-item--video">
+                <div class="track-header">
+                    <span class="track-index">#{{ track.index }}</span>
+                    <span class="track-codec">{{ track.codec or '—' }}</span>
+                    {% if track.is_default %}<span class="track-flag track-flag--default">default</span>{% endif %}
+                    {% if track.is_forced %}<span class="track-flag track-flag--forced">forced</span>{% endif %}
+                </div>
+                <div class="track-details">
+                    {% if track.resolution %}
+                    <span class="track-detail"><strong>Resolution:</strong> {{ track.resolution }}</span>
+                    {% endif %}
+                    {% if track.frame_rate %}
+                    <span class="track-detail"><strong>Frame Rate:</strong> {{ track.frame_rate }} fps</span>
+                    {% endif %}
+                    {% if track.title %}
+                    <span class="track-detail"><strong>Title:</strong> {{ track.title }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Audio tracks section (US2, US5) -->
+    {% if file.audio_tracks %}
+    <section class="file-detail-tracks {% if file.has_many_tracks %}collapsible{% endif %}" data-track-type="audio">
+        <h2 class="{% if file.has_many_tracks %}collapsible-header{% endif %}">
+            {% if file.has_many_tracks %}<span class="collapse-icon">▼</span>{% endif %}
+            Audio Tracks ({{ file.audio_tracks | length }})
+        </h2>
+        <div class="track-list {% if file.has_many_tracks %}collapsible-content{% endif %}">
+            {% for track in file.audio_tracks %}
+            <div class="track-item track-item--audio">
+                <div class="track-header">
+                    <span class="track-index">#{{ track.index }}</span>
+                    <span class="track-codec">{{ track.codec or '—' }}</span>
+                    {% if track.language %}<span class="track-language">{{ track.language }}</span>{% endif %}
+                    {% if track.is_default %}<span class="track-flag track-flag--default">default</span>{% endif %}
+                    {% if track.is_forced %}<span class="track-flag track-flag--forced">forced</span>{% endif %}
+                </div>
+                <div class="track-details">
+                    {% if track.channels %}
+                    <span class="track-detail"><strong>Channels:</strong> {{ track.channels }}{% if track.channel_layout %} ({{ track.channel_layout }}){% endif %}</span>
+                    {% endif %}
+                    {% if track.title %}
+                    <span class="track-detail"><strong>Title:</strong> {{ track.title }}</span>
+                    {% endif %}
+                    {% if track.transcription %}
+                    <span class="track-detail track-detail--transcription">
+                        <strong>Detected:</strong> {{ track.transcription.detected_language or '—' }}
+                        ({{ track.transcription.confidence_percent }}% confidence, {{ track.transcription.track_type }})
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Subtitle tracks section (US2) -->
+    {% if file.subtitle_tracks %}
+    <section class="file-detail-tracks {% if file.has_many_tracks %}collapsible{% endif %}" data-track-type="subtitle">
+        <h2 class="{% if file.has_many_tracks %}collapsible-header{% endif %}">
+            {% if file.has_many_tracks %}<span class="collapse-icon">▼</span>{% endif %}
+            Subtitle Tracks ({{ file.subtitle_tracks | length }})
+        </h2>
+        <div class="track-list {% if file.has_many_tracks %}collapsible-content{% endif %}">
+            {% for track in file.subtitle_tracks %}
+            <div class="track-item track-item--subtitle">
+                <div class="track-header">
+                    <span class="track-index">#{{ track.index }}</span>
+                    <span class="track-codec">{{ track.codec or '—' }}</span>
+                    {% if track.language %}<span class="track-language">{{ track.language }}</span>{% endif %}
+                    {% if track.is_default %}<span class="track-flag track-flag--default">default</span>{% endif %}
+                    {% if track.is_forced %}<span class="track-flag track-flag--forced">forced</span>{% endif %}
+                </div>
+                <div class="track-details">
+                    {% if track.title %}
+                    <span class="track-detail"><strong>Title:</strong> {{ track.title }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Other tracks section (attachments, etc.) -->
+    {% if file.other_tracks %}
+    <section class="file-detail-tracks {% if file.has_many_tracks %}collapsible{% endif %}" data-track-type="other">
+        <h2 class="{% if file.has_many_tracks %}collapsible-header{% endif %}">
+            {% if file.has_many_tracks %}<span class="collapse-icon">▼</span>{% endif %}
+            Other Tracks ({{ file.other_tracks | length }})
+        </h2>
+        <div class="track-list {% if file.has_many_tracks %}collapsible-content{% endif %}">
+            {% for track in file.other_tracks %}
+            <div class="track-item track-item--other">
+                <div class="track-header">
+                    <span class="track-index">#{{ track.index }}</span>
+                    <span class="track-type">{{ track.track_type }}</span>
+                    <span class="track-codec">{{ track.codec or '—' }}</span>
+                </div>
+                <div class="track-details">
+                    {% if track.title %}
+                    <span class="track-detail"><strong>Title:</strong> {{ track.title }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Empty state: no tracks -->
+    {% if file.total_tracks == 0 %}
+    <section class="file-detail-empty">
+        <p>No track information available for this file.</p>
+    </section>
+    {% endif %}
+</div>
+
+<script src="/static/js/file-detail.js"></script>
+{% endblock %}

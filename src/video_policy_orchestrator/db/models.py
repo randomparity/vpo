@@ -1552,3 +1552,92 @@ def delete_transcription_results_for_file(
     )
     conn.commit()
     return cursor.rowcount
+
+
+# ==========================================================================
+# File Detail View Query Functions (020-file-detail-view)
+# ==========================================================================
+
+
+def get_file_by_id(conn: sqlite3.Connection, file_id: int) -> FileRecord | None:
+    """Get a file record by ID.
+
+    Args:
+        conn: Database connection.
+        file_id: File primary key.
+
+    Returns:
+        FileRecord if found, None otherwise.
+    """
+    cursor = conn.execute(
+        """
+        SELECT id, path, filename, directory, extension, size_bytes,
+               modified_at, content_hash, container_format,
+               scanned_at, scan_status, scan_error, job_id
+        FROM files WHERE id = ?
+        """,
+        (file_id,),
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+
+    return FileRecord(
+        id=row[0],
+        path=row[1],
+        filename=row[2],
+        directory=row[3],
+        extension=row[4],
+        size_bytes=row[5],
+        modified_at=row[6],
+        content_hash=row[7],
+        container_format=row[8],
+        scanned_at=row[9],
+        scan_status=row[10],
+        scan_error=row[11],
+        job_id=row[12],
+    )
+
+
+def get_transcriptions_for_tracks(
+    conn: sqlite3.Connection, track_ids: list[int]
+) -> dict[int, TranscriptionResultRecord]:
+    """Get transcription results for a list of track IDs.
+
+    Args:
+        conn: Database connection.
+        track_ids: List of track IDs to query.
+
+    Returns:
+        Dictionary mapping track_id to TranscriptionResultRecord.
+    """
+    if not track_ids:
+        return {}
+
+    placeholders = ",".join("?" * len(track_ids))
+    cursor = conn.execute(
+        f"""
+        SELECT id, track_id, detected_language, confidence_score, track_type,
+               transcript_sample, plugin_name, created_at, updated_at
+        FROM transcription_results
+        WHERE track_id IN ({placeholders})
+        """,
+        tuple(track_ids),
+    )
+
+    result = {}
+    for row in cursor.fetchall():
+        record = TranscriptionResultRecord(
+            id=row[0],
+            track_id=row[1],
+            detected_language=row[2],
+            confidence_score=row[3],
+            track_type=row[4],
+            transcript_sample=row[5],
+            plugin_name=row[6],
+            created_at=row[7],
+            updated_at=row[8],
+        )
+        result[record.track_id] = record
+
+    return result

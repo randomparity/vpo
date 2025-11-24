@@ -224,6 +224,30 @@
 
         const html = files.map(renderFileRow).join('');
         tableBodyEl.innerHTML = html;
+
+        // Add click handlers to rows for navigation (020-file-detail-view)
+        setupRowClickHandlers();
+    }
+
+    /**
+     * Setup click handlers on table rows for navigation to file detail.
+     * (020-file-detail-view)
+     */
+    function setupRowClickHandlers() {
+        const rows = tableBodyEl.querySelectorAll('tr[data-file-id]');
+        rows.forEach(function(row) {
+            row.style.cursor = 'pointer';
+            row.addEventListener('click', function(e) {
+                // Don't navigate if clicking on a link or button
+                if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') {
+                    return;
+                }
+                const fileId = row.getAttribute('data-file-id');
+                if (fileId) {
+                    window.location.href = '/library/' + fileId;
+                }
+            });
+        });
     }
 
     /**

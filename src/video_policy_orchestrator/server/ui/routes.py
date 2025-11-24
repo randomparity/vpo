@@ -22,6 +22,9 @@ from video_policy_orchestrator.server.ui.models import (
     DEFAULT_SECTION,
     NAVIGATION_ITEMS,
     AboutInfo,
+    FileDetailContext,
+    FileDetailItem,
+    FileDetailResponse,
     FileListItem,
     FileListResponse,
     JobDetailContext,
@@ -38,8 +41,10 @@ from video_policy_orchestrator.server.ui.models import (
     ScanErrorsResponse,
     TemplateContext,
     format_audio_languages,
+    format_file_size,
     generate_summary_text,
     get_resolution_label,
+    group_tracks_by_type,
 )
 
 logger = logging.getLogger(__name__)
@@ -808,6 +813,194 @@ async def api_library_languages_handler(request: web.Request) -> web.Response:
     return web.json_response({"languages": languages})
 
 
+# ==========================================================================
+# File Detail View Handlers (020-file-detail-view)
+# ==========================================================================
+
+
+def _build_file_detail_item(file_record, tracks, transcriptions) -> FileDetailItem:
+    """Build FileDetailItem from database records.
+
+    Args:
+        file_record: FileRecord from database.
+        tracks: List of TrackRecord from database.
+        transcriptions: Dict mapping track_id to TranscriptionResultRecord.
+
+    Returns:
+        FileDetailItem ready for API/template use.
+    """
+    # Group tracks by type
+    video_tracks, audio_tracks, subtitle_tracks, other_tracks = group_tracks_by_type(
+        tracks, transcriptions
+    )
+
+    return FileDetailItem(
+        id=file_record.id,
+        path=file_record.path,
+        filename=file_record.filename,
+        directory=file_record.directory,
+        extension=file_record.extension,
+        container_format=file_record.container_format,
+        size_bytes=file_record.size_bytes,
+        size_human=format_file_size(file_record.size_bytes),
+        modified_at=file_record.modified_at,
+        scanned_at=file_record.scanned_at,
+        scan_status=file_record.scan_status,
+        scan_error=file_record.scan_error,
+        scan_job_id=file_record.job_id,
+        video_tracks=video_tracks,
+        audio_tracks=audio_tracks,
+        subtitle_tracks=subtitle_tracks,
+        other_tracks=other_tracks,
+    )
+
+
+async def file_detail_handler(request: web.Request) -> dict:
+    """Handle GET /library/{file_id} - File detail HTML page.
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        Template context dict for rendering.
+
+    Raises:
+        HTTPNotFound: If file not found.
+        HTTPBadRequest: If file ID format is invalid.
+        HTTPServiceUnavailable: If database not available.
+    """
+    from video_policy_orchestrator.db.connection import DaemonConnectionPool
+    from video_policy_orchestrator.db.models import (
+        get_file_by_id,
+        get_tracks_for_file,
+        get_transcriptions_for_tracks,
+    )
+
+    file_id_str = request.match_info["file_id"]
+
+    # Validate ID format (integer)
+    try:
+        file_id = int(file_id_str)
+        if file_id < 1:
+            raise ValueError("Invalid ID")
+    except ValueError:
+        raise web.HTTPBadRequest(reason="Invalid file ID format")
+
+    # Get connection pool
+    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
+    if connection_pool is None:
+        raise web.HTTPServiceUnavailable(reason="Database not available")
+
+    # Query file from database
+    def _query_file():
+        with connection_pool.transaction() as conn:
+            file_record = get_file_by_id(conn, file_id)
+            if file_record is None:
+                return None, [], {}
+            tracks = get_tracks_for_file(conn, file_record.id)
+            # Get transcriptions for audio tracks
+            audio_track_ids = [t.id for t in tracks if t.track_type == "audio"]
+            transcriptions = get_transcriptions_for_tracks(conn, audio_track_ids)
+            return file_record, tracks, transcriptions
+
+    file_record, tracks, transcriptions = await asyncio.to_thread(_query_file)
+
+    if file_record is None:
+        raise web.HTTPNotFound(reason="File not found")
+
+    # Build FileDetailItem
+    detail_item = _build_file_detail_item(file_record, tracks, transcriptions)
+
+    # Get referer for back navigation
+    referer = request.headers.get("Referer")
+
+    # Create context
+    detail_context = FileDetailContext.from_file_and_request(detail_item, referer)
+
+    context = _create_template_context(
+        active_id="library",
+        section_title=detail_item.filename,
+    )
+    context["file"] = detail_item
+    context["back_url"] = detail_context.back_url
+
+    return context
+
+
+async def api_file_detail_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/library/{file_id} - JSON API for file detail.
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        JSON response with FileDetailResponse payload or error.
+    """
+    from video_policy_orchestrator.db.connection import DaemonConnectionPool
+    from video_policy_orchestrator.db.models import (
+        get_file_by_id,
+        get_tracks_for_file,
+        get_transcriptions_for_tracks,
+    )
+
+    # Check if shutting down
+    lifecycle = request.app.get("lifecycle")
+    if lifecycle and lifecycle.is_shutting_down:
+        return web.json_response(
+            {"error": "Service is shutting down"},
+            status=503,
+        )
+
+    file_id_str = request.match_info["file_id"]
+
+    # Validate ID format (integer)
+    try:
+        file_id = int(file_id_str)
+        if file_id < 1:
+            raise ValueError("Invalid ID")
+    except ValueError:
+        return web.json_response(
+            {"error": "Invalid file ID format"},
+            status=400,
+        )
+
+    # Get connection pool
+    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
+    if connection_pool is None:
+        return web.json_response(
+            {"error": "Database not available"},
+            status=503,
+        )
+
+    # Query file from database
+    def _query_file():
+        with connection_pool.transaction() as conn:
+            file_record = get_file_by_id(conn, file_id)
+            if file_record is None:
+                return None, [], {}
+            tracks = get_tracks_for_file(conn, file_record.id)
+            # Get transcriptions for audio tracks
+            audio_track_ids = [t.id for t in tracks if t.track_type == "audio"]
+            transcriptions = get_transcriptions_for_tracks(conn, audio_track_ids)
+            return file_record, tracks, transcriptions
+
+    file_record, tracks, transcriptions = await asyncio.to_thread(_query_file)
+
+    if file_record is None:
+        return web.json_response(
+            {"error": "File not found"},
+            status=404,
+        )
+
+    # Build FileDetailItem
+    detail_item = _build_file_detail_item(file_record, tracks, transcriptions)
+
+    # Build response
+    response = FileDetailResponse(file=detail_item)
+
+    return web.json_response(response.to_dict())
+
+
 async def transcriptions_handler(request: web.Request) -> dict:
     """Handle GET /transcriptions - Transcriptions section page."""
     return _create_template_context(
@@ -979,10 +1172,20 @@ def setup_ui_routes(app: web.Application) -> None:
         app: aiohttp Application to configure.
     """
     # Setup Jinja2 templating
-    aiohttp_jinja2.setup(
+    env = aiohttp_jinja2.setup(
         app,
         loader=jinja2.FileSystemLoader(str(TEMPLATES_DIR)),
     )
+
+    # Add custom Jinja2 filters (020-file-detail-view)
+    def format_number(value: int | str) -> str:
+        """Format a number with thousand separators."""
+        try:
+            return f"{int(value):,}"
+        except (ValueError, TypeError):
+            return str(value)
+
+    env.filters["format_number"] = format_number
 
     # Register routes
     app.router.add_get("/", root_redirect)
@@ -1007,6 +1210,12 @@ def setup_ui_routes(app: web.Application) -> None:
     # Library API routes (018-library-list-view, 019-library-filters-search)
     app.router.add_get("/api/library", library_api_handler)
     app.router.add_get("/api/library/languages", api_library_languages_handler)
+    # File detail routes (020-file-detail-view)
+    app.router.add_get(
+        "/library/{file_id}",
+        aiohttp_jinja2.template("sections/file_detail.html")(file_detail_handler),
+    )
+    app.router.add_get("/api/library/{file_id}", api_file_detail_handler)
     app.router.add_get(
         "/transcriptions",
         aiohttp_jinja2.template("sections/transcriptions.html")(transcriptions_handler),
