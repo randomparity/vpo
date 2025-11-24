@@ -82,10 +82,10 @@ def detect_command(
     dry_run: bool,
     output_json: bool,
 ) -> None:
-    """Detect spoken language in audio tracks.
+    """Detect spoken language in audio tracks with full transcription.
 
-    Analyzes audio tracks in the specified file and reports detected
-    languages with confidence scores.
+    Performs full transcription to detect language and extract a transcript
+    sample. This is more accurate but slower than 'quick' detection.
 
     Use --update to apply detected languages to the file's metadata.
     Use --dry-run with --update to preview changes without applying them.
@@ -163,7 +163,7 @@ def detect_command(
                 click.echo(f"Processing track {track.track_index} ({track.codec})...")
 
             logger.info(
-                "Extracting audio for language detection",
+                "Extracting audio for transcription",
                 extra={
                     "file": str(path),
                     "track_index": track.track_index,
@@ -195,25 +195,26 @@ def detect_command(
                 click.echo(f"  Error extracting audio: {e}", err=True)
             continue
 
-        # Detect language
+        # Full transcription (detects language and extracts sample)
         try:
             logger.debug(
-                "Running language detection",
+                "Running full transcription",
                 extra={"plugin": transcriber.name, "track_index": track.track_index},
             )
-            result = transcriber.detect_language(audio_data)
+            result = transcriber.transcribe(audio_data)
             logger.info(
-                "Language detection complete",
+                "Transcription complete",
                 extra={
                     "track_index": track.track_index,
                     "detected_language": result.detected_language,
                     "confidence": result.confidence_score,
                     "track_type": result.track_type.value,
+                    "has_sample": result.transcript_sample is not None,
                 },
             )
         except TranscriptionError as e:
             logger.warning(
-                "Language detection failed",
+                "Transcription failed",
                 extra={
                     "file": str(path),
                     "track_index": track.track_index,
@@ -229,7 +230,7 @@ def detect_command(
                     }
                 )
             else:
-                click.echo(f"  Error detecting language: {e}", err=True)
+                click.echo(f"  Error during transcription: {e}", err=True)
             continue
 
         # Store result
@@ -325,6 +326,217 @@ def detect_command(
 
         # Apply updates using mkvpropedit
         _apply_language_updates(path, updates_to_apply, output_json)
+
+
+@transcribe_group.command(name="quick")
+@click.argument("path", type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Re-run detection even if results already exist",
+)
+@click.option(
+    "--plugin",
+    type=str,
+    default=None,
+    help="Transcription plugin to use (default: auto-detect)",
+)
+@click.option(
+    "--json",
+    "output_json",
+    is_flag=True,
+    help="Output results in JSON format",
+)
+@click.pass_context
+def quick_command(
+    ctx: click.Context,
+    path: Path,
+    force: bool,
+    plugin: str | None,
+    output_json: bool,
+) -> None:
+    """Quick language detection without full transcription.
+
+    Performs fast language-only detection by analyzing a 30-second audio
+    sample. This is faster than 'detect' but does not extract transcript
+    samples.
+
+    Use 'vpo transcribe detect' for full transcription with samples.
+
+    PATH is the path to a video file to analyze.
+    """
+    conn: sqlite3.Connection | None = ctx.obj.get("db_conn")
+    if conn is None:
+        click.echo("Error: Database connection not available", err=True)
+        raise SystemExit(1)
+
+    # Check ffmpeg availability
+    if not is_ffmpeg_available():
+        click.echo(
+            "Error: ffmpeg not found. Please install ffmpeg and ensure it's in PATH.",
+            err=True,
+        )
+        raise SystemExit(1)
+
+    # Get plugin
+    registry = get_registry()
+    try:
+        if plugin:
+            transcriber = registry.get(plugin)
+        else:
+            transcriber = registry.get_default()
+            if transcriber is None:
+                click.echo(
+                    "Error: No transcription plugins available. "
+                    "Install openai-whisper for local transcription.",
+                    err=True,
+                )
+                raise SystemExit(1)
+    except PluginNotFoundError as e:
+        click.echo(f"Error: {e}", err=True)
+        raise SystemExit(1)
+
+    # Get file from database
+    file_record = get_file_by_path(conn, str(path.resolve()))
+    if file_record is None:
+        click.echo(
+            f"Error: File not found in database. Run 'vpo scan' first: {path}",
+            err=True,
+        )
+        raise SystemExit(1)
+
+    # Get audio tracks
+    tracks = get_tracks_for_file(conn, file_record.id)
+    audio_tracks = [t for t in tracks if t.track_type == "audio"]
+
+    if not audio_tracks:
+        click.echo(f"No audio tracks found in: {path}", err=True)
+        raise SystemExit(1)
+
+    results = []
+
+    for track in audio_tracks:
+        # Check for existing result
+        existing = get_transcription_result(conn, track.id)
+        if existing and not force:
+            if output_json:
+                results.append(_format_result_json(track, existing, skipped=True))
+            else:
+                click.echo(
+                    f"Track {track.track_index} ({track.codec}): "
+                    f"Already detected - {existing.detected_language} "
+                    f"({existing.confidence_score:.1%} confidence). "
+                    f"Use --force to re-run."
+                )
+            continue
+
+        # Extract audio
+        try:
+            if not output_json:
+                click.echo(f"Processing track {track.track_index} ({track.codec})...")
+
+            logger.info(
+                "Extracting audio for quick language detection",
+                extra={
+                    "file": str(path),
+                    "track_index": track.track_index,
+                    "codec": track.codec,
+                },
+            )
+            audio_data = extract_audio_stream(
+                Path(file_record.path),
+                track.track_index,
+            )
+        except TranscriptionError as e:
+            logger.warning(
+                "Audio extraction failed",
+                extra={
+                    "file": str(path),
+                    "track_index": track.track_index,
+                    "error": str(e),
+                },
+            )
+            if output_json:
+                results.append(
+                    {
+                        "track_index": track.track_index,
+                        "codec": track.codec,
+                        "error": str(e),
+                    }
+                )
+            else:
+                click.echo(f"  Error extracting audio: {e}", err=True)
+            continue
+
+        # Quick language detection (no full transcription)
+        try:
+            logger.debug(
+                "Running quick language detection",
+                extra={"plugin": transcriber.name, "track_index": track.track_index},
+            )
+            result = transcriber.detect_language(audio_data)
+            logger.info(
+                "Quick language detection complete",
+                extra={
+                    "track_index": track.track_index,
+                    "detected_language": result.detected_language,
+                    "confidence": result.confidence_score,
+                    "track_type": result.track_type.value,
+                },
+            )
+        except TranscriptionError as e:
+            logger.warning(
+                "Language detection failed",
+                extra={
+                    "file": str(path),
+                    "track_index": track.track_index,
+                    "error": str(e),
+                },
+            )
+            if output_json:
+                results.append(
+                    {
+                        "track_index": track.track_index,
+                        "codec": track.codec,
+                        "error": str(e),
+                    }
+                )
+            else:
+                click.echo(f"  Error detecting language: {e}", err=True)
+            continue
+
+        # Store result (no transcript_sample for quick detection)
+        now = datetime.now(timezone.utc).isoformat()
+        record = TranscriptionResultRecord(
+            id=None,
+            track_id=track.id,
+            detected_language=result.detected_language,
+            confidence_score=result.confidence_score,
+            track_type=result.track_type.value,
+            transcript_sample=None,  # Quick detection doesn't extract samples
+            plugin_name=transcriber.name,
+            created_at=existing.created_at if existing else now,
+            updated_at=now,
+        )
+        upsert_transcription_result(conn, record)
+        logger.debug(
+            "Quick detection result stored",
+            extra={"track_id": track.id, "track_index": track.track_index},
+        )
+
+        if output_json:
+            results.append(_format_result_json(track, record, skipped=False))
+        else:
+            # Display result
+            current_lang = track.language or "und"
+            detected_lang = result.detected_language or "unknown"
+            confidence = result.confidence_score
+
+            click.echo(f"  Current language: {current_lang}")
+            click.echo(f"  Detected language: {detected_lang} ({confidence:.1%})")
+
+    if output_json:
+        click.echo(json.dumps({"file": str(path), "tracks": results}, indent=2))
 
 
 def _format_result_json(
