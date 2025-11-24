@@ -1,0 +1,172 @@
+openapi: 3.0.3
+info:
+  title: VPO Transcriptions API
+  description: API endpoints for the Transcriptions overview list feature
+  version: 1.0.0
+
+paths:
+  /api/transcriptions:
+    get:
+      summary: List files with transcription data
+      description: |
+        Returns a paginated list of files with aggregated transcription information.
+        By default, only files with transcription results are shown.
+        Use show_all=true to include files without transcriptions.
+      operationId: listTranscriptions
+      parameters:
+        - name: show_all
+          in: query
+          description: |
+            If false (default), only show files with transcription results.
+            If true, show all files in the library.
+          schema:
+            type: boolean
+            default: false
+        - name: limit
+          in: query
+          description: Maximum number of files to return (1-100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          description: Number of files to skip for pagination
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Successful response with file list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranscriptionListResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /transcriptions:
+    get:
+      summary: Render Transcriptions page
+      description: Server-rendered HTML page for the Transcriptions view
+      operationId: renderTranscriptionsPage
+      responses:
+        '200':
+          description: HTML page
+          content:
+            text/html:
+              schema:
+                type: string
+
+components:
+  schemas:
+    TranscriptionListItem:
+      type: object
+      description: File data for the transcriptions list
+      required:
+        - id
+        - filename
+        - path
+        - has_transcription
+        - detected_languages
+        - transcription_count
+        - scan_status
+      properties:
+        id:
+          type: integer
+          description: Database file ID
+          example: 123
+        filename:
+          type: string
+          description: Short filename for display
+          example: "movie.mkv"
+        path:
+          type: string
+          description: Full file path
+          example: "/media/videos/movie.mkv"
+        has_transcription:
+          type: boolean
+          description: Whether file has any transcription results
+          example: true
+        detected_languages:
+          type: array
+          description: List of detected language codes across all audio tracks
+          items:
+            type: string
+          example: ["eng", "jpn"]
+        confidence_level:
+          type: string
+          nullable: true
+          enum: [high, medium, low, null]
+          description: |
+            Categorical confidence level based on average score:
+            - high: >= 0.8 (80%)
+            - medium: >= 0.5 and < 0.8 (50-79%)
+            - low: < 0.5 (below 50%)
+            - null: no transcription data
+          example: "high"
+        confidence_avg:
+          type: number
+          format: float
+          nullable: true
+          minimum: 0.0
+          maximum: 1.0
+          description: Average confidence score across all transcribed tracks
+          example: 0.92
+        transcription_count:
+          type: integer
+          minimum: 0
+          description: Number of audio tracks with transcription results
+          example: 2
+        scan_status:
+          type: string
+          enum: [ok, error]
+          description: File scan status
+          example: "ok"
+
+    TranscriptionListResponse:
+      type: object
+      description: Paginated response for /api/transcriptions
+      required:
+        - files
+        - total
+        - limit
+        - offset
+        - has_filters
+      properties:
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranscriptionListItem'
+        total:
+          type: integer
+          description: Total files matching the current filter
+          example: 150
+        limit:
+          type: integer
+          description: Page size used
+          example: 50
+        offset:
+          type: integer
+          description: Current pagination offset
+          example: 0
+        has_filters:
+          type: boolean
+          description: True if show_all filter is active (not default)
+          example: false
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "Database connection failed"
