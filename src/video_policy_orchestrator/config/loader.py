@@ -26,6 +26,7 @@ from video_policy_orchestrator.config.models import (
     BehaviorConfig,
     DetectionConfig,
     JobsConfig,
+    LanguageConfig,
     PluginConfig,
     ServerConfig,
     ToolPathsConfig,
@@ -479,6 +480,19 @@ def get_config(
         ),
     )
 
+    # Build language config
+    language_file = file_config.get("language", {})
+    language = LanguageConfig(
+        standard=_get_env_str(
+            "VPO_LANGUAGE_STANDARD",
+            language_file.get("standard", "639-2/B"),
+        ),  # type: ignore[arg-type]
+        warn_on_conversion=_get_env_bool(
+            "VPO_LANGUAGE_WARN_ON_CONVERSION",
+            language_file.get("warn_on_conversion", True),
+        ),
+    )
+
     return VPOConfig(
         tools=tools,
         detection=detection,
@@ -487,5 +501,6 @@ def get_config(
         jobs=jobs,
         worker=worker,
         server=server,
+        language=language,
         database_path=db_path,
     )

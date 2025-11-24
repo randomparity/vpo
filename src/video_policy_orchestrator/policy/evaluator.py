@@ -12,6 +12,7 @@ from video_policy_orchestrator.db.models import (
     TrackRecord,
     TranscriptionResultRecord,
 )
+from video_policy_orchestrator.language import languages_match, normalize_language
 from video_policy_orchestrator.policy.matchers import CommentaryMatcher
 from video_policy_orchestrator.policy.models import (
     ActionType,
@@ -45,6 +46,27 @@ class UnsupportedContainerError(EvaluationError):
             f"Container '{container}' does not support {operation}. "
             "Consider converting to MKV for full track manipulation support."
         )
+
+
+def _find_language_preference_index(
+    lang: str,
+    preferences: tuple[str, ...],
+) -> int:
+    """Find the index of a language in the preference list.
+
+    Uses languages_match() to compare, so "de", "ger", and "deu" all match.
+
+    Args:
+        lang: Language code to find (any ISO 639 format).
+        preferences: Ordered tuple of preferred language codes.
+
+    Returns:
+        Index in preferences if found, len(preferences) otherwise.
+    """
+    for i, pref_lang in enumerate(preferences):
+        if languages_match(lang, pref_lang):
+            return i
+    return len(preferences)
 
 
 def classify_track(
@@ -91,9 +113,11 @@ def classify_track(
                 return TrackType.AUDIO_COMMENTARY
 
         # Check if language is in preference list
+        # Use languages_match() to handle different ISO standards
         lang = track.language or "und"
-        if lang in policy.audio_language_preference:
-            return TrackType.AUDIO_MAIN
+        for pref_lang in policy.audio_language_preference:
+            if languages_match(lang, pref_lang):
+                return TrackType.AUDIO_MAIN
         return TrackType.AUDIO_ALTERNATE
 
     if track_type == "subtitle":
@@ -153,15 +177,15 @@ def compute_desired_order(
         lang = track.language or "und"
 
         if classification == TrackType.AUDIO_MAIN:
-            try:
-                secondary = list(policy.audio_language_preference).index(lang)
-            except ValueError:
-                secondary = len(policy.audio_language_preference)
+            # Use languages_match() to find preference index
+            secondary = _find_language_preference_index(
+                lang, policy.audio_language_preference
+            )
         elif classification == TrackType.SUBTITLE_MAIN:
-            try:
-                secondary = list(policy.subtitle_language_preference).index(lang)
-            except ValueError:
-                secondary = len(policy.subtitle_language_preference)
+            # Use languages_match() to find preference index
+            secondary = _find_language_preference_index(
+                lang, policy.subtitle_language_preference
+            )
 
         return (primary, secondary, track.index)
 
@@ -257,10 +281,11 @@ def _find_preferred_track(
         return tracks[0] if tracks else None
 
     # Find first track matching language preference
+    # Use languages_match() to handle different ISO standards
     for lang in language_preference:
         for track in non_commentary:
             track_lang = track.language or "und"
-            if track_lang == lang:
+            if languages_match(track_lang, lang):
                 return track
 
     # Fall back to first non-commentary track
@@ -324,17 +349,21 @@ def compute_language_updates(
         current_lang = track.language or "und"
         detected_lang = tr_result.detected_language
 
-        # Skip if language already matches
-        if current_lang == detected_lang:
+        # Skip if language already matches (cross-standard comparison)
+        # This handles cases where "ger" == "de" == "deu" (all German)
+        if languages_match(current_lang, detected_lang):
             continue
 
         # Get track index for output (TrackRecord has track_index, TrackInfo has index)
         track_index = getattr(track, "track_index", getattr(track, "index", None))
 
+        # Normalize detected language to project standard before storing
+        detected_lang_normalized = normalize_language(detected_lang)
+
         # Only update if current language is undefined or explicitly differs
         # This prevents overwriting known-correct language tags
-        if current_lang == "und" or current_lang != detected_lang:
-            result[track_index] = detected_lang
+        if current_lang == "und" or not languages_match(current_lang, detected_lang):
+            result[track_index] = detected_lang_normalized
 
     return result
 

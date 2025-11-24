@@ -17,9 +17,16 @@ from video_policy_orchestrator.db.models import (
 )
 from video_policy_orchestrator.transcription.audio_extractor import (
     extract_audio_stream,
+    get_file_duration,
     is_ffmpeg_available,
 )
 from video_policy_orchestrator.transcription.interface import TranscriptionError
+from video_policy_orchestrator.transcription.models import detect_commentary_type
+from video_policy_orchestrator.transcription.multi_sample import (
+    AggregatedResult,
+    MultiSampleConfig,
+    smart_detect,
+)
 from video_policy_orchestrator.transcription.registry import (
     PluginNotFoundError,
     get_registry,
@@ -71,6 +78,24 @@ def transcribe_group() -> None:
     is_flag=True,
     help="Output results in JSON format",
 )
+@click.option(
+    "--samples",
+    type=int,
+    default=3,
+    help="Maximum number of audio samples to analyze (default: 3)",
+)
+@click.option(
+    "--sample-duration",
+    type=int,
+    default=30,
+    help="Duration of each audio sample in seconds (default: 30)",
+)
+@click.option(
+    "--confidence-threshold",
+    type=float,
+    default=0.85,
+    help="Confidence level to stop sampling early (default: 0.85)",
+)
 @click.pass_context
 def detect_command(
     ctx: click.Context,
@@ -81,14 +106,303 @@ def detect_command(
     threshold: float,
     dry_run: bool,
     output_json: bool,
+    samples: int,
+    sample_duration: int,
+    confidence_threshold: float,
 ) -> None:
-    """Detect spoken language in audio tracks.
+    """Detect spoken language in audio tracks with full transcription.
 
-    Analyzes audio tracks in the specified file and reports detected
-    languages with confidence scores.
+    Performs full transcription to detect language and extract a transcript
+    sample. This is more accurate but slower than 'quick' detection.
 
     Use --update to apply detected languages to the file's metadata.
     Use --dry-run with --update to preview changes without applying them.
+
+    PATH is the path to a video file to analyze.
+    """
+    conn: sqlite3.Connection | None = ctx.obj.get("db_conn")
+    if conn is None:
+        click.echo("Error: Database connection not available", err=True)
+        raise SystemExit(1)
+
+    # Check ffmpeg availability
+    if not is_ffmpeg_available():
+        click.echo(
+            "Error: ffmpeg not found. Please install ffmpeg and ensure it's in PATH.",
+            err=True,
+        )
+        raise SystemExit(1)
+
+    # Get plugin
+    registry = get_registry()
+    try:
+        if plugin:
+            transcriber = registry.get(plugin)
+        else:
+            transcriber = registry.get_default()
+            if transcriber is None:
+                click.echo(
+                    "Error: No transcription plugins available. "
+                    "Install openai-whisper for local transcription.",
+                    err=True,
+                )
+                raise SystemExit(1)
+    except PluginNotFoundError as e:
+        click.echo(f"Error: {e}", err=True)
+        raise SystemExit(1)
+
+    # Get file from database
+    file_record = get_file_by_path(conn, str(path.resolve()))
+    if file_record is None:
+        click.echo(
+            f"Error: File not found in database. Run 'vpo scan' first: {path}",
+            err=True,
+        )
+        raise SystemExit(1)
+
+    # Get audio tracks
+    tracks = get_tracks_for_file(conn, file_record.id)
+    audio_tracks = [t for t in tracks if t.track_type == "audio"]
+
+    if not audio_tracks:
+        click.echo(f"No audio tracks found in: {path}", err=True)
+        raise SystemExit(1)
+
+    results = []
+
+    # Get file duration for multi-sample detection
+    try:
+        file_duration = get_file_duration(Path(file_record.path))
+        logger.debug("File duration: %.1f seconds", file_duration)
+    except TranscriptionError as e:
+        logger.warning("Could not determine file duration: %s", e)
+        file_duration = 0.0  # Will fall back to single sample
+
+    # Create multi-sample config from CLI options
+    multi_sample_config = MultiSampleConfig(
+        max_samples=samples,
+        sample_duration=sample_duration,
+        confidence_threshold=confidence_threshold,
+    )
+
+    for track in audio_tracks:
+        # Check for existing result
+        existing = get_transcription_result(conn, track.id)
+        if existing and not force:
+            if output_json:
+                results.append(_format_result_json(track, existing, skipped=True))
+            else:
+                click.echo(
+                    f"Track {track.track_index} ({track.codec}): "
+                    f"Already detected - {existing.detected_language} "
+                    f"({existing.confidence_score:.1%} confidence). "
+                    f"Use --force to re-run."
+                )
+            continue
+
+        if not output_json:
+            click.echo(f"Processing track {track.track_index} ({track.codec})...")
+
+        # Use incumbent language from track metadata for bias
+        incumbent_language = track.language if track.language != "und" else None
+
+        # Perform multi-sample smart detection
+        try:
+            logger.info(
+                "Starting multi-sample detection",
+                extra={
+                    "file": str(path),
+                    "track_index": track.track_index,
+                    "codec": track.codec,
+                    "max_samples": samples,
+                    "incumbent_language": incumbent_language,
+                },
+            )
+            aggregated = smart_detect(
+                file_path=Path(file_record.path),
+                track_index=track.track_index,
+                track_duration=file_duration,
+                transcriber=transcriber,
+                config=multi_sample_config,
+                incumbent_language=incumbent_language,
+            )
+            logger.info(
+                "Multi-sample detection complete",
+                extra={
+                    "track_index": track.track_index,
+                    "detected_language": aggregated.language,
+                    "confidence": aggregated.confidence,
+                    "samples_taken": aggregated.samples_taken,
+                },
+            )
+        except TranscriptionError as e:
+            logger.warning(
+                "Multi-sample detection failed",
+                extra={
+                    "file": str(path),
+                    "track_index": track.track_index,
+                    "error": str(e),
+                },
+            )
+            if output_json:
+                results.append(
+                    {
+                        "track_index": track.track_index,
+                        "codec": track.codec,
+                        "error": str(e),
+                    }
+                )
+            else:
+                click.echo(f"  Error during detection: {e}", err=True)
+            continue
+
+        # Determine track type from metadata and transcript
+        track_type = detect_commentary_type(track.title, aggregated.transcript_sample)
+
+        # Store result
+        now = datetime.now(timezone.utc).isoformat()
+        record = TranscriptionResultRecord(
+            id=None,
+            track_id=track.id,
+            detected_language=aggregated.language,
+            confidence_score=aggregated.confidence,
+            track_type=track_type.value,
+            transcript_sample=aggregated.transcript_sample,
+            plugin_name=transcriber.name,
+            created_at=existing.created_at if existing else now,
+            updated_at=now,
+        )
+        upsert_transcription_result(conn, record)
+        logger.debug(
+            "Transcription result stored",
+            extra={"track_id": track.id, "track_index": track.track_index},
+        )
+
+        if output_json:
+            results.append(
+                _format_result_json_with_samples(
+                    track, record, aggregated, skipped=False
+                )
+            )
+        else:
+            # Display result
+            current_lang = track.language or "und"
+            detected_lang = aggregated.language or "unknown"
+            confidence = aggregated.confidence
+
+            click.echo(f"  Current language: {current_lang}")
+            click.echo(
+                f"  Detected language: {detected_lang} "
+                f"({confidence:.1%}, {aggregated.samples_taken} sample(s))"
+            )
+
+            # Show individual sample details if multiple samples taken
+            if aggregated.samples_taken > 1:
+                for i, sample in enumerate(aggregated.sample_results, 1):
+                    click.echo(
+                        f"    Sample {i} @ {sample.position:.0f}s: "
+                        f"{sample.language} ({sample.confidence:.1%})"
+                    )
+
+            if current_lang != detected_lang and current_lang != "und":
+                click.echo(
+                    "  Note: Current and detected languages differ. "
+                    "Use --update to apply detected language."
+                )
+
+    if output_json:
+        click.echo(json.dumps({"file": str(path), "tracks": results}, indent=2))
+
+    # Handle --update flag to apply detected languages
+    if update:
+        updates_to_apply = []
+
+        # Collect tracks that need updating
+        for track in audio_tracks:
+            tr_result = get_transcription_result(conn, track.id)
+            if tr_result is None:
+                continue
+
+            # Check confidence threshold
+            if tr_result.confidence_score < threshold:
+                if not output_json:
+                    click.echo(
+                        f"Skipping track {track.track_index}: "
+                        f"confidence {tr_result.confidence_score:.1%} "
+                        f"below threshold {threshold:.1%}"
+                    )
+                continue
+
+            # Check if update is needed
+            current_lang = track.language or "und"
+            detected_lang = tr_result.detected_language
+
+            if detected_lang and current_lang != detected_lang:
+                updates_to_apply.append(
+                    {
+                        "track": track,
+                        "current": current_lang,
+                        "detected": detected_lang,
+                        "confidence": tr_result.confidence_score,
+                    }
+                )
+
+        if not updates_to_apply:
+            if not output_json:
+                click.echo("\nNo language updates needed.")
+            return
+
+        if not output_json:
+            click.echo(f"\nLanguage updates ({len(updates_to_apply)} track(s)):")
+            for u in updates_to_apply:
+                click.echo(
+                    f"  Track {u['track'].track_index}: "
+                    f"{u['current']} → {u['detected']} ({u['confidence']:.1%})"
+                )
+
+        if dry_run:
+            if not output_json:
+                click.echo("\n[Dry-run mode - no changes applied]")
+            return
+
+        # Apply updates using mkvpropedit
+        _apply_language_updates(path, updates_to_apply, output_json)
+
+
+@transcribe_group.command(name="quick")
+@click.argument("path", type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Re-run detection even if results already exist",
+)
+@click.option(
+    "--plugin",
+    type=str,
+    default=None,
+    help="Transcription plugin to use (default: auto-detect)",
+)
+@click.option(
+    "--json",
+    "output_json",
+    is_flag=True,
+    help="Output results in JSON format",
+)
+@click.pass_context
+def quick_command(
+    ctx: click.Context,
+    path: Path,
+    force: bool,
+    plugin: str | None,
+    output_json: bool,
+) -> None:
+    """Quick language detection without full transcription.
+
+    Performs fast language-only detection by analyzing a 30-second audio
+    sample. This is faster than 'detect' but does not extract transcript
+    samples.
+
+    Use 'vpo transcribe detect' for full transcription with samples.
 
     PATH is the path to a video file to analyze.
     """
@@ -163,7 +477,7 @@ def detect_command(
                 click.echo(f"Processing track {track.track_index} ({track.codec})...")
 
             logger.info(
-                "Extracting audio for language detection",
+                "Extracting audio for quick language detection",
                 extra={
                     "file": str(path),
                     "track_index": track.track_index,
@@ -195,15 +509,15 @@ def detect_command(
                 click.echo(f"  Error extracting audio: {e}", err=True)
             continue
 
-        # Detect language
+        # Quick language detection (no full transcription)
         try:
             logger.debug(
-                "Running language detection",
+                "Running quick language detection",
                 extra={"plugin": transcriber.name, "track_index": track.track_index},
             )
             result = transcriber.detect_language(audio_data)
             logger.info(
-                "Language detection complete",
+                "Quick language detection complete",
                 extra={
                     "track_index": track.track_index,
                     "detected_language": result.detected_language,
@@ -232,7 +546,7 @@ def detect_command(
                 click.echo(f"  Error detecting language: {e}", err=True)
             continue
 
-        # Store result
+        # Store result (no transcript_sample for quick detection)
         now = datetime.now(timezone.utc).isoformat()
         record = TranscriptionResultRecord(
             id=None,
@@ -240,14 +554,14 @@ def detect_command(
             detected_language=result.detected_language,
             confidence_score=result.confidence_score,
             track_type=result.track_type.value,
-            transcript_sample=result.transcript_sample,
+            transcript_sample=None,  # Quick detection doesn't extract samples
             plugin_name=transcriber.name,
             created_at=existing.created_at if existing else now,
             updated_at=now,
         )
         upsert_transcription_result(conn, record)
         logger.debug(
-            "Transcription result stored",
+            "Quick detection result stored",
             extra={"track_id": track.id, "track_index": track.track_index},
         )
 
@@ -262,69 +576,8 @@ def detect_command(
             click.echo(f"  Current language: {current_lang}")
             click.echo(f"  Detected language: {detected_lang} ({confidence:.1%})")
 
-            if current_lang != detected_lang and current_lang != "und":
-                click.echo(
-                    "  Note: Current and detected languages differ. "
-                    "Use --update to apply detected language."
-                )
-
     if output_json:
         click.echo(json.dumps({"file": str(path), "tracks": results}, indent=2))
-
-    # Handle --update flag to apply detected languages
-    if update:
-        updates_to_apply = []
-
-        # Collect tracks that need updating
-        for track in audio_tracks:
-            tr_result = get_transcription_result(conn, track.id)
-            if tr_result is None:
-                continue
-
-            # Check confidence threshold
-            if tr_result.confidence_score < threshold:
-                if not output_json:
-                    click.echo(
-                        f"Skipping track {track.track_index}: "
-                        f"confidence {tr_result.confidence_score:.1%} "
-                        f"below threshold {threshold:.1%}"
-                    )
-                continue
-
-            # Check if update is needed
-            current_lang = track.language or "und"
-            detected_lang = tr_result.detected_language
-
-            if detected_lang and current_lang != detected_lang:
-                updates_to_apply.append(
-                    {
-                        "track": track,
-                        "current": current_lang,
-                        "detected": detected_lang,
-                        "confidence": tr_result.confidence_score,
-                    }
-                )
-
-        if not updates_to_apply:
-            if not output_json:
-                click.echo("\nNo language updates needed.")
-            return
-
-        if not output_json:
-            click.echo(f"\nLanguage updates ({len(updates_to_apply)} track(s)):")
-            for u in updates_to_apply:
-                click.echo(
-                    f"  Track {u['track'].track_index}: "
-                    f"{u['current']} → {u['detected']} ({u['confidence']:.1%})"
-                )
-
-        if dry_run:
-            if not output_json:
-                click.echo("\n[Dry-run mode - no changes applied]")
-            return
-
-        # Apply updates using mkvpropedit
-        _apply_language_updates(path, updates_to_apply, output_json)
 
 
 def _format_result_json(
@@ -341,6 +594,39 @@ def _format_result_json(
         "plugin_name": result.plugin_name,
         "skipped": skipped,
     }
+
+
+def _format_result_json_with_samples(
+    track,
+    result: TranscriptionResultRecord,
+    aggregated: AggregatedResult,
+    skipped: bool,
+) -> dict:
+    """Format a detection result with sample details for JSON output."""
+    output = {
+        "track_index": track.track_index,
+        "codec": track.codec,
+        "current_language": track.language,
+        "detected_language": result.detected_language,
+        "confidence_score": result.confidence_score,
+        "track_type": result.track_type,
+        "plugin_name": result.plugin_name,
+        "skipped": skipped,
+        "samples_taken": aggregated.samples_taken,
+    }
+
+    # Include individual sample details
+    if aggregated.sample_results:
+        output["samples"] = [
+            {
+                "position": sample.position,
+                "language": sample.language,
+                "confidence": sample.confidence,
+            }
+            for sample in aggregated.sample_results
+        ]
+
+    return output
 
 
 def _apply_language_updates(path: Path, updates: list[dict], output_json: bool) -> None:

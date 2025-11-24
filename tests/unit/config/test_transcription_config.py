@@ -17,8 +17,12 @@ class TestTranscriptionPluginConfig:
 
         assert config.plugin is None
         assert config.model_size == "base"
-        assert config.sample_duration == 60
+        assert config.sample_duration == 30
         assert config.gpu_enabled is True
+        # Multi-sample detection defaults
+        assert config.max_samples == 3
+        assert config.confidence_threshold == 0.85
+        assert config.incumbent_bonus == 0.15
 
     def test_custom_values(self):
         """Test custom configuration values."""
@@ -55,6 +59,26 @@ class TestTranscriptionPluginConfig:
         """Test that zero sample duration is valid (full track)."""
         config = TranscriptionPluginConfig(sample_duration=0)
         assert config.sample_duration == 0
+
+    def test_max_samples_validation(self):
+        """Test that max_samples must be at least 1."""
+        with pytest.raises(ValueError, match="max_samples must be at least 1"):
+            TranscriptionPluginConfig(max_samples=0)
+
+    def test_confidence_threshold_validation_low(self):
+        """Test that confidence_threshold must be >= 0."""
+        with pytest.raises(ValueError, match="confidence_threshold must be between"):
+            TranscriptionPluginConfig(confidence_threshold=-0.1)
+
+    def test_confidence_threshold_validation_high(self):
+        """Test that confidence_threshold must be <= 1."""
+        with pytest.raises(ValueError, match="confidence_threshold must be between"):
+            TranscriptionPluginConfig(confidence_threshold=1.1)
+
+    def test_incumbent_bonus_validation(self):
+        """Test that incumbent_bonus must be non-negative."""
+        with pytest.raises(ValueError, match="incumbent_bonus must be non-negative"):
+            TranscriptionPluginConfig(incumbent_bonus=-0.1)
 
 
 class TestVPOConfigTranscription:
