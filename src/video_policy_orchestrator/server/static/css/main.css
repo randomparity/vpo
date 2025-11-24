@@ -246,10 +246,17 @@
         background-color: rgba(239, 68, 68, 0.15);
     }
 
-    /* Policy editor validation errors */
+    /* Policy editor validation errors - dark mode */
     .validation-errors {
-        background-color: rgba(239, 68, 68, 0.9);
-        color: #fff;
+        background-color: #1a0808;
+        border: 2px solid #ff6b6b;
+        color: #ffcccc;
+    }
+
+    /* Status badges dark mode */
+    .status-badge {
+        background-color: var(--color-sidebar-bg);
+        color: var(--color-text);
     }
 }
 
@@ -3024,6 +3031,77 @@ html, body {
     top: 0;
     z-index: 100;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+}
+
+.error-close {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.error-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.error-close:focus {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+/* Real-time validation states for inputs */
+input.invalid,
+textarea.invalid {
+    border-color: var(--color-error);
+    background-color: rgba(239, 68, 68, 0.05);
+}
+
+input.invalid:focus,
+textarea.invalid:focus {
+    outline-color: var(--color-error);
+    border-color: var(--color-error);
+}
+
+input.valid {
+    border-color: #28a745;
+    background-color: rgba(40, 167, 69, 0.05);
+}
+
+input.valid:focus {
+    outline-color: #28a745;
+    border-color: #28a745;
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin-right: var(--spacing-xs);
+    vertical-align: middle;
 }
 
 /* Commentary Patterns (US4) */

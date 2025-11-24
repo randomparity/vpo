@@ -162,9 +162,10 @@
         <textarea
             id="yaml-preview"
             class="yaml-preview-textarea"
-            readonly
+            aria-readonly="true"
             aria-label="YAML policy preview"
             spellcheck="false"
+            tabindex="0"
         ></textarea>
     </aside>
 
@@ -176,5 +177,7 @@
 <script>
     window.POLICY_DATA = {{ policy.to_dict() | tojson }};
 </script>
+<link rel="stylesheet" href="/static/css/components/confirmation-modal.css">
+<script src="/static/js/components/confirmation-modal.js"></script>
 <script type="module" src="/static/js/policy-editor/policy-editor.js"></script>
 {% endblock %}

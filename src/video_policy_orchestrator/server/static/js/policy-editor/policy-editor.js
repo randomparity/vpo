@@ -112,16 +112,32 @@
             upBtn.className = 'btn-icon';
             upBtn.innerHTML = '↑';
             upBtn.title = 'Move up';
+            upBtn.setAttribute('aria-label', `Move ${trackTypeLabels[trackType]} up`);
+            upBtn.tabIndex = 0;
             upBtn.disabled = index === 0;
             upBtn.addEventListener('click', () => moveTrackUp(index));
+            upBtn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    moveTrackUp(index);
+                }
+            });
 
             const downBtn = document.createElement('button');
             downBtn.type = 'button';
             downBtn.className = 'btn-icon';
             downBtn.innerHTML = '↓';
             downBtn.title = 'Move down';
+            downBtn.setAttribute('aria-label', `Move ${trackTypeLabels[trackType]} down`);
+            downBtn.tabIndex = 0;
             downBtn.disabled = index === formState.track_order.length - 1;
             downBtn.addEventListener('click', () => moveTrackDown(index));
+            downBtn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    moveTrackDown(index);
+                }
+            });
 
             buttons.appendChild(upBtn);
             buttons.appendChild(downBtn);
@@ -165,7 +181,7 @@
         if (languages.length === 0) {
             const emptyMsg = document.createElement('li');
             emptyMsg.className = 'language-list-empty';
-            emptyMsg.textContent = 'No languages configured';
+            emptyMsg.textContent = 'No languages yet. Click "Add" above to add your first language.';
             listEl.appendChild(emptyMsg);
             return;
         }
@@ -186,23 +202,47 @@
             upBtn.className = 'btn-icon';
             upBtn.innerHTML = '↑';
             upBtn.title = 'Move up';
+            upBtn.setAttribute('aria-label', `Move ${lang} up`);
+            upBtn.tabIndex = 0;
             upBtn.disabled = index === 0;
             upBtn.addEventListener('click', () => moveLanguageUp(listType, index));
+            upBtn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    moveLanguageUp(listType, index);
+                }
+            });
 
             const downBtn = document.createElement('button');
             downBtn.type = 'button';
             downBtn.className = 'btn-icon';
             downBtn.innerHTML = '↓';
             downBtn.title = 'Move down';
+            downBtn.setAttribute('aria-label', `Move ${lang} down`);
+            downBtn.tabIndex = 0;
             downBtn.disabled = index === languages.length - 1;
             downBtn.addEventListener('click', () => moveLanguageDown(listType, index));
+            downBtn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    moveLanguageDown(listType, index);
+                }
+            });
 
             const removeBtn = document.createElement('button');
             removeBtn.type = 'button';
             removeBtn.className = 'btn-icon btn-remove';
             removeBtn.innerHTML = '×';
             removeBtn.title = 'Remove';
+            removeBtn.setAttribute('aria-label', `Remove ${lang}`);
+            removeBtn.tabIndex = 0;
             removeBtn.addEventListener('click', () => removeLanguage(listType, index));
+            removeBtn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    removeLanguage(listType, index);
+                }
+            });
 
             buttons.appendChild(upBtn);
             buttons.appendChild(downBtn);
@@ -300,7 +340,7 @@
         if (formState.commentary_patterns.length === 0) {
             const emptyMsg = document.createElement('li');
             emptyMsg.className = 'patterns-list-empty';
-            emptyMsg.textContent = 'No patterns configured';
+            emptyMsg.textContent = 'No patterns yet. Click "Add Pattern" above to add your first pattern.';
             commentaryPatternsList.appendChild(emptyMsg);
             return;
         }
@@ -321,7 +361,15 @@
             removeBtn.className = 'btn-icon btn-remove';
             removeBtn.innerHTML = '×';
             removeBtn.title = 'Remove pattern';
+            removeBtn.setAttribute('aria-label', `Remove pattern ${pattern}`);
+            removeBtn.tabIndex = 0;
             removeBtn.addEventListener('click', () => removeCommentaryPattern(index));
+            removeBtn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    removeCommentaryPattern(index);
+                }
+            });
 
             buttons.appendChild(removeBtn);
 
@@ -518,16 +566,42 @@
      * Show error message
      */
     function showError(message) {
-        validationErrors.textContent = message;
+        // Clear previous content
+        validationErrors.innerHTML = '';
+
+        // Create message text
+        const messageText = document.createElement('span');
+        messageText.textContent = message;
+        validationErrors.appendChild(messageText);
+
+        // Add close button if not already present
+        if (!validationErrors.querySelector('.error-close')) {
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'error-close';
+            closeBtn.innerHTML = '×';
+            closeBtn.setAttribute('aria-label', 'Dismiss error');
+            closeBtn.tabIndex = 0;
+            closeBtn.onclick = () => {
+                validationErrors.style.display = 'none';
+            };
+            closeBtn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    validationErrors.style.display = 'none';
+                }
+            });
+            validationErrors.appendChild(closeBtn);
+        }
+
         validationErrors.style.display = 'block';
+        validationErrors.setAttribute('role', 'alert');
+
+        // Focus the error for screen readers
+        validationErrors.tabIndex = -1;
+        validationErrors.focus();
 
         // Scroll to the very top of the page to ensure error is visible
-        // Using window.scrollTo for more control
         window.scrollTo({ top: 0, behavior: 'smooth' });
-
-        setTimeout(() => {
-            validationErrors.style.display = 'none';
-        }, 5000);
     }
 
     /**
@@ -555,7 +629,9 @@
 
         formState.isSaving = true;
         updateSaveButtonState();
-        saveStatus.textContent = 'Saving...';
+        saveBtn.innerHTML = '<span class="spinner"></span> Saving...';
+        saveBtn.setAttribute('aria-busy', 'true');
+        saveStatus.textContent = '';
 
         const requestData = {
             track_order: formState.track_order,
@@ -585,6 +661,8 @@
                     showError(errorData.error || 'Failed to save policy');
                 }
                 formState.isSaving = false;
+                saveBtn.innerHTML = 'Save Changes';
+                saveBtn.setAttribute('aria-busy', 'false');
                 updateSaveButtonState();
                 return;
             }
@@ -593,6 +671,8 @@
             formState.last_modified = updatedPolicy.last_modified;
             formState.isDirty = false;
             formState.isSaving = false;
+            saveBtn.innerHTML = 'Save Changes';
+            saveBtn.setAttribute('aria-busy', 'false');
             updateSaveButtonState();
             showSaveStatus('Policy saved successfully');
 
@@ -600,7 +680,32 @@
             console.error('Save error:', error);
             showError('Network error: ' + error.message);
             formState.isSaving = false;
+            saveBtn.innerHTML = 'Save Changes';
+            saveBtn.setAttribute('aria-busy', 'false');
             updateSaveButtonState();
+        }
+    }
+
+    /**
+     * Validate language code format in real-time
+     */
+    function validateLanguageInput(input) {
+        const value = input.value.trim().toLowerCase();
+        if (value.length === 0) {
+            input.classList.remove('invalid', 'valid');
+            input.removeAttribute('aria-invalid');
+            return;
+        }
+
+        const ISO_639_PATTERN = /^[a-z]{2,3}$/;
+        if (!ISO_639_PATTERN.test(value)) {
+            input.classList.add('invalid');
+            input.classList.remove('valid');
+            input.setAttribute('aria-invalid', 'true');
+        } else {
+            input.classList.add('valid');
+            input.classList.remove('invalid');
+            input.setAttribute('aria-invalid', 'false');
         }
     }
 
@@ -608,6 +713,16 @@
      * Initialize event listeners
      */
     function initEventListeners() {
+        // Audio language real-time validation
+        audioLangInput.addEventListener('input', () => {
+            validateLanguageInput(audioLangInput);
+        });
+
+        // Subtitle language real-time validation
+        subtitleLangInput.addEventListener('input', () => {
+            validateLanguageInput(subtitleLangInput);
+        });
+
         // Audio language add
         audioLangAddBtn.addEventListener('click', () => {
             addLanguage('audio', audioLangInput.value);
@@ -687,9 +802,17 @@
         });
 
         // Cancel button
-        cancelBtn.addEventListener('click', () => {
+        cancelBtn.addEventListener('click', async () => {
             if (formState.isDirty) {
-                if (confirm('You have unsaved changes. Are you sure you want to discard them?')) {
+                const confirmed = await window.ConfirmationModal.show(
+                    'You have unsaved changes. Are you sure you want to discard them?',
+                    {
+                        title: 'Unsaved Changes',
+                        confirmText: 'Discard',
+                        cancelText: 'Keep Editing'
+                    }
+                );
+                if (confirmed) {
                     window.location.href = '/policies';
                 }
             } else {
@@ -704,6 +827,17 @@
                 e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
             }
         });
+
+        // Make YAML preview read-only (prevent editing while maintaining keyboard access)
+        if (yamlPreview) {
+            yamlPreview.addEventListener('keydown', (e) => {
+                // Allow navigation keys but prevent typing/editing
+                const allowedKeys = ['Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown'];
+                if (!allowedKeys.includes(e.key) && !e.ctrlKey && !e.metaKey) {
+                    e.preventDefault();
+                }
+            });
+        }
     }
 
     /**
