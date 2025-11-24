@@ -1353,6 +1353,183 @@ def highlight_keywords_in_transcript(
     return escaped, is_truncated
 
 
+@dataclass
+class TranscriptionDetailItem:
+    """Full transcription data for detail view.
+
+    Attributes:
+        id: Transcription result ID (used in URL).
+        track_id: Associated track ID.
+        detected_language: Detected language code.
+        confidence_score: Confidence as float (0.0-1.0).
+        confidence_level: Categorical level ("high", "medium", "low").
+        track_classification: Track type ("main", "commentary", "alternate").
+        transcript_sample: The transcription text.
+        transcript_html: HTML with keyword highlighting (for commentary).
+        transcript_truncated: True if text exceeds display threshold.
+        plugin_name: Name of transcription plugin.
+        created_at: ISO-8601 UTC timestamp.
+        updated_at: ISO-8601 UTC timestamp.
+        track_index: Track index within file (0-based).
+        track_codec: Audio codec name.
+        original_language: Original language tag from track.
+        track_title: Track title (may indicate commentary).
+        channels: Number of audio channels.
+        channel_layout: Human-readable layout (e.g., "5.1").
+        is_default: Whether track is marked as default.
+        is_forced: Whether track is marked as forced.
+        is_commentary: True if classified as commentary.
+        classification_source: "metadata" | "transcript" | None.
+        matched_keywords: List of matched commentary keywords/patterns.
+        file_id: Parent file ID.
+        filename: Parent filename.
+        file_path: Parent file path.
+    """
+
+    # Transcription data
+    id: int
+    track_id: int
+    detected_language: str | None
+    confidence_score: float
+    confidence_level: str  # "high", "medium", "low"
+    track_classification: str  # "main", "commentary", "alternate"
+    transcript_sample: str | None
+    transcript_html: str | None  # HTML with keyword highlighting
+    transcript_truncated: bool
+    plugin_name: str
+    created_at: str
+    updated_at: str
+    # Track metadata
+    track_index: int
+    track_codec: str | None
+    original_language: str | None
+    track_title: str | None
+    channels: int | None
+    channel_layout: str | None
+    is_default: bool
+    is_forced: bool
+    # Classification reasoning
+    is_commentary: bool
+    classification_source: str | None  # "metadata", "transcript", or None
+    matched_keywords: list[str]
+    # Parent file
+    file_id: int
+    filename: str
+    file_path: str
+
+    @property
+    def confidence_percent(self) -> int:
+        """Return confidence as integer percentage (0-100)."""
+        return int(self.confidence_score * 100)
+
+    @property
+    def is_low_confidence(self) -> bool:
+        """Return True if confidence < 0.3 (warning threshold)."""
+        return self.confidence_score < 0.3
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "id": self.id,
+            "track_id": self.track_id,
+            "detected_language": self.detected_language,
+            "confidence_score": self.confidence_score,
+            "confidence_level": self.confidence_level,
+            "confidence_percent": self.confidence_percent,
+            "is_low_confidence": self.is_low_confidence,
+            "track_classification": self.track_classification,
+            "transcript_sample": self.transcript_sample,
+            "transcript_html": self.transcript_html,
+            "transcript_truncated": self.transcript_truncated,
+            "plugin_name": self.plugin_name,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "track_index": self.track_index,
+            "track_codec": self.track_codec,
+            "original_language": self.original_language,
+            "track_title": self.track_title,
+            "channels": self.channels,
+            "channel_layout": self.channel_layout,
+            "is_default": self.is_default,
+            "is_forced": self.is_forced,
+            "is_commentary": self.is_commentary,
+            "classification_source": self.classification_source,
+            "matched_keywords": self.matched_keywords,
+            "file_id": self.file_id,
+            "filename": self.filename,
+            "file_path": self.file_path,
+        }
+
+
+@dataclass
+class TranscriptionDetailResponse:
+    """API response for /api/transcriptions/{id}.
+
+    Attributes:
+        transcription: The transcription detail data.
+    """
+
+    transcription: TranscriptionDetailItem
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {"transcription": self.transcription.to_dict()}
+
+
+@dataclass
+class TranscriptionDetailContext:
+    """Template context for transcription_detail.html.
+
+    Attributes:
+        transcription: The transcription detail item.
+        back_url: URL to return to previous page.
+        back_label: Label for back link ("File Detail" or "Transcriptions").
+    """
+
+    transcription: TranscriptionDetailItem
+    back_url: str
+    back_label: str
+
+    @classmethod
+    def from_transcription_and_request(
+        cls,
+        transcription: TranscriptionDetailItem,
+        referer: str | None,
+    ) -> TranscriptionDetailContext:
+        """Create context preserving navigation state.
+
+        Args:
+            transcription: The transcription detail item.
+            referer: HTTP Referer header value, if present.
+
+        Returns:
+            TranscriptionDetailContext with appropriate back URL.
+        """
+        # Default: back to parent file detail
+        back_url = f"/library/{transcription.file_id}"
+        back_label = "File Detail"
+
+        # If came from transcriptions list, go back there
+        if referer:
+            if (
+                "/transcriptions" in referer
+                and f"/transcriptions/{transcription.id}" not in referer
+            ):
+                if referer.startswith("/"):
+                    back_url = referer
+                else:
+                    idx = referer.find("/transcriptions")
+                    if idx != -1:
+                        back_url = referer[idx:]
+                back_label = "Transcriptions"
+
+        return cls(
+            transcription=transcription,
+            back_url=back_url,
+            back_label=back_label,
+        )
+
+
 def group_tracks_by_type(
     tracks: list,
     transcriptions: dict,

@@ -40,6 +40,9 @@ from video_policy_orchestrator.server.ui.models import (
     ScanErrorItem,
     ScanErrorsResponse,
     TemplateContext,
+    TranscriptionDetailContext,
+    TranscriptionDetailItem,
+    TranscriptionDetailResponse,
     TranscriptionFilterParams,
     TranscriptionListItem,
     TranscriptionListResponse,
@@ -47,9 +50,11 @@ from video_policy_orchestrator.server.ui.models import (
     format_detected_languages,
     format_file_size,
     generate_summary_text,
+    get_classification_reasoning,
     get_confidence_level,
     get_resolution_label,
     group_tracks_by_type,
+    highlight_keywords_in_transcript,
 )
 
 logger = logging.getLogger(__name__)
@@ -1089,6 +1094,193 @@ async def api_transcriptions_handler(request: web.Request) -> web.Response:
     return web.json_response(response.to_dict())
 
 
+# ==========================================================================
+# Transcription Detail View Handlers (022-transcription-detail)
+# ==========================================================================
+
+
+def _build_transcription_detail_item(data: dict) -> TranscriptionDetailItem:
+    """Build TranscriptionDetailItem from database query result.
+
+    Args:
+        data: Dictionary from get_transcription_detail() query.
+
+    Returns:
+        TranscriptionDetailItem ready for API/template use.
+    """
+    track_type = data["track_type"]
+    transcript = data["transcript_sample"]
+
+    # Get classification reasoning
+    classification_source, matched_keywords = get_classification_reasoning(
+        data["title"],
+        transcript,
+        track_type,
+    )
+
+    # Generate highlighted HTML
+    transcript_html, transcript_truncated = highlight_keywords_in_transcript(
+        transcript,
+        track_type,
+    )
+
+    return TranscriptionDetailItem(
+        id=data["id"],
+        track_id=data["track_id"],
+        detected_language=data["detected_language"],
+        confidence_score=data["confidence_score"],
+        confidence_level=get_confidence_level(data["confidence_score"]),
+        track_classification=track_type,
+        transcript_sample=transcript,
+        transcript_html=transcript_html,
+        transcript_truncated=transcript_truncated,
+        plugin_name=data["plugin_name"],
+        created_at=data["created_at"],
+        updated_at=data["updated_at"],
+        track_index=data["track_index"],
+        track_codec=data["codec"],
+        original_language=data["original_language"],
+        track_title=data["title"],
+        channels=data["channels"],
+        channel_layout=data["channel_layout"],
+        is_default=bool(data["is_default"]),
+        is_forced=bool(data["is_forced"]),
+        is_commentary=track_type == "commentary",
+        classification_source=classification_source,
+        matched_keywords=matched_keywords,
+        file_id=data["file_id"],
+        filename=data["filename"],
+        file_path=data["path"],
+    )
+
+
+async def transcription_detail_handler(request: web.Request) -> dict:
+    """Handle GET /transcriptions/{id} - Transcription detail HTML page.
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        Template context dict for rendering.
+
+    Raises:
+        HTTPNotFound: If transcription not found.
+        HTTPBadRequest: If ID format is invalid.
+        HTTPServiceUnavailable: If database not available.
+    """
+    from video_policy_orchestrator.db.connection import DaemonConnectionPool
+    from video_policy_orchestrator.db.models import get_transcription_detail
+
+    transcription_id_str = request.match_info["transcription_id"]
+
+    # Validate ID format (integer)
+    try:
+        transcription_id = int(transcription_id_str)
+        if transcription_id < 1:
+            raise ValueError("Invalid ID")
+    except ValueError:
+        raise web.HTTPBadRequest(reason="Invalid transcription ID format")
+
+    # Get connection pool
+    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
+    if connection_pool is None:
+        raise web.HTTPServiceUnavailable(reason="Database not available")
+
+    # Query transcription from database
+    def _query_transcription():
+        with connection_pool.transaction() as conn:
+            return get_transcription_detail(conn, transcription_id)
+
+    data = await asyncio.to_thread(_query_transcription)
+
+    if data is None:
+        raise web.HTTPNotFound(reason="Transcription not found")
+
+    # Build detail item
+    detail_item = _build_transcription_detail_item(data)
+
+    # Get referer for back navigation
+    referer = request.headers.get("Referer")
+
+    # Create context
+    detail_context = TranscriptionDetailContext.from_transcription_and_request(
+        detail_item, referer
+    )
+
+    context = _create_template_context(
+        active_id="transcriptions",
+        section_title=f"Track #{detail_item.track_index} - {detail_item.filename}",
+    )
+    context["transcription"] = detail_item
+    context["back_url"] = detail_context.back_url
+    context["back_label"] = detail_context.back_label
+
+    return context
+
+
+async def api_transcription_detail_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/transcriptions/{id} - JSON API for transcription detail.
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        JSON response with TranscriptionDetailResponse payload or error.
+    """
+    from video_policy_orchestrator.db.connection import DaemonConnectionPool
+    from video_policy_orchestrator.db.models import get_transcription_detail
+
+    # Check if shutting down
+    lifecycle = request.app.get("lifecycle")
+    if lifecycle and lifecycle.is_shutting_down:
+        return web.json_response(
+            {"error": "Service is shutting down"},
+            status=503,
+        )
+
+    transcription_id_str = request.match_info["transcription_id"]
+
+    # Validate ID format (integer)
+    try:
+        transcription_id = int(transcription_id_str)
+        if transcription_id < 1:
+            raise ValueError("Invalid ID")
+    except ValueError:
+        return web.json_response(
+            {"error": "Invalid transcription ID format"},
+            status=400,
+        )
+
+    # Get connection pool
+    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
+    if connection_pool is None:
+        return web.json_response(
+            {"error": "Database not available"},
+            status=503,
+        )
+
+    # Query transcription from database
+    def _query_transcription():
+        with connection_pool.transaction() as conn:
+            return get_transcription_detail(conn, transcription_id)
+
+    data = await asyncio.to_thread(_query_transcription)
+
+    if data is None:
+        return web.json_response(
+            {"error": "Transcription not found"},
+            status=404,
+        )
+
+    # Build detail item
+    detail_item = _build_transcription_detail_item(data)
+
+    # Build response
+    response = TranscriptionDetailResponse(transcription=detail_item)
+
+    return web.json_response(response.to_dict())
+
+
 async def policies_handler(request: web.Request) -> dict:
     """Handle GET /policies - Policies section page."""
     return _create_template_context(
@@ -1301,6 +1493,16 @@ def setup_ui_routes(app: web.Application) -> None:
     )
     # Transcriptions API route (021-transcriptions-list)
     app.router.add_get("/api/transcriptions", api_transcriptions_handler)
+    # Transcription detail routes (022-transcription-detail)
+    app.router.add_get(
+        "/transcriptions/{transcription_id}",
+        aiohttp_jinja2.template("sections/transcription_detail.html")(
+            transcription_detail_handler
+        ),
+    )
+    app.router.add_get(
+        "/api/transcriptions/{transcription_id}", api_transcription_detail_handler
+    )
     app.router.add_get(
         "/policies",
         aiohttp_jinja2.template("sections/policies.html")(policies_handler),

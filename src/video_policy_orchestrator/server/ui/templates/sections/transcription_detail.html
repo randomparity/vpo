@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="transcription-detail">
+    <!-- Back navigation -->
+    <a href="{{ back_url }}" class="transcription-detail-back">&larr; Back to {{ back_label }}</a>
+
+    <!-- Header section -->
+    <header class="transcription-detail-header">
+        <h1 class="transcription-detail-title">Track #{{ transcription.track_index }} Transcription</h1>
+        <div class="transcription-detail-subtitle">
+            <a href="/library/{{ transcription.file_id }}" class="transcription-detail-file-link">{{ transcription.filename }}</a>
+        </div>
+        <div class="transcription-detail-badges">
+            <span class="classification-badge classification-badge--{{ transcription.track_classification }}">
+                {{ transcription.track_classification }}
+            </span>
+            <span class="confidence-badge confidence-badge--{{ transcription.confidence_level }}">
+                {{ transcription.confidence_percent }}% confidence
+            </span>
+        </div>
+    </header>
+
+    <!-- Low confidence warning (US2) -->
+    {% if transcription.is_low_confidence %}
+    <div class="low-confidence-warning" role="alert">
+        <div class="low-confidence-warning-icon" aria-hidden="true">&#9888;</div>
+        <div class="low-confidence-warning-content">
+            <div class="low-confidence-warning-title">Low Confidence Result</div>
+            <p class="low-confidence-warning-text">
+                The detected language ({{ transcription.detected_language or 'unknown' }}) has a confidence score of {{ transcription.confidence_percent }}%.
+                This result may be inaccurate and should be verified.
+            </p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Detection Results section -->
+    <section class="transcription-detail-section">
+        <h2>Detection Results</h2>
+        <dl class="transcription-detail-dl">
+            <div class="transcription-detail-dl-row">
+                <dt>Detected Language</dt>
+                <dd>{{ transcription.detected_language or '&mdash;' }}</dd>
+            </div>
+            <div class="transcription-detail-dl-row">
+                <dt>Confidence</dt>
+                <dd>
+                    <div class="confidence-display">
+                        <div class="confidence-bar">
+                            <div class="confidence-bar-fill confidence-bar-fill--{{ transcription.confidence_level }}"
+                                 style="width: {{ transcription.confidence_percent }}%"></div>
+                        </div>
+                        <span class="confidence-text confidence-text--{{ transcription.confidence_level }}">
+                            {{ transcription.confidence_percent }}%
+                        </span>
+                    </div>
+                </dd>
+            </div>
+            <div class="transcription-detail-dl-row">
+                <dt>Classification</dt>
+                <dd>{{ transcription.track_classification|title }}</dd>
+            </div>
+            <div class="transcription-detail-dl-row">
+                <dt>Plugin</dt>
+                <dd>{{ transcription.plugin_name }}</dd>
+            </div>
+            <div class="transcription-detail-dl-row">
+                <dt>Analyzed</dt>
+                <dd><time data-timestamp="{{ transcription.created_at }}" datetime="{{ transcription.created_at }}">{{ transcription.created_at }}</time></dd>
+            </div>
+        </dl>
+
+        <!-- Commentary reasoning (US5) -->
+        {% if transcription.is_commentary and transcription.matched_keywords %}
+        <div class="commentary-reasoning">
+            <div class="commentary-reasoning-source">
+                Classified as commentary based on <strong>{{ transcription.classification_source }}</strong>
+            </div>
+            <ul class="commentary-reasoning-keywords">
+                {% for keyword in transcription.matched_keywords %}
+                <li>{{ keyword }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </section>
+
+    <!-- Track Information section -->
+    <section class="transcription-detail-section">
+        <h2>Track Information</h2>
+        <dl class="transcription-detail-dl">
+            <div class="transcription-detail-dl-row">
+                <dt>Track Index</dt>
+                <dd>#{{ transcription.track_index }}</dd>
+            </div>
+            {% if transcription.track_codec %}
+            <div class="transcription-detail-dl-row">
+                <dt>Codec</dt>
+                <dd>{{ transcription.track_codec }}</dd>
+            </div>
+            {% endif %}
+            {% if transcription.original_language %}
+            <div class="transcription-detail-dl-row">
+                <dt>Original Language</dt>
+                <dd>{{ transcription.original_language }}</dd>
+            </div>
+            {% endif %}
+            {% if transcription.track_title %}
+            <div class="transcription-detail-dl-row">
+                <dt>Title</dt>
+                <dd>{{ transcription.track_title }}</dd>
+            </div>
+            {% endif %}
+            {% if transcription.channels %}
+            <div class="transcription-detail-dl-row">
+                <dt>Channels</dt>
+                <dd>{{ transcription.channels }}{% if transcription.channel_layout %} ({{ transcription.channel_layout }}){% endif %}</dd>
+            </div>
+            {% endif %}
+            <div class="transcription-detail-dl-row">
+                <dt>Flags</dt>
+                <dd>
+                    {% if transcription.is_default %}<span class="track-flag track-flag--default">default</span>{% endif %}
+                    {% if transcription.is_forced %}<span class="track-flag track-flag--forced">forced</span>{% endif %}
+                    {% if not transcription.is_default and not transcription.is_forced %}&mdash;{% endif %}
+                </dd>
+            </div>
+        </dl>
+    </section>
+
+    <!-- File Information section -->
+    <section class="transcription-detail-section">
+        <h2>Source File</h2>
+        <dl class="transcription-detail-dl">
+            <div class="transcription-detail-dl-row">
+                <dt>Filename</dt>
+                <dd>
+                    <a href="/library/{{ transcription.file_id }}" class="transcription-detail-file-link">{{ transcription.filename }}</a>
+                </dd>
+            </div>
+            <div class="transcription-detail-dl-row">
+                <dt>Path</dt>
+                <dd class="transcription-detail-path" title="{{ transcription.file_path }}">{{ transcription.file_path }}</dd>
+            </div>
+        </dl>
+    </section>
+
+    <!-- Transcript Sample section (US3, US4) -->
+    <section class="transcript-section">
+        <h2>Transcript Sample</h2>
+        <div class="transcript-container">
+            {% if transcription.transcript_html %}
+            <div class="transcript-text">{{ transcription.transcript_html|safe }}</div>
+            {% else %}
+            <div class="transcript-empty">No transcript sample available</div>
+            {% endif %}
+        </div>
+        {% if transcription.transcript_truncated %}
+        <div class="transcript-truncated-notice">
+            This transcript has been truncated. The full sample exceeds the display limit.
+        </div>
+        {% endif %}
+    </section>
+</div>
+
+<script src="/static/js/transcription-detail.js"></script>
+{% endblock %}

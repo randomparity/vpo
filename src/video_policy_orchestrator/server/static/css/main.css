@@ -1838,6 +1838,304 @@ html, body {
     cursor: not-allowed;
 }
 
+/* ==========================================================================
+   Transcription Detail View Styles (022-transcription-detail)
+   ========================================================================== */
+
+/* Back navigation link */
+.transcription-detail-back {
+    display: inline-block;
+    margin-bottom: var(--spacing-md);
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: var(--font-size-sm);
+    transition: color var(--transition-fast);
+}
+
+.transcription-detail-back:hover {
+    color: var(--color-primary-dark);
+    text-decoration: underline;
+}
+
+/* Header section */
+.transcription-detail-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.transcription-detail-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--color-sidebar-bg);
+}
+
+.transcription-detail-subtitle {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+.transcription-detail-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    align-items: center;
+}
+
+/* Track classification badge */
+.classification-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.classification-badge--main {
+    background-color: rgba(52, 152, 219, 0.15);
+    color: #2563eb;
+}
+
+.classification-badge--commentary {
+    background-color: rgba(245, 158, 11, 0.15);
+    color: #92400e;
+}
+
+.classification-badge--alternate {
+    background-color: rgba(107, 114, 128, 0.15);
+    color: #4b5563;
+}
+
+/* Low confidence warning banner */
+.low-confidence-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    padding: var(--spacing-md);
+    background-color: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 4px;
+}
+
+.low-confidence-warning-icon {
+    flex-shrink: 0;
+    font-size: 1.25rem;
+    color: #92400e;
+}
+
+.low-confidence-warning-content {
+    flex: 1;
+}
+
+.low-confidence-warning-title {
+    font-weight: 600;
+    color: #92400e;
+    margin-bottom: 0.25rem;
+}
+
+.low-confidence-warning-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    margin: 0;
+}
+
+/* Information sections */
+.transcription-detail-section {
+    margin-bottom: var(--spacing-lg);
+}
+
+.transcription-detail-section h2 {
+    margin: 0 0 var(--spacing-md) 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+/* Definition list styling - reuses patterns from job/file detail */
+.transcription-detail-dl {
+    margin: 0;
+    padding: var(--spacing-md);
+    background-color: var(--color-body-bg);
+    border-radius: 4px;
+}
+
+.transcription-detail-dl-row {
+    display: flex;
+    padding: var(--spacing-sm) 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.transcription-detail-dl-row:last-child {
+    border-bottom: none;
+}
+
+.transcription-detail-dl dt {
+    flex: 0 0 140px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
+.transcription-detail-dl dd {
+    flex: 1;
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+}
+
+/* Path styling with horizontal scroll */
+.transcription-detail-path {
+    overflow-x: auto;
+    white-space: nowrap;
+    font-family: monospace;
+    font-size: 0.8rem;
+    padding-bottom: 4px;
+}
+
+/* Confidence display */
+.confidence-display {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.confidence-bar {
+    flex: 0 0 100px;
+    height: 8px;
+    background-color: var(--color-border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.confidence-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.confidence-bar-fill--high {
+    background-color: #10b981;
+}
+
+.confidence-bar-fill--medium {
+    background-color: #f59e0b;
+}
+
+.confidence-bar-fill--low {
+    background-color: #ef4444;
+}
+
+.confidence-text {
+    font-size: var(--font-size-sm);
+    min-width: 60px;
+}
+
+.confidence-text--high {
+    color: #065f46;
+}
+
+.confidence-text--medium {
+    color: #92400e;
+}
+
+.confidence-text--low {
+    color: #991b1b;
+}
+
+/* Commentary reasoning section */
+.commentary-reasoning {
+    margin-top: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background-color: rgba(245, 158, 11, 0.05);
+    border-radius: 4px;
+}
+
+.commentary-reasoning-source {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-sm);
+}
+
+.commentary-reasoning-source strong {
+    color: var(--color-text);
+}
+
+.commentary-reasoning-keywords {
+    list-style: disc;
+    margin: 0;
+    padding-left: 1.5rem;
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+}
+
+/* Transcript sample section */
+.transcript-section {
+    margin-bottom: var(--spacing-lg);
+}
+
+.transcript-section h2 {
+    margin: 0 0 var(--spacing-md) 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.transcript-container {
+    padding: var(--spacing-md);
+    background-color: var(--color-body-bg);
+    border-radius: 4px;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.transcript-text {
+    font-family: var(--font-family);
+    font-size: var(--font-size-sm);
+    line-height: 1.6;
+    color: var(--color-text);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    margin: 0;
+}
+
+.transcript-empty {
+    color: var(--color-text-hint);
+    font-style: italic;
+}
+
+.transcript-truncated-notice {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-sm);
+    background-color: rgba(52, 152, 219, 0.1);
+    border-radius: 4px;
+    font-size: var(--font-size-sm);
+    color: var(--color-primary-dark);
+}
+
+/* Commentary keyword highlighting */
+.commentary-match {
+    background-color: rgba(245, 158, 11, 0.3);
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+/* File link styling */
+.transcription-detail-file-link {
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+.transcription-detail-file-link:hover {
+    text-decoration: underline;
+}
+
 /* Graceful degradation for below minimum supported viewport (< 768px) */
 @media (max-width: 767px) {
     .app-shell {

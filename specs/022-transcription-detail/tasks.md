@@ -53,17 +53,17 @@ This feature follows the existing VPO structure:
 
 ### Implementation for User Story 1
 
-- [ ] T005 [P] [US1] Add `TranscriptionDetailItem` dataclass in `src/video_policy_orchestrator/server/ui/models.py`
-- [ ] T006 [P] [US1] Add `TranscriptionDetailResponse` dataclass in `src/video_policy_orchestrator/server/ui/models.py`
-- [ ] T007 [P] [US1] Add `TranscriptionDetailContext` dataclass with `from_transcription_and_request()` in `src/video_policy_orchestrator/server/ui/models.py`
-- [ ] T008 [US1] Add `_build_transcription_detail_item()` builder function in `src/video_policy_orchestrator/server/ui/routes.py`
-- [ ] T009 [US1] Add `transcription_detail_handler()` HTML route handler in `src/video_policy_orchestrator/server/ui/routes.py`
-- [ ] T010 [US1] Add `api_transcription_detail_handler()` JSON API handler in `src/video_policy_orchestrator/server/ui/routes.py`
-- [ ] T011 [US1] Register routes `/transcriptions/{transcription_id}` and `/api/transcriptions/{transcription_id}` in `setup_ui_routes()` in `src/video_policy_orchestrator/server/ui/routes.py`
-- [ ] T012 [US1] Create `transcription_detail.html` template in `src/video_policy_orchestrator/server/ui/templates/sections/transcription_detail.html`
-- [ ] T013 [US1] Add 404 error handling for invalid transcription IDs in handlers
-- [ ] T014 [US1] Add 400 error handling for malformed transcription IDs in handlers
-- [ ] T015 [US1] Add low-confidence warning indicator CSS (`.confidence-low` with warning styling) in `src/video_policy_orchestrator/server/static/css/main.css`
+- [X] T005 [P] [US1] Add `TranscriptionDetailItem` dataclass in `src/video_policy_orchestrator/server/ui/models.py`
+- [X] T006 [P] [US1] Add `TranscriptionDetailResponse` dataclass in `src/video_policy_orchestrator/server/ui/models.py`
+- [X] T007 [P] [US1] Add `TranscriptionDetailContext` dataclass with `from_transcription_and_request()` in `src/video_policy_orchestrator/server/ui/models.py`
+- [X] T008 [US1] Add `_build_transcription_detail_item()` builder function in `src/video_policy_orchestrator/server/ui/routes.py`
+- [X] T009 [US1] Add `transcription_detail_handler()` HTML route handler in `src/video_policy_orchestrator/server/ui/routes.py`
+- [X] T010 [US1] Add `api_transcription_detail_handler()` JSON API handler in `src/video_policy_orchestrator/server/ui/routes.py`
+- [X] T011 [US1] Register routes `/transcriptions/{transcription_id}` and `/api/transcriptions/{transcription_id}` in `setup_ui_routes()` in `src/video_policy_orchestrator/server/ui/routes.py`
+- [X] T012 [US1] Create `transcription_detail.html` template in `src/video_policy_orchestrator/server/ui/templates/sections/transcription_detail.html`
+- [X] T013 [US1] Add 404 error handling for invalid transcription IDs in handlers
+- [X] T014 [US1] Add 400 error handling for malformed transcription IDs in handlers
+- [X] T015 [US1] Add low-confidence warning indicator CSS (`.confidence-low` with warning styling) in `src/video_policy_orchestrator/server/static/css/main.css`
 
 **Checkpoint**: User Story 1 complete - basic detail page displays all transcription data with navigation and low-confidence indicators
 
