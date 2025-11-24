@@ -35,12 +35,12 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T001 Add `get_confidence_level()` helper function in `src/video_policy_orchestrator/server/ui/models.py`
-- [ ] T002 Add `format_detected_languages()` helper function in `src/video_policy_orchestrator/server/ui/models.py`
-- [ ] T003 Add `get_files_with_transcriptions()` query function in `src/video_policy_orchestrator/db/models.py`
-- [ ] T004 [P] Add `TranscriptionFilterParams` dataclass in `src/video_policy_orchestrator/server/ui/models.py`
-- [ ] T005 [P] Add `TranscriptionListItem` dataclass in `src/video_policy_orchestrator/server/ui/models.py`
-- [ ] T006 [P] Add `TranscriptionListResponse` dataclass in `src/video_policy_orchestrator/server/ui/models.py`
+- [X] T001 Add `get_confidence_level()` helper function in `src/video_policy_orchestrator/server/ui/models.py`
+- [X] T002 Add `format_detected_languages()` helper function in `src/video_policy_orchestrator/server/ui/models.py`
+- [X] T003 Add `get_files_with_transcriptions()` query function in `src/video_policy_orchestrator/db/models.py`
+- [X] T004 [P] Add `TranscriptionFilterParams` dataclass in `src/video_policy_orchestrator/server/ui/models.py`
+- [X] T005 [P] Add `TranscriptionListItem` dataclass in `src/video_policy_orchestrator/server/ui/models.py`
+- [X] T006 [P] Add `TranscriptionListResponse` dataclass in `src/video_policy_orchestrator/server/ui/models.py`
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
