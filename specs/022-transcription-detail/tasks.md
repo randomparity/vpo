@@ -77,11 +77,11 @@ This feature follows the existing VPO structure:
 
 ### Implementation for User Story 2
 
-- [ ] T016 [US2] Add CSS styles for transcript text display in `src/video_policy_orchestrator/server/static/css/main.css`
-- [ ] T017 [US2] Add `.transcript-content` class with `word-break: break-word` and `overflow-wrap: break-word` in `src/video_policy_orchestrator/server/static/css/main.css`
-- [ ] T018 [US2] Add `.truncation-notice` class for truncation indicator styling in `src/video_policy_orchestrator/server/static/css/main.css`
-- [ ] T019 [US2] Update template to show truncation notice when `transcript_truncated` is true in `src/video_policy_orchestrator/server/ui/templates/sections/transcription_detail.html`
-- [ ] T020 [US2] Add empty state message "No transcription text available" in template for null transcript in `src/video_policy_orchestrator/server/ui/templates/sections/transcription_detail.html`
+- [X] T016 [US2] Add CSS styles for transcript text display in `src/video_policy_orchestrator/server/static/css/main.css`
+- [X] T017 [US2] Add `.transcript-content` class with `word-break: break-word` and `overflow-wrap: break-word` in `src/video_policy_orchestrator/server/static/css/main.css`
+- [X] T018 [US2] Add `.truncation-notice` class for truncation indicator styling in `src/video_policy_orchestrator/server/static/css/main.css`
+- [X] T019 [US2] Update template to show truncation notice when `transcript_truncated` is true in `src/video_policy_orchestrator/server/ui/templates/sections/transcription_detail.html`
+- [X] T020 [US2] Add empty state message "No transcription text available" in template for null transcript in `src/video_policy_orchestrator/server/ui/templates/sections/transcription_detail.html`
 
 **Checkpoint**: User Story 2 complete - long text displays properly with truncation handling
 
@@ -95,10 +95,10 @@ This feature follows the existing VPO structure:
 
 ### Implementation for User Story 3
 
-- [ ] T021 [US3] Add `.commentary-match` CSS class for highlighted keywords in `src/video_policy_orchestrator/server/static/css/main.css`
-- [ ] T022 [US3] Add commentary reasoning section to template showing `classification_source` and `matched_keywords` in `src/video_policy_orchestrator/server/ui/templates/sections/transcription_detail.html`
-- [ ] T023 [US3] Add conditional display for commentary badge in template header in `src/video_policy_orchestrator/server/ui/templates/sections/transcription_detail.html`
-- [ ] T024 [US3] Display `transcript_html` with `| safe` filter to render highlighted keywords in `src/video_policy_orchestrator/server/ui/templates/sections/transcription_detail.html`
+- [X] T021 [US3] Add `.commentary-match` CSS class for highlighted keywords in `src/video_policy_orchestrator/server/static/css/main.css`
+- [X] T022 [US3] Add commentary reasoning section to template showing `classification_source` and `matched_keywords` in `src/video_policy_orchestrator/server/ui/templates/sections/transcription_detail.html`
+- [X] T023 [US3] Add conditional display for commentary badge in template header in `src/video_policy_orchestrator/server/ui/templates/sections/transcription_detail.html`
+- [X] T024 [US3] Display `transcript_html` with `| safe` filter to render highlighted keywords in `src/video_policy_orchestrator/server/ui/templates/sections/transcription_detail.html`
 
 **Checkpoint**: User Story 3 complete - commentary detection reasoning and highlighting visible
 
