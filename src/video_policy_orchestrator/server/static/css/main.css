@@ -1345,15 +1345,13 @@ html, body {
     color: var(--color-text);
 }
 
-/* Path styling with truncation */
+/* Path styling with horizontal scroll */
 .file-detail-path {
-    max-width: 500px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow-x: auto;
     white-space: nowrap;
-    cursor: help;
     font-family: monospace;
     font-size: 0.8rem;
+    padding-bottom: 4px; /* Space for scrollbar */
 }
 
 /* Job link styling */
