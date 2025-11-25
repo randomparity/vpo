@@ -32,10 +32,10 @@
 
 **⚠️ CRITICAL**: Response model changes must be complete before approve handler modifications
 
-- [ ] T005 Add job_id field to PlanActionResponse dataclass in server/ui/models.py
-- [ ] T006 Add job_url field to PlanActionResponse dataclass in server/ui/models.py
-- [ ] T007 Add warning field to PlanActionResponse dataclass in server/ui/models.py
-- [ ] T008 Update PlanActionResponse.to_dict() method to include new fields in server/ui/models.py
+- [x] T005 Add job_id field to PlanActionResponse dataclass in server/ui/models.py
+- [x] T006 Add job_url field to PlanActionResponse dataclass in server/ui/models.py
+- [x] T007 Add warning field to PlanActionResponse dataclass in server/ui/models.py
+- [x] T008 Update PlanActionResponse.to_dict() method to include new fields in server/ui/models.py
 
 **Checkpoint**: Response model ready - user story implementation can begin
 
