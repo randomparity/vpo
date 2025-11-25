@@ -39,14 +39,14 @@ Based on plan.md structure:
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Implement create_plan() function in src/video_policy_orchestrator/db/operations.py
-- [ ] T006 Implement get_plan_by_id() function in src/video_policy_orchestrator/db/operations.py
-- [ ] T007 Implement get_plans_filtered() function with pagination in src/video_policy_orchestrator/db/operations.py
-- [ ] T008 Implement update_plan_status() function with state machine validation in src/video_policy_orchestrator/db/operations.py
-- [ ] T009 [P] Add PlanFilterParams dataclass to src/video_policy_orchestrator/server/ui/models.py with from_query() method
-- [ ] T010 [P] Add PlanListItem dataclass to src/video_policy_orchestrator/server/ui/models.py with to_dict() method
-- [ ] T011 [P] Add PlanListResponse dataclass to src/video_policy_orchestrator/server/ui/models.py with to_dict() method
-- [ ] T012 [P] Add PlansContext dataclass to src/video_policy_orchestrator/server/ui/models.py for template context
+- [X] T005 Implement create_plan() function in src/video_policy_orchestrator/db/operations.py
+- [X] T006 Implement get_plan_by_id() function in src/video_policy_orchestrator/db/operations.py
+- [X] T007 Implement get_plans_filtered() function with pagination in src/video_policy_orchestrator/db/operations.py
+- [X] T008 Implement update_plan_status() function with state machine validation in src/video_policy_orchestrator/db/operations.py
+- [X] T009 [P] Add PlanFilterParams dataclass to src/video_policy_orchestrator/server/ui/models.py with from_query() method
+- [X] T010 [P] Add PlanListItem dataclass to src/video_policy_orchestrator/server/ui/models.py with to_dict() method
+- [X] T011 [P] Add PlanListResponse dataclass to src/video_policy_orchestrator/server/ui/models.py with to_dict() method
+- [X] T012 [P] Add PlansContext dataclass to src/video_policy_orchestrator/server/ui/models.py for template context
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
