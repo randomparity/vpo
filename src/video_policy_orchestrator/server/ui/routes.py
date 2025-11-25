@@ -1443,12 +1443,15 @@ async def policy_editor_handler(request: web.Request) -> dict:
     if not re.match(r"^[a-zA-Z0-9_-]+$", policy_name):
         raise web.HTTPBadRequest(reason="Invalid policy name format")
 
+    # Get policy directory (allow test override)
+    policies_dir = request.app.get("policy_dir", DEFAULT_POLICIES_DIR)
+
     # Construct policy file path
-    policy_path = DEFAULT_POLICIES_DIR / f"{policy_name}.yaml"
+    policy_path = policies_dir / f"{policy_name}.yaml"
 
     # Check for .yml extension if .yaml not found
     if not policy_path.exists():
-        policy_path = DEFAULT_POLICIES_DIR / f"{policy_name}.yml"
+        policy_path = policies_dir / f"{policy_name}.yml"
 
     if not policy_path.exists():
         raise web.HTTPNotFound(reason="Policy not found")
@@ -1456,7 +1459,7 @@ async def policy_editor_handler(request: web.Request) -> dict:
     # Verify resolved path is within allowed directory (prevent path traversal)
     try:
         resolved_path = policy_path.resolve()
-        resolved_dir = DEFAULT_POLICIES_DIR.resolve()
+        resolved_dir = policies_dir.resolve()
         resolved_path.relative_to(resolved_dir)
     except (ValueError, OSError):
         raise web.HTTPBadRequest(reason="Invalid policy path")
@@ -1464,9 +1467,7 @@ async def policy_editor_handler(request: web.Request) -> dict:
     # Load policy with round-trip editor
     def _load_policy():
         try:
-            editor = PolicyRoundTripEditor(
-                policy_path, allowed_dir=DEFAULT_POLICIES_DIR
-            )
+            editor = PolicyRoundTripEditor(policy_path, allowed_dir=policies_dir)
             data = editor.load()
             return data, None
         except PolicyValidationError as e:
@@ -1571,10 +1572,13 @@ async def api_policy_detail_handler(request: web.Request) -> web.Response:
             status=400,
         )
 
+    # Get policy directory (allow test override)
+    policies_dir = request.app.get("policy_dir", DEFAULT_POLICIES_DIR)
+
     # Construct policy file path
-    policy_path = DEFAULT_POLICIES_DIR / f"{policy_name}.yaml"
+    policy_path = policies_dir / f"{policy_name}.yaml"
     if not policy_path.exists():
-        policy_path = DEFAULT_POLICIES_DIR / f"{policy_name}.yml"
+        policy_path = policies_dir / f"{policy_name}.yml"
 
     if not policy_path.exists():
         return web.json_response(
@@ -1585,7 +1589,7 @@ async def api_policy_detail_handler(request: web.Request) -> web.Response:
     # Verify resolved path is within allowed directory (prevent path traversal)
     try:
         resolved_path = policy_path.resolve()
-        resolved_dir = DEFAULT_POLICIES_DIR.resolve()
+        resolved_dir = policies_dir.resolve()
         resolved_path.relative_to(resolved_dir)
     except (ValueError, OSError):
         return web.json_response(
@@ -1596,9 +1600,7 @@ async def api_policy_detail_handler(request: web.Request) -> web.Response:
     # Load policy
     def _load_policy():
         try:
-            editor = PolicyRoundTripEditor(
-                policy_path, allowed_dir=DEFAULT_POLICIES_DIR
-            )
+            editor = PolicyRoundTripEditor(policy_path, allowed_dir=policies_dir)
             data = editor.load()
             stat = policy_path.stat()
             last_modified = datetime.fromtimestamp(
@@ -1689,10 +1691,13 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
             status=400,
         )
 
+    # Get policy directory (allow test override)
+    policies_dir = request.app.get("policy_dir", DEFAULT_POLICIES_DIR)
+
     # Construct policy file path
-    policy_path = DEFAULT_POLICIES_DIR / f"{policy_name}.yaml"
+    policy_path = policies_dir / f"{policy_name}.yaml"
     if not policy_path.exists():
-        policy_path = DEFAULT_POLICIES_DIR / f"{policy_name}.yml"
+        policy_path = policies_dir / f"{policy_name}.yml"
 
     if not policy_path.exists():
         return web.json_response(
@@ -1703,7 +1708,7 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
     # Verify resolved path is within allowed directory (prevent path traversal)
     try:
         resolved_path = policy_path.resolve()
-        resolved_dir = DEFAULT_POLICIES_DIR.resolve()
+        resolved_dir = policies_dir.resolve()
         resolved_path.relative_to(resolved_dir)
     except (ValueError, OSError):
         return web.json_response(
@@ -1724,9 +1729,7 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
                 return None, None, "concurrent_modification"
 
             # Load and save
-            editor = PolicyRoundTripEditor(
-                policy_path, allowed_dir=DEFAULT_POLICIES_DIR
-            )
+            editor = PolicyRoundTripEditor(policy_path, allowed_dir=policies_dir)
             policy_dict = editor_request.to_policy_dict()
             editor.save(policy_dict)
 

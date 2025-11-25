@@ -117,16 +117,24 @@ def create_app(db_path: Path | None = None) -> web.Application:
     # Use environment variable for secret key, or generate one for development
     secret_key_str = os.environ.get("VPO_SESSION_SECRET")
     if not secret_key_str:
-        # Generate a random key for development/testing
+        # Generate a random 32-byte key for development/testing
         # In production, VPO_SESSION_SECRET should be set
-        secret_key = fernet.Fernet.generate_key()
+        # Note: We use Fernet.generate_key() and decode it to get raw 32 bytes
+        # EncryptedCookieStorage expects raw bytes, not base64-encoded
+        import base64
+
+        encoded_key = fernet.Fernet.generate_key()
+        secret_key = base64.urlsafe_b64decode(encoded_key)
         logger.warning(
             "VPO_SESSION_SECRET not set, using randomly generated session key. "
             "Sessions will not persist across restarts."
         )
     else:
         # Environment variable is a string, encode it to bytes
-        secret_key = secret_key_str.encode()
+        # Assume it's a Fernet-compatible base64-encoded key
+        import base64
+
+        secret_key = base64.urlsafe_b64decode(secret_key_str)
 
     setup_session(app, EncryptedCookieStorage(secret_key))
 
