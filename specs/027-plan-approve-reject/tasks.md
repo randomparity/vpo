@@ -69,7 +69,7 @@
 
 ### Implementation for User Story 2
 
-- [ ] T016 [US2] Add structured audit logging for reject action with plan_id, timestamp in api_plan_reject_handler in server/ui/routes.py
+- [x] T016 [US2] Add structured audit logging for reject action with plan_id, timestamp in api_plan_reject_handler in server/ui/routes.py
 
 **Checkpoint**: Reject action logs audit entry - US2 backend complete
 

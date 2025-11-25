@@ -2254,7 +2254,14 @@ async def api_plan_reject_handler(request: web.Request) -> web.Response:
             status=status_code,
         )
 
-    logger.info("Plan %s rejected", plan_id[:8])
+    # Structured audit logging
+    logger.info(
+        "Plan rejected: plan_id=%s, file_path=%s, policy=%s",
+        plan_id[:8],
+        updated_plan.file_path,
+        updated_plan.policy_name,
+    )
+
     response = PlanActionResponse(
         success=True,
         plan=PlanListItem.from_plan_record(updated_plan),
