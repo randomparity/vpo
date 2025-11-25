@@ -43,6 +43,26 @@ class TrackClassification(Enum):
     ALTERNATE = "alternate"  # Alternate mix, isolated score, etc.
 
 
+class PlanStatus(Enum):
+    """Status of a plan in the approval workflow.
+
+    State transitions:
+        pending → approved   (approve action)
+        pending → rejected   (reject action)
+        pending → canceled   (cancel action or timeout)
+        approved → applied   (execution job completes)
+        approved → canceled  (cancel action before execution)
+
+    Terminal states: rejected, applied, canceled
+    """
+
+    PENDING = "pending"  # Awaiting operator review
+    APPROVED = "approved"  # Approved for execution
+    REJECTED = "rejected"  # Rejected by operator (terminal)
+    APPLIED = "applied"  # Changes have been executed (terminal)
+    CANCELED = "canceled"  # Withdrawn by operator or system (terminal)
+
+
 @dataclass
 class TrackInfo:
     """Represents a media track within a video file (domain model)."""
@@ -194,6 +214,42 @@ class OperationRecord:
     error_message: str | None = None
     backup_path: str | None = None
     completed_at: str | None = None  # ISO 8601 UTC
+
+
+@dataclass
+class PlanRecord:
+    """Database record for plans table.
+
+    Persisted representation of a planned change set awaiting approval.
+    Tracks policy evaluation results through the approval workflow.
+
+    Attributes:
+        id: Unique identifier (UUIDv4).
+        file_id: Reference to the target file (nullable if file deleted).
+        file_path: Cached file path (for display when file deleted).
+        policy_name: Name of the policy that generated the plan.
+        policy_version: Version of the policy at evaluation time.
+        job_id: Reference to originating job (if from batch evaluation).
+        actions_json: JSON-serialized list of PlannedAction.
+        action_count: Number of planned actions (cached for display).
+        requires_remux: Whether plan requires container remux.
+        status: Plan status enum value.
+        created_at: ISO-8601 UTC creation timestamp.
+        updated_at: ISO-8601 UTC last update timestamp.
+    """
+
+    id: str  # UUID
+    file_id: int | None  # FK to files.id, nullable for deleted files
+    file_path: str  # Cached at creation time
+    policy_name: str
+    policy_version: int
+    job_id: str | None  # Reference to originating job
+    actions_json: str  # JSON-serialized PlannedAction list
+    action_count: int  # Cached for list display
+    requires_remux: bool
+    status: PlanStatus
+    created_at: str  # ISO-8601 UTC
+    updated_at: str  # ISO-8601 UTC
 
 
 @dataclass

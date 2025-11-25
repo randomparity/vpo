@@ -1,0 +1,389 @@
+openapi: 3.0.3
+info:
+  title: VPO Plans API
+  description: REST API for managing planned changes (approvals workflow)
+  version: 1.0.0
+
+paths:
+  /api/plans:
+    get:
+      summary: List plans
+      description: Returns paginated list of plans with optional filtering
+      operationId: listPlans
+      tags:
+        - Plans
+      parameters:
+        - name: status
+          in: query
+          description: Filter by plan status
+          required: false
+          schema:
+            type: string
+            enum: [pending, approved, rejected, applied, canceled]
+        - name: since
+          in: query
+          description: Filter by creation time range
+          required: false
+          schema:
+            type: string
+            enum: ["24h", "7d", "30d"]
+        - name: limit
+          in: query
+          description: Maximum number of results (1-100)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          description: Pagination offset
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanListResponse"
+        "400":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/plans/{planId}:
+    get:
+      summary: Get plan details
+      description: Returns detailed information about a specific plan
+      operationId: getPlan
+      tags:
+        - Plans
+      parameters:
+        - name: planId
+          in: path
+          description: Plan UUID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanDetail"
+        "404":
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/plans/{planId}/approve:
+    post:
+      summary: Approve a plan
+      description: Transitions a pending plan to approved status
+      operationId: approvePlan
+      tags:
+        - Plans
+      parameters:
+        - name: planId
+          in: path
+          description: Plan UUID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Plan approved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanActionResponse"
+        "400":
+          description: Invalid state transition (plan not pending)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/plans/{planId}/reject:
+    post:
+      summary: Reject a plan
+      description: Transitions a pending plan to rejected status
+      operationId: rejectPlan
+      tags:
+        - Plans
+      parameters:
+        - name: planId
+          in: path
+          description: Plan UUID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Plan rejected successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanActionResponse"
+        "400":
+          description: Invalid state transition (plan not pending)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/plans/{planId}/cancel:
+    post:
+      summary: Cancel a plan
+      description: Transitions a pending or approved plan to canceled status
+      operationId: cancelPlan
+      tags:
+        - Plans
+      parameters:
+        - name: planId
+          in: path
+          description: Plan UUID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Plan canceled successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanActionResponse"
+        "400":
+          description: Invalid state transition (plan already terminal)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    PlanStatus:
+      type: string
+      enum: [pending, approved, rejected, applied, canceled]
+      description: Plan lifecycle status
+
+    PlanListItem:
+      type: object
+      required:
+        - id
+        - file_path
+        - policy_name
+        - source_display
+        - action_count
+        - status
+        - status_display
+        - created_at
+        - created_at_display
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Plan unique identifier
+        file_path:
+          type: string
+          description: Target file path
+        policy_name:
+          type: string
+          description: Source policy name
+        source_display:
+          type: string
+          description: Formatted source text (includes deleted indicator if applicable)
+        action_count:
+          type: integer
+          minimum: 0
+          description: Number of planned actions
+        status:
+          $ref: "#/components/schemas/PlanStatus"
+        status_display:
+          type: string
+          description: Human-readable status text
+        created_at:
+          type: string
+          format: date-time
+          description: ISO-8601 UTC creation timestamp
+        created_at_display:
+          type: string
+          description: Relative time display (e.g., "2 hours ago")
+
+    PlanListResponse:
+      type: object
+      required:
+        - plans
+        - total
+        - limit
+        - offset
+        - has_filters
+      properties:
+        plans:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanListItem"
+        total:
+          type: integer
+          minimum: 0
+          description: Total number of matching plans
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Applied page size limit
+        offset:
+          type: integer
+          minimum: 0
+          description: Applied pagination offset
+        has_filters:
+          type: boolean
+          description: Whether any filters are active
+
+    PlannedAction:
+      type: object
+      required:
+        - action_type
+        - description
+      properties:
+        action_type:
+          type: string
+          enum: [reorder, set_default, clear_default, set_forced, clear_forced, set_title, set_language, transcode, move]
+          description: Type of planned action
+        track_index:
+          type: integer
+          nullable: true
+          description: Target track index
+        current_value:
+          description: Current value before change
+        desired_value:
+          description: Desired value after change
+        description:
+          type: string
+          description: Human-readable action description
+
+    PlanDetail:
+      type: object
+      required:
+        - id
+        - file_id
+        - file_path
+        - policy_name
+        - policy_version
+        - actions
+        - action_count
+        - requires_remux
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        file_id:
+          type: integer
+          nullable: true
+          description: File ID (null if file deleted)
+        file_path:
+          type: string
+        policy_name:
+          type: string
+        policy_version:
+          type: integer
+        job_id:
+          type: string
+          nullable: true
+          description: Originating job ID if from batch
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlannedAction"
+        action_count:
+          type: integer
+        requires_remux:
+          type: boolean
+        status:
+          $ref: "#/components/schemas/PlanStatus"
+        source_display:
+          type: string
+          description: Formatted source text
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PlanActionResponse:
+      type: object
+      required:
+        - success
+        - plan_id
+        - new_status
+        - message
+      properties:
+        success:
+          type: boolean
+        plan_id:
+          type: string
+          format: uuid
+        new_status:
+          $ref: "#/components/schemas/PlanStatus"
+        message:
+          type: string
+          description: Human-readable result message
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional error details

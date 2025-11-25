@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="plans-dashboard">
+    <!-- Loading state -->
+    <div id="plans-loading" class="plans-loading" role="status" aria-label="Loading plans">
+        <div class="plans-loading-spinner" aria-hidden="true"></div>
+        <p>Loading plans...</p>
+    </div>
+
+    <!-- Main content (hidden until loaded) -->
+    <div id="plans-content" style="display: none;">
+        <!-- Filter bar -->
+        <div id="plans-filters" class="plans-filters">
+            <div class="plans-filter">
+                <label for="filter-status">Status</label>
+                <select id="filter-status">
+                    {% for option in plans_context.status_options %}
+                    <option value="{{ option.value }}">{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="plans-filter">
+                <label for="filter-time">Time Range</label>
+                <select id="filter-time">
+                    {% for option in plans_context.time_options %}
+                    <option value="{{ option.value }}">{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <!-- Plans table container -->
+        <div class="plans-table-container">
+            <table class="plans-table" id="plans-table" aria-label="Plans list">
+                <thead>
+                    <tr>
+                        <th>Plan ID</th>
+                        <th>File</th>
+                        <th>Policy</th>
+                        <th># Actions</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Manage</th>
+                    </tr>
+                </thead>
+                <tbody id="plans-table-body">
+                    <!-- Plans will be rendered here by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Empty state (hidden by default) -->
+        <div id="plans-empty" class="plans-empty" style="display: none;" role="status" aria-live="polite">
+            <div class="plans-empty-icon" aria-hidden="true">&#128203;</div>
+            <div class="plans-empty-title" id="plans-empty-title">No plans found</div>
+            <div class="plans-empty-hint" id="plans-empty-hint">Plans are generated when you evaluate policies against files. Run a scan or apply operation to create plans.</div>
+        </div>
+
+        <!-- Pagination (hidden until needed) -->
+        <div id="plans-pagination" class="plans-pagination" style="display: none;">
+            <div class="plans-pagination-info" id="plans-pagination-info">
+                Showing 1-50 of 100 plans
+            </div>
+            <div class="plans-pagination-controls">
+                <button class="plans-pagination-btn" id="plans-prev-btn" aria-label="Previous page" disabled>Previous</button>
+                <button class="plans-pagination-btn" id="plans-next-btn" aria-label="Next page">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container for notifications -->
+    <div id="plans-toast" class="plans-toast" role="status" aria-live="polite" style="display: none;"></div>
+</div>
+
+<link rel="stylesheet" href="/static/css/confirmation-modal.css">
+<script src="/static/js/polling.js"></script>
+<script src="/static/js/confirmation-modal.js"></script>
+<script src="/static/js/plans.js"></script>
+{% endblock %}

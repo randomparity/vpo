@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -190,6 +190,32 @@ CREATE INDEX IF NOT EXISTS idx_transcription_type
     ON transcription_results(track_type);
 CREATE INDEX IF NOT EXISTS idx_transcription_plugin
     ON transcription_results(plugin_name);
+
+-- Plans table (026-plans-list-view)
+CREATE TABLE IF NOT EXISTS plans (
+    id TEXT PRIMARY KEY,
+    file_id INTEGER,
+    file_path TEXT NOT NULL,
+    policy_name TEXT NOT NULL,
+    policy_version INTEGER NOT NULL,
+    job_id TEXT,
+    actions_json TEXT NOT NULL,
+    action_count INTEGER NOT NULL,
+    requires_remux INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE SET NULL,
+    CONSTRAINT valid_status CHECK (
+        status IN ('pending', 'approved', 'rejected', 'applied', 'canceled')
+    ),
+    CONSTRAINT valid_action_count CHECK (action_count >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_plans_status ON plans(status);
+CREATE INDEX IF NOT EXISTS idx_plans_created_at ON plans(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_plans_file_id ON plans(file_id);
+CREATE INDEX IF NOT EXISTS idx_plans_policy_name ON plans(policy_name);
 """
 
 
@@ -822,6 +848,59 @@ def migrate_v10_to_v11(conn: sqlite3.Connection) -> None:
         raise
 
 
+def migrate_v11_to_v12(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 11 to version 12.
+
+    Adds plans table for the approval workflow (026-plans-list-view):
+    - Stores planned changes awaiting operator approval
+    - Tracks status through pending → approved/rejected → applied/canceled
+    - Foreign key to files with ON DELETE SET NULL for deleted file handling
+    - Indexes for common queries: status, created_at, file_id, policy_name
+
+    This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Check if table already exists
+    cursor = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='plans'"
+    )
+    if cursor.fetchone() is None:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS plans (
+                id TEXT PRIMARY KEY,
+                file_id INTEGER,
+                file_path TEXT NOT NULL,
+                policy_name TEXT NOT NULL,
+                policy_version INTEGER NOT NULL,
+                job_id TEXT,
+                actions_json TEXT NOT NULL,
+                action_count INTEGER NOT NULL,
+                requires_remux INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE SET NULL,
+                CONSTRAINT valid_status CHECK (
+                    status IN ('pending', 'approved', 'rejected', 'applied', 'canceled')
+                ),
+                CONSTRAINT valid_action_count CHECK (action_count >= 0)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_plans_status ON plans(status);
+            CREATE INDEX IF NOT EXISTS idx_plans_created_at ON plans(created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_plans_file_id ON plans(file_id);
+            CREATE INDEX IF NOT EXISTS idx_plans_policy_name ON plans(policy_name);
+        """)
+
+    # Update schema version to 12
+    conn.execute(
+        "UPDATE _meta SET value = '12' WHERE key = 'schema_version'",
+    )
+    conn.commit()
+
+
 def initialize_database(conn: sqlite3.Connection) -> None:
     """Initialize the database with schema, creating tables if needed.
 
@@ -863,3 +942,6 @@ def initialize_database(conn: sqlite3.Connection) -> None:
             current_version = 10
         if current_version == 10:
             migrate_v10_to_v11(conn)
+            current_version = 11
+        if current_version == 11:
+            migrate_v11_to_v12(conn)
