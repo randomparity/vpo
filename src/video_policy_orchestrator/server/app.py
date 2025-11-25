@@ -16,6 +16,9 @@ from typing import TYPE_CHECKING
 
 from aiohttp import web
 from aiohttp.web import RequestHandler
+from aiohttp_session import setup as setup_session
+from aiohttp_session.cookie_storage import EncryptedCookieStorage
+from cryptography import fernet
 
 from video_policy_orchestrator import __version__
 from video_policy_orchestrator.server.ui import setup_ui_routes
@@ -109,6 +112,23 @@ def create_app(db_path: Path | None = None) -> web.Application:
     from video_policy_orchestrator.db.connection import DaemonConnectionPool
 
     app = web.Application()
+
+    # Setup session middleware with encrypted cookie storage
+    # Use environment variable for secret key, or generate one for development
+    secret_key_str = os.environ.get("VPO_SESSION_SECRET")
+    if not secret_key_str:
+        # Generate a random key for development/testing
+        # In production, VPO_SESSION_SECRET should be set
+        secret_key = fernet.Fernet.generate_key()
+        logger.warning(
+            "VPO_SESSION_SECRET not set, using randomly generated session key. "
+            "Sessions will not persist across restarts."
+        )
+    else:
+        # Environment variable is a string, encode it to bytes
+        secret_key = secret_key_str.encode()
+
+    setup_session(app, EncryptedCookieStorage(secret_key))
 
     # Store runtime state in app dict
     app["lifecycle"] = None  # Will be set by serve command

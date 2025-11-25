@@ -349,3 +349,98 @@ transcription:
     assert data["transcription"]["enabled"] is True
     assert data["transcription"]["detect_commentary"] is True
     assert data["transcription"]["reorder_commentary"] is True
+
+
+def test_path_traversal_protection(tmp_path):
+    """Test that path traversal attacks are prevented."""
+    # Create allowed directory with a test policy
+    allowed_dir = tmp_path / "policies"
+    allowed_dir.mkdir()
+    policy_file = allowed_dir / "test.yaml"
+    create_test_policy(policy_file)
+
+    # Create a directory outside the allowed directory
+    outside_dir = tmp_path / "outside"
+    outside_dir.mkdir()
+    outside_policy = outside_dir / "malicious.yaml"
+    create_test_policy(outside_policy)
+
+    # Test 1: Valid path within allowed directory should work
+    editor = PolicyRoundTripEditor(policy_file, allowed_dir=allowed_dir)
+    data = editor.load()
+    assert data["schema_version"] == 2
+
+    # Test 2: Path outside allowed directory should be rejected
+    with pytest.raises(ValueError, match="outside allowed directory"):
+        PolicyRoundTripEditor(outside_policy, allowed_dir=allowed_dir)
+
+
+def test_path_traversal_with_symlinks(tmp_path):
+    """Test that symlink-based path traversal is prevented."""
+    # Create allowed directory
+    allowed_dir = tmp_path / "policies"
+    allowed_dir.mkdir()
+
+    # Create a file outside allowed directory
+    outside_dir = tmp_path / "outside"
+    outside_dir.mkdir()
+    outside_file = outside_dir / "secret.yaml"
+    create_test_policy(outside_file)
+
+    # Create a symlink in allowed directory pointing outside
+    symlink = allowed_dir / "link.yaml"
+    symlink.symlink_to(outside_file)
+
+    # Symlink should be rejected because it resolves outside allowed_dir
+    with pytest.raises(ValueError, match="outside allowed directory"):
+        PolicyRoundTripEditor(symlink, allowed_dir=allowed_dir)
+
+
+def test_yaml_safe_mode_blocks_dangerous_objects(tmp_path):
+    """Test that YAML safe mode blocks dangerous object deserialization."""
+    policy_file = tmp_path / "malicious.yaml"
+
+    # Attempt to create a malicious YAML file with Python object execution
+    # This would execute arbitrary code if safe mode is not enabled
+    malicious_content = """schema_version: 2
+track_order:
+  - video
+audio_language_preference:
+  - eng
+subtitle_language_preference:
+  - eng
+commentary_patterns: []
+default_flags:
+  set_first_video_default: true
+  set_preferred_audio_default: true
+  set_preferred_subtitle_default: false
+  clear_other_defaults: true
+# Attempt to inject dangerous object
+!!python/object/apply:os.system
+args: ['echo pwned']
+"""
+    policy_file.write_text(malicious_content)
+
+    editor = PolicyRoundTripEditor(policy_file)
+
+    # Safe mode should prevent loading this
+    with pytest.raises(
+        Exception
+    ):  # ruamel.yaml raises various exceptions for unsafe tags
+        editor.load()
+
+
+def test_no_path_restriction_when_allowed_dir_not_provided(tmp_path):
+    """Test that editor works without path restriction when allowed_dir is None."""
+    policy_file = tmp_path / "test.yaml"
+    create_test_policy(policy_file)
+
+    # Should work without allowed_dir parameter
+    editor = PolicyRoundTripEditor(policy_file)
+    data = editor.load()
+    assert data["schema_version"] == 2
+
+    # Should also work with allowed_dir=None explicitly
+    editor2 = PolicyRoundTripEditor(policy_file, allowed_dir=None)
+    data2 = editor2.load()
+    assert data2["schema_version"] == 2

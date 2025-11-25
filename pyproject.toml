@@ -33,6 +33,8 @@ dependencies = [
     "pydantic>=2.10",
     "aiohttp>=3.9",
     "aiohttp-jinja2>=1.6",
+    "aiohttp-session>=2.12",
+    "cryptography>=41.0",
     "jinja2>=3.1",
     "ruamel.yaml>=0.18.0",
 ]
@@ -51,6 +53,8 @@ dev = [
     "pytest-aiohttp>=1.0.5",
     "maturin>=1.7",
     "pre-commit>=4.0",
+    "bandit[toml]>=1.8.0",
+    "detect-secrets>=1.5.0",
 ]
 
 [project.scripts]
@@ -81,3 +85,16 @@ select = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv", "build", "dist"]
+skips = [
+    # B101: assert_used - we use asserts in tests
+    "B101",
+    # B601: paramiko_calls - not using paramiko
+    "B601",
+    # B602: subprocess_popen_with_shell_equals_true - we need shell for some operations
+    "B602",
+]
+# Target only Python files in src/
+targets = ["src/video_policy_orchestrator"]

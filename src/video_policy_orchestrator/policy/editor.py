@@ -34,20 +34,34 @@ class PolicyRoundTripEditor:
         >>> editor.save(data)
     """
 
-    def __init__(self, policy_path: Path) -> None:
+    def __init__(self, policy_path: Path, allowed_dir: Path | None = None) -> None:
         """Initialize the editor with a policy file path.
 
         Args:
             policy_path: Path to the YAML policy file.
+            allowed_dir: Optional directory to restrict policy files to.
+                If provided, the policy_path must be within this directory.
 
         Raises:
             FileNotFoundError: If the policy file does not exist.
+            ValueError: If policy_path is outside the allowed_dir.
         """
         self.policy_path = policy_path.resolve()
+
+        # Verify path is within allowed directory (defense in depth)
+        if allowed_dir is not None:
+            allowed_resolved = allowed_dir.resolve()
+            try:
+                self.policy_path.relative_to(allowed_resolved)
+            except ValueError:
+                raise ValueError(
+                    f"Policy path outside allowed directory: {self.policy_path}"
+                )
+
         if not self.policy_path.exists():
             raise FileNotFoundError(f"Policy file not found: {self.policy_path}")
 
-        self.yaml = YAML()
+        self.yaml = YAML(typ="safe")
         self.yaml.preserve_quotes = True
         self.yaml.default_flow_style = False
         self._original_data: dict[str, Any] | None = None

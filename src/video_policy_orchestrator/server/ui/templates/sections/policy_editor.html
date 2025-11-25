@@ -173,9 +173,10 @@
     {% endif %}
 </div>
 
-<!-- Pass policy data to JavaScript -->
+<!-- Pass policy data and CSRF token to JavaScript -->
 <script>
     window.POLICY_DATA = {{ policy.to_dict() | tojson }};
+    window.CSRF_TOKEN = {{ csrf_token | tojson }};
 </script>
 <link rel="stylesheet" href="/static/css/components/confirmation-modal.css">
 <script src="/static/js/components/confirmation-modal.js"></script>

@@ -1453,10 +1453,20 @@ async def policy_editor_handler(request: web.Request) -> dict:
     if not policy_path.exists():
         raise web.HTTPNotFound(reason="Policy not found")
 
+    # Verify resolved path is within allowed directory (prevent path traversal)
+    try:
+        resolved_path = policy_path.resolve()
+        resolved_dir = DEFAULT_POLICIES_DIR.resolve()
+        resolved_path.relative_to(resolved_dir)
+    except (ValueError, OSError):
+        raise web.HTTPBadRequest(reason="Invalid policy path")
+
     # Load policy with round-trip editor
     def _load_policy():
         try:
-            editor = PolicyRoundTripEditor(policy_path)
+            editor = PolicyRoundTripEditor(
+                policy_path, allowed_dir=DEFAULT_POLICIES_DIR
+            )
             data = editor.load()
             return data, None
         except PolicyValidationError as e:
@@ -1525,6 +1535,8 @@ async def policy_editor_handler(request: web.Request) -> dict:
         section_title=f"Edit Policy: {policy_name}",
     )
     context["policy"] = editor_context
+    # CSRF token is injected by csrf_middleware into request context
+    context["csrf_token"] = request.get("csrf_token", "")
 
     return context
 
@@ -1570,10 +1582,23 @@ async def api_policy_detail_handler(request: web.Request) -> web.Response:
             status=404,
         )
 
+    # Verify resolved path is within allowed directory (prevent path traversal)
+    try:
+        resolved_path = policy_path.resolve()
+        resolved_dir = DEFAULT_POLICIES_DIR.resolve()
+        resolved_path.relative_to(resolved_dir)
+    except (ValueError, OSError):
+        return web.json_response(
+            {"error": "Invalid policy path"},
+            status=400,
+        )
+
     # Load policy
     def _load_policy():
         try:
-            editor = PolicyRoundTripEditor(policy_path)
+            editor = PolicyRoundTripEditor(
+                policy_path, allowed_dir=DEFAULT_POLICIES_DIR
+            )
             data = editor.load()
             stat = policy_path.stat()
             last_modified = datetime.fromtimestamp(
@@ -1675,6 +1700,17 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
             status=404,
         )
 
+    # Verify resolved path is within allowed directory (prevent path traversal)
+    try:
+        resolved_path = policy_path.resolve()
+        resolved_dir = DEFAULT_POLICIES_DIR.resolve()
+        resolved_path.relative_to(resolved_dir)
+    except (ValueError, OSError):
+        return web.json_response(
+            {"error": "Invalid policy path"},
+            status=400,
+        )
+
     # Check concurrency (optimistic locking)
     def _check_and_save():
         try:
@@ -1688,7 +1724,9 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
                 return None, None, "concurrent_modification"
 
             # Load and save
-            editor = PolicyRoundTripEditor(policy_path)
+            editor = PolicyRoundTripEditor(
+                policy_path, allowed_dir=DEFAULT_POLICIES_DIR
+            )
             policy_dict = editor_request.to_policy_dict()
             editor.save(policy_dict)
 
@@ -1985,9 +2023,12 @@ def setup_ui_routes(app: web.Application) -> None:
         aiohttp_jinja2.template("sections/about.html")(about_handler),
     )
 
-    # Add middleware (order matters: logging -> security -> error handling)
+    # Add middleware (order matters: logging -> csrf -> security -> error handling)
+    from video_policy_orchestrator.server.csrf import csrf_middleware
+
     app.middlewares.append(request_logging_middleware)
+    app.middlewares.append(csrf_middleware)
     app.middlewares.append(security_headers_middleware)
     app.middlewares.append(error_middleware)
 
-    logger.debug("UI routes configured with Jinja2 templating")
+    logger.debug("UI routes configured with Jinja2 templating and CSRF protection")
