@@ -482,19 +482,23 @@
      * @param {HTMLElement} btn - Button element (optional, for loading state)
      */
     async function handleApprove(planId, btn) {
-        // Show confirmation modal
-        if (typeof window.ConfirmationModal !== 'undefined') {
-            var confirmed = await window.ConfirmationModal.show(
-                'This will queue a job to apply the planned changes to the file. Continue?',
-                {
-                    title: 'Approve Plan',
-                    confirmText: 'Approve and Queue',
-                    cancelText: 'Cancel'
-                }
-            )
-            if (!confirmed) {
-                return
+        // Show confirmation modal - require it to be loaded
+        if (typeof window.ConfirmationModal === 'undefined') {
+            console.error('[Plans] ConfirmationModal not loaded - cannot approve without confirmation')
+            showToast('Unable to show confirmation dialog. Please refresh the page.', 'error')
+            return
+        }
+
+        var confirmed = await window.ConfirmationModal.show(
+            'This will queue a job to apply the planned changes to the file. Continue?',
+            {
+                title: 'Approve Plan',
+                confirmText: 'Approve and Queue',
+                cancelText: 'Cancel'
             }
+        )
+        if (!confirmed) {
+            return
         }
 
         // Prevent double-submit
@@ -508,7 +512,8 @@
             const response = await fetch('/api/plans/' + planId + '/approve', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': window.CSRF_TOKEN
                 }
             })
 
@@ -558,20 +563,24 @@
      * @param {HTMLElement} btn - Button element (optional, for loading state)
      */
     async function handleReject(planId, btn) {
-        // Show confirmation modal
-        if (typeof window.ConfirmationModal !== 'undefined') {
-            var confirmed = await window.ConfirmationModal.show(
-                'Are you sure you want to reject this plan? This cannot be undone.',
-                {
-                    title: 'Reject Plan',
-                    confirmText: 'Reject',
-                    cancelText: 'Cancel',
-                    focusCancel: true
-                }
-            )
-            if (!confirmed) {
-                return
+        // Show confirmation modal - require it to be loaded
+        if (typeof window.ConfirmationModal === 'undefined') {
+            console.error('[Plans] ConfirmationModal not loaded - cannot reject without confirmation')
+            showToast('Unable to show confirmation dialog. Please refresh the page.', 'error')
+            return
+        }
+
+        var confirmed = await window.ConfirmationModal.show(
+            'Are you sure you want to reject this plan? This cannot be undone.',
+            {
+                title: 'Reject Plan',
+                confirmText: 'Reject',
+                cancelText: 'Cancel',
+                focusCancel: true
             }
+        )
+        if (!confirmed) {
+            return
         }
 
         // Prevent double-submit
@@ -585,7 +594,8 @@
             const response = await fetch('/api/plans/' + planId + '/reject', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': window.CSRF_TOKEN
                 }
             })
 

@@ -1951,6 +1951,8 @@ async def plans_handler(request: web.Request) -> dict:
     )
     # Add plans filter options for template
     context["plans_context"] = PlansContext.default()
+    # CSRF token is injected by csrf_middleware into request context
+    context["csrf_token"] = request.get("csrf_token", "")
     return context
 
 
