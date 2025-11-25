@@ -262,7 +262,7 @@
 
     /**
      * Show toast notification with close button and pause on hover.
-     * @param {string} message - Message to display
+     * @param {string|HTMLElement|DocumentFragment} message - Message to display (string or DOM node)
      * @param {string} type - Toast type (success, error)
      */
     function showToast(message, type) {
@@ -273,17 +273,32 @@
             clearTimeout(toastTimer)
         }
 
-        // Build toast content with close button
-        toastEl.innerHTML = '<span class="toast-message">' + escapeHtml(message) + '</span>' +
-            '<button type="button" class="toast-close" aria-label="Dismiss notification">&times;</button>'
+        // Build toast content with close button using DOM APIs
+        toastEl.innerHTML = ''
         toastEl.className = 'plans-toast plans-toast--' + type
-        toastEl.style.display = 'flex'
 
-        // Add close button listener
-        var closeBtn = toastEl.querySelector('.toast-close')
-        if (closeBtn) {
-            closeBtn.addEventListener('click', hideToast)
+        var messageSpan = document.createElement('span')
+        messageSpan.className = 'toast-message'
+
+        if (typeof message === 'string') {
+            // Plain string - escape for safety
+            messageSpan.textContent = message
+        } else if (message instanceof DocumentFragment || message instanceof HTMLElement) {
+            // DOM element or fragment - append directly (already safe)
+            messageSpan.appendChild(message)
         }
+
+        toastEl.appendChild(messageSpan)
+
+        var closeBtn = document.createElement('button')
+        closeBtn.type = 'button'
+        closeBtn.className = 'toast-close'
+        closeBtn.setAttribute('aria-label', 'Dismiss notification')
+        closeBtn.innerHTML = '&times;'
+        closeBtn.addEventListener('click', hideToast)
+        toastEl.appendChild(closeBtn)
+
+        toastEl.style.display = 'flex'
 
         // Auto-hide after 5 seconds (increased from 3s for accessibility)
         toastTimer = setTimeout(hideToast, 5000)
@@ -494,15 +509,23 @@
             const data = await response.json()
 
             if (data.success) {
-                // Build success message with job link if available
-                var message = 'Plan approved successfully'
+                // Build success message with job link using DOM APIs (safe from XSS)
+                var messageEl = document.createDocumentFragment()
+                messageEl.appendChild(document.createTextNode('Plan approved successfully'))
+
                 if (data.job_url) {
-                    message += '. <a href="' + data.job_url + '">View job</a>'
+                    messageEl.appendChild(document.createTextNode('. '))
+                    var link = document.createElement('a')
+                    link.href = data.job_url
+                    link.textContent = 'View job'
+                    messageEl.appendChild(link)
                 }
+
                 if (data.warning) {
-                    message += ' (Warning: ' + data.warning + ')'
+                    messageEl.appendChild(document.createTextNode(' (Warning: ' + data.warning + ')'))
                 }
-                showToast(message, 'success')
+
+                showToast(messageEl, 'success')
                 // Refresh to show updated status
                 fetchPlans()
             } else {
