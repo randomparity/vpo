@@ -41,7 +41,7 @@ uv run vpo serve --port 8080          # Start daemon with web UI
 
 - **Python 3.10+** with click (CLI), pydantic, PyYAML, aiohttp (daemon), Jinja2 (templates)
 - **Rust** (PyO3/maturin) for parallel file discovery and hashing in `crates/vpo-core/`
-- **SQLite** database at `~/.vpo/library.db` (schema v7)
+- **SQLite** database at `~/.vpo/library.db`
 - **Web UI**: Vanilla JavaScript (ES6+), no frameworks - uses polling for live updates
 - **External tools:** ffprobe (introspection), mkvpropedit/mkvmerge (MKV editing), ffmpeg (metadata editing)
 
@@ -80,6 +80,18 @@ crates/vpo-core/   # Rust extension for parallel discovery/hashing
 - Preserve existing patterns for time handling (UTC), IDs, logging, and config
 - No local-time datetime storage, hardcoded paths, ad-hoc subprocess calls, or inline SQL in business logic
 - Before finalizing: check idempotence, error handling, logging/auditability, and tests
+
+## Constitution
+
+This project has a formal constitution at `.specify/memory/constitution.md` with 18 core principles. Key rules:
+
+- **Datetime**: Always UTC, ISO-8601 format, convert to local only at presentation layer
+- **Identity**: Use UUIDv4 for entities, never use file paths as primary keys
+- **Paths**: Use `pathlib.Path`, no hardcoded separators, must work on Linux and macOS
+- **Schemas**: Versioned with explicit migration logic; bump version on changes
+- **Idempotency**: All policy operations must be safe to repeat
+- **IO Separation**: Core logic in pure functions; external tools behind adapters
+- **Concurrency**: Use `DaemonConnectionPool` for thread-safe DB access via `asyncio.to_thread`
 
 ## Development Methodology
 
