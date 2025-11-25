@@ -49,13 +49,13 @@
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Import Job, JobType, JobStatus, insert_job from db.models in server/ui/routes.py
-- [ ] T010 [US1] Import uuid and datetime modules in server/ui/routes.py (if not already present)
-- [ ] T011 [US1] Fetch PlanRecord before status update in api_plan_approve_handler in server/ui/routes.py
-- [ ] T012 [US1] Create Job instance with JobType.APPLY and priority=10 in api_plan_approve_handler in server/ui/routes.py
-- [ ] T013 [US1] Call insert_job() to persist job within transaction in api_plan_approve_handler in server/ui/routes.py
-- [ ] T014 [US1] Update api_plan_approve_handler to return job_id and job_url in response in server/ui/routes.py
-- [ ] T015 [US1] Add structured audit logging for approve action with plan_id, job_id, timestamp in server/ui/routes.py
+- [x] T009 [US1] Import Job, JobType, JobStatus, insert_job from db.models in server/ui/routes.py
+- [x] T010 [US1] Import uuid and datetime modules in server/ui/routes.py (if not already present)
+- [x] T011 [US1] Fetch PlanRecord before status update in api_plan_approve_handler in server/ui/routes.py
+- [x] T012 [US1] Create Job instance with JobType.APPLY and priority=10 in api_plan_approve_handler in server/ui/routes.py
+- [x] T013 [US1] Call insert_job() to persist job within transaction in api_plan_approve_handler in server/ui/routes.py
+- [x] T014 [US1] Update api_plan_approve_handler to return job_id and job_url in response in server/ui/routes.py
+- [x] T015 [US1] Add structured audit logging for approve action with plan_id, job_id, timestamp in server/ui/routes.py
 
 **Checkpoint**: Approve action creates job and returns job_id - US1 backend complete
 
