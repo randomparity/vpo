@@ -85,10 +85,10 @@
 
 ### Implementation for User Story 3
 
-- [ ] T017 [US3] Add confirmation dialog to handleApprove function in server/static/js/plans.js
-- [ ] T018 [US3] Customize approve dialog title to "Approve Plan" in server/static/js/plans.js
-- [ ] T019 [US3] Customize approve dialog message to explain job creation in server/static/js/plans.js
-- [ ] T020 [US3] Customize approve dialog confirmText to "Approve and Queue" in server/static/js/plans.js
+- [x] T017 [US3] Add confirmation dialog to handleApprove function in server/static/js/plans.js
+- [x] T018 [US3] Customize approve dialog title to "Approve Plan" in server/static/js/plans.js
+- [x] T019 [US3] Customize approve dialog message to explain job creation in server/static/js/plans.js
+- [x] T020 [US3] Customize approve dialog confirmText to "Approve and Queue" in server/static/js/plans.js
 
 **Checkpoint**: Both actions show confirmation dialogs - US3 complete
 
@@ -104,9 +104,9 @@
 
 ### Implementation for User Story 4
 
-- [ ] T021 [US4] Update handleApprove success handler to check for job_url in response in server/static/js/plans.js
-- [ ] T022 [US4] Modify showToast call to include job link HTML when job_url present in server/static/js/plans.js
-- [ ] T023 [US4] Handle warning field in response (file deleted case) in server/static/js/plans.js
+- [x] T021 [US4] Update handleApprove success handler to check for job_url in response in server/static/js/plans.js
+- [x] T022 [US4] Modify showToast call to include job link HTML when job_url present in server/static/js/plans.js
+- [x] T023 [US4] Handle warning field in response (file deleted case) in server/static/js/plans.js
 
 **Checkpoint**: Success toast shows job link - US4 complete
 

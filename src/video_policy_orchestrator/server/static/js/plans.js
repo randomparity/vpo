@@ -456,10 +456,26 @@
 
     /**
      * Handle approve action for a plan.
+     * Shows confirmation modal before approving.
      * @param {string} planId - Plan UUID
      * @param {HTMLElement} btn - Button element (optional, for loading state)
      */
     async function handleApprove(planId, btn) {
+        // Show confirmation modal
+        if (typeof window.ConfirmationModal !== 'undefined') {
+            var confirmed = await window.ConfirmationModal.show(
+                'This will queue a job to apply the planned changes to the file. Continue?',
+                {
+                    title: 'Approve Plan',
+                    confirmText: 'Approve and Queue',
+                    cancelText: 'Cancel'
+                }
+            )
+            if (!confirmed) {
+                return
+            }
+        }
+
         // Prevent double-submit
         if (pendingActions[planId]) {
             return
@@ -478,7 +494,15 @@
             const data = await response.json()
 
             if (data.success) {
-                showToast('Plan approved successfully', 'success')
+                // Build success message with job link if available
+                var message = 'Plan approved successfully'
+                if (data.job_url) {
+                    message += '. <a href="' + data.job_url + '">View job</a>'
+                }
+                if (data.warning) {
+                    message += ' (Warning: ' + data.warning + ')'
+                }
+                showToast(message, 'success')
                 // Refresh to show updated status
                 fetchPlans()
             } else {
