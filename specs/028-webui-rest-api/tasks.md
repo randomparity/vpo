@@ -23,8 +23,8 @@
 
 **Purpose**: Create API documentation structure and verify existing endpoints
 
-- [ ] T001 Create docs/api-webui.md with initial structure (title, introduction, conventions section)
-- [ ] T002 Add API documentation entry to docs/INDEX.md with proper categorization
+- [X] T001 Create docs/api-webui.md with initial structure (title, introduction, conventions section)
+- [X] T002 Add API documentation entry to docs/INDEX.md with proper categorization
 
 **Checkpoint**: Documentation file exists with basic structure
 
