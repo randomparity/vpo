@@ -60,17 +60,17 @@ Based on plan.md structure:
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] Implement plans_handler() HTML route for GET /plans in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T014 [US1] Implement api_plans_handler() JSON route for GET /api/plans in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T015 [US1] Register /plans and /api/plans routes in src/video_policy_orchestrator/server/ui/routes.py setup_ui_routes()
-- [ ] T016 [US1] Create plans.html template with table structure in src/video_policy_orchestrator/server/ui/templates/sections/plans.html
-- [ ] T017 [US1] Add status badge styling (color-coded by status) to plans.html template
-- [ ] T018 [US1] Add empty state message display to plans.html template
-- [ ] T019 [US1] Create plans.js with initial fetch and table rendering in src/video_policy_orchestrator/server/static/js/plans.js
-- [ ] T020 [US1] Implement formatSourceDisplay() helper for "[Deleted]" indicator handling in src/video_policy_orchestrator/server/static/js/plans.js
-- [ ] T021 [US1] Implement formatRelativeTime() helper for "2 hours ago" display in src/video_policy_orchestrator/server/static/js/plans.js
-- [ ] T022 [US1] Add pagination controls and logic to plans.js
-- [ ] T023 [US1] Add "Plans" link to navigation in src/video_policy_orchestrator/server/ui/templates/base.html
+- [X] T013 [US1] Implement plans_handler() HTML route for GET /plans in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T014 [US1] Implement api_plans_handler() JSON route for GET /api/plans in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T015 [US1] Register /plans and /api/plans routes in src/video_policy_orchestrator/server/ui/routes.py setup_ui_routes()
+- [X] T016 [US1] Create plans.html template with table structure in src/video_policy_orchestrator/server/ui/templates/sections/plans.html
+- [X] T017 [US1] Add status badge styling (color-coded by status) to plans.html template
+- [X] T018 [US1] Add empty state message display to plans.html template
+- [X] T019 [US1] Create plans.js with initial fetch and table rendering in src/video_policy_orchestrator/server/static/js/plans.js
+- [X] T020 [US1] Implement formatSourceDisplay() helper for "[Deleted]" indicator handling in src/video_policy_orchestrator/server/static/js/plans.js
+- [X] T021 [US1] Implement formatRelativeTime() helper for "2 hours ago" display in src/video_policy_orchestrator/server/static/js/plans.js
+- [X] T022 [US1] Add pagination controls and logic to plans.js
+- [X] T023 [US1] Add "Plans" link to navigation in src/video_policy_orchestrator/server/ui/models.py NAVIGATION_ITEMS
 
 **Checkpoint**: User Story 1 complete - basic list view functional with pagination
 
@@ -84,10 +84,10 @@ Based on plan.md structure:
 
 ### Implementation for User Story 2
 
-- [ ] T024 [US2] Add status filter dropdown to plans.html filter bar
-- [ ] T025 [US2] Implement status filter state management in plans.js (currentFilters.status)
-- [ ] T026 [US2] Wire status dropdown change event to refetch with filter in plans.js
-- [ ] T027 [US2] Ensure API handler parses status query parameter in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T024 [US2] Add status filter dropdown to plans.html filter bar
+- [X] T025 [US2] Implement status filter state management in plans.js (currentFilters.status)
+- [X] T026 [US2] Wire status dropdown change event to refetch with filter in plans.js
+- [X] T027 [US2] Ensure API handler parses status query parameter in src/video_policy_orchestrator/server/ui/routes.py
 
 **Checkpoint**: User Story 2 complete - status filtering works independently
 
@@ -101,10 +101,10 @@ Based on plan.md structure:
 
 ### Implementation for User Story 3
 
-- [ ] T028 [US3] Add time range filter dropdown to plans.html filter bar (Today, Last 7 days, Last 30 days)
-- [ ] T029 [US3] Implement time filter state management in plans.js (currentFilters.since)
-- [ ] T030 [US3] Wire time dropdown change event to refetch with filter in plans.js
-- [ ] T031 [US3] Ensure API handler parses since query parameter and computes datetime threshold in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T028 [US3] Add time range filter dropdown to plans.html filter bar (Today, Last 7 days, Last 30 days)
+- [X] T029 [US3] Implement time filter state management in plans.js (currentFilters.since)
+- [X] T030 [US3] Wire time dropdown change event to refetch with filter in plans.js
+- [X] T031 [US3] Ensure API handler parses since query parameter and computes datetime threshold in src/video_policy_orchestrator/server/ui/routes.py
 
 **Checkpoint**: User Story 3 complete - time filtering works independently
 
@@ -118,14 +118,14 @@ Based on plan.md structure:
 
 ### Implementation for User Story 4
 
-- [ ] T032 [US4] Add PlanActionResponse dataclass to src/video_policy_orchestrator/server/ui/models.py
-- [ ] T033 [US4] Implement api_plan_approve_handler() for POST /api/plans/{id}/approve in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T034 [US4] Implement api_plan_reject_handler() for POST /api/plans/{id}/reject in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T035 [US4] Register /api/plans/{id}/approve and /api/plans/{id}/reject routes in setup_ui_routes()
-- [ ] T036 [US4] Add Approve/Reject button column to plans.html table (conditional on pending status)
-- [ ] T037 [US4] Implement handleApprove() and handleReject() click handlers in plans.js
-- [ ] T038 [US4] Add toast notification for successful approve/reject action in plans.js
-- [ ] T039 [US4] Update row status immediately after successful action (optimistic or refetch) in plans.js
+- [X] T032 [US4] Add PlanActionResponse dataclass to src/video_policy_orchestrator/server/ui/models.py
+- [X] T033 [US4] Implement api_plan_approve_handler() for POST /api/plans/{id}/approve in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T034 [US4] Implement api_plan_reject_handler() for POST /api/plans/{id}/reject in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T035 [US4] Register /api/plans/{id}/approve and /api/plans/{id}/reject routes in setup_ui_routes()
+- [X] T036 [US4] Add Approve/Reject button column to plans.html table (conditional on pending status)
+- [X] T037 [US4] Implement handleApprove() and handleReject() click handlers in plans.js
+- [X] T038 [US4] Add toast notification for successful approve/reject action in plans.js
+- [X] T039 [US4] Update row status immediately after successful action (optimistic or refetch) in plans.js
 
 **Checkpoint**: User Story 4 complete - inline actions work for pending plans
 
@@ -139,10 +139,10 @@ Based on plan.md structure:
 
 ### Implementation for User Story 5
 
-- [ ] T040 [US5] Add clickable row wrapper to plans.html table rows (excluding action buttons)
-- [ ] T041 [US5] Implement row click handler in plans.js that navigates to /plans/{plan_id}
-- [ ] T042 [US5] Add cursor:pointer styling for plan rows in plans.html or CSS
-- [ ] T043 [US5] Ensure action button clicks don't bubble up to row click handler (event.stopPropagation)
+- [X] T040 [US5] Add clickable row wrapper to plans.html table rows (excluding action buttons)
+- [X] T041 [US5] Implement row click handler in plans.js that navigates to /plans/{plan_id}
+- [X] T042 [US5] Add cursor:pointer styling for plan rows in plans.html or CSS
+- [X] T043 [US5] Ensure action button clicks don't bubble up to row click handler (event.stopPropagation)
 
 **Checkpoint**: User Story 5 complete - plan rows are clickable (detail view is separate feature)
 
@@ -156,11 +156,11 @@ Based on plan.md structure:
 
 ### Implementation for User Story 6
 
-- [ ] T044 [US6] Import and initialize VPOPolling module in plans.js
-- [ ] T045 [US6] Implement fetchPlansForPolling() that preserves current filter/pagination state in plans.js
-- [ ] T046 [US6] Implement smart row updates (compare cached data, update only changed rows) in plans.js
-- [ ] T047 [US6] Add connection status indicator to plans.html (similar to jobs dashboard)
-- [ ] T048 [US6] Ensure polling pauses when tab is hidden and resumes when visible in plans.js
+- [X] T044 [US6] Import and initialize VPOPolling module in plans.js
+- [X] T045 [US6] Implement fetchPlansForPolling() that preserves current filter/pagination state in plans.js
+- [X] T046 [US6] Implement smart row updates (compare cached data, update only changed rows) in plans.js
+- [X] T047 [US6] Add connection status indicator to plans.html (similar to jobs dashboard) - NOTE: VPOPolling handles this centrally
+- [X] T048 [US6] Ensure polling pauses when tab is hidden and resumes when visible in plans.js - NOTE: VPOPolling handles this centrally
 
 **Checkpoint**: User Story 6 complete - live polling updates the list automatically
 
@@ -170,11 +170,11 @@ Based on plan.md structure:
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T049 [P] Add structured logging for plan status transitions in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T050 [P] Add error handling for API failures with user-friendly messages in plans.js
-- [ ] T051 [P] Verify empty filter results show appropriate message in plans.js
+- [X] T049 [P] Add structured logging for plan status transitions in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T050 [P] Add error handling for API failures with user-friendly messages in plans.js
+- [X] T051 [P] Verify empty filter results show appropriate message in plans.js
 - [ ] T052 Run manual test of all user stories per quickstart.md validation
-- [ ] T053 Update navigation active state when on Plans page
+- [X] T053 Update navigation active state when on Plans page (handled by NavigationState.from_request)
 - [ ] T054 [P] Update docs/usage/ with plans approval workflow documentation
 
 ---

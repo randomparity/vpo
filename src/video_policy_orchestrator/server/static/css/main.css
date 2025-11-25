@@ -3339,3 +3339,338 @@ input.valid:focus {
     top: var(--spacing-sm);
     right: var(--spacing-sm);
 }
+
+/* ==========================================================================
+   Plans List View (026-plans-list-view)
+   ========================================================================== */
+
+.plans-dashboard {
+    padding: var(--spacing-md);
+}
+
+/* Plans filters */
+.plans-filters {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
+}
+
+.plans-filter {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.plans-filter label {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--color-text-muted);
+}
+
+.plans-filter select {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    font-size: var(--font-size-sm);
+    background-color: var(--color-content-bg);
+    color: var(--color-text);
+    min-width: 150px;
+}
+
+/* Plans table */
+.plans-table-container {
+    overflow-x: auto;
+}
+
+.plans-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+}
+
+.plans-table th,
+.plans-table td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.plans-table th {
+    background-color: var(--color-body-bg);
+    font-weight: 600;
+    color: var(--color-text);
+    white-space: nowrap;
+}
+
+.plans-table tbody tr:hover {
+    background-color: rgba(52, 152, 219, 0.05);
+}
+
+.plan-row-clickable {
+    cursor: pointer;
+}
+
+.plans-table .plan-id {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+}
+
+.plans-table .plan-file {
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.plan-file-deleted {
+    color: var(--color-error);
+    font-style: italic;
+}
+
+.plan-remux-indicator {
+    color: var(--color-text-muted);
+    font-weight: bold;
+    margin-left: 0.25rem;
+}
+
+/* Plan status badges */
+.status-pending {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.status-approved {
+    background-color: #dbeafe;
+    color: #1d4ed8;
+}
+
+.status-rejected {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.status-applied {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.status-canceled {
+    background-color: #e5e7eb;
+    color: #374151;
+}
+
+/* Plan actions */
+.plan-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.plan-action-btn {
+    padding: 0.25rem 0.5rem;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.plan-action-approve {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.plan-action-approve:hover {
+    background-color: #a7f3d0;
+}
+
+.plan-action-reject {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.plan-action-reject:hover {
+    background-color: #fecaca;
+}
+
+.plan-actions-empty {
+    color: var(--color-text-hint);
+}
+
+/* Plans empty state */
+.plans-empty {
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--color-text-muted);
+}
+
+.plans-empty-icon {
+    font-size: 3rem;
+    margin-bottom: var(--spacing-md);
+    opacity: 0.5;
+}
+
+.plans-empty-title {
+    font-size: var(--font-size-lg);
+    font-weight: 500;
+    color: var(--color-text);
+    margin-bottom: var(--spacing-sm);
+}
+
+.plans-empty-hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-hint);
+}
+
+/* Plans loading state */
+.plans-loading {
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--color-text-muted);
+}
+
+.plans-loading-spinner {
+    display: inline-block;
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid var(--color-border);
+    border-radius: 50%;
+    border-top-color: var(--color-primary);
+    animation: spin 1s linear infinite;
+}
+
+/* Plans pagination */
+.plans-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--color-border);
+}
+
+.plans-pagination-info {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+.plans-pagination-controls {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.plans-pagination-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background-color: var(--color-content-bg);
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.plans-pagination-btn:hover:not(:disabled) {
+    background-color: var(--color-body-bg);
+}
+
+.plans-pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Plans toast notifications */
+.plans-toast {
+    position: fixed;
+    bottom: var(--spacing-lg);
+    right: var(--spacing-lg);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-radius: 4px;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    z-index: 1000;
+    animation: slideIn 0.3s ease;
+}
+
+.plans-toast--success {
+    background-color: #d1fae5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.plans-toast--error {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Dark mode overrides for plans */
+@media (prefers-color-scheme: dark) {
+    .status-pending {
+        background-color: #3a3a2a;
+        color: #f39c12;
+    }
+
+    .status-approved {
+        background-color: #2a3a4a;
+        color: #5dade2;
+    }
+
+    .status-rejected {
+        background-color: #4a1a1a;
+        color: #ff6b6b;
+    }
+
+    .status-applied {
+        background-color: #1e4620;
+        color: #6fbf73;
+    }
+
+    .status-canceled {
+        background-color: #3a3a3a;
+        color: #b0b0b0;
+    }
+
+    .plan-action-approve {
+        background-color: #1e4620;
+        color: #6fbf73;
+    }
+
+    .plan-action-approve:hover {
+        background-color: #245d28;
+    }
+
+    .plan-action-reject {
+        background-color: #4a1a1a;
+        color: #ff6b6b;
+    }
+
+    .plan-action-reject:hover {
+        background-color: #5a2020;
+    }
+
+    .plans-toast--success {
+        background-color: #1e4620;
+        color: #6fbf73;
+        border-color: #245d28;
+    }
+
+    .plans-toast--error {
+        background-color: #4a1a1a;
+        color: #ff6b6b;
+        border-color: #5a2020;
+    }
+}

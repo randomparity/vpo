@@ -37,6 +37,11 @@ from video_policy_orchestrator.server.ui.models import (
     LibraryContext,
     LibraryFilterParams,
     NavigationState,
+    PlanActionResponse,
+    PlanFilterParams,
+    PlanListItem,
+    PlanListResponse,
+    PlansContext,
     PoliciesContext,
     PolicyListItem,
     PolicyListResponse,
@@ -1930,6 +1935,266 @@ async def api_policy_validate_handler(request: web.Request) -> web.Response:
         return web.json_response(response.to_dict())
 
 
+# ==========================================================================
+# Plans List View Handlers (026-plans-list-view)
+# ==========================================================================
+
+
+async def plans_handler(request: web.Request) -> dict:
+    """Handle GET /plans - Plans list section page.
+
+    Renders the Plans page HTML with filter options for client-side JavaScript.
+    """
+    context = _create_template_context(
+        active_id="plans",
+        section_title="Plans",
+    )
+    # Add plans filter options for template
+    context["plans_context"] = PlansContext.default()
+    return context
+
+
+async def api_plans_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/plans - JSON API for plans listing.
+
+    Query parameters:
+        status: Filter by plan status (pending, approved, rejected, applied, canceled)
+        since: Time filter (24h, 7d, 30d)
+        policy_name: Filter by policy name
+        limit: Page size (1-100, default 50)
+        offset: Pagination offset (default 0)
+
+    Returns:
+        JSON response with PlanListResponse payload.
+    """
+    from datetime import timedelta, timezone
+
+    from video_policy_orchestrator.db.connection import DaemonConnectionPool
+    from video_policy_orchestrator.db.models import PlanStatus
+    from video_policy_orchestrator.db.operations import get_plans_filtered
+
+    # Check if shutting down
+    lifecycle = request.app.get("lifecycle")
+    if lifecycle and lifecycle.is_shutting_down:
+        return web.json_response(
+            {"error": "Service is shutting down"},
+            status=503,
+        )
+
+    # Parse query parameters
+    params = PlanFilterParams.from_query(dict(request.query))
+
+    # Validate status parameter
+    status_enum = None
+    if params.status:
+        try:
+            status_enum = PlanStatus(params.status)
+        except ValueError:
+            return web.json_response(
+                {"error": f"Invalid status value: '{params.status}'"},
+                status=400,
+            )
+
+    # Calculate 'since' timestamp
+    since_timestamp = None
+    if params.since:
+        if params.since == "24h":
+            since_timestamp = (
+                datetime.now(timezone.utc) - timedelta(hours=24)
+            ).isoformat()
+        elif params.since == "7d":
+            since_timestamp = (
+                datetime.now(timezone.utc) - timedelta(days=7)
+            ).isoformat()
+        elif params.since == "30d":
+            since_timestamp = (
+                datetime.now(timezone.utc) - timedelta(days=30)
+            ).isoformat()
+        else:
+            return web.json_response(
+                {"error": f"Invalid since value: '{params.since}'"},
+                status=400,
+            )
+
+    # Get connection pool
+    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
+    if connection_pool is None:
+        return web.json_response(
+            {"error": "Database not available"},
+            status=503,
+        )
+
+    # Query plans from database using thread-safe connection access
+    def _query_plans() -> tuple[list, int]:
+        with connection_pool.transaction() as conn:
+            plans, total = get_plans_filtered(
+                conn,
+                status=status_enum,
+                since=since_timestamp,
+                policy_name=params.policy_name,
+                limit=params.limit,
+                offset=params.offset,
+                return_total=True,
+            )
+            return plans, total
+
+    plans_data, total = await asyncio.to_thread(_query_plans)
+
+    # Convert to PlanListItem
+    plan_items = [PlanListItem.from_plan_record(p) for p in plans_data]
+
+    # Determine if any filters are active
+    has_filters = bool(params.status or params.since or params.policy_name)
+
+    response = PlanListResponse(
+        plans=plan_items,
+        total=total,
+        limit=params.limit,
+        offset=params.offset,
+        has_filters=has_filters,
+    )
+
+    return web.json_response(response.to_dict())
+
+
+async def api_plan_approve_handler(request: web.Request) -> web.Response:
+    """Handle POST /api/plans/{plan_id}/approve - Approve a pending plan.
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        JSON response with PlanActionResponse payload.
+    """
+    from video_policy_orchestrator.db.connection import DaemonConnectionPool
+    from video_policy_orchestrator.db.models import PlanStatus
+    from video_policy_orchestrator.db.operations import (
+        InvalidPlanTransitionError,
+        update_plan_status,
+    )
+
+    # Check if shutting down
+    lifecycle = request.app.get("lifecycle")
+    if lifecycle and lifecycle.is_shutting_down:
+        return web.json_response(
+            {"error": "Service is shutting down"},
+            status=503,
+        )
+
+    plan_id = request.match_info["plan_id"]
+
+    # Validate UUID format
+    if not _is_valid_uuid(plan_id):
+        return web.json_response(
+            PlanActionResponse(success=False, error="Invalid plan ID format").to_dict(),
+            status=400,
+        )
+
+    # Get connection pool
+    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
+    if connection_pool is None:
+        return web.json_response(
+            PlanActionResponse(success=False, error="Database not available").to_dict(),
+            status=503,
+        )
+
+    # Update plan status
+    def _approve_plan():
+        with connection_pool.transaction() as conn:
+            try:
+                updated = update_plan_status(conn, plan_id, PlanStatus.APPROVED)
+                if updated is None:
+                    return None, "Plan not found"
+                return updated, None
+            except InvalidPlanTransitionError as e:
+                return None, str(e)
+
+    updated_plan, error = await asyncio.to_thread(_approve_plan)
+
+    if error:
+        status_code = 404 if error == "Plan not found" else 409
+        return web.json_response(
+            PlanActionResponse(success=False, error=error).to_dict(),
+            status=status_code,
+        )
+
+    logger.info("Plan %s approved", plan_id[:8])
+    response = PlanActionResponse(
+        success=True,
+        plan=PlanListItem.from_plan_record(updated_plan),
+    )
+    return web.json_response(response.to_dict())
+
+
+async def api_plan_reject_handler(request: web.Request) -> web.Response:
+    """Handle POST /api/plans/{plan_id}/reject - Reject a pending plan.
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        JSON response with PlanActionResponse payload.
+    """
+    from video_policy_orchestrator.db.connection import DaemonConnectionPool
+    from video_policy_orchestrator.db.models import PlanStatus
+    from video_policy_orchestrator.db.operations import (
+        InvalidPlanTransitionError,
+        update_plan_status,
+    )
+
+    # Check if shutting down
+    lifecycle = request.app.get("lifecycle")
+    if lifecycle and lifecycle.is_shutting_down:
+        return web.json_response(
+            {"error": "Service is shutting down"},
+            status=503,
+        )
+
+    plan_id = request.match_info["plan_id"]
+
+    # Validate UUID format
+    if not _is_valid_uuid(plan_id):
+        return web.json_response(
+            PlanActionResponse(success=False, error="Invalid plan ID format").to_dict(),
+            status=400,
+        )
+
+    # Get connection pool
+    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
+    if connection_pool is None:
+        return web.json_response(
+            PlanActionResponse(success=False, error="Database not available").to_dict(),
+            status=503,
+        )
+
+    # Update plan status
+    def _reject_plan():
+        with connection_pool.transaction() as conn:
+            try:
+                updated = update_plan_status(conn, plan_id, PlanStatus.REJECTED)
+                if updated is None:
+                    return None, "Plan not found"
+                return updated, None
+            except InvalidPlanTransitionError as e:
+                return None, str(e)
+
+    updated_plan, error = await asyncio.to_thread(_reject_plan)
+
+    if error:
+        status_code = 404 if error == "Plan not found" else 409
+        return web.json_response(
+            PlanActionResponse(success=False, error=error).to_dict(),
+            status=status_code,
+        )
+
+    logger.info("Plan %s rejected", plan_id[:8])
+    response = PlanActionResponse(
+        success=True,
+        plan=PlanListItem.from_plan_record(updated_plan),
+    )
+    return web.json_response(response.to_dict())
+
+
 async def approvals_handler(request: web.Request) -> dict:
     """Handle GET /approvals - Approvals section page."""
     return _create_template_context(
@@ -2158,6 +2423,14 @@ def setup_ui_routes(app: web.Application) -> None:
     app.router.add_put("/api/policies/{name}", api_policy_update_handler)
     # Policy validation endpoint (025-policy-validation T029)
     app.router.add_post("/api/policies/{name}/validate", api_policy_validate_handler)
+    # Plans list routes (026-plans-list-view)
+    app.router.add_get(
+        "/plans",
+        aiohttp_jinja2.template("sections/plans.html")(plans_handler),
+    )
+    app.router.add_get("/api/plans", api_plans_handler)
+    app.router.add_post("/api/plans/{plan_id}/approve", api_plan_approve_handler)
+    app.router.add_post("/api/plans/{plan_id}/reject", api_plan_reject_handler)
     app.router.add_get(
         "/approvals",
         aiohttp_jinja2.template("sections/approvals.html")(approvals_handler),
