@@ -38,11 +38,11 @@
 
 **Note**: All endpoints are already implemented. This phase confirms they work as expected.
 
-- [ ] T003 Start daemon and verify GET /api/jobs returns valid JSON response
-- [ ] T004 [P] Verify GET /api/library returns valid JSON response
-- [ ] T005 [P] Verify GET /api/transcriptions returns valid JSON response
-- [ ] T006 [P] Verify GET /api/policies returns valid JSON response
-- [ ] T007 [P] Verify GET /api/plans returns valid JSON response
+- [X] T003 Start daemon and verify GET /api/jobs returns valid JSON response
+- [X] T004 [P] Verify GET /api/library returns valid JSON response
+- [X] T005 [P] Verify GET /api/transcriptions returns valid JSON response
+- [X] T006 [P] Verify GET /api/policies returns valid JSON response
+- [X] T007 [P] Verify GET /api/plans returns valid JSON response
 
 **Checkpoint**: All list endpoints confirmed functional
 
@@ -56,12 +56,12 @@
 
 ### Implementation for User Story 1
 
-- [ ] T008 [US1] Document GET /api/jobs in docs/api-webui.md (query params: status, type, since, limit, offset)
-- [ ] T009 [P] [US1] Document GET /api/library in docs/api-webui.md (query params: status, search, resolution, audio_lang, subtitles, limit, offset)
-- [ ] T010 [P] [US1] Document GET /api/library/languages in docs/api-webui.md (no params, returns available languages)
-- [ ] T011 [P] [US1] Document GET /api/transcriptions in docs/api-webui.md (query params: show_all, limit, offset)
-- [ ] T012 [P] [US1] Document GET /api/policies in docs/api-webui.md (no params, returns all policies)
-- [ ] T013 [P] [US1] Document GET /api/plans in docs/api-webui.md (query params: status, since, policy_name, limit, offset)
+- [X] T008 [US1] Document GET /api/jobs in docs/api-webui.md (query params: status, type, since, limit, offset)
+- [X] T009 [P] [US1] Document GET /api/library in docs/api-webui.md (query params: status, search, resolution, audio_lang, subtitles, limit, offset)
+- [X] T010 [P] [US1] Document GET /api/library/languages in docs/api-webui.md (no params, returns available languages)
+- [X] T011 [P] [US1] Document GET /api/transcriptions in docs/api-webui.md (query params: show_all, limit, offset)
+- [X] T012 [P] [US1] Document GET /api/policies in docs/api-webui.md (no params, returns all policies)
+- [X] T013 [P] [US1] Document GET /api/plans in docs/api-webui.md (query params: status, since, policy_name, limit, offset)
 
 **Checkpoint**: All list endpoints documented with parameters and response examples
 
@@ -77,12 +77,12 @@
 
 ### Implementation for User Story 2
 
-- [ ] T014 [US2] Document GET /api/jobs/{id} in docs/api-webui.md (path param: job_id as UUID)
-- [ ] T015 [P] [US2] Document GET /api/jobs/{id}/logs in docs/api-webui.md (query params: lines, offset)
-- [ ] T016 [P] [US2] Document GET /api/jobs/{id}/errors in docs/api-webui.md (returns scan errors for job)
-- [ ] T017 [P] [US2] Document GET /api/library/{id} in docs/api-webui.md (path param: file_id as integer)
-- [ ] T018 [P] [US2] Document GET /api/transcriptions/{id} in docs/api-webui.md (path param: transcription_id as integer)
-- [ ] T019 [P] [US2] Document GET /api/policies/{name} in docs/api-webui.md (path param: name as string)
+- [X] T014 [US2] Document GET /api/jobs/{id} in docs/api-webui.md (path param: job_id as UUID)
+- [X] T015 [P] [US2] Document GET /api/jobs/{id}/logs in docs/api-webui.md (query params: lines, offset)
+- [X] T016 [P] [US2] Document GET /api/jobs/{id}/errors in docs/api-webui.md (returns scan errors for job)
+- [X] T017 [P] [US2] Document GET /api/library/{id} in docs/api-webui.md (path param: file_id as integer)
+- [X] T018 [P] [US2] Document GET /api/transcriptions/{id} in docs/api-webui.md (path param: transcription_id as integer)
+- [X] T019 [P] [US2] Document GET /api/policies/{name} in docs/api-webui.md (path param: name as string)
 
 **Checkpoint**: All detail endpoints documented with path parameters and response examples
 
@@ -98,10 +98,10 @@
 
 ### Implementation for User Story 3
 
-- [ ] T020 [US3] Document PUT /api/policies/{name} in docs/api-webui.md (request body, CSRF requirement, concurrency handling)
-- [ ] T021 [P] [US3] Document POST /api/policies/{name}/validate in docs/api-webui.md (dry-run validation)
-- [ ] T022 [US3] Document validation error response format in docs/api-webui.md (structured errors with field, message, code)
-- [ ] T023 [US3] Document concurrent modification handling (409 Conflict response) in docs/api-webui.md
+- [X] T020 [US3] Document PUT /api/policies/{name} in docs/api-webui.md (request body, CSRF requirement, concurrency handling)
+- [X] T021 [P] [US3] Document POST /api/policies/{name}/validate in docs/api-webui.md (dry-run validation)
+- [X] T022 [US3] Document validation error response format in docs/api-webui.md (structured errors with field, message, code)
+- [X] T023 [US3] Document concurrent modification handling (409 Conflict response) in docs/api-webui.md
 
 **Checkpoint**: Policy modification endpoints documented with request/response examples and error cases
 
@@ -117,10 +117,10 @@
 
 ### Implementation for User Story 4
 
-- [ ] T024 [US4] Document POST /api/plans/{id}/approve in docs/api-webui.md (CSRF requirement, job creation)
-- [ ] T025 [P] [US4] Document POST /api/plans/{id}/reject in docs/api-webui.md (CSRF requirement, state transition)
-- [ ] T026 [US4] Document plan state machine (pending → approved/rejected) in docs/api-webui.md
-- [ ] T027 [US4] Document PlanActionResponse format (success, plan, job_id, job_url, warning, error)
+- [X] T024 [US4] Document POST /api/plans/{id}/approve in docs/api-webui.md (CSRF requirement, job creation)
+- [X] T025 [P] [US4] Document POST /api/plans/{id}/reject in docs/api-webui.md (CSRF requirement, state transition)
+- [X] T026 [US4] Document plan state machine (pending → approved/rejected) in docs/api-webui.md
+- [X] T027 [US4] Document PlanActionResponse format (success, plan, job_id, job_url, warning, error)
 
 **Checkpoint**: Plan action endpoints documented with state transitions and response examples
 
@@ -136,11 +136,11 @@
 
 ### Implementation for User Story 5
 
-- [ ] T028 [US5] Add common response patterns section to docs/api-webui.md (pagination, errors, timestamps)
-- [ ] T029 [P] [US5] Add CSRF protection section to docs/api-webui.md (how to obtain and use tokens)
-- [ ] T030 [P] [US5] Add error handling section to docs/api-webui.md (400, 404, 409, 503 responses)
-- [ ] T031 [US5] Add authentication notes section to docs/api-webui.md (future feature placeholder)
-- [ ] T032 [US5] Review and verify all documentation examples match actual API behavior
+- [X] T028 [US5] Add common response patterns section to docs/api-webui.md (pagination, errors, timestamps)
+- [X] T029 [P] [US5] Add CSRF protection section to docs/api-webui.md (how to obtain and use tokens)
+- [X] T030 [P] [US5] Add error handling section to docs/api-webui.md (400, 404, 409, 503 responses)
+- [X] T031 [US5] Add authentication notes section to docs/api-webui.md (future feature placeholder)
+- [X] T032 [US5] Review and verify all documentation examples match actual API behavior
 
 **Checkpoint**: Complete API reference documentation ready for use
 
@@ -152,10 +152,10 @@
 
 **Purpose**: Final review and integration
 
-- [ ] T033 [P] Verify docs/api-webui.md follows VPO documentation conventions
-- [ ] T034 [P] Run spell check and grammar review on docs/api-webui.md
-- [ ] T035 Verify all linked resources (related docs) are valid in docs/api-webui.md
-- [ ] T036 Mark tasks complete in specs/028-webui-rest-api/tasks.md
+- [X] T033 [P] Verify docs/api-webui.md follows VPO documentation conventions
+- [X] T034 [P] Run spell check and grammar review on docs/api-webui.md
+- [X] T035 Verify all linked resources (related docs) are valid in docs/api-webui.md
+- [X] T036 Mark tasks complete in specs/028-webui-rest-api/tasks.md
 
 **Commit**: `docs: Finalize Web UI REST API documentation (028-webui-rest-api)`
 
