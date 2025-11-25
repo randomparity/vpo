@@ -1,0 +1,343 @@
+openapi: 3.0.3
+info:
+  title: VPO Policy Validation API
+  description: |
+    API endpoints for policy validation and error reporting.
+    This specification covers new and modified endpoints for feature 025-policy-validation.
+  version: 1.0.0
+
+paths:
+  /api/policies/{name}:
+    put:
+      summary: Update policy with validation
+      description: |
+        Validates and saves policy changes. Returns structured field-level errors
+        if validation fails, or success response with diff summary if valid.
+
+        **Modified behavior**: Now returns all validation errors (not just first),
+        and includes changed_fields in success response.
+      operationId: updatePolicy
+      tags:
+        - Policies
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Policy name (filename without extension)
+          schema:
+            type: string
+            pattern: ^[a-zA-Z0-9_-]+$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyUpdateRequest'
+      responses:
+        '200':
+          description: Policy saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicySaveSuccessResponse'
+        '400':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '404':
+          description: Policy not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Concurrent modification detected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConcurrentModificationError'
+      security:
+        - csrfToken: []
+
+  /api/policies/{name}/validate:
+    post:
+      summary: Validate policy without saving
+      description: |
+        Validates policy configuration and returns validation results without
+        persisting any changes. Use this for "Test Policy" functionality.
+      operationId: validatePolicy
+      tags:
+        - Policies
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Policy name (filename without extension)
+          schema:
+            type: string
+            pattern: ^[a-zA-Z0-9_-]+$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyValidateRequest'
+      responses:
+        '200':
+          description: Validation completed (may be valid or invalid)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyValidateResponse'
+        '400':
+          description: Invalid request format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Policy not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - csrfToken: []
+
+components:
+  securitySchemes:
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRF-Token
+      description: CSRF token for state-changing requests
+
+  schemas:
+    PolicyUpdateRequest:
+      type: object
+      required:
+        - track_order
+        - audio_language_preference
+        - subtitle_language_preference
+        - default_flags
+        - last_modified_timestamp
+      properties:
+        track_order:
+          type: array
+          items:
+            type: string
+          description: Ordered list of track types
+          example: ["video", "audio_main", "audio_alternate", "subtitle_main"]
+        audio_language_preference:
+          type: array
+          items:
+            type: string
+            pattern: ^[a-z]{2,3}$
+          description: Ordered list of preferred audio languages (ISO 639-2)
+          example: ["eng", "jpn"]
+        subtitle_language_preference:
+          type: array
+          items:
+            type: string
+            pattern: ^[a-z]{2,3}$
+          description: Ordered list of preferred subtitle languages (ISO 639-2)
+          example: ["eng"]
+        commentary_patterns:
+          type: array
+          items:
+            type: string
+          description: Regex patterns for commentary track detection
+          example: ["commentary", "director"]
+        default_flags:
+          $ref: '#/components/schemas/DefaultFlags'
+        transcode:
+          type: object
+          nullable: true
+          description: Transcode settings (preserved, not editable in UI)
+        transcription:
+          $ref: '#/components/schemas/TranscriptionSettings'
+        last_modified_timestamp:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp of last known modification
+
+    PolicyValidateRequest:
+      type: object
+      description: Same as PolicyUpdateRequest but without last_modified_timestamp
+      required:
+        - track_order
+        - audio_language_preference
+        - subtitle_language_preference
+        - default_flags
+      properties:
+        track_order:
+          type: array
+          items:
+            type: string
+        audio_language_preference:
+          type: array
+          items:
+            type: string
+        subtitle_language_preference:
+          type: array
+          items:
+            type: string
+        commentary_patterns:
+          type: array
+          items:
+            type: string
+        default_flags:
+          $ref: '#/components/schemas/DefaultFlags'
+        transcode:
+          type: object
+          nullable: true
+        transcription:
+          $ref: '#/components/schemas/TranscriptionSettings'
+
+    DefaultFlags:
+      type: object
+      properties:
+        set_first_video_default:
+          type: boolean
+          default: true
+        set_preferred_audio_default:
+          type: boolean
+          default: true
+        set_preferred_subtitle_default:
+          type: boolean
+          default: false
+        clear_other_defaults:
+          type: boolean
+          default: true
+
+    TranscriptionSettings:
+      type: object
+      nullable: true
+      properties:
+        enabled:
+          type: boolean
+        detect_commentary:
+          type: boolean
+        reorder_commentary:
+          type: boolean
+        confidence_threshold:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    ValidationError:
+      type: object
+      required:
+        - field
+        - message
+      properties:
+        field:
+          type: string
+          description: Dot-notation path to the invalid field
+          example: "audio_language_preference[0]"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Invalid language code 'english'. Use ISO 639-2 codes."
+        code:
+          type: string
+          description: Machine-readable error type (optional)
+          example: "string_pattern_mismatch"
+
+    FieldChange:
+      type: object
+      required:
+        - field
+        - change_type
+      properties:
+        field:
+          type: string
+          description: Name of the changed field
+          example: "audio_language_preference"
+        change_type:
+          type: string
+          enum: [added, removed, modified, reordered, items_added, items_removed]
+          description: Type of change
+        details:
+          type: string
+          description: Human-readable change details
+          example: "eng, jpn → jpn, eng"
+
+    ValidationErrorResponse:
+      type: object
+      required:
+        - error
+        - errors
+      properties:
+        error:
+          type: string
+          example: "Validation failed"
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+        details:
+          type: string
+          description: Optional general error message
+
+    PolicySaveSuccessResponse:
+      type: object
+      required:
+        - success
+        - changed_fields
+        - policy
+      properties:
+        success:
+          type: boolean
+          example: true
+        changed_fields:
+          type: array
+          items:
+            type: string
+          description: List of fields that were modified
+          example: ["audio_language_preference", "default_flags"]
+        policy:
+          type: object
+          description: Full updated policy data
+
+    PolicyValidateResponse:
+      type: object
+      required:
+        - valid
+      properties:
+        valid:
+          type: boolean
+          description: True if policy configuration is valid
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          description: Present only if valid=false
+        message:
+          type: string
+          description: Present only if valid=true
+          example: "Policy configuration is valid"
+
+    ConcurrentModificationError:
+      type: object
+      required:
+        - error
+        - details
+      properties:
+        error:
+          type: string
+          example: "Concurrent modification detected"
+        details:
+          type: string
+          example: "Policy was modified since you loaded it. Please reload and try again."
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
