@@ -72,6 +72,9 @@
     // Debounce timer for YAML preview
     let yamlPreviewTimeout
 
+    // Debounce timer for regex validation
+    let regexValidationTimeout
+
     /**
      * Mark form as dirty
      */
@@ -635,12 +638,14 @@
         closeBtn.onclick = () => {
             validationErrors.style.display = 'none'
             clearFieldHighlighting()
+            saveBtn.focus() // Restore focus for accessibility
         }
         closeBtn.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault()
                 validationErrors.style.display = 'none'
                 clearFieldHighlighting()
+                saveBtn.focus() // Restore focus for accessibility
             }
         })
         validationErrors.appendChild(closeBtn)
@@ -748,7 +753,7 @@
         setTimeout(() => {
             saveStatus.textContent = ''
             saveStatus.className = 'save-status'
-        }, 5000)
+        }, 8000) // 8 seconds for screen reader accessibility
     }
 
     /**
@@ -885,6 +890,9 @@
      * Calls POST /api/policies/{name}/validate
      */
     async function testPolicy() {
+        // Don't test during save operation
+        if (formState.isSaving) return
+
         // Clear previous errors
         clearFieldHighlighting()
         validationErrors.style.display = 'none'
@@ -983,9 +991,12 @@
      */
     function validateLanguageInput(input) {
         const value = input.value.trim().toLowerCase()
+        const errorHint = document.getElementById(input.id + '-error')
+
         if (value.length === 0) {
             input.classList.remove('invalid', 'valid')
             input.removeAttribute('aria-invalid')
+            if (errorHint) errorHint.textContent = ''
             return
         }
 
@@ -994,10 +1005,12 @@
             input.classList.add('invalid')
             input.classList.remove('valid')
             input.setAttribute('aria-invalid', 'true')
+            if (errorHint) errorHint.textContent = 'Use 2-3 letter codes (e.g., eng, jpn)'
         } else {
             input.classList.add('valid')
             input.classList.remove('invalid')
             input.setAttribute('aria-invalid', 'false')
+            if (errorHint) errorHint.textContent = ''
         }
     }
 
@@ -1007,9 +1020,12 @@
      */
     function validateRegexInput(input) {
         const value = input.value.trim()
+        const errorHint = document.getElementById(input.id + '-error')
+
         if (value.length === 0) {
             input.classList.remove('invalid', 'valid')
             input.removeAttribute('aria-invalid')
+            if (errorHint) errorHint.textContent = ''
             return
         }
 
@@ -1019,11 +1035,13 @@
             input.classList.add('valid')
             input.classList.remove('invalid')
             input.setAttribute('aria-invalid', 'false')
+            if (errorHint) errorHint.textContent = ''
         } catch {
             // Invalid regex syntax
             input.classList.add('invalid')
             input.classList.remove('valid')
             input.setAttribute('aria-invalid', 'true')
+            if (errorHint) errorHint.textContent = 'Invalid regex pattern'
         }
     }
 
@@ -1078,9 +1096,12 @@
                 }
             })
 
-            // Commentary pattern real-time regex validation (T036)
+            // Commentary pattern real-time regex validation (T036) - debounced
             commentaryPatternInput.addEventListener('input', () => {
-                validateRegexInput(commentaryPatternInput)
+                clearTimeout(regexValidationTimeout)
+                regexValidationTimeout = setTimeout(() => {
+                    validateRegexInput(commentaryPatternInput)
+                }, 300)
             })
         }
 

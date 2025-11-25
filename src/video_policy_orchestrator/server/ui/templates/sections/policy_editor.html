@@ -53,9 +53,11 @@
                     id="audio-lang-input"
                     placeholder="e.g., eng, jpn, fra"
                     aria-label="Add audio language"
+                    aria-describedby="audio-lang-error"
                     maxlength="3"
                 />
                 <button type="button" id="audio-lang-add-btn" class="btn-secondary">Add</button>
+                <span id="audio-lang-error" class="input-error-hint"></span>
             </div>
 
             <ul id="audio-lang-list" class="language-list" role="list" aria-label="Audio language preferences">
@@ -75,9 +77,11 @@
                     id="subtitle-lang-input"
                     placeholder="e.g., eng, jpn, fra"
                     aria-label="Add subtitle language"
+                    aria-describedby="subtitle-lang-error"
                     maxlength="3"
                 />
                 <button type="button" id="subtitle-lang-add-btn" class="btn-secondary">Add</button>
+                <span id="subtitle-lang-error" class="input-error-hint"></span>
             </div>
 
             <ul id="subtitle-lang-list" class="language-list" role="list" aria-label="Subtitle language preferences">
@@ -123,8 +127,10 @@
                         id="commentary-pattern-input"
                         placeholder="e.g., commentary, director, ^Commentary$"
                         aria-label="Add commentary pattern"
+                        aria-describedby="commentary-pattern-error"
                     />
                     <button type="button" id="commentary-pattern-add-btn" class="btn-secondary">Add Pattern</button>
+                    <span id="commentary-pattern-error" class="input-error-hint"></span>
                 </div>
 
                 <ul id="commentary-patterns-list" class="patterns-list" role="list" aria-label="Commentary patterns">
@@ -150,7 +156,7 @@
         <!-- Form actions -->
         <div class="editor-actions">
             <button type="button" id="save-btn" class="btn-primary">Save Changes</button>
-            <button type="button" id="test-policy-btn" class="btn-secondary" title="Validate without saving">Test Policy</button>
+            <button type="button" id="test-policy-btn" class="btn-outline-primary" title="Validate without saving">Test Policy</button>
             <button type="button" id="cancel-btn" class="btn-secondary">Cancel</button>
             <span id="save-status" class="save-status" role="status" aria-live="polite"></span>
         </div>
