@@ -3707,6 +3707,29 @@ input.valid:focus {
     outline-offset: 2px;
 }
 
+/* Toast link styling */
+.plans-toast a {
+    color: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.plans-toast a:hover {
+    opacity: 0.8;
+}
+
+.plans-toast a:focus {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+/* Toast warning styling */
+.plans-toast .toast-warning {
+    font-style: italic;
+    opacity: 0.9;
+}
+
 /* Plans responsive styles */
 @media (max-width: 767px) {
     .plans-filters {

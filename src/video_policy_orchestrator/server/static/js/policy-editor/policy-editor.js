@@ -1161,7 +1161,8 @@
                     {
                         title: 'Unsaved Changes',
                         confirmText: 'Discard',
-                        cancelText: 'Keep Editing'
+                        cancelText: 'Keep Editing',
+                        focusCancel: true
                     }
                 )
                 if (confirmed) {

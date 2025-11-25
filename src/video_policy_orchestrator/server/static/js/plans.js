@@ -247,6 +247,7 @@
 
     // Toast auto-hide timer (for pause on hover)
     var toastTimer = null
+    var toastListenersAdded = false
 
     /**
      * Hide the toast notification.
@@ -271,6 +272,22 @@
         // Clear any existing timer
         if (toastTimer) {
             clearTimeout(toastTimer)
+        }
+
+        // Add hover listeners once (prevent memory leak)
+        if (!toastListenersAdded) {
+            toastEl.addEventListener('mouseenter', function () {
+                if (toastTimer) {
+                    clearTimeout(toastTimer)
+                    toastTimer = null
+                }
+            })
+            toastEl.addEventListener('mouseleave', function () {
+                if (toastEl.style.display !== 'none') {
+                    toastTimer = setTimeout(hideToast, 2000)
+                }
+            })
+            toastListenersAdded = true
         }
 
         // Build toast content with close button using DOM APIs
@@ -302,17 +319,6 @@
 
         // Auto-hide after 5 seconds (increased from 3s for accessibility)
         toastTimer = setTimeout(hideToast, 5000)
-
-        // Pause auto-hide on hover
-        toastEl.addEventListener('mouseenter', function () {
-            if (toastTimer) {
-                clearTimeout(toastTimer)
-                toastTimer = null
-            }
-        })
-        toastEl.addEventListener('mouseleave', function () {
-            toastTimer = setTimeout(hideToast, 2000)
-        })
     }
 
     /**
@@ -522,7 +528,11 @@
                 }
 
                 if (data.warning) {
-                    messageEl.appendChild(document.createTextNode(' (Warning: ' + data.warning + ')'))
+                    messageEl.appendChild(document.createTextNode(' '))
+                    var warningSpan = document.createElement('span')
+                    warningSpan.className = 'toast-warning'
+                    warningSpan.textContent = 'Warning: ' + data.warning
+                    messageEl.appendChild(warningSpan)
                 }
 
                 showToast(messageEl, 'success')
@@ -555,7 +565,8 @@
                 {
                     title: 'Reject Plan',
                     confirmText: 'Reject',
-                    cancelText: 'Cancel'
+                    cancelText: 'Cancel',
+                    focusCancel: true
                 }
             )
             if (!confirmed) {
