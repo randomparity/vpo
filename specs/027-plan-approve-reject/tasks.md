@@ -19,10 +19,10 @@
 
 **Purpose**: No new project setup needed - this feature modifies existing code.
 
-- [ ] T001 Review existing api_plan_approve_handler in server/ui/routes.py (lines 2060-2126)
-- [ ] T002 Review existing api_plan_reject_handler in server/ui/routes.py (lines 2129-2195)
-- [ ] T003 [P] Review existing PlanActionResponse dataclass in server/ui/models.py
-- [ ] T004 [P] Review existing handleApprove and handleReject in server/static/js/plans.js
+- [x] T001 Review existing api_plan_approve_handler in server/ui/routes.py (lines 2060-2126)
+- [x] T002 Review existing api_plan_reject_handler in server/ui/routes.py (lines 2129-2195)
+- [x] T003 [P] Review existing PlanActionResponse dataclass in server/ui/models.py
+- [x] T004 [P] Review existing handleApprove and handleReject in server/static/js/plans.js
 
 ---
 
@@ -116,11 +116,11 @@
 
 **Purpose**: Error handling improvements and edge cases
 
-- [ ] T024 [P] Add file existence check before approval in api_plan_approve_handler in server/ui/routes.py
-- [ ] T025 [P] Return warning in response if file no longer exists in api_plan_approve_handler in server/ui/routes.py
-- [ ] T026 Verify double-submit prevention works with new confirmation flow in server/static/js/plans.js
-- [ ] T027 Run manual test cases from quickstart.md to validate all scenarios
-- [ ] T028 Verify concurrent modification error handling works correctly
+- [x] T024 [P] Add file existence check before approval in api_plan_approve_handler in server/ui/routes.py
+- [x] T025 [P] Return warning in response if file no longer exists in api_plan_approve_handler in server/ui/routes.py
+- [x] T026 Verify double-submit prevention works with new confirmation flow in server/static/js/plans.js
+- [x] T027 Run manual test cases from quickstart.md to validate all scenarios
+- [x] T028 Verify concurrent modification error handling works correctly
 
 ---
 
