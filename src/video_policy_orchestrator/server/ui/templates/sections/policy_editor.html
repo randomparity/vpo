@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="policy-editor">
+    <!-- Back navigation -->
+    <a href="/policies" class="policy-editor-back">&larr; Back to Policies</a>
+
+    <!-- Policy header -->
+    <header class="policy-editor-header">
+        <h1 class="policy-editor-title">{{ policy.name }}</h1>
+        {% if policy.parse_error %}
+        <span class="status-badge status-badge--failed">parse error</span>
+        {% endif %}
+    </header>
+
+    {% if policy.parse_error %}
+    <!-- Parse error message -->
+    <section class="policy-editor-error">
+        <h2>Parse Error</h2>
+        <div class="policy-editor-error-message">{{ policy.parse_error }}</div>
+        <p>Please fix the YAML syntax errors before editing.</p>
+    </section>
+    {% else %}
+    <!-- Editor container with form and preview -->
+    <div class="policy-editor-container">
+
+    <!-- Editor form -->
+    <form id="policy-editor-form" class="policy-editor-form">
+        <!-- Validation errors (at top for visibility) -->
+        <div id="validation-errors" class="validation-errors" role="alert" aria-live="assertive"></div>
+
+        <!-- Track Ordering Section (US1) -->
+        <section class="editor-section">
+            <h2>Track Ordering</h2>
+            <p class="section-description">Define the order in which track types appear in processed files.</p>
+
+            <div class="track-order-container">
+                <ul id="track-order-list" class="track-order-list" role="list" aria-label="Track ordering">
+                    <!-- Populated by JavaScript -->
+                </ul>
+            </div>
+        </section>
+
+        <!-- Audio Language Preferences Section (US2) -->
+        <section class="editor-section">
+            <h2>Audio Language Preferences</h2>
+            <p class="section-description">Preferred audio languages in priority order (ISO 639-2 codes).</p>
+
+            <div class="language-input-group">
+                <label for="audio-lang-input">Add Language</label>
+                <input
+                    type="text"
+                    id="audio-lang-input"
+                    placeholder="e.g., eng, jpn, fra"
+                    aria-label="Add audio language"
+                    maxlength="3"
+                />
+                <button type="button" id="audio-lang-add-btn" class="btn-secondary">Add</button>
+            </div>
+
+            <ul id="audio-lang-list" class="language-list" role="list" aria-label="Audio language preferences">
+                <!-- Populated by JavaScript -->
+            </ul>
+        </section>
+
+        <!-- Subtitle Language Preferences Section -->
+        <section class="editor-section">
+            <h2>Subtitle Language Preferences</h2>
+            <p class="section-description">Preferred subtitle languages in priority order (ISO 639-2 codes).</p>
+
+            <div class="language-input-group">
+                <label for="subtitle-lang-input">Add Language</label>
+                <input
+                    type="text"
+                    id="subtitle-lang-input"
+                    placeholder="e.g., eng, jpn, fra"
+                    aria-label="Add subtitle language"
+                    maxlength="3"
+                />
+                <button type="button" id="subtitle-lang-add-btn" class="btn-secondary">Add</button>
+            </div>
+
+            <ul id="subtitle-lang-list" class="language-list" role="list" aria-label="Subtitle language preferences">
+                <!-- Populated by JavaScript -->
+            </ul>
+        </section>
+
+        <!-- Default Flags Section -->
+        <section class="editor-section">
+            <h2>Default Flags</h2>
+            <p class="section-description">Configure which tracks are marked as default.</p>
+
+            <div class="checkbox-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="set_first_video_default" name="set_first_video_default">
+                    <span>Set first video track as default</span>
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="set_preferred_audio_default" name="set_preferred_audio_default">
+                    <span>Set preferred audio track as default</span>
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="set_preferred_subtitle_default" name="set_preferred_subtitle_default">
+                    <span>Set preferred subtitle track as default</span>
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="clear_other_defaults" name="clear_other_defaults">
+                    <span>Clear other default flags</span>
+                </label>
+            </div>
+        </section>
+
+        <!-- Commentary Detection Section (US4) -->
+        <section class="editor-section">
+            <h2>Commentary Detection</h2>
+            <p class="section-description">Configure patterns and settings for detecting commentary tracks.</p>
+
+            <div class="commentary-patterns-group">
+                <label for="commentary-pattern-input">Commentary Patterns (regex)</label>
+                <div class="pattern-input-group">
+                    <input
+                        type="text"
+                        id="commentary-pattern-input"
+                        placeholder="e.g., commentary, director, ^Commentary$"
+                        aria-label="Add commentary pattern"
+                    />
+                    <button type="button" id="commentary-pattern-add-btn" class="btn-secondary">Add Pattern</button>
+                </div>
+
+                <ul id="commentary-patterns-list" class="patterns-list" role="list" aria-label="Commentary patterns">
+                    <!-- Populated by JavaScript -->
+                </ul>
+            </div>
+
+            <div class="transcription-settings">
+                <h3>Transcription Settings</h3>
+                <div class="checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="detect_commentary" name="detect_commentary">
+                        <span>Enable commentary detection</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="reorder_commentary" name="reorder_commentary">
+                        <span>Move commentary tracks to end (requires detection enabled)</span>
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <!-- Form actions -->
+        <div class="editor-actions">
+            <button type="button" id="save-btn" class="btn-primary">Save Changes</button>
+            <button type="button" id="cancel-btn" class="btn-secondary">Cancel</button>
+            <span id="save-status" class="save-status" role="status" aria-live="polite"></span>
+        </div>
+    </form>
+
+    <!-- YAML Preview Panel (US5) -->
+    <aside class="yaml-preview-panel">
+        <h2>YAML Preview</h2>
+        <p class="section-description">Real-time preview of the policy file</p>
+        <textarea
+            id="yaml-preview"
+            class="yaml-preview-textarea"
+            aria-readonly="true"
+            aria-label="YAML policy preview"
+            spellcheck="false"
+            tabindex="0"
+        ></textarea>
+    </aside>
+
+    </div><!-- End policy-editor-container -->
+    {% endif %}
+</div>
+
+<!-- Pass policy data and CSRF token to JavaScript -->
+<script>
+    window.POLICY_DATA = {{ policy.to_dict() | tojson }};
+    window.CSRF_TOKEN = {{ csrf_token | tojson }};
+</script>
+<link rel="stylesheet" href="/static/css/components/confirmation-modal.css">
+<script src="/static/js/components/confirmation-modal.js"></script>
+<script type="module" src="/static/js/policy-editor/policy-editor.js"></script>
+{% endblock %}

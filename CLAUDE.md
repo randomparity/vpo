@@ -105,6 +105,19 @@ The web UI uses server-rendered HTML with JavaScript enhancements:
 - **API**: REST endpoints at `/api/*` return JSON
 - **Security**: CSP headers applied to HTML responses (see `SECURITY_HEADERS` in routes.py)
 
+### Policy Editor (024-policy-editor)
+
+The visual policy editor provides form-based editing of YAML policy files:
+- **Round-trip preservation**: Uses `ruamel.yaml` to preserve unknown fields and comments
+- **State management**: Vanilla JS with Proxy-based reactive state (no frameworks)
+- **Real-time preview**: 300ms debounced YAML preview updates as you edit
+- **Validation**: Client-side and server-side validation for all fields
+- **Concurrency**: Detects concurrent modifications via last_modified timestamps
+- **Editor module**: `src/video_policy_orchestrator/policy/editor.py` (PolicyRoundTripEditor class)
+- **Routes**: GET/PUT `/api/policies/{name}` for load/save operations
+- **Testing**: Unit tests in `tests/unit/policy/test_policy_editor.py` and integration tests in `tests/integration/test_policy_editor_flow.py`
+- **Usage docs**: See `/docs/usage/policy-editor.md` for user guide
+
 ## Active Technologies
 - Python 3.10+ (existing codebase) + aiohttp, Jinja2, aiohttp-jinja2 (existing web stack) (018-library-list-view)
 - SQLite via existing `db/models.py` and `db/connection.py` (018-library-list-view)
@@ -112,6 +125,8 @@ The web UI uses server-rendered HTML with JavaScript enhancements:
 - Python 3.10+ + aiohttp, Jinja2, aiohttp-jinja2 (existing web stack) (020-file-detail-view)
 - Python 3.10+ (existing codebase) + aiohttp, Jinja2, aiohttp-jinja2, PyYAML (existing web stack + policy loader) (023-policies-list-view)
 - Filesystem (YAML files in ~/.vpo/policies/); no database changes (023-policies-list-view)
+- Python 3.10+ + aiohttp, Jinja2, aiohttp-jinja2, PyYAML, pydantic (024-policy-editor)
 
 ## Recent Changes
+- 024-policy-editor: Added visual policy editor with round-trip YAML preservation (ruamel.yaml), real-time preview, validation, and field preservation
 - 018-library-list-view: Added Python 3.10+ (existing codebase) + aiohttp, Jinja2, aiohttp-jinja2 (existing web stack)

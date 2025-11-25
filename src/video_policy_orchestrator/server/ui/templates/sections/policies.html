@@ -43,6 +43,7 @@
                     <th>Subtitle Languages</th>
                     <th>Features</th>
                     <th>Modified</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -79,6 +80,11 @@
                     </td>
                     <td class="policy-modified" title="{{ policy.file_path }}">
                         <span class="relative-time" data-timestamp="{{ policy.last_modified }}">{{ policy.last_modified }}</span>
+                    </td>
+                    <td class="policy-actions">
+                        {% if not policy.parse_error %}
+                        <a href="/policies/{{ policy.name }}/edit" class="btn-action" title="Edit policy">Edit</a>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}

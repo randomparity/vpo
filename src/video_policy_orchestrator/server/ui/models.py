@@ -1756,3 +1756,147 @@ def group_tracks_by_type(
             other_tracks.append(detail_item)
 
     return video_tracks, audio_tracks, subtitle_tracks, other_tracks
+
+
+# ==========================================================================
+# Policy Editor Models (024-policy-editor)
+# ==========================================================================
+
+
+@dataclass
+class PolicyEditorContext:
+    """Context passed to policy_editor.html template.
+
+    Attributes:
+        name: Policy name (filename without extension).
+        filename: Full filename with extension.
+        file_path: Absolute path to the policy file.
+        last_modified: ISO-8601 UTC timestamp for concurrency check.
+        schema_version: Policy schema version (read-only).
+        track_order: List of track type strings.
+        audio_language_preference: List of ISO 639-2 codes.
+        subtitle_language_preference: List of ISO 639-2 codes.
+        commentary_patterns: List of regex patterns.
+        default_flags: Default flags configuration dict.
+        transcode: Transcode configuration dict, or None.
+        transcription: Transcription configuration dict, or None.
+        parse_error: Error message if policy invalid, else None.
+    """
+
+    name: str
+    filename: str
+    file_path: str
+    last_modified: str
+    schema_version: int
+    track_order: list[str]
+    audio_language_preference: list[str]
+    subtitle_language_preference: list[str]
+    commentary_patterns: list[str]
+    default_flags: dict
+    transcode: dict | None
+    transcription: dict | None
+    parse_error: str | None = None
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "name": self.name,
+            "filename": self.filename,
+            "file_path": self.file_path,
+            "last_modified": self.last_modified,
+            "schema_version": self.schema_version,
+            "track_order": self.track_order,
+            "audio_language_preference": self.audio_language_preference,
+            "subtitle_language_preference": self.subtitle_language_preference,
+            "commentary_patterns": self.commentary_patterns,
+            "default_flags": self.default_flags,
+            "transcode": self.transcode,
+            "transcription": self.transcription,
+            "parse_error": self.parse_error,
+        }
+
+
+@dataclass
+class PolicyEditorRequest:
+    """Request payload for saving policy changes via PUT /api/policies/{name}.
+
+    Attributes:
+        track_order: Updated track ordering.
+        audio_language_preference: Updated audio language preferences.
+        subtitle_language_preference: Updated subtitle language preferences.
+        commentary_patterns: Updated commentary detection patterns.
+        default_flags: Updated default flags configuration.
+        transcode: Updated transcode settings, or None.
+        transcription: Updated transcription settings, or None.
+        last_modified_timestamp: ISO-8601 UTC timestamp for optimistic locking.
+    """
+
+    track_order: list[str]
+    audio_language_preference: list[str]
+    subtitle_language_preference: list[str]
+    commentary_patterns: list[str]
+    default_flags: dict
+    transcode: dict | None
+    transcription: dict | None
+    last_modified_timestamp: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> PolicyEditorRequest:
+        """Create PolicyEditorRequest from request payload.
+
+        Args:
+            data: JSON request payload.
+
+        Returns:
+            Validated PolicyEditorRequest instance.
+
+        Raises:
+            ValueError: If required fields are missing.
+        """
+        required_fields = [
+            "track_order",
+            "audio_language_preference",
+            "subtitle_language_preference",
+            "commentary_patterns",
+            "default_flags",
+            "last_modified_timestamp",
+        ]
+
+        for field in required_fields:
+            if field not in data:
+                raise ValueError(f"Missing required field: {field}")
+
+        return cls(
+            track_order=data["track_order"],
+            audio_language_preference=data["audio_language_preference"],
+            subtitle_language_preference=data["subtitle_language_preference"],
+            commentary_patterns=data["commentary_patterns"],
+            default_flags=data["default_flags"],
+            transcode=data.get("transcode"),
+            transcription=data.get("transcription"),
+            last_modified_timestamp=data["last_modified_timestamp"],
+        )
+
+    def to_policy_dict(self) -> dict:
+        """Convert to dictionary for policy validation and saving.
+
+        Returns:
+            Dictionary in PolicyModel format.
+        """
+        # Must include schema_version for validation
+        result = {
+            "schema_version": 2,  # Always use current schema version
+            "track_order": self.track_order,
+            "audio_language_preference": self.audio_language_preference,
+            "subtitle_language_preference": self.subtitle_language_preference,
+            "commentary_patterns": self.commentary_patterns,
+            "default_flags": self.default_flags,
+        }
+
+        if self.transcode is not None:
+            result["transcode"] = self.transcode
+
+        if self.transcription is not None:
+            result["transcription"] = self.transcription
+
+        return result

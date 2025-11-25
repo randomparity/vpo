@@ -49,6 +49,356 @@
     --transition-fast: 0.15s ease;
 }
 
+/* ==========================================================================
+   Dark Mode Theme (T053)
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        /* Colors - Primary */
+        --color-primary: #5dade2;
+        --color-primary-dark: #3498db;
+
+        /* Colors - Sidebar */
+        --color-sidebar-bg: #1a1a1a;
+        --color-sidebar-text: #e0e0e0;
+        --color-sidebar-text-muted: #999;
+        --color-sidebar-hover: rgba(255, 255, 255, 0.15);
+        --color-sidebar-border: rgba(255, 255, 255, 0.15);
+
+        /* Colors - Content */
+        --color-content-bg: #2d2d2d;
+        --color-body-bg: #1e1e1e;
+        --color-text: #e0e0e0;
+        --color-text-muted: #b0b0b0;
+        --color-text-hint: #888;
+        --color-border: #404040;
+
+        /* Colors - Error */
+        --color-error: #e74c3c;
+
+        /* Status badge colors for dark mode */
+        --status-completed-bg: #1e4620;
+        --status-completed-color: #6fbf73;
+        --status-failed-bg: #4a1a1a;
+        --status-failed-color: #ff6b6b;
+        --status-running-bg: #2a3a4a;
+        --status-running-color: #5dade2;
+        --status-pending-bg: #3a3a2a;
+        --status-pending-color: #f39c12;
+
+        /* Form elements */
+        --input-bg: #3a3a3a;
+        --input-border: #555;
+        --input-focus-border: #5dade2;
+        --input-text: #e0e0e0;
+
+        /* Buttons */
+        --button-bg: #404040;
+        --button-hover-bg: #4a4a4a;
+        --button-text: #e0e0e0;
+
+        /* YAML preview */
+        --yaml-preview-bg: #2a2a2a;
+        --yaml-preview-border: #404040;
+        --yaml-preview-text: #d4d4d4;
+    }
+
+    /* Form input adjustments for dark mode */
+    input[type="text"],
+    input[type="number"],
+    textarea,
+    select {
+        background-color: var(--input-bg);
+        border-color: var(--input-border);
+        color: var(--input-text);
+    }
+
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    textarea:focus,
+    select:focus {
+        border-color: var(--input-focus-border);
+    }
+
+    /* Button adjustments */
+    .btn-secondary {
+        background-color: var(--button-bg);
+        color: var(--button-text);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+        background-color: var(--button-hover-bg);
+    }
+
+    /* YAML preview adjustments */
+    .yaml-preview-textarea {
+        background-color: var(--yaml-preview-bg);
+        border-color: var(--yaml-preview-border);
+        color: var(--yaml-preview-text);
+    }
+
+    /* Code and pre elements */
+    code,
+    pre {
+        background-color: #2a2a2a;
+        color: #d4d4d4;
+    }
+
+    /* Links in dark mode */
+    a {
+        color: var(--color-primary);
+    }
+
+    a:hover {
+        color: var(--color-primary-dark);
+    }
+
+    /* Table adjustments */
+    .data-table th {
+        background-color: #353535;
+        border-color: var(--color-border);
+    }
+
+    .data-table td {
+        border-color: var(--color-border);
+    }
+
+    .data-table tbody tr:hover {
+        background-color: #353535;
+    }
+
+    /* Status badges for dark mode */
+    .status-badge--completed {
+        background-color: var(--status-completed-bg);
+        color: var(--status-completed-color);
+    }
+
+    .status-badge--failed {
+        background-color: var(--status-failed-bg);
+        color: var(--status-failed-color);
+    }
+
+    .status-badge--running {
+        background-color: var(--status-running-bg);
+        color: var(--status-running-color);
+    }
+
+    .status-badge--pending {
+        background-color: var(--status-pending-bg);
+        color: var(--status-pending-color);
+    }
+
+    /* Checkbox labels */
+    .checkbox-label {
+        color: var(--color-text);
+    }
+
+    /* Track order and language list items */
+    .track-order-item,
+    .language-list-item,
+    .pattern-list-item {
+        background-color: #353535;
+        border-color: var(--color-border);
+    }
+
+    .track-order-item:hover,
+    .language-list-item:hover,
+    .pattern-list-item:hover {
+        background-color: #3a3a3a;
+    }
+
+    /* Editor sections */
+    .editor-section {
+        background-color: var(--color-content-bg);
+        border-color: var(--color-border);
+    }
+
+    /* Validation errors */
+    .validation-errors {
+        background-color: var(--status-failed-bg);
+        color: var(--status-failed-color);
+        border-color: #6a2a2a;
+    }
+
+    /* Save status */
+    .save-status--success {
+        color: var(--status-completed-color);
+    }
+
+    .save-status--error {
+        color: var(--status-failed-color);
+    }
+
+    /* Policies page adjustments */
+    .policies-info code,
+    .policies-info-secondary code,
+    .policies-warning code,
+    .policies-empty code {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .policies-table .policy-error {
+        background-color: rgba(239, 68, 68, 0.1);
+    }
+
+    .policies-table .policy-error:hover {
+        background-color: rgba(239, 68, 68, 0.15);
+    }
+
+    /* Policy editor validation errors - dark mode */
+    .validation-errors {
+        background-color: #1a0808;
+        border: 2px solid #ff6b6b;
+        color: #ffcccc;
+    }
+
+    /* Status badges dark mode */
+    .status-badge {
+        background-color: var(--color-sidebar-bg);
+        color: var(--color-text);
+    }
+}
+
+/* ==========================================================================
+   High Contrast Mode Support (T054)
+   ========================================================================== */
+
+@media (prefers-contrast: high) {
+    :root {
+        /* High contrast colors */
+        --color-primary: #0066cc;
+        --color-primary-dark: #0052a3;
+
+        /* Increased contrast for text */
+        --color-text: #000;
+        --color-text-muted: #333;
+        --color-border: #000;
+
+        /* Button borders */
+        --button-border: 2px solid #000;
+    }
+
+    /* Increase border visibility */
+    .track-order-item,
+    .language-list-item,
+    .pattern-list-item,
+    .editor-section,
+    input[type="text"],
+    input[type="number"],
+    textarea,
+    select,
+    button {
+        border-width: 2px;
+        border-color: #000;
+    }
+
+    /* Focus indicators */
+    input:focus,
+    textarea:focus,
+    select:focus,
+    button:focus {
+        outline: 3px solid #000;
+        outline-offset: 2px;
+    }
+
+    /* High contrast buttons */
+    .btn-primary {
+        background-color: #000;
+        color: #fff;
+        border: 2px solid #000;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+        background-color: #333;
+        border-color: #333;
+    }
+
+    .btn-secondary {
+        background-color: #fff;
+        color: #000;
+        border: 2px solid #000;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+        background-color: #f0f0f0;
+    }
+
+    /* Status badges with high contrast */
+    .status-badge {
+        border: 2px solid #000;
+    }
+
+    .status-badge--completed {
+        background-color: #fff;
+        color: #006400;
+        border-color: #006400;
+    }
+
+    .status-badge--failed {
+        background-color: #fff;
+        color: #8b0000;
+        border-color: #8b0000;
+    }
+
+    /* Links */
+    a {
+        text-decoration: underline;
+        text-decoration-thickness: 2px;
+    }
+
+    /* YAML preview high contrast */
+    .yaml-preview-textarea {
+        background-color: #fff;
+        color: #000;
+        border: 2px solid #000;
+    }
+}
+
+/* High contrast dark mode combination */
+@media (prefers-color-scheme: dark) and (prefers-contrast: high) {
+    :root {
+        /* High contrast dark theme */
+        --color-text: #fff;
+        --color-text-muted: #ddd;
+        --color-border: #fff;
+        --color-content-bg: #000;
+        --color-body-bg: #000;
+    }
+
+    /* Borders */
+    .track-order-item,
+    .language-list-item,
+    .pattern-list-item,
+    .editor-section,
+    input[type="text"],
+    input[type="number"],
+    textarea,
+    select {
+        border-color: #fff;
+    }
+
+    /* Buttons */
+    .btn-primary {
+        background-color: #fff;
+        color: #000;
+        border-color: #fff;
+    }
+
+    .btn-secondary {
+        background-color: #000;
+        color: #fff;
+        border-color: #fff;
+    }
+
+    /* YAML preview */
+    .yaml-preview-textarea {
+        background-color: #000;
+        color: #fff;
+        border-color: #fff;
+    }
+}
+
 /* Reset and base styles */
 *,
 *::before,
@@ -142,8 +492,8 @@ html, body {
 .content-header h2 {
     margin: 0;
     font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--color-sidebar-bg);
+    font-weight: 700;
+    color: var(--color-text);
 }
 
 .content-body {
@@ -492,8 +842,8 @@ html, body {
 .job-detail-header h1 {
     margin: 0;
     font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--color-sidebar-bg);
+    font-weight: 700;
+    color: var(--color-text);
 }
 
 /* Error message section */
@@ -1268,8 +1618,8 @@ html, body {
 .file-detail-title {
     margin: 0;
     font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--color-sidebar-bg);
+    font-weight: 700;
+    color: var(--color-text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1882,8 +2232,8 @@ html, body {
 .transcription-detail-title {
     margin: 0;
     font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--color-sidebar-bg);
+    font-weight: 700;
+    color: var(--color-text);
 }
 
 .transcription-detail-subtitle {
@@ -2161,8 +2511,8 @@ html, body {
 /* Info and warning banners */
 .policies-info {
     padding: var(--spacing-sm) var(--spacing-md);
-    background-color: #e8f4fc;
-    border: 1px solid #b8daef;
+    background-color: rgba(52, 152, 219, 0.1);
+    border: 1px solid rgba(52, 152, 219, 0.3);
     border-radius: 4px;
     color: var(--color-text);
     font-size: var(--font-size-sm);
@@ -2177,7 +2527,7 @@ html, body {
 
 .policies-info-secondary {
     padding: var(--spacing-sm) var(--spacing-md);
-    background-color: #f5f5f5;
+    background-color: var(--color-body-bg);
     border: 1px solid var(--color-border);
     border-radius: 4px;
     color: var(--color-text-muted);
@@ -2242,13 +2592,13 @@ html, body {
 }
 
 .policies-table th {
-    background-color: #f9fafb;
+    background-color: var(--color-body-bg);
     font-weight: 600;
     color: var(--color-text);
 }
 
 .policies-table tbody tr:hover {
-    background-color: #f5f7fa;
+    background-color: rgba(52, 152, 219, 0.05);
 }
 
 .policies-table .policy-error {
@@ -2387,5 +2737,507 @@ html, body {
 
     .error-container {
         padding: 2rem 1rem;
+    }
+}
+
+/* ==========================================================================
+   Policy Editor Styles (024-policy-editor)
+   ========================================================================== */
+
+.policy-editor {
+    max-width: 900px;
+}
+
+.policy-editor-back {
+    display: inline-block;
+    margin-bottom: var(--spacing-md);
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+.policy-editor-back:hover {
+    text-decoration: underline;
+}
+
+.policy-editor-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.policy-editor-title {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.policy-editor-error {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 4px;
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.policy-editor-error-message {
+    font-family: 'Courier New', monospace;
+    background: var(--color-body-bg);
+    padding: var(--spacing-sm);
+    border-radius: 2px;
+    margin-top: var(--spacing-sm);
+}
+
+.policy-editor-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+}
+
+.editor-section {
+    background: var(--color-content-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: var(--spacing-lg);
+}
+
+.editor-section h2 {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.section-description {
+    margin: 0 0 var(--spacing-md) 0;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
+/* Track Order List */
+.track-order-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.track-order-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-body-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+}
+
+.track-order-label {
+    font-weight: 500;
+}
+
+.track-order-buttons {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+/* Language List */
+.language-input-group {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+    align-items: flex-end;
+}
+
+.language-input-group label {
+    display: block;
+    margin-bottom: var(--spacing-xs);
+    font-weight: 500;
+}
+
+.language-input-group input {
+    flex: 1;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    font-size: var(--font-size-base);
+}
+
+.language-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.language-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-body-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+}
+
+.language-list-empty {
+    padding: var(--spacing-md);
+    color: var(--color-text-muted);
+    font-style: italic;
+    text-align: center;
+}
+
+.language-code {
+    font-family: 'Courier New', monospace;
+    font-weight: 500;
+}
+
+.language-buttons {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+/* Buttons */
+.btn-icon {
+    border: none;
+    background: var(--color-content-bg);
+    color: var(--color-text);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 1rem;
+    line-height: 1;
+    min-width: 32px;
+    height: 32px;
+}
+
+.btn-icon:hover:not(:disabled) {
+    background: var(--color-body-bg);
+}
+
+.btn-icon:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn-remove {
+    color: var(--color-error);
+}
+
+.btn-remove:hover:not(:disabled) {
+    background: #fee;
+}
+
+.btn-primary {
+    background: var(--color-primary);
+    color: white;
+    border: none;
+    padding: var(--spacing-sm) var(--spacing-lg);
+    font-size: var(--font-size-base);
+    font-weight: 500;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: var(--color-primary-dark);
+}
+
+.btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    background: var(--color-content-bg);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-size-base);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-secondary:hover {
+    background: var(--color-body-bg);
+}
+
+.btn-action {
+    color: var(--color-primary);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: var(--font-size-sm);
+}
+
+.btn-action:hover {
+    text-decoration: underline;
+}
+
+/* Checkbox Group */
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    cursor: pointer;
+}
+
+/* Editor Actions */
+.editor-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: center;
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--color-border);
+}
+
+.save-status {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+}
+
+.save-status--success {
+    color: #28a745;
+}
+
+.save-status--error {
+    color: var(--color-error);
+}
+
+/* Validation Errors */
+.validation-errors {
+    display: none;
+    background: rgba(239, 68, 68, 0.9);
+    border: 1px solid var(--color-error);
+    border-radius: 4px;
+    padding: var(--spacing-md);
+    padding-right: calc(var(--spacing-md) + 32px); /* Extra space for close button */
+    color: #fff;
+    margin-bottom: var(--spacing-lg);
+    font-weight: 500;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.validation-errors[style*="display: block"] {
+    display: block;
+    position: relative;
+}
+
+.error-message-text {
+    color: inherit;
+}
+
+.error-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.error-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.error-close:focus {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+/* Real-time validation states for inputs */
+input.invalid,
+textarea.invalid {
+    border-color: var(--color-error);
+    background-color: rgba(239, 68, 68, 0.05);
+}
+
+input.invalid:focus,
+textarea.invalid:focus {
+    outline-color: var(--color-error);
+    border-color: var(--color-error);
+}
+
+input.valid {
+    border-color: #28a745;
+    background-color: rgba(40, 167, 69, 0.05);
+}
+
+input.valid:focus {
+    outline-color: #28a745;
+    border-color: #28a745;
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin-right: var(--spacing-xs);
+    vertical-align: middle;
+}
+
+/* Commentary Patterns (US4) */
+.commentary-patterns-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.pattern-input-group {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: flex-end;
+}
+
+.pattern-input-group input {
+    flex: 1;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    font-size: var(--font-size-base);
+}
+
+.patterns-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.pattern-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-body-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+}
+
+.patterns-list-empty {
+    padding: var(--spacing-md);
+    color: var(--color-text-muted);
+    font-style: italic;
+    text-align: center;
+}
+
+.pattern-text {
+    font-family: 'Courier New', monospace;
+    font-size: var(--font-size-sm);
+}
+
+.pattern-buttons {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.transcription-settings {
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--color-border);
+}
+
+.transcription-settings h3 {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+/* Policy Editor Container with Side-by-Side Layout (US5) */
+.policy-editor-container {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: var(--spacing-xl);
+    align-items: start;
+}
+
+/* YAML Preview Panel (US5) */
+.yaml-preview-panel {
+    position: sticky;
+    top: var(--spacing-md);
+    background: var(--color-content-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: var(--spacing-lg);
+    max-height: calc(100vh - 2 * var(--spacing-md));
+    display: flex;
+    flex-direction: column;
+}
+
+.yaml-preview-panel h2 {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.yaml-preview-textarea {
+    flex: 1;
+    width: 100%;
+    min-height: 500px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    padding: var(--spacing-md);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-body-bg);
+    resize: vertical;
+    overflow-y: auto;
+}
+
+.yaml-preview-textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Responsive: Stack on smaller screens */
+@media (max-width: 1200px) {
+    .policy-editor-container {
+        grid-template-columns: 1fr;
+    }
+
+    .yaml-preview-panel {
+        position: relative;
+        top: 0;
+        max-height: 600px;
     }
 }

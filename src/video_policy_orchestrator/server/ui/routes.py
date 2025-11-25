@@ -1420,6 +1420,377 @@ async def policies_api_handler(request: web.Request) -> web.Response:
     return web.json_response(response.to_dict())
 
 
+async def policy_editor_handler(request: web.Request) -> dict:
+    """Handle GET /policies/{name}/edit - Policy editor HTML page.
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        Template context dict for rendering.
+
+    Raises:
+        HTTPNotFound: If policy not found.
+        HTTPBadRequest: If policy name format is invalid.
+    """
+    from video_policy_orchestrator.policy.discovery import DEFAULT_POLICIES_DIR
+    from video_policy_orchestrator.policy.editor import PolicyRoundTripEditor
+    from video_policy_orchestrator.policy.loader import PolicyValidationError
+
+    policy_name = request.match_info["name"]
+
+    # Validate policy name (alphanumeric, dash, underscore only)
+    if not re.match(r"^[a-zA-Z0-9_-]+$", policy_name):
+        raise web.HTTPBadRequest(reason="Invalid policy name format")
+
+    # Get policy directory (allow test override)
+    policies_dir = request.app.get("policy_dir", DEFAULT_POLICIES_DIR)
+
+    # Construct policy file path
+    policy_path = policies_dir / f"{policy_name}.yaml"
+
+    # Check for .yml extension if .yaml not found
+    if not policy_path.exists():
+        policy_path = policies_dir / f"{policy_name}.yml"
+
+    if not policy_path.exists():
+        raise web.HTTPNotFound(reason="Policy not found")
+
+    # Verify resolved path is within allowed directory (prevent path traversal)
+    try:
+        resolved_path = policy_path.resolve()
+        resolved_dir = policies_dir.resolve()
+        resolved_path.relative_to(resolved_dir)
+    except (ValueError, OSError):
+        raise web.HTTPBadRequest(reason="Invalid policy path")
+
+    # Load policy with round-trip editor
+    def _load_policy():
+        try:
+            editor = PolicyRoundTripEditor(policy_path, allowed_dir=policies_dir)
+            data = editor.load()
+            return data, None
+        except PolicyValidationError as e:
+            return None, str(e)
+        except Exception as e:
+            logger.error(f"Failed to load policy {policy_name}: {e}")
+            return None, f"Failed to load policy: {e}"
+
+    policy_data, parse_error = await asyncio.to_thread(_load_policy)
+
+    if policy_data is None and parse_error:
+        # Show editor with error message
+        policy_data = {}
+
+    # Get file metadata
+    stat = await asyncio.to_thread(policy_path.stat)
+    last_modified = datetime.fromtimestamp(
+        stat.st_mtime, tz=datetime.now().astimezone().tzinfo
+    ).isoformat()
+
+    # Build context
+    from video_policy_orchestrator.server.ui.models import PolicyEditorContext
+
+    # Provide sensible defaults for policies that don't have track ordering configured
+    default_track_order = [
+        "video",
+        "audio_main",
+        "audio_alternate",
+        "audio_commentary",
+        "subtitle_main",
+        "subtitle_forced",
+        "subtitle_commentary",
+        "attachment",
+    ]
+    default_audio_langs = ["eng"]
+    default_subtitle_langs = ["eng"]
+    default_flags = {
+        "set_first_video_default": True,
+        "set_preferred_audio_default": True,
+        "set_preferred_subtitle_default": False,
+        "clear_other_defaults": True,
+    }
+
+    editor_context = PolicyEditorContext(
+        name=policy_name,
+        filename=policy_path.name,
+        file_path=str(policy_path),
+        last_modified=last_modified,
+        schema_version=policy_data.get("schema_version", 2),
+        track_order=policy_data.get("track_order", default_track_order),
+        audio_language_preference=policy_data.get(
+            "audio_language_preference", default_audio_langs
+        ),
+        subtitle_language_preference=policy_data.get(
+            "subtitle_language_preference", default_subtitle_langs
+        ),
+        commentary_patterns=policy_data.get("commentary_patterns", []),
+        default_flags=policy_data.get("default_flags", default_flags),
+        transcode=policy_data.get("transcode"),
+        transcription=policy_data.get("transcription"),
+        parse_error=parse_error,
+    )
+
+    context = _create_template_context(
+        active_id="policies",
+        section_title=f"Edit Policy: {policy_name}",
+    )
+    context["policy"] = editor_context
+    # CSRF token is injected by csrf_middleware into request context
+    context["csrf_token"] = request.get("csrf_token", "")
+
+    return context
+
+
+async def api_policy_detail_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/policies/{name} - JSON API for policy detail.
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        JSON response with policy data or error.
+    """
+    from video_policy_orchestrator.policy.discovery import DEFAULT_POLICIES_DIR
+    from video_policy_orchestrator.policy.editor import PolicyRoundTripEditor
+    from video_policy_orchestrator.policy.loader import PolicyValidationError
+
+    # Check if shutting down
+    lifecycle = request.app.get("lifecycle")
+    if lifecycle and lifecycle.is_shutting_down:
+        return web.json_response(
+            {"error": "Service is shutting down"},
+            status=503,
+        )
+
+    policy_name = request.match_info["name"]
+
+    # Validate policy name
+    if not re.match(r"^[a-zA-Z0-9_-]+$", policy_name):
+        return web.json_response(
+            {"error": "Invalid policy name format"},
+            status=400,
+        )
+
+    # Get policy directory (allow test override)
+    policies_dir = request.app.get("policy_dir", DEFAULT_POLICIES_DIR)
+
+    # Construct policy file path
+    policy_path = policies_dir / f"{policy_name}.yaml"
+    if not policy_path.exists():
+        policy_path = policies_dir / f"{policy_name}.yml"
+
+    if not policy_path.exists():
+        return web.json_response(
+            {"error": "Policy not found"},
+            status=404,
+        )
+
+    # Verify resolved path is within allowed directory (prevent path traversal)
+    try:
+        resolved_path = policy_path.resolve()
+        resolved_dir = policies_dir.resolve()
+        resolved_path.relative_to(resolved_dir)
+    except (ValueError, OSError):
+        return web.json_response(
+            {"error": "Invalid policy path"},
+            status=400,
+        )
+
+    # Load policy
+    def _load_policy():
+        try:
+            editor = PolicyRoundTripEditor(policy_path, allowed_dir=policies_dir)
+            data = editor.load()
+            stat = policy_path.stat()
+            last_modified = datetime.fromtimestamp(
+                stat.st_mtime, tz=datetime.now().astimezone().tzinfo
+            ).isoformat()
+            return data, last_modified, None
+        except PolicyValidationError as e:
+            return None, None, str(e)
+        except Exception as e:
+            logger.error(f"Failed to load policy {policy_name}: {e}")
+            return None, None, f"Failed to load policy: {e}"
+
+    policy_data, last_modified, parse_error = await asyncio.to_thread(_load_policy)
+
+    if policy_data is None and parse_error:
+        return web.json_response(
+            {"error": parse_error},
+            status=400,
+        )
+
+    # Build response
+    from video_policy_orchestrator.server.ui.models import PolicyEditorContext
+
+    response = PolicyEditorContext(
+        name=policy_name,
+        filename=policy_path.name,
+        file_path=str(policy_path),
+        last_modified=last_modified,
+        schema_version=policy_data.get("schema_version", 2),
+        track_order=policy_data.get("track_order", []),
+        audio_language_preference=policy_data.get("audio_language_preference", []),
+        subtitle_language_preference=policy_data.get(
+            "subtitle_language_preference", []
+        ),
+        commentary_patterns=policy_data.get("commentary_patterns", []),
+        default_flags=policy_data.get("default_flags", {}),
+        transcode=policy_data.get("transcode"),
+        transcription=policy_data.get("transcription"),
+        parse_error=parse_error,
+    )
+
+    return web.json_response(response.to_dict())
+
+
+async def api_policy_update_handler(request: web.Request) -> web.Response:
+    """Handle PUT /api/policies/{name} - Save policy changes.
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        JSON response with updated policy data or error.
+    """
+    from video_policy_orchestrator.policy.discovery import DEFAULT_POLICIES_DIR
+    from video_policy_orchestrator.policy.editor import PolicyRoundTripEditor
+    from video_policy_orchestrator.policy.loader import PolicyValidationError
+    from video_policy_orchestrator.server.ui.models import PolicyEditorRequest
+
+    # Check if shutting down
+    lifecycle = request.app.get("lifecycle")
+    if lifecycle and lifecycle.is_shutting_down:
+        return web.json_response(
+            {"error": "Service is shutting down"},
+            status=503,
+        )
+
+    policy_name = request.match_info["name"]
+
+    # Validate policy name
+    if not re.match(r"^[a-zA-Z0-9_-]+$", policy_name):
+        return web.json_response(
+            {"error": "Invalid policy name format"},
+            status=400,
+        )
+
+    # Parse request body
+    try:
+        request_data = await request.json()
+        editor_request = PolicyEditorRequest.from_dict(request_data)
+    except ValueError as e:
+        return web.json_response(
+            {"error": f"Invalid request: {e}"},
+            status=400,
+        )
+    except Exception:
+        return web.json_response(
+            {"error": "Invalid JSON payload"},
+            status=400,
+        )
+
+    # Get policy directory (allow test override)
+    policies_dir = request.app.get("policy_dir", DEFAULT_POLICIES_DIR)
+
+    # Construct policy file path
+    policy_path = policies_dir / f"{policy_name}.yaml"
+    if not policy_path.exists():
+        policy_path = policies_dir / f"{policy_name}.yml"
+
+    if not policy_path.exists():
+        return web.json_response(
+            {"error": "Policy not found"},
+            status=404,
+        )
+
+    # Verify resolved path is within allowed directory (prevent path traversal)
+    try:
+        resolved_path = policy_path.resolve()
+        resolved_dir = policies_dir.resolve()
+        resolved_path.relative_to(resolved_dir)
+    except (ValueError, OSError):
+        return web.json_response(
+            {"error": "Invalid policy path"},
+            status=400,
+        )
+
+    # Check concurrency (optimistic locking)
+    def _check_and_save():
+        try:
+            stat = policy_path.stat()
+            file_modified = datetime.fromtimestamp(
+                stat.st_mtime, tz=datetime.now().astimezone().tzinfo
+            ).isoformat()
+
+            # Compare timestamps
+            if file_modified != editor_request.last_modified_timestamp:
+                return None, None, "concurrent_modification"
+
+            # Load and save
+            editor = PolicyRoundTripEditor(policy_path, allowed_dir=policies_dir)
+            policy_dict = editor_request.to_policy_dict()
+            editor.save(policy_dict)
+
+            # Reload to get updated data
+            data = editor.load()
+            new_stat = policy_path.stat()
+            new_modified = datetime.fromtimestamp(
+                new_stat.st_mtime, tz=datetime.now().astimezone().tzinfo
+            ).isoformat()
+
+            return data, new_modified, None
+        except PolicyValidationError as e:
+            return None, None, str(e)
+        except Exception as e:
+            logger.error(f"Failed to save policy {policy_name}: {e}")
+            return None, None, f"Failed to save policy: {e}"
+
+    policy_data, last_modified, error = await asyncio.to_thread(_check_and_save)
+
+    if error == "concurrent_modification":
+        return web.json_response(
+            {
+                "error": "Concurrent modification detected",
+                "details": (
+                    "Policy was modified since you loaded it. "
+                    "Please reload and try again."
+                ),
+            },
+            status=409,
+        )
+
+    if error:
+        return web.json_response(
+            {"error": "Validation failed", "details": error},
+            status=400,
+        )
+
+    # Build response
+    from video_policy_orchestrator.server.ui.models import PolicyEditorContext
+
+    response = PolicyEditorContext(
+        name=policy_name,
+        filename=policy_path.name,
+        file_path=str(policy_path),
+        last_modified=last_modified,
+        schema_version=policy_data.get("schema_version", 2),
+        track_order=policy_data.get("track_order", []),
+        audio_language_preference=policy_data.get("audio_language_preference", []),
+        subtitle_language_preference=policy_data.get(
+            "subtitle_language_preference", []
+        ),
+        commentary_patterns=policy_data.get("commentary_patterns", []),
+        default_flags=policy_data.get("default_flags", {}),
+        transcode=policy_data.get("transcode"),
+        transcription=policy_data.get("transcription"),
+        parse_error=None,
+    )
+
+    return web.json_response(response.to_dict())
+
+
 async def approvals_handler(request: web.Request) -> dict:
     """Handle GET /approvals - Approvals section page."""
     return _create_template_context(
@@ -1639,6 +2010,13 @@ def setup_ui_routes(app: web.Application) -> None:
     )
     # Policies API route (023-policies-list-view)
     app.router.add_get("/api/policies", policies_api_handler)
+    # Policy editor routes (024-policy-editor)
+    app.router.add_get(
+        "/policies/{name}/edit",
+        aiohttp_jinja2.template("sections/policy_editor.html")(policy_editor_handler),
+    )
+    app.router.add_get("/api/policies/{name}", api_policy_detail_handler)
+    app.router.add_put("/api/policies/{name}", api_policy_update_handler)
     app.router.add_get(
         "/approvals",
         aiohttp_jinja2.template("sections/approvals.html")(approvals_handler),
@@ -1648,9 +2026,12 @@ def setup_ui_routes(app: web.Application) -> None:
         aiohttp_jinja2.template("sections/about.html")(about_handler),
     )
 
-    # Add middleware (order matters: logging -> security -> error handling)
+    # Add middleware (order matters: logging -> csrf -> security -> error handling)
+    from video_policy_orchestrator.server.csrf import csrf_middleware
+
     app.middlewares.append(request_logging_middleware)
+    app.middlewares.append(csrf_middleware)
     app.middlewares.append(security_headers_middleware)
     app.middlewares.append(error_middleware)
 
-    logger.debug("UI routes configured with Jinja2 templating")
+    logger.debug("UI routes configured with Jinja2 templating and CSRF protection")

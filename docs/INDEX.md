@@ -85,6 +85,9 @@ Use these when changing behavior or adding new subsystems.
 - [design/design-plugins.md](design/design-plugins.md) *(planned feature)*
   Plugin architecture: interfaces, lifecycle, versioning, and compatibility guarantees.
 
+- [design/design-language-code-input-ux.md](design/design-language-code-input-ux.md)
+  UX patterns for ISO 639-2 language code input: autocomplete vs. dropdown, reorderable list patterns, and accessibility guidelines.
+
 - [internals/error-handling.md](internals/error-handling.md)
   Error classification, custom exceptions, exit codes, and error reporting patterns.
 

@@ -12,10 +12,14 @@ repos:
       - id: check-yaml
         exclude: ^tests/fixtures/policies/invalid-syntax\.yaml$
       - id: check-toml
+      - id: check-json
       - id: check-added-large-files
         args: ['--maxkb=1000']
       - id: check-merge-conflict
       - id: detect-private-key
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: ['--fix=lf']
 
   # Python formatting and linting with Ruff
   # NOTE: Keep version in sync with pyproject.toml [project.optional-dependencies.dev]
@@ -46,6 +50,35 @@ repos:
         language: system
         types: [rust]
         pass_filenames: false
+
+  # JavaScript linting with ESLint
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v9.17.0
+    hooks:
+      - id: eslint
+        files: \.(js|jsx)$
+        types: [file]
+        args: ['--fix', '--max-warnings=0']
+        additional_dependencies:
+          - eslint@9.17.0
+
+  # Security scanning
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.0
+    hooks:
+      - id: bandit
+        args: ['-c', 'pyproject.toml']
+        additional_dependencies: ['bandit[toml]']
+        # Exclude test files from security scanning
+        exclude: ^tests/
+
+  # Check for secrets in code
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: package.lock.json
 
   # Pre-push hooks (run only on push, not commit)
   - repo: local

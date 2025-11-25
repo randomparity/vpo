@@ -1,0 +1,481 @@
+openapi: 3.0.3
+info:
+  title: VPO Policy Editor API
+  description: API endpoints for the Visual Policy Editor feature
+  version: 1.0.0
+  contact:
+    name: Video Policy Orchestrator
+    url: https://github.com/randomparity/vpo
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /api/policies/{name}:
+    get:
+      summary: Get policy for editing
+      description: |
+        Load a policy file for editing. Returns editable fields, raw YAML content,
+        and metadata for concurrency checking.
+      operationId: getPolicyForEdit
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Policy name (filename without extension)
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+            example: default
+      responses:
+        '200':
+          description: Policy loaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyEditorResponse'
+        '404':
+          description: Policy file not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Policy not found"
+                details: "No policy file found with name 'default'"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      summary: Save policy changes
+      description: |
+        Save edited policy fields while preserving unknown fields and comments.
+        Validates changes and checks for concurrent modifications.
+      operationId: savePolicyChanges
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Policy name (filename without extension)
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+            example: default
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyEditorRequest'
+      responses:
+        '200':
+          description: Policy saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyEditorResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              example:
+                error: "Validation failed"
+                details:
+                  audio_language_preference:
+                    - "Invalid language code 'xx' at index 1"
+                  track_order:
+                    - "track_order cannot be empty"
+        '404':
+          description: Policy file not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Concurrent modification detected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Concurrent modification detected"
+                details: "Policy was modified since you loaded it. Please reload and try again."
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/policies/schema:
+    get:
+      summary: Get policy validation schema
+      description: |
+        Returns JSON Schema for policy validation. Used by frontend for client-side validation.
+      operationId: getPolicySchema
+      responses:
+        '200':
+          description: JSON Schema for PolicyModel
+          content:
+            application/json:
+              schema:
+                type: object
+                description: JSON Schema generated from Pydantic PolicyModel
+
+  /policies/{name}/edit:
+    get:
+      summary: Policy editor HTML page
+      description: |
+        Server-rendered HTML page for editing a policy. This is the main UI endpoint.
+      operationId: getPolicyEditorPage
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Policy name (filename without extension)
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+            example: default
+      responses:
+        '200':
+          description: Policy editor page
+          content:
+            text/html:
+              schema:
+                type: string
+        '404':
+          description: Policy not found page
+          content:
+            text/html:
+              schema:
+                type: string
+
+components:
+  schemas:
+    PolicyEditorResponse:
+      type: object
+      required:
+        - name
+        - filename
+        - file_path
+        - track_order
+        - audio_language_preference
+        - subtitle_language_preference
+        - commentary_patterns
+        - default_flags
+        - schema_version
+        - last_modified
+        - raw_yaml
+      properties:
+        name:
+          type: string
+          description: Policy name (filename without extension)
+          example: default
+        filename:
+          type: string
+          description: Full filename including extension
+          example: default.yaml
+        file_path:
+          type: string
+          description: Absolute path to policy file
+          example: /home/user/.vpo/policies/default.yaml
+        track_order:
+          type: array
+          description: Ordered list of track types
+          items:
+            type: string
+            enum:
+              - video
+              - audio_main
+              - audio_alternate
+              - audio_commentary
+              - subtitle_main
+              - subtitle_forced
+              - subtitle_commentary
+              - attachment
+          example:
+            - video
+            - audio_main
+            - audio_alternate
+            - subtitle_main
+            - subtitle_forced
+            - audio_commentary
+            - subtitle_commentary
+            - attachment
+        audio_language_preference:
+          type: array
+          description: Ordered list of preferred audio languages (ISO 639-2 codes)
+          items:
+            type: string
+            pattern: '^[a-z]{2,3}$'
+          example:
+            - eng
+            - und
+        subtitle_language_preference:
+          type: array
+          description: Ordered list of preferred subtitle languages (ISO 639-2 codes)
+          items:
+            type: string
+            pattern: '^[a-z]{2,3}$'
+          example:
+            - eng
+            - und
+        commentary_patterns:
+          type: array
+          description: List of regex patterns for detecting commentary tracks
+          items:
+            type: string
+          example:
+            - commentary
+            - director
+        default_flags:
+          $ref: '#/components/schemas/DefaultFlagsConfig'
+        transcode:
+          allOf:
+            - $ref: '#/components/schemas/TranscodePolicyConfig'
+          nullable: true
+        transcription:
+          allOf:
+            - $ref: '#/components/schemas/TranscriptionPolicyConfig'
+          nullable: true
+        schema_version:
+          type: integer
+          description: Policy schema version (read-only)
+          minimum: 1
+          example: 2
+        last_modified:
+          type: string
+          format: date-time
+          description: File modification timestamp (ISO-8601 UTC)
+          example: '2025-11-24T12:00:00Z'
+        raw_yaml:
+          type: string
+          description: Raw YAML content for preview
+        parse_error:
+          type: string
+          nullable: true
+          description: Error message if YAML parsing failed
+
+    PolicyEditorRequest:
+      type: object
+      required:
+        - track_order
+        - audio_language_preference
+        - subtitle_language_preference
+        - commentary_patterns
+        - default_flags
+        - last_modified_timestamp
+      properties:
+        track_order:
+          type: array
+          description: Ordered list of track types
+          items:
+            type: string
+            enum:
+              - video
+              - audio_main
+              - audio_alternate
+              - audio_commentary
+              - subtitle_main
+              - subtitle_forced
+              - subtitle_commentary
+              - attachment
+        audio_language_preference:
+          type: array
+          description: Ordered list of preferred audio languages
+          items:
+            type: string
+            pattern: '^[a-z]{2,3}$'
+        subtitle_language_preference:
+          type: array
+          description: Ordered list of preferred subtitle languages
+          items:
+            type: string
+            pattern: '^[a-z]{2,3}$'
+        commentary_patterns:
+          type: array
+          description: List of regex patterns for commentary detection
+          items:
+            type: string
+        default_flags:
+          $ref: '#/components/schemas/DefaultFlagsConfig'
+        transcode:
+          allOf:
+            - $ref: '#/components/schemas/TranscodePolicyConfig'
+          nullable: true
+        transcription:
+          allOf:
+            - $ref: '#/components/schemas/TranscriptionPolicyConfig'
+          nullable: true
+        last_modified_timestamp:
+          type: string
+          format: date-time
+          description: Timestamp from PolicyEditorResponse for concurrency check
+          example: '2025-11-24T12:00:00Z'
+
+    DefaultFlagsConfig:
+      type: object
+      required:
+        - set_first_video_default
+        - set_preferred_audio_default
+        - set_preferred_subtitle_default
+        - clear_other_defaults
+      properties:
+        set_first_video_default:
+          type: boolean
+          description: Set first video track as default
+          default: true
+        set_preferred_audio_default:
+          type: boolean
+          description: Set preferred audio track as default
+          default: true
+        set_preferred_subtitle_default:
+          type: boolean
+          description: Set preferred subtitle track as default
+          default: false
+        clear_other_defaults:
+          type: boolean
+          description: Clear other default flags
+          default: true
+
+    TranscodePolicyConfig:
+      type: object
+      properties:
+        target_video_codec:
+          type: string
+          nullable: true
+          enum: [hevc, h264, vp9, av1]
+          description: Target video codec for transcoding
+        target_crf:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 51
+          description: Target CRF value for video encoding
+        target_bitrate:
+          type: string
+          nullable: true
+          pattern: '^\d+[kKmM]$'
+          description: Target video bitrate (e.g., "5M", "2500k")
+          example: 5M
+        max_resolution:
+          type: string
+          nullable: true
+          enum: [480p, 720p, 1080p, 1440p, 4k, 8k]
+          description: Maximum output resolution
+        max_width:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: Maximum output width in pixels
+        max_height:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: Maximum output height in pixels
+        audio_preserve_codecs:
+          type: array
+          description: Audio codecs to preserve (stream copy)
+          items:
+            type: string
+          default: []
+        audio_transcode_to:
+          type: string
+          description: Target codec for audio transcoding
+          default: aac
+        audio_transcode_bitrate:
+          type: string
+          pattern: '^\d+[kK]$'
+          description: Target bitrate for audio transcoding
+          default: 192k
+        audio_downmix:
+          type: string
+          nullable: true
+          enum: [stereo, "5.1"]
+          description: Audio downmix option
+        destination:
+          type: string
+          nullable: true
+          description: Template string for output location
+        destination_fallback:
+          type: string
+          description: Fallback value for missing metadata
+          default: Unknown
+
+    TranscriptionPolicyConfig:
+      type: object
+      required:
+        - enabled
+      properties:
+        enabled:
+          type: boolean
+          description: Enable transcription analysis
+          default: false
+        update_language_from_transcription:
+          type: boolean
+          description: Update language tags from transcription
+          default: false
+        confidence_threshold:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: Minimum confidence for language updates
+          default: 0.8
+        detect_commentary:
+          type: boolean
+          description: Enable commentary track detection
+          default: false
+        reorder_commentary:
+          type: boolean
+          description: Move commentary tracks to end (requires detect_commentary)
+          default: false
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: Policy not found
+        details:
+          type: string
+          description: Additional error details
+          example: No policy file found with name 'default'
+
+    ValidationErrorResponse:
+      type: object
+      required:
+        - error
+        - details
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: Validation failed
+        details:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Field-specific validation errors
+          example:
+            audio_language_preference:
+              - "Invalid language code 'xx' at index 1"
+            track_order:
+              - "track_order cannot be empty"
+
+tags:
+  - name: Policy Editor
+    description: Endpoints for editing policy files
