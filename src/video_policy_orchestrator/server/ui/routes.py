@@ -1652,12 +1652,21 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
         request: aiohttp Request object.
 
     Returns:
-        JSON response with updated policy data or error.
+        JSON response with updated policy data or structured validation errors.
     """
     from video_policy_orchestrator.policy.discovery import DEFAULT_POLICIES_DIR
     from video_policy_orchestrator.policy.editor import PolicyRoundTripEditor
-    from video_policy_orchestrator.policy.loader import PolicyValidationError
-    from video_policy_orchestrator.server.ui.models import PolicyEditorRequest
+    from video_policy_orchestrator.policy.validation import (
+        DiffSummary,
+        validate_policy_data,
+    )
+    from video_policy_orchestrator.server.ui.models import (
+        ChangedFieldItem,
+        PolicyEditorRequest,
+        PolicySaveSuccessResponse,
+        ValidationErrorItem,
+        ValidationErrorResponse,
+    )
 
     # Check if shutting down
     lifecycle = request.app.get("lifecycle")
@@ -1716,7 +1725,38 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
             status=400,
         )
 
-    # Check concurrency (optimistic locking)
+    # Validate policy data BEFORE attempting save (T015)
+    policy_dict = editor_request.to_policy_dict()
+    validation_result = validate_policy_data(policy_dict)
+
+    if not validation_result.success:
+        # Return structured validation errors (T016)
+        error_items = [
+            ValidationErrorItem(
+                field=err.field,
+                message=err.message,
+                code=err.code,
+            )
+            for err in validation_result.errors
+        ]
+        error_response = ValidationErrorResponse(
+            error="Validation failed",
+            errors=error_items,
+            details=f"{len(error_items)} validation error(s) found",
+        )
+        return web.json_response(error_response.to_dict(), status=400)
+
+    # Load original policy data for diff calculation
+    def _load_original():
+        try:
+            editor = PolicyRoundTripEditor(policy_path, allowed_dir=policies_dir)
+            return editor.load()
+        except Exception:
+            return None
+
+    original_data = await asyncio.to_thread(_load_original)
+
+    # Check concurrency and save (optimistic locking)
     def _check_and_save():
         try:
             stat = policy_path.stat()
@@ -1728,9 +1768,8 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
             if file_modified != editor_request.last_modified_timestamp:
                 return None, None, "concurrent_modification"
 
-            # Load and save
+            # Save (validation already passed above)
             editor = PolicyRoundTripEditor(policy_path, allowed_dir=policies_dir)
-            policy_dict = editor_request.to_policy_dict()
             editor.save(policy_dict)
 
             # Reload to get updated data
@@ -1741,8 +1780,6 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
             ).isoformat()
 
             return data, new_modified, None
-        except PolicyValidationError as e:
-            return None, None, str(e)
         except Exception as e:
             logger.error(f"Failed to save policy {policy_name}: {e}")
             return None, None, f"Failed to save policy: {e}"
@@ -1763,14 +1800,30 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
 
     if error:
         return web.json_response(
-            {"error": "Validation failed", "details": error},
-            status=400,
+            {"error": "Save failed", "details": error},
+            status=500,
         )
 
-    # Build response
+    # Calculate diff summary (T017)
+    changed_fields: list[ChangedFieldItem] = []
+    changed_fields_summary = "No changes"
+
+    if original_data:
+        diff = DiffSummary.compare_policies(original_data, policy_data)
+        changed_fields = [
+            ChangedFieldItem(
+                field=change.field,
+                change_type=change.change_type,
+                details=change.details,
+            )
+            for change in diff.changes
+        ]
+        changed_fields_summary = diff.to_summary_text()
+
+    # Build response with policy editor context
     from video_policy_orchestrator.server.ui.models import PolicyEditorContext
 
-    response = PolicyEditorContext(
+    policy_context = PolicyEditorContext(
         name=policy_name,
         filename=policy_path.name,
         file_path=str(policy_path),
@@ -1788,7 +1841,93 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
         parse_error=None,
     )
 
+    response = PolicySaveSuccessResponse(
+        success=True,
+        changed_fields=changed_fields,
+        changed_fields_summary=changed_fields_summary,
+        policy=policy_context.to_dict(),
+    )
+
     return web.json_response(response.to_dict())
+
+
+async def api_policy_validate_handler(request: web.Request) -> web.Response:
+    """Handle POST /api/policies/{name}/validate - Validate without saving.
+
+    Validates the policy data against the schema without persisting changes.
+    This allows users to "test" their policy configuration before committing.
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        JSON response with validation result (valid/errors).
+    """
+    from video_policy_orchestrator.policy.validation import validate_policy_data
+    from video_policy_orchestrator.server.ui.models import (
+        PolicyEditorRequest,
+        PolicyValidateResponse,
+        ValidationErrorItem,
+    )
+
+    # Check if shutting down
+    lifecycle = request.app.get("lifecycle")
+    if lifecycle and lifecycle.is_shutting_down:
+        return web.json_response(
+            {"error": "Service is shutting down"},
+            status=503,
+        )
+
+    policy_name = request.match_info["name"]
+
+    # Validate policy name format
+    if not re.match(r"^[a-zA-Z0-9_-]+$", policy_name):
+        return web.json_response(
+            {"error": "Invalid policy name format"},
+            status=400,
+        )
+
+    # Parse request body
+    try:
+        request_data = await request.json()
+        editor_request = PolicyEditorRequest.from_dict(request_data)
+    except ValueError as e:
+        return web.json_response(
+            {"error": f"Invalid request: {e}"},
+            status=400,
+        )
+    except Exception:
+        return web.json_response(
+            {"error": "Invalid JSON payload"},
+            status=400,
+        )
+
+    # Validate policy data (does NOT save)
+    policy_dict = editor_request.to_policy_dict()
+    validation_result = validate_policy_data(policy_dict)
+
+    if validation_result.success:
+        response = PolicyValidateResponse(
+            valid=True,
+            errors=[],
+            message="Policy configuration is valid",
+        )
+        return web.json_response(response.to_dict())
+    else:
+        error_items = [
+            ValidationErrorItem(
+                field=err.field,
+                message=err.message,
+                code=err.code,
+            )
+            for err in validation_result.errors
+        ]
+        response = PolicyValidateResponse(
+            valid=False,
+            errors=error_items,
+            message=f"{len(error_items)} validation error(s) found",
+        )
+        return web.json_response(response.to_dict())
 
 
 async def approvals_handler(request: web.Request) -> dict:
@@ -2017,6 +2156,8 @@ def setup_ui_routes(app: web.Application) -> None:
     )
     app.router.add_get("/api/policies/{name}", api_policy_detail_handler)
     app.router.add_put("/api/policies/{name}", api_policy_update_handler)
+    # Policy validation endpoint (025-policy-validation T029)
+    app.router.add_post("/api/policies/{name}/validate", api_policy_validate_handler)
     app.router.add_get(
         "/approvals",
         aiohttp_jinja2.template("sections/approvals.html")(approvals_handler),

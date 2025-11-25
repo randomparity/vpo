@@ -72,6 +72,9 @@
     // Debounce timer for YAML preview
     let yamlPreviewTimeout
 
+    // Debounce timer for regex validation
+    let regexValidationTimeout
+
     /**
      * Mark form as dirty
      */
@@ -563,31 +566,86 @@
     }
 
     /**
-     * Show error message
+     * Show error message (single string)
      */
     function showError(message) {
-        // Clear previous content
-        validationErrors.innerHTML = ''
+        showErrors([{ message }])
+    }
 
-        // Create message text with proper styling
-        const messageText = document.createElement('span')
-        messageText.className = 'error-message-text'
-        messageText.textContent = message
-        validationErrors.appendChild(messageText)
+    /**
+     * Show multiple field-level errors (T020)
+     * @param {Array<{field?: string, message: string, code?: string}>} errors - Array of error objects
+     */
+    function showErrors(errors) {
+        // Clear previous content and field highlighting
+        validationErrors.innerHTML = ''
+        clearFieldHighlighting()
+
+        if (!errors || errors.length === 0) {
+            validationErrors.style.display = 'none'
+            return
+        }
+
+        // Create error list container
+        const errorList = document.createElement('div')
+        errorList.className = 'validation-error-list'
+
+        // Create header if multiple errors
+        if (errors.length > 1) {
+            const header = document.createElement('div')
+            header.className = 'validation-error-header'
+            header.textContent = `${errors.length} validation error${errors.length > 1 ? 's' : ''} found:`
+            errorList.appendChild(header)
+        }
+
+        // Create error items
+        const errorItems = document.createElement('ul')
+        errorItems.className = 'validation-error-items'
+
+        errors.forEach(error => {
+            const li = document.createElement('li')
+            li.className = 'validation-error-item'
+
+            // Format error message with field name
+            if (error.field && error.field !== 'root') {
+                const fieldSpan = document.createElement('span')
+                fieldSpan.className = 'validation-error-field'
+                fieldSpan.textContent = error.field
+                li.appendChild(fieldSpan)
+                li.appendChild(document.createTextNode(': '))
+
+                // Highlight the field in the form (T022)
+                highlightErrorField(error.field)
+            }
+
+            const messageSpan = document.createElement('span')
+            messageSpan.className = 'validation-error-message'
+            messageSpan.textContent = error.message
+            li.appendChild(messageSpan)
+
+            errorItems.appendChild(li)
+        })
+
+        errorList.appendChild(errorItems)
+        validationErrors.appendChild(errorList)
 
         // Create close button
         const closeBtn = document.createElement('button')
         closeBtn.className = 'error-close'
         closeBtn.innerHTML = '×'
-        closeBtn.setAttribute('aria-label', 'Dismiss error')
+        closeBtn.setAttribute('aria-label', 'Dismiss errors')
         closeBtn.tabIndex = 0
         closeBtn.onclick = () => {
             validationErrors.style.display = 'none'
+            clearFieldHighlighting()
+            saveBtn.focus() // Restore focus for accessibility
         }
         closeBtn.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault()
                 validationErrors.style.display = 'none'
+                clearFieldHighlighting()
+                saveBtn.focus() // Restore focus for accessibility
             }
         })
         validationErrors.appendChild(closeBtn)
@@ -599,7 +657,90 @@
         validationErrors.tabIndex = -1
         validationErrors.focus()
 
-        // Scroll to the very top of the page to ensure error is visible
+        // Scroll to first error field or top of page (T022a)
+        scrollToFirstError(errors)
+    }
+
+    /**
+     * Map field name to DOM element ID or class for highlighting (T022)
+     */
+    const fieldToElementMap = {
+        'track_order': 'track-order-list',
+        'audio_language_preference': 'audio-lang-list',
+        'subtitle_language_preference': 'subtitle-lang-list',
+        'commentary_patterns': 'commentary-patterns-list',
+        'default_flags': 'default-flags-section'
+    }
+
+    /**
+     * Highlight a field section that has an error (T022)
+     */
+    function highlightErrorField(field) {
+        // Extract base field name (remove array index notation)
+        const baseField = field.split('[')[0].split('.')[0]
+        const elementId = fieldToElementMap[baseField]
+
+        if (elementId) {
+            const element = document.getElementById(elementId)
+            if (element) {
+                element.classList.add('field-error')
+                // Find the parent section and highlight it too
+                const section = element.closest('.editor-section')
+                if (section) {
+                    section.classList.add('section-has-error')
+                }
+            }
+        }
+    }
+
+    /**
+     * Clear all field error highlighting
+     */
+    function clearFieldHighlighting() {
+        document.querySelectorAll('.field-error').forEach(el => {
+            el.classList.remove('field-error')
+        })
+        document.querySelectorAll('.section-has-error').forEach(el => {
+            el.classList.remove('section-has-error')
+        })
+    }
+
+    /**
+     * Scroll to the first error field (T022a)
+     */
+    function scrollToFirstError(errors) {
+        if (!errors || errors.length === 0) {
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+            return
+        }
+
+        // Find the first field with an error
+        const firstError = errors.find(e => e.field && e.field !== 'root')
+        if (firstError) {
+            const baseField = firstError.field.split('[')[0].split('.')[0]
+            const elementId = fieldToElementMap[baseField]
+
+            if (elementId) {
+                const element = document.getElementById(elementId)
+                if (element) {
+                    // Scroll to element with offset for header
+                    const rect = element.getBoundingClientRect()
+                    const scrollTop = window.pageYOffset + rect.top - 100
+                    window.scrollTo({ top: Math.max(0, scrollTop), behavior: 'smooth' })
+
+                    // Try to focus an input in the error section
+                    setTimeout(() => {
+                        const focusable = element.querySelector('input, button, select, textarea')
+                        if (focusable) {
+                            focusable.focus()
+                        }
+                    }, 300)
+                    return
+                }
+            }
+        }
+
+        // Fallback: scroll to top
         window.scrollTo({ top: 0, behavior: 'smooth' })
     }
 
@@ -612,7 +753,7 @@
         setTimeout(() => {
             saveStatus.textContent = ''
             saveStatus.className = 'save-status'
-        }, 5000)
+        }, 8000) // 8 seconds for screen reader accessibility
     }
 
     /**
@@ -654,11 +795,31 @@
             })
 
             if (!response.ok) {
-                const errorData = await response.json()
+                // Handle non-OK responses (T047 edge case handling)
+                let errorData
+                try {
+                    errorData = await response.json()
+                } catch {
+                    // Response is not valid JSON
+                    showError(`Server error (${response.status}): Unable to parse response`)
+                    formState.isSaving = false
+                    saveBtn.innerHTML = 'Save Changes'
+                    saveBtn.setAttribute('aria-busy', 'false')
+                    updateSaveButtonState()
+                    return
+                }
+
                 if (response.status === 409) {
                     showError('Concurrent modification detected. Please reload and try again.')
+                } else if (response.status === 400 && errorData.errors && Array.isArray(errorData.errors)) {
+                    // Handle structured validation errors (T021)
+                    showErrors(errorData.errors)
+                } else if (response.status === 503) {
+                    showError('Service unavailable. Please try again later.')
                 } else {
-                    showError(errorData.error || 'Failed to save policy')
+                    // Fallback for unexpected error formats (T047)
+                    const errorMsg = errorData.error || errorData.message || errorData.details || 'Failed to save policy'
+                    showError(typeof errorMsg === 'string' ? errorMsg : 'Failed to save policy')
                 }
                 formState.isSaving = false
                 saveBtn.innerHTML = 'Save Changes'
@@ -667,18 +828,56 @@
                 return
             }
 
-            const updatedPolicy = await response.json()
-            formState.last_modified = updatedPolicy.last_modified
+            // Handle successful response (T047 edge case handling)
+            let updatedPolicy
+            try {
+                updatedPolicy = await response.json()
+            } catch {
+                // Success but invalid JSON response
+                showSaveStatus('Policy saved successfully')
+                formState.isDirty = false
+                formState.isSaving = false
+                saveBtn.innerHTML = 'Save Changes'
+                saveBtn.setAttribute('aria-busy', 'false')
+                updateSaveButtonState()
+                clearFieldHighlighting()
+                return
+            }
+
+            // Update state from response
+            if (updatedPolicy.last_modified) {
+                formState.last_modified = updatedPolicy.last_modified
+            } else if (updatedPolicy.policy && updatedPolicy.policy.last_modified) {
+                formState.last_modified = updatedPolicy.policy.last_modified
+            }
             formState.isDirty = false
             formState.isSaving = false
             saveBtn.innerHTML = 'Save Changes'
             saveBtn.setAttribute('aria-busy', 'false')
             updateSaveButtonState()
-            showSaveStatus('Policy saved successfully')
+
+            // Display success message with changed fields summary (T023)
+            let successMsg = 'Policy saved successfully'
+            if (updatedPolicy.changed_fields_summary && updatedPolicy.changed_fields_summary !== 'No changes') {
+                successMsg = `Saved: ${updatedPolicy.changed_fields_summary}`
+            }
+            showSaveStatus(successMsg)
+
+            // Clear any existing error highlighting
+            clearFieldHighlighting()
 
         } catch (error) {
+            // Network errors and other exceptions (T048)
             console.error('Save error:', error)
-            showError('Network error: ' + error.message)
+            let errorMsg = 'Network error'
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                errorMsg = 'Unable to connect to server. Check your network connection.'
+            } else if (error.name === 'AbortError') {
+                errorMsg = 'Request was cancelled. Please try again.'
+            } else if (error.message) {
+                errorMsg = `Connection error: ${error.message}`
+            }
+            showError(errorMsg)
             formState.isSaving = false
             saveBtn.innerHTML = 'Save Changes'
             saveBtn.setAttribute('aria-busy', 'false')
@@ -687,13 +886,117 @@
     }
 
     /**
+     * Test policy without saving (T032)
+     * Calls POST /api/policies/{name}/validate
+     */
+    async function testPolicy() {
+        // Don't test during save operation
+        if (formState.isSaving) return
+
+        // Clear previous errors
+        clearFieldHighlighting()
+        validationErrors.style.display = 'none'
+
+        const testBtn = document.getElementById('test-policy-btn')
+        const originalText = testBtn.textContent
+        testBtn.innerHTML = '<span class="spinner"></span> Testing...'
+        testBtn.setAttribute('aria-busy', 'true')
+        testBtn.disabled = true
+
+        const requestData = {
+            track_order: formState.track_order,
+            audio_language_preference: formState.audio_language_preference,
+            subtitle_language_preference: formState.subtitle_language_preference,
+            commentary_patterns: formState.commentary_patterns,
+            default_flags: formState.default_flags,
+            transcode: window.POLICY_DATA.transcode,
+            transcription: formState.transcription,
+            last_modified_timestamp: formState.last_modified
+        }
+
+        try {
+            const response = await fetch(`/api/policies/${formState.name}/validate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': window.CSRF_TOKEN
+                },
+                body: JSON.stringify(requestData)
+            })
+
+            // Parse response with edge case handling (T047)
+            let result
+            try {
+                result = await response.json()
+            } catch {
+                if (response.ok) {
+                    // HTTP 200 but invalid JSON - assume success
+                    showSaveStatus('Policy configuration is valid', false)
+                } else {
+                    showError(`Server error (${response.status}): Unable to parse response`)
+                }
+                return
+            }
+
+            // Handle non-OK status codes (T047)
+            if (!response.ok) {
+                if (response.status === 503) {
+                    showError('Service unavailable. Please try again later.')
+                } else if (result.errors && Array.isArray(result.errors)) {
+                    showErrors(result.errors)
+                } else {
+                    const errorMsg = result.error || result.message || result.details || 'Validation request failed'
+                    showError(typeof errorMsg === 'string' ? errorMsg : 'Validation request failed')
+                }
+                return
+            }
+
+            // Handle response (T034)
+            if (result.valid === true) {
+                showSaveStatus('Policy configuration is valid', false)
+            } else if (result.valid === false && result.errors && Array.isArray(result.errors)) {
+                showErrors(result.errors)
+            } else if (result.errors && Array.isArray(result.errors)) {
+                // Errors present without valid field (T047 edge case)
+                showErrors(result.errors)
+            } else if (result.valid === false) {
+                // Invalid but no errors array
+                showError(result.message || 'Validation failed')
+            } else {
+                // Unexpected response format (T047)
+                showError(result.message || 'Unexpected response from server')
+            }
+
+        } catch (error) {
+            // Network errors and other exceptions (T048)
+            console.error('Test policy error:', error)
+            let errorMsg = 'Network error'
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                errorMsg = 'Unable to connect to server. Check your network connection.'
+            } else if (error.name === 'AbortError') {
+                errorMsg = 'Request was cancelled. Please try again.'
+            } else if (error.message) {
+                errorMsg = `Connection error: ${error.message}`
+            }
+            showError(errorMsg)
+        } finally {
+            testBtn.innerHTML = originalText
+            testBtn.setAttribute('aria-busy', 'false')
+            testBtn.disabled = false
+        }
+    }
+
+    /**
      * Validate language code format in real-time
      */
     function validateLanguageInput(input) {
         const value = input.value.trim().toLowerCase()
+        const errorHint = document.getElementById(input.id + '-error')
+
         if (value.length === 0) {
             input.classList.remove('invalid', 'valid')
             input.removeAttribute('aria-invalid')
+            if (errorHint) errorHint.textContent = ''
             return
         }
 
@@ -702,10 +1005,43 @@
             input.classList.add('invalid')
             input.classList.remove('valid')
             input.setAttribute('aria-invalid', 'true')
+            if (errorHint) errorHint.textContent = 'Use 2-3 letter codes (e.g., eng, jpn)'
         } else {
             input.classList.add('valid')
             input.classList.remove('invalid')
             input.setAttribute('aria-invalid', 'false')
+            if (errorHint) errorHint.textContent = ''
+        }
+    }
+
+    /**
+     * Validate regex pattern format in real-time (T035)
+     * Checks if the input is a valid JavaScript regular expression
+     */
+    function validateRegexInput(input) {
+        const value = input.value.trim()
+        const errorHint = document.getElementById(input.id + '-error')
+
+        if (value.length === 0) {
+            input.classList.remove('invalid', 'valid')
+            input.removeAttribute('aria-invalid')
+            if (errorHint) errorHint.textContent = ''
+            return
+        }
+
+        try {
+            // Attempt to create a RegExp - will throw if invalid
+            new RegExp(value)
+            input.classList.add('valid')
+            input.classList.remove('invalid')
+            input.setAttribute('aria-invalid', 'false')
+            if (errorHint) errorHint.textContent = ''
+        } catch {
+            // Invalid regex syntax
+            input.classList.add('invalid')
+            input.classList.remove('valid')
+            input.setAttribute('aria-invalid', 'true')
+            if (errorHint) errorHint.textContent = 'Invalid regex pattern'
         }
     }
 
@@ -759,6 +1095,14 @@
                     addCommentaryPattern(commentaryPatternInput.value)
                 }
             })
+
+            // Commentary pattern real-time regex validation (T036) - debounced
+            commentaryPatternInput.addEventListener('input', () => {
+                clearTimeout(regexValidationTimeout)
+                regexValidationTimeout = setTimeout(() => {
+                    validateRegexInput(commentaryPatternInput)
+                }, 300)
+            })
         }
 
         // Transcription checkboxes
@@ -800,6 +1144,14 @@
         saveBtn.addEventListener('click', () => {
             savePolicy()
         })
+
+        // Test Policy button (T033)
+        const testPolicyBtn = document.getElementById('test-policy-btn')
+        if (testPolicyBtn) {
+            testPolicyBtn.addEventListener('click', () => {
+                testPolicy()
+            })
+        }
 
         // Cancel button
         cancelBtn.addEventListener('click', async () => {

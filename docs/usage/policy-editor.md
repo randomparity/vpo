@@ -116,28 +116,88 @@ Real-time preview of the policy file as YAML.
 - Shows exactly what will be saved
 - Useful for verifying changes before saving
 
+## Validation Features
+
+The policy editor includes comprehensive validation to help you create correct policy configurations.
+
+### Real-Time Validation
+
+As you type, the editor provides immediate visual feedback:
+
+- **Language codes**: Green border for valid codes, red border for invalid
+- **Regex patterns**: Green border for valid patterns, red border for syntax errors
+- Input fields show validation state with colored borders and aria-invalid attributes
+
+### Test Policy (Dry-Run)
+
+Before committing changes, you can validate your configuration without saving:
+
+1. Make your desired changes
+2. Click **Test Policy** button
+3. See validation result:
+   - **Success**: "Policy configuration is valid" message
+   - **Failure**: Field-level error messages displayed
+
+This is useful for:
+- Checking complex pattern syntax
+- Validating language code combinations
+- Testing changes before committing to disk
+
+### Field-Level Error Display
+
+When validation fails, the editor shows detailed errors:
+
+- **Error list**: All validation errors displayed together
+- **Field highlighting**: Affected form sections have red borders
+- **Auto-scroll**: First error field scrolled into view
+- **Focus management**: Focusable element in error section receives focus
+
+**Error Display Format:**
+```
+2 validation errors found:
+• audio_language_preference[0]: Invalid language code
+• commentary_patterns[1]: Invalid regex pattern
+```
+
 ## Saving Changes
 
 ### Save Process
 
 1. Make your desired changes in the form
 2. Review the YAML preview
-3. Click **Save Changes**
-4. Wait for confirmation message
+3. Optionally click **Test Policy** to validate first
+4. Click **Save Changes**
+5. Wait for confirmation message
 
 ### Save Status Messages
 
 - **"Saving..."** - Save in progress
-- **"Policy saved successfully"** - Save completed
+- **"Saved: [change summary]"** - Save completed with diff summary
+- **"Policy saved successfully"** - Save completed (no changes detected)
 - **Error messages** - Validation or save errors
+
+### Diff Summary
+
+On successful save, the editor shows what changed:
+
+- **Reordered fields**: "audio_language_preference: eng, jpn -> jpn, eng"
+- **Added items**: "commentary_patterns: added director"
+- **Removed items**: "audio_language_preference: removed fra"
+- **Modified values**: "default_flags.clear_other_defaults: true -> false"
+
+This helps you:
+- Confirm intended changes were applied
+- Understand exactly what was modified
+- Review changes after save
 
 ### Validation
 
 The editor validates your changes before saving:
 
 - **Track order** cannot be empty
-- **Language codes** must be valid ISO 639-2 format
-- **Commentary patterns** must be valid regex
+- **Language codes** must be valid ISO 639-2 format (2-3 lowercase letters)
+- **Language lists** cannot be empty (at least one language required)
+- **Commentary patterns** must be valid regular expressions
 - **Cross-field rules** (e.g., reorder requires detection enabled)
 
 ### Concurrent Modification Detection
@@ -209,11 +269,24 @@ The editor warns you before navigating away with unsaved changes:
 
 ## Error Handling
 
+### Validation Error Display
+
+Validation errors are displayed with field-level detail:
+
+1. **Error banner** appears at top of form with all errors listed
+2. **Field sections** with errors are highlighted with red border
+3. **Auto-scroll** brings the first error into view
+4. Click the **×** button to dismiss errors and highlighting
+
 ### Common Errors
 
 **"Invalid language code 'xx'"**
 - Cause: Language code doesn't match ISO 639-2 format
 - Solution: Use 2-3 lowercase letter codes (e.g., `eng`, `jpn`)
+
+**"Language list cannot be empty"**
+- Cause: All languages were removed from audio or subtitle preferences
+- Solution: Add at least one language code
 
 **"Track order cannot be empty"**
 - Cause: All track types were removed
@@ -221,11 +294,15 @@ The editor warns you before navigating away with unsaved changes:
 
 **"Invalid regex pattern"**
 - Cause: Commentary pattern has invalid regex syntax
-- Solution: Check pattern syntax (e.g., unmatched parentheses)
+- Solution: Check pattern syntax (e.g., unmatched parentheses, unclosed brackets)
 
 **"Reorder commentary requires detect commentary to be enabled"**
 - Cause: Trying to enable reorder without detection
 - Solution: Enable "Enable commentary detection" first
+
+**"Validation failed"**
+- Cause: Server-side validation found issues
+- Solution: Review the field-level errors shown and fix each issue
 
 **"Concurrent modification detected"**
 - Cause: Policy was modified since you loaded it
@@ -234,6 +311,10 @@ The editor warns you before navigating away with unsaved changes:
 **"Policy not found"**
 - Cause: Policy file was deleted
 - Solution: Return to policies list, create new policy
+
+**"Network error"**
+- Cause: Server not responding or connection lost
+- Solution: Check server is running, verify network connection
 
 ## Best Practices
 

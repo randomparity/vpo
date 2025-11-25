@@ -2966,6 +2966,26 @@ html, body {
     background: var(--color-body-bg);
 }
 
+/* Outline button variant for secondary actions like Test Policy */
+.btn-outline-primary {
+    background: transparent;
+    color: var(--color-primary);
+    border: 1px solid var(--color-primary);
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-size-base);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-outline-primary:hover:not(:disabled) {
+    background: rgba(52, 152, 219, 0.1);
+}
+
+.btn-outline-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .btn-action {
     color: var(--color-primary);
     text-decoration: none;
@@ -3020,7 +3040,7 @@ html, body {
 /* Validation Errors */
 .validation-errors {
     display: none;
-    background: rgba(239, 68, 68, 0.9);
+    background: #b91c1c; /* WCAG AA compliant - 5.9:1 contrast with white */
     border: 1px solid var(--color-error);
     border-radius: 4px;
     padding: var(--spacing-md);
@@ -3092,6 +3112,19 @@ input.valid {
 input.valid:focus {
     outline-color: #28a745;
     border-color: #28a745;
+}
+
+/* Inline error hints for accessible validation feedback */
+.input-error-hint {
+    display: block;
+    font-size: var(--font-size-sm);
+    color: var(--color-error);
+    margin-top: var(--spacing-xs);
+    min-height: 1.25em;
+}
+
+.input-error-hint:empty {
+    display: none;
 }
 
 /* Loading spinner animation */
@@ -3240,4 +3273,69 @@ input.valid:focus {
         top: 0;
         max-height: 600px;
     }
+}
+
+/* ==========================================================================
+   Policy Validation Error Styles (025-policy-validation)
+   ========================================================================== */
+
+/* Validation error container (T024) */
+.validation-error-list {
+    width: 100%;
+}
+
+.validation-error-header {
+    font-weight: 600;
+    margin-bottom: var(--spacing-sm);
+    color: var(--color-error);
+}
+
+.validation-error-items {
+    list-style: disc;
+    margin: 0;
+    padding-left: var(--spacing-lg);
+}
+
+.validation-error-item {
+    margin-bottom: var(--spacing-xs);
+    line-height: 1.4;
+}
+
+.validation-error-field {
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+    background: rgba(231, 76, 60, 0.1);
+    padding: 0 var(--spacing-xs);
+    border-radius: 2px;
+}
+
+.validation-error-message {
+    color: var(--color-text);
+}
+
+/* Field-level error highlighting (T022) */
+.field-error {
+    border-color: var(--color-error) !important;
+    box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.2);
+}
+
+.section-has-error {
+    border-color: var(--color-error);
+    box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.1);
+}
+
+.section-has-error h2 {
+    color: var(--color-error);
+}
+
+/* Error close button styling for multi-error display */
+.validation-errors {
+    position: relative;
+    padding-right: 40px;
+}
+
+.validation-errors .error-close {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
 }

@@ -1900,3 +1900,134 @@ class PolicyEditorRequest:
             result["transcription"] = self.transcription
 
         return result
+
+
+# ==========================================================================
+# Policy Validation Response Models (025-policy-validation)
+# ==========================================================================
+
+
+@dataclass
+class ValidationErrorItem:
+    """A single field-level validation error.
+
+    Attributes:
+        field: Dot-notation field path (e.g., 'audio_language_preference[0]').
+        message: Human-readable error message.
+        code: Optional machine-readable error type code.
+    """
+
+    field: str
+    message: str
+    code: str | None = None
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        result = {
+            "field": self.field,
+            "message": self.message,
+        }
+        if self.code is not None:
+            result["code"] = self.code
+        return result
+
+
+@dataclass
+class ValidationErrorResponse:
+    """API response for validation errors (HTTP 400).
+
+    Attributes:
+        error: Generic error message summary.
+        errors: List of field-level validation errors.
+        details: Optional additional context.
+    """
+
+    error: str
+    errors: list[ValidationErrorItem]
+    details: str | None = None
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        result = {
+            "error": self.error,
+            "errors": [e.to_dict() for e in self.errors],
+        }
+        if self.details is not None:
+            result["details"] = self.details
+        return result
+
+
+@dataclass
+class ChangedFieldItem:
+    """A single field change in the diff summary.
+
+    Attributes:
+        field: Field name that changed.
+        change_type: Type of change (reordered, items_added, items_removed, modified).
+        details: Human-readable description of the change.
+    """
+
+    field: str
+    change_type: str
+    details: str | None = None
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        result = {
+            "field": self.field,
+            "change_type": self.change_type,
+        }
+        if self.details is not None:
+            result["details"] = self.details
+        return result
+
+
+@dataclass
+class PolicySaveSuccessResponse:
+    """API response for successful policy save (HTTP 200).
+
+    Attributes:
+        success: Always True for success responses.
+        changed_fields: List of fields that were modified.
+        changed_fields_summary: Human-readable summary of changes.
+        policy: Updated policy data in PolicyEditorContext format.
+    """
+
+    success: bool
+    changed_fields: list[ChangedFieldItem]
+    changed_fields_summary: str
+    policy: dict
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "success": self.success,
+            "changed_fields": [f.to_dict() for f in self.changed_fields],
+            "changed_fields_summary": self.changed_fields_summary,
+            **self.policy,  # Spread policy data at top level for backward compat
+        }
+
+
+@dataclass
+class PolicyValidateResponse:
+    """API response for policy validation endpoint (T030).
+
+    Attributes:
+        valid: True if policy data is valid.
+        errors: List of validation errors if invalid.
+        message: Human-readable status message.
+    """
+
+    valid: bool
+    errors: list[ValidationErrorItem]
+    message: str
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        result = {
+            "valid": self.valid,
+            "message": self.message,
+        }
+        if self.errors:
+            result["errors"] = [e.to_dict() for e in self.errors]
+        return result

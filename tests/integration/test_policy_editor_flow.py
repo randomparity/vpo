@@ -484,3 +484,405 @@ transcription:
 
     assert reloaded["transcription"]["detect_commentary"] is False
     assert reloaded["transcription"]["reorder_commentary"] is False
+
+
+# ==========================================================================
+# Policy Validation Tests (025-policy-validation)
+# ==========================================================================
+
+
+@pytest.mark.asyncio
+async def test_successful_save_returns_changed_fields(
+    aiohttp_client, test_app_with_policies
+):
+    """Test that successful save returns changed_fields response (T011 US1)."""
+    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+
+    app, policy_dir = test_app_with_policies
+    client = await aiohttp_client(app)
+
+    # Get CSRF token
+    csrf_token = await get_csrf_token(client)
+
+    # Load policy
+    get_response = await client.get("/api/policies/integration-test")
+    data = await get_response.json()
+
+    # Make changes to audio language preference (reorder)
+    updated_data = {
+        "track_order": data["track_order"],
+        "audio_language_preference": ["und", "eng"],  # Reordered from ["eng", "und"]
+        "subtitle_language_preference": data["subtitle_language_preference"],
+        "commentary_patterns": data["commentary_patterns"],
+        "default_flags": data["default_flags"],
+        "transcode": None,
+        "transcription": None,
+        "last_modified_timestamp": data["last_modified"],
+    }
+
+    # Save
+    put_response = await client.put(
+        "/api/policies/integration-test",
+        json=updated_data,
+        headers={CSRF_HEADER: csrf_token},
+    )
+    assert put_response.status == 200
+
+    saved_data = await put_response.json()
+
+    # Verify new response format
+    assert saved_data["success"] is True
+    assert "changed_fields" in saved_data
+    assert isinstance(saved_data["changed_fields"], list)
+    assert "changed_fields_summary" in saved_data
+
+    # Verify at least one change was detected
+    assert len(saved_data["changed_fields"]) > 0
+
+    # Find the audio_language_preference change
+    audio_change = next(
+        (c for c in saved_data["changed_fields"] if "audio" in c["field"].lower()),
+        None,
+    )
+    assert audio_change is not None
+    assert audio_change["change_type"] == "reordered"
+
+
+@pytest.mark.asyncio
+async def test_validation_error_returns_errors_array(
+    aiohttp_client, test_app_with_policies
+):
+    """Test that validation failure returns structured errors array (T012 US2)."""
+    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+
+    app, policy_dir = test_app_with_policies
+    client = await aiohttp_client(app)
+
+    # Get CSRF token
+    csrf_token = await get_csrf_token(client)
+
+    get_response = await client.get("/api/policies/integration-test")
+    data = await get_response.json()
+
+    # Send multiple invalid fields
+    invalid_data = {
+        "track_order": [],  # Invalid: empty
+        "audio_language_preference": [],  # Invalid: empty
+        "subtitle_language_preference": data["subtitle_language_preference"],
+        "commentary_patterns": data["commentary_patterns"],
+        "default_flags": data["default_flags"],
+        "transcode": None,
+        "transcription": None,
+        "last_modified_timestamp": data["last_modified"],
+    }
+
+    put_response = await client.put(
+        "/api/policies/integration-test",
+        json=invalid_data,
+        headers={CSRF_HEADER: csrf_token},
+    )
+
+    assert put_response.status == 400
+    error_data = await put_response.json()
+
+    # Verify new structured error format
+    assert "error" in error_data
+    assert error_data["error"] == "Validation failed"
+    assert "errors" in error_data
+    assert isinstance(error_data["errors"], list)
+
+    # Should have multiple errors (track_order and audio_language_preference)
+    assert len(error_data["errors"]) >= 2
+
+    # Each error should have field and message
+    for err in error_data["errors"]:
+        assert "field" in err
+        assert "message" in err
+
+
+@pytest.mark.asyncio
+async def test_invalid_language_code_error_response(
+    aiohttp_client, test_app_with_policies
+):
+    """Test that invalid language code returns field-specific error (T013 US2)."""
+    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+
+    app, policy_dir = test_app_with_policies
+    client = await aiohttp_client(app)
+
+    # Get CSRF token
+    csrf_token = await get_csrf_token(client)
+
+    get_response = await client.get("/api/policies/integration-test")
+    data = await get_response.json()
+
+    # Send invalid language code (not ISO 639-2)
+    invalid_data = {
+        "track_order": data["track_order"],
+        "audio_language_preference": ["english"],  # Invalid: not ISO 639-2
+        "subtitle_language_preference": data["subtitle_language_preference"],
+        "commentary_patterns": data["commentary_patterns"],
+        "default_flags": data["default_flags"],
+        "transcode": None,
+        "transcription": None,
+        "last_modified_timestamp": data["last_modified"],
+    }
+
+    put_response = await client.put(
+        "/api/policies/integration-test",
+        json=invalid_data,
+        headers={CSRF_HEADER: csrf_token},
+    )
+
+    assert put_response.status == 400
+    error_data = await put_response.json()
+
+    assert "errors" in error_data
+    assert len(error_data["errors"]) >= 1
+
+    # Find the language error
+    lang_error = next(
+        (e for e in error_data["errors"] if "audio_language_preference" in e["field"]),
+        None,
+    )
+    assert lang_error is not None
+    # Error message should mention the invalid code
+    assert (
+        "english" in lang_error["message"].lower()
+        or "invalid" in lang_error["message"].lower()
+    )
+
+
+@pytest.mark.asyncio
+async def test_empty_required_list_error_response(
+    aiohttp_client, test_app_with_policies
+):
+    """Test that empty required list returns specific error (T014 US2)."""
+    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+
+    app, policy_dir = test_app_with_policies
+    client = await aiohttp_client(app)
+
+    # Get CSRF token
+    csrf_token = await get_csrf_token(client)
+
+    get_response = await client.get("/api/policies/integration-test")
+    data = await get_response.json()
+
+    # Send empty subtitle_language_preference
+    invalid_data = {
+        "track_order": data["track_order"],
+        "audio_language_preference": data["audio_language_preference"],
+        "subtitle_language_preference": [],  # Invalid: empty
+        "commentary_patterns": data["commentary_patterns"],
+        "default_flags": data["default_flags"],
+        "transcode": None,
+        "transcription": None,
+        "last_modified_timestamp": data["last_modified"],
+    }
+
+    put_response = await client.put(
+        "/api/policies/integration-test",
+        json=invalid_data,
+        headers={CSRF_HEADER: csrf_token},
+    )
+
+    assert put_response.status == 400
+    error_data = await put_response.json()
+
+    assert "errors" in error_data
+    assert len(error_data["errors"]) >= 1
+
+    # Find the subtitle error
+    subtitle_error = next(
+        (
+            e
+            for e in error_data["errors"]
+            if "subtitle_language_preference" in e["field"]
+        ),
+        None,
+    )
+    assert subtitle_error is not None
+    # Error should indicate the field cannot be empty
+    assert (
+        "empty" in subtitle_error["message"].lower()
+        or "least" in subtitle_error["message"].lower()
+    )
+
+
+@pytest.mark.asyncio
+async def test_validation_details_count(aiohttp_client, test_app_with_policies):
+    """Test that validation error response includes error count in details."""
+    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+
+    app, policy_dir = test_app_with_policies
+    client = await aiohttp_client(app)
+
+    csrf_token = await get_csrf_token(client)
+    get_response = await client.get("/api/policies/integration-test")
+    data = await get_response.json()
+
+    # Make multiple fields invalid
+    invalid_data = {
+        "track_order": [],
+        "audio_language_preference": [],
+        "subtitle_language_preference": [],
+        "commentary_patterns": data["commentary_patterns"],
+        "default_flags": data["default_flags"],
+        "transcode": None,
+        "transcription": None,
+        "last_modified_timestamp": data["last_modified"],
+    }
+
+    put_response = await client.put(
+        "/api/policies/integration-test",
+        json=invalid_data,
+        headers={CSRF_HEADER: csrf_token},
+    )
+
+    assert put_response.status == 400
+    error_data = await put_response.json()
+
+    # Details should include error count
+    assert "details" in error_data
+    assert "error" in error_data["details"].lower()
+    # Should indicate multiple errors
+    assert len(error_data["errors"]) >= 3
+
+
+# ==========================================================================
+# Validate Endpoint Tests (025-policy-validation Phase 4)
+# ==========================================================================
+
+
+@pytest.mark.asyncio
+async def test_validate_endpoint_returns_valid_true(
+    aiohttp_client, test_app_with_policies
+):
+    """Test that validate endpoint returns valid=true for valid data (T025 US3)."""
+    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+
+    app, policy_dir = test_app_with_policies
+    client = await aiohttp_client(app)
+
+    csrf_token = await get_csrf_token(client)
+    get_response = await client.get("/api/policies/integration-test")
+    data = await get_response.json()
+
+    # Send valid data to validate endpoint (not save)
+    valid_data = {
+        "track_order": data["track_order"],
+        "audio_language_preference": data["audio_language_preference"],
+        "subtitle_language_preference": data["subtitle_language_preference"],
+        "commentary_patterns": data["commentary_patterns"],
+        "default_flags": data["default_flags"],
+        "transcode": None,
+        "transcription": None,
+        "last_modified_timestamp": data["last_modified"],
+    }
+
+    # POST to validate endpoint
+    post_response = await client.post(
+        "/api/policies/integration-test/validate",
+        json=valid_data,
+        headers={CSRF_HEADER: csrf_token},
+    )
+
+    assert post_response.status == 200
+    result = await post_response.json()
+
+    assert result["valid"] is True
+    assert result["message"] == "Policy configuration is valid"
+    assert "errors" not in result or len(result.get("errors", [])) == 0
+
+
+@pytest.mark.asyncio
+async def test_validate_endpoint_returns_errors_when_invalid(
+    aiohttp_client, test_app_with_policies
+):
+    """Test that validate endpoint returns errors array when invalid (T026 US3)."""
+    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+
+    app, policy_dir = test_app_with_policies
+    client = await aiohttp_client(app)
+
+    csrf_token = await get_csrf_token(client)
+    get_response = await client.get("/api/policies/integration-test")
+    data = await get_response.json()
+
+    # Send invalid data to validate endpoint
+    invalid_data = {
+        "track_order": [],  # Invalid: empty
+        "audio_language_preference": ["invalid_code"],  # Invalid
+        "subtitle_language_preference": data["subtitle_language_preference"],
+        "commentary_patterns": data["commentary_patterns"],
+        "default_flags": data["default_flags"],
+        "transcode": None,
+        "transcription": None,
+        "last_modified_timestamp": data["last_modified"],
+    }
+
+    post_response = await client.post(
+        "/api/policies/integration-test/validate",
+        json=invalid_data,
+        headers={CSRF_HEADER: csrf_token},
+    )
+
+    assert post_response.status == 200  # Validate always returns 200
+    result = await post_response.json()
+
+    assert result["valid"] is False
+    assert "errors" in result
+    assert isinstance(result["errors"], list)
+    assert len(result["errors"]) >= 1
+    assert "message" in result
+
+
+@pytest.mark.asyncio
+async def test_validate_endpoint_does_not_modify_file(
+    aiohttp_client, test_app_with_policies
+):
+    """Test that validate endpoint does not modify the policy file (T027 US3)."""
+    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+
+    app, policy_dir = test_app_with_policies
+    client = await aiohttp_client(app)
+
+    csrf_token = await get_csrf_token(client)
+
+    # Read original file content
+    policy_file = policy_dir / "integration-test.yaml"
+    original_content = policy_file.read_text()
+    original_modified = policy_file.stat().st_mtime
+
+    # Load policy data
+    get_response = await client.get("/api/policies/integration-test")
+    data = await get_response.json()
+
+    # Send modified data to validate endpoint
+    modified_data = {
+        "track_order": ["video"],  # Changed from original
+        "audio_language_preference": ["jpn", "eng"],  # Changed order
+        "subtitle_language_preference": ["fra"],  # Changed
+        "commentary_patterns": ["new_pattern"],  # Changed
+        "default_flags": data["default_flags"],
+        "transcode": None,
+        "transcription": None,
+        "last_modified_timestamp": data["last_modified"],
+    }
+
+    # Call validate endpoint
+    post_response = await client.post(
+        "/api/policies/integration-test/validate",
+        json=modified_data,
+        headers={CSRF_HEADER: csrf_token},
+    )
+
+    assert post_response.status == 200
+
+    # Verify file was NOT modified
+    current_content = policy_file.read_text()
+    current_modified = policy_file.stat().st_mtime
+
+    assert current_content == original_content
+    assert current_modified == original_modified
