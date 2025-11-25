@@ -915,6 +915,32 @@
     }
 
     /**
+     * Validate regex pattern format in real-time (T035)
+     * Checks if the input is a valid JavaScript regular expression
+     */
+    function validateRegexInput(input) {
+        const value = input.value.trim()
+        if (value.length === 0) {
+            input.classList.remove('invalid', 'valid')
+            input.removeAttribute('aria-invalid')
+            return
+        }
+
+        try {
+            // Attempt to create a RegExp - will throw if invalid
+            new RegExp(value)
+            input.classList.add('valid')
+            input.classList.remove('invalid')
+            input.setAttribute('aria-invalid', 'false')
+        } catch {
+            // Invalid regex syntax
+            input.classList.add('invalid')
+            input.classList.remove('valid')
+            input.setAttribute('aria-invalid', 'true')
+        }
+    }
+
+    /**
      * Initialize event listeners
      */
     function initEventListeners() {
@@ -963,6 +989,11 @@
                     e.preventDefault()
                     addCommentaryPattern(commentaryPatternInput.value)
                 }
+            })
+
+            // Commentary pattern real-time regex validation (T036)
+            commentaryPatternInput.addEventListener('input', () => {
+                validateRegexInput(commentaryPatternInput)
             })
         }
 

@@ -124,10 +124,10 @@
 
 ### Frontend Implementation for User Story 4
 
-- [ ] T035 [P] [US4] Add validateRegexInput() function in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js for commentary pattern validation
-- [ ] T036 [US4] Add input event listener for commentary pattern field to call validateRegexInput() in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
-- [ ] T037 [US4] Add input event listener for subtitle language field to call validateLanguageInput() in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js (if not already present)
-- [ ] T038 [P] [US4] Add CSS styles for valid/invalid input states for regex fields in src/video_policy_orchestrator/server/static/css/policy-editor.css
+- [X] T035 [P] [US4] Add validateRegexInput() function in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js for commentary pattern validation
+- [X] T036 [US4] Add input event listener for commentary pattern field to call validateRegexInput() in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
+- [X] T037 [US4] Add input event listener for subtitle language field to call validateLanguageInput() in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js (already present)
+- [X] T038 [P] [US4] Add CSS styles for valid/invalid input states for regex fields in src/video_policy_orchestrator/server/static/css/main.css (already present)
 
 **Checkpoint**: Real-time validation works for all text inputs.
 
