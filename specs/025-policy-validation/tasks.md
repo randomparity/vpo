@@ -141,19 +141,19 @@
 
 ### Tests for User Story 5
 
-- [ ] T039 [P] [US5] Add unit tests for DiffSummary.compare_policies() in tests/unit/policy/test_validation.py covering reorder, add, remove, modify cases
-- [ ] T040 [P] [US5] Add unit tests for DiffSummary.to_summary_text() output format in tests/unit/policy/test_validation.py
+- [X] T039 [P] [US5] Add unit tests for DiffSummary.compare_policies() in tests/unit/policy/test_validation.py covering reorder, add, remove, modify cases
+- [X] T040 [P] [US5] Add unit tests for DiffSummary.to_summary_text() output format in tests/unit/policy/test_validation.py
 
 ### Backend Implementation for User Story 5
 
-- [ ] T041 [US5] Add compare_policies(old_data, new_data) static method to DiffSummary class in src/video_policy_orchestrator/policy/validation.py
-- [ ] T042 [US5] Implement list comparison logic in compare_policies() detecting reorder, items_added, items_removed in src/video_policy_orchestrator/policy/validation.py
-- [ ] T043 [US5] Implement dict comparison logic in compare_policies() for default_flags changes in src/video_policy_orchestrator/policy/validation.py
-- [ ] T044 [US5] Modify api_policy_update_handler in src/video_policy_orchestrator/server/ui/routes.py to compute and return DiffSummary in success response
+- [X] T041 [US5] Add compare_policies(old_data, new_data) static method to DiffSummary class in src/video_policy_orchestrator/policy/validation.py
+- [X] T042 [US5] Implement list comparison logic in compare_policies() detecting reorder, items_added, items_removed in src/video_policy_orchestrator/policy/validation.py
+- [X] T043 [US5] Implement dict comparison logic in compare_policies() for default_flags changes in src/video_policy_orchestrator/policy/validation.py
+- [X] T044 [US5] Modify api_policy_update_handler in src/video_policy_orchestrator/server/ui/routes.py to compute and return DiffSummary in success response
 
 ### Frontend Implementation for User Story 5
 
-- [ ] T045 [US5] Update success message display in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js to format and show diff summary from changed_fields
+- [X] T045 [US5] Update success message display in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js to format and show diff summary from changed_fields
 
 **Checkpoint**: Diff summary displays on successful save.
 
@@ -163,11 +163,11 @@
 
 **Purpose**: Documentation, cleanup, and final validation
 
-- [ ] T046 [P] Update docs/usage/policy-editor.md with validation error handling documentation
-- [ ] T047 [P] Add edge case handling for unexpected error formats in savePolicy() and testPolicy() in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
-- [ ] T048 [P] Add network error handling with user-friendly messages in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
-- [ ] T049 Run quickstart.md validation scenarios manually
-- [ ] T050 Run full test suite: uv run pytest tests/unit/policy/test_validation.py tests/integration/test_policy_editor_flow.py -v
+- [X] T046 [P] Update docs/usage/policy-editor.md with validation error handling documentation
+- [X] T047 [P] Add edge case handling for unexpected error formats in savePolicy() and testPolicy() in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
+- [X] T048 [P] Add network error handling with user-friendly messages in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
+- [X] T049 Run quickstart.md validation scenarios manually
+- [X] T050 Run full test suite: uv run pytest tests/unit/policy/test_validation.py tests/integration/test_policy_editor_flow.py -v
 
 ---
 

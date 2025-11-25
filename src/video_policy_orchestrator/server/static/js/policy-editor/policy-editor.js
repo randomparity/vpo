@@ -790,14 +790,31 @@
             })
 
             if (!response.ok) {
-                const errorData = await response.json()
+                // Handle non-OK responses (T047 edge case handling)
+                let errorData
+                try {
+                    errorData = await response.json()
+                } catch {
+                    // Response is not valid JSON
+                    showError(`Server error (${response.status}): Unable to parse response`)
+                    formState.isSaving = false
+                    saveBtn.innerHTML = 'Save Changes'
+                    saveBtn.setAttribute('aria-busy', 'false')
+                    updateSaveButtonState()
+                    return
+                }
+
                 if (response.status === 409) {
                     showError('Concurrent modification detected. Please reload and try again.')
                 } else if (response.status === 400 && errorData.errors && Array.isArray(errorData.errors)) {
                     // Handle structured validation errors (T021)
                     showErrors(errorData.errors)
+                } else if (response.status === 503) {
+                    showError('Service unavailable. Please try again later.')
                 } else {
-                    showError(errorData.error || 'Failed to save policy')
+                    // Fallback for unexpected error formats (T047)
+                    const errorMsg = errorData.error || errorData.message || errorData.details || 'Failed to save policy'
+                    showError(typeof errorMsg === 'string' ? errorMsg : 'Failed to save policy')
                 }
                 formState.isSaving = false
                 saveBtn.innerHTML = 'Save Changes'
@@ -806,8 +823,28 @@
                 return
             }
 
-            const updatedPolicy = await response.json()
-            formState.last_modified = updatedPolicy.last_modified
+            // Handle successful response (T047 edge case handling)
+            let updatedPolicy
+            try {
+                updatedPolicy = await response.json()
+            } catch {
+                // Success but invalid JSON response
+                showSaveStatus('Policy saved successfully')
+                formState.isDirty = false
+                formState.isSaving = false
+                saveBtn.innerHTML = 'Save Changes'
+                saveBtn.setAttribute('aria-busy', 'false')
+                updateSaveButtonState()
+                clearFieldHighlighting()
+                return
+            }
+
+            // Update state from response
+            if (updatedPolicy.last_modified) {
+                formState.last_modified = updatedPolicy.last_modified
+            } else if (updatedPolicy.policy && updatedPolicy.policy.last_modified) {
+                formState.last_modified = updatedPolicy.policy.last_modified
+            }
             formState.isDirty = false
             formState.isSaving = false
             saveBtn.innerHTML = 'Save Changes'
@@ -825,8 +862,17 @@
             clearFieldHighlighting()
 
         } catch (error) {
+            // Network errors and other exceptions (T048)
             console.error('Save error:', error)
-            showError('Network error: ' + error.message)
+            let errorMsg = 'Network error'
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                errorMsg = 'Unable to connect to server. Check your network connection.'
+            } else if (error.name === 'AbortError') {
+                errorMsg = 'Request was cancelled. Please try again.'
+            } else if (error.message) {
+                errorMsg = `Connection error: ${error.message}`
+            }
+            showError(errorMsg)
             formState.isSaving = false
             saveBtn.innerHTML = 'Save Changes'
             saveBtn.setAttribute('aria-busy', 'false')
@@ -870,20 +916,61 @@
                 body: JSON.stringify(requestData)
             })
 
-            const result = await response.json()
+            // Parse response with edge case handling (T047)
+            let result
+            try {
+                result = await response.json()
+            } catch {
+                if (response.ok) {
+                    // HTTP 200 but invalid JSON - assume success
+                    showSaveStatus('Policy configuration is valid', false)
+                } else {
+                    showError(`Server error (${response.status}): Unable to parse response`)
+                }
+                return
+            }
+
+            // Handle non-OK status codes (T047)
+            if (!response.ok) {
+                if (response.status === 503) {
+                    showError('Service unavailable. Please try again later.')
+                } else if (result.errors && Array.isArray(result.errors)) {
+                    showErrors(result.errors)
+                } else {
+                    const errorMsg = result.error || result.message || result.details || 'Validation request failed'
+                    showError(typeof errorMsg === 'string' ? errorMsg : 'Validation request failed')
+                }
+                return
+            }
 
             // Handle response (T034)
-            if (result.valid) {
+            if (result.valid === true) {
                 showSaveStatus('Policy configuration is valid', false)
-            } else if (result.errors && Array.isArray(result.errors)) {
+            } else if (result.valid === false && result.errors && Array.isArray(result.errors)) {
                 showErrors(result.errors)
-            } else {
+            } else if (result.errors && Array.isArray(result.errors)) {
+                // Errors present without valid field (T047 edge case)
+                showErrors(result.errors)
+            } else if (result.valid === false) {
+                // Invalid but no errors array
                 showError(result.message || 'Validation failed')
+            } else {
+                // Unexpected response format (T047)
+                showError(result.message || 'Unexpected response from server')
             }
 
         } catch (error) {
+            // Network errors and other exceptions (T048)
             console.error('Test policy error:', error)
-            showError('Network error: ' + error.message)
+            let errorMsg = 'Network error'
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                errorMsg = 'Unable to connect to server. Check your network connection.'
+            } else if (error.name === 'AbortError') {
+                errorMsg = 'Request was cancelled. Please try again.'
+            } else if (error.message) {
+                errorMsg = `Connection error: ${error.message}`
+            }
+            showError(errorMsg)
         } finally {
             testBtn.innerHTML = originalText
             testBtn.setAttribute('aria-busy', 'false')
