@@ -23,6 +23,12 @@
     // Polling instance
     var pollingInstance = null
 
+    // Track initialization to prevent double init
+    var initialized = false
+
+    // Track in-flight action requests to prevent double-submit
+    var pendingActions = {}
+
     // DOM elements
     const loadingEl = document.getElementById('plans-loading')
     const contentEl = document.getElementById('plans-content')
@@ -101,6 +107,7 @@
     /**
      * Create action buttons for a plan row.
      * Only shows buttons for pending plans.
+     * Uses data attributes for event delegation (no inline onclick).
      * @param {Object} plan - Plan data from API
      * @returns {string} HTML string for action buttons
      */
@@ -109,24 +116,32 @@
             return '<span class="plan-actions-empty">-</span>'
         }
 
+        var shortId = plan.id_short || plan.id.substring(0, 8)
+
         return '<div class="plan-actions">' +
-            '<button class="plan-action-btn plan-action-approve" ' +
+            '<button type="button" class="plan-action-btn plan-action-approve" ' +
                 'data-plan-id="' + escapeHtml(plan.id) + '" ' +
-                'onclick="plansDashboard.handleApprove(\'' + escapeHtml(plan.id) + '\', event)" ' +
+                'data-action="approve" ' +
+                'aria-label="Approve plan ' + escapeHtml(shortId) + '" ' +
                 'title="Approve this plan">' +
-                'Approve' +
+                '<span class="btn-text">Approve</span>' +
+                '<span class="btn-spinner" aria-hidden="true"></span>' +
             '</button>' +
-            '<button class="plan-action-btn plan-action-reject" ' +
+            '<button type="button" class="plan-action-btn plan-action-reject" ' +
                 'data-plan-id="' + escapeHtml(plan.id) + '" ' +
-                'onclick="plansDashboard.handleReject(\'' + escapeHtml(plan.id) + '\', event)" ' +
+                'data-action="reject" ' +
+                'aria-label="Reject plan ' + escapeHtml(shortId) + '" ' +
                 'title="Reject this plan">' +
-                'Reject' +
+                '<span class="btn-text">Reject</span>' +
+                '<span class="btn-spinner" aria-hidden="true"></span>' +
             '</button>' +
         '</div>'
     }
 
     /**
      * Render a single plan row.
+     * Uses tabindex and role for keyboard accessibility.
+     * Uses data attributes for event delegation (no inline onclick).
      * @param {Object} plan - Plan data from API
      * @returns {string} HTML string for table row
      */
@@ -136,10 +151,12 @@
             ? ' <span class="plan-remux-indicator" title="Requires container remux">*</span>'
             : ''
 
-        // Make row clickable (navigation to detail view)
+        // Make row keyboard-accessible and clickable (navigation to detail view)
         return '<tr class="plan-row plan-row-clickable" ' +
             'data-plan-id="' + escapeHtml(plan.id) + '" ' +
-            'onclick="plansDashboard.handleRowClick(\'' + escapeHtml(plan.id) + '\', event)">' +
+            'tabindex="0" ' +
+            'role="row" ' +
+            'aria-label="Plan ' + escapeHtml(shortId) + ' for ' + escapeHtml(plan.filename) + ', status ' + escapeHtml(plan.status) + '">' +
             '<td class="plan-id" title="' + escapeHtml(plan.id) + '">' + escapeHtml(shortId) + '</td>' +
             '<td class="plan-file">' + formatSourceDisplay(plan) + '</td>' +
             '<td class="plan-policy">' + escapeHtml(plan.policy_name) + '</td>' +
@@ -228,22 +245,59 @@
         return '?' + params.toString()
     }
 
+    // Toast auto-hide timer (for pause on hover)
+    var toastTimer = null
+
     /**
-     * Show toast notification.
+     * Hide the toast notification.
+     */
+    function hideToast() {
+        if (!toastEl) return
+        toastEl.style.display = 'none'
+        if (toastTimer) {
+            clearTimeout(toastTimer)
+            toastTimer = null
+        }
+    }
+
+    /**
+     * Show toast notification with close button and pause on hover.
      * @param {string} message - Message to display
      * @param {string} type - Toast type (success, error)
      */
     function showToast(message, type) {
         if (!toastEl) return
 
-        toastEl.textContent = message
-        toastEl.className = 'plans-toast plans-toast--' + type
-        toastEl.style.display = 'block'
+        // Clear any existing timer
+        if (toastTimer) {
+            clearTimeout(toastTimer)
+        }
 
-        // Auto-hide after 3 seconds
-        setTimeout(function () {
-            toastEl.style.display = 'none'
-        }, 3000)
+        // Build toast content with close button
+        toastEl.innerHTML = '<span class="toast-message">' + escapeHtml(message) + '</span>' +
+            '<button type="button" class="toast-close" aria-label="Dismiss notification">&times;</button>'
+        toastEl.className = 'plans-toast plans-toast--' + type
+        toastEl.style.display = 'flex'
+
+        // Add close button listener
+        var closeBtn = toastEl.querySelector('.toast-close')
+        if (closeBtn) {
+            closeBtn.addEventListener('click', hideToast)
+        }
+
+        // Auto-hide after 5 seconds (increased from 3s for accessibility)
+        toastTimer = setTimeout(hideToast, 5000)
+
+        // Pause auto-hide on hover
+        toastEl.addEventListener('mouseenter', function () {
+            if (toastTimer) {
+                clearTimeout(toastTimer)
+                toastTimer = null
+            }
+        })
+        toastEl.addEventListener('mouseleave', function () {
+            toastTimer = setTimeout(hideToast, 2000)
+        })
     }
 
     /**
@@ -382,12 +436,36 @@
     // ==========================================================================
 
     /**
-     * Handle approve button click.
-     * @param {string} planId - Plan UUID
-     * @param {Event} event - Click event
+     * Set loading state on an action button.
+     * @param {HTMLElement} btn - Button element
+     * @param {boolean} loading - Whether to show loading state
      */
-    async function handleApprove(planId, event) {
-        event.stopPropagation() // Prevent row click
+    function setButtonLoading(btn, loading) {
+        if (!btn) return
+
+        if (loading) {
+            btn.disabled = true
+            btn.classList.add('is-loading')
+            btn.setAttribute('aria-busy', 'true')
+        } else {
+            btn.disabled = false
+            btn.classList.remove('is-loading')
+            btn.setAttribute('aria-busy', 'false')
+        }
+    }
+
+    /**
+     * Handle approve action for a plan.
+     * @param {string} planId - Plan UUID
+     * @param {HTMLElement} btn - Button element (optional, for loading state)
+     */
+    async function handleApprove(planId, btn) {
+        // Prevent double-submit
+        if (pendingActions[planId]) {
+            return
+        }
+        pendingActions[planId] = true
+        setButtonLoading(btn, true)
 
         try {
             const response = await fetch('/api/plans/' + planId + '/approve', {
@@ -405,20 +483,45 @@
                 fetchPlans()
             } else {
                 showToast(data.error || 'Failed to approve plan', 'error')
+                setButtonLoading(btn, false)
             }
         } catch (error) {
             console.error('Error approving plan:', error)
             showToast('Failed to approve plan', 'error')
+            setButtonLoading(btn, false)
+        } finally {
+            delete pendingActions[planId]
         }
     }
 
     /**
-     * Handle reject button click.
+     * Handle reject action for a plan.
+     * Shows confirmation modal before rejecting.
      * @param {string} planId - Plan UUID
-     * @param {Event} event - Click event
+     * @param {HTMLElement} btn - Button element (optional, for loading state)
      */
-    async function handleReject(planId, event) {
-        event.stopPropagation() // Prevent row click
+    async function handleReject(planId, btn) {
+        // Show confirmation modal
+        if (typeof window.ConfirmationModal !== 'undefined') {
+            var confirmed = await window.ConfirmationModal.show(
+                'Are you sure you want to reject this plan? This cannot be undone.',
+                {
+                    title: 'Reject Plan',
+                    confirmText: 'Reject',
+                    cancelText: 'Cancel'
+                }
+            )
+            if (!confirmed) {
+                return
+            }
+        }
+
+        // Prevent double-submit
+        if (pendingActions[planId]) {
+            return
+        }
+        pendingActions[planId] = true
+        setButtonLoading(btn, true)
 
         try {
             const response = await fetch('/api/plans/' + planId + '/reject', {
@@ -436,24 +539,22 @@
                 fetchPlans()
             } else {
                 showToast(data.error || 'Failed to reject plan', 'error')
+                setButtonLoading(btn, false)
             }
         } catch (error) {
             console.error('Error rejecting plan:', error)
             showToast('Failed to reject plan', 'error')
+            setButtonLoading(btn, false)
+        } finally {
+            delete pendingActions[planId]
         }
     }
 
     /**
      * Handle row click (navigation to detail view).
      * @param {string} planId - Plan UUID
-     * @param {Event} event - Click event
      */
-    function handleRowClick(planId, event) {
-        // Don't navigate if clicking on action buttons
-        if (event.target.closest('.plan-action-btn')) {
-            return
-        }
-
+    function handleRowClick(planId) {
         // Navigate to plan detail view (placeholder - detail view is separate feature)
         window.location.href = '/plans/' + planId
     }
@@ -525,7 +626,61 @@
         })
     }
 
-    // Export functions for handlers
+    // Event delegation for table body (keyboard navigation and action buttons)
+    if (tableBodyEl) {
+        // Keyboard navigation for table rows
+        tableBodyEl.addEventListener('keydown', function (e) {
+            var row = e.target.closest('.plan-row-clickable')
+            if (!row) return
+
+            // Don't navigate if focus is on action button
+            if (e.target.closest('.plan-action-btn')) return
+
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                var planId = row.getAttribute('data-plan-id')
+                if (planId) {
+                    handleRowClick(planId)
+                }
+            }
+        })
+
+        // Click delegation for row navigation
+        tableBodyEl.addEventListener('click', function (e) {
+            // Don't navigate if clicking on action buttons
+            if (e.target.closest('.plan-action-btn')) return
+
+            var row = e.target.closest('.plan-row-clickable')
+            if (row) {
+                var planId = row.getAttribute('data-plan-id')
+                if (planId) {
+                    handleRowClick(planId)
+                }
+            }
+        })
+
+        // Click delegation for action buttons
+        tableBodyEl.addEventListener('click', function (e) {
+            var btn = e.target.closest('.plan-action-btn')
+            if (!btn) return
+
+            e.stopPropagation() // Prevent row click
+
+            var planId = btn.getAttribute('data-plan-id')
+            var action = btn.getAttribute('data-action')
+
+            if (!planId || !action) return
+            if (btn.disabled) return
+
+            if (action === 'approve') {
+                handleApprove(planId, btn)
+            } else if (action === 'reject') {
+                handleReject(planId, btn)
+            }
+        })
+    }
+
+    // Export functions for backwards compatibility (polling, etc.)
     window.plansDashboard = {
         handleStatusFilter: handleStatusFilter,
         handleTimeFilter: handleTimeFilter,
@@ -538,6 +693,10 @@
      * Initialize the plans dashboard.
      */
     function init() {
+        // Prevent double initialization
+        if (initialized) return
+        initialized = true
+
         // Initial fetch
         fetchPlans()
 
@@ -548,10 +707,9 @@
     }
 
     // Initial fetch on page load
-    document.addEventListener('DOMContentLoaded', init)
-
-    // Also fetch immediately if DOM is already ready
-    if (document.readyState !== 'loading') {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init)
+    } else {
         init()
     }
 })()

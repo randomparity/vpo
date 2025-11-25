@@ -3482,7 +3482,7 @@ input.valid:focus {
     color: #065f46;
 }
 
-.plan-action-approve:hover {
+.plan-action-approve:hover:not(:disabled) {
     background-color: #a7f3d0;
 }
 
@@ -3491,8 +3491,67 @@ input.valid:focus {
     color: #991b1b;
 }
 
-.plan-action-reject:hover {
+.plan-action-reject:hover:not(:disabled) {
     background-color: #fecaca;
+}
+
+/* Action button focus styles for keyboard accessibility */
+.plan-action-btn:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.plan-action-btn:focus:not(:focus-visible) {
+    outline: none;
+}
+
+.plan-action-btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* Action button disabled/loading states */
+.plan-action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.plan-action-btn.is-loading .btn-spinner {
+    display: inline-block;
+    width: 0.75rem;
+    height: 0.75rem;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+    margin-left: 0.25rem;
+    vertical-align: middle;
+}
+
+.plan-action-btn .btn-spinner {
+    display: none;
+}
+
+.plan-action-btn.is-loading .btn-text {
+    opacity: 0.7;
+}
+
+/* Clickable row focus styles for keyboard accessibility */
+.plan-row-clickable:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+    background-color: rgba(52, 152, 219, 0.1);
+}
+
+.plan-row-clickable:focus:not(:focus-visible) {
+    outline: none;
+    background-color: transparent;
+}
+
+.plan-row-clickable:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+    background-color: rgba(52, 152, 219, 0.1);
 }
 
 .plan-actions-empty {
@@ -3614,6 +3673,95 @@ input.valid:focus {
     to {
         transform: translateX(0);
         opacity: 1;
+    }
+}
+
+/* Toast content layout with close button */
+.plans-toast {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.plans-toast .toast-message {
+    flex: 1;
+}
+
+.plans-toast .toast-close {
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    opacity: 0.7;
+    color: inherit;
+}
+
+.plans-toast .toast-close:hover {
+    opacity: 1;
+}
+
+.plans-toast .toast-close:focus {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+/* Plans responsive styles */
+@media (max-width: 767px) {
+    .plans-filters {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+
+    .plans-filter {
+        width: 100%;
+    }
+
+    .plans-filter select {
+        width: 100%;
+    }
+
+    .plans-table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .plans-table {
+        min-width: 600px;
+    }
+
+    /* Hide policy column on mobile */
+    .plans-table .plan-policy,
+    .plans-table th:nth-child(3) {
+        display: none;
+    }
+
+    .plans-table .plan-file {
+        max-width: 150px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .plans-pagination {
+        flex-direction: column;
+        gap: var(--spacing-md);
+        align-items: stretch;
+    }
+
+    .plans-pagination-info {
+        text-align: center;
+    }
+
+    .plans-pagination-controls {
+        justify-content: center;
+    }
+
+    .plans-toast {
+        left: var(--spacing-md);
+        right: var(--spacing-md);
+        bottom: var(--spacing-md);
     }
 }
 

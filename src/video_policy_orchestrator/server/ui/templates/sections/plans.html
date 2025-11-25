@@ -38,10 +38,10 @@
                         <th>Plan ID</th>
                         <th>File</th>
                         <th>Policy</th>
-                        <th>Actions</th>
+                        <th># Actions</th>
                         <th>Status</th>
                         <th>Created</th>
-                        <th>Actions</th>
+                        <th>Manage</th>
                     </tr>
                 </thead>
                 <tbody id="plans-table-body">
@@ -52,7 +52,7 @@
 
         <!-- Empty state (hidden by default) -->
         <div id="plans-empty" class="plans-empty" style="display: none;" role="status" aria-live="polite">
-            <div class="plans-empty-icon" aria-hidden="true"></div>
+            <div class="plans-empty-icon" aria-hidden="true">&#128203;</div>
             <div class="plans-empty-title" id="plans-empty-title">No plans found</div>
             <div class="plans-empty-hint" id="plans-empty-hint">Plans are generated when you evaluate policies against files. Run a scan or apply operation to create plans.</div>
         </div>
@@ -70,9 +70,11 @@
     </div>
 
     <!-- Toast container for notifications -->
-    <div id="plans-toast" class="plans-toast" role="alert" aria-live="assertive" style="display: none;"></div>
+    <div id="plans-toast" class="plans-toast" role="status" aria-live="polite" style="display: none;"></div>
 </div>
 
+<link rel="stylesheet" href="/static/css/confirmation-modal.css">
 <script src="/static/js/polling.js"></script>
+<script src="/static/js/confirmation-modal.js"></script>
 <script src="/static/js/plans.js"></script>
 {% endblock %}
