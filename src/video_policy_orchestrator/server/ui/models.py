@@ -2006,3 +2006,28 @@ class PolicySaveSuccessResponse:
             "changed_fields_summary": self.changed_fields_summary,
             **self.policy,  # Spread policy data at top level for backward compat
         }
+
+
+@dataclass
+class PolicyValidateResponse:
+    """API response for policy validation endpoint (T030).
+
+    Attributes:
+        valid: True if policy data is valid.
+        errors: List of validation errors if invalid.
+        message: Human-readable status message.
+    """
+
+    valid: bool
+    errors: list[ValidationErrorItem]
+    message: str
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        result = {
+            "valid": self.valid,
+            "message": self.message,
+        }
+        if self.errors:
+            result["errors"] = [e.to_dict() for e in self.errors]
+        return result

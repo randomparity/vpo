@@ -1851,6 +1851,85 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
     return web.json_response(response.to_dict())
 
 
+async def api_policy_validate_handler(request: web.Request) -> web.Response:
+    """Handle POST /api/policies/{name}/validate - Validate without saving.
+
+    Validates the policy data against the schema without persisting changes.
+    This allows users to "test" their policy configuration before committing.
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        JSON response with validation result (valid/errors).
+    """
+    from video_policy_orchestrator.policy.validation import validate_policy_data
+    from video_policy_orchestrator.server.ui.models import (
+        PolicyEditorRequest,
+        PolicyValidateResponse,
+        ValidationErrorItem,
+    )
+
+    # Check if shutting down
+    lifecycle = request.app.get("lifecycle")
+    if lifecycle and lifecycle.is_shutting_down:
+        return web.json_response(
+            {"error": "Service is shutting down"},
+            status=503,
+        )
+
+    policy_name = request.match_info["name"]
+
+    # Validate policy name format
+    if not re.match(r"^[a-zA-Z0-9_-]+$", policy_name):
+        return web.json_response(
+            {"error": "Invalid policy name format"},
+            status=400,
+        )
+
+    # Parse request body
+    try:
+        request_data = await request.json()
+        editor_request = PolicyEditorRequest.from_dict(request_data)
+    except ValueError as e:
+        return web.json_response(
+            {"error": f"Invalid request: {e}"},
+            status=400,
+        )
+    except Exception:
+        return web.json_response(
+            {"error": "Invalid JSON payload"},
+            status=400,
+        )
+
+    # Validate policy data (does NOT save)
+    policy_dict = editor_request.to_policy_dict()
+    validation_result = validate_policy_data(policy_dict)
+
+    if validation_result.success:
+        response = PolicyValidateResponse(
+            valid=True,
+            errors=[],
+            message="Policy configuration is valid",
+        )
+        return web.json_response(response.to_dict())
+    else:
+        error_items = [
+            ValidationErrorItem(
+                field=err.field,
+                message=err.message,
+                code=err.code,
+            )
+            for err in validation_result.errors
+        ]
+        response = PolicyValidateResponse(
+            valid=False,
+            errors=error_items,
+            message=f"{len(error_items)} validation error(s) found",
+        )
+        return web.json_response(response.to_dict())
+
+
 async def approvals_handler(request: web.Request) -> dict:
     """Handle GET /approvals - Approvals section page."""
     return _create_template_context(
@@ -2077,6 +2156,8 @@ def setup_ui_routes(app: web.Application) -> None:
     )
     app.router.add_get("/api/policies/{name}", api_policy_detail_handler)
     app.router.add_put("/api/policies/{name}", api_policy_update_handler)
+    # Policy validation endpoint (025-policy-validation T029)
+    app.router.add_post("/api/policies/{name}/validate", api_policy_validate_handler)
     app.router.add_get(
         "/approvals",
         aiohttp_jinja2.template("sections/approvals.html")(approvals_handler),

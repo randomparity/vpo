@@ -93,22 +93,22 @@
 
 ### Tests for User Story 3
 
-- [ ] T025 [P] [US3] Add test for validate endpoint returning valid=true in tests/integration/test_policy_editor_flow.py
-- [ ] T026 [P] [US3] Add test for validate endpoint returning errors array when invalid in tests/integration/test_policy_editor_flow.py
-- [ ] T027 [P] [US3] Add test verifying validate endpoint does not modify policy file in tests/integration/test_policy_editor_flow.py
+- [X] T025 [P] [US3] Add test for validate endpoint returning valid=true in tests/integration/test_policy_editor_flow.py
+- [X] T026 [P] [US3] Add test for validate endpoint returning errors array when invalid in tests/integration/test_policy_editor_flow.py
+- [X] T027 [P] [US3] Add test verifying validate endpoint does not modify policy file in tests/integration/test_policy_editor_flow.py
 
 ### Backend Implementation for User Story 3
 
-- [ ] T028 [US3] Add api_policy_validate_handler function in src/video_policy_orchestrator/server/ui/routes.py for POST /api/policies/{name}/validate
-- [ ] T029 [US3] Register validate endpoint route in src/video_policy_orchestrator/server/ui/routes.py route setup
-- [ ] T030 [US3] Add PolicyValidateResponse model to src/video_policy_orchestrator/server/ui/models.py with valid, errors, message fields
+- [X] T028 [US3] Add api_policy_validate_handler function in src/video_policy_orchestrator/server/ui/routes.py for POST /api/policies/{name}/validate
+- [X] T029 [US3] Register validate endpoint route in src/video_policy_orchestrator/server/ui/routes.py route setup
+- [X] T030 [US3] Add PolicyValidateResponse model to src/video_policy_orchestrator/server/ui/models.py with valid, errors, message fields
 
 ### Frontend Implementation for User Story 3
 
-- [ ] T031 [US3] Add "Test Policy" button HTML in src/video_policy_orchestrator/server/ui/templates/policy_editor.html next to Save button
-- [ ] T032 [US3] Add testPolicy() function in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js calling validate endpoint
-- [ ] T033 [US3] Add event listener for Test Policy button in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
-- [ ] T034 [US3] Handle validation response in testPolicy() to show "Policy configuration is valid" or field errors
+- [X] T031 [US3] Add "Test Policy" button HTML in src/video_policy_orchestrator/server/ui/templates/policy_editor.html next to Save button
+- [X] T032 [US3] Add testPolicy() function in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js calling validate endpoint
+- [X] T033 [US3] Add event listener for Test Policy button in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
+- [X] T034 [US3] Handle validation response in testPolicy() to show "Policy configuration is valid" or field errors
 
 **Checkpoint**: Test Policy button works. Users can validate without saving.
 

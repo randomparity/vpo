@@ -835,6 +835,63 @@
     }
 
     /**
+     * Test policy without saving (T032)
+     * Calls POST /api/policies/{name}/validate
+     */
+    async function testPolicy() {
+        // Clear previous errors
+        clearFieldHighlighting()
+        validationErrors.style.display = 'none'
+
+        const testBtn = document.getElementById('test-policy-btn')
+        const originalText = testBtn.textContent
+        testBtn.innerHTML = '<span class="spinner"></span> Testing...'
+        testBtn.setAttribute('aria-busy', 'true')
+        testBtn.disabled = true
+
+        const requestData = {
+            track_order: formState.track_order,
+            audio_language_preference: formState.audio_language_preference,
+            subtitle_language_preference: formState.subtitle_language_preference,
+            commentary_patterns: formState.commentary_patterns,
+            default_flags: formState.default_flags,
+            transcode: window.POLICY_DATA.transcode,
+            transcription: formState.transcription,
+            last_modified_timestamp: formState.last_modified
+        }
+
+        try {
+            const response = await fetch(`/api/policies/${formState.name}/validate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': window.CSRF_TOKEN
+                },
+                body: JSON.stringify(requestData)
+            })
+
+            const result = await response.json()
+
+            // Handle response (T034)
+            if (result.valid) {
+                showSaveStatus('Policy configuration is valid', false)
+            } else if (result.errors && Array.isArray(result.errors)) {
+                showErrors(result.errors)
+            } else {
+                showError(result.message || 'Validation failed')
+            }
+
+        } catch (error) {
+            console.error('Test policy error:', error)
+            showError('Network error: ' + error.message)
+        } finally {
+            testBtn.innerHTML = originalText
+            testBtn.setAttribute('aria-busy', 'false')
+            testBtn.disabled = false
+        }
+    }
+
+    /**
      * Validate language code format in real-time
      */
     function validateLanguageInput(input) {
@@ -948,6 +1005,14 @@
         saveBtn.addEventListener('click', () => {
             savePolicy()
         })
+
+        // Test Policy button (T033)
+        const testPolicyBtn = document.getElementById('test-policy-btn')
+        if (testPolicyBtn) {
+            testPolicyBtn.addEventListener('click', () => {
+                testPolicy()
+            })
+        }
 
         // Cancel button
         cancelBtn.addEventListener('click', async () => {
