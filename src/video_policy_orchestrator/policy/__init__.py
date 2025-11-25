@@ -36,6 +36,14 @@ from video_policy_orchestrator.policy.models import (
     PolicySchema,
     TrackType,
 )
+from video_policy_orchestrator.policy.validation import (
+    DiffSummary,
+    FieldChange,
+    ValidationError,
+    ValidationResult,
+    format_pydantic_errors,
+    validate_policy_data,
+)
 
 __all__ = [
     # Models
@@ -63,4 +71,11 @@ __all__ = [
     "DEFAULT_POLICIES_DIR",
     "PolicySummary",
     "discover_policies",
+    # Validation (025-policy-validation)
+    "DiffSummary",
+    "FieldChange",
+    "ValidationError",
+    "ValidationResult",
+    "format_pydantic_errors",
+    "validate_policy_data",
 ]

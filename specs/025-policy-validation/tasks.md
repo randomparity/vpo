@@ -25,11 +25,11 @@
 
 **Purpose**: Project initialization and shared validation infrastructure
 
-- [ ] T001 Create validation module file at src/video_policy_orchestrator/policy/validation.py
-- [ ] T002 [P] Add ValidationError dataclass to src/video_policy_orchestrator/policy/validation.py with fields: field, message, code
-- [ ] T003 [P] Add ValidationResult dataclass to src/video_policy_orchestrator/policy/validation.py with fields: success, errors, policy
-- [ ] T004 [P] Add FieldChange dataclass to src/video_policy_orchestrator/policy/validation.py with fields: field, change_type, details
-- [ ] T005 Add DiffSummary dataclass to src/video_policy_orchestrator/policy/validation.py with changes list and to_summary_text() method
+- [X] T001 Create validation module file at src/video_policy_orchestrator/policy/validation.py
+- [X] T002 [P] Add ValidationError dataclass to src/video_policy_orchestrator/policy/validation.py with fields: field, message, code
+- [X] T003 [P] Add ValidationResult dataclass to src/video_policy_orchestrator/policy/validation.py with fields: success, errors, policy
+- [X] T004 [P] Add FieldChange dataclass to src/video_policy_orchestrator/policy/validation.py with fields: field, change_type, details
+- [X] T005 Add DiffSummary dataclass to src/video_policy_orchestrator/policy/validation.py with changes list and to_summary_text() method
 
 ---
 
@@ -39,11 +39,11 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T006 Add format_pydantic_errors() function in src/video_policy_orchestrator/policy/validation.py to convert Pydantic ValidationError.errors() to list of ValidationError dataclasses
-- [ ] T007 Add validate_policy_data() function in src/video_policy_orchestrator/policy/validation.py that uses PolicyModel and returns ValidationResult
-- [ ] T008 [P] Add unit tests for format_pydantic_errors() in tests/unit/policy/test_validation.py
-- [ ] T009 [P] Add unit tests for validate_policy_data() in tests/unit/policy/test_validation.py
-- [ ] T010 Export new validation classes in src/video_policy_orchestrator/policy/__init__.py
+- [X] T006 Add format_pydantic_errors() function in src/video_policy_orchestrator/policy/validation.py to convert Pydantic ValidationError.errors() to list of ValidationError dataclasses
+- [X] T007 Add validate_policy_data() function in src/video_policy_orchestrator/policy/validation.py that uses PolicyModel and returns ValidationResult
+- [X] T008 [P] Add unit tests for format_pydantic_errors() in tests/unit/policy/test_validation.py
+- [X] T009 [P] Add unit tests for validate_policy_data() in tests/unit/policy/test_validation.py
+- [X] T010 Export new validation classes in src/video_policy_orchestrator/policy/__init__.py
 
 **Checkpoint**: Foundation ready - validation helpers tested and working
 
