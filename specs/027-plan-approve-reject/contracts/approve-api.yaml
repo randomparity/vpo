@@ -1,0 +1,229 @@
+openapi: 3.0.3
+info:
+  title: VPO Plans Approve/Reject API
+  description: Enhanced API contract for plan approval workflow with job creation
+  version: 1.1.0
+
+paths:
+  /api/plans/{planId}/approve:
+    post:
+      summary: Approve a plan and create execution job
+      description: |
+        Transitions a pending plan to approved status and creates an APPLY job
+        to execute the planned changes. The job is queued with high priority
+        (ahead of scan/transcode jobs).
+      operationId: approvePlan
+      tags:
+        - Plans
+      parameters:
+        - name: planId
+          in: path
+          description: Plan UUID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Plan approved and job created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApproveResponse"
+              examples:
+                success:
+                  summary: Successful approval
+                  value:
+                    success: true
+                    plan:
+                      id: "550e8400-e29b-41d4-a716-446655440000"
+                      status: "approved"
+                      status_display: "Approved"
+                    job_id: "660e8400-e29b-41d4-a716-446655440001"
+                    job_url: "/jobs/660e8400-e29b-41d4-a716-446655440001"
+                file_deleted_warning:
+                  summary: Approved with file deleted warning
+                  value:
+                    success: true
+                    plan:
+                      id: "550e8400-e29b-41d4-a716-446655440000"
+                      status: "approved"
+                    job_id: "660e8400-e29b-41d4-a716-446655440001"
+                    job_url: "/jobs/660e8400-e29b-41d4-a716-446655440001"
+                    warning: "Target file no longer exists. Job may fail."
+        "400":
+          description: Invalid plan ID format
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "Invalid plan ID format"
+        "404":
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "Plan not found"
+        "409":
+          description: Invalid state transition (plan not pending)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                error: "Cannot transition plan from 'approved' to 'approved'"
+        "503":
+          description: Service unavailable (shutting down or DB unavailable)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/plans/{planId}/reject:
+    post:
+      summary: Reject a plan
+      description: |
+        Transitions a pending plan to rejected status. This is a terminal state;
+        rejected plans cannot be approved or re-evaluated.
+      operationId: rejectPlan
+      tags:
+        - Plans
+      parameters:
+        - name: planId
+          in: path
+          description: Plan UUID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Plan rejected successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RejectResponse"
+              example:
+                success: true
+                plan:
+                  id: "550e8400-e29b-41d4-a716-446655440000"
+                  status: "rejected"
+                  status_display: "Rejected"
+        "400":
+          description: Invalid plan ID format
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Invalid state transition (plan not pending)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    ApproveResponse:
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+          description: Whether the approval succeeded
+        plan:
+          $ref: "#/components/schemas/PlanListItem"
+        job_id:
+          type: string
+          format: uuid
+          description: ID of the created execution job
+        job_url:
+          type: string
+          description: URL to the job detail view
+        warning:
+          type: string
+          description: Optional warning message (e.g., file deleted)
+        error:
+          type: string
+          description: Error message if success is false
+
+    RejectResponse:
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+          description: Whether the rejection succeeded
+        plan:
+          $ref: "#/components/schemas/PlanListItem"
+        error:
+          type: string
+          description: Error message if success is false
+
+    PlanListItem:
+      type: object
+      description: Plan summary for list/action responses
+      properties:
+        id:
+          type: string
+          format: uuid
+        file_path:
+          type: string
+        filename:
+          type: string
+        policy_name:
+          type: string
+        action_count:
+          type: integer
+        status:
+          type: string
+          enum: [pending, approved, rejected, applied, canceled]
+        status_display:
+          type: string
+        status_badge:
+          type: object
+          properties:
+            class:
+              type: string
+            label:
+              type: string
+        requires_remux:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        file_deleted:
+          type: boolean
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          const: false
+        error:
+          type: string
+          description: Human-readable error message

@@ -125,3 +125,10 @@ The visual policy editor (`/policies/{name}/edit`) provides form-based editing o
 - **Editor module**: `src/video_policy_orchestrator/policy/editor.py` (PolicyRoundTripEditor class)
 - **Routes**: GET/PUT `/api/policies/{name}` for load/save, POST `/api/policies/{name}/validate` for dry-run validation
 - **Usage docs**: See `/docs/usage/policy-editor.md` for user guide
+
+## Active Technologies
+- Python 3.10+, JavaScript ES6+ + aiohttp (web server), SQLite (storage), Jinja2 (templates), vanilla JS (frontend) (027-plan-approve-reject)
+- SQLite database at `~/.vpo/library.db` - existing `jobs` and `plans` tables (027-plan-approve-reject)
+
+## Recent Changes
+- 027-plan-approve-reject: Added Python 3.10+, JavaScript ES6+ + aiohttp (web server), SQLite (storage), Jinja2 (templates), vanilla JS (frontend)

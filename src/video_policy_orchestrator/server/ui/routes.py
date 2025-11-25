@@ -1951,6 +1951,8 @@ async def plans_handler(request: web.Request) -> dict:
     )
     # Add plans filter options for template
     context["plans_context"] = PlansContext.default()
+    # CSRF token is injected by csrf_middleware into request context
+    context["csrf_token"] = request.get("csrf_token", "")
     return context
 
 
@@ -2060,16 +2062,28 @@ async def api_plans_handler(request: web.Request) -> web.Response:
 async def api_plan_approve_handler(request: web.Request) -> web.Response:
     """Handle POST /api/plans/{plan_id}/approve - Approve a pending plan.
 
+    Creates an APPLY job with priority=10 to execute the plan's actions.
+
     Args:
         request: aiohttp Request object.
 
     Returns:
-        JSON response with PlanActionResponse payload.
+        JSON response with PlanActionResponse payload including job_id and job_url.
     """
+    import uuid
+    from datetime import timezone
+
     from video_policy_orchestrator.db.connection import DaemonConnectionPool
-    from video_policy_orchestrator.db.models import PlanStatus
+    from video_policy_orchestrator.db.models import (
+        Job,
+        JobStatus,
+        JobType,
+        PlanStatus,
+        insert_job,
+    )
     from video_policy_orchestrator.db.operations import (
         InvalidPlanTransitionError,
+        get_plan_by_id,
         update_plan_status,
     )
 
@@ -2098,18 +2112,59 @@ async def api_plan_approve_handler(request: web.Request) -> web.Response:
             status=503,
         )
 
-    # Update plan status
-    def _approve_plan():
+    # Approve plan and create execution job
+    def _approve_plan_and_create_job():
         with connection_pool.transaction() as conn:
+            # Fetch plan first to get details for job creation
+            plan = get_plan_by_id(conn, plan_id)
+            if plan is None:
+                return None, None, None, "Plan not found"
+
+            # Check file existence for warning
+            file_warning = None
+            if plan.file_id is None:
+                file_warning = "Source file no longer exists in library"
+
             try:
+                # Update plan status to APPROVED
                 updated = update_plan_status(conn, plan_id, PlanStatus.APPROVED)
                 if updated is None:
-                    return None, "Plan not found"
-                return updated, None
-            except InvalidPlanTransitionError as e:
-                return None, str(e)
+                    return None, None, None, "Plan not found"
 
-    updated_plan, error = await asyncio.to_thread(_approve_plan)
+                # Create execution job with high priority
+                job_id = str(uuid.uuid4())
+                job = Job(
+                    id=job_id,
+                    file_id=plan.file_id,
+                    file_path=plan.file_path,
+                    job_type=JobType.APPLY,
+                    status=JobStatus.QUEUED,
+                    priority=10,  # High priority (default is 100)
+                    policy_name=plan.policy_name,
+                    policy_json=plan.actions_json,
+                    progress_percent=0.0,
+                    progress_json=None,
+                    created_at=datetime.now(timezone.utc).isoformat(),
+                    started_at=None,
+                    completed_at=None,
+                    worker_pid=None,
+                    worker_heartbeat=None,
+                    output_path=None,
+                    backup_path=None,
+                    error_message=None,
+                    files_affected_json=None,
+                    summary_json=None,
+                    log_path=None,
+                )
+                insert_job(conn, job)
+
+                return updated, job_id, file_warning, None
+            except InvalidPlanTransitionError as e:
+                return None, None, None, str(e)
+
+    updated_plan, job_id, warning, error = await asyncio.to_thread(
+        _approve_plan_and_create_job
+    )
 
     if error:
         status_code = 404 if error == "Plan not found" else 409
@@ -2118,10 +2173,24 @@ async def api_plan_approve_handler(request: web.Request) -> web.Response:
             status=status_code,
         )
 
-    logger.info("Plan %s approved", plan_id[:8])
+    # Build job URL
+    job_url = f"/jobs/{job_id}"
+
+    # Structured audit logging
+    logger.info(
+        "Plan approved: plan_id=%s, job_id=%s, file_path=%s, policy=%s",
+        plan_id[:8],
+        job_id[:8],
+        updated_plan.file_path,
+        updated_plan.policy_name,
+    )
+
     response = PlanActionResponse(
         success=True,
         plan=PlanListItem.from_plan_record(updated_plan),
+        job_id=job_id,
+        job_url=job_url,
+        warning=warning,
     )
     return web.json_response(response.to_dict())
 
@@ -2187,7 +2256,14 @@ async def api_plan_reject_handler(request: web.Request) -> web.Response:
             status=status_code,
         )
 
-    logger.info("Plan %s rejected", plan_id[:8])
+    # Structured audit logging
+    logger.info(
+        "Plan rejected: plan_id=%s, file_path=%s, policy=%s",
+        plan_id[:8],
+        updated_plan.file_path,
+        updated_plan.policy_name,
+    )
+
     response = PlanActionResponse(
         success=True,
         plan=PlanListItem.from_plan_record(updated_plan),

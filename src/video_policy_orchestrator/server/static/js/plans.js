@@ -247,6 +247,7 @@
 
     // Toast auto-hide timer (for pause on hover)
     var toastTimer = null
+    var toastListenersAdded = false
 
     /**
      * Hide the toast notification.
@@ -262,7 +263,7 @@
 
     /**
      * Show toast notification with close button and pause on hover.
-     * @param {string} message - Message to display
+     * @param {string|HTMLElement|DocumentFragment} message - Message to display (string or DOM node)
      * @param {string} type - Toast type (success, error)
      */
     function showToast(message, type) {
@@ -273,31 +274,51 @@
             clearTimeout(toastTimer)
         }
 
-        // Build toast content with close button
-        toastEl.innerHTML = '<span class="toast-message">' + escapeHtml(message) + '</span>' +
-            '<button type="button" class="toast-close" aria-label="Dismiss notification">&times;</button>'
-        toastEl.className = 'plans-toast plans-toast--' + type
-        toastEl.style.display = 'flex'
-
-        // Add close button listener
-        var closeBtn = toastEl.querySelector('.toast-close')
-        if (closeBtn) {
-            closeBtn.addEventListener('click', hideToast)
+        // Add hover listeners once (prevent memory leak)
+        if (!toastListenersAdded) {
+            toastEl.addEventListener('mouseenter', function () {
+                if (toastTimer) {
+                    clearTimeout(toastTimer)
+                    toastTimer = null
+                }
+            })
+            toastEl.addEventListener('mouseleave', function () {
+                if (toastEl.style.display !== 'none') {
+                    toastTimer = setTimeout(hideToast, 2000)
+                }
+            })
+            toastListenersAdded = true
         }
+
+        // Build toast content with close button using DOM APIs
+        toastEl.innerHTML = ''
+        toastEl.className = 'plans-toast plans-toast--' + type
+
+        var messageSpan = document.createElement('span')
+        messageSpan.className = 'toast-message'
+
+        if (typeof message === 'string') {
+            // Plain string - escape for safety
+            messageSpan.textContent = message
+        } else if (message instanceof DocumentFragment || message instanceof HTMLElement) {
+            // DOM element or fragment - append directly (already safe)
+            messageSpan.appendChild(message)
+        }
+
+        toastEl.appendChild(messageSpan)
+
+        var closeBtn = document.createElement('button')
+        closeBtn.type = 'button'
+        closeBtn.className = 'toast-close'
+        closeBtn.setAttribute('aria-label', 'Dismiss notification')
+        closeBtn.innerHTML = '&times;'
+        closeBtn.addEventListener('click', hideToast)
+        toastEl.appendChild(closeBtn)
+
+        toastEl.style.display = 'flex'
 
         // Auto-hide after 5 seconds (increased from 3s for accessibility)
         toastTimer = setTimeout(hideToast, 5000)
-
-        // Pause auto-hide on hover
-        toastEl.addEventListener('mouseenter', function () {
-            if (toastTimer) {
-                clearTimeout(toastTimer)
-                toastTimer = null
-            }
-        })
-        toastEl.addEventListener('mouseleave', function () {
-            toastTimer = setTimeout(hideToast, 2000)
-        })
     }
 
     /**
@@ -456,10 +477,30 @@
 
     /**
      * Handle approve action for a plan.
+     * Shows confirmation modal before approving.
      * @param {string} planId - Plan UUID
      * @param {HTMLElement} btn - Button element (optional, for loading state)
      */
     async function handleApprove(planId, btn) {
+        // Show confirmation modal - require it to be loaded
+        if (typeof window.ConfirmationModal === 'undefined') {
+            console.error('[Plans] ConfirmationModal not loaded - cannot approve without confirmation')
+            showToast('Unable to show confirmation dialog. Please refresh the page.', 'error')
+            return
+        }
+
+        var confirmed = await window.ConfirmationModal.show(
+            'This will queue a job to apply the planned changes to the file. Continue?',
+            {
+                title: 'Approve Plan',
+                confirmText: 'Approve and Queue',
+                cancelText: 'Cancel'
+            }
+        )
+        if (!confirmed) {
+            return
+        }
+
         // Prevent double-submit
         if (pendingActions[planId]) {
             return
@@ -471,14 +512,35 @@
             const response = await fetch('/api/plans/' + planId + '/approve', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': window.CSRF_TOKEN
                 }
             })
 
             const data = await response.json()
 
             if (data.success) {
-                showToast('Plan approved successfully', 'success')
+                // Build success message with job link using DOM APIs (safe from XSS)
+                var messageEl = document.createDocumentFragment()
+                messageEl.appendChild(document.createTextNode('Plan approved successfully'))
+
+                if (data.job_url) {
+                    messageEl.appendChild(document.createTextNode('. '))
+                    var link = document.createElement('a')
+                    link.href = data.job_url
+                    link.textContent = 'View job'
+                    messageEl.appendChild(link)
+                }
+
+                if (data.warning) {
+                    messageEl.appendChild(document.createTextNode(' '))
+                    var warningSpan = document.createElement('span')
+                    warningSpan.className = 'toast-warning'
+                    warningSpan.textContent = 'Warning: ' + data.warning
+                    messageEl.appendChild(warningSpan)
+                }
+
+                showToast(messageEl, 'success')
                 // Refresh to show updated status
                 fetchPlans()
             } else {
@@ -501,19 +563,24 @@
      * @param {HTMLElement} btn - Button element (optional, for loading state)
      */
     async function handleReject(planId, btn) {
-        // Show confirmation modal
-        if (typeof window.ConfirmationModal !== 'undefined') {
-            var confirmed = await window.ConfirmationModal.show(
-                'Are you sure you want to reject this plan? This cannot be undone.',
-                {
-                    title: 'Reject Plan',
-                    confirmText: 'Reject',
-                    cancelText: 'Cancel'
-                }
-            )
-            if (!confirmed) {
-                return
+        // Show confirmation modal - require it to be loaded
+        if (typeof window.ConfirmationModal === 'undefined') {
+            console.error('[Plans] ConfirmationModal not loaded - cannot reject without confirmation')
+            showToast('Unable to show confirmation dialog. Please refresh the page.', 'error')
+            return
+        }
+
+        var confirmed = await window.ConfirmationModal.show(
+            'Are you sure you want to reject this plan? This cannot be undone.',
+            {
+                title: 'Reject Plan',
+                confirmText: 'Reject',
+                cancelText: 'Cancel',
+                focusCancel: true
             }
+        )
+        if (!confirmed) {
+            return
         }
 
         // Prevent double-submit
@@ -527,7 +594,8 @@
             const response = await fetch('/api/plans/' + planId + '/reject', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': window.CSRF_TOKEN
                 }
             })
 

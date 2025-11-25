@@ -70,11 +70,12 @@
     </div>
 
     <!-- Toast container for notifications -->
-    <div id="plans-toast" class="plans-toast" role="status" aria-live="polite" style="display: none;"></div>
+    <div id="plans-toast" class="plans-toast" role="alert" aria-live="assertive" style="display: none;"></div>
 </div>
 
-<link rel="stylesheet" href="/static/css/confirmation-modal.css">
+<link rel="stylesheet" href="/static/css/components/confirmation-modal.css">
+<script>window.CSRF_TOKEN = {{ csrf_token | tojson }};</script>
 <script src="/static/js/polling.js"></script>
-<script src="/static/js/confirmation-modal.js"></script>
+<script src="/static/js/components/confirmation-modal.js"></script>
 <script src="/static/js/plans.js"></script>
 {% endblock %}

@@ -20,13 +20,16 @@ class ConfirmationModal {
      * @param {string} options.confirmText - Text for confirm button (default: "OK")
      * @param {string} options.cancelText - Text for cancel button (default: "Cancel")
      * @param {string} options.title - Modal title (default: "Confirm")
+     * @param {boolean} options.focusCancel - Focus cancel button instead of confirm (default: false)
+     *                                        Recommended for destructive/irreversible actions
      * @returns {Promise<boolean>} - Resolves to true if confirmed, false if cancelled
      */
     show(message, options = {}) {
         const {
             confirmText = 'OK',
             cancelText = 'Cancel',
-            title = 'Confirm'
+            title = 'Confirm',
+            focusCancel = false
         } = options
 
         return new Promise((resolve) => {
@@ -75,8 +78,13 @@ class ConfirmationModal {
             // Keyboard support
             document.addEventListener('keydown', this._handleKeyDown)
 
-            // Focus confirm button
-            confirmBtn.focus()
+            // Focus the appropriate button
+            // For destructive actions, focus cancel to require deliberate confirmation
+            if (focusCancel) {
+                cancelBtn.focus()
+            } else {
+                confirmBtn.focus()
+            }
 
             // Prevent body scroll
             document.body.style.overflow = 'hidden'

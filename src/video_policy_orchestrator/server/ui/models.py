@@ -2257,11 +2257,17 @@ class PlanActionResponse:
         success: True if action was successful.
         plan: Updated plan data (if successful).
         error: Error message (if failed).
+        job_id: Created execution job ID (approve only).
+        job_url: URL to job detail view (approve only).
+        warning: Warning message (e.g., file no longer exists).
     """
 
     success: bool
     plan: PlanListItem | None = None
     error: str | None = None
+    job_id: str | None = None
+    job_url: str | None = None
+    warning: str | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -2270,4 +2276,10 @@ class PlanActionResponse:
             result["plan"] = self.plan.to_dict()
         if self.error is not None:
             result["error"] = self.error
+        if self.job_id is not None:
+            result["job_id"] = self.job_id
+        if self.job_url is not None:
+            result["job_url"] = self.job_url
+        if self.warning is not None:
+            result["warning"] = self.warning
         return result
