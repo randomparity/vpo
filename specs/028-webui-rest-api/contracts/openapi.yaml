@@ -1,0 +1,1053 @@
+openapi: 3.0.3
+info:
+  title: VPO Web UI API
+  description: REST API for the Video Policy Orchestrator Web UI
+  version: "1.0.0"
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /api/jobs:
+    get:
+      summary: List jobs
+      description: Returns paginated list of background jobs with optional filters
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [queued, running, completed, failed, cancelled]
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [scan, apply, transcode, move]
+        - name: since
+          in: query
+          schema:
+            type: string
+            enum: [24h, 7d]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Job list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/jobs/{job_id}:
+    get:
+      summary: Get job details
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Job detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobDetailItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/jobs/{job_id}/logs:
+    get:
+      summary: Get job logs
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: lines
+          in: query
+          schema:
+            type: integer
+            default: 500
+            maximum: 1000
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Job logs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobLogsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/jobs/{job_id}/errors:
+    get:
+      summary: Get scan errors for job
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Scan errors
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanErrorsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/library:
+    get:
+      summary: List library files
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ok, error]
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: resolution
+          in: query
+          schema:
+            type: string
+            enum: [sd, 720p, 1080p, 4k]
+        - name: audio_lang
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: subtitles
+          in: query
+          schema:
+            type: string
+            enum: [with, without]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: File list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileListResponse"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/library/{file_id}:
+    get:
+      summary: Get file details
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: File detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileDetailResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/library/languages:
+    get:
+      summary: Get available audio languages
+      responses:
+        "200":
+          description: Language list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  languages:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code:
+                          type: string
+                        name:
+                          type: string
+                        count:
+                          type: integer
+
+  /api/transcriptions:
+    get:
+      summary: List transcriptions
+      parameters:
+        - name: show_all
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Transcription list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TranscriptionListResponse"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/transcriptions/{transcription_id}:
+    get:
+      summary: Get transcription details
+      parameters:
+        - name: transcription_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Transcription detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TranscriptionDetailResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/policies:
+    get:
+      summary: List policies
+      responses:
+        "200":
+          description: Policy list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyListResponse"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/policies/{name}:
+    get:
+      summary: Get policy details
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9_-]+$"
+      responses:
+        "200":
+          description: Policy detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyEditorContext"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    put:
+      summary: Update policy
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PolicyEditorRequest"
+      responses:
+        "200":
+          description: Policy updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicySaveSuccessResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Concurrent modification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/policies/{name}/validate:
+    post:
+      summary: Validate policy without saving
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PolicyEditorRequest"
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyValidateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/plans:
+    get:
+      summary: List plans
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected, applied, canceled]
+        - name: since
+          in: query
+          schema:
+            type: string
+            enum: [24h, 7d, 30d]
+        - name: policy_name
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Plan list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/plans/{plan_id}/approve:
+    post:
+      summary: Approve a pending plan
+      parameters:
+        - name: plan_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Plan approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanActionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invalid state transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanActionResponse"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/plans/{plan_id}/reject:
+    post:
+      summary: Reject a pending plan
+      parameters:
+        - name: plan_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Plan rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanActionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invalid state transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanActionResponse"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+components:
+  schemas:
+    JobListResponse:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobListItem"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        has_filters:
+          type: boolean
+
+    JobListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_type:
+          type: string
+        status:
+          type: string
+        file_path:
+          type: string
+        progress_percent:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        duration_seconds:
+          type: integer
+
+    JobDetailItem:
+      allOf:
+        - $ref: "#/components/schemas/JobListItem"
+        - type: object
+          properties:
+            id_short:
+              type: string
+            priority:
+              type: integer
+            policy_name:
+              type: string
+            started_at:
+              type: string
+              format: date-time
+            error_message:
+              type: string
+            output_path:
+              type: string
+            summary:
+              type: string
+            summary_raw:
+              type: object
+            has_logs:
+              type: boolean
+
+    JobLogsResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+        lines:
+          type: array
+          items:
+            type: string
+        total_lines:
+          type: integer
+        offset:
+          type: integer
+        has_more:
+          type: boolean
+
+    ScanErrorsResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              path:
+                type: string
+              filename:
+                type: string
+              error:
+                type: string
+        total_errors:
+          type: integer
+
+    FileListResponse:
+      type: object
+      properties:
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/FileListItem"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        has_filters:
+          type: boolean
+
+    FileListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        filename:
+          type: string
+        path:
+          type: string
+        title:
+          type: string
+        resolution:
+          type: string
+        audio_languages:
+          type: string
+        scanned_at:
+          type: string
+          format: date-time
+        scan_status:
+          type: string
+        scan_error:
+          type: string
+
+    FileDetailResponse:
+      type: object
+      properties:
+        file:
+          $ref: "#/components/schemas/FileDetailItem"
+
+    FileDetailItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        path:
+          type: string
+        filename:
+          type: string
+        directory:
+          type: string
+        extension:
+          type: string
+        container_format:
+          type: string
+        size_bytes:
+          type: integer
+        size_human:
+          type: string
+        modified_at:
+          type: string
+          format: date-time
+        scanned_at:
+          type: string
+          format: date-time
+        scan_status:
+          type: string
+        scan_error:
+          type: string
+        scan_job_id:
+          type: string
+        video_tracks:
+          type: array
+          items:
+            type: object
+        audio_tracks:
+          type: array
+          items:
+            type: object
+        subtitle_tracks:
+          type: array
+          items:
+            type: object
+        other_tracks:
+          type: array
+          items:
+            type: object
+
+    TranscriptionListResponse:
+      type: object
+      properties:
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/TranscriptionListItem"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        has_filters:
+          type: boolean
+
+    TranscriptionListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        filename:
+          type: string
+        path:
+          type: string
+        has_transcription:
+          type: boolean
+        detected_languages:
+          type: string
+        confidence_level:
+          type: string
+        confidence_avg:
+          type: number
+        transcription_count:
+          type: integer
+        scan_status:
+          type: string
+
+    TranscriptionDetailResponse:
+      type: object
+      properties:
+        transcription:
+          $ref: "#/components/schemas/TranscriptionDetailItem"
+
+    TranscriptionDetailItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        track_id:
+          type: integer
+        detected_language:
+          type: string
+        confidence_score:
+          type: number
+        confidence_level:
+          type: string
+        track_classification:
+          type: string
+        transcript_sample:
+          type: string
+        transcript_html:
+          type: string
+        transcript_truncated:
+          type: boolean
+        plugin_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        track_index:
+          type: integer
+        track_codec:
+          type: string
+        original_language:
+          type: string
+        track_title:
+          type: string
+        channels:
+          type: integer
+        channel_layout:
+          type: string
+        is_default:
+          type: boolean
+        is_forced:
+          type: boolean
+        is_commentary:
+          type: boolean
+        classification_source:
+          type: string
+        matched_keywords:
+          type: array
+          items:
+            type: string
+        file_id:
+          type: integer
+        filename:
+          type: string
+        file_path:
+          type: string
+
+    PolicyListResponse:
+      type: object
+      properties:
+        policies:
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyListItem"
+        total:
+          type: integer
+        policies_directory:
+          type: string
+        default_policy_path:
+          type: string
+        default_policy_missing:
+          type: boolean
+        directory_exists:
+          type: boolean
+
+    PolicyListItem:
+      type: object
+      properties:
+        name:
+          type: string
+        filename:
+          type: string
+        file_path:
+          type: string
+        last_modified:
+          type: string
+          format: date-time
+        schema_version:
+          type: integer
+        audio_languages:
+          type: string
+        subtitle_languages:
+          type: string
+        has_transcode:
+          type: boolean
+        has_transcription:
+          type: boolean
+        is_default:
+          type: boolean
+        parse_error:
+          type: string
+
+    PolicyEditorContext:
+      type: object
+      properties:
+        name:
+          type: string
+        filename:
+          type: string
+        file_path:
+          type: string
+        last_modified:
+          type: string
+          format: date-time
+        schema_version:
+          type: integer
+        track_order:
+          type: array
+          items:
+            type: string
+        audio_language_preference:
+          type: array
+          items:
+            type: string
+        subtitle_language_preference:
+          type: array
+          items:
+            type: string
+        commentary_patterns:
+          type: array
+          items:
+            type: string
+        default_flags:
+          type: object
+        transcode:
+          type: object
+        transcription:
+          type: object
+        parse_error:
+          type: string
+
+    PolicyEditorRequest:
+      type: object
+      required:
+        - last_modified_timestamp
+      properties:
+        last_modified_timestamp:
+          type: string
+          format: date-time
+        track_order:
+          type: array
+          items:
+            type: string
+        audio_language_preference:
+          type: array
+          items:
+            type: string
+        subtitle_language_preference:
+          type: array
+          items:
+            type: string
+        commentary_patterns:
+          type: array
+          items:
+            type: string
+        default_flags:
+          type: object
+
+    PolicySaveSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        changed_fields:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              change_type:
+                type: string
+              details:
+                type: string
+        changed_fields_summary:
+          type: string
+        policy:
+          $ref: "#/components/schemas/PolicyEditorContext"
+
+    PolicyValidateResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationErrorItem"
+        message:
+          type: string
+
+    ValidationErrorItem:
+      type: object
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationErrorItem"
+        details:
+          type: string
+
+    PlanListResponse:
+      type: object
+      properties:
+        plans:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanListItem"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        has_filters:
+          type: boolean
+
+    PlanListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        id_short:
+          type: string
+        file_id:
+          type: integer
+        file_path:
+          type: string
+        filename:
+          type: string
+        policy_name:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        actions_count:
+          type: integer
+        actions_preview:
+          type: string
+        file_exists:
+          type: boolean
+
+    PlanActionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        plan:
+          $ref: "#/components/schemas/PlanListItem"
+        job_id:
+          type: string
+          format: uuid
+        job_url:
+          type: string
+        warning:
+          type: string
+        error:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ServiceUnavailable:
+      description: Service unavailable (shutting down or database unavailable)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
