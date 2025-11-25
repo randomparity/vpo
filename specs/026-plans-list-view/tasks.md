@@ -26,10 +26,10 @@ Based on plan.md structure:
 
 **Purpose**: Database schema and core data model for plans
 
-- [ ] T001 Add PlanStatus enum to src/video_policy_orchestrator/db/models.py with values: pending, approved, rejected, applied, canceled
-- [ ] T002 Add PlanRecord dataclass to src/video_policy_orchestrator/db/models.py following OperationRecord pattern
-- [ ] T003 Add plans table DDL and migration logic to src/video_policy_orchestrator/db/schema.py (schema v7 → v8)
-- [ ] T004 Add indexes for plans table (status, created_at DESC, file_id, policy_name) in src/video_policy_orchestrator/db/schema.py
+- [X] T001 Add PlanStatus enum to src/video_policy_orchestrator/db/models.py with values: pending, approved, rejected, applied, canceled
+- [X] T002 Add PlanRecord dataclass to src/video_policy_orchestrator/db/models.py following OperationRecord pattern
+- [X] T003 Add plans table DDL and migration logic to src/video_policy_orchestrator/db/schema.py (schema v11 → v12)
+- [X] T004 Add indexes for plans table (status, created_at DESC, file_id, policy_name) in src/video_policy_orchestrator/db/schema.py
 
 ---
 

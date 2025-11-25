@@ -95,6 +95,9 @@ skips = [
     "B601",
     # B602: subprocess_popen_with_shell_equals_true - we need shell for some operations
     "B602",
+    # B608: hardcoded_sql_expressions - false positives from f-strings building
+    # parameterized queries with IN clauses using proper ? placeholders
+    "B608",
 ]
 # Target only Python files in src/
 targets = ["src/video_policy_orchestrator"]
