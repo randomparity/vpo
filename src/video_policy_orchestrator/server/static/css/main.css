@@ -3241,3 +3241,68 @@ input.valid:focus {
         max-height: 600px;
     }
 }
+
+/* ==========================================================================
+   Policy Validation Error Styles (025-policy-validation)
+   ========================================================================== */
+
+/* Validation error container (T024) */
+.validation-error-list {
+    width: 100%;
+}
+
+.validation-error-header {
+    font-weight: 600;
+    margin-bottom: var(--spacing-sm);
+    color: var(--color-error);
+}
+
+.validation-error-items {
+    list-style: disc;
+    margin: 0;
+    padding-left: var(--spacing-lg);
+}
+
+.validation-error-item {
+    margin-bottom: var(--spacing-xs);
+    line-height: 1.4;
+}
+
+.validation-error-field {
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+    background: rgba(231, 76, 60, 0.1);
+    padding: 0 var(--spacing-xs);
+    border-radius: 2px;
+}
+
+.validation-error-message {
+    color: var(--color-text);
+}
+
+/* Field-level error highlighting (T022) */
+.field-error {
+    border-color: var(--color-error) !important;
+    box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.2);
+}
+
+.section-has-error {
+    border-color: var(--color-error);
+    box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.1);
+}
+
+.section-has-error h2 {
+    color: var(--color-error);
+}
+
+/* Error close button styling for multi-error display */
+.validation-errors {
+    position: relative;
+    padding-right: 40px;
+}
+
+.validation-errors .error-close {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+}

@@ -1652,12 +1652,21 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
         request: aiohttp Request object.
 
     Returns:
-        JSON response with updated policy data or error.
+        JSON response with updated policy data or structured validation errors.
     """
     from video_policy_orchestrator.policy.discovery import DEFAULT_POLICIES_DIR
     from video_policy_orchestrator.policy.editor import PolicyRoundTripEditor
-    from video_policy_orchestrator.policy.loader import PolicyValidationError
-    from video_policy_orchestrator.server.ui.models import PolicyEditorRequest
+    from video_policy_orchestrator.policy.validation import (
+        DiffSummary,
+        validate_policy_data,
+    )
+    from video_policy_orchestrator.server.ui.models import (
+        ChangedFieldItem,
+        PolicyEditorRequest,
+        PolicySaveSuccessResponse,
+        ValidationErrorItem,
+        ValidationErrorResponse,
+    )
 
     # Check if shutting down
     lifecycle = request.app.get("lifecycle")
@@ -1716,7 +1725,38 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
             status=400,
         )
 
-    # Check concurrency (optimistic locking)
+    # Validate policy data BEFORE attempting save (T015)
+    policy_dict = editor_request.to_policy_dict()
+    validation_result = validate_policy_data(policy_dict)
+
+    if not validation_result.success:
+        # Return structured validation errors (T016)
+        error_items = [
+            ValidationErrorItem(
+                field=err.field,
+                message=err.message,
+                code=err.code,
+            )
+            for err in validation_result.errors
+        ]
+        error_response = ValidationErrorResponse(
+            error="Validation failed",
+            errors=error_items,
+            details=f"{len(error_items)} validation error(s) found",
+        )
+        return web.json_response(error_response.to_dict(), status=400)
+
+    # Load original policy data for diff calculation
+    def _load_original():
+        try:
+            editor = PolicyRoundTripEditor(policy_path, allowed_dir=policies_dir)
+            return editor.load()
+        except Exception:
+            return None
+
+    original_data = await asyncio.to_thread(_load_original)
+
+    # Check concurrency and save (optimistic locking)
     def _check_and_save():
         try:
             stat = policy_path.stat()
@@ -1728,9 +1768,8 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
             if file_modified != editor_request.last_modified_timestamp:
                 return None, None, "concurrent_modification"
 
-            # Load and save
+            # Save (validation already passed above)
             editor = PolicyRoundTripEditor(policy_path, allowed_dir=policies_dir)
-            policy_dict = editor_request.to_policy_dict()
             editor.save(policy_dict)
 
             # Reload to get updated data
@@ -1741,8 +1780,6 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
             ).isoformat()
 
             return data, new_modified, None
-        except PolicyValidationError as e:
-            return None, None, str(e)
         except Exception as e:
             logger.error(f"Failed to save policy {policy_name}: {e}")
             return None, None, f"Failed to save policy: {e}"
@@ -1763,14 +1800,30 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
 
     if error:
         return web.json_response(
-            {"error": "Validation failed", "details": error},
-            status=400,
+            {"error": "Save failed", "details": error},
+            status=500,
         )
 
-    # Build response
+    # Calculate diff summary (T017)
+    changed_fields: list[ChangedFieldItem] = []
+    changed_fields_summary = "No changes"
+
+    if original_data:
+        diff = DiffSummary.compare_policies(original_data, policy_data)
+        changed_fields = [
+            ChangedFieldItem(
+                field=change.field,
+                change_type=change.change_type,
+                details=change.details,
+            )
+            for change in diff.changes
+        ]
+        changed_fields_summary = diff.to_summary_text()
+
+    # Build response with policy editor context
     from video_policy_orchestrator.server.ui.models import PolicyEditorContext
 
-    response = PolicyEditorContext(
+    policy_context = PolicyEditorContext(
         name=policy_name,
         filename=policy_path.name,
         file_path=str(policy_path),
@@ -1786,6 +1839,13 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
         transcode=policy_data.get("transcode"),
         transcription=policy_data.get("transcription"),
         parse_error=None,
+    )
+
+    response = PolicySaveSuccessResponse(
+        success=True,
+        changed_fields=changed_fields,
+        changed_fields_summary=changed_fields_summary,
+        policy=policy_context.to_dict(),
     )
 
     return web.json_response(response.to_dict())

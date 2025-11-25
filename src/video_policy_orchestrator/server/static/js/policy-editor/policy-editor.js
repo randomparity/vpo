@@ -563,31 +563,84 @@
     }
 
     /**
-     * Show error message
+     * Show error message (single string)
      */
     function showError(message) {
-        // Clear previous content
-        validationErrors.innerHTML = ''
+        showErrors([{ message }])
+    }
 
-        // Create message text with proper styling
-        const messageText = document.createElement('span')
-        messageText.className = 'error-message-text'
-        messageText.textContent = message
-        validationErrors.appendChild(messageText)
+    /**
+     * Show multiple field-level errors (T020)
+     * @param {Array<{field?: string, message: string, code?: string}>} errors - Array of error objects
+     */
+    function showErrors(errors) {
+        // Clear previous content and field highlighting
+        validationErrors.innerHTML = ''
+        clearFieldHighlighting()
+
+        if (!errors || errors.length === 0) {
+            validationErrors.style.display = 'none'
+            return
+        }
+
+        // Create error list container
+        const errorList = document.createElement('div')
+        errorList.className = 'validation-error-list'
+
+        // Create header if multiple errors
+        if (errors.length > 1) {
+            const header = document.createElement('div')
+            header.className = 'validation-error-header'
+            header.textContent = `${errors.length} validation error${errors.length > 1 ? 's' : ''} found:`
+            errorList.appendChild(header)
+        }
+
+        // Create error items
+        const errorItems = document.createElement('ul')
+        errorItems.className = 'validation-error-items'
+
+        errors.forEach(error => {
+            const li = document.createElement('li')
+            li.className = 'validation-error-item'
+
+            // Format error message with field name
+            if (error.field && error.field !== 'root') {
+                const fieldSpan = document.createElement('span')
+                fieldSpan.className = 'validation-error-field'
+                fieldSpan.textContent = error.field
+                li.appendChild(fieldSpan)
+                li.appendChild(document.createTextNode(': '))
+
+                // Highlight the field in the form (T022)
+                highlightErrorField(error.field)
+            }
+
+            const messageSpan = document.createElement('span')
+            messageSpan.className = 'validation-error-message'
+            messageSpan.textContent = error.message
+            li.appendChild(messageSpan)
+
+            errorItems.appendChild(li)
+        })
+
+        errorList.appendChild(errorItems)
+        validationErrors.appendChild(errorList)
 
         // Create close button
         const closeBtn = document.createElement('button')
         closeBtn.className = 'error-close'
         closeBtn.innerHTML = '×'
-        closeBtn.setAttribute('aria-label', 'Dismiss error')
+        closeBtn.setAttribute('aria-label', 'Dismiss errors')
         closeBtn.tabIndex = 0
         closeBtn.onclick = () => {
             validationErrors.style.display = 'none'
+            clearFieldHighlighting()
         }
         closeBtn.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault()
                 validationErrors.style.display = 'none'
+                clearFieldHighlighting()
             }
         })
         validationErrors.appendChild(closeBtn)
@@ -599,7 +652,90 @@
         validationErrors.tabIndex = -1
         validationErrors.focus()
 
-        // Scroll to the very top of the page to ensure error is visible
+        // Scroll to first error field or top of page (T022a)
+        scrollToFirstError(errors)
+    }
+
+    /**
+     * Map field name to DOM element ID or class for highlighting (T022)
+     */
+    const fieldToElementMap = {
+        'track_order': 'track-order-list',
+        'audio_language_preference': 'audio-lang-list',
+        'subtitle_language_preference': 'subtitle-lang-list',
+        'commentary_patterns': 'commentary-patterns-list',
+        'default_flags': 'default-flags-section'
+    }
+
+    /**
+     * Highlight a field section that has an error (T022)
+     */
+    function highlightErrorField(field) {
+        // Extract base field name (remove array index notation)
+        const baseField = field.split('[')[0].split('.')[0]
+        const elementId = fieldToElementMap[baseField]
+
+        if (elementId) {
+            const element = document.getElementById(elementId)
+            if (element) {
+                element.classList.add('field-error')
+                // Find the parent section and highlight it too
+                const section = element.closest('.editor-section')
+                if (section) {
+                    section.classList.add('section-has-error')
+                }
+            }
+        }
+    }
+
+    /**
+     * Clear all field error highlighting
+     */
+    function clearFieldHighlighting() {
+        document.querySelectorAll('.field-error').forEach(el => {
+            el.classList.remove('field-error')
+        })
+        document.querySelectorAll('.section-has-error').forEach(el => {
+            el.classList.remove('section-has-error')
+        })
+    }
+
+    /**
+     * Scroll to the first error field (T022a)
+     */
+    function scrollToFirstError(errors) {
+        if (!errors || errors.length === 0) {
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+            return
+        }
+
+        // Find the first field with an error
+        const firstError = errors.find(e => e.field && e.field !== 'root')
+        if (firstError) {
+            const baseField = firstError.field.split('[')[0].split('.')[0]
+            const elementId = fieldToElementMap[baseField]
+
+            if (elementId) {
+                const element = document.getElementById(elementId)
+                if (element) {
+                    // Scroll to element with offset for header
+                    const rect = element.getBoundingClientRect()
+                    const scrollTop = window.pageYOffset + rect.top - 100
+                    window.scrollTo({ top: Math.max(0, scrollTop), behavior: 'smooth' })
+
+                    // Try to focus an input in the error section
+                    setTimeout(() => {
+                        const focusable = element.querySelector('input, button, select, textarea')
+                        if (focusable) {
+                            focusable.focus()
+                        }
+                    }, 300)
+                    return
+                }
+            }
+        }
+
+        // Fallback: scroll to top
         window.scrollTo({ top: 0, behavior: 'smooth' })
     }
 
@@ -657,6 +793,9 @@
                 const errorData = await response.json()
                 if (response.status === 409) {
                     showError('Concurrent modification detected. Please reload and try again.')
+                } else if (response.status === 400 && errorData.errors && Array.isArray(errorData.errors)) {
+                    // Handle structured validation errors (T021)
+                    showErrors(errorData.errors)
                 } else {
                     showError(errorData.error || 'Failed to save policy')
                 }
@@ -674,7 +813,16 @@
             saveBtn.innerHTML = 'Save Changes'
             saveBtn.setAttribute('aria-busy', 'false')
             updateSaveButtonState()
-            showSaveStatus('Policy saved successfully')
+
+            // Display success message with changed fields summary (T023)
+            let successMsg = 'Policy saved successfully'
+            if (updatedPolicy.changed_fields_summary && updatedPolicy.changed_fields_summary !== 'No changes') {
+                successMsg = `Saved: ${updatedPolicy.changed_fields_summary}`
+            }
+            showSaveStatus(successMsg)
+
+            // Clear any existing error highlighting
+            clearFieldHighlighting()
 
         } catch (error) {
             console.error('Save error:', error)

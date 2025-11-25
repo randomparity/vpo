@@ -59,27 +59,27 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T011 [P] [US1] Add test for successful save with changed_fields response in tests/integration/test_policy_editor_flow.py
-- [ ] T012 [P] [US2] Add test for validation error response with multiple field errors in tests/integration/test_policy_editor_flow.py
-- [ ] T013 [P] [US2] Add test for invalid language code error response in tests/integration/test_policy_editor_flow.py
-- [ ] T014 [P] [US2] Add test for empty required list error response in tests/integration/test_policy_editor_flow.py
+- [X] T011 [P] [US1] Add test for successful save with changed_fields response in tests/integration/test_policy_editor_flow.py
+- [X] T012 [P] [US2] Add test for validation error response with multiple field errors in tests/integration/test_policy_editor_flow.py
+- [X] T013 [P] [US2] Add test for invalid language code error response in tests/integration/test_policy_editor_flow.py
+- [X] T014 [P] [US2] Add test for empty required list error response in tests/integration/test_policy_editor_flow.py
 
 ### Backend Implementation for User Stories 1 & 2
 
-- [ ] T015 [US1] Modify api_policy_update_handler in src/video_policy_orchestrator/server/ui/routes.py to use validate_policy_data() before saving
-- [ ] T016 [US2] Modify api_policy_update_handler in src/video_policy_orchestrator/server/ui/routes.py to return structured errors array on validation failure (HTTP 400)
-- [ ] T017 [US1] Modify api_policy_update_handler in src/video_policy_orchestrator/server/ui/routes.py to return success response with changed_fields list (HTTP 200)
-- [ ] T018 [US2] Add ValidationErrorResponse model to src/video_policy_orchestrator/server/ui/models.py with error, errors, details fields
-- [ ] T019 [US1] Add PolicySaveSuccessResponse model to src/video_policy_orchestrator/server/ui/models.py with success, changed_fields, policy fields
+- [X] T015 [US1] Modify api_policy_update_handler in src/video_policy_orchestrator/server/ui/routes.py to use validate_policy_data() before saving
+- [X] T016 [US2] Modify api_policy_update_handler in src/video_policy_orchestrator/server/ui/routes.py to return structured errors array on validation failure (HTTP 400)
+- [X] T017 [US1] Modify api_policy_update_handler in src/video_policy_orchestrator/server/ui/routes.py to return success response with changed_fields list (HTTP 200)
+- [X] T018 [US2] Add ValidationErrorResponse model to src/video_policy_orchestrator/server/ui/models.py with error, errors, details fields
+- [X] T019 [US1] Add PolicySaveSuccessResponse model to src/video_policy_orchestrator/server/ui/models.py with success, changed_fields, policy fields
 
 ### Frontend Implementation for User Stories 1 & 2
 
-- [ ] T020 [US2] Add showErrors(errors) function in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js to display multiple field-level errors
-- [ ] T021 [US2] Update savePolicy() in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js to handle errors array response and call showErrors()
-- [ ] T022 [US2] Add field-level error highlighting in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
-- [ ] T022a [US2] Implement scroll-to-first-error and focus behavior in showErrors() in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
-- [ ] T023 [US1] Update savePolicy() success handler in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js to display changed_fields in success message
-- [ ] T024 [P] [US2] Add CSS styles for field-level error display in src/video_policy_orchestrator/server/static/css/policy-editor.css
+- [X] T020 [US2] Add showErrors(errors) function in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js to display multiple field-level errors
+- [X] T021 [US2] Update savePolicy() in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js to handle errors array response and call showErrors()
+- [X] T022 [US2] Add field-level error highlighting in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
+- [X] T022a [US2] Implement scroll-to-first-error and focus behavior in showErrors() in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
+- [X] T023 [US1] Update savePolicy() success handler in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js to display changed_fields in success message
+- [X] T024 [P] [US2] Add CSS styles for field-level error display in src/video_policy_orchestrator/server/static/css/main.css
 
 **Checkpoint**: Save with validation feedback works. Users see field-level errors or success with changed fields list.
 
