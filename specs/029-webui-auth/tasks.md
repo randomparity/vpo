@@ -24,8 +24,8 @@
 
 **Purpose**: Extend configuration to support auth token
 
-- [ ] T001 [P] Add `auth_token: str | None = None` field to ServerConfig dataclass in src/video_policy_orchestrator/config/models.py
-- [ ] T002 [P] Add VPO_AUTH_TOKEN environment variable handling in src/video_policy_orchestrator/config/loader.py (env takes precedence over config file)
+- [X] T001 [P] Add `auth_token: str | None = None` field to ServerConfig dataclass in src/video_policy_orchestrator/config/models.py
+- [X] T002 [P] Add VPO_AUTH_TOKEN environment variable handling in src/video_policy_orchestrator/config/loader.py (env takes precedence over config file)
 
 ---
 

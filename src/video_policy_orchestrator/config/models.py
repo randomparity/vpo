@@ -257,6 +257,9 @@ class ServerConfig:
     shutdown_timeout: float = 30.0
     """Seconds to wait for graceful shutdown before cancelling tasks."""
 
+    auth_token: str | None = None
+    """Shared secret for HTTP Basic Auth. None or empty disables authentication."""
+
     def __post_init__(self) -> None:
         """Validate configuration."""
         if not 1 <= self.port <= 65535:
