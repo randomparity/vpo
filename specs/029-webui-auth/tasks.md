@@ -80,15 +80,15 @@
 
 ### Tests for User Story 2
 
-- [ ] T019 [P] [US2] Unit test for is_auth_enabled() returning False for None/empty token in tests/unit/server/test_auth.py
-- [ ] T020 [P] [US2] Unit test for is_auth_enabled() returning False for whitespace-only token in tests/unit/server/test_auth.py
+- [X] T019 [P] [US2] Unit test for is_auth_enabled() returning False for None/empty token in tests/unit/server/test_auth.py
+- [X] T020 [P] [US2] Unit test for is_auth_enabled() returning False for whitespace-only token in tests/unit/server/test_auth.py
 
 ### Implementation for User Story 2
 
-- [ ] T021 [US2] Add conditional middleware registration (skip if auth disabled) in src/video_policy_orchestrator/server/app.py
-- [ ] T022 [US2] Add startup warning log when auth is disabled in src/video_policy_orchestrator/server/app.py
-- [ ] T023 [US2] Integration test: all endpoints accessible when auth disabled in tests/integration/server/test_auth_integration.py
-- [ ] T024 [US2] Integration test: warning logged when auth disabled in tests/integration/server/test_auth_integration.py
+- [X] T021 [US2] Add conditional middleware registration (skip if auth disabled) in src/video_policy_orchestrator/server/app.py
+- [X] T022 [US2] Add startup warning log when auth is disabled in src/video_policy_orchestrator/server/app.py
+- [X] T023 [US2] Integration test: all endpoints accessible when auth disabled in tests/integration/server/test_auth_integration.py
+- [X] T024 [US2] Integration test: warning logged when auth disabled in tests/integration/server/test_auth_integration.py
 
 **Checkpoint**: Backward compatibility confirmed - existing deployments without auth continue to work
 
