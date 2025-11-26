@@ -190,17 +190,17 @@ Based on plan.md structure:
 
 ### Tests for User Story 6
 
-- [ ] T062 [P] [US6] Unit test for attachment removal in tests/unit/policy/test_track_filtering.py
-- [ ] T063 [P] [US6] Unit test for font warning when ASS/SSA subtitles present in tests/unit/policy/test_track_filtering.py
+- [X] T062 [P] [US6] Unit test for attachment removal in tests/unit/policy/test_track_filtering.py
+- [X] T063 [P] [US6] Unit test for font warning when ASS/SSA subtitles present in tests/unit/policy/test_track_filtering.py
 
 ### Implementation for User Story 6
 
-- [ ] T064 [US6] Implement _evaluate_attachment_track() helper function in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T065 [US6] Implement _detect_styled_subtitles() helper to find ASS/SSA tracks in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T066 [US6] Add font removal warning when styled subtitles detected in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T067 [US6] Update compute_track_dispositions() to handle attachment filtering in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T068 [US6] Extend MkvmergeExecutor with --no-attachments flag in src/video_policy_orchestrator/executor/mkvmerge.py
-- [ ] T069 [US6] Integration test for attachment removal with warning in tests/integration/test_track_filtering.py
+- [X] T064 [US6] Implement _evaluate_attachment_track() helper function in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T065 [US6] Implement _detect_styled_subtitles() helper to find ASS/SSA tracks in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T066 [US6] Add font removal warning when styled subtitles detected in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T067 [US6] Update compute_track_dispositions() to handle attachment filtering in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T068 [US6] Extend MkvmergeExecutor with --no-attachments flag in src/video_policy_orchestrator/executor/mkvmerge.py
+- [X] T069 [US6] Integration test for attachment removal with warning in tests/integration/test_track_filtering.py
 
 **Checkpoint**: Attachment track removal fully functional with font warnings
 

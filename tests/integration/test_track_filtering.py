@@ -742,3 +742,135 @@ class TestSubtitleFilteringIntegration:
         # Total: 2 tracks removed
         removed = [d for d in dispositions if d.action == "REMOVE"]
         assert len(removed) == 2
+
+
+# =============================================================================
+# Attachment Filtering Integration Tests (T069)
+# =============================================================================
+
+
+class TestAttachmentFilteringIntegration:
+    """Integration tests for attachment removal with warnings (T069)."""
+
+    def test_attachment_removal_with_font_warning(self) -> None:
+        """Test attachment removal generates warning for fonts with styled subs."""
+        from video_policy_orchestrator.policy.models import AttachmentFilterConfig
+
+        tracks = [
+            TrackInfo(
+                index=0,
+                track_type="video",
+                codec="hevc",
+                width=1920,
+                height=1080,
+            ),
+            TrackInfo(
+                index=1,
+                track_type="audio",
+                codec="aac",
+                language="eng",
+            ),
+            TrackInfo(
+                index=2,
+                track_type="subtitle",
+                codec="ass",  # Styled subtitle
+                language="eng",
+            ),
+            TrackInfo(
+                index=3,
+                track_type="attachment",
+                codec="ttf",
+                title="CustomFont.ttf",
+            ),
+            TrackInfo(
+                index=4,
+                track_type="attachment",
+                codec="image/jpeg",
+                title="cover.jpg",
+            ),
+        ]
+
+        policy = PolicySchema(
+            schema_version=3,
+            attachment_filter=AttachmentFilterConfig(remove_all=True),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # Both attachments should be removed
+        attachment_disps = [d for d in dispositions if d.track_type == "attachment"]
+        assert len(attachment_disps) == 2
+        assert all(d.action == "REMOVE" for d in attachment_disps)
+
+        # Font attachment should have styled subtitle warning
+        font_disp = [d for d in attachment_disps if "ttf" in (d.codec or "")][0]
+        assert "styled subtitle" in font_disp.reason.lower()
+
+        # Cover art should not have styled subtitle warning
+        cover_disp = [d for d in attachment_disps if "jpeg" in (d.codec or "")][0]
+        assert "styled subtitle" not in cover_disp.reason.lower()
+
+    def test_attachment_removal_combined_with_subtitle_filter(self) -> None:
+        """Test attachment removal works with subtitle filtering."""
+        from video_policy_orchestrator.policy.models import (
+            AttachmentFilterConfig,
+            SubtitleFilterConfig,
+        )
+
+        tracks = [
+            TrackInfo(
+                index=0,
+                track_type="video",
+                codec="hevc",
+                width=1920,
+                height=1080,
+            ),
+            TrackInfo(
+                index=1,
+                track_type="audio",
+                codec="aac",
+                language="eng",
+            ),
+            TrackInfo(
+                index=2,
+                track_type="subtitle",
+                codec="ass",
+                language="eng",
+            ),
+            TrackInfo(
+                index=3,
+                track_type="subtitle",
+                codec="subrip",
+                language="jpn",
+            ),
+            TrackInfo(
+                index=4,
+                track_type="attachment",
+                codec="ttf",
+                title="Font.ttf",
+            ),
+        ]
+
+        policy = PolicySchema(
+            schema_version=3,
+            subtitle_filter=SubtitleFilterConfig(languages=("eng",)),
+            attachment_filter=AttachmentFilterConfig(remove_all=True),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # English subtitle kept, Japanese subtitle removed
+        eng_sub = [d for d in dispositions if d.track_index == 2][0]
+        assert eng_sub.action == "KEEP"
+
+        jpn_sub = [d for d in dispositions if d.track_index == 3][0]
+        assert jpn_sub.action == "REMOVE"
+
+        # Attachment removed with font warning (since ASS subtitle is kept)
+        font_disp = [d for d in dispositions if d.track_type == "attachment"][0]
+        assert font_disp.action == "REMOVE"
+        assert "styled subtitle" in font_disp.reason.lower()
+
+        # Total: 2 tracks removed (Japanese subtitle + font attachment)
+        removed = [d for d in dispositions if d.action == "REMOVE"]
+        assert len(removed) == 2

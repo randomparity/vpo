@@ -743,3 +743,201 @@ class TestRemoveAllSubtitles:
         # Forced subtitle should be removed
         forced_sub = [d for d in dispositions if d.track_type == "subtitle"][0]
         assert forced_sub.action == "REMOVE"
+
+
+# =============================================================================
+# Helper for attachment tests
+# =============================================================================
+
+
+def make_attachment_track(
+    index: int,
+    codec: str = "ttf",
+    title: str | None = None,
+) -> TrackInfo:
+    """Create a test attachment track."""
+    return TrackInfo(
+        index=index,
+        track_type="attachment",
+        codec=codec,
+        title=title,
+    )
+
+
+def make_policy_with_attachment_filter(
+    remove_all: bool = True,
+) -> PolicySchema:
+    """Create a test policy with attachment filter configuration."""
+    from video_policy_orchestrator.policy.models import AttachmentFilterConfig
+
+    return PolicySchema(
+        schema_version=3,
+        attachment_filter=AttachmentFilterConfig(
+            remove_all=remove_all,
+        ),
+    )
+
+
+# =============================================================================
+# Tests for Attachment Removal (T062)
+# =============================================================================
+
+
+class TestAttachmentRemoval:
+    """Tests for attachment track removal (T062)."""
+
+    def test_remove_all_removes_attachments(self) -> None:
+        """remove_all=True should remove all attachment tracks."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng"),
+            make_attachment_track(index=2, codec="ttf", title="Font.ttf"),
+            make_attachment_track(index=3, codec="otf", title="Font.otf"),
+            make_attachment_track(index=4, codec="image/jpeg", title="cover.jpg"),
+        ]
+        policy = make_policy_with_attachment_filter(remove_all=True)
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # All attachments should be removed
+        attachment_disps = [d for d in dispositions if d.track_type == "attachment"]
+        assert all(d.action == "REMOVE" for d in attachment_disps)
+        assert len(attachment_disps) == 3
+
+    def test_no_attachment_filter_keeps_all(self) -> None:
+        """Without attachment filter, all attachments should be kept."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng"),
+            make_attachment_track(index=2, codec="ttf", title="Font.ttf"),
+        ]
+        policy = PolicySchema(schema_version=3)  # No attachment filter
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # Attachment should be kept
+        attachment_disps = [d for d in dispositions if d.track_type == "attachment"]
+        assert all(d.action == "KEEP" for d in attachment_disps)
+
+    def test_remove_all_false_keeps_attachments(self) -> None:
+        """remove_all=False should keep all attachment tracks."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng"),
+            make_attachment_track(index=2, codec="ttf", title="Font.ttf"),
+        ]
+        policy = make_policy_with_attachment_filter(remove_all=False)
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # Attachment should be kept
+        attachment_disps = [d for d in dispositions if d.track_type == "attachment"]
+        assert all(d.action == "KEEP" for d in attachment_disps)
+
+
+# =============================================================================
+# Tests for Font Warning with Styled Subtitles (T063)
+# =============================================================================
+
+
+class TestFontWarningStyledSubtitles:
+    """Tests for font removal warning when ASS/SSA subtitles present (T063)."""
+
+    def test_warns_when_fonts_removed_with_ass_subtitles(self) -> None:
+        """Should generate warning when removing fonts with ASS subtitles."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng"),
+            make_subtitle_track(index=2, language="eng", codec="ass"),
+            make_attachment_track(index=3, codec="ttf", title="Font.ttf"),
+        ]
+        policy = make_policy_with_attachment_filter(remove_all=True)
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # Font should be removed
+        font_disp = [d for d in dispositions if d.track_type == "attachment"][0]
+        assert font_disp.action == "REMOVE"
+        # Warning about styled subtitles should be in reason
+        assert (
+            "styled subtitle" in font_disp.reason.lower()
+            or "font" in font_disp.reason.lower()
+        )
+
+    def test_warns_when_fonts_removed_with_ssa_subtitles(self) -> None:
+        """Should generate warning when removing fonts with SSA subtitles."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng"),
+            make_subtitle_track(index=2, language="eng", codec="ssa"),
+            make_attachment_track(index=3, codec="ttf", title="Font.ttf"),
+        ]
+        policy = make_policy_with_attachment_filter(remove_all=True)
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # Font should be removed with warning
+        font_disp = [d for d in dispositions if d.track_type == "attachment"][0]
+        assert font_disp.action == "REMOVE"
+
+    def test_no_warning_without_styled_subtitles(self) -> None:
+        """Should not generate warning when no ASS/SSA subtitles."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng"),
+            make_subtitle_track(index=2, language="eng", codec="subrip"),
+            make_attachment_track(index=3, codec="ttf", title="Font.ttf"),
+        ]
+        policy = make_policy_with_attachment_filter(remove_all=True)
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # Font should be removed without styled subtitle warning
+        font_disp = [d for d in dispositions if d.track_type == "attachment"][0]
+        assert font_disp.action == "REMOVE"
+        # The reason should just be remove_all, not styled subtitle warning
+        assert "styled subtitle" not in font_disp.reason.lower()
+
+    def test_cover_art_removal_no_warning(self) -> None:
+        """Cover art removal should not generate font warning."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng"),
+            make_subtitle_track(index=2, language="eng", codec="ass"),
+            make_attachment_track(index=3, codec="image/jpeg", title="cover.jpg"),
+        ]
+        policy = make_policy_with_attachment_filter(remove_all=True)
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # Cover art should be removed
+        cover_disp = [d for d in dispositions if d.track_type == "attachment"][0]
+        assert cover_disp.action == "REMOVE"

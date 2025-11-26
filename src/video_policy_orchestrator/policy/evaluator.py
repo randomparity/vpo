@@ -21,6 +21,7 @@ from video_policy_orchestrator.policy.exceptions import (
 from video_policy_orchestrator.policy.matchers import CommentaryMatcher
 from video_policy_orchestrator.policy.models import (
     ActionType,
+    AttachmentFilterConfig,
     AudioFilterConfig,
     ContainerChange,
     Plan,
@@ -454,6 +455,75 @@ def _detect_content_language(tracks: list[TrackInfo]) -> str | None:
     return None
 
 
+def _has_styled_subtitles(tracks: list[TrackInfo]) -> bool:
+    """Check if any tracks are styled subtitles (ASS/SSA).
+
+    Args:
+        tracks: List of all tracks.
+
+    Returns:
+        True if any subtitle track uses ASS/SSA format.
+    """
+    styled_codecs = {"ass", "ssa", "ass_subtitle", "ssa_subtitle"}
+    for track in tracks:
+        if track.track_type.lower() == "subtitle":
+            codec = (track.codec or "").lower()
+            if codec in styled_codecs:
+                return True
+    return False
+
+
+def _is_font_attachment(track: TrackInfo) -> bool:
+    """Check if a track is a font attachment.
+
+    Args:
+        track: Track to check.
+
+    Returns:
+        True if track is a font attachment.
+    """
+    codec = (track.codec or "").lower()
+    font_extensions = {"ttf", "otf", "ttc", "woff", "woff2"}
+    if codec in font_extensions:
+        return True
+    # Check mime types
+    if codec.startswith("font/") or codec in {
+        "application/x-truetype-font",
+        "application/x-font-ttf",
+        "application/font-sfnt",
+    }:
+        return True
+    return False
+
+
+def _evaluate_attachment_track(
+    track: TrackInfo,
+    config: AttachmentFilterConfig,
+    has_styled_subs: bool,
+) -> tuple[Literal["KEEP", "REMOVE"], str]:
+    """Evaluate a single attachment track against attachment filter config.
+
+    Args:
+        track: Attachment track to evaluate.
+        config: Attachment filter configuration.
+        has_styled_subs: True if file has ASS/SSA subtitles.
+
+    Returns:
+        Tuple of (action, reason) for the track.
+    """
+    if not config.remove_all:
+        return ("KEEP", "attachment kept")
+
+    # Check if this is a font and we have styled subtitles
+    if _is_font_attachment(track) and has_styled_subs:
+        return (
+            "REMOVE",
+            "remove_all enabled (font removed, styled subtitles may be affected)",
+        )
+
+    return ("REMOVE", "remove_all enabled")
+
+
 def _apply_fallback(
     audio_tracks: list[TrackInfo],
     initial_actions: dict[int, tuple[Literal["KEEP", "REMOVE"], str]],
@@ -547,6 +617,9 @@ def compute_track_dispositions(
     dispositions: list[TrackDisposition] = []
     audio_tracks = [t for t in tracks if t.track_type.lower() == "audio"]
 
+    # Pre-compute whether we have styled subtitles (for font warning)
+    has_styled_subs = _has_styled_subtitles(tracks)
+
     # First pass: evaluate each track
     audio_actions: dict[int, tuple[Literal["KEEP", "REMOVE"], str]] = {}
 
@@ -560,6 +633,10 @@ def compute_track_dispositions(
             audio_actions[track.index] = (action, reason)
         elif track_type == "subtitle" and policy.subtitle_filter:
             action, reason = _evaluate_subtitle_track(track, policy.subtitle_filter)
+        elif track_type == "attachment" and policy.attachment_filter:
+            action, reason = _evaluate_attachment_track(
+                track, policy.attachment_filter, has_styled_subs
+            )
 
         # Build resolution string for video tracks
         resolution = None
