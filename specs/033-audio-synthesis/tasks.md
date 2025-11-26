@@ -236,11 +236,11 @@
 **Purpose**: Documentation, edge cases, and quality improvements
 
 - [ ] T071 [P] Update docs/usage/ with audio synthesis policy examples
-- [ ] T072 [P] Add encoder unavailability error handling with clear message in src/video_policy_orchestrator/executor/ffmpeg_synthesis.py
-- [ ] T073 [P] Add upmix detection and skip with warning in src/video_policy_orchestrator/policy/synthesis/planner.py
+- [x] T072 [P] Add encoder unavailability error handling with clear message (already in planner.py resolve_synthesis_operation)
+- [x] T073 [P] Add upmix detection and skip with warning (already in planner.py via validate_downmix)
 - [ ] T074 Validate quickstart.md scenarios work end-to-end
 - [ ] T075 [P] Add integration test with real audio fixtures in tests/integration/executor/test_ffmpeg_synthesis.py
-- [ ] T076 Run full test suite and fix any regressions
+- [x] T076 Run full test suite and fix any regressions (1574 passed, 17 skipped)
 
 ---
 
