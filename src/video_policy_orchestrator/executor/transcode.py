@@ -1,7 +1,7 @@
 """Transcode executor for video/audio transcoding via FFmpeg."""
 
 import logging
-import subprocess
+import subprocess  # nosec B404 - subprocess is required for FFmpeg invocation
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,7 +13,10 @@ from video_policy_orchestrator.jobs.progress import (
     parse_stderr_progress,
 )
 from video_policy_orchestrator.policy.models import (
+    RESOLUTION_MAP,
+    SkipCondition,
     TranscodePolicyConfig,
+    parse_bitrate,
 )
 from video_policy_orchestrator.policy.transcode import (
     AudioAction,
@@ -36,6 +39,194 @@ class TranscodeResult:
     backup_path: Path | None = None
 
 
+@dataclass(frozen=True)
+class SkipEvaluationResult:
+    """Result of skip condition evaluation."""
+
+    skip: bool
+    """True if transcoding should be skipped."""
+
+    reason: str | None = None
+    """Human-readable reason for the skip decision."""
+
+
+# Codec aliases for matching
+CODEC_ALIASES: dict[str, tuple[str, ...]] = {
+    "hevc": ("hevc", "h265", "x265"),
+    "h265": ("hevc", "h265", "x265"),
+    "h264": ("h264", "avc", "x264"),
+    "avc": ("h264", "avc", "x264"),
+    "vp9": ("vp9", "vp09"),
+    "av1": ("av1", "av01", "libaom-av1"),
+}
+
+
+def _codec_matches_any(
+    current_codec: str | None, codec_patterns: tuple[str, ...] | None
+) -> bool:
+    """Check if current codec matches any pattern.
+
+    Args:
+        current_codec: Current video codec (from ffprobe).
+        codec_patterns: Tuple of codec patterns to match.
+
+    Returns:
+        True if codec matches any pattern.
+    """
+    if codec_patterns is None:
+        return True  # No patterns = always passes
+    if current_codec is None:
+        return False
+
+    current_lower = current_codec.lower()
+
+    for pattern in codec_patterns:
+        pattern_lower = pattern.lower()
+
+        # Direct match
+        if current_lower == pattern_lower:
+            return True
+
+        # Check if pattern has aliases we should expand
+        aliases = CODEC_ALIASES.get(pattern_lower, ())
+        if any(alias in current_lower for alias in aliases):
+            return True
+
+        # Check if current codec has aliases
+        current_aliases = CODEC_ALIASES.get(current_lower, ())
+        if pattern_lower in current_aliases:
+            return True
+
+    return False
+
+
+def _resolution_within_threshold(
+    width: int | None,
+    height: int | None,
+    resolution_within: str | None,
+) -> bool:
+    """Check if resolution is within the specified threshold.
+
+    Args:
+        width: Current video width.
+        height: Current video height.
+        resolution_within: Resolution preset (e.g., '1080p', '4k').
+
+    Returns:
+        True if resolution is at or below threshold.
+    """
+    if resolution_within is None:
+        return True  # No threshold = always passes
+    if width is None or height is None:
+        return True  # Unknown resolution = can't evaluate, pass
+
+    max_dims = RESOLUTION_MAP.get(resolution_within.lower())
+    if max_dims is None:
+        return True  # Invalid preset = pass (validation should catch this earlier)
+
+    max_width, max_height = max_dims
+    return width <= max_width and height <= max_height
+
+
+def _bitrate_under_threshold(
+    current_bitrate: int | None,
+    bitrate_under: str | None,
+) -> bool:
+    """Check if bitrate is under the specified threshold.
+
+    Args:
+        current_bitrate: Current video bitrate in bits per second.
+        bitrate_under: Threshold bitrate string (e.g., '10M', '5000k').
+
+    Returns:
+        True if bitrate is under threshold.
+    """
+    if bitrate_under is None:
+        return True  # No threshold = always passes
+    if current_bitrate is None:
+        return True  # Unknown bitrate = can't evaluate, pass
+
+    threshold = parse_bitrate(bitrate_under)
+    if threshold is None:
+        return True  # Invalid threshold = pass
+
+    return current_bitrate < threshold
+
+
+def should_skip_transcode(
+    skip_if: SkipCondition | None,
+    video_codec: str | None,
+    video_width: int | None,
+    video_height: int | None,
+    video_bitrate: int | None,
+) -> SkipEvaluationResult:
+    """Evaluate skip conditions for video transcoding.
+
+    All specified conditions must pass for skip (AND logic).
+    Unspecified conditions (None) are not evaluated and pass by default.
+
+    Args:
+        skip_if: Skip condition configuration.
+        video_codec: Current video codec.
+        video_width: Current video width.
+        video_height: Current video height.
+        video_bitrate: Current video bitrate in bits per second.
+
+    Returns:
+        SkipEvaluationResult with skip decision and reason.
+    """
+    if skip_if is None:
+        return SkipEvaluationResult(skip=False, reason=None)
+
+    # Check codec condition
+    codec_matches = _codec_matches_any(video_codec, skip_if.codec_matches)
+    if not codec_matches:
+        return SkipEvaluationResult(
+            skip=False,
+            reason=f"Codec '{video_codec}' not in skip list {skip_if.codec_matches}",
+        )
+
+    # Check resolution condition
+    resolution_ok = _resolution_within_threshold(
+        video_width, video_height, skip_if.resolution_within
+    )
+    if not resolution_ok:
+        return SkipEvaluationResult(
+            skip=False,
+            reason=(
+                f"Resolution {video_width}x{video_height} exceeds "
+                f"{skip_if.resolution_within} threshold"
+            ),
+        )
+
+    # Check bitrate condition
+    bitrate_ok = _bitrate_under_threshold(video_bitrate, skip_if.bitrate_under)
+    if not bitrate_ok:
+        threshold = parse_bitrate(skip_if.bitrate_under) or 0
+        return SkipEvaluationResult(
+            skip=False,
+            reason=(
+                f"Bitrate {video_bitrate} exceeds "
+                f"{skip_if.bitrate_under} ({threshold}) threshold"
+            ),
+        )
+
+    # All conditions passed - build skip reason
+    reasons = []
+    if skip_if.codec_matches:
+        reasons.append(f"codec is {video_codec}")
+    if skip_if.resolution_within:
+        res_str = f"{video_width}x{video_height}"
+        reasons.append(f"resolution {res_str} within {skip_if.resolution_within}")
+    if skip_if.bitrate_under:
+        reasons.append(f"bitrate under {skip_if.bitrate_under}")
+
+    reason = (
+        "Already compliant: " + ", ".join(reasons) if reasons else "All conditions met"
+    )
+    return SkipEvaluationResult(skip=True, reason=reason)
+
+
 @dataclass
 class TranscodePlan:
     """Plan for transcoding a file."""
@@ -48,10 +239,14 @@ class TranscodePlan:
     video_codec: str | None = None
     video_width: int | None = None
     video_height: int | None = None
+    video_bitrate: int | None = None
     duration_seconds: float | None = None
 
     # Audio tracks info
     audio_tracks: list[TrackInfo] | None = None
+
+    # V6 skip condition evaluation result
+    skip_result: SkipEvaluationResult | None = None
 
     # Computed video actions
     needs_video_transcode: bool = False
@@ -65,11 +260,26 @@ class TranscodePlan:
     @property
     def needs_any_transcode(self) -> bool:
         """True if any transcoding work is needed."""
+        # If skip evaluation says skip, no transcode needed
+        if self.skip_result and self.skip_result.skip:
+            return False
         if self.needs_video_transcode:
             return True
         if self.audio_plan and self.audio_plan.has_changes:
             return True
         return False
+
+    @property
+    def should_skip(self) -> bool:
+        """True if transcoding should be skipped due to skip conditions."""
+        return self.skip_result is not None and self.skip_result.skip
+
+    @property
+    def skip_reason(self) -> str | None:
+        """Human-readable skip reason if should_skip is True."""
+        if self.skip_result and self.skip_result.skip:
+            return self.skip_result.reason
+        return None
 
 
 def should_transcode_video(
@@ -328,6 +538,7 @@ class TranscodeExecutor:
     def __init__(
         self,
         policy: TranscodePolicyConfig,
+        skip_if: SkipCondition | None = None,
         cpu_cores: int | None = None,
         progress_callback: Callable[[FFmpegProgress], None] | None = None,
         temp_directory: Path | None = None,
@@ -337,12 +548,14 @@ class TranscodeExecutor:
 
         Args:
             policy: Transcode policy configuration.
+            skip_if: V6 skip condition for conditional transcoding.
             cpu_cores: Number of CPU cores to use.
             progress_callback: Optional callback for progress updates.
             temp_directory: Directory for temp files (None = same as output).
             backup_original: Whether to backup original after success.
         """
         self.policy = policy
+        self.skip_if = skip_if
         self.cpu_cores = cpu_cores
         self.progress_callback = progress_callback
         self.temp_directory = temp_directory
@@ -355,6 +568,7 @@ class TranscodeExecutor:
         video_codec: str | None = None,
         video_width: int | None = None,
         video_height: int | None = None,
+        video_bitrate: int | None = None,
         duration_seconds: float | None = None,
         audio_tracks: list[TrackInfo] | None = None,
     ) -> TranscodePlan:
@@ -366,12 +580,45 @@ class TranscodeExecutor:
             video_codec: Current video codec.
             video_width: Current video width.
             video_height: Current video height.
+            video_bitrate: Current video bitrate in bits per second.
             duration_seconds: File duration in seconds.
             audio_tracks: List of audio track info.
 
         Returns:
             TranscodePlan with computed actions.
         """
+        # Evaluate V6 skip conditions first
+        skip_result = should_skip_transcode(
+            skip_if=self.skip_if,
+            video_codec=video_codec,
+            video_width=video_width,
+            video_height=video_height,
+            video_bitrate=video_bitrate,
+        )
+
+        # If skip conditions are met, create plan with skip result
+        if skip_result.skip:
+            logger.info(
+                "Skipping video transcode - %s: %s",
+                skip_result.reason,
+                input_path,
+            )
+            return TranscodePlan(
+                input_path=input_path,
+                output_path=output_path,
+                policy=self.policy,
+                video_codec=video_codec,
+                video_width=video_width,
+                video_height=video_height,
+                video_bitrate=video_bitrate,
+                duration_seconds=duration_seconds,
+                audio_tracks=audio_tracks,
+                skip_result=skip_result,
+                needs_video_transcode=False,
+                needs_video_scale=False,
+            )
+
+        # Normal transcode evaluation
         needs_transcode, needs_scale, target_width, target_height = (
             should_transcode_video(
                 self.policy,
@@ -393,8 +640,10 @@ class TranscodeExecutor:
             video_codec=video_codec,
             video_width=video_width,
             video_height=video_height,
+            video_bitrate=video_bitrate,
             duration_seconds=duration_seconds,
             audio_tracks=audio_tracks,
+            skip_result=skip_result,
             needs_video_transcode=needs_transcode,
             needs_video_scale=needs_scale,
             target_width=target_width,
@@ -526,6 +775,15 @@ class TranscodeExecutor:
         Returns:
             TranscodeResult with success status.
         """
+        # V6 skip condition check
+        if plan.should_skip:
+            logger.info(
+                "Skipping video transcode - already compliant: %s (%s)",
+                plan.input_path,
+                plan.skip_reason,
+            )
+            return TranscodeResult(success=True)
+
         if not plan.needs_video_transcode:
             logger.info(
                 "File already compliant, no transcode needed: %s", plan.input_path
@@ -554,8 +812,10 @@ class TranscodeExecutor:
             video_codec=plan.video_codec,
             video_width=plan.video_width,
             video_height=plan.video_height,
+            video_bitrate=plan.video_bitrate,
             duration_seconds=plan.duration_seconds,
             audio_tracks=plan.audio_tracks,
+            skip_result=plan.skip_result,
             needs_video_transcode=plan.needs_video_transcode,
             needs_video_scale=plan.needs_video_scale,
             target_width=plan.target_width,
@@ -572,8 +832,8 @@ class TranscodeExecutor:
             temp_output.parent.mkdir(parents=True, exist_ok=True)
             plan.output_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Run FFmpeg with progress monitoring
-            process = subprocess.Popen(
+            # Run FFmpeg with progress monitoring (cmd built from trusted FFmpeg path)
+            process = subprocess.Popen(  # nosec B603
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -651,6 +911,22 @@ class TranscodeExecutor:
         Returns:
             Dictionary with planned operations.
         """
+        # V6 skip condition check for dry-run
+        if plan.should_skip:
+            return {
+                "input": str(plan.input_path),
+                "output": str(plan.output_path),
+                "needs_transcode": False,
+                "skipped": True,
+                "skip_reason": (
+                    f"Skipping video transcode - already compliant: {plan.skip_reason}"
+                ),
+                "video_operations": [],
+                "audio_operations": [],
+                "audio_descriptions": [],
+                "command": None,
+            }
+
         operations = []
 
         if plan.needs_video_transcode:

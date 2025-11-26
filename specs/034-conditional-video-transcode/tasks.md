@@ -58,21 +58,21 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Tests for User Story 1
 
-- [ ] T012 [P] [US1] Unit test for SkipCondition dataclass in tests/unit/test_skip_conditions.py
-- [ ] T013 [P] [US1] Unit test for should_skip_transcode() function in tests/unit/test_skip_conditions.py
-- [ ] T014 [P] [US1] Unit test for codec_matches evaluation (case-insensitive) in tests/unit/test_skip_conditions.py
-- [ ] T015 [P] [US1] Unit test for resolution_within evaluation in tests/unit/test_skip_conditions.py
-- [ ] T016 [P] [US1] Unit test for bitrate_under evaluation in tests/unit/test_skip_conditions.py
-- [ ] T017 [P] [US1] Unit test for AND logic (all conditions must pass) in tests/unit/test_skip_conditions.py
+- [x] T012 [P] [US1] Unit test for SkipCondition dataclass in tests/unit/test_skip_conditions.py
+- [x] T013 [P] [US1] Unit test for should_skip_transcode() function in tests/unit/test_skip_conditions.py
+- [x] T014 [P] [US1] Unit test for codec_matches evaluation (case-insensitive) in tests/unit/test_skip_conditions.py
+- [x] T015 [P] [US1] Unit test for resolution_within evaluation in tests/unit/test_skip_conditions.py
+- [x] T016 [P] [US1] Unit test for bitrate_under evaluation in tests/unit/test_skip_conditions.py
+- [x] T017 [P] [US1] Unit test for AND logic (all conditions must pass) in tests/unit/test_skip_conditions.py
 
 ### Implementation for User Story 1
 
-- [ ] T018 [US1] Add SkipCondition dataclass (codec_matches, resolution_within, bitrate_under) in src/video_policy_orchestrator/policy/models.py
-- [ ] T019 [US1] Add resolution_within_threshold() helper function in src/video_policy_orchestrator/policy/models.py
-- [ ] T020 [US1] Implement should_skip_transcode(file_info, skip_if) function in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T021 [US1] Integrate skip evaluation in TranscodeExecutor.execute() in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T022 [US1] Add dry-run skip message "Skipping video transcode - already compliant" in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T023 [US1] Parse skip_if section from YAML policy in src/video_policy_orchestrator/policy/schema.py
+- [x] T018 [US1] Add SkipCondition dataclass (codec_matches, resolution_within, bitrate_under) in src/video_policy_orchestrator/policy/models.py
+- [x] T019 [US1] Add resolution_within_threshold() helper function in src/video_policy_orchestrator/executor/transcode.py
+- [x] T020 [US1] Implement should_skip_transcode(file_info, skip_if) function in src/video_policy_orchestrator/executor/transcode.py
+- [x] T021 [US1] Integrate skip evaluation in TranscodeExecutor.execute() in src/video_policy_orchestrator/executor/transcode.py
+- [x] T022 [US1] Add dry-run skip message "Skipping video transcode - already compliant" in src/video_policy_orchestrator/executor/transcode.py
+- [x] T023 [US1] Parse skip_if section from YAML policy in src/video_policy_orchestrator/policy/loader.py
 
 **Checkpoint**: Skip conditions fully functional - files meeting criteria are not re-encoded
 
