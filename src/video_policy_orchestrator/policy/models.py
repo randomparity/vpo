@@ -40,6 +40,34 @@ class ActionType(Enum):
 # Valid video codecs for transcoding
 VALID_VIDEO_CODECS = frozenset({"h264", "hevc", "vp9", "av1"})
 
+# Codecs that are incompatible with MP4 container
+# These codecs cannot be stored in MP4 without transcoding
+MP4_INCOMPATIBLE_CODECS = frozenset(
+    {
+        # Lossless audio codecs
+        "truehd",
+        "dts-hd ma",
+        "dts-hd.ma",
+        "dtshd",
+        "mlp",
+        # Subtitle formats not supported in MP4
+        "hdmv_pgs_subtitle",
+        "pgssub",
+        "pgs",
+        "dvd_subtitle",
+        "dvdsub",
+        "vobsub",
+        # Advanced subtitle formats
+        "ass",
+        "ssa",
+        "subrip",  # SRT needs conversion to mov_text
+        # Attachment types (not supported in MP4)
+        "ttf",
+        "otf",
+        "application/x-truetype-font",
+    }
+)
+
 # Valid audio codecs for transcoding
 VALID_AUDIO_CODECS = frozenset(
     {

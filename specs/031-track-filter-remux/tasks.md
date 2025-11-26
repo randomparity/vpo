@@ -25,9 +25,9 @@ Based on plan.md structure:
 
 **Purpose**: Project initialization and foundational model additions
 
-- [ ] T001 Add custom exceptions InsufficientTracksError and IncompatibleCodecError in src/video_policy_orchestrator/policy/exceptions.py
-- [ ] T002 [P] Add MP4_INCOMPATIBLE_CODECS constant set in src/video_policy_orchestrator/policy/models.py
-- [ ] T003 [P] Update MAX_SCHEMA_VERSION to 3 in src/video_policy_orchestrator/policy/loader.py
+- [X] T001 Add custom exceptions InsufficientTracksError and IncompatibleCodecError in src/video_policy_orchestrator/policy/exceptions.py
+- [X] T002 [P] Add MP4_INCOMPATIBLE_CODECS constant set in src/video_policy_orchestrator/policy/models.py
+- [X] T003 [P] Update MAX_SCHEMA_VERSION to 3 in src/video_policy_orchestrator/policy/loader.py
 
 ---
 
