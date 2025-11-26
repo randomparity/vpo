@@ -204,20 +204,20 @@
 
 ### Tests for User Story 6
 
-- [ ] T075 [P] [US6] Create test_conditional_actions.py in tests/unit/policy/test_conditional_actions.py
-- [ ] T076 [P] [US6] Add test for skip_video_transcode action in tests/unit/policy/test_conditional_actions.py
-- [ ] T077 [P] [US6] Add test for skip_audio_transcode action in tests/unit/policy/test_conditional_actions.py
-- [ ] T078 [P] [US6] Add test for skip_track_filter action in tests/unit/policy/test_conditional_actions.py
-- [ ] T079 [P] [US6] Add test for skip flags accumulation in tests/unit/policy/test_conditional_actions.py
+- [X] T075 [P] [US6] Create test_conditional_actions.py in tests/unit/policy/test_conditional_actions.py
+- [X] T076 [P] [US6] Add test for skip_video_transcode action in tests/unit/policy/test_conditional_actions.py
+- [X] T077 [P] [US6] Add test for skip_audio_transcode action in tests/unit/policy/test_conditional_actions.py
+- [X] T078 [P] [US6] Add test for skip_track_filter action in tests/unit/policy/test_conditional_actions.py
+- [X] T079 [P] [US6] Add test for skip flags accumulation in tests/unit/policy/test_conditional_actions.py
 
 ### Implementation for User Story 6
 
-- [ ] T080 [US6] Implement ActionContext dataclass in src/video_policy_orchestrator/policy/actions.py
-- [ ] T081 [US6] Implement ActionResult dataclass in src/video_policy_orchestrator/policy/actions.py
-- [ ] T082 [US6] Implement handle_skip_action() function in src/video_policy_orchestrator/policy/actions.py
-- [ ] T083 [US6] Implement execute_actions() function in src/video_policy_orchestrator/policy/actions.py
-- [ ] T084 [US6] Apply skip_video_transcode flag in evaluate_policy() in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T085 [US6] Apply skip_track_filter flag in evaluate_policy() in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T080 [US6] Implement ActionContext dataclass in src/video_policy_orchestrator/policy/actions.py
+- [X] T081 [US6] Implement ActionResult dataclass in src/video_policy_orchestrator/policy/actions.py (skip flags in context)
+- [X] T082 [US6] Implement handle_skip_action() function in src/video_policy_orchestrator/policy/actions.py (execute_skip_action)
+- [X] T083 [US6] Implement execute_actions() function in src/video_policy_orchestrator/policy/actions.py
+- [X] T084 [US6] Apply skip_video_transcode flag in evaluate_policy() in src/video_policy_orchestrator/policy/evaluator.py (skip_flags in Plan)
+- [X] T085 [US6] Apply skip_track_filter flag in evaluate_policy() in src/video_policy_orchestrator/policy/evaluator.py (skip_flags in Plan)
 
 **Checkpoint**: Skip actions work - can bypass operations based on conditions
 
@@ -231,18 +231,18 @@
 
 ### Tests for User Story 7
 
-- [ ] T086 [P] [US7] Add test for warn action in tests/unit/policy/test_conditional_actions.py
-- [ ] T087 [P] [US7] Add test for fail action in tests/unit/policy/test_conditional_actions.py
-- [ ] T088 [P] [US7] Add test for placeholder substitution in tests/unit/policy/test_conditional_actions.py
-- [ ] T089 [P] [US7] Add test for multiple warnings accumulation in tests/unit/policy/test_conditional_actions.py
+- [X] T086 [P] [US7] Add test for warn action in tests/unit/policy/test_conditional_actions.py
+- [X] T087 [P] [US7] Add test for fail action in tests/unit/policy/test_conditional_actions.py
+- [X] T088 [P] [US7] Add test for placeholder substitution in tests/unit/policy/test_conditional_actions.py
+- [X] T089 [P] [US7] Add test for multiple warnings accumulation in tests/unit/policy/test_conditional_actions.py
 
 ### Implementation for User Story 7
 
-- [ ] T090 [US7] Implement substitute_placeholders() function in src/video_policy_orchestrator/policy/actions.py
-- [ ] T091 [US7] Implement handle_warn_action() function in src/video_policy_orchestrator/policy/actions.py
-- [ ] T092 [US7] Implement handle_fail_action() function in src/video_policy_orchestrator/policy/actions.py
-- [ ] T093 [US7] Extend execute_actions() to handle warn/fail in src/video_policy_orchestrator/policy/actions.py
-- [ ] T094 [US7] Add warnings to Plan output in evaluate_policy() in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T090 [US7] Implement substitute_placeholders() function in src/video_policy_orchestrator/policy/actions.py (in ActionContext)
+- [X] T091 [US7] Implement handle_warn_action() function in src/video_policy_orchestrator/policy/actions.py (execute_warn_action)
+- [X] T092 [US7] Implement handle_fail_action() function in src/video_policy_orchestrator/policy/actions.py (execute_fail_action)
+- [X] T093 [US7] Extend execute_actions() to handle warn/fail in src/video_policy_orchestrator/policy/actions.py
+- [X] T094 [US7] Add warnings to Plan output in evaluate_policy() in src/video_policy_orchestrator/policy/evaluator.py (via ConditionalResult)
 
 **Checkpoint**: Warn/fail actions work - can alert on conditions
 
