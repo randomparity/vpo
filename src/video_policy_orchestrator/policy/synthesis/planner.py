@@ -434,3 +434,113 @@ def plan_synthesis(
         skipped=tuple(skipped),
         final_track_order=final_order,
     )
+
+
+# =============================================================================
+# Dry-Run Formatting Functions
+# =============================================================================
+
+
+def format_synthesis_operation(operation: SynthesisOperation) -> str:
+    """Format a synthesis operation for CLI output.
+
+    Args:
+        operation: The operation to format.
+
+    Returns:
+        Formatted string for display.
+    """
+    lines = [f"  {operation.definition_name}:"]
+    lines.append(
+        f"    Source: Track {operation.source_track.track_index} "
+        f"({operation.source_track.track_info.codec or 'unknown'} "
+        f"{operation.source_track.track_info.channels or '?'}ch)"
+    )
+    lines.append(
+        f"    Target: {operation.target_codec.value.upper()} "
+        f"{operation.target_channels}ch"
+    )
+    if operation.target_bitrate:
+        lines.append(f"    Bitrate: {operation.target_bitrate // 1000}k")
+    if operation.downmix_filter:
+        src_ch = operation.source_track.track_info.channels
+        lines.append(f"    Downmix: {src_ch}ch -> {operation.target_channels}ch")
+    if operation.target_title:
+        lines.append(f"    Title: {operation.target_title}")
+    lines.append(f"    Language: {operation.target_language}")
+    lines.append(f"    Position: audio track {operation.target_position}")
+    return "\n".join(lines)
+
+
+def format_skipped_synthesis(skipped: SkippedSynthesis) -> str:
+    """Format a skipped synthesis for CLI output.
+
+    Args:
+        skipped: The skipped record to format.
+
+    Returns:
+        Formatted string for display.
+    """
+    reason_display = {
+        SkipReason.CONDITION_NOT_MET: "Condition not met",
+        SkipReason.NO_SOURCE_AVAILABLE: "No source track",
+        SkipReason.WOULD_UPMIX: "Would require upmix",
+        SkipReason.ENCODER_UNAVAILABLE: "Encoder not available",
+        SkipReason.ALREADY_EXISTS: "Already exists",
+    }
+    reason_str = reason_display.get(skipped.reason, skipped.reason.value)
+    return f"  {skipped.definition_name}: SKIPPED ({reason_str})\n    {skipped.details}"
+
+
+def format_synthesis_plan(plan: SynthesisPlan) -> str:
+    """Format a complete synthesis plan for CLI dry-run output.
+
+    Args:
+        plan: The synthesis plan to format.
+
+    Returns:
+        Formatted string for display.
+    """
+    lines = [f"Audio Synthesis Plan for {plan.file_path.name}:"]
+
+    if not plan.operations and not plan.skipped:
+        lines.append("  No synthesis operations defined")
+        return "\n".join(lines)
+
+    if plan.operations:
+        lines.append(f"\nTracks to create ({len(plan.operations)}):")
+        for op in plan.operations:
+            lines.append(format_synthesis_operation(op))
+
+    if plan.skipped:
+        lines.append(f"\nSkipped ({len(plan.skipped)}):")
+        for skip in plan.skipped:
+            lines.append(format_skipped_synthesis(skip))
+
+    if plan.final_track_order:
+        lines.append("\nProjected final audio track order:")
+        lines.append(format_final_track_order(plan.final_track_order))
+
+    return "\n".join(lines)
+
+
+def format_final_track_order(order: tuple[TrackOrderEntry, ...]) -> str:
+    """Format the projected final track order for display.
+
+    Args:
+        order: Tuple of TrackOrderEntry objects.
+
+    Returns:
+        Formatted string for display.
+    """
+    lines = []
+    for entry in order:
+        marker = "*" if entry.track_type == "synthesized" else " "
+        title = entry.title or "(no title)"
+        lines.append(
+            f"  {marker} [{entry.index}] {entry.codec.upper()} {entry.channels}ch "
+            f"{entry.language} - {title}"
+        )
+    if any(e.track_type == "synthesized" for e in order):
+        lines.append("  (* = synthesized)")
+    return "\n".join(lines)

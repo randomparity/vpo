@@ -50,7 +50,11 @@ from video_policy_orchestrator.policy.synthesis.models import (
     SynthesisPlan,
     SynthesisTrackDefinition,
 )
-from video_policy_orchestrator.policy.synthesis.planner import plan_synthesis
+from video_policy_orchestrator.policy.synthesis.planner import (
+    format_final_track_order,
+    format_synthesis_plan,
+    plan_synthesis,
+)
 from video_policy_orchestrator.policy.synthesis.source_selector import (
     select_source_track,
 )
@@ -77,6 +81,8 @@ __all__ = [
     "plan_synthesis",
     "select_source_track",
     "execute_synthesis_plan",
+    "format_synthesis_plan",
+    "format_final_track_order",
     # Executor
     "FFmpegSynthesisExecutor",
     "SynthesisExecutionResult",
