@@ -49,6 +49,9 @@ Docs focused on tasks and workflows: how to run the tools, configure them, and p
 - [usage/external-tools.md](usage/external-tools.md)
   Guide to installing, configuring, and troubleshooting external tools (ffmpeg, mkvtoolnix).
 
+- [usage/authentication.md](usage/authentication.md)
+  Protecting the web UI with HTTP Basic Auth: configuration, API access, and security considerations.
+
 - [usage/workflows.md](usage/workflows.md)
   End-to-end workflows for scanning libraries and inspecting files.
 
