@@ -37,18 +37,18 @@ Based on plan.md structure:
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Add LanguageFallbackConfig frozen dataclass in src/video_policy_orchestrator/policy/models.py
-- [ ] T005 [P] Add AudioFilterConfig frozen dataclass in src/video_policy_orchestrator/policy/models.py
-- [ ] T006 [P] Add SubtitleFilterConfig frozen dataclass in src/video_policy_orchestrator/policy/models.py
-- [ ] T007 [P] Add AttachmentFilterConfig frozen dataclass in src/video_policy_orchestrator/policy/models.py
-- [ ] T008 [P] Add ContainerConfig frozen dataclass in src/video_policy_orchestrator/policy/models.py
-- [ ] T009 Add TrackDisposition frozen dataclass in src/video_policy_orchestrator/policy/models.py
-- [ ] T010 [P] Add ContainerChange frozen dataclass in src/video_policy_orchestrator/policy/models.py
-- [ ] T011 Extend PolicySchema dataclass with v3 fields (audio_filter, subtitle_filter, attachment_filter, container) in src/video_policy_orchestrator/policy/models.py
-- [ ] T012 Extend Plan dataclass with track_dispositions, container_change, tracks_removed, tracks_kept fields in src/video_policy_orchestrator/policy/models.py
-- [ ] T013 Add Pydantic validation models for v3 fields (AudioFilterModel, SubtitleFilterModel, etc.) in src/video_policy_orchestrator/policy/loader.py
-- [ ] T014 Update policy loading to parse v3 fields in _parse_policy_dict() in src/video_policy_orchestrator/policy/loader.py
-- [ ] T015 Add v3 field validation (reject v3 fields if schema_version < 3) in src/video_policy_orchestrator/policy/loader.py
+- [X] T004 Add LanguageFallbackConfig frozen dataclass in src/video_policy_orchestrator/policy/models.py
+- [X] T005 [P] Add AudioFilterConfig frozen dataclass in src/video_policy_orchestrator/policy/models.py
+- [X] T006 [P] Add SubtitleFilterConfig frozen dataclass in src/video_policy_orchestrator/policy/models.py
+- [X] T007 [P] Add AttachmentFilterConfig frozen dataclass in src/video_policy_orchestrator/policy/models.py
+- [X] T008 [P] Add ContainerConfig frozen dataclass in src/video_policy_orchestrator/policy/models.py
+- [X] T009 Add TrackDisposition frozen dataclass in src/video_policy_orchestrator/policy/models.py
+- [X] T010 [P] Add ContainerChange frozen dataclass in src/video_policy_orchestrator/policy/models.py
+- [X] T011 Extend PolicySchema dataclass with v3 fields (audio_filter, subtitle_filter, attachment_filter, container) in src/video_policy_orchestrator/policy/models.py
+- [X] T012 Extend Plan dataclass with track_dispositions, container_change, tracks_removed, tracks_kept fields in src/video_policy_orchestrator/policy/models.py
+- [X] T013 Add Pydantic validation models for v3 fields (AudioFilterModel, SubtitleFilterModel, etc.) in src/video_policy_orchestrator/policy/loader.py
+- [X] T014 Update policy loading to parse v3 fields in _parse_policy_dict() in src/video_policy_orchestrator/policy/loader.py
+- [X] T015 Add v3 field validation (reject v3 fields if schema_version < 3) in src/video_policy_orchestrator/policy/loader.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
