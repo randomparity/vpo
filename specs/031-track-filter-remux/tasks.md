@@ -88,17 +88,17 @@ Based on plan.md structure:
 
 ### Tests for User Story 2
 
-- [ ] T026 [P] [US2] Unit test for _format_track_dispositions() output in tests/unit/cli/test_apply.py
-- [ ] T027 [P] [US2] Unit test for JSON dry-run output format in tests/unit/cli/test_apply.py
+- [X] T026 [P] [US2] Unit test for _format_track_dispositions() output in tests/unit/cli/test_apply.py
+- [X] T027 [P] [US2] Unit test for JSON dry-run output format in tests/unit/cli/test_apply.py
 
 ### Implementation for User Story 2
 
-- [ ] T028 [US2] Implement _format_track_dispositions() helper function in src/video_policy_orchestrator/cli/apply.py
-- [ ] T029 [US2] Implement _format_container_change() helper function in src/video_policy_orchestrator/cli/apply.py
-- [ ] T030 [US2] Update _format_dry_run_output() to include track dispositions in src/video_policy_orchestrator/cli/apply.py
-- [ ] T031 [US2] Add summary line with tracks kept/removed count in src/video_policy_orchestrator/cli/apply.py
-- [ ] T032 [US2] Implement JSON dry-run output format for --json flag in src/video_policy_orchestrator/cli/apply.py
-- [ ] T033 [US2] Integration test for dry-run output with track filtering in tests/integration/test_apply_command.py
+- [X] T028 [US2] Implement _format_track_dispositions() helper function in src/video_policy_orchestrator/cli/apply.py
+- [X] T029 [US2] Implement _format_container_change() helper function in src/video_policy_orchestrator/cli/apply.py
+- [X] T030 [US2] Update _format_dry_run_output() to include track dispositions in src/video_policy_orchestrator/cli/apply.py
+- [X] T031 [US2] Add summary line with tracks kept/removed count in src/video_policy_orchestrator/cli/apply.py
+- [X] T032 [US2] Implement JSON dry-run output format for --json flag in src/video_policy_orchestrator/cli/apply.py
+- [X] T033 [US2] Integration test for dry-run output with track filtering in tests/integration/test_apply_command.py
 
 **Checkpoint**: Dry-run preview fully functional with track disposition details
 
