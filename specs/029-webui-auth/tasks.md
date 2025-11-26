@@ -120,7 +120,7 @@
 - [X] T028 [P] Add auth configuration section to docs/usage/authentication.md with examples for env var and config file
 - [X] T029 [P] Add security disclaimer to docs/usage/authentication.md noting auth is minimal/not production-grade per FR-010
 - [X] T030 Run all tests to verify no regressions: `uv run pytest tests/unit/server/test_auth.py tests/integration/server/test_auth_integration.py`
-- [ ] T031 Manual validation: follow quickstart.md steps end-to-end
+- [X] T031 Manual validation: follow quickstart.md steps end-to-end
 
 ---
 
