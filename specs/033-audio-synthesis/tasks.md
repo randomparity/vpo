@@ -218,14 +218,14 @@
 ### Tests for User Story 7
 
 - [ ] T065 [P] [US7] Integration test verifying original track preservation in tests/integration/executor/test_ffmpeg_synthesis.py
-- [ ] T066 [P] [US7] Unit test for backup/restore on failure in tests/unit/executor/test_ffmpeg_synthesis.py
+- [x] T066 [P] [US7] Unit test for backup/restore on failure in tests/unit/policy/synthesis/test_executor.py
 
 ### Implementation for User Story 7
 
-- [ ] T067 [US7] Implement backup creation before any file modification in src/video_policy_orchestrator/executor/ffmpeg_synthesis.py
-- [ ] T068 [US7] Implement SIGINT handler for clean cancellation in src/video_policy_orchestrator/executor/ffmpeg_synthesis.py
-- [ ] T069 [US7] Implement temp file cleanup on any error in src/video_policy_orchestrator/executor/ffmpeg_synthesis.py
-- [ ] T070 [US7] Add structured logging for all synthesis operations in src/video_policy_orchestrator/executor/ffmpeg_synthesis.py
+- [x] T067 [US7] Implement backup creation before any file modification in src/video_policy_orchestrator/policy/synthesis/executor.py
+- [x] T068 [US7] Implement SIGINT handler for clean cancellation in src/video_policy_orchestrator/policy/synthesis/executor.py
+- [x] T069 [US7] Implement temp file cleanup on any error in src/video_policy_orchestrator/policy/synthesis/executor.py
+- [x] T070 [US7] Add structured logging for all synthesis operations in src/video_policy_orchestrator/policy/synthesis/executor.py
 
 **Checkpoint**: Original audio preservation guaranteed
 

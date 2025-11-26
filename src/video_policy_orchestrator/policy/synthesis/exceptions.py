@@ -98,3 +98,21 @@ class DownmixNotSupportedError(SynthesisError):
             "Synthesis only supports downmixing or maintaining channel count."
         )
         super().__init__(message, definition_name=definition_name)
+
+
+class SynthesisCancelledError(SynthesisError):
+    """Raised when synthesis is cancelled via SIGINT (Ctrl+C).
+
+    The executor handles this exception by:
+    1. Stopping any in-progress operations
+    2. Restoring the original file from backup if modifications had started
+    3. Cleaning up temporary files
+    """
+
+    def __init__(self, message: str = "Synthesis cancelled by user") -> None:
+        """Initialize cancellation error.
+
+        Args:
+            message: Human-readable cancellation message.
+        """
+        super().__init__(message)

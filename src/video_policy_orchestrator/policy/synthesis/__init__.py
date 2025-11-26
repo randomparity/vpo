@@ -30,6 +30,7 @@ from video_policy_orchestrator.policy.synthesis.exceptions import (
     DownmixNotSupportedError,
     EncoderUnavailableError,
     SourceTrackNotFoundError,
+    SynthesisCancelledError,
     SynthesisError,
 )
 from video_policy_orchestrator.policy.synthesis.executor import (
@@ -62,6 +63,7 @@ from video_policy_orchestrator.policy.synthesis.source_selector import (
 __all__ = [
     # Exceptions
     "SynthesisError",
+    "SynthesisCancelledError",
     "EncoderUnavailableError",
     "SourceTrackNotFoundError",
     "DownmixNotSupportedError",
