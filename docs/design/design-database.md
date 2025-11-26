@@ -17,46 +17,41 @@ VPO uses SQLite for all persistent storage. The database is located at `~/.vpo/l
 
 ## ER Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                            _meta                                 │
-├─────────────────────────────────────────────────────────────────┤
-│ key (TEXT PK)                                                    │
-│ value (TEXT)                                                     │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+erDiagram
+    _meta {
+        TEXT key PK
+        TEXT value
+    }
 
-┌─────────────────────────────────────────────────────────────────┐
-│                            files                                 │
-├─────────────────────────────────────────────────────────────────┤
-│ id (INTEGER PK AUTOINCREMENT)                                    │
-│ path (TEXT UNIQUE NOT NULL)                                      │
-│ filename (TEXT NOT NULL)                                         │
-│ directory (TEXT NOT NULL)                                        │
-│ extension (TEXT NOT NULL)                                        │
-│ size_bytes (INTEGER NOT NULL)                                    │
-│ modified_at (TEXT NOT NULL)  -- ISO 8601 timestamp               │
-│ content_hash (TEXT)          -- xxh64 partial hash               │
-│ container_format (TEXT)      -- e.g., "matroska", "mp4"          │
-│ scanned_at (TEXT NOT NULL)   -- ISO 8601 timestamp               │
-│ scan_status (TEXT NOT NULL)  -- "ok", "error", "pending"         │
-│ scan_error (TEXT)            -- error message if status="error"  │
-└─────────────────────────────────────────────────────────────────┘
-          │
-          │ 1:N
-          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                           tracks                                 │
-├─────────────────────────────────────────────────────────────────┤
-│ id (INTEGER PK AUTOINCREMENT)                                    │
-│ file_id (INTEGER NOT NULL FK → files.id ON DELETE CASCADE)       │
-│ track_index (INTEGER NOT NULL)                                   │
-│ track_type (TEXT NOT NULL)   -- "video", "audio", "subtitle"     │
-│ codec (TEXT)                 -- e.g., "hevc", "aac", "subrip"    │
-│ language (TEXT)              -- ISO 639-2 code, e.g., "eng"      │
-│ title (TEXT)                 -- track label                      │
-│ is_default (INTEGER NOT NULL DEFAULT 0)  -- boolean as 0/1       │
-│ is_forced (INTEGER NOT NULL DEFAULT 0)   -- boolean as 0/1       │
-└─────────────────────────────────────────────────────────────────┘
+    files {
+        INTEGER id PK
+        TEXT path UK "UNIQUE NOT NULL"
+        TEXT filename "NOT NULL"
+        TEXT directory "NOT NULL"
+        TEXT extension "NOT NULL"
+        INTEGER size_bytes "NOT NULL"
+        TEXT modified_at "NOT NULL, ISO 8601"
+        TEXT content_hash "xxh64 partial hash"
+        TEXT container_format "matroska, mp4, etc"
+        TEXT scanned_at "NOT NULL, ISO 8601"
+        TEXT scan_status "NOT NULL: ok, error, pending"
+        TEXT scan_error "error message"
+    }
+
+    tracks {
+        INTEGER id PK
+        INTEGER file_id FK "NOT NULL"
+        INTEGER track_index "NOT NULL"
+        TEXT track_type "NOT NULL: video, audio, subtitle"
+        TEXT codec "hevc, aac, subrip, etc"
+        TEXT language "ISO 639-2 code"
+        TEXT title "track label"
+        INTEGER is_default "NOT NULL DEFAULT 0"
+        INTEGER is_forced "NOT NULL DEFAULT 0"
+    }
+
+    files ||--o{ tracks : "has"
 ```
 
 ---
@@ -122,10 +117,14 @@ CREATE INDEX idx_tracks_type ON tracks(track_type);
 
 ### Scan Operation
 
-```
-User → CLI → Core Engine → Media Introspector → External Tools
-                ↓                                      ↓
-            Database ←─────────── Track Metadata ←────┘
+```mermaid
+flowchart LR
+    User --> CLI --> Core["Core Engine"]
+    Core --> MI["Media Introspector"]
+    MI --> ET["External Tools<br/>(ffprobe, mkvmerge)"]
+    ET --> TM["Track Metadata"]
+    TM --> DB[(Database)]
+    Core --> DB
 ```
 
 1. CLI receives scan command with target directories
@@ -135,12 +134,18 @@ User → CLI → Core Engine → Media Introspector → External Tools
 
 ### Apply Operation
 
-```
-User → CLI → Core Engine → Policy Engine → Plan
-                ↓              ↓
-            Database     Execution Layer → External Tools
-                ↓              ↓
-            History ←── Job Status
+```mermaid
+flowchart LR
+    User --> CLI --> Core["Core Engine"]
+    Core --> PE["Policy Engine"]
+    PE --> Plan
+    Plan --> EL["Execution Layer"]
+    EL --> ET["External Tools"]
+    Core --> DB[(Database)]
+    PE --> DB
+    EL --> JS["Job Status"]
+    JS --> History
+    History --> DB
 ```
 
 1. Policy Engine reads current state from database

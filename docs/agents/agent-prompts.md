@@ -9,7 +9,7 @@ This document provides reusable prompts for LLM agents working on the VPO codeba
 
 ### Implementing a New CLI Command
 
-```
+```text
 I need to add a new CLI command to VPO. The command should:
 - [Describe the command's purpose]
 - [List required arguments and options]
@@ -29,7 +29,7 @@ Requirements:
 
 ### Adding a Database Table
 
-```
+```text
 I need to add a new table to the VPO database. The table should store:
 - [Describe the data to store]
 - [List columns with types]
@@ -50,7 +50,7 @@ Requirements:
 
 ### Adding a New Introspector
 
-```
+```text
 I need to add a new media introspector that wraps [tool name].
 
 Follow the existing pattern in:
@@ -71,7 +71,7 @@ Requirements:
 
 ### Investigating a Failing Test
 
-```
+```text
 The test [test name] in [file path] is failing with:
 [Error message]
 
@@ -85,7 +85,7 @@ Please:
 
 ### Debugging a CLI Error
 
-```
+```text
 Running `vpo [command]` produces this error:
 [Error output]
 
@@ -102,7 +102,7 @@ Please:
 
 ### Extracting a Shared Utility
 
-```
+```text
 I've noticed duplicated code in:
 - [file 1]
 - [file 2]
@@ -117,7 +117,7 @@ Please:
 
 ### Improving Error Messages
 
-```
+```text
 The error messages in [module] are not user-friendly. Please:
 1. Review all error paths in the module
 2. Improve messages to be clear and actionable
@@ -131,7 +131,7 @@ The error messages in [module] are not user-friendly. Please:
 
 ### Documenting a New Feature
 
-```
+```text
 I've implemented [feature name]. Please create documentation:
 1. Add usage documentation to docs/usage/
 2. Add design documentation to docs/design/ if complex

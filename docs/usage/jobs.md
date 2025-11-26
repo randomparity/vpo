@@ -29,12 +29,14 @@ vpo jobs list
 
 ### Job Lifecycle
 
-```
-QUEUED ──> RUNNING ──> COMPLETED
-              │
-              ├──> FAILED
-              │
-CANCELLED <───┘
+```mermaid
+stateDiagram-v2
+    [*] --> QUEUED
+    QUEUED --> RUNNING : worker claims
+    RUNNING --> COMPLETED : success
+    RUNNING --> FAILED : error
+    RUNNING --> CANCELLED : user cancels
+    QUEUED --> CANCELLED : user cancels
 ```
 
 Jobs transition from `queued` to `running` when claimed by a worker, then to `completed` or `failed` based on the outcome. Users can cancel queued jobs at any time.
@@ -59,7 +61,7 @@ vpo jobs list --limit 20
 ```
 
 Output:
-```
+```text
 ID         STATUS       TYPE       FILE                                       PROG   CREATED
 -----------------------------------------------------------------------------------------------
 a1b2c3d4   running      transcode  Movie.Name.2023.mkv                        45%    2024-01-15 10:30
@@ -75,7 +77,7 @@ vpo jobs status
 ```
 
 Output:
-```
+```text
 Job Queue Status
 ------------------------------
   Queued:       12

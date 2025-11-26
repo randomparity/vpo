@@ -217,7 +217,7 @@ Time filters accept two formats:
 
 Human-readable table format optimized for terminal display. Long values are truncated to fit column widths.
 
-```
+```text
 ID         TYPE       STATUS       TARGET
 ------------------------------------------------------------------------------
 690edd68   scan       completed    /home/user/Videos
@@ -264,7 +264,7 @@ Files are created with UTF-8 encoding. Parent directories are created if they do
 | 0 | Success (even with empty results) |
 | 1 | Error (invalid options, write failure, etc.) |
 
-## Related Documentation
+## Related docs
 
 - [Jobs System](jobs.md) - Background job processing
 - [Scanning](scanning.md) - Library scanning operations

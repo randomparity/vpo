@@ -25,7 +25,7 @@ vpo plugins list
 
 A VPO plugin is a standard Python package with an entry point:
 
-```
+```text
 my-plugin/
 ├── pyproject.toml          # Package config with entry point
 ├── README.md               # Usage documentation
@@ -375,7 +375,7 @@ If you see "API version incompatible":
 - [Hello World Template](../examples/plugins/hello_world/) - Starter template
 - [VPO Documentation](INDEX.md) - Full documentation index
 
-## Related Docs
+## Related docs
 
 - [plugins.md](plugins.md) - Plugin API reference and event details
 - [tutorial.md](tutorial.md) - Getting started with VPO

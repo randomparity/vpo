@@ -143,3 +143,9 @@ Source: [Library of Congress](https://www.loc.gov/standards/iso639-2/php/code_li
 - **W3C Combobox Pattern:** https://www.w3.org/WAI/ARIA/apg/patterns/combobox/
 - **GOV.UK Accessible Autocomplete:** https://alphagov.github.io/accessible-autocomplete/
 - **Reorderable List Patterns:** https://www.darins.page/articles/designing-a-reorderable-list-component
+
+## Related docs
+
+- [Language Input UX Design](design-language-code-input-ux.md) - Full design document
+- [Language Input Research Summary](LANGUAGE-INPUT-RESEARCH-SUMMARY.md) - Research findings
+- [Policy Editor](../usage/policy-editor.md) - Policy editor user guide

@@ -124,18 +124,18 @@ if result.interrupted:
 
 ### Human-Readable Errors
 
-```
+```text
 Error: File not found: /media/movies/missing.mkv
 ```
 
-```
+```text
 Error: ffprobe is not installed or not in PATH.
 Install ffmpeg to use media introspection features.
 ```
 
 ### Errors with Hints
 
-```
+```text
 Error: Database is locked by another process
 Hint: Close other VPO instances or use a different --db path.
 ```

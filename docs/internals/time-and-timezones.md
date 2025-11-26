@@ -34,7 +34,7 @@ now = datetime.now().astimezone()  # Don't do this
 
 Timestamps are stored and transmitted as ISO 8601 strings with the `Z` suffix indicating UTC:
 
-```
+```text
 2024-01-15T10:30:00+00:00
 ```
 

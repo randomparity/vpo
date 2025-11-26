@@ -23,7 +23,7 @@ vpo serve --log-format json
 
 ### CLI Options
 
-```
+```text
 vpo serve [OPTIONS]
 
 Options:
@@ -65,7 +65,7 @@ shutdown_timeout = 30   # Graceful shutdown timeout in seconds
 
 The daemon includes a web-based user interface for monitoring and management. Access it at:
 
-```
+```text
 http://127.0.0.1:8321/
 ```
 
@@ -141,7 +141,7 @@ During graceful shutdown:
 
 ### Text Format (Default)
 
-```
+```text
 2024-01-15 10:30:00 INFO VPO daemon started on http://127.0.0.1:8321 (PID 12345)
 ```
 
@@ -187,7 +187,7 @@ To expose on all interfaces:
 vpo serve --bind 0.0.0.0
 ```
 
-## Related Documentation
+## Related docs
 
 - [Systemd Integration](systemd.md) - Deploy as a system service
 - [Configuration](config.md) - Full configuration reference

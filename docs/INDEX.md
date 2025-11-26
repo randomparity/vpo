@@ -61,6 +61,9 @@ Docs focused on tasks and workflows: how to run the tools, configure them, and p
 - [daemon-mode.md](daemon-mode.md)
   Running VPO as a daemon: configuration, health endpoint, logging, and signal handling.
 
+- [api-webui.md](api-webui.md)
+  REST API reference for the Web UI: endpoints for jobs, library, transcriptions, policies, and plans.
+
 - [systemd.md](systemd.md)
   Systemd integration: unit file installation, service management, and troubleshooting.
 

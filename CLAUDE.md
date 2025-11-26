@@ -129,6 +129,8 @@ The visual policy editor (`/policies/{name}/edit`) provides form-based editing o
 ## Active Technologies
 - Python 3.10+, JavaScript ES6+ + aiohttp (web server), SQLite (storage), Jinja2 (templates), vanilla JS (frontend) (027-plan-approve-reject)
 - SQLite database at `~/.vpo/library.db` - existing `jobs` and `plans` tables (027-plan-approve-reject)
+- Python 3.10+, JavaScript ES6+ + aiohttp (web server), Jinja2 (templates), ruamel.yaml (policy editing) (028-webui-rest-api)
+- SQLite database at `~/.vpo/library.db` (existing `jobs`, `files`, `plans`, `policies` tables) (028-webui-rest-api)
 
 ## Recent Changes
 - 027-plan-approve-reject: Added Python 3.10+, JavaScript ES6+ + aiohttp (web server), SQLite (storage), Jinja2 (templates), vanilla JS (frontend)

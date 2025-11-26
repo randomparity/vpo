@@ -64,7 +64,7 @@ vpo scan ~/Movies
 
 ### Understanding Scan Output
 
-```
+```text
 Scanning /home/user/Movies...
 Found 42 video files
 Introspecting files... [████████████████████████] 42/42
@@ -96,7 +96,7 @@ vpo inspect /path/to/movie.mkv
 
 ### Example Output
 
-```
+```text
 File: movie.mkv
 Container: matroska
 Duration: 2:15:30
@@ -193,7 +193,7 @@ vpo apply --policy my-policy.yaml /path/to/movie.mkv --dry-run
 
 ### Example Dry-Run Output
 
-```
+```text
 Evaluating: movie.mkv
 
 Planned changes:
@@ -285,3 +285,10 @@ Check that:
 - **Documentation**: [docs/INDEX.md](INDEX.md)
 - **Issues**: [GitHub Issues](https://github.com/randomparity/vpo/issues)
 - **Check tool status**: `vpo doctor`
+
+## Related docs
+
+- [CLI Usage](usage/cli-usage.md) - Complete command reference
+- [Configuration](usage/configuration.md) - Customization options
+- [Workflows](usage/workflows.md) - Common usage patterns
+- [Glossary](glossary.md) - Term definitions

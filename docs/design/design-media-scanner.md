@@ -19,23 +19,25 @@ The scanner uses a hybrid architecture: Rust handles high-performance file disco
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     ScannerOrchestrator (Python)                 │
-│                                                                  │
-│  - Coordinates discovery, hashing, and persistence               │
-│  - Handles signal interruption (Ctrl+C)                          │
-│  - Manages incremental scan logic                                │
-└────────────────────────┬────────────────────────────────────────┘
-                         │
-           ┌─────────────┴─────────────┐
-           ▼                           ▼
-┌─────────────────────┐     ┌─────────────────────┐
-│   vpo-core (Rust)    │     │  FFprobeIntrospector │
-│                      │     │      (Python)        │
-│  - discover_videos() │     │                      │
-│  - hash_files()      │     │  - get_file_info()   │
-└─────────────────────┘     └─────────────────────┘
+```mermaid
+graph TB
+    subgraph Orchestrator["ScannerOrchestrator (Python)"]
+        O1["Coordinates discovery, hashing, and persistence"]
+        O2["Handles signal interruption (Ctrl+C)"]
+        O3["Manages incremental scan logic"]
+    end
+
+    subgraph Rust["vpo-core (Rust)"]
+        R1["discover_videos()"]
+        R2["hash_files()"]
+    end
+
+    subgraph Python["FFprobeIntrospector (Python)"]
+        P1["get_file_info()"]
+    end
+
+    Orchestrator --> Rust
+    Orchestrator --> Python
 ```
 
 ---
@@ -235,36 +237,24 @@ if progress_callback and processed % 100 == 0:
 
 ## Data Flow
 
-```
-1. CLI invokes scan command
-           │
-           ▼
-2. ScannerOrchestrator.scan_and_persist()
-           │
-           ├──► discover_videos() [Rust]
-           │           │
-           │           ▼
-           │    List of (path, size, modified)
-           │
-           ├──► Check database for existing files
-           │           │
-           │           ▼
-           │    Filter to new/modified files only
-           │
-           ├──► hash_files() [Rust]
-           │           │
-           │           ▼
-           │    Add content_hash to each file
-           │
-           ├──► FFprobeIntrospector.get_file_info() [Python]
-           │           │
-           │           ▼
-           │    Extract container format and tracks
-           │
-           └──► upsert_file() + upsert_tracks_for_file()
-                        │
-                        ▼
-                   Database updated
+```mermaid
+flowchart TB
+    A["1. CLI invokes scan command"] --> B["2. ScannerOrchestrator.scan_and_persist()"]
+
+    B --> C["discover_videos() [Rust]"]
+    C --> D["List of (path, size, modified)"]
+
+    B --> E["Check database for existing files"]
+    E --> F["Filter to new/modified files only"]
+
+    B --> G["hash_files() [Rust]"]
+    G --> H["Add content_hash to each file"]
+
+    B --> I["FFprobeIntrospector.get_file_info() [Python]"]
+    I --> J["Extract container format and tracks"]
+
+    B --> K["upsert_file() + upsert_tracks_for_file()"]
+    K --> L[("Database updated")]
 ```
 
 ---

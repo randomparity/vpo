@@ -134,7 +134,7 @@ sudo systemctl edit vpo
 sudo chown -R vpo:vpo /home/vpo/.vpo
 ```
 
-## Related Documentation
+## Related docs
 
 - [Daemon Mode](daemon-mode.md) - Full daemon configuration reference
 - [Configuration](config.md) - Configuration file format

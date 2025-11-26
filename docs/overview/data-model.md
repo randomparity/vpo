@@ -53,7 +53,7 @@ Each track within a file has the following fields:
 
 The `content_hash` field uses a composite format for efficient change detection:
 
-```
+```text
 xxh64:<head_hash>:<tail_hash>:<file_size>
 ```
 

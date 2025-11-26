@@ -48,6 +48,38 @@ make test
 make lint
 ```
 
+### Troubleshooting Setup
+
+**Rust extension fails to build:**
+
+```bash
+# Ensure Rust toolchain is installed
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Rebuild extension
+uv run maturin develop
+```
+
+**ffprobe/mkvtoolnix not found:**
+
+```bash
+# Ubuntu/Debian
+sudo apt install ffmpeg mkvtoolnix
+
+# macOS
+brew install ffmpeg mkvtoolnix
+```
+
+**Database errors:**
+
+```bash
+# Reset database (development only)
+rm ~/.vpo/library.db
+
+# Check database location
+vpo doctor
+```
+
 ## Code Style
 
 This project uses **ruff** for both linting and formatting. Configuration is defined in `pyproject.toml`:
@@ -77,6 +109,48 @@ Always run linting and tests before committing:
 uv run ruff check .
 uv run pytest
 ```
+
+## Testing
+
+### Running Tests
+
+```bash
+# All tests
+uv run pytest
+
+# Unit tests only
+uv run pytest tests/unit/
+
+# Single test file
+uv run pytest tests/path/to_file.py
+
+# Single test by name
+uv run pytest -k test_name
+
+# With coverage
+uv run pytest --cov=video_policy_orchestrator
+```
+
+### Test Organization
+
+- **Unit tests**: `tests/unit/` - Mirror source structure
+- **Integration tests**: `tests/integration/` - End-to-end scenarios
+- **Fixtures**: `tests/conftest.py` - Shared fixtures
+
+### Writing Tests
+
+- Name test files `test_*.py`
+- Name test functions `test_<what_is_being_tested>`
+- Use pytest fixtures for setup/teardown
+- Aim for focused tests that verify one behavior
+- Use descriptive assertion messages
+
+### Test Coverage
+
+While we don't enforce coverage thresholds, aim to:
+- Test all public functions
+- Cover error paths and edge cases
+- Include integration tests for CLI commands
 
 ## Pull Request Process
 
@@ -253,6 +327,29 @@ Container images are published to GitHub Container Registry (ghcr.io):
 - `ghcr.io/randomparity/vpo:latest` - Latest stable release
 - `ghcr.io/randomparity/vpo:vX.Y.Z` - Specific version
 - `ghcr.io/randomparity/vpo:main` - Latest main branch (may be unstable)
+
+## Security
+
+### Reporting Vulnerabilities
+
+If you discover a security vulnerability, please:
+
+1. **Do not** open a public issue
+2. Email the maintainers directly with details
+3. Include steps to reproduce if possible
+4. Allow reasonable time for a fix before disclosure
+
+We take security seriously and will respond promptly to reports.
+
+### Security Considerations
+
+When contributing code:
+
+- Avoid hardcoded credentials or secrets
+- Validate all user input
+- Use parameterized queries for database operations
+- Follow the principle of least privilege
+- Be cautious with subprocess calls and shell commands
 
 ## Getting Help
 

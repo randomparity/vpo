@@ -81,7 +81,7 @@ vpo doctor --json
 
 ### Example Output
 
-```
+```text
 VPO External Tool Health Check
 ========================================
 
@@ -172,7 +172,7 @@ The verbose doctor output shows FFmpeg capabilities:
 vpo doctor --verbose
 ```
 
-```
+```text
   ✓ ffmpeg:  6.1.1 (/usr/bin/ffmpeg)
     ├─ GPL build: yes
     ├─ Encoders: 200+
@@ -185,7 +185,7 @@ vpo doctor --verbose
 
 ### Tool Not Found
 
-```
+```text
 Error: ffprobe is not installed or not in PATH
 ```
 
@@ -196,7 +196,7 @@ Error: ffprobe is not installed or not in PATH
 
 ### Version Too Old
 
-```
+```text
 mkvtoolnix 70.0+ recommended for best compatibility. You have 65.0.
 ```
 
@@ -207,7 +207,7 @@ mkvtoolnix 70.0+ recommended for best compatibility. You have 65.0.
 
 ### Permission Denied
 
-```
+```text
 Error: Permission denied: /usr/bin/ffmpeg
 ```
 

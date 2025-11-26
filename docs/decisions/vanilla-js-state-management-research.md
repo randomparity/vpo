@@ -488,7 +488,7 @@ From `/home/dave/src/vpo/src/video_policy_orchestrator/server/static/js/library.
 
 ### Code Structure
 
-```
+```text
 static/js/
 ├── policy-editor/
 │   ├── state-manager.js        # Reactive state store
@@ -611,4 +611,9 @@ static/js/
 **Document Version**: 1.0
 **Last Updated**: 2025-11-24
 **Author**: Research Report (AI-Generated)
-**Related Docs**: CLAUDE.md, plugin-author-guide.md
+
+## Related docs
+
+- [Policy Editor](../usage/policy-editor.md) - Policy editor user guide
+- [Architecture](../overview/architecture.md) - System architecture overview
+- [CLAUDE.md](../../CLAUDE.md) - Development guidelines
