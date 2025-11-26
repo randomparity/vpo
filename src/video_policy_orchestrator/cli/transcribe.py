@@ -18,7 +18,6 @@ from video_policy_orchestrator.db.models import (
 from video_policy_orchestrator.transcription.audio_extractor import (
     extract_audio_stream,
     get_file_duration,
-    is_ffmpeg_available,
 )
 from video_policy_orchestrator.transcription.interface import TranscriptionError
 from video_policy_orchestrator.transcription.models import detect_commentary_type
@@ -27,9 +26,10 @@ from video_policy_orchestrator.transcription.multi_sample import (
     MultiSampleConfig,
     smart_detect,
 )
-from video_policy_orchestrator.transcription.registry import (
-    PluginNotFoundError,
-    get_registry,
+from video_policy_orchestrator.transcription.service import (
+    TranscriptionSetupError,
+    prepare_transcription_context,
+    should_skip_track,
 )
 
 logger = logging.getLogger(__name__)
@@ -120,53 +120,17 @@ def detect_command(
 
     PATH is the path to a video file to analyze.
     """
+    # Use service layer for setup and validation
     conn: sqlite3.Connection | None = ctx.obj.get("db_conn")
-    if conn is None:
-        click.echo("Error: Database connection not available", err=True)
-        raise SystemExit(1)
-
-    # Check ffmpeg availability
-    if not is_ffmpeg_available():
-        click.echo(
-            "Error: ffmpeg not found. Please install ffmpeg and ensure it's in PATH.",
-            err=True,
-        )
-        raise SystemExit(1)
-
-    # Get plugin
-    registry = get_registry()
     try:
-        if plugin:
-            transcriber = registry.get(plugin)
-        else:
-            transcriber = registry.get_default()
-            if transcriber is None:
-                click.echo(
-                    "Error: No transcription plugins available. "
-                    "Install openai-whisper for local transcription.",
-                    err=True,
-                )
-                raise SystemExit(1)
-    except PluginNotFoundError as e:
+        context = prepare_transcription_context(conn, path, plugin)
+    except TranscriptionSetupError as e:
         click.echo(f"Error: {e}", err=True)
         raise SystemExit(1)
 
-    # Get file from database
-    file_record = get_file_by_path(conn, str(path.resolve()))
-    if file_record is None:
-        click.echo(
-            f"Error: File not found in database. Run 'vpo scan' first: {path}",
-            err=True,
-        )
-        raise SystemExit(1)
-
-    # Get audio tracks
-    tracks = get_tracks_for_file(conn, file_record.id)
-    audio_tracks = [t for t in tracks if t.track_type == "audio"]
-
-    if not audio_tracks:
-        click.echo(f"No audio tracks found in: {path}", err=True)
-        raise SystemExit(1)
+    transcriber = context.transcriber
+    file_record = context.file_record
+    audio_tracks = context.audio_tracks
 
     results = []
 
@@ -186,9 +150,9 @@ def detect_command(
     )
 
     for track in audio_tracks:
-        # Check for existing result
-        existing = get_transcription_result(conn, track.id)
-        if existing and not force:
+        # Check for existing result using service layer
+        skip, existing = should_skip_track(context.conn, track, force)
+        if skip and existing:
             if output_json:
                 results.append(_format_result_json(track, existing, skipped=True))
             else:
@@ -272,7 +236,15 @@ def detect_command(
             created_at=existing.created_at if existing else now,
             updated_at=now,
         )
-        upsert_transcription_result(conn, record)
+        try:
+            upsert_transcription_result(conn, record)
+        except sqlite3.Error as e:
+            logger.error(
+                "Failed to store transcription result",
+                extra={"track_id": track.id, "error": str(e)},
+            )
+            click.echo(f"  Warning: Failed to save result to database: {e}", err=True)
+            continue
         logger.debug(
             "Transcription result stored",
             extra={"track_id": track.id, "track_index": track.track_index},
@@ -406,60 +378,24 @@ def quick_command(
 
     PATH is the path to a video file to analyze.
     """
+    # Use service layer for setup and validation
     conn: sqlite3.Connection | None = ctx.obj.get("db_conn")
-    if conn is None:
-        click.echo("Error: Database connection not available", err=True)
-        raise SystemExit(1)
-
-    # Check ffmpeg availability
-    if not is_ffmpeg_available():
-        click.echo(
-            "Error: ffmpeg not found. Please install ffmpeg and ensure it's in PATH.",
-            err=True,
-        )
-        raise SystemExit(1)
-
-    # Get plugin
-    registry = get_registry()
     try:
-        if plugin:
-            transcriber = registry.get(plugin)
-        else:
-            transcriber = registry.get_default()
-            if transcriber is None:
-                click.echo(
-                    "Error: No transcription plugins available. "
-                    "Install openai-whisper for local transcription.",
-                    err=True,
-                )
-                raise SystemExit(1)
-    except PluginNotFoundError as e:
+        context = prepare_transcription_context(conn, path, plugin)
+    except TranscriptionSetupError as e:
         click.echo(f"Error: {e}", err=True)
         raise SystemExit(1)
 
-    # Get file from database
-    file_record = get_file_by_path(conn, str(path.resolve()))
-    if file_record is None:
-        click.echo(
-            f"Error: File not found in database. Run 'vpo scan' first: {path}",
-            err=True,
-        )
-        raise SystemExit(1)
-
-    # Get audio tracks
-    tracks = get_tracks_for_file(conn, file_record.id)
-    audio_tracks = [t for t in tracks if t.track_type == "audio"]
-
-    if not audio_tracks:
-        click.echo(f"No audio tracks found in: {path}", err=True)
-        raise SystemExit(1)
+    transcriber = context.transcriber
+    file_record = context.file_record
+    audio_tracks = context.audio_tracks
 
     results = []
 
     for track in audio_tracks:
-        # Check for existing result
-        existing = get_transcription_result(conn, track.id)
-        if existing and not force:
+        # Check for existing result using service layer
+        skip, existing = should_skip_track(context.conn, track, force)
+        if skip and existing:
             if output_json:
                 results.append(_format_result_json(track, existing, skipped=True))
             else:
@@ -559,7 +495,15 @@ def quick_command(
             created_at=existing.created_at if existing else now,
             updated_at=now,
         )
-        upsert_transcription_result(conn, record)
+        try:
+            upsert_transcription_result(conn, record)
+        except sqlite3.Error as e:
+            logger.error(
+                "Failed to store quick detection result",
+                extra={"track_id": track.id, "error": str(e)},
+            )
+            click.echo(f"  Warning: Failed to save result to database: {e}", err=True)
+            continue
         logger.debug(
             "Quick detection result stored",
             extra={"track_id": track.id, "track_index": track.track_index},

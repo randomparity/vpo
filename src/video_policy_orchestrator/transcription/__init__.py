@@ -9,6 +9,12 @@ from video_policy_orchestrator.transcription.models import (
     TranscriptionConfig,
     TranscriptionResult,
 )
+from video_policy_orchestrator.transcription.service import (
+    TranscriptionContext,
+    TranscriptionSetupError,
+    prepare_transcription_context,
+    should_skip_track,
+)
 
 __all__ = [
     "TrackClassification",
@@ -16,4 +22,9 @@ __all__ = [
     "TranscriptionError",
     "TranscriptionPlugin",
     "TranscriptionResult",
+    # Service layer
+    "TranscriptionContext",
+    "TranscriptionSetupError",
+    "prepare_transcription_context",
+    "should_skip_track",
 ]
