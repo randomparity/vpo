@@ -52,21 +52,21 @@
 
 ### Tests for User Story 1
 
-- [ ] T007 [P] [US1] Unit test for parse_basic_auth() including special character tokens (!, @, #, spaces) in tests/unit/server/test_auth.py
-- [ ] T008 [P] [US1] Unit test for validate_token() with constant-time comparison in tests/unit/server/test_auth.py
-- [ ] T009 [P] [US1] Unit test for auth middleware rejecting missing credentials in tests/unit/server/test_auth.py
-- [ ] T010 [P] [US1] Unit test for auth middleware rejecting invalid credentials in tests/unit/server/test_auth.py
-- [ ] T011 [P] [US1] Unit test for auth middleware allowing valid credentials in tests/unit/server/test_auth.py
-- [ ] T012 [P] [US1] Unit test for /health endpoint bypassing auth in tests/unit/server/test_auth.py
+- [X] T007 [P] [US1] Unit test for parse_basic_auth() including special character tokens (!, @, #, spaces) in tests/unit/server/test_auth.py
+- [X] T008 [P] [US1] Unit test for validate_token() with constant-time comparison in tests/unit/server/test_auth.py
+- [X] T009 [P] [US1] Unit test for auth middleware rejecting missing credentials in tests/unit/server/test_auth.py
+- [X] T010 [P] [US1] Unit test for auth middleware rejecting invalid credentials in tests/unit/server/test_auth.py
+- [X] T011 [P] [US1] Unit test for auth middleware allowing valid credentials in tests/unit/server/test_auth.py
+- [X] T012 [P] [US1] Unit test for /health endpoint bypassing auth in tests/unit/server/test_auth.py
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] Implement auth_middleware that checks Authorization header in src/video_policy_orchestrator/server/auth.py
-- [ ] T014 [US1] Add 401 response with WWW-Authenticate header for failed auth in src/video_policy_orchestrator/server/auth.py
-- [ ] T015 [US1] Add /health path exclusion logic in auth middleware in src/video_policy_orchestrator/server/auth.py
-- [ ] T016 [US1] Integrate auth middleware into create_app() in src/video_policy_orchestrator/server/app.py
-- [ ] T017 [US1] Integration test: protected endpoint rejects unauthenticated request in tests/integration/server/test_auth_integration.py
-- [ ] T018 [US1] Integration test: protected endpoint accepts valid Basic Auth in tests/integration/server/test_auth_integration.py
+- [X] T013 [US1] Implement auth_middleware that checks Authorization header in src/video_policy_orchestrator/server/auth.py
+- [X] T014 [US1] Add 401 response with WWW-Authenticate header for failed auth in src/video_policy_orchestrator/server/auth.py
+- [X] T015 [US1] Add /health path exclusion logic in auth middleware in src/video_policy_orchestrator/server/auth.py
+- [X] T016 [US1] Integrate auth middleware into create_app() in src/video_policy_orchestrator/server/app.py
+- [X] T017 [US1] Integration test: protected endpoint rejects unauthenticated request in tests/integration/server/test_auth_integration.py
+- [X] T018 [US1] Integration test: protected endpoint accepts valid Basic Auth in tests/integration/server/test_auth_integration.py
 
 **Checkpoint**: Core auth protection working - requests without valid token are rejected
 

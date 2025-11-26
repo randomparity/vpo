@@ -14,7 +14,7 @@ from __future__ import annotations
 import base64
 import logging
 import secrets
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
 from aiohttp import web
@@ -22,10 +22,10 @@ from aiohttp import web
 if TYPE_CHECKING:
     from aiohttp.web import Request, StreamResponse
 
-logger = logging.getLogger(__name__)
+    # Type alias for aiohttp request handlers (only for type checking)
+    RequestHandler = Callable[[Request], Awaitable[StreamResponse]]
 
-# Type alias for aiohttp request handlers
-RequestHandler = Callable[[Request], StreamResponse]
+logger = logging.getLogger(__name__)
 
 
 def parse_basic_auth(auth_header: str | None) -> tuple[str, str] | None:
@@ -95,7 +95,7 @@ def is_auth_enabled(token: str | None) -> bool:
 
 def create_auth_middleware(
     auth_token: str,
-) -> Callable[[Request, RequestHandler], StreamResponse]:
+) -> web.middleware:
     """Create auth middleware for the given token.
 
     The returned middleware:
@@ -112,7 +112,8 @@ def create_auth_middleware(
 
     @web.middleware
     async def auth_middleware(
-        request: web.Request, handler: RequestHandler
+        request: web.Request,
+        handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
     ) -> web.StreamResponse:
         """Authenticate requests using HTTP Basic Auth."""
         # Skip auth for health endpoint (load balancer probes)

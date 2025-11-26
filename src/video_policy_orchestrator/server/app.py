@@ -99,19 +99,37 @@ async def _cleanup_connection_pool(app: web.Application) -> None:
         pool.close()
 
 
-def create_app(db_path: Path | None = None) -> web.Application:
+def create_app(
+    db_path: Path | None = None, auth_token: str | None = None
+) -> web.Application:
     """Create and configure the aiohttp Application.
 
     Args:
         db_path: Path to database file for connection pooling.
             If provided and exists, a connection pool will be created.
+        auth_token: Optional authentication token for HTTP Basic Auth.
+            If provided (non-empty), all endpoints except /health require auth.
 
     Returns:
         Configured aiohttp Application instance.
     """
     from video_policy_orchestrator.db.connection import DaemonConnectionPool
+    from video_policy_orchestrator.server.auth import (
+        create_auth_middleware,
+        is_auth_enabled,
+    )
 
     app = web.Application()
+
+    # Setup auth middleware if token is configured
+    if is_auth_enabled(auth_token):
+        auth_middleware = create_auth_middleware(auth_token)  # type: ignore[arg-type]
+        app.middlewares.append(auth_middleware)
+        logger.info("Authentication enabled for web UI and API endpoints")
+    else:
+        logger.warning(
+            "Authentication is disabled. Set VPO_AUTH_TOKEN to protect the web UI."
+        )
 
     # Setup session middleware with encrypted cookie storage
     # Use environment variable for secret key, or generate one for development
