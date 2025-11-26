@@ -205,14 +205,14 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Tests for User Story 4
 
-- [ ] T063 [P] [US4] Unit test for tune validation per encoder in tests/unit/test_quality_settings.py
-- [ ] T064 [P] [US4] Unit test for invalid tune rejection in tests/unit/test_quality_settings.py
+- [x] T063 [P] [US4] Unit test for tune validation per encoder in tests/unit/test_quality_settings.py
+- [x] T064 [P] [US4] Unit test for invalid tune rejection in tests/unit/test_quality_settings.py
 
 ### Implementation for User Story 4
 
-- [ ] T065 [US4] Add VALID_TUNES constant per encoder type in src/video_policy_orchestrator/policy/models.py
-- [ ] T066 [US4] Add tune validation in QualitySettings in src/video_policy_orchestrator/policy/models.py
-- [ ] T067 [US4] Update build_ffmpeg_command() to use quality.tune in src/video_policy_orchestrator/executor/transcode.py
+- [x] T065 [US4] Add VALID_TUNES constant per encoder type in src/video_policy_orchestrator/policy/models.py
+- [x] T066 [US4] Add tune validation in QualitySettings in src/video_policy_orchestrator/policy/models.py
+- [x] T067 [US4] Update build_ffmpeg_command() to use quality.tune in src/video_policy_orchestrator/executor/transcode.py
 
 **Checkpoint**: Tune options functional with per-encoder validation
 
@@ -226,14 +226,14 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Tests for User Story 6
 
-- [ ] T068 [P] [US6] Unit test for bitrate mode validation in tests/unit/test_quality_settings.py
-- [ ] T069 [P] [US6] Unit test for constrained_quality mode (CRF + max_bitrate) in tests/unit/test_quality_settings.py
+- [x] T068 [P] [US6] Unit test for bitrate mode validation in tests/unit/test_quality_settings.py
+- [x] T069 [P] [US6] Unit test for constrained_quality mode (CRF + max_bitrate) in tests/unit/test_quality_settings.py
 
 ### Implementation for User Story 6
 
-- [ ] T070 [US6] Add bitrate validation in QualitySettings in src/video_policy_orchestrator/policy/models.py
-- [ ] T071 [US6] Update build_ffmpeg_command() for bitrate mode (-b:v flag) in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T072 [US6] Update build_ffmpeg_command() for constrained_quality mode (-crf + -maxrate) in src/video_policy_orchestrator/executor/transcode.py
+- [x] T070 [US6] Add bitrate validation in QualitySettings in src/video_policy_orchestrator/policy/models.py
+- [x] T071 [US6] Update build_ffmpeg_command() for bitrate mode (-b:v flag) in src/video_policy_orchestrator/executor/transcode.py
+- [x] T072 [US6] Update build_ffmpeg_command() for constrained_quality mode (-crf + -maxrate) in src/video_policy_orchestrator/executor/transcode.py
 
 **Checkpoint**: Bitrate targeting functional with constrained quality support
 
@@ -247,14 +247,14 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Tests for User Story 9
 
-- [ ] T073 [P] [US9] Unit test for progress percentage calculation in tests/unit/test_transcode_progress.py
-- [ ] T074 [P] [US9] Unit test for ETA calculation accuracy in tests/unit/test_transcode_progress.py
+- [x] T073 [P] [US9] Unit test for progress percentage calculation in tests/unit/test_jobs_progress.py
+- [x] T074 [P] [US9] Unit test for ETA calculation accuracy in tests/unit/test_jobs_progress.py
 
 ### Implementation for User Story 9
 
-- [ ] T075 [US9] Verify FFmpegProgress parsing includes frame, fps, speed fields in src/video_policy_orchestrator/jobs/progress.py
-- [ ] T076 [US9] Add calculate_eta() method to FFmpegProgress in src/video_policy_orchestrator/jobs/progress.py
-- [ ] T077 [US9] Wire progress_callback in TranscodeExecutor to job system in src/video_policy_orchestrator/executor/transcode.py
+- [x] T075 [US9] Verify FFmpegProgress parsing includes frame, fps, speed fields in src/video_policy_orchestrator/jobs/progress.py
+- [x] T076 [US9] Add get_percent() method to FFmpegProgress in src/video_policy_orchestrator/jobs/progress.py
+- [x] T077 [US9] Wire progress_callback in TranscodeExecutor to job system in src/video_policy_orchestrator/executor/transcode.py
 - [ ] T078 [US9] Add progress display in CLI output in src/video_policy_orchestrator/cli/apply.py
 - [ ] T079 [US9] Add progress endpoint/display in web UI in src/video_policy_orchestrator/server/routes.py
 
