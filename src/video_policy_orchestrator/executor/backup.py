@@ -162,3 +162,55 @@ def has_backup(file_path: Path) -> bool:
         True if a backup file exists.
     """
     return get_backup_path(file_path).exists()
+
+
+class InsufficientDiskSpaceError(Exception):
+    """Raised when there is not enough disk space for the operation."""
+
+    pass
+
+
+def check_disk_space(
+    file_path: Path,
+    multiplier: float = 2.5,
+) -> None:
+    """Pre-flight check for sufficient disk space before remux operations.
+
+    This check ensures there's enough space for:
+    - The backup file (1x original size)
+    - The temporary output file (1x original size)
+    - Some buffer for safety (0.5x original size)
+
+    Args:
+        file_path: Path to the file being processed.
+        multiplier: Multiplier for required space (default 2.5x file size).
+
+    Raises:
+        InsufficientDiskSpaceError: If not enough disk space is available.
+        FileNotFoundError: If the file does not exist.
+    """
+    if not file_path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    file_size = file_path.stat().st_size
+    required_space = int(file_size * multiplier)
+
+    # Get available space on the filesystem containing the file
+    stat = shutil.disk_usage(file_path.parent)
+    available_space = stat.free
+
+    if available_space < required_space:
+        # Format sizes for human-readable message
+        def format_size(size: int) -> str:
+            for unit in ["B", "KB", "MB", "GB", "TB"]:
+                if size < 1024:
+                    return f"{size:.1f} {unit}"
+                size /= 1024
+            return f"{size:.1f} PB"
+
+        raise InsufficientDiskSpaceError(
+            f"Insufficient disk space for remux operation. "
+            f"Required: {format_size(required_space)}, "
+            f"Available: {format_size(available_space)}. "
+            f"Free up space or move file to a filesystem with more space."
+        )

@@ -21,8 +21,17 @@ from video_policy_orchestrator.db.operations import (
 )
 from video_policy_orchestrator.executor.backup import FileLockError, file_lock
 from video_policy_orchestrator.executor.interface import check_tool_availability
+from video_policy_orchestrator.policy.exceptions import (
+    IncompatibleCodecError,
+    InsufficientTracksError,
+)
 from video_policy_orchestrator.policy.loader import PolicyValidationError, load_policy
-from video_policy_orchestrator.policy.models import ActionType
+from video_policy_orchestrator.policy.models import (
+    ActionType,
+    ContainerChange,
+    Plan,
+    TrackDisposition,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -87,11 +96,98 @@ def _tracks_from_records(
     ]
 
 
+def _format_track_dispositions(
+    dispositions: tuple[TrackDisposition, ...],
+) -> str:
+    """Format track dispositions for display.
+
+    Args:
+        dispositions: Tuple of track dispositions.
+
+    Returns:
+        Formatted string showing each track with action and reason.
+    """
+    if not dispositions:
+        return ""
+
+    lines = []
+    for disp in dispositions:
+        # Build track description
+        parts = [f"Track {disp.track_index}: {disp.track_type}"]
+
+        if disp.codec:
+            parts.append(f"({disp.codec})")
+
+        if disp.language:
+            parts.append(f"[{disp.language}]")
+
+        if disp.title:
+            parts.append(f'"{disp.title}"')
+
+        if disp.channels:
+            channel_desc = _channels_to_layout(disp.channels)
+            parts.append(channel_desc)
+
+        if disp.resolution:
+            parts.append(disp.resolution)
+
+        track_desc = " ".join(parts)
+
+        # Format action with reason
+        if disp.action == "KEEP":
+            action_str = f"  KEEP   {track_desc}"
+        else:
+            action_str = f"  REMOVE {track_desc} - {disp.reason}"
+
+        lines.append(action_str)
+
+    return "\n".join(lines)
+
+
+def _channels_to_layout(channels: int) -> str:
+    """Convert channel count to layout description."""
+    layouts = {
+        1: "mono",
+        2: "stereo",
+        6: "5.1",
+        8: "7.1",
+    }
+    return layouts.get(channels, f"{channels}ch")
+
+
+def _format_container_change(change: ContainerChange | None) -> str:
+    """Format container change for display.
+
+    Args:
+        change: Container change object or None.
+
+    Returns:
+        Formatted string describing the container conversion.
+    """
+    if change is None:
+        return ""
+
+    lines = [
+        f"Container: {change.source_format.upper()} → {change.target_format.upper()}"
+    ]
+
+    if change.warnings:
+        lines.append("  Warnings:")
+        for warning in change.warnings:
+            lines.append(f"    - {warning}")
+
+    if change.incompatible_tracks:
+        track_list = ", ".join(str(t) for t in change.incompatible_tracks)
+        lines.append(f"  Incompatible tracks: {track_list}")
+
+    return "\n".join(lines)
+
+
 def _format_dry_run_output(
     policy_path: Path,
     policy_version: int,
     target_path: Path,
-    plan,
+    plan: Plan,
 ) -> str:
     """Format dry-run output in human-readable format."""
     lines = [
@@ -104,10 +200,44 @@ def _format_dry_run_output(
         lines.append("No changes required - file already matches policy.")
     else:
         lines.append("Proposed changes:")
+
+        # Show traditional actions first
         for action in plan.actions:
             lines.append(f"  {action.description}")
+
+        # Show track dispositions if present
+        if plan.track_dispositions:
+            lines.append("")
+            lines.append("Track dispositions:")
+            lines.append(_format_track_dispositions(plan.track_dispositions))
+
+        # Show container change if present
+        if plan.container_change:
+            lines.append("")
+            lines.append(_format_container_change(plan.container_change))
+
         lines.append("")
-        lines.append(f"Summary: {plan.summary}")
+
+        # Show summary with track counts
+        summary_parts = []
+        if plan.tracks_removed > 0:
+            summary_parts.append(
+                f"{plan.tracks_removed} track{'s' if plan.tracks_removed > 1 else ''} "
+                "to be removed"
+            )
+        if len(plan.actions) > 0:
+            summary_parts.append(
+                f"{len(plan.actions)} metadata "
+                f"change{'s' if len(plan.actions) > 1 else ''}"
+            )
+        if plan.container_change:
+            summary_parts.append("container conversion")
+
+        if summary_parts:
+            lines.append(f"Summary: {', '.join(summary_parts)}")
+        else:
+            lines.append(f"Summary: {plan.summary}")
+
         lines.append("")
         lines.append("To apply these changes, run without --dry-run")
 
@@ -119,7 +249,7 @@ def _format_dry_run_json(
     policy_version: int,
     target_path: Path,
     container: str,
-    plan,
+    plan: Plan,
 ) -> str:
     """Format dry-run output in JSON format."""
     actions_json = []
@@ -131,6 +261,27 @@ def _format_dry_run_json(
             "desired_value": action.desired_value,
         }
         actions_json.append(action_dict)
+
+    # Build track dispositions list
+    track_dispositions_json = []
+    for disp in plan.track_dispositions:
+        disp_dict = {
+            "track_index": disp.track_index,
+            "track_type": disp.track_type,
+            "action": disp.action,
+            "reason": disp.reason,
+        }
+        if disp.codec:
+            disp_dict["codec"] = disp.codec
+        if disp.language:
+            disp_dict["language"] = disp.language
+        if disp.title:
+            disp_dict["title"] = disp.title
+        if disp.channels:
+            disp_dict["channels"] = disp.channels
+        if disp.resolution:
+            disp_dict["resolution"] = disp.resolution
+        track_dispositions_json.append(disp_dict)
 
     output = {
         "status": "dry_run",
@@ -145,8 +296,21 @@ def _format_dry_run_json(
         "plan": {
             "requires_remux": plan.requires_remux,
             "actions": actions_json,
+            "track_dispositions": track_dispositions_json,
+            "tracks_kept": plan.tracks_kept,
+            "tracks_removed": plan.tracks_removed,
         },
     }
+
+    # Add container change if present
+    if plan.container_change:
+        output["plan"]["container_change"] = {
+            "source_format": plan.container_change.source_format,
+            "target_format": plan.container_change.target_format,
+            "warnings": list(plan.container_change.warnings),
+            "incompatible_tracks": list(plan.container_change.incompatible_tracks),
+        }
+
     return json.dumps(output, indent=2)
 
 
@@ -184,6 +348,11 @@ def _format_dry_run_json(
     help="Delete backup file after successful operation",
 )
 @click.option(
+    "--keep-original/--no-keep-original",
+    default=False,
+    help="Keep original file after container conversion (default: delete original)",
+)
+@click.option(
     "--json",
     "-j",
     "json_output",
@@ -208,6 +377,7 @@ def apply_command(
     dry_run: bool,
     keep_backup: bool | None,
     no_keep_backup: bool | None,
+    keep_original: bool,
     json_output: bool,
     verbose: bool,
     target: Path,
@@ -336,13 +506,22 @@ def apply_command(
     if verbose:
         click.echo(f"Evaluating policy against {len(tracks)} tracks...")
 
-    plan = policy_engine.evaluate(
-        file_id=str(file_record.id),
-        file_path=target,
-        container=container,
-        tracks=tracks,
-        policy=policy,
-    )
+    try:
+        plan = policy_engine.evaluate(
+            file_id=str(file_record.id),
+            file_path=target,
+            container=container,
+            tracks=tracks,
+            policy=policy,
+        )
+    except InsufficientTracksError as e:
+        # Format helpful error message with suggestions
+        suggestion = _format_insufficient_tracks_suggestion(e)
+        _error_exit(suggestion, EXIT_POLICY_VALIDATION_ERROR, json_output)
+    except IncompatibleCodecError as e:
+        # Format helpful error message with suggestions
+        suggestion = _format_incompatible_codec_suggestion(e)
+        _error_exit(suggestion, EXIT_POLICY_VALIDATION_ERROR, json_output)
 
     if verbose:
         click.echo(f"Plan: {plan.summary}")
@@ -414,7 +593,11 @@ def apply_command(
                 click.echo(f"Executing {len(plan.actions)} actions...")
 
             start_time = time.time()
-            result = policy_engine.execute(plan, keep_backup=should_keep_backup)
+            result = policy_engine.execute(
+                plan,
+                keep_backup=should_keep_backup,
+                keep_original=keep_original,
+            )
             duration = time.time() - start_time
 
             if verbose:
@@ -512,3 +695,68 @@ def _code_to_name(code: int) -> str:
         EXIT_OPERATION_FAILED: "OPERATION_FAILED",
     }
     return names.get(code, "UNKNOWN_ERROR")
+
+
+def _format_insufficient_tracks_suggestion(error: InsufficientTracksError) -> str:
+    """Format helpful error message for InsufficientTracksError.
+
+    Args:
+        error: The InsufficientTracksError exception.
+
+    Returns:
+        Formatted error message with suggestions.
+    """
+    lines = [
+        f"Insufficient {error.track_type} tracks after filtering.",
+        f"  Required: {error.required}, Available: {error.available}",
+        f"  Policy languages: {', '.join(error.policy_languages)}",
+        f"  File languages: {', '.join(error.file_languages)}",
+        "",
+        "Suggestions:",
+        "  1. Add a fallback mode to your policy:",
+        '     fallback: { mode: "keep_first" }  # Keep first N tracks',
+        '     fallback: { mode: "keep_all" }    # Keep all tracks',
+        '     fallback: { mode: "content_language" }  # Keep content language',
+        "",
+        "  2. Add the file's languages to your filter:",
+        f"     languages: [{', '.join(error.file_languages)}]",
+        "",
+        "  3. Lower the minimum track requirement:",
+        f"     minimum: {error.available}",
+    ]
+    return "\n".join(lines)
+
+
+def _format_incompatible_codec_suggestion(error: IncompatibleCodecError) -> str:
+    """Format helpful error message for IncompatibleCodecError.
+
+    Args:
+        error: The IncompatibleCodecError exception.
+
+    Returns:
+        Formatted error message with suggestions.
+    """
+    lines = [
+        f"Incompatible codecs for {error.target_container.upper()} container.",
+        "  Incompatible tracks:",
+    ]
+
+    for idx, track_type, codec in error.incompatible_tracks:
+        lines.append(f"    - Track {idx}: {track_type} ({codec})")
+
+    lines.extend(
+        [
+            "",
+            "Suggestions:",
+            '  1. Change on_incompatible_codec policy to "skip":',
+            '     container: { target: "mp4", on_incompatible_codec: "skip" }',
+            "",
+            "  2. Convert to MKV instead (supports all codecs):",
+            '     container: { target: "mkv" }',
+            "",
+            "  3. Remove incompatible tracks with filters:",
+            "     subtitle_filter: { remove_all: true }  # Remove PGS subtitles",
+            "     attachment_filter: { remove_all: true }  # Remove attachments",
+        ]
+    )
+    return "\n".join(lines)

@@ -5,6 +5,7 @@ This module provides adapters for external tools:
 - mkvpropedit: MKV metadata changes (flags, titles, language)
 - mkvmerge: MKV track reordering via remux
 - ffmpeg_metadata: Non-MKV metadata changes
+- ffmpeg_remux: Container conversion to MP4
 - backup: Backup creation, restoration, and cleanup utilities
 """
 
@@ -19,6 +20,7 @@ from video_policy_orchestrator.executor.backup import (
     restore_from_backup,
 )
 from video_policy_orchestrator.executor.ffmpeg_metadata import FfmpegMetadataExecutor
+from video_policy_orchestrator.executor.ffmpeg_remux import FFmpegRemuxExecutor
 from video_policy_orchestrator.executor.interface import (
     Executor,
     ExecutorResult,
@@ -40,6 +42,7 @@ __all__ = [
     "MkvpropeditExecutor",
     "MkvmergeExecutor",
     "FfmpegMetadataExecutor",
+    "FFmpegRemuxExecutor",
     # Backup
     "BACKUP_SUFFIX",
     "FileLockError",

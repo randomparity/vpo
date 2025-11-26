@@ -4,7 +4,7 @@ This module provides an executor for changing metadata in non-MKV containers
 (MP4, AVI, etc.) using ffmpeg with stream copy.
 """
 
-import subprocess
+import subprocess  # nosec B404 - subprocess is required for ffmpeg execution
 import tempfile
 from pathlib import Path
 
@@ -61,16 +61,23 @@ class FfmpegMetadataExecutor:
 
         return True
 
-    def execute(self, plan: Plan, keep_backup: bool = True) -> ExecutorResult:
+    def execute(
+        self,
+        plan: Plan,
+        keep_backup: bool = True,
+        keep_original: bool = False,  # Not used - metadata edits don't change file path
+    ) -> ExecutorResult:
         """Execute metadata changes using ffmpeg.
 
         Args:
             plan: The execution plan to apply.
             keep_backup: Whether to keep the backup file after success.
+            keep_original: Not used for metadata changes (file path unchanged).
 
         Returns:
             ExecutorResult with success status.
         """
+        del keep_original  # Unused - metadata changes don't create new files
         if plan.is_empty:
             return ExecutorResult(success=True, message="No changes to apply")
 
@@ -96,7 +103,7 @@ class FfmpegMetadataExecutor:
 
         # Execute command
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603 - cmd from validated policy
                 cmd,
                 capture_output=True,
                 text=True,

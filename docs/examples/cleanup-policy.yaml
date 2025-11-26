@@ -1,0 +1,51 @@
+# Cleanup Policy for Video Policy Orchestrator
+# This policy removes unwanted tracks and attachments for smaller files.
+#
+# Usage: vpo apply --policy cleanup-policy.yaml [--dry-run] <file.mkv>
+#
+# Use case: Reduce file size by removing:
+# - Non-English audio tracks
+# - All subtitle tracks
+# - Font attachments and cover art
+
+schema_version: 3
+
+# Track type ordering
+track_order:
+  - video
+  - audio_main
+  - audio_alternate
+  - attachment
+
+# Language preferences
+audio_language_preference:
+  - eng
+  - und
+
+subtitle_language_preference:
+  - eng
+
+# Default flag behavior
+default_flags:
+  set_first_video_default: true
+  set_preferred_audio_default: true
+  set_preferred_subtitle_default: false
+  clear_other_defaults: true
+
+# V3: Keep only English audio
+audio_filter:
+  languages:
+    - eng
+    - und
+  minimum: 1
+  fallback:
+    # Keep first track if no English found (safety measure)
+    mode: keep_first
+
+# V3: Remove ALL subtitles
+subtitle_filter:
+  remove_all: true
+
+# V3: Remove ALL attachments (fonts, cover art)
+attachment_filter:
+  remove_all: true

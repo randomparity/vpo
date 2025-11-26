@@ -45,12 +45,19 @@ class Executor(Protocol):
         """
         ...
 
-    def execute(self, plan: Plan, keep_backup: bool = True) -> ExecutorResult:
+    def execute(
+        self,
+        plan: Plan,
+        keep_backup: bool = True,
+        keep_original: bool = False,
+    ) -> ExecutorResult:
         """Execute the plan on the target file.
 
         Args:
             plan: The execution plan to apply.
             keep_backup: Whether to keep the backup file after success.
+            keep_original: Whether to keep the original file after container
+                conversion (only applies when output path differs from input).
 
         Returns:
             ExecutorResult with success status and optional backup path.

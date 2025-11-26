@@ -6,6 +6,7 @@ to media file track metadata. All functions are pure (no side effects).
 
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 from video_policy_orchestrator.db.models import (
     TrackInfo,
@@ -13,12 +14,21 @@ from video_policy_orchestrator.db.models import (
     TranscriptionResultRecord,
 )
 from video_policy_orchestrator.language import languages_match, normalize_language
+from video_policy_orchestrator.policy.exceptions import (
+    IncompatibleCodecError,
+    InsufficientTracksError,
+)
 from video_policy_orchestrator.policy.matchers import CommentaryMatcher
 from video_policy_orchestrator.policy.models import (
     ActionType,
+    AttachmentFilterConfig,
+    AudioFilterConfig,
+    ContainerChange,
     Plan,
     PlannedAction,
     PolicySchema,
+    SubtitleFilterConfig,
+    TrackDisposition,
     TrackType,
 )
 
@@ -368,6 +378,522 @@ def compute_language_updates(
     return result
 
 
+# =============================================================================
+# Track Filtering Functions (V3)
+# =============================================================================
+
+
+def _evaluate_audio_track(
+    track: TrackInfo,
+    config: AudioFilterConfig,
+) -> tuple[Literal["KEEP", "REMOVE"], str]:
+    """Evaluate a single audio track against audio filter config.
+
+    Args:
+        track: Audio track to evaluate.
+        config: Audio filter configuration.
+
+    Returns:
+        Tuple of (action, reason) for the track.
+    """
+    lang = track.language or "und"
+
+    # Check if track language matches any in the keep list
+    for keep_lang in config.languages:
+        if languages_match(lang, keep_lang):
+            return ("KEEP", "language in keep list")
+
+    return ("REMOVE", "language not in keep list")
+
+
+def _evaluate_subtitle_track(
+    track: TrackInfo,
+    config: SubtitleFilterConfig,
+) -> tuple[Literal["KEEP", "REMOVE"], str]:
+    """Evaluate a single subtitle track against subtitle filter config.
+
+    Args:
+        track: Subtitle track to evaluate.
+        config: Subtitle filter configuration.
+
+    Returns:
+        Tuple of (action, reason) for the track.
+    """
+    # remove_all overrides all other settings
+    if config.remove_all:
+        return ("REMOVE", "remove_all enabled")
+
+    # Check forced flag first (if preserve_forced is enabled)
+    if config.preserve_forced and track.is_forced:
+        return ("KEEP", "forced subtitle preserved")
+
+    # If no language filter is specified, keep all (unless remove_all)
+    if config.languages is None:
+        return ("KEEP", "no language filter applied")
+
+    # Check if track language matches any in the keep list
+    lang = track.language or "und"
+    for keep_lang in config.languages:
+        if languages_match(lang, keep_lang):
+            return ("KEEP", "language in keep list")
+
+    return ("REMOVE", "language not in keep list")
+
+
+def _detect_content_language(tracks: list[TrackInfo]) -> str | None:
+    """Detect the content language from the first audio track.
+
+    Args:
+        tracks: List of all tracks.
+
+    Returns:
+        Language code of first audio track, or None if no audio tracks.
+    """
+    for track in tracks:
+        if track.track_type.lower() == "audio":
+            return track.language or "und"
+    return None
+
+
+def _has_styled_subtitles(tracks: list[TrackInfo]) -> bool:
+    """Check if any tracks are styled subtitles (ASS/SSA).
+
+    Args:
+        tracks: List of all tracks.
+
+    Returns:
+        True if any subtitle track uses ASS/SSA format.
+    """
+    styled_codecs = {"ass", "ssa", "ass_subtitle", "ssa_subtitle"}
+    for track in tracks:
+        if track.track_type.lower() == "subtitle":
+            codec = (track.codec or "").lower()
+            if codec in styled_codecs:
+                return True
+    return False
+
+
+def _is_font_attachment(track: TrackInfo) -> bool:
+    """Check if a track is a font attachment.
+
+    Args:
+        track: Track to check.
+
+    Returns:
+        True if track is a font attachment.
+    """
+    codec = (track.codec or "").lower()
+    font_extensions = {"ttf", "otf", "ttc", "woff", "woff2"}
+    if codec in font_extensions:
+        return True
+    # Check mime types
+    if codec.startswith("font/") or codec in {
+        "application/x-truetype-font",
+        "application/x-font-ttf",
+        "application/font-sfnt",
+    }:
+        return True
+    return False
+
+
+def _evaluate_attachment_track(
+    track: TrackInfo,
+    config: AttachmentFilterConfig,
+    has_styled_subs: bool,
+) -> tuple[Literal["KEEP", "REMOVE"], str]:
+    """Evaluate a single attachment track against attachment filter config.
+
+    Args:
+        track: Attachment track to evaluate.
+        config: Attachment filter configuration.
+        has_styled_subs: True if file has ASS/SSA subtitles.
+
+    Returns:
+        Tuple of (action, reason) for the track.
+    """
+    if not config.remove_all:
+        return ("KEEP", "attachment kept")
+
+    # Check if this is a font and we have styled subtitles
+    if _is_font_attachment(track) and has_styled_subs:
+        return (
+            "REMOVE",
+            "remove_all enabled (font removed, styled subtitles may be affected)",
+        )
+
+    return ("REMOVE", "remove_all enabled")
+
+
+def _apply_fallback(
+    audio_tracks: list[TrackInfo],
+    initial_actions: dict[int, tuple[Literal["KEEP", "REMOVE"], str]],
+    config: AudioFilterConfig,
+    all_tracks: list[TrackInfo],
+) -> dict[int, tuple[Literal["KEEP", "REMOVE"], str]]:
+    """Apply fallback logic when insufficient tracks match the filter.
+
+    Args:
+        audio_tracks: List of audio tracks.
+        initial_actions: Initial track actions before fallback.
+        config: Audio filter configuration.
+        all_tracks: All tracks (for content language detection).
+
+    Returns:
+        Updated actions dict after applying fallback.
+
+    Raises:
+        InsufficientTracksError: If fallback mode is 'error' or None.
+    """
+    kept_count = sum(1 for action, _ in initial_actions.values() if action == "KEEP")
+    fallback = config.fallback
+
+    # No fallback configured - raise error
+    if fallback is None or fallback.mode == "error":
+        policy_languages = config.languages
+        file_languages = tuple(t.language or "und" for t in audio_tracks)
+        raise InsufficientTracksError(
+            track_type="audio",
+            required=config.minimum,
+            available=kept_count,
+            policy_languages=policy_languages,
+            file_languages=file_languages,
+        )
+
+    # Apply fallback based on mode
+    result = dict(initial_actions)
+
+    if fallback.mode == "keep_all":
+        # Keep all audio tracks
+        for track in audio_tracks:
+            result[track.index] = ("KEEP", "fallback: keep_all applied")
+        return result
+
+    elif fallback.mode == "keep_first":
+        # Keep first N tracks to meet minimum
+        needed = config.minimum - kept_count
+        for track in audio_tracks:
+            if needed <= 0:
+                break
+            action, _ = result.get(track.index, ("REMOVE", ""))
+            if action == "REMOVE":
+                result[track.index] = ("KEEP", "fallback: keep_first applied")
+                needed -= 1
+        return result
+
+    elif fallback.mode == "content_language":
+        # Keep tracks matching content language (first audio track's language)
+        content_lang = _detect_content_language(all_tracks)
+        if content_lang:
+            for track in audio_tracks:
+                track_lang = track.language or "und"
+                if languages_match(track_lang, content_lang):
+                    result[track.index] = ("KEEP", "fallback: content language match")
+        return result
+
+    return result
+
+
+def compute_track_dispositions(
+    tracks: list[TrackInfo],
+    policy: PolicySchema,
+) -> tuple[TrackDisposition, ...]:
+    """Compute disposition for each track based on policy filters.
+
+    This function evaluates all tracks against the policy's filter
+    configurations and returns a TrackDisposition for each track
+    indicating whether it should be kept or removed and why.
+
+    Args:
+        tracks: List of track metadata from introspection.
+        policy: Validated policy configuration.
+
+    Returns:
+        Tuple of TrackDisposition objects, one per track.
+
+    Raises:
+        InsufficientTracksError: If filtering would leave insufficient
+            audio tracks and no fallback is configured.
+    """
+    dispositions: list[TrackDisposition] = []
+    audio_tracks = [t for t in tracks if t.track_type.lower() == "audio"]
+
+    # Pre-compute whether we have styled subtitles (for font warning)
+    has_styled_subs = _has_styled_subtitles(tracks)
+
+    # First pass: evaluate each track
+    audio_actions: dict[int, tuple[Literal["KEEP", "REMOVE"], str]] = {}
+
+    for track in tracks:
+        track_type = track.track_type.lower()
+        action: Literal["KEEP", "REMOVE"] = "KEEP"
+        reason = "no filter applied"
+
+        if track_type == "audio" and policy.audio_filter:
+            action, reason = _evaluate_audio_track(track, policy.audio_filter)
+            audio_actions[track.index] = (action, reason)
+        elif track_type == "subtitle" and policy.subtitle_filter:
+            action, reason = _evaluate_subtitle_track(track, policy.subtitle_filter)
+        elif track_type == "attachment" and policy.attachment_filter:
+            action, reason = _evaluate_attachment_track(
+                track, policy.attachment_filter, has_styled_subs
+            )
+
+        # Build resolution string for video tracks
+        resolution = None
+        if track.width and track.height:
+            resolution = f"{track.width}x{track.height}"
+
+        dispositions.append(
+            TrackDisposition(
+                track_index=track.index,
+                track_type=track_type,
+                codec=track.codec,
+                language=track.language,
+                title=track.title,
+                channels=track.channels,
+                resolution=resolution,
+                action=action,
+                reason=reason,
+            )
+        )
+
+    # Check if audio filtering is active and needs fallback
+    if policy.audio_filter and audio_tracks:
+        kept_count = sum(1 for action, _ in audio_actions.values() if action == "KEEP")
+
+        if kept_count < policy.audio_filter.minimum:
+            # Apply fallback logic
+            updated_actions = _apply_fallback(
+                audio_tracks,
+                audio_actions,
+                policy.audio_filter,
+                tracks,
+            )
+
+            # Update dispositions with fallback results
+            for i, disp in enumerate(dispositions):
+                if disp.track_index in updated_actions:
+                    new_action, new_reason = updated_actions[disp.track_index]
+                    if new_action != disp.action or new_reason != disp.reason:
+                        # Create new disposition with updated values
+                        dispositions[i] = TrackDisposition(
+                            track_index=disp.track_index,
+                            track_type=disp.track_type,
+                            codec=disp.codec,
+                            language=disp.language,
+                            title=disp.title,
+                            channels=disp.channels,
+                            resolution=disp.resolution,
+                            action=new_action,
+                            reason=new_reason,
+                        )
+
+    return tuple(dispositions)
+
+
+# =============================================================================
+# Container Conversion Functions (V3)
+# =============================================================================
+
+# Codecs compatible with MP4 container
+_MP4_COMPATIBLE_VIDEO_CODECS = frozenset(
+    {
+        "h264",
+        "avc",
+        "avc1",
+        "hevc",
+        "h265",
+        "hvc1",
+        "hev1",
+        "av1",
+        "av01",
+        "mpeg4",
+        "mp4v",
+        "vp9",
+    }
+)
+
+_MP4_COMPATIBLE_AUDIO_CODECS = frozenset(
+    {
+        "aac",
+        "mp4a",
+        "ac3",
+        "eac3",
+        "mp3",
+        "mp3float",
+        "flac",
+        "opus",
+        "alac",
+    }
+)
+
+_MP4_COMPATIBLE_SUBTITLE_CODECS = frozenset(
+    {
+        "mov_text",
+        "tx3g",
+        "webvtt",
+    }
+)
+
+
+def _normalize_container_format(container: str) -> str:
+    """Normalize container format names.
+
+    Args:
+        container: Container format string (from ffprobe or file extension).
+
+    Returns:
+        Normalized format name (lowercase, standardized).
+    """
+    container = container.lower().strip()
+
+    # First try exact match for common names
+    format_aliases = {
+        "matroska": "mkv",
+        "matroska,webm": "mkv",
+        "mov,mp4,m4a,3gp,3g2,mj2": "mp4",
+        "quicktime": "mov",
+    }
+
+    if container in format_aliases:
+        return format_aliases[container]
+
+    # Use substring matching for more robust detection
+    # (handles different ffprobe versions and format variations)
+    if "matroska" in container or container == "webm":
+        return "mkv"
+    if any(x in container for x in ("mp4", "m4a", "m4v")):
+        return "mp4"
+    if "mov" in container or "quicktime" in container:
+        return "mov"
+    if "avi" in container:
+        return "avi"
+
+    return container
+
+
+def _is_codec_mp4_compatible(codec: str, track_type: str) -> bool:
+    """Check if a codec is compatible with MP4 container.
+
+    Args:
+        codec: Codec name (e.g., 'hevc', 'truehd').
+        track_type: Track type ('video', 'audio', 'subtitle').
+
+    Returns:
+        True if codec is compatible with MP4.
+    """
+    codec = codec.lower().strip()
+
+    if track_type == "video":
+        return codec in _MP4_COMPATIBLE_VIDEO_CODECS
+    elif track_type == "audio":
+        return codec in _MP4_COMPATIBLE_AUDIO_CODECS
+    elif track_type == "subtitle":
+        return codec in _MP4_COMPATIBLE_SUBTITLE_CODECS
+
+    # Unknown track types (data, attachment) - skip for MP4
+    return False
+
+
+def _evaluate_container_change(
+    tracks: list[TrackInfo],
+    source_format: str,
+    policy: PolicySchema,
+) -> ContainerChange | None:
+    """Evaluate if container conversion is needed.
+
+    Args:
+        tracks: List of track metadata.
+        source_format: Current container format.
+        policy: Policy configuration.
+
+    Returns:
+        ContainerChange if conversion needed, None otherwise.
+    """
+    if policy.container is None:
+        return None
+
+    target = policy.container.target.lower()
+    source = _normalize_container_format(source_format)
+
+    # Skip if already in target format
+    if source == target:
+        return None
+
+    warnings: list[str] = []
+    incompatible_tracks: list[int] = []
+
+    # Check codec compatibility for MP4 target
+    if target == "mp4":
+        for track in tracks:
+            codec = (track.codec or "").lower()
+            track_type = track.track_type.lower()
+
+            if not _is_codec_mp4_compatible(codec, track_type):
+                incompatible_tracks.append(track.index)
+                warnings.append(
+                    f"Track {track.index} ({track_type}, {codec}) "
+                    f"is not compatible with MP4"
+                )
+
+    # MKV accepts all codecs - no compatibility checking needed
+
+    return ContainerChange(
+        source_format=source,
+        target_format=target,
+        warnings=tuple(warnings),
+        incompatible_tracks=tuple(incompatible_tracks),
+    )
+
+
+def evaluate_container_change_with_policy(
+    tracks: list[TrackInfo],
+    source_format: str,
+    policy: PolicySchema,
+) -> ContainerChange | None:
+    """Evaluate container change with policy error handling.
+
+    This function applies the policy's on_incompatible_codec setting
+    to determine whether to raise an error or skip conversion.
+
+    Args:
+        tracks: List of track metadata.
+        source_format: Current container format.
+        policy: Policy configuration.
+
+    Returns:
+        ContainerChange if conversion should proceed, None if skipped.
+
+    Raises:
+        IncompatibleCodecError: If incompatible codecs found and mode is 'error'.
+    """
+    change = _evaluate_container_change(tracks, source_format, policy)
+
+    if change is None:
+        return None
+
+    if change.incompatible_tracks and policy.container:
+        mode = policy.container.on_incompatible_codec
+
+        if mode == "error":
+            # Build list of incompatible track info
+            incompatible_track_info: list[tuple[int, str, str]] = []
+            for idx in change.incompatible_tracks:
+                track = next(t for t in tracks if t.index == idx)
+                incompatible_track_info.append(
+                    (idx, track.track_type, track.codec or "unknown")
+                )
+            raise IncompatibleCodecError(
+                target_container=change.target_format,
+                incompatible_tracks=incompatible_track_info,
+            )
+        elif mode == "skip":
+            # Skip conversion entirely
+            return None
+
+    return change
+
+
 def evaluate_policy(
     file_id: str,
     file_path: Path,
@@ -474,6 +1000,28 @@ def evaluate_policy(
                     )
                 )
 
+    # Compute track dispositions for V3 track filtering
+    track_dispositions: tuple[TrackDisposition, ...] = ()
+    tracks_removed = 0
+    # Default: all tracks kept when no filtering is active
+    tracks_kept = len(tracks)
+
+    if policy.has_track_filtering:
+        track_dispositions = compute_track_dispositions(tracks, policy)
+        tracks_removed = sum(1 for d in track_dispositions if d.action == "REMOVE")
+        tracks_kept = sum(1 for d in track_dispositions if d.action == "KEEP")
+        if tracks_removed > 0:
+            requires_remux = True
+
+    # Compute container change for V3 container conversion
+    container_change: ContainerChange | None = None
+    if policy.has_container_config:
+        container_change = evaluate_container_change_with_policy(
+            tracks, container, policy
+        )
+        if container_change is not None:
+            requires_remux = True
+
     return Plan(
         file_id=file_id,
         file_path=file_path,
@@ -481,4 +1029,8 @@ def evaluate_policy(
         actions=tuple(actions),
         requires_remux=requires_remux,
         created_at=datetime.now(timezone.utc),
+        track_dispositions=track_dispositions,
+        container_change=container_change,
+        tracks_removed=tracks_removed,
+        tracks_kept=tracks_kept,
     )

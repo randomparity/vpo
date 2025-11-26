@@ -5,10 +5,10 @@ them using Pydantic models.
 """
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from video_policy_orchestrator.policy.matchers import validate_regex_patterns
 from video_policy_orchestrator.policy.models import (
@@ -16,15 +16,20 @@ from video_policy_orchestrator.policy.models import (
     VALID_AUDIO_CODECS,
     VALID_RESOLUTIONS,
     VALID_VIDEO_CODECS,
+    AttachmentFilterConfig,
+    AudioFilterConfig,
+    ContainerConfig,
     DefaultFlagsConfig,
+    LanguageFallbackConfig,
     PolicySchema,
+    SubtitleFilterConfig,
     TrackType,
     TranscodePolicyConfig,
     TranscriptionPolicyOptions,
 )
 
 # Current maximum supported schema version
-MAX_SCHEMA_VERSION = 2
+MAX_SCHEMA_VERSION = 3
 
 
 class PolicyValidationError(Exception):
@@ -136,6 +141,86 @@ class TranscodePolicyModel(BaseModel):
         return v
 
 
+# =============================================================================
+# V3 Pydantic Models for Track Filtering
+# =============================================================================
+
+
+def _validate_language_codes(languages: list[str], field_name: str) -> list[str]:
+    """Validate a list of language codes."""
+    import re
+
+    pattern = re.compile(r"^[a-z]{2,3}$")
+    for idx, lang in enumerate(languages):
+        if not pattern.match(lang):
+            raise ValueError(
+                f"Invalid language code '{lang}' at {field_name}[{idx}]. "
+                "Use ISO 639-2 codes (e.g., 'eng', 'jpn')."
+            )
+    return languages
+
+
+class LanguageFallbackModel(BaseModel):
+    """Pydantic model for language fallback configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["content_language", "keep_all", "keep_first", "error"]
+
+
+class AudioFilterModel(BaseModel):
+    """Pydantic model for audio filter configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    languages: list[str]
+    fallback: LanguageFallbackModel | None = None
+    minimum: int = Field(default=1, ge=1)
+
+    @field_validator("languages")
+    @classmethod
+    def validate_languages(cls, v: list[str]) -> list[str]:
+        """Validate language codes in audio filter."""
+        if not v:
+            raise ValueError("languages cannot be empty")
+        return _validate_language_codes(v, "languages")
+
+
+class SubtitleFilterModel(BaseModel):
+    """Pydantic model for subtitle filter configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    languages: list[str] | None = None
+    preserve_forced: bool = False
+    remove_all: bool = False
+
+    @field_validator("languages")
+    @classmethod
+    def validate_languages(cls, v: list[str] | None) -> list[str] | None:
+        """Validate language codes in subtitle filter."""
+        if v is not None:
+            return _validate_language_codes(v, "languages")
+        return v
+
+
+class AttachmentFilterModel(BaseModel):
+    """Pydantic model for attachment filter configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    remove_all: bool = False
+
+
+class ContainerModel(BaseModel):
+    """Pydantic model for container configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    target: Literal["mkv", "mp4"]
+    on_incompatible_codec: Literal["error", "skip", "transcode"] = "error"
+
+
 class PolicyModel(BaseModel):
     """Pydantic model for policy YAML validation."""
 
@@ -155,6 +240,33 @@ class PolicyModel(BaseModel):
     default_flags: DefaultFlagsModel = Field(default_factory=DefaultFlagsModel)
     transcode: TranscodePolicyModel | None = None
     transcription: TranscriptionPolicyModel | None = None
+
+    # V3 fields (optional, require schema_version >= 3)
+    audio_filter: AudioFilterModel | None = None
+    subtitle_filter: SubtitleFilterModel | None = None
+    attachment_filter: AttachmentFilterModel | None = None
+    container: ContainerModel | None = None
+
+    @model_validator(mode="after")
+    def validate_v3_fields_require_v3_schema(self) -> "PolicyModel":
+        """Validate that V3 fields are only used with schema_version >= 3."""
+        v3_fields = {
+            "audio_filter": self.audio_filter,
+            "subtitle_filter": self.subtitle_filter,
+            "attachment_filter": self.attachment_filter,
+            "container": self.container,
+        }
+        used_v3_fields = [
+            name for name, value in v3_fields.items() if value is not None
+        ]
+
+        if used_v3_fields and self.schema_version < 3:
+            fields_str = ", ".join(used_v3_fields)
+            raise ValueError(
+                f"V3 fields ({fields_str}) require schema_version >= 3, "
+                f"but schema_version is {self.schema_version}"
+            )
+        return self
 
     @field_validator("track_order")
     @classmethod
@@ -242,6 +354,45 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
             reorder_commentary=model.transcription.reorder_commentary,
         )
 
+    # Convert V3 audio_filter config if present
+    audio_filter: AudioFilterConfig | None = None
+    if model.audio_filter is not None:
+        fallback: LanguageFallbackConfig | None = None
+        if model.audio_filter.fallback is not None:
+            fallback = LanguageFallbackConfig(mode=model.audio_filter.fallback.mode)
+        audio_filter = AudioFilterConfig(
+            languages=tuple(model.audio_filter.languages),
+            fallback=fallback,
+            minimum=model.audio_filter.minimum,
+        )
+
+    # Convert V3 subtitle_filter config if present
+    subtitle_filter: SubtitleFilterConfig | None = None
+    if model.subtitle_filter is not None:
+        languages = None
+        if model.subtitle_filter.languages is not None:
+            languages = tuple(model.subtitle_filter.languages)
+        subtitle_filter = SubtitleFilterConfig(
+            languages=languages,
+            preserve_forced=model.subtitle_filter.preserve_forced,
+            remove_all=model.subtitle_filter.remove_all,
+        )
+
+    # Convert V3 attachment_filter config if present
+    attachment_filter: AttachmentFilterConfig | None = None
+    if model.attachment_filter is not None:
+        attachment_filter = AttachmentFilterConfig(
+            remove_all=model.attachment_filter.remove_all,
+        )
+
+    # Convert V3 container config if present
+    container: ContainerConfig | None = None
+    if model.container is not None:
+        container = ContainerConfig(
+            target=model.container.target,
+            on_incompatible_codec=model.container.on_incompatible_codec,
+        )
+
     return PolicySchema(
         schema_version=model.schema_version,
         track_order=track_order,
@@ -251,6 +402,10 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
         default_flags=default_flags,
         transcode=transcode,
         transcription=transcription,
+        audio_filter=audio_filter,
+        subtitle_filter=subtitle_filter,
+        attachment_filter=attachment_filter,
+        container=container,
     )
 
 

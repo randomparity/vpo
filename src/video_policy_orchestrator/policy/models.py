@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 
 class TrackType(Enum):
@@ -39,6 +39,34 @@ class ActionType(Enum):
 
 # Valid video codecs for transcoding
 VALID_VIDEO_CODECS = frozenset({"h264", "hevc", "vp9", "av1"})
+
+# Codecs that are incompatible with MP4 container
+# These codecs cannot be stored in MP4 without transcoding
+MP4_INCOMPATIBLE_CODECS = frozenset(
+    {
+        # Lossless audio codecs
+        "truehd",
+        "dts-hd ma",
+        "dts-hd.ma",
+        "dtshd",
+        "mlp",
+        # Subtitle formats not supported in MP4
+        "hdmv_pgs_subtitle",
+        "pgssub",
+        "pgs",
+        "dvd_subtitle",
+        "dvdsub",
+        "vobsub",
+        # Advanced subtitle formats
+        "ass",
+        "ssa",
+        "subrip",  # SRT needs conversion to mov_text
+        # Attachment types (not supported in MP4)
+        "ttf",
+        "otf",
+        "application/x-truetype-font",
+    }
+)
 
 # Valid audio codecs for transcoding
 VALID_AUDIO_CODECS = frozenset(
@@ -219,6 +247,172 @@ class TranscodePolicyConfig:
         return None
 
 
+# =============================================================================
+# V3 Track Filtering Configuration Models
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class LanguageFallbackConfig:
+    """Configuration for fallback when preferred languages aren't found.
+
+    This controls what happens when track filtering would remove all tracks
+    because none match the preferred languages.
+    """
+
+    mode: Literal["content_language", "keep_all", "keep_first", "error"]
+    """Fallback mode:
+    - content_language: Keep tracks matching the content's original language
+    - keep_all: Keep all tracks (disable filtering)
+    - keep_first: Keep first N tracks to meet minimum
+    - error: Fail with InsufficientTracksError
+    """
+
+
+@dataclass(frozen=True)
+class AudioFilterConfig:
+    """Configuration for filtering audio tracks.
+
+    Audio filtering removes tracks whose language doesn't match the preferred
+    languages list. A minimum of 1 audio track is always enforced to prevent
+    creating audio-less files.
+    """
+
+    languages: tuple[str, ...]
+    """ISO 639-2/B language codes to keep (e.g., ('eng', 'und', 'jpn')).
+    Tracks with languages not in this list will be removed."""
+
+    fallback: LanguageFallbackConfig | None = None
+    """Fallback behavior when no tracks match preferred languages."""
+
+    minimum: int = 1
+    """Minimum number of audio tracks that must remain.
+    If filtering would leave fewer tracks, fallback is triggered."""
+
+    def __post_init__(self) -> None:
+        """Validate audio filter configuration."""
+        if not self.languages:
+            raise ValueError("languages cannot be empty")
+        if self.minimum < 1:
+            raise ValueError("minimum must be at least 1 for audio tracks")
+
+
+@dataclass(frozen=True)
+class SubtitleFilterConfig:
+    """Configuration for filtering subtitle tracks.
+
+    Subtitle filtering can remove tracks by language, remove all subtitles,
+    or preserve forced subtitles regardless of language.
+    """
+
+    languages: tuple[str, ...] | None = None
+    """ISO 639-2/B language codes to keep. If None, no language filtering."""
+
+    preserve_forced: bool = False
+    """If True, forced subtitle tracks are preserved regardless of language."""
+
+    remove_all: bool = False
+    """If True, remove all subtitle tracks. Overrides other settings."""
+
+
+@dataclass(frozen=True)
+class AttachmentFilterConfig:
+    """Configuration for filtering attachment tracks.
+
+    Attachments typically include fonts (for styled subtitles) and cover art.
+    Removing fonts may affect rendering of ASS/SSA subtitles.
+    """
+
+    remove_all: bool = False
+    """If True, remove all attachment tracks (fonts, cover art, etc.)."""
+
+
+@dataclass(frozen=True)
+class ContainerConfig:
+    """Configuration for container format conversion.
+
+    Container conversion performs lossless remuxing to the target format.
+    Some codecs may be incompatible with certain containers.
+    """
+
+    target: Literal["mkv", "mp4"]
+    """Target container format."""
+
+    on_incompatible_codec: Literal["error", "skip", "transcode"] = "error"
+    """Behavior when source contains codecs incompatible with target:
+    - error: Fail with IncompatibleCodecError listing problematic tracks
+    - skip: Skip the entire file with a warning
+    - transcode: Transcode incompatible tracks (requires transcode config)
+    """
+
+
+# =============================================================================
+# V3 Plan Extension Models
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class TrackDisposition:
+    """Disposition of a track in the filtering plan.
+
+    Represents the planned action for a single track, including whether it
+    will be kept or removed and the reason for that decision.
+    """
+
+    track_index: int
+    """0-based global track index in source file."""
+
+    track_type: str
+    """Track type: 'video', 'audio', 'subtitle', 'attachment'."""
+
+    codec: str | None
+    """Codec name (e.g., 'hevc', 'aac', 'subrip')."""
+
+    language: str | None
+    """ISO 639-2/B language code or None if untagged."""
+
+    title: str | None
+    """Track title if present."""
+
+    channels: int | None
+    """Audio channels (audio tracks only)."""
+
+    resolution: str | None
+    """Resolution string like '1920x1080' (video tracks only)."""
+
+    action: Literal["KEEP", "REMOVE"]
+    """Whether the track will be kept or removed."""
+
+    reason: str
+    """Human-readable reason for the action."""
+
+
+@dataclass(frozen=True)
+class ContainerChange:
+    """Planned container format conversion.
+
+    Represents a container format change from the source format to the
+    target format, including any warnings about the conversion.
+    """
+
+    source_format: str
+    """Source container format (e.g., 'mkv', 'avi', 'mp4')."""
+
+    target_format: str
+    """Target container format (e.g., 'mkv', 'mp4')."""
+
+    warnings: tuple[str, ...]
+    """Warnings about the conversion (e.g., subtitle format limitations)."""
+
+    incompatible_tracks: tuple[int, ...]
+    """Track indices that are incompatible with target format."""
+
+
+# =============================================================================
+# Core Policy Schema and Plan Models
+# =============================================================================
+
+
 # Default track order matching the policy schema
 DEFAULT_TRACK_ORDER: tuple[TrackType, ...] = (
     TrackType.VIDEO,
@@ -248,6 +442,19 @@ class PolicySchema:
     transcode: TranscodePolicyConfig | None = None
     transcription: TranscriptionPolicyOptions | None = None
 
+    # V3 fields (all optional for backward compatibility)
+    audio_filter: AudioFilterConfig | None = None
+    """Audio track filtering configuration. Requires schema_version >= 3."""
+
+    subtitle_filter: SubtitleFilterConfig | None = None
+    """Subtitle track filtering configuration. Requires schema_version >= 3."""
+
+    attachment_filter: AttachmentFilterConfig | None = None
+    """Attachment track filtering configuration. Requires schema_version >= 3."""
+
+    container: ContainerConfig | None = None
+    """Container format conversion configuration. Requires schema_version >= 3."""
+
     def __post_init__(self) -> None:
         """Validate policy schema after initialization."""
         if self.schema_version < 1:
@@ -268,6 +475,22 @@ class PolicySchema:
     def has_transcription_settings(self) -> bool:
         """True if transcription settings are specified and enabled."""
         return self.transcription is not None and self.transcription.enabled
+
+    @property
+    def has_track_filtering(self) -> bool:
+        """True if any track filtering is configured."""
+        return any(
+            [
+                self.audio_filter is not None,
+                self.subtitle_filter is not None,
+                self.attachment_filter is not None,
+            ]
+        )
+
+    @property
+    def has_container_config(self) -> bool:
+        """True if container conversion is configured."""
+        return self.container is not None
 
 
 @dataclass(frozen=True)
@@ -312,10 +535,26 @@ class Plan:
     requires_remux: bool
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
+    # V3 fields for track filtering
+    track_dispositions: tuple[TrackDisposition, ...] = ()
+    """Detailed disposition for each track in the source file."""
+
+    container_change: ContainerChange | None = None
+    """Container conversion details if applicable."""
+
+    tracks_removed: int = 0
+    """Count of tracks being removed."""
+
+    tracks_kept: int = 0
+    """Count of tracks being kept."""
+
     @property
     def is_empty(self) -> bool:
         """True if no actions needed."""
-        return len(self.actions) == 0
+        # Check both traditional actions and v3 track dispositions
+        has_removals = self.tracks_removed > 0
+        has_container_change = self.container_change is not None
+        return len(self.actions) == 0 and not has_removals and not has_container_change
 
     @property
     def summary(self) -> str:
@@ -323,6 +562,24 @@ class Plan:
         if self.is_empty:
             return "No changes required"
 
+        parts = []
+
+        # Traditional actions
         action_count = len(self.actions)
+        if action_count > 0:
+            parts.append(f"{action_count} change{'s' if action_count != 1 else ''}")
+
+        # Track filtering summary
+        if self.tracks_removed > 0:
+            plural = "s" if self.tracks_removed != 1 else ""
+            parts.append(f"{self.tracks_removed} track{plural} removed")
+
+        # Container change
+        if self.container_change:
+            src = self.container_change.source_format
+            tgt = self.container_change.target_format
+            parts.append(f"convert {src} → {tgt}")
+
+        summary = ", ".join(parts)
         remux_note = " (requires remux)" if self.requires_remux else ""
-        return f"{action_count} change{'s' if action_count != 1 else ''}{remux_note}"
+        return f"{summary}{remux_note}"

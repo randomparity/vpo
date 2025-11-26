@@ -40,6 +40,9 @@ Docs focused on tasks and workflows: how to run the tools, configure them, and p
 - [usage/configuration.md](usage/configuration.md)
   Configuration layout: config file, environment variables, tool paths, and extension filtering.
 
+- [usage/policies.md](usage/policies.md)
+  Policy configuration guide: schema versions, track filtering, container conversion, and examples.
+
 - [usage/transcode-policy.md](usage/transcode-policy.md)
   Transcode policy settings: video codecs, quality, resolution scaling, audio preservation.
 

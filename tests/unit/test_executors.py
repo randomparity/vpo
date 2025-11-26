@@ -6,9 +6,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from video_policy_orchestrator.executor.ffmpeg_remux import FFmpegRemuxExecutor
 from video_policy_orchestrator.executor.mkvmerge import MkvmergeExecutor
 from video_policy_orchestrator.executor.mkvpropedit import MkvpropeditExecutor
-from video_policy_orchestrator.policy.models import ActionType, Plan, PlannedAction
+from video_policy_orchestrator.policy.models import (
+    ActionType,
+    ContainerChange,
+    Plan,
+    PlannedAction,
+)
 
 # =============================================================================
 # Test Fixtures
@@ -474,6 +480,7 @@ class TestMkvpropeditErrorScenarios:
 class TestMkvmergeErrorScenarios:
     """Tests for error handling in MkvmergeExecutor."""
 
+    @patch("video_policy_orchestrator.executor.mkvmerge.check_disk_space")
     @patch("video_policy_orchestrator.executor.mkvmerge.create_backup")
     @patch("video_policy_orchestrator.executor.mkvmerge.restore_from_backup")
     @patch("video_policy_orchestrator.executor.mkvmerge.require_tool")
@@ -486,6 +493,7 @@ class TestMkvmergeErrorScenarios:
         mock_require: MagicMock,
         mock_restore: MagicMock,
         mock_backup: MagicMock,
+        mock_disk_check: MagicMock,
         mkv_reorder_plan: Plan,
     ):
         """Should handle subprocess timeout and restore backup."""
@@ -514,10 +522,12 @@ class TestMkvmergeErrorScenarios:
             "timeout" in result.message.lower() or "timed out" in result.message.lower()
         )
 
+    @patch("video_policy_orchestrator.executor.mkvmerge.check_disk_space")
     @patch("video_policy_orchestrator.executor.mkvmerge.create_backup")
     def test_mkvmerge_backup_failure(
         self,
         mock_backup: MagicMock,
+        mock_disk_check: MagicMock,
         mkv_reorder_plan: Plan,
     ):
         """Should handle backup creation failure."""
@@ -529,6 +539,7 @@ class TestMkvmergeErrorScenarios:
         assert result.success is False
         assert "Backup failed" in result.message
 
+    @patch("video_policy_orchestrator.executor.mkvmerge.check_disk_space")
     @patch("video_policy_orchestrator.executor.mkvmerge.create_backup")
     @patch("video_policy_orchestrator.executor.mkvmerge.restore_from_backup")
     @patch("video_policy_orchestrator.executor.mkvmerge.require_tool")
@@ -541,6 +552,7 @@ class TestMkvmergeErrorScenarios:
         mock_require: MagicMock,
         mock_restore: MagicMock,
         mock_backup: MagicMock,
+        mock_disk_check: MagicMock,
         mkv_reorder_plan: Plan,
     ):
         """Should handle returncode 1 (warnings) as success with caution."""
@@ -568,6 +580,7 @@ class TestMkvmergeErrorScenarios:
         # Returncode 1 should still be treated as success (warnings only)
         assert result.success is True
 
+    @patch("video_policy_orchestrator.executor.mkvmerge.check_disk_space")
     @patch("video_policy_orchestrator.executor.mkvmerge.create_backup")
     @patch("video_policy_orchestrator.executor.mkvmerge.restore_from_backup")
     @patch("video_policy_orchestrator.executor.mkvmerge.require_tool")
@@ -580,6 +593,7 @@ class TestMkvmergeErrorScenarios:
         mock_require: MagicMock,
         mock_restore: MagicMock,
         mock_backup: MagicMock,
+        mock_disk_check: MagicMock,
         mkv_reorder_plan: Plan,
     ):
         """Should handle returncode 2 (error) as failure."""
@@ -651,3 +665,386 @@ class TestMkvmergeAdditional:
         flag_idx = cmd.index("--default-track-flag")
         # Track 1, value 0 (clear)
         assert cmd[flag_idx + 1] == "1:0"
+
+
+# =============================================================================
+# MkvmergeExecutor Container Conversion Tests (T039)
+# =============================================================================
+
+
+class TestMkvmergeContainerConversion:
+    """Tests for MkvmergeExecutor container conversion capability (T039)."""
+
+    def test_can_handle_avi_to_mkv_conversion(self) -> None:
+        """Should handle AVI to MKV container conversion."""
+        from video_policy_orchestrator.policy.models import ContainerChange
+
+        plan = Plan(
+            file_id="test-id",
+            file_path=Path("/test/video.avi"),
+            policy_version=3,
+            actions=(),
+            requires_remux=True,
+            created_at=datetime.now(timezone.utc),
+            container_change=ContainerChange(
+                source_format="avi",
+                target_format="mkv",
+                warnings=(),
+                incompatible_tracks=(),
+            ),
+        )
+
+        executor = MkvmergeExecutor()
+        assert executor.can_handle(plan) is True
+
+    def test_can_handle_mov_to_mkv_conversion(self) -> None:
+        """Should handle MOV to MKV container conversion."""
+        from video_policy_orchestrator.policy.models import ContainerChange
+
+        plan = Plan(
+            file_id="test-id",
+            file_path=Path("/test/video.mov"),
+            policy_version=3,
+            actions=(),
+            requires_remux=True,
+            created_at=datetime.now(timezone.utc),
+            container_change=ContainerChange(
+                source_format="mov",
+                target_format="mkv",
+                warnings=(),
+                incompatible_tracks=(),
+            ),
+        )
+
+        executor = MkvmergeExecutor()
+        assert executor.can_handle(plan) is True
+
+    def test_can_handle_mp4_to_mkv_conversion(self) -> None:
+        """Should handle MP4 to MKV container conversion."""
+        from video_policy_orchestrator.policy.models import ContainerChange
+
+        plan = Plan(
+            file_id="test-id",
+            file_path=Path("/test/video.mp4"),
+            policy_version=3,
+            actions=(),
+            requires_remux=True,
+            created_at=datetime.now(timezone.utc),
+            container_change=ContainerChange(
+                source_format="mp4",
+                target_format="mkv",
+                warnings=(),
+                incompatible_tracks=(),
+            ),
+        )
+
+        executor = MkvmergeExecutor()
+        assert executor.can_handle(plan) is True
+
+    def test_cannot_handle_mp4_target(self) -> None:
+        """Should not handle conversion to MP4 (handled by FFmpegRemuxExecutor)."""
+        from video_policy_orchestrator.policy.models import ContainerChange
+
+        plan = Plan(
+            file_id="test-id",
+            file_path=Path("/test/video.mkv"),
+            policy_version=3,
+            actions=(),
+            requires_remux=True,
+            created_at=datetime.now(timezone.utc),
+            container_change=ContainerChange(
+                source_format="mkv",
+                target_format="mp4",
+                warnings=(),
+                incompatible_tracks=(),
+            ),
+        )
+
+        executor = MkvmergeExecutor()
+        assert executor.can_handle(plan) is False
+
+    def test_cannot_handle_non_mkv_without_conversion(self) -> None:
+        """Should not handle AVI files without container_change."""
+        plan = Plan(
+            file_id="test-id",
+            file_path=Path("/test/video.avi"),
+            policy_version=3,
+            actions=(
+                PlannedAction(
+                    action_type=ActionType.SET_DEFAULT,
+                    track_index=0,
+                    current_value=False,
+                    desired_value=True,
+                ),
+            ),
+            requires_remux=False,
+            created_at=datetime.now(timezone.utc),
+        )
+
+        executor = MkvmergeExecutor()
+        assert executor.can_handle(plan) is False
+
+
+# =============================================================================
+# FFmpegRemuxExecutor Tests (T048-T050)
+# =============================================================================
+
+
+class TestFFmpegRemuxExecutor:
+    """Tests for FFmpegRemuxExecutor class."""
+
+    def test_can_handle_mkv_to_mp4_conversion(self) -> None:
+        """Should handle MKV to MP4 container conversion."""
+        plan = Plan(
+            file_id="test-id",
+            file_path=Path("/test/video.mkv"),
+            policy_version=3,
+            actions=(),
+            requires_remux=True,
+            created_at=datetime.now(timezone.utc),
+            container_change=ContainerChange(
+                source_format="mkv",
+                target_format="mp4",
+                warnings=(),
+                incompatible_tracks=(),
+            ),
+        )
+
+        executor = FFmpegRemuxExecutor()
+        assert executor.can_handle(plan) is True
+
+    def test_cannot_handle_mkv_target(self) -> None:
+        """Should not handle conversion to MKV (handled by MkvmergeExecutor)."""
+        plan = Plan(
+            file_id="test-id",
+            file_path=Path("/test/video.avi"),
+            policy_version=3,
+            actions=(),
+            requires_remux=True,
+            created_at=datetime.now(timezone.utc),
+            container_change=ContainerChange(
+                source_format="avi",
+                target_format="mkv",
+                warnings=(),
+                incompatible_tracks=(),
+            ),
+        )
+
+        executor = FFmpegRemuxExecutor()
+        assert executor.can_handle(plan) is False
+
+    def test_cannot_handle_without_container_change(self) -> None:
+        """Should not handle plans without container_change."""
+        plan = Plan(
+            file_id="test-id",
+            file_path=Path("/test/video.mkv"),
+            policy_version=3,
+            actions=(
+                PlannedAction(
+                    action_type=ActionType.SET_DEFAULT,
+                    track_index=0,
+                    current_value=False,
+                    desired_value=True,
+                ),
+            ),
+            requires_remux=False,
+            created_at=datetime.now(timezone.utc),
+        )
+
+        executor = FFmpegRemuxExecutor()
+        assert executor.can_handle(plan) is False
+
+    def test_execute_empty_plan_succeeds(self) -> None:
+        """Empty plan should return success without modification."""
+        plan = Plan(
+            file_id="test-id",
+            file_path=Path("/test/video.mkv"),
+            policy_version=3,
+            actions=(),
+            requires_remux=False,
+            created_at=datetime.now(timezone.utc),
+        )
+
+        executor = FFmpegRemuxExecutor()
+        result = executor.execute(plan)
+        assert result.success is True
+        assert "No changes" in result.message
+
+    def test_build_command_uses_stream_copy(self) -> None:
+        """Command should use -c copy for lossless remux."""
+        plan = Plan(
+            file_id="test-id",
+            file_path=Path("/test/video.mkv"),
+            policy_version=3,
+            actions=(),
+            requires_remux=True,
+            created_at=datetime.now(timezone.utc),
+            container_change=ContainerChange(
+                source_format="mkv",
+                target_format="mp4",
+                warnings=(),
+                incompatible_tracks=(),
+            ),
+        )
+
+        executor = FFmpegRemuxExecutor()
+        executor._tool_path = Path("/usr/bin/ffmpeg")
+        output_path = Path("/tmp/output.mp4")
+
+        cmd = executor._build_command(plan, output_path)
+
+        assert "-c" in cmd
+        copy_idx = cmd.index("-c")
+        assert cmd[copy_idx + 1] == "copy"
+
+    def test_build_command_uses_faststart(self) -> None:
+        """Command should use -movflags +faststart for streaming."""
+        plan = Plan(
+            file_id="test-id",
+            file_path=Path("/test/video.mkv"),
+            policy_version=3,
+            actions=(),
+            requires_remux=True,
+            created_at=datetime.now(timezone.utc),
+            container_change=ContainerChange(
+                source_format="mkv",
+                target_format="mp4",
+                warnings=(),
+                incompatible_tracks=(),
+            ),
+        )
+
+        executor = FFmpegRemuxExecutor()
+        executor._tool_path = Path("/usr/bin/ffmpeg")
+        output_path = Path("/tmp/output.mp4")
+
+        cmd = executor._build_command(plan, output_path)
+
+        assert "-movflags" in cmd
+        movflags_idx = cmd.index("-movflags")
+        assert cmd[movflags_idx + 1] == "+faststart"
+
+    def test_build_command_input_file(self) -> None:
+        """Input file should be specified after -i."""
+        plan = Plan(
+            file_id="test-id",
+            file_path=Path("/test/video.mkv"),
+            policy_version=3,
+            actions=(),
+            requires_remux=True,
+            created_at=datetime.now(timezone.utc),
+            container_change=ContainerChange(
+                source_format="mkv",
+                target_format="mp4",
+                warnings=(),
+                incompatible_tracks=(),
+            ),
+        )
+
+        executor = FFmpegRemuxExecutor()
+        executor._tool_path = Path("/usr/bin/ffmpeg")
+        output_path = Path("/tmp/output.mp4")
+
+        cmd = executor._build_command(plan, output_path)
+
+        assert "-i" in cmd
+        input_idx = cmd.index("-i")
+        assert cmd[input_idx + 1] == str(plan.file_path)
+
+
+class TestFFmpegRemuxExecutorBackup:
+    """Tests for FFmpegRemuxExecutor backup handling."""
+
+    @patch("video_policy_orchestrator.executor.ffmpeg_remux.check_disk_space")
+    @patch("video_policy_orchestrator.executor.ffmpeg_remux.create_backup")
+    @patch("video_policy_orchestrator.executor.ffmpeg_remux.require_tool")
+    @patch("subprocess.run")
+    @patch("tempfile.NamedTemporaryFile")
+    def test_creates_backup(
+        self,
+        mock_tempfile: MagicMock,
+        mock_run: MagicMock,
+        mock_require: MagicMock,
+        mock_backup: MagicMock,
+        mock_disk_check: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Executor should create backup before execution."""
+        mock_require.return_value = Path("/usr/bin/ffmpeg")
+        mock_backup.return_value = tmp_path / "video.mkv.vpo-backup"
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+        # Mock the temp file context manager
+        mock_temp = MagicMock()
+        mock_temp.name = str(tmp_path / "output.mp4")
+        mock_tempfile.return_value.__enter__.return_value = mock_temp
+
+        plan = Plan(
+            file_id="test-id",
+            file_path=tmp_path / "video.mkv",
+            policy_version=3,
+            actions=(),
+            requires_remux=True,
+            created_at=datetime.now(timezone.utc),
+            container_change=ContainerChange(
+                source_format="mkv",
+                target_format="mp4",
+                warnings=(),
+                incompatible_tracks=(),
+            ),
+        )
+
+        with patch.object(Path, "replace"):
+            executor = FFmpegRemuxExecutor()
+            result = executor.execute(plan)
+
+        mock_backup.assert_called_once_with(plan.file_path)
+        assert result.success is True
+
+    @patch("video_policy_orchestrator.executor.ffmpeg_remux.check_disk_space")
+    @patch("video_policy_orchestrator.executor.ffmpeg_remux.create_backup")
+    @patch("video_policy_orchestrator.executor.ffmpeg_remux.restore_from_backup")
+    @patch("video_policy_orchestrator.executor.ffmpeg_remux.require_tool")
+    @patch("subprocess.run")
+    @patch("tempfile.NamedTemporaryFile")
+    def test_restores_on_failure(
+        self,
+        mock_tempfile: MagicMock,
+        mock_run: MagicMock,
+        mock_require: MagicMock,
+        mock_restore: MagicMock,
+        mock_backup: MagicMock,
+        mock_disk_check: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Executor should restore backup on command failure."""
+        mock_require.return_value = Path("/usr/bin/ffmpeg")
+        backup_path = tmp_path / "video.mkv.vpo-backup"
+        mock_backup.return_value = backup_path
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error")
+
+        # Mock the temp file context manager
+        mock_temp = MagicMock()
+        mock_temp.name = str(tmp_path / "output.mp4")
+        mock_tempfile.return_value.__enter__.return_value = mock_temp
+
+        plan = Plan(
+            file_id="test-id",
+            file_path=tmp_path / "video.mkv",
+            policy_version=3,
+            actions=(),
+            requires_remux=True,
+            created_at=datetime.now(timezone.utc),
+            container_change=ContainerChange(
+                source_format="mkv",
+                target_format="mp4",
+                warnings=(),
+                incompatible_tracks=(),
+            ),
+        )
+
+        executor = FFmpegRemuxExecutor()
+        result = executor.execute(plan)
+
+        mock_restore.assert_called_once_with(backup_path)
+        assert result.success is False
