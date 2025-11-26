@@ -1,0 +1,40 @@
+# Container Conversion Policy for Video Policy Orchestrator
+# This policy converts files to MKV format with track filtering.
+#
+# Usage: vpo apply --policy container-conversion-policy.yaml [--dry-run] <file.avi>
+
+schema_version: 3
+
+# Track type ordering
+track_order:
+  - video
+  - audio_main
+  - audio_alternate
+  - subtitle_main
+  - subtitle_forced
+  - audio_commentary
+  - subtitle_commentary
+  - attachment
+
+# Language preferences
+audio_language_preference:
+  - eng
+  - und
+
+subtitle_language_preference:
+  - eng
+  - und
+
+# Default flag behavior
+default_flags:
+  set_first_video_default: true
+  set_preferred_audio_default: true
+  set_preferred_subtitle_default: false
+  clear_other_defaults: true
+
+# V3: Container conversion
+# Converts AVI, MOV, MP4, and other formats to MKV
+container:
+  target: mkv
+  # MKV supports all codecs, so this is rarely needed
+  on_incompatible_codec: error

@@ -242,10 +242,10 @@ Based on plan.md structure:
 - [X] T083 [P] Add disk space pre-flight check before remux operations in src/video_policy_orchestrator/executor/mkvmerge.py
 - [X] T083a [P] Verify backup creation in MkvmergeExecutor.execute() follows existing pattern in src/video_policy_orchestrator/executor/mkvmerge.py
 - [X] T083b [P] Add backup creation to FFmpegRemuxExecutor.execute() in src/video_policy_orchestrator/executor/ffmpeg_remux.py
-- [ ] T084 Update policy documentation with v3 schema fields in docs/usage/policies.md
-- [ ] T085 [P] Add example v3 policy files in docs/examples/
+- [X] T084 Update policy documentation with v3 schema fields in docs/usage/policies.md
+- [X] T085 [P] Add example v3 policy files in docs/examples/
 - [X] T086 Run full test suite and verify all tests pass
-- [ ] T087 Run quickstart.md validation steps
+- [X] T087 Run quickstart.md validation steps
 
 ---
 
