@@ -25,9 +25,9 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 **Purpose**: Prepare project for conditional transcoding implementation
 
-- [ ] T001 Review existing TranscodeExecutor in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T002 [P] Review existing policy models in src/video_policy_orchestrator/policy/models.py
-- [ ] T003 [P] Review existing ffmpeg tool detection in src/video_policy_orchestrator/tools/
+- [x] T001 Review existing TranscodeExecutor in src/video_policy_orchestrator/executor/transcode.py
+- [x] T002 [P] Review existing policy models in src/video_policy_orchestrator/policy/models.py
+- [x] T003 [P] Review existing ffmpeg tool detection in src/video_policy_orchestrator/tools/
 
 ---
 
@@ -37,14 +37,14 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Add QualityMode enum (crf, bitrate, constrained_quality) in src/video_policy_orchestrator/policy/models.py
-- [ ] T005 [P] Add ScaleAlgorithm enum (lanczos, bicubic, bilinear) in src/video_policy_orchestrator/policy/models.py
-- [ ] T006 [P] Add HardwareAccelMode enum (auto, nvenc, qsv, vaapi, none) in src/video_policy_orchestrator/policy/models.py
-- [ ] T007 Add VideoTranscodeConfig dataclass (target_codec, skip_if, quality, scaling, hw_accel) in src/video_policy_orchestrator/policy/models.py
-- [ ] T008 [P] Add TranscodeResult dataclass (skipped, skip_reason, video_action, audio_actions, encoder) in src/video_policy_orchestrator/policy/models.py
-- [ ] T009 [P] Add VideoTranscodeAction dataclass in src/video_policy_orchestrator/policy/models.py
-- [ ] T010 Update policy schema parsing to handle new transcode.video section in src/video_policy_orchestrator/policy/schema.py
-- [ ] T011 Add bitrate parsing utility function (parse "10M", "5000k" to int) in src/video_policy_orchestrator/policy/models.py
+- [x] T004 Add QualityMode enum (crf, bitrate, constrained_quality) in src/video_policy_orchestrator/policy/models.py
+- [x] T005 [P] Add ScaleAlgorithm enum (lanczos, bicubic, bilinear) in src/video_policy_orchestrator/policy/models.py
+- [x] T006 [P] Add HardwareAccelMode enum (auto, nvenc, qsv, vaapi, none) in src/video_policy_orchestrator/policy/models.py
+- [x] T007 Add VideoTranscodeConfig dataclass (target_codec, skip_if, quality, scaling, hw_accel) in src/video_policy_orchestrator/policy/models.py
+- [x] T008 [P] Add TranscodeResult dataclass (skipped, skip_reason, video_action, audio_actions, encoder) in src/video_policy_orchestrator/policy/models.py
+- [x] T009 [P] Add VideoTranscodeAction dataclass in src/video_policy_orchestrator/policy/models.py
+- [x] T010 Update policy schema parsing to handle new transcode.video section in src/video_policy_orchestrator/policy/loader.py
+- [x] T011 Add bitrate parsing utility function (parse "10M", "5000k" to int) in src/video_policy_orchestrator/policy/models.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
