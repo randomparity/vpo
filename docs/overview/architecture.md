@@ -14,37 +14,39 @@ VPO follows a layered architecture with clear separation between user interface,
 
 ## Component Diagram
 
-```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              CLI Frontend                                │
-│                    (scan, inspect, apply, jobs, profiles)               │
-└────────────────────────────────┬────────────────────────────────────────┘
-                                 │
-                                 ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                             Core Engine                                  │
-│              (Orchestration, Plugin Management, Scheduling)             │
-└───────┬─────────────────┬─────────────────┬─────────────────┬───────────┘
-        │                 │                 │                 │
-        ▼                 ▼                 ▼                 ▼
-┌───────────────┐ ┌───────────────┐ ┌───────────────┐ ┌───────────────┐
-│    Media      │ │    Policy     │ │   Execution   │ │    Plugin     │
-│  Introspector │ │    Engine     │ │     Layer     │ │    System     │
-└───────┬───────┘ └───────┬───────┘ └───────┬───────┘ └───────┬───────┘
-        │                 │                 │                 │
-        ▼                 │                 │                 ▼
-┌───────────────┐         │                 │         ┌───────────────┐
-│ External Tools│         │                 │         │    Plugins    │
-│ (ffprobe,     │         │                 │         │  (Analyzers,  │
-│  mkvmerge)    │         │                 │         │   Mutators,   │
-└───────────────┘         │                 │         │  Transcribers)│
-                          │                 │         └───────────────┘
-                          ▼                 ▼
-                    ┌─────────────────────────────┐
-                    │          Database           │
-                    │   (SQLite: files, tracks,   │
-                    │    policies, jobs, history) │
-                    └─────────────────────────────┘
+```mermaid
+graph TB
+    subgraph CLI["CLI Frontend"]
+        CLI_DESC["scan, inspect, apply, jobs, profiles"]
+    end
+
+    subgraph Core["Core Engine"]
+        CORE_DESC["Orchestration, Plugin Management, Scheduling"]
+    end
+
+    subgraph Subsystems[" "]
+        MI["Media<br/>Introspector"]
+        PE["Policy<br/>Engine"]
+        EL["Execution<br/>Layer"]
+        PS["Plugin<br/>System"]
+    end
+
+    subgraph External[" "]
+        ET["External Tools<br/>(ffprobe, mkvmerge)"]
+        PL["Plugins<br/>(Analyzers, Mutators,<br/>Transcribers)"]
+    end
+
+    DB[("Database<br/>(SQLite: files, tracks,<br/>policies, jobs, history)")]
+
+    CLI --> Core
+    Core --> MI
+    Core --> PE
+    Core --> EL
+    Core --> PS
+    MI --> ET
+    PS --> PL
+    PE --> DB
+    EL --> DB
 ```
 
 ---
@@ -144,17 +146,28 @@ See [design-database.md](../design/design-database.md) for schema details.
 
 VPO includes a comprehensive tool management system:
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                    Tool Capabilities System                  │
-├─────────────────────────────────────────────────────────────┤
-│  Configuration      Detection         Cache                 │
-│  ─────────────      ─────────         ─────                 │
-│  • CLI args         • Version         • JSON file           │
-│  • Env vars         • Capabilities    • TTL-based           │
-│  • Config file      • Build flags     • Auto-refresh        │
-│  • PATH lookup      • Codecs/formats  • Path-aware          │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph LR
+    subgraph TCS["Tool Capabilities System"]
+        subgraph Config["Configuration"]
+            C1["CLI args"]
+            C2["Env vars"]
+            C3["Config file"]
+            C4["PATH lookup"]
+        end
+        subgraph Detect["Detection"]
+            D1["Version"]
+            D2["Capabilities"]
+            D3["Build flags"]
+            D4["Codecs/formats"]
+        end
+        subgraph Cache["Cache"]
+            CA1["JSON file"]
+            CA2["TTL-based"]
+            CA3["Auto-refresh"]
+            CA4["Path-aware"]
+        end
+    end
 ```
 
 Use `vpo doctor` to check tool health:

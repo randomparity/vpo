@@ -29,12 +29,14 @@ vpo jobs list
 
 ### Job Lifecycle
 
-```text
-QUEUED ──> RUNNING ──> COMPLETED
-              │
-              ├──> FAILED
-              │
-CANCELLED <───┘
+```mermaid
+stateDiagram-v2
+    [*] --> QUEUED
+    QUEUED --> RUNNING : worker claims
+    RUNNING --> COMPLETED : success
+    RUNNING --> FAILED : error
+    RUNNING --> CANCELLED : user cancels
+    QUEUED --> CANCELLED : user cancels
 ```
 
 Jobs transition from `queued` to `running` when claimed by a worker, then to `completed` or `failed` based on the outcome. Users can cancel queued jobs at any time.
