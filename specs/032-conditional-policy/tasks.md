@@ -252,14 +252,14 @@
 
 **Purpose**: Documentation, integration tests, and final polish
 
-- [ ] T095 [P] Create conditional-policies.md user guide in docs/usage/conditional-policies.md
-- [ ] T096 [P] Create ADR-0005-conditional-policy-schema.md in docs/decisions/ADR-0005-conditional-policy-schema.md
-- [ ] T097 [P] Add integration test for complete conditional policy flow in tests/integration/test_conditional_policy.py
-- [ ] T098 [P] Add integration test for conditional with track filtering in tests/integration/test_conditional_policy.py
-- [ ] T099 Add test policy fixture conditional-test.yaml in tests/fixtures/policies/
-- [ ] T100 Update policy schema documentation with v4 conditional section in docs/usage/policies.md
-- [ ] T101 Run full test suite and fix any regressions
-- [ ] T102 Run quickstart.md validation to verify implementation
+- [X] T095 [P] Create conditional-policies.md user guide in docs/usage/conditional-policies.md
+- [X] T096 [P] Create ADR-0004-conditional-policy-schema.md in docs/decisions/ADR-0004-conditional-policy-schema.md
+- [X] T097 [P] Add integration test for complete conditional policy flow in tests/integration/test_conditional_policy.py
+- [X] T098 [P] Add integration test for conditional with track filtering in tests/integration/test_conditional_policy.py
+- [X] T099 Add test policy fixture conditional-test.yaml in tests/fixtures/policies/
+- [X] T100 Update policy schema documentation with v4 conditional section in docs/usage/policies.md
+- [X] T101 Run full test suite and fix any regressions (294 passed, 3 skipped)
+- [X] T102 Run quickstart.md validation to verify implementation
 
 ---
 

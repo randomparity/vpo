@@ -1152,7 +1152,9 @@ def evaluate_policy(
     # Default: all tracks kept when no filtering is active
     tracks_kept = len(tracks)
 
-    if policy.has_track_filtering:
+    # V4: Check skip_track_filter flag before applying track filtering
+    should_filter = policy.has_track_filtering and not skip_flags.skip_track_filter
+    if should_filter:
         track_dispositions = compute_track_dispositions(tracks, policy)
         tracks_removed = sum(1 for d in track_dispositions if d.action == "REMOVE")
         tracks_kept = sum(1 for d in track_dispositions if d.action == "KEEP")

@@ -25,6 +25,7 @@ VPO uses versioned policy schemas. Each version adds new capabilities while main
 | 1 | Track ordering, language preferences, default flags |
 | 2 | Transcoding configuration, commentary patterns |
 | 3 | Track filtering, container conversion, language fallback |
+| 4 | Conditional rules (if/then/else based on file properties) |
 
 ---
 
@@ -338,7 +339,9 @@ Error: Cannot convert to mp4: incompatible tracks: #3 (audio: truehd)
 ## Related docs
 
 - [CLI Usage](cli-usage.md)
+- [Conditional Policies](conditional-policies.md) - If/then/else rules for smart decisions
 - [Transcode Policy](transcode-policy.md)
 - [External Tools](external-tools.md)
 - [Policy Editor](policy-editor.md)
 - [ADR-0002: Policy Schema Versioning](../decisions/ADR-0002-policy-schema-versioning.md)
+- [ADR-0004: Conditional Policy Schema](../decisions/ADR-0004-conditional-policy-schema.md)
