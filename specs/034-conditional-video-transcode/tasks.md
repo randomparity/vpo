@@ -180,18 +180,18 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Tests for User Story 7
 
-- [ ] T054 [P] [US7] Unit test for HardwareAccelConfig dataclass in tests/unit/test_hardware_accel.py
-- [ ] T055 [P] [US7] Unit test for encoder detection (mock ffmpeg -encoders) in tests/unit/test_hardware_accel.py
-- [ ] T056 [P] [US7] Unit test for fallback_to_cpu behavior in tests/unit/test_hardware_accel.py
+- [x] T054 [P] [US7] Unit test for HardwareAccelConfig dataclass in tests/unit/test_hardware_accel.py
+- [x] T055 [P] [US7] Unit test for encoder detection (mock ffmpeg -encoders) in tests/unit/test_hardware_accel.py
+- [x] T056 [P] [US7] Unit test for fallback_to_cpu behavior in tests/unit/test_hardware_accel.py
 
 ### Implementation for User Story 7
 
-- [ ] T057 [US7] Add HardwareAccelConfig dataclass (enabled, fallback_to_cpu) in src/video_policy_orchestrator/policy/models.py
-- [ ] T058 [US7] Add detect_available_encoders() with LRU cache in src/video_policy_orchestrator/tools/ffmpeg.py
-- [ ] T059 [US7] Add select_encoder(target_codec, hw_config) function in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T060 [US7] Update build_ffmpeg_command() to use selected encoder in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T061 [US7] Add encoder selection to dry-run output in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T062 [US7] Parse hardware_acceleration section from YAML policy in src/video_policy_orchestrator/policy/schema.py
+- [x] T057 [US7] Add HardwareAccelConfig dataclass (enabled, fallback_to_cpu) in src/video_policy_orchestrator/policy/models.py
+- [x] T058 [US7] Add detect_available_encoders() with LRU cache in src/video_policy_orchestrator/tools/detection.py
+- [x] T059 [US7] Add select_encoder(target_codec, hw_config) function in src/video_policy_orchestrator/executor/transcode.py
+- [x] T060 [US7] Update build_ffmpeg_command() to use selected encoder in src/video_policy_orchestrator/executor/transcode.py
+- [x] T061 [US7] Add encoder selection to dry-run output in src/video_policy_orchestrator/executor/transcode.py
+- [x] T062 [US7] Parse hardware_acceleration section from YAML policy in src/video_policy_orchestrator/policy/loader.py
 
 **Checkpoint**: Hardware acceleration functional with auto-detection and fallback
 
