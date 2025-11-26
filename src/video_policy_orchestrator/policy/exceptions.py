@@ -77,3 +77,33 @@ class IncompatibleCodecError(PolicyError):
         super().__init__(
             f"Cannot convert to {target_container}: incompatible tracks: {track_list}"
         )
+
+
+class ConditionalFailError(PolicyError):
+    """Raised when a conditional rule's fail action is triggered.
+
+    This error is raised during policy evaluation when a conditional rule
+    matches and its action specifies fail with a message. This allows policies
+    to halt processing based on file characteristics.
+    """
+
+    def __init__(
+        self,
+        rule_name: str,
+        message: str,
+        file_path: str | None = None,
+    ) -> None:
+        """Initialize the error.
+
+        Args:
+            rule_name: Name of the conditional rule that triggered the failure.
+            message: The fail message from the rule (with placeholders substituted).
+            file_path: Path to the file being processed, if available.
+        """
+        self.rule_name = rule_name
+        self.message = message
+        self.file_path = file_path
+        error_msg = f"Rule '{rule_name}' triggered fail action: {message}"
+        if file_path:
+            error_msg += f" (file: {file_path})"
+        super().__init__(error_msg)

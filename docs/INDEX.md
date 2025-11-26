@@ -43,6 +43,9 @@ Docs focused on tasks and workflows: how to run the tools, configure them, and p
 - [usage/policies.md](usage/policies.md)
   Policy configuration guide: schema versions, track filtering, container conversion, and examples.
 
+- [usage/conditional-policies.md](usage/conditional-policies.md)
+  Conditional policy guide: if/then/else rules, conditions, actions, and examples for smart file-based decisions.
+
 - [usage/transcode-policy.md](usage/transcode-policy.md)
   Transcode policy settings: video codecs, quality, resolution scaling, audio preservation.
 
@@ -123,6 +126,9 @@ Each ADR file documents a single decision: context, options, decision, and conse
 
 - [decisions/ADR-0003-plugin-interface-stability.md](decisions/ADR-0003-plugin-interface-stability.md) *(proposed)*
   Guarantees and expectations for plugin interface changes and version bumps.
+
+- [decisions/ADR-0004-conditional-policy-schema.md](decisions/ADR-0004-conditional-policy-schema.md)
+  Design decisions for conditional policy rules: if/then/else structure, condition types, and actions.
 
 > **When adding a new ADR:**
 > - Use the filename pattern: `ADR-####-short-title.md`

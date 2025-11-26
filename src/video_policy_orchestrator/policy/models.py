@@ -455,6 +455,10 @@ class PolicySchema:
     container: ContainerConfig | None = None
     """Container format conversion configuration. Requires schema_version >= 3."""
 
+    # V4 fields (all optional for backward compatibility)
+    conditional_rules: tuple["ConditionalRule", ...] = ()
+    """Conditional rules evaluated before other policy sections. Schema v4+."""
+
     def __post_init__(self) -> None:
         """Validate policy schema after initialization."""
         if self.schema_version < 1:
@@ -491,6 +495,11 @@ class PolicySchema:
     def has_container_config(self) -> bool:
         """True if container conversion is configured."""
         return self.container is not None
+
+    @property
+    def has_conditional_rules(self) -> bool:
+        """True if any conditional rules are configured."""
+        return len(self.conditional_rules) > 0
 
 
 @dataclass(frozen=True)
@@ -548,6 +557,13 @@ class Plan:
     tracks_kept: int = 0
     """Count of tracks being kept."""
 
+    # V4 fields for conditional rules
+    conditional_result: "ConditionalResult | None" = None
+    """Result of conditional rule evaluation, if any rules were defined."""
+
+    skip_flags: "SkipFlags" = field(default_factory=lambda: SkipFlags())
+    """Flags set by conditional rules to suppress operations."""
+
     @property
     def is_empty(self) -> bool:
         """True if no actions needed."""
@@ -583,3 +599,206 @@ class Plan:
         summary = ", ".join(parts)
         remux_note = " (requires remux)" if self.requires_remux else ""
         return f"{summary}{remux_note}"
+
+
+# =============================================================================
+# V4 Conditional Policy Models
+# =============================================================================
+
+
+class ComparisonOperator(Enum):
+    """Operators for numeric comparisons in conditions."""
+
+    EQ = "eq"
+    LT = "lt"
+    LTE = "lte"
+    GT = "gt"
+    GTE = "gte"
+
+
+@dataclass(frozen=True)
+class Comparison:
+    """Numeric comparison with operator and value.
+
+    Used for comparing track properties like height, width, or channels
+    against threshold values.
+    """
+
+    operator: ComparisonOperator
+    value: int
+
+
+@dataclass(frozen=True)
+class TitleMatch:
+    """String matching criteria for title field.
+
+    Supports substring contains matching or regex pattern matching.
+    At most one of contains or regex should be set.
+    """
+
+    contains: str | None = None
+    regex: str | None = None
+
+
+@dataclass(frozen=True)
+class TrackFilters:
+    """Criteria for matching track properties in conditions.
+
+    All specified criteria must match (AND logic). Unspecified criteria
+    (None values) match any track.
+    """
+
+    language: str | tuple[str, ...] | None = None
+    codec: str | tuple[str, ...] | None = None
+    is_default: bool | None = None
+    is_forced: bool | None = None
+    channels: int | Comparison | None = None
+    width: int | Comparison | None = None
+    height: int | Comparison | None = None
+    title: str | TitleMatch | None = None
+
+
+@dataclass(frozen=True)
+class ExistsCondition:
+    """Check if at least one track matches criteria.
+
+    Evaluates to True if any track of the specified type matches
+    all filter criteria.
+    """
+
+    track_type: str  # "video", "audio", "subtitle", "attachment"
+    filters: TrackFilters = field(default_factory=TrackFilters)
+
+
+@dataclass(frozen=True)
+class CountCondition:
+    """Check count of matching tracks against threshold.
+
+    Evaluates to True if the count of matching tracks satisfies
+    the comparison operator and value.
+    """
+
+    track_type: str
+    filters: TrackFilters
+    operator: ComparisonOperator
+    value: int
+
+
+@dataclass(frozen=True)
+class AndCondition:
+    """All sub-conditions must be true (logical AND)."""
+
+    conditions: tuple["Condition", ...]
+
+
+@dataclass(frozen=True)
+class OrCondition:
+    """At least one sub-condition must be true (logical OR)."""
+
+    conditions: tuple["Condition", ...]
+
+
+@dataclass(frozen=True)
+class NotCondition:
+    """Negate a condition (logical NOT)."""
+
+    inner: "Condition"
+
+
+# Type alias for union of all condition types
+Condition = ExistsCondition | CountCondition | AndCondition | OrCondition | NotCondition
+
+
+class SkipType(Enum):
+    """Types of processing that can be skipped."""
+
+    VIDEO_TRANSCODE = "skip_video_transcode"
+    AUDIO_TRANSCODE = "skip_audio_transcode"
+    TRACK_FILTER = "skip_track_filter"
+
+
+@dataclass(frozen=True)
+class SkipAction:
+    """Set a skip flag to suppress later processing."""
+
+    skip_type: SkipType
+
+
+@dataclass(frozen=True)
+class WarnAction:
+    """Log a warning message and continue processing.
+
+    The message supports placeholders: {filename}, {path}, {rule_name}
+    """
+
+    message: str
+
+
+@dataclass(frozen=True)
+class FailAction:
+    """Stop processing with an error.
+
+    The message supports placeholders: {filename}, {path}, {rule_name}
+    """
+
+    message: str
+
+
+# Type alias for union of all action types
+ConditionalAction = SkipAction | WarnAction | FailAction
+
+
+@dataclass(frozen=True)
+class ConditionalRule:
+    """A named rule with condition and actions.
+
+    Rules are evaluated in order. The first rule whose condition matches
+    executes its then_actions. If no rule matches and the last rule has
+    else_actions, those are executed (first-match-wins semantics).
+    """
+
+    name: str
+    when: Condition
+    then_actions: tuple[ConditionalAction, ...]
+    else_actions: tuple[ConditionalAction, ...] | None = None
+
+
+@dataclass(frozen=True)
+class SkipFlags:
+    """Flags set by conditional rules to suppress operations.
+
+    These flags are checked by the policy evaluator to determine
+    whether to skip certain processing steps.
+    """
+
+    skip_video_transcode: bool = False
+    skip_audio_transcode: bool = False
+    skip_track_filter: bool = False
+
+
+@dataclass(frozen=True)
+class RuleEvaluation:
+    """Trace of a single rule's evaluation for dry-run output.
+
+    Provides human-readable information about why a rule matched
+    or didn't match.
+    """
+
+    rule_name: str
+    matched: bool
+    reason: str  # Human-readable explanation
+
+
+@dataclass(frozen=True)
+class ConditionalResult:
+    """Result of conditional rule evaluation.
+
+    Captures which rule matched, which branch was executed,
+    any warnings generated, and a trace for debugging.
+    """
+
+    matched_rule: str | None  # Name of first matching rule, None if no match
+    matched_branch: Literal["then", "else"] | None
+    warnings: tuple[str, ...]  # Formatted warning messages
+    evaluation_trace: tuple[RuleEvaluation, ...]  # For dry-run output
+    skip_flags: SkipFlags = field(default_factory=SkipFlags)

@@ -23,10 +23,14 @@ from video_policy_orchestrator.policy.models import (
     ActionType,
     AttachmentFilterConfig,
     AudioFilterConfig,
+    ConditionalResult,
+    ConditionalRule,
     ContainerChange,
     Plan,
     PlannedAction,
     PolicySchema,
+    RuleEvaluation,
+    SkipFlags,
     SubtitleFilterConfig,
     TrackDisposition,
     TrackType,
@@ -846,6 +850,115 @@ def _evaluate_container_change(
     )
 
 
+# =============================================================================
+# Conditional Rule Evaluation Functions (V4)
+# =============================================================================
+
+
+def evaluate_conditional_rules(
+    rules: tuple[ConditionalRule, ...],
+    tracks: list[TrackInfo],
+    file_path: Path,
+) -> ConditionalResult:
+    """Evaluate conditional rules and execute matching actions.
+
+    Rules are evaluated in document order. The first rule whose 'when'
+    condition matches wins, and its 'then' actions are executed.
+    If no rules match and the last rule has an 'else' clause, that
+    else clause is executed.
+
+    Args:
+        rules: Tuple of ConditionalRule from PolicySchema.
+        tracks: List of TrackInfo from the file.
+        file_path: Path to the file being processed.
+
+    Returns:
+        ConditionalResult with matched rule, skip flags, warnings, and trace.
+
+    Raises:
+        ConditionalFailError: If a matched rule has a fail action.
+    """
+    from video_policy_orchestrator.policy.actions import ActionContext, execute_actions
+    from video_policy_orchestrator.policy.conditions import evaluate_condition
+
+    # Empty rules - return empty result
+    if not rules:
+        return ConditionalResult(
+            matched_rule=None,
+            matched_branch=None,
+            warnings=(),
+            evaluation_trace=(),
+        )
+
+    evaluation_trace: list[RuleEvaluation] = []
+    matched_rule: str | None = None
+    matched_branch: Literal["then", "else"] | None = None
+    skip_flags = SkipFlags()
+    warnings: list[str] = []
+
+    for i, rule in enumerate(rules):
+        # Evaluate the condition
+        result, reason = evaluate_condition(rule.when, tracks)
+
+        if result:
+            # Condition matched - execute then_actions
+            evaluation_trace.append(
+                RuleEvaluation(
+                    rule_name=rule.name,
+                    matched=True,
+                    reason=reason,
+                )
+            )
+
+            matched_rule = rule.name
+            matched_branch = "then"
+
+            # Execute actions
+            context = ActionContext(
+                file_path=file_path,
+                rule_name=rule.name,
+            )
+            context = execute_actions(rule.then_actions, context)
+            skip_flags = context.skip_flags
+            warnings = context.warnings
+
+            # First match wins - stop evaluation
+            break
+
+        else:
+            # Condition didn't match
+            evaluation_trace.append(
+                RuleEvaluation(
+                    rule_name=rule.name,
+                    matched=False,
+                    reason=reason,
+                )
+            )
+
+            # Check if this is the last rule and has else_actions
+            is_last_rule = i == len(rules) - 1
+            if is_last_rule and rule.else_actions is not None:
+                # Execute else_actions for the last rule
+                matched_rule = rule.name
+                matched_branch = "else"
+
+                context = ActionContext(
+                    file_path=file_path,
+                    rule_name=rule.name,
+                )
+                context = execute_actions(rule.else_actions, context)
+                skip_flags = context.skip_flags
+                warnings = context.warnings
+
+    return ConditionalResult(
+        matched_rule=matched_rule,
+        matched_branch=matched_branch,
+        warnings=tuple(warnings),
+        evaluation_trace=tuple(evaluation_trace),
+        skip_flags=skip_flags,
+    )
+
+
 def evaluate_container_change_with_policy(
     tracks: list[TrackInfo],
     source_format: str,
@@ -921,6 +1034,7 @@ def evaluate_policy(
 
     Raises:
         NoTracksError: If no tracks are provided.
+        ConditionalFailError: If a conditional rule triggers a fail action.
 
     Edge cases handled:
         - No tracks: Raises NoTracksError
@@ -933,6 +1047,18 @@ def evaluate_policy(
     # Edge case: no tracks
     if not tracks:
         raise NoTracksError("File has no tracks to evaluate")
+
+    # V4: Evaluate conditional rules first (may raise ConditionalFailError)
+    conditional_result: ConditionalResult | None = None
+    skip_flags = SkipFlags()
+
+    if policy.has_conditional_rules:
+        conditional_result = evaluate_conditional_rules(
+            rules=policy.conditional_rules,
+            tracks=tracks,
+            file_path=file_path,
+        )
+        skip_flags = conditional_result.skip_flags
 
     matcher = CommentaryMatcher(policy.commentary_patterns)
     actions: list[PlannedAction] = []
@@ -1006,7 +1132,9 @@ def evaluate_policy(
     # Default: all tracks kept when no filtering is active
     tracks_kept = len(tracks)
 
-    if policy.has_track_filtering:
+    # V4: Check skip_track_filter flag before applying track filtering
+    should_filter = policy.has_track_filtering and not skip_flags.skip_track_filter
+    if should_filter:
         track_dispositions = compute_track_dispositions(tracks, policy)
         tracks_removed = sum(1 for d in track_dispositions if d.action == "REMOVE")
         tracks_kept = sum(1 for d in track_dispositions if d.action == "KEEP")
@@ -1031,6 +1159,8 @@ def evaluate_policy(
         created_at=datetime.now(timezone.utc),
         track_dispositions=track_dispositions,
         container_change=container_change,
+        conditional_result=conditional_result,
+        skip_flags=skip_flags,
         tracks_removed=tracks_removed,
         tracks_kept=tracks_kept,
     )
