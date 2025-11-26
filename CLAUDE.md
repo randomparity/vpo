@@ -126,9 +126,52 @@ The visual policy editor (`/policies/{name}/edit`) provides form-based editing o
 - **Routes**: GET/PUT `/api/policies/{name}` for load/save, POST `/api/policies/{name}/validate` for dry-run validation
 - **Usage docs**: See `/docs/usage/policy-editor.md` for user guide
 
+## Transcode Policy (V6)
+
+The conditional video transcode feature (schema version 6) supports:
+
+**V6 Policy Structure:**
+```yaml
+schema_version: 6
+transcode:
+  video:
+    target_codec: hevc
+    skip_if:           # Skip if already compliant
+      codec_matches: [hevc, h265]
+      resolution_within: 1080p
+      bitrate_under: 15M
+    quality:
+      mode: crf        # crf, bitrate, constrained_quality
+      crf: 20
+      preset: medium
+    scaling:
+      max_resolution: 1080p
+      algorithm: lanczos
+    hardware_acceleration:
+      enabled: auto    # auto, nvenc, qsv, vaapi, none
+      fallback_to_cpu: true
+  audio:
+    preserve_codecs: [truehd, dts-hd, flac]
+    transcode_to: aac
+    transcode_bitrate: 192k
+```
+
+**Key modules:**
+- `executor/transcode.py`: TranscodeExecutor, FFmpeg command building, edge case detection
+- `policy/models.py`: V6 dataclasses (SkipCondition, QualitySettings, ScalingSettings)
+- `policy/loader.py`: QualitySettingsModel validation, V6 schema loading
+- `policy/transcode.py`: Audio plan creation for V6 audio config
+
+**Edge case handling:**
+- VFR detection: warns about variable frame rate content
+- Bitrate estimation: estimates from file size when metadata missing
+- Multiple video streams: selects primary, warns about others
+- HDR preservation: warns when scaling HDR content
+- HW encoder fallback: falls back to CPU if hardware unavailable
+
 ## Active Technologies
 - Python 3.10+ (existing project standard) + ffmpeg (transcoding), ffprobe (introspection), click (CLI), pydantic (validation), aiohttp (web UI) (034-conditional-video-transcode)
 - SQLite at ~/.vpo/library.db (existing), temp files for transcode output (034-conditional-video-transcode)
 
 ## Recent Changes
-- 034-conditional-video-transcode: Added Python 3.10+ (existing project standard) + ffmpeg (transcoding), ffprobe (introspection), click (CLI), pydantic (validation), aiohttp (web UI)
+- 034-conditional-video-transcode: Added V6 schema with conditional skip, quality modes, hardware acceleration, and edge case detection

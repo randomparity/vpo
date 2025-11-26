@@ -257,9 +257,25 @@ class QualitySettingsModel(BaseModel):
 
     @model_validator(mode="after")
     def validate_mode_requirements(self) -> "QualitySettingsModel":
-        """Validate mode-specific requirements."""
+        """Validate mode-specific requirements and detect conflicting options."""
         if self.mode == "bitrate" and self.bitrate is None:
             raise ValueError("bitrate is required when mode is 'bitrate'")
+
+        # Warn about conflicting options that may indicate user error
+        if self.mode == "crf" and self.bitrate is not None:
+            raise ValueError(
+                "Conflicting options: mode is 'crf' but bitrate is specified. "
+                "Use mode='bitrate' for bitrate targeting, or "
+                "mode='constrained_quality' for CRF with max bitrate cap."
+            )
+
+        if self.mode == "bitrate" and self.crf is not None:
+            raise ValueError(
+                "Conflicting options: mode is 'bitrate' but crf is specified. "
+                "Use mode='crf' for quality-based encoding, or "
+                "mode='constrained_quality' for CRF with max bitrate cap."
+            )
+
         return self
 
 

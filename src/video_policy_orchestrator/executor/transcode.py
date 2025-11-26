@@ -34,6 +34,265 @@ from video_policy_orchestrator.policy.transcode import (
 logger = logging.getLogger(__name__)
 
 
+# =============================================================================
+# Edge Case Detection Utilities
+# =============================================================================
+
+
+def _parse_frame_rate(frame_rate_str: str | None) -> float | None:
+    """Parse FFprobe frame rate string (e.g., '24000/1001') to float.
+
+    Args:
+        frame_rate_str: Frame rate string from ffprobe.
+
+    Returns:
+        Frame rate as float, or None if unparseable.
+    """
+    if not frame_rate_str or frame_rate_str == "0/0":
+        return None
+
+    if "/" in frame_rate_str:
+        try:
+            num, denom = frame_rate_str.split("/")
+            denom_val = float(denom)
+            if denom_val == 0:
+                return None
+            return float(num) / denom_val
+        except (ValueError, ZeroDivisionError):
+            return None
+
+    try:
+        return float(frame_rate_str)
+    except ValueError:
+        return None
+
+
+def detect_vfr_content(
+    r_frame_rate: str | None,
+    avg_frame_rate: str | None,
+    tolerance: float = 0.01,
+) -> tuple[bool, str | None]:
+    """Detect if content is variable frame rate (VFR).
+
+    VFR content is detected when r_frame_rate and avg_frame_rate differ
+    significantly. This can cause issues with transcoding as some encoders
+    may not handle VFR well.
+
+    Args:
+        r_frame_rate: Real frame rate from ffprobe (r_frame_rate).
+        avg_frame_rate: Average frame rate from ffprobe (avg_frame_rate).
+        tolerance: Maximum relative difference to consider as CFR.
+
+    Returns:
+        Tuple of (is_vfr, warning_message).
+    """
+    r_fps = _parse_frame_rate(r_frame_rate)
+    avg_fps = _parse_frame_rate(avg_frame_rate)
+
+    if r_fps is None or avg_fps is None:
+        return False, None
+
+    if avg_fps == 0:
+        return False, None
+
+    # Calculate relative difference
+    relative_diff = abs(r_fps - avg_fps) / avg_fps
+
+    if relative_diff > tolerance:
+        return True, (
+            f"Variable frame rate detected (r_frame_rate={r_frame_rate}, "
+            f"avg_frame_rate={avg_frame_rate}). Transcoding may produce "
+            "inconsistent playback. Consider using -vsync cfr to force CFR output."
+        )
+
+    return False, None
+
+
+def detect_missing_bitrate(
+    bitrate: int | None,
+    file_size_bytes: int | None,
+    duration_seconds: float | None,
+) -> tuple[bool, int | None, str | None]:
+    """Handle missing bitrate metadata with estimation.
+
+    When bitrate metadata is missing, we can estimate it from file size
+    and duration to allow skip conditions to still work.
+
+    Args:
+        bitrate: Bitrate from metadata (may be None).
+        file_size_bytes: Total file size in bytes.
+        duration_seconds: Video duration in seconds.
+
+    Returns:
+        Tuple of (was_estimated, estimated_bitrate, warning_message).
+    """
+    if bitrate is not None and bitrate > 0:
+        return False, bitrate, None
+
+    if file_size_bytes is None or duration_seconds is None:
+        return (
+            True,
+            None,
+            (
+                "Video bitrate metadata is missing and cannot be estimated "
+                "(file size or duration unknown). Bitrate-based skip conditions "
+                "will be ignored."
+            ),
+        )
+
+    if duration_seconds <= 0:
+        return (
+            True,
+            None,
+            (
+                "Video bitrate metadata is missing and cannot be estimated "
+                "(duration is zero or negative). Bitrate-based skip conditions "
+                "will be ignored."
+            ),
+        )
+
+    # Estimate total bitrate from file size and duration
+    # This includes all streams, so it's an upper bound for video bitrate
+    estimated_bps = int((file_size_bytes * 8) / duration_seconds)
+
+    return (
+        True,
+        estimated_bps,
+        (
+            f"Video bitrate metadata is missing. Estimated total bitrate: "
+            f"{estimated_bps / 1_000_000:.1f} Mbps (based on file size/duration). "
+            "This estimate includes all streams and may be higher than actual "
+            "video bitrate."
+        ),
+    )
+
+
+def select_primary_video_stream(
+    tracks: list[TrackInfo],
+) -> tuple[TrackInfo | None, list[str]]:
+    """Select primary video stream when multiple video streams exist.
+
+    Selects the first video stream marked as default, or the first video
+    stream if none are marked default. Generates warnings about additional
+    video streams.
+
+    Args:
+        tracks: List of all tracks from the file.
+
+    Returns:
+        Tuple of (primary_video_track, list_of_warnings).
+    """
+    video_tracks = [t for t in tracks if t.track_type == "video"]
+    warnings: list[str] = []
+
+    if not video_tracks:
+        return None, ["No video streams found in file"]
+
+    if len(video_tracks) == 1:
+        return video_tracks[0], []
+
+    # Multiple video streams - select primary
+    # First check for default flagged stream
+    default_tracks = [t for t in video_tracks if t.is_default]
+
+    if default_tracks:
+        primary = default_tracks[0]
+    else:
+        primary = video_tracks[0]
+
+    # Generate warnings about other video streams
+    other_indices = [t.index for t in video_tracks if t.index != primary.index]
+    warnings.append(
+        f"Multiple video streams detected ({len(video_tracks)} total). "
+        f"Using stream {primary.index} as primary. "
+        f"Streams {other_indices} will be dropped during transcoding."
+    )
+
+    return primary, warnings
+
+
+def detect_hdr_content(tracks: list[TrackInfo]) -> tuple[bool, str | None]:
+    """Detect if video content contains HDR metadata.
+
+    HDR detection looks for common HDR indicators in video track metadata.
+    This is a heuristic and may not catch all HDR content.
+
+    Note: Full HDR detection would require deeper ffprobe analysis of
+    color_transfer, color_primaries, and color_space fields.
+
+    Args:
+        tracks: List of all tracks from the file.
+
+    Returns:
+        Tuple of (is_hdr, hdr_type_description).
+    """
+    video_tracks = [t for t in tracks if t.track_type == "video"]
+
+    if not video_tracks:
+        return False, None
+
+    # Check codec for HDR indicators (basic heuristic)
+    # Full detection would need color_transfer/color_primaries from ffprobe
+    hdr_indicators = ("hdr", "dolby vision", "hlg", "bt2020")
+
+    for track in video_tracks:
+        if track.title:
+            title_lower = track.title.lower()
+            for indicator in hdr_indicators:
+                if indicator in title_lower:
+                    return True, f"HDR content detected (title contains '{indicator}')"
+
+    # Note: For comprehensive HDR detection, we would need to check:
+    # - color_transfer: smpte2084 (PQ), arib-std-b67 (HLG)
+    # - color_primaries: bt2020
+    # - color_space: bt2020nc, bt2020c
+    # This would require extending ffprobe output parsing
+
+    return False, None
+
+
+def build_hdr_preservation_args(is_hdr: bool, scaling: bool) -> list[str]:
+    """Build FFmpeg arguments to preserve HDR metadata during transcoding.
+
+    When scaling HDR content, we need to preserve HDR metadata to avoid
+    converting to SDR. This function provides the necessary FFmpeg flags.
+
+    Args:
+        is_hdr: Whether content is HDR.
+        scaling: Whether scaling is being applied.
+
+    Returns:
+        List of FFmpeg arguments for HDR preservation.
+    """
+    if not is_hdr:
+        return []
+
+    args: list[str] = []
+
+    # Preserve color metadata
+    args.extend(
+        [
+            "-colorspace",
+            "bt2020nc",
+            "-color_primaries",
+            "bt2020",
+            "-color_trc",
+            "smpte2084",
+        ]
+    )
+
+    if scaling:
+        # When scaling, we need to ensure HDR metadata is copied
+        # Note: Complex HDR tone mapping would require additional filters
+        logger.warning(
+            "Scaling HDR content may affect quality. HDR metadata will be "
+            "preserved, but tone mapping is not applied. Consider keeping "
+            "original resolution for HDR."
+        )
+
+    return args
+
+
 @dataclass
 class TranscodeResult:
     """Result of a transcode operation."""
@@ -261,6 +520,13 @@ class TranscodePlan:
 
     # Computed audio plan
     audio_plan: AudioPlan | None = None
+
+    # Edge case detection results
+    warnings: list[str] | None = None
+    is_vfr: bool = False
+    is_hdr: bool = False
+    bitrate_estimated: bool = False
+    primary_video_index: int | None = None
 
     @property
     def needs_any_transcode(self) -> bool:
@@ -598,7 +864,7 @@ def _build_downmix_filter(downmix_track: AudioTrackPlan) -> str | None:
 
 
 def _get_encoder(codec: str) -> str:
-    """Get FFmpeg encoder name for a codec."""
+    """Get FFmpeg encoder name for a codec (software encoders only)."""
     encoders = {
         "hevc": "libx265",
         "h265": "libx265",
@@ -607,6 +873,140 @@ def _get_encoder(codec: str) -> str:
         "av1": "libaom-av1",
     }
     return encoders.get(codec.lower(), "libx265")
+
+
+# Hardware encoder mappings by codec and hardware type
+HARDWARE_ENCODERS: dict[str, dict[str, str]] = {
+    "hevc": {
+        "nvenc": "hevc_nvenc",
+        "qsv": "hevc_qsv",
+        "vaapi": "hevc_vaapi",
+    },
+    "h265": {
+        "nvenc": "hevc_nvenc",
+        "qsv": "hevc_qsv",
+        "vaapi": "hevc_vaapi",
+    },
+    "h264": {
+        "nvenc": "h264_nvenc",
+        "qsv": "h264_qsv",
+        "vaapi": "h264_vaapi",
+    },
+    "av1": {
+        "nvenc": "av1_nvenc",  # RTX 40 series only
+        "qsv": "av1_qsv",  # Intel Arc / newer iGPU
+    },
+}
+
+# Patterns in FFmpeg output that indicate hardware encoder memory/resource errors
+HW_ENCODER_ERROR_PATTERNS = (
+    "cannot load",
+    "not found",
+    "not supported",
+    "nvenc",
+    "cuda",
+    "device",
+    "memory",
+    "resource",
+    "initialization failed",
+    "encoder not found",
+    "could not open",
+)
+
+
+def _check_hw_encoder_available(encoder: str) -> bool:
+    """Check if a hardware encoder is available on this system.
+
+    Uses FFmpeg to test if the encoder can be loaded.
+
+    Args:
+        encoder: FFmpeg encoder name (e.g., 'hevc_nvenc').
+
+    Returns:
+        True if encoder appears to be available.
+    """
+    try:
+        ffmpeg_path = require_tool("ffmpeg")
+        # Use ffmpeg -encoders to check if encoder is listed
+        result = subprocess.run(  # nosec B603
+            [str(ffmpeg_path), "-hide_banner", "-encoders"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        return encoder in result.stdout
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+
+
+def select_encoder_with_fallback(
+    codec: str,
+    hw_mode: str = "auto",
+    fallback_to_cpu: bool = True,
+) -> tuple[str, str]:
+    """Select the best available encoder with fallback support.
+
+    Args:
+        codec: Target video codec (hevc, h264, etc.).
+        hw_mode: Hardware acceleration mode (auto, nvenc, qsv, vaapi, none).
+        fallback_to_cpu: Whether to fall back to CPU if HW unavailable.
+
+    Returns:
+        Tuple of (encoder_name, encoder_type) where encoder_type is
+        'hardware' or 'software'.
+    """
+    codec_lower = codec.lower()
+
+    # If explicitly set to none, use software encoder
+    if hw_mode == "none":
+        return _get_encoder(codec_lower), "software"
+
+    # Get hardware encoders for this codec
+    hw_encoders = HARDWARE_ENCODERS.get(codec_lower, {})
+
+    if hw_mode == "auto":
+        # Try each hardware encoder in preferred order
+        hw_priority = ["nvenc", "qsv", "vaapi"]
+        for hw_type in hw_priority:
+            if hw_type in hw_encoders:
+                encoder = hw_encoders[hw_type]
+                if _check_hw_encoder_available(encoder):
+                    logger.info("Selected hardware encoder: %s", encoder)
+                    return encoder, "hardware"
+    else:
+        # Specific hardware type requested
+        if hw_mode in hw_encoders:
+            encoder = hw_encoders[hw_mode]
+            if _check_hw_encoder_available(encoder):
+                logger.info("Selected requested hardware encoder: %s", encoder)
+                return encoder, "hardware"
+            elif not fallback_to_cpu:
+                logger.error(
+                    "Requested hardware encoder %s not available and "
+                    "fallback_to_cpu is disabled",
+                    encoder,
+                )
+                raise RuntimeError(
+                    f"Hardware encoder {encoder} not available. "
+                    "Enable fallback_to_cpu or use a different hardware mode."
+                )
+
+    # Fall back to software encoder
+    logger.info("Hardware encoder not available for %s, using software encoder", codec)
+    return _get_encoder(codec_lower), "software"
+
+
+def detect_hw_encoder_error(stderr_output: str) -> bool:
+    """Check if FFmpeg stderr output indicates a hardware encoder error.
+
+    Args:
+        stderr_output: FFmpeg stderr output to analyze.
+
+    Returns:
+        True if output suggests a hardware encoder failure.
+    """
+    stderr_lower = stderr_output.lower()
+    return any(pattern in stderr_lower for pattern in HW_ENCODER_ERROR_PATTERNS)
 
 
 class TranscodeExecutor:
@@ -651,6 +1051,10 @@ class TranscodeExecutor:
         video_bitrate: int | None = None,
         duration_seconds: float | None = None,
         audio_tracks: list[TrackInfo] | None = None,
+        all_tracks: list[TrackInfo] | None = None,
+        file_size_bytes: int | None = None,
+        r_frame_rate: str | None = None,
+        avg_frame_rate: str | None = None,
     ) -> TranscodePlan:
         """Create a transcode plan for a file.
 
@@ -663,17 +1067,64 @@ class TranscodeExecutor:
             video_bitrate: Current video bitrate in bits per second.
             duration_seconds: File duration in seconds.
             audio_tracks: List of audio track info.
+            all_tracks: List of all tracks (for edge case detection).
+            file_size_bytes: Total file size (for bitrate estimation).
+            r_frame_rate: Real frame rate from ffprobe.
+            avg_frame_rate: Average frame rate from ffprobe.
 
         Returns:
             TranscodePlan with computed actions.
         """
-        # Evaluate V6 skip conditions first
+        warnings: list[str] = []
+        is_vfr = False
+        is_hdr = False
+        bitrate_estimated = False
+        primary_video_index: int | None = None
+        effective_bitrate = video_bitrate
+
+        # Edge case: Detect VFR content (T095)
+        if r_frame_rate or avg_frame_rate:
+            vfr_detected, vfr_warning = detect_vfr_content(r_frame_rate, avg_frame_rate)
+            is_vfr = vfr_detected
+            if vfr_warning:
+                warnings.append(vfr_warning)
+                logger.warning("VFR content: %s - %s", input_path, vfr_warning)
+
+        # Edge case: Handle missing bitrate metadata (T096)
+        was_estimated, estimated_bitrate, bitrate_warning = detect_missing_bitrate(
+            video_bitrate, file_size_bytes, duration_seconds
+        )
+        bitrate_estimated = was_estimated
+        if estimated_bitrate is not None:
+            effective_bitrate = estimated_bitrate
+        if bitrate_warning:
+            warnings.append(bitrate_warning)
+            logger.warning("Bitrate estimation: %s - %s", input_path, bitrate_warning)
+
+        # Edge case: Handle multiple video streams (T099)
+        if all_tracks:
+            primary_track, multi_video_warnings = select_primary_video_stream(
+                all_tracks
+            )
+            warnings.extend(multi_video_warnings)
+            if primary_track:
+                primary_video_index = primary_track.index
+                for w in multi_video_warnings:
+                    logger.warning("Multiple video streams: %s - %s", input_path, w)
+
+            # Edge case: Detect HDR content (T101)
+            hdr_detected, hdr_desc = detect_hdr_content(all_tracks)
+            is_hdr = hdr_detected
+            if hdr_desc:
+                logger.info("HDR detection: %s - %s", input_path, hdr_desc)
+
+        # Evaluate V6 skip conditions using effective (possibly estimated) bitrate
         skip_result = should_skip_transcode(
             skip_if=self.skip_if,
             video_codec=video_codec,
             video_width=video_width,
             video_height=video_height,
-            video_bitrate=video_bitrate,
+            video_bitrate=effective_bitrate,
         )
 
         # If skip conditions are met, create plan with skip result
@@ -690,12 +1141,17 @@ class TranscodeExecutor:
                 video_codec=video_codec,
                 video_width=video_width,
                 video_height=video_height,
-                video_bitrate=video_bitrate,
+                video_bitrate=effective_bitrate,
                 duration_seconds=duration_seconds,
                 audio_tracks=audio_tracks,
                 skip_result=skip_result,
                 needs_video_transcode=False,
                 needs_video_scale=False,
+                warnings=warnings if warnings else None,
+                is_vfr=is_vfr,
+                is_hdr=is_hdr,
+                bitrate_estimated=bitrate_estimated,
+                primary_video_index=primary_video_index,
             )
 
         # Normal transcode evaluation
@@ -707,6 +1163,18 @@ class TranscodeExecutor:
                 video_height,
             )
         )
+
+        # Edge case: HDR preservation warning (T101)
+        if is_hdr and needs_scale:
+            warnings.append(
+                "HDR content will be scaled. HDR metadata will be preserved, but "
+                "visual quality may be affected. Consider keeping original resolution "
+                "for HDR content."
+            )
+            logger.warning(
+                "HDR content scaling: %s - consider keeping original resolution",
+                input_path,
+            )
 
         # Create audio plan if audio tracks are provided
         # Use V6 audio config if available, otherwise fall back to V1-5 policy
@@ -724,7 +1192,7 @@ class TranscodeExecutor:
             video_codec=video_codec,
             video_width=video_width,
             video_height=video_height,
-            video_bitrate=video_bitrate,
+            video_bitrate=effective_bitrate,
             duration_seconds=duration_seconds,
             audio_tracks=audio_tracks,
             skip_result=skip_result,
@@ -733,6 +1201,11 @@ class TranscodeExecutor:
             target_width=target_width,
             target_height=target_height,
             audio_plan=audio_plan,
+            warnings=warnings if warnings else None,
+            is_vfr=is_vfr,
+            is_hdr=is_hdr,
+            bitrate_estimated=bitrate_estimated,
+            primary_video_index=primary_video_index,
         )
 
     def is_compliant(

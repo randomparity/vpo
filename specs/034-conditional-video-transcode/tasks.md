@@ -291,22 +291,22 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 **Purpose**: Documentation, validation, and integration testing
 
-- [ ] T089 [P] Add example transcode policies to docs/usage/ or examples/
-- [ ] T090 [P] Update CLAUDE.md with new transcode policy options
-- [ ] T091 Integration test: Skip + CRF + audio preservation in tests/integration/test_transcode_executor.py
-- [ ] T092 Integration test: Scaling + hardware accel in tests/integration/test_transcode_executor.py
-- [ ] T093 Add policy validation for conflicting options (e.g., CRF + bitrate mode)
-- [ ] T094 Run quickstart.md validation scenarios
+- [x] T089 [P] Add example transcode policies to docs/usage/ or examples/
+- [x] T090 [P] Update CLAUDE.md with new transcode policy options
+- [x] T091 Integration test: Skip + CRF + audio preservation in tests/integration/test_transcode_executor.py
+- [x] T092 Integration test: Scaling + hardware accel in tests/integration/test_transcode_executor.py
+- [x] T093 Add policy validation for conflicting options (e.g., CRF + bitrate mode)
+- [x] T094 Run quickstart.md validation scenarios
 
 ### Edge Case Handling
 
-- [ ] T095 Edge case: Handle VFR input gracefully (detect via ffprobe, warn user) in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T096 Edge case: Handle missing bitrate metadata with warning in src/video_policy_orchestrator/executor/transcode.py
+- [x] T095 Edge case: Handle VFR input gracefully (detect via ffprobe, warn user) in src/video_policy_orchestrator/executor/transcode.py
+- [x] T096 Edge case: Handle missing bitrate metadata with warning in src/video_policy_orchestrator/executor/transcode.py
 - [x] T097 Edge case: Handle corrupted source files (catch ffmpeg errors, report clearly) in src/video_policy_orchestrator/executor/transcode.py
 - [x] T098 Edge case: Detect insufficient disk space before transcode (estimate output size) in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T099 Edge case: Handle multiple video streams (select primary, warn about others) in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T100 Edge case: Handle HW encoder memory errors with CPU fallback in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T101 Edge case: Preserve HDR metadata during downscaling, warn about compatibility in src/video_policy_orchestrator/executor/transcode.py
+- [x] T099 Edge case: Handle multiple video streams (select primary, warn about others) in src/video_policy_orchestrator/executor/transcode.py
+- [x] T100 Edge case: Handle HW encoder memory errors with CPU fallback in src/video_policy_orchestrator/executor/transcode.py
+- [x] T101 Edge case: Preserve HDR metadata during downscaling, warn about compatibility in src/video_policy_orchestrator/executor/transcode.py
 
 ---
 

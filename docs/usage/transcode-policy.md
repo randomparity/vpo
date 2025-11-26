@@ -322,6 +322,169 @@ vpo transcode --dry-run --policy my-policy.yaml /videos/
 #   [SKIP] Already.mkv: Already compliant
 ```
 
+## V6 Schema: Conditional Transcoding
+
+Schema version 6 introduces conditional transcoding with skip conditions, advanced quality controls, and hardware acceleration support.
+
+### Skip Conditions
+
+Skip transcoding for files that already meet your requirements:
+
+```yaml
+schema_version: 6
+
+transcode:
+  video:
+    target_codec: hevc
+
+    # Skip if ALL conditions are met
+    skip_if:
+      codec_matches:       # Already using target codec
+        - hevc
+        - h265
+      resolution_within: 1080p  # Resolution at or below threshold
+      bitrate_under: 15M   # Bitrate below threshold
+
+    quality:
+      mode: crf
+      crf: 20
+```
+
+**Skip condition behavior:**
+- All conditions must be met (AND logic)
+- Unspecified conditions are always satisfied
+- Helps avoid re-encoding compliant files
+
+### Quality Settings (V6)
+
+Three quality control modes are available:
+
+#### CRF Mode (Recommended)
+
+```yaml
+transcode:
+  video:
+    quality:
+      mode: crf
+      crf: 20
+      preset: medium    # Options: ultrafast, faster, fast, medium, slow, slower, veryslow
+      tune: film        # Options: film, animation, grain, stillimage, fastdecode
+```
+
+#### Bitrate Mode
+
+```yaml
+transcode:
+  video:
+    quality:
+      mode: bitrate
+      bitrate: 5M
+      two_pass: true    # Higher quality but slower
+```
+
+#### Constrained Quality Mode
+
+CRF with maximum bitrate cap:
+
+```yaml
+transcode:
+  video:
+    quality:
+      mode: constrained_quality
+      crf: 20
+      max_bitrate: 10M  # Cap bitrate peaks
+```
+
+### Hardware Acceleration
+
+Configure GPU encoding:
+
+```yaml
+transcode:
+  video:
+    hardware_acceleration:
+      enabled: auto      # auto, nvenc, qsv, vaapi, none
+      fallback_to_cpu: true  # Fall back if HW unavailable
+```
+
+**Hardware modes:**
+- `auto`: Detect available hardware, prefer NVENC > QSV > VAAPI
+- `nvenc`: NVIDIA NVENC (requires NVIDIA GPU)
+- `qsv`: Intel Quick Sync Video (requires Intel CPU/GPU)
+- `vaapi`: Video Acceleration API (Linux, various GPUs)
+- `none`: Force software encoding
+
+### Scaling Settings (V6)
+
+Advanced scaling options:
+
+```yaml
+transcode:
+  video:
+    scaling:
+      max_resolution: 1080p
+      algorithm: lanczos  # Options: bilinear, bicubic, lanczos, spline
+      upscale: false      # Never upscale smaller content
+```
+
+### Audio Settings (V6)
+
+Restructured audio configuration:
+
+```yaml
+transcode:
+  audio:
+    preserve_codecs:
+      - truehd
+      - dts-hd
+      - flac
+    transcode_to: aac
+    transcode_bitrate: 192k
+```
+
+### Complete V6 Example
+
+```yaml
+schema_version: 6
+
+transcode:
+  video:
+    target_codec: hevc
+
+    skip_if:
+      codec_matches: [hevc, h265]
+      resolution_within: 1080p
+      bitrate_under: 15M
+
+    quality:
+      mode: crf
+      crf: 20
+      preset: medium
+      tune: film
+
+    scaling:
+      max_resolution: 1080p
+      algorithm: lanczos
+
+    hardware_acceleration:
+      enabled: auto
+      fallback_to_cpu: true
+
+  audio:
+    preserve_codecs: [truehd, dts-hd, flac]
+    transcode_to: aac
+    transcode_bitrate: 192k
+```
+
+### Edge Case Warnings
+
+VPO detects and warns about these conditions:
+
+- **VFR content**: Variable frame rate may cause playback issues
+- **Missing bitrate**: Estimates from file size when metadata unavailable
+- **Multiple video streams**: Uses first/default stream, warns about others
+- **HDR content**: Warns when scaling may affect HDR quality
+
 ## Related Docs
 
 - [Jobs Guide](jobs.md) - Managing the job queue
