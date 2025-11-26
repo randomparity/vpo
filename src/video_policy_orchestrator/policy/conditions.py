@@ -131,7 +131,8 @@ def _matches_title(actual: str | None, pattern: str | TitleMatch) -> bool:
             # Invalid regex - shouldn't happen due to validation
             return False
 
-    return False
+    # Should never reach here due to loader validation
+    raise ValueError("TitleMatch must have either 'contains' or 'regex' set")
 
 
 def matches_track(track: TrackInfo, filters: TrackFilters) -> bool:
@@ -302,19 +303,15 @@ def evaluate_condition(
         return evaluate_count(condition, tracks)
 
     if isinstance(condition, AndCondition):
-        reasons = []
         for sub in condition.conditions:
             result, reason = evaluate_condition(sub, tracks)
-            reasons.append(reason)
             if not result:
                 return (False, f"and → False ({reason})")
         return (True, f"and → True ({len(condition.conditions)} conditions)")
 
     if isinstance(condition, OrCondition):
-        reasons = []
         for sub in condition.conditions:
             result, reason = evaluate_condition(sub, tracks)
-            reasons.append(reason)
             if result:
                 return (True, f"or → True ({reason})")
         return (False, f"or → False ({len(condition.conditions)} conditions failed)")
@@ -323,5 +320,5 @@ def evaluate_condition(
         result, reason = evaluate_condition(condition.inner, tracks)
         return (not result, f"not({reason}) → {not result}")
 
-    # Unknown condition type
-    return (False, "unknown condition type")
+    # Should never reach here - all condition types handled above
+    raise TypeError(f"Unknown condition type: {type(condition).__name__}")

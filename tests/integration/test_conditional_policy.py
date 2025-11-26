@@ -10,7 +10,6 @@ import pytest
 
 from video_policy_orchestrator.db.models import TrackInfo
 from video_policy_orchestrator.policy.evaluator import (
-    _extract_skip_flags_from_result,
     evaluate_conditional_rules,
     evaluate_policy,
 )
@@ -291,7 +290,7 @@ class TestConditionalRuleEvaluation:
 
         assert result.matched_rule == "4K HEVC passthrough"
         assert result.matched_branch == "then"
-        skip_flags = _extract_skip_flags_from_result(result)
+        skip_flags = result.skip_flags
         assert skip_flags.skip_video_transcode is True
         assert len(result.warnings) == 1
         assert "4K HEVC" in result.warnings[0]
@@ -322,7 +321,7 @@ class TestConditionalRuleEvaluation:
         # Should skip 4K rule, skip single-audio rule, match default
         assert result.matched_rule == "Default processing"
         assert result.matched_branch == "then"
-        skip_flags = _extract_skip_flags_from_result(result)
+        skip_flags = result.skip_flags
         assert skip_flags.skip_video_transcode is False
         assert skip_flags.skip_track_filter is False
 
@@ -346,7 +345,7 @@ class TestConditionalRuleEvaluation:
         # Should skip 4K rule, match single-audio rule
         assert result.matched_rule == "Single audio track"
         assert result.matched_branch == "then"
-        skip_flags = _extract_skip_flags_from_result(result)
+        skip_flags = result.skip_flags
         assert skip_flags.skip_track_filter is True
 
     def test_evaluation_trace_records_all_rules(

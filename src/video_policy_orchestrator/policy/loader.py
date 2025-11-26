@@ -428,6 +428,15 @@ class ConditionModel(BaseModel):
             )
         return self
 
+    @model_validator(mode="after")
+    def validate_boolean_conditions_not_empty(self) -> "ConditionModel":
+        """Validate that boolean conditions have at least 2 sub-conditions."""
+        if self.all_of is not None and len(self.all_of) < 2:
+            raise ValueError("'and' condition must have at least 2 sub-conditions")
+        if self.any_of is not None and len(self.any_of) < 2:
+            raise ValueError("'or' condition must have at least 2 sub-conditions")
+        return self
+
 
 class ActionModel(BaseModel):
     """Pydantic model for conditional action."""

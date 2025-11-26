@@ -801,3 +801,4 @@ class ConditionalResult:
     matched_branch: Literal["then", "else"] | None
     warnings: tuple[str, ...]  # Formatted warning messages
     evaluation_trace: tuple[RuleEvaluation, ...]  # For dry-run output
+    skip_flags: SkipFlags = field(default_factory=SkipFlags)

@@ -950,28 +950,13 @@ def evaluate_conditional_rules(
                 skip_flags = context.skip_flags
                 warnings = context.warnings
 
-    # Store skip_flags on a temporary attribute for extraction
-    result = ConditionalResult(
+    return ConditionalResult(
         matched_rule=matched_rule,
         matched_branch=matched_branch,
         warnings=tuple(warnings),
         evaluation_trace=tuple(evaluation_trace),
+        skip_flags=skip_flags,
     )
-    # Attach skip_flags as a transient attribute (not part of frozen dataclass)
-    object.__setattr__(result, "_skip_flags", skip_flags)
-    return result
-
-
-def _extract_skip_flags_from_result(result: ConditionalResult) -> SkipFlags:
-    """Extract skip flags from a ConditionalResult.
-
-    Args:
-        result: The conditional result from rule evaluation.
-
-    Returns:
-        SkipFlags accumulated during action execution.
-    """
-    return getattr(result, "_skip_flags", SkipFlags())
 
 
 def evaluate_container_change_with_policy(
@@ -1073,12 +1058,7 @@ def evaluate_policy(
             tracks=tracks,
             file_path=file_path,
         )
-        # Extract skip flags from result (stored on result, not as separate field)
-        # We need to rebuild skip flags from evaluation context
-        # The skip_flags are returned via the ConditionalResult
-        # by inspecting which actions were executed
-        # For now, we derive from the actions that were executed
-        skip_flags = _extract_skip_flags_from_result(conditional_result)
+        skip_flags = conditional_result.skip_flags
 
     matcher = CommentaryMatcher(policy.commentary_patterns)
     actions: list[PlannedAction] = []

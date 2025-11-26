@@ -10,7 +10,6 @@ import pytest
 
 from video_policy_orchestrator.db.models import TrackInfo
 from video_policy_orchestrator.policy.evaluator import (
-    _extract_skip_flags_from_result,
     evaluate_conditional_rules,
 )
 from video_policy_orchestrator.policy.models import (
@@ -195,7 +194,7 @@ class TestSingleRuleThenBranch:
 
         assert result.matched_rule == "Skip video transcode"
         assert result.matched_branch == "then"
-        skip_flags = _extract_skip_flags_from_result(result)
+        skip_flags = result.skip_flags
         assert skip_flags.skip_video_transcode is True
 
     def test_rule_matches_with_warn_action(self, basic_tracks: list[TrackInfo]) -> None:
@@ -246,7 +245,7 @@ class TestSingleRuleElseBranch:
 
         assert result.matched_rule == "Check attachments"
         assert result.matched_branch == "else"
-        skip_flags = _extract_skip_flags_from_result(result)
+        skip_flags = result.skip_flags
         assert skip_flags.skip_video_transcode is False
         assert skip_flags.skip_track_filter is True
 
@@ -270,7 +269,7 @@ class TestSingleRuleElseBranch:
 
         assert result.matched_rule is None
         assert result.matched_branch is None
-        skip_flags = _extract_skip_flags_from_result(result)
+        skip_flags = result.skip_flags
         assert skip_flags.skip_video_transcode is False
 
 
@@ -305,7 +304,7 @@ class TestMultipleRulesFirstMatchWins:
 
         # Rule 1 matches first, Rule 2 should not execute
         assert result.matched_rule == "Rule 1 - Video exists"
-        skip_flags = _extract_skip_flags_from_result(result)
+        skip_flags = result.skip_flags
         assert skip_flags.skip_video_transcode is True
         assert skip_flags.skip_audio_transcode is False  # Rule 2 not executed
 
@@ -334,7 +333,7 @@ class TestMultipleRulesFirstMatchWins:
 
         # Rule 1 fails, Rule 2 matches
         assert result.matched_rule == "Rule 2 - Audio exists"
-        skip_flags = _extract_skip_flags_from_result(result)
+        skip_flags = result.skip_flags
         assert skip_flags.skip_video_transcode is False
         assert skip_flags.skip_audio_transcode is True
 
@@ -397,7 +396,7 @@ class TestNoRulesMatching:
 
         assert result.matched_rule is None
         assert result.matched_branch is None
-        skip_flags = _extract_skip_flags_from_result(result)
+        skip_flags = result.skip_flags
         assert skip_flags == SkipFlags()
 
     def test_empty_rules_returns_empty_result(
@@ -412,7 +411,7 @@ class TestNoRulesMatching:
 
         assert result.matched_rule is None
         assert result.matched_branch is None
-        skip_flags = _extract_skip_flags_from_result(result)
+        skip_flags = result.skip_flags
         assert skip_flags == SkipFlags()
         assert len(result.evaluation_trace) == 0
 

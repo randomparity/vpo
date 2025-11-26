@@ -26,7 +26,7 @@ Usage:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -56,13 +56,8 @@ class ActionContext:
     rule_name: str
 
     # Accumulated state
-    skip_flags: SkipFlags = SkipFlags()
-    warnings: list[str] = None  # type: ignore[assignment]
-
-    def __post_init__(self) -> None:
-        """Initialize mutable defaults."""
-        if self.warnings is None:
-            self.warnings = []
+    skip_flags: SkipFlags = field(default_factory=SkipFlags)
+    warnings: list[str] = field(default_factory=list)
 
     @property
     def filename(self) -> str:
@@ -83,11 +78,14 @@ class ActionContext:
         Returns:
             Message with placeholders substituted.
         """
-        return message.format(
-            filename=self.filename,
-            path=str(self.file_path),
-            rule_name=self.rule_name,
-        )
+        try:
+            return message.format(
+                filename=self.filename,
+                path=str(self.file_path),
+                rule_name=self.rule_name,
+            )
+        except KeyError as e:
+            return f"{message} [invalid placeholder: {e}]"
 
 
 def execute_skip_action(action: SkipAction, context: ActionContext) -> ActionContext:
