@@ -81,6 +81,11 @@ class TrackInfo:
     width: int | None = None
     height: int | None = None
     frame_rate: str | None = None  # Stored as string to preserve precision
+    # HDR color metadata fields (034-conditional-video-transcode)
+    color_transfer: str | None = None  # e.g., "smpte2084" (PQ), "arib-std-b67" (HLG)
+    color_primaries: str | None = None  # e.g., "bt2020"
+    color_space: str | None = None  # e.g., "bt2020nc"
+    color_range: str | None = None  # e.g., "tv", "pc"
 
 
 @dataclass
@@ -174,6 +179,11 @@ class TrackRecord:
     width: int | None = None
     height: int | None = None
     frame_rate: str | None = None
+    # HDR color metadata fields (034-conditional-video-transcode)
+    color_transfer: str | None = None
+    color_primaries: str | None = None
+    color_space: str | None = None
+    color_range: str | None = None
 
     @classmethod
     def from_track_info(cls, info: TrackInfo, file_id: int) -> "TrackRecord":
@@ -193,6 +203,10 @@ class TrackRecord:
             width=info.width,
             height=info.height,
             frame_rate=info.frame_rate,
+            color_transfer=info.color_transfer,
+            color_primaries=info.color_primaries,
+            color_space=info.color_space,
+            color_range=info.color_range,
         )
 
 

@@ -1,7 +1,7 @@
 """FFprobe-based implementation of MediaIntrospector protocol."""
 
 import json
-import subprocess
+import subprocess  # nosec B404 - subprocess is required for ffprobe invocation
 from pathlib import Path
 
 from video_policy_orchestrator.db.models import IntrospectionResult, TrackInfo
@@ -101,7 +101,7 @@ class FFprobeIntrospector:
             subprocess.CalledProcessError: If ffprobe returns non-zero.
             json.JSONDecodeError: If output is not valid JSON.
         """
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - ffprobe path is validated
             [
                 str(self._ffprobe_path),
                 "-v",
@@ -233,6 +233,19 @@ class FFprobeIntrospector:
                 frame_rate = stream.get("r_frame_rate") or stream.get("avg_frame_rate")
                 if frame_rate and frame_rate != "0/0":
                     track.frame_rate = frame_rate
+                # Extract HDR color metadata
+                color_transfer = stream.get("color_transfer")
+                if color_transfer:
+                    track.color_transfer = color_transfer
+                color_primaries = stream.get("color_primaries")
+                if color_primaries:
+                    track.color_primaries = color_primaries
+                color_space = stream.get("color_space")
+                if color_space:
+                    track.color_space = color_space
+                color_range = stream.get("color_range")
+                if color_range:
+                    track.color_range = color_range
 
             tracks.append(track)
 

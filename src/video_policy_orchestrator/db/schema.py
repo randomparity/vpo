@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 12
+SCHEMA_VERSION = 13
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -52,6 +52,11 @@ CREATE TABLE IF NOT EXISTS tracks (
     width INTEGER,
     height INTEGER,
     frame_rate TEXT,
+    -- HDR color metadata (034-conditional-video-transcode)
+    color_transfer TEXT,
+    color_primaries TEXT,
+    color_space TEXT,
+    color_range TEXT,
     FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
     UNIQUE(file_id, track_index)
 );
@@ -901,6 +906,38 @@ def migrate_v11_to_v12(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def migrate_v12_to_v13(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 12 to version 13.
+
+    Adds HDR color metadata columns to the tracks table for the
+    conditional video transcode feature (034-conditional-video-transcode):
+    - color_transfer: Transfer characteristics (e.g., smpte2084, arib-std-b67)
+    - color_primaries: Color primaries (e.g., bt2020)
+    - color_space: Color space (e.g., bt2020nc)
+    - color_range: Color range (e.g., tv, pc)
+
+    This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Check if columns already exist by looking at table info
+    cursor = conn.execute("PRAGMA table_info(tracks)")
+    existing_columns = {row[1] for row in cursor.fetchall()}
+
+    # Add each column if it doesn't exist
+    hdr_columns = ["color_transfer", "color_primaries", "color_space", "color_range"]
+    for column in hdr_columns:
+        if column not in existing_columns:
+            conn.execute(f"ALTER TABLE tracks ADD COLUMN {column} TEXT")
+
+    # Update schema version to 13
+    conn.execute(
+        "UPDATE _meta SET value = '13' WHERE key = 'schema_version'",
+    )
+    conn.commit()
+
+
 def initialize_database(conn: sqlite3.Connection) -> None:
     """Initialize the database with schema, creating tables if needed.
 
@@ -945,3 +982,6 @@ def initialize_database(conn: sqlite3.Connection) -> None:
             current_version = 11
         if current_version == 11:
             migrate_v11_to_v12(conn)
+            current_version = 12
+        if current_version == 12:
+            migrate_v12_to_v13(conn)

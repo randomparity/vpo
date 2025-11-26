@@ -1,9 +1,13 @@
 """Transcode executor for video/audio transcoding via FFmpeg."""
 
 import logging
+import queue
 import subprocess  # nosec B404 - subprocess is required for FFmpeg invocation
+import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 from video_policy_orchestrator.db.models import TrackInfo
@@ -35,6 +39,45 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
+# Two-Pass Encoding Support
+# =============================================================================
+
+
+@dataclass
+class TwoPassContext:
+    """Context for two-pass encoding.
+
+    Two-pass encoding requires running FFmpeg twice:
+    - Pass 1: Analyze video, output to /dev/null, create log file
+    - Pass 2: Encode video using the log file for accurate bitrate targeting
+    """
+
+    passlogfile: Path
+    """Path prefix for pass log files (FFmpeg adds suffixes)."""
+
+    current_pass: int = 1
+    """Current pass number (1 or 2)."""
+
+    def cleanup(self) -> None:
+        """Remove pass log files after encoding.
+
+        x265 creates: passlogfile.log, passlogfile.log.cutree
+        x264 creates: passlogfile-0.log, passlogfile-0.log.mbtree
+        """
+        suffixes = [".log", ".log.cutree", "-0.log", "-0.log.mbtree"]
+        for suffix in suffixes:
+            log_file = Path(str(self.passlogfile) + suffix)
+            if log_file.exists():
+                try:
+                    log_file.unlink()
+                    logger.debug("Cleaned up pass log file: %s", log_file)
+                except OSError as e:
+                    logger.warning(
+                        "Could not clean up pass log file %s: %s", log_file, e
+                    )
+
+
+# =============================================================================
 # Edge Case Detection Utilities
 # =============================================================================
 
@@ -58,7 +101,7 @@ def _parse_frame_rate(frame_rate_str: str | None) -> float | None:
             if denom_val == 0:
                 return None
             return float(num) / denom_val
-        except (ValueError, ZeroDivisionError):
+        except ValueError:
             return None
 
     try:
@@ -211,14 +254,73 @@ def select_primary_video_stream(
     return primary, warnings
 
 
+class HDRType(Enum):
+    """Type of HDR content detected in video."""
+
+    NONE = "none"
+    """No HDR detected - standard dynamic range."""
+
+    HDR10 = "hdr10"
+    """HDR10 - PQ transfer function (smpte2084)."""
+
+    HLG = "hlg"
+    """Hybrid Log-Gamma - broadcast HDR (arib-std-b67)."""
+
+    DOLBY_VISION = "dolby_vision"
+    """Dolby Vision - detected from title metadata."""
+
+
+def detect_hdr_type(tracks: list[TrackInfo]) -> tuple[HDRType, str | None]:
+    """Detect HDR type from video color metadata.
+
+    Detection priority:
+    1. color_transfer field (most reliable):
+       - smpte2084 → HDR10 (PQ)
+       - arib-std-b67 → HLG
+    2. Title metadata fallback for Dolby Vision (not in color_transfer)
+
+    Args:
+        tracks: List of all tracks from the file.
+
+    Returns:
+        Tuple of (HDRType, description string or None).
+    """
+    video_tracks = [t for t in tracks if t.track_type == "video"]
+
+    if not video_tracks:
+        return HDRType.NONE, None
+
+    for track in video_tracks:
+        # Primary detection: color_transfer field
+        if track.color_transfer:
+            transfer = track.color_transfer.lower()
+            if transfer == "smpte2084":
+                return HDRType.HDR10, "HDR10 (PQ transfer function)"
+            if transfer == "arib-std-b67":
+                return HDRType.HLG, "HLG (Hybrid Log-Gamma)"
+
+        # Secondary detection: title metadata (for Dolby Vision and other formats)
+        if track.title:
+            title_lower = track.title.lower()
+            if "dolby vision" in title_lower or "dovi" in title_lower:
+                return HDRType.DOLBY_VISION, "Dolby Vision (from title)"
+            # Generic HDR indicators in title
+            hdr_indicators = ("hdr10+", "hdr10", "hdr", "hlg", "bt2020")
+            for indicator in hdr_indicators:
+                if indicator in title_lower:
+                    # Try to be specific about type
+                    if "hlg" in title_lower:
+                        return HDRType.HLG, f"HLG (title contains '{indicator}')"
+                    return HDRType.HDR10, f"HDR content (title contains '{indicator}')"
+
+    return HDRType.NONE, None
+
+
 def detect_hdr_content(tracks: list[TrackInfo]) -> tuple[bool, str | None]:
     """Detect if video content contains HDR metadata.
 
-    HDR detection looks for common HDR indicators in video track metadata.
-    This is a heuristic and may not catch all HDR content.
-
-    Note: Full HDR detection would require deeper ffprobe analysis of
-    color_transfer, color_primaries, and color_space fields.
+    This is a compatibility wrapper around detect_hdr_type() that returns
+    a boolean instead of HDRType enum.
 
     Args:
         tracks: List of all tracks from the file.
@@ -226,48 +328,36 @@ def detect_hdr_content(tracks: list[TrackInfo]) -> tuple[bool, str | None]:
     Returns:
         Tuple of (is_hdr, hdr_type_description).
     """
-    video_tracks = [t for t in tracks if t.track_type == "video"]
-
-    if not video_tracks:
-        return False, None
-
-    # Check codec for HDR indicators (basic heuristic)
-    # Full detection would need color_transfer/color_primaries from ffprobe
-    hdr_indicators = ("hdr", "dolby vision", "hlg", "bt2020")
-
-    for track in video_tracks:
-        if track.title:
-            title_lower = track.title.lower()
-            for indicator in hdr_indicators:
-                if indicator in title_lower:
-                    return True, f"HDR content detected (title contains '{indicator}')"
-
-    # Note: For comprehensive HDR detection, we would need to check:
-    # - color_transfer: smpte2084 (PQ), arib-std-b67 (HLG)
-    # - color_primaries: bt2020
-    # - color_space: bt2020nc, bt2020c
-    # This would require extending ffprobe output parsing
-
-    return False, None
+    hdr_type, description = detect_hdr_type(tracks)
+    return hdr_type != HDRType.NONE, description
 
 
-def build_hdr_preservation_args(is_hdr: bool, scaling: bool) -> list[str]:
+def build_hdr_preservation_args(hdr_type: HDRType, scaling: bool = False) -> list[str]:
     """Build FFmpeg arguments to preserve HDR metadata during transcoding.
 
     When scaling HDR content, we need to preserve HDR metadata to avoid
-    converting to SDR. This function provides the necessary FFmpeg flags.
+    converting to SDR. This function provides the necessary FFmpeg flags
+    based on the specific HDR format.
 
     Args:
-        is_hdr: Whether content is HDR.
+        hdr_type: Type of HDR content (HDR10, HLG, Dolby Vision, or NONE).
         scaling: Whether scaling is being applied.
 
     Returns:
         List of FFmpeg arguments for HDR preservation.
     """
-    if not is_hdr:
+    if hdr_type == HDRType.NONE:
         return []
 
     args: list[str] = []
+
+    # Map HDR type to transfer characteristics
+    color_trc_map = {
+        HDRType.HDR10: "smpte2084",  # PQ (Perceptual Quantizer)
+        HDRType.DOLBY_VISION: "smpte2084",  # Dolby Vision uses PQ
+        HDRType.HLG: "arib-std-b67",  # HLG transfer function
+    }
+    color_trc = color_trc_map.get(hdr_type, "smpte2084")
 
     # Preserve color metadata
     args.extend(
@@ -277,7 +367,7 @@ def build_hdr_preservation_args(is_hdr: bool, scaling: bool) -> list[str]:
             "-color_primaries",
             "bt2020",
             "-color_trc",
-            "smpte2084",
+            color_trc,
         ]
     )
 
@@ -291,6 +381,23 @@ def build_hdr_preservation_args(is_hdr: bool, scaling: bool) -> list[str]:
         )
 
     return args
+
+
+def build_hdr_preservation_args_compat(is_hdr: bool, scaling: bool) -> list[str]:
+    """Compatibility wrapper for build_hdr_preservation_args.
+
+    This provides backward compatibility for code using the old boolean signature.
+    New code should use build_hdr_preservation_args(hdr_type, scaling) directly.
+
+    Args:
+        is_hdr: Whether content is HDR.
+        scaling: Whether scaling is being applied.
+
+    Returns:
+        List of FFmpeg arguments for HDR preservation.
+    """
+    hdr_type = HDRType.HDR10 if is_hdr else HDRType.NONE
+    return build_hdr_preservation_args(hdr_type, scaling)
 
 
 @dataclass
@@ -351,12 +458,12 @@ def _codec_matches_any(
         if current_lower == pattern_lower:
             return True
 
-        # Check if pattern has aliases we should expand
+        # Check if pattern has aliases - use exact matching
         aliases = CODEC_ALIASES.get(pattern_lower, ())
-        if any(alias in current_lower for alias in aliases):
+        if current_lower in aliases:
             return True
 
-        # Check if current codec has aliases
+        # Check if current codec has aliases that match pattern exactly
         current_aliases = CODEC_ALIASES.get(current_lower, ())
         if pattern_lower in current_aliases:
             return True
@@ -525,6 +632,7 @@ class TranscodePlan:
     warnings: list[str] | None = None
     is_vfr: bool = False
     is_hdr: bool = False
+    hdr_type: HDRType = HDRType.NONE
     bitrate_estimated: bool = False
     primary_video_index: int | None = None
 
@@ -633,6 +741,7 @@ def _build_quality_args(
     policy: TranscodePolicyConfig,
     codec: str,
     encoder: str,
+    two_pass_ctx: TwoPassContext | None = None,
 ) -> list[str]:
     """Build FFmpeg quality-related arguments.
 
@@ -644,6 +753,7 @@ def _build_quality_args(
         policy: V1-5 transcode policy config.
         codec: Target video codec name.
         encoder: FFmpeg encoder name.
+        two_pass_ctx: Context for two-pass encoding (if active).
 
     Returns:
         List of FFmpeg arguments for quality settings.
@@ -662,16 +772,35 @@ def _build_quality_args(
             if quality.bitrate:
                 args.extend(["-b:v", quality.bitrate])
 
-                # Two-pass encoding for bitrate mode
-                if quality.two_pass:
-                    # Note: Two-pass requires running ffmpeg twice
-                    # This will be handled by the executor, not here
-                    pass
+            # Two-pass encoding for bitrate mode
+            if quality.two_pass and two_pass_ctx:
+                if encoder == "libx264":
+                    # x264 uses -pass 1/2 and -passlogfile
+                    args.extend(["-pass", str(two_pass_ctx.current_pass)])
+                    args.extend(["-passlogfile", str(two_pass_ctx.passlogfile)])
+                elif encoder == "libx265":
+                    # x265 uses x265-params pass=1/2:stats=file
+                    x265_params = (
+                        f"pass={two_pass_ctx.current_pass}:"
+                        f"stats={two_pass_ctx.passlogfile}"
+                    )
+                    args.extend(["-x265-params", x265_params])
+                else:
+                    # Other encoders: warn about limited two-pass support
+                    logger.warning(
+                        "Two-pass encoding requested for %s but may not be "
+                        "fully supported. Using single-pass.",
+                        encoder,
+                    )
 
         elif quality.mode == QualityMode.CONSTRAINED_QUALITY:
-            # Constrained quality: CRF with max bitrate cap
+            # Constrained quality: CRF with min/max bitrate bounds
             crf = quality.crf if quality.crf is not None else get_default_crf(codec)
             args.extend(["-crf", str(crf)])
+            # Add minimum bitrate if specified
+            if quality.min_bitrate:
+                args.extend(["-minrate", quality.min_bitrate])
+            # Add maximum bitrate if specified
             if quality.max_bitrate:
                 args.extend(["-maxrate", quality.max_bitrate])
                 # Buffer size typically 2x max bitrate for VBV compliance
@@ -711,6 +840,7 @@ def build_ffmpeg_command(
     cpu_cores: int | None = None,
     quality: QualitySettings | None = None,
     target_codec: str | None = None,
+    two_pass_ctx: TwoPassContext | None = None,
 ) -> list[str]:
     """Build FFmpeg command for transcoding.
 
@@ -719,6 +849,7 @@ def build_ffmpeg_command(
         cpu_cores: Number of CPU cores to use (None = auto).
         quality: V6 quality settings (overrides policy settings if provided).
         target_codec: V6 target codec (overrides policy codec if provided).
+        two_pass_ctx: Context for two-pass encoding (if active).
 
     Returns:
         List of command arguments.
@@ -728,6 +859,10 @@ def build_ffmpeg_command(
 
     # Input file
     cmd.extend(["-i", str(plan.input_path)])
+
+    # Explicit stream mapping (required when AudioAction.REMOVE is present)
+    if _needs_explicit_mapping(plan.audio_plan):
+        cmd.extend(_build_stream_maps(plan, plan.audio_plan))
 
     # Video settings
     if plan.needs_video_transcode:
@@ -739,7 +874,7 @@ def build_ffmpeg_command(
         cmd.extend(["-c:v", encoder])
 
         # Build quality arguments (V6 quality takes precedence over policy)
-        cmd.extend(_build_quality_args(quality, policy, codec, encoder))
+        cmd.extend(_build_quality_args(quality, policy, codec, encoder, two_pass_ctx))
 
         # Scaling
         if plan.needs_video_scale and plan.target_width and plan.target_height:
@@ -749,6 +884,12 @@ def build_ffmpeg_command(
                     f"scale={plan.target_width}:{plan.target_height}",
                 ]
             )
+
+        # HDR preservation (must come after video encoder settings)
+        hdr_args = build_hdr_preservation_args(
+            plan.hdr_type, scaling=plan.needs_video_scale
+        )
+        cmd.extend(hdr_args)
     else:
         # Copy video stream
         cmd.extend(["-c:v", "copy"])
@@ -776,10 +917,143 @@ def build_ffmpeg_command(
     return cmd
 
 
+def build_ffmpeg_command_pass1(
+    plan: "TranscodePlan",
+    two_pass_ctx: TwoPassContext,
+    cpu_cores: int | None = None,
+    quality: QualitySettings | None = None,
+    target_codec: str | None = None,
+) -> list[str]:
+    """Build FFmpeg command for first pass of two-pass encoding.
+
+    First pass analyzes the video and writes stats to a log file.
+    Output goes to /dev/null (Linux/macOS) or NUL (Windows).
+
+    Args:
+        plan: Transcode plan with input/output paths and settings.
+        two_pass_ctx: Two-pass context with passlogfile path.
+        cpu_cores: Number of CPU cores to use (None = auto).
+        quality: V6 quality settings.
+        target_codec: V6 target codec.
+
+    Returns:
+        List of command arguments.
+    """
+    import platform
+
+    ffmpeg_path = require_tool("ffmpeg")
+    cmd = [str(ffmpeg_path), "-y", "-hide_banner"]
+
+    # Input file
+    cmd.extend(["-i", str(plan.input_path)])
+
+    # Video encoder settings
+    policy = plan.policy
+    codec = target_codec or policy.target_video_codec or "hevc"
+    encoder = _get_encoder(codec)
+    cmd.extend(["-c:v", encoder])
+
+    # Quality args with two-pass context (pass 1)
+    two_pass_ctx.current_pass = 1
+    cmd.extend(_build_quality_args(quality, policy, codec, encoder, two_pass_ctx))
+
+    # Preset (for x264/x265 encoders)
+    if quality and encoder in ("libx264", "libx265"):
+        cmd.extend(["-preset", quality.preset])
+
+    # Scaling (same as pass 2)
+    if plan.needs_video_scale and plan.target_width and plan.target_height:
+        cmd.extend(["-vf", f"scale={plan.target_width}:{plan.target_height}"])
+
+    # HDR preservation (same as pass 2)
+    hdr_args = build_hdr_preservation_args(
+        plan.hdr_type, scaling=plan.needs_video_scale
+    )
+    cmd.extend(hdr_args)
+
+    # No audio on first pass
+    cmd.extend(["-an"])
+
+    # Thread control
+    if cpu_cores:
+        cmd.extend(["-threads", str(cpu_cores)])
+
+    # Progress output to stderr
+    cmd.extend(["-stats_period", "1"])
+
+    # Output to null device
+    null_device = "NUL" if platform.system() == "Windows" else "/dev/null"
+    cmd.extend(["-f", "null", null_device])
+
+    return cmd
+
+
+def _needs_explicit_mapping(audio_plan: AudioPlan | None) -> bool:
+    """Check if explicit stream mapping is needed.
+
+    Explicit mapping is required when any audio track is marked for removal,
+    as FFmpeg's default behavior copies all streams.
+
+    Args:
+        audio_plan: Audio plan with track actions.
+
+    Returns:
+        True if explicit -map arguments are needed.
+    """
+    if audio_plan is None:
+        return False
+    return any(t.action == AudioAction.REMOVE for t in audio_plan.tracks)
+
+
+def _build_stream_maps(
+    plan: "TranscodePlan",
+    audio_plan: AudioPlan | None,
+) -> list[str]:
+    """Build explicit stream mapping arguments.
+
+    When explicit mapping is used, we must specify every stream to include.
+    Streams not mapped are excluded from the output.
+
+    Args:
+        plan: Transcode plan with video info.
+        audio_plan: Audio plan with track actions.
+
+    Returns:
+        List of -map arguments for FFmpeg.
+    """
+    args: list[str] = []
+
+    # Map video stream (always include)
+    args.extend(["-map", "0:v:0"])
+
+    # Map audio streams (only those not marked for removal)
+    if audio_plan:
+        for track in audio_plan.tracks:
+            if track.action != AudioAction.REMOVE:
+                # Map this audio stream by its track index
+                args.extend(["-map", f"0:{track.track_index}"])
+    else:
+        # No audio plan = keep all audio
+        args.extend(["-map", "0:a?"])  # ? makes it optional if no audio
+
+    # Map all subtitle streams
+    args.extend(["-map", "0:s?"])  # ? makes it optional
+
+    # Map attachments (fonts, etc.)
+    args.extend(["-map", "0:t?"])  # ? makes it optional
+
+    return args
+
+
 def _build_audio_args(
     audio_plan: AudioPlan, policy: TranscodePolicyConfig
 ) -> list[str]:
     """Build FFmpeg arguments for audio track handling.
+
+    Note: When AudioAction.REMOVE is present, explicit -map is used
+    in build_ffmpeg_command() to exclude those tracks. This function
+    only needs to specify codecs for remaining tracks, using output
+    stream indices (which may differ from input indices if tracks were removed).
 
     Args:
         audio_plan: The audio handling plan.
@@ -790,24 +1064,29 @@ def _build_audio_args(
     """
     args = []
 
+    # Track output stream index (may differ from input if tracks removed)
+    output_stream_idx = 0
+
     # Process each audio track
     for track in audio_plan.tracks:
         if track.action == AudioAction.COPY:
             # Stream copy this track
-            args.extend([f"-c:a:{track.stream_index}", "copy"])
+            args.extend([f"-c:a:{output_stream_idx}", "copy"])
+            output_stream_idx += 1
         elif track.action == AudioAction.TRANSCODE:
             # Transcode this track
             target = track.target_codec or policy.audio_transcode_to
             encoder = _get_audio_encoder(target)
-            args.extend([f"-c:a:{track.stream_index}", encoder])
+            args.extend([f"-c:a:{output_stream_idx}", encoder])
 
             # Set bitrate for the track
             bitrate = track.target_bitrate or policy.audio_transcode_bitrate
             if bitrate:
-                args.extend([f"-b:a:{track.stream_index}", bitrate])
+                args.extend([f"-b:a:{output_stream_idx}", bitrate])
+            output_stream_idx += 1
         elif track.action == AudioAction.REMOVE:
-            # Remove tracks are handled by not mapping them
-            # This requires a different approach - use -map
+            # Track excluded by -map, no codec args needed
+            # Do NOT increment output_stream_idx
             pass
 
     # Handle downmix as an additional output stream
@@ -848,17 +1127,20 @@ def _build_downmix_filter(downmix_track: AudioTrackPlan) -> str | None:
     Returns:
         Filter string or None if no filter needed.
     """
+    # Use the track's actual stream index, not hardcoded 0
+    source_index = downmix_track.stream_index
+
     if downmix_track.channel_layout == "stereo":
         # Downmix to stereo using Dolby Pro Logic II encoding
         return (
-            "[0:a:0]aresample=matrix_encoding=dplii,"
-            "pan=stereo|FL=FC+0.30*FL+0.30*BL|FR=FC+0.30*FR+0.30*BR[downmix]"
+            f"[0:a:{source_index}]aresample=matrix_encoding=dplii,"
+            f"pan=stereo|FL=FC+0.30*FL+0.30*BL|FR=FC+0.30*FR+0.30*BR[downmix]"
         )
     elif downmix_track.channel_layout == "5.1":
         # Downmix to 5.1 (usually from 7.1)
         return (
-            "[0:a:0]pan=5.1|FL=FL|FR=FR|FC=FC|LFE=LFE|"
-            "BL=0.5*BL+0.5*SL|BR=0.5*BR+0.5*SR[downmix]"
+            f"[0:a:{source_index}]pan=5.1|FL=FL|FR=FR|FC=FC|LFE=LFE|"
+            f"BL=0.5*BL+0.5*SL|BR=0.5*BR+0.5*SR[downmix]"
         )
     return None
 
@@ -1021,6 +1303,7 @@ class TranscodeExecutor:
         progress_callback: Callable[[FFmpegProgress], None] | None = None,
         temp_directory: Path | None = None,
         backup_original: bool = True,
+        transcode_timeout: float | None = None,
     ) -> None:
         """Initialize the transcode executor.
 
@@ -1032,6 +1315,7 @@ class TranscodeExecutor:
             progress_callback: Optional callback for progress updates.
             temp_directory: Directory for temp files (None = same as output).
             backup_original: Whether to backup original after success.
+            transcode_timeout: Maximum time in seconds for transcode (None = no limit).
         """
         self.policy = policy
         self.skip_if = skip_if
@@ -1040,6 +1324,7 @@ class TranscodeExecutor:
         self.progress_callback = progress_callback
         self.temp_directory = temp_directory
         self.backup_original = backup_original
+        self.transcode_timeout = transcode_timeout
 
     def create_plan(
         self,
@@ -1078,6 +1363,7 @@ class TranscodeExecutor:
         warnings: list[str] = []
         is_vfr = False
         is_hdr = False
+        hdr_type = HDRType.NONE
         bitrate_estimated = False
         primary_video_index: int | None = None
         effective_bitrate = video_bitrate
@@ -1113,8 +1399,8 @@ class TranscodeExecutor:
                     logger.warning("Multiple video streams: %s - %s", input_path, w)
 
             # Edge case: Detect HDR content (T101)
-            hdr_detected, hdr_desc = detect_hdr_content(all_tracks)
-            is_hdr = hdr_detected
+            hdr_type, hdr_desc = detect_hdr_type(all_tracks)
+            is_hdr = hdr_type != HDRType.NONE
             if hdr_desc:
                 logger.info("HDR detection: %s - %s", input_path, hdr_desc)
 
@@ -1150,6 +1436,7 @@ class TranscodeExecutor:
                 warnings=warnings if warnings else None,
                 is_vfr=is_vfr,
                 is_hdr=is_hdr,
+                hdr_type=hdr_type,
                 bitrate_estimated=bitrate_estimated,
                 primary_video_index=primary_video_index,
             )
@@ -1204,6 +1491,7 @@ class TranscodeExecutor:
             warnings=warnings if warnings else None,
             is_vfr=is_vfr,
             is_hdr=is_hdr,
+            hdr_type=hdr_type,
             bitrate_estimated=bitrate_estimated,
             primary_video_index=primary_video_index,
         )
@@ -1363,7 +1651,148 @@ class TranscodeExecutor:
         # Could add ffprobe validation here in future
         return True
 
-    def execute(self, plan: TranscodePlan) -> TranscodeResult:
+    def _execute_two_pass(
+        self,
+        plan: TranscodePlan,
+        quality: QualitySettings,
+        target_codec: str | None,
+        temp_output: Path,
+    ) -> TranscodeResult:
+        """Execute two-pass encoding.
+
+        Two-pass encoding runs FFmpeg twice:
+        - Pass 1: Analyze video, write stats to log file
+        - Pass 2: Encode video using log for accurate bitrate targeting
+
+        Args:
+            plan: The transcode plan.
+            quality: Quality settings with two_pass=True.
+            target_codec: Target codec override.
+            temp_output: Temp output path.
+
+        Returns:
+            TranscodeResult with success status.
+        """
+        import tempfile
+
+        # Create passlogfile in temp directory
+        passlog_dir = self.temp_directory or plan.output_path.parent
+        with tempfile.NamedTemporaryFile(
+            prefix="vpo_passlog_",
+            suffix="",
+            delete=False,
+            dir=passlog_dir,
+        ) as f:
+            passlogfile = Path(f.name)
+
+        two_pass_ctx = TwoPassContext(passlogfile=passlogfile)
+
+        try:
+            # === PASS 1 ===
+            two_pass_ctx.current_pass = 1
+            cmd1 = build_ffmpeg_command_pass1(
+                plan, two_pass_ctx, self.cpu_cores, quality, target_codec
+            )
+            logger.info("Starting two-pass encoding pass 1: %s", plan.input_path)
+            logger.debug("FFmpeg pass 1 command: %s", " ".join(cmd1))
+
+            process1 = subprocess.Popen(  # nosec B603
+                cmd1,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+
+            # Read stderr for progress (report as 0-50% for pass 1)
+            stderr_output1: list[str] = []
+            assert process1.stderr is not None
+            for line in process1.stderr:
+                stderr_output1.append(line)
+                progress = parse_stderr_progress(line)
+                if progress and self.progress_callback:
+                    # Scale progress to 0-50% for pass 1
+                    self.progress_callback(progress)
+
+            process1.wait()
+
+            if process1.returncode != 0:
+                error_msg = "".join(stderr_output1[-10:])
+                logger.error("FFmpeg pass 1 failed: %s", error_msg)
+                return TranscodeResult(
+                    success=False,
+                    error_message=f"Two-pass encoding failed on pass 1: {error_msg}",
+                )
+
+            logger.info("Pass 1 complete, starting pass 2")
+
+            # === PASS 2 ===
+            two_pass_ctx.current_pass = 2
+
+            # Create modified plan with temp output
+            temp_plan = TranscodePlan(
+                input_path=plan.input_path,
+                output_path=temp_output,
+                policy=plan.policy,
+                video_codec=plan.video_codec,
+                video_width=plan.video_width,
+                video_height=plan.video_height,
+                video_bitrate=plan.video_bitrate,
+                duration_seconds=plan.duration_seconds,
+                audio_tracks=plan.audio_tracks,
+                skip_result=plan.skip_result,
+                needs_video_transcode=plan.needs_video_transcode,
+                needs_video_scale=plan.needs_video_scale,
+                target_width=plan.target_width,
+                target_height=plan.target_height,
+                audio_plan=plan.audio_plan,
+            )
+
+            cmd2 = build_ffmpeg_command(
+                temp_plan, self.cpu_cores, quality, target_codec, two_pass_ctx
+            )
+            logger.info("Starting two-pass encoding pass 2: %s", plan.input_path)
+            logger.debug("FFmpeg pass 2 command: %s", " ".join(cmd2))
+
+            process2 = subprocess.Popen(  # nosec B603
+                cmd2,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+
+            # Read stderr for progress (report as 50-100% for pass 2)
+            stderr_output2: list[str] = []
+            assert process2.stderr is not None
+            for line in process2.stderr:
+                stderr_output2.append(line)
+                progress = parse_stderr_progress(line)
+                if progress and self.progress_callback:
+                    # Progress reports as-is (50-100% handled by caller)
+                    self.progress_callback(progress)
+
+            process2.wait()
+
+            if process2.returncode != 0:
+                error_msg = "".join(stderr_output2[-10:])
+                logger.error("FFmpeg pass 2 failed: %s", error_msg)
+                self._cleanup_partial(temp_output)
+                return TranscodeResult(
+                    success=False,
+                    error_message=f"Two-pass encoding failed on pass 2: {error_msg}",
+                )
+
+            return TranscodeResult(success=True, output_path=temp_output)
+
+        finally:
+            # Clean up pass log files
+            two_pass_ctx.cleanup()
+
+    def execute(
+        self,
+        plan: TranscodePlan,
+        quality: QualitySettings | None = None,
+        target_codec: str | None = None,
+    ) -> TranscodeResult:
         """Execute a transcode plan with safety features.
 
         Uses write-to-temp-then-move pattern, backs up originals on success,
@@ -1371,6 +1800,8 @@ class TranscodeExecutor:
 
         Args:
             plan: The transcode plan to execute.
+            quality: V6 quality settings (optional).
+            target_codec: V6 target codec (optional).
 
         Returns:
             TranscodeResult with success status.
@@ -1404,6 +1835,60 @@ class TranscodeExecutor:
                 f".vpo_temp_{plan.output_path.name}"
             )
 
+        # Check if two-pass encoding is requested
+        if quality and quality.two_pass and quality.mode == QualityMode.BITRATE:
+            result = self._execute_two_pass(plan, quality, target_codec, temp_output)
+            if not result.success:
+                return result
+            # Two-pass succeeded, continue with verification and move
+            try:
+                temp_output.parent.mkdir(parents=True, exist_ok=True)
+                plan.output_path.parent.mkdir(parents=True, exist_ok=True)
+
+                # Verify output integrity
+                if not self._verify_output_integrity(temp_output):
+                    self._cleanup_partial(temp_output)
+                    return TranscodeResult(
+                        success=False,
+                        error_message="Output file failed integrity verification",
+                    )
+
+                # Move temp to final destination
+                import shutil
+
+                try:
+                    shutil.move(str(temp_output), str(plan.output_path))
+                except OSError as e:
+                    self._cleanup_partial(temp_output)
+                    return TranscodeResult(
+                        success=False,
+                        error_message=f"Failed to move temp to final: {e}",
+                    )
+
+                # Backup original if requested
+                backup_path = None
+                if self.backup_original and plan.input_path != plan.output_path:
+                    success, backup_path, backup_error = self._backup_original(
+                        plan.input_path, plan.output_path
+                    )
+                    if not success:
+                        logger.warning("Could not backup original: %s", backup_error)
+
+                logger.info("Two-pass transcode completed: %s", plan.output_path)
+                return TranscodeResult(
+                    success=True,
+                    output_path=plan.output_path,
+                    backup_path=backup_path,
+                )
+
+            except Exception as e:
+                logger.exception("Two-pass transcode failed: %s", e)
+                self._cleanup_partial(temp_output)
+                return TranscodeResult(
+                    success=False,
+                    error_message=str(e),
+                )
+
         # Create a modified plan with temp output
         temp_plan = TranscodePlan(
             input_path=plan.input_path,
@@ -1433,22 +1918,84 @@ class TranscodeExecutor:
             plan.output_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Run FFmpeg with progress monitoring (cmd built from trusted FFmpeg path)
+            # Use DEVNULL for stdout to avoid deadlock - FFmpeg progress goes to stderr
             process = subprocess.Popen(  # nosec B603
                 cmd,
-                stdout=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
                 text=True,
             )
 
-            # Read stderr for progress
-            stderr_output = []
-            for line in process.stderr:
-                stderr_output.append(line)
-                progress = parse_stderr_progress(line)
-                if progress and self.progress_callback:
-                    self.progress_callback(progress)
+            # Read stderr in a separate thread to support timeout
+            stderr_output: list[str] = []
+            stderr_queue: queue.Queue[str | None] = queue.Queue()
 
-            # Wait for completion
+            def read_stderr() -> None:
+                """Read stderr lines and put them in the queue."""
+                try:
+                    assert process.stderr is not None
+                    for line in process.stderr:
+                        stderr_queue.put(line)
+                finally:
+                    stderr_queue.put(None)  # Signal end of output
+
+            reader_thread = threading.Thread(target=read_stderr, daemon=True)
+            reader_thread.start()
+
+            # Process stderr output while waiting for completion
+            timeout_expired = False
+            start_time = time.monotonic()
+
+            while True:
+                # Check timeout
+                if self.transcode_timeout is not None:
+                    elapsed = time.monotonic() - start_time
+                    if elapsed >= self.transcode_timeout:
+                        timeout_expired = True
+                        break
+
+                # Check if process finished
+                if process.poll() is not None:
+                    break
+
+                # Read from queue with timeout to allow checking process status
+                try:
+                    line = stderr_queue.get(timeout=1.0)
+                    if line is None:
+                        break  # End of stderr
+                    stderr_output.append(line)
+                    progress = parse_stderr_progress(line)
+                    if progress and self.progress_callback:
+                        self.progress_callback(progress)
+                except queue.Empty:
+                    continue
+
+            # Handle timeout
+            if timeout_expired:
+                logger.warning(
+                    "Transcode timed out after %s seconds", self.transcode_timeout
+                )
+                process.kill()
+                process.wait()  # Clean up zombie process
+                self._cleanup_partial(temp_output)
+                timeout_secs = self.transcode_timeout
+                return TranscodeResult(
+                    success=False,
+                    error_message=f"Transcode timed out after {timeout_secs} seconds",
+                )
+
+            # Drain any remaining stderr output
+            reader_thread.join(timeout=5.0)
+            while True:
+                try:
+                    line = stderr_queue.get_nowait()
+                    if line is None:
+                        break
+                    stderr_output.append(line)
+                except queue.Empty:
+                    break
+
+            # Wait for process to finish (should already be done)
             process.wait()
 
             if process.returncode != 0:

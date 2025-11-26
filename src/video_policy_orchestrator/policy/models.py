@@ -1001,6 +1001,17 @@ class SkipCondition:
 
     def __post_init__(self) -> None:
         """Validate skip condition configuration."""
+        # Require at least one condition to be specified
+        if (
+            self.codec_matches is None
+            and self.resolution_within is None
+            and self.bitrate_under is None
+        ):
+            raise ValueError(
+                "SkipCondition requires at least one condition to be specified. "
+                "Empty skip_if would skip all files. "
+                "Specify codec_matches, resolution_within, or bitrate_under."
+            )
         if self.resolution_within is not None:
             if self.resolution_within.lower() not in VALID_RESOLUTIONS:
                 raise ValueError(

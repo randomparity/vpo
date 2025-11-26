@@ -37,12 +37,15 @@ class TestSkipConditionDataclass:
         assert sc.resolution_within == "1080p"
         assert sc.bitrate_under == "10M"
 
-    def test_skip_condition_defaults_to_none(self):
-        """SkipCondition defaults all fields to None."""
-        sc = SkipCondition()
-        assert sc.codec_matches is None
-        assert sc.resolution_within is None
-        assert sc.bitrate_under is None
+    def test_skip_condition_empty_raises(self):
+        """SkipCondition with no conditions raises ValueError.
+
+        Empty skip_if would match all files (vacuously true), which is
+        almost certainly not the intended behavior. Users must specify
+        at least one condition.
+        """
+        with pytest.raises(ValueError, match="requires at least one condition"):
+            SkipCondition()
 
     def test_skip_condition_invalid_resolution_raises(self):
         """Invalid resolution_within raises ValueError."""
@@ -346,22 +349,15 @@ class TestShouldSkipTranscode:
         )
         assert result.skip is False
 
-    def test_empty_skip_condition_returns_skip(self):
-        """Empty SkipCondition (all None) returns skip (vacuously true)."""
-        from video_policy_orchestrator.executor.transcode import (
-            should_skip_transcode,
-        )
+    def test_empty_skip_condition_raises_at_construction(self):
+        """Empty SkipCondition raises ValueError at construction.
 
-        skip_if = SkipCondition()
-        result = should_skip_transcode(
-            skip_if=skip_if,
-            video_codec="hevc",
-            video_width=1920,
-            video_height=1080,
-            video_bitrate=None,
-        )
-        # Empty conditions = always skip (all unspecified conditions pass)
-        assert result.skip is True
+        Empty skip_if would skip all files (vacuously true), which is
+        almost certainly not the intended behavior. This is caught
+        at SkipCondition construction time.
+        """
+        with pytest.raises(ValueError, match="requires at least one condition"):
+            SkipCondition()
 
     def test_skip_reason_includes_details(self):
         """Skip reason includes what conditions were met."""
