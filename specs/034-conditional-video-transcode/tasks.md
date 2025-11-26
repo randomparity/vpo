@@ -110,17 +110,17 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Tests for User Story 8
 
-- [ ] T032 [P] [US8] Unit test for AudioTranscodeConfig dataclass in tests/unit/test_audio_preservation.py
-- [ ] T033 [P] [US8] Unit test for preserve_codecs matching in tests/unit/test_audio_preservation.py
-- [ ] T034 [P] [US8] Unit test for audio track planning (COPY vs TRANSCODE) in tests/unit/test_audio_preservation.py
+- [x] T032 [P] [US8] Unit test for AudioTranscodeConfig dataclass in tests/unit/test_audio_preservation.py
+- [x] T033 [P] [US8] Unit test for preserve_codecs matching in tests/unit/test_audio_preservation.py
+- [x] T034 [P] [US8] Unit test for audio track planning (COPY vs TRANSCODE) in tests/unit/test_audio_preservation.py
 
 ### Implementation for User Story 8
 
-- [ ] T035 [US8] Add AudioTranscodeConfig dataclass (preserve_codecs, transcode_to, transcode_bitrate) in src/video_policy_orchestrator/policy/models.py
-- [ ] T036 [US8] Enhance plan_audio_track() with preserve_codecs logic in src/video_policy_orchestrator/policy/transcode.py
-- [ ] T037 [US8] Update build_ffmpeg_command() to stream-copy preserved codecs in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T038 [US8] Ensure subtitle tracks always use -c:s copy in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T039 [US8] Parse audio section from YAML policy in src/video_policy_orchestrator/policy/schema.py
+- [x] T035 [US8] Add AudioTranscodeConfig dataclass (preserve_codecs, transcode_to, transcode_bitrate) in src/video_policy_orchestrator/policy/models.py
+- [x] T036 [US8] Enhance plan_audio_track() with preserve_codecs logic in src/video_policy_orchestrator/policy/transcode.py
+- [x] T037 [US8] Update build_ffmpeg_command() to stream-copy preserved codecs in src/video_policy_orchestrator/executor/transcode.py
+- [x] T038 [US8] Ensure subtitle tracks always use -c:s copy in src/video_policy_orchestrator/executor/transcode.py
+- [x] T039 [US8] Parse audio section from YAML policy in src/video_policy_orchestrator/policy/loader.py
 
 **Checkpoint**: Audio preservation functional - lossless codecs stream-copied, lossy transcoded
 

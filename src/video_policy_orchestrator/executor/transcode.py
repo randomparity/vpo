@@ -14,6 +14,7 @@ from video_policy_orchestrator.jobs.progress import (
 )
 from video_policy_orchestrator.policy.models import (
     RESOLUTION_MAP,
+    AudioTranscodeConfig,
     QualityMode,
     QualitySettings,
     SkipCondition,
@@ -26,6 +27,7 @@ from video_policy_orchestrator.policy.transcode import (
     AudioPlan,
     AudioTrackPlan,
     create_audio_plan,
+    create_audio_plan_v6,
     describe_audio_plan,
 )
 
@@ -614,6 +616,7 @@ class TranscodeExecutor:
         self,
         policy: TranscodePolicyConfig,
         skip_if: SkipCondition | None = None,
+        audio_config: AudioTranscodeConfig | None = None,
         cpu_cores: int | None = None,
         progress_callback: Callable[[FFmpegProgress], None] | None = None,
         temp_directory: Path | None = None,
@@ -624,6 +627,7 @@ class TranscodeExecutor:
         Args:
             policy: Transcode policy configuration.
             skip_if: V6 skip condition for conditional transcoding.
+            audio_config: V6 audio transcode config for preserve_codecs handling.
             cpu_cores: Number of CPU cores to use.
             progress_callback: Optional callback for progress updates.
             temp_directory: Directory for temp files (None = same as output).
@@ -631,6 +635,7 @@ class TranscodeExecutor:
         """
         self.policy = policy
         self.skip_if = skip_if
+        self.audio_config = audio_config
         self.cpu_cores = cpu_cores
         self.progress_callback = progress_callback
         self.temp_directory = temp_directory
@@ -704,9 +709,13 @@ class TranscodeExecutor:
         )
 
         # Create audio plan if audio tracks are provided
+        # Use V6 audio config if available, otherwise fall back to V1-5 policy
         audio_plan = None
         if audio_tracks:
-            audio_plan = create_audio_plan(audio_tracks, self.policy)
+            if self.audio_config is not None:
+                audio_plan = create_audio_plan_v6(audio_tracks, self.audio_config)
+            else:
+                audio_plan = create_audio_plan(audio_tracks, self.policy)
 
         return TranscodePlan(
             input_path=input_path,
