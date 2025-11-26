@@ -5,12 +5,11 @@ with configuration files and default policies.
 """
 
 import logging
-import os
 from pathlib import Path
 
 import click
 
-from video_policy_orchestrator.config.loader import DEFAULT_CONFIG_DIR
+from video_policy_orchestrator.config.loader import get_data_dir
 from video_policy_orchestrator.config.templates import (
     InitResult,
     check_initialization_state,
@@ -25,7 +24,7 @@ def _get_data_dir(data_dir_option: Path | None) -> Path:
 
     Priority:
     1. --data-dir CLI option
-    2. VPO_DATA_DIR environment variable
+    2. VPO_DATA_DIR environment variable (via get_data_dir())
     3. Default (~/.vpo)
 
     Args:
@@ -37,11 +36,7 @@ def _get_data_dir(data_dir_option: Path | None) -> Path:
     if data_dir_option is not None:
         return data_dir_option
 
-    env_data_dir = os.environ.get("VPO_DATA_DIR")
-    if env_data_dir:
-        return Path(env_data_dir).expanduser()
-
-    return DEFAULT_CONFIG_DIR
+    return get_data_dir()
 
 
 def _display_result(result: InitResult, force: bool) -> None:
@@ -72,11 +67,9 @@ def _display_result(result: InitResult, force: bool) -> None:
             )
             click.echo("")
 
+        # Directories are never "replaced" - they're reused
         for directory in result.created_directories:
-            if force and directory in result.skipped_files:
-                click.echo(f"Replaced {directory}/")
-            else:
-                click.echo(f"Created {directory}/")
+            click.echo(f"Created {directory}/")
 
         for file in result.created_files:
             if force and file in result.skipped_files:
@@ -155,10 +148,18 @@ def _display_existing_state(data_dir: Path) -> None:
     default=False,
     help="Show what would be created without making changes.",
 )
+@click.option(
+    "--quiet",
+    "-q",
+    is_flag=True,
+    default=False,
+    help="Suppress output except for errors.",
+)
 def init_command(
     data_dir: Path | None,
     force: bool,
     dry_run: bool,
+    quiet: bool,
 ) -> None:
     """Initialize VPO configuration directory.
 
@@ -200,8 +201,9 @@ def init_command(
     # Run initialization
     result = run_init(target_dir, force=force, dry_run=dry_run)
 
-    # Display results
-    _display_result(result, force)
+    # Display results (unless quiet mode, but always show errors)
+    if not quiet or not result.success:
+        _display_result(result, force)
 
     # Exit with appropriate code
     if not result.success:

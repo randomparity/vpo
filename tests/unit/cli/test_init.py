@@ -126,6 +126,7 @@ class TestInitCommand:
         assert "--data-dir" in result.output
         assert "--force" in result.output
         assert "--dry-run" in result.output
+        assert "--quiet" in result.output
 
     def test_dry_run(self, temp_dir: Path):
         """Test dry run doesn't create files."""
@@ -211,3 +212,44 @@ class TestInitCommand:
 
         assert result.exit_code == 1
         assert "file already exists" in result.output.lower()
+
+    def test_quiet_suppresses_output(self, temp_dir: Path):
+        """Test --quiet flag suppresses output on success."""
+        runner = CliRunner()
+        target = temp_dir / "vpo"
+
+        result = runner.invoke(init_command, ["--data-dir", str(target), "--quiet"])
+
+        assert result.exit_code == 0
+        # In quiet mode, no "VPO initialized successfully" message
+        # Note: Log messages may still appear in test output, but the actual CLI
+        # output from click.echo() should be suppressed
+        assert "VPO initialized successfully" not in result.output
+        assert "Next steps:" not in result.output
+        assert target.exists()  # But init still works
+
+    def test_quiet_shows_errors(self, temp_dir: Path):
+        """Test --quiet flag still shows errors."""
+        runner = CliRunner()
+        target = temp_dir / "vpo"
+        target.mkdir()
+        (target / "config.toml").touch()
+
+        result = runner.invoke(init_command, ["--data-dir", str(target), "--quiet"])
+
+        assert result.exit_code == 1
+        # Errors should still be shown even in quiet mode
+        assert "already initialized" in result.output.lower()
+
+    def test_symlink_data_dir_rejected(self, temp_dir: Path):
+        """Test that symlinks are rejected as data directory."""
+        runner = CliRunner()
+        real_dir = temp_dir / "real"
+        real_dir.mkdir()
+        symlink = temp_dir / "link"
+        symlink.symlink_to(real_dir)
+
+        result = runner.invoke(init_command, ["--data-dir", str(symlink)])
+
+        assert result.exit_code == 1
+        assert "symlink" in result.output.lower()

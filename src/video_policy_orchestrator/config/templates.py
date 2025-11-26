@@ -6,6 +6,7 @@ creating well-documented configuration files with sensible defaults.
 
 import logging
 import os
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -333,6 +334,10 @@ def validate_data_dir_path(data_dir: Path) -> str | None:
         Error message if validation fails, None if valid.
     """
     try:
+        # Reject symlinks for security (prevents traversal attacks)
+        if data_dir.is_symlink():
+            return f"Symlinks are not supported as data directory: {data_dir}"
+
         # Check if path is a file (can't create directory there)
         if data_dir.exists() and data_dir.is_file():
             return f"A file already exists at this location: {data_dir}"
@@ -370,6 +375,63 @@ def validate_data_dir_path(data_dir: Path) -> str | None:
         return f"Cannot access path {data_dir}: {e}"
 
 
+def _atomic_write_text(path: Path, content: str) -> None:
+    """Write content to file atomically using temp file + rename.
+
+    Creates a temp file in the same directory as the target, writes content,
+    then atomically replaces the target. This ensures the file is never
+    left in a partial state.
+
+    Args:
+        path: Target file path.
+        content: Content to write.
+
+    Raises:
+        OSError: If write or rename fails.
+        PermissionError: If permission denied.
+    """
+    # Create temp file in same directory (ensures same filesystem for atomic rename)
+    fd, temp_path_str = tempfile.mkstemp(
+        suffix=path.suffix,
+        dir=path.parent,
+        text=True,
+    )
+    temp_path = Path(temp_path_str)
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(content)
+        temp_path.replace(path)  # Atomic on POSIX
+    except Exception:
+        temp_path.unlink(missing_ok=True)
+        raise
+
+
+def _rollback_init(files: list[Path], dirs: list[Path]) -> None:
+    """Clean up created files and directories on failure.
+
+    Removes items in reverse order of creation. Directories are only
+    removed if they are empty (to avoid deleting user data).
+
+    Args:
+        files: Files that were created.
+        dirs: Directories that were created.
+    """
+    for f in reversed(files):
+        try:
+            f.unlink(missing_ok=True)
+            logger.debug("Rollback: removed file %s", f)
+        except OSError as e:
+            logger.warning("Rollback: failed to remove file %s: %s", f, e)
+
+    for d in reversed(dirs):
+        try:
+            if d.exists() and not any(d.iterdir()):
+                d.rmdir()
+                logger.debug("Rollback: removed directory %s", d)
+        except OSError as e:
+            logger.warning("Rollback: failed to remove directory %s: %s", d, e)
+
+
 def create_data_directory(
     data_dir: Path, dry_run: bool = False
 ) -> tuple[bool, str | None]:
@@ -403,6 +465,8 @@ def create_data_directory(
 def write_config_file(data_dir: Path, dry_run: bool = False) -> tuple[bool, str | None]:
     """Write the config.toml file to the data directory.
 
+    Uses atomic write (temp file + rename) to prevent partial writes.
+
     Args:
         data_dir: VPO data directory path.
         dry_run: If True, don't actually write anything.
@@ -417,7 +481,7 @@ def write_config_file(data_dir: Path, dry_run: bool = False) -> tuple[bool, str 
         return True, None
 
     try:
-        config_path.write_text(CONFIG_TEMPLATE)
+        _atomic_write_text(config_path, CONFIG_TEMPLATE)
         logger.info("Created config file: %s", config_path)
         return True, None
     except PermissionError:
@@ -430,6 +494,8 @@ def write_default_policy(
     data_dir: Path, dry_run: bool = False
 ) -> tuple[bool, str | None]:
     """Write the default policy file to the policies directory.
+
+    Uses atomic write (temp file + rename) to prevent partial writes.
 
     Args:
         data_dir: VPO data directory path.
@@ -450,7 +516,7 @@ def write_default_policy(
         policies_dir.mkdir(parents=True, exist_ok=True)
         logger.debug("Created policies directory: %s", policies_dir)
 
-        policy_path.write_text(DEFAULT_POLICY_TEMPLATE)
+        _atomic_write_text(policy_path, DEFAULT_POLICY_TEMPLATE)
         logger.info("Created default policy: %s", policy_path)
         return True, None
     except PermissionError:
@@ -499,7 +565,8 @@ def run_init(
     """Run VPO initialization.
 
     This is the main orchestration function that coordinates all
-    initialization steps.
+    initialization steps. On failure, all created items are rolled back
+    to leave a clean state.
 
     Args:
         data_dir: Path where to initialize VPO.
@@ -541,88 +608,96 @@ def run_init(
             dry_run=dry_run,
         )
 
-    created_files: list[Path] = []
-    created_directories: list[Path] = []
+    # Track what we plan to create (for result reporting)
+    planned_files: list[Path] = []
+    planned_directories: list[Path] = []
     skipped_files: list[Path] = []
 
-    # Create data directory
-    success, error = create_data_directory(data_dir, dry_run)
-    if not success:
+    # Track what was ACTUALLY created (for rollback)
+    actually_created_files: list[Path] = []
+    actually_created_dirs: list[Path] = []
+
+    def handle_failure(error_msg: str) -> InitResult:
+        """Roll back and return failure result."""
+        if not dry_run:
+            _rollback_init(actually_created_files, actually_created_dirs)
+            error_msg = f"{error_msg} All changes have been rolled back."
         return InitResult(
             success=False,
             data_dir=data_dir,
-            error=error,
+            error=error_msg,
             dry_run=dry_run,
         )
-    if not state.data_dir.exists() or dry_run:
-        created_directories.append(data_dir)
+
+    # Create data directory
+    data_dir_existed = data_dir.exists()
+    success, error = create_data_directory(data_dir, dry_run)
+    if not success:
+        return handle_failure(error or "Failed to create data directory.")
+    if not data_dir_existed:
+        planned_directories.append(data_dir)
+        if not dry_run:
+            actually_created_dirs.append(data_dir)
 
     # Write config file
     config_path = data_dir / "config.toml"
-    if state.config_exists:
+    config_existed = config_path.exists()
+    if config_existed:
         skipped_files.append(config_path)
     success, error = write_config_file(data_dir, dry_run)
     if not success:
-        return InitResult(
-            success=False,
-            data_dir=data_dir,
-            created_directories=created_directories,
-            error=error,
-            dry_run=dry_run,
-        )
-    created_files.append(config_path)
+        return handle_failure(error or "Failed to write config file.")
+    planned_files.append(config_path)
+    if not dry_run and not config_existed:
+        actually_created_files.append(config_path)
 
     # Create policies directory and default policy
     policies_dir = data_dir / "policies"
     policy_path = policies_dir / "default.yaml"
-    if state.policies_dir_exists:
+    policies_dir_existed = policies_dir.exists()
+    policy_existed = policy_path.exists()
+
+    if policies_dir_existed:
         skipped_files.append(policies_dir)
-    if state.default_policy_exists:
+    if policy_existed:
         skipped_files.append(policy_path)
 
     success, error = write_default_policy(data_dir, dry_run)
     if not success:
-        return InitResult(
-            success=False,
-            data_dir=data_dir,
-            created_files=created_files,
-            created_directories=created_directories,
-            error=error,
-            dry_run=dry_run,
-        )
-    if not state.policies_dir_exists:
-        created_directories.append(policies_dir)
-    created_files.append(policy_path)
+        return handle_failure(error or "Failed to write default policy.")
+    if not policies_dir_existed:
+        planned_directories.append(policies_dir)
+        if not dry_run:
+            actually_created_dirs.append(policies_dir)
+    planned_files.append(policy_path)
+    if not dry_run and not policy_existed:
+        actually_created_files.append(policy_path)
 
     # Create plugins directory
     plugins_dir = data_dir / "plugins"
-    if state.plugins_dir_exists:
+    plugins_dir_existed = plugins_dir.exists()
+    if plugins_dir_existed:
         skipped_files.append(plugins_dir)
 
     success, error = create_plugins_directory(data_dir, dry_run)
     if not success:
-        return InitResult(
-            success=False,
-            data_dir=data_dir,
-            created_files=created_files,
-            created_directories=created_directories,
-            error=error,
-            dry_run=dry_run,
-        )
-    if not state.plugins_dir_exists:
-        created_directories.append(plugins_dir)
+        return handle_failure(error or "Failed to create plugins directory.")
+    if not plugins_dir_existed:
+        planned_directories.append(plugins_dir)
+        if not dry_run:
+            actually_created_dirs.append(plugins_dir)
 
     logger.info(
         "Init completed: created %d files, %d directories",
-        len(created_files),
-        len(created_directories),
+        len(planned_files),
+        len(planned_directories),
     )
 
     return InitResult(
         success=True,
         data_dir=data_dir,
-        created_files=created_files,
-        created_directories=created_directories,
+        created_files=planned_files,
+        created_directories=planned_directories,
         skipped_files=skipped_files,
         dry_run=dry_run,
     )

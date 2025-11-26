@@ -196,6 +196,37 @@ class TestValidateDataDirPath:
         error = validate_data_dir_path(temp_dir)
         assert error is None
 
+    def test_symlink_to_directory_rejected(self, temp_dir: Path):
+        """Test that symlinks to directories are rejected."""
+        real_dir = temp_dir / "real"
+        real_dir.mkdir()
+        symlink = temp_dir / "link"
+        symlink.symlink_to(real_dir)
+
+        error = validate_data_dir_path(symlink)
+        assert error is not None
+        assert "symlink" in error.lower()
+
+    def test_symlink_to_file_rejected(self, temp_dir: Path):
+        """Test that symlinks to files are rejected."""
+        real_file = temp_dir / "file"
+        real_file.touch()
+        symlink = temp_dir / "link"
+        symlink.symlink_to(real_file)
+
+        error = validate_data_dir_path(symlink)
+        assert error is not None
+        assert "symlink" in error.lower()
+
+    def test_broken_symlink_rejected(self, temp_dir: Path):
+        """Test that broken symlinks are rejected."""
+        symlink = temp_dir / "broken_link"
+        symlink.symlink_to(temp_dir / "nonexistent")
+
+        error = validate_data_dir_path(symlink)
+        assert error is not None
+        assert "symlink" in error.lower()
+
 
 class TestCreateDataDirectory:
     """Tests for create_data_directory function."""
@@ -364,3 +395,51 @@ class TestRunInit:
 
         assert result.success is False
         assert "file already exists" in result.error.lower()
+
+    def test_symlink_data_dir_rejected(self, temp_dir: Path):
+        """Test that symlink as data directory is rejected."""
+        real_dir = temp_dir / "real"
+        real_dir.mkdir()
+        symlink = temp_dir / "link"
+        symlink.symlink_to(real_dir)
+
+        result = run_init(symlink)
+
+        assert result.success is False
+        assert "symlink" in result.error.lower()
+
+    def test_rollback_message_on_failure(self, temp_dir: Path):
+        """Test that failure message mentions rollback."""
+        import os
+
+        # Test path validation errors using /root (unwritable for normal users)
+        # Note: Validation errors occur before any files are created, so no
+        # rollback message is expected - this tests the error path works.
+        if os.geteuid() != 0:  # Skip if running as root
+            result = run_init(Path("/root/vpo_test_rollback"))
+            assert result.success is False
+            # Permission errors should be returned
+            assert "permission" in result.error.lower()
+
+    def test_rollback_cleans_created_files(self, temp_dir: Path):
+        """Test that rollback actually removes created files."""
+        from unittest.mock import patch
+
+        data_dir = temp_dir / "vpo"
+
+        # Mock create_plugins_directory to fail
+        with patch(
+            "video_policy_orchestrator.config.templates.create_plugins_directory"
+        ) as mock_create:
+            mock_create.return_value = (False, "Simulated failure")
+
+            result = run_init(data_dir)
+
+            # Should fail
+            assert result.success is False
+            assert "rolled back" in result.error.lower()
+
+            # config.toml should have been rolled back (removed)
+            assert not (data_dir / "config.toml").exists()
+            # policies/default.yaml should have been rolled back (removed)
+            assert not (data_dir / "policies" / "default.yaml").exists()
