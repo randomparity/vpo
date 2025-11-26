@@ -847,6 +847,49 @@ class TranscodeExecutor:
             except OSError as e:
                 logger.warning("Could not clean up partial output: %s", e)
 
+    def _get_temp_output_path(self, output_path: Path) -> Path:
+        """Generate temp output path for safe transcoding.
+
+        Args:
+            output_path: Final output path.
+
+        Returns:
+            Path for temporary output file.
+        """
+        if self.temp_directory:
+            return self.temp_directory / f".vpo_temp_{output_path.name}"
+        return output_path.with_name(f".vpo_temp_{output_path.name}")
+
+    def _atomic_replace(self, temp_path: Path, output_path: Path) -> None:
+        """Atomically replace output file with temp file.
+
+        Args:
+            temp_path: Source temp file path.
+            output_path: Target output file path.
+        """
+        temp_path.rename(output_path)
+        logger.info("Moved temp file to final: %s", output_path)
+
+    def _verify_output_integrity(self, output_path: Path) -> bool:
+        """Verify output file integrity after transcode.
+
+        Args:
+            output_path: Path to output file.
+
+        Returns:
+            True if file passes integrity checks.
+        """
+        if not output_path.exists():
+            logger.error("Output file does not exist: %s", output_path)
+            return False
+
+        if output_path.stat().st_size == 0:
+            logger.error("Output file is empty: %s", output_path)
+            return False
+
+        # Could add ffprobe validation here in future
+        return True
+
     def execute(self, plan: TranscodePlan) -> TranscodeResult:
         """Execute a transcode plan with safety features.
 

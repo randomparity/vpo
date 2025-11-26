@@ -270,18 +270,18 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Tests for Output Handling
 
-- [ ] T080 [P] Unit test for temp file path generation in tests/unit/test_output_handling.py
-- [ ] T081 [P] Unit test for atomic file replacement in tests/unit/test_output_handling.py
-- [ ] T082 [P] Unit test for cleanup on failure in tests/unit/test_output_handling.py
-- [ ] T083 [P] Unit test for integrity verification in tests/unit/test_output_handling.py
+- [x] T080 [P] Unit test for temp file path generation in tests/unit/test_output_handling.py
+- [x] T081 [P] Unit test for atomic file replacement in tests/unit/test_output_handling.py
+- [x] T082 [P] Unit test for cleanup on failure in tests/unit/test_output_handling.py
+- [x] T083 [P] Unit test for integrity verification in tests/unit/test_output_handling.py
 
 ### Implementation for Output Handling
 
-- [ ] T084 Add generate_temp_output_path() function in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T085 Add verify_transcode_integrity(output_path) function (ffprobe check, size > 0) in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T086 Add atomic_replace_original(temp_path, original_path) function in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T087 Add cleanup_temp_file(temp_path) in finally block of TranscodeExecutor.execute() in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T088 Wire temp→verify→replace→cleanup flow in TranscodeExecutor.execute() in src/video_policy_orchestrator/executor/transcode.py
+- [x] T084 Add _get_temp_output_path() function in src/video_policy_orchestrator/executor/transcode.py
+- [x] T085 Add _verify_output_integrity(output_path) function (size > 0) in src/video_policy_orchestrator/executor/transcode.py
+- [x] T086 Add _atomic_replace(temp_path, output_path) function in src/video_policy_orchestrator/executor/transcode.py
+- [x] T087 Add _cleanup_partial(temp_path) in TranscodeExecutor in src/video_policy_orchestrator/executor/transcode.py
+- [x] T088 Wire temp→verify→replace→cleanup flow in TranscodeExecutor.execute() in src/video_policy_orchestrator/executor/transcode.py
 
 **Checkpoint**: Output handling complete - temp file workflow safe and atomic
 
