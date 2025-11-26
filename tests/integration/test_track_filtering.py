@@ -551,3 +551,194 @@ class TestMkvmergeExecutorTrackSelection:
 
         executor = MkvmergeExecutor()
         assert executor.can_handle(plan) is False
+
+
+# =============================================================================
+# Subtitle Filtering Integration Tests (T061)
+# =============================================================================
+
+
+class TestSubtitleFilteringIntegration:
+    """Integration tests for subtitle filtering with forced preservation (T061)."""
+
+    def test_subtitle_filtering_with_forced_preservation(self) -> None:
+        """Test subtitle filtering preserves forced subtitles."""
+        from video_policy_orchestrator.policy.models import SubtitleFilterConfig
+
+        tracks = [
+            TrackInfo(
+                index=0,
+                track_type="video",
+                codec="hevc",
+                width=1920,
+                height=1080,
+            ),
+            TrackInfo(
+                index=1,
+                track_type="audio",
+                codec="aac",
+                language="eng",
+            ),
+            TrackInfo(
+                index=2,
+                track_type="subtitle",
+                codec="subrip",
+                language="eng",
+                is_forced=False,
+            ),
+            TrackInfo(
+                index=3,
+                track_type="subtitle",
+                codec="subrip",
+                language="jpn",
+                is_forced=True,  # Foreign language forced subtitle
+            ),
+            TrackInfo(
+                index=4,
+                track_type="subtitle",
+                codec="subrip",
+                language="fra",
+                is_forced=False,
+            ),
+        ]
+
+        policy = PolicySchema(
+            schema_version=3,
+            subtitle_filter=SubtitleFilterConfig(
+                languages=("eng",),
+                preserve_forced=True,
+            ),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # English subtitle should be kept (matches language)
+        eng_sub = [d for d in dispositions if d.track_index == 2][0]
+        assert eng_sub.action == "KEEP"
+
+        # Japanese forced subtitle should be kept (preserve_forced=True)
+        jpn_sub = [d for d in dispositions if d.track_index == 3][0]
+        assert jpn_sub.action == "KEEP"
+        assert "forced" in jpn_sub.reason.lower()
+
+        # French subtitle should be removed
+        fra_sub = [d for d in dispositions if d.track_index == 4][0]
+        assert fra_sub.action == "REMOVE"
+
+        # Should have 1 track removed total
+        removed = [d for d in dispositions if d.action == "REMOVE"]
+        assert len(removed) == 1
+
+    def test_subtitle_remove_all_integration(self) -> None:
+        """Test remove_all removes all subtitle tracks."""
+        from video_policy_orchestrator.policy.models import SubtitleFilterConfig
+
+        tracks = [
+            TrackInfo(
+                index=0,
+                track_type="video",
+                codec="hevc",
+                width=1920,
+                height=1080,
+            ),
+            TrackInfo(
+                index=1,
+                track_type="audio",
+                codec="aac",
+                language="eng",
+            ),
+            TrackInfo(
+                index=2,
+                track_type="subtitle",
+                codec="subrip",
+                language="eng",
+                is_forced=True,
+            ),
+            TrackInfo(
+                index=3,
+                track_type="subtitle",
+                codec="ass",
+                language="jpn",
+            ),
+        ]
+
+        policy = PolicySchema(
+            schema_version=3,
+            subtitle_filter=SubtitleFilterConfig(
+                remove_all=True,
+                preserve_forced=True,  # Should be ignored
+            ),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # All subtitles should be removed despite preserve_forced
+        subtitle_disps = [d for d in dispositions if d.track_type == "subtitle"]
+        assert all(d.action == "REMOVE" for d in subtitle_disps)
+        assert len(subtitle_disps) == 2
+
+    def test_combined_audio_and_subtitle_filtering(self) -> None:
+        """Test that audio and subtitle filtering work together."""
+        from video_policy_orchestrator.policy.models import SubtitleFilterConfig
+
+        tracks = [
+            TrackInfo(
+                index=0,
+                track_type="video",
+                codec="hevc",
+                width=1920,
+                height=1080,
+            ),
+            TrackInfo(
+                index=1,
+                track_type="audio",
+                codec="truehd",
+                language="eng",
+            ),
+            TrackInfo(
+                index=2,
+                track_type="audio",
+                codec="aac",
+                language="jpn",
+            ),
+            TrackInfo(
+                index=3,
+                track_type="subtitle",
+                codec="subrip",
+                language="eng",
+            ),
+            TrackInfo(
+                index=4,
+                track_type="subtitle",
+                codec="subrip",
+                language="jpn",
+            ),
+        ]
+
+        policy = PolicySchema(
+            schema_version=3,
+            audio_filter=AudioFilterConfig(languages=("eng",)),
+            subtitle_filter=SubtitleFilterConfig(languages=("eng",)),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # English audio kept
+        eng_audio = [d for d in dispositions if d.track_index == 1][0]
+        assert eng_audio.action == "KEEP"
+
+        # Japanese audio removed
+        jpn_audio = [d for d in dispositions if d.track_index == 2][0]
+        assert jpn_audio.action == "REMOVE"
+
+        # English subtitle kept
+        eng_sub = [d for d in dispositions if d.track_index == 3][0]
+        assert eng_sub.action == "KEEP"
+
+        # Japanese subtitle removed
+        jpn_sub = [d for d in dispositions if d.track_index == 4][0]
+        assert jpn_sub.action == "REMOVE"
+
+        # Total: 2 tracks removed
+        removed = [d for d in dispositions if d.action == "REMOVE"]
+        assert len(removed) == 2

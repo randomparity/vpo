@@ -166,17 +166,17 @@ Based on plan.md structure:
 
 ### Tests for User Story 5
 
-- [ ] T054 [P] [US5] Unit test for subtitle language filtering in tests/unit/policy/test_track_filtering.py
-- [ ] T055 [P] [US5] Unit test for preserve_forced logic in tests/unit/policy/test_track_filtering.py
-- [ ] T056 [P] [US5] Unit test for remove_all subtitles option in tests/unit/policy/test_track_filtering.py
+- [X] T054 [P] [US5] Unit test for subtitle language filtering in tests/unit/policy/test_track_filtering.py
+- [X] T055 [P] [US5] Unit test for preserve_forced logic in tests/unit/policy/test_track_filtering.py
+- [X] T056 [P] [US5] Unit test for remove_all subtitles option in tests/unit/policy/test_track_filtering.py
 
 ### Implementation for User Story 5
 
-- [ ] T057 [US5] Implement _evaluate_subtitle_track() helper function in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T058 [US5] Add preserve_forced logic to subtitle evaluation (second pass re-add) in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T059 [US5] Update compute_track_dispositions() to handle subtitle filtering in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T060 [US5] Extend MkvmergeExecutor with --subtitle-tracks selection in src/video_policy_orchestrator/executor/mkvmerge.py
-- [ ] T061 [US5] Integration test for subtitle filtering with forced preservation in tests/integration/test_track_filtering.py
+- [X] T057 [US5] Implement _evaluate_subtitle_track() helper function in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T058 [US5] Add preserve_forced logic to subtitle evaluation (second pass re-add) in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T059 [US5] Update compute_track_dispositions() to handle subtitle filtering in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T060 [US5] Extend MkvmergeExecutor with --subtitle-tracks selection in src/video_policy_orchestrator/executor/mkvmerge.py
+- [X] T061 [US5] Integration test for subtitle filtering with forced preservation in tests/integration/test_track_filtering.py
 
 **Checkpoint**: Subtitle track filtering fully functional
 

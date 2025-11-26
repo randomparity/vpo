@@ -445,3 +445,301 @@ class TestTrackDispositionModel:
             # Should not contain code artifacts
             assert "None" not in disp.reason
             assert "<" not in disp.reason
+
+
+# =============================================================================
+# Helper for subtitle tests
+# =============================================================================
+
+
+def make_subtitle_track(
+    index: int,
+    language: str | None = None,
+    codec: str = "subrip",
+    title: str | None = None,
+    is_forced: bool = False,
+) -> TrackInfo:
+    """Create a test subtitle track."""
+    return TrackInfo(
+        index=index,
+        track_type="subtitle",
+        codec=codec,
+        language=language,
+        title=title,
+        is_default=False,
+        is_forced=is_forced,
+    )
+
+
+def make_policy_with_subtitle_filter(
+    languages: tuple[str, ...] | None = None,
+    preserve_forced: bool = False,
+    remove_all: bool = False,
+) -> PolicySchema:
+    """Create a test policy with subtitle filter configuration."""
+    from video_policy_orchestrator.policy.models import SubtitleFilterConfig
+
+    return PolicySchema(
+        schema_version=3,
+        subtitle_filter=SubtitleFilterConfig(
+            languages=languages,
+            preserve_forced=preserve_forced,
+            remove_all=remove_all,
+        ),
+    )
+
+
+# =============================================================================
+# Tests for Subtitle Language Filtering (T054)
+# =============================================================================
+
+
+class TestSubtitleLanguageFiltering:
+    """Tests for subtitle track filtering by language (T054)."""
+
+    def test_keep_subtitles_matching_language(self) -> None:
+        """Subtitle tracks with languages in keep list should be kept."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng"),
+            make_subtitle_track(index=2, language="eng"),
+            make_subtitle_track(index=3, language="fra"),
+            make_subtitle_track(index=4, language="jpn"),
+        ]
+        policy = make_policy_with_subtitle_filter(languages=("eng", "jpn"))
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # English subtitle should be kept
+        eng_sub = [
+            d
+            for d in dispositions
+            if d.track_type == "subtitle" and d.language == "eng"
+        ][0]
+        assert eng_sub.action == "KEEP"
+
+        # Japanese subtitle should be kept
+        jpn_sub = [
+            d
+            for d in dispositions
+            if d.track_type == "subtitle" and d.language == "jpn"
+        ][0]
+        assert jpn_sub.action == "KEEP"
+
+        # French subtitle should be removed
+        fra_sub = [
+            d
+            for d in dispositions
+            if d.track_type == "subtitle" and d.language == "fra"
+        ][0]
+        assert fra_sub.action == "REMOVE"
+
+    def test_remove_subtitles_not_in_language_list(self) -> None:
+        """Subtitle tracks with languages not in keep list should be removed."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng"),
+            make_subtitle_track(index=2, language="eng"),
+            make_subtitle_track(index=3, language="deu"),
+            make_subtitle_track(index=4, language="spa"),
+        ]
+        policy = make_policy_with_subtitle_filter(languages=("eng",))
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # Count removed subtitles
+        removed_subs = [
+            d
+            for d in dispositions
+            if d.track_type == "subtitle" and d.action == "REMOVE"
+        ]
+        assert len(removed_subs) == 2  # German and Spanish
+
+    def test_no_subtitle_filter_keeps_all(self) -> None:
+        """Without subtitle filter, all subtitle tracks should be kept."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng"),
+            make_subtitle_track(index=2, language="eng"),
+            make_subtitle_track(index=3, language="fra"),
+        ]
+        policy = PolicySchema(schema_version=3)  # No subtitle filter
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # All subtitles should be kept
+        subtitle_disps = [d for d in dispositions if d.track_type == "subtitle"]
+        assert all(d.action == "KEEP" for d in subtitle_disps)
+
+
+# =============================================================================
+# Tests for Forced Subtitle Preservation (T055)
+# =============================================================================
+
+
+class TestForcedSubtitlePreservation:
+    """Tests for preserve_forced subtitle logic (T055)."""
+
+    def test_preserve_forced_subtitle_regardless_of_language(self) -> None:
+        """Forced subtitles should be kept even if language not in list."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng"),
+            make_subtitle_track(index=2, language="eng"),
+            make_subtitle_track(index=3, language="jpn", is_forced=True),
+            make_subtitle_track(index=4, language="jpn", is_forced=False),
+        ]
+        policy = make_policy_with_subtitle_filter(
+            languages=("eng",),
+            preserve_forced=True,
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # English subtitle should be kept (matches language)
+        eng_sub = [
+            d
+            for d in dispositions
+            if d.track_type == "subtitle" and d.language == "eng"
+        ][0]
+        assert eng_sub.action == "KEEP"
+
+        # Forced Japanese subtitle should be kept (preserve_forced=True)
+        jpn_forced = [
+            d
+            for d in dispositions
+            if d.track_type == "subtitle" and d.language == "jpn" and d.track_index == 3
+        ][0]
+        assert jpn_forced.action == "KEEP"
+        assert "forced" in jpn_forced.reason.lower()
+
+        # Non-forced Japanese subtitle should be removed
+        jpn_normal = [
+            d
+            for d in dispositions
+            if d.track_type == "subtitle" and d.language == "jpn" and d.track_index == 4
+        ][0]
+        assert jpn_normal.action == "REMOVE"
+
+    def test_preserve_forced_false_does_not_keep_forced(self) -> None:
+        """With preserve_forced=False, forced subtitles follow normal language rules."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng"),
+            make_subtitle_track(index=2, language="eng"),
+            make_subtitle_track(index=3, language="jpn", is_forced=True),
+        ]
+        policy = make_policy_with_subtitle_filter(
+            languages=("eng",),
+            preserve_forced=False,
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # Forced Japanese subtitle should be removed (language not in list)
+        jpn_forced = [
+            d
+            for d in dispositions
+            if d.track_type == "subtitle" and d.language == "jpn"
+        ][0]
+        assert jpn_forced.action == "REMOVE"
+
+
+# =============================================================================
+# Tests for Remove All Subtitles (T056)
+# =============================================================================
+
+
+class TestRemoveAllSubtitles:
+    """Tests for remove_all subtitles option (T056)."""
+
+    def test_remove_all_removes_all_subtitles(self) -> None:
+        """remove_all=True should remove all subtitle tracks."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng"),
+            make_subtitle_track(index=2, language="eng"),
+            make_subtitle_track(index=3, language="fra"),
+            make_subtitle_track(index=4, language="jpn", is_forced=True),
+        ]
+        policy = make_policy_with_subtitle_filter(remove_all=True)
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # All subtitles should be removed
+        subtitle_disps = [d for d in dispositions if d.track_type == "subtitle"]
+        assert all(d.action == "REMOVE" for d in subtitle_disps)
+        assert len(subtitle_disps) == 3
+
+    def test_remove_all_overrides_languages(self) -> None:
+        """remove_all=True should override language settings."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng"),
+            make_subtitle_track(index=2, language="eng"),
+            make_subtitle_track(index=3, language="fra"),
+        ]
+        policy = make_policy_with_subtitle_filter(
+            languages=("eng",),  # Would normally keep eng
+            remove_all=True,  # But remove_all overrides
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # English subtitle should be removed despite being in language list
+        eng_sub = [
+            d
+            for d in dispositions
+            if d.track_type == "subtitle" and d.language == "eng"
+        ][0]
+        assert eng_sub.action == "REMOVE"
+
+    def test_remove_all_overrides_preserve_forced(self) -> None:
+        """remove_all=True should override preserve_forced."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng"),
+            make_subtitle_track(index=2, language="jpn", is_forced=True),
+        ]
+        policy = make_policy_with_subtitle_filter(
+            preserve_forced=True,  # Would normally keep forced
+            remove_all=True,  # But remove_all overrides
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # Forced subtitle should be removed
+        forced_sub = [d for d in dispositions if d.track_type == "subtitle"][0]
+        assert forced_sub.action == "REMOVE"

@@ -26,6 +26,7 @@ from video_policy_orchestrator.policy.models import (
     Plan,
     PlannedAction,
     PolicySchema,
+    SubtitleFilterConfig,
     TrackDisposition,
     TrackType,
 )
@@ -404,6 +405,40 @@ def _evaluate_audio_track(
     return ("REMOVE", "language not in keep list")
 
 
+def _evaluate_subtitle_track(
+    track: TrackInfo,
+    config: SubtitleFilterConfig,
+) -> tuple[Literal["KEEP", "REMOVE"], str]:
+    """Evaluate a single subtitle track against subtitle filter config.
+
+    Args:
+        track: Subtitle track to evaluate.
+        config: Subtitle filter configuration.
+
+    Returns:
+        Tuple of (action, reason) for the track.
+    """
+    # remove_all overrides all other settings
+    if config.remove_all:
+        return ("REMOVE", "remove_all enabled")
+
+    # Check forced flag first (if preserve_forced is enabled)
+    if config.preserve_forced and track.is_forced:
+        return ("KEEP", "forced subtitle preserved")
+
+    # If no language filter is specified, keep all (unless remove_all)
+    if config.languages is None:
+        return ("KEEP", "no language filter applied")
+
+    # Check if track language matches any in the keep list
+    lang = track.language or "und"
+    for keep_lang in config.languages:
+        if languages_match(lang, keep_lang):
+            return ("KEEP", "language in keep list")
+
+    return ("REMOVE", "language not in keep list")
+
+
 def _detect_content_language(tracks: list[TrackInfo]) -> str | None:
     """Detect the content language from the first audio track.
 
@@ -523,6 +558,8 @@ def compute_track_dispositions(
         if track_type == "audio" and policy.audio_filter:
             action, reason = _evaluate_audio_track(track, policy.audio_filter)
             audio_actions[track.index] = (action, reason)
+        elif track_type == "subtitle" and policy.subtitle_filter:
+            action, reason = _evaluate_subtitle_track(track, policy.subtitle_filter)
 
         # Build resolution string for video tracks
         resolution = None
