@@ -17,7 +17,7 @@ VPO uses SQLite for all persistent storage. The database is located at `~/.vpo/l
 
 ## ER Diagram
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                            _meta                                 │
 ├─────────────────────────────────────────────────────────────────┤
@@ -122,7 +122,7 @@ CREATE INDEX idx_tracks_type ON tracks(track_type);
 
 ### Scan Operation
 
-```
+```text
 User → CLI → Core Engine → Media Introspector → External Tools
                 ↓                                      ↓
             Database ←─────────── Track Metadata ←────┘
@@ -135,7 +135,7 @@ User → CLI → Core Engine → Media Introspector → External Tools
 
 ### Apply Operation
 
-```
+```text
 User → CLI → Core Engine → Policy Engine → Plan
                 ↓              ↓
             Database     Execution Layer → External Tools

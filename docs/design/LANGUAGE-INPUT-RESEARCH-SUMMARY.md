@@ -108,7 +108,7 @@ W3C, GOV.UK, and Orange Digital Accessibility guidelines converge on:
 
 ### For Single Language Input
 
-```
+```text
 INPUT: Text field with role="combobox"
        aria-autocomplete="list"
        aria-expanded="false"
@@ -132,7 +132,7 @@ LIVE REGION: Announces "3+ required", result count, current selection
 
 ### For Ordered List Input
 
-```
+```text
 ITEM STRUCTURE: [Drag Handle] [Name] [↑ Button] [↓ Button] [✕ Button]
 
 PRIMARY INTERACTION: Up/Down buttons move item one position

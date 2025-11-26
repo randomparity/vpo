@@ -14,7 +14,7 @@ VPO follows a layered architecture with clear separation between user interface,
 
 ## Component Diagram
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                              CLI Frontend                                │
 │                    (scan, inspect, apply, jobs, profiles)               │
@@ -144,7 +144,7 @@ See [design-database.md](../design/design-database.md) for schema details.
 
 VPO includes a comprehensive tool management system:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    Tool Capabilities System                  │
 ├─────────────────────────────────────────────────────────────┤

@@ -25,7 +25,7 @@ vpo plugins list
 
 A VPO plugin is a standard Python package with an entry point:
 
-```
+```text
 my-plugin/
 ├── pyproject.toml          # Package config with entry point
 ├── README.md               # Usage documentation

@@ -217,7 +217,7 @@ Time filters accept two formats:
 
 Human-readable table format optimized for terminal display. Long values are truncated to fit column widths.
 
-```
+```text
 ID         TYPE       STATUS       TARGET
 ------------------------------------------------------------------------------
 690edd68   scan       completed    /home/user/Videos

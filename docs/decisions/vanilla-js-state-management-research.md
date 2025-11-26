@@ -488,7 +488,7 @@ From `/home/dave/src/vpo/src/video_policy_orchestrator/server/static/js/library.
 
 ### Code Structure
 
-```
+```text
 static/js/
 ├── policy-editor/
 │   ├── state-manager.js        # Reactive state store

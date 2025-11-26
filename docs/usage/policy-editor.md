@@ -153,7 +153,7 @@ When validation fails, the editor shows detailed errors:
 - **Focus management**: Focusable element in error section receives focus
 
 **Error Display Format:**
-```
+```text
 2 validation errors found:
 • audio_language_preference[0]: Invalid language code
 • commentary_patterns[1]: Invalid regex pattern

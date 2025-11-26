@@ -70,7 +70,7 @@ vpo scan --db /tmp/test.db /media/videos
 #### Output
 
 **Human-readable (default):**
-```
+```text
 Scanned 2 directories
 Found 150 video files
   New: 45
@@ -135,7 +135,7 @@ vpo inspect --format json /media/movies/movie.mkv
 #### Output
 
 **Human-readable (default):**
-```
+```text
 File: /media/movies/movie.mkv
 Container: Matroska
 
@@ -205,7 +205,7 @@ VPO does not currently use environment variables for configuration. All options 
 
 By default, VPO stores its database at:
 
-```
+```text
 ~/.vpo/library.db
 ```
 

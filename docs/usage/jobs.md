@@ -29,7 +29,7 @@ vpo jobs list
 
 ### Job Lifecycle
 
-```
+```text
 QUEUED ──> RUNNING ──> COMPLETED
               │
               ├──> FAILED
@@ -59,7 +59,7 @@ vpo jobs list --limit 20
 ```
 
 Output:
-```
+```text
 ID         STATUS       TYPE       FILE                                       PROG   CREATED
 -----------------------------------------------------------------------------------------------
 a1b2c3d4   running      transcode  Movie.Name.2023.mkv                        45%    2024-01-15 10:30
@@ -75,7 +75,7 @@ vpo jobs status
 ```
 
 Output:
-```
+```text
 Job Queue Status
 ------------------------------
   Queued:       12

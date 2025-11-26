@@ -19,7 +19,7 @@ The scanner uses a hybrid architecture: Rust handles high-performance file disco
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                     ScannerOrchestrator (Python)                 │
 │                                                                  │
@@ -235,7 +235,7 @@ if progress_callback and processed % 100 == 0:
 
 ## Data Flow
 
-```
+```text
 1. CLI invokes scan command
            │
            ▼

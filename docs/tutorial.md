@@ -64,7 +64,7 @@ vpo scan ~/Movies
 
 ### Understanding Scan Output
 
-```
+```text
 Scanning /home/user/Movies...
 Found 42 video files
 Introspecting files... [████████████████████████] 42/42
@@ -96,7 +96,7 @@ vpo inspect /path/to/movie.mkv
 
 ### Example Output
 
-```
+```text
 File: movie.mkv
 Container: matroska
 Duration: 2:15:30
@@ -193,7 +193,7 @@ vpo apply --policy my-policy.yaml /path/to/movie.mkv --dry-run
 
 ### Example Dry-Run Output
 
-```
+```text
 Evaluating: movie.mkv
 
 Planned changes:
