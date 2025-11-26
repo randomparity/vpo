@@ -353,10 +353,24 @@ class SynthesisTrackDefinitionModel(BaseModel):
     @field_validator("name")
     @classmethod
     def validate_name(cls, v: str) -> str:
-        """Validate that name is non-empty."""
+        """Validate that name is non-empty and path-safe.
+
+        Security: The name is used in file path construction (synth_{name}.ext)
+        in executor.py. Path traversal sequences and separators must be rejected
+        to prevent directory escape attacks.
+
+        Note: The '..' check is intentionally conservative - it rejects any name
+        containing '..' even if not a true path traversal (e.g., "Track..v2").
+        """
         if not v or not v.strip():
             raise ValueError("Synthesis track name cannot be empty")
-        return v.strip()
+        v = v.strip()
+        # Reject path traversal sequences and separators
+        if "/" in v or "\\" in v or ".." in v:
+            raise ValueError(
+                f"Synthesis track name cannot contain path separators or '..': {v!r}"
+            )
+        return v
 
     @field_validator("codec")
     @classmethod

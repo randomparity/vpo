@@ -237,3 +237,194 @@ class TestTrackOrderEntry:
         assert entry.track_type == "synthesized"
         assert entry.synthesis_name == "EAC3 Compatibility"
         assert entry.original_index is None
+
+
+class TestSynthesisTrackNameValidation:
+    """Tests for synthesis track name validation (security: path traversal prevention).
+
+    The validation in SynthesisTrackDefinitionModel.validate_name() prevents path
+    traversal attacks by rejecting names containing '/', '\\', or '..'. The name
+    is used in file path construction (synth_{name}.ext) in executor.py.
+    """
+
+    def test_valid_names_accepted(self):
+        """Test that valid names are accepted."""
+        from video_policy_orchestrator.policy.loader import (
+            SynthesisTrackDefinitionModel,
+        )
+
+        # Valid names that should work
+        valid_names = [
+            "EAC3 5.1 Compatibility",
+            "AAC Stereo",
+            "Test-Track_123",
+            "Simple Name",
+            "Track with spaces and hyphens-underscores_123",
+        ]
+
+        for name in valid_names:
+            # Should not raise
+            model = SynthesisTrackDefinitionModel(
+                name=name,
+                codec="eac3",
+                channels="5.1",
+                source={"prefer": [{"language": "eng"}]},
+            )
+            assert model.name == name.strip()
+
+    def test_single_dot_names_accepted(self):
+        """Test that names with single dots (not '..') are accepted."""
+        from video_policy_orchestrator.policy.loader import (
+            SynthesisTrackDefinitionModel,
+        )
+
+        # Single dots are fine - only '..' is rejected
+        valid_names = [".test", "test.", "test.name", "a.b.c", "v1.0 Release"]
+
+        for name in valid_names:
+            model = SynthesisTrackDefinitionModel(
+                name=name,
+                codec="eac3",
+                channels="5.1",
+                source={"prefer": [{"language": "eng"}]},
+            )
+            assert model.name == name
+
+    def test_path_traversal_with_forward_slash_rejected(self):
+        """Test that names with forward slashes are rejected."""
+        import pytest
+        from pydantic import ValidationError
+
+        from video_policy_orchestrator.policy.loader import (
+            SynthesisTrackDefinitionModel,
+        )
+
+        with pytest.raises(ValidationError) as exc_info:
+            SynthesisTrackDefinitionModel(
+                name="../../../tmp/evil",
+                codec="eac3",
+                channels="5.1",
+                source={"prefer": [{"language": "eng"}]},
+            )
+
+        assert "path separators" in str(exc_info.value).lower()
+
+    def test_path_traversal_with_backslash_rejected(self):
+        """Test that names with backslashes are rejected."""
+        import pytest
+        from pydantic import ValidationError
+
+        from video_policy_orchestrator.policy.loader import (
+            SynthesisTrackDefinitionModel,
+        )
+
+        with pytest.raises(ValidationError) as exc_info:
+            SynthesisTrackDefinitionModel(
+                name="..\\..\\tmp\\evil",
+                codec="eac3",
+                channels="5.1",
+                source={"prefer": [{"language": "eng"}]},
+            )
+
+        assert "path separators" in str(exc_info.value).lower()
+
+    def test_names_containing_dotdot_rejected(self):
+        """Test that names containing '..' are rejected (conservative check).
+
+        Note: This is intentionally conservative - names like "Track..v2" are
+        rejected even though they're not actual path traversal attempts.
+        """
+        import pytest
+        from pydantic import ValidationError
+
+        from video_policy_orchestrator.policy.loader import (
+            SynthesisTrackDefinitionModel,
+        )
+
+        with pytest.raises(ValidationError) as exc_info:
+            SynthesisTrackDefinitionModel(
+                name="..evil",
+                codec="eac3",
+                channels="5.1",
+                source={"prefer": [{"language": "eng"}]},
+            )
+
+        assert "path separators" in str(exc_info.value).lower() or ".." in str(
+            exc_info.value
+        )
+
+    def test_dotdot_embedded_in_name_rejected(self):
+        """Test that '..' embedded in name is rejected (conservative check).
+
+        Note: "test..test" is not actually a path traversal, but we reject it
+        anyway for safety. This is documented in the validator docstring.
+        """
+        import pytest
+        from pydantic import ValidationError
+
+        from video_policy_orchestrator.policy.loader import (
+            SynthesisTrackDefinitionModel,
+        )
+
+        with pytest.raises(ValidationError):
+            SynthesisTrackDefinitionModel(
+                name="test..test",
+                codec="eac3",
+                channels="5.1",
+                source={"prefer": [{"language": "eng"}]},
+            )
+
+    def test_triple_dot_rejected(self):
+        """Test that '...' is rejected (contains '..')."""
+        import pytest
+        from pydantic import ValidationError
+
+        from video_policy_orchestrator.policy.loader import (
+            SynthesisTrackDefinitionModel,
+        )
+
+        with pytest.raises(ValidationError):
+            SynthesisTrackDefinitionModel(
+                name="...",
+                codec="eac3",
+                channels="5.1",
+                source={"prefer": [{"language": "eng"}]},
+            )
+
+    def test_empty_name_rejected(self):
+        """Test that empty names are rejected."""
+        import pytest
+        from pydantic import ValidationError
+
+        from video_policy_orchestrator.policy.loader import (
+            SynthesisTrackDefinitionModel,
+        )
+
+        with pytest.raises(ValidationError) as exc_info:
+            SynthesisTrackDefinitionModel(
+                name="",
+                codec="eac3",
+                channels="5.1",
+                source={"prefer": [{"language": "eng"}]},
+            )
+
+        assert "empty" in str(exc_info.value).lower()
+
+    def test_whitespace_only_name_rejected(self):
+        """Test that whitespace-only names are rejected."""
+        import pytest
+        from pydantic import ValidationError
+
+        from video_policy_orchestrator.policy.loader import (
+            SynthesisTrackDefinitionModel,
+        )
+
+        with pytest.raises(ValidationError) as exc_info:
+            SynthesisTrackDefinitionModel(
+                name="   ",
+                codec="eac3",
+                channels="5.1",
+                source={"prefer": [{"language": "eng"}]},
+            )
+
+        assert "empty" in str(exc_info.value).lower()
