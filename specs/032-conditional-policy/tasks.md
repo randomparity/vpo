@@ -38,26 +38,26 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Add ComparisonOperator enum to src/video_policy_orchestrator/policy/models.py
-- [ ] T006 Add Comparison dataclass to src/video_policy_orchestrator/policy/models.py
-- [ ] T007 Add TrackFilters dataclass to src/video_policy_orchestrator/policy/models.py
-- [ ] T008 [P] Add ExistsCondition dataclass to src/video_policy_orchestrator/policy/models.py
-- [ ] T009 [P] Add CountCondition dataclass to src/video_policy_orchestrator/policy/models.py
-- [ ] T010 [P] Add AndCondition dataclass to src/video_policy_orchestrator/policy/models.py
-- [ ] T011 [P] Add OrCondition dataclass to src/video_policy_orchestrator/policy/models.py
-- [ ] T012 [P] Add NotCondition dataclass to src/video_policy_orchestrator/policy/models.py
-- [ ] T013 Add Condition type alias (union of all condition types) to src/video_policy_orchestrator/policy/models.py
-- [ ] T014 Add SkipType enum to src/video_policy_orchestrator/policy/models.py
-- [ ] T015 [P] Add SkipAction dataclass to src/video_policy_orchestrator/policy/models.py
-- [ ] T016 [P] Add WarnAction dataclass to src/video_policy_orchestrator/policy/models.py
-- [ ] T017 [P] Add FailAction dataclass to src/video_policy_orchestrator/policy/models.py
-- [ ] T018 Add ConditionalAction type alias to src/video_policy_orchestrator/policy/models.py
-- [ ] T019 Add ConditionalRule dataclass to src/video_policy_orchestrator/policy/models.py
-- [ ] T020 Add SkipFlags dataclass to src/video_policy_orchestrator/policy/models.py
-- [ ] T021 Add RuleEvaluation dataclass to src/video_policy_orchestrator/policy/models.py
-- [ ] T022 Add ConditionalResult dataclass to src/video_policy_orchestrator/policy/models.py
-- [ ] T023 Extend Plan dataclass with conditional_result and skip_flags fields in src/video_policy_orchestrator/policy/models.py
-- [ ] T024 Extend PolicySchema dataclass with conditional_rules field in src/video_policy_orchestrator/policy/models.py
+- [X] T005 Add ComparisonOperator enum to src/video_policy_orchestrator/policy/models.py
+- [X] T006 Add Comparison dataclass to src/video_policy_orchestrator/policy/models.py
+- [X] T007 Add TrackFilters dataclass to src/video_policy_orchestrator/policy/models.py
+- [X] T008 [P] Add ExistsCondition dataclass to src/video_policy_orchestrator/policy/models.py
+- [X] T009 [P] Add CountCondition dataclass to src/video_policy_orchestrator/policy/models.py
+- [X] T010 [P] Add AndCondition dataclass to src/video_policy_orchestrator/policy/models.py
+- [X] T011 [P] Add OrCondition dataclass to src/video_policy_orchestrator/policy/models.py
+- [X] T012 [P] Add NotCondition dataclass to src/video_policy_orchestrator/policy/models.py
+- [X] T013 Add Condition type alias (union of all condition types) to src/video_policy_orchestrator/policy/models.py
+- [X] T014 Add SkipType enum to src/video_policy_orchestrator/policy/models.py
+- [X] T015 [P] Add SkipAction dataclass to src/video_policy_orchestrator/policy/models.py
+- [X] T016 [P] Add WarnAction dataclass to src/video_policy_orchestrator/policy/models.py
+- [X] T017 [P] Add FailAction dataclass to src/video_policy_orchestrator/policy/models.py
+- [X] T018 Add ConditionalAction type alias to src/video_policy_orchestrator/policy/models.py
+- [X] T019 Add ConditionalRule dataclass to src/video_policy_orchestrator/policy/models.py
+- [X] T020 Add SkipFlags dataclass to src/video_policy_orchestrator/policy/models.py
+- [X] T021 Add RuleEvaluation dataclass to src/video_policy_orchestrator/policy/models.py
+- [X] T022 Add ConditionalResult dataclass to src/video_policy_orchestrator/policy/models.py
+- [X] T023 Extend Plan dataclass with conditional_result and skip_flags fields in src/video_policy_orchestrator/policy/models.py
+- [X] T024 Extend PolicySchema dataclass with conditional_rules field in src/video_policy_orchestrator/policy/models.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
