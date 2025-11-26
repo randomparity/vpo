@@ -125,3 +125,10 @@ The visual policy editor (`/policies/{name}/edit`) provides form-based editing o
 - **Editor module**: `src/video_policy_orchestrator/policy/editor.py` (PolicyRoundTripEditor class)
 - **Routes**: GET/PUT `/api/policies/{name}` for load/save, POST `/api/policies/{name}/validate` for dry-run validation
 - **Usage docs**: See `/docs/usage/policy-editor.md` for user guide
+
+## Active Technologies
+- Python 3.10+ (existing project standard) + ffmpeg (transcoding), ffprobe (introspection), click (CLI), pydantic (validation), aiohttp (web UI) (034-conditional-video-transcode)
+- SQLite at ~/.vpo/library.db (existing), temp files for transcode output (034-conditional-video-transcode)
+
+## Recent Changes
+- 034-conditional-video-transcode: Added Python 3.10+ (existing project standard) + ffmpeg (transcoding), ffprobe (introspection), click (CLI), pydantic (validation), aiohttp (web UI)
