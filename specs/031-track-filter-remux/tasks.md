@@ -214,19 +214,19 @@ Based on plan.md structure:
 
 ### Tests for User Story 7
 
-- [ ] T070 [P] [US7] Unit test for fallback mode content_language in tests/unit/policy/test_track_filtering.py
-- [ ] T071 [P] [US7] Unit test for fallback mode keep_all in tests/unit/policy/test_track_filtering.py
-- [ ] T072 [P] [US7] Unit test for fallback mode keep_first in tests/unit/policy/test_track_filtering.py
-- [ ] T073 [P] [US7] Unit test for fallback mode error in tests/unit/policy/test_track_filtering.py
-- [ ] T074 [P] [US7] Unit test for minimum track count enforcement in tests/unit/policy/test_track_filtering.py
+- [X] T070 [P] [US7] Unit test for fallback mode content_language in tests/unit/policy/test_track_filtering.py
+- [X] T071 [P] [US7] Unit test for fallback mode keep_all in tests/unit/policy/test_track_filtering.py
+- [X] T072 [P] [US7] Unit test for fallback mode keep_first in tests/unit/policy/test_track_filtering.py
+- [X] T073 [P] [US7] Unit test for fallback mode error in tests/unit/policy/test_track_filtering.py
+- [X] T074 [P] [US7] Unit test for minimum track count enforcement in tests/unit/policy/test_track_filtering.py
 
 ### Implementation for User Story 7
 
-- [ ] T075 [US7] Implement _detect_content_language() helper function in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T076 [US7] Implement _apply_fallback() function for all modes in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T077 [US7] Integrate fallback logic into audio track filtering in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T078 [US7] Add minimum track count validation with fallback trigger in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T079 [US7] Integration test for fallback modes end-to-end in tests/integration/test_track_filtering.py
+- [X] T075 [US7] Implement _detect_content_language() helper function in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T076 [US7] Implement _apply_fallback() function for all modes in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T077 [US7] Integrate fallback logic into audio track filtering in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T078 [US7] Add minimum track count validation with fallback trigger in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T079 [US7] Integration test for fallback modes end-to-end in tests/integration/test_track_filtering.py
 
 **Checkpoint**: Language fallback logic fully functional
 

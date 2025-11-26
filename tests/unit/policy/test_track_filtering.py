@@ -941,3 +941,400 @@ class TestFontWarningStyledSubtitles:
         # Cover art should be removed
         cover_disp = [d for d in dispositions if d.track_type == "attachment"][0]
         assert cover_disp.action == "REMOVE"
+
+
+# =============================================================================
+# Tests for Fallback Mode: content_language (T070)
+# =============================================================================
+
+
+class TestFallbackContentLanguage:
+    """Tests for fallback mode content_language (T070)."""
+
+    def test_content_language_uses_first_audio_track(self) -> None:
+        """content_language fallback should use language from first audio track."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="jpn"),  # First audio = content language
+            make_audio_track(index=2, language="jpn"),  # Same language
+            make_audio_track(index=3, language="kor"),  # Different language
+        ]
+        policy = make_policy_with_audio_filter(
+            languages=("eng",),
+            fallback=LanguageFallbackConfig(mode="content_language"),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        audio_disps = [d for d in dispositions if d.track_type == "audio"]
+
+        # Japanese tracks should be kept (content language)
+        jpn_tracks = [d for d in audio_disps if d.language == "jpn"]
+        assert len(jpn_tracks) == 2
+        assert all(d.action == "KEEP" for d in jpn_tracks)
+        assert all("content language" in d.reason.lower() for d in jpn_tracks)
+
+        # Korean track should be removed
+        kor_tracks = [d for d in audio_disps if d.language == "kor"]
+        assert len(kor_tracks) == 1
+        # Korean could be REMOVE since it doesn't match content language
+
+    def test_content_language_with_video_before_audio(self) -> None:
+        """content_language should correctly skip video tracks to find first audio."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_video_track(index=1),  # Second video track
+            make_audio_track(index=2, language="fra"),  # First audio = content language
+        ]
+        policy = make_policy_with_audio_filter(
+            languages=("eng",),
+            fallback=LanguageFallbackConfig(mode="content_language"),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        audio_disp = [d for d in dispositions if d.track_type == "audio"][0]
+        assert audio_disp.action == "KEEP"
+        assert "content language" in audio_disp.reason.lower()
+
+    def test_content_language_keeps_multiple_matching_tracks(self) -> None:
+        """content_language fallback should keep all matching tracks."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="deu", codec="truehd", channels=8),
+            make_audio_track(index=2, language="deu", codec="ac3", channels=6),
+            make_audio_track(index=3, language="deu", codec="aac", channels=2),
+        ]
+        policy = make_policy_with_audio_filter(
+            languages=("eng",),
+            fallback=LanguageFallbackConfig(mode="content_language"),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        audio_disps = [d for d in dispositions if d.track_type == "audio"]
+        # All German tracks should be kept
+        assert all(d.action == "KEEP" for d in audio_disps)
+
+
+# =============================================================================
+# Tests for Fallback Mode: keep_all (T071)
+# =============================================================================
+
+
+class TestFallbackKeepAll:
+    """Tests for fallback mode keep_all (T071)."""
+
+    def test_keep_all_preserves_all_audio_tracks(self) -> None:
+        """keep_all fallback should preserve all audio tracks."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="jpn"),
+            make_audio_track(index=2, language="kor"),
+            make_audio_track(index=3, language="cmn"),
+        ]
+        policy = make_policy_with_audio_filter(
+            languages=("eng",),
+            fallback=LanguageFallbackConfig(mode="keep_all"),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        audio_disps = [d for d in dispositions if d.track_type == "audio"]
+        assert all(d.action == "KEEP" for d in audio_disps)
+        assert all("keep_all" in d.reason.lower() for d in audio_disps)
+
+    def test_keep_all_triggered_only_when_below_minimum(self) -> None:
+        """keep_all should only trigger when tracks would fall below minimum."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng"),  # Matches filter
+            make_audio_track(index=2, language="fra"),  # Doesn't match
+        ]
+        policy = make_policy_with_audio_filter(
+            languages=("eng",),
+            minimum=1,
+            fallback=LanguageFallbackConfig(mode="keep_all"),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        audio_disps = [d for d in dispositions if d.track_type == "audio"]
+        # English should be kept (matches filter)
+        eng_disp = [d for d in audio_disps if d.language == "eng"][0]
+        assert eng_disp.action == "KEEP"
+        assert "keep_all" not in eng_disp.reason.lower()  # Normal reason
+
+        # French should be removed (minimum met)
+        fra_disp = [d for d in audio_disps if d.language == "fra"][0]
+        assert fra_disp.action == "REMOVE"
+
+
+# =============================================================================
+# Tests for Fallback Mode: keep_first (T072)
+# =============================================================================
+
+
+class TestFallbackKeepFirst:
+    """Tests for fallback mode keep_first (T072)."""
+
+    def test_keep_first_preserves_minimum_tracks(self) -> None:
+        """keep_first should preserve first N tracks to meet minimum."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="jpn"),  # First audio
+            make_audio_track(index=2, language="kor"),  # Second audio
+            make_audio_track(index=3, language="cmn"),  # Third audio
+        ]
+        policy = make_policy_with_audio_filter(
+            languages=("eng",),
+            minimum=2,  # Need at least 2
+            fallback=LanguageFallbackConfig(mode="keep_first"),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        audio_disps = [d for d in dispositions if d.track_type == "audio"]
+        kept = [d for d in audio_disps if d.action == "KEEP"]
+        assert len(kept) == 2  # Minimum satisfied
+
+        # First two audio tracks should be kept
+        assert kept[0].track_index == 1
+        assert kept[1].track_index == 2
+        assert all("keep_first" in d.reason.lower() for d in kept)
+
+    def test_keep_first_preserves_exactly_minimum(self) -> None:
+        """keep_first should keep exactly minimum tracks, not more."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="jpn"),
+            make_audio_track(index=2, language="kor"),
+            make_audio_track(index=3, language="cmn"),
+            make_audio_track(index=4, language="vie"),
+        ]
+        policy = make_policy_with_audio_filter(
+            languages=("eng",),
+            minimum=1,  # Only need 1
+            fallback=LanguageFallbackConfig(mode="keep_first"),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        audio_disps = [d for d in dispositions if d.track_type == "audio"]
+        kept = [d for d in audio_disps if d.action == "KEEP"]
+        assert len(kept) == 1  # Exactly minimum
+
+    def test_keep_first_respects_already_kept_tracks(self) -> None:
+        """keep_first should count already kept tracks toward minimum."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng"),  # Matches filter
+            make_audio_track(index=2, language="fra"),  # Doesn't match
+            make_audio_track(index=3, language="deu"),  # Doesn't match
+        ]
+        policy = make_policy_with_audio_filter(
+            languages=("eng",),
+            minimum=2,  # Need 2, but 1 already matches
+            fallback=LanguageFallbackConfig(mode="keep_first"),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        audio_disps = [d for d in dispositions if d.track_type == "audio"]
+        kept = [d for d in audio_disps if d.action == "KEEP"]
+        assert len(kept) == 2  # 1 from filter + 1 from fallback
+
+
+# =============================================================================
+# Tests for Fallback Mode: error (T073)
+# =============================================================================
+
+
+class TestFallbackErrorMode:
+    """Tests for fallback mode error (T073)."""
+
+    def test_error_mode_raises_exception(self) -> None:
+        """error fallback mode should raise InsufficientTracksError."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="jpn"),
+        ]
+        policy = make_policy_with_audio_filter(
+            languages=("eng",),
+            fallback=LanguageFallbackConfig(mode="error"),
+        )
+
+        with pytest.raises(InsufficientTracksError) as exc_info:
+            compute_track_dispositions(tracks, policy)
+
+        err = exc_info.value
+        assert err.track_type == "audio"
+        assert err.available == 0
+        assert err.required == 1
+
+    def test_no_fallback_behaves_like_error(self) -> None:
+        """No fallback configured should behave like error mode."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="jpn"),
+        ]
+        policy = make_policy_with_audio_filter(
+            languages=("eng",),
+            fallback=None,  # No fallback
+        )
+
+        with pytest.raises(InsufficientTracksError):
+            compute_track_dispositions(tracks, policy)
+
+    def test_error_mode_includes_language_info(self) -> None:
+        """Error should include policy and file language information."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="jpn"),
+            make_audio_track(index=2, language="kor"),
+        ]
+        policy = make_policy_with_audio_filter(
+            languages=("eng", "fra"),
+            fallback=LanguageFallbackConfig(mode="error"),
+        )
+
+        with pytest.raises(InsufficientTracksError) as exc_info:
+            compute_track_dispositions(tracks, policy)
+
+        err = exc_info.value
+        assert "eng" in err.policy_languages
+        assert "fra" in err.policy_languages
+        assert "jpn" in err.file_languages
+        assert "kor" in err.file_languages
+
+
+# =============================================================================
+# Tests for Minimum Track Count Enforcement (T074)
+# =============================================================================
+
+
+class TestMinimumTrackCountEnforcement:
+    """Tests for minimum track count validation triggering fallback (T074)."""
+
+    def test_fallback_not_triggered_when_minimum_met(self) -> None:
+        """Fallback should not trigger when filter results meet minimum."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng"),
+            make_audio_track(index=2, language="eng"),
+            make_audio_track(index=3, language="jpn"),
+        ]
+        policy = make_policy_with_audio_filter(
+            languages=("eng",),
+            minimum=2,  # 2 required, 2 match
+            fallback=LanguageFallbackConfig(mode="keep_all"),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        audio_disps = [d for d in dispositions if d.track_type == "audio"]
+
+        # English tracks kept via filter
+        eng_disps = [d for d in audio_disps if d.language == "eng"]
+        assert all(d.action == "KEEP" for d in eng_disps)
+        assert all("keep_all" not in d.reason.lower() for d in eng_disps)
+
+        # Japanese track removed
+        jpn_disp = [d for d in audio_disps if d.language == "jpn"][0]
+        assert jpn_disp.action == "REMOVE"
+
+    def test_fallback_triggered_when_below_minimum(self) -> None:
+        """Fallback should trigger when filter results fall below minimum."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng"),
+            make_audio_track(index=2, language="jpn"),
+            make_audio_track(index=3, language="kor"),
+        ]
+        policy = make_policy_with_audio_filter(
+            languages=("eng",),
+            minimum=2,  # Need 2, only 1 matches
+            fallback=LanguageFallbackConfig(mode="keep_first"),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        audio_disps = [d for d in dispositions if d.track_type == "audio"]
+        kept = [d for d in audio_disps if d.action == "KEEP"]
+        assert len(kept) == 2  # Minimum enforced via fallback
+
+    def test_high_minimum_requires_more_fallback_tracks(self) -> None:
+        """Higher minimum should require keeping more fallback tracks."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="jpn"),
+            make_audio_track(index=2, language="kor"),
+            make_audio_track(index=3, language="cmn"),
+        ]
+        policy = make_policy_with_audio_filter(
+            languages=("eng",),
+            minimum=3,  # Need all 3
+            fallback=LanguageFallbackConfig(mode="keep_first"),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        audio_disps = [d for d in dispositions if d.track_type == "audio"]
+        kept = [d for d in audio_disps if d.action == "KEEP"]
+        assert len(kept) == 3  # All tracks kept to meet minimum

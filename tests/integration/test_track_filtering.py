@@ -874,3 +874,306 @@ class TestAttachmentFilteringIntegration:
         # Total: 2 tracks removed (Japanese subtitle + font attachment)
         removed = [d for d in dispositions if d.action == "REMOVE"]
         assert len(removed) == 2
+
+
+# =============================================================================
+# Fallback Mode Integration Tests (T079)
+# =============================================================================
+
+
+class TestFallbackModeIntegration:
+    """Integration tests for language fallback modes end-to-end (T079)."""
+
+    def test_content_language_fallback_with_anime_file(self) -> None:
+        """Test content_language fallback with anime file (Japanese audio only)."""
+        tracks = [
+            TrackInfo(
+                index=0,
+                track_type="video",
+                codec="hevc",
+                width=1920,
+                height=1080,
+            ),
+            TrackInfo(
+                index=1,
+                track_type="audio",
+                codec="aac",
+                language="jpn",
+                title="Japanese Stereo",
+                channels=2,
+                is_default=True,
+            ),
+            TrackInfo(
+                index=2,
+                track_type="audio",
+                codec="flac",
+                language="jpn",
+                title="Japanese 5.1",
+                channels=6,
+            ),
+            TrackInfo(
+                index=3,
+                track_type="subtitle",
+                codec="ass",
+                language="eng",
+                title="English",
+            ),
+        ]
+
+        policy = PolicySchema(
+            schema_version=3,
+            audio_filter=AudioFilterConfig(
+                languages=("eng",),  # No English audio in file
+                fallback=LanguageFallbackConfig(mode="content_language"),
+            ),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # Both Japanese audio tracks should be kept (content language)
+        audio_disps = [d for d in dispositions if d.track_type == "audio"]
+        assert len(audio_disps) == 2
+        assert all(d.action == "KEEP" for d in audio_disps)
+        assert all("content language" in d.reason.lower() for d in audio_disps)
+
+    def test_keep_first_fallback_with_multi_dub_file(self) -> None:
+        """Test keep_first fallback with file having multiple dubbed tracks."""
+        tracks = [
+            TrackInfo(
+                index=0,
+                track_type="video",
+                codec="h264",
+                width=1920,
+                height=1080,
+            ),
+            TrackInfo(
+                index=1,
+                track_type="audio",
+                codec="ac3",
+                language="fra",
+                title="French",
+                channels=6,
+            ),
+            TrackInfo(
+                index=2,
+                track_type="audio",
+                codec="ac3",
+                language="deu",
+                title="German",
+                channels=6,
+            ),
+            TrackInfo(
+                index=3,
+                track_type="audio",
+                codec="ac3",
+                language="spa",
+                title="Spanish",
+                channels=6,
+            ),
+            TrackInfo(
+                index=4,
+                track_type="audio",
+                codec="ac3",
+                language="ita",
+                title="Italian",
+                channels=6,
+            ),
+        ]
+
+        policy = PolicySchema(
+            schema_version=3,
+            audio_filter=AudioFilterConfig(
+                languages=("eng",),  # No English
+                minimum=2,
+                fallback=LanguageFallbackConfig(mode="keep_first"),
+            ),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # First 2 audio tracks should be kept
+        audio_disps = [d for d in dispositions if d.track_type == "audio"]
+        kept = [d for d in audio_disps if d.action == "KEEP"]
+        removed = [d for d in audio_disps if d.action == "REMOVE"]
+
+        assert len(kept) == 2
+        assert len(removed) == 2
+        assert kept[0].language == "fra"  # First track
+        assert kept[1].language == "deu"  # Second track
+
+    def test_keep_all_fallback_preserves_all_tracks(self) -> None:
+        """Test keep_all fallback preserves all audio tracks."""
+        tracks = [
+            TrackInfo(
+                index=0,
+                track_type="video",
+                codec="hevc",
+                width=3840,
+                height=2160,
+            ),
+            TrackInfo(
+                index=1,
+                track_type="audio",
+                codec="truehd",
+                language="deu",
+                title="TrueHD German",
+                channels=8,
+            ),
+            TrackInfo(
+                index=2,
+                track_type="audio",
+                codec="ac3",
+                language="deu",
+                title="AC3 German",
+                channels=6,
+            ),
+        ]
+
+        policy = PolicySchema(
+            schema_version=3,
+            audio_filter=AudioFilterConfig(
+                languages=("eng", "jpn"),  # Neither present
+                fallback=LanguageFallbackConfig(mode="keep_all"),
+            ),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # All audio tracks should be kept
+        audio_disps = [d for d in dispositions if d.track_type == "audio"]
+        assert len(audio_disps) == 2
+        assert all(d.action == "KEEP" for d in audio_disps)
+        assert all("keep_all" in d.reason.lower() for d in audio_disps)
+
+    def test_error_fallback_raises_with_helpful_message(self) -> None:
+        """Test error fallback raises with helpful message showing languages."""
+        tracks = [
+            TrackInfo(
+                index=0,
+                track_type="video",
+                codec="hevc",
+                width=1920,
+                height=1080,
+            ),
+            TrackInfo(
+                index=1,
+                track_type="audio",
+                codec="aac",
+                language="kor",
+                title="Korean",
+                channels=2,
+            ),
+            TrackInfo(
+                index=2,
+                track_type="audio",
+                codec="aac",
+                language="jpn",
+                title="Japanese",
+                channels=2,
+            ),
+        ]
+
+        policy = PolicySchema(
+            schema_version=3,
+            audio_filter=AudioFilterConfig(
+                languages=("eng", "fra", "deu"),
+                fallback=LanguageFallbackConfig(mode="error"),
+            ),
+        )
+
+        with pytest.raises(InsufficientTracksError) as exc_info:
+            compute_track_dispositions(tracks, policy)
+
+        err = exc_info.value
+        assert err.track_type == "audio"
+        assert err.available == 0
+        assert err.required == 1
+        # Check policy languages are in error
+        assert "eng" in err.policy_languages
+        assert "fra" in err.policy_languages
+        assert "deu" in err.policy_languages
+        # Check file languages are in error
+        assert "kor" in err.file_languages
+        assert "jpn" in err.file_languages
+
+    def test_fallback_combined_with_subtitle_and_attachment_filters(self) -> None:
+        """Test fallback mode works correctly with other filters active."""
+        tracks = [
+            TrackInfo(
+                index=0,
+                track_type="video",
+                codec="hevc",
+                width=1920,
+                height=1080,
+            ),
+            TrackInfo(
+                index=1,
+                track_type="audio",
+                codec="aac",
+                language="jpn",
+                title="Japanese",
+                channels=2,
+            ),
+            TrackInfo(
+                index=2,
+                track_type="subtitle",
+                codec="ass",
+                language="eng",
+                title="English",
+            ),
+            TrackInfo(
+                index=3,
+                track_type="subtitle",
+                codec="ass",
+                language="jpn",
+                title="Japanese",
+            ),
+            TrackInfo(
+                index=4,
+                track_type="attachment",
+                codec="ttf",
+                title="Font.ttf",
+            ),
+        ]
+
+        from video_policy_orchestrator.policy.models import (
+            AttachmentFilterConfig,
+            SubtitleFilterConfig,
+        )
+
+        policy = PolicySchema(
+            schema_version=3,
+            audio_filter=AudioFilterConfig(
+                languages=("eng",),  # No English audio
+                fallback=LanguageFallbackConfig(mode="content_language"),
+            ),
+            subtitle_filter=SubtitleFilterConfig(
+                languages=("eng",),
+            ),
+            attachment_filter=AttachmentFilterConfig(
+                remove_all=True,
+            ),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # Audio: Japanese kept via content_language fallback
+        audio_disp = [d for d in dispositions if d.track_type == "audio"][0]
+        assert audio_disp.action == "KEEP"
+        assert "content language" in audio_disp.reason.lower()
+
+        # Subtitles: English kept, Japanese removed
+        subtitle_disps = [d for d in dispositions if d.track_type == "subtitle"]
+        eng_sub = [d for d in subtitle_disps if d.language == "eng"][0]
+        jpn_sub = [d for d in subtitle_disps if d.language == "jpn"][0]
+        assert eng_sub.action == "KEEP"
+        assert jpn_sub.action == "REMOVE"
+
+        # Attachment: removed with styled subtitle warning
+        attach_disp = [d for d in dispositions if d.track_type == "attachment"][0]
+        assert attach_disp.action == "REMOVE"
+        assert "styled subtitle" in attach_disp.reason.lower()
+
+        # Count removed tracks
+        removed = [d for d in dispositions if d.action == "REMOVE"]
+        assert len(removed) == 2  # Japanese subtitle + font attachment
