@@ -1,23 +1,25 @@
-"""MKV track reordering executor using mkvmerge.
+"""MKV track reordering and filtering executor using mkvmerge.
 
-This module provides an executor for reordering tracks in MKV files
-using mkvmerge's --track-order option. This requires a remux (no re-encoding).
+This module provides an executor for reordering and filtering tracks in MKV files
+using mkvmerge's --track-order and --audio-tracks/--subtitle-tracks options.
+This requires a remux (no re-encoding).
 """
 
-import subprocess
+import subprocess  # nosec B404 - subprocess is required for mkvmerge execution
 import tempfile
 from pathlib import Path
 
 from video_policy_orchestrator.executor.backup import create_backup, restore_from_backup
 from video_policy_orchestrator.executor.interface import ExecutorResult, require_tool
-from video_policy_orchestrator.policy.models import ActionType, Plan
+from video_policy_orchestrator.policy.models import ActionType, Plan, TrackDisposition
 
 
 class MkvmergeExecutor:
-    """Executor for MKV track reordering using mkvmerge.
+    """Executor for MKV track reordering and filtering using mkvmerge.
 
     This executor handles:
     - REORDER (via --track-order)
+    - Track filtering (via --audio-tracks, --subtitle-tracks, --no-attachments)
 
     It can also apply metadata changes during remux:
     - SET_DEFAULT / CLEAR_DEFAULT (--default-track-flag)
@@ -42,7 +44,7 @@ class MkvmergeExecutor:
 
         Returns True if:
         - File is MKV format
-        - Plan contains REORDER action (this is our specialty)
+        - Plan contains REORDER action OR track filtering
         """
         if not str(plan.file_path).lower().endswith((".mkv", ".mka", ".mks")):
             return False
@@ -51,6 +53,10 @@ class MkvmergeExecutor:
         for action in plan.actions:
             if action.action_type == ActionType.REORDER:
                 return True
+
+        # We also handle track filtering (indicated by tracks_removed > 0)
+        if plan.tracks_removed > 0:
+            return True
 
         return False
 
@@ -88,7 +94,7 @@ class MkvmergeExecutor:
 
         # Execute command
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603 - cmd from validated policy
                 cmd,
                 capture_output=True,
                 text=True,
@@ -140,6 +146,64 @@ class MkvmergeExecutor:
             backup_path=result_backup_path,
         )
 
+    def _build_track_selection_args(
+        self,
+        track_dispositions: tuple[TrackDisposition, ...],
+    ) -> list[str]:
+        """Build mkvmerge track selection arguments from dispositions.
+
+        Args:
+            track_dispositions: Tuple of track dispositions from the plan.
+
+        Returns:
+            List of command line arguments for track selection.
+        """
+        args: list[str] = []
+
+        if not track_dispositions:
+            return args
+
+        # Group kept track indices by type
+        keep_audio: list[int] = []
+        keep_subtitle: list[int] = []
+        remove_attachments = False
+
+        for disp in track_dispositions:
+            if disp.action == "KEEP":
+                if disp.track_type == "audio":
+                    keep_audio.append(disp.track_index)
+                elif disp.track_type == "subtitle":
+                    keep_subtitle.append(disp.track_index)
+            elif disp.action == "REMOVE":
+                if disp.track_type == "attachment":
+                    remove_attachments = True
+
+        # Check if we need to filter audio tracks
+        # (only add argument if some audio tracks are being removed)
+        audio_dispositions = [d for d in track_dispositions if d.track_type == "audio"]
+        if audio_dispositions and len(keep_audio) < len(audio_dispositions):
+            if keep_audio:
+                # Keep specified tracks
+                args.extend(["--audio-tracks", ",".join(str(i) for i in keep_audio)])
+            else:
+                # Remove all audio (this should be blocked by validation)
+                args.append("--no-audio")
+
+        # Check if we need to filter subtitle tracks
+        sub_dispositions = [d for d in track_dispositions if d.track_type == "subtitle"]
+        if sub_dispositions and len(keep_subtitle) < len(sub_dispositions):
+            if keep_subtitle:
+                track_list = ",".join(str(i) for i in keep_subtitle)
+                args.extend(["--subtitle-tracks", track_list])
+            else:
+                args.append("--no-subtitles")
+
+        # Handle attachment removal
+        if remove_attachments:
+            args.append("--no-attachments")
+
+        return args
+
     def _build_command(self, plan: Plan, output_path: Path) -> list[str]:
         """Build mkvmerge command for the plan."""
         cmd = [
@@ -169,6 +233,11 @@ class MkvmergeExecutor:
             elif action.action_type == ActionType.CLEAR_DEFAULT:
                 # --default-track-flag TRACK_ID:0
                 cmd.extend(["--default-track-flag", f"{action.track_index}:0"])
+
+        # Add track selection arguments for filtering
+        if plan.track_dispositions:
+            selection_args = self._build_track_selection_args(plan.track_dispositions)
+            cmd.extend(selection_args)
 
         # Add input file
         cmd.append(str(plan.file_path))

@@ -62,19 +62,19 @@ Based on plan.md structure:
 
 ### Tests for User Story 1
 
-- [ ] T016 [P] [US1] Unit test for audio track filtering logic in tests/unit/policy/test_track_filtering.py
-- [ ] T017 [P] [US1] Unit test for minimum audio track validation in tests/unit/policy/test_track_filtering.py
-- [ ] T018 [P] [US1] Unit test for InsufficientTracksError scenarios in tests/unit/policy/test_track_filtering.py
+- [X] T016 [P] [US1] Unit test for audio track filtering logic in tests/unit/policy/test_track_filtering.py
+- [X] T017 [P] [US1] Unit test for minimum audio track validation in tests/unit/policy/test_track_filtering.py
+- [X] T018 [P] [US1] Unit test for InsufficientTracksError scenarios in tests/unit/policy/test_track_filtering.py
 
 ### Implementation for User Story 1
 
-- [ ] T019 [US1] Implement _evaluate_audio_track() helper function in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T020 [US1] Implement compute_track_dispositions() for audio tracks in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T021 [US1] Add audio track minimum validation with InsufficientTracksError in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T022 [US1] Update evaluate_policy() to call compute_track_dispositions() when audio_filter present in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T023 [US1] Extend MkvmergeExecutor with --audio-tracks selection in src/video_policy_orchestrator/executor/mkvmerge.py
-- [ ] T024 [US1] Add _build_track_selection_args() method to MkvmergeExecutor in src/video_policy_orchestrator/executor/mkvmerge.py
-- [ ] T025 [US1] Integration test for audio filtering end-to-end in tests/integration/test_track_filtering.py
+- [X] T019 [US1] Implement _evaluate_audio_track() helper function in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T020 [US1] Implement compute_track_dispositions() for audio tracks in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T021 [US1] Add audio track minimum validation with InsufficientTracksError in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T022 [US1] Update evaluate_policy() to call compute_track_dispositions() when audio_filter present in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T023 [US1] Extend MkvmergeExecutor with --audio-tracks selection in src/video_policy_orchestrator/executor/mkvmerge.py
+- [X] T024 [US1] Add _build_track_selection_args() method to MkvmergeExecutor in src/video_policy_orchestrator/executor/mkvmerge.py
+- [X] T025 [US1] Integration test for audio filtering end-to-end in tests/integration/test_track_filtering.py
 
 **Checkpoint**: Audio track filtering fully functional and testable independently
 

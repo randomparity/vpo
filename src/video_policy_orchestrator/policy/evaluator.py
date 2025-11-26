@@ -6,6 +6,7 @@ to media file track metadata. All functions are pure (no side effects).
 
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 from video_policy_orchestrator.db.models import (
     TrackInfo,
@@ -13,12 +14,15 @@ from video_policy_orchestrator.db.models import (
     TranscriptionResultRecord,
 )
 from video_policy_orchestrator.language import languages_match, normalize_language
+from video_policy_orchestrator.policy.exceptions import InsufficientTracksError
 from video_policy_orchestrator.policy.matchers import CommentaryMatcher
 from video_policy_orchestrator.policy.models import (
     ActionType,
+    AudioFilterConfig,
     Plan,
     PlannedAction,
     PolicySchema,
+    TrackDisposition,
     TrackType,
 )
 
@@ -366,6 +370,207 @@ def compute_language_updates(
             result[track_index] = detected_lang_normalized
 
     return result
+
+
+# =============================================================================
+# Track Filtering Functions (V3)
+# =============================================================================
+
+
+def _evaluate_audio_track(
+    track: TrackInfo,
+    config: AudioFilterConfig,
+) -> tuple[Literal["KEEP", "REMOVE"], str]:
+    """Evaluate a single audio track against audio filter config.
+
+    Args:
+        track: Audio track to evaluate.
+        config: Audio filter configuration.
+
+    Returns:
+        Tuple of (action, reason) for the track.
+    """
+    lang = track.language or "und"
+
+    # Check if track language matches any in the keep list
+    for keep_lang in config.languages:
+        if languages_match(lang, keep_lang):
+            return ("KEEP", "language in keep list")
+
+    return ("REMOVE", "language not in keep list")
+
+
+def _detect_content_language(tracks: list[TrackInfo]) -> str | None:
+    """Detect the content language from the first audio track.
+
+    Args:
+        tracks: List of all tracks.
+
+    Returns:
+        Language code of first audio track, or None if no audio tracks.
+    """
+    for track in tracks:
+        if track.track_type.lower() == "audio":
+            return track.language or "und"
+    return None
+
+
+def _apply_fallback(
+    audio_tracks: list[TrackInfo],
+    initial_actions: dict[int, tuple[Literal["KEEP", "REMOVE"], str]],
+    config: AudioFilterConfig,
+    all_tracks: list[TrackInfo],
+) -> dict[int, tuple[Literal["KEEP", "REMOVE"], str]]:
+    """Apply fallback logic when insufficient tracks match the filter.
+
+    Args:
+        audio_tracks: List of audio tracks.
+        initial_actions: Initial track actions before fallback.
+        config: Audio filter configuration.
+        all_tracks: All tracks (for content language detection).
+
+    Returns:
+        Updated actions dict after applying fallback.
+
+    Raises:
+        InsufficientTracksError: If fallback mode is 'error' or None.
+    """
+    kept_count = sum(1 for action, _ in initial_actions.values() if action == "KEEP")
+    fallback = config.fallback
+
+    # No fallback configured - raise error
+    if fallback is None or fallback.mode == "error":
+        policy_languages = config.languages
+        file_languages = tuple(t.language or "und" for t in audio_tracks)
+        raise InsufficientTracksError(
+            track_type="audio",
+            required=config.minimum,
+            available=kept_count,
+            policy_languages=policy_languages,
+            file_languages=file_languages,
+        )
+
+    # Apply fallback based on mode
+    result = dict(initial_actions)
+
+    if fallback.mode == "keep_all":
+        # Keep all audio tracks
+        for track in audio_tracks:
+            result[track.index] = ("KEEP", "fallback: keep_all applied")
+        return result
+
+    elif fallback.mode == "keep_first":
+        # Keep first N tracks to meet minimum
+        needed = config.minimum - kept_count
+        for track in audio_tracks:
+            if needed <= 0:
+                break
+            action, _ = result.get(track.index, ("REMOVE", ""))
+            if action == "REMOVE":
+                result[track.index] = ("KEEP", "fallback: keep_first applied")
+                needed -= 1
+        return result
+
+    elif fallback.mode == "content_language":
+        # Keep tracks matching content language (first audio track's language)
+        content_lang = _detect_content_language(all_tracks)
+        if content_lang:
+            for track in audio_tracks:
+                track_lang = track.language or "und"
+                if languages_match(track_lang, content_lang):
+                    result[track.index] = ("KEEP", "fallback: content language match")
+        return result
+
+    return result
+
+
+def compute_track_dispositions(
+    tracks: list[TrackInfo],
+    policy: PolicySchema,
+) -> tuple[TrackDisposition, ...]:
+    """Compute disposition for each track based on policy filters.
+
+    This function evaluates all tracks against the policy's filter
+    configurations and returns a TrackDisposition for each track
+    indicating whether it should be kept or removed and why.
+
+    Args:
+        tracks: List of track metadata from introspection.
+        policy: Validated policy configuration.
+
+    Returns:
+        Tuple of TrackDisposition objects, one per track.
+
+    Raises:
+        InsufficientTracksError: If filtering would leave insufficient
+            audio tracks and no fallback is configured.
+    """
+    dispositions: list[TrackDisposition] = []
+    audio_tracks = [t for t in tracks if t.track_type.lower() == "audio"]
+
+    # First pass: evaluate each track
+    audio_actions: dict[int, tuple[Literal["KEEP", "REMOVE"], str]] = {}
+
+    for track in tracks:
+        track_type = track.track_type.lower()
+        action: Literal["KEEP", "REMOVE"] = "KEEP"
+        reason = "no filter applied"
+
+        if track_type == "audio" and policy.audio_filter:
+            action, reason = _evaluate_audio_track(track, policy.audio_filter)
+            audio_actions[track.index] = (action, reason)
+
+        # Build resolution string for video tracks
+        resolution = None
+        if track.width and track.height:
+            resolution = f"{track.width}x{track.height}"
+
+        dispositions.append(
+            TrackDisposition(
+                track_index=track.index,
+                track_type=track_type,
+                codec=track.codec,
+                language=track.language,
+                title=track.title,
+                channels=track.channels,
+                resolution=resolution,
+                action=action,
+                reason=reason,
+            )
+        )
+
+    # Check if audio filtering is active and needs fallback
+    if policy.audio_filter and audio_tracks:
+        kept_count = sum(1 for action, _ in audio_actions.values() if action == "KEEP")
+
+        if kept_count < policy.audio_filter.minimum:
+            # Apply fallback logic
+            updated_actions = _apply_fallback(
+                audio_tracks,
+                audio_actions,
+                policy.audio_filter,
+                tracks,
+            )
+
+            # Update dispositions with fallback results
+            for i, disp in enumerate(dispositions):
+                if disp.track_index in updated_actions:
+                    new_action, new_reason = updated_actions[disp.track_index]
+                    if new_action != disp.action or new_reason != disp.reason:
+                        # Create new disposition with updated values
+                        dispositions[i] = TrackDisposition(
+                            track_index=disp.track_index,
+                            track_type=disp.track_type,
+                            codec=disp.codec,
+                            language=disp.language,
+                            title=disp.title,
+                            channels=disp.channels,
+                            resolution=disp.resolution,
+                            action=new_action,
+                            reason=new_reason,
+                        )
+
+    return tuple(dispositions)
 
 
 def evaluate_policy(
