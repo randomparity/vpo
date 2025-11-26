@@ -86,17 +86,17 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Tests for User Story 2
 
-- [ ] T024 [P] [US2] Unit test for QualitySettings dataclass validation in tests/unit/test_quality_settings.py
-- [ ] T025 [P] [US2] Unit test for CRF range validation (0-51) in tests/unit/test_quality_settings.py
-- [ ] T026 [P] [US2] Unit test for codec-specific CRF defaults in tests/unit/test_quality_settings.py
+- [x] T024 [P] [US2] Unit test for QualitySettings dataclass validation in tests/unit/test_quality_settings.py
+- [x] T025 [P] [US2] Unit test for CRF range validation (0-51) in tests/unit/test_quality_settings.py
+- [x] T026 [P] [US2] Unit test for codec-specific CRF defaults in tests/unit/test_quality_settings.py
 
 ### Implementation for User Story 2
 
-- [ ] T027 [US2] Add QualitySettings dataclass (mode, crf, preset, tune, bitrate fields) in src/video_policy_orchestrator/policy/models.py
-- [ ] T028 [US2] Add get_default_crf(codec) function returning codec-appropriate defaults in src/video_policy_orchestrator/policy/models.py
-- [ ] T029 [US2] Add CRF validation (0-51 range) in QualitySettings in src/video_policy_orchestrator/policy/models.py
-- [ ] T030 [US2] Update build_ffmpeg_command() to use quality.crf in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T031 [US2] Parse quality section from YAML policy in src/video_policy_orchestrator/policy/schema.py
+- [x] T027 [US2] Add QualitySettings dataclass (mode, crf, preset, tune, bitrate fields) in src/video_policy_orchestrator/policy/models.py
+- [x] T028 [US2] Add get_default_crf(codec) function returning codec-appropriate defaults in src/video_policy_orchestrator/policy/models.py
+- [x] T029 [US2] Add CRF validation (0-51 range) in QualitySettings in src/video_policy_orchestrator/policy/models.py
+- [x] T030 [US2] Update build_ffmpeg_command() to use quality.crf in src/video_policy_orchestrator/executor/transcode.py
+- [x] T031 [US2] Parse quality section from YAML policy in src/video_policy_orchestrator/policy/loader.py
 
 **Checkpoint**: CRF quality mode functional with validation and defaults
 

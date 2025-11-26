@@ -14,8 +14,11 @@ from video_policy_orchestrator.jobs.progress import (
 )
 from video_policy_orchestrator.policy.models import (
     RESOLUTION_MAP,
+    QualityMode,
+    QualitySettings,
     SkipCondition,
     TranscodePolicyConfig,
+    get_default_crf,
     parse_bitrate,
 )
 from video_policy_orchestrator.policy.transcode import (
@@ -357,15 +360,97 @@ def should_transcode_video(
     return needs_transcode, needs_scale, target_width, target_height
 
 
+def _build_quality_args(
+    quality: QualitySettings | None,
+    policy: TranscodePolicyConfig,
+    codec: str,
+    encoder: str,
+) -> list[str]:
+    """Build FFmpeg quality-related arguments.
+
+    Supports V6 QualitySettings (takes precedence) and falls back to
+    TranscodePolicyConfig for backward compatibility.
+
+    Args:
+        quality: V6 quality settings (optional).
+        policy: V1-5 transcode policy config.
+        codec: Target video codec name.
+        encoder: FFmpeg encoder name.
+
+    Returns:
+        List of FFmpeg arguments for quality settings.
+    """
+    args: list[str] = []
+
+    if quality is not None:
+        # V6 quality settings
+        if quality.mode == QualityMode.CRF:
+            # CRF mode
+            crf = quality.crf if quality.crf is not None else get_default_crf(codec)
+            args.extend(["-crf", str(crf)])
+
+        elif quality.mode == QualityMode.BITRATE:
+            # Bitrate mode
+            if quality.bitrate:
+                args.extend(["-b:v", quality.bitrate])
+
+                # Two-pass encoding for bitrate mode
+                if quality.two_pass:
+                    # Note: Two-pass requires running ffmpeg twice
+                    # This will be handled by the executor, not here
+                    pass
+
+        elif quality.mode == QualityMode.CONSTRAINED_QUALITY:
+            # Constrained quality: CRF with max bitrate cap
+            crf = quality.crf if quality.crf is not None else get_default_crf(codec)
+            args.extend(["-crf", str(crf)])
+            if quality.max_bitrate:
+                args.extend(["-maxrate", quality.max_bitrate])
+                # Buffer size typically 2x max bitrate for VBV compliance
+                bitrate_val = parse_bitrate(quality.max_bitrate)
+                if bitrate_val:
+                    bufsize = f"{int(bitrate_val * 2 / 1000)}k"
+                    args.extend(["-bufsize", bufsize])
+
+        # Preset (for x264/x265 encoders)
+        if encoder in ("libx264", "libx265"):
+            args.extend(["-preset", quality.preset])
+
+        # Tune option
+        if quality.tune:
+            args.extend(["-tune", quality.tune])
+
+    else:
+        # Fall back to V1-5 policy settings
+        if policy.target_crf is not None:
+            args.extend(["-crf", str(policy.target_crf)])
+        elif policy.target_bitrate:
+            args.extend(["-b:v", policy.target_bitrate])
+        else:
+            # Default CRF for good quality
+            default_crf = get_default_crf(codec)
+            args.extend(["-crf", str(default_crf)])
+
+        # Default preset for x264/x265
+        if encoder in ("libx264", "libx265"):
+            args.extend(["-preset", "medium"])
+
+    return args
+
+
 def build_ffmpeg_command(
     plan: TranscodePlan,
     cpu_cores: int | None = None,
+    quality: QualitySettings | None = None,
+    target_codec: str | None = None,
 ) -> list[str]:
     """Build FFmpeg command for transcoding.
 
     Args:
         plan: Transcode plan with input/output paths and settings.
         cpu_cores: Number of CPU cores to use (None = auto).
+        quality: V6 quality settings (overrides policy settings if provided).
+        target_codec: V6 target codec (overrides policy codec if provided).
 
     Returns:
         List of command arguments.
@@ -380,19 +465,13 @@ def build_ffmpeg_command(
     if plan.needs_video_transcode:
         policy = plan.policy
 
-        # Video codec
-        codec = policy.target_video_codec or "hevc"
+        # Determine codec (V6 target_codec takes precedence)
+        codec = target_codec or policy.target_video_codec or "hevc"
         encoder = _get_encoder(codec)
         cmd.extend(["-c:v", encoder])
 
-        # CRF or bitrate
-        if policy.target_crf is not None:
-            cmd.extend(["-crf", str(policy.target_crf)])
-        elif policy.target_bitrate:
-            cmd.extend(["-b:v", policy.target_bitrate])
-        else:
-            # Default CRF for good quality
-            cmd.extend(["-crf", "23"])
+        # Build quality arguments (V6 quality takes precedence over policy)
+        cmd.extend(_build_quality_args(quality, policy, codec, encoder))
 
         # Scaling
         if plan.needs_video_scale and plan.target_width and plan.target_height:
@@ -402,10 +481,6 @@ def build_ffmpeg_command(
                     f"scale={plan.target_width}:{plan.target_height}",
                 ]
             )
-
-        # Preset for speed/quality balance
-        if encoder in ("libx264", "libx265"):
-            cmd.extend(["-preset", "medium"])
     else:
         # Copy video stream
         cmd.extend(["-c:v", "copy"])
