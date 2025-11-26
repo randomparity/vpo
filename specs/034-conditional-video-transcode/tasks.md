@@ -134,14 +134,14 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Tests for User Story 3
 
-- [ ] T040 [P] [US3] Unit test for preset validation in tests/unit/test_quality_settings.py
-- [ ] T041 [P] [US3] Unit test for default preset (medium) in tests/unit/test_quality_settings.py
+- [x] T040 [P] [US3] Unit test for preset validation in tests/unit/test_quality_settings.py
+- [x] T041 [P] [US3] Unit test for default preset (medium) in tests/unit/test_quality_settings.py
 
 ### Implementation for User Story 3
 
-- [ ] T042 [US3] Add VALID_PRESETS constant with all 9 preset names in src/video_policy_orchestrator/policy/models.py
-- [ ] T043 [US3] Add preset validation in QualitySettings in src/video_policy_orchestrator/policy/models.py
-- [ ] T044 [US3] Update build_ffmpeg_command() to use quality.preset in src/video_policy_orchestrator/executor/transcode.py
+- [x] T042 [US3] Add VALID_PRESETS constant with all 9 preset names in src/video_policy_orchestrator/policy/models.py
+- [x] T043 [US3] Add preset validation in QualitySettings in src/video_policy_orchestrator/policy/models.py
+- [x] T044 [US3] Update build_ffmpeg_command() to use quality.preset in src/video_policy_orchestrator/executor/transcode.py
 
 **Checkpoint**: Preset selection functional with validation
 
@@ -155,18 +155,18 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Tests for User Story 5
 
-- [ ] T045 [P] [US5] Unit test for ScalingSettings dataclass in tests/unit/test_scaling.py
-- [ ] T046 [P] [US5] Unit test for resolution preset to dimensions mapping in tests/unit/test_scaling.py
-- [ ] T047 [P] [US5] Unit test for aspect ratio preservation calculation in tests/unit/test_scaling.py
-- [ ] T048 [P] [US5] Unit test for upscale=false behavior in tests/unit/test_scaling.py
+- [x] T045 [P] [US5] Unit test for ScalingSettings dataclass in tests/unit/test_scaling.py
+- [x] T046 [P] [US5] Unit test for resolution preset to dimensions mapping in tests/unit/test_scaling.py
+- [x] T047 [P] [US5] Unit test for aspect ratio preservation calculation in tests/unit/test_scaling.py
+- [x] T048 [P] [US5] Unit test for upscale=false behavior in tests/unit/test_scaling.py
 
 ### Implementation for User Story 5
 
-- [ ] T049 [US5] Add ScalingSettings dataclass (max_resolution, max_width, max_height, algorithm, upscale) in src/video_policy_orchestrator/policy/models.py
-- [ ] T050 [US5] Add RESOLUTION_MAP constant (480p-8k dimensions) in src/video_policy_orchestrator/policy/models.py
-- [ ] T051 [US5] Add calculate_scaled_dimensions() function preserving aspect ratio in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T052 [US5] Update build_ffmpeg_command() to add -vf scale filter in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T053 [US5] Parse scaling section from YAML policy in src/video_policy_orchestrator/policy/schema.py
+- [x] T049 [US5] Add ScalingSettings dataclass (max_resolution, max_width, max_height, algorithm, upscale) in src/video_policy_orchestrator/policy/models.py
+- [x] T050 [US5] Add RESOLUTION_MAP constant (480p-8k dimensions) in src/video_policy_orchestrator/policy/models.py
+- [x] T051 [US5] Add calculate_scaled_dimensions() function preserving aspect ratio in src/video_policy_orchestrator/executor/transcode.py
+- [x] T052 [US5] Update build_ffmpeg_command() to add -vf scale filter in src/video_policy_orchestrator/executor/transcode.py
+- [x] T053 [US5] Parse scaling section from YAML policy in src/video_policy_orchestrator/policy/loader.py
 
 **Checkpoint**: Resolution scaling functional with aspect ratio preservation
 
