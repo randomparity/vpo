@@ -12,7 +12,6 @@ from video_policy_orchestrator.transcription.models import (
 from video_policy_orchestrator.transcription.service import (
     TranscriptionContext,
     TranscriptionSetupError,
-    get_existing_transcription,
     prepare_transcription_context,
     should_skip_track,
 )
@@ -27,6 +26,5 @@ __all__ = [
     "TranscriptionContext",
     "TranscriptionSetupError",
     "prepare_transcription_context",
-    "get_existing_transcription",
     "should_skip_track",
 ]

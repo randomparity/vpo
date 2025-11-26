@@ -46,7 +46,9 @@ class TranscriptionContext:
     on audio tracks within a media file.
 
     Attributes:
-        conn: Database connection for storing results.
+        conn: Database connection for storing results. This connection is
+            borrowed from the caller (not owned). The caller is responsible
+            for connection lifecycle management (creation, closing).
         transcriber: Plugin to use for transcription.
         file_record: Database record for the target file.
         audio_tracks: List of audio tracks to process.
@@ -131,22 +133,6 @@ def prepare_transcription_context(
     )
 
 
-def get_existing_transcription(
-    conn: sqlite3.Connection,
-    track_id: int,
-) -> TranscriptionResultRecord | None:
-    """Get existing transcription result for a track.
-
-    Args:
-        conn: Database connection.
-        track_id: Track ID to look up.
-
-    Returns:
-        Existing transcription result, or None if not found.
-    """
-    return get_transcription_result(conn, track_id)
-
-
 def should_skip_track(
     conn: sqlite3.Connection,
     track: TrackRecord,
@@ -163,7 +149,7 @@ def should_skip_track(
         Tuple of (should_skip, existing_result).
         If should_skip is True, existing_result contains the cached result.
     """
-    existing = get_existing_transcription(conn, track.id)
+    existing = get_transcription_result(conn, track.id)
     if existing and not force:
         return True, existing
     return False, None

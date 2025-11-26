@@ -236,7 +236,15 @@ def detect_command(
             created_at=existing.created_at if existing else now,
             updated_at=now,
         )
-        upsert_transcription_result(conn, record)
+        try:
+            upsert_transcription_result(conn, record)
+        except sqlite3.Error as e:
+            logger.error(
+                "Failed to store transcription result",
+                extra={"track_id": track.id, "error": str(e)},
+            )
+            click.echo(f"  Warning: Failed to save result to database: {e}", err=True)
+            continue
         logger.debug(
             "Transcription result stored",
             extra={"track_id": track.id, "track_index": track.track_index},
@@ -487,7 +495,15 @@ def quick_command(
             created_at=existing.created_at if existing else now,
             updated_at=now,
         )
-        upsert_transcription_result(conn, record)
+        try:
+            upsert_transcription_result(conn, record)
+        except sqlite3.Error as e:
+            logger.error(
+                "Failed to store quick detection result",
+                extra={"track_id": track.id, "error": str(e)},
+            )
+            click.echo(f"  Warning: Failed to save result to database: {e}", err=True)
+            continue
         logger.debug(
             "Quick detection result stored",
             extra={"track_id": track.id, "track_index": track.track_index},
