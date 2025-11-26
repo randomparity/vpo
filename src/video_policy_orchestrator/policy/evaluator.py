@@ -740,14 +740,14 @@ def _normalize_container_format(container: str) -> str:
     """Normalize container format names.
 
     Args:
-        container: Container format string.
+        container: Container format string (from ffprobe or file extension).
 
     Returns:
         Normalized format name (lowercase, standardized).
     """
     container = container.lower().strip()
 
-    # Map common format names to standard names
+    # First try exact match for common names
     format_aliases = {
         "matroska": "mkv",
         "matroska,webm": "mkv",
@@ -755,7 +755,21 @@ def _normalize_container_format(container: str) -> str:
         "quicktime": "mov",
     }
 
-    return format_aliases.get(container, container)
+    if container in format_aliases:
+        return format_aliases[container]
+
+    # Use substring matching for more robust detection
+    # (handles different ffprobe versions and format variations)
+    if "matroska" in container or container == "webm":
+        return "mkv"
+    if any(x in container for x in ("mp4", "m4a", "m4v")):
+        return "mp4"
+    if "mov" in container or "quicktime" in container:
+        return "mov"
+    if "avi" in container:
+        return "avi"
+
+    return container
 
 
 def _is_codec_mp4_compatible(codec: str, track_type: str) -> bool:
@@ -989,7 +1003,8 @@ def evaluate_policy(
     # Compute track dispositions for V3 track filtering
     track_dispositions: tuple[TrackDisposition, ...] = ()
     tracks_removed = 0
-    tracks_kept = 0
+    # Default: all tracks kept when no filtering is active
+    tracks_kept = len(tracks)
 
     if policy.has_track_filtering:
         track_dispositions = compute_track_dispositions(tracks, policy)

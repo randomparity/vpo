@@ -71,12 +71,19 @@ class MkvmergeExecutor:
 
         return False
 
-    def execute(self, plan: Plan, keep_backup: bool = True) -> ExecutorResult:
+    def execute(
+        self,
+        plan: Plan,
+        keep_backup: bool = True,
+        keep_original: bool = False,
+    ) -> ExecutorResult:
         """Execute track reordering or container conversion on a media file.
 
         Args:
             plan: The execution plan to apply.
             keep_backup: Whether to keep the backup file after success.
+            keep_original: Whether to keep the original file after container
+                conversion (only applies when output path differs from input).
 
         Returns:
             ExecutorResult with success status.
@@ -164,6 +171,11 @@ class MkvmergeExecutor:
                 success=False,
                 message=f"Failed to move output file: {e}",
             )
+
+        # Delete original file if extension changed (container conversion)
+        # unless keep_original is True
+        if output_path != plan.file_path and not keep_original:
+            plan.file_path.unlink(missing_ok=True)
 
         # Success - optionally keep backup
         result_backup_path = backup_path if keep_backup else None

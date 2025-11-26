@@ -4,7 +4,7 @@ This module provides an executor for changing MKV metadata (flags, titles,
 language) using mkvpropedit. This is fast and in-place (no remux needed).
 """
 
-import subprocess
+import subprocess  # nosec B404 - subprocess is required for mkvpropedit execution
 from pathlib import Path
 
 from video_policy_orchestrator.executor.backup import create_backup, restore_from_backup
@@ -52,16 +52,23 @@ class MkvpropeditExecutor:
 
         return True
 
-    def execute(self, plan: Plan, keep_backup: bool = True) -> ExecutorResult:
+    def execute(
+        self,
+        plan: Plan,
+        keep_backup: bool = True,
+        keep_original: bool = False,  # Not used - metadata edits don't change file path
+    ) -> ExecutorResult:
         """Execute metadata changes on an MKV file.
 
         Args:
             plan: The execution plan to apply.
             keep_backup: Whether to keep the backup file after success.
+            keep_original: Not used for metadata changes (file path unchanged).
 
         Returns:
             ExecutorResult with success status.
         """
+        del keep_original  # Unused - metadata changes don't create new files
         if plan.is_empty:
             return ExecutorResult(success=True, message="No changes to apply")
 
@@ -79,7 +86,7 @@ class MkvpropeditExecutor:
 
         # Execute command
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603 - cmd from validated policy
                 cmd,
                 capture_output=True,
                 text=True,

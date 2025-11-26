@@ -29,6 +29,7 @@ from video_policy_orchestrator.policy.loader import PolicyValidationError, load_
 from video_policy_orchestrator.policy.models import (
     ActionType,
     ContainerChange,
+    Plan,
     TrackDisposition,
 )
 
@@ -186,7 +187,7 @@ def _format_dry_run_output(
     policy_path: Path,
     policy_version: int,
     target_path: Path,
-    plan,
+    plan: Plan,
 ) -> str:
     """Format dry-run output in human-readable format."""
     lines = [
@@ -248,7 +249,7 @@ def _format_dry_run_json(
     policy_version: int,
     target_path: Path,
     container: str,
-    plan,
+    plan: Plan,
 ) -> str:
     """Format dry-run output in JSON format."""
     actions_json = []
@@ -347,6 +348,11 @@ def _format_dry_run_json(
     help="Delete backup file after successful operation",
 )
 @click.option(
+    "--keep-original/--no-keep-original",
+    default=False,
+    help="Keep original file after container conversion (default: delete original)",
+)
+@click.option(
     "--json",
     "-j",
     "json_output",
@@ -371,6 +377,7 @@ def apply_command(
     dry_run: bool,
     keep_backup: bool | None,
     no_keep_backup: bool | None,
+    keep_original: bool,
     json_output: bool,
     verbose: bool,
     target: Path,
@@ -586,7 +593,11 @@ def apply_command(
                 click.echo(f"Executing {len(plan.actions)} actions...")
 
             start_time = time.time()
-            result = policy_engine.execute(plan, keep_backup=should_keep_backup)
+            result = policy_engine.execute(
+                plan,
+                keep_backup=should_keep_backup,
+                keep_original=keep_original,
+            )
             duration = time.time() - start_time
 
             if verbose:

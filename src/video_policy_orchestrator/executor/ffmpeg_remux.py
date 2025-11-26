@@ -4,6 +4,7 @@ This module provides an executor for lossless container conversion
 (primarily MKV to MP4) using ffmpeg with stream copy.
 """
 
+import logging
 import subprocess  # nosec B404 - subprocess is required for ffmpeg execution
 import tempfile
 from pathlib import Path
@@ -16,6 +17,8 @@ from video_policy_orchestrator.executor.backup import (
 )
 from video_policy_orchestrator.executor.interface import ExecutorResult, require_tool
 from video_policy_orchestrator.policy.models import Plan
+
+logger = logging.getLogger(__name__)
 
 
 class FFmpegRemuxExecutor:
@@ -58,12 +61,19 @@ class FFmpegRemuxExecutor:
 
         return plan.container_change.target_format == "mp4"
 
-    def execute(self, plan: Plan, keep_backup: bool = True) -> ExecutorResult:
+    def execute(
+        self,
+        plan: Plan,
+        keep_backup: bool = True,
+        keep_original: bool = False,
+    ) -> ExecutorResult:
         """Execute container conversion using ffmpeg.
 
         Args:
             plan: The execution plan to apply.
             keep_backup: Whether to keep the backup file after success.
+            keep_original: Whether to keep the original file after container
+                conversion (only applies when output path differs from input).
 
         Returns:
             ExecutorResult with success status.
@@ -110,12 +120,20 @@ class FFmpegRemuxExecutor:
                 success=False,
                 message="ffmpeg timed out after 30 minutes",
             )
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError) as e:
             temp_path.unlink(missing_ok=True)
             restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
                 message=f"ffmpeg execution failed: {e}",
+            )
+        except Exception as e:
+            logger.exception("Unexpected error during ffmpeg execution")
+            temp_path.unlink(missing_ok=True)
+            restore_from_backup(backup_path)
+            return ExecutorResult(
+                success=False,
+                message=f"Unexpected error during ffmpeg execution: {e}",
             )
 
         if result.returncode != 0:
@@ -136,6 +154,11 @@ class FFmpegRemuxExecutor:
                 success=False,
                 message=f"Failed to move output file: {e}",
             )
+
+        # Delete original file if extension changed (container conversion)
+        # unless keep_original is True
+        if output_path != plan.file_path and not keep_original:
+            plan.file_path.unlink(missing_ok=True)
 
         # Success - optionally keep backup
         result_backup_path = backup_path if keep_backup else None

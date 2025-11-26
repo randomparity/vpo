@@ -11,6 +11,7 @@ from typing import Any
 
 from video_policy_orchestrator.db.models import TrackInfo
 from video_policy_orchestrator.executor.ffmpeg_metadata import FfmpegMetadataExecutor
+from video_policy_orchestrator.executor.ffmpeg_remux import FFmpegRemuxExecutor
 from video_policy_orchestrator.executor.interface import (
     ExecutorResult,
     check_tool_availability,
@@ -155,7 +156,12 @@ class PolicyEnginePlugin:
         """
         return None
 
-    def execute(self, plan: Plan, keep_backup: bool = True) -> ExecutorResult:
+    def execute(
+        self,
+        plan: Plan,
+        keep_backup: bool = True,
+        keep_original: bool = False,
+    ) -> ExecutorResult:
         """Execute the given plan.
 
         Selects the appropriate executor based on container format and
@@ -164,6 +170,8 @@ class PolicyEnginePlugin:
         Args:
             plan: The execution plan to apply.
             keep_backup: Whether to keep backup file after success.
+            keep_original: Whether to keep original file after container
+                conversion (only applies when output path differs from input).
 
         Returns:
             ExecutorResult with success status and message.
@@ -198,7 +206,11 @@ class PolicyEnginePlugin:
         )
 
         try:
-            return executor.execute(plan, keep_backup=keep_backup)
+            return executor.execute(
+                plan,
+                keep_backup=keep_backup,
+                keep_original=keep_original,
+            )
         except Exception as e:
             logger.exception("Executor raised exception")
             return ExecutorResult(
@@ -270,6 +282,12 @@ class PolicyEnginePlugin:
     ) -> Any | None:
         """Select appropriate executor for the plan.
 
+        Selection priority:
+        1. Container conversion - route based on target format
+        2. Track filtering - requires remux capability
+        3. Track reordering - requires mkvmerge for MKV
+        4. Metadata-only changes - use in-place editing where possible
+
         Args:
             plan: Execution plan.
             container: Container format.
@@ -278,9 +296,32 @@ class PolicyEnginePlugin:
         Returns:
             Executor instance or None if required tool unavailable.
         """
+        # Priority 1: Container conversion
+        if plan.container_change:
+            target = plan.container_change.target_format
+            if target == "mp4":
+                if not tools.get("ffmpeg"):
+                    return None
+                return FFmpegRemuxExecutor()
+            elif target == "mkv":
+                if not tools.get("mkvmerge"):
+                    return None
+                return MkvmergeExecutor()
+
+        # Priority 2: Track filtering requires remux
+        if plan.tracks_removed > 0:
+            if container in ("mkv", "matroska"):
+                if not tools.get("mkvmerge"):
+                    return None
+                return MkvmergeExecutor()
+            # Non-MKV with track filtering needs ffmpeg remux
+            if not tools.get("ffmpeg"):
+                return None
+            return FFmpegRemuxExecutor()
+
+        # Priority 3: Track reordering (MKV only)
         if container in ("mkv", "matroska"):
             if plan.requires_remux:
-                # Track reordering requires mkvmerge
                 has_reorder = any(
                     a.action_type == ActionType.REORDER for a in plan.actions
                 )
@@ -293,7 +334,7 @@ class PolicyEnginePlugin:
                 return None
             return MkvpropeditExecutor()
         else:
-            # Non-MKV uses ffmpeg
+            # Non-MKV metadata changes use ffmpeg
             if not tools.get("ffmpeg"):
                 return None
             return FfmpegMetadataExecutor()
@@ -314,6 +355,22 @@ class PolicyEnginePlugin:
         Returns:
             Human-readable error message.
         """
+        # Container conversion
+        if plan.container_change:
+            target = plan.container_change.target_format
+            if target == "mp4" and not tools.get("ffmpeg"):
+                return "MP4 conversion requires ffmpeg. Install ffmpeg."
+            if target == "mkv" and not tools.get("mkvmerge"):
+                return "MKV conversion requires mkvmerge. Install mkvtoolnix."
+
+        # Track filtering
+        if plan.tracks_removed > 0:
+            if container in ("mkv", "matroska") and not tools.get("mkvmerge"):
+                return "Track filtering requires mkvmerge. Install mkvtoolnix."
+            if not tools.get("ffmpeg"):
+                return "Track filtering requires ffmpeg. Install ffmpeg."
+
+        # MKV-specific operations
         if container in ("mkv", "matroska"):
             if plan.requires_remux and not tools.get("mkvmerge"):
                 return "Track reordering requires mkvmerge. Install mkvtoolnix."
