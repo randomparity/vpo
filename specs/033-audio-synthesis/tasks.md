@@ -74,20 +74,20 @@
 
 ### Tests for User Story 1
 
-- [ ] T020 [P] [US1] Unit test for EAC3 encoder availability detection in tests/unit/policy/synthesis/test_encoders.py
-- [ ] T021 [P] [US1] Unit test for 7.1→5.1 downmix filter generation in tests/unit/policy/synthesis/test_downmix.py
+- [x] T020 [P] [US1] Unit test for EAC3 encoder availability detection in tests/unit/policy/synthesis/test_encoders.py
+- [x] T021 [P] [US1] Unit test for 7.1→5.1 downmix filter generation in tests/unit/policy/synthesis/test_downmix.py
 
 ### Implementation for User Story 1
 
-- [ ] T022 [US1] Implement FFmpegSynthesisExecutor class skeleton in src/video_policy_orchestrator/executor/ffmpeg_synthesis.py
-- [ ] T023 [US1] Implement can_handle() for synthesis operations in src/video_policy_orchestrator/executor/ffmpeg_synthesis.py
-- [ ] T024 [US1] Implement FFmpeg transcoding subprocess call with EAC3 encoding in src/video_policy_orchestrator/executor/ffmpeg_synthesis.py
-- [ ] T025 [US1] Implement temp file creation and cleanup in src/video_policy_orchestrator/executor/ffmpeg_synthesis.py
-- [ ] T026 [US1] Implement mkvmerge remux to add synthesized track in src/video_policy_orchestrator/executor/ffmpeg_synthesis.py
-- [ ] T027 [US1] Implement atomic file swap with backup in src/video_policy_orchestrator/executor/ffmpeg_synthesis.py
-- [ ] T027a [US1] Implement title inheritance (inherit from source or use custom) in src/video_policy_orchestrator/executor/ffmpeg_synthesis.py
-- [ ] T027b [US1] Implement language tag inheritance (inherit from source or use custom) in src/video_policy_orchestrator/executor/ffmpeg_synthesis.py
-- [ ] T028 [US1] Register FFmpegSynthesisExecutor in executor registry in src/video_policy_orchestrator/executor/__init__.py
+- [x] T022 [US1] Implement FFmpegSynthesisExecutor class skeleton in src/video_policy_orchestrator/policy/synthesis/executor.py
+- [x] T023 [US1] Implement can_handle() for synthesis operations in src/video_policy_orchestrator/policy/synthesis/executor.py
+- [x] T024 [US1] Implement FFmpeg transcoding subprocess call with EAC3 encoding in src/video_policy_orchestrator/policy/synthesis/executor.py
+- [x] T025 [US1] Implement temp file creation and cleanup in src/video_policy_orchestrator/policy/synthesis/executor.py
+- [x] T026 [US1] Implement mkvmerge remux to add synthesized track in src/video_policy_orchestrator/policy/synthesis/executor.py
+- [x] T027 [US1] Implement atomic file swap with backup in src/video_policy_orchestrator/policy/synthesis/executor.py
+- [x] T027a [US1] Implement title inheritance (inherit from source or use custom) in src/video_policy_orchestrator/policy/synthesis/executor.py
+- [x] T027b [US1] Implement language tag inheritance (inherit from source or use custom) in src/video_policy_orchestrator/policy/synthesis/executor.py
+- [x] T028 [US1] Register FFmpegSynthesisExecutor in executor registry via synthesis module __init__.py
 
 **Checkpoint**: EAC3 5.1 synthesis works end-to-end
 
