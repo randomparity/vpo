@@ -34,6 +34,9 @@ Docs focused on tasks and workflows: how to run the tools, configure them, and p
 - [usage/cli-usage.md](usage/cli-usage.md)
   CLI entry points, subcommands, options, environment variables, and examples.
 
+- [usage/init-command.md](usage/init-command.md)
+  Initialize VPO: create config directory, default configuration, and starter policy.
+
 - [usage/configuration.md](usage/configuration.md)
   Configuration layout: config file, environment variables, tool paths, and extension filtering.
 

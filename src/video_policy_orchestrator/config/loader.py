@@ -67,13 +67,14 @@ def get_data_dir() -> Path:
     - Job logs directory (logs/)
 
     Can be overridden by VPO_DATA_DIR environment variable.
+    Supports tilde expansion (e.g., ~/custom/vpo).
 
     Returns:
         Path to the data directory (~/.vpo/ by default).
     """
     env_path = os.environ.get("VPO_DATA_DIR")
     if env_path:
-        return Path(env_path)
+        return Path(env_path).expanduser()
     return DEFAULT_CONFIG_DIR
 
 
