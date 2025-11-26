@@ -1,0 +1,281 @@
+# Audio Synthesis Policy Schema Extension
+# This extends the existing policy schema with the audio_synthesis section
+
+# New top-level section in policy YAML
+audio_synthesis:
+  type: object
+  required: false
+  description: Configuration for synthesizing new audio tracks from existing sources
+  properties:
+    tracks:
+      type: array
+      description: List of synthesis track definitions
+      items:
+        $ref: "#/definitions/SynthesisTrackDefinition"
+
+definitions:
+  SynthesisTrackDefinition:
+    type: object
+    required:
+      - name
+      - codec
+      - channels
+      - source
+    properties:
+      name:
+        type: string
+        description: Human-readable identifier for this synthesis definition
+        minLength: 1
+        examples:
+          - "EAC3 5.1 Compatibility"
+          - "AAC Stereo Fallback"
+
+      codec:
+        type: string
+        enum: [eac3, aac, ac3, opus, flac]
+        description: Target audio codec
+
+      channels:
+        oneOf:
+          - type: string
+            enum: [mono, stereo, "5.1", "7.1"]
+          - type: integer
+            minimum: 1
+            maximum: 8
+        description: Target channel configuration
+
+      bitrate:
+        type: string
+        pattern: "^\\d+k$"
+        description: Target bitrate (e.g., "640k", "192k"), uses codec default if omitted
+        examples:
+          - "640k"
+          - "192k"
+          - "448k"
+
+      create_if:
+        $ref: "#/definitions/Condition"
+        description: Condition that must evaluate to true for synthesis to occur
+
+      source:
+        $ref: "#/definitions/SourcePreferences"
+        description: Preferences for selecting the source track
+
+      title:
+        oneOf:
+          - type: string
+          - const: inherit
+        description: Track title, "inherit" copies from source track
+        default: inherit
+
+      language:
+        oneOf:
+          - type: string
+            pattern: "^[a-z]{3}$"
+          - const: inherit
+        description: ISO 639-2/B language code or "inherit" from source
+        default: inherit
+
+      position:
+        oneOf:
+          - const: after_source
+          - const: end
+          - type: integer
+            minimum: 1
+        description: Where to place the synthesized track in audio track order
+        default: end
+
+  SourcePreferences:
+    type: object
+    required:
+      - prefer
+    properties:
+      prefer:
+        type: array
+        minItems: 1
+        items:
+          $ref: "#/definitions/PreferenceCriterion"
+        description: Ordered list of preference criteria for source track selection
+
+  PreferenceCriterion:
+    type: object
+    minProperties: 1
+    properties:
+      language:
+        oneOf:
+          - type: string
+            pattern: "^[a-z]{3}$"
+          - type: array
+            items:
+              type: string
+              pattern: "^[a-z]{3}$"
+        description: Preferred language(s) - ISO 639-2/B codes
+        examples:
+          - "eng"
+          - ["eng", "und"]
+
+      not_commentary:
+        type: boolean
+        description: If true, exclude tracks identified as commentary
+
+      channels:
+        oneOf:
+          - const: max
+          - const: min
+          - type: integer
+            minimum: 1
+        description: Channel preference - "max" prefers highest count, "min" prefers lowest
+
+      codec:
+        oneOf:
+          - type: string
+          - type: array
+            items:
+              type: string
+        description: Preferred codec(s) for source track
+        examples:
+          - "truehd"
+          - ["truehd", "dts-hd"]
+
+  # Reference to existing Condition schema from conditional policy (032)
+  Condition:
+    description: |
+      Uses existing condition syntax from conditional policy feature.
+      See policy/conditions.py for full schema.
+    oneOf:
+      - $ref: "#/definitions/ExistsCondition"
+      - $ref: "#/definitions/NotCondition"
+      - $ref: "#/definitions/AndCondition"
+      - $ref: "#/definitions/OrCondition"
+      - $ref: "#/definitions/CountCondition"
+
+  ExistsCondition:
+    type: object
+    required:
+      - exists
+    properties:
+      exists:
+        type: object
+        properties:
+          track_type:
+            type: string
+            enum: [video, audio, subtitle]
+          codec:
+            oneOf:
+              - type: string
+              - type: array
+                items:
+                  type: string
+          language:
+            oneOf:
+              - type: string
+              - type: array
+                items:
+                  type: string
+          channels:
+            oneOf:
+              - type: integer
+              - type: object
+                properties:
+                  eq:
+                    type: integer
+                  lt:
+                    type: integer
+                  lte:
+                    type: integer
+                  gt:
+                    type: integer
+                  gte:
+                    type: integer
+
+  NotCondition:
+    type: object
+    required:
+      - not
+    properties:
+      not:
+        $ref: "#/definitions/Condition"
+
+  AndCondition:
+    type: object
+    required:
+      - and
+    properties:
+      and:
+        type: array
+        items:
+          $ref: "#/definitions/Condition"
+
+  OrCondition:
+    type: object
+    required:
+      - or
+    properties:
+      or:
+        type: array
+        items:
+          $ref: "#/definitions/Condition"
+
+  CountCondition:
+    type: object
+    required:
+      - count
+    properties:
+      count:
+        type: object
+        required:
+          - track_type
+          - value
+        properties:
+          track_type:
+            type: string
+          filters:
+            type: object
+          operator:
+            type: string
+            enum: [eq, lt, lte, gt, gte]
+          value:
+            type: integer
+
+# Example complete policy with audio_synthesis
+examples:
+  - name: comprehensive-audio-synthesis
+    policy:
+      version: 5
+      audio_synthesis:
+        tracks:
+          - name: "EAC3 5.1 Compatibility"
+            codec: eac3
+            channels: "5.1"
+            bitrate: "640k"
+            create_if:
+              not:
+                exists:
+                  track_type: audio
+                  codec: [eac3, ac3]
+                  channels: { gte: 6 }
+            source:
+              prefer:
+                - language: [eng, und]
+                - not_commentary: true
+                - channels: max
+            title: "Dolby Digital Plus 5.1"
+            language: inherit
+            position: after_source
+
+          - name: "AAC Stereo Fallback"
+            codec: aac
+            channels: stereo
+            bitrate: "192k"
+            create_if:
+              not:
+                exists:
+                  track_type: audio
+                  channels: { lte: 2 }
+            source:
+              prefer:
+                - language: [eng, und]
+                - not_commentary: true
+            title: "Stereo"
+            language: inherit
+            position: end
