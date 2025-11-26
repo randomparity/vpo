@@ -459,6 +459,10 @@ class PolicySchema:
     conditional_rules: tuple["ConditionalRule", ...] = ()
     """Conditional rules evaluated before other policy sections. Schema v4+."""
 
+    # V5 fields (all optional for backward compatibility)
+    audio_synthesis: "AudioSynthesisConfig | None" = None
+    """Audio synthesis configuration. Requires schema_version >= 5."""
+
     def __post_init__(self) -> None:
         """Validate policy schema after initialization."""
         if self.schema_version < 1:
@@ -500,6 +504,64 @@ class PolicySchema:
     def has_conditional_rules(self) -> bool:
         """True if any conditional rules are configured."""
         return len(self.conditional_rules) > 0
+
+    @property
+    def has_audio_synthesis(self) -> bool:
+        """True if audio synthesis is configured."""
+        return self.audio_synthesis is not None
+
+
+# =============================================================================
+# V5 Audio Synthesis Configuration
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class AudioSynthesisConfig:
+    """Audio synthesis configuration from policy.
+
+    Contains the list of synthesis track definitions to be processed
+    when applying the policy.
+    """
+
+    tracks: tuple["SynthesisTrackDefinitionRef", ...]
+    """Synthesis track definitions to process."""
+
+
+@dataclass(frozen=True)
+class SynthesisTrackDefinitionRef:
+    """Reference to a synthesis track definition in policy.
+
+    This is a lightweight reference stored in PolicySchema that points
+    to the full SynthesisTrackDefinition in the synthesis module.
+    """
+
+    name: str
+    """Human-readable identifier for this synthesis definition."""
+
+    codec: str
+    """Target codec (eac3, aac, ac3, opus, flac)."""
+
+    channels: str | int
+    """Target channel configuration or count."""
+
+    source_prefer: tuple[dict, ...]
+    """Source preference criteria as raw dicts."""
+
+    bitrate: str | None = None
+    """Target bitrate (e.g., '640k')."""
+
+    create_if: "Condition | None" = None
+    """Condition that must be true for synthesis."""
+
+    title: str = "inherit"
+    """Track title or 'inherit'."""
+
+    language: str = "inherit"
+    """Language code or 'inherit'."""
+
+    position: str | int = "end"
+    """Position: 'after_source', 'end', or integer."""
 
 
 @dataclass(frozen=True)

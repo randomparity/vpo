@@ -43,22 +43,22 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Create AudioCodec enum in src/video_policy_orchestrator/policy/synthesis/models.py
-- [ ] T005 [P] Create ChannelConfig enum with channel count mapping in src/video_policy_orchestrator/policy/synthesis/models.py
-- [ ] T006 [P] Create Position type (after_source, end, integer) in src/video_policy_orchestrator/policy/synthesis/models.py
-- [ ] T007 Create SynthesisTrackDefinition dataclass in src/video_policy_orchestrator/policy/synthesis/models.py
-- [ ] T008 [P] Create SourcePreferences and PreferenceCriterion dataclasses in src/video_policy_orchestrator/policy/synthesis/models.py
-- [ ] T009 Create SourceTrackSelection dataclass in src/video_policy_orchestrator/policy/synthesis/models.py
-- [ ] T010 Create SynthesisOperation dataclass in src/video_policy_orchestrator/policy/synthesis/models.py
-- [ ] T011 [P] Create SynthesisPlan and SkippedSynthesis dataclasses in src/video_policy_orchestrator/policy/synthesis/models.py
-- [ ] T012 [P] Create SkipReason enum in src/video_policy_orchestrator/policy/synthesis/models.py
-- [ ] T013 Implement encoder availability detection in src/video_policy_orchestrator/policy/synthesis/encoders.py
-- [ ] T014 Implement codec-to-FFmpeg-encoder mapping in src/video_policy_orchestrator/policy/synthesis/encoders.py
-- [ ] T015 [P] Implement default bitrate lookup by codec and channel count in src/video_policy_orchestrator/policy/synthesis/encoders.py
-- [ ] T016 Implement channel downmix filter generation (pan filters) in src/video_policy_orchestrator/policy/synthesis/downmix.py
-- [ ] T017 [P] Implement channel layout normalization in src/video_policy_orchestrator/policy/synthesis/downmix.py
-- [ ] T018 Extend PolicySchema with audio_synthesis section in src/video_policy_orchestrator/policy/schema.py
-- [ ] T019 Add audio_synthesis YAML parsing and validation in src/video_policy_orchestrator/policy/schema.py
+- [x] T004 Create AudioCodec enum in src/video_policy_orchestrator/policy/synthesis/models.py
+- [x] T005 [P] Create ChannelConfig enum with channel count mapping in src/video_policy_orchestrator/policy/synthesis/models.py
+- [x] T006 [P] Create Position type (after_source, end, integer) in src/video_policy_orchestrator/policy/synthesis/models.py
+- [x] T007 Create SynthesisTrackDefinition dataclass in src/video_policy_orchestrator/policy/synthesis/models.py
+- [x] T008 [P] Create SourcePreferences and PreferenceCriterion dataclasses in src/video_policy_orchestrator/policy/synthesis/models.py
+- [x] T009 Create SourceTrackSelection dataclass in src/video_policy_orchestrator/policy/synthesis/models.py
+- [x] T010 Create SynthesisOperation dataclass in src/video_policy_orchestrator/policy/synthesis/models.py
+- [x] T011 [P] Create SynthesisPlan and SkippedSynthesis dataclasses in src/video_policy_orchestrator/policy/synthesis/models.py
+- [x] T012 [P] Create SkipReason enum in src/video_policy_orchestrator/policy/synthesis/models.py
+- [x] T013 Implement encoder availability detection in src/video_policy_orchestrator/policy/synthesis/encoders.py
+- [x] T014 Implement codec-to-FFmpeg-encoder mapping in src/video_policy_orchestrator/policy/synthesis/encoders.py
+- [x] T015 [P] Implement default bitrate lookup by codec and channel count in src/video_policy_orchestrator/policy/synthesis/encoders.py
+- [x] T016 Implement channel downmix filter generation (pan filters) in src/video_policy_orchestrator/policy/synthesis/downmix.py
+- [x] T017 [P] Implement channel layout normalization in src/video_policy_orchestrator/policy/synthesis/downmix.py
+- [x] T018 Extend PolicySchema with audio_synthesis section in src/video_policy_orchestrator/policy/schema.py
+- [x] T019 Add audio_synthesis YAML parsing and validation in src/video_policy_orchestrator/policy/schema.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
