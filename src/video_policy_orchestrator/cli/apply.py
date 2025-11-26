@@ -32,6 +32,10 @@ from video_policy_orchestrator.policy.models import (
     Plan,
     TrackDisposition,
 )
+from video_policy_orchestrator.policy.synthesis import (
+    format_synthesis_plan,
+    plan_synthesis,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +192,7 @@ def _format_dry_run_output(
     policy_version: int,
     target_path: Path,
     plan: Plan,
+    synthesis_plan_output: str | None = None,
 ) -> str:
     """Format dry-run output in human-readable format."""
     lines = [
@@ -196,27 +201,34 @@ def _format_dry_run_output(
         "",
     ]
 
-    if plan.is_empty:
+    if plan.is_empty and not synthesis_plan_output:
         lines.append("No changes required - file already matches policy.")
     else:
-        lines.append("Proposed changes:")
+        if not plan.is_empty:
+            lines.append("Proposed changes:")
 
-        # Show traditional actions first
-        for action in plan.actions:
-            lines.append(f"  {action.description}")
+            # Show traditional actions first
+            for action in plan.actions:
+                lines.append(f"  {action.description}")
 
-        # Show track dispositions if present
-        if plan.track_dispositions:
+            # Show track dispositions if present
+            if plan.track_dispositions:
+                lines.append("")
+                lines.append("Track dispositions:")
+                lines.append(_format_track_dispositions(plan.track_dispositions))
+
+            # Show container change if present
+            if plan.container_change:
+                lines.append("")
+                lines.append(_format_container_change(plan.container_change))
+
             lines.append("")
-            lines.append("Track dispositions:")
-            lines.append(_format_track_dispositions(plan.track_dispositions))
 
-        # Show container change if present
-        if plan.container_change:
+        # Show synthesis plan if present
+        if synthesis_plan_output:
             lines.append("")
-            lines.append(_format_container_change(plan.container_change))
-
-        lines.append("")
+            lines.append(synthesis_plan_output)
+            lines.append("")
 
         # Show summary with track counts
         summary_parts = []
@@ -235,7 +247,7 @@ def _format_dry_run_output(
 
         if summary_parts:
             lines.append(f"Summary: {', '.join(summary_parts)}")
-        else:
+        elif not plan.is_empty:
             lines.append(f"Summary: {plan.summary}")
 
         lines.append("")
@@ -526,6 +538,19 @@ def apply_command(
     if verbose:
         click.echo(f"Plan: {plan.summary}")
 
+    # Generate synthesis plan if policy has audio_synthesis config
+    synthesis_plan_output = None
+    if policy.has_audio_synthesis:
+        synth_plan = plan_synthesis(
+            file_id=str(file_record.id),
+            file_path=target,
+            tracks=tracks,
+            synthesis_config=policy.audio_synthesis,
+            commentary_patterns=None,  # Could be extended to come from policy
+        )
+        if synth_plan.operations or synth_plan.skipped:
+            synthesis_plan_output = format_synthesis_plan(synth_plan)
+
     # Output results
     if dry_run:
         if json_output:
@@ -536,7 +561,13 @@ def apply_command(
             )
         else:
             click.echo(
-                _format_dry_run_output(policy_path, policy.schema_version, target, plan)
+                _format_dry_run_output(
+                    policy_path,
+                    policy.schema_version,
+                    target,
+                    plan,
+                    synthesis_plan_output,
+                )
             )
         sys.exit(EXIT_SUCCESS)
 

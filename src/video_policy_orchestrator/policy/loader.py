@@ -19,6 +19,7 @@ from video_policy_orchestrator.policy.models import (
     AndCondition,
     AttachmentFilterConfig,
     AudioFilterConfig,
+    AudioSynthesisConfig,
     Comparison,
     ComparisonOperator,
     Condition,
@@ -36,6 +37,7 @@ from video_policy_orchestrator.policy.models import (
     SkipAction,
     SkipType,
     SubtitleFilterConfig,
+    SynthesisTrackDefinitionRef,
     TitleMatch,
     TrackFilters,
     TrackType,
@@ -45,7 +47,7 @@ from video_policy_orchestrator.policy.models import (
 )
 
 # Current maximum supported schema version
-MAX_SCHEMA_VERSION = 4
+MAX_SCHEMA_VERSION = 5
 
 
 class PolicyValidationError(Exception):
@@ -240,6 +242,228 @@ class ContainerModel(BaseModel):
 # =============================================================================
 # V4 Pydantic Models for Conditional Rules
 # =============================================================================
+
+
+# =============================================================================
+# V5 Pydantic Models for Audio Synthesis
+# =============================================================================
+
+# Valid audio codecs for synthesis
+VALID_SYNTHESIS_CODECS = frozenset({"eac3", "aac", "ac3", "opus", "flac"})
+
+# Valid channel configurations
+VALID_CHANNEL_CONFIGS = frozenset({"mono", "stereo", "5.1", "7.1"})
+
+
+class ChannelPreferenceModel(BaseModel):
+    """Pydantic model for channel preference in source selection."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    max: bool | None = None
+    min: bool | None = None
+
+    @model_validator(mode="after")
+    def validate_single_preference(self) -> "ChannelPreferenceModel":
+        """Validate that exactly one preference is set."""
+        prefs = [self.max, self.min]
+        set_count = sum(1 for p in prefs if p is True)
+        if set_count != 1:
+            raise ValueError(
+                "Channel preference must specify exactly one of max or min"
+            )
+        return self
+
+
+class PreferenceCriterionModel(BaseModel):
+    """Pydantic model for source selection preference criterion."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    language: str | list[str] | None = None
+    not_commentary: bool | None = None
+    channels: Literal["max", "min"] | int | ChannelPreferenceModel | None = None
+    codec: str | list[str] | None = None
+
+    @model_validator(mode="after")
+    def validate_at_least_one_criterion(self) -> "PreferenceCriterionModel":
+        """Validate that at least one criterion is specified."""
+        criteria = [self.language, self.not_commentary, self.channels, self.codec]
+        if all(c is None for c in criteria):
+            raise ValueError(
+                "Preference criterion must specify at least one of: "
+                "language, not_commentary, channels, codec"
+            )
+        return self
+
+    @field_validator("language", mode="before")
+    @classmethod
+    def normalize_language(cls, v: str | list[str] | None) -> str | list[str] | None:
+        """Normalize language to lowercase."""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            return v.lower()
+        return [lang.lower() for lang in v]
+
+    @field_validator("codec", mode="before")
+    @classmethod
+    def normalize_codec(cls, v: str | list[str] | None) -> str | list[str] | None:
+        """Normalize codec to lowercase."""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            return v.lower()
+        return [codec.lower() for codec in v]
+
+
+class SourcePreferencesModel(BaseModel):
+    """Pydantic model for source track preferences."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    prefer: list[PreferenceCriterionModel]
+
+    @field_validator("prefer")
+    @classmethod
+    def validate_prefer_not_empty(
+        cls, v: list[PreferenceCriterionModel]
+    ) -> list[PreferenceCriterionModel]:
+        """Validate that prefer list is not empty."""
+        if not v:
+            raise ValueError("source.prefer must have at least one criterion")
+        return v
+
+
+class SynthesisTrackDefinitionModel(BaseModel):
+    """Pydantic model for a synthesis track definition."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    codec: str
+    channels: str | int
+    source: SourcePreferencesModel
+    bitrate: str | None = None
+    create_if: "ConditionModel | None" = None
+    title: str | Literal["inherit"] = "inherit"
+    language: str | Literal["inherit"] = "inherit"
+    position: Literal["after_source", "end"] | int = "end"
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        """Validate that name is non-empty and path-safe.
+
+        Security: The name is used in file path construction (synth_{name}.ext)
+        in executor.py. Path traversal sequences and separators must be rejected
+        to prevent directory escape attacks.
+
+        Note: The '..' check is intentionally conservative - it rejects any name
+        containing '..' even if not a true path traversal (e.g., "Track..v2").
+        """
+        if not v or not v.strip():
+            raise ValueError("Synthesis track name cannot be empty")
+        v = v.strip()
+        # Reject path traversal sequences and separators
+        if "/" in v or "\\" in v or ".." in v:
+            raise ValueError(
+                f"Synthesis track name cannot contain path separators or '..': {v!r}"
+            )
+        return v
+
+    @field_validator("codec")
+    @classmethod
+    def validate_codec(cls, v: str) -> str:
+        """Validate that codec is supported."""
+        v_lower = v.lower()
+        if v_lower not in VALID_SYNTHESIS_CODECS:
+            raise ValueError(
+                f"Invalid synthesis codec '{v}'. "
+                f"Must be one of: {', '.join(sorted(VALID_SYNTHESIS_CODECS))}"
+            )
+        return v_lower
+
+    @field_validator("channels", mode="before")
+    @classmethod
+    def validate_channels(cls, v: str | int) -> str | int:
+        """Validate channel configuration."""
+        if isinstance(v, int):
+            if v < 1 or v > 8:
+                raise ValueError(f"Channel count must be 1-8, got {v}")
+            return v
+        v_lower = v.lower()
+        if v_lower not in VALID_CHANNEL_CONFIGS:
+            raise ValueError(
+                f"Invalid channel config '{v}'. "
+                f"Must be one of: {', '.join(sorted(VALID_CHANNEL_CONFIGS))} or 1-8"
+            )
+        return v_lower
+
+    @field_validator("bitrate")
+    @classmethod
+    def validate_bitrate(cls, v: str | None) -> str | None:
+        """Validate bitrate format."""
+        if v is None:
+            return None
+        import re
+
+        if not re.match(r"^\d+(\.\d+)?[kKmM]?$", v):
+            raise ValueError(
+                f"Invalid bitrate format '{v}'. Use format like '640k' or '1.5M'"
+            )
+        return v.lower()
+
+    @field_validator("position")
+    @classmethod
+    def validate_position(cls, v: str | int) -> str | int:
+        """Validate position value."""
+        if isinstance(v, int) and v < 1:
+            raise ValueError("Position must be >= 1 when specified as integer")
+        return v
+
+    @field_validator("language")
+    @classmethod
+    def validate_language(cls, v: str) -> str:
+        """Validate language code format."""
+        if v == "inherit":
+            return v
+        import re
+
+        if not re.match(r"^[a-z]{2,3}$", v.lower()):
+            raise ValueError(
+                f"Invalid language code '{v}'. "
+                "Use ISO 639-2 codes (e.g., 'eng', 'jpn') or 'inherit'"
+            )
+        return v.lower()
+
+
+class AudioSynthesisModel(BaseModel):
+    """Pydantic model for audio_synthesis configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    tracks: list[SynthesisTrackDefinitionModel]
+
+    @field_validator("tracks")
+    @classmethod
+    def validate_tracks_not_empty(
+        cls, v: list[SynthesisTrackDefinitionModel]
+    ) -> list[SynthesisTrackDefinitionModel]:
+        """Validate that tracks list is not empty."""
+        if not v:
+            raise ValueError("audio_synthesis.tracks must have at least one track")
+        return v
+
+    @model_validator(mode="after")
+    def validate_unique_names(self) -> "AudioSynthesisModel":
+        """Validate that track names are unique."""
+        names: set[str] = set()
+        for track in self.tracks:
+            if track.name in names:
+                raise ValueError(f"Duplicate synthesis track name: '{track.name}'")
+            names.add(track.name)
+        return self
 
 
 class ComparisonModel(BaseModel):
@@ -519,6 +743,9 @@ class PolicyModel(BaseModel):
     # V4 fields (optional, require schema_version >= 4)
     conditional: list[ConditionalRuleModel] | None = None
 
+    # V5 fields (optional, require schema_version >= 5)
+    audio_synthesis: AudioSynthesisModel | None = None
+
     @model_validator(mode="after")
     def validate_versioned_fields(self) -> "PolicyModel":
         """Validate that versioned fields are used with correct schema_version."""
@@ -544,6 +771,13 @@ class PolicyModel(BaseModel):
         if self.conditional is not None and self.schema_version < 4:
             raise ValueError(
                 f"V4 fields (conditional) require schema_version >= 4, "
+                f"but schema_version is {self.schema_version}"
+            )
+
+        # V5 field validation
+        if self.audio_synthesis is not None and self.schema_version < 5:
+            raise ValueError(
+                f"V5 fields (audio_synthesis) require schema_version >= 5, "
                 f"but schema_version is {self.schema_version}"
             )
 
@@ -831,6 +1065,81 @@ def _convert_conditional_rules(
     return tuple(_convert_conditional_rule(m) for m in models)
 
 
+# =============================================================================
+# V5 Conversion Functions for Audio Synthesis
+# =============================================================================
+
+
+def _convert_preference_criterion(
+    model: PreferenceCriterionModel,
+) -> dict:
+    """Convert PreferenceCriterionModel to dict for storage."""
+    result: dict = {}
+
+    if model.language is not None:
+        if isinstance(model.language, list):
+            result["language"] = tuple(model.language)
+        else:
+            result["language"] = model.language
+
+    if model.not_commentary is not None:
+        result["not_commentary"] = model.not_commentary
+
+    if model.channels is not None:
+        if isinstance(model.channels, ChannelPreferenceModel):
+            if model.channels.max:
+                result["channels"] = "max"
+            elif model.channels.min:
+                result["channels"] = "min"
+        else:
+            result["channels"] = model.channels
+
+    if model.codec is not None:
+        if isinstance(model.codec, list):
+            result["codec"] = tuple(model.codec)
+        else:
+            result["codec"] = model.codec
+
+    return result
+
+
+def _convert_synthesis_track_definition(
+    model: SynthesisTrackDefinitionModel,
+) -> SynthesisTrackDefinitionRef:
+    """Convert SynthesisTrackDefinitionModel to SynthesisTrackDefinitionRef."""
+    # Convert source preferences to tuple of dicts
+    source_prefer = tuple(_convert_preference_criterion(p) for p in model.source.prefer)
+
+    # Convert create_if condition if present
+    create_if: Condition | None = None
+    if model.create_if is not None:
+        create_if = _convert_condition(model.create_if)
+
+    return SynthesisTrackDefinitionRef(
+        name=model.name,
+        codec=model.codec,
+        channels=model.channels,
+        source_prefer=source_prefer,
+        bitrate=model.bitrate,
+        create_if=create_if,
+        title=model.title,
+        language=model.language,
+        position=model.position,
+    )
+
+
+def _convert_audio_synthesis(
+    model: AudioSynthesisModel | None,
+) -> AudioSynthesisConfig | None:
+    """Convert AudioSynthesisModel to AudioSynthesisConfig."""
+    if model is None:
+        return None
+
+    tracks = tuple(_convert_synthesis_track_definition(t) for t in model.tracks)
+
+    return AudioSynthesisConfig(tracks=tracks)
+
+
 def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
     """Convert validated Pydantic model to PolicySchema dataclass."""
     # Convert track order strings to TrackType enum
@@ -915,6 +1224,9 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
     # Convert V4 conditional rules if present
     conditional_rules = _convert_conditional_rules(model.conditional)
 
+    # Convert V5 audio synthesis if present
+    audio_synthesis = _convert_audio_synthesis(model.audio_synthesis)
+
     return PolicySchema(
         schema_version=model.schema_version,
         track_order=track_order,
@@ -929,6 +1241,7 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
         attachment_filter=attachment_filter,
         container=container,
         conditional_rules=conditional_rules,
+        audio_synthesis=audio_synthesis,
     )
 
 
