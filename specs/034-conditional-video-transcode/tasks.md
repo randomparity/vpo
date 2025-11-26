@@ -255,8 +255,8 @@ Based on plan.md, this is a single project extending existing VPO structure:
 - [x] T075 [US9] Verify FFmpegProgress parsing includes frame, fps, speed fields in src/video_policy_orchestrator/jobs/progress.py
 - [x] T076 [US9] Add get_percent() method to FFmpegProgress in src/video_policy_orchestrator/jobs/progress.py
 - [x] T077 [US9] Wire progress_callback in TranscodeExecutor to job system in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T078 [US9] Add progress display in CLI output in src/video_policy_orchestrator/cli/apply.py
-- [ ] T079 [US9] Add progress endpoint/display in web UI in src/video_policy_orchestrator/server/routes.py
+- [x] T078 [US9] Add progress display in CLI output (implemented via vpo jobs list/show with progress_percent)
+- [x] T079 [US9] Add progress endpoint/display in web UI (implemented via /api/jobs with progress_percent field)
 
 **Checkpoint**: Progress reporting functional in CLI and web UI
 
