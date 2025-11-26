@@ -145,12 +145,12 @@ Based on plan.md structure:
 - [X] T045 [US4] Add MP4 codec compatibility checking to _evaluate_container_change() in src/video_policy_orchestrator/policy/evaluator.py
 - [X] T046 [US4] Implement on_incompatible_codec error mode with IncompatibleCodecError in src/video_policy_orchestrator/policy/evaluator.py
 - [X] T047 [US4] Implement on_incompatible_codec skip mode in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T048 [US4] Create FFmpegRemuxExecutor class in src/video_policy_orchestrator/executor/ffmpeg_remux.py
-- [ ] T049 [US4] Implement can_handle() method checking for MP4 target in src/video_policy_orchestrator/executor/ffmpeg_remux.py
-- [ ] T050 [US4] Implement execute() method with -c copy and -movflags +faststart in src/video_policy_orchestrator/executor/ffmpeg_remux.py
-- [ ] T051 [US4] Add FFmpegRemuxExecutor to executor registry in src/video_policy_orchestrator/executor/__init__.py
-- [ ] T052 [US4] Integration test for MKV to MP4 conversion in tests/integration/test_container_conversion.py
-- [ ] T053 [US4] Integration test for incompatible codec error handling in tests/integration/test_container_conversion.py
+- [X] T048 [US4] Create FFmpegRemuxExecutor class in src/video_policy_orchestrator/executor/ffmpeg_remux.py
+- [X] T049 [US4] Implement can_handle() method checking for MP4 target in src/video_policy_orchestrator/executor/ffmpeg_remux.py
+- [X] T050 [US4] Implement execute() method with -c copy and -movflags +faststart in src/video_policy_orchestrator/executor/ffmpeg_remux.py
+- [X] T051 [US4] Add FFmpegRemuxExecutor to executor registry in src/video_policy_orchestrator/executor/__init__.py
+- [X] T052 [US4] Integration test for MKV to MP4 conversion in tests/integration/test_container_conversion.py
+- [X] T053 [US4] Integration test for incompatible codec error handling in tests/integration/test_container_conversion.py
 
 > **Scope Note**: `on_incompatible_codec: transcode` mode is deferred to Sprint 3/4 per spec assumptions. Tasks T041-T053 implement `error` and `skip` modes only.
 
