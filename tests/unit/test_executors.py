@@ -651,3 +651,121 @@ class TestMkvmergeAdditional:
         flag_idx = cmd.index("--default-track-flag")
         # Track 1, value 0 (clear)
         assert cmd[flag_idx + 1] == "1:0"
+
+
+# =============================================================================
+# MkvmergeExecutor Container Conversion Tests (T039)
+# =============================================================================
+
+
+class TestMkvmergeContainerConversion:
+    """Tests for MkvmergeExecutor container conversion capability (T039)."""
+
+    def test_can_handle_avi_to_mkv_conversion(self) -> None:
+        """Should handle AVI to MKV container conversion."""
+        from video_policy_orchestrator.policy.models import ContainerChange
+
+        plan = Plan(
+            file_id="test-id",
+            file_path=Path("/test/video.avi"),
+            policy_version=3,
+            actions=(),
+            requires_remux=True,
+            created_at=datetime.now(timezone.utc),
+            container_change=ContainerChange(
+                source_format="avi",
+                target_format="mkv",
+                warnings=(),
+                incompatible_tracks=(),
+            ),
+        )
+
+        executor = MkvmergeExecutor()
+        assert executor.can_handle(plan) is True
+
+    def test_can_handle_mov_to_mkv_conversion(self) -> None:
+        """Should handle MOV to MKV container conversion."""
+        from video_policy_orchestrator.policy.models import ContainerChange
+
+        plan = Plan(
+            file_id="test-id",
+            file_path=Path("/test/video.mov"),
+            policy_version=3,
+            actions=(),
+            requires_remux=True,
+            created_at=datetime.now(timezone.utc),
+            container_change=ContainerChange(
+                source_format="mov",
+                target_format="mkv",
+                warnings=(),
+                incompatible_tracks=(),
+            ),
+        )
+
+        executor = MkvmergeExecutor()
+        assert executor.can_handle(plan) is True
+
+    def test_can_handle_mp4_to_mkv_conversion(self) -> None:
+        """Should handle MP4 to MKV container conversion."""
+        from video_policy_orchestrator.policy.models import ContainerChange
+
+        plan = Plan(
+            file_id="test-id",
+            file_path=Path("/test/video.mp4"),
+            policy_version=3,
+            actions=(),
+            requires_remux=True,
+            created_at=datetime.now(timezone.utc),
+            container_change=ContainerChange(
+                source_format="mp4",
+                target_format="mkv",
+                warnings=(),
+                incompatible_tracks=(),
+            ),
+        )
+
+        executor = MkvmergeExecutor()
+        assert executor.can_handle(plan) is True
+
+    def test_cannot_handle_mp4_target(self) -> None:
+        """Should not handle conversion to MP4 (handled by FFmpegRemuxExecutor)."""
+        from video_policy_orchestrator.policy.models import ContainerChange
+
+        plan = Plan(
+            file_id="test-id",
+            file_path=Path("/test/video.mkv"),
+            policy_version=3,
+            actions=(),
+            requires_remux=True,
+            created_at=datetime.now(timezone.utc),
+            container_change=ContainerChange(
+                source_format="mkv",
+                target_format="mp4",
+                warnings=(),
+                incompatible_tracks=(),
+            ),
+        )
+
+        executor = MkvmergeExecutor()
+        assert executor.can_handle(plan) is False
+
+    def test_cannot_handle_non_mkv_without_conversion(self) -> None:
+        """Should not handle AVI files without container_change."""
+        plan = Plan(
+            file_id="test-id",
+            file_path=Path("/test/video.avi"),
+            policy_version=3,
+            actions=(
+                PlannedAction(
+                    action_type=ActionType.SET_DEFAULT,
+                    track_index=0,
+                    current_value=False,
+                    desired_value=True,
+                ),
+            ),
+            requires_remux=False,
+            created_at=datetime.now(timezone.utc),
+        )
+
+        executor = MkvmergeExecutor()
+        assert executor.can_handle(plan) is False

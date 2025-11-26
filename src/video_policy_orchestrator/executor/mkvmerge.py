@@ -43,9 +43,15 @@ class MkvmergeExecutor:
         """Check if this executor can handle the given plan.
 
         Returns True if:
-        - File is MKV format
-        - Plan contains REORDER action OR track filtering
+        - Plan has container_change with target=mkv (any input format)
+        - File is MKV format AND (has REORDER action OR track filtering)
         """
+        # Container conversion to MKV - we handle any input format
+        if plan.container_change is not None:
+            if plan.container_change.target_format == "mkv":
+                return True
+
+        # For non-conversion operations, only handle MKV files
         if not str(plan.file_path).lower().endswith((".mkv", ".mka", ".mks")):
             return False
 
@@ -61,7 +67,7 @@ class MkvmergeExecutor:
         return False
 
     def execute(self, plan: Plan, keep_backup: bool = True) -> ExecutorResult:
-        """Execute track reordering on an MKV file.
+        """Execute track reordering or container conversion on a media file.
 
         Args:
             plan: The execution plan to apply.
@@ -72,6 +78,19 @@ class MkvmergeExecutor:
         """
         if plan.is_empty:
             return ExecutorResult(success=True, message="No changes to apply")
+
+        # Determine if this is a container conversion
+        is_container_conversion = (
+            plan.container_change is not None
+            and plan.container_change.target_format == "mkv"
+        )
+
+        # Compute output path - may be different if container is changing
+        if is_container_conversion:
+            # Output path has .mkv extension
+            output_path = plan.file_path.with_suffix(".mkv")
+        else:
+            output_path = plan.file_path
 
         # Create backup
         try:
@@ -124,15 +143,15 @@ class MkvmergeExecutor:
                 message=f"mkvmerge failed: {result.stderr or result.stdout}",
             )
 
-        # Atomic replace: move temp to original
+        # Atomic move: move temp to output path
         try:
-            temp_path.replace(plan.file_path)
+            temp_path.replace(output_path)
         except Exception as e:
             temp_path.unlink(missing_ok=True)
             restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
-                message=f"Failed to replace original file: {e}",
+                message=f"Failed to move output file: {e}",
             )
 
         # Success - optionally keep backup
@@ -140,9 +159,19 @@ class MkvmergeExecutor:
         if not keep_backup:
             backup_path.unlink(missing_ok=True)
 
+        # Build success message
+        action_count = len(plan.actions)
+        if is_container_conversion:
+            src = plan.container_change.source_format
+            message = f"Converted {src} → mkv"
+            if action_count > 0:
+                message += f" with {action_count} additional changes"
+        else:
+            message = f"Applied {action_count} changes via remux"
+
         return ExecutorResult(
             success=True,
-            message=f"Applied {len(plan.actions)} changes via remux",
+            message=message,
             backup_path=result_backup_path,
         )
 

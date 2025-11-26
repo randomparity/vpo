@@ -872,6 +872,27 @@ def evaluate_policy(
                     )
                 )
 
+    # Compute track dispositions for V3 track filtering
+    track_dispositions: tuple[TrackDisposition, ...] = ()
+    tracks_removed = 0
+    tracks_kept = 0
+
+    if policy.has_track_filtering:
+        track_dispositions = compute_track_dispositions(tracks, policy)
+        tracks_removed = sum(1 for d in track_dispositions if d.action == "REMOVE")
+        tracks_kept = sum(1 for d in track_dispositions if d.action == "KEEP")
+        if tracks_removed > 0:
+            requires_remux = True
+
+    # Compute container change for V3 container conversion
+    container_change: ContainerChange | None = None
+    if policy.has_container_config:
+        container_change = evaluate_container_change_with_policy(
+            tracks, container, policy
+        )
+        if container_change is not None:
+            requires_remux = True
+
     return Plan(
         file_id=file_id,
         file_path=file_path,
@@ -879,4 +900,8 @@ def evaluate_policy(
         actions=tuple(actions),
         requires_remux=requires_remux,
         created_at=datetime.now(timezone.utc),
+        track_dispositions=track_dispositions,
+        container_change=container_change,
+        tracks_removed=tracks_removed,
+        tracks_kept=tracks_kept,
     )

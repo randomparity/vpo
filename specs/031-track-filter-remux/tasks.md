@@ -118,10 +118,10 @@ Based on plan.md structure:
 ### Implementation for User Story 3
 
 - [X] T036 [US3] Implement _evaluate_container_change() function in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T037 [US3] Update evaluate_policy() to compute container_change when container config present in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T037 [US3] Update evaluate_policy() to compute container_change when container config present in src/video_policy_orchestrator/policy/evaluator.py
 - [X] T038 [US3] Add skip-if-same-format logic (no remux if already MKV) in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T039 [US3] Extend MkvmergeExecutor to handle input files of any format in src/video_policy_orchestrator/executor/mkvmerge.py
-- [ ] T040 [US3] Integration test for AVI to MKV conversion in tests/integration/test_container_conversion.py
+- [X] T039 [US3] Extend MkvmergeExecutor to handle input files of any format in src/video_policy_orchestrator/executor/mkvmerge.py
+- [X] T040 [US3] Integration test for AVI to MKV conversion in tests/integration/test_container_conversion.py
 
 **Checkpoint**: MKV container conversion fully functional
 

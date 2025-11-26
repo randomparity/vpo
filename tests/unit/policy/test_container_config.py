@@ -484,6 +484,100 @@ class TestIncompatibleCodecError:
 # =============================================================================
 
 
+class TestEvaluatePolicyContainerIntegration:
+    """Tests for evaluate_policy() container change integration (T037)."""
+
+    def test_evaluate_policy_includes_container_change(self) -> None:
+        """evaluate_policy() should include container_change in Plan."""
+        from pathlib import Path
+
+        from video_policy_orchestrator.policy.evaluator import evaluate_policy
+
+        tracks = [
+            make_video_track(index=0, codec="h264"),
+            make_audio_track(index=1, codec="aac"),
+        ]
+        policy = make_policy_with_container(target="mkv")
+
+        plan = evaluate_policy(
+            file_id="test-id",
+            file_path=Path("/test/file.avi"),
+            container="avi",
+            tracks=tracks,
+            policy=policy,
+        )
+
+        assert plan.container_change is not None
+        assert plan.container_change.source_format == "avi"
+        assert plan.container_change.target_format == "mkv"
+        assert plan.requires_remux is True
+
+    def test_evaluate_policy_no_container_change_when_same_format(self) -> None:
+        """evaluate_policy() should not include container_change when same format."""
+        from pathlib import Path
+
+        from video_policy_orchestrator.policy.evaluator import evaluate_policy
+
+        tracks = [
+            make_video_track(index=0, codec="h264"),
+            make_audio_track(index=1, codec="aac"),
+        ]
+        policy = make_policy_with_container(target="mkv")
+
+        plan = evaluate_policy(
+            file_id="test-id",
+            file_path=Path("/test/file.mkv"),
+            container="mkv",
+            tracks=tracks,
+            policy=policy,
+        )
+
+        assert plan.container_change is None
+
+    def test_evaluate_policy_no_container_change_without_config(self) -> None:
+        """evaluate_policy() should not include container_change without config."""
+        from pathlib import Path
+
+        from video_policy_orchestrator.policy.evaluator import evaluate_policy
+
+        tracks = [
+            make_video_track(index=0, codec="h264"),
+            make_audio_track(index=1, codec="aac"),
+        ]
+        policy = PolicySchema(schema_version=3)  # No container config
+
+        plan = evaluate_policy(
+            file_id="test-id",
+            file_path=Path("/test/file.avi"),
+            container="avi",
+            tracks=tracks,
+            policy=policy,
+        )
+
+        assert plan.container_change is None
+
+    def test_evaluate_policy_raises_on_incompatible_codec(self) -> None:
+        """evaluate_policy() should raise IncompatibleCodecError with error mode."""
+        from pathlib import Path
+
+        from video_policy_orchestrator.policy.evaluator import evaluate_policy
+
+        tracks = [
+            make_video_track(index=0, codec="hevc"),
+            make_audio_track(index=1, codec="truehd"),  # Incompatible with MP4
+        ]
+        policy = make_policy_with_container(target="mp4", on_incompatible_codec="error")
+
+        with pytest.raises(IncompatibleCodecError):
+            evaluate_policy(
+                file_id="test-id",
+                file_path=Path("/test/file.mkv"),
+                container="mkv",
+                tracks=tracks,
+                policy=policy,
+            )
+
+
 class TestOnIncompatibleCodecModes:
     """Tests for on_incompatible_codec behavior."""
 
