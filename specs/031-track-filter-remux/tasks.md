@@ -112,14 +112,14 @@ Based on plan.md structure:
 
 ### Tests for User Story 3
 
-- [ ] T034 [P] [US3] Unit test for ContainerConfig validation in tests/unit/policy/test_container_config.py
-- [ ] T035 [P] [US3] Unit test for MKV container compatibility (all codecs supported) in tests/unit/policy/test_container_config.py
+- [X] T034 [P] [US3] Unit test for ContainerConfig validation in tests/unit/policy/test_container_config.py
+- [X] T035 [P] [US3] Unit test for MKV container compatibility (all codecs supported) in tests/unit/policy/test_container_config.py
 
 ### Implementation for User Story 3
 
-- [ ] T036 [US3] Implement _evaluate_container_change() function in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T036 [US3] Implement _evaluate_container_change() function in src/video_policy_orchestrator/policy/evaluator.py
 - [ ] T037 [US3] Update evaluate_policy() to compute container_change when container config present in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T038 [US3] Add skip-if-same-format logic (no remux if already MKV) in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T038 [US3] Add skip-if-same-format logic (no remux if already MKV) in src/video_policy_orchestrator/policy/evaluator.py
 - [ ] T039 [US3] Extend MkvmergeExecutor to handle input files of any format in src/video_policy_orchestrator/executor/mkvmerge.py
 - [ ] T040 [US3] Integration test for AVI to MKV conversion in tests/integration/test_container_conversion.py
 
@@ -135,16 +135,16 @@ Based on plan.md structure:
 
 ### Tests for User Story 4
 
-- [ ] T041 [P] [US4] Unit test for MP4 codec compatibility checking in tests/unit/policy/test_container_config.py
-- [ ] T042 [P] [US4] Unit test for IncompatibleCodecError scenarios in tests/unit/policy/test_container_config.py
-- [ ] T043 [P] [US4] Unit test for on_incompatible_codec modes (error, skip) in tests/unit/policy/test_container_config.py
+- [X] T041 [P] [US4] Unit test for MP4 codec compatibility checking in tests/unit/policy/test_container_config.py
+- [X] T042 [P] [US4] Unit test for IncompatibleCodecError scenarios in tests/unit/policy/test_container_config.py
+- [X] T043 [P] [US4] Unit test for on_incompatible_codec modes (error, skip) in tests/unit/policy/test_container_config.py
 
 ### Implementation for User Story 4
 
-- [ ] T044 [US4] Implement is_mp4_compatible() function in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T045 [US4] Add MP4 codec compatibility checking to _evaluate_container_change() in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T046 [US4] Implement on_incompatible_codec error mode with IncompatibleCodecError in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T047 [US4] Implement on_incompatible_codec skip mode in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T044 [US4] Implement is_mp4_compatible() function in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T045 [US4] Add MP4 codec compatibility checking to _evaluate_container_change() in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T046 [US4] Implement on_incompatible_codec error mode with IncompatibleCodecError in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T047 [US4] Implement on_incompatible_codec skip mode in src/video_policy_orchestrator/policy/evaluator.py
 - [ ] T048 [US4] Create FFmpegRemuxExecutor class in src/video_policy_orchestrator/executor/ffmpeg_remux.py
 - [ ] T049 [US4] Implement can_handle() method checking for MP4 target in src/video_policy_orchestrator/executor/ffmpeg_remux.py
 - [ ] T050 [US4] Implement execute() method with -c copy and -movflags +faststart in src/video_policy_orchestrator/executor/ffmpeg_remux.py
