@@ -302,8 +302,8 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 - [ ] T095 Edge case: Handle VFR input gracefully (detect via ffprobe, warn user) in src/video_policy_orchestrator/executor/transcode.py
 - [ ] T096 Edge case: Handle missing bitrate metadata with warning in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T097 Edge case: Handle corrupted source files (catch ffmpeg errors, report clearly) in src/video_policy_orchestrator/executor/transcode.py
-- [ ] T098 Edge case: Detect insufficient disk space before transcode (estimate output size) in src/video_policy_orchestrator/executor/transcode.py
+- [x] T097 Edge case: Handle corrupted source files (catch ffmpeg errors, report clearly) in src/video_policy_orchestrator/executor/transcode.py
+- [x] T098 Edge case: Detect insufficient disk space before transcode (estimate output size) in src/video_policy_orchestrator/executor/transcode.py
 - [ ] T099 Edge case: Handle multiple video streams (select primary, warn about others) in src/video_policy_orchestrator/executor/transcode.py
 - [ ] T100 Edge case: Handle HW encoder memory errors with CPU fallback in src/video_policy_orchestrator/executor/transcode.py
 - [ ] T101 Edge case: Preserve HDR metadata during downscaling, warn about compatibility in src/video_policy_orchestrator/executor/transcode.py
