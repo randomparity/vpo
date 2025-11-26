@@ -31,9 +31,9 @@
 
 **Purpose**: Create module structure and shared types
 
-- [ ] T001 Create synthesis module directory structure at src/video_policy_orchestrator/policy/synthesis/
-- [ ] T002 [P] Create synthesis module __init__.py with public exports at src/video_policy_orchestrator/policy/synthesis/__init__.py
-- [ ] T003 [P] Create custom exceptions (SynthesisError, EncoderUnavailableError) in src/video_policy_orchestrator/policy/synthesis/exceptions.py
+- [x] T001 Create synthesis module directory structure at src/video_policy_orchestrator/policy/synthesis/
+- [x] T002 [P] Create synthesis module __init__.py with public exports at src/video_policy_orchestrator/policy/synthesis/__init__.py
+- [x] T003 [P] Create custom exceptions (SynthesisError, EncoderUnavailableError) in src/video_policy_orchestrator/policy/synthesis/exceptions.py
 
 ---
 
