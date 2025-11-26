@@ -102,12 +102,12 @@
 
 ### Tests for User Story 3
 
-- [ ] T025 [P] [US3] Unit test for WWW-Authenticate header format in 401 response in tests/unit/server/test_auth.py
+- [X] T025 [P] [US3] Unit test for WWW-Authenticate header format in 401 response in tests/unit/server/test_auth.py
 
 ### Implementation for User Story 3
 
-- [ ] T026 [US3] Verify 401 response includes correct WWW-Authenticate: Basic realm="VPO" header in src/video_policy_orchestrator/server/auth.py
-- [ ] T027 [US3] Integration test: 401 response triggers browser auth dialog (verify header presence) in tests/integration/server/test_auth_integration.py
+- [X] T026 [US3] Verify 401 response includes correct WWW-Authenticate: Basic realm="VPO" header in src/video_policy_orchestrator/server/auth.py
+- [X] T027 [US3] Integration test: 401 response triggers browser auth dialog (verify header presence) in tests/integration/server/test_auth_integration.py
 
 **Checkpoint**: Browser authentication flow complete - users can log in via native browser dialog
 
