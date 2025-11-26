@@ -24,9 +24,9 @@
 
 **Purpose**: Create new files and module structure for init command
 
-- [ ] T001 [P] Create config templates module at src/video_policy_orchestrator/config/templates.py
-- [ ] T002 [P] Create init CLI module at src/video_policy_orchestrator/cli/init.py
-- [ ] T003 Register init command in src/video_policy_orchestrator/cli/__init__.py
+- [X] T001 [P] Create config templates module at src/video_policy_orchestrator/config/templates.py
+- [X] T002 [P] Create init CLI module at src/video_policy_orchestrator/cli/init.py
+- [X] T003 Register init command in src/video_policy_orchestrator/cli/__init__.py
 
 ---
 
@@ -36,10 +36,10 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Define InitializationState dataclass in src/video_policy_orchestrator/config/templates.py
-- [ ] T005 Define InitResult dataclass in src/video_policy_orchestrator/config/templates.py
-- [ ] T006 Implement config.toml template string with all VPOConfig sections in src/video_policy_orchestrator/config/templates.py
-- [ ] T007 Implement default policy YAML template in src/video_policy_orchestrator/config/templates.py
+- [X] T004 Define InitializationState dataclass in src/video_policy_orchestrator/config/templates.py
+- [X] T005 Define InitResult dataclass in src/video_policy_orchestrator/config/templates.py
+- [X] T006 Implement config.toml template string with all VPOConfig sections in src/video_policy_orchestrator/config/templates.py
+- [X] T007 Implement default policy YAML template in src/video_policy_orchestrator/config/templates.py
 
 **Checkpoint**: Foundation ready - templates and data structures defined
 
@@ -53,14 +53,14 @@
 
 ### Implementation for User Story 1
 
-- [ ] T008 [US1] Implement check_initialization_state() function in src/video_policy_orchestrator/config/templates.py
-- [ ] T009 [US1] Implement create_data_directory() function in src/video_policy_orchestrator/config/templates.py
-- [ ] T010 [US1] Implement write_config_file() function in src/video_policy_orchestrator/config/templates.py
-- [ ] T011 [US1] Implement write_default_policy() function in src/video_policy_orchestrator/config/templates.py
-- [ ] T012 [US1] Implement run_init() orchestration function in src/video_policy_orchestrator/config/templates.py
-- [ ] T013 [US1] Implement init_command Click command with basic options in src/video_policy_orchestrator/cli/init.py
-- [ ] T014 [US1] Implement success message with next steps in src/video_policy_orchestrator/cli/init.py
-- [ ] T015 [US1] Add structured logging for init operations in src/video_policy_orchestrator/cli/init.py
+- [X] T008 [US1] Implement check_initialization_state() function in src/video_policy_orchestrator/config/templates.py
+- [X] T009 [US1] Implement create_data_directory() function in src/video_policy_orchestrator/config/templates.py
+- [X] T010 [US1] Implement write_config_file() function in src/video_policy_orchestrator/config/templates.py
+- [X] T011 [US1] Implement write_default_policy() function in src/video_policy_orchestrator/config/templates.py
+- [X] T012 [US1] Implement run_init() orchestration function in src/video_policy_orchestrator/config/templates.py
+- [X] T013 [US1] Implement init_command Click command with basic options in src/video_policy_orchestrator/cli/init.py
+- [X] T014 [US1] Implement success message with next steps in src/video_policy_orchestrator/cli/init.py
+- [X] T015 [US1] Add structured logging for init operations in src/video_policy_orchestrator/cli/init.py
 
 **Checkpoint**: User Story 1 complete - `vpo init` creates all files for new users
 
@@ -74,11 +74,11 @@
 
 ### Implementation for User Story 2
 
-- [ ] T016 [US2] Add --force flag to init_command in src/video_policy_orchestrator/cli/init.py
-- [ ] T017 [US2] Implement already-initialized detection and error message in src/video_policy_orchestrator/cli/init.py
-- [ ] T018 [US2] Implement partial state detection (directory exists but incomplete; handles interrupt recovery) in src/video_policy_orchestrator/config/templates.py
-- [ ] T019 [US2] Implement force overwrite logic with warning in src/video_policy_orchestrator/cli/init.py
-- [ ] T020 [US2] Display existing files report when already initialized in src/video_policy_orchestrator/cli/init.py
+- [X] T016 [US2] Add --force flag to init_command in src/video_policy_orchestrator/cli/init.py
+- [X] T017 [US2] Implement already-initialized detection and error message in src/video_policy_orchestrator/cli/init.py
+- [X] T018 [US2] Implement partial state detection (directory exists but incomplete; handles interrupt recovery) in src/video_policy_orchestrator/config/templates.py
+- [X] T019 [US2] Implement force overwrite logic with warning in src/video_policy_orchestrator/cli/init.py
+- [X] T020 [US2] Display existing files report when already initialized in src/video_policy_orchestrator/cli/init.py
 
 **Checkpoint**: User Story 2 complete - existing configs are protected
 
@@ -92,11 +92,11 @@
 
 ### Implementation for User Story 3
 
-- [ ] T021 [US3] Add --data-dir option to init_command in src/video_policy_orchestrator/cli/init.py
-- [ ] T022 [US3] Implement path validation (writable, not a file; handles OS errors for disk space) in src/video_policy_orchestrator/config/templates.py
-- [ ] T023 [US3] Implement parent directory creation in src/video_policy_orchestrator/config/templates.py
-- [ ] T024 [US3] Implement error handling for invalid/inaccessible paths in src/video_policy_orchestrator/cli/init.py
-- [ ] T025 [US3] Support VPO_DATA_DIR environment variable as fallback in src/video_policy_orchestrator/cli/init.py
+- [X] T021 [US3] Add --data-dir option to init_command in src/video_policy_orchestrator/cli/init.py
+- [X] T022 [US3] Implement path validation (writable, not a file; handles OS errors for disk space) in src/video_policy_orchestrator/config/templates.py
+- [X] T023 [US3] Implement parent directory creation in src/video_policy_orchestrator/config/templates.py
+- [X] T024 [US3] Implement error handling for invalid/inaccessible paths in src/video_policy_orchestrator/cli/init.py
+- [X] T025 [US3] Support VPO_DATA_DIR environment variable as fallback in src/video_policy_orchestrator/cli/init.py
 
 **Checkpoint**: User Story 3 complete - custom data directories supported
 
@@ -106,13 +106,13 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T026 [P] Add --dry-run flag showing what would be created in src/video_policy_orchestrator/cli/init.py
-- [ ] T027 [P] Create unit tests for templates module in tests/unit/config/test_templates.py
-- [ ] T028 [P] Create unit tests for init command in tests/unit/cli/test_init.py
-- [ ] T029 [P] Create integration test for full init workflow in tests/integration/test_init_integration.py
-- [ ] T030 Update docs/usage/ with init command documentation
-- [ ] T031 Run quickstart.md validation (verify documented commands work)
-- [ ] T032 Verify `vpo doctor` passes after `vpo init`
+- [X] T026 [P] Add --dry-run flag showing what would be created in src/video_policy_orchestrator/cli/init.py
+- [X] T027 [P] Create unit tests for templates module in tests/unit/config/test_templates.py
+- [X] T028 [P] Create unit tests for init command in tests/unit/cli/test_init.py
+- [X] T029 [P] Create integration test for full init workflow in tests/integration/test_init_integration.py
+- [X] T030 Update docs/usage/ with init command documentation
+- [X] T031 Run quickstart.md validation (verify documented commands work)
+- [X] T032 Verify `vpo doctor` passes after `vpo init`
 
 ---
 

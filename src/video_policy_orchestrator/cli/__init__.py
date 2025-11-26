@@ -22,7 +22,9 @@ def _cleanup_db_connection() -> None:
     if _db_conn is not None:
         try:
             _db_conn.close()
-        except Exception:
+        except Exception:  # nosec B110
+            # Swallowing exception is intentional during cleanup - we can't
+            # meaningfully handle errors when closing on exit
             pass
         _db_conn = None
 
@@ -164,6 +166,7 @@ def _register_commands():
     from video_policy_orchestrator.cli import scan  # noqa: F401
     from video_policy_orchestrator.cli.apply import apply_command
     from video_policy_orchestrator.cli.doctor import doctor_command
+    from video_policy_orchestrator.cli.init import init_command
     from video_policy_orchestrator.cli.inspect import inspect_command
     from video_policy_orchestrator.cli.jobs import jobs_group
     from video_policy_orchestrator.cli.maintain import maintain_group
@@ -174,6 +177,7 @@ def _register_commands():
     from video_policy_orchestrator.cli.transcode import transcode_command
     from video_policy_orchestrator.cli.transcribe import transcribe_group
 
+    main.add_command(init_command)
     main.add_command(inspect_command)
     main.add_command(apply_command)
     main.add_command(doctor_command)
