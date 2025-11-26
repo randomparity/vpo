@@ -1,0 +1,175 @@
+# Policy Schema V3 Contract
+# This defines the YAML structure for VPO policy files with track filtering
+
+# JSON Schema for Policy V3
+$schema: "http://json-schema.org/draft-07/schema#"
+title: "VPO Policy Schema V3"
+description: "Video Policy Orchestrator policy file format with track filtering and container conversion"
+type: object
+
+required:
+  - schema_version
+
+properties:
+  schema_version:
+    type: integer
+    minimum: 1
+    maximum: 3
+    description: "Policy schema version (3 for track filtering features)"
+
+  # Existing V2 fields
+  track_order:
+    type: array
+    items:
+      type: string
+      enum:
+        - video
+        - audio_main
+        - audio_alternate
+        - audio_commentary
+        - subtitle_main
+        - subtitle_forced
+        - subtitle_commentary
+        - attachment
+    description: "Desired track ordering sequence"
+
+  audio_language_preference:
+    type: array
+    items:
+      type: string
+      pattern: "^[a-z]{2,3}$"
+    description: "Language codes for audio track ordering (ISO 639-2/B)"
+
+  subtitle_language_preference:
+    type: array
+    items:
+      type: string
+      pattern: "^[a-z]{2,3}$"
+    description: "Language codes for subtitle track ordering (ISO 639-2/B)"
+
+  commentary_patterns:
+    type: array
+    items:
+      type: string
+    description: "Regex patterns to identify commentary tracks by title"
+
+  default_flags:
+    type: object
+    properties:
+      set_default_audio:
+        type: boolean
+      set_default_subtitle:
+        type: boolean
+      clear_other_defaults:
+        type: boolean
+    description: "Configuration for default track flag management"
+
+  transcode:
+    type: object
+    description: "Transcoding configuration (see existing schema)"
+
+  transcription:
+    type: object
+    description: "Transcription-based language detection configuration"
+
+  # NEW V3 Fields
+  audio_filter:
+    type: object
+    description: "Audio track filtering configuration"
+    properties:
+      languages:
+        type: array
+        items:
+          type: string
+          pattern: "^[a-z]{2,3}$"
+        minItems: 1
+        description: "Language codes to keep (ISO 639-2/B)"
+      minimum:
+        type: integer
+        minimum: 1
+        default: 1
+        description: "Minimum audio tracks that must remain"
+      fallback:
+        type: object
+        properties:
+          mode:
+            type: string
+            enum:
+              - content_language
+              - keep_all
+              - keep_first
+              - error
+            description: "Behavior when no preferred languages found"
+        required:
+          - mode
+    required:
+      - languages
+
+  subtitle_filter:
+    type: object
+    description: "Subtitle track filtering configuration"
+    properties:
+      languages:
+        type: array
+        items:
+          type: string
+          pattern: "^[a-z]{2,3}$"
+        description: "Language codes to keep (ISO 639-2/B)"
+      preserve_forced:
+        type: boolean
+        default: false
+        description: "Keep forced subtitles regardless of language"
+      remove_all:
+        type: boolean
+        default: false
+        description: "Remove all subtitle tracks"
+
+  attachment_filter:
+    type: object
+    description: "Attachment track handling configuration"
+    properties:
+      remove_all:
+        type: boolean
+        default: false
+        description: "Remove all attachments (fonts, cover art, etc.)"
+
+  container:
+    type: object
+    description: "Container format conversion configuration"
+    properties:
+      target:
+        type: string
+        enum:
+          - mkv
+          - mp4
+        description: "Target container format"
+      on_incompatible_codec:
+        type: string
+        enum:
+          - error
+          - skip
+          - transcode
+        default: error
+        description: "Behavior for incompatible codecs"
+    required:
+      - target
+
+# Example V3 Policy
+examples:
+  - schema_version: 3
+    audio_filter:
+      languages:
+        - eng
+        - und
+      minimum: 1
+      fallback:
+        mode: content_language
+    subtitle_filter:
+      languages:
+        - eng
+      preserve_forced: true
+    attachment_filter:
+      remove_all: true
+    container:
+      target: mkv
+      on_incompatible_codec: error
