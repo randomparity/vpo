@@ -29,7 +29,7 @@ from video_policy_orchestrator.policy.models import (
 )
 
 # Current maximum supported schema version
-MAX_SCHEMA_VERSION = 3
+MAX_SCHEMA_VERSION = 4
 
 
 class PolicyValidationError(Exception):

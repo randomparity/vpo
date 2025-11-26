@@ -25,10 +25,10 @@
 
 **Purpose**: Project initialization and schema version bump
 
-- [ ] T001 Update MAX_SCHEMA_VERSION from 3 to 4 in src/video_policy_orchestrator/policy/loader.py
-- [ ] T002 [P] Add ConditionalFailError exception class to src/video_policy_orchestrator/policy/exceptions.py
-- [ ] T003 [P] Create empty src/video_policy_orchestrator/policy/conditions.py module with docstring
-- [ ] T004 [P] Create empty src/video_policy_orchestrator/policy/actions.py module with docstring
+- [X] T001 Update MAX_SCHEMA_VERSION from 3 to 4 in src/video_policy_orchestrator/policy/loader.py
+- [X] T002 [P] Add ConditionalFailError exception class to src/video_policy_orchestrator/policy/exceptions.py
+- [X] T003 [P] Create empty src/video_policy_orchestrator/policy/conditions.py module with docstring
+- [X] T004 [P] Create empty src/video_policy_orchestrator/policy/actions.py module with docstring
 
 ---
 
