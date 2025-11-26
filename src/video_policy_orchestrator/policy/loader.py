@@ -16,16 +16,32 @@ from video_policy_orchestrator.policy.models import (
     VALID_AUDIO_CODECS,
     VALID_RESOLUTIONS,
     VALID_VIDEO_CODECS,
+    AndCondition,
     AttachmentFilterConfig,
     AudioFilterConfig,
+    Comparison,
+    ComparisonOperator,
+    Condition,
+    ConditionalAction,
+    ConditionalRule,
     ContainerConfig,
+    CountCondition,
     DefaultFlagsConfig,
+    ExistsCondition,
+    FailAction,
     LanguageFallbackConfig,
+    NotCondition,
+    OrCondition,
     PolicySchema,
+    SkipAction,
+    SkipType,
     SubtitleFilterConfig,
+    TitleMatch,
+    TrackFilters,
     TrackType,
     TranscodePolicyConfig,
     TranscriptionPolicyOptions,
+    WarnAction,
 )
 
 # Current maximum supported schema version
@@ -221,6 +237,250 @@ class ContainerModel(BaseModel):
     on_incompatible_codec: Literal["error", "skip", "transcode"] = "error"
 
 
+# =============================================================================
+# V4 Pydantic Models for Conditional Rules
+# =============================================================================
+
+
+class ComparisonModel(BaseModel):
+    """Pydantic model for numeric comparison (e.g., height: {gte: 2160})."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    eq: int | None = None
+    lt: int | None = None
+    lte: int | None = None
+    gt: int | None = None
+    gte: int | None = None
+
+    @model_validator(mode="after")
+    def validate_single_operator(self) -> "ComparisonModel":
+        """Validate that exactly one comparison operator is set."""
+        operators = [
+            ("eq", self.eq),
+            ("lt", self.lt),
+            ("lte", self.lte),
+            ("gt", self.gt),
+            ("gte", self.gte),
+        ]
+        set_operators = [(name, val) for name, val in operators if val is not None]
+
+        if len(set_operators) != 1:
+            if len(set_operators) == 0:
+                raise ValueError(
+                    "Comparison must specify exactly one operator (eq/lt/lte/gt/gte)"
+                )
+            names = [name for name, _ in set_operators]
+            raise ValueError(
+                f"Comparison must specify exactly one operator, got: {', '.join(names)}"
+            )
+        return self
+
+
+class TitleMatchModel(BaseModel):
+    """Pydantic model for title matching criteria."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    contains: str | None = None
+    regex: str | None = None
+
+    @model_validator(mode="after")
+    def validate_single_matcher(self) -> "TitleMatchModel":
+        """Validate that at most one matcher is set."""
+        matchers = [self.contains, self.regex]
+        set_count = sum(1 for m in matchers if m is not None)
+
+        if set_count == 0:
+            raise ValueError("Title match must specify either 'contains' or 'regex'")
+        if set_count > 1:
+            raise ValueError(
+                "Title match must specify only one of 'contains' or 'regex'"
+            )
+        return self
+
+    @field_validator("regex")
+    @classmethod
+    def validate_regex(cls, v: str | None) -> str | None:
+        """Validate regex pattern is valid."""
+        if v is not None:
+            import re
+
+            try:
+                re.compile(v)
+            except re.error as e:
+                raise ValueError(f"Invalid regex pattern: {e}") from e
+        return v
+
+
+class TrackFiltersModel(BaseModel):
+    """Pydantic model for track filter criteria."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    language: str | list[str] | None = None
+    codec: str | list[str] | None = None
+    is_default: bool | None = None
+    is_forced: bool | None = None
+    channels: int | ComparisonModel | None = None
+    width: int | ComparisonModel | None = None
+    height: int | ComparisonModel | None = None
+    title: str | TitleMatchModel | None = None
+
+
+class ExistsConditionModel(BaseModel):
+    """Pydantic model for existence condition."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    track_type: Literal["video", "audio", "subtitle", "attachment"]
+    language: str | list[str] | None = None
+    codec: str | list[str] | None = None
+    is_default: bool | None = None
+    is_forced: bool | None = None
+    channels: int | ComparisonModel | None = None
+    width: int | ComparisonModel | None = None
+    height: int | ComparisonModel | None = None
+    title: str | TitleMatchModel | None = None
+
+
+class CountConditionModel(BaseModel):
+    """Pydantic model for count condition."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    track_type: Literal["video", "audio", "subtitle", "attachment"]
+    language: str | list[str] | None = None
+    codec: str | list[str] | None = None
+    is_default: bool | None = None
+    is_forced: bool | None = None
+    channels: int | ComparisonModel | None = None
+    width: int | ComparisonModel | None = None
+    height: int | ComparisonModel | None = None
+    title: str | TitleMatchModel | None = None
+    # Count comparison (required)
+    eq: int | None = None
+    lt: int | None = None
+    lte: int | None = None
+    gt: int | None = None
+    gte: int | None = None
+
+    @model_validator(mode="after")
+    def validate_count_operator(self) -> "CountConditionModel":
+        """Validate that exactly one count comparison operator is set."""
+        operators = [
+            ("eq", self.eq),
+            ("lt", self.lt),
+            ("lte", self.lte),
+            ("gt", self.gt),
+            ("gte", self.gte),
+        ]
+        set_operators = [(name, val) for name, val in operators if val is not None]
+
+        if len(set_operators) != 1:
+            if len(set_operators) == 0:
+                raise ValueError(
+                    "Count condition must specify exactly one count operator "
+                    "(eq/lt/lte/gt/gte)"
+                )
+            names = [name for name, _ in set_operators]
+            raise ValueError(
+                f"Count condition must specify exactly one count operator, "
+                f"got: {', '.join(names)}"
+            )
+        return self
+
+
+class ConditionModel(BaseModel):
+    """Pydantic model for condition (union of condition types)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Leaf conditions
+    exists: ExistsConditionModel | None = None
+    count: CountConditionModel | None = None
+
+    # Boolean operators
+    all_of: list["ConditionModel"] | None = Field(None, alias="and")
+    any_of: list["ConditionModel"] | None = Field(None, alias="or")
+    not_: "ConditionModel | None" = Field(None, alias="not")
+
+    @model_validator(mode="after")
+    def validate_single_condition_type(self) -> "ConditionModel":
+        """Validate that exactly one condition type is specified."""
+        conditions = [
+            ("exists", self.exists),
+            ("count", self.count),
+            ("and", self.all_of),
+            ("or", self.any_of),
+            ("not", self.not_),
+        ]
+        set_conditions = [(name, val) for name, val in conditions if val is not None]
+
+        if len(set_conditions) != 1:
+            if len(set_conditions) == 0:
+                raise ValueError(
+                    "Condition must specify exactly one type (exists/count/and/or/not)"
+                )
+            names = [name for name, _ in set_conditions]
+            raise ValueError(
+                f"Condition must specify exactly one type, got: {', '.join(names)}"
+            )
+        return self
+
+
+class ActionModel(BaseModel):
+    """Pydantic model for conditional action."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Skip actions
+    skip_video_transcode: bool | None = None
+    skip_audio_transcode: bool | None = None
+    skip_track_filter: bool | None = None
+
+    # Message actions
+    warn: str | None = None
+    fail: str | None = None
+
+    @model_validator(mode="after")
+    def validate_at_least_one_action(self) -> "ActionModel":
+        """Validate that at least one action is specified."""
+        actions = [
+            self.skip_video_transcode,
+            self.skip_audio_transcode,
+            self.skip_track_filter,
+            self.warn,
+            self.fail,
+        ]
+        if not any(a is not None for a in actions):
+            raise ValueError(
+                "Action must specify at least one action "
+                "(skip_video_transcode/skip_audio_transcode/skip_track_filter/"
+                "warn/fail)"
+            )
+        return self
+
+
+class ConditionalRuleModel(BaseModel):
+    """Pydantic model for a conditional rule."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    when: ConditionModel
+    then: ActionModel | list[ActionModel]
+    else_: ActionModel | list[ActionModel] | None = Field(None, alias="else")
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        """Validate rule name is non-empty."""
+        if not v or not v.strip():
+            raise ValueError("Rule name cannot be empty")
+        return v.strip()
+
+
 class PolicyModel(BaseModel):
     """Pydantic model for policy YAML validation."""
 
@@ -247,9 +507,13 @@ class PolicyModel(BaseModel):
     attachment_filter: AttachmentFilterModel | None = None
     container: ContainerModel | None = None
 
+    # V4 fields (optional, require schema_version >= 4)
+    conditional: list[ConditionalRuleModel] | None = None
+
     @model_validator(mode="after")
-    def validate_v3_fields_require_v3_schema(self) -> "PolicyModel":
-        """Validate that V3 fields are only used with schema_version >= 3."""
+    def validate_versioned_fields(self) -> "PolicyModel":
+        """Validate that versioned fields are used with correct schema_version."""
+        # V3 field validation
         v3_fields = {
             "audio_filter": self.audio_filter,
             "subtitle_filter": self.subtitle_filter,
@@ -266,6 +530,14 @@ class PolicyModel(BaseModel):
                 f"V3 fields ({fields_str}) require schema_version >= 3, "
                 f"but schema_version is {self.schema_version}"
             )
+
+        # V4 field validation
+        if self.conditional is not None and self.schema_version < 4:
+            raise ValueError(
+                f"V4 fields (conditional) require schema_version >= 4, "
+                f"but schema_version is {self.schema_version}"
+            )
+
         return self
 
     @field_validator("track_order")
@@ -310,6 +582,244 @@ class PolicyModel(BaseModel):
         if errors:
             raise ValueError(errors[0])
         return v
+
+
+# =============================================================================
+# V4 Conversion Functions for Conditional Rules
+# =============================================================================
+
+
+def _convert_comparison(model: ComparisonModel) -> Comparison:
+    """Convert ComparisonModel to Comparison dataclass."""
+    for op_name, op_enum in [
+        ("eq", ComparisonOperator.EQ),
+        ("lt", ComparisonOperator.LT),
+        ("lte", ComparisonOperator.LTE),
+        ("gt", ComparisonOperator.GT),
+        ("gte", ComparisonOperator.GTE),
+    ]:
+        val = getattr(model, op_name)
+        if val is not None:
+            return Comparison(operator=op_enum, value=val)
+    # Should never happen due to validation
+    raise ValueError("No comparison operator found")
+
+
+def _convert_title_match(model: TitleMatchModel) -> TitleMatch:
+    """Convert TitleMatchModel to TitleMatch dataclass."""
+    return TitleMatch(contains=model.contains, regex=model.regex)
+
+
+def _convert_track_filters(
+    *,
+    language: str | list[str] | None = None,
+    codec: str | list[str] | None = None,
+    is_default: bool | None = None,
+    is_forced: bool | None = None,
+    channels: int | ComparisonModel | None = None,
+    width: int | ComparisonModel | None = None,
+    height: int | ComparisonModel | None = None,
+    title: str | TitleMatchModel | None = None,
+) -> TrackFilters:
+    """Convert filter fields to TrackFilters dataclass."""
+    # Normalize language to tuple
+    lang_tuple: str | tuple[str, ...] | None = None
+    if language is not None:
+        if isinstance(language, list):
+            lang_tuple = tuple(language)
+        else:
+            lang_tuple = language
+
+    # Normalize codec to tuple
+    codec_tuple: str | tuple[str, ...] | None = None
+    if codec is not None:
+        if isinstance(codec, list):
+            codec_tuple = tuple(codec)
+        else:
+            codec_tuple = codec
+
+    # Convert channels comparison
+    channels_val: int | Comparison | None = None
+    if channels is not None:
+        if isinstance(channels, ComparisonModel):
+            channels_val = _convert_comparison(channels)
+        else:
+            channels_val = channels
+
+    # Convert width comparison
+    width_val: int | Comparison | None = None
+    if width is not None:
+        if isinstance(width, ComparisonModel):
+            width_val = _convert_comparison(width)
+        else:
+            width_val = width
+
+    # Convert height comparison
+    height_val: int | Comparison | None = None
+    if height is not None:
+        if isinstance(height, ComparisonModel):
+            height_val = _convert_comparison(height)
+        else:
+            height_val = height
+
+    # Convert title match
+    title_val: str | TitleMatch | None = None
+    if title is not None:
+        if isinstance(title, TitleMatchModel):
+            title_val = _convert_title_match(title)
+        else:
+            title_val = title
+
+    return TrackFilters(
+        language=lang_tuple,
+        codec=codec_tuple,
+        is_default=is_default,
+        is_forced=is_forced,
+        channels=channels_val,
+        width=width_val,
+        height=height_val,
+        title=title_val,
+    )
+
+
+def _convert_exists_condition(model: ExistsConditionModel) -> ExistsCondition:
+    """Convert ExistsConditionModel to ExistsCondition dataclass."""
+    filters = _convert_track_filters(
+        language=model.language,
+        codec=model.codec,
+        is_default=model.is_default,
+        is_forced=model.is_forced,
+        channels=model.channels,
+        width=model.width,
+        height=model.height,
+        title=model.title,
+    )
+    return ExistsCondition(track_type=model.track_type, filters=filters)
+
+
+def _convert_count_condition(model: CountConditionModel) -> CountCondition:
+    """Convert CountConditionModel to CountCondition dataclass."""
+    filters = _convert_track_filters(
+        language=model.language,
+        codec=model.codec,
+        is_default=model.is_default,
+        is_forced=model.is_forced,
+        channels=model.channels,
+        width=model.width,
+        height=model.height,
+        title=model.title,
+    )
+
+    # Get count comparison operator
+    for op_name, op_enum in [
+        ("eq", ComparisonOperator.EQ),
+        ("lt", ComparisonOperator.LT),
+        ("lte", ComparisonOperator.LTE),
+        ("gt", ComparisonOperator.GT),
+        ("gte", ComparisonOperator.GTE),
+    ]:
+        val = getattr(model, op_name)
+        if val is not None:
+            return CountCondition(
+                track_type=model.track_type,
+                filters=filters,
+                operator=op_enum,
+                value=val,
+            )
+
+    # Should never happen due to validation
+    raise ValueError("No count comparison operator found")
+
+
+def _convert_condition(model: ConditionModel) -> Condition:
+    """Convert ConditionModel to Condition type."""
+    if model.exists is not None:
+        return _convert_exists_condition(model.exists)
+
+    if model.count is not None:
+        return _convert_count_condition(model.count)
+
+    if model.all_of is not None:
+        return AndCondition(
+            conditions=tuple(_convert_condition(c) for c in model.all_of)
+        )
+
+    if model.any_of is not None:
+        return OrCondition(
+            conditions=tuple(_convert_condition(c) for c in model.any_of)
+        )
+
+    if model.not_ is not None:
+        return NotCondition(inner=_convert_condition(model.not_))
+
+    # Should never happen due to validation
+    raise ValueError("No condition type found")
+
+
+def _convert_action(model: ActionModel) -> tuple[ConditionalAction, ...]:
+    """Convert ActionModel to tuple of ConditionalAction.
+
+    A single ActionModel can contain multiple actions (e.g., both skip and warn).
+    """
+    actions: list[ConditionalAction] = []
+
+    if model.skip_video_transcode is True:
+        actions.append(SkipAction(skip_type=SkipType.VIDEO_TRANSCODE))
+
+    if model.skip_audio_transcode is True:
+        actions.append(SkipAction(skip_type=SkipType.AUDIO_TRANSCODE))
+
+    if model.skip_track_filter is True:
+        actions.append(SkipAction(skip_type=SkipType.TRACK_FILTER))
+
+    if model.warn is not None:
+        actions.append(WarnAction(message=model.warn))
+
+    if model.fail is not None:
+        actions.append(FailAction(message=model.fail))
+
+    return tuple(actions)
+
+
+def _convert_actions(
+    models: ActionModel | list[ActionModel] | None,
+) -> tuple[ConditionalAction, ...] | None:
+    """Convert action model(s) to tuple of ConditionalAction."""
+    if models is None:
+        return None
+
+    if isinstance(models, list):
+        actions: list[ConditionalAction] = []
+        for m in models:
+            actions.extend(_convert_action(m))
+        return tuple(actions)
+
+    return _convert_action(models)
+
+
+def _convert_conditional_rule(model: ConditionalRuleModel) -> ConditionalRule:
+    """Convert ConditionalRuleModel to ConditionalRule dataclass."""
+    then_actions = _convert_actions(model.then)
+    if then_actions is None:
+        then_actions = ()
+
+    else_actions = _convert_actions(model.else_)
+
+    return ConditionalRule(
+        name=model.name,
+        when=_convert_condition(model.when),
+        then_actions=then_actions,
+        else_actions=else_actions,
+    )
+
+
+def _convert_conditional_rules(
+    models: list[ConditionalRuleModel] | None,
+) -> tuple[ConditionalRule, ...]:
+    """Convert list of ConditionalRuleModel to tuple of ConditionalRule."""
+    if models is None:
+        return ()
+    return tuple(_convert_conditional_rule(m) for m in models)
 
 
 def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
@@ -393,6 +903,9 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
             on_incompatible_codec=model.container.on_incompatible_codec,
         )
 
+    # Convert V4 conditional rules if present
+    conditional_rules = _convert_conditional_rules(model.conditional)
+
     return PolicySchema(
         schema_version=model.schema_version,
         track_order=track_order,
@@ -406,6 +919,7 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
         subtitle_filter=subtitle_filter,
         attachment_filter=attachment_filter,
         container=container,
+        conditional_rules=conditional_rules,
     )
 
 

@@ -71,23 +71,23 @@
 
 ### Tests for User Story 1
 
-- [ ] T025 [P] [US1] Create test_conditional_rules.py with test fixtures in tests/unit/policy/test_conditional_rules.py
-- [ ] T026 [P] [US1] Add test for single rule matching then branch in tests/unit/policy/test_conditional_rules.py
-- [ ] T027 [P] [US1] Add test for single rule matching else branch in tests/unit/policy/test_conditional_rules.py
-- [ ] T028 [P] [US1] Add test for multiple rules first-match-wins in tests/unit/policy/test_conditional_rules.py
-- [ ] T029 [P] [US1] Add test for no rules matching in tests/unit/policy/test_conditional_rules.py
+- [X] T025 [P] [US1] Create test_conditional_rules.py with test fixtures in tests/unit/policy/test_conditional_rules.py
+- [X] T026 [P] [US1] Add test for single rule matching then branch in tests/unit/policy/test_conditional_rules.py
+- [X] T027 [P] [US1] Add test for single rule matching else branch in tests/unit/policy/test_conditional_rules.py
+- [X] T028 [P] [US1] Add test for multiple rules first-match-wins in tests/unit/policy/test_conditional_rules.py
+- [X] T029 [P] [US1] Add test for no rules matching in tests/unit/policy/test_conditional_rules.py
 
 ### Implementation for User Story 1
 
-- [ ] T030 [US1] Add Pydantic ConditionModel to src/video_policy_orchestrator/policy/validation.py
-- [ ] T031 [US1] Add Pydantic ConditionalActionModel to src/video_policy_orchestrator/policy/validation.py
-- [ ] T032 [US1] Add Pydantic ConditionalRuleModel to src/video_policy_orchestrator/policy/validation.py
-- [ ] T033 [US1] Extend PolicyModel with conditional field in src/video_policy_orchestrator/policy/validation.py
-- [ ] T034 [US1] Add schema version validation for conditional section in src/video_policy_orchestrator/policy/loader.py
-- [ ] T035 [US1] Add convert_conditional_rules() function in src/video_policy_orchestrator/policy/loader.py
-- [ ] T036 [US1] Implement evaluate_conditional_rules() in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T037 [US1] Integrate conditional evaluation into evaluate_policy() in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T038 [US1] Add conditional result to dry-run output format in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T030 [US1] Add Pydantic ConditionModel to src/video_policy_orchestrator/policy/loader.py
+- [X] T031 [US1] Add Pydantic ConditionalActionModel to src/video_policy_orchestrator/policy/loader.py
+- [X] T032 [US1] Add Pydantic ConditionalRuleModel to src/video_policy_orchestrator/policy/loader.py
+- [X] T033 [US1] Extend PolicyModel with conditional field in src/video_policy_orchestrator/policy/loader.py
+- [X] T034 [US1] Add schema version validation for conditional section in src/video_policy_orchestrator/policy/loader.py
+- [X] T035 [US1] Add convert_conditional_rules() function in src/video_policy_orchestrator/policy/loader.py
+- [X] T036 [US1] Implement evaluate_conditional_rules() in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T037 [US1] Integrate conditional evaluation into evaluate_policy() in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T038 [US1] Add conditional result to dry-run output format in src/video_policy_orchestrator/policy/evaluator.py
 
 **Checkpoint**: Basic conditional rules work - can create policy with when/then/else
 
