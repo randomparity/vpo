@@ -10,7 +10,7 @@ import logging
 import os
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import aiohttp_jinja2
@@ -18,6 +18,8 @@ import jinja2
 from aiohttp import web
 
 from video_policy_orchestrator import __version__
+from video_policy_orchestrator.core.datetime_utils import parse_iso_timestamp
+from video_policy_orchestrator.core.validation import is_valid_uuid
 from video_policy_orchestrator.server.ui.models import (
     DEFAULT_SECTION,
     NAVIGATION_ITEMS,
@@ -148,6 +150,10 @@ def _get_polling_config() -> dict:
     }
 
 
+# NOTE: parse_iso_timestamp moved to video_policy_orchestrator.core.datetime_utils
+# Import parse_iso_timestamp at module level for use throughout this file
+
+
 async def root_redirect(request: web.Request) -> web.Response:
     """Handle GET / - redirect to default section."""
     raise web.HTTPFound(location=f"/{DEFAULT_SECTION}")
@@ -262,13 +268,6 @@ async def api_jobs_handler(request: web.Request) -> web.Response:
 
     jobs_data, total = await asyncio.to_thread(_query_jobs)
 
-    # Helper to parse ISO-8601 timestamps (handles both Z and +00:00 suffixes)
-    def _parse_iso_timestamp(timestamp: str) -> datetime:
-        # Normalize Z suffix to +00:00 for fromisoformat compatibility (Python 3.10)
-        # This is safe even if timestamp already has +00:00 (Z won't be present)
-        normalized = timestamp.replace("Z", "+00:00")
-        return datetime.fromisoformat(normalized)
-
     # Convert to JobListItem
     job_items = []
     for job in jobs_data:
@@ -276,8 +275,8 @@ async def api_jobs_handler(request: web.Request) -> web.Response:
         duration_seconds = None
         if job.completed_at and job.created_at:
             try:
-                created = _parse_iso_timestamp(job.created_at)
-                completed = _parse_iso_timestamp(job.completed_at)
+                created = parse_iso_timestamp(job.created_at)
+                completed = parse_iso_timestamp(job.completed_at)
                 duration_seconds = int((completed - created).total_seconds())
             except (ValueError, TypeError):
                 pass
@@ -309,33 +308,8 @@ async def api_jobs_handler(request: web.Request) -> web.Response:
     return web.json_response(response.to_dict())
 
 
-def _is_valid_uuid(value: str) -> bool:
-    """Check if a string is a valid UUID v4 format.
-
-    Args:
-        value: String to validate.
-
-    Returns:
-        True if valid UUID format, False otherwise.
-    """
-    uuid_pattern = re.compile(
-        r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-        re.IGNORECASE,
-    )
-    return bool(uuid_pattern.match(value))
-
-
-def _parse_iso_timestamp(timestamp: str) -> datetime:
-    """Parse ISO-8601 timestamp, handling both Z and +00:00 suffixes.
-
-    Args:
-        timestamp: ISO-8601 timestamp string.
-
-    Returns:
-        Parsed datetime object.
-    """
-    normalized = timestamp.replace("Z", "+00:00")
-    return datetime.fromisoformat(normalized)
+# NOTE: is_valid_uuid moved to video_policy_orchestrator.core.validation
+# Import is_valid_uuid at module level for use throughout this file
 
 
 def _job_to_detail_item(job, has_logs: bool) -> JobDetailItem:
@@ -354,8 +328,8 @@ def _job_to_detail_item(job, has_logs: bool) -> JobDetailItem:
     duration_seconds = None
     if job.completed_at and job.created_at:
         try:
-            created = _parse_iso_timestamp(job.created_at)
-            completed = _parse_iso_timestamp(job.completed_at)
+            created = parse_iso_timestamp(job.created_at)
+            completed = parse_iso_timestamp(job.completed_at)
             duration_seconds = int((completed - created).total_seconds())
         except (ValueError, TypeError):
             pass
@@ -417,7 +391,7 @@ async def api_job_detail_handler(request: web.Request) -> web.Response:
     job_id = request.match_info["job_id"]
 
     # Validate UUID format
-    if not _is_valid_uuid(job_id):
+    if not is_valid_uuid(job_id):
         return web.json_response(
             {"error": "Invalid job ID format"},
             status=400,
@@ -482,7 +456,7 @@ async def job_detail_handler(request: web.Request) -> dict:
     job_id = request.match_info["job_id"]
 
     # Validate UUID format
-    if not _is_valid_uuid(job_id):
+    if not is_valid_uuid(job_id):
         raise web.HTTPBadRequest(reason="Invalid job ID format")
 
     # Get connection pool
@@ -555,7 +529,7 @@ async def api_job_logs_handler(request: web.Request) -> web.Response:
     job_id = request.match_info["job_id"]
 
     # Validate UUID format
-    if not _is_valid_uuid(job_id):
+    if not is_valid_uuid(job_id):
         return web.json_response(
             {"error": "Invalid job ID format"},
             status=400,
@@ -613,7 +587,7 @@ async def api_job_errors_handler(request: web.Request) -> web.Response:
     job_id = request.match_info["job_id"]
 
     # Validate UUID format
-    if not _is_valid_uuid(job_id):
+    if not is_valid_uuid(job_id):
         return web.json_response(
             {"error": "Invalid job ID format"},
             status=400,
@@ -1489,9 +1463,7 @@ async def policy_editor_handler(request: web.Request) -> dict:
 
     # Get file metadata
     stat = await asyncio.to_thread(policy_path.stat)
-    last_modified = datetime.fromtimestamp(
-        stat.st_mtime, tz=datetime.now().astimezone().tzinfo
-    ).isoformat()
+    last_modified = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
 
     # Build context
     from video_policy_orchestrator.server.ui.models import PolicyEditorContext
@@ -1609,7 +1581,7 @@ async def api_policy_detail_handler(request: web.Request) -> web.Response:
             data = editor.load()
             stat = policy_path.stat()
             last_modified = datetime.fromtimestamp(
-                stat.st_mtime, tz=datetime.now().astimezone().tzinfo
+                stat.st_mtime, tz=timezone.utc
             ).isoformat()
             return data, last_modified, None
         except PolicyValidationError as e:
@@ -1766,7 +1738,7 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
         try:
             stat = policy_path.stat()
             file_modified = datetime.fromtimestamp(
-                stat.st_mtime, tz=datetime.now().astimezone().tzinfo
+                stat.st_mtime, tz=timezone.utc
             ).isoformat()
 
             # Compare timestamps
@@ -1781,7 +1753,7 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
             data = editor.load()
             new_stat = policy_path.stat()
             new_modified = datetime.fromtimestamp(
-                new_stat.st_mtime, tz=datetime.now().astimezone().tzinfo
+                new_stat.st_mtime, tz=timezone.utc
             ).isoformat()
 
             return data, new_modified, None
@@ -2098,7 +2070,7 @@ async def api_plan_approve_handler(request: web.Request) -> web.Response:
     plan_id = request.match_info["plan_id"]
 
     # Validate UUID format
-    if not _is_valid_uuid(plan_id):
+    if not is_valid_uuid(plan_id):
         return web.json_response(
             PlanActionResponse(success=False, error="Invalid plan ID format").to_dict(),
             status=400,
@@ -2222,7 +2194,7 @@ async def api_plan_reject_handler(request: web.Request) -> web.Response:
     plan_id = request.match_info["plan_id"]
 
     # Validate UUID format
-    if not _is_valid_uuid(plan_id):
+    if not is_valid_uuid(plan_id):
         return web.json_response(
             PlanActionResponse(success=False, error="Invalid plan ID format").to_dict(),
             status=400,
