@@ -480,6 +480,7 @@ class TestMkvpropeditErrorScenarios:
 class TestMkvmergeErrorScenarios:
     """Tests for error handling in MkvmergeExecutor."""
 
+    @patch("video_policy_orchestrator.executor.mkvmerge.check_disk_space")
     @patch("video_policy_orchestrator.executor.mkvmerge.create_backup")
     @patch("video_policy_orchestrator.executor.mkvmerge.restore_from_backup")
     @patch("video_policy_orchestrator.executor.mkvmerge.require_tool")
@@ -492,6 +493,7 @@ class TestMkvmergeErrorScenarios:
         mock_require: MagicMock,
         mock_restore: MagicMock,
         mock_backup: MagicMock,
+        mock_disk_check: MagicMock,
         mkv_reorder_plan: Plan,
     ):
         """Should handle subprocess timeout and restore backup."""
@@ -520,10 +522,12 @@ class TestMkvmergeErrorScenarios:
             "timeout" in result.message.lower() or "timed out" in result.message.lower()
         )
 
+    @patch("video_policy_orchestrator.executor.mkvmerge.check_disk_space")
     @patch("video_policy_orchestrator.executor.mkvmerge.create_backup")
     def test_mkvmerge_backup_failure(
         self,
         mock_backup: MagicMock,
+        mock_disk_check: MagicMock,
         mkv_reorder_plan: Plan,
     ):
         """Should handle backup creation failure."""
@@ -535,6 +539,7 @@ class TestMkvmergeErrorScenarios:
         assert result.success is False
         assert "Backup failed" in result.message
 
+    @patch("video_policy_orchestrator.executor.mkvmerge.check_disk_space")
     @patch("video_policy_orchestrator.executor.mkvmerge.create_backup")
     @patch("video_policy_orchestrator.executor.mkvmerge.restore_from_backup")
     @patch("video_policy_orchestrator.executor.mkvmerge.require_tool")
@@ -547,6 +552,7 @@ class TestMkvmergeErrorScenarios:
         mock_require: MagicMock,
         mock_restore: MagicMock,
         mock_backup: MagicMock,
+        mock_disk_check: MagicMock,
         mkv_reorder_plan: Plan,
     ):
         """Should handle returncode 1 (warnings) as success with caution."""
@@ -574,6 +580,7 @@ class TestMkvmergeErrorScenarios:
         # Returncode 1 should still be treated as success (warnings only)
         assert result.success is True
 
+    @patch("video_policy_orchestrator.executor.mkvmerge.check_disk_space")
     @patch("video_policy_orchestrator.executor.mkvmerge.create_backup")
     @patch("video_policy_orchestrator.executor.mkvmerge.restore_from_backup")
     @patch("video_policy_orchestrator.executor.mkvmerge.require_tool")
@@ -586,6 +593,7 @@ class TestMkvmergeErrorScenarios:
         mock_require: MagicMock,
         mock_restore: MagicMock,
         mock_backup: MagicMock,
+        mock_disk_check: MagicMock,
         mkv_reorder_plan: Plan,
     ):
         """Should handle returncode 2 (error) as failure."""
@@ -947,6 +955,7 @@ class TestFFmpegRemuxExecutor:
 class TestFFmpegRemuxExecutorBackup:
     """Tests for FFmpegRemuxExecutor backup handling."""
 
+    @patch("video_policy_orchestrator.executor.ffmpeg_remux.check_disk_space")
     @patch("video_policy_orchestrator.executor.ffmpeg_remux.create_backup")
     @patch("video_policy_orchestrator.executor.ffmpeg_remux.require_tool")
     @patch("subprocess.run")
@@ -957,6 +966,7 @@ class TestFFmpegRemuxExecutorBackup:
         mock_run: MagicMock,
         mock_require: MagicMock,
         mock_backup: MagicMock,
+        mock_disk_check: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Executor should create backup before execution."""
@@ -991,6 +1001,7 @@ class TestFFmpegRemuxExecutorBackup:
         mock_backup.assert_called_once_with(plan.file_path)
         assert result.success is True
 
+    @patch("video_policy_orchestrator.executor.ffmpeg_remux.check_disk_space")
     @patch("video_policy_orchestrator.executor.ffmpeg_remux.create_backup")
     @patch("video_policy_orchestrator.executor.ffmpeg_remux.restore_from_backup")
     @patch("video_policy_orchestrator.executor.ffmpeg_remux.require_tool")
@@ -1003,6 +1014,7 @@ class TestFFmpegRemuxExecutorBackup:
         mock_require: MagicMock,
         mock_restore: MagicMock,
         mock_backup: MagicMock,
+        mock_disk_check: MagicMock,
         tmp_path: Path,
     ) -> None:
         """Executor should restore backup on command failure."""

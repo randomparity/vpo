@@ -9,7 +9,12 @@ import subprocess  # nosec B404 - subprocess is required for mkvmerge execution
 import tempfile
 from pathlib import Path
 
-from video_policy_orchestrator.executor.backup import create_backup, restore_from_backup
+from video_policy_orchestrator.executor.backup import (
+    InsufficientDiskSpaceError,
+    check_disk_space,
+    create_backup,
+    restore_from_backup,
+)
 from video_policy_orchestrator.executor.interface import ExecutorResult, require_tool
 from video_policy_orchestrator.policy.models import ActionType, Plan, TrackDisposition
 
@@ -78,6 +83,12 @@ class MkvmergeExecutor:
         """
         if plan.is_empty:
             return ExecutorResult(success=True, message="No changes to apply")
+
+        # Pre-flight disk space check
+        try:
+            check_disk_space(plan.file_path)
+        except InsufficientDiskSpaceError as e:
+            return ExecutorResult(success=False, message=str(e))
 
         # Determine if this is a container conversion
         is_container_conversion = (

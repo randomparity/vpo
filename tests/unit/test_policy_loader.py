@@ -359,3 +359,173 @@ class TestDefaultFlagsValidation:
                     },
                 }
             )
+
+
+# =============================================================================
+# V2 Backward Compatibility Tests (T080)
+# =============================================================================
+
+
+class TestV2BackwardCompatibility:
+    """Tests for v2 policy backward compatibility with v3 features."""
+
+    def test_v2_policy_loads_without_filter_fields(self):
+        """V2 policy without filter fields should load with None defaults."""
+        policy = load_policy_from_dict(
+            {
+                "schema_version": 2,
+                "track_order": ["video", "audio_main", "subtitle_main"],
+                "audio_language_preference": ["eng"],
+                "subtitle_language_preference": ["eng"],
+            }
+        )
+        assert policy.schema_version == 2
+        assert policy.audio_filter is None
+        assert policy.subtitle_filter is None
+        assert policy.attachment_filter is None
+        assert policy.container is None
+
+    def test_v2_policy_full_features_load(self):
+        """V2 policy with all v2 features should load correctly."""
+        policy = load_policy_from_dict(
+            {
+                "schema_version": 2,
+                "track_order": [
+                    "video",
+                    "audio_main",
+                    "audio_commentary",
+                    "subtitle_main",
+                    "subtitle_forced",
+                    "subtitle_commentary",
+                    "audio_alternate",
+                    "attachment",
+                ],
+                "audio_language_preference": ["eng", "jpn", "und"],
+                "subtitle_language_preference": ["eng", "jpn"],
+                "commentary_patterns": ["commentary", "director", r"\bcast\b"],
+                "default_flags": {
+                    "set_first_video_default": True,
+                    "set_preferred_audio_default": True,
+                    "set_preferred_subtitle_default": True,
+                    "clear_other_defaults": True,
+                },
+            }
+        )
+        assert policy.schema_version == 2
+        assert len(policy.track_order) == 8
+        assert policy.audio_language_preference == ("eng", "jpn", "und")
+        assert policy.default_flags.set_preferred_subtitle_default is True
+
+    def test_v2_policy_rejects_v3_audio_filter(self):
+        """V2 policy should reject audio_filter field."""
+        with pytest.raises(PolicyValidationError) as exc_info:
+            load_policy_from_dict(
+                {
+                    "schema_version": 2,
+                    "track_order": ["video", "audio_main"],
+                    "audio_language_preference": ["eng"],
+                    "audio_filter": {"languages": ["eng"]},
+                }
+            )
+        assert "schema_version" in str(exc_info.value).lower()
+
+    def test_v2_policy_rejects_v3_subtitle_filter(self):
+        """V2 policy should reject subtitle_filter field."""
+        with pytest.raises(PolicyValidationError) as exc_info:
+            load_policy_from_dict(
+                {
+                    "schema_version": 2,
+                    "track_order": ["video", "audio_main"],
+                    "audio_language_preference": ["eng"],
+                    "subtitle_filter": {"languages": ["eng"]},
+                }
+            )
+        assert "schema_version" in str(exc_info.value).lower()
+
+    def test_v2_policy_rejects_v3_attachment_filter(self):
+        """V2 policy should reject attachment_filter field."""
+        with pytest.raises(PolicyValidationError) as exc_info:
+            load_policy_from_dict(
+                {
+                    "schema_version": 2,
+                    "track_order": ["video", "audio_main"],
+                    "audio_language_preference": ["eng"],
+                    "attachment_filter": {"remove_all": True},
+                }
+            )
+        assert "schema_version" in str(exc_info.value).lower()
+
+    def test_v2_policy_rejects_v3_container(self):
+        """V2 policy should reject container field."""
+        with pytest.raises(PolicyValidationError) as exc_info:
+            load_policy_from_dict(
+                {
+                    "schema_version": 2,
+                    "track_order": ["video", "audio_main"],
+                    "audio_language_preference": ["eng"],
+                    "container": {"target": "mkv"},
+                }
+            )
+        assert "schema_version" in str(exc_info.value).lower()
+
+    def test_v3_policy_accepts_all_filter_fields(self):
+        """V3 policy should accept all filter fields."""
+        policy = load_policy_from_dict(
+            {
+                "schema_version": 3,
+                "track_order": ["video", "audio_main", "subtitle_main"],
+                "audio_language_preference": ["eng"],
+                "subtitle_language_preference": ["eng"],
+                "audio_filter": {
+                    "languages": ["eng", "jpn"],
+                    "minimum": 1,
+                    "fallback": {"mode": "keep_first"},
+                },
+                "subtitle_filter": {
+                    "languages": ["eng"],
+                    "preserve_forced": True,
+                },
+                "attachment_filter": {"remove_all": True},
+                "container": {"target": "mkv"},
+            }
+        )
+        assert policy.schema_version == 3
+        assert policy.audio_filter is not None
+        assert policy.audio_filter.languages == ("eng", "jpn")
+        assert policy.audio_filter.fallback.mode == "keep_first"
+        assert policy.subtitle_filter is not None
+        assert policy.subtitle_filter.preserve_forced is True
+        assert policy.attachment_filter is not None
+        assert policy.attachment_filter.remove_all is True
+        assert policy.container is not None
+        assert policy.container.target == "mkv"
+
+    def test_v3_policy_optional_filter_fields(self):
+        """V3 policy should work without filter fields (all optional)."""
+        policy = load_policy_from_dict(
+            {
+                "schema_version": 3,
+                "track_order": ["video", "audio_main"],
+                "audio_language_preference": ["eng"],
+            }
+        )
+        assert policy.schema_version == 3
+        assert policy.audio_filter is None
+        assert policy.subtitle_filter is None
+        assert policy.attachment_filter is None
+        assert policy.container is None
+
+    def test_v1_to_v3_upgrade_path(self):
+        """Test loading policies at each version level."""
+        for version in [1, 2, 3]:
+            policy = load_policy_from_dict(
+                {
+                    "schema_version": version,
+                    "track_order": ["video", "audio_main"],
+                    "audio_language_preference": ["eng"],
+                }
+            )
+            assert policy.schema_version == version
+            # V3 fields should be None for all versions without them
+            assert policy.audio_filter is None
+            assert policy.subtitle_filter is None

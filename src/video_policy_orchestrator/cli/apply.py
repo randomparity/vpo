@@ -21,6 +21,10 @@ from video_policy_orchestrator.db.operations import (
 )
 from video_policy_orchestrator.executor.backup import FileLockError, file_lock
 from video_policy_orchestrator.executor.interface import check_tool_availability
+from video_policy_orchestrator.policy.exceptions import (
+    IncompatibleCodecError,
+    InsufficientTracksError,
+)
 from video_policy_orchestrator.policy.loader import PolicyValidationError, load_policy
 from video_policy_orchestrator.policy.models import (
     ActionType,
@@ -495,13 +499,22 @@ def apply_command(
     if verbose:
         click.echo(f"Evaluating policy against {len(tracks)} tracks...")
 
-    plan = policy_engine.evaluate(
-        file_id=str(file_record.id),
-        file_path=target,
-        container=container,
-        tracks=tracks,
-        policy=policy,
-    )
+    try:
+        plan = policy_engine.evaluate(
+            file_id=str(file_record.id),
+            file_path=target,
+            container=container,
+            tracks=tracks,
+            policy=policy,
+        )
+    except InsufficientTracksError as e:
+        # Format helpful error message with suggestions
+        suggestion = _format_insufficient_tracks_suggestion(e)
+        _error_exit(suggestion, EXIT_POLICY_VALIDATION_ERROR, json_output)
+    except IncompatibleCodecError as e:
+        # Format helpful error message with suggestions
+        suggestion = _format_incompatible_codec_suggestion(e)
+        _error_exit(suggestion, EXIT_POLICY_VALIDATION_ERROR, json_output)
 
     if verbose:
         click.echo(f"Plan: {plan.summary}")
@@ -671,3 +684,68 @@ def _code_to_name(code: int) -> str:
         EXIT_OPERATION_FAILED: "OPERATION_FAILED",
     }
     return names.get(code, "UNKNOWN_ERROR")
+
+
+def _format_insufficient_tracks_suggestion(error: InsufficientTracksError) -> str:
+    """Format helpful error message for InsufficientTracksError.
+
+    Args:
+        error: The InsufficientTracksError exception.
+
+    Returns:
+        Formatted error message with suggestions.
+    """
+    lines = [
+        f"Insufficient {error.track_type} tracks after filtering.",
+        f"  Required: {error.required}, Available: {error.available}",
+        f"  Policy languages: {', '.join(error.policy_languages)}",
+        f"  File languages: {', '.join(error.file_languages)}",
+        "",
+        "Suggestions:",
+        "  1. Add a fallback mode to your policy:",
+        '     fallback: { mode: "keep_first" }  # Keep first N tracks',
+        '     fallback: { mode: "keep_all" }    # Keep all tracks',
+        '     fallback: { mode: "content_language" }  # Keep content language',
+        "",
+        "  2. Add the file's languages to your filter:",
+        f"     languages: [{', '.join(error.file_languages)}]",
+        "",
+        "  3. Lower the minimum track requirement:",
+        f"     minimum: {error.available}",
+    ]
+    return "\n".join(lines)
+
+
+def _format_incompatible_codec_suggestion(error: IncompatibleCodecError) -> str:
+    """Format helpful error message for IncompatibleCodecError.
+
+    Args:
+        error: The IncompatibleCodecError exception.
+
+    Returns:
+        Formatted error message with suggestions.
+    """
+    lines = [
+        f"Incompatible codecs for {error.target_container.upper()} container.",
+        "  Incompatible tracks:",
+    ]
+
+    for idx, track_type, codec in error.incompatible_tracks:
+        lines.append(f"    - Track {idx}: {track_type} ({codec})")
+
+    lines.extend(
+        [
+            "",
+            "Suggestions:",
+            '  1. Change on_incompatible_codec policy to "skip":',
+            '     container: { target: "mp4", on_incompatible_codec: "skip" }',
+            "",
+            "  2. Convert to MKV instead (supports all codecs):",
+            '     container: { target: "mkv" }',
+            "",
+            "  3. Remove incompatible tracks with filters:",
+            "     subtitle_filter: { remove_all: true }  # Remove PGS subtitles",
+            "     attachment_filter: { remove_all: true }  # Remove attachments",
+        ]
+    )
+    return "\n".join(lines)

@@ -8,7 +8,12 @@ import subprocess  # nosec B404 - subprocess is required for ffmpeg execution
 import tempfile
 from pathlib import Path
 
-from video_policy_orchestrator.executor.backup import create_backup, restore_from_backup
+from video_policy_orchestrator.executor.backup import (
+    InsufficientDiskSpaceError,
+    check_disk_space,
+    create_backup,
+    restore_from_backup,
+)
 from video_policy_orchestrator.executor.interface import ExecutorResult, require_tool
 from video_policy_orchestrator.policy.models import Plan
 
@@ -65,6 +70,12 @@ class FFmpegRemuxExecutor:
         """
         if plan.is_empty or plan.container_change is None:
             return ExecutorResult(success=True, message="No changes to apply")
+
+        # Pre-flight disk space check
+        try:
+            check_disk_space(plan.file_path)
+        except InsufficientDiskSpaceError as e:
+            return ExecutorResult(success=False, message=str(e))
 
         # Compute output path with .mp4 extension
         output_path = plan.file_path.with_suffix(".mp4")

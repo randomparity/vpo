@@ -236,15 +236,15 @@ Based on plan.md structure:
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T080 [P] Add v2 backward compatibility tests in tests/unit/policy/test_loader.py
-- [ ] T081 [P] Add CLI error handling for InsufficientTracksError with suggestions in src/video_policy_orchestrator/cli/apply.py
-- [ ] T082 [P] Add CLI error handling for IncompatibleCodecError with suggestions in src/video_policy_orchestrator/cli/apply.py
-- [ ] T083 [P] Add disk space pre-flight check before remux operations in src/video_policy_orchestrator/executor/mkvmerge.py
-- [ ] T083a [P] Verify backup creation in MkvmergeExecutor.execute() follows existing pattern in src/video_policy_orchestrator/executor/mkvmerge.py
-- [ ] T083b [P] Add backup creation to FFmpegRemuxExecutor.execute() in src/video_policy_orchestrator/executor/ffmpeg_remux.py
+- [X] T080 [P] Add v2 backward compatibility tests in tests/unit/policy/test_loader.py
+- [X] T081 [P] Add CLI error handling for InsufficientTracksError with suggestions in src/video_policy_orchestrator/cli/apply.py
+- [X] T082 [P] Add CLI error handling for IncompatibleCodecError with suggestions in src/video_policy_orchestrator/cli/apply.py
+- [X] T083 [P] Add disk space pre-flight check before remux operations in src/video_policy_orchestrator/executor/mkvmerge.py
+- [X] T083a [P] Verify backup creation in MkvmergeExecutor.execute() follows existing pattern in src/video_policy_orchestrator/executor/mkvmerge.py
+- [X] T083b [P] Add backup creation to FFmpegRemuxExecutor.execute() in src/video_policy_orchestrator/executor/ffmpeg_remux.py
 - [ ] T084 Update policy documentation with v3 schema fields in docs/usage/policies.md
 - [ ] T085 [P] Add example v3 policy files in docs/examples/
-- [ ] T086 Run full test suite and verify all tests pass
+- [X] T086 Run full test suite and verify all tests pass
 - [ ] T087 Run quickstart.md validation steps
 
 ---
