@@ -35,10 +35,10 @@
 
 **⚠️ CRITICAL**: User story implementation depends on this phase
 
-- [ ] T003 Create auth module with parse_basic_auth() function in src/video_policy_orchestrator/server/auth.py
-- [ ] T004 Add validate_token() function using secrets.compare_digest() in src/video_policy_orchestrator/server/auth.py
-- [ ] T005 Add is_auth_enabled() helper function in src/video_policy_orchestrator/server/auth.py
-- [ ] T006 Create create_auth_middleware() factory function in src/video_policy_orchestrator/server/auth.py
+- [X] T003 Create auth module with parse_basic_auth() function in src/video_policy_orchestrator/server/auth.py
+- [X] T004 Add validate_token() function using secrets.compare_digest() in src/video_policy_orchestrator/server/auth.py
+- [X] T005 Add is_auth_enabled() helper function in src/video_policy_orchestrator/server/auth.py
+- [X] T006 Create create_auth_middleware() factory function in src/video_policy_orchestrator/server/auth.py
 
 **Checkpoint**: Auth module ready - user story implementation can now begin
 
