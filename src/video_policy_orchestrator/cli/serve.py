@@ -63,6 +63,7 @@ async def run_server(
     shutdown_timeout: float,
     db_path: Path,
     profile_name: str | None = None,
+    auth_token: str | None = None,
 ) -> int:
     """Run the daemon server.
 
@@ -72,6 +73,7 @@ async def run_server(
         shutdown_timeout: Seconds to wait for graceful shutdown.
         db_path: Path to database file.
         profile_name: Optional profile name to store in app context.
+        auth_token: Optional auth token for HTTP Basic Auth.
 
     Returns:
         Exit code (0 for clean shutdown, non-zero for errors).
@@ -98,7 +100,7 @@ async def run_server(
     setup_signal_handlers(loop, lifecycle, shutdown_event)
 
     # Create the application with database path for connection pooling
-    app = create_app(db_path=db_path)
+    app = create_app(db_path=db_path, auth_token=auth_token)
     app["lifecycle"] = lifecycle
 
     # Validate and store profile name (must be alphanumeric with - or _)
@@ -235,6 +237,7 @@ def serve_command(
     server_bind = bind if bind is not None else config.server.bind
     server_port = port if port is not None else config.server.port
     shutdown_timeout = config.server.shutdown_timeout
+    auth_token = config.server.auth_token
 
     # Get database path
     db_path = config.database_path or get_default_db_path()
@@ -264,7 +267,9 @@ def serve_command(
     # Run the async server
     try:
         exit_code = asyncio.run(
-            run_server(server_bind, server_port, shutdown_timeout, db_path, profile)
+            run_server(
+                server_bind, server_port, shutdown_timeout, db_path, profile, auth_token
+            )
         )
         sys.exit(exit_code)
     except KeyboardInterrupt:

@@ -16,6 +16,7 @@ Environment variables:
 - VPO_DATA_DIR: Path to VPO data directory (overrides ~/.vpo/)
 - VPO_LOG_COMPRESSION_DAYS: Days before compressing job logs (default 7)
 - VPO_LOG_DELETION_DAYS: Days before deleting job logs (default 90)
+- VPO_AUTH_TOKEN: Shared secret for HTTP Basic Auth (if set, protects web UI)
 """
 
 import logging
@@ -465,6 +466,8 @@ def get_config(
 
     # Build server config
     server_file = file_config.get("server", {})
+    # Auth token: env var takes precedence over config file
+    auth_token = os.environ.get("VPO_AUTH_TOKEN") or server_file.get("auth_token")
     server = ServerConfig(
         bind=_get_env_str(
             "VPO_SERVER_BIND",
@@ -478,6 +481,7 @@ def get_config(
             "VPO_SERVER_SHUTDOWN_TIMEOUT",
             server_file.get("shutdown_timeout", 30.0),
         ),
+        auth_token=auth_token,
     )
 
     # Build language config
