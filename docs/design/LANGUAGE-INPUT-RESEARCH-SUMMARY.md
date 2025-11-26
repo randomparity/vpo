@@ -315,3 +315,10 @@ Three strategies:
 **Last Updated:** 2025-11-24
 **Maintainer:** Claude Code Research
 **Status:** Ready for Implementation
+
+## Related docs
+
+- [Language Input UX Design](design-language-code-input-ux.md) - Full design document
+- [Language Input Summary](LANGUAGE-INPUT-SUMMARY.md) - Quick reference
+- [Language Input Implementation Guide](LANGUAGE-INPUT-IMPLEMENTATION-GUIDE.md) - Implementation details
+- [Policy Editor](../usage/policy-editor.md) - Policy editor user guide

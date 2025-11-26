@@ -187,7 +187,7 @@ To expose on all interfaces:
 vpo serve --bind 0.0.0.0
 ```
 
-## Related Documentation
+## Related docs
 
 - [Systemd Integration](systemd.md) - Deploy as a system service
 - [Configuration](config.md) - Full configuration reference

@@ -264,7 +264,7 @@ Files are created with UTF-8 encoding. Parent directories are created if they do
 | 0 | Success (even with empty results) |
 | 1 | Error (invalid options, write failure, etc.) |
 
-## Related Documentation
+## Related docs
 
 - [Jobs System](jobs.md) - Background job processing
 - [Scanning](scanning.md) - Library scanning operations

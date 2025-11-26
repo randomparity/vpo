@@ -1116,3 +1116,9 @@ describe('LanguagePreferenceList', () => {
 - [ISO 639-2 Language List](https://www.loc.gov/standards/iso639-2/php/code_list.php) - Download full list
 - [W3C Combobox Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/combobox/) - Spec reference
 - [MDN aria-autocomplete](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Attributes/aria-autocomplete) - Attribute docs
+
+## Related docs
+
+- [Language Input Research Summary](LANGUAGE-INPUT-RESEARCH-SUMMARY.md) - Research findings
+- [Language Input UX Design](design-language-code-input-ux.md) - UX design decisions
+- [Policy Editor](../usage/policy-editor.md) - Policy editor user guide

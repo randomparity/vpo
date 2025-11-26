@@ -896,7 +896,7 @@ fetch('/api/policies/default', {
 
 ---
 
-## Related Docs
+## Related docs
 
 - [CLI Usage](usage/cli-usage.md) - Command-line interface reference
 - [Daemon Mode](daemon-mode.md) - Running VPO as a daemon

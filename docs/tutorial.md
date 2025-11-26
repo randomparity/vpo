@@ -285,3 +285,10 @@ Check that:
 - **Documentation**: [docs/INDEX.md](INDEX.md)
 - **Issues**: [GitHub Issues](https://github.com/randomparity/vpo/issues)
 - **Check tool status**: `vpo doctor`
+
+## Related docs
+
+- [CLI Usage](usage/cli-usage.md) - Complete command reference
+- [Configuration](usage/configuration.md) - Customization options
+- [Workflows](usage/workflows.md) - Common usage patterns
+- [Glossary](glossary.md) - Term definitions
