@@ -173,11 +173,14 @@ class LoggingConfig:
             )
 
 
-@dataclass
+@dataclass(frozen=True)
 class Profile:
     """Named configuration profile (008-operational-ux).
 
     Profiles allow users to store named configurations for different libraries.
+
+    This dataclass is immutable (frozen) to prevent accidental mutation bugs.
+    All fields must be set at construction time.
     """
 
     name: str  # Profile identifier
