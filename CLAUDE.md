@@ -51,7 +51,7 @@ uv run vpo serve --port 8080          # Start daemon with web UI
 src/video_policy_orchestrator/
 ├── cli/           # Click commands: scan, inspect, apply, doctor, serve
 ├── config/        # Configuration loading and models
-├── db/            # SQLite schema, models (FileInfo, TrackInfo), operations
+├── db/            # SQLite schema, models, and query functions (see below)
 ├── executor/      # Tool executors: mkvpropedit, mkvmerge, ffmpeg_metadata
 ├── introspector/  # MediaIntrospector protocol, ffprobe implementation
 ├── jobs/          # Background job management, logging, queue operations
@@ -92,6 +92,43 @@ This project has a formal constitution at `.specify/memory/constitution.md` with
 - **Idempotency**: All policy operations must be safe to repeat
 - **IO Separation**: Core logic in pure functions; external tools behind adapters
 - **Concurrency**: Use `DaemonConnectionPool` for thread-safe DB access via `asyncio.to_thread`
+
+## Database Module Structure
+
+The `db/` module is organized into separate files for types, queries, and views:
+
+```
+db/
+├── __init__.py   # Public API - re-exports all types and functions
+├── types.py      # Enums, dataclasses (records, domain models, view models)
+├── queries.py    # CRUD operations (insert, upsert, get, delete)
+├── views.py      # Aggregated view queries for UI (library list, transcriptions)
+├── schema.py     # Schema creation and migrations
+└── models.py     # Backward-compat shim (deprecated, re-exports from above)
+```
+
+**Import patterns** (all equivalent):
+```python
+# Preferred: import from package
+from video_policy_orchestrator.db import FileRecord, get_file_by_path
+
+# Or from specific submodule
+from video_policy_orchestrator.db.types import FileRecord
+from video_policy_orchestrator.db.queries import get_file_by_path
+
+# Legacy (still works, but deprecated)
+from video_policy_orchestrator.db.models import FileRecord, get_file_by_path
+```
+
+**Key types:**
+- Domain models: `TrackInfo`, `FileInfo`, `IntrospectionResult`
+- Records: `FileRecord`, `TrackRecord`, `Job`, `PlanRecord`
+- View models: `FileListViewItem`, `TranscriptionDetailView` (typed alternatives to dict returns)
+- Enums: `JobStatus`, `JobType`, `PlanStatus`, `OperationStatus`
+
+**View queries** return typed dataclasses via `_typed` suffix variants:
+- `get_files_filtered()` returns `list[dict]`
+- `get_files_filtered_typed()` returns `list[FileListViewItem]`
 
 ## Development Methodology
 
