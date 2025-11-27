@@ -27,9 +27,9 @@ vpo inspect <FILE> [OPTIONS]
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | File not found |
-| 2 | ffprobe not installed |
-| 3 | File could not be parsed |
+| 20 | File not found |
+| 32 | ffprobe not installed |
+| 51 | File could not be parsed |
 
 ## Output Formats
 
@@ -103,18 +103,18 @@ Tracks:
 
 Errors are written to stderr.
 
-### File Not Found (exit 1)
+### File Not Found (exit 20)
 ```
 Error: File not found: /path/to/missing.mkv
 ```
 
-### ffprobe Not Installed (exit 2)
+### ffprobe Not Installed (exit 32)
 ```
 Error: ffprobe is not installed or not in PATH.
 Install ffmpeg to use media introspection features.
 ```
 
-### Parse Error (exit 3)
+### Parse Error (exit 51)
 ```
 Error: Could not parse file: /path/to/corrupt.mkv
 Reason: Invalid container format

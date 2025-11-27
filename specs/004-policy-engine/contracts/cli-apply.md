@@ -32,10 +32,10 @@ vpo apply --policy <policy_file> [--dry-run] [--keep-backup | --no-keep-backup] 
 |------|---------|
 | 0 | Success (or dry-run completed) |
 | 1 | General error |
-| 2 | Policy validation error |
-| 3 | Target file not found or not accessible |
-| 4 | External tool not available (mkvpropedit/ffmpeg) |
-| 5 | Operation failed (backup restored) |
+| 10 | Policy validation error |
+| 20 | Target file not found or not accessible |
+| 30 | External tool not available (mkvpropedit/ffmpeg) |
+| 40 | Operation failed (backup restored) |
 
 ## Output Formats
 

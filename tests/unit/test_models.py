@@ -363,3 +363,131 @@ class TestTrackOperations:
         assert count == 0
 
         conn.close()
+
+
+class TestTrackRecordConversion:
+    """Tests for TrackRecord bidirectional conversion methods."""
+
+    def test_to_track_info_converts_all_fields(self) -> None:
+        """Test that to_track_info converts all fields correctly."""
+        from video_policy_orchestrator.db.models import TrackInfo, TrackRecord
+
+        track_record = TrackRecord(
+            id=42,
+            file_id=1,
+            track_index=0,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+            title="English Audio",
+            is_default=True,
+            is_forced=False,
+            channels=6,
+            channel_layout="5.1",
+            width=None,
+            height=None,
+            frame_rate=None,
+            color_transfer="smpte2084",
+            color_primaries="bt2020",
+            color_space="bt2020nc",
+            color_range="tv",
+            duration_seconds=7200.5,
+        )
+
+        track_info = track_record.to_track_info()
+
+        assert isinstance(track_info, TrackInfo)
+        assert track_info.id == 42
+        assert track_info.index == 0
+        assert track_info.track_type == "audio"
+        assert track_info.codec == "aac"
+        assert track_info.language == "eng"
+        assert track_info.title == "English Audio"
+        assert track_info.is_default is True
+        assert track_info.is_forced is False
+        assert track_info.channels == 6
+        assert track_info.channel_layout == "5.1"
+        assert track_info.width is None
+        assert track_info.height is None
+        assert track_info.frame_rate is None
+        assert track_info.color_transfer == "smpte2084"
+        assert track_info.color_primaries == "bt2020"
+        assert track_info.color_space == "bt2020nc"
+        assert track_info.color_range == "tv"
+        assert track_info.duration_seconds == 7200.5
+
+    def test_from_track_info_and_back(self) -> None:
+        """Test round-trip conversion TrackInfo -> TrackRecord -> TrackInfo."""
+        from video_policy_orchestrator.db.models import TrackInfo, TrackRecord
+
+        original = TrackInfo(
+            index=1,
+            track_type="video",
+            codec="hevc",
+            language=None,
+            title="Main Video",
+            is_default=True,
+            is_forced=False,
+            channels=None,
+            channel_layout=None,
+            width=1920,
+            height=1080,
+            frame_rate="23.976",
+            color_transfer=None,
+            color_primaries=None,
+            color_space=None,
+            color_range=None,
+            duration_seconds=3600.0,
+            id=None,
+        )
+
+        record = TrackRecord.from_track_info(original, file_id=99)
+        # Simulate database assignment of ID
+        record.id = 123
+        converted = record.to_track_info()
+
+        # All fields except id should match (id comes from database)
+        assert converted.index == original.index
+        assert converted.track_type == original.track_type
+        assert converted.codec == original.codec
+        assert converted.language == original.language
+        assert converted.title == original.title
+        assert converted.is_default == original.is_default
+        assert converted.is_forced == original.is_forced
+        assert converted.channels == original.channels
+        assert converted.channel_layout == original.channel_layout
+        assert converted.width == original.width
+        assert converted.height == original.height
+        assert converted.frame_rate == original.frame_rate
+        assert converted.duration_seconds == original.duration_seconds
+        assert converted.id == 123  # From database
+
+    def test_tracks_to_track_info_batch_conversion(self) -> None:
+        """Test tracks_to_track_info converts a list of records."""
+        from video_policy_orchestrator.db.models import (
+            TrackRecord,
+            tracks_to_track_info,
+        )
+
+        records = [
+            TrackRecord(1, 1, 0, "video", "hevc", None, None, True, False),
+            TrackRecord(2, 1, 1, "audio", "aac", "eng", "English", True, False),
+            TrackRecord(3, 1, 2, "subtitle", "srt", "eng", "Subs", False, False),
+        ]
+
+        track_infos = tracks_to_track_info(records)
+
+        assert len(track_infos) == 3
+        assert track_infos[0].track_type == "video"
+        assert track_infos[1].track_type == "audio"
+        assert track_infos[2].track_type == "subtitle"
+        assert track_infos[0].id == 1
+        assert track_infos[1].id == 2
+        assert track_infos[2].id == 3
+
+    def test_tracks_to_track_info_empty_list(self) -> None:
+        """Test tracks_to_track_info handles empty list."""
+        from video_policy_orchestrator.db.models import tracks_to_track_info
+
+        result = tracks_to_track_info([])
+        assert result == []

@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 from click.testing import CliRunner
 
 from video_policy_orchestrator.cli import main
+from video_policy_orchestrator.cli.exit_codes import ExitCode
 from video_policy_orchestrator.db.models import IntrospectionResult, TrackInfo
 
 
@@ -23,11 +24,11 @@ class TestInspectCommand:
         assert "--format" in result.output
 
     def test_inspect_file_not_found(self, temp_dir: Path) -> None:
-        """Test inspect with non-existent file returns exit code 1."""
+        """Test inspect with non-existent file returns appropriate exit code."""
         runner = CliRunner()
         result = runner.invoke(main, ["inspect", str(temp_dir / "nonexistent.mkv")])
 
-        assert result.exit_code == 1
+        assert result.exit_code == ExitCode.TARGET_NOT_FOUND
         assert "File not found" in result.output
 
     @patch(
@@ -37,7 +38,7 @@ class TestInspectCommand:
     def test_inspect_ffprobe_not_installed(
         self, mock_is_available: MagicMock, temp_dir: Path
     ) -> None:
-        """Test inspect when ffprobe is not installed returns exit code 2."""
+        """Test inspect when ffprobe is not installed returns appropriate exit code."""
         # Create a file so the file-not-found check passes
         test_file = temp_dir / "test.mkv"
         test_file.touch()
@@ -45,7 +46,7 @@ class TestInspectCommand:
         runner = CliRunner()
         result = runner.invoke(main, ["inspect", str(test_file)])
 
-        assert result.exit_code == 2
+        assert result.exit_code == ExitCode.FFPROBE_NOT_FOUND
         assert "ffprobe is not installed" in result.output
 
     @patch(
@@ -219,7 +220,7 @@ class TestInspectCommand:
         mock_is_available: MagicMock,
         temp_dir: Path,
     ) -> None:
-        """Test inspect command handles parse errors with exit code 3."""
+        """Test inspect command handles parse errors with appropriate exit code."""
         from video_policy_orchestrator.introspector.interface import (
             MediaIntrospectionError,
         )
@@ -238,6 +239,6 @@ class TestInspectCommand:
         runner = CliRunner()
         result = runner.invoke(main, ["inspect", str(test_file)])
 
-        assert result.exit_code == 3
+        assert result.exit_code == ExitCode.PARSE_ERROR
         assert "Could not parse file" in result.output
         assert "Invalid container format" in result.output

@@ -575,12 +575,12 @@ def clear_jobs(ctx: click.Context, status: str, force: bool) -> None:
     else:
         statuses = [JobStatus(status)]
 
-    # Count matching jobs
-    total = 0
+    # Collect matching jobs once
+    jobs_to_delete = []
     for s in statuses:
-        jobs = get_jobs_by_status(conn, s)
-        total += len(jobs)
+        jobs_to_delete.extend(get_jobs_by_status(conn, s))
 
+    total = len(jobs_to_delete)
     if total == 0:
         click.echo("No jobs to clear.")
         return
@@ -592,11 +592,9 @@ def clear_jobs(ctx: click.Context, status: str, force: bool) -> None:
 
     # Delete jobs
     deleted = 0
-    for s in statuses:
-        jobs = get_jobs_by_status(conn, s)
-        for job in jobs:
-            if delete_job(conn, job.id):
-                deleted += 1
+    for job in jobs_to_delete:
+        if delete_job(conn, job.id):
+            deleted += 1
 
     click.echo(f"Cleared {deleted} job(s).")
 

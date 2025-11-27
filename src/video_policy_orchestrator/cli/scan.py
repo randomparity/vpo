@@ -6,6 +6,11 @@ from pathlib import Path
 
 import click
 
+from video_policy_orchestrator.cli.output import warning_output
+from video_policy_orchestrator.cli.profile_loader import load_profile_or_exit
+from video_policy_orchestrator.language_analysis.orchestrator import (
+    LanguageAnalysisOrchestrator,
+)
 from video_policy_orchestrator.scanner.orchestrator import (
     DEFAULT_EXTENSIONS,
     ScannerOrchestrator,
@@ -104,6 +109,7 @@ def _run_language_analysis(
     files,
     progress: ProgressDisplay,
     verbose: bool,
+    json_output: bool,
 ) -> dict:
     """Run language analysis on scanned files with audio tracks.
 
@@ -112,131 +118,78 @@ def _run_language_analysis(
         files: List of ScannedFile objects.
         progress: Progress display object.
         verbose: Whether to show verbose output.
+        json_output: Whether output is in JSON mode.
 
     Returns:
         Dictionary with 'analyzed', 'skipped', 'errors' counts.
     """
-    import logging
-
     from video_policy_orchestrator.db.models import (
         get_file_by_path,
         get_tracks_for_file,
     )
-    from video_policy_orchestrator.language_analysis.service import (
-        LanguageAnalysisError,
-        analyze_track_languages,
-        get_cached_analysis,
-        persist_analysis_result,
-    )
-    from video_policy_orchestrator.plugins.whisper_transcriber.plugin import (
-        PluginDependencyError,
-        WhisperTranscriptionPlugin,
-    )
-    from video_policy_orchestrator.transcription.interface import (
-        MultiLanguageDetectionConfig,
+    from video_policy_orchestrator.language_analysis.orchestrator import (
+        AnalysisProgress,
     )
 
-    logger = logging.getLogger(__name__)
     stats = {"analyzed": 0, "skipped": 0, "errors": 0}
 
-    # Initialize transcriber plugin
-    try:
-        transcriber = WhisperTranscriptionPlugin()
-    except PluginDependencyError as e:
-        click.echo(f"\nWarning: {e}", err=True)
-        click.echo("Language analysis skipped.", err=True)
-        return stats
+    # Create orchestrator (it handles transcriber initialization internally)
+    orchestrator = LanguageAnalysisOrchestrator()
 
-    # Check if plugin supports multi-language detection
-    if not transcriber.supports_feature("multi_language_detection"):
-        click.echo(
-            "\nWarning: Transcription plugin does not support "
-            "multi-language detection.",
-            err=True,
-        )
-        return stats
+    # Track progress across all files
+    total_files = len(files)
+    files_processed = 0
 
-    # Collect files with audio tracks
-    files_to_analyze = []
     for scanned_file in files:
         file_record = get_file_by_path(conn, scanned_file.path)
         if file_record is None or file_record.id is None:
             continue
 
-        tracks = get_tracks_for_file(conn, file_record.id)
-        audio_tracks = [t for t in tracks if t.track_type == "audio"]
-        if audio_tracks:
-            files_to_analyze.append((scanned_file, file_record, audio_tracks))
-
-    if not files_to_analyze:
-        return stats
-
-    total = len(files_to_analyze)
-    config = MultiLanguageDetectionConfig()
-
-    for i, (scanned_file, file_record, audio_tracks) in enumerate(files_to_analyze):
-        progress.on_language_progress(i + 1, total, Path(scanned_file.path).name)
-
+        track_records = get_tracks_for_file(conn, file_record.id)
         file_path = Path(scanned_file.path)
 
-        for track in audio_tracks:
-            if track.id is None:
-                continue
+        # Update progress display
+        files_processed += 1
+        progress.on_language_progress(files_processed, total_files, file_path.name)
 
-            # Check for cached result
-            file_hash = scanned_file.content_hash or ""
-            cached = get_cached_analysis(conn, track.id, file_hash)
-            if cached is not None:
-                stats["skipped"] += 1
-                logger.debug(
-                    "Using cached language analysis for track %d (%s)",
-                    track.id,
-                    cached.classification.value,
+        # Progress callback for verbose output
+        def on_track_progress(p: AnalysisProgress) -> None:
+            if not verbose or json_output:
+                return
+            if p.status == "cached" and p.result:
+                click.echo(
+                    f"  Track {p.track_index}: {p.result.classification.value} (cached)"
                 )
-                continue
-
-            # Use actual track duration if available, else default to 1 hour
-            track_duration = track.duration_seconds or 3600.0
-
-            try:
-                result = analyze_track_languages(
-                    file_path=file_path,
-                    track_index=track.track_index,
-                    track_id=track.id,
-                    track_duration=track_duration,
-                    file_hash=file_hash,
-                    transcriber=transcriber,
-                    config=config,
-                )
-                persist_analysis_result(conn, result)
-                stats["analyzed"] += 1
-
-                if verbose:
-                    click.echo(
-                        f"  Track {track.track_index}: "
-                        f"{result.classification.value} "
-                        f"({result.primary_language} {result.primary_percentage:.0%})"
-                    )
-
-            except LanguageAnalysisError as e:
-                stats["errors"] += 1
-                logger.warning(
-                    "Language analysis failed for %s track %d: %s",
-                    scanned_file.path,
-                    track.track_index,
-                    e,
-                )
-            except Exception as e:
-                stats["errors"] += 1
-                logger.exception(
-                    "Unexpected error analyzing %s track %d: %s",
-                    scanned_file.path,
-                    track.track_index,
-                    e,
+            elif p.status == "analyzed" and p.result:
+                click.echo(
+                    f"  Track {p.track_index}: {p.result.classification.value} "
+                    f"({p.result.primary_language} {p.result.primary_percentage:.0%})"
                 )
 
-        # Commit after each file
-        conn.commit()
+        result = orchestrator.analyze_tracks_for_file(
+            conn=conn,
+            file_record=file_record,
+            track_records=track_records,
+            file_path=file_path,
+            progress_callback=on_track_progress if verbose else None,
+        )
+
+        # Check if transcriber is available (only need to check once)
+        if not result.transcriber_available:
+            warning_output(
+                "Transcription plugin unavailable or lacks multi-language support. "
+                "Language analysis skipped.",
+                json_output=json_output,
+            )
+            return stats
+
+        # Accumulate stats
+        stats["analyzed"] += result.analyzed
+        stats["skipped"] += result.skipped + result.cached
+        stats["errors"] += result.errors
+
+    # Commit any persisted results
+    conn.commit()
 
     return stats
 
@@ -355,24 +308,9 @@ def scan(
 
     # Load profile if specified
     if profile:
-        from video_policy_orchestrator.config.profiles import (
-            ProfileError,
-            list_profiles,
-            load_profile,
-        )
-
-        try:
-            loaded_profile = load_profile(profile)
-            if verbose and not json_output:
-                click.echo(f"Using profile: {loaded_profile.name}")
-        except ProfileError as e:
-            available = list_profiles()
-            click.echo(f"Error: {e}", err=True)
-            if available:
-                click.echo("\nAvailable profiles:", err=True)
-                for name in sorted(available):
-                    click.echo(f"  - {name}", err=True)
-            sys.exit(1)
+        loaded_profile = load_profile_or_exit(profile, json_output=json_output)
+        if verbose and not json_output:
+            click.echo(f"Using profile: {loaded_profile.name}")
 
     # Parse extensions
     ext_list = None
@@ -445,7 +383,8 @@ def scan(
                             conn,
                             files,
                             progress,
-                            verbose and not json_output,
+                            verbose,
+                            json_output,
                         )
 
                     # job_id is already set in result by scan_and_persist

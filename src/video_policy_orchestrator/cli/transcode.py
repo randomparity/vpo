@@ -306,16 +306,13 @@ def transcode_command(
                 # Queue the job
                 # Look up or create file record
                 file_record = get_file_by_path(conn, str(file_path.resolve()))
-                if file_record is None:
-                    # File not scanned yet - use path as reference
-                    file_id = 0  # Placeholder
-                else:
-                    file_id = file_record.id
+                # file_id is None if file not scanned yet - job uses file_path
+                file_id = file_record.id if file_record else None
 
                 # Create job
                 job = Job(
                     id=str(uuid.uuid4()),
-                    file_id=file_id or 0,
+                    file_id=file_id,
                     file_path=str(file_path.resolve()),
                     job_type=JobType.TRANSCODE,
                     status=JobStatus.QUEUED,

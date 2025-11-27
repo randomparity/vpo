@@ -9,6 +9,7 @@ import pytest
 from click.testing import CliRunner
 
 from video_policy_orchestrator.cli import main
+from video_policy_orchestrator.cli.exit_codes import ExitCode
 from video_policy_orchestrator.db.models import FileRecord, TrackRecord
 from video_policy_orchestrator.db.schema import create_schema
 
@@ -152,7 +153,7 @@ class TestApplyCommandBasics:
         runner = CliRunner()
         result = runner.invoke(main, ["apply", str(test_mkv)])
 
-        assert result.exit_code == 2  # Click's error for missing required option
+        assert result.exit_code == ExitCode.POLICY_VALIDATION_ERROR
         # Now accepts --policy or --profile, so error message changed
         assert (
             "Missing option" in result.output
@@ -177,42 +178,42 @@ class TestApplyErrorHandling:
     """Tests for apply command error handling."""
 
     def test_apply_policy_not_found(self, test_mkv: Path) -> None:
-        """Test exit code 2 when policy file doesn't exist."""
+        """Test exit code when policy file doesn't exist."""
         runner = CliRunner()
         result = runner.invoke(
             main, ["apply", "--policy", "/nonexistent/policy.yaml", str(test_mkv)]
         )
 
-        assert result.exit_code == 2
+        assert result.exit_code == ExitCode.POLICY_VALIDATION_ERROR
         assert "Policy file not found" in result.output or "not found" in result.output
 
     def test_apply_policy_validation_error(
         self, invalid_policy_file: Path, test_mkv: Path
     ) -> None:
-        """Test exit code 2 when policy file is invalid."""
+        """Test exit code when policy file is invalid."""
         runner = CliRunner()
         result = runner.invoke(
             main, ["apply", "--policy", str(invalid_policy_file), str(test_mkv)]
         )
 
-        assert result.exit_code == 2
+        assert result.exit_code == ExitCode.POLICY_VALIDATION_ERROR
 
     def test_apply_target_not_found(self, policy_file: Path, temp_dir: Path) -> None:
-        """Test exit code 3 when target file doesn't exist."""
+        """Test exit code when target file doesn't exist."""
         runner = CliRunner()
         result = runner.invoke(
             main,
             ["apply", "--policy", str(policy_file), str(temp_dir / "nonexistent.mkv")],
         )
 
-        assert result.exit_code == 3
+        assert result.exit_code == ExitCode.TARGET_NOT_FOUND
         assert "Target file not found" in result.output or "not found" in result.output
 
     @patch("video_policy_orchestrator.cli.apply.get_connection")
     def test_apply_target_not_in_database(
         self, mock_get_conn: MagicMock, policy_file: Path, test_mkv: Path
     ) -> None:
-        """Test exit code 3 when target file is not in database."""
+        """Test exit code when target file is not in database."""
         # Mock an empty database response
         mock_conn = MagicMock()
         mock_conn.execute.return_value.fetchone.return_value = None
@@ -224,7 +225,7 @@ class TestApplyErrorHandling:
             main, ["apply", "--policy", str(policy_file), str(test_mkv)]
         )
 
-        assert result.exit_code == 3
+        assert result.exit_code == ExitCode.TARGET_NOT_FOUND
         assert "not found in database" in result.output or "scan" in result.output
 
 
@@ -474,7 +475,7 @@ class TestApplyToolAvailability:
         policy_file: Path,
         test_mkv: Path,
     ) -> None:
-        """Test exit code 4 when mkvpropedit is not available for MKV."""
+        """Test exit code when mkvpropedit is not available for MKV."""
         # Setup mocks
         mock_conn = MagicMock()
         mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
@@ -526,7 +527,7 @@ class TestApplyToolAvailability:
             main, ["apply", "--policy", str(policy_file), str(test_mkv)]
         )
 
-        assert result.exit_code == 4
+        assert result.exit_code == ExitCode.TOOL_NOT_AVAILABLE
         assert "mkvpropedit" in result.output.lower()
 
     @patch("video_policy_orchestrator.cli.apply.get_connection")
@@ -542,7 +543,7 @@ class TestApplyToolAvailability:
         policy_file: Path,
         test_mp4: Path,
     ) -> None:
-        """Test exit code 4 when ffmpeg is not available for MP4."""
+        """Test exit code when ffmpeg is not available for MP4."""
         # Setup mocks
         mock_conn = MagicMock()
         mock_get_conn.return_value.__enter__ = MagicMock(return_value=mock_conn)
@@ -594,7 +595,7 @@ class TestApplyToolAvailability:
             main, ["apply", "--policy", str(policy_file), str(test_mp4)]
         )
 
-        assert result.exit_code == 4
+        assert result.exit_code == ExitCode.TOOL_NOT_AVAILABLE
         assert "ffmpeg" in result.output.lower()
 
 
@@ -682,7 +683,7 @@ class TestApplyJsonErrors:
             ["apply", "--policy", "/nonexistent/policy.yaml", "--json", str(test_mkv)],
         )
 
-        assert result.exit_code == 2
+        assert result.exit_code == ExitCode.POLICY_VALIDATION_ERROR
         # Error output goes to stderr
         data = json.loads(result.output)
         assert data["status"] == "failed"
@@ -705,7 +706,7 @@ class TestApplyJsonErrors:
             ],
         )
 
-        assert result.exit_code == 3
+        assert result.exit_code == ExitCode.TARGET_NOT_FOUND
         data = json.loads(result.output)
         assert data["status"] == "failed"
         assert data["error"]["code"] == "TARGET_NOT_FOUND"

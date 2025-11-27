@@ -14,6 +14,7 @@ from video_policy_orchestrator.db.schema import create_schema
 
 _db_conn: sqlite3.Connection | None = None
 _logging_configured: bool = False
+_atexit_registered: bool = False
 
 
 def _cleanup_db_connection() -> None:
@@ -71,11 +72,18 @@ def _get_db_connection() -> sqlite3.Connection | None:
 
         _db_conn = conn
 
-        # Register cleanup on exit
-        atexit.register(_cleanup_db_connection)
+        # Register cleanup on exit (only once)
+        global _atexit_registered
+        if not _atexit_registered:
+            atexit.register(_cleanup_db_connection)
+            _atexit_registered = True
 
         return conn
-    except Exception:
+    except (sqlite3.Error, OSError) as e:
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.warning("Failed to create database connection: %s", e)
         return None
 
 
