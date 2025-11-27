@@ -104,21 +104,16 @@ def _configure_logging(
         return
 
     from video_policy_orchestrator.config import get_config
-    from video_policy_orchestrator.config.models import LoggingConfig
+    from video_policy_orchestrator.config.logging_factory import build_logging_config
     from video_policy_orchestrator.logging import configure_logging
 
-    # Start with config file settings
+    # Start with config file settings and apply CLI overrides
     config = get_config()
-    logging_config = config.logging
-
-    # Build final logging config with CLI overrides
-    final_config = LoggingConfig(
-        level=log_level or logging_config.level,
-        file=log_file or logging_config.file,
-        format="json" if log_json else logging_config.format,
-        include_stderr=logging_config.include_stderr,
-        max_bytes=logging_config.max_bytes,
-        backup_count=logging_config.backup_count,
+    final_config = build_logging_config(
+        config.logging,
+        level=log_level,
+        file=log_file,
+        format="json" if log_json else None,
     )
 
     configure_logging(final_config)

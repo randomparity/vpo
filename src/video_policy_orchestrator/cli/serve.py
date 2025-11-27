@@ -36,22 +36,17 @@ def _configure_daemon_logging(
         config_path: Path to config file for reading logging settings.
     """
     from video_policy_orchestrator.config import get_config
-    from video_policy_orchestrator.config.models import LoggingConfig
+    from video_policy_orchestrator.config.logging_factory import build_logging_config
     from video_policy_orchestrator.logging import configure_logging
 
-    # Load base config
+    # Load base config and apply CLI overrides
+    # Daemon always includes stderr for journald integration
     config = get_config(config_path=config_path)
-    base_logging = config.logging
-
-    # Build logging config with CLI overrides
-    # Daemon defaults to INFO level (not WARNING like some CLI commands)
-    final_config = LoggingConfig(
-        level=log_level or base_logging.level,
-        file=base_logging.file,
-        format=log_format or base_logging.format,
+    final_config = build_logging_config(
+        config.logging,
+        level=log_level,
+        format=log_format,
         include_stderr=True,  # Always include stderr for daemon (journald)
-        max_bytes=base_logging.max_bytes,
-        backup_count=base_logging.backup_count,
     )
 
     configure_logging(final_config)

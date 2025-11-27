@@ -92,29 +92,37 @@ def load_profile(name: str) -> Profile:
     except yaml.YAMLError as e:
         raise ProfileError(f"Invalid YAML in profile {name}: {e}") from e
 
-    # Build Profile from YAML data
-    profile = Profile(
+    # Parse nested config sections first (Profile is frozen, so we must build all
+    # values before constructing it)
+    tools_config: ToolPathsConfig | None = None
+    behavior_config: BehaviorConfig | None = None
+    logging_config: LoggingConfig | None = None
+    jobs_config: JobsConfig | None = None
+
+    if "tools" in data:
+        tools_config = ToolPathsConfig(**data["tools"])
+    if "behavior" in data:
+        behavior_config = BehaviorConfig(**data["behavior"])
+    if "logging" in data:
+        logging_data = data["logging"].copy()
+        if "file" in logging_data:
+            logging_data["file"] = Path(logging_data["file"]).expanduser()
+        logging_config = LoggingConfig(**logging_data)
+    if "jobs" in data:
+        jobs_config = JobsConfig(**data["jobs"])
+
+    # Build immutable Profile with all values at once
+    return Profile(
         name=data.get("name", name),
         description=data.get("description"),
         default_policy=Path(data["default_policy"]).expanduser()
         if data.get("default_policy")
         else None,
+        tools=tools_config,
+        behavior=behavior_config,
+        logging=logging_config,
+        jobs=jobs_config,
     )
-
-    # Parse nested config sections if present
-    if "tools" in data:
-        profile.tools = ToolPathsConfig(**data["tools"])
-    if "behavior" in data:
-        profile.behavior = BehaviorConfig(**data["behavior"])
-    if "logging" in data:
-        logging_data = data["logging"].copy()
-        if "file" in logging_data:
-            logging_data["file"] = Path(logging_data["file"]).expanduser()
-        profile.logging = LoggingConfig(**logging_data)
-    if "jobs" in data:
-        profile.jobs = JobsConfig(**data["jobs"])
-
-    return profile
 
 
 def validate_profile(profile: Profile) -> list[str]:
