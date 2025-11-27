@@ -237,7 +237,7 @@ def detect_command(
             updated_at=now,
         )
         try:
-            upsert_transcription_result(conn, record)
+            upsert_transcription_result(context.conn, record)
         except sqlite3.Error as e:
             logger.error(
                 "Failed to store transcription result",
@@ -496,7 +496,7 @@ def quick_command(
             updated_at=now,
         )
         try:
-            upsert_transcription_result(conn, record)
+            upsert_transcription_result(context.conn, record)
         except sqlite3.Error as e:
             logger.error(
                 "Failed to store quick detection result",

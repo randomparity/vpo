@@ -24,11 +24,12 @@ logger = logging.getLogger(__name__)
 
 def _format_bytes(num_bytes: int) -> str:
     """Format bytes as human-readable string."""
+    value = float(num_bytes)
     for unit in ("B", "KB", "MB", "GB"):
-        if abs(num_bytes) < 1024:
-            return f"{num_bytes:.1f} {unit}"
-        num_bytes /= 1024  # type: ignore[assignment]
-    return f"{num_bytes:.1f} TB"
+        if abs(value) < 1024:
+            return f"{value:.1f} {unit}"
+        value /= 1024
+    return f"{value:.1f} TB"
 
 
 def _stats_to_dict(stats: LogMaintenanceStats) -> dict:

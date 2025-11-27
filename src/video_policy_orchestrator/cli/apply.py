@@ -5,6 +5,7 @@ import logging
 import sqlite3
 import sys
 from pathlib import Path
+from typing import NoReturn
 
 import click
 
@@ -591,7 +592,7 @@ def apply_command(
             json_output,
         )
 
-    # Get file info from database
+    # Get file info from database and process
     try:
         with get_connection() as conn:
             file_record = get_file_by_path(conn, str(target))
@@ -605,6 +606,247 @@ def apply_command(
             # Get tracks from database
             track_records = get_tracks_for_file(conn, file_record.id)
             tracks = _tracks_from_records(track_records)
+
+            if not tracks:
+                _error_exit(
+                    f"No tracks found for file: {target}",
+                    EXIT_GENERAL_ERROR,
+                    json_output,
+                )
+
+            # Determine container format
+            container = file_record.container_format or target.suffix.lstrip(".")
+
+            # Check tool availability for non-dry-run
+            if not dry_run:
+                tools = check_tool_availability()
+                if container.lower() in ("mkv", "matroska"):
+                    # MKV files need mkvpropedit for metadata, mkvmerge for reordering
+                    if not tools.get("mkvpropedit"):
+                        _error_exit(
+                            "Required tool not available: mkvpropedit. "
+                            "Install mkvtoolnix.",
+                            EXIT_TOOL_NOT_AVAILABLE,
+                            json_output,
+                        )
+                elif not tools.get("ffmpeg"):
+                    _error_exit(
+                        "Required tool not available: ffmpeg. Install ffmpeg.",
+                        EXIT_TOOL_NOT_AVAILABLE,
+                        json_output,
+                    )
+
+            # Get policy engine plugin
+            policy_engine = _get_policy_engine()
+
+            # Run language analysis if requested
+            language_results = None
+            if auto_analyze:
+                language_results = _run_auto_analysis(
+                    conn=conn,
+                    file_record=file_record,
+                    track_records=track_records,
+                    target=target,
+                    verbose=verbose and not json_output,
+                )
+
+            # Evaluate policy using the plugin
+            if verbose:
+                click.echo(f"Evaluating policy against {len(tracks)} tracks...")
+
+            try:
+                plan = policy_engine.evaluate(
+                    file_id=str(file_record.id),
+                    file_path=target,
+                    container=container,
+                    tracks=tracks,
+                    policy=policy,
+                    language_results=language_results,
+                )
+            except InsufficientTracksError as e:
+                # Format helpful error message with suggestions
+                suggestion = _format_insufficient_tracks_suggestion(e)
+                _error_exit(suggestion, EXIT_POLICY_VALIDATION_ERROR, json_output)
+            except IncompatibleCodecError as e:
+                # Format helpful error message with suggestions
+                suggestion = _format_incompatible_codec_suggestion(e)
+                _error_exit(suggestion, EXIT_POLICY_VALIDATION_ERROR, json_output)
+
+            if verbose:
+                click.echo(f"Plan: {plan.summary}")
+
+            # Generate synthesis plan if policy has audio_synthesis config
+            synthesis_plan_output = None
+            if policy.has_audio_synthesis:
+                synth_plan = plan_synthesis(
+                    file_id=str(file_record.id),
+                    file_path=target,
+                    tracks=tracks,
+                    synthesis_config=policy.audio_synthesis,
+                    commentary_patterns=None,  # Could be extended to come from policy
+                )
+                if synth_plan.operations or synth_plan.skipped:
+                    synthesis_plan_output = format_synthesis_plan(synth_plan)
+
+            # Output results
+            if dry_run:
+                if json_output:
+                    click.echo(
+                        _format_dry_run_json(
+                            policy_path,
+                            policy.schema_version,
+                            target,
+                            container,
+                            plan,
+                        )
+                    )
+                else:
+                    click.echo(
+                        _format_dry_run_output(
+                            policy_path,
+                            policy.schema_version,
+                            target,
+                            plan,
+                            synthesis_plan_output,
+                        )
+                    )
+                sys.exit(EXIT_SUCCESS)
+
+            # Non-dry-run mode: apply changes
+            if plan.is_empty:
+                if json_output:
+                    click.echo(
+                        json.dumps(
+                            {
+                                "status": "completed",
+                                "message": "No changes required",
+                                "actions_applied": 0,
+                            }
+                        )
+                    )
+                else:
+                    click.echo(f"Policy: {policy_path} (v{policy.schema_version})")
+                    click.echo(f"Target: {target}")
+                    click.echo("")
+                    click.echo("No changes required - file already matches policy.")
+                sys.exit(EXIT_SUCCESS)
+
+            # Check if plan requires remux (track reordering) and mkvmerge available
+            if plan.requires_remux:
+                has_reorder = any(
+                    a.action_type == ActionType.REORDER for a in plan.actions
+                )
+                if has_reorder:
+                    tools = check_tool_availability()
+                    if not tools.get("mkvmerge"):
+                        _error_exit(
+                            "Track reordering requires mkvmerge. Install mkvtoolnix.",
+                            EXIT_TOOL_NOT_AVAILABLE,
+                            json_output,
+                        )
+
+            # Determine backup behavior
+            should_keep_backup = keep_backup if keep_backup is not None else True
+            if no_keep_backup:
+                should_keep_backup = False
+
+            # Acquire file lock to prevent concurrent modifications
+            try:
+                with file_lock(target):
+                    # Create operation record
+                    operation = create_operation(
+                        conn, plan, file_record.id, str(policy_path)
+                    )
+
+                    # Update status to IN_PROGRESS
+                    update_operation_status(
+                        conn, operation.id, OperationStatus.IN_PROGRESS
+                    )
+
+                    # Execute the plan using the policy engine plugin
+                    import time
+
+                    if verbose:
+                        click.echo("Using executor: PolicyEnginePlugin")
+                        click.echo(f"Executing {len(plan.actions)} actions...")
+
+                    start_time = time.time()
+                    result = policy_engine.execute(
+                        plan,
+                        keep_backup=should_keep_backup,
+                        keep_original=keep_original,
+                    )
+                    duration = time.time() - start_time
+
+                    if verbose:
+                        click.echo(f"Execution completed in {duration:.2f}s")
+
+                    if result.success:
+                        # Update operation status to COMPLETED
+                        if result.backup_path:
+                            backup_path_str = str(result.backup_path)
+                        else:
+                            backup_path_str = None
+                        update_operation_status(
+                            conn,
+                            operation.id,
+                            OperationStatus.COMPLETED,
+                            backup_path=backup_path_str,
+                        )
+
+                        # Output success
+                        if json_output:
+                            output = {
+                                "status": "completed",
+                                "operation_id": operation.id,
+                                "policy": {
+                                    "path": str(policy_path),
+                                    "version": policy.schema_version,
+                                },
+                                "target": {
+                                    "path": str(target),
+                                    "container": container,
+                                },
+                                "actions_applied": len(plan.actions),
+                                "duration_seconds": round(duration, 1),
+                                "backup_kept": should_keep_backup,
+                            }
+                            if result.backup_path:
+                                output["backup_path"] = str(result.backup_path)
+                            click.echo(json.dumps(output, indent=2))
+                        else:
+                            click.echo(
+                                f"Policy: {policy_path} (v{policy.schema_version})"
+                            )
+                            click.echo(f"Target: {target}")
+                            click.echo("")
+                            msg = (
+                                f"Applied {len(plan.actions)} changes "
+                                f"in {duration:.1f}s"
+                            )
+                            click.echo(msg)
+                            if result.backup_path:
+                                click.echo(f"Backup: {result.backup_path} (kept)")
+
+                        sys.exit(EXIT_SUCCESS)
+                    else:
+                        # Update operation status to FAILED
+                        # (backup restored by executor)
+                        update_operation_status(
+                            conn,
+                            operation.id,
+                            OperationStatus.ROLLED_BACK,
+                            error_message=result.message,
+                        )
+
+                        _error_exit(result.message, EXIT_OPERATION_FAILED, json_output)
+
+            except FileLockError:
+                _error_exit(
+                    f"File is being modified by another operation: {target}",
+                    EXIT_GENERAL_ERROR,
+                    json_output,
+                )
     except sqlite3.Error as e:
         _error_exit(
             f"Database error: {e}",
@@ -612,232 +854,8 @@ def apply_command(
             json_output,
         )
 
-    if not tracks:
-        _error_exit(
-            f"No tracks found for file: {target}",
-            EXIT_GENERAL_ERROR,
-            json_output,
-        )
 
-    # Determine container format
-    container = file_record.container_format or target.suffix.lstrip(".")
-
-    # Check tool availability for non-dry-run
-    if not dry_run:
-        tools = check_tool_availability()
-        if container.lower() in ("mkv", "matroska"):
-            # MKV files need mkvpropedit for metadata, mkvmerge for reordering
-            if not tools.get("mkvpropedit"):
-                _error_exit(
-                    "Required tool not available: mkvpropedit. Install mkvtoolnix.",
-                    EXIT_TOOL_NOT_AVAILABLE,
-                    json_output,
-                )
-        elif not tools.get("ffmpeg"):
-            _error_exit(
-                "Required tool not available: ffmpeg. Install ffmpeg.",
-                EXIT_TOOL_NOT_AVAILABLE,
-                json_output,
-            )
-
-    # Get policy engine plugin
-    policy_engine = _get_policy_engine()
-
-    # Run language analysis if requested
-    language_results = None
-    if auto_analyze:
-        language_results = _run_auto_analysis(
-            conn=conn,
-            file_record=file_record,
-            track_records=track_records,
-            target=target,
-            verbose=verbose and not json_output,
-        )
-
-    # Evaluate policy using the plugin
-    if verbose:
-        click.echo(f"Evaluating policy against {len(tracks)} tracks...")
-
-    try:
-        plan = policy_engine.evaluate(
-            file_id=str(file_record.id),
-            file_path=target,
-            container=container,
-            tracks=tracks,
-            policy=policy,
-            language_results=language_results,
-        )
-    except InsufficientTracksError as e:
-        # Format helpful error message with suggestions
-        suggestion = _format_insufficient_tracks_suggestion(e)
-        _error_exit(suggestion, EXIT_POLICY_VALIDATION_ERROR, json_output)
-    except IncompatibleCodecError as e:
-        # Format helpful error message with suggestions
-        suggestion = _format_incompatible_codec_suggestion(e)
-        _error_exit(suggestion, EXIT_POLICY_VALIDATION_ERROR, json_output)
-
-    if verbose:
-        click.echo(f"Plan: {plan.summary}")
-
-    # Generate synthesis plan if policy has audio_synthesis config
-    synthesis_plan_output = None
-    if policy.has_audio_synthesis:
-        synth_plan = plan_synthesis(
-            file_id=str(file_record.id),
-            file_path=target,
-            tracks=tracks,
-            synthesis_config=policy.audio_synthesis,
-            commentary_patterns=None,  # Could be extended to come from policy
-        )
-        if synth_plan.operations or synth_plan.skipped:
-            synthesis_plan_output = format_synthesis_plan(synth_plan)
-
-    # Output results
-    if dry_run:
-        if json_output:
-            click.echo(
-                _format_dry_run_json(
-                    policy_path, policy.schema_version, target, container, plan
-                )
-            )
-        else:
-            click.echo(
-                _format_dry_run_output(
-                    policy_path,
-                    policy.schema_version,
-                    target,
-                    plan,
-                    synthesis_plan_output,
-                )
-            )
-        sys.exit(EXIT_SUCCESS)
-
-    # Non-dry-run mode: apply changes
-    if plan.is_empty:
-        if json_output:
-            click.echo(
-                json.dumps(
-                    {
-                        "status": "completed",
-                        "message": "No changes required",
-                        "actions_applied": 0,
-                    }
-                )
-            )
-        else:
-            click.echo(f"Policy: {policy_path} (v{policy.schema_version})")
-            click.echo(f"Target: {target}")
-            click.echo("")
-            click.echo("No changes required - file already matches policy.")
-        sys.exit(EXIT_SUCCESS)
-
-    # Check if plan requires remux (track reordering) and mkvmerge is available
-    if plan.requires_remux:
-        has_reorder = any(a.action_type == ActionType.REORDER for a in plan.actions)
-        if has_reorder:
-            tools = check_tool_availability()
-            if not tools.get("mkvmerge"):
-                _error_exit(
-                    "Track reordering requires mkvmerge. Install mkvtoolnix.",
-                    EXIT_TOOL_NOT_AVAILABLE,
-                    json_output,
-                )
-
-    # Determine backup behavior
-    should_keep_backup = keep_backup if keep_backup is not None else True
-    if no_keep_backup:
-        should_keep_backup = False
-
-    # Acquire file lock to prevent concurrent modifications
-    try:
-        with file_lock(target):
-            # Create operation record
-            operation = create_operation(conn, plan, file_record.id, str(policy_path))
-
-            # Update status to IN_PROGRESS
-            update_operation_status(conn, operation.id, OperationStatus.IN_PROGRESS)
-
-            # Execute the plan using the policy engine plugin
-            import time
-
-            if verbose:
-                click.echo("Using executor: PolicyEnginePlugin")
-                click.echo(f"Executing {len(plan.actions)} actions...")
-
-            start_time = time.time()
-            result = policy_engine.execute(
-                plan,
-                keep_backup=should_keep_backup,
-                keep_original=keep_original,
-            )
-            duration = time.time() - start_time
-
-            if verbose:
-                click.echo(f"Execution completed in {duration:.2f}s")
-
-            if result.success:
-                # Update operation status to COMPLETED
-                if result.backup_path:
-                    backup_path_str = str(result.backup_path)
-                else:
-                    backup_path_str = None
-                update_operation_status(
-                    conn,
-                    operation.id,
-                    OperationStatus.COMPLETED,
-                    backup_path=backup_path_str,
-                )
-
-                # Output success
-                if json_output:
-                    output = {
-                        "status": "completed",
-                        "operation_id": operation.id,
-                        "policy": {
-                            "path": str(policy_path),
-                            "version": policy.schema_version,
-                        },
-                        "target": {
-                            "path": str(target),
-                            "container": container,
-                        },
-                        "actions_applied": len(plan.actions),
-                        "duration_seconds": round(duration, 1),
-                        "backup_kept": should_keep_backup,
-                    }
-                    if result.backup_path:
-                        output["backup_path"] = str(result.backup_path)
-                    click.echo(json.dumps(output, indent=2))
-                else:
-                    click.echo(f"Policy: {policy_path} (v{policy.schema_version})")
-                    click.echo(f"Target: {target}")
-                    click.echo("")
-                    msg = f"Applied {len(plan.actions)} changes in {duration:.1f}s"
-                    click.echo(msg)
-                    if result.backup_path:
-                        click.echo(f"Backup: {result.backup_path} (kept)")
-
-                sys.exit(EXIT_SUCCESS)
-            else:
-                # Update operation status to FAILED (backup restored by executor)
-                update_operation_status(
-                    conn,
-                    operation.id,
-                    OperationStatus.ROLLED_BACK,
-                    error_message=result.message,
-                )
-
-                _error_exit(result.message, EXIT_OPERATION_FAILED, json_output)
-
-    except FileLockError:
-        _error_exit(
-            f"File is being modified by another operation: {target}",
-            EXIT_GENERAL_ERROR,
-            json_output,
-        )
-
-
-def _error_exit(message: str, code: int, json_output: bool) -> None:
+def _error_exit(message: str, code: int, json_output: bool) -> NoReturn:
     """Exit with an error message."""
     if json_output:
         click.echo(

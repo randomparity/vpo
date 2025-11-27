@@ -400,9 +400,10 @@ def inspect_command(
         click.echo(f"Reason: {e}", err=True)
         sys.exit(EXIT_PARSE_ERROR)
 
-    # Output result
+    # Build output data for JSON format
+    output_data: dict[str, Any] | None = None
     if output_format == "json":
-        output_data: dict[str, Any] = json.loads(format_json(result))
+        output_data = json.loads(format_json(result))
     else:
         click.echo(format_human(result))
 
@@ -456,18 +457,19 @@ def inspect_command(
                     err=True,
                 )
 
-        # Output language analysis
-        if output_format == "json":
+        # Output language analysis results
+        if output_format == "json" and output_data is not None:
             output_data["language_analysis"] = {
                 f"track_{idx}": format_language_analysis_json(analysis)
                 for idx, analysis in language_results
             }
-            click.echo(json.dumps(output_data, indent=2))
-        else:
+        elif output_format != "json":
             for track_idx, analysis in language_results:
                 click.echo(f"\nTrack {track_idx}:")
                 click.echo(format_language_analysis_human(analysis, show_segments))
-    elif output_format == "json":
+
+    # Output JSON at the end (consolidates all JSON output in one place)
+    if output_format == "json" and output_data is not None:
         click.echo(json.dumps(output_data, indent=2))
 
     sys.exit(EXIT_SUCCESS)
