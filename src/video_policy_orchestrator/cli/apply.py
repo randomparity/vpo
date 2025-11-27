@@ -95,9 +95,130 @@ def _tracks_from_records(
             width=r.width,
             height=r.height,
             frame_rate=r.frame_rate,
+            id=r.id,  # Include database ID for language analysis lookup
         )
         for r in track_records
     ]
+
+
+def _run_auto_analysis(
+    conn,
+    file_record,
+    track_records: list,
+    target: Path,
+    verbose: bool,
+) -> dict | None:
+    """Run automatic language analysis on audio tracks.
+
+    Args:
+        conn: Database connection.
+        file_record: FileRecord from database.
+        track_records: List of TrackRecord objects.
+        target: Path to the media file.
+        verbose: Whether to show verbose output.
+
+    Returns:
+        Dict mapping track_id to LanguageAnalysisResult, or None on error.
+    """
+    from video_policy_orchestrator.language_analysis.models import (
+        LanguageAnalysisResult,
+    )
+    from video_policy_orchestrator.language_analysis.service import (
+        LanguageAnalysisError,
+        analyze_track_languages,
+        get_cached_analysis,
+        persist_analysis_result,
+    )
+    from video_policy_orchestrator.plugins.whisper_transcriber.plugin import (
+        PluginDependencyError,
+        WhisperTranscriptionPlugin,
+    )
+    from video_policy_orchestrator.transcription.interface import (
+        MultiLanguageDetectionConfig,
+    )
+
+    # Initialize transcriber plugin
+    try:
+        transcriber = WhisperTranscriptionPlugin()
+    except PluginDependencyError as e:
+        if verbose:
+            click.echo(f"Warning: {e}")
+            click.echo("Language analysis skipped.")
+        return None
+
+    # Check if plugin supports multi-language detection
+    if not transcriber.supports_feature("multi_language_detection"):
+        if verbose:
+            click.echo(
+                "Warning: Transcription plugin does not support "
+                "multi-language detection."
+            )
+        return None
+
+    # Filter to audio tracks
+    audio_tracks = [t for t in track_records if t.track_type == "audio"]
+    if not audio_tracks:
+        return None
+
+    if verbose:
+        click.echo(f"Analyzing {len(audio_tracks)} audio track(s)...")
+
+    config = MultiLanguageDetectionConfig()
+    results: dict[int, LanguageAnalysisResult] = {}
+    file_hash = file_record.content_hash or ""
+
+    for track in audio_tracks:
+        if track.id is None:
+            continue
+
+        # Check for cached result
+        cached = get_cached_analysis(conn, track.id, file_hash)
+        if cached is not None:
+            results[track.id] = cached
+            if verbose:
+                click.echo(
+                    f"  Track {track.track_index}: {cached.classification.value} "
+                    f"(cached)"
+                )
+            continue
+
+        # Get track duration (default 1 hour if not available)
+        track_duration = 3600.0
+
+        try:
+            result = analyze_track_languages(
+                file_path=target,
+                track_index=track.track_index,
+                track_id=track.id,
+                track_duration=track_duration,
+                file_hash=file_hash,
+                transcriber=transcriber,
+                config=config,
+            )
+            persist_analysis_result(conn, result)
+            results[track.id] = result
+
+            if verbose:
+                click.echo(
+                    f"  Track {track.track_index}: {result.classification.value} "
+                    f"({result.primary_language} {result.primary_percentage:.0%})"
+                )
+
+        except LanguageAnalysisError as e:
+            logger.warning(
+                "Language analysis failed for track %d: %s",
+                track.track_index,
+                e,
+            )
+        except Exception as e:
+            logger.exception(
+                "Unexpected error analyzing track %d: %s",
+                track.track_index,
+                e,
+            )
+
+    conn.commit()
+    return results if results else None
 
 
 def _format_track_dispositions(
@@ -379,6 +500,12 @@ def _format_dry_run_json(
     default=False,
     help="Show detailed operation log",
 )
+@click.option(
+    "--auto-analyze",
+    is_flag=True,
+    default=False,
+    help="Analyze audio tracks for multi-language detection before applying policy",
+)
 @click.argument(
     "target",
     type=click.Path(exists=False, path_type=Path),
@@ -392,6 +519,7 @@ def apply_command(
     keep_original: bool,
     json_output: bool,
     verbose: bool,
+    auto_analyze: bool,
     target: Path,
 ) -> None:
     """Apply a policy to a media file.
@@ -514,6 +642,17 @@ def apply_command(
     # Get policy engine plugin
     policy_engine = _get_policy_engine()
 
+    # Run language analysis if requested
+    language_results = None
+    if auto_analyze:
+        language_results = _run_auto_analysis(
+            conn=conn,
+            file_record=file_record,
+            track_records=track_records,
+            target=target,
+            verbose=verbose and not json_output,
+        )
+
     # Evaluate policy using the plugin
     if verbose:
         click.echo(f"Evaluating policy against {len(tracks)} tracks...")
@@ -525,6 +664,7 @@ def apply_command(
             container=container,
             tracks=tracks,
             policy=policy,
+            language_results=language_results,
         )
     except InsufficientTracksError as e:
         # Format helpful error message with suggestions

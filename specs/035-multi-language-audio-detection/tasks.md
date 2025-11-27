@@ -188,14 +188,14 @@
 
 ### CLI: Apply Command
 
-- [ ] T067 [US3] Add --auto-analyze option to apply command in src/video_policy_orchestrator/cli/apply.py
-- [ ] T068 [US3] Integrate auto-analysis with policy application in src/video_policy_orchestrator/cli/apply.py
-- [ ] T069 [US3] Update dry-run output to show set_forced/set_default actions in src/video_policy_orchestrator/cli/apply.py
+- [X] T067 [US3] Add --auto-analyze option to apply command in src/video_policy_orchestrator/cli/apply.py
+- [X] T068 [US3] Integrate auto-analysis with policy application in src/video_policy_orchestrator/cli/apply.py
+- [X] T069 [US3] Update dry-run output to show set_forced/set_default actions in src/video_policy_orchestrator/cli/apply.py
 
 ### Unit Tests for User Story 3
 
-- [ ] T070 [P] [US3] Add tests for SetForcedAction parsing in tests/unit/policy/test_loader.py
-- [ ] T071 [P] [US3] Add tests for SetDefaultAction parsing in tests/unit/policy/test_loader.py
+- [X] T070 [P] [US3] Add tests for SetForcedAction parsing in tests/unit/policy/test_loader.py
+- [X] T071 [P] [US3] Add tests for SetDefaultAction parsing in tests/unit/policy/test_loader.py
 - [X] T072 [P] [US3] Add tests for execute_set_forced_action() in tests/unit/policy/test_actions.py
 - [X] T073 [P] [US3] Add tests for execute_set_default_action() in tests/unit/policy/test_actions.py
 - [X] T074 [P] [US3] Add tests for missing track warning in tests/unit/policy/test_actions.py
