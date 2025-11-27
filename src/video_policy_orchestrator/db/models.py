@@ -461,11 +461,200 @@ class LanguageSegmentRecord:
     confidence: float
 
 
+# ==========================================================================
+# View Model Dataclasses
+# ==========================================================================
+# These dataclasses represent typed results from view/aggregation queries
+# that previously returned raw dicts. They provide type safety and IDE support.
+
+
+@dataclass
+class FileListViewItem:
+    """Typed result for library list view query.
+
+    Replaces dict return from get_files_filtered(). Contains file metadata
+    with aggregated track information for list display.
+
+    Attributes:
+        id: File primary key.
+        path: Full file path.
+        filename: File name only.
+        scanned_at: ISO-8601 timestamp of last scan.
+        scan_status: Status code (ok, error, pending).
+        scan_error: Error message if scan failed.
+        video_title: Title from video track metadata.
+        width: Video width in pixels.
+        height: Video height in pixels.
+        audio_languages: Comma-separated language codes from GROUP_CONCAT.
+    """
+
+    id: int
+    path: str
+    filename: str
+    scanned_at: str
+    scan_status: str
+    scan_error: str | None
+    video_title: str | None
+    width: int | None
+    height: int | None
+    audio_languages: str | None
+
+
+@dataclass
+class LanguageOption:
+    """Language option for filter dropdowns.
+
+    Replaces dict return from get_distinct_audio_languages().
+
+    Attributes:
+        code: ISO 639-2/B language code.
+        label: Human-readable language label.
+    """
+
+    code: str
+    label: str
+
+
+@dataclass
+class TranscriptionListViewItem:
+    """Typed result for transcriptions overview query.
+
+    Replaces dict return from get_files_with_transcriptions().
+
+    Attributes:
+        id: File primary key.
+        filename: File name only.
+        path: Full file path.
+        scan_status: Status code (ok, error, pending).
+        transcription_count: Number of transcriptions for this file.
+        detected_languages: Comma-separated detected language codes.
+        avg_confidence: Average confidence score across transcriptions.
+    """
+
+    id: int
+    filename: str
+    path: str
+    scan_status: str
+    transcription_count: int
+    detected_languages: str | None
+    avg_confidence: float | None
+
+
+@dataclass
+class TranscriptionDetailView:
+    """Typed result for transcription detail query.
+
+    Replaces dict return from get_transcription_detail(). Contains joined
+    data from transcriptions, tracks, and files tables.
+
+    Attributes:
+        id: Transcription primary key.
+        track_id: Foreign key to tracks table.
+        detected_language: Detected language code.
+        confidence_score: Detection confidence (0.0-1.0).
+        track_type: Type of track (audio, subtitle).
+        transcript_sample: Sample text from transcription.
+        plugin_name: Name of plugin that created this transcription.
+        created_at: ISO-8601 timestamp of creation.
+        updated_at: ISO-8601 timestamp of last update.
+        track_index: Track index within the file.
+        codec: Track codec name.
+        original_language: Original language tag from file.
+        title: Track title from metadata.
+        channels: Number of audio channels.
+        channel_layout: Audio channel layout string.
+        is_default: Whether track is marked as default (0 or 1).
+        is_forced: Whether track is marked as forced (0 or 1).
+        file_id: Foreign key to files table.
+        filename: File name only.
+        path: Full file path.
+    """
+
+    id: int
+    track_id: int
+    detected_language: str | None
+    confidence_score: float
+    track_type: str
+    transcript_sample: str | None
+    plugin_name: str
+    created_at: str
+    updated_at: str
+    track_index: int
+    codec: str | None
+    original_language: str | None
+    title: str | None
+    channels: int | None
+    channel_layout: str | None
+    is_default: int
+    is_forced: int
+    file_id: int
+    filename: str
+    path: str
+
+
 # Database operations
 # Note: sqlite3 import is placed here (after dataclass definitions) to keep
 # data models at the top of the file for readability. The noqa comment suppresses
 # the E402 "module level import not at top of file" lint warning.
 import sqlite3  # noqa: E402
+
+
+def _row_to_file_record(row: sqlite3.Row) -> FileRecord:
+    """Convert a database row to FileRecord using named columns.
+
+    Args:
+        row: sqlite3.Row from a SELECT query on the files table.
+
+    Returns:
+        FileRecord instance populated from the row.
+    """
+    return FileRecord(
+        id=row["id"],
+        path=row["path"],
+        filename=row["filename"],
+        directory=row["directory"],
+        extension=row["extension"],
+        size_bytes=row["size_bytes"],
+        modified_at=row["modified_at"],
+        content_hash=row["content_hash"],
+        container_format=row["container_format"],
+        scanned_at=row["scanned_at"],
+        scan_status=row["scan_status"],
+        scan_error=row["scan_error"],
+        job_id=row["job_id"],
+    )
+
+
+def _row_to_track_record(row: sqlite3.Row) -> TrackRecord:
+    """Convert a database row to TrackRecord using named columns.
+
+    Args:
+        row: sqlite3.Row from a SELECT query on the tracks table.
+
+    Returns:
+        TrackRecord instance populated from the row.
+    """
+    return TrackRecord(
+        id=row["id"],
+        file_id=row["file_id"],
+        track_index=row["track_index"],
+        track_type=row["track_type"],
+        codec=row["codec"],
+        language=row["language"],
+        title=row["title"],
+        is_default=row["is_default"] == 1,
+        is_forced=row["is_forced"] == 1,
+        channels=row["channels"],
+        channel_layout=row["channel_layout"],
+        width=row["width"],
+        height=row["height"],
+        frame_rate=row["frame_rate"],
+        color_transfer=row["color_transfer"],
+        color_primaries=row["color_primaries"],
+        color_space=row["color_space"],
+        color_range=row["color_range"],
+        duration_seconds=row["duration_seconds"],
+    )
 
 
 def insert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
@@ -583,21 +772,7 @@ def get_file_by_path(conn: sqlite3.Connection, path: str) -> FileRecord | None:
     if row is None:
         return None
 
-    return FileRecord(
-        id=row[0],
-        path=row[1],
-        filename=row[2],
-        directory=row[3],
-        extension=row[4],
-        size_bytes=row[5],
-        modified_at=row[6],
-        content_hash=row[7],
-        container_format=row[8],
-        scanned_at=row[9],
-        scan_status=row[10],
-        scan_error=row[11],
-        job_id=row[12],
-    )
+    return _row_to_file_record(row)
 
 
 def delete_file(conn: sqlite3.Connection, file_id: int) -> None:
@@ -678,32 +853,7 @@ def get_tracks_for_file(conn: sqlite3.Connection, file_id: int) -> list[TrackRec
         """,
         (file_id,),
     )
-    tracks = []
-    for row in cursor.fetchall():
-        tracks.append(
-            TrackRecord(
-                id=row[0],
-                file_id=row[1],
-                track_index=row[2],
-                track_type=row[3],
-                codec=row[4],
-                language=row[5],
-                title=row[6],
-                is_default=row[7] == 1,
-                is_forced=row[8] == 1,
-                channels=row[9],
-                channel_layout=row[10],
-                width=row[11],
-                height=row[12],
-                frame_rate=row[13],
-                color_transfer=row[14],
-                color_primaries=row[15],
-                color_space=row[16],
-                color_range=row[17],
-                duration_seconds=row[18],
-            )
-        )
-    return tracks
+    return [_row_to_track_record(row) for row in cursor.fetchall()]
 
 
 def delete_tracks_for_file(conn: sqlite3.Connection, file_id: int) -> None:
@@ -1696,6 +1846,55 @@ def get_files_filtered(
     return files
 
 
+def get_files_filtered_typed(
+    conn: sqlite3.Connection,
+    *,
+    status: str | None = None,
+    search: str | None = None,
+    resolution: str | None = None,
+    audio_lang: list[str] | None = None,
+    subtitles: str | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
+    return_total: bool = False,
+) -> list[FileListViewItem] | tuple[list[FileListViewItem], int]:
+    """Typed version of get_files_filtered().
+
+    Returns FileListViewItem dataclass instances instead of dicts.
+    See get_files_filtered() for parameter documentation.
+
+    Args:
+        conn: Database connection.
+        status: Filter by scan_status (None = all, "ok", "error").
+        search: Text search for filename/title (case-insensitive LIKE).
+        resolution: Filter by resolution category (4k, 1080p, 720p, 480p, other).
+        audio_lang: Filter by audio language codes (OR logic).
+        subtitles: Filter by subtitle presence ("yes" or "no").
+        limit: Maximum files to return.
+        offset: Pagination offset.
+        return_total: If True, return tuple of (files, total_count).
+
+    Returns:
+        List of FileListViewItem objects, or tuple with total count.
+    """
+    result = get_files_filtered(
+        conn,
+        status=status,
+        search=search,
+        resolution=resolution,
+        audio_lang=audio_lang,
+        subtitles=subtitles,
+        limit=limit,
+        offset=offset,
+        return_total=return_total,
+    )
+
+    if return_total:
+        files, total = result
+        return [FileListViewItem(**f) for f in files], total
+    return [FileListViewItem(**f) for f in result]
+
+
 def get_distinct_audio_languages(conn: sqlite3.Connection) -> list[dict]:
     """Get distinct audio language codes present in the library.
 
@@ -1719,6 +1918,22 @@ def get_distinct_audio_languages(conn: sqlite3.Connection) -> list[dict]:
         # Use code as label for now (could map to full names later)
         languages.append({"code": code, "label": code})
     return languages
+
+
+def get_distinct_audio_languages_typed(
+    conn: sqlite3.Connection,
+) -> list[LanguageOption]:
+    """Typed version of get_distinct_audio_languages().
+
+    Returns LanguageOption dataclass instances instead of dicts.
+
+    Args:
+        conn: Database connection.
+
+    Returns:
+        List of LanguageOption objects, sorted by code.
+    """
+    return [LanguageOption(**d) for d in get_distinct_audio_languages(conn)]
 
 
 def delete_transcription_results_for_file(
@@ -1774,21 +1989,7 @@ def get_file_by_id(conn: sqlite3.Connection, file_id: int) -> FileRecord | None:
     if row is None:
         return None
 
-    return FileRecord(
-        id=row[0],
-        path=row[1],
-        filename=row[2],
-        directory=row[3],
-        extension=row[4],
-        size_bytes=row[5],
-        modified_at=row[6],
-        content_hash=row[7],
-        container_format=row[8],
-        scanned_at=row[9],
-        scan_status=row[10],
-        scan_error=row[11],
-        job_id=row[12],
-    )
+    return _row_to_file_record(row)
 
 
 # ==========================================================================
@@ -1888,6 +2089,42 @@ def get_files_with_transcriptions(
     if return_total:
         return files, total
     return files
+
+
+def get_files_with_transcriptions_typed(
+    conn: sqlite3.Connection,
+    *,
+    show_all: bool = False,
+    limit: int | None = None,
+    offset: int | None = None,
+    return_total: bool = False,
+) -> list[TranscriptionListViewItem] | tuple[list[TranscriptionListViewItem], int]:
+    """Typed version of get_files_with_transcriptions().
+
+    Returns TranscriptionListViewItem dataclass instances instead of dicts.
+
+    Args:
+        conn: Database connection.
+        show_all: If False, only return files with transcriptions.
+        limit: Maximum files to return.
+        offset: Pagination offset.
+        return_total: If True, return tuple of (files, total_count).
+
+    Returns:
+        List of TranscriptionListViewItem objects, or tuple with total count.
+    """
+    result = get_files_with_transcriptions(
+        conn,
+        show_all=show_all,
+        limit=limit,
+        offset=offset,
+        return_total=return_total,
+    )
+
+    if return_total:
+        files, total = result
+        return [TranscriptionListViewItem(**f) for f in files], total
+    return [TranscriptionListViewItem(**f) for f in result]
 
 
 def get_transcriptions_for_tracks(
@@ -2007,6 +2244,25 @@ def get_transcription_detail(
     )
     row = cursor.fetchone()
     return dict(row) if row else None
+
+
+def get_transcription_detail_typed(
+    conn: sqlite3.Connection,
+    transcription_id: int,
+) -> TranscriptionDetailView | None:
+    """Typed version of get_transcription_detail().
+
+    Returns TranscriptionDetailView dataclass instance instead of dict.
+
+    Args:
+        conn: Database connection.
+        transcription_id: ID of transcription_results record.
+
+    Returns:
+        TranscriptionDetailView object, or None if not found.
+    """
+    result = get_transcription_detail(conn, transcription_id)
+    return TranscriptionDetailView(**result) if result else None
 
 
 # ==========================================================================

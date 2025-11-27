@@ -64,6 +64,7 @@ class TestWALModeConcurrency:
         def read_file(reader_id: int) -> str | None:
             try:
                 reader_conn = sqlite3.connect(str(db_path))
+                reader_conn.row_factory = sqlite3.Row
                 reader_conn.execute("PRAGMA journal_mode = WAL")
                 result = get_file_by_path(reader_conn, "/test/video.mkv")
                 reader_conn.close()

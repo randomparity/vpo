@@ -16,6 +16,7 @@ class TestFileOperations:
         from video_policy_orchestrator.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
+        conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
         create_schema(conn)
 
@@ -50,6 +51,7 @@ class TestFileOperations:
         from video_policy_orchestrator.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
+        conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
         create_schema(conn)
 
@@ -97,6 +99,7 @@ class TestFileOperations:
         from video_policy_orchestrator.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
+        conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
         create_schema(conn)
 
@@ -130,6 +133,7 @@ class TestFileOperations:
         from video_policy_orchestrator.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
+        conn.row_factory = sqlite3.Row
         create_schema(conn)
 
         result = get_file_by_path(conn, "/nonexistent/path.mkv")
@@ -152,6 +156,7 @@ class TestTrackOperations:
         from video_policy_orchestrator.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
+        conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
         create_schema(conn)
 
@@ -203,6 +208,7 @@ class TestTrackOperations:
         from video_policy_orchestrator.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
+        conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
         create_schema(conn)
 
@@ -268,6 +274,7 @@ class TestTrackOperations:
         from video_policy_orchestrator.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
+        conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
         create_schema(conn)
 
@@ -329,6 +336,7 @@ class TestTrackOperations:
         from video_policy_orchestrator.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
+        conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
         create_schema(conn)
 
