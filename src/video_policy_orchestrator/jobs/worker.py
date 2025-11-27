@@ -14,22 +14,16 @@ import signal
 import sqlite3
 import threading
 import time
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import datetime
 
 from video_policy_orchestrator.db.models import (
     Job,
     JobStatus,
     JobType,
-    delete_old_jobs,
     update_job_progress,
 )
-from video_policy_orchestrator.executor.move import MoveExecutor
-from video_policy_orchestrator.executor.transcode import (
-    TranscodeExecutor,
-)
-from video_policy_orchestrator.introspector import FFprobeIntrospector
 from video_policy_orchestrator.jobs.logs import JobLogWriter
+from video_policy_orchestrator.jobs.maintenance import purge_old_jobs
 from video_policy_orchestrator.jobs.progress import FFmpegProgress
 from video_policy_orchestrator.jobs.queue import (
     claim_next_job,
@@ -37,9 +31,7 @@ from video_policy_orchestrator.jobs.queue import (
     release_job,
     update_heartbeat,
 )
-from video_policy_orchestrator.metadata.parser import parse_filename
-from video_policy_orchestrator.metadata.templates import parse_template
-from video_policy_orchestrator.policy.models import TranscodePolicyConfig
+from video_policy_orchestrator.jobs.services import TranscodeJobService
 
 logger = logging.getLogger(__name__)
 
@@ -180,16 +172,11 @@ class JobWorker:
 
     def _purge_old_jobs(self) -> None:
         """Purge old completed/failed/cancelled jobs."""
-        if not self.auto_purge:
-            return
-
-        from datetime import timedelta
-
-        cutoff = (
-            datetime.now(timezone.utc) - timedelta(days=self.retention_days)
-        ).isoformat()
-
-        count = delete_old_jobs(self.conn, cutoff)
+        count = purge_old_jobs(
+            self.conn,
+            self.retention_days,
+            auto_purge=self.auto_purge,
+        )
         if count > 0:
             logger.info("Purged %d old job(s)", count)
 
@@ -234,183 +221,13 @@ class JobWorker:
         Returns:
             Tuple of (success, error_message, output_path).
         """
-        # Parse policy from job
-        try:
-            policy_data = json.loads(job.policy_json)
-            policy = TranscodePolicyConfig(
-                target_video_codec=policy_data.get("target_video_codec"),
-                target_crf=policy_data.get("target_crf"),
-                target_bitrate=policy_data.get("target_bitrate"),
-                max_resolution=policy_data.get("max_resolution"),
-                max_width=policy_data.get("max_width"),
-                max_height=policy_data.get("max_height"),
-                audio_preserve_codecs=tuple(
-                    policy_data.get("audio_preserve_codecs", [])
-                ),
-                audio_transcode_to=policy_data.get("audio_transcode_to", "aac"),
-                audio_transcode_bitrate=policy_data.get("audio_bitrate", "192k"),
-                audio_downmix=policy_data.get("audio_downmix"),
-            )
-            if job_log:
-                job_log.write_line(f"Parsed policy: {job.policy_name or 'default'}")
-        except Exception as e:
-            if job_log:
-                job_log.write_error(f"Invalid policy JSON: {e}")
-            return False, f"Invalid policy JSON: {e}", None
-
-        # Get input file info
-        input_path = Path(job.file_path)
-        if not input_path.exists():
-            error = f"Input file not found: {input_path}"
-            if job_log:
-                job_log.write_error(error)
-            return False, error, None
-
-        # Introspect file
-        if job_log:
-            job_log.write_section("Introspecting file")
-        introspector = FFprobeIntrospector()
-        result = introspector.introspect(input_path)
-        if not result.success:
-            error = f"Introspection failed: {result.error}"
-            if job_log:
-                job_log.write_error(error)
-            return False, error, None
-
-        if job_log:
-            job_log.write_line(f"Container: {result.container_format}")
-            job_log.write_line(f"Duration: {result.duration}s")
-            job_log.write_line(f"Tracks: {len(result.tracks)}")
-
-        # Get video track info
-        video_track = next((t for t in result.tracks if t.track_type == "video"), None)
-        if not video_track:
-            error = "No video track found"
-            if job_log:
-                job_log.write_error(error)
-            return False, error, None
-
-        if job_log:
-            job_log.write_line(
-                f"Video: {video_track.codec} {video_track.width}x{video_track.height}"
-            )
-
-        # Determine output path
-        output_dir = policy_data.get("output_dir")
-        if output_dir:
-            output_path = Path(output_dir) / input_path.name
-        else:
-            # Same directory with .transcoded suffix before extension
-            stem = input_path.stem
-            output_path = input_path.with_name(f"{stem}.transcoded{input_path.suffix}")
-
-        if job_log:
-            job_log.write_line(f"Output path: {output_path}")
-
-        # Create executor and plan
-        executor = TranscodeExecutor(
-            policy=policy,
-            cpu_cores=self.cpu_cores,
+        service = TranscodeJobService(cpu_cores=self.cpu_cores)
+        result = service.process(
+            job,
             progress_callback=self._create_progress_callback(job),
+            job_log=job_log,
         )
-
-        plan = executor.create_plan(
-            input_path=input_path,
-            output_path=output_path,
-            video_codec=video_track.codec,
-            video_width=video_track.width,
-            video_height=video_track.height,
-            duration_seconds=result.duration,
-        )
-
-        # Execute transcode
-        if job_log:
-            job_log.write_section("Executing transcode")
-            job_log.write_line(f"Target codec: {policy.target_video_codec}")
-            if policy.target_crf:
-                job_log.write_line(f"Target CRF: {policy.target_crf}")
-            if self.cpu_cores:
-                job_log.write_line(f"CPU cores: {self.cpu_cores}")
-
-        transcode_result = executor.execute(plan)
-
-        if not transcode_result.success:
-            if job_log:
-                job_log.write_error(
-                    f"Transcode failed: {transcode_result.error_message}"
-                )
-            return False, transcode_result.error_message, None
-
-        if job_log:
-            job_log.write_line("Transcode completed successfully")
-
-        final_output_path = output_path
-
-        # Handle destination template if specified
-        destination_template = policy_data.get("destination")
-        destination_base = policy_data.get("destination_base")
-
-        if destination_template and transcode_result.output_path:
-            if job_log:
-                job_log.write_section("Moving to destination")
-                job_log.write_line(f"Template: {destination_template}")
-
-            try:
-                # Parse metadata from filename
-                metadata = parse_filename(input_path)
-                metadata_dict = metadata.as_dict()
-
-                # Parse and render template
-                template = parse_template(destination_template)
-                fallback = policy_data.get("destination_fallback", "Unknown")
-
-                # Use base directory or input file's directory
-                if destination_base:
-                    base_dir = Path(destination_base)
-                else:
-                    base_dir = input_path.parent
-
-                # Compute final destination
-                dest_path = template.render_path(base_dir, metadata_dict, fallback)
-
-                # Add filename to destination
-                final_dest = dest_path / transcode_result.output_path.name
-
-                if job_log:
-                    job_log.write_line(f"Destination: {final_dest}")
-
-                # Move file to destination
-                move_executor = MoveExecutor(create_directories=True)
-                move_plan = move_executor.create_plan(
-                    source_path=transcode_result.output_path,
-                    destination_path=final_dest,
-                )
-
-                move_result = move_executor.execute(move_plan)
-                if move_result.success:
-                    final_output_path = move_result.destination_path
-                    logger.info("Moved output to: %s", final_output_path)
-                    if job_log:
-                        job_log.write_line(f"Moved to: {final_output_path}")
-                else:
-                    logger.warning(
-                        "File movement failed: %s (transcoded file kept at: %s)",
-                        move_result.error_message,
-                        output_path,
-                    )
-                    if job_log:
-                        job_log.write_error(f"Move failed: {move_result.error_message}")
-            except Exception as e:
-                logger.warning(
-                    "Destination template processing failed: %s "
-                    "(transcoded file kept at: %s)",
-                    e,
-                    output_path,
-                )
-                if job_log:
-                    job_log.write_error(f"Template processing failed: {e}")
-
-        return True, None, str(final_output_path)
+        return result.success, result.error_message, result.output_path
 
     def process_job(self, job: Job) -> None:
         """Process a single job.
