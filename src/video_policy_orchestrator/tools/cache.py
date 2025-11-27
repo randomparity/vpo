@@ -15,6 +15,7 @@ from video_policy_orchestrator.tools.models import (
     FFprobeInfo,
     MkvmergeInfo,
     MkvpropeditInfo,
+    ToolInfo,
     ToolRegistry,
     ToolStatus,
 )
@@ -44,6 +45,22 @@ def _iso_to_datetime(s: str | None) -> datetime | None:
         return datetime.fromisoformat(s)
     except (ValueError, TypeError):
         return None
+
+
+def _set_base_fields(info: ToolInfo, data: dict) -> None:
+    """Set common ToolInfo fields from serialized data.
+
+    Args:
+        info: ToolInfo instance to populate.
+        data: Serialized data dict.
+    """
+    info.path = Path(data["path"]) if data.get("path") else None
+    info.version = data.get("version")
+    version_tuple = data.get("version_tuple")
+    info.version_tuple = tuple(version_tuple) if version_tuple else None
+    info.status = ToolStatus(data.get("status", "missing"))
+    info.status_message = data.get("status_message")
+    info.detected_at = _iso_to_datetime(data.get("detected_at"))
 
 
 def _serialize_tool_info(
@@ -98,41 +115,22 @@ def _deserialize_ffmpeg_info(data: dict) -> FFmpegInfo:
         demuxers=set(caps_data.get("demuxers", [])),
         filters=set(caps_data.get("filters", [])),
     )
-
     info = FFmpegInfo(capabilities=capabilities)
-    info.path = Path(data["path"]) if data.get("path") else None
-    info.version = data.get("version")
-    version_tuple = data.get("version_tuple")
-    info.version_tuple = tuple(version_tuple) if version_tuple else None
-    info.status = ToolStatus(data.get("status", "missing"))
-    info.status_message = data.get("status_message")
-    info.detected_at = _iso_to_datetime(data.get("detected_at"))
+    _set_base_fields(info, data)
     return info
 
 
 def _deserialize_ffprobe_info(data: dict) -> FFprobeInfo:
     """Deserialize FFprobeInfo from dict."""
     info = FFprobeInfo()
-    info.path = Path(data["path"]) if data.get("path") else None
-    info.version = data.get("version")
-    version_tuple = data.get("version_tuple")
-    info.version_tuple = tuple(version_tuple) if version_tuple else None
-    info.status = ToolStatus(data.get("status", "missing"))
-    info.status_message = data.get("status_message")
-    info.detected_at = _iso_to_datetime(data.get("detected_at"))
+    _set_base_fields(info, data)
     return info
 
 
 def _deserialize_mkvmerge_info(data: dict) -> MkvmergeInfo:
     """Deserialize MkvmergeInfo from dict."""
     info = MkvmergeInfo()
-    info.path = Path(data["path"]) if data.get("path") else None
-    info.version = data.get("version")
-    version_tuple = data.get("version_tuple")
-    info.version_tuple = tuple(version_tuple) if version_tuple else None
-    info.status = ToolStatus(data.get("status", "missing"))
-    info.status_message = data.get("status_message")
-    info.detected_at = _iso_to_datetime(data.get("detected_at"))
+    _set_base_fields(info, data)
     info.supports_track_order = data.get("supports_track_order", True)
     info.supports_json_output = data.get("supports_json_output", True)
     return info
@@ -141,13 +139,7 @@ def _deserialize_mkvmerge_info(data: dict) -> MkvmergeInfo:
 def _deserialize_mkvpropedit_info(data: dict) -> MkvpropeditInfo:
     """Deserialize MkvpropeditInfo from dict."""
     info = MkvpropeditInfo()
-    info.path = Path(data["path"]) if data.get("path") else None
-    info.version = data.get("version")
-    version_tuple = data.get("version_tuple")
-    info.version_tuple = tuple(version_tuple) if version_tuple else None
-    info.status = ToolStatus(data.get("status", "missing"))
-    info.status_message = data.get("status_message")
-    info.detected_at = _iso_to_datetime(data.get("detected_at"))
+    _set_base_fields(info, data)
     info.supports_track_edit = data.get("supports_track_edit", True)
     info.supports_add_attachment = data.get("supports_add_attachment", True)
     return info

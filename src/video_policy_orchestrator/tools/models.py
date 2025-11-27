@@ -4,10 +4,17 @@ This module defines dataclasses for representing detected tool information,
 capabilities, and the aggregated tool registry.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import TypeAlias
+
+    PostDetectCallback: TypeAlias = Callable[["ToolInfo", Path, str], None]
 
 
 class ToolStatus(Enum):
@@ -121,44 +128,51 @@ class FFprobeInfo(ToolInfo):
     FFprobe shares ffmpeg's build but has simpler capability needs.
     """
 
-    def __init__(self, **kwargs):
-        super().__init__(name="ffprobe", **kwargs)
+    name: str = field(init=False, default="ffprobe")
 
 
 @dataclass
 class FFmpegInfo(ToolInfo):
     """FFmpeg tool information with detailed capabilities."""
 
+    name: str = field(init=False, default="ffmpeg")
     capabilities: FFmpegCapabilities = field(default_factory=FFmpegCapabilities)
-
-    def __init__(self, capabilities: FFmpegCapabilities | None = None, **kwargs):
-        # Set name before calling parent init
-        super().__init__(name="ffmpeg", **kwargs)
-        self.capabilities = capabilities or FFmpegCapabilities()
 
 
 @dataclass
 class MkvmergeInfo(ToolInfo):
     """Mkvmerge tool information."""
 
+    name: str = field(init=False, default="mkvmerge")
     # Mkvmerge capabilities are version-dependent but simpler than ffmpeg
     supports_track_order: bool = True  # --track-order flag
     supports_json_output: bool = True  # -J flag for JSON output
-
-    def __init__(self, **kwargs):
-        super().__init__(name="mkvmerge", **kwargs)
 
 
 @dataclass
 class MkvpropeditInfo(ToolInfo):
     """Mkvpropedit tool information."""
 
+    name: str = field(init=False, default="mkvpropedit")
     # Mkvpropedit capabilities
     supports_track_edit: bool = True  # --edit track:N
     supports_add_attachment: bool = True  # --add-attachment
 
-    def __init__(self, **kwargs):
-        super().__init__(name="mkvpropedit", **kwargs)
+
+@dataclass(frozen=True)
+class ToolDetectionConfig:
+    """Configuration for detecting a specific tool.
+
+    This dataclass holds tool-specific metadata needed by the generic
+    detection function, including version parsing patterns and optional
+    post-detection hooks for capability enumeration.
+    """
+
+    name: str  # Tool name (e.g., "ffmpeg")
+    version_flag: str  # Command flag to get version ("-version" or "--version")
+    version_pattern: str  # Regex pattern to extract version from output
+    info_factory: Callable[[], ToolInfo]  # Factory to create ToolInfo instance
+    post_detect: "Callable[[ToolInfo, Path, str], None] | None" = None  # Optional hook
 
 
 @dataclass

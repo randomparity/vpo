@@ -7,7 +7,7 @@ and enumerate their capabilities (codecs, formats, filters for ffmpeg).
 import logging
 import re
 import shutil
-import subprocess
+import subprocess  # nosec B404 - subprocess is required for tool detection
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -17,6 +17,8 @@ from video_policy_orchestrator.tools.models import (
     FFprobeInfo,
     MkvmergeInfo,
     MkvpropeditInfo,
+    ToolDetectionConfig,
+    ToolInfo,
     ToolRegistry,
     ToolStatus,
 )
@@ -95,7 +97,7 @@ def _run_command(
         Tuple of (stdout, stderr, returncode).
     """
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - args are tool paths and fixed flags
             args,
             capture_output=True,
             text=True,
@@ -113,6 +115,131 @@ def _run_command(
         return "", str(e), -1
 
 
+# =============================================================================
+# Generic Tool Detection
+# =============================================================================
+
+
+def _detect_tool_generic(
+    config: ToolDetectionConfig,
+    configured_path: Path | None = None,
+) -> ToolInfo:
+    """Generic tool detection with common boilerplate.
+
+    Args:
+        config: Tool-specific detection configuration.
+        configured_path: Optional configured path to the tool.
+
+    Returns:
+        ToolInfo subclass instance with detection results.
+    """
+    info = config.info_factory()
+    info.detected_at = datetime.now(timezone.utc)
+
+    path = _find_tool(config.name, configured_path)
+    if not path:
+        info.status = ToolStatus.MISSING
+        info.status_message = f"{config.name} not found in PATH"
+        return info
+
+    info.path = path
+
+    stdout, stderr, rc = _run_command([str(path), config.version_flag])
+    if rc != 0:
+        info.status = ToolStatus.ERROR
+        info.status_message = f"Failed to get {config.name} version: {stderr}"
+        return info
+
+    version_match = re.search(config.version_pattern, stdout)
+    if version_match:
+        info.version = version_match.group(1)
+        info.version_tuple = parse_version_string(info.version)
+        if info.version_tuple is None:
+            logger.warning(
+                "Could not parse %s version '%s' into comparable tuple",
+                config.name,
+                info.version,
+            )
+
+    if config.post_detect:
+        config.post_detect(info, path, stdout)
+
+    info.status = ToolStatus.AVAILABLE
+    info.status_message = None
+    return info
+
+
+# =============================================================================
+# Post-Detection Callbacks
+# =============================================================================
+
+
+def _ffmpeg_post_detect(info: ToolInfo, path: Path, stdout: str) -> None:
+    """Post-detection hook for FFmpeg capabilities."""
+    assert isinstance(info, FFmpegInfo)
+    info.capabilities = _detect_ffmpeg_capabilities(path, stdout)
+
+
+def _mkvmerge_post_detect(info: ToolInfo, path: Path, stdout: str) -> None:
+    """Post-detection hook for mkvmerge capabilities."""
+    assert isinstance(info, MkvmergeInfo)
+    # --track-order has been available for a very long time
+    info.supports_track_order = True
+    # -J (JSON output) added in mkvtoolnix 9.0
+    if info.version_tuple:
+        info.supports_json_output = info.version_tuple >= (9, 0)
+
+
+def _mkvpropedit_post_detect(info: ToolInfo, path: Path, stdout: str) -> None:
+    """Post-detection hook for mkvpropedit capabilities."""
+    assert isinstance(info, MkvpropeditInfo)
+    # All modern versions support these features
+    info.supports_track_edit = True
+    info.supports_add_attachment = True
+
+
+# =============================================================================
+# Tool Detection Configurations
+# =============================================================================
+
+
+FFPROBE_CONFIG = ToolDetectionConfig(
+    name="ffprobe",
+    version_flag="-version",
+    version_pattern=r"ffprobe version (\S+)",
+    info_factory=FFprobeInfo,
+)
+
+FFMPEG_CONFIG = ToolDetectionConfig(
+    name="ffmpeg",
+    version_flag="-version",
+    version_pattern=r"ffmpeg version (\S+)",
+    info_factory=FFmpegInfo,
+    post_detect=_ffmpeg_post_detect,
+)
+
+MKVMERGE_CONFIG = ToolDetectionConfig(
+    name="mkvmerge",
+    version_flag="--version",
+    version_pattern=r"mkvmerge v(\S+)",
+    info_factory=MkvmergeInfo,
+    post_detect=_mkvmerge_post_detect,
+)
+
+MKVPROPEDIT_CONFIG = ToolDetectionConfig(
+    name="mkvpropedit",
+    version_flag="--version",
+    version_pattern=r"mkvpropedit v(\S+)",
+    info_factory=MkvpropeditInfo,
+    post_detect=_mkvpropedit_post_detect,
+)
+
+
+# =============================================================================
+# Public Detection Functions
+# =============================================================================
+
+
 def detect_ffmpeg(configured_path: Path | None = None) -> FFmpegInfo:
     """Detect ffmpeg and enumerate its capabilities.
 
@@ -122,43 +249,9 @@ def detect_ffmpeg(configured_path: Path | None = None) -> FFmpegInfo:
     Returns:
         FFmpegInfo with version and capabilities.
     """
-    info = FFmpegInfo()
-    info.detected_at = datetime.now(timezone.utc)
-
-    path = _find_tool("ffmpeg", configured_path)
-    if not path:
-        info.status = ToolStatus.MISSING
-        info.status_message = "ffmpeg not found in PATH"
-        return info
-
-    info.path = path
-
-    # Get version
-    stdout, stderr, rc = _run_command([str(path), "-version"])
-    if rc != 0:
-        info.status = ToolStatus.ERROR
-        info.status_message = f"Failed to get ffmpeg version: {stderr}"
-        return info
-
-    # Parse version from first line: "ffmpeg version 6.1.1 Copyright..."
-    version_match = re.search(r"ffmpeg version (\S+)", stdout)
-    if version_match:
-        info.version = version_match.group(1)
-        info.version_tuple = parse_version_string(info.version)
-        if info.version_tuple is None:
-            logger.warning(
-                "Could not parse ffmpeg version '%s' into comparable tuple. "
-                "Please report this format at github.com/anthropics/claude-code/issues",
-                info.version,
-            )
-
-    # Parse build configuration
-    capabilities = _detect_ffmpeg_capabilities(path, stdout)
-    info.capabilities = capabilities
-
-    info.status = ToolStatus.AVAILABLE
-    info.status_message = None
-    return info
+    result = _detect_tool_generic(FFMPEG_CONFIG, configured_path)
+    assert isinstance(result, FFmpegInfo)
+    return result
 
 
 def _detect_ffmpeg_capabilities(
@@ -284,38 +377,9 @@ def detect_ffprobe(configured_path: Path | None = None) -> FFprobeInfo:
     Returns:
         FFprobeInfo with version information.
     """
-    info = FFprobeInfo()
-    info.detected_at = datetime.now(timezone.utc)
-
-    path = _find_tool("ffprobe", configured_path)
-    if not path:
-        info.status = ToolStatus.MISSING
-        info.status_message = "ffprobe not found in PATH"
-        return info
-
-    info.path = path
-
-    # Get version
-    stdout, stderr, rc = _run_command([str(path), "-version"])
-    if rc != 0:
-        info.status = ToolStatus.ERROR
-        info.status_message = f"Failed to get ffprobe version: {stderr}"
-        return info
-
-    # Parse version: "ffprobe version 6.1.1 Copyright..."
-    version_match = re.search(r"ffprobe version (\S+)", stdout)
-    if version_match:
-        info.version = version_match.group(1)
-        info.version_tuple = parse_version_string(info.version)
-        if info.version_tuple is None:
-            logger.warning(
-                "Could not parse ffprobe version '%s' into comparable tuple",
-                info.version,
-            )
-
-    info.status = ToolStatus.AVAILABLE
-    info.status_message = None
-    return info
+    result = _detect_tool_generic(FFPROBE_CONFIG, configured_path)
+    assert isinstance(result, FFprobeInfo)
+    return result
 
 
 def detect_mkvmerge(configured_path: Path | None = None) -> MkvmergeInfo:
@@ -327,45 +391,9 @@ def detect_mkvmerge(configured_path: Path | None = None) -> MkvmergeInfo:
     Returns:
         MkvmergeInfo with version information.
     """
-    info = MkvmergeInfo()
-    info.detected_at = datetime.now(timezone.utc)
-
-    path = _find_tool("mkvmerge", configured_path)
-    if not path:
-        info.status = ToolStatus.MISSING
-        info.status_message = "mkvmerge not found in PATH"
-        return info
-
-    info.path = path
-
-    # Get version: mkvmerge outputs to stdout with --version
-    stdout, stderr, rc = _run_command([str(path), "--version"])
-    if rc != 0:
-        info.status = ToolStatus.ERROR
-        info.status_message = f"Failed to get mkvmerge version: {stderr}"
-        return info
-
-    # Parse version: "mkvmerge v81.0 ('A Tattered Line of String') 64-bit"
-    version_match = re.search(r"mkvmerge v(\S+)", stdout)
-    if version_match:
-        info.version = version_match.group(1)
-        info.version_tuple = parse_version_string(info.version)
-        if info.version_tuple is None:
-            logger.warning(
-                "Could not parse mkvmerge version '%s' into comparable tuple",
-                info.version,
-            )
-
-    # Check for specific features based on version
-    if info.version_tuple:
-        # --track-order has been available for a very long time
-        info.supports_track_order = True
-        # -J (JSON output) added in mkvtoolnix 9.0
-        info.supports_json_output = info.version_tuple >= (9, 0)
-
-    info.status = ToolStatus.AVAILABLE
-    info.status_message = None
-    return info
+    result = _detect_tool_generic(MKVMERGE_CONFIG, configured_path)
+    assert isinstance(result, MkvmergeInfo)
+    return result
 
 
 def detect_mkvpropedit(configured_path: Path | None = None) -> MkvpropeditInfo:
@@ -377,42 +405,9 @@ def detect_mkvpropedit(configured_path: Path | None = None) -> MkvpropeditInfo:
     Returns:
         MkvpropeditInfo with version information.
     """
-    info = MkvpropeditInfo()
-    info.detected_at = datetime.now(timezone.utc)
-
-    path = _find_tool("mkvpropedit", configured_path)
-    if not path:
-        info.status = ToolStatus.MISSING
-        info.status_message = "mkvpropedit not found in PATH"
-        return info
-
-    info.path = path
-
-    # Get version
-    stdout, stderr, rc = _run_command([str(path), "--version"])
-    if rc != 0:
-        info.status = ToolStatus.ERROR
-        info.status_message = f"Failed to get mkvpropedit version: {stderr}"
-        return info
-
-    # Parse version: "mkvpropedit v81.0 ('A Tattered Line of String') 64-bit"
-    version_match = re.search(r"mkvpropedit v(\S+)", stdout)
-    if version_match:
-        info.version = version_match.group(1)
-        info.version_tuple = parse_version_string(info.version)
-        if info.version_tuple is None:
-            logger.warning(
-                "Could not parse mkvpropedit version '%s' into comparable tuple",
-                info.version,
-            )
-
-    # All modern versions support these features
-    info.supports_track_edit = True
-    info.supports_add_attachment = True
-
-    info.status = ToolStatus.AVAILABLE
-    info.status_message = None
-    return info
+    result = _detect_tool_generic(MKVPROPEDIT_CONFIG, configured_path)
+    assert isinstance(result, MkvpropeditInfo)
+    return result
 
 
 def detect_all_tools(
