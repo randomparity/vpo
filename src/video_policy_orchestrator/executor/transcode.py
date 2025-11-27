@@ -1,8 +1,11 @@
 """Transcode executor for video/audio transcoding via FFmpeg."""
 
 import logging
+import platform
 import queue
+import shutil
 import subprocess  # nosec B404 - subprocess is required for FFmpeg invocation
+import tempfile
 import threading
 import time
 from collections.abc import Callable
@@ -381,23 +384,6 @@ def build_hdr_preservation_args(hdr_type: HDRType, scaling: bool = False) -> lis
         )
 
     return args
-
-
-def build_hdr_preservation_args_compat(is_hdr: bool, scaling: bool) -> list[str]:
-    """Compatibility wrapper for build_hdr_preservation_args.
-
-    This provides backward compatibility for code using the old boolean signature.
-    New code should use build_hdr_preservation_args(hdr_type, scaling) directly.
-
-    Args:
-        is_hdr: Whether content is HDR.
-        scaling: Whether scaling is being applied.
-
-    Returns:
-        List of FFmpeg arguments for HDR preservation.
-    """
-    hdr_type = HDRType.HDR10 if is_hdr else HDRType.NONE
-    return build_hdr_preservation_args(hdr_type, scaling)
 
 
 @dataclass
@@ -939,8 +925,6 @@ def build_ffmpeg_command_pass1(
     Returns:
         List of command arguments.
     """
-    import platform
-
     ffmpeg_path = require_tool("ffmpeg")
     cmd = [str(ffmpeg_path), "-y", "-hide_banner"]
 
@@ -954,12 +938,9 @@ def build_ffmpeg_command_pass1(
     cmd.extend(["-c:v", encoder])
 
     # Quality args with two-pass context (pass 1)
+    # Note: _build_quality_args() already adds preset for x264/x265 encoders
     two_pass_ctx.current_pass = 1
     cmd.extend(_build_quality_args(quality, policy, codec, encoder, two_pass_ctx))
-
-    # Preset (for x264/x265 encoders)
-    if quality and encoder in ("libx264", "libx265"):
-        cmd.extend(["-preset", quality.preset])
 
     # Scaling (same as pass 2)
     if plan.needs_video_scale and plan.target_width and plan.target_height:
@@ -1538,8 +1519,6 @@ class TranscodeExecutor:
         Returns:
             Error message if insufficient space, None if OK.
         """
-        import shutil
-
         # Estimate output size based on target codec
         input_size = plan.input_path.stat().st_size
         codec = self.policy.target_video_codec or "hevc"
@@ -1651,6 +1630,99 @@ class TranscodeExecutor:
         # Could add ffprobe validation here in future
         return True
 
+    def _run_ffmpeg_with_timeout(
+        self,
+        cmd: list[str],
+        description: str,
+        progress_callback: Callable[[FFmpegProgress], None] | None = None,
+    ) -> tuple[bool, int, list[str]]:
+        """Run FFmpeg command with timeout and threaded stderr reading.
+
+        Args:
+            cmd: FFmpeg command arguments.
+            description: Description for logging (e.g., "pass 1", "transcode").
+            progress_callback: Optional callback for progress updates.
+
+        Returns:
+            Tuple of (success, return_code, stderr_lines).
+            success is False if timeout expired or process failed.
+        """
+        process = subprocess.Popen(  # nosec B603
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        # Read stderr in a separate thread to support timeout
+        stderr_output: list[str] = []
+        stderr_queue: queue.Queue[str | None] = queue.Queue()
+
+        def read_stderr() -> None:
+            """Read stderr lines and put them in the queue."""
+            try:
+                assert process.stderr is not None
+                for line in process.stderr:
+                    stderr_queue.put(line)
+            finally:
+                stderr_queue.put(None)  # Signal end of output
+
+        reader_thread = threading.Thread(target=read_stderr, daemon=True)
+        reader_thread.start()
+
+        # Process stderr output while waiting for completion
+        timeout_expired = False
+        start_time = time.monotonic()
+
+        while True:
+            # Check timeout
+            if self.transcode_timeout is not None:
+                elapsed = time.monotonic() - start_time
+                if elapsed >= self.transcode_timeout:
+                    timeout_expired = True
+                    break
+
+            # Check if process finished
+            if process.poll() is not None:
+                break
+
+            # Read from queue with timeout to allow checking process status
+            try:
+                line = stderr_queue.get(timeout=1.0)
+                if line is None:
+                    break  # End of stderr
+                stderr_output.append(line)
+                progress = parse_stderr_progress(line)
+                if progress and progress_callback:
+                    progress_callback(progress)
+            except queue.Empty:
+                continue
+
+        # Handle timeout
+        if timeout_expired:
+            logger.warning(
+                "%s timed out after %s seconds", description, self.transcode_timeout
+            )
+            process.kill()
+            process.wait()  # Clean up zombie process
+            return (False, -1, stderr_output)
+
+        # Drain any remaining stderr output
+        reader_thread.join(timeout=5.0)
+        while True:
+            try:
+                line = stderr_queue.get_nowait()
+                if line is None:
+                    break
+                stderr_output.append(line)
+            except queue.Empty:
+                break
+
+        # Wait for process to finish (should already be done)
+        process.wait()
+
+        return (process.returncode == 0, process.returncode, stderr_output)
+
     def _execute_two_pass(
         self,
         plan: TranscodePlan,
@@ -1673,21 +1745,20 @@ class TranscodeExecutor:
         Returns:
             TranscodeResult with success status.
         """
-        import tempfile
-
-        # Create passlogfile in temp directory
-        passlog_dir = self.temp_directory or plan.output_path.parent
-        with tempfile.NamedTemporaryFile(
-            prefix="vpo_passlog_",
-            suffix="",
-            delete=False,
-            dir=passlog_dir,
-        ) as f:
-            passlogfile = Path(f.name)
-
-        two_pass_ctx = TwoPassContext(passlogfile=passlogfile)
+        two_pass_ctx: TwoPassContext | None = None
 
         try:
+            # Create passlogfile in temp directory
+            passlog_dir = self.temp_directory or plan.output_path.parent
+            with tempfile.NamedTemporaryFile(
+                prefix="vpo_passlog_",
+                suffix="",
+                delete=False,
+                dir=passlog_dir,
+            ) as f:
+                passlogfile = Path(f.name)
+
+            two_pass_ctx = TwoPassContext(passlogfile=passlogfile)
             # === PASS 1 ===
             two_pass_ctx.current_pass = 1
             cmd1 = build_ffmpeg_command_pass1(
@@ -1696,27 +1767,21 @@ class TranscodeExecutor:
             logger.info("Starting two-pass encoding pass 1: %s", plan.input_path)
             logger.debug("FFmpeg pass 1 command: %s", " ".join(cmd1))
 
-            process1 = subprocess.Popen(  # nosec B603
-                cmd1,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
-                text=True,
+            success1, rc1, stderr1 = self._run_ffmpeg_with_timeout(
+                cmd1, "Pass 1", self.progress_callback
             )
 
-            # Read stderr for progress (report as 0-50% for pass 1)
-            stderr_output1: list[str] = []
-            assert process1.stderr is not None
-            for line in process1.stderr:
-                stderr_output1.append(line)
-                progress = parse_stderr_progress(line)
-                if progress and self.progress_callback:
-                    # Scale progress to 0-50% for pass 1
-                    self.progress_callback(progress)
-
-            process1.wait()
-
-            if process1.returncode != 0:
-                error_msg = "".join(stderr_output1[-10:])
+            if not success1:
+                error_msg = "".join(stderr1[-10:])
+                if rc1 == -1:  # Timeout
+                    logger.error("FFmpeg pass 1 timed out")
+                    return TranscodeResult(
+                        success=False,
+                        error_message=(
+                            f"Two-pass encoding pass 1 timed out "
+                            f"after {self.transcode_timeout} seconds"
+                        ),
+                    )
                 logger.error("FFmpeg pass 1 failed: %s", error_msg)
                 return TranscodeResult(
                     success=False,
@@ -1745,6 +1810,8 @@ class TranscodeExecutor:
                 target_width=plan.target_width,
                 target_height=plan.target_height,
                 audio_plan=plan.audio_plan,
+                is_hdr=plan.is_hdr,
+                hdr_type=plan.hdr_type,
             )
 
             cmd2 = build_ffmpeg_command(
@@ -1753,29 +1820,23 @@ class TranscodeExecutor:
             logger.info("Starting two-pass encoding pass 2: %s", plan.input_path)
             logger.debug("FFmpeg pass 2 command: %s", " ".join(cmd2))
 
-            process2 = subprocess.Popen(  # nosec B603
-                cmd2,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
-                text=True,
+            success2, rc2, stderr2 = self._run_ffmpeg_with_timeout(
+                cmd2, "Pass 2", self.progress_callback
             )
 
-            # Read stderr for progress (report as 50-100% for pass 2)
-            stderr_output2: list[str] = []
-            assert process2.stderr is not None
-            for line in process2.stderr:
-                stderr_output2.append(line)
-                progress = parse_stderr_progress(line)
-                if progress and self.progress_callback:
-                    # Progress reports as-is (50-100% handled by caller)
-                    self.progress_callback(progress)
-
-            process2.wait()
-
-            if process2.returncode != 0:
-                error_msg = "".join(stderr_output2[-10:])
-                logger.error("FFmpeg pass 2 failed: %s", error_msg)
+            if not success2:
+                error_msg = "".join(stderr2[-10:])
                 self._cleanup_partial(temp_output)
+                if rc2 == -1:  # Timeout
+                    logger.error("FFmpeg pass 2 timed out")
+                    return TranscodeResult(
+                        success=False,
+                        error_message=(
+                            f"Two-pass encoding pass 2 timed out "
+                            f"after {self.transcode_timeout} seconds"
+                        ),
+                    )
+                logger.error("FFmpeg pass 2 failed: %s", error_msg)
                 return TranscodeResult(
                     success=False,
                     error_message=f"Two-pass encoding failed on pass 2: {error_msg}",
@@ -1785,7 +1846,8 @@ class TranscodeExecutor:
 
         finally:
             # Clean up pass log files
-            two_pass_ctx.cleanup()
+            if two_pass_ctx is not None:
+                two_pass_ctx.cleanup()
 
     def execute(
         self,
@@ -1854,8 +1916,6 @@ class TranscodeExecutor:
                     )
 
                 # Move temp to final destination
-                import shutil
-
                 try:
                     shutil.move(str(temp_output), str(plan.output_path))
                 except OSError as e:
@@ -1906,6 +1966,8 @@ class TranscodeExecutor:
             target_width=plan.target_width,
             target_height=plan.target_height,
             audio_plan=plan.audio_plan,
+            is_hdr=plan.is_hdr,
+            hdr_type=plan.hdr_type,
         )
 
         cmd = build_ffmpeg_command(temp_plan, self.cpu_cores)
@@ -1917,93 +1979,23 @@ class TranscodeExecutor:
             temp_output.parent.mkdir(parents=True, exist_ok=True)
             plan.output_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Run FFmpeg with progress monitoring (cmd built from trusted FFmpeg path)
-            # Use DEVNULL for stdout to avoid deadlock - FFmpeg progress goes to stderr
-            process = subprocess.Popen(  # nosec B603
-                cmd,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
-                text=True,
+            # Run FFmpeg with progress monitoring and timeout
+            success, rc, stderr_output = self._run_ffmpeg_with_timeout(
+                cmd, "Transcode", self.progress_callback
             )
 
-            # Read stderr in a separate thread to support timeout
-            stderr_output: list[str] = []
-            stderr_queue: queue.Queue[str | None] = queue.Queue()
-
-            def read_stderr() -> None:
-                """Read stderr lines and put them in the queue."""
-                try:
-                    assert process.stderr is not None
-                    for line in process.stderr:
-                        stderr_queue.put(line)
-                finally:
-                    stderr_queue.put(None)  # Signal end of output
-
-            reader_thread = threading.Thread(target=read_stderr, daemon=True)
-            reader_thread.start()
-
-            # Process stderr output while waiting for completion
-            timeout_expired = False
-            start_time = time.monotonic()
-
-            while True:
-                # Check timeout
-                if self.transcode_timeout is not None:
-                    elapsed = time.monotonic() - start_time
-                    if elapsed >= self.transcode_timeout:
-                        timeout_expired = True
-                        break
-
-                # Check if process finished
-                if process.poll() is not None:
-                    break
-
-                # Read from queue with timeout to allow checking process status
-                try:
-                    line = stderr_queue.get(timeout=1.0)
-                    if line is None:
-                        break  # End of stderr
-                    stderr_output.append(line)
-                    progress = parse_stderr_progress(line)
-                    if progress and self.progress_callback:
-                        self.progress_callback(progress)
-                except queue.Empty:
-                    continue
-
-            # Handle timeout
-            if timeout_expired:
-                logger.warning(
-                    "Transcode timed out after %s seconds", self.transcode_timeout
-                )
-                process.kill()
-                process.wait()  # Clean up zombie process
+            if not success:
                 self._cleanup_partial(temp_output)
-                timeout_secs = self.transcode_timeout
-                return TranscodeResult(
-                    success=False,
-                    error_message=f"Transcode timed out after {timeout_secs} seconds",
-                )
-
-            # Drain any remaining stderr output
-            reader_thread.join(timeout=5.0)
-            while True:
-                try:
-                    line = stderr_queue.get_nowait()
-                    if line is None:
-                        break
-                    stderr_output.append(line)
-                except queue.Empty:
-                    break
-
-            # Wait for process to finish (should already be done)
-            process.wait()
-
-            if process.returncode != 0:
+                if rc == -1:  # Timeout
+                    timeout_secs = self.transcode_timeout
+                    msg = f"Transcode timed out after {timeout_secs} seconds"
+                    return TranscodeResult(success=False, error_message=msg)
                 error_msg = "".join(stderr_output[-10:])  # Last 10 lines
                 logger.error("FFmpeg failed: %s", error_msg)
-                self._cleanup_partial(temp_output)
-                msg = f"FFmpeg exited with code {process.returncode}: {error_msg}"
-                return TranscodeResult(success=False, error_message=msg)
+                return TranscodeResult(
+                    success=False,
+                    error_message=f"FFmpeg exited with code {rc}: {error_msg}",
+                )
 
             # Verify temp output exists
             if not temp_output.exists():
@@ -2013,8 +2005,6 @@ class TranscodeExecutor:
                 )
 
             # Move temp to final destination
-            import shutil
-
             try:
                 shutil.move(str(temp_output), str(plan.output_path))
             except OSError as e:
