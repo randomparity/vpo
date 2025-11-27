@@ -626,8 +626,10 @@ def insert_track(conn: sqlite3.Connection, record: TrackRecord) -> int:
         INSERT INTO tracks (
             file_id, track_index, track_type, codec,
             language, title, is_default, is_forced,
-            channels, channel_layout, width, height, frame_rate
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            channels, channel_layout, width, height, frame_rate,
+            color_transfer, color_primaries, color_space, color_range,
+            duration_seconds
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             record.file_id,
@@ -643,6 +645,11 @@ def insert_track(conn: sqlite3.Connection, record: TrackRecord) -> int:
             record.width,
             record.height,
             record.frame_rate,
+            record.color_transfer,
+            record.color_primaries,
+            record.color_space,
+            record.color_range,
+            record.duration_seconds,
         ),
     )
     conn.commit()
@@ -664,6 +671,7 @@ def get_tracks_for_file(conn: sqlite3.Connection, file_id: int) -> list[TrackRec
         SELECT id, file_id, track_index, track_type, codec,
                language, title, is_default, is_forced,
                channels, channel_layout, width, height, frame_rate,
+               color_transfer, color_primaries, color_space, color_range,
                duration_seconds
         FROM tracks WHERE file_id = ?
         ORDER BY track_index
@@ -688,7 +696,11 @@ def get_tracks_for_file(conn: sqlite3.Connection, file_id: int) -> list[TrackRec
                 width=row[11],
                 height=row[12],
                 frame_rate=row[13],
-                duration_seconds=row[14],
+                color_transfer=row[14],
+                color_primaries=row[15],
+                color_space=row[16],
+                color_range=row[17],
+                duration_seconds=row[18],
             )
         )
     return tracks

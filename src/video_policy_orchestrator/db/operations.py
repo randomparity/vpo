@@ -476,6 +476,10 @@ def update_plan_status(
 ) -> PlanRecord | None:
     """Update the status of a plan with state machine validation.
 
+    Uses atomic UPDATE with WHERE clause to prevent race conditions.
+    The status validation is performed in the UPDATE statement itself,
+    ensuring concurrent updates cannot bypass the state machine.
+
     Args:
         conn: Database connection.
         plan_id: UUID of the plan to update.
@@ -487,26 +491,39 @@ def update_plan_status(
     Raises:
         InvalidPlanTransitionError: If the transition is not allowed.
     """
-    # Get current plan
-    plan = get_plan_by_id(conn, plan_id)
-    if plan is None:
-        return None
+    # Build list of valid source states for the target status
+    valid_source_states = [
+        status
+        for status, targets in PLAN_STATUS_TRANSITIONS.items()
+        if new_status in targets
+    ]
 
-    # Validate state transition
-    allowed_transitions = PLAN_STATUS_TRANSITIONS.get(plan.status, set())
-    if new_status not in allowed_transitions:
+    if not valid_source_states:
+        # No valid transitions to this status exist - check if plan exists
+        plan = get_plan_by_id(conn, plan_id)
+        if plan is None:
+            return None
         raise InvalidPlanTransitionError(plan.status, new_status)
 
-    # Update status and timestamp
+    # Atomic update with state validation in WHERE clause
     now = datetime.now(timezone.utc).isoformat()
-    conn.execute(
-        """
+    placeholders = ",".join("?" * len(valid_source_states))
+    cursor = conn.execute(
+        f"""
         UPDATE plans SET status = ?, updated_at = ?
-        WHERE id = ?
+        WHERE id = ? AND status IN ({placeholders})
         """,
-        (new_status.value, now, plan_id),
+        (new_status.value, now, plan_id, *[s.value for s in valid_source_states]),
     )
     conn.commit()
+
+    if cursor.rowcount == 0:
+        # Either plan doesn't exist or transition invalid
+        plan = get_plan_by_id(conn, plan_id)
+        if plan is None:
+            return None
+        # Plan exists but status didn't match - invalid transition
+        raise InvalidPlanTransitionError(plan.status, new_status)
 
     # Return updated record
     return get_plan_by_id(conn, plan_id)
