@@ -14,12 +14,15 @@ from video_policy_orchestrator.policy.matchers import validate_regex_patterns
 from video_policy_orchestrator.policy.models import (
     DEFAULT_TRACK_ORDER,
     VALID_AUDIO_CODECS,
+    VALID_PRESETS,
     VALID_RESOLUTIONS,
     VALID_VIDEO_CODECS,
+    X264_X265_TUNES,
     AndCondition,
     AttachmentFilterConfig,
     AudioFilterConfig,
     AudioSynthesisConfig,
+    AudioTranscodeConfig,
     Comparison,
     ComparisonOperator,
     Condition,
@@ -30,11 +33,18 @@ from video_policy_orchestrator.policy.models import (
     DefaultFlagsConfig,
     ExistsCondition,
     FailAction,
+    HardwareAccelConfig,
+    HardwareAccelMode,
     LanguageFallbackConfig,
     NotCondition,
     OrCondition,
     PolicySchema,
+    QualityMode,
+    QualitySettings,
+    ScaleAlgorithm,
+    ScalingSettings,
     SkipAction,
+    SkipCondition,
     SkipType,
     SubtitleFilterConfig,
     SynthesisTrackDefinitionRef,
@@ -43,11 +53,13 @@ from video_policy_orchestrator.policy.models import (
     TrackType,
     TranscodePolicyConfig,
     TranscriptionPolicyOptions,
+    VideoTranscodeConfig,
     WarnAction,
+    parse_bitrate,
 )
 
 # Current maximum supported schema version
-MAX_SCHEMA_VERSION = 5
+MAX_SCHEMA_VERSION = 6
 
 
 class PolicyValidationError(Exception):
@@ -157,6 +169,213 @@ class TranscodePolicyModel(BaseModel):
         if v is not None and v not in ("stereo", "5.1"):
             raise ValueError(f"Invalid audio_downmix '{v}'. Must be 'stereo' or '5.1'.")
         return v
+
+
+# =============================================================================
+# V6 Pydantic Models for Conditional Video Transcoding
+# =============================================================================
+
+
+class SkipConditionModel(BaseModel):
+    """Pydantic model for skip condition configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    codec_matches: list[str] | None = None
+    resolution_within: str | None = None
+    bitrate_under: str | None = None
+
+    @field_validator("resolution_within")
+    @classmethod
+    def validate_resolution(cls, v: str | None) -> str | None:
+        """Validate resolution preset."""
+        if v is not None and v.lower() not in VALID_RESOLUTIONS:
+            raise ValueError(
+                f"Invalid resolution_within '{v}'. "
+                f"Must be one of: {', '.join(sorted(VALID_RESOLUTIONS))}"
+            )
+        return v
+
+    @field_validator("bitrate_under")
+    @classmethod
+    def validate_bitrate(cls, v: str | None) -> str | None:
+        """Validate bitrate format."""
+        if v is not None:
+            if parse_bitrate(v) is None:
+                raise ValueError(
+                    f"Invalid bitrate_under '{v}'. "
+                    "Must be a number followed by M or k (e.g., '10M', '5000k')."
+                )
+        return v
+
+
+class QualitySettingsModel(BaseModel):
+    """Pydantic model for video quality settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["crf", "bitrate", "constrained_quality"] = "crf"
+    crf: int | None = Field(default=None, ge=0, le=51)
+    bitrate: str | None = None
+    min_bitrate: str | None = None
+    max_bitrate: str | None = None
+    preset: str = "medium"
+    tune: str | None = None
+    two_pass: bool = False
+
+    @field_validator("preset")
+    @classmethod
+    def validate_preset(cls, v: str) -> str:
+        """Validate encoding preset."""
+        if v not in VALID_PRESETS:
+            raise ValueError(
+                f"Invalid preset '{v}'. Must be one of: {', '.join(VALID_PRESETS)}"
+            )
+        return v
+
+    @field_validator("tune")
+    @classmethod
+    def validate_tune(cls, v: str | None) -> str | None:
+        """Validate tune option."""
+        if v is not None and v not in X264_X265_TUNES:
+            raise ValueError(
+                f"Invalid tune '{v}'. Must be one of: {', '.join(X264_X265_TUNES)}"
+            )
+        return v
+
+    @field_validator("bitrate", "min_bitrate", "max_bitrate")
+    @classmethod
+    def validate_bitrate(cls, v: str | None) -> str | None:
+        """Validate bitrate format."""
+        if v is not None:
+            if parse_bitrate(v) is None:
+                raise ValueError(
+                    f"Invalid bitrate '{v}'. "
+                    "Must be a number followed by M or k (e.g., '5M', '2500k')."
+                )
+        return v
+
+    @model_validator(mode="after")
+    def validate_mode_requirements(self) -> "QualitySettingsModel":
+        """Validate mode-specific requirements and detect conflicting options."""
+        if self.mode == "bitrate" and self.bitrate is None:
+            raise ValueError("bitrate is required when mode is 'bitrate'")
+
+        # Warn about conflicting options that may indicate user error
+        if self.mode == "crf" and self.bitrate is not None:
+            raise ValueError(
+                "Conflicting options: mode is 'crf' but bitrate is specified. "
+                "Use mode='bitrate' for bitrate targeting, or "
+                "mode='constrained_quality' for CRF with max bitrate cap."
+            )
+
+        if self.mode == "bitrate" and self.crf is not None:
+            raise ValueError(
+                "Conflicting options: mode is 'bitrate' but crf is specified. "
+                "Use mode='crf' for quality-based encoding, or "
+                "mode='constrained_quality' for CRF with max bitrate cap."
+            )
+
+        return self
+
+
+class ScalingSettingsModel(BaseModel):
+    """Pydantic model for video scaling settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    max_resolution: str | None = None
+    max_width: int | None = Field(default=None, ge=1)
+    max_height: int | None = Field(default=None, ge=1)
+    algorithm: Literal["lanczos", "bicubic", "bilinear"] = "lanczos"
+    upscale: bool = False
+
+    @field_validator("max_resolution")
+    @classmethod
+    def validate_resolution(cls, v: str | None) -> str | None:
+        """Validate resolution preset."""
+        if v is not None and v.lower() not in VALID_RESOLUTIONS:
+            raise ValueError(
+                f"Invalid max_resolution '{v}'. "
+                f"Must be one of: {', '.join(sorted(VALID_RESOLUTIONS))}"
+            )
+        return v
+
+
+class HardwareAccelConfigModel(BaseModel):
+    """Pydantic model for hardware acceleration settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: Literal["auto", "nvenc", "qsv", "vaapi", "none"] = "auto"
+    fallback_to_cpu: bool = True
+
+
+class VideoTranscodeConfigModel(BaseModel):
+    """Pydantic model for V6 video transcode configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    target_codec: str
+
+    skip_if: SkipConditionModel | None = None
+    quality: QualitySettingsModel | None = None
+    scaling: ScalingSettingsModel | None = None
+    hardware_acceleration: HardwareAccelConfigModel | None = None
+
+    @field_validator("target_codec")
+    @classmethod
+    def validate_video_codec(cls, v: str) -> str:
+        """Validate video codec."""
+        if v.lower() not in VALID_VIDEO_CODECS:
+            raise ValueError(
+                f"Invalid target_codec '{v}'. "
+                f"Must be one of: {', '.join(sorted(VALID_VIDEO_CODECS))}"
+            )
+        return v
+
+
+class AudioTranscodeConfigModel(BaseModel):
+    """Pydantic model for V6 audio transcode configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    preserve_codecs: list[str] = Field(
+        default_factory=lambda: ["truehd", "dts-hd", "flac", "pcm_s24le"]
+    )
+    transcode_to: str = "aac"
+    transcode_bitrate: str = "192k"
+
+    @field_validator("transcode_to")
+    @classmethod
+    def validate_audio_codec(cls, v: str) -> str:
+        """Validate audio codec."""
+        if v.lower() not in VALID_AUDIO_CODECS:
+            raise ValueError(
+                f"Invalid transcode_to '{v}'. "
+                f"Must be one of: {', '.join(sorted(VALID_AUDIO_CODECS))}"
+            )
+        return v
+
+    @field_validator("transcode_bitrate")
+    @classmethod
+    def validate_bitrate(cls, v: str) -> str:
+        """Validate bitrate format."""
+        if parse_bitrate(v) is None:
+            raise ValueError(
+                f"Invalid transcode_bitrate '{v}'. "
+                "Must be a number followed by k (e.g., '192k', '256k')."
+            )
+        return v
+
+
+class TranscodeV6Model(BaseModel):
+    """Pydantic model for V6 transcode configuration with video/audio sections."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    video: VideoTranscodeConfigModel | None = None
+    audio: AudioTranscodeConfigModel | None = None
 
 
 # =============================================================================
@@ -731,7 +950,8 @@ class PolicyModel(BaseModel):
         default_factory=lambda: ["commentary", "director"]
     )
     default_flags: DefaultFlagsModel = Field(default_factory=DefaultFlagsModel)
-    transcode: TranscodePolicyModel | None = None
+    # V1-5: flat transcode config; V6: nested with video/audio sections
+    transcode: TranscodePolicyModel | TranscodeV6Model | None = None
     transcription: TranscriptionPolicyModel | None = None
 
     # V3 fields (optional, require schema_version >= 3)
@@ -780,6 +1000,14 @@ class PolicyModel(BaseModel):
                 f"V5 fields (audio_synthesis) require schema_version >= 5, "
                 f"but schema_version is {self.schema_version}"
             )
+
+        # V6 field validation: transcode with video/audio sections
+        if self.transcode is not None and isinstance(self.transcode, TranscodeV6Model):
+            if self.schema_version < 6:
+                raise ValueError(
+                    "V6 transcode format (video/audio sections) requires "
+                    f"schema_version >= 6, but schema_version is {self.schema_version}"
+                )
 
         return self
 
@@ -1140,6 +1368,126 @@ def _convert_audio_synthesis(
     return AudioSynthesisConfig(tracks=tracks)
 
 
+# =============================================================================
+# V6 Conversion Functions for Conditional Video Transcoding
+# =============================================================================
+
+
+def _convert_skip_condition(model: SkipConditionModel | None) -> SkipCondition | None:
+    """Convert SkipConditionModel to SkipCondition dataclass."""
+    if model is None:
+        return None
+
+    return SkipCondition(
+        codec_matches=tuple(model.codec_matches) if model.codec_matches else None,
+        resolution_within=model.resolution_within,
+        bitrate_under=model.bitrate_under,
+    )
+
+
+def _convert_quality_settings(
+    model: QualitySettingsModel | None,
+) -> QualitySettings | None:
+    """Convert QualitySettingsModel to QualitySettings dataclass."""
+    if model is None:
+        return None
+
+    # Convert mode string to enum
+    mode_map = {
+        "crf": QualityMode.CRF,
+        "bitrate": QualityMode.BITRATE,
+        "constrained_quality": QualityMode.CONSTRAINED_QUALITY,
+    }
+
+    return QualitySettings(
+        mode=mode_map[model.mode],
+        crf=model.crf,
+        bitrate=model.bitrate,
+        min_bitrate=model.min_bitrate,
+        max_bitrate=model.max_bitrate,
+        preset=model.preset,
+        tune=model.tune,
+        two_pass=model.two_pass,
+    )
+
+
+def _convert_scaling_settings(
+    model: ScalingSettingsModel | None,
+) -> ScalingSettings | None:
+    """Convert ScalingSettingsModel to ScalingSettings dataclass."""
+    if model is None:
+        return None
+
+    # Convert algorithm string to enum
+    algo_map = {
+        "lanczos": ScaleAlgorithm.LANCZOS,
+        "bicubic": ScaleAlgorithm.BICUBIC,
+        "bilinear": ScaleAlgorithm.BILINEAR,
+    }
+
+    return ScalingSettings(
+        max_resolution=model.max_resolution,
+        max_width=model.max_width,
+        max_height=model.max_height,
+        algorithm=algo_map[model.algorithm],
+        upscale=model.upscale,
+    )
+
+
+def _convert_hardware_accel_config(
+    model: HardwareAccelConfigModel | None,
+) -> HardwareAccelConfig | None:
+    """Convert HardwareAccelConfigModel to HardwareAccelConfig dataclass."""
+    if model is None:
+        return None
+
+    # Convert enabled string to enum
+    mode_map = {
+        "auto": HardwareAccelMode.AUTO,
+        "nvenc": HardwareAccelMode.NVENC,
+        "qsv": HardwareAccelMode.QSV,
+        "vaapi": HardwareAccelMode.VAAPI,
+        "none": HardwareAccelMode.NONE,
+    }
+
+    return HardwareAccelConfig(
+        enabled=mode_map[model.enabled],
+        fallback_to_cpu=model.fallback_to_cpu,
+    )
+
+
+def _convert_video_transcode_config(
+    model: VideoTranscodeConfigModel | None,
+) -> VideoTranscodeConfig | None:
+    """Convert VideoTranscodeConfigModel to VideoTranscodeConfig dataclass."""
+    if model is None:
+        return None
+
+    return VideoTranscodeConfig(
+        target_codec=model.target_codec,
+        skip_if=_convert_skip_condition(model.skip_if),
+        quality=_convert_quality_settings(model.quality),
+        scaling=_convert_scaling_settings(model.scaling),
+        hardware_acceleration=_convert_hardware_accel_config(
+            model.hardware_acceleration
+        ),
+    )
+
+
+def _convert_audio_transcode_config(
+    model: AudioTranscodeConfigModel | None,
+) -> AudioTranscodeConfig | None:
+    """Convert AudioTranscodeConfigModel to AudioTranscodeConfig dataclass."""
+    if model is None:
+        return None
+
+    return AudioTranscodeConfig(
+        preserve_codecs=tuple(model.preserve_codecs),
+        transcode_to=model.transcode_to,
+        transcode_bitrate=model.transcode_bitrate,
+    )
+
+
 def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
     """Convert validated Pydantic model to PolicySchema dataclass."""
     # Convert track order strings to TrackType enum
@@ -1153,23 +1501,32 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
         clear_other_defaults=model.default_flags.clear_other_defaults,
     )
 
-    # Convert transcode config if present
+    # Convert transcode config (supports both V1-5 flat and V6 nested formats)
     transcode: TranscodePolicyConfig | None = None
+    video_transcode: VideoTranscodeConfig | None = None
+    audio_transcode: AudioTranscodeConfig | None = None
+
     if model.transcode is not None:
-        transcode = TranscodePolicyConfig(
-            target_video_codec=model.transcode.target_video_codec,
-            target_crf=model.transcode.target_crf,
-            target_bitrate=model.transcode.target_bitrate,
-            max_resolution=model.transcode.max_resolution,
-            max_width=model.transcode.max_width,
-            max_height=model.transcode.max_height,
-            audio_preserve_codecs=tuple(model.transcode.audio_preserve_codecs),
-            audio_transcode_to=model.transcode.audio_transcode_to,
-            audio_transcode_bitrate=model.transcode.audio_transcode_bitrate,
-            audio_downmix=model.transcode.audio_downmix,
-            destination=model.transcode.destination,
-            destination_fallback=model.transcode.destination_fallback,
-        )
+        if isinstance(model.transcode, TranscodeV6Model):
+            # V6 nested format with video/audio sections
+            video_transcode = _convert_video_transcode_config(model.transcode.video)
+            audio_transcode = _convert_audio_transcode_config(model.transcode.audio)
+        else:
+            # V1-5 flat format (TranscodePolicyModel)
+            transcode = TranscodePolicyConfig(
+                target_video_codec=model.transcode.target_video_codec,
+                target_crf=model.transcode.target_crf,
+                target_bitrate=model.transcode.target_bitrate,
+                max_resolution=model.transcode.max_resolution,
+                max_width=model.transcode.max_width,
+                max_height=model.transcode.max_height,
+                audio_preserve_codecs=tuple(model.transcode.audio_preserve_codecs),
+                audio_transcode_to=model.transcode.audio_transcode_to,
+                audio_transcode_bitrate=model.transcode.audio_transcode_bitrate,
+                audio_downmix=model.transcode.audio_downmix,
+                destination=model.transcode.destination,
+                destination_fallback=model.transcode.destination_fallback,
+            )
 
     # Convert transcription config if present
     transcription: TranscriptionPolicyOptions | None = None
@@ -1242,6 +1599,8 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
         container=container,
         conditional_rules=conditional_rules,
         audio_synthesis=audio_synthesis,
+        video_transcode=video_transcode,
+        audio_transcode=audio_transcode,
     )
 
 

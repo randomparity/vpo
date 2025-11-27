@@ -1,0 +1,254 @@
+# Policy Schema Contract: Conditional Video Transcoding
+# This defines the YAML structure for transcode policies with skip conditions and quality settings
+
+# Schema version - may need bump to v6 if breaking changes
+schema_version: 5
+
+# Full policy structure with new transcode options
+policy:
+  type: object
+  properties:
+    version:
+      type: integer
+      minimum: 5
+      description: Policy schema version
+
+    transcode:
+      type: object
+      description: Video transcoding configuration
+      properties:
+        video:
+          $ref: "#/definitions/VideoTranscodeConfig"
+        audio:
+          $ref: "#/definitions/AudioTranscodeConfig"
+
+definitions:
+  VideoTranscodeConfig:
+    type: object
+    required:
+      - target_codec
+    properties:
+      target_codec:
+        type: string
+        enum: [hevc, h264, vp9, av1]
+        description: Target video codec
+
+      skip_if:
+        $ref: "#/definitions/SkipCondition"
+
+      quality:
+        $ref: "#/definitions/QualitySettings"
+
+      scaling:
+        $ref: "#/definitions/ScalingSettings"
+
+      hardware_acceleration:
+        $ref: "#/definitions/HardwareAccelConfig"
+
+  SkipCondition:
+    type: object
+    description: Conditions for skipping transcoding (AND logic - all must be true)
+    properties:
+      codec_matches:
+        type: array
+        items:
+          type: string
+        description: Skip if video codec matches any in this list
+        examples:
+          - [hevc, h265, x265]
+          - [h264, avc]
+
+      resolution_within:
+        type: string
+        enum: [480p, 720p, 1080p, 1440p, 4k, 8k]
+        description: Skip if video resolution is within this preset
+
+      bitrate_under:
+        type: string
+        pattern: "^\\d+[MmKk]$"
+        description: Skip if video bitrate is under this value
+        examples:
+          - "10M"
+          - "5000k"
+
+  QualitySettings:
+    type: object
+    properties:
+      mode:
+        type: string
+        enum: [crf, bitrate, constrained_quality]
+        default: crf
+        description: Quality control mode
+
+      crf:
+        type: integer
+        minimum: 0
+        maximum: 51
+        description: Constant Rate Factor (0=lossless, 51=worst)
+
+      bitrate:
+        type: string
+        pattern: "^\\d+[MmKk]$"
+        description: Target bitrate for bitrate mode
+        examples:
+          - "5M"
+          - "2500k"
+
+      min_bitrate:
+        type: string
+        pattern: "^\\d+[MmKk]$"
+        description: Minimum bitrate for constrained quality
+
+      max_bitrate:
+        type: string
+        pattern: "^\\d+[MmKk]$"
+        description: Maximum bitrate for constrained quality
+
+      preset:
+        type: string
+        enum: [ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow]
+        default: medium
+        description: Encoding preset (speed/quality tradeoff)
+
+      tune:
+        type: string
+        enum: [film, animation, grain, stillimage, fastdecode, zerolatency]
+        description: Content-specific encoding optimization
+
+      two_pass:
+        type: boolean
+        default: false
+        description: Enable two-pass encoding for accurate bitrate
+
+  ScalingSettings:
+    type: object
+    properties:
+      max_resolution:
+        type: string
+        enum: [480p, 720p, 1080p, 1440p, 4k, 8k]
+        description: Maximum resolution preset
+
+      max_width:
+        type: integer
+        minimum: 1
+        description: Maximum width in pixels (alternative to max_resolution)
+
+      max_height:
+        type: integer
+        minimum: 1
+        description: Maximum height in pixels (alternative to max_resolution)
+
+      algorithm:
+        type: string
+        enum: [lanczos, bicubic, bilinear]
+        default: lanczos
+        description: Scaling algorithm
+
+      upscale:
+        type: boolean
+        default: false
+        description: Allow upscaling smaller content (false = preserve original if smaller)
+
+  HardwareAccelConfig:
+    type: object
+    properties:
+      enabled:
+        type: string
+        enum: [auto, nvenc, qsv, vaapi, none]
+        default: auto
+        description: Hardware acceleration mode
+
+      fallback_to_cpu:
+        type: boolean
+        default: true
+        description: Fall back to CPU encoding if hardware unavailable
+
+  AudioTranscodeConfig:
+    type: object
+    properties:
+      preserve_codecs:
+        type: array
+        items:
+          type: string
+        default: [truehd, dts-hd, flac]
+        description: Audio codecs to stream-copy (preserve without re-encoding)
+        examples:
+          - [truehd, dts-hd, flac, pcm_s24le]
+
+      transcode_to:
+        type: string
+        enum: [aac, ac3, eac3, opus, flac, mp3]
+        default: aac
+        description: Target codec for non-preserved audio
+
+      transcode_bitrate:
+        type: string
+        pattern: "^\\d+[kK]$"
+        default: "192k"
+        description: Bitrate for transcoded audio
+        examples:
+          - "192k"
+          - "256k"
+          - "320k"
+
+# Example policies
+examples:
+  - name: "Skip Already-HEVC Files"
+    policy:
+      version: 5
+      transcode:
+        video:
+          target_codec: hevc
+          skip_if:
+            codec_matches: [hevc, h265, x265]
+            resolution_within: 1080p
+
+  - name: "High Quality HEVC with Hardware Acceleration"
+    policy:
+      version: 5
+      transcode:
+        video:
+          target_codec: hevc
+          quality:
+            mode: crf
+            crf: 20
+            preset: slow
+            tune: film
+          hardware_acceleration:
+            enabled: auto
+            fallback_to_cpu: true
+        audio:
+          preserve_codecs: [truehd, dts-hd, flac]
+          transcode_to: aac
+          transcode_bitrate: 192k
+
+  - name: "4K to 1080p Downscale"
+    policy:
+      version: 5
+      transcode:
+        video:
+          target_codec: hevc
+          skip_if:
+            codec_matches: [hevc]
+            resolution_within: 1080p
+          quality:
+            mode: crf
+            crf: 22
+            preset: medium
+          scaling:
+            max_resolution: 1080p
+            algorithm: lanczos
+            upscale: false
+
+  - name: "Streaming Bitrate Target"
+    policy:
+      version: 5
+      transcode:
+        video:
+          target_codec: h264
+          quality:
+            mode: bitrate
+            bitrate: 5M
+            preset: fast
+          scaling:
+            max_resolution: 1080p

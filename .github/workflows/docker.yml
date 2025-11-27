@@ -66,14 +66,18 @@ jobs:
 
       - name: Check image size
         if: github.event_name != 'pull_request'
+        env:
+          # Use short SHA (7 chars) to match docker/metadata-action default
+          SHORT_SHA: ${{ github.sha }}
         run: |
-          # Pull the image to check size
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
-          SIZE=$(docker images ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }} --format "{{.Size}}")
+          # Pull the image to check size (use short SHA to match metadata-action)
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${SHORT_SHA::7}"
+          docker pull "$IMAGE_TAG"
+          SIZE=$(docker images "$IMAGE_TAG" --format "{{.Size}}")
           echo "Image size: $SIZE"
 
           # Warn if over 500MB (but don't fail)
-          SIZE_MB=$(docker images ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }} --format "{{.VirtualSize}}" | awk '{print int($1/1024/1024)}')
+          SIZE_MB=$(docker images "$IMAGE_TAG" --format "{{.VirtualSize}}" | awk '{print int($1/1024/1024)}')
           if [ "$SIZE_MB" -gt 500 ]; then
             echo "::warning::Image size ($SIZE) exceeds 500MB target"
           fi

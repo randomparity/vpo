@@ -1,0 +1,232 @@
+"""Unit tests for audio preservation during video transcoding (US8).
+
+Tests the AudioTranscodeConfig dataclass and preserve_codecs matching logic.
+"""
+
+import pytest
+
+from video_policy_orchestrator.db.models import TrackInfo
+from video_policy_orchestrator.policy.models import (
+    AudioTranscodeConfig,
+)
+from video_policy_orchestrator.policy.transcode import (
+    codec_matches,
+    normalize_codec_name,
+    should_preserve_codec,
+)
+
+
+class TestAudioTranscodeConfigDataclass:
+    """T032: Unit tests for AudioTranscodeConfig dataclass."""
+
+    def test_default_values(self) -> None:
+        """AudioTranscodeConfig has sensible defaults for lossless preservation."""
+        config = AudioTranscodeConfig()
+
+        assert config.preserve_codecs == ("truehd", "dts-hd", "flac", "pcm_s24le")
+        assert config.transcode_to == "aac"
+        assert config.transcode_bitrate == "192k"
+
+    def test_custom_preserve_codecs(self) -> None:
+        """AudioTranscodeConfig accepts custom preserve_codecs list."""
+        config = AudioTranscodeConfig(
+            preserve_codecs=("truehd", "dts-hd ma", "flac", "pcm_s16le", "pcm_s24le"),
+            transcode_to="eac3",
+            transcode_bitrate="640k",
+        )
+
+        assert "truehd" in config.preserve_codecs
+        assert "dts-hd ma" in config.preserve_codecs
+        assert config.transcode_to == "eac3"
+        assert config.transcode_bitrate == "640k"
+
+    def test_invalid_transcode_to_codec(self) -> None:
+        """AudioTranscodeConfig rejects invalid transcode_to codec."""
+        with pytest.raises(ValueError, match="Invalid transcode_to"):
+            AudioTranscodeConfig(transcode_to="invalid_codec")
+
+    def test_invalid_bitrate_format(self) -> None:
+        """AudioTranscodeConfig rejects invalid bitrate format."""
+        with pytest.raises(ValueError, match="Invalid transcode_bitrate"):
+            AudioTranscodeConfig(transcode_bitrate="invalid")
+
+    def test_valid_audio_codecs(self) -> None:
+        """All common audio codecs can be used as transcode target."""
+        valid_targets = ["aac", "ac3", "eac3", "flac", "opus", "mp3"]
+        for codec in valid_targets:
+            config = AudioTranscodeConfig(transcode_to=codec)
+            assert config.transcode_to == codec
+
+    def test_immutable(self) -> None:
+        """AudioTranscodeConfig is frozen/immutable."""
+        config = AudioTranscodeConfig()
+        with pytest.raises(AttributeError):
+            config.transcode_to = "ac3"  # type: ignore[misc]
+
+
+class TestPreserveCodecsMatching:
+    """T033: Unit tests for preserve_codecs matching."""
+
+    def test_exact_codec_match(self) -> None:
+        """Exact codec name matches."""
+        assert codec_matches("truehd", "truehd") is True
+        assert codec_matches("flac", "flac") is True
+        assert codec_matches("aac", "aac") is True
+
+    def test_case_insensitive_match(self) -> None:
+        """Codec matching is case-insensitive."""
+        assert codec_matches("TrueHD", "truehd") is True
+        assert codec_matches("truehd", "TRUEHD") is True
+        assert codec_matches("FLAC", "flac") is True
+
+    def test_dts_hd_variants(self) -> None:
+        """DTS-HD variants all match 'dts-hd' pattern."""
+        assert codec_matches("dts-hd ma", "dts-hd") is True
+        assert codec_matches("dts-hd", "dts-hd") is True
+        assert codec_matches("dtshd", "dts-hd") is True
+
+    def test_pcm_variants(self) -> None:
+        """PCM variants match 'pcm' pattern."""
+        assert codec_matches("pcm_s16le", "pcm") is True
+        assert codec_matches("pcm_s24le", "pcm") is True
+        assert codec_matches("pcm_s32le", "pcm") is True
+
+    def test_wildcard_patterns(self) -> None:
+        """Wildcard patterns work for codec matching."""
+        assert codec_matches("pcm_s24le", "pcm_*") is True
+        assert codec_matches("pcm_s16le", "pcm_*") is True
+
+    def test_no_match(self) -> None:
+        """Non-matching codecs return False."""
+        assert codec_matches("aac", "truehd") is False
+        assert codec_matches("ac3", "flac") is False
+
+    def test_none_codec(self) -> None:
+        """None codec returns False."""
+        assert codec_matches(None, "truehd") is False  # type: ignore[arg-type]
+
+
+class TestShouldPreserveCodec:
+    """Additional tests for should_preserve_codec function."""
+
+    def test_preserve_lossless_by_default(self) -> None:
+        """Default preserve_codecs list includes common lossless codecs."""
+        default_preserve = ("truehd", "dts-hd", "flac", "pcm_s24le")
+
+        assert should_preserve_codec("truehd", default_preserve) is True
+        assert should_preserve_codec("flac", default_preserve) is True
+        assert should_preserve_codec("pcm_s24le", default_preserve) is True
+
+    def test_transcode_lossy_by_default(self) -> None:
+        """Lossy codecs are not preserved by default."""
+        default_preserve = ("truehd", "dts-hd", "flac", "pcm_s24le")
+
+        assert should_preserve_codec("aac", default_preserve) is False
+        assert should_preserve_codec("ac3", default_preserve) is False
+        assert should_preserve_codec("mp3", default_preserve) is False
+
+    def test_empty_preserve_list(self) -> None:
+        """Empty preserve list means nothing is preserved."""
+        assert should_preserve_codec("truehd", ()) is False
+        assert should_preserve_codec("flac", ()) is False
+
+
+class TestAudioTrackPlanning:
+    """T034: Unit tests for audio track planning (COPY vs TRANSCODE)."""
+
+    def _make_audio_track(
+        self,
+        index: int,
+        codec: str,
+        language: str = "eng",
+        channels: int = 6,
+        channel_layout: str = "5.1",
+    ) -> TrackInfo:
+        """Create a test audio track."""
+        return TrackInfo(
+            index=index,
+            track_type="audio",
+            codec=codec,
+            language=language,
+            title=None,
+            is_default=False,
+            is_forced=False,
+            channels=channels,
+            channel_layout=channel_layout,
+            width=None,
+            height=None,
+            frame_rate=None,
+        )
+
+    def test_lossless_track_is_copied(self) -> None:
+        """Lossless audio track with codec in preserve_codecs is copied."""
+        track = self._make_audio_track(1, "truehd", channels=8, channel_layout="7.1")
+        preserve_codecs = ("truehd", "dts-hd", "flac")
+
+        # Check if codec should be preserved
+        assert should_preserve_codec(track.codec, preserve_codecs) is True
+
+    def test_lossy_track_is_transcoded(self) -> None:
+        """Lossy audio track not in preserve_codecs is transcoded."""
+        track = self._make_audio_track(2, "ac3", channels=6, channel_layout="5.1")
+        preserve_codecs = ("truehd", "dts-hd", "flac")
+
+        # Check if codec should be transcoded
+        assert should_preserve_codec(track.codec, preserve_codecs) is False
+
+    def test_multiple_tracks_mixed_actions(self) -> None:
+        """Multiple audio tracks can have different actions."""
+        tracks = [
+            self._make_audio_track(0, "truehd", channels=8),
+            self._make_audio_track(1, "ac3", channels=6),
+            self._make_audio_track(2, "aac", channels=2),
+        ]
+        preserve_codecs = ("truehd", "dts-hd", "flac")
+
+        # TrueHD should be preserved
+        assert should_preserve_codec(tracks[0].codec, preserve_codecs) is True
+        # AC3 should be transcoded
+        assert should_preserve_codec(tracks[1].codec, preserve_codecs) is False
+        # AAC should be transcoded
+        assert should_preserve_codec(tracks[2].codec, preserve_codecs) is False
+
+    def test_preserve_dts_hd_ma(self) -> None:
+        """DTS-HD MA specifically should be preserved."""
+        track = self._make_audio_track(0, "dts-hd ma", channels=8)
+        preserve_codecs = ("truehd", "dts-hd", "flac")
+
+        assert should_preserve_codec(track.codec, preserve_codecs) is True
+
+    def test_preserve_flac(self) -> None:
+        """FLAC should be preserved as lossless."""
+        track = self._make_audio_track(0, "flac", channels=2)
+        preserve_codecs = ("truehd", "dts-hd", "flac")
+
+        assert should_preserve_codec(track.codec, preserve_codecs) is True
+
+
+class TestNormalizeCodecName:
+    """Tests for codec name normalization."""
+
+    def test_normalize_truehd(self) -> None:
+        """TrueHD variants normalize correctly."""
+        assert normalize_codec_name("truehd") == "truehd"
+        assert normalize_codec_name("TrueHD") == "truehd"
+        assert normalize_codec_name("TRUEHD") == "truehd"
+
+    def test_normalize_dts_hd(self) -> None:
+        """DTS-HD variants normalize correctly."""
+        assert normalize_codec_name("dts-hd ma") == "dts-hd"
+        assert normalize_codec_name("dts-hd") == "dts-hd"
+        assert normalize_codec_name("dtshd") == "dts-hd"
+        assert normalize_codec_name("DTS-HD MA") == "dts-hd"
+
+    def test_normalize_standard_codecs(self) -> None:
+        """Standard codecs normalize to lowercase."""
+        assert normalize_codec_name("AAC") == "aac"
+        assert normalize_codec_name("AC3") == "ac3"
+        assert normalize_codec_name("FLAC") == "flac"
+
+    def test_normalize_none(self) -> None:
+        """None input returns empty string."""
+        assert normalize_codec_name(None) == ""  # type: ignore[arg-type]

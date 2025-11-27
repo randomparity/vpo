@@ -11,6 +11,7 @@ from enum import Enum
 from video_policy_orchestrator.db.models import TrackInfo
 from video_policy_orchestrator.policy.models import (
     AudioPreservationRule,
+    AudioTranscodeConfig,
     TranscodePolicyConfig,
 )
 
@@ -325,3 +326,90 @@ def describe_audio_plan(plan: AudioPlan) -> list[str]:
         )
 
     return descriptions
+
+
+# =============================================================================
+# V6 Audio Planning Functions
+# =============================================================================
+
+
+def evaluate_audio_track_v6(
+    track: TrackInfo,
+    audio_config: AudioTranscodeConfig,
+) -> AudioTrackPlan:
+    """Evaluate how to handle a single audio track using V6 AudioTranscodeConfig.
+
+    Args:
+        track: Audio track info.
+        audio_config: V6 audio transcode configuration.
+
+    Returns:
+        AudioTrackPlan with the action to take.
+    """
+    codec = track.codec
+    stream_index = track.index  # Will be re-indexed by caller
+
+    # Check if codec should be preserved (stream-copied)
+    if should_preserve_codec(codec, audio_config.preserve_codecs):
+        return AudioTrackPlan(
+            track_index=track.index,
+            stream_index=stream_index,
+            codec=codec,
+            language=track.language,
+            channels=track.channels,
+            channel_layout=track.channel_layout,
+            action=AudioAction.COPY,
+            reason=f"Codec '{codec}' is in preservation list (lossless)",
+        )
+
+    # Transcode to target codec
+    return AudioTrackPlan(
+        track_index=track.index,
+        stream_index=stream_index,
+        codec=codec,
+        language=track.language,
+        channels=track.channels,
+        channel_layout=track.channel_layout,
+        action=AudioAction.TRANSCODE,
+        target_codec=audio_config.transcode_to,
+        target_bitrate=audio_config.transcode_bitrate,
+        reason=f"Transcoding '{codec}' to '{audio_config.transcode_to}'",
+    )
+
+
+def create_audio_plan_v6(
+    audio_tracks: list[TrackInfo],
+    audio_config: AudioTranscodeConfig | None,
+) -> AudioPlan:
+    """Create a complete audio handling plan using V6 AudioTranscodeConfig.
+
+    Args:
+        audio_tracks: List of audio tracks from introspection.
+        audio_config: V6 audio transcode configuration, or None for copy-all.
+
+    Returns:
+        AudioPlan with actions for all tracks.
+    """
+    track_plans = []
+    audio_stream_index = 0
+
+    for track in audio_tracks:
+        if audio_config is not None:
+            plan = evaluate_audio_track_v6(track, audio_config)
+        else:
+            # No audio config - copy all audio tracks
+            plan = AudioTrackPlan(
+                track_index=track.index,
+                stream_index=track.index,
+                codec=track.codec,
+                language=track.language,
+                channels=track.channels,
+                channel_layout=track.channel_layout,
+                action=AudioAction.COPY,
+                reason="No audio transcode config - preserving all",
+            )
+        plan.stream_index = audio_stream_index
+        track_plans.append(plan)
+        audio_stream_index += 1
+
+    return AudioPlan(tracks=track_plans, downmix_track=None)
