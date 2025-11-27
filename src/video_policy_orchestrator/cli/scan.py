@@ -123,64 +123,73 @@ def _run_language_analysis(
     Returns:
         Dictionary with 'analyzed', 'skipped', 'errors' counts.
     """
-    from video_policy_orchestrator.db.models import get_file_by_path
-    from video_policy_orchestrator.transcription.factory import get_transcriber
+    from video_policy_orchestrator.db.models import (
+        get_file_by_path,
+        get_tracks_for_file,
+    )
+    from video_policy_orchestrator.language_analysis.orchestrator import (
+        AnalysisProgress,
+    )
 
     stats = {"analyzed": 0, "skipped": 0, "errors": 0}
 
-    # Get transcriber via factory
-    transcriber = get_transcriber(require_multi_language=True)
-    if transcriber is None:
-        warning_output(
-            "Transcription plugin unavailable or lacks multi-language support. "
-            "Language analysis skipped.",
-            json_output=json_output,
-        )
-        return stats
+    # Create orchestrator (it handles transcriber initialization internally)
+    orchestrator = LanguageAnalysisOrchestrator()
 
-    # Collect file paths with their hashes for batch analysis
-    file_paths_with_hashes: list[tuple[Path, str]] = []
+    # Track progress across all files
+    total_files = len(files)
+    files_processed = 0
+
     for scanned_file in files:
         file_record = get_file_by_path(conn, scanned_file.path)
-        if file_record is not None and file_record.id is not None:
-            file_hash = scanned_file.content_hash or ""
-            file_paths_with_hashes.append((Path(scanned_file.path), file_hash))
+        if file_record is None or file_record.id is None:
+            continue
 
-    if not file_paths_with_hashes:
-        return stats
+        track_records = get_tracks_for_file(conn, file_record.id)
+        file_path = Path(scanned_file.path)
 
-    # Progress callback for orchestrator
-    def on_progress(prog) -> None:
-        progress.on_language_progress(
-            prog.files_processed,
-            prog.total_files,
-            Path(prog.current_file).name if prog.current_file else "",
+        # Update progress display
+        files_processed += 1
+        progress.on_language_progress(files_processed, total_files, file_path.name)
+
+        # Progress callback for verbose output
+        def on_track_progress(p: AnalysisProgress) -> None:
+            if not verbose or json_output:
+                return
+            if p.status == "cached" and p.result:
+                click.echo(
+                    f"  Track {p.track_index}: {p.result.classification.value} (cached)"
+                )
+            elif p.status == "analyzed" and p.result:
+                click.echo(
+                    f"  Track {p.track_index}: {p.result.classification.value} "
+                    f"({p.result.primary_language} {p.result.primary_percentage:.0%})"
+                )
+
+        result = orchestrator.analyze_tracks_for_file(
+            conn=conn,
+            file_record=file_record,
+            track_records=track_records,
+            file_path=file_path,
+            progress_callback=on_track_progress if verbose else None,
         )
 
-    # Verbose callback for individual track results
-    def on_track_result(file_path: Path, track_index: int, result) -> None:
-        if verbose and not json_output:
-            click.echo(
-                f"  Track {track_index}: "
-                f"{result.classification.value} "
-                f"({result.primary_language} {result.primary_percentage:.0%})"
+        # Check if transcriber is available (only need to check once)
+        if not result.transcriber_available:
+            warning_output(
+                "Transcription plugin unavailable or lacks multi-language support. "
+                "Language analysis skipped.",
+                json_output=json_output,
             )
+            return stats
 
-    # Run batch analysis via orchestrator
-    orchestrator = LanguageAnalysisOrchestrator(
-        conn=conn,
-        transcriber=transcriber,
-        progress_callback=on_progress,
-    )
+        # Accumulate stats
+        stats["analyzed"] += result.analyzed
+        stats["skipped"] += result.skipped + result.cached
+        stats["errors"] += result.errors
 
-    batch_result = orchestrator.analyze_batch(
-        file_paths_with_hashes,
-        on_track_analyzed=on_track_result if verbose else None,
-    )
-
-    stats["analyzed"] = batch_result.tracks_analyzed
-    stats["skipped"] = batch_result.tracks_skipped
-    stats["errors"] = batch_result.tracks_errored
+    # Commit any persisted results
+    conn.commit()
 
     return stats
 

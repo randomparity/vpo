@@ -7,7 +7,7 @@ replacing duplicated patterns across apply.py, scan.py, and serve.py.
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn
 
 import click
 
@@ -59,7 +59,7 @@ def load_profile_or_exit(
 def _show_available_profiles_and_exit(
     error_msg: str,
     json_output: bool,
-) -> None:
+) -> NoReturn:
     """Show error with available profiles and exit.
 
     Args:
