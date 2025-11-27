@@ -245,28 +245,28 @@
 
 ### Schema Version
 
-- [ ] T088 Update CURRENT_SCHEMA_VERSION to 7 in src/video_policy_orchestrator/policy/loader.py
-- [ ] T089 Add V7 schema version validation for new features in src/video_policy_orchestrator/policy/loader.py
-- [ ] T090 Ensure V6 policies continue to work (backward compatibility) in src/video_policy_orchestrator/policy/loader.py
+- [X] T088 Update CURRENT_SCHEMA_VERSION to 7 in src/video_policy_orchestrator/policy/loader.py
+- [X] T089 Add V7 schema version validation for new features in src/video_policy_orchestrator/policy/loader.py
+- [X] T090 Ensure V6 policies continue to work (backward compatibility) in src/video_policy_orchestrator/policy/loader.py
 
 ### Integration Tests
 
-- [ ] T091 [P] Create integration test for full scan with language analysis in tests/integration/test_language_analysis.py
-- [ ] T092 [P] Create integration test for policy evaluation with audio_is_multi_language in tests/integration/test_language_analysis.py
-- [ ] T093 Create integration test for end-to-end forced subtitle enablement in tests/integration/test_language_analysis.py
+- [X] T091 [P] Create integration test for full scan with language analysis in tests/integration/test_language_analysis.py
+- [X] T092 [P] Create integration test for policy evaluation with audio_is_multi_language in tests/integration/test_language_analysis.py
+- [X] T093 Create integration test for end-to-end forced subtitle enablement in tests/integration/test_language_analysis.py
 
 ### Documentation
 
-- [ ] T094 [P] Create example policy file at policies/examples/multi-language.yaml
-- [ ] T095 [P] Update CLI help text for all new options in src/video_policy_orchestrator/cli/*.py
-- [ ] T096 Add user documentation for multi-language detection in docs/usage/multi-language-detection.md
+- [X] T094 [P] Create example policy file at policies/examples/multi-language.yaml
+- [X] T095 [P] Update CLI help text for all new options in src/video_policy_orchestrator/cli/*.py
+- [X] T096 Add user documentation for multi-language detection in docs/usage/multi-language-detection.md
 
 ### Edge Case Handling
 
-- [ ] T097 Add handling for audio with no speech (InsufficientSpeechError) in src/video_policy_orchestrator/language_analysis/service.py
-- [ ] T098 Add handling for very short audio tracks (<30s) in src/video_policy_orchestrator/language_analysis/service.py
-- [ ] T099 Add handling for Whisper model unavailable in src/video_policy_orchestrator/language_analysis/service.py
-- [ ] T100 Add handling for multiple audio tracks (analyze each separately) in src/video_policy_orchestrator/language_analysis/service.py
+- [X] T097 Add handling for audio with no speech (InsufficientSpeechError) in src/video_policy_orchestrator/language_analysis/service.py
+- [X] T098 Add handling for very short audio tracks (<30s) in src/video_policy_orchestrator/language_analysis/service.py
+- [X] T099 Add handling for Whisper model unavailable in src/video_policy_orchestrator/language_analysis/service.py
+- [X] T100 Add handling for multiple audio tracks (analyze each separately) in src/video_policy_orchestrator/language_analysis/service.py
 
 **Edge Case Coverage Note**: The edge case "code-switching within sentences" (spec.md:89) is handled by T026 (`_aggregate_segments()`) which uses per-sample dominant language detection. Whisper naturally handles mixed-language samples by returning the dominant language for each 5-second sample.
 

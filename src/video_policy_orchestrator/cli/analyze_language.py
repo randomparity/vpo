@@ -17,7 +17,10 @@ from video_policy_orchestrator.db.models import (
 )
 from video_policy_orchestrator.language_analysis.models import LanguageClassification
 from video_policy_orchestrator.language_analysis.service import (
+    InsufficientSpeechError,
     LanguageAnalysisError,
+    ShortTrackError,
+    TranscriptionPluginError,
     analyze_track_languages,
     get_cached_analysis,
     invalidate_analysis_cache,
@@ -254,12 +257,58 @@ def run_command(
                         }
                     )
 
+                except ShortTrackError as e:
+                    # T098: Handle short tracks gracefully
+                    if not json_output:
+                        click.echo(
+                            f"  Track {track.track_index}: Skipped - "
+                            f"too short ({e.duration:.1f}s)"
+                        )
+                    results.append(
+                        {
+                            "track_index": track.track_index,
+                            "status": "skipped",
+                            "reason": "track_too_short",
+                            "duration": e.duration,
+                        }
+                    )
+
+                except InsufficientSpeechError as e:
+                    # T097: Handle tracks with no speech
+                    if not json_output:
+                        click.echo(
+                            f"  Track {track.track_index}: Skipped - "
+                            f"insufficient speech ({e.speech_ratio:.0%})"
+                        )
+                    results.append(
+                        {
+                            "track_index": track.track_index,
+                            "status": "skipped",
+                            "reason": "insufficient_speech",
+                            "speech_ratio": e.speech_ratio,
+                        }
+                    )
+
+                except TranscriptionPluginError as e:
+                    # T099: Handle plugin unavailable
+                    if not json_output:
+                        click.echo(f"  Track {track.track_index}: Error - {e}")
+                    results.append(
+                        {
+                            "track_index": track.track_index,
+                            "status": "error",
+                            "reason": "plugin_error",
+                            "error": str(e),
+                        }
+                    )
+
                 except LanguageAnalysisError as e:
                     if not json_output:
                         click.echo(f"  Track {track.track_index}: Error - {e}")
                     results.append(
                         {
                             "track_index": track.track_index,
+                            "status": "error",
                             "error": str(e),
                         }
                     )

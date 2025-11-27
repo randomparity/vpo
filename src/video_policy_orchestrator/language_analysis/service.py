@@ -53,6 +53,46 @@ class LanguageAnalysisError(Exception):
     pass
 
 
+class InsufficientSpeechError(LanguageAnalysisError):
+    """Exception raised when audio track has insufficient speech for analysis.
+
+    This occurs when the speech ratio is below the minimum threshold,
+    indicating the track may be music, sound effects, or silence.
+    """
+
+    def __init__(self, track_index: int, speech_ratio: float, threshold: float = 0.1):
+        self.track_index = track_index
+        self.speech_ratio = speech_ratio
+        self.threshold = threshold
+        super().__init__(
+            f"Track {track_index} has insufficient speech for analysis "
+            f"(speech ratio: {speech_ratio:.1%}, threshold: {threshold:.1%})"
+        )
+
+
+class ShortTrackError(LanguageAnalysisError):
+    """Exception raised when audio track is too short for reliable analysis.
+
+    Tracks shorter than 30 seconds may not have enough content for
+    multi-language detection.
+    """
+
+    def __init__(self, track_index: int, duration: float, minimum: float = 30.0):
+        self.track_index = track_index
+        self.duration = duration
+        self.minimum = minimum
+        super().__init__(
+            f"Track {track_index} is too short for analysis "
+            f"({duration:.1f}s, minimum: {minimum:.1f}s)"
+        )
+
+
+class TranscriptionPluginError(LanguageAnalysisError):
+    """Exception raised when transcription plugin is unavailable or misconfigured."""
+
+    pass
+
+
 def analyze_track_languages(
     file_path: Path,
     track_index: int,
@@ -89,10 +129,24 @@ def analyze_track_languages(
 
     Raises:
         LanguageAnalysisError: If analysis fails completely.
+        ShortTrackError: If track is too short for reliable analysis (<30s).
+        InsufficientSpeechError: If track has insufficient speech content.
+        TranscriptionPluginError: If transcription plugin is unavailable.
         ValueError: If plugin doesn't support multi_language_detection.
     """
     if config is None:
         config = MultiLanguageDetectionConfig()
+
+    # T098: Check for very short audio tracks
+    minimum_duration = getattr(config, "minimum_duration", 30.0)
+    if track_duration < minimum_duration:
+        logger.warning(
+            "Track %d is too short for reliable analysis (%.1fs < %.1fs)",
+            track_index,
+            track_duration,
+            minimum_duration,
+        )
+        raise ShortTrackError(track_index, track_duration, minimum_duration)
 
     # T076: Check for existing transcription result with high confidence
     # If we have a transcription result with high confidence and the caller
@@ -133,10 +187,11 @@ def analyze_track_languages(
             updated_at=now,
         )
 
-    # Verify plugin supports the feature
+    # T099: Verify plugin supports the feature
     if not transcriber.supports_feature("multi_language_detection"):
-        raise ValueError(
-            f"Plugin '{transcriber.name}' does not support multi_language_detection"
+        raise TranscriptionPluginError(
+            f"Plugin '{transcriber.name}' does not support multi_language_detection. "
+            "Please install openai-whisper or another compatible transcription plugin."
         )
 
     # Calculate sample positions

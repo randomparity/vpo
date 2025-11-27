@@ -62,7 +62,7 @@ from video_policy_orchestrator.policy.models import (
 )
 
 # Current maximum supported schema version
-MAX_SCHEMA_VERSION = 6
+MAX_SCHEMA_VERSION = 7
 
 
 class PolicyValidationError(Exception):
@@ -993,6 +993,90 @@ class ConditionalRuleModel(BaseModel):
         return v.strip()
 
 
+def _check_v7_features_in_condition(condition: ConditionModel) -> set[str]:
+    """Check if a condition uses V7 features.
+
+    Recursively checks conditions for V7-specific features.
+
+    Args:
+        condition: The condition to check.
+
+    Returns:
+        Set of V7 feature names found in the condition.
+    """
+    features: set[str] = set()
+
+    if condition.audio_is_multi_language is not None:
+        features.add("audio_is_multi_language")
+
+    # Check nested conditions
+    if condition.all_of is not None:
+        for sub in condition.all_of:
+            features.update(_check_v7_features_in_condition(sub))
+    if condition.any_of is not None:
+        for sub in condition.any_of:
+            features.update(_check_v7_features_in_condition(sub))
+    if condition.not_ is not None:
+        features.update(_check_v7_features_in_condition(condition.not_))
+
+    return features
+
+
+def _check_v7_features_in_action(action: ActionModel) -> set[str]:
+    """Check if an action uses V7 features.
+
+    Args:
+        action: The action to check.
+
+    Returns:
+        Set of V7 feature names found in the action.
+    """
+    features: set[str] = set()
+
+    if action.set_forced is not None:
+        features.add("set_forced")
+    if action.set_default is not None:
+        features.add("set_default")
+
+    return features
+
+
+def _check_v7_features_in_rules(rules: list[ConditionalRuleModel]) -> set[str]:
+    """Check if any conditional rules use V7 features.
+
+    Checks conditions and actions for V7-specific features like
+    audio_is_multi_language, set_forced, and set_default.
+
+    Args:
+        rules: List of conditional rules to check.
+
+    Returns:
+        Set of V7 feature names found in the rules.
+    """
+    features: set[str] = set()
+
+    for rule in rules:
+        # Check condition
+        features.update(_check_v7_features_in_condition(rule.when))
+
+        # Check then actions
+        if isinstance(rule.then, list):
+            for action in rule.then:
+                features.update(_check_v7_features_in_action(action))
+        else:
+            features.update(_check_v7_features_in_action(rule.then))
+
+        # Check else actions
+        if rule.else_ is not None:
+            if isinstance(rule.else_, list):
+                for action in rule.else_:
+                    features.update(_check_v7_features_in_action(action))
+            else:
+                features.update(_check_v7_features_in_action(rule.else_))
+
+    return features
+
+
 class PolicyModel(BaseModel):
     """Pydantic model for policy YAML validation."""
 
@@ -1067,6 +1151,16 @@ class PolicyModel(BaseModel):
                 raise ValueError(
                     "V6 transcode format (video/audio sections) requires "
                     f"schema_version >= 6, but schema_version is {self.schema_version}"
+                )
+
+        # V7 field validation: audio_is_multi_language, set_forced, set_default
+        if self.conditional is not None and self.schema_version < 7:
+            v7_features = _check_v7_features_in_rules(self.conditional)
+            if v7_features:
+                features_str = ", ".join(sorted(v7_features))
+                raise ValueError(
+                    f"V7 features ({features_str}) require schema_version >= 7, "
+                    f"but schema_version is {self.schema_version}"
                 )
 
         return self
