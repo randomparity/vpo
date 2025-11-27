@@ -41,6 +41,7 @@ def file_lock(file_path: Path) -> Iterator[None]:
     """
     lock_path = file_path.with_suffix(file_path.suffix + LOCK_SUFFIX)
     lock_file = None
+    lock_acquired = False
 
     try:
         # Create lock file
@@ -49,6 +50,7 @@ def file_lock(file_path: Path) -> Iterator[None]:
         try:
             # Try to acquire exclusive lock (non-blocking)
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            lock_acquired = True
         except (BlockingIOError, OSError) as e:
             raise FileLockError(
                 f"File is being modified by another operation: {file_path}"
@@ -62,10 +64,13 @@ def file_lock(file_path: Path) -> Iterator[None]:
     except FileLockError:
         raise
     finally:
-        # Always clean up: close file handle and remove lock file
+        # Always clean up: close file handle
         if lock_file is not None:
             lock_file.close()
-        lock_path.unlink(missing_ok=True)
+        # Only remove lock file if WE acquired the lock (prevents race condition
+        # where a failed acquisition would delete another process's lock file)
+        if lock_acquired:
+            lock_path.unlink(missing_ok=True)
 
 
 def create_backup(file_path: Path) -> Path:

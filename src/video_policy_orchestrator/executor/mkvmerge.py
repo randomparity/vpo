@@ -5,6 +5,7 @@ using mkvmerge's --track-order and --audio-tracks/--subtitle-tracks options.
 This requires a remux (no re-encoding).
 """
 
+import logging
 import subprocess  # nosec B404 - subprocess is required for mkvmerge execution
 import tempfile
 from pathlib import Path
@@ -17,6 +18,8 @@ from video_policy_orchestrator.executor.backup import (
 )
 from video_policy_orchestrator.executor.interface import ExecutorResult, require_tool
 from video_policy_orchestrator.policy.models import ActionType, Plan, TrackDisposition
+
+logger = logging.getLogger(__name__)
 
 
 class MkvmergeExecutor:
@@ -33,9 +36,16 @@ class MkvmergeExecutor:
     The process writes to a temp file and atomically replaces the original.
     """
 
-    def __init__(self) -> None:
-        """Initialize the executor."""
+    DEFAULT_TIMEOUT: int = 1800  # 30 minutes
+
+    def __init__(self, timeout: int | None = None) -> None:
+        """Initialize the executor.
+
+        Args:
+            timeout: Subprocess timeout in seconds. None uses DEFAULT_TIMEOUT.
+        """
         self._tool_path: Path | None = None
+        self._timeout = timeout if timeout is not None else self.DEFAULT_TIMEOUT
 
     @property
     def tool_path(self) -> Path:
@@ -135,21 +145,32 @@ class MkvmergeExecutor:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=1800,  # 30 minute timeout for large files
+                timeout=self._timeout if self._timeout > 0 else None,
+                encoding="utf-8",
+                errors="replace",
             )
         except subprocess.TimeoutExpired:
             temp_path.unlink(missing_ok=True)
             restore_from_backup(backup_path)
+            timeout_mins = self._timeout // 60 if self._timeout else 0
             return ExecutorResult(
                 success=False,
-                message="mkvmerge timed out after 30 minutes",
+                message=f"mkvmerge timed out after {timeout_mins} minutes",
             )
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError) as e:
             temp_path.unlink(missing_ok=True)
             restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
                 message=f"mkvmerge execution failed: {e}",
+            )
+        except Exception as e:
+            logger.exception("Unexpected error during mkvmerge execution")
+            temp_path.unlink(missing_ok=True)
+            restore_from_backup(backup_path)
+            return ExecutorResult(
+                success=False,
+                message=f"Unexpected error during mkvmerge execution: {e}",
             )
 
         # mkvmerge returns 0 for success, 1 for warnings, 2 for errors

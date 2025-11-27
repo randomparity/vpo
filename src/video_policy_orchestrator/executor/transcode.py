@@ -1080,13 +1080,19 @@ class TranscodeExecutor:
         # Read stderr in a separate thread to support timeout
         stderr_output: list[str] = []
         stderr_queue: queue.Queue[str | None] = queue.Queue()
+        stop_event = threading.Event()
 
         def read_stderr() -> None:
             """Read stderr lines and put them in the queue."""
             try:
                 assert process.stderr is not None
                 for line in process.stderr:
+                    if stop_event.is_set():
+                        break
                     stderr_queue.put(line)
+            except (ValueError, OSError):
+                # Pipe closed or process terminated
+                pass
             finally:
                 stderr_queue.put(None)  # Signal end of output
 
@@ -1126,9 +1132,23 @@ class TranscodeExecutor:
             logger.warning(
                 "%s timed out after %s seconds", description, self.transcode_timeout
             )
+            stop_event.set()  # Signal thread to stop
             process.kill()
+            # Close stderr to unblock reader thread
+            if process.stderr:
+                try:
+                    process.stderr.close()
+                except Exception:  # nosec B110 - Intentionally ignoring close errors
+                    pass
             process.wait()  # Clean up zombie process
+            # Wait for reader thread to finish with shorter timeout
+            reader_thread.join(timeout=2.0)
+            if reader_thread.is_alive():
+                logger.warning("Stderr reader thread did not terminate cleanly")
             return (False, -1, stderr_output)
+
+        # Signal thread to stop (process completed normally)
+        stop_event.set()
 
         # Drain any remaining stderr output
         reader_thread.join(timeout=5.0)

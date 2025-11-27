@@ -4,13 +4,21 @@ This module provides an executor for changing metadata in non-MKV containers
 (MP4, AVI, etc.) using ffmpeg with stream copy.
 """
 
+import logging
 import subprocess  # nosec B404 - subprocess is required for ffmpeg execution
 import tempfile
 from pathlib import Path
 
-from video_policy_orchestrator.executor.backup import create_backup, restore_from_backup
+from video_policy_orchestrator.executor.backup import (
+    InsufficientDiskSpaceError,
+    check_disk_space,
+    create_backup,
+    restore_from_backup,
+)
 from video_policy_orchestrator.executor.interface import ExecutorResult, require_tool
 from video_policy_orchestrator.policy.models import ActionType, Plan, PlannedAction
+
+logger = logging.getLogger(__name__)
 
 
 class FfmpegMetadataExecutor:
@@ -32,9 +40,16 @@ class FfmpegMetadataExecutor:
     - Forced flag is buggy in some containers
     """
 
-    def __init__(self) -> None:
-        """Initialize the executor."""
+    DEFAULT_TIMEOUT: int = 600  # 10 minutes
+
+    def __init__(self, timeout: int | None = None) -> None:
+        """Initialize the executor.
+
+        Args:
+            timeout: Subprocess timeout in seconds. None uses DEFAULT_TIMEOUT.
+        """
         self._tool_path: Path | None = None
+        self._timeout = timeout if timeout is not None else self.DEFAULT_TIMEOUT
 
     @property
     def tool_path(self) -> Path:
@@ -81,6 +96,12 @@ class FfmpegMetadataExecutor:
         if plan.is_empty:
             return ExecutorResult(success=True, message="No changes to apply")
 
+        # Pre-flight disk space check (needs ~2x file size for backup + temp)
+        try:
+            check_disk_space(plan.file_path, multiplier=2.0)
+        except InsufficientDiskSpaceError as e:
+            return ExecutorResult(success=False, message=str(e))
+
         # Create backup
         try:
             backup_path = create_backup(plan.file_path)
@@ -107,21 +128,32 @@ class FfmpegMetadataExecutor:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=600,  # 10 minute timeout for larger files
+                timeout=self._timeout if self._timeout > 0 else None,
+                encoding="utf-8",
+                errors="replace",
             )
         except subprocess.TimeoutExpired:
             temp_path.unlink(missing_ok=True)
             restore_from_backup(backup_path)
+            timeout_mins = self._timeout // 60 if self._timeout else 0
             return ExecutorResult(
                 success=False,
-                message="ffmpeg timed out after 10 minutes",
+                message=f"ffmpeg timed out after {timeout_mins} minutes",
             )
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError) as e:
             temp_path.unlink(missing_ok=True)
             restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
                 message=f"ffmpeg execution failed: {e}",
+            )
+        except Exception as e:
+            logger.exception("Unexpected error during ffmpeg execution")
+            temp_path.unlink(missing_ok=True)
+            restore_from_backup(backup_path)
+            return ExecutorResult(
+                success=False,
+                message=f"Unexpected error during ffmpeg execution: {e}",
             )
 
         if result.returncode != 0:
@@ -192,8 +224,16 @@ class FfmpegMetadataExecutor:
             # Clear forced but keep other dispositions
             return [f"-disposition:{idx}", "0"]
         elif action.action_type == ActionType.SET_TITLE:
+            if action.desired_value is None:
+                raise ValueError(
+                    f"SET_TITLE requires a non-None desired_value for track {idx}"
+                )
             return [f"-metadata:s:{idx}", f"title={action.desired_value}"]
         elif action.action_type == ActionType.SET_LANGUAGE:
+            if action.desired_value is None:
+                raise ValueError(
+                    f"SET_LANGUAGE requires a non-None desired_value for track {idx}"
+                )
             return [f"-metadata:s:{idx}", f"language={action.desired_value}"]
         else:
             raise ValueError(f"Unsupported action type: {action.action_type}")
