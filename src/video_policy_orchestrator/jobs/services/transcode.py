@@ -108,11 +108,17 @@ class TranscodeJobService:
         if not transcode_result.success:
             return transcode_result
 
+        # Handle case where transcode succeeded but no output (e.g., skip scenario)
+        if not transcode_result.output_path:
+            return TranscodeJobResult(success=True, output_path=str(input_path))
+
         # Move to destination if template specified
+        destination_base = policy_data.get("destination_base") if policy_data else None
         final_path = self._apply_destination_template(
             input_path,
             Path(transcode_result.output_path),
-            policy_data,
+            policy,
+            destination_base,
             job_log,
         )
 
@@ -167,7 +173,7 @@ class TranscodeJobService:
 
         video_track = next((t for t in result.tracks if t.track_type == "video"), None)
         if not video_track:
-            error = "No video track found"
+            error = f"No video track found in: {input_path}"
             if job_log:
                 job_log.write_error(error)
             return None, None, error
@@ -180,7 +186,7 @@ class TranscodeJobService:
         return result, video_track, None
 
     @staticmethod
-    def _determine_output_path(input_path: Path, policy_data: dict) -> Path:
+    def _determine_output_path(input_path: Path, policy_data: dict[str, Any]) -> Path:
         """Compute output path from input and policy.
 
         Args:
@@ -261,7 +267,8 @@ class TranscodeJobService:
         self,
         input_path: Path,
         output_path: Path,
-        policy_data: dict,
+        policy: TranscodePolicyConfig,
+        destination_base: str | None,
         job_log: JobLogWriter | None,
     ) -> Path:
         """Apply destination template if specified.
@@ -269,29 +276,29 @@ class TranscodeJobService:
         Args:
             input_path: Original input file path.
             output_path: Current output file path (after transcode).
-            policy_data: Policy configuration dictionary.
+            policy: Transcode policy configuration with destination settings.
+            destination_base: Optional base directory override for destination.
             job_log: Log writer.
 
         Returns:
             Final output path (may be unchanged if move fails or no template).
         """
-        destination_template = policy_data.get("destination")
-        if not destination_template or not output_path.exists():
+        if not policy.destination or not output_path.exists():
             return output_path
 
         if job_log:
             job_log.write_section("Moving to destination")
-            job_log.write_line(f"Template: {destination_template}")
+            job_log.write_line(f"Template: {policy.destination}")
 
         try:
             metadata = parse_filename(input_path)
             metadata_dict = metadata.as_dict()
-            template = parse_template(destination_template)
-            fallback = policy_data.get("destination_fallback", "Unknown")
+            template = parse_template(policy.destination)
 
-            destination_base = policy_data.get("destination_base")
             base_dir = Path(destination_base) if destination_base else input_path.parent
-            dest_path = template.render_path(base_dir, metadata_dict, fallback)
+            dest_path = template.render_path(
+                base_dir, metadata_dict, policy.destination_fallback
+            )
             final_dest = dest_path / output_path.name
 
             if job_log:

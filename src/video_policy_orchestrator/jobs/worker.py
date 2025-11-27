@@ -77,6 +77,9 @@ class JobWorker:
         self.auto_purge = auto_purge
         self.retention_days = retention_days
 
+        # Cache transcode service for reuse across jobs
+        self._transcode_service = TranscodeJobService(cpu_cores=cpu_cores)
+
         # State
         self._shutdown_requested = False
         self._current_job: Job | None = None
@@ -221,8 +224,7 @@ class JobWorker:
         Returns:
             Tuple of (success, error_message, output_path).
         """
-        service = TranscodeJobService(cpu_cores=self.cpu_cores)
-        result = service.process(
+        result = self._transcode_service.process(
             job,
             progress_callback=self._create_progress_callback(job),
             job_log=job_log,

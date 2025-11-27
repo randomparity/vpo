@@ -307,3 +307,108 @@ class TestTranscodeJobServiceProcess:
 
         assert result.success is False
         assert "No video track found" in result.error_message
+
+    def test_process_none_policy_json(self, mock_introspector):
+        """None policy_json uses empty dict and defaults."""
+        service = TranscodeJobService(introspector=mock_introspector)
+        job = Job(
+            id="test",
+            file_id=None,
+            file_path="/test/input.mkv",
+            job_type=JobType.TRANSCODE,
+            status=JobStatus.RUNNING,
+            priority=100,
+            policy_name=None,
+            policy_json=None,  # None instead of JSON string
+            progress_percent=0.0,
+            progress_json=None,
+            created_at="2024-01-01T00:00:00+00:00",
+            started_at="2024-01-01T00:00:00+00:00",
+        )
+
+        # Verify policy parsing handles None
+        policy, policy_data, error = service._parse_policy(job, None)
+
+        assert error is None
+        assert policy is not None
+        assert policy_data == {}
+        assert policy.audio_transcode_to == "aac"  # default value
+
+    def test_process_transcode_execution_failure(self, mock_introspector, sample_job):
+        """Returns error when transcode execution fails."""
+        service = TranscodeJobService(introspector=mock_introspector)
+
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch(
+                "video_policy_orchestrator.jobs.services.transcode.TranscodeExecutor"
+            ) as mock_executor_cls,
+        ):
+            mock_executor = MagicMock()
+            mock_executor_cls.return_value = mock_executor
+            mock_executor.create_plan.return_value = MagicMock()
+            mock_executor.execute.return_value = MagicMock(
+                success=False,
+                output_path=None,
+                error_message="FFmpeg exited with code 1",
+            )
+
+            result = service.process(sample_job)
+
+        assert result.success is False
+        assert result.error_message is not None
+        assert "FFmpeg exited with code 1" in result.error_message
+
+    def test_process_success_returns_output_path(self, mock_introspector, sample_job):
+        """Successful transcode returns output path."""
+        service = TranscodeJobService(introspector=mock_introspector)
+
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch(
+                "video_policy_orchestrator.jobs.services.transcode.TranscodeExecutor"
+            ) as mock_executor_cls,
+        ):
+            mock_executor = MagicMock()
+            mock_executor_cls.return_value = mock_executor
+            mock_executor.create_plan.return_value = MagicMock()
+            mock_executor.execute.return_value = MagicMock(
+                success=True,
+                output_path=Path("/test/input.transcoded.mkv"),
+                error_message=None,
+            )
+
+            result = service.process(sample_job)
+
+        assert result.success is True
+        assert result.output_path is not None
+        assert "transcoded" in result.output_path
+
+    def test_process_executor_returns_none_uses_planned_path(
+        self, mock_introspector, sample_job
+    ):
+        """When executor returns success with no output_path, uses planned path."""
+        service = TranscodeJobService(introspector=mock_introspector)
+
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch(
+                "video_policy_orchestrator.jobs.services.transcode.TranscodeExecutor"
+            ) as mock_executor_cls,
+        ):
+            mock_executor = MagicMock()
+            mock_executor_cls.return_value = mock_executor
+            mock_executor.create_plan.return_value = MagicMock()
+            # Executor returns success but no explicit output_path
+            mock_executor.execute.return_value = MagicMock(
+                success=True,
+                output_path=None,
+                error_message=None,
+            )
+
+            result = service.process(sample_job)
+
+        assert result.success is True
+        # Falls back to planned output path (input with .transcoded suffix)
+        assert result.output_path is not None
+        assert "transcoded" in result.output_path
