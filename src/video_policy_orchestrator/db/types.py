@@ -596,3 +596,21 @@ class TranscriptionDetailView:
     file_id: int
     filename: str
     path: str
+
+
+@dataclass
+class ScanErrorView:
+    """Typed result for scan job error listing.
+
+    Contains file path and error information for files that failed
+    during a scan job.
+
+    Attributes:
+        path: Full file path.
+        filename: File name only.
+        error: Error message from scan failure.
+    """
+
+    path: str
+    filename: str
+    error: str

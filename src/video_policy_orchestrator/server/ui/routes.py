@@ -18,8 +18,12 @@ import jinja2
 from aiohttp import web
 
 from video_policy_orchestrator import __version__
-from video_policy_orchestrator.core.datetime_utils import parse_iso_timestamp
+from video_policy_orchestrator.core.datetime_utils import (
+    parse_iso_timestamp,
+    parse_time_filter,
+)
 from video_policy_orchestrator.core.validation import is_valid_uuid
+from video_policy_orchestrator.db.views import get_scan_errors_for_job
 from video_policy_orchestrator.server.ui.models import (
     DEFAULT_SECTION,
     NAVIGATION_ITEMS,
@@ -45,8 +49,6 @@ from video_policy_orchestrator.server.ui.models import (
     PlanListResponse,
     PlansContext,
     PoliciesContext,
-    PolicyListItem,
-    PolicyListResponse,
     ScanErrorItem,
     ScanErrorsResponse,
     TemplateContext,
@@ -59,7 +61,6 @@ from video_policy_orchestrator.server.ui.models import (
     format_audio_languages,
     format_detected_languages,
     format_file_size,
-    format_language_preferences,
     generate_summary_text,
     get_classification_reasoning,
     get_confidence_level,
@@ -183,8 +184,6 @@ async def api_jobs_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with JobListResponse payload.
     """
-    from datetime import datetime, timedelta, timezone
-
     from video_policy_orchestrator.db.connection import DaemonConnectionPool
     from video_policy_orchestrator.db.models import JobStatus, JobType
 
@@ -221,22 +220,13 @@ async def api_jobs_handler(request: web.Request) -> web.Response:
                 status=400,
             )
 
-    # Calculate 'since' timestamp
-    since_timestamp = None
-    if params.since:
-        if params.since == "24h":
-            since_timestamp = (
-                datetime.now(timezone.utc) - timedelta(hours=24)
-            ).isoformat()
-        elif params.since == "7d":
-            since_timestamp = (
-                datetime.now(timezone.utc) - timedelta(days=7)
-            ).isoformat()
-        elif params.since:
-            return web.json_response(
-                {"error": f"Invalid since value: '{params.since}'"},
-                status=400,
-            )
+    # Parse time filter (returns None for invalid values)
+    since_timestamp = parse_time_filter(params.since)
+    if params.since and since_timestamp is None:
+        return web.json_response(
+            {"error": f"Invalid since value: '{params.since}'"},
+            status=400,
+        )
 
     # Get connection pool
     connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
@@ -604,36 +594,12 @@ async def api_job_errors_handler(request: web.Request) -> web.Response:
     def _query_scan_errors() -> list[ScanErrorItem]:
         """Query files with scan errors (runs in thread pool)."""
         with pool.transaction() as conn:
-            # First verify this is a scan job
-            cursor = conn.execute(
-                "SELECT job_type FROM jobs WHERE id = ?",
-                (job_id,),
-            )
-            row = cursor.fetchone()
-            if row is None:
+            result = get_scan_errors_for_job(conn, job_id)
+            if result is None:
                 return []
-            if row["job_type"] != "scan":
-                return []
-
-            # Get files with errors for this specific job
-            cursor = conn.execute(
-                """
-                SELECT path, filename, scan_error
-                FROM files
-                WHERE job_id = ?
-                  AND scan_status = 'error'
-                  AND scan_error IS NOT NULL
-                ORDER BY filename
-                """,
-                (job_id,),
-            )
             return [
-                ScanErrorItem(
-                    path=row["path"],
-                    filename=row["filename"],
-                    error=row["scan_error"],
-                )
-                for row in cursor.fetchall()
+                ScanErrorItem(path=e.path, filename=e.filename, error=e.error)
+                for e in result
             ]
 
     errors = await asyncio.to_thread(_query_scan_errors)
@@ -1270,56 +1236,9 @@ async def policies_handler(request: web.Request) -> dict:
     Renders the Policies list page with all policy files discovered
     from ~/.vpo/policies/ directory.
     """
-    from video_policy_orchestrator.policy.discovery import (
-        DEFAULT_POLICIES_DIR,
-        discover_policies,
-    )
+    from video_policy_orchestrator.policy.services import list_policies
 
-    # Get default policy from active profile
-    default_policy_path = None
-    try:
-        from video_policy_orchestrator.config.profiles import get_active_profile
-
-        profile = get_active_profile()
-        if profile and profile.default_policy:
-            default_policy_path = profile.default_policy
-    except (ImportError, AttributeError) as e:
-        logger.debug("Could not load default policy from profile: %s", e)
-
-    # Discover policies
-    policies_dir = DEFAULT_POLICIES_DIR
-    summaries, default_missing = await asyncio.to_thread(
-        discover_policies,
-        policies_dir,
-        default_policy_path,
-    )
-
-    # Convert to PolicyListItem
-    policies = [
-        PolicyListItem(
-            name=s.name,
-            filename=s.filename,
-            file_path=s.file_path,
-            last_modified=s.last_modified,
-            schema_version=s.schema_version,
-            audio_languages=format_language_preferences(s.audio_languages),
-            subtitle_languages=format_language_preferences(s.subtitle_languages),
-            has_transcode=s.has_transcode,
-            has_transcription=s.has_transcription,
-            is_default=s.is_default,
-            parse_error=s.parse_error,
-        )
-        for s in summaries
-    ]
-
-    response = PolicyListResponse(
-        policies=policies,
-        total=len(policies),
-        policies_directory=str(policies_dir),
-        default_policy_path=str(default_policy_path) if default_policy_path else None,
-        default_policy_missing=default_missing,
-        directory_exists=policies_dir.exists(),
-    )
+    response = await asyncio.to_thread(list_policies)
 
     context = _create_template_context(
         active_id="policies",
@@ -1337,10 +1256,7 @@ async def policies_api_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with PolicyListResponse payload.
     """
-    from video_policy_orchestrator.policy.discovery import (
-        DEFAULT_POLICIES_DIR,
-        discover_policies,
-    )
+    from video_policy_orchestrator.policy.services import list_policies
 
     # Check if shutting down
     lifecycle = request.app.get("lifecycle")
@@ -1350,51 +1266,7 @@ async def policies_api_handler(request: web.Request) -> web.Response:
             status=503,
         )
 
-    # Get default policy from active profile
-    default_policy_path = None
-    try:
-        from video_policy_orchestrator.config.profiles import get_active_profile
-
-        profile = get_active_profile()
-        if profile and profile.default_policy:
-            default_policy_path = profile.default_policy
-    except (ImportError, AttributeError) as e:
-        logger.debug("Could not load default policy from profile: %s", e)
-
-    # Discover policies
-    policies_dir = DEFAULT_POLICIES_DIR
-    summaries, default_missing = await asyncio.to_thread(
-        discover_policies,
-        policies_dir,
-        default_policy_path,
-    )
-
-    # Convert to PolicyListItem
-    policies = [
-        PolicyListItem(
-            name=s.name,
-            filename=s.filename,
-            file_path=s.file_path,
-            last_modified=s.last_modified,
-            schema_version=s.schema_version,
-            audio_languages=format_language_preferences(s.audio_languages),
-            subtitle_languages=format_language_preferences(s.subtitle_languages),
-            has_transcode=s.has_transcode,
-            has_transcription=s.has_transcription,
-            is_default=s.is_default,
-            parse_error=s.parse_error,
-        )
-        for s in summaries
-    ]
-
-    response = PolicyListResponse(
-        policies=policies,
-        total=len(policies),
-        policies_directory=str(policies_dir),
-        default_policy_path=str(default_policy_path) if default_policy_path else None,
-        default_policy_missing=default_missing,
-        directory_exists=policies_dir.exists(),
-    )
+    response = await asyncio.to_thread(list_policies)
 
     return web.json_response(response.to_dict())
 
@@ -1941,8 +1813,6 @@ async def api_plans_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with PlanListResponse payload.
     """
-    from datetime import timedelta, timezone
-
     from video_policy_orchestrator.db.connection import DaemonConnectionPool
     from video_policy_orchestrator.db.models import PlanStatus
     from video_policy_orchestrator.db.operations import get_plans_filtered
@@ -1969,26 +1839,13 @@ async def api_plans_handler(request: web.Request) -> web.Response:
                 status=400,
             )
 
-    # Calculate 'since' timestamp
-    since_timestamp = None
-    if params.since:
-        if params.since == "24h":
-            since_timestamp = (
-                datetime.now(timezone.utc) - timedelta(hours=24)
-            ).isoformat()
-        elif params.since == "7d":
-            since_timestamp = (
-                datetime.now(timezone.utc) - timedelta(days=7)
-            ).isoformat()
-        elif params.since == "30d":
-            since_timestamp = (
-                datetime.now(timezone.utc) - timedelta(days=30)
-            ).isoformat()
-        else:
-            return web.json_response(
-                {"error": f"Invalid since value: '{params.since}'"},
-                status=400,
-            )
+    # Parse time filter (returns None for invalid values)
+    since_timestamp = parse_time_filter(params.since)
+    if params.since and since_timestamp is None:
+        return web.json_response(
+            {"error": f"Invalid since value: '{params.since}'"},
+            status=400,
+        )
 
     # Get connection pool
     connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
