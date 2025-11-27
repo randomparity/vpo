@@ -6,6 +6,8 @@ repeated subprocess calls. Cache is stored in ~/.vpo/tool-capabilities.json.
 
 import json
 import logging
+import os
+import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -223,7 +225,7 @@ class ToolCapabilityCache:
             return None
 
         try:
-            with open(self.cache_path) as f:
+            with open(self.cache_path, encoding="utf-8") as f:
                 data = json.load(f)
 
             registry = deserialize_registry(data)
@@ -244,6 +246,9 @@ class ToolCapabilityCache:
     def save(self, registry: ToolRegistry) -> None:
         """Save tool registry to cache.
 
+        Uses atomic write (temp file + rename) to prevent corruption
+        if the process crashes mid-write.
+
         Args:
             registry: Tool registry to cache.
         """
@@ -255,9 +260,23 @@ class ToolCapabilityCache:
 
         try:
             data = serialize_registry(registry)
-            with open(self.cache_path, "w") as f:
-                json.dump(data, f, indent=2)
-            logger.debug("Saved cache to %s", self.cache_path)
+            json_content = json.dumps(data, indent=2)
+
+            # Atomic write: temp file + rename
+            fd, temp_path_str = tempfile.mkstemp(
+                suffix=self.cache_path.suffix,
+                dir=self.cache_path.parent,
+                text=True,
+            )
+            temp_path = Path(temp_path_str)
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    f.write(json_content)
+                temp_path.replace(self.cache_path)  # Atomic on POSIX
+                logger.debug("Saved cache to %s", self.cache_path)
+            except Exception:
+                temp_path.unlink(missing_ok=True)
+                raise
         except OSError as e:
             logger.warning("Failed to save cache: %s", e)
 
@@ -314,16 +333,20 @@ def get_tool_registry(
     if not force_refresh:
         registry = cache.load()
         if registry is not None:
-            # Check if configured paths match cached paths
+            # Check if configured paths match cached paths (use resolve() for symlinks)
             paths_match = True
-            if ffmpeg_path and registry.ffmpeg.path != ffmpeg_path:
-                paths_match = False
-            if ffprobe_path and registry.ffprobe.path != ffprobe_path:
-                paths_match = False
-            if mkvmerge_path and registry.mkvmerge.path != mkvmerge_path:
-                paths_match = False
-            if mkvpropedit_path and registry.mkvpropedit.path != mkvpropedit_path:
-                paths_match = False
+            if ffmpeg_path and registry.ffmpeg.path:
+                if registry.ffmpeg.path.resolve() != ffmpeg_path.resolve():
+                    paths_match = False
+            if ffprobe_path and registry.ffprobe.path:
+                if registry.ffprobe.path.resolve() != ffprobe_path.resolve():
+                    paths_match = False
+            if mkvmerge_path and registry.mkvmerge.path:
+                if registry.mkvmerge.path.resolve() != mkvmerge_path.resolve():
+                    paths_match = False
+            if mkvpropedit_path and registry.mkvpropedit.path:
+                if registry.mkvpropedit.path.resolve() != mkvpropedit_path.resolve():
+                    paths_match = False
 
             if paths_match:
                 return registry

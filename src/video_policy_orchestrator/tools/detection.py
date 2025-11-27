@@ -73,8 +73,12 @@ def _find_tool(name: str, configured_path: Path | None = None) -> Path | None:
         Path to tool executable, or None if not found.
     """
     # Try configured path first
-    if configured_path and configured_path.exists():
-        return configured_path
+    if configured_path:
+        if configured_path.is_file():
+            return configured_path
+        logger.warning(
+            "Configured path for %s is not a file: %s", name, configured_path
+        )
 
     # Fall back to PATH lookup
     which_result = shutil.which(name)
@@ -180,7 +184,7 @@ def _ffmpeg_post_detect(info: ToolInfo, path: Path, stdout: str) -> None:
     info.capabilities = _detect_ffmpeg_capabilities(path, stdout)
 
 
-def _mkvmerge_post_detect(info: ToolInfo, path: Path, stdout: str) -> None:
+def _mkvmerge_post_detect(info: ToolInfo, _path: Path, _stdout: str) -> None:
     """Post-detection hook for mkvmerge capabilities."""
     assert isinstance(info, MkvmergeInfo)
     # --track-order has been available for a very long time
@@ -190,7 +194,7 @@ def _mkvmerge_post_detect(info: ToolInfo, path: Path, stdout: str) -> None:
         info.supports_json_output = info.version_tuple >= (9, 0)
 
 
-def _mkvpropedit_post_detect(info: ToolInfo, path: Path, stdout: str) -> None:
+def _mkvpropedit_post_detect(info: ToolInfo, _path: Path, _stdout: str) -> None:
     """Post-detection hook for mkvpropedit capabilities."""
     assert isinstance(info, MkvpropeditInfo)
     # All modern versions support these features
@@ -279,29 +283,39 @@ def _detect_ffmpeg_capabilities(
         caps.is_nonfree = "nonfree" in caps.build_flags
 
     # Detect encoders
-    stdout, _, rc = _run_command([str(ffmpeg_path), "-encoders", "-hide_banner"])
+    stdout, stderr, rc = _run_command([str(ffmpeg_path), "-encoders", "-hide_banner"])
     if rc == 0:
         caps.encoders = _parse_codec_list(stdout)
+    else:
+        logger.warning("Failed to enumerate ffmpeg encoders: %s", stderr)
 
     # Detect decoders
-    stdout, _, rc = _run_command([str(ffmpeg_path), "-decoders", "-hide_banner"])
+    stdout, stderr, rc = _run_command([str(ffmpeg_path), "-decoders", "-hide_banner"])
     if rc == 0:
         caps.decoders = _parse_codec_list(stdout)
+    else:
+        logger.warning("Failed to enumerate ffmpeg decoders: %s", stderr)
 
     # Detect muxers (output formats)
-    stdout, _, rc = _run_command([str(ffmpeg_path), "-muxers", "-hide_banner"])
+    stdout, stderr, rc = _run_command([str(ffmpeg_path), "-muxers", "-hide_banner"])
     if rc == 0:
         caps.muxers = _parse_format_list(stdout)
+    else:
+        logger.warning("Failed to enumerate ffmpeg muxers: %s", stderr)
 
     # Detect demuxers (input formats)
-    stdout, _, rc = _run_command([str(ffmpeg_path), "-demuxers", "-hide_banner"])
+    stdout, stderr, rc = _run_command([str(ffmpeg_path), "-demuxers", "-hide_banner"])
     if rc == 0:
         caps.demuxers = _parse_format_list(stdout)
+    else:
+        logger.warning("Failed to enumerate ffmpeg demuxers: %s", stderr)
 
     # Detect filters
-    stdout, _, rc = _run_command([str(ffmpeg_path), "-filters", "-hide_banner"])
+    stdout, stderr, rc = _run_command([str(ffmpeg_path), "-filters", "-hide_banner"])
     if rc == 0:
         caps.filters = _parse_filter_list(stdout)
+    else:
+        logger.warning("Failed to enumerate ffmpeg filters: %s", stderr)
 
     return caps
 
