@@ -24,12 +24,12 @@
 
 **Purpose**: Project initialization and module structure
 
-- [ ] T001 Create language_analysis module directory at src/video_policy_orchestrator/language_analysis/__init__.py
-- [ ] T002 [P] Create test directory structure at tests/unit/language_analysis/__init__.py
-- [ ] T003 [P] Create test fixtures directory at tests/fixtures/audio/ (empty, for test audio files)
-- [ ] T003a [P] Create single-language English test audio file (5-10 seconds of clear speech) at tests/fixtures/audio/single-language-en.wav
-- [ ] T003b [P] Create multi-language test audio file (English primary with French segment) at tests/fixtures/audio/multi-language-en-fr.wav
-- [ ] T003c [P] Create no-speech test audio file (music/effects only) at tests/fixtures/audio/no-speech.wav
+- [X] T001 Create language_analysis module directory at src/video_policy_orchestrator/language_analysis/__init__.py
+- [X] T002 [P] Create test directory structure at tests/unit/language_analysis/__init__.py
+- [X] T003 [P] Create test fixtures directory at tests/fixtures/audio/ (empty, for test audio files)
+- [X] T003a [P] Create single-language English test audio file (5-10 seconds of clear speech) at tests/fixtures/audio/single-language-en.wav
+- [X] T003b [P] Create multi-language test audio file (English primary with French segment) at tests/fixtures/audio/multi-language-en-fr.wav
+- [X] T003c [P] Create no-speech test audio file (music/effects only) at tests/fixtures/audio/no-speech.wav
 
 ---
 
@@ -41,31 +41,31 @@
 
 ### Database Schema & Models
 
-- [ ] T004 Add language_analysis_results table to src/video_policy_orchestrator/db/schema.py
-- [ ] T005 Add language_segments table to src/video_policy_orchestrator/db/schema.py
-- [ ] T006 Add LanguageAnalysisResultRecord dataclass to src/video_policy_orchestrator/db/models.py
-- [ ] T007 [P] Add LanguageSegmentRecord dataclass to src/video_policy_orchestrator/db/models.py
+- [X] T004 Add language_analysis_results table to src/video_policy_orchestrator/db/schema.py
+- [X] T005 Add language_segments table to src/video_policy_orchestrator/db/schema.py
+- [X] T006 Add LanguageAnalysisResultRecord dataclass to src/video_policy_orchestrator/db/models.py
+- [X] T007 [P] Add LanguageSegmentRecord dataclass to src/video_policy_orchestrator/db/models.py
 
 ### Domain Models
 
-- [ ] T008 [P] Create LanguageClassification enum in src/video_policy_orchestrator/language_analysis/models.py
-- [ ] T009 [P] Create LanguageSegment dataclass with validation in src/video_policy_orchestrator/language_analysis/models.py
-- [ ] T010 [P] Create LanguagePercentage dataclass in src/video_policy_orchestrator/language_analysis/models.py
-- [ ] T011 [P] Create AnalysisMetadata dataclass in src/video_policy_orchestrator/language_analysis/models.py
-- [ ] T012 Create LanguageAnalysisResult dataclass with from_segments() method in src/video_policy_orchestrator/language_analysis/models.py
+- [X] T008 [P] Create LanguageClassification enum in src/video_policy_orchestrator/language_analysis/models.py
+- [X] T009 [P] Create LanguageSegment dataclass with validation in src/video_policy_orchestrator/language_analysis/models.py
+- [X] T010 [P] Create LanguagePercentage dataclass in src/video_policy_orchestrator/language_analysis/models.py
+- [X] T011 [P] Create AnalysisMetadata dataclass in src/video_policy_orchestrator/language_analysis/models.py
+- [X] T012 Create LanguageAnalysisResult dataclass with from_segments() method in src/video_policy_orchestrator/language_analysis/models.py
 
 ### Database Operations
 
-- [ ] T013 Add upsert_language_analysis_result() function to src/video_policy_orchestrator/db/models.py
-- [ ] T014 [P] Add get_language_analysis_result() function to src/video_policy_orchestrator/db/models.py
-- [ ] T015 [P] Add delete_language_analysis_result() function to src/video_policy_orchestrator/db/models.py
-- [ ] T016 Add upsert_language_segments() function to src/video_policy_orchestrator/db/models.py
-- [ ] T017 [P] Add get_language_segments() function to src/video_policy_orchestrator/db/models.py
+- [X] T013 Add upsert_language_analysis_result() function to src/video_policy_orchestrator/db/models.py
+- [X] T014 [P] Add get_language_analysis_result() function to src/video_policy_orchestrator/db/models.py
+- [X] T015 [P] Add delete_language_analysis_result() function to src/video_policy_orchestrator/db/models.py
+- [X] T016 Add upsert_language_segments() function to src/video_policy_orchestrator/db/models.py
+- [X] T017 [P] Add get_language_segments() function to src/video_policy_orchestrator/db/models.py
 
 ### Unit Tests for Foundational Models
 
-- [ ] T018 [P] Add tests for LanguageSegment validation in tests/unit/language_analysis/test_models.py
-- [ ] T019 [P] Add tests for LanguageAnalysisResult.from_segments() in tests/unit/language_analysis/test_models.py
+- [X] T018 [P] Add tests for LanguageSegment validation in tests/unit/language_analysis/test_models.py
+- [X] T019 [P] Add tests for LanguageAnalysisResult.from_segments() in tests/unit/language_analysis/test_models.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 

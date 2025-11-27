@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -221,6 +221,54 @@ CREATE INDEX IF NOT EXISTS idx_plans_status ON plans(status);
 CREATE INDEX IF NOT EXISTS idx_plans_created_at ON plans(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_plans_file_id ON plans(file_id);
 CREATE INDEX IF NOT EXISTS idx_plans_policy_name ON plans(policy_name);
+
+-- Language analysis results table (035-multi-language-audio-detection)
+CREATE TABLE IF NOT EXISTS language_analysis_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    track_id INTEGER NOT NULL UNIQUE,
+    file_hash TEXT NOT NULL,
+    primary_language TEXT NOT NULL,
+    primary_percentage REAL NOT NULL,
+    classification TEXT NOT NULL,
+    analysis_metadata TEXT,  -- JSON
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+    CONSTRAINT valid_percentage CHECK (
+        primary_percentage >= 0.0 AND primary_percentage <= 1.0
+    ),
+    CONSTRAINT valid_classification CHECK (
+        classification IN ('SINGLE_LANGUAGE', 'MULTI_LANGUAGE')
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_lang_analysis_track
+    ON language_analysis_results(track_id);
+CREATE INDEX IF NOT EXISTS idx_lang_analysis_hash
+    ON language_analysis_results(file_hash);
+CREATE INDEX IF NOT EXISTS idx_lang_analysis_classification
+    ON language_analysis_results(classification);
+
+-- Language segments table (035-multi-language-audio-detection)
+CREATE TABLE IF NOT EXISTS language_segments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    analysis_id INTEGER NOT NULL,
+    language_code TEXT NOT NULL,
+    start_time REAL NOT NULL,
+    end_time REAL NOT NULL,
+    confidence REAL NOT NULL,
+    FOREIGN KEY (analysis_id)
+        REFERENCES language_analysis_results(id) ON DELETE CASCADE,
+    CONSTRAINT valid_times CHECK (end_time > start_time),
+    CONSTRAINT valid_confidence CHECK (
+        confidence >= 0.0 AND confidence <= 1.0
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_lang_segments_analysis
+    ON language_segments(analysis_id);
+CREATE INDEX IF NOT EXISTS idx_lang_segments_language
+    ON language_segments(language_code);
 """
 
 
@@ -938,6 +986,87 @@ def migrate_v12_to_v13(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def migrate_v13_to_v14(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 13 to version 14.
+
+    Adds language analysis tables for multi-language audio detection
+    (035-multi-language-audio-detection):
+    - language_analysis_results: Stores aggregated language analysis per track
+    - language_segments: Stores individual language detections within tracks
+
+    This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Check if language_analysis_results table already exists
+    cursor = conn.execute(
+        "SELECT name FROM sqlite_master "
+        "WHERE type='table' AND name='language_analysis_results'"
+    )
+    if cursor.fetchone() is None:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS language_analysis_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                track_id INTEGER NOT NULL UNIQUE,
+                file_hash TEXT NOT NULL,
+                primary_language TEXT NOT NULL,
+                primary_percentage REAL NOT NULL,
+                classification TEXT NOT NULL,
+                analysis_metadata TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+                CONSTRAINT valid_percentage CHECK (
+                    primary_percentage >= 0.0 AND primary_percentage <= 1.0
+                ),
+                CONSTRAINT valid_classification CHECK (
+                    classification IN ('SINGLE_LANGUAGE', 'MULTI_LANGUAGE')
+                )
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_lang_analysis_track
+                ON language_analysis_results(track_id);
+            CREATE INDEX IF NOT EXISTS idx_lang_analysis_hash
+                ON language_analysis_results(file_hash);
+            CREATE INDEX IF NOT EXISTS idx_lang_analysis_classification
+                ON language_analysis_results(classification);
+        """)
+
+    # Check if language_segments table already exists
+    cursor = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='language_segments'"
+    )
+    if cursor.fetchone() is None:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS language_segments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                analysis_id INTEGER NOT NULL,
+                language_code TEXT NOT NULL,
+                start_time REAL NOT NULL,
+                end_time REAL NOT NULL,
+                confidence REAL NOT NULL,
+                FOREIGN KEY (analysis_id)
+                    REFERENCES language_analysis_results(id) ON DELETE CASCADE,
+                CONSTRAINT valid_times CHECK (end_time > start_time),
+                CONSTRAINT valid_confidence CHECK (
+                    confidence >= 0.0 AND confidence <= 1.0
+                )
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_lang_segments_analysis
+                ON language_segments(analysis_id);
+            CREATE INDEX IF NOT EXISTS idx_lang_segments_language
+                ON language_segments(language_code);
+        """)
+
+    # Update schema version to 14
+    conn.execute(
+        "UPDATE _meta SET value = '14' WHERE key = 'schema_version'",
+    )
+    conn.commit()
+
+
 def initialize_database(conn: sqlite3.Connection) -> None:
     """Initialize the database with schema, creating tables if needed.
 
@@ -985,3 +1114,6 @@ def initialize_database(conn: sqlite3.Connection) -> None:
             current_version = 12
         if current_version == 12:
             migrate_v12_to_v13(conn)
+            current_version = 13
+        if current_version == 13:
+            migrate_v13_to_v14(conn)

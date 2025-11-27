@@ -356,6 +356,59 @@ class TranscriptionResultRecord:
     updated_at: str  # ISO-8601 UTC
 
 
+@dataclass
+class LanguageAnalysisResultRecord:
+    """Database record for language_analysis_results table.
+
+    Stores aggregated language analysis for an audio track, including
+    the primary language, classification, and analysis metadata.
+
+    Attributes:
+        id: Primary key (None for new records).
+        track_id: Foreign key to tracks.id (unique constraint).
+        file_hash: Content hash for cache validation.
+        primary_language: ISO 639-2/B code of primary language.
+        primary_percentage: Percentage of track in primary language (0.0-1.0).
+        classification: 'SINGLE_LANGUAGE' or 'MULTI_LANGUAGE'.
+        analysis_metadata: JSON string with analysis details.
+        created_at: ISO-8601 UTC creation timestamp.
+        updated_at: ISO-8601 UTC last update timestamp.
+    """
+
+    id: int | None
+    track_id: int
+    file_hash: str
+    primary_language: str
+    primary_percentage: float
+    classification: str  # 'SINGLE_LANGUAGE' or 'MULTI_LANGUAGE'
+    analysis_metadata: str | None  # JSON string
+    created_at: str  # ISO-8601 UTC
+    updated_at: str  # ISO-8601 UTC
+
+
+@dataclass
+class LanguageSegmentRecord:
+    """Database record for language_segments table.
+
+    Stores individual language detection segments within an analysis.
+
+    Attributes:
+        id: Primary key (None for new records).
+        analysis_id: Foreign key to language_analysis_results.id.
+        language_code: ISO 639-2/B language code.
+        start_time: Start position in seconds.
+        end_time: End position in seconds.
+        confidence: Detection confidence (0.0-1.0).
+    """
+
+    id: int | None
+    analysis_id: int
+    language_code: str
+    start_time: float
+    end_time: float
+    confidence: float
+
+
 # Database operations
 # Note: sqlite3 import is placed here (after dataclass definitions) to keep
 # data models at the top of the file for readability. The noqa comment suppresses
@@ -1885,3 +1938,273 @@ def get_transcription_detail(
     )
     row = cursor.fetchone()
     return dict(row) if row else None
+
+
+# ==========================================================================
+# Language Analysis Operations (035-multi-language-audio-detection)
+# ==========================================================================
+
+
+def upsert_language_analysis_result(
+    conn: sqlite3.Connection, record: LanguageAnalysisResultRecord
+) -> int:
+    """Insert or update language analysis result for a track.
+
+    Uses ON CONFLICT to handle re-analysis scenarios.
+
+    Args:
+        conn: Database connection.
+        record: LanguageAnalysisResultRecord to insert/update.
+
+    Returns:
+        The record ID.
+
+    Raises:
+        sqlite3.Error: If database operation fails.
+    """
+    try:
+        cursor = conn.execute(
+            """
+            INSERT INTO language_analysis_results (
+                track_id, file_hash, primary_language, primary_percentage,
+                classification, analysis_metadata, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(track_id) DO UPDATE SET
+                file_hash = excluded.file_hash,
+                primary_language = excluded.primary_language,
+                primary_percentage = excluded.primary_percentage,
+                classification = excluded.classification,
+                analysis_metadata = excluded.analysis_metadata,
+                updated_at = excluded.updated_at
+            RETURNING id
+            """,
+            (
+                record.track_id,
+                record.file_hash,
+                record.primary_language,
+                record.primary_percentage,
+                record.classification,
+                record.analysis_metadata,
+                record.created_at,
+                record.updated_at,
+            ),
+        )
+        result = cursor.fetchone()
+        conn.commit()
+        if result is None:
+            raise sqlite3.Error(
+                f"RETURNING clause failed for track_id={record.track_id}"
+            )
+        return result[0]
+    except sqlite3.Error:
+        conn.rollback()
+        raise
+
+
+def get_language_analysis_result(
+    conn: sqlite3.Connection, track_id: int
+) -> LanguageAnalysisResultRecord | None:
+    """Get language analysis result for a track, if exists.
+
+    Args:
+        conn: Database connection.
+        track_id: ID of the track.
+
+    Returns:
+        LanguageAnalysisResultRecord if found, None otherwise.
+    """
+    cursor = conn.execute(
+        """
+        SELECT id, track_id, file_hash, primary_language, primary_percentage,
+               classification, analysis_metadata, created_at, updated_at
+        FROM language_analysis_results
+        WHERE track_id = ?
+        """,
+        (track_id,),
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+
+    return LanguageAnalysisResultRecord(
+        id=row[0],
+        track_id=row[1],
+        file_hash=row[2],
+        primary_language=row[3],
+        primary_percentage=row[4],
+        classification=row[5],
+        analysis_metadata=row[6],
+        created_at=row[7],
+        updated_at=row[8],
+    )
+
+
+def delete_language_analysis_result(conn: sqlite3.Connection, track_id: int) -> bool:
+    """Delete language analysis result for a track.
+
+    Also deletes associated language segments via CASCADE.
+
+    Args:
+        conn: Database connection.
+        track_id: ID of the track.
+
+    Returns:
+        True if a record was deleted, False otherwise.
+    """
+    cursor = conn.execute(
+        "DELETE FROM language_analysis_results WHERE track_id = ?",
+        (track_id,),
+    )
+    conn.commit()
+    return cursor.rowcount > 0
+
+
+def upsert_language_segments(
+    conn: sqlite3.Connection, analysis_id: int, segments: list[LanguageSegmentRecord]
+) -> list[int]:
+    """Insert or replace language segments for an analysis.
+
+    Deletes existing segments for the analysis_id and inserts new ones.
+    This ensures segments stay in sync with the analysis result.
+
+    Args:
+        conn: Database connection.
+        analysis_id: ID of the language_analysis_results record.
+        segments: List of LanguageSegmentRecord to insert.
+
+    Returns:
+        List of inserted segment IDs.
+
+    Raises:
+        sqlite3.Error: If database operation fails.
+    """
+    try:
+        # Delete existing segments for this analysis
+        conn.execute(
+            "DELETE FROM language_segments WHERE analysis_id = ?",
+            (analysis_id,),
+        )
+
+        # Insert new segments
+        segment_ids = []
+        for segment in segments:
+            cursor = conn.execute(
+                """
+                INSERT INTO language_segments (
+                    analysis_id, language_code, start_time, end_time, confidence
+                ) VALUES (?, ?, ?, ?, ?)
+                RETURNING id
+                """,
+                (
+                    analysis_id,
+                    segment.language_code,
+                    segment.start_time,
+                    segment.end_time,
+                    segment.confidence,
+                ),
+            )
+            result = cursor.fetchone()
+            if result:
+                segment_ids.append(result[0])
+
+        conn.commit()
+        return segment_ids
+    except sqlite3.Error:
+        conn.rollback()
+        raise
+
+
+def get_language_segments(
+    conn: sqlite3.Connection, analysis_id: int
+) -> list[LanguageSegmentRecord]:
+    """Get all language segments for an analysis.
+
+    Args:
+        conn: Database connection.
+        analysis_id: ID of the language_analysis_results record.
+
+    Returns:
+        List of LanguageSegmentRecord objects ordered by start_time.
+    """
+    cursor = conn.execute(
+        """
+        SELECT id, analysis_id, language_code, start_time, end_time, confidence
+        FROM language_segments
+        WHERE analysis_id = ?
+        ORDER BY start_time
+        """,
+        (analysis_id,),
+    )
+    return [
+        LanguageSegmentRecord(
+            id=row[0],
+            analysis_id=row[1],
+            language_code=row[2],
+            start_time=row[3],
+            end_time=row[4],
+            confidence=row[5],
+        )
+        for row in cursor.fetchall()
+    ]
+
+
+def get_language_analysis_by_file_hash(
+    conn: sqlite3.Connection, file_hash: str
+) -> list[LanguageAnalysisResultRecord]:
+    """Get all language analysis results with matching file hash.
+
+    Useful for finding cached results when file content matches.
+
+    Args:
+        conn: Database connection.
+        file_hash: Content hash to search for.
+
+    Returns:
+        List of LanguageAnalysisResultRecord objects.
+    """
+    cursor = conn.execute(
+        """
+        SELECT id, track_id, file_hash, primary_language, primary_percentage,
+               classification, analysis_metadata, created_at, updated_at
+        FROM language_analysis_results
+        WHERE file_hash = ?
+        """,
+        (file_hash,),
+    )
+    return [
+        LanguageAnalysisResultRecord(
+            id=row[0],
+            track_id=row[1],
+            file_hash=row[2],
+            primary_language=row[3],
+            primary_percentage=row[4],
+            classification=row[5],
+            analysis_metadata=row[6],
+            created_at=row[7],
+            updated_at=row[8],
+        )
+        for row in cursor.fetchall()
+    ]
+
+
+def delete_language_analysis_for_file(conn: sqlite3.Connection, file_id: int) -> int:
+    """Delete all language analysis results for tracks in a file.
+
+    Called when file is re-scanned or deleted.
+
+    Args:
+        conn: Database connection.
+        file_id: ID of the file.
+
+    Returns:
+        Count of deleted records.
+    """
+    cursor = conn.execute(
+        """
+        DELETE FROM language_analysis_results
+        WHERE track_id IN (SELECT id FROM tracks WHERE file_id = ?)
+        """,
+        (file_id,),
+    )
+    conn.commit()
+    return cursor.rowcount
