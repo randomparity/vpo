@@ -10,11 +10,21 @@ This module provides the job queue system for long-running operations:
 """
 
 from video_policy_orchestrator.jobs.maintenance import purge_old_jobs
-from video_policy_orchestrator.jobs.services import (
-    TranscodeJobResult,
-    TranscodeJobService,
-)
 from video_policy_orchestrator.jobs.summary import generate_summary_text
+
+
+def __getattr__(name: str):
+    """Lazy import for services to avoid circular imports."""
+    if name == "TranscodeJobResult":
+        from video_policy_orchestrator.jobs.services import TranscodeJobResult
+
+        return TranscodeJobResult
+    if name == "TranscodeJobService":
+        from video_policy_orchestrator.jobs.services import TranscodeJobService
+
+        return TranscodeJobService
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "generate_summary_text",

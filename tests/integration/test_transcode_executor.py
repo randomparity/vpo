@@ -17,11 +17,6 @@ from video_policy_orchestrator.executor.transcode import (
     TranscodeExecutor,
     TranscodePlan,
     build_ffmpeg_command,
-    detect_hdr_content,
-    detect_missing_bitrate,
-    detect_vfr_content,
-    select_encoder_with_fallback,
-    select_primary_video_stream,
 )
 from video_policy_orchestrator.policy.models import (
     AudioTranscodeConfig,
@@ -30,6 +25,13 @@ from video_policy_orchestrator.policy.models import (
     SkipCondition,
     TranscodePolicyConfig,
 )
+from video_policy_orchestrator.policy.video_analysis import (
+    detect_hdr_content,
+    detect_missing_bitrate,
+    detect_vfr_content,
+    select_primary_video_stream,
+)
+from video_policy_orchestrator.tools.encoders import select_encoder_with_fallback
 
 # =============================================================================
 # Fixtures
@@ -387,9 +389,9 @@ class TestScalingWithHardwareAcceleration:
 
     def test_hw_encoder_selection_with_fallback(self) -> None:
         """Hardware encoder selection should fall back to software."""
-        # Mock _check_hw_encoder_available to return False
+        # Mock check_encoder_available to return False
         with patch(
-            "video_policy_orchestrator.executor.transcode._check_hw_encoder_available"
+            "video_policy_orchestrator.tools.encoders.check_encoder_available"
         ) as mock_check:
             mock_check.return_value = False
 
@@ -405,7 +407,7 @@ class TestScalingWithHardwareAcceleration:
     def test_hw_encoder_selection_nvenc_available(self) -> None:
         """Should select NVENC when available in auto mode."""
         with patch(
-            "video_policy_orchestrator.executor.transcode._check_hw_encoder_available"
+            "video_policy_orchestrator.tools.encoders.check_encoder_available"
         ) as mock_check:
             # Only NVENC is available
             mock_check.side_effect = lambda enc: enc == "hevc_nvenc"
@@ -422,7 +424,7 @@ class TestScalingWithHardwareAcceleration:
     def test_hw_encoder_selection_explicit_mode(self) -> None:
         """Explicit hardware mode should select that encoder."""
         with patch(
-            "video_policy_orchestrator.executor.transcode._check_hw_encoder_available"
+            "video_policy_orchestrator.tools.encoders.check_encoder_available"
         ) as mock_check:
             mock_check.return_value = True
 
