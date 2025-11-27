@@ -11,11 +11,23 @@ from video_policy_orchestrator.language_analysis.models import (
     LanguagePercentage,
     LanguageSegment,
 )
+from video_policy_orchestrator.language_analysis.service import (
+    LanguageAnalysisError,
+    analyze_track_languages,
+    get_cached_analysis,
+    invalidate_analysis_cache,
+    persist_analysis_result,
+)
 
 __all__ = [
     "AnalysisMetadata",
+    "LanguageAnalysisError",
     "LanguageAnalysisResult",
     "LanguageClassification",
     "LanguagePercentage",
     "LanguageSegment",
+    "analyze_track_languages",
+    "get_cached_analysis",
+    "invalidate_analysis_cache",
+    "persist_analysis_result",
 ]

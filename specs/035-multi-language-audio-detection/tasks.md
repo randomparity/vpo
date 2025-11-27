@@ -79,28 +79,28 @@
 
 ### Plugin Protocol Extension
 
-- [ ] T020 [US1] Add detect_multi_language() method signature to TranscriptionPlugin protocol in src/video_policy_orchestrator/transcription/interface.py
-- [ ] T021 [US1] Add MultiLanguageDetectionResult dataclass to src/video_policy_orchestrator/transcription/interface.py
-- [ ] T022 [US1] Add "multi_language_detection" feature flag support in src/video_policy_orchestrator/transcription/interface.py
+- [X] T020 [US1] Add detect_multi_language() method signature to TranscriptionPlugin protocol in src/video_policy_orchestrator/transcription/interface.py
+- [X] T021 [US1] Add MultiLanguageDetectionResult dataclass to src/video_policy_orchestrator/transcription/interface.py
+- [X] T022 [US1] Add "multi_language_detection" feature flag support in src/video_policy_orchestrator/transcription/interface.py
 
 ### Whisper Plugin Implementation
 
-- [ ] T023 [US1] Add calculate_sample_positions() helper function in src/video_policy_orchestrator/plugins/whisper_transcriber/plugin.py
-- [ ] T024 [US1] Implement detect_multi_language() in WhisperTranscriptionPlugin in src/video_policy_orchestrator/plugins/whisper_transcriber/plugin.py
-- [ ] T025 [US1] Add _extract_sample() helper for extracting audio at positions in src/video_policy_orchestrator/plugins/whisper_transcriber/plugin.py
-- [ ] T026 [US1] Add _aggregate_segments() to convert samples to LanguageAnalysisResult in src/video_policy_orchestrator/plugins/whisper_transcriber/plugin.py
+- [X] T023 [US1] Add calculate_sample_positions() helper function in src/video_policy_orchestrator/plugins/whisper_transcriber/plugin.py
+- [X] T024 [US1] Implement detect_multi_language() in WhisperTranscriptionPlugin in src/video_policy_orchestrator/plugins/whisper_transcriber/plugin.py
+- [X] T025 [US1] Add _extract_sample() helper for extracting audio at positions in src/video_policy_orchestrator/plugins/whisper_transcriber/plugin.py
+- [X] T026 [US1] Add _aggregate_segments() to convert samples to LanguageAnalysisResult in src/video_policy_orchestrator/plugins/whisper_transcriber/plugin.py
 
 ### Service Layer
 
-- [ ] T027 [US1] Create analyze_track_languages() function in src/video_policy_orchestrator/language_analysis/service.py
-- [ ] T028 [US1] Add caching logic (check file hash before analysis) in src/video_policy_orchestrator/language_analysis/service.py
-- [ ] T029 [US1] Add result persistence (store to database) in src/video_policy_orchestrator/language_analysis/service.py
+- [X] T027 [US1] Create analyze_track_languages() function in src/video_policy_orchestrator/language_analysis/service.py
+- [X] T028 [US1] Add caching logic (check file hash before analysis) in src/video_policy_orchestrator/language_analysis/service.py
+- [X] T029 [US1] Add result persistence (store to database) in src/video_policy_orchestrator/language_analysis/service.py
 
 ### CLI: Inspect Command
 
-- [ ] T030 [US1] Add --analyze-languages option to inspect command in src/video_policy_orchestrator/cli/inspect.py
-- [ ] T031 [US1] Add --show-segments option to display detailed segments in src/video_policy_orchestrator/cli/inspect.py
-- [ ] T032 [US1] Add language analysis output formatting in src/video_policy_orchestrator/cli/inspect.py
+- [X] T030 [US1] Add --analyze-languages option to inspect command in src/video_policy_orchestrator/cli/inspect.py
+- [X] T031 [US1] Add --show-segments option to display detailed segments in src/video_policy_orchestrator/cli/inspect.py
+- [X] T032 [US1] Add language analysis output formatting in src/video_policy_orchestrator/cli/inspect.py
 
 ### CLI: Scan Command
 
@@ -110,9 +110,9 @@
 
 ### Unit Tests for User Story 1
 
-- [ ] T036 [P] [US1] Add tests for calculate_sample_positions() in tests/unit/plugins/test_whisper_transcriber.py
-- [ ] T037 [P] [US1] Add tests for detect_multi_language() with mock audio in tests/unit/plugins/test_whisper_transcriber.py
-- [ ] T038 [P] [US1] Add tests for analyze_track_languages() in tests/unit/language_analysis/test_service.py
+- [X] T036 [P] [US1] Add tests for calculate_sample_positions() in tests/unit/plugins/test_whisper_transcriber.py
+- [X] T037 [P] [US1] Add tests for detect_multi_language() with mock audio in tests/unit/plugins/test_whisper_transcriber.py
+- [X] T038 [P] [US1] Add tests for analyze_track_languages() in tests/unit/language_analysis/test_service.py
 
 **Checkpoint**: Language detection is functional via CLI. Can analyze files and see multi-language classification.
 

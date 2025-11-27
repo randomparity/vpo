@@ -1,5 +1,6 @@
 """Interface definitions for transcription plugins."""
 
+from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
 
@@ -7,6 +8,58 @@ class TranscriptionError(Exception):
     """Base exception for transcription-related errors."""
 
     pass
+
+
+@dataclass
+class MultiLanguageDetectionConfig:
+    """Configuration for multi-language detection.
+
+    Controls how audio tracks are sampled and analyzed for language detection.
+
+    Attributes:
+        num_samples: Number of positions to sample (default: 5).
+        sample_duration: Duration of each sample in seconds (default: 30).
+        min_speech_ratio: Minimum speech-to-silence ratio to consider valid.
+    """
+
+    num_samples: int = 5
+    sample_duration: float = 30.0
+    min_speech_ratio: float = 0.1
+
+    def __post_init__(self) -> None:
+        """Validate configuration."""
+        if self.num_samples < 1:
+            raise ValueError("num_samples must be at least 1")
+        if self.sample_duration <= 0:
+            raise ValueError("sample_duration must be positive")
+        if not 0.0 <= self.min_speech_ratio <= 1.0:
+            raise ValueError("min_speech_ratio must be between 0.0 and 1.0")
+
+
+@dataclass
+class MultiLanguageDetectionResult:
+    """Result of multi-language detection for a single audio sample.
+
+    Returned by detect_multi_language() for each sample position.
+    Used to build aggregated LanguageAnalysisResult.
+
+    Attributes:
+        position: Sample start position in seconds.
+        language: Detected ISO 639-2/B language code (or None if no speech).
+        confidence: Detection confidence (0.0 to 1.0).
+        has_speech: Whether speech was detected in the sample.
+    """
+
+    position: float
+    language: str | None
+    confidence: float
+    has_speech: bool = True
+    errors: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        """Validate result."""
+        if not 0.0 <= self.confidence <= 1.0:
+            raise ValueError("confidence must be between 0.0 and 1.0")
 
 
 @runtime_checkable
@@ -74,9 +127,34 @@ class TranscriptionPlugin(Protocol):
             feature: Feature name to check. Known features:
                 - "transcription": Full transcription support
                 - "gpu": GPU acceleration support
+                - "multi_language_detection": Multi-language detection support
 
         Returns:
             True if feature is supported.
+        """
+        ...
+
+    def detect_multi_language(
+        self,
+        audio_data: bytes,
+        sample_rate: int = 16000,
+    ) -> MultiLanguageDetectionResult:
+        """Detect language from a single audio sample for multi-language analysis.
+
+        Unlike detect_language(), this method is designed for aggregation:
+        - Returns position-aware results for building LanguageSegments
+        - Reports whether speech was detected (for speech ratio calculation)
+        - Designed to be called multiple times at different positions
+
+        Args:
+            audio_data: Raw audio bytes (WAV format, mono, 16kHz).
+            sample_rate: Sample rate of audio data.
+
+        Returns:
+            MultiLanguageDetectionResult with position, language, and speech info.
+
+        Raises:
+            TranscriptionError: If detection fails.
         """
         ...
 
@@ -86,4 +164,10 @@ from video_policy_orchestrator.transcription.models import (  # noqa: E402
     TranscriptionResult,
 )
 
-__all__ = ["TranscriptionError", "TranscriptionPlugin", "TranscriptionResult"]
+__all__ = [
+    "MultiLanguageDetectionConfig",
+    "MultiLanguageDetectionResult",
+    "TranscriptionError",
+    "TranscriptionPlugin",
+    "TranscriptionResult",
+]
