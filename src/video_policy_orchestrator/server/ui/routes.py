@@ -155,6 +155,74 @@ def _get_polling_config() -> dict:
 # Import parse_iso_timestamp at module level for use throughout this file
 
 
+# ==========================================================================
+# Decorator middleware for API handlers
+# ==========================================================================
+
+
+def shutdown_check_middleware(
+    handler: web.RequestHandler,
+) -> web.RequestHandler:
+    """Decorator middleware that returns 503 if server is shutting down.
+
+    Usage:
+        @shutdown_check_middleware
+        async def my_api_handler(request: web.Request) -> web.Response:
+            ...
+
+    Returns:
+        JSON response with 503 status if shutting down, otherwise calls handler.
+    """
+
+    async def wrapper(request: web.Request) -> web.StreamResponse:
+        lifecycle = request.app.get("lifecycle")
+        if lifecycle and lifecycle.is_shutting_down:
+            return web.json_response(
+                {"error": "Service is shutting down"},
+                status=503,
+            )
+        return await handler(request)
+
+    return wrapper
+
+
+def database_required_middleware(
+    handler: web.RequestHandler,
+) -> web.RequestHandler:
+    """Decorator middleware that returns 503 if database is unavailable.
+
+    Stores connection_pool in request for handler use via request["connection_pool"].
+
+    Usage:
+        @database_required_middleware
+        async def my_api_handler(request: web.Request) -> web.Response:
+            pool = request["connection_pool"]
+            ...
+
+    Returns:
+        JSON response with 503 status if no connection pool, otherwise calls handler.
+    """
+    from video_policy_orchestrator.db.connection import DaemonConnectionPool
+
+    async def wrapper(request: web.Request) -> web.StreamResponse:
+        pool: DaemonConnectionPool | None = request.app.get("connection_pool")
+        if pool is None:
+            return web.json_response(
+                {"error": "Database not available"},
+                status=503,
+            )
+        # Store in request for handler access
+        request["connection_pool"] = pool
+        return await handler(request)
+
+    return wrapper
+
+
+# ==========================================================================
+# Route handlers
+# ==========================================================================
+
+
 async def root_redirect(request: web.Request) -> web.Response:
     """Handle GET / - redirect to default section."""
     raise web.HTTPFound(location=f"/{DEFAULT_SECTION}")
@@ -171,6 +239,8 @@ async def jobs_handler(request: web.Request) -> dict:
     return context
 
 
+@shutdown_check_middleware
+@database_required_middleware
 async def api_jobs_handler(request: web.Request) -> web.Response:
     """Handle GET /api/jobs - JSON API for jobs listing.
 
@@ -184,16 +254,7 @@ async def api_jobs_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with JobListResponse payload.
     """
-    from video_policy_orchestrator.db.connection import DaemonConnectionPool
     from video_policy_orchestrator.db.models import JobStatus, JobType
-
-    # Check if shutting down
-    lifecycle = request.app.get("lifecycle")
-    if lifecycle and lifecycle.is_shutting_down:
-        return web.json_response(
-            {"error": "Service is shutting down"},
-            status=503,
-        )
 
     # Parse query parameters
     params = JobFilterParams.from_query(dict(request.query))
@@ -228,13 +289,8 @@ async def api_jobs_handler(request: web.Request) -> web.Response:
             status=400,
         )
 
-    # Get connection pool
-    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
-    if connection_pool is None:
-        return web.json_response(
-            {"error": "Database not available"},
-            status=503,
-        )
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
 
     # Query jobs from database using thread-safe connection access
     def _query_jobs() -> tuple[list, int]:
@@ -253,8 +309,6 @@ async def api_jobs_handler(request: web.Request) -> web.Response:
                 return_total=True,
             )
             return jobs, total
-
-    import asyncio
 
     jobs_data, total = await asyncio.to_thread(_query_jobs)
 
@@ -356,6 +410,8 @@ def _job_to_detail_item(job, has_logs: bool) -> JobDetailItem:
     )
 
 
+@shutdown_check_middleware
+@database_required_middleware
 async def api_job_detail_handler(request: web.Request) -> web.Response:
     """Handle GET /api/jobs/{job_id} - JSON API for job detail.
 
@@ -365,18 +421,7 @@ async def api_job_detail_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with job detail or error.
     """
-    import asyncio
-
-    from video_policy_orchestrator.db.connection import DaemonConnectionPool
     from video_policy_orchestrator.jobs.logs import log_file_exists
-
-    # Check if shutting down
-    lifecycle = request.app.get("lifecycle")
-    if lifecycle and lifecycle.is_shutting_down:
-        return web.json_response(
-            {"error": "Service is shutting down"},
-            status=503,
-        )
 
     job_id = request.match_info["job_id"]
 
@@ -387,13 +432,8 @@ async def api_job_detail_handler(request: web.Request) -> web.Response:
             status=400,
         )
 
-    # Get connection pool
-    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
-    if connection_pool is None:
-        return web.json_response(
-            {"error": "Database not available"},
-            status=503,
-        )
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
 
     # Query job from database
     def _query_job():
@@ -488,6 +528,7 @@ async def job_detail_handler(request: web.Request) -> dict:
     return context
 
 
+@shutdown_check_middleware
 async def api_job_logs_handler(request: web.Request) -> web.Response:
     """Handle GET /api/jobs/{job_id}/logs - JSON API for job logs.
 
@@ -507,14 +548,6 @@ async def api_job_logs_handler(request: web.Request) -> web.Response:
         are added to this endpoint in the future.
     """
     from video_policy_orchestrator.jobs.logs import DEFAULT_LOG_LINES, read_log_tail
-
-    # Check if shutting down
-    lifecycle = request.app.get("lifecycle")
-    if lifecycle and lifecycle.is_shutting_down:
-        return web.json_response(
-            {"error": "Service is shutting down"},
-            status=503,
-        )
 
     job_id = request.match_info["job_id"]
 
@@ -552,6 +585,8 @@ async def api_job_logs_handler(request: web.Request) -> web.Response:
     return web.json_response(response.to_dict())
 
 
+@shutdown_check_middleware
+@database_required_middleware
 async def api_job_errors_handler(request: web.Request) -> web.Response:
     """Handle GET /api/jobs/{job_id}/errors - JSON API for scan errors.
 
@@ -564,16 +599,6 @@ async def api_job_errors_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with ScanErrorsResponse payload.
     """
-    from video_policy_orchestrator.db.connection import DaemonConnectionPool
-
-    # Check if shutting down
-    lifecycle = request.app.get("lifecycle")
-    if lifecycle and lifecycle.is_shutting_down:
-        return web.json_response(
-            {"error": "Service is shutting down"},
-            status=503,
-        )
-
     job_id = request.match_info["job_id"]
 
     # Validate UUID format
@@ -583,13 +608,8 @@ async def api_job_errors_handler(request: web.Request) -> web.Response:
             status=400,
         )
 
-    # Get connection pool
-    pool: DaemonConnectionPool | None = request.app.get("connection_pool")
-    if pool is None:
-        return web.json_response(
-            {"error": "Database not available"},
-            status=503,
-        )
+    # Get connection pool from middleware
+    pool = request["connection_pool"]
 
     def _query_scan_errors() -> list[ScanErrorItem]:
         """Query files with scan errors (runs in thread pool)."""
@@ -627,6 +647,8 @@ async def library_handler(request: web.Request) -> dict:
     return context
 
 
+@shutdown_check_middleware
+@database_required_middleware
 async def library_api_handler(request: web.Request) -> web.Response:
     """Handle GET /api/library - JSON API for library files listing.
 
@@ -638,16 +660,7 @@ async def library_api_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with FileListResponse payload.
     """
-    from video_policy_orchestrator.db.connection import DaemonConnectionPool
     from video_policy_orchestrator.db.models import get_files_filtered
-
-    # Check if shutting down
-    lifecycle = request.app.get("lifecycle")
-    if lifecycle and lifecycle.is_shutting_down:
-        return web.json_response(
-            {"error": "Service is shutting down"},
-            status=503,
-        )
 
     # Parse query parameters
     # Handle audio_lang as a list (can appear multiple times in query)
@@ -671,13 +684,8 @@ async def library_api_handler(request: web.Request) -> web.Response:
     if active_filters:
         logger.debug("Library API filter request: %s", ", ".join(active_filters))
 
-    # Get connection pool
-    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
-    if connection_pool is None:
-        return web.json_response(
-            {"error": "Database not available"},
-            status=503,
-        )
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
 
     # Query files from database using thread-safe connection access
     def _query_files() -> tuple[list[dict], int]:
@@ -736,33 +744,20 @@ async def library_api_handler(request: web.Request) -> web.Response:
     return web.json_response(response.to_dict())
 
 
+@shutdown_check_middleware
+@database_required_middleware
 async def api_library_languages_handler(request: web.Request) -> web.Response:
     """Handle GET /api/library/languages - Get available audio languages.
 
     Returns list of distinct audio language codes present in the library
     for populating the language filter dropdown (019-library-filters-search).
     """
-    # Check if shutting down
-    lifecycle = request.app.get("lifecycle")
-    if lifecycle and lifecycle.is_shutting_down:
-        return web.json_response(
-            {"error": "Service is shutting down"},
-            status=503,
-        )
-
-    from video_policy_orchestrator.db.connection import DaemonConnectionPool
-
-    # Get connection pool
-    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
-    if connection_pool is None:
-        return web.json_response(
-            {"error": "Database not available"},
-            status=503,
-        )
-
-    # Query distinct languages from database
     from video_policy_orchestrator.db.models import get_distinct_audio_languages
 
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
+
+    # Query distinct languages from database
     def _query_languages() -> list[dict]:
         with connection_pool.transaction() as conn:
             return get_distinct_audio_languages(conn)
@@ -886,6 +881,8 @@ async def file_detail_handler(request: web.Request) -> dict:
     return context
 
 
+@shutdown_check_middleware
+@database_required_middleware
 async def api_file_detail_handler(request: web.Request) -> web.Response:
     """Handle GET /api/library/{file_id} - JSON API for file detail.
 
@@ -895,20 +892,11 @@ async def api_file_detail_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with FileDetailResponse payload or error.
     """
-    from video_policy_orchestrator.db.connection import DaemonConnectionPool
     from video_policy_orchestrator.db.models import (
         get_file_by_id,
         get_tracks_for_file,
         get_transcriptions_for_tracks,
     )
-
-    # Check if shutting down
-    lifecycle = request.app.get("lifecycle")
-    if lifecycle and lifecycle.is_shutting_down:
-        return web.json_response(
-            {"error": "Service is shutting down"},
-            status=503,
-        )
 
     file_id_str = request.match_info["file_id"]
 
@@ -923,13 +911,8 @@ async def api_file_detail_handler(request: web.Request) -> web.Response:
             status=400,
         )
 
-    # Get connection pool
-    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
-    if connection_pool is None:
-        return web.json_response(
-            {"error": "Database not available"},
-            status=503,
-        )
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
 
     # Query file from database
     def _query_file():
@@ -968,6 +951,8 @@ async def transcriptions_handler(request: web.Request) -> dict:
     )
 
 
+@shutdown_check_middleware
+@database_required_middleware
 async def api_transcriptions_handler(request: web.Request) -> web.Response:
     """Handle GET /api/transcriptions - JSON API for transcriptions listing.
 
@@ -979,27 +964,13 @@ async def api_transcriptions_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with TranscriptionListResponse payload.
     """
-    from video_policy_orchestrator.db.connection import DaemonConnectionPool
     from video_policy_orchestrator.db.models import get_files_with_transcriptions
-
-    # Check if shutting down
-    lifecycle = request.app.get("lifecycle")
-    if lifecycle and lifecycle.is_shutting_down:
-        return web.json_response(
-            {"error": "Service is shutting down"},
-            status=503,
-        )
 
     # Parse query parameters
     params = TranscriptionFilterParams.from_query(dict(request.query))
 
-    # Get connection pool
-    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
-    if connection_pool is None:
-        return web.json_response(
-            {"error": "Database not available"},
-            status=503,
-        )
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
 
     # Query files from database using thread-safe connection access
     def _query_files() -> tuple[list[dict], int]:
@@ -1167,6 +1138,8 @@ async def transcription_detail_handler(request: web.Request) -> dict:
     return context
 
 
+@shutdown_check_middleware
+@database_required_middleware
 async def api_transcription_detail_handler(request: web.Request) -> web.Response:
     """Handle GET /api/transcriptions/{id} - JSON API for transcription detail.
 
@@ -1176,16 +1149,7 @@ async def api_transcription_detail_handler(request: web.Request) -> web.Response
     Returns:
         JSON response with TranscriptionDetailResponse payload or error.
     """
-    from video_policy_orchestrator.db.connection import DaemonConnectionPool
     from video_policy_orchestrator.db.models import get_transcription_detail
-
-    # Check if shutting down
-    lifecycle = request.app.get("lifecycle")
-    if lifecycle and lifecycle.is_shutting_down:
-        return web.json_response(
-            {"error": "Service is shutting down"},
-            status=503,
-        )
 
     transcription_id_str = request.match_info["transcription_id"]
 
@@ -1200,13 +1164,8 @@ async def api_transcription_detail_handler(request: web.Request) -> web.Response
             status=400,
         )
 
-    # Get connection pool
-    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
-    if connection_pool is None:
-        return web.json_response(
-            {"error": "Database not available"},
-            status=503,
-        )
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
 
     # Query transcription from database
     def _query_transcription():
@@ -1250,6 +1209,7 @@ async def policies_handler(request: web.Request) -> dict:
     return context
 
 
+@shutdown_check_middleware
 async def policies_api_handler(request: web.Request) -> web.Response:
     """Handle GET /api/policies - JSON API for policy files listing.
 
@@ -1257,14 +1217,6 @@ async def policies_api_handler(request: web.Request) -> web.Response:
         JSON response with PolicyListResponse payload.
     """
     from video_policy_orchestrator.policy.services import list_policies
-
-    # Check if shutting down
-    lifecycle = request.app.get("lifecycle")
-    if lifecycle and lifecycle.is_shutting_down:
-        return web.json_response(
-            {"error": "Service is shutting down"},
-            status=503,
-        )
 
     response = await asyncio.to_thread(list_policies)
 
@@ -1391,6 +1343,7 @@ async def policy_editor_handler(request: web.Request) -> dict:
     return context
 
 
+@shutdown_check_middleware
 async def api_policy_detail_handler(request: web.Request) -> web.Response:
     """Handle GET /api/policies/{name} - JSON API for policy detail.
 
@@ -1403,14 +1356,6 @@ async def api_policy_detail_handler(request: web.Request) -> web.Response:
     from video_policy_orchestrator.policy.discovery import DEFAULT_POLICIES_DIR
     from video_policy_orchestrator.policy.editor import PolicyRoundTripEditor
     from video_policy_orchestrator.policy.loader import PolicyValidationError
-
-    # Check if shutting down
-    lifecycle = request.app.get("lifecycle")
-    if lifecycle and lifecycle.is_shutting_down:
-        return web.json_response(
-            {"error": "Service is shutting down"},
-            status=503,
-        )
 
     policy_name = request.match_info["name"]
 
@@ -1494,6 +1439,7 @@ async def api_policy_detail_handler(request: web.Request) -> web.Response:
     return web.json_response(response.to_dict())
 
 
+@shutdown_check_middleware
 async def api_policy_update_handler(request: web.Request) -> web.Response:
     """Handle PUT /api/policies/{name} - Save policy changes.
 
@@ -1516,14 +1462,6 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
         ValidationErrorItem,
         ValidationErrorResponse,
     )
-
-    # Check if shutting down
-    lifecycle = request.app.get("lifecycle")
-    if lifecycle and lifecycle.is_shutting_down:
-        return web.json_response(
-            {"error": "Service is shutting down"},
-            status=503,
-        )
 
     policy_name = request.match_info["name"]
 
@@ -1700,6 +1638,7 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
     return web.json_response(response.to_dict())
 
 
+@shutdown_check_middleware
 async def api_policy_validate_handler(request: web.Request) -> web.Response:
     """Handle POST /api/policies/{name}/validate - Validate without saving.
 
@@ -1718,14 +1657,6 @@ async def api_policy_validate_handler(request: web.Request) -> web.Response:
         PolicyValidateResponse,
         ValidationErrorItem,
     )
-
-    # Check if shutting down
-    lifecycle = request.app.get("lifecycle")
-    if lifecycle and lifecycle.is_shutting_down:
-        return web.json_response(
-            {"error": "Service is shutting down"},
-            status=503,
-        )
 
     policy_name = request.match_info["name"]
 
@@ -1800,6 +1731,8 @@ async def plans_handler(request: web.Request) -> dict:
     return context
 
 
+@shutdown_check_middleware
+@database_required_middleware
 async def api_plans_handler(request: web.Request) -> web.Response:
     """Handle GET /api/plans - JSON API for plans listing.
 
@@ -1813,17 +1746,8 @@ async def api_plans_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with PlanListResponse payload.
     """
-    from video_policy_orchestrator.db.connection import DaemonConnectionPool
     from video_policy_orchestrator.db.models import PlanStatus
     from video_policy_orchestrator.db.operations import get_plans_filtered
-
-    # Check if shutting down
-    lifecycle = request.app.get("lifecycle")
-    if lifecycle and lifecycle.is_shutting_down:
-        return web.json_response(
-            {"error": "Service is shutting down"},
-            status=503,
-        )
 
     # Parse query parameters
     params = PlanFilterParams.from_query(dict(request.query))
@@ -1847,13 +1771,8 @@ async def api_plans_handler(request: web.Request) -> web.Response:
             status=400,
         )
 
-    # Get connection pool
-    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
-    if connection_pool is None:
-        return web.json_response(
-            {"error": "Database not available"},
-            status=503,
-        )
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
 
     # Query plans from database using thread-safe connection access
     def _query_plans() -> tuple[list, int]:
@@ -1888,6 +1807,8 @@ async def api_plans_handler(request: web.Request) -> web.Response:
     return web.json_response(response.to_dict())
 
 
+@shutdown_check_middleware
+@database_required_middleware
 async def api_plan_approve_handler(request: web.Request) -> web.Response:
     """Handle POST /api/plans/{plan_id}/approve - Approve a pending plan.
 
@@ -1899,30 +1820,7 @@ async def api_plan_approve_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with PlanActionResponse payload including job_id and job_url.
     """
-    import uuid
-    from datetime import timezone
-
-    from video_policy_orchestrator.db.connection import DaemonConnectionPool
-    from video_policy_orchestrator.db.models import (
-        Job,
-        JobStatus,
-        JobType,
-        PlanStatus,
-        insert_job,
-    )
-    from video_policy_orchestrator.db.operations import (
-        InvalidPlanTransitionError,
-        get_plan_by_id,
-        update_plan_status,
-    )
-
-    # Check if shutting down
-    lifecycle = request.app.get("lifecycle")
-    if lifecycle and lifecycle.is_shutting_down:
-        return web.json_response(
-            {"error": "Service is shutting down"},
-            status=503,
-        )
+    from video_policy_orchestrator.jobs.services import PlanApprovalService
 
     plan_id = request.match_info["plan_id"]
 
@@ -1933,97 +1831,40 @@ async def api_plan_approve_handler(request: web.Request) -> web.Response:
             status=400,
         )
 
-    # Get connection pool
-    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
-    if connection_pool is None:
-        return web.json_response(
-            PlanActionResponse(success=False, error="Database not available").to_dict(),
-            status=503,
-        )
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
 
-    # Approve plan and create execution job
-    def _approve_plan_and_create_job():
+    # Use service to approve plan
+    service = PlanApprovalService()
+
+    def _approve():
         with connection_pool.transaction() as conn:
-            # Fetch plan first to get details for job creation
-            plan = get_plan_by_id(conn, plan_id)
-            if plan is None:
-                return None, None, None, "Plan not found"
+            return service.approve(conn, plan_id)
 
-            # Check file existence for warning
-            file_warning = None
-            if plan.file_id is None:
-                file_warning = "Source file no longer exists in library"
+    result = await asyncio.to_thread(_approve)
 
-            try:
-                # Update plan status to APPROVED
-                updated = update_plan_status(conn, plan_id, PlanStatus.APPROVED)
-                if updated is None:
-                    return None, None, None, "Plan not found"
-
-                # Create execution job with high priority
-                job_id = str(uuid.uuid4())
-                job = Job(
-                    id=job_id,
-                    file_id=plan.file_id,
-                    file_path=plan.file_path,
-                    job_type=JobType.APPLY,
-                    status=JobStatus.QUEUED,
-                    priority=10,  # High priority (default is 100)
-                    policy_name=plan.policy_name,
-                    policy_json=plan.actions_json,
-                    progress_percent=0.0,
-                    progress_json=None,
-                    created_at=datetime.now(timezone.utc).isoformat(),
-                    started_at=None,
-                    completed_at=None,
-                    worker_pid=None,
-                    worker_heartbeat=None,
-                    output_path=None,
-                    backup_path=None,
-                    error_message=None,
-                    files_affected_json=None,
-                    summary_json=None,
-                    log_path=None,
-                )
-                insert_job(conn, job)
-
-                return updated, job_id, file_warning, None
-            except InvalidPlanTransitionError as e:
-                return None, None, None, str(e)
-
-    updated_plan, job_id, warning, error = await asyncio.to_thread(
-        _approve_plan_and_create_job
-    )
-
-    if error:
-        status_code = 404 if error == "Plan not found" else 409
+    if not result.success:
+        status_code = 404 if result.error == "Plan not found" else 409
         return web.json_response(
-            PlanActionResponse(success=False, error=error).to_dict(),
+            PlanActionResponse(success=False, error=result.error).to_dict(),
             status=status_code,
         )
 
     # Build job URL
-    job_url = f"/jobs/{job_id}"
-
-    # Structured audit logging
-    logger.info(
-        "Plan approved: plan_id=%s, job_id=%s, file_path=%s, policy=%s",
-        plan_id[:8],
-        job_id[:8],
-        updated_plan.file_path,
-        updated_plan.policy_name,
-    )
+    job_url = f"/jobs/{result.job_id}"
 
     response = PlanActionResponse(
         success=True,
-        plan=PlanListItem.from_plan_record(updated_plan),
-        job_id=job_id,
+        plan=PlanListItem.from_plan_record(result.plan),
+        job_id=result.job_id,
         job_url=job_url,
-        warning=warning,
+        warning=result.warning,
     )
     return web.json_response(response.to_dict())
 
 
+@shutdown_check_middleware
+@database_required_middleware
 async def api_plan_reject_handler(request: web.Request) -> web.Response:
     """Handle POST /api/plans/{plan_id}/reject - Reject a pending plan.
 
@@ -2033,20 +1874,7 @@ async def api_plan_reject_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with PlanActionResponse payload.
     """
-    from video_policy_orchestrator.db.connection import DaemonConnectionPool
-    from video_policy_orchestrator.db.models import PlanStatus
-    from video_policy_orchestrator.db.operations import (
-        InvalidPlanTransitionError,
-        update_plan_status,
-    )
-
-    # Check if shutting down
-    lifecycle = request.app.get("lifecycle")
-    if lifecycle and lifecycle.is_shutting_down:
-        return web.json_response(
-            {"error": "Service is shutting down"},
-            status=503,
-        )
+    from video_policy_orchestrator.jobs.services import PlanApprovalService
 
     plan_id = request.match_info["plan_id"]
 
@@ -2057,45 +1885,28 @@ async def api_plan_reject_handler(request: web.Request) -> web.Response:
             status=400,
         )
 
-    # Get connection pool
-    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
-    if connection_pool is None:
-        return web.json_response(
-            PlanActionResponse(success=False, error="Database not available").to_dict(),
-            status=503,
-        )
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
 
-    # Update plan status
-    def _reject_plan():
+    # Use service to reject plan
+    service = PlanApprovalService()
+
+    def _reject():
         with connection_pool.transaction() as conn:
-            try:
-                updated = update_plan_status(conn, plan_id, PlanStatus.REJECTED)
-                if updated is None:
-                    return None, "Plan not found"
-                return updated, None
-            except InvalidPlanTransitionError as e:
-                return None, str(e)
+            return service.reject(conn, plan_id)
 
-    updated_plan, error = await asyncio.to_thread(_reject_plan)
+    result = await asyncio.to_thread(_reject)
 
-    if error:
-        status_code = 404 if error == "Plan not found" else 409
+    if not result.success:
+        status_code = 404 if result.error == "Plan not found" else 409
         return web.json_response(
-            PlanActionResponse(success=False, error=error).to_dict(),
+            PlanActionResponse(success=False, error=result.error).to_dict(),
             status=status_code,
         )
 
-    # Structured audit logging
-    logger.info(
-        "Plan rejected: plan_id=%s, file_path=%s, policy=%s",
-        plan_id[:8],
-        updated_plan.file_path,
-        updated_plan.policy_name,
-    )
-
     response = PlanActionResponse(
         success=True,
-        plan=PlanListItem.from_plan_record(updated_plan),
+        plan=PlanListItem.from_plan_record(result.plan),
     )
     return web.json_response(response.to_dict())
 
