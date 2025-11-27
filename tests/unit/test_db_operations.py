@@ -592,3 +592,198 @@ class TestLimitParameterValidation:
         # Should not raise
         result = get_queued_jobs(db_conn, limit=None)
         assert isinstance(result, list)
+
+
+# =============================================================================
+# Plan Status Update Tests (026-plans-list-view)
+# =============================================================================
+
+
+class TestUpdatePlanStatus:
+    """Tests for update_plan_status function with atomic state transitions."""
+
+    @pytest.fixture
+    def plan_file_id(self, db_conn: sqlite3.Connection) -> int:
+        """Insert a sample file record and return its ID for plan tests."""
+        db_conn.execute(
+            """
+            INSERT INTO files (path, filename, directory, extension, size_bytes,
+                              modified_at, content_hash, container_format, scanned_at,
+                              scan_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "/test/plan_video.mkv",
+                "plan_video.mkv",
+                "/test",
+                ".mkv",
+                1000000,
+                "2024-01-01T00:00:00Z",
+                "plan123",
+                "matroska",
+                "2024-01-01T00:00:00Z",
+                "completed",
+            ),
+        )
+        db_conn.commit()
+        return db_conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+    @pytest.fixture
+    def pending_plan(
+        self, db_conn: sqlite3.Connection, sample_plan: Plan, plan_file_id: int
+    ):
+        """Create a plan in PENDING status."""
+        from video_policy_orchestrator.db.operations import create_plan
+
+        return create_plan(db_conn, sample_plan, plan_file_id, "test-policy.yaml")
+
+    def test_update_plan_status_approve(
+        self, db_conn: sqlite3.Connection, pending_plan
+    ) -> None:
+        """Should transition from PENDING to APPROVED."""
+        from video_policy_orchestrator.db.models import PlanStatus
+        from video_policy_orchestrator.db.operations import update_plan_status
+
+        result = update_plan_status(db_conn, pending_plan.id, PlanStatus.APPROVED)
+
+        assert result is not None
+        assert result.status == PlanStatus.APPROVED
+
+    def test_update_plan_status_reject(
+        self, db_conn: sqlite3.Connection, pending_plan
+    ) -> None:
+        """Should transition from PENDING to REJECTED."""
+        from video_policy_orchestrator.db.models import PlanStatus
+        from video_policy_orchestrator.db.operations import update_plan_status
+
+        result = update_plan_status(db_conn, pending_plan.id, PlanStatus.REJECTED)
+
+        assert result is not None
+        assert result.status == PlanStatus.REJECTED
+
+    def test_update_plan_status_invalid_transition(
+        self, db_conn: sqlite3.Connection, pending_plan
+    ) -> None:
+        """Should raise InvalidPlanTransitionError for invalid transitions."""
+        from video_policy_orchestrator.db.models import PlanStatus
+        from video_policy_orchestrator.db.operations import (
+            InvalidPlanTransitionError,
+            update_plan_status,
+        )
+
+        # First approve the plan
+        update_plan_status(db_conn, pending_plan.id, PlanStatus.APPROVED)
+
+        # Try to reject an approved plan (invalid transition)
+        with pytest.raises(InvalidPlanTransitionError) as exc_info:
+            update_plan_status(db_conn, pending_plan.id, PlanStatus.REJECTED)
+
+        assert exc_info.value.current == PlanStatus.APPROVED
+        assert exc_info.value.target == PlanStatus.REJECTED
+
+    def test_update_plan_status_not_found(self, db_conn: sqlite3.Connection) -> None:
+        """Should return None for non-existent plan."""
+        from video_policy_orchestrator.db.models import PlanStatus
+        from video_policy_orchestrator.db.operations import update_plan_status
+
+        result = update_plan_status(db_conn, "nonexistent-uuid", PlanStatus.APPROVED)
+        assert result is None
+
+    def test_update_plan_status_concurrent_transitions(
+        self, temp_db: Path, sample_plan: Plan
+    ) -> None:
+        """Concurrent updates should not bypass state machine validation.
+
+        This test verifies the TOCTOU race condition fix: when two threads
+        simultaneously try to transition the same plan from PENDING to different
+        states, exactly one should succeed and one should raise an error.
+        """
+        import threading
+
+        from video_policy_orchestrator.db.connection import get_connection
+        from video_policy_orchestrator.db.models import PlanStatus
+        from video_policy_orchestrator.db.operations import (
+            InvalidPlanTransitionError,
+            create_plan,
+            update_plan_status,
+        )
+        from video_policy_orchestrator.db.schema import create_schema
+
+        # Setup: create database and plan
+        with get_connection(temp_db) as conn:
+            create_schema(conn)
+            # Insert a file for the plan
+            conn.execute(
+                """
+                INSERT INTO files (
+                    path, filename, directory, extension, size_bytes,
+                    modified_at, content_hash, container_format,
+                    scanned_at, scan_status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "/test/concurrent.mkv",
+                    "concurrent.mkv",
+                    "/test",
+                    ".mkv",
+                    1000000,
+                    "2024-01-01T00:00:00Z",
+                    "concurrent123",
+                    "matroska",
+                    "2024-01-01T00:00:00Z",
+                    "completed",
+                ),
+            )
+            conn.commit()
+            file_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+            # Create a plan in PENDING status
+            plan_record = create_plan(conn, sample_plan, file_id, "test-policy.yaml")
+            plan_id = plan_record.id
+
+        # Track results from each thread
+        results: list[str] = []
+        errors: list[Exception] = []
+        barrier = threading.Barrier(2)
+
+        def try_approve():
+            """Thread that tries to approve the plan."""
+            with get_connection(temp_db) as thread_conn:
+                barrier.wait()  # Synchronize threads
+                try:
+                    update_plan_status(thread_conn, plan_id, PlanStatus.APPROVED)
+                    results.append("approved")
+                except InvalidPlanTransitionError as e:
+                    errors.append(e)
+
+        def try_reject():
+            """Thread that tries to reject the plan."""
+            with get_connection(temp_db) as thread_conn:
+                barrier.wait()  # Synchronize threads
+                try:
+                    update_plan_status(thread_conn, plan_id, PlanStatus.REJECTED)
+                    results.append("rejected")
+                except InvalidPlanTransitionError as e:
+                    errors.append(e)
+
+        # Run both threads concurrently
+        threads = [
+            threading.Thread(target=try_approve),
+            threading.Thread(target=try_reject),
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # Exactly one should succeed, one should fail
+        assert len(results) == 1, f"Expected 1 success, got {len(results)}: {results}"
+        assert len(errors) == 1, f"Expected 1 error, got {len(errors)}: {errors}"
+
+        # Verify final state is consistent
+        with get_connection(temp_db) as conn:
+            from video_policy_orchestrator.db.operations import get_plan_by_id
+
+            final_plan = get_plan_by_id(conn, plan_id)
+            assert final_plan is not None
+            assert final_plan.status.value == results[0]  # State matches winner

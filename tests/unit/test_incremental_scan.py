@@ -259,6 +259,7 @@ class TestIncrementalScanIntegration:
 
         # Create in-memory database
         conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
         initialize_database(conn)
 
         # Create a test file
@@ -309,6 +310,7 @@ class TestIncrementalScanIntegration:
 
         # Create in-memory database
         conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
         initialize_database(conn)
 
         # Create a test file

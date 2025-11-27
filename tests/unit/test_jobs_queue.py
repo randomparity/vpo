@@ -30,6 +30,7 @@ from video_policy_orchestrator.jobs.queue import (
 def db_conn():
     """Create an in-memory database with schema."""
     conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
     initialize_database(conn)
     yield conn
     conn.close()

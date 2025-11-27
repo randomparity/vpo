@@ -975,11 +975,16 @@ def migrate_v12_to_v13(conn: sqlite3.Connection) -> None:
     cursor = conn.execute("PRAGMA table_info(tracks)")
     existing_columns = {row[1] for row in cursor.fetchall()}
 
-    # Add each column if it doesn't exist
-    hdr_columns = ["color_transfer", "color_primaries", "color_space", "color_range"]
-    for column in hdr_columns:
-        if column not in existing_columns:
-            conn.execute(f"ALTER TABLE tracks ADD COLUMN {column} TEXT")
+    # Add each HDR color metadata column if it doesn't exist
+    # Using explicit statements instead of dynamic SQL for clarity
+    if "color_transfer" not in existing_columns:
+        conn.execute("ALTER TABLE tracks ADD COLUMN color_transfer TEXT")
+    if "color_primaries" not in existing_columns:
+        conn.execute("ALTER TABLE tracks ADD COLUMN color_primaries TEXT")
+    if "color_space" not in existing_columns:
+        conn.execute("ALTER TABLE tracks ADD COLUMN color_space TEXT")
+    if "color_range" not in existing_columns:
+        conn.execute("ALTER TABLE tracks ADD COLUMN color_range TEXT")
 
     # Update schema version to 13
     conn.execute(
