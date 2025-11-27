@@ -90,30 +90,37 @@ def _row_to_track_record(row: sqlite3.Row) -> TrackRecord:
     )
 
 
-def _row_to_job(row: tuple) -> Job:
-    """Convert a database row to a Job object."""
+def _row_to_job(row: sqlite3.Row) -> Job:
+    """Convert a database row to a Job object.
+
+    Args:
+        row: sqlite3.Row from a SELECT query on the jobs table.
+
+    Returns:
+        Job instance populated from the row.
+    """
     return Job(
-        id=row[0],
-        file_id=row[1],
-        file_path=row[2],
-        job_type=JobType(row[3]),
-        status=JobStatus(row[4]),
-        priority=row[5],
-        policy_name=row[6],
-        policy_json=row[7],
-        progress_percent=row[8],
-        progress_json=row[9],
-        created_at=row[10],
-        started_at=row[11],
-        completed_at=row[12],
-        worker_pid=row[13],
-        worker_heartbeat=row[14],
-        output_path=row[15],
-        backup_path=row[16],
-        error_message=row[17],
-        files_affected_json=row[18] if len(row) > 18 else None,
-        summary_json=row[19] if len(row) > 19 else None,
-        log_path=row[20] if len(row) > 20 else None,
+        id=row["id"],
+        file_id=row["file_id"],
+        file_path=row["file_path"],
+        job_type=JobType(row["job_type"]),
+        status=JobStatus(row["status"]),
+        priority=row["priority"],
+        policy_name=row["policy_name"],
+        policy_json=row["policy_json"],
+        progress_percent=row["progress_percent"],
+        progress_json=row["progress_json"],
+        created_at=row["created_at"],
+        started_at=row["started_at"],
+        completed_at=row["completed_at"],
+        worker_pid=row["worker_pid"],
+        worker_heartbeat=row["worker_heartbeat"],
+        output_path=row["output_path"],
+        backup_path=row["backup_path"],
+        error_message=row["error_message"],
+        files_affected_json=row["files_affected_json"],
+        summary_json=row["summary_json"],
+        log_path=row["log_path"],
     )
 
 
@@ -401,7 +408,9 @@ def upsert_tracks_for_file(
                 UPDATE tracks SET
                     track_type = ?, codec = ?, language = ?, title = ?,
                     is_default = ?, is_forced = ?, channels = ?, channel_layout = ?,
-                    width = ?, height = ?, frame_rate = ?, duration_seconds = ?
+                    width = ?, height = ?, frame_rate = ?, duration_seconds = ?,
+                    color_transfer = ?, color_primaries = ?, color_space = ?,
+                    color_range = ?
                 WHERE file_id = ? AND track_index = ?
                 """,
                 (
@@ -417,6 +426,10 @@ def upsert_tracks_for_file(
                     track.height,
                     track.frame_rate,
                     track.duration_seconds,
+                    track.color_transfer,
+                    track.color_primaries,
+                    track.color_space,
+                    track.color_range,
                     file_id,
                     track.index,
                 ),
@@ -430,8 +443,9 @@ def upsert_tracks_for_file(
                     file_id, track_index, track_type, codec,
                     language, title, is_default, is_forced,
                     channels, channel_layout, width, height, frame_rate,
-                    duration_seconds
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    duration_seconds, color_transfer, color_primaries,
+                    color_space, color_range
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record.file_id,
@@ -448,6 +462,10 @@ def upsert_tracks_for_file(
                     record.height,
                     record.frame_rate,
                     record.duration_seconds,
+                    record.color_transfer,
+                    record.color_primaries,
+                    record.color_space,
+                    record.color_range,
                 ),
             )
 

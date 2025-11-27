@@ -128,6 +128,142 @@ class TestTranscriptionDetailView:
         assert item.file_id == 5
 
 
+class TestUpsertTracksHDR:
+    """Tests for HDR metadata handling in upsert_tracks_for_file."""
+
+    def test_upsert_tracks_updates_hdr_metadata(self, temp_db: Path):
+        """Test that upsert_tracks_for_file updates HDR color metadata on re-scan."""
+        from video_policy_orchestrator.db.models import (
+            FileRecord,
+            TrackInfo,
+            get_tracks_for_file,
+            insert_file,
+            upsert_tracks_for_file,
+        )
+        from video_policy_orchestrator.db.schema import create_schema
+
+        conn = sqlite3.connect(str(temp_db))
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
+        create_schema(conn)
+
+        # Insert file
+        file_record = FileRecord(
+            id=None,
+            path="/test.mkv",
+            filename="test.mkv",
+            directory="/",
+            extension="mkv",
+            size_bytes=1000,
+            modified_at="2024-01-01T00:00:00",
+            content_hash="hash",
+            container_format="matroska",
+            scanned_at="2024-01-01T00:00:00",
+            scan_status="ok",
+            scan_error=None,
+        )
+        file_id = insert_file(conn, file_record)
+
+        # Initial track without HDR metadata
+        track_v1 = TrackInfo(
+            index=0,
+            track_type="video",
+            codec="hevc",
+            is_default=True,
+            is_forced=False,
+        )
+        upsert_tracks_for_file(conn, file_id, [track_v1])
+        conn.commit()
+
+        # Verify no HDR data initially
+        tracks = get_tracks_for_file(conn, file_id)
+        assert len(tracks) == 1
+        assert tracks[0].color_transfer is None
+
+        # Update with HDR metadata (simulates re-scan with better introspection)
+        track_v2 = TrackInfo(
+            index=0,
+            track_type="video",
+            codec="hevc",
+            is_default=True,
+            is_forced=False,
+            color_transfer="smpte2084",
+            color_primaries="bt2020",
+            color_space="bt2020nc",
+            color_range="tv",
+        )
+        upsert_tracks_for_file(conn, file_id, [track_v2])
+        conn.commit()
+
+        # Verify HDR fields were updated
+        tracks = get_tracks_for_file(conn, file_id)
+        assert len(tracks) == 1
+        assert tracks[0].color_transfer == "smpte2084"
+        assert tracks[0].color_primaries == "bt2020"
+        assert tracks[0].color_space == "bt2020nc"
+        assert tracks[0].color_range == "tv"
+
+        conn.close()
+
+    def test_insert_track_with_hdr_metadata(self, temp_db: Path):
+        """Test that new tracks are inserted with HDR color metadata."""
+        from video_policy_orchestrator.db.models import (
+            FileRecord,
+            TrackInfo,
+            get_tracks_for_file,
+            insert_file,
+            upsert_tracks_for_file,
+        )
+        from video_policy_orchestrator.db.schema import create_schema
+
+        conn = sqlite3.connect(str(temp_db))
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
+        create_schema(conn)
+
+        # Insert file
+        file_record = FileRecord(
+            id=None,
+            path="/hdr-video.mkv",
+            filename="hdr-video.mkv",
+            directory="/",
+            extension="mkv",
+            size_bytes=1000,
+            modified_at="2024-01-01T00:00:00",
+            content_hash="hash2",
+            container_format="matroska",
+            scanned_at="2024-01-01T00:00:00",
+            scan_status="ok",
+            scan_error=None,
+        )
+        file_id = insert_file(conn, file_record)
+
+        # Insert track with HDR metadata directly
+        track = TrackInfo(
+            index=0,
+            track_type="video",
+            codec="hevc",
+            is_default=True,
+            is_forced=False,
+            width=3840,
+            height=2160,
+            color_transfer="arib-std-b67",  # HLG
+            color_primaries="bt2020",
+            color_space="bt2020nc",
+            color_range="tv",
+        )
+        upsert_tracks_for_file(conn, file_id, [track])
+        conn.commit()
+
+        # Verify HDR fields were inserted
+        tracks = get_tracks_for_file(conn, file_id)
+        assert len(tracks) == 1
+        assert tracks[0].color_transfer == "arib-std-b67"
+        assert tracks[0].color_primaries == "bt2020"
+
+        conn.close()
+
+
 class TestTypedFunctions:
     """Tests for typed query functions."""
 
