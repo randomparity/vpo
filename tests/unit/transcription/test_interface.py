@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import pytest
 
 from video_policy_orchestrator.transcription.interface import (
+    MultiLanguageDetectionResult,
     TranscriptionError,
     TranscriptionPlugin,
 )
@@ -82,7 +83,21 @@ class MockTranscriptionPlugin:
         )
 
     def supports_feature(self, feature: str) -> bool:
-        return feature in {"transcription", "language_detection"}
+        return feature in {
+            "transcription",
+            "language_detection",
+            "multi_language_detection",
+        }
+
+    def detect_multi_language(
+        self, audio_data: bytes, sample_rate: int = 16000
+    ) -> MultiLanguageDetectionResult:
+        return MultiLanguageDetectionResult(
+            position=0.0,
+            language="en",
+            confidence=0.9,
+            has_speech=True,
+        )
 
 
 class TestTranscriptionPluginProtocol:

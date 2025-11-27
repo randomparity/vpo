@@ -21,6 +21,7 @@ from video_policy_orchestrator.policy.models import (
     AndCondition,
     AttachmentFilterConfig,
     AudioFilterConfig,
+    AudioIsMultiLanguageCondition,
     AudioSynthesisConfig,
     AudioTranscodeConfig,
     Comparison,
@@ -43,6 +44,8 @@ from video_policy_orchestrator.policy.models import (
     QualitySettings,
     ScaleAlgorithm,
     ScalingSettings,
+    SetDefaultAction,
+    SetForcedAction,
     SkipAction,
     SkipCondition,
     SkipType,
@@ -59,7 +62,7 @@ from video_policy_orchestrator.policy.models import (
 )
 
 # Current maximum supported schema version
-MAX_SCHEMA_VERSION = 6
+MAX_SCHEMA_VERSION = 7
 
 
 class PolicyValidationError(Exception):
@@ -834,6 +837,28 @@ class CountConditionModel(BaseModel):
         return self
 
 
+class AudioIsMultiLanguageModel(BaseModel):
+    """Pydantic model for audio multi-language condition.
+
+    Checks if an audio track contains multiple detected languages.
+    Requires language analysis to have been performed on the track.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    track_index: int | None = None
+    threshold: float = Field(default=0.05, ge=0.0, le=1.0)
+    primary_language: str | None = None
+
+    @field_validator("threshold")
+    @classmethod
+    def validate_threshold(cls, v: float) -> float:
+        """Validate threshold is a reasonable percentage."""
+        if v < 0.0 or v > 1.0:
+            raise ValueError("threshold must be between 0.0 and 1.0")
+        return v
+
+
 class ConditionModel(BaseModel):
     """Pydantic model for condition (union of condition types)."""
 
@@ -842,6 +867,7 @@ class ConditionModel(BaseModel):
     # Leaf conditions
     exists: ExistsConditionModel | None = None
     count: CountConditionModel | None = None
+    audio_is_multi_language: AudioIsMultiLanguageModel | None = None
 
     # Boolean operators
     all_of: list["ConditionModel"] | None = Field(None, alias="and")
@@ -854,6 +880,7 @@ class ConditionModel(BaseModel):
         conditions = [
             ("exists", self.exists),
             ("count", self.count),
+            ("audio_is_multi_language", self.audio_is_multi_language),
             ("and", self.all_of),
             ("or", self.any_of),
             ("not", self.not_),
@@ -863,7 +890,8 @@ class ConditionModel(BaseModel):
         if len(set_conditions) != 1:
             if len(set_conditions) == 0:
                 raise ValueError(
-                    "Condition must specify exactly one type (exists/count/and/or/not)"
+                    "Condition must specify exactly one type "
+                    "(exists/count/audio_is_multi_language/and/or/not)"
                 )
             names = [name for name, _ in set_conditions]
             raise ValueError(
@@ -881,6 +909,32 @@ class ConditionModel(BaseModel):
         return self
 
 
+class SetForcedActionModel(BaseModel):
+    """Pydantic model for set_forced action.
+
+    Sets the forced flag on matching subtitle tracks.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    track_type: Literal["subtitle"] = "subtitle"
+    language: str | None = None
+    value: bool = True
+
+
+class SetDefaultActionModel(BaseModel):
+    """Pydantic model for set_default action.
+
+    Sets the default flag on matching tracks.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    track_type: Literal["video", "audio", "subtitle"]
+    language: str | None = None
+    value: bool = True
+
+
 class ActionModel(BaseModel):
     """Pydantic model for conditional action."""
 
@@ -895,6 +949,10 @@ class ActionModel(BaseModel):
     warn: str | None = None
     fail: str | None = None
 
+    # Track flag actions
+    set_forced: SetForcedActionModel | None = None
+    set_default: SetDefaultActionModel | None = None
+
     @model_validator(mode="after")
     def validate_at_least_one_action(self) -> "ActionModel":
         """Validate that at least one action is specified."""
@@ -904,12 +962,14 @@ class ActionModel(BaseModel):
             self.skip_track_filter,
             self.warn,
             self.fail,
+            self.set_forced,
+            self.set_default,
         ]
         if not any(a is not None for a in actions):
             raise ValueError(
                 "Action must specify at least one action "
                 "(skip_video_transcode/skip_audio_transcode/skip_track_filter/"
-                "warn/fail)"
+                "warn/fail/set_forced/set_default)"
             )
         return self
 
@@ -931,6 +991,90 @@ class ConditionalRuleModel(BaseModel):
         if not v or not v.strip():
             raise ValueError("Rule name cannot be empty")
         return v.strip()
+
+
+def _check_v7_features_in_condition(condition: ConditionModel) -> set[str]:
+    """Check if a condition uses V7 features.
+
+    Recursively checks conditions for V7-specific features.
+
+    Args:
+        condition: The condition to check.
+
+    Returns:
+        Set of V7 feature names found in the condition.
+    """
+    features: set[str] = set()
+
+    if condition.audio_is_multi_language is not None:
+        features.add("audio_is_multi_language")
+
+    # Check nested conditions
+    if condition.all_of is not None:
+        for sub in condition.all_of:
+            features.update(_check_v7_features_in_condition(sub))
+    if condition.any_of is not None:
+        for sub in condition.any_of:
+            features.update(_check_v7_features_in_condition(sub))
+    if condition.not_ is not None:
+        features.update(_check_v7_features_in_condition(condition.not_))
+
+    return features
+
+
+def _check_v7_features_in_action(action: ActionModel) -> set[str]:
+    """Check if an action uses V7 features.
+
+    Args:
+        action: The action to check.
+
+    Returns:
+        Set of V7 feature names found in the action.
+    """
+    features: set[str] = set()
+
+    if action.set_forced is not None:
+        features.add("set_forced")
+    if action.set_default is not None:
+        features.add("set_default")
+
+    return features
+
+
+def _check_v7_features_in_rules(rules: list[ConditionalRuleModel]) -> set[str]:
+    """Check if any conditional rules use V7 features.
+
+    Checks conditions and actions for V7-specific features like
+    audio_is_multi_language, set_forced, and set_default.
+
+    Args:
+        rules: List of conditional rules to check.
+
+    Returns:
+        Set of V7 feature names found in the rules.
+    """
+    features: set[str] = set()
+
+    for rule in rules:
+        # Check condition
+        features.update(_check_v7_features_in_condition(rule.when))
+
+        # Check then actions
+        if isinstance(rule.then, list):
+            for action in rule.then:
+                features.update(_check_v7_features_in_action(action))
+        else:
+            features.update(_check_v7_features_in_action(rule.then))
+
+        # Check else actions
+        if rule.else_ is not None:
+            if isinstance(rule.else_, list):
+                for action in rule.else_:
+                    features.update(_check_v7_features_in_action(action))
+            else:
+                features.update(_check_v7_features_in_action(rule.else_))
+
+    return features
 
 
 class PolicyModel(BaseModel):
@@ -1007,6 +1151,16 @@ class PolicyModel(BaseModel):
                 raise ValueError(
                     "V6 transcode format (video/audio sections) requires "
                     f"schema_version >= 6, but schema_version is {self.schema_version}"
+                )
+
+        # V7 field validation: audio_is_multi_language, set_forced, set_default
+        if self.conditional is not None and self.schema_version < 7:
+            v7_features = _check_v7_features_in_rules(self.conditional)
+            if v7_features:
+                features_str = ", ".join(sorted(v7_features))
+                raise ValueError(
+                    f"V7 features ({features_str}) require schema_version >= 7, "
+                    f"but schema_version is {self.schema_version}"
                 )
 
         return self
@@ -1202,6 +1356,17 @@ def _convert_count_condition(model: CountConditionModel) -> CountCondition:
     raise ValueError("No count comparison operator found")
 
 
+def _convert_audio_is_multi_language_condition(
+    model: AudioIsMultiLanguageModel,
+) -> AudioIsMultiLanguageCondition:
+    """Convert AudioIsMultiLanguageModel to AudioIsMultiLanguageCondition."""
+    return AudioIsMultiLanguageCondition(
+        track_index=model.track_index,
+        threshold=model.threshold,
+        primary_language=model.primary_language,
+    )
+
+
 def _convert_condition(model: ConditionModel) -> Condition:
     """Convert ConditionModel to Condition type."""
     if model.exists is not None:
@@ -1209,6 +1374,9 @@ def _convert_condition(model: ConditionModel) -> Condition:
 
     if model.count is not None:
         return _convert_count_condition(model.count)
+
+    if model.audio_is_multi_language is not None:
+        return _convert_audio_is_multi_language_condition(model.audio_is_multi_language)
 
     if model.all_of is not None:
         return AndCondition(
@@ -1248,6 +1416,24 @@ def _convert_action(model: ActionModel) -> tuple[ConditionalAction, ...]:
 
     if model.fail is not None:
         actions.append(FailAction(message=model.fail))
+
+    if model.set_forced is not None:
+        actions.append(
+            SetForcedAction(
+                track_type=model.set_forced.track_type,
+                language=model.set_forced.language,
+                value=model.set_forced.value,
+            )
+        )
+
+    if model.set_default is not None:
+        actions.append(
+            SetDefaultAction(
+                track_type=model.set_default.track_type,
+                language=model.set_default.language,
+                value=model.set_default.value,
+            )
+        )
 
     return tuple(actions)
 

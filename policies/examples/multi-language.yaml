@@ -1,0 +1,110 @@
+# Multi-Language Audio Detection Policy Example
+# Schema Version: 7
+#
+# This policy demonstrates the multi-language audio detection feature.
+# It automatically enables forced subtitles when audio contains multiple
+# languages (e.g., a primarily English movie with French dialogue segments).
+#
+# Features used:
+# - audio_is_multi_language condition: Detects when audio tracks contain
+#   multiple spoken languages
+# - set_default action: Sets the default flag on matching subtitle tracks
+# - set_forced action: Sets the forced flag on matching subtitle tracks
+#
+# Usage:
+#   vpo apply --policy policies/examples/multi-language.yaml /path/to/movie.mkv --dry-run
+#
+# Prerequisites:
+#   Run language analysis first:
+#   vpo scan /path/to/movies --analyze-languages
+#
+# Or use auto-analyze:
+#   vpo apply --policy policies/examples/multi-language.yaml /path/to/movie.mkv --auto-analyze
+
+schema_version: 7
+
+# Standard track ordering: video first, then audio, then subtitles
+# Note: Track types use the full category names for sorting
+track_order:
+  - video
+  - audio_main
+  - audio_alternate
+  - audio_commentary
+  - subtitle_forced
+  - subtitle_main
+  - subtitle_commentary
+  - attachment
+
+# Prefer English audio and subtitles
+audio_language_preference:
+  - eng
+  - und
+
+subtitle_language_preference:
+  - eng
+  - und
+
+# Standard commentary detection patterns
+commentary_patterns:
+  - commentary
+  - director
+  - cast
+
+# Default flag behavior
+default_flags:
+  set_first_video_default: true
+  set_preferred_audio_default: true
+  set_preferred_subtitle_default: false
+  clear_other_defaults: true
+
+# Conditional rules for multi-language handling
+conditional:
+  # Rule 1: Enable forced English subtitles for multi-language content
+  # Triggers when:
+  # - Audio track contains multiple languages with English as primary
+  # - A forced English subtitle track exists
+  - name: "Enable forced subs for multi-language audio"
+    when:
+      and:
+        - audio_is_multi_language:
+            primary_language: eng
+            threshold: 0.05  # At least 5% secondary language content
+        - exists:
+            track_type: subtitle
+            language: eng
+            is_forced: true
+    then:
+      - set_default:
+          track_type: subtitle
+          language: eng
+      - warn: "Enabled forced English subtitles for multi-language content"
+
+  # Rule 2: Warn when multi-language content has no forced subtitles
+  # This helps identify files that need forced subtitles added
+  - name: "Warn about missing forced subs"
+    when:
+      and:
+        - audio_is_multi_language:
+            primary_language: eng
+            threshold: 0.05
+        - not:
+            exists:
+              track_type: subtitle
+              language: eng
+              is_forced: true
+    then:
+      - warn: "{filename} needs forced English subtitles (multi-language audio detected)"
+
+  # Rule 3: Skip transcode for 4K HEVC content (preserve quality)
+  - name: "4K HEVC passthrough"
+    when:
+      and:
+        - exists:
+            track_type: video
+            height: { gte: 2160 }
+        - exists:
+            track_type: video
+            codec: hevc
+    then:
+      - skip_video_transcode: true
+      - warn: "4K HEVC content - preserving original video"

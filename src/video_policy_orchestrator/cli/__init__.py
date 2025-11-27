@@ -164,6 +164,7 @@ def main(
 # Defer import to avoid circular dependency
 def _register_commands():
     from video_policy_orchestrator.cli import scan  # noqa: F401
+    from video_policy_orchestrator.cli.analyze_language import analyze_language_group
     from video_policy_orchestrator.cli.apply import apply_command
     from video_policy_orchestrator.cli.doctor import doctor_command
     from video_policy_orchestrator.cli.init import init_command
@@ -177,6 +178,7 @@ def _register_commands():
     from video_policy_orchestrator.cli.transcode import transcode_command
     from video_policy_orchestrator.cli.transcribe import transcribe_group
 
+    main.add_command(analyze_language_group)
     main.add_command(init_command)
     main.add_command(inspect_command)
     main.add_command(apply_command)

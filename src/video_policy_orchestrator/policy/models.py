@@ -774,8 +774,33 @@ class NotCondition:
     inner: "Condition"
 
 
+@dataclass(frozen=True)
+class AudioIsMultiLanguageCondition:
+    """Check if audio track(s) have multiple detected languages.
+
+    Evaluates language analysis results to determine if audio contains
+    multiple spoken languages. Supports threshold and primary language filters.
+
+    Attributes:
+        track_index: Specific audio track to check (None = check all audio tracks).
+        threshold: Minimum secondary language percentage to trigger (default 5%).
+        primary_language: If set, only match if this is the primary language.
+    """
+
+    track_index: int | None = None
+    threshold: float = 0.05  # 5% secondary language triggers multi-language
+    primary_language: str | None = None
+
+
 # Type alias for union of all condition types
-Condition = ExistsCondition | CountCondition | AndCondition | OrCondition | NotCondition
+Condition = (
+    ExistsCondition
+    | CountCondition
+    | AndCondition
+    | OrCondition
+    | NotCondition
+    | AudioIsMultiLanguageCondition
+)
 
 
 class SkipType(Enum):
@@ -813,8 +838,44 @@ class FailAction:
     message: str
 
 
+@dataclass(frozen=True)
+class SetForcedAction:
+    """Set the forced flag on matching tracks.
+
+    Typically used to enable forced subtitles for multi-language content.
+
+    Attributes:
+        track_type: Type of track to modify (usually "subtitle").
+        language: Language filter for matching tracks (optional).
+        value: Value to set for the forced flag (default True).
+    """
+
+    track_type: str = "subtitle"
+    language: str | None = None
+    value: bool = True
+
+
+@dataclass(frozen=True)
+class SetDefaultAction:
+    """Set the default flag on matching tracks.
+
+    Used to mark a track as default playback track.
+
+    Attributes:
+        track_type: Type of track to modify.
+        language: Language filter for matching tracks (optional).
+        value: Value to set for the default flag (default True).
+    """
+
+    track_type: str
+    language: str | None = None
+    value: bool = True
+
+
 # Type alias for union of all action types
-ConditionalAction = SkipAction | WarnAction | FailAction
+ConditionalAction = (
+    SkipAction | WarnAction | FailAction | SetForcedAction | SetDefaultAction
+)
 
 
 @dataclass(frozen=True)

@@ -7,7 +7,10 @@ offline transcription and language detection.
 from datetime import datetime, timezone
 
 from video_policy_orchestrator.language import normalize_language
-from video_policy_orchestrator.transcription.interface import TranscriptionError
+from video_policy_orchestrator.transcription.interface import (
+    MultiLanguageDetectionResult,
+    TranscriptionError,
+)
 from video_policy_orchestrator.transcription.models import (
     TrackClassification,
     TranscriptionConfig,
@@ -289,5 +292,89 @@ class WhisperTranscriptionPlugin:
             "transcription": True,
             "gpu": self._config.gpu_enabled,
             "language_detection": True,
+            "multi_language_detection": True,
         }
         return supported.get(feature, False)
+
+    def detect_multi_language(
+        self,
+        audio_data: bytes,
+        sample_rate: int = 16000,
+    ) -> MultiLanguageDetectionResult:
+        """Detect language from a single audio sample for multi-language analysis.
+
+        This method is optimized for repeated calls at different positions.
+        It focuses on language detection without full transcription overhead.
+
+        Args:
+            audio_data: Raw audio bytes (WAV format, mono, 16kHz).
+            sample_rate: Sample rate of audio data.
+
+        Returns:
+            MultiLanguageDetectionResult with language, confidence, and speech info.
+
+        Raises:
+            TranscriptionError: If detection fails.
+        """
+        try:
+            whisper = _get_whisper()
+            model = self._load_model()
+
+            import numpy as np
+
+            # Parse WAV header to find actual audio data
+            data_offset = _find_wav_data_offset(audio_data)
+            raw_audio = np.frombuffer(audio_data[data_offset:], dtype=np.int16)
+            audio = raw_audio.astype(np.float32) / 32768.0
+
+            # Calculate speech ratio (simple VAD using energy threshold)
+            # This helps distinguish speech from silence/music
+            energy = np.abs(audio)
+            speech_threshold = 0.02  # Empirical threshold for speech
+            speech_frames = np.sum(energy > speech_threshold)
+            total_frames = len(energy)
+            speech_ratio = speech_frames / total_frames if total_frames > 0 else 0
+            has_speech = speech_ratio > 0.1
+
+            if not has_speech:
+                # No speech detected - return low confidence result
+                return MultiLanguageDetectionResult(
+                    position=0.0,  # Position will be set by caller
+                    language=None,
+                    confidence=0.1,
+                    has_speech=False,
+                )
+
+            # Pad/trim to 30 seconds for language detection
+            audio = whisper.pad_or_trim(audio)
+
+            # Make log-Mel spectrogram
+            mel = whisper.log_mel_spectrogram(audio).to(model.device)
+
+            # Detect language
+            _, probs = model.detect_language(mel)
+
+            # Get top language and confidence
+            detected_lang_raw = max(probs, key=probs.get)
+            confidence = float(probs[detected_lang_raw])
+
+            # Normalize to project standard (ISO 639-2/B)
+            detected_lang = normalize_language(detected_lang_raw)
+
+            return MultiLanguageDetectionResult(
+                position=0.0,  # Position will be set by caller
+                language=detected_lang,
+                confidence=confidence,
+                has_speech=True,
+            )
+        except PluginDependencyError:
+            raise
+        except Exception as e:
+            # Return error result instead of raising
+            return MultiLanguageDetectionResult(
+                position=0.0,
+                language=None,
+                confidence=0.0,
+                has_speech=False,
+                errors=[str(e)],
+            )

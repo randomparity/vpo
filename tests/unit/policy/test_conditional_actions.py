@@ -5,21 +5,29 @@ Skip video/audio transcoding based on conditions.
 
 Tests for User Story 7: Warnings and Errors (Priority: P3)
 Generate warnings or halt processing based on conditions.
+
+Tests for User Story 3 (035): Set Forced/Default Actions
+Manipulate track flags based on multi-language conditions.
 """
 
 from pathlib import Path
 
 import pytest
 
+from video_policy_orchestrator.db.models import TrackInfo
 from video_policy_orchestrator.policy.actions import (
     ActionContext,
     execute_actions,
+    execute_set_default_action,
+    execute_set_forced_action,
     execute_skip_action,
     execute_warn_action,
 )
 from video_policy_orchestrator.policy.exceptions import ConditionalFailError
 from video_policy_orchestrator.policy.models import (
     FailAction,
+    SetDefaultAction,
+    SetForcedAction,
     SkipAction,
     SkipFlags,
     SkipType,
@@ -343,3 +351,306 @@ class TestActionEdgeCases:
 
         assert flags1 == flags2
         assert flags1 is not flags2  # Different instances
+
+
+# =============================================================================
+# T072: Test execute_set_forced_action()
+# =============================================================================
+
+
+class TestSetForcedAction:
+    """Test set_forced action behavior."""
+
+    @pytest.fixture
+    def tracks_with_subtitles(self) -> list[TrackInfo]:
+        """Create a list of tracks including subtitles."""
+        return [
+            TrackInfo(index=0, track_type="video", codec="h264"),
+            TrackInfo(index=1, track_type="audio", codec="aac", language="eng"),
+            TrackInfo(index=2, track_type="subtitle", codec="srt", language="eng"),
+            TrackInfo(index=3, track_type="subtitle", codec="srt", language="spa"),
+        ]
+
+    @pytest.fixture
+    def context_with_tracks(
+        self, tracks_with_subtitles: list[TrackInfo]
+    ) -> ActionContext:
+        """ActionContext with tracks populated."""
+        return ActionContext(
+            file_path=Path("/videos/test_movie.mkv"),
+            rule_name="Test Rule",
+            tracks=tracks_with_subtitles,
+        )
+
+    def test_set_forced_creates_flag_change(
+        self, context_with_tracks: ActionContext
+    ) -> None:
+        """Set forced action creates flag changes for matching tracks."""
+        action = SetForcedAction(track_type="subtitle")
+
+        result = execute_set_forced_action(action, context_with_tracks)
+
+        assert len(result.track_flag_changes) == 2  # Both subtitle tracks
+        assert result.track_flag_changes[0].flag_type == "forced"
+        assert result.track_flag_changes[0].value is True
+
+    def test_set_forced_filters_by_language(
+        self, context_with_tracks: ActionContext
+    ) -> None:
+        """Set forced action filters tracks by language."""
+        action = SetForcedAction(track_type="subtitle", language="eng")
+
+        result = execute_set_forced_action(action, context_with_tracks)
+
+        assert len(result.track_flag_changes) == 1
+        assert result.track_flag_changes[0].track_index == 2  # English subtitle
+
+    def test_set_forced_with_value_false(
+        self, context_with_tracks: ActionContext
+    ) -> None:
+        """Set forced action can clear the forced flag."""
+        action = SetForcedAction(track_type="subtitle", value=False)
+
+        result = execute_set_forced_action(action, context_with_tracks)
+
+        for change in result.track_flag_changes:
+            assert change.value is False
+
+    def test_set_forced_no_matching_tracks(
+        self, context_with_tracks: ActionContext
+    ) -> None:
+        """Set forced action with no matching tracks records nothing."""
+        action = SetForcedAction(track_type="subtitle", language="jpn")
+
+        result = execute_set_forced_action(action, context_with_tracks)
+
+        assert len(result.track_flag_changes) == 0
+
+    def test_set_forced_no_tracks_in_context(self) -> None:
+        """Set forced action with no tracks in context logs warning."""
+        context = ActionContext(
+            file_path=Path("/videos/test.mkv"),
+            rule_name="Test",
+            tracks=[],
+        )
+        action = SetForcedAction()
+
+        result = execute_set_forced_action(action, context)
+
+        assert len(result.track_flag_changes) == 0
+
+    def test_set_forced_via_execute_actions(
+        self, context_with_tracks: ActionContext
+    ) -> None:
+        """Set forced action works through execute_actions."""
+        actions = (SetForcedAction(track_type="subtitle", language="spa"),)
+
+        result = execute_actions(actions, context_with_tracks)
+
+        assert len(result.track_flag_changes) == 1
+        assert result.track_flag_changes[0].track_index == 3
+
+
+# =============================================================================
+# T073: Test execute_set_default_action()
+# =============================================================================
+
+
+class TestSetDefaultAction:
+    """Test set_default action behavior."""
+
+    @pytest.fixture
+    def tracks_with_audio(self) -> list[TrackInfo]:
+        """Create a list of tracks with multiple audio options."""
+        return [
+            TrackInfo(index=0, track_type="video", codec="h264"),
+            TrackInfo(index=1, track_type="audio", codec="aac", language="eng"),
+            TrackInfo(index=2, track_type="audio", codec="dts", language="jpn"),
+            TrackInfo(index=3, track_type="subtitle", codec="srt", language="eng"),
+        ]
+
+    @pytest.fixture
+    def context_with_audio_tracks(
+        self, tracks_with_audio: list[TrackInfo]
+    ) -> ActionContext:
+        """ActionContext with audio tracks."""
+        return ActionContext(
+            file_path=Path("/videos/test_movie.mkv"),
+            rule_name="Test Rule",
+            tracks=tracks_with_audio,
+        )
+
+    def test_set_default_creates_flag_change(
+        self, context_with_audio_tracks: ActionContext
+    ) -> None:
+        """Set default action creates flag change for first matching track."""
+        action = SetDefaultAction(track_type="audio")
+
+        result = execute_set_default_action(action, context_with_audio_tracks)
+
+        # Should only set default on FIRST matching track
+        assert len(result.track_flag_changes) == 1
+        assert result.track_flag_changes[0].flag_type == "default"
+        assert result.track_flag_changes[0].track_index == 1
+
+    def test_set_default_filters_by_language(
+        self, context_with_audio_tracks: ActionContext
+    ) -> None:
+        """Set default action filters tracks by language."""
+        action = SetDefaultAction(track_type="audio", language="jpn")
+
+        result = execute_set_default_action(action, context_with_audio_tracks)
+
+        assert len(result.track_flag_changes) == 1
+        assert result.track_flag_changes[0].track_index == 2  # Japanese audio
+
+    def test_set_default_with_value_false(
+        self, context_with_audio_tracks: ActionContext
+    ) -> None:
+        """Set default action can clear the default flag."""
+        action = SetDefaultAction(track_type="audio", value=False)
+
+        result = execute_set_default_action(action, context_with_audio_tracks)
+
+        assert result.track_flag_changes[0].value is False
+
+    def test_set_default_no_matching_tracks(
+        self, context_with_audio_tracks: ActionContext
+    ) -> None:
+        """Set default action with no matching tracks records nothing."""
+        action = SetDefaultAction(track_type="audio", language="fre")
+
+        result = execute_set_default_action(action, context_with_audio_tracks)
+
+        assert len(result.track_flag_changes) == 0
+
+    def test_set_default_subtitle_track(
+        self, context_with_audio_tracks: ActionContext
+    ) -> None:
+        """Set default action works for subtitle tracks."""
+        action = SetDefaultAction(track_type="subtitle", language="eng")
+
+        result = execute_set_default_action(action, context_with_audio_tracks)
+
+        assert len(result.track_flag_changes) == 1
+        assert result.track_flag_changes[0].track_index == 3
+
+    def test_set_default_via_execute_actions(
+        self, context_with_audio_tracks: ActionContext
+    ) -> None:
+        """Set default action works through execute_actions."""
+        actions = (SetDefaultAction(track_type="subtitle"),)
+
+        result = execute_actions(actions, context_with_audio_tracks)
+
+        assert len(result.track_flag_changes) == 1
+
+
+# =============================================================================
+# T074: Test missing track warning
+# =============================================================================
+
+
+class TestTrackFlagActionWarnings:
+    """Test warning behavior for set_forced/set_default actions."""
+
+    def test_set_forced_warns_on_no_match(self, caplog) -> None:
+        """Set forced logs warning when no tracks match."""
+        context = ActionContext(
+            file_path=Path("/test/video.mkv"),
+            rule_name="Test",
+            tracks=[TrackInfo(index=0, track_type="audio", codec="aac")],
+        )
+        action = SetForcedAction(track_type="subtitle")
+
+        execute_set_forced_action(action, context)
+
+        assert "no matching subtitle tracks" in caplog.text.lower()
+
+    def test_set_default_warns_on_no_match(self, caplog) -> None:
+        """Set default logs warning when no tracks match."""
+        context = ActionContext(
+            file_path=Path("/test/video.mkv"),
+            rule_name="Test",
+            tracks=[TrackInfo(index=0, track_type="video", codec="h264")],
+        )
+        action = SetDefaultAction(track_type="audio")
+
+        execute_set_default_action(action, context)
+
+        assert "no matching audio tracks" in caplog.text.lower()
+
+
+# =============================================================================
+# Combined action tests
+# =============================================================================
+
+
+class TestCombinedActions:
+    """Test combinations of actions including set_forced/set_default."""
+
+    @pytest.fixture
+    def context_with_all_tracks(self) -> ActionContext:
+        """Context with video, audio, and subtitle tracks."""
+        return ActionContext(
+            file_path=Path("/videos/movie.mkv"),
+            rule_name="Multi-language Handler",
+            tracks=[
+                TrackInfo(index=0, track_type="video", codec="h264"),
+                TrackInfo(index=1, track_type="audio", codec="aac", language="eng"),
+                TrackInfo(index=2, track_type="subtitle", codec="srt", language="eng"),
+            ],
+        )
+
+    def test_skip_and_set_forced_together(
+        self, context_with_all_tracks: ActionContext
+    ) -> None:
+        """Skip and set_forced actions can be combined."""
+        actions = (
+            SkipAction(skip_type=SkipType.VIDEO_TRANSCODE),
+            SetForcedAction(track_type="subtitle", language="eng"),
+        )
+
+        result = execute_actions(actions, context_with_all_tracks)
+
+        assert result.skip_flags.skip_video_transcode is True
+        assert len(result.track_flag_changes) == 1
+        assert result.track_flag_changes[0].flag_type == "forced"
+
+    def test_warn_and_set_default_together(
+        self, context_with_all_tracks: ActionContext
+    ) -> None:
+        """Warn and set_default actions can be combined."""
+        actions = (
+            WarnAction(message="Setting default audio for {filename}"),
+            SetDefaultAction(track_type="audio", language="eng"),
+        )
+
+        result = execute_actions(actions, context_with_all_tracks)
+
+        assert len(result.warnings) == 1
+        assert "movie.mkv" in result.warnings[0]
+        assert len(result.track_flag_changes) == 1
+        assert result.track_flag_changes[0].flag_type == "default"
+
+    def test_multiple_track_flag_actions(
+        self, context_with_all_tracks: ActionContext
+    ) -> None:
+        """Multiple set_forced and set_default actions accumulate."""
+        actions = (
+            SetForcedAction(track_type="subtitle"),
+            SetDefaultAction(track_type="subtitle"),
+            SetDefaultAction(track_type="audio"),
+        )
+
+        result = execute_actions(actions, context_with_all_tracks)
+
+        assert len(result.track_flag_changes) == 3
+        forced_changes = [
+            c for c in result.track_flag_changes if c.flag_type == "forced"
+        ]
+        default_changes = [
+            c for c in result.track_flag_changes if c.flag_type == "default"
+        ]
+        assert len(forced_changes) == 1
+        assert len(default_changes) == 2

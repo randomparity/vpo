@@ -146,13 +146,15 @@ class FFprobeIntrospector:
         """
         warnings: list[str] = []
 
-        # Extract container format
+        # Extract container format and duration
         format_info = data.get("format", {})
         container_format = format_info.get("format_name")
+        # Container duration (used as fallback for streams without duration)
+        container_duration = self._parse_duration(format_info.get("duration"))
 
         # Parse streams
         streams = data.get("streams", [])
-        tracks = self._parse_streams(streams, warnings)
+        tracks = self._parse_streams(streams, warnings, container_duration)
 
         if not tracks:
             warnings.append("No streams found in file")
@@ -165,13 +167,17 @@ class FFprobeIntrospector:
         )
 
     def _parse_streams(
-        self, streams: list[dict], warnings: list[str]
+        self,
+        streams: list[dict],
+        warnings: list[str],
+        container_duration: float | None = None,
     ) -> list[TrackInfo]:
         """Parse stream data into TrackInfo objects.
 
         Args:
             streams: List of stream dictionaries from ffprobe.
             warnings: List to append warnings to.
+            container_duration: Container-level duration as fallback.
 
         Returns:
             List of TrackInfo objects.
@@ -213,6 +219,13 @@ class FFprobeIntrospector:
                 is_default=is_default,
                 is_forced=is_forced,
             )
+
+            # Extract stream duration (fall back to container duration)
+            stream_duration = self._parse_duration(stream.get("duration"))
+            if stream_duration is not None:
+                track.duration_seconds = stream_duration
+            elif container_duration is not None:
+                track.duration_seconds = container_duration
 
             # Add audio-specific fields
             if track_type == "audio":
@@ -286,3 +299,20 @@ class FFprobeIntrospector:
             8: "7.1",
         }
         return mapping.get(channels, f"{channels}ch")
+
+    @staticmethod
+    def _parse_duration(value: str | None) -> float | None:
+        """Parse duration string from ffprobe into seconds.
+
+        Args:
+            value: Duration string from ffprobe (e.g., "3600.000") or None.
+
+        Returns:
+            Duration in seconds as float, or None if parsing fails.
+        """
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return None

@@ -67,6 +67,19 @@ class ProgressDisplay:
             self._phase = "scan"
         self._write(f"Scanning... {processed:,}/{total:,} ({files_per_sec:,}/sec)")
 
+    def on_language_progress(
+        self, processed: int, total: int, current_file: str
+    ) -> None:
+        """Called during language analysis with progress counts."""
+        if self._phase != "language":
+            self._finish_line()
+            self._phase = "language"
+        # Truncate filename if too long
+        max_name_len = 40
+        if len(current_file) > max_name_len:
+            current_file = "..." + current_file[-(max_name_len - 3) :]
+        self._write(f"Analyzing languages... {processed:,}/{total:,} [{current_file}]")
+
     def finish(self) -> None:
         """Finish all progress display."""
         self._finish_line()
@@ -84,6 +97,148 @@ def validate_directories(ctx, param, value):
             raise click.BadParameter(f"Not a directory: {path}")
         paths.append(path)
     return paths
+
+
+def _run_language_analysis(
+    conn,
+    files,
+    progress: ProgressDisplay,
+    verbose: bool,
+) -> dict:
+    """Run language analysis on scanned files with audio tracks.
+
+    Args:
+        conn: Database connection.
+        files: List of ScannedFile objects.
+        progress: Progress display object.
+        verbose: Whether to show verbose output.
+
+    Returns:
+        Dictionary with 'analyzed', 'skipped', 'errors' counts.
+    """
+    import logging
+
+    from video_policy_orchestrator.db.models import (
+        get_file_by_path,
+        get_tracks_for_file,
+    )
+    from video_policy_orchestrator.language_analysis.service import (
+        LanguageAnalysisError,
+        analyze_track_languages,
+        get_cached_analysis,
+        persist_analysis_result,
+    )
+    from video_policy_orchestrator.plugins.whisper_transcriber.plugin import (
+        PluginDependencyError,
+        WhisperTranscriptionPlugin,
+    )
+    from video_policy_orchestrator.transcription.interface import (
+        MultiLanguageDetectionConfig,
+    )
+
+    logger = logging.getLogger(__name__)
+    stats = {"analyzed": 0, "skipped": 0, "errors": 0}
+
+    # Initialize transcriber plugin
+    try:
+        transcriber = WhisperTranscriptionPlugin()
+    except PluginDependencyError as e:
+        click.echo(f"\nWarning: {e}", err=True)
+        click.echo("Language analysis skipped.", err=True)
+        return stats
+
+    # Check if plugin supports multi-language detection
+    if not transcriber.supports_feature("multi_language_detection"):
+        click.echo(
+            "\nWarning: Transcription plugin does not support "
+            "multi-language detection.",
+            err=True,
+        )
+        return stats
+
+    # Collect files with audio tracks
+    files_to_analyze = []
+    for scanned_file in files:
+        file_record = get_file_by_path(conn, scanned_file.path)
+        if file_record is None or file_record.id is None:
+            continue
+
+        tracks = get_tracks_for_file(conn, file_record.id)
+        audio_tracks = [t for t in tracks if t.track_type == "audio"]
+        if audio_tracks:
+            files_to_analyze.append((scanned_file, file_record, audio_tracks))
+
+    if not files_to_analyze:
+        return stats
+
+    total = len(files_to_analyze)
+    config = MultiLanguageDetectionConfig()
+
+    for i, (scanned_file, file_record, audio_tracks) in enumerate(files_to_analyze):
+        progress.on_language_progress(i + 1, total, Path(scanned_file.path).name)
+
+        file_path = Path(scanned_file.path)
+
+        for track in audio_tracks:
+            if track.id is None:
+                continue
+
+            # Check for cached result
+            file_hash = scanned_file.content_hash or ""
+            cached = get_cached_analysis(conn, track.id, file_hash)
+            if cached is not None:
+                stats["skipped"] += 1
+                logger.debug(
+                    "Using cached language analysis for track %d (%s)",
+                    track.id,
+                    cached.classification.value,
+                )
+                continue
+
+            # Use actual track duration if available, else default to 1 hour
+            track_duration = track.duration_seconds or 3600.0
+
+            try:
+                result = analyze_track_languages(
+                    file_path=file_path,
+                    track_index=track.track_index,
+                    track_id=track.id,
+                    track_duration=track_duration,
+                    file_hash=file_hash,
+                    transcriber=transcriber,
+                    config=config,
+                )
+                persist_analysis_result(conn, result)
+                stats["analyzed"] += 1
+
+                if verbose:
+                    click.echo(
+                        f"  Track {track.track_index}: "
+                        f"{result.classification.value} "
+                        f"({result.primary_language} {result.primary_percentage:.0%})"
+                    )
+
+            except LanguageAnalysisError as e:
+                stats["errors"] += 1
+                logger.warning(
+                    "Language analysis failed for %s track %d: %s",
+                    scanned_file.path,
+                    track.track_index,
+                    e,
+                )
+            except Exception as e:
+                stats["errors"] += 1
+                logger.exception(
+                    "Unexpected error analyzing %s track %d: %s",
+                    scanned_file.path,
+                    track.track_index,
+                    e,
+                )
+
+        # Commit after each file
+        conn.commit()
+
+    return stats
 
 
 @click.command()
@@ -152,6 +307,12 @@ def validate_directories(ctx, param, value):
     default=False,
     help="Output results in JSON format.",
 )
+@click.option(
+    "--analyze-languages",
+    is_flag=True,
+    default=False,
+    help="Analyze audio tracks for multi-language detection.",
+)
 def scan(
     directories: list[Path],
     extensions: str | None,
@@ -163,6 +324,7 @@ def scan(
     dry_run: bool,
     verbose: bool,
     json_output: bool,
+    analyze_languages: bool,
 ) -> None:
     """Scan directories for video files.
 
@@ -181,6 +343,8 @@ def scan(
         vpo scan --dry-run --verbose /media/videos
 
         vpo scan --profile movies /media/movies
+
+        vpo scan --analyze-languages /media/videos
     """
     from video_policy_orchestrator.db.connection import (
         DatabaseLockedError,
@@ -225,6 +389,9 @@ def scan(
 
     # Create progress display (only if not JSON and TTY)
     progress = ProgressDisplay(enabled=not json_output)
+
+    # Initialize language stats (will be populated if --analyze-languages)
+    language_stats = {"analyzed": 0, "skipped": 0, "errors": 0}
 
     # Run scan
     try:
@@ -271,6 +438,16 @@ def scan(
                         job_id=job.id,
                     )
 
+                    # Run language analysis if requested
+                    language_stats = {"analyzed": 0, "skipped": 0, "errors": 0}
+                    if analyze_languages and not result.interrupted:
+                        language_stats = _run_language_analysis(
+                            conn,
+                            files,
+                            progress,
+                            verbose and not json_output,
+                        )
+
                     # job_id is already set in result by scan_and_persist
                     summary = {
                         "total_discovered": result.files_found,
@@ -280,6 +457,10 @@ def scan(
                         "removed": result.files_removed,
                         "errors": result.files_errored,
                     }
+                    if analyze_languages:
+                        summary["language_analyzed"] = language_stats["analyzed"]
+                        summary["language_skipped"] = language_stats["skipped"]
+                        summary["language_errors"] = language_stats["errors"]
                     error_msg = None
                     if result.interrupted:
                         error_msg = "Scan interrupted by user"
@@ -315,9 +496,9 @@ def scan(
 
     # Output results
     if json_output:
-        output_json(result, files, verbose, dry_run)
+        output_json(result, files, verbose, dry_run, language_stats)
     else:
-        output_human(result, files, verbose, dry_run)
+        output_human(result, files, verbose, dry_run, language_stats)
 
     # Exit with appropriate code
     if getattr(result, "interrupted", False):
@@ -330,7 +511,13 @@ def scan(
         sys.exit(1) if not files else sys.exit(0)
 
 
-def output_json(result, files, verbose: bool, dry_run: bool = False) -> None:
+def output_json(
+    result,
+    files,
+    verbose: bool,
+    dry_run: bool = False,
+    language_stats: dict | None = None,
+) -> None:
     """Output scan results in JSON format."""
     data = {
         "files_found": result.files_found,
@@ -351,6 +538,18 @@ def output_json(result, files, verbose: bool, dry_run: bool = False) -> None:
     if result.errors:
         data["errors"] = [{"path": p, "error": e} for p, e in result.errors]
 
+    # Add language analysis stats if any tracks were analyzed
+    if language_stats and (
+        language_stats["analyzed"] > 0
+        or language_stats["skipped"] > 0
+        or language_stats["errors"] > 0
+    ):
+        data["language_analysis"] = {
+            "analyzed": language_stats["analyzed"],
+            "skipped": language_stats["skipped"],
+            "errors": language_stats["errors"],
+        }
+
     if verbose:
         data["files"] = [
             {
@@ -365,7 +564,13 @@ def output_json(result, files, verbose: bool, dry_run: bool = False) -> None:
     click.echo(json.dumps(data, indent=2))
 
 
-def output_human(result, files, verbose: bool, dry_run: bool = False) -> None:
+def output_human(
+    result,
+    files,
+    verbose: bool,
+    dry_run: bool = False,
+    language_stats: dict | None = None,
+) -> None:
     """Output scan results in human-readable format."""
     dir_count = len(result.directories_scanned)
     dir_word = "directory" if dir_count == 1 else "directories"
@@ -390,6 +595,19 @@ def output_human(result, files, verbose: bool, dry_run: bool = False) -> None:
             click.echo(f"  Removed (missing): {files_removed:,}")
     else:
         click.echo("  (dry run - no database changes)")
+
+    # Show language analysis stats if any tracks were analyzed
+    if language_stats and (
+        language_stats["analyzed"] > 0
+        or language_stats["skipped"] > 0
+        or language_stats["errors"] > 0
+    ):
+        click.echo("\nLanguage analysis:")
+        click.echo(f"  Analyzed: {language_stats['analyzed']:,} tracks")
+        if language_stats["skipped"] > 0:
+            click.echo(f"  Skipped (cached): {language_stats['skipped']:,} tracks")
+        if language_stats["errors"] > 0:
+            click.echo(f"  Errors: {language_stats['errors']:,} tracks")
 
     # Show job ID if available
     job_id = getattr(result, "job_id", None)

@@ -1,6 +1,7 @@
 """CLI inspect command for Video Policy Orchestrator."""
 
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Any
@@ -10,12 +11,24 @@ import click
 from video_policy_orchestrator.db.models import IntrospectionResult, TrackInfo
 from video_policy_orchestrator.introspector.ffprobe import FFprobeIntrospector
 from video_policy_orchestrator.introspector.interface import MediaIntrospectionError
+from video_policy_orchestrator.language_analysis import (
+    LanguageAnalysisError,
+    LanguageAnalysisResult,
+    LanguageClassification,
+    analyze_track_languages,
+)
+from video_policy_orchestrator.transcription.interface import (
+    MultiLanguageDetectionConfig,
+)
+
+logger = logging.getLogger(__name__)
 
 # Exit codes per cli-inspect.md contract
 EXIT_SUCCESS = 0
 EXIT_FILE_NOT_FOUND = 1
 EXIT_FFPROBE_NOT_INSTALLED = 2
 EXIT_PARSE_ERROR = 3
+EXIT_ANALYSIS_ERROR = 4
 
 
 def format_human(result: IntrospectionResult) -> str:
@@ -207,6 +220,118 @@ def _track_to_dict(track: TrackInfo) -> dict[str, Any]:
     return d
 
 
+def format_language_analysis_human(
+    analysis: LanguageAnalysisResult,
+    show_segments: bool = False,
+) -> str:
+    """Format language analysis result for human-readable output.
+
+    Args:
+        analysis: The language analysis result to format.
+        show_segments: Whether to show detailed segment information.
+
+    Returns:
+        Formatted string for terminal output.
+    """
+    lines: list[str] = []
+
+    # Classification header
+    if analysis.classification == LanguageClassification.MULTI_LANGUAGE:
+        lines.append("Language Analysis: MULTI-LANGUAGE")
+    else:
+        lines.append("Language Analysis: SINGLE-LANGUAGE")
+
+    # Primary language
+    lines.append(
+        f"  Primary: {analysis.primary_language} "
+        f"({analysis.primary_percentage * 100:.1f}%)"
+    )
+
+    # Secondary languages
+    if analysis.secondary_languages:
+        lines.append("  Secondary:")
+        for lang_pct in analysis.secondary_languages:
+            lines.append(
+                f"    - {lang_pct.language_code}: {lang_pct.percentage * 100:.1f}%"
+            )
+
+    # Metadata
+    lines.append(
+        f"  Analysis: {len(analysis.segments)} samples, "
+        f"{analysis.metadata.speech_ratio * 100:.0f}% speech detected"
+    )
+
+    # Segments detail (if requested)
+    if show_segments and analysis.segments:
+        lines.append("")
+        lines.append("  Segments:")
+        for seg in analysis.segments:
+            lines.append(
+                f"    {seg.start_time:.1f}s-{seg.end_time:.1f}s: "
+                f"{seg.language_code} (confidence: {seg.confidence:.2f})"
+            )
+
+    return "\n".join(lines)
+
+
+def format_language_analysis_json(analysis: LanguageAnalysisResult) -> dict[str, Any]:
+    """Format language analysis result for JSON output.
+
+    Args:
+        analysis: The language analysis result to format.
+
+    Returns:
+        Dictionary representation for JSON serialization.
+    """
+    return {
+        "classification": analysis.classification.value,
+        "primary_language": analysis.primary_language,
+        "primary_percentage": analysis.primary_percentage,
+        "secondary_languages": [
+            {"code": lp.language_code, "percentage": lp.percentage}
+            for lp in analysis.secondary_languages
+        ],
+        "is_multi_language": analysis.is_multi_language,
+        "segments": [
+            {
+                "language": seg.language_code,
+                "start_time": seg.start_time,
+                "end_time": seg.end_time,
+                "confidence": seg.confidence,
+            }
+            for seg in analysis.segments
+        ],
+        "metadata": {
+            "plugin": analysis.metadata.plugin_name,
+            "model": analysis.metadata.model_name,
+            "samples": len(analysis.metadata.sample_positions),
+            "speech_ratio": analysis.metadata.speech_ratio,
+        },
+    }
+
+
+def _get_transcriber():
+    """Get a transcription plugin for language analysis.
+
+    Returns:
+        TranscriptionPlugin instance.
+
+    Raises:
+        click.ClickException: If no transcription plugin is available.
+    """
+    try:
+        from video_policy_orchestrator.plugins.whisper_transcriber.plugin import (
+            WhisperTranscriptionPlugin,
+        )
+
+        return WhisperTranscriptionPlugin()
+    except Exception as e:
+        raise click.ClickException(
+            f"Could not initialize transcription plugin: {e}\n"
+            "Make sure openai-whisper is installed: pip install openai-whisper"
+        )
+
+
 @click.command("inspect")
 @click.argument("file", type=click.Path(exists=False))
 @click.option(
@@ -217,10 +342,39 @@ def _track_to_dict(track: TrackInfo) -> dict[str, Any]:
     default="human",
     help="Output format (default: human)",
 )
-def inspect_command(file: str, output_format: str) -> None:
+@click.option(
+    "--analyze-languages",
+    "-a",
+    is_flag=True,
+    help="Analyze audio tracks for multiple languages",
+)
+@click.option(
+    "--show-segments",
+    "-s",
+    is_flag=True,
+    help="Show detailed language segments (requires --analyze-languages)",
+)
+@click.option(
+    "--track",
+    "-t",
+    type=int,
+    default=None,
+    help="Analyze only the specified audio track index",
+)
+def inspect_command(
+    file: str,
+    output_format: str,
+    analyze_languages: bool,
+    show_segments: bool,
+    track: int | None,
+) -> None:
     """Inspect a media file and display track information.
 
     FILE is the path to the media file to inspect.
+
+    Use --analyze-languages to detect multiple languages in audio tracks.
+    This uses speech recognition to sample the audio at multiple positions
+    and determine if multiple languages are present.
     """
     file_path = Path(file)
 
@@ -248,8 +402,72 @@ def inspect_command(file: str, output_format: str) -> None:
 
     # Output result
     if output_format == "json":
-        click.echo(format_json(result))
+        output_data: dict[str, Any] = json.loads(format_json(result))
     else:
         click.echo(format_human(result))
+
+    # Language analysis (if requested)
+    language_results: list[tuple[int, LanguageAnalysisResult]] = []
+    if analyze_languages:
+        # Get audio tracks to analyze
+        audio_tracks = [t for t in result.tracks if t.track_type == "audio"]
+
+        if track is not None:
+            # Filter to specific track
+            audio_tracks = [t for t in audio_tracks if t.index == track]
+            if not audio_tracks:
+                click.echo(f"Error: No audio track found at index {track}", err=True)
+                sys.exit(EXIT_ANALYSIS_ERROR)
+
+        if not audio_tracks:
+            click.echo("No audio tracks to analyze.", err=True)
+            sys.exit(EXIT_SUCCESS)
+
+        # Get transcriber plugin
+        try:
+            transcriber = _get_transcriber()
+        except click.ClickException as e:
+            click.echo(f"Error: {e.message}", err=True)
+            sys.exit(EXIT_ANALYSIS_ERROR)
+
+        # Analyze each track
+        config = MultiLanguageDetectionConfig(num_samples=5, sample_duration=30.0)
+
+        for audio_track in audio_tracks:
+            click.echo(f"\nAnalyzing track {audio_track.index}...", err=True)
+            # Use actual track duration if available, else default to 1 hour
+            track_duration = audio_track.duration_seconds or 3600.0
+            try:
+                # Use a dummy track_id since we're not using the database here
+                analysis = analyze_track_languages(
+                    file_path=file_path,
+                    track_index=audio_track.index,
+                    track_id=0,  # Not persisting, so ID doesn't matter
+                    track_duration=track_duration,
+                    file_hash="",  # Not caching
+                    transcriber=transcriber,
+                    config=config,
+                )
+                language_results.append((audio_track.index, analysis))
+
+            except LanguageAnalysisError as e:
+                click.echo(
+                    f"Warning: Could not analyze track {audio_track.index}: {e}",
+                    err=True,
+                )
+
+        # Output language analysis
+        if output_format == "json":
+            output_data["language_analysis"] = {
+                f"track_{idx}": format_language_analysis_json(analysis)
+                for idx, analysis in language_results
+            }
+            click.echo(json.dumps(output_data, indent=2))
+        else:
+            for track_idx, analysis in language_results:
+                click.echo(f"\nTrack {track_idx}:")
+                click.echo(format_language_analysis_human(analysis, show_segments))
+    elif output_format == "json":
+        click.echo(json.dumps(output_data, indent=2))
 
     sys.exit(EXIT_SUCCESS)

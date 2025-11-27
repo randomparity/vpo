@@ -246,6 +246,7 @@ class PolicyEnginePlugin:
         container: str,
         tracks: list[TrackInfo],
         policy: PolicySchema,
+        language_results: dict | None = None,
     ) -> Plan:
         """Evaluate a policy against file tracks.
 
@@ -258,6 +259,8 @@ class PolicyEnginePlugin:
             container: Container format (mkv, mp4, etc.).
             tracks: List of track metadata.
             policy: Validated policy configuration.
+            language_results: Optional dict mapping track_id to
+                LanguageAnalysisResult for audio_is_multi_language conditions.
 
         Returns:
             Plan describing changes needed to conform to policy.
@@ -268,6 +271,7 @@ class PolicyEnginePlugin:
             container=container,
             tracks=tracks,
             policy=policy,
+            language_results=language_results,
         )
 
     # ============================================================

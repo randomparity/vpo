@@ -13,9 +13,17 @@ Tests for User Story 5: Track Count Conditions (Priority: P2)
 Check count of matching tracks against thresholds.
 """
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from video_policy_orchestrator.db.models import TrackInfo
+
+if TYPE_CHECKING:
+    from video_policy_orchestrator.language_analysis.models import (
+        LanguageAnalysisResult,
+    )
+
 from video_policy_orchestrator.policy.conditions import (
     evaluate_condition,
     evaluate_count,
@@ -919,5 +927,370 @@ class TestCountCondition:
         )
 
         result, reason = evaluate_condition(condition, multi_audio_tracks)
+
+        assert result is True
+
+
+# =============================================================================
+# Audio Multi-Language Condition Tests
+# =============================================================================
+
+
+class TestAudioIsMultiLanguageCondition:
+    """Test audio_is_multi_language condition evaluation."""
+
+    @pytest.fixture
+    def audio_track_with_id(self) -> TrackInfo:
+        """Audio track with database ID for language analysis lookup."""
+        return TrackInfo(
+            id=100,
+            index=1,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+            title="Main Audio",
+            is_default=True,
+            is_forced=False,
+            channels=2,
+            channel_layout="stereo",
+            width=None,
+            height=None,
+            frame_rate=None,
+        )
+
+    @pytest.fixture
+    def multi_language_result(self) -> "LanguageAnalysisResult":
+        """Language analysis result showing multi-language content."""
+        from datetime import datetime, timezone
+
+        from video_policy_orchestrator.language_analysis.models import (
+            AnalysisMetadata,
+            LanguageAnalysisResult,
+            LanguageClassification,
+            LanguagePercentage,
+            LanguageSegment,
+        )
+
+        now = datetime.now(timezone.utc)
+        return LanguageAnalysisResult(
+            track_id=100,
+            file_hash="test_hash",  # pragma: allowlist secret
+            primary_language="eng",
+            primary_percentage=0.8,
+            secondary_languages=(LanguagePercentage("spa", 0.2),),
+            classification=LanguageClassification.MULTI_LANGUAGE,
+            segments=(
+                LanguageSegment("eng", 0.0, 30.0, 0.95),
+                LanguageSegment("spa", 30.0, 60.0, 0.88),
+            ),
+            metadata=AnalysisMetadata(
+                plugin_name="whisper-local",
+                plugin_version="1.0.0",
+                model_name="whisper-base",
+                sample_positions=(0.0, 30.0),
+                sample_duration=30.0,
+                total_duration=60.0,
+                speech_ratio=0.9,
+            ),
+            created_at=now,
+            updated_at=now,
+        )
+
+    @pytest.fixture
+    def single_language_result(self) -> "LanguageAnalysisResult":
+        """Language analysis result showing single language content."""
+        from datetime import datetime, timezone
+
+        from video_policy_orchestrator.language_analysis.models import (
+            AnalysisMetadata,
+            LanguageAnalysisResult,
+            LanguageClassification,
+            LanguageSegment,
+        )
+
+        now = datetime.now(timezone.utc)
+        return LanguageAnalysisResult(
+            track_id=100,
+            file_hash="test_hash",  # pragma: allowlist secret
+            primary_language="eng",
+            primary_percentage=1.0,
+            secondary_languages=(),
+            classification=LanguageClassification.SINGLE_LANGUAGE,
+            segments=(LanguageSegment("eng", 0.0, 60.0, 0.98),),
+            metadata=AnalysisMetadata(
+                plugin_name="whisper-local",
+                plugin_version="1.0.0",
+                model_name="whisper-base",
+                sample_positions=(0.0, 30.0),
+                sample_duration=30.0,
+                total_duration=60.0,
+                speech_ratio=0.95,
+            ),
+            created_at=now,
+            updated_at=now,
+        )
+
+    def test_returns_false_when_no_language_results(
+        self, audio_track_with_id: TrackInfo
+    ) -> None:
+        """Condition returns False when no language analysis available."""
+        from video_policy_orchestrator.policy.conditions import (
+            evaluate_audio_is_multi_language,
+        )
+        from video_policy_orchestrator.policy.models import (
+            AudioIsMultiLanguageCondition,
+        )
+
+        condition = AudioIsMultiLanguageCondition()
+        tracks = [audio_track_with_id]
+
+        result, reason = evaluate_audio_is_multi_language(
+            condition, tracks, language_results=None
+        )
+
+        assert result is False
+        assert "no language analysis available" in reason
+
+    def test_returns_true_for_multi_language_track(
+        self,
+        audio_track_with_id: TrackInfo,
+        multi_language_result: "LanguageAnalysisResult",
+    ) -> None:
+        """Condition returns True when track has multi-language content."""
+        from video_policy_orchestrator.policy.conditions import (
+            evaluate_audio_is_multi_language,
+        )
+        from video_policy_orchestrator.policy.models import (
+            AudioIsMultiLanguageCondition,
+        )
+
+        condition = AudioIsMultiLanguageCondition()
+        tracks = [audio_track_with_id]
+        language_results = {100: multi_language_result}
+
+        result, reason = evaluate_audio_is_multi_language(
+            condition, tracks, language_results
+        )
+
+        assert result is True
+        assert "audio_is_multi_language → True" in reason
+        assert "eng" in reason
+
+    def test_returns_false_for_single_language_track(
+        self,
+        audio_track_with_id: TrackInfo,
+        single_language_result: "LanguageAnalysisResult",
+    ) -> None:
+        """Condition returns False when track has single language content."""
+        from video_policy_orchestrator.policy.conditions import (
+            evaluate_audio_is_multi_language,
+        )
+        from video_policy_orchestrator.policy.models import (
+            AudioIsMultiLanguageCondition,
+        )
+
+        condition = AudioIsMultiLanguageCondition()
+        tracks = [audio_track_with_id]
+        language_results = {100: single_language_result}
+
+        result, reason = evaluate_audio_is_multi_language(
+            condition, tracks, language_results
+        )
+
+        assert result is False
+        assert "audio_is_multi_language → False" in reason
+
+    def test_threshold_filters_low_secondary(
+        self,
+        audio_track_with_id: TrackInfo,
+    ) -> None:
+        """Condition returns False when secondary language below threshold."""
+        from datetime import datetime, timezone
+
+        from video_policy_orchestrator.language_analysis.models import (
+            AnalysisMetadata,
+            LanguageAnalysisResult,
+            LanguageClassification,
+            LanguagePercentage,
+            LanguageSegment,
+        )
+        from video_policy_orchestrator.policy.conditions import (
+            evaluate_audio_is_multi_language,
+        )
+        from video_policy_orchestrator.policy.models import (
+            AudioIsMultiLanguageCondition,
+        )
+
+        now = datetime.now(timezone.utc)
+        # Only 3% secondary language (below 5% default threshold)
+        result_with_low_secondary = LanguageAnalysisResult(
+            track_id=100,
+            file_hash="test_hash",  # pragma: allowlist secret
+            primary_language="eng",
+            primary_percentage=0.97,
+            secondary_languages=(LanguagePercentage("spa", 0.03),),
+            classification=LanguageClassification.MULTI_LANGUAGE,
+            segments=(
+                LanguageSegment("eng", 0.0, 58.0, 0.95),
+                LanguageSegment("spa", 58.0, 60.0, 0.88),
+            ),
+            metadata=AnalysisMetadata(
+                plugin_name="whisper-local",
+                plugin_version="1.0.0",
+                model_name="whisper-base",
+                sample_positions=(0.0, 30.0),
+                sample_duration=30.0,
+                total_duration=60.0,
+                speech_ratio=0.9,
+            ),
+            created_at=now,
+            updated_at=now,
+        )
+
+        condition = AudioIsMultiLanguageCondition(threshold=0.05)
+        tracks = [audio_track_with_id]
+        language_results = {100: result_with_low_secondary}
+
+        result, reason = evaluate_audio_is_multi_language(
+            condition, tracks, language_results
+        )
+
+        assert result is False
+
+    def test_primary_language_filter_matches(
+        self,
+        audio_track_with_id: TrackInfo,
+        multi_language_result: "LanguageAnalysisResult",
+    ) -> None:
+        """Condition matches when primary language filter matches."""
+        from video_policy_orchestrator.policy.conditions import (
+            evaluate_audio_is_multi_language,
+        )
+        from video_policy_orchestrator.policy.models import (
+            AudioIsMultiLanguageCondition,
+        )
+
+        condition = AudioIsMultiLanguageCondition(primary_language="eng")
+        tracks = [audio_track_with_id]
+        language_results = {100: multi_language_result}
+
+        result, reason = evaluate_audio_is_multi_language(
+            condition, tracks, language_results
+        )
+
+        assert result is True
+
+    def test_primary_language_filter_no_match(
+        self,
+        audio_track_with_id: TrackInfo,
+        multi_language_result: "LanguageAnalysisResult",
+    ) -> None:
+        """Condition returns False when primary language filter doesn't match."""
+        from video_policy_orchestrator.policy.conditions import (
+            evaluate_audio_is_multi_language,
+        )
+        from video_policy_orchestrator.policy.models import (
+            AudioIsMultiLanguageCondition,
+        )
+
+        condition = AudioIsMultiLanguageCondition(primary_language="jpn")
+        tracks = [audio_track_with_id]
+        language_results = {100: multi_language_result}
+
+        result, reason = evaluate_audio_is_multi_language(
+            condition, tracks, language_results
+        )
+
+        assert result is False
+
+    def test_track_index_filter(
+        self,
+        audio_track_with_id: TrackInfo,
+        multi_language_result: "LanguageAnalysisResult",
+    ) -> None:
+        """Condition filters by specific track index."""
+        from video_policy_orchestrator.policy.conditions import (
+            evaluate_audio_is_multi_language,
+        )
+        from video_policy_orchestrator.policy.models import (
+            AudioIsMultiLanguageCondition,
+        )
+
+        # Track index is 1
+        condition = AudioIsMultiLanguageCondition(track_index=1)
+        tracks = [audio_track_with_id]
+        language_results = {100: multi_language_result}
+
+        result, reason = evaluate_audio_is_multi_language(
+            condition, tracks, language_results
+        )
+
+        assert result is True
+
+    def test_track_index_not_found(
+        self,
+        audio_track_with_id: TrackInfo,
+        multi_language_result: "LanguageAnalysisResult",
+    ) -> None:
+        """Condition returns False when specified track index doesn't exist."""
+        from video_policy_orchestrator.policy.conditions import (
+            evaluate_audio_is_multi_language,
+        )
+        from video_policy_orchestrator.policy.models import (
+            AudioIsMultiLanguageCondition,
+        )
+
+        condition = AudioIsMultiLanguageCondition(track_index=99)
+        tracks = [audio_track_with_id]
+        language_results = {100: multi_language_result}
+
+        result, reason = evaluate_audio_is_multi_language(
+            condition, tracks, language_results
+        )
+
+        assert result is False
+        assert "track 99 not found" in reason
+
+    def test_via_evaluate_condition(
+        self,
+        audio_track_with_id: TrackInfo,
+        multi_language_result: "LanguageAnalysisResult",
+    ) -> None:
+        """Condition works through main evaluate_condition()."""
+        from video_policy_orchestrator.policy.conditions import evaluate_condition
+        from video_policy_orchestrator.policy.models import (
+            AudioIsMultiLanguageCondition,
+        )
+
+        condition = AudioIsMultiLanguageCondition()
+        tracks = [audio_track_with_id]
+        language_results = {100: multi_language_result}
+
+        result, reason = evaluate_condition(condition, tracks, language_results)
+
+        assert result is True
+        assert "audio_is_multi_language" in reason
+
+    def test_in_and_condition(
+        self,
+        audio_track_with_id: TrackInfo,
+        multi_language_result: "LanguageAnalysisResult",
+    ) -> None:
+        """Multi-language condition works in AND with other conditions."""
+        from video_policy_orchestrator.policy.conditions import evaluate_condition
+        from video_policy_orchestrator.policy.models import (
+            AudioIsMultiLanguageCondition,
+        )
+
+        condition = AndCondition(
+            conditions=(
+                ExistsCondition(track_type="audio", filters=TrackFilters()),
+                AudioIsMultiLanguageCondition(),
+            )
+        )
+        tracks = [audio_track_with_id]
+        language_results = {100: multi_language_result}
+
+        result, reason = evaluate_condition(condition, tracks, language_results)
 
         assert result is True
