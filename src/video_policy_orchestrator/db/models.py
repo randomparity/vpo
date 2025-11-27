@@ -217,6 +217,50 @@ class TrackRecord:
             duration_seconds=info.duration_seconds,
         )
 
+    def to_track_info(self) -> TrackInfo:
+        """Convert TrackRecord to TrackInfo domain object.
+
+        This is the inverse of from_track_info(), allowing bidirectional
+        conversion between database records and domain objects.
+
+        Returns:
+            TrackInfo domain object suitable for policy evaluation.
+        """
+        return TrackInfo(
+            index=self.track_index,
+            track_type=self.track_type,
+            codec=self.codec,
+            language=self.language,
+            title=self.title,
+            is_default=self.is_default,
+            is_forced=self.is_forced,
+            channels=self.channels,
+            channel_layout=self.channel_layout,
+            width=self.width,
+            height=self.height,
+            frame_rate=self.frame_rate,
+            color_transfer=self.color_transfer,
+            color_primaries=self.color_primaries,
+            color_space=self.color_space,
+            color_range=self.color_range,
+            duration_seconds=self.duration_seconds,
+            id=self.id,
+        )
+
+
+def tracks_to_track_info(records: list[TrackRecord]) -> list[TrackInfo]:
+    """Convert list of TrackRecord to list of TrackInfo.
+
+    Convenience function for batch conversion.
+
+    Args:
+        records: List of database track records.
+
+    Returns:
+        List of TrackInfo domain objects.
+    """
+    return [r.to_track_info() for r in records]
+
 
 @dataclass
 class OperationRecord:

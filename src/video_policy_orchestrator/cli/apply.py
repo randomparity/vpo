@@ -5,16 +5,18 @@ import logging
 import sqlite3
 import sys
 from pathlib import Path
-from typing import NoReturn
 
 import click
 
+from video_policy_orchestrator.cli.exit_codes import ExitCode
+from video_policy_orchestrator.cli.output import error_exit
+from video_policy_orchestrator.cli.profile_loader import load_profile_or_exit
 from video_policy_orchestrator.db.connection import get_connection
 from video_policy_orchestrator.db.models import (
     OperationStatus,
-    TrackInfo,
     get_file_by_path,
     get_tracks_for_file,
+    tracks_to_track_info,
 )
 from video_policy_orchestrator.db.operations import (
     create_operation,
@@ -62,45 +64,13 @@ def _get_policy_engine():
     return _policy_engine_instance
 
 
-# Exit codes per contracts/cli-apply.md
-EXIT_SUCCESS = 0
-EXIT_GENERAL_ERROR = 1
-EXIT_POLICY_VALIDATION_ERROR = 2
-EXIT_TARGET_NOT_FOUND = 3
-EXIT_TOOL_NOT_AVAILABLE = 4
-EXIT_OPERATION_FAILED = 5
-
-
-def _tracks_from_records(
-    track_records: list,
-) -> list[TrackInfo]:
-    """Convert TrackRecord list to TrackInfo list for policy evaluation.
-
-    Args:
-        track_records: List of TrackRecord objects from database.
-
-    Returns:
-        List of TrackInfo domain objects suitable for policy evaluation.
-    """
-    return [
-        TrackInfo(
-            index=r.track_index,
-            track_type=r.track_type,
-            codec=r.codec,
-            language=r.language,
-            title=r.title,
-            is_default=r.is_default,
-            is_forced=r.is_forced,
-            channels=r.channels,
-            channel_layout=r.channel_layout,
-            width=r.width,
-            height=r.height,
-            frame_rate=r.frame_rate,
-            duration_seconds=r.duration_seconds,
-            id=r.id,  # Include database ID for language analysis lookup
-        )
-        for r in track_records
-    ]
+# Exit codes for backward compatibility - use ExitCode enum for new code
+EXIT_SUCCESS = ExitCode.SUCCESS
+EXIT_GENERAL_ERROR = ExitCode.GENERAL_ERROR
+EXIT_POLICY_VALIDATION_ERROR = ExitCode.POLICY_VALIDATION_ERROR
+EXIT_TARGET_NOT_FOUND = ExitCode.TARGET_NOT_FOUND
+EXIT_TOOL_NOT_AVAILABLE = ExitCode.TOOL_NOT_AVAILABLE
+EXIT_OPERATION_FAILED = ExitCode.OPERATION_FAILED
 
 
 def _run_auto_analysis(
@@ -122,105 +92,51 @@ def _run_auto_analysis(
     Returns:
         Dict mapping track_id to LanguageAnalysisResult, or None on error.
     """
-    from video_policy_orchestrator.language_analysis.models import (
-        LanguageAnalysisResult,
-    )
-    from video_policy_orchestrator.language_analysis.service import (
-        LanguageAnalysisError,
-        analyze_track_languages,
-        get_cached_analysis,
-        persist_analysis_result,
-    )
-    from video_policy_orchestrator.plugins.whisper_transcriber.plugin import (
-        PluginDependencyError,
-        WhisperTranscriptionPlugin,
-    )
-    from video_policy_orchestrator.transcription.interface import (
-        MultiLanguageDetectionConfig,
+    from video_policy_orchestrator.language_analysis.orchestrator import (
+        AnalysisProgress,
+        LanguageAnalysisOrchestrator,
     )
 
-    # Initialize transcriber plugin
-    try:
-        transcriber = WhisperTranscriptionPlugin()
-    except PluginDependencyError as e:
-        if verbose:
-            click.echo(f"Warning: {e}")
-            click.echo("Language analysis skipped.")
-        return None
+    orchestrator = LanguageAnalysisOrchestrator()
 
-    # Check if plugin supports multi-language detection
-    if not transcriber.supports_feature("multi_language_detection"):
-        if verbose:
-            click.echo(
-                "Warning: Transcription plugin does not support "
-                "multi-language detection."
-            )
-        return None
-
-    # Filter to audio tracks
-    audio_tracks = [t for t in track_records if t.track_type == "audio"]
-    if not audio_tracks:
+    # Count audio tracks for progress display
+    audio_count = sum(1 for t in track_records if t.track_type == "audio")
+    if audio_count == 0:
         return None
 
     if verbose:
-        click.echo(f"Analyzing {len(audio_tracks)} audio track(s)...")
+        click.echo(f"Analyzing {audio_count} audio track(s)...")
 
-    config = MultiLanguageDetectionConfig()
-    results: dict[int, LanguageAnalysisResult] = {}
-    file_hash = file_record.content_hash or ""
-
-    for track in audio_tracks:
-        if track.id is None:
-            continue
-
-        # Check for cached result
-        cached = get_cached_analysis(conn, track.id, file_hash)
-        if cached is not None:
-            results[track.id] = cached
-            if verbose:
-                click.echo(
-                    f"  Track {track.track_index}: {cached.classification.value} "
-                    f"(cached)"
-                )
-            continue
-
-        # Use actual track duration if available, else default to 1 hour
-        track_duration = track.duration_seconds or 3600.0
-
-        try:
-            result = analyze_track_languages(
-                file_path=target,
-                track_index=track.track_index,
-                track_id=track.id,
-                track_duration=track_duration,
-                file_hash=file_hash,
-                transcriber=transcriber,
-                config=config,
+    def on_progress(p: AnalysisProgress) -> None:
+        """Handle progress callback for verbose output."""
+        if not verbose:
+            return
+        if p.status == "cached" and p.result:
+            click.echo(
+                f"  Track {p.track_index}: {p.result.classification.value} (cached)"
             )
-            persist_analysis_result(conn, result)
-            results[track.id] = result
-
-            if verbose:
-                click.echo(
-                    f"  Track {track.track_index}: {result.classification.value} "
-                    f"({result.primary_language} {result.primary_percentage:.0%})"
-                )
-
-        except LanguageAnalysisError as e:
-            logger.warning(
-                "Language analysis failed for track %d: %s",
-                track.track_index,
-                e,
+        elif p.status == "analyzed" and p.result:
+            click.echo(
+                f"  Track {p.track_index}: {p.result.classification.value} "
+                f"({p.result.primary_language} {p.result.primary_percentage:.0%})"
             )
-        except Exception as e:
-            logger.exception(
-                "Unexpected error analyzing track %d: %s",
-                track.track_index,
-                e,
-            )
+
+    result = orchestrator.analyze_tracks_for_file(
+        conn=conn,
+        file_record=file_record,
+        track_records=track_records,
+        file_path=target,
+        progress_callback=on_progress if verbose else None,
+    )
+
+    if not result.transcriber_available:
+        if verbose:
+            click.echo("Warning: Transcription plugin not available.")
+            click.echo("Language analysis skipped.")
+        return None
 
     conn.commit()
-    return results if results else None
+    return result.results if result.results else None
 
 
 def _format_track_dispositions(
@@ -539,30 +455,14 @@ def apply_command(
     # Load profile if specified
     loaded_profile = None
     if profile:
-        from video_policy_orchestrator.config.profiles import (
-            ProfileError,
-            list_profiles,
-            load_profile,
-        )
-
-        try:
-            loaded_profile = load_profile(profile)
-            if verbose and not json_output:
-                click.echo(f"Using profile: {loaded_profile.name}")
-        except ProfileError as e:
-            available = list_profiles()
-            _error_exit(str(e), EXIT_GENERAL_ERROR, json_output)
-            if available:
-                click.echo("\nAvailable profiles:", err=True)
-                for name in sorted(available):
-                    click.echo(f"  - {name}", err=True)
+        loaded_profile = load_profile_or_exit(profile, json_output, verbose)
 
     # Determine policy path from CLI or profile
     if policy_path is None:
         if loaded_profile and loaded_profile.default_policy:
             policy_path = loaded_profile.default_policy
         else:
-            _error_exit(
+            error_exit(
                 "No policy specified. Use --policy or --profile with default_policy.",
                 EXIT_POLICY_VALIDATION_ERROR,
                 json_output,
@@ -576,17 +476,17 @@ def apply_command(
     try:
         policy = load_policy(policy_path)
     except FileNotFoundError:
-        _error_exit(
+        error_exit(
             f"Policy file not found: {policy_path}",
             EXIT_POLICY_VALIDATION_ERROR,
             json_output,
         )
     except PolicyValidationError as e:
-        _error_exit(str(e), EXIT_POLICY_VALIDATION_ERROR, json_output)
+        error_exit(str(e), EXIT_POLICY_VALIDATION_ERROR, json_output)
 
     # Check target exists
     if not target.exists():
-        _error_exit(
+        error_exit(
             f"Target file not found: {target}",
             EXIT_TARGET_NOT_FOUND,
             json_output,
@@ -597,7 +497,7 @@ def apply_command(
         with get_connection() as conn:
             file_record = get_file_by_path(conn, str(target))
             if file_record is None:
-                _error_exit(
+                error_exit(
                     f"File not found in database. Run 'vpo scan' first: {target}",
                     EXIT_TARGET_NOT_FOUND,
                     json_output,
@@ -605,10 +505,10 @@ def apply_command(
 
             # Get tracks from database
             track_records = get_tracks_for_file(conn, file_record.id)
-            tracks = _tracks_from_records(track_records)
+            tracks = tracks_to_track_info(track_records)
 
             if not tracks:
-                _error_exit(
+                error_exit(
                     f"No tracks found for file: {target}",
                     EXIT_GENERAL_ERROR,
                     json_output,
@@ -623,14 +523,14 @@ def apply_command(
                 if container.lower() in ("mkv", "matroska"):
                     # MKV files need mkvpropedit for metadata, mkvmerge for reordering
                     if not tools.get("mkvpropedit"):
-                        _error_exit(
+                        error_exit(
                             "Required tool not available: mkvpropedit. "
                             "Install mkvtoolnix.",
                             EXIT_TOOL_NOT_AVAILABLE,
                             json_output,
                         )
                 elif not tools.get("ffmpeg"):
-                    _error_exit(
+                    error_exit(
                         "Required tool not available: ffmpeg. Install ffmpeg.",
                         EXIT_TOOL_NOT_AVAILABLE,
                         json_output,
@@ -666,11 +566,11 @@ def apply_command(
             except InsufficientTracksError as e:
                 # Format helpful error message with suggestions
                 suggestion = _format_insufficient_tracks_suggestion(e)
-                _error_exit(suggestion, EXIT_POLICY_VALIDATION_ERROR, json_output)
+                error_exit(suggestion, EXIT_POLICY_VALIDATION_ERROR, json_output)
             except IncompatibleCodecError as e:
                 # Format helpful error message with suggestions
                 suggestion = _format_incompatible_codec_suggestion(e)
-                _error_exit(suggestion, EXIT_POLICY_VALIDATION_ERROR, json_output)
+                error_exit(suggestion, EXIT_POLICY_VALIDATION_ERROR, json_output)
 
             if verbose:
                 click.echo(f"Plan: {plan.summary}")
@@ -739,7 +639,7 @@ def apply_command(
                 if has_reorder:
                     tools = check_tool_availability()
                     if not tools.get("mkvmerge"):
-                        _error_exit(
+                        error_exit(
                             "Track reordering requires mkvmerge. Install mkvtoolnix.",
                             EXIT_TOOL_NOT_AVAILABLE,
                             json_output,
@@ -839,52 +739,20 @@ def apply_command(
                             error_message=result.message,
                         )
 
-                        _error_exit(result.message, EXIT_OPERATION_FAILED, json_output)
+                        error_exit(result.message, EXIT_OPERATION_FAILED, json_output)
 
             except FileLockError:
-                _error_exit(
+                error_exit(
                     f"File is being modified by another operation: {target}",
                     EXIT_GENERAL_ERROR,
                     json_output,
                 )
     except sqlite3.Error as e:
-        _error_exit(
+        error_exit(
             f"Database error: {e}",
             EXIT_GENERAL_ERROR,
             json_output,
         )
-
-
-def _error_exit(message: str, code: int, json_output: bool) -> NoReturn:
-    """Exit with an error message."""
-    if json_output:
-        click.echo(
-            json.dumps(
-                {
-                    "status": "failed",
-                    "error": {
-                        "code": _code_to_name(code),
-                        "message": message,
-                    },
-                }
-            ),
-            err=True,
-        )
-    else:
-        click.echo(f"Error: {message}", err=True)
-    sys.exit(code)
-
-
-def _code_to_name(code: int) -> str:
-    """Convert exit code to error name."""
-    names = {
-        EXIT_GENERAL_ERROR: "GENERAL_ERROR",
-        EXIT_POLICY_VALIDATION_ERROR: "POLICY_VALIDATION_ERROR",
-        EXIT_TARGET_NOT_FOUND: "TARGET_NOT_FOUND",
-        EXIT_TOOL_NOT_AVAILABLE: "TOOL_NOT_AVAILABLE",
-        EXIT_OPERATION_FAILED: "OPERATION_FAILED",
-    }
-    return names.get(code, "UNKNOWN_ERROR")
 
 
 def _format_insufficient_tracks_suggestion(error: InsufficientTracksError) -> str:
