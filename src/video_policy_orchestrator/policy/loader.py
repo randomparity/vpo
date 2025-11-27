@@ -44,6 +44,8 @@ from video_policy_orchestrator.policy.models import (
     QualitySettings,
     ScaleAlgorithm,
     ScalingSettings,
+    SetDefaultAction,
+    SetForcedAction,
     SkipAction,
     SkipCondition,
     SkipType,
@@ -907,6 +909,32 @@ class ConditionModel(BaseModel):
         return self
 
 
+class SetForcedActionModel(BaseModel):
+    """Pydantic model for set_forced action.
+
+    Sets the forced flag on matching subtitle tracks.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    track_type: Literal["subtitle"] = "subtitle"
+    language: str | None = None
+    value: bool = True
+
+
+class SetDefaultActionModel(BaseModel):
+    """Pydantic model for set_default action.
+
+    Sets the default flag on matching tracks.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    track_type: Literal["video", "audio", "subtitle"]
+    language: str | None = None
+    value: bool = True
+
+
 class ActionModel(BaseModel):
     """Pydantic model for conditional action."""
 
@@ -921,6 +949,10 @@ class ActionModel(BaseModel):
     warn: str | None = None
     fail: str | None = None
 
+    # Track flag actions
+    set_forced: SetForcedActionModel | None = None
+    set_default: SetDefaultActionModel | None = None
+
     @model_validator(mode="after")
     def validate_at_least_one_action(self) -> "ActionModel":
         """Validate that at least one action is specified."""
@@ -930,12 +962,14 @@ class ActionModel(BaseModel):
             self.skip_track_filter,
             self.warn,
             self.fail,
+            self.set_forced,
+            self.set_default,
         ]
         if not any(a is not None for a in actions):
             raise ValueError(
                 "Action must specify at least one action "
                 "(skip_video_transcode/skip_audio_transcode/skip_track_filter/"
-                "warn/fail)"
+                "warn/fail/set_forced/set_default)"
             )
         return self
 
@@ -1288,6 +1322,24 @@ def _convert_action(model: ActionModel) -> tuple[ConditionalAction, ...]:
 
     if model.fail is not None:
         actions.append(FailAction(message=model.fail))
+
+    if model.set_forced is not None:
+        actions.append(
+            SetForcedAction(
+                track_type=model.set_forced.track_type,
+                language=model.set_forced.language,
+                value=model.set_forced.value,
+            )
+        )
+
+    if model.set_default is not None:
+        actions.append(
+            SetDefaultAction(
+                track_type=model.set_default.track_type,
+                language=model.set_default.language,
+                value=model.set_default.value,
+            )
+        )
 
     return tuple(actions)
 

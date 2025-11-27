@@ -838,8 +838,44 @@ class FailAction:
     message: str
 
 
+@dataclass(frozen=True)
+class SetForcedAction:
+    """Set the forced flag on matching tracks.
+
+    Typically used to enable forced subtitles for multi-language content.
+
+    Attributes:
+        track_type: Type of track to modify (usually "subtitle").
+        language: Language filter for matching tracks (optional).
+        value: Value to set for the forced flag (default True).
+    """
+
+    track_type: str = "subtitle"
+    language: str | None = None
+    value: bool = True
+
+
+@dataclass(frozen=True)
+class SetDefaultAction:
+    """Set the default flag on matching tracks.
+
+    Used to mark a track as default playback track.
+
+    Attributes:
+        track_type: Type of track to modify.
+        language: Language filter for matching tracks (optional).
+        value: Value to set for the default flag (default True).
+    """
+
+    track_type: str
+    language: str | None = None
+    value: bool = True
+
+
 # Type alias for union of all action types
-ConditionalAction = SkipAction | WarnAction | FailAction
+ConditionalAction = (
+    SkipAction | WarnAction | FailAction | SetForcedAction | SetDefaultAction
+)
 
 
 @dataclass(frozen=True)

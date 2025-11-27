@@ -166,25 +166,25 @@
 
 ### Policy Action Dataclasses
 
-- [ ] T054 [US3] Add SetForcedAction dataclass to src/video_policy_orchestrator/policy/models.py
-- [ ] T055 [US3] Add SetDefaultAction dataclass to src/video_policy_orchestrator/policy/models.py
-- [ ] T056 [US3] Update Action union type to include SetForcedAction and SetDefaultAction in src/video_policy_orchestrator/policy/models.py
+- [X] T054 [US3] Add SetForcedAction dataclass to src/video_policy_orchestrator/policy/models.py
+- [X] T055 [US3] Add SetDefaultAction dataclass to src/video_policy_orchestrator/policy/models.py
+- [X] T056 [US3] Update Action union type to include SetForcedAction and SetDefaultAction in src/video_policy_orchestrator/policy/models.py
 
 ### Policy Loader (Action Parsing)
 
-- [ ] T057 [US3] Add SetForcedActionModel Pydantic class in src/video_policy_orchestrator/policy/loader.py
-- [ ] T058 [US3] Add SetDefaultActionModel Pydantic class in src/video_policy_orchestrator/policy/loader.py
-- [ ] T059 [US3] Update ActionModel to include set_forced and set_default fields in src/video_policy_orchestrator/policy/loader.py
-- [ ] T060 [US3] Add _convert_set_forced_action() conversion function in src/video_policy_orchestrator/policy/loader.py
-- [ ] T061 [US3] Add _convert_set_default_action() conversion function in src/video_policy_orchestrator/policy/loader.py
-- [ ] T062 [US3] Update _convert_action() to handle set_forced and set_default in src/video_policy_orchestrator/policy/loader.py
+- [X] T057 [US3] Add SetForcedActionModel Pydantic class in src/video_policy_orchestrator/policy/loader.py
+- [X] T058 [US3] Add SetDefaultActionModel Pydantic class in src/video_policy_orchestrator/policy/loader.py
+- [X] T059 [US3] Update ActionModel to include set_forced and set_default fields in src/video_policy_orchestrator/policy/loader.py
+- [X] T060 [US3] Add _convert_set_forced_action() conversion function in src/video_policy_orchestrator/policy/loader.py
+- [X] T061 [US3] Add _convert_set_default_action() conversion function in src/video_policy_orchestrator/policy/loader.py
+- [X] T062 [US3] Update _convert_action() to handle set_forced and set_default in src/video_policy_orchestrator/policy/loader.py
 
 ### Action Execution
 
-- [ ] T063 [US3] Add execute_set_forced_action() function in src/video_policy_orchestrator/policy/actions.py
-- [ ] T064 [US3] Add execute_set_default_action() function in src/video_policy_orchestrator/policy/actions.py
-- [ ] T065 [US3] Update execute_actions() dispatcher to handle set_forced and set_default in src/video_policy_orchestrator/policy/actions.py
-- [ ] T066 [US3] Add warning when no matching track found for set_forced/set_default in src/video_policy_orchestrator/policy/actions.py
+- [X] T063 [US3] Add execute_set_forced_action() function in src/video_policy_orchestrator/policy/actions.py
+- [X] T064 [US3] Add execute_set_default_action() function in src/video_policy_orchestrator/policy/actions.py
+- [X] T065 [US3] Update execute_actions() dispatcher to handle set_forced and set_default in src/video_policy_orchestrator/policy/actions.py
+- [X] T066 [US3] Add warning when no matching track found for set_forced/set_default in src/video_policy_orchestrator/policy/actions.py
 
 ### CLI: Apply Command
 
@@ -196,9 +196,9 @@
 
 - [ ] T070 [P] [US3] Add tests for SetForcedAction parsing in tests/unit/policy/test_loader.py
 - [ ] T071 [P] [US3] Add tests for SetDefaultAction parsing in tests/unit/policy/test_loader.py
-- [ ] T072 [P] [US3] Add tests for execute_set_forced_action() in tests/unit/policy/test_actions.py
-- [ ] T073 [P] [US3] Add tests for execute_set_default_action() in tests/unit/policy/test_actions.py
-- [ ] T074 [P] [US3] Add tests for missing track warning in tests/unit/policy/test_actions.py
+- [X] T072 [P] [US3] Add tests for execute_set_forced_action() in tests/unit/policy/test_actions.py
+- [X] T073 [P] [US3] Add tests for execute_set_default_action() in tests/unit/policy/test_actions.py
+- [X] T074 [P] [US3] Add tests for missing track warning in tests/unit/policy/test_actions.py
 
 **Checkpoint**: Full policy pipeline works. Can apply policies that detect multi-language audio and enable forced subtitles.
 
