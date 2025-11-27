@@ -95,6 +95,7 @@ def _tracks_from_records(
             width=r.width,
             height=r.height,
             frame_rate=r.frame_rate,
+            duration_seconds=r.duration_seconds,
             id=r.id,  # Include database ID for language analysis lookup
         )
         for r in track_records
@@ -182,8 +183,8 @@ def _run_auto_analysis(
                 )
             continue
 
-        # Get track duration (default 1 hour if not available)
-        track_duration = 3600.0
+        # Use actual track duration if available, else default to 1 hour
+        track_duration = track.duration_seconds or 3600.0
 
         try:
             result = analyze_track_languages(

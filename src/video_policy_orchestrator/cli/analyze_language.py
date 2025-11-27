@@ -211,8 +211,8 @@ def run_command(
                         )
                         continue
 
-                # Run analysis
-                track_duration = 3600.0  # Default 1 hour
+                # Run analysis (use actual duration or default to 1 hour)
+                track_duration = track.duration_seconds or 3600.0
 
                 try:
                     result = analyze_track_languages(
@@ -236,7 +236,7 @@ def run_command(
                         if verbose and result.secondary_languages:
                             for sec in result.secondary_languages:
                                 click.echo(
-                                    f"    Secondary: {sec.language} "
+                                    f"    Secondary: {sec.language_code} "
                                     f"({sec.percentage:.0%})"
                                 )
 
@@ -248,7 +248,7 @@ def run_command(
                             "primary_percentage": result.primary_percentage,
                             "secondary_languages": [
                                 {
-                                    "language": s.language,
+                                    "language_code": s.language_code,
                                     "percentage": s.percentage,
                                 }
                                 for s in result.secondary_languages

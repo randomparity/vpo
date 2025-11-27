@@ -195,9 +195,8 @@ def _run_language_analysis(
                 )
                 continue
 
-            # Get track duration from file metadata
-            # We'll use a default if not available
-            track_duration = 3600.0  # Default 1 hour
+            # Use actual track duration if available, else default to 1 hour
+            track_duration = track.duration_seconds or 3600.0
 
             try:
                 result = analyze_track_languages(

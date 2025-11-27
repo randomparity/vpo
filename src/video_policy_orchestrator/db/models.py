@@ -89,6 +89,8 @@ class TrackInfo:
     color_primaries: str | None = None  # e.g., "bt2020"
     color_space: str | None = None  # e.g., "bt2020nc"
     color_range: str | None = None  # e.g., "tv", "pc"
+    # Track duration (035-multi-language-audio-detection)
+    duration_seconds: float | None = None  # Duration in seconds
 
 
 @dataclass
@@ -187,6 +189,8 @@ class TrackRecord:
     color_primaries: str | None = None
     color_space: str | None = None
     color_range: str | None = None
+    # Track duration (035-multi-language-audio-detection)
+    duration_seconds: float | None = None
 
     @classmethod
     def from_track_info(cls, info: TrackInfo, file_id: int) -> "TrackRecord":
@@ -210,6 +214,7 @@ class TrackRecord:
             color_primaries=info.color_primaries,
             color_space=info.color_space,
             color_range=info.color_range,
+            duration_seconds=info.duration_seconds,
         )
 
 
@@ -614,7 +619,8 @@ def get_tracks_for_file(conn: sqlite3.Connection, file_id: int) -> list[TrackRec
         """
         SELECT id, file_id, track_index, track_type, codec,
                language, title, is_default, is_forced,
-               channels, channel_layout, width, height, frame_rate
+               channels, channel_layout, width, height, frame_rate,
+               duration_seconds
         FROM tracks WHERE file_id = ?
         ORDER BY track_index
         """,
@@ -638,6 +644,7 @@ def get_tracks_for_file(conn: sqlite3.Connection, file_id: int) -> list[TrackRec
                 width=row[11],
                 height=row[12],
                 frame_rate=row[13],
+                duration_seconds=row[14],
             )
         )
     return tracks
@@ -692,7 +699,7 @@ def upsert_tracks_for_file(
                 UPDATE tracks SET
                     track_type = ?, codec = ?, language = ?, title = ?,
                     is_default = ?, is_forced = ?, channels = ?, channel_layout = ?,
-                    width = ?, height = ?, frame_rate = ?
+                    width = ?, height = ?, frame_rate = ?, duration_seconds = ?
                 WHERE file_id = ? AND track_index = ?
                 """,
                 (
@@ -707,6 +714,7 @@ def upsert_tracks_for_file(
                     track.width,
                     track.height,
                     track.frame_rate,
+                    track.duration_seconds,
                     file_id,
                     track.index,
                 ),
@@ -719,8 +727,9 @@ def upsert_tracks_for_file(
                 INSERT INTO tracks (
                     file_id, track_index, track_type, codec,
                     language, title, is_default, is_forced,
-                    channels, channel_layout, width, height, frame_rate
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    channels, channel_layout, width, height, frame_rate,
+                    duration_seconds
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record.file_id,
@@ -736,6 +745,7 @@ def upsert_tracks_for_file(
                     record.width,
                     record.height,
                     record.frame_rate,
+                    record.duration_seconds,
                 ),
             )
 

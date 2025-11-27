@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 15
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -57,6 +57,8 @@ CREATE TABLE IF NOT EXISTS tracks (
     color_primaries TEXT,
     color_space TEXT,
     color_range TEXT,
+    -- Track duration (035-multi-language-audio-detection)
+    duration_seconds REAL,
     FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
     UNIQUE(file_id, track_index)
 );
@@ -1067,6 +1069,30 @@ def migrate_v13_to_v14(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def migrate_v14_to_v15(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 14 to version 15.
+
+    Adds duration_seconds column to tracks table for accurate track duration
+    storage (035-multi-language-audio-detection).
+
+    This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Check if column already exists (idempotent)
+    cursor = conn.execute("PRAGMA table_info(tracks)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "duration_seconds" not in columns:
+        conn.execute("ALTER TABLE tracks ADD COLUMN duration_seconds REAL")
+
+    # Update schema version to 15
+    conn.execute(
+        "UPDATE _meta SET value = '15' WHERE key = 'schema_version'",
+    )
+    conn.commit()
+
+
 def initialize_database(conn: sqlite3.Connection) -> None:
     """Initialize the database with schema, creating tables if needed.
 
@@ -1117,3 +1143,6 @@ def initialize_database(conn: sqlite3.Connection) -> None:
             current_version = 13
         if current_version == 13:
             migrate_v13_to_v14(conn)
+            current_version = 14
+        if current_version == 14:
+            migrate_v14_to_v15(conn)

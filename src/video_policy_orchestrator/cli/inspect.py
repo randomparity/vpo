@@ -430,26 +430,20 @@ def inspect_command(
             click.echo(f"Error: {e.message}", err=True)
             sys.exit(EXIT_ANALYSIS_ERROR)
 
-        # Get file duration from introspection
-        # (estimate from first video track or use default)
-        file_duration = 3600.0  # Default 1 hour
-        video_tracks = [t for t in result.tracks if t.track_type == "video"]
-        if video_tracks and video_tracks[0].frame_rate:
-            # Could calculate from frame rate, but for now use default
-            pass
-
         # Analyze each track
         config = MultiLanguageDetectionConfig(num_samples=5, sample_duration=30.0)
 
         for audio_track in audio_tracks:
             click.echo(f"\nAnalyzing track {audio_track.index}...", err=True)
+            # Use actual track duration if available, else default to 1 hour
+            track_duration = audio_track.duration_seconds or 3600.0
             try:
                 # Use a dummy track_id since we're not using the database here
                 analysis = analyze_track_languages(
                     file_path=file_path,
                     track_index=audio_track.index,
                     track_id=0,  # Not persisting, so ID doesn't matter
-                    track_duration=file_duration,
+                    track_duration=track_duration,
                     file_hash="",  # Not caching
                     transcriber=transcriber,
                     config=config,

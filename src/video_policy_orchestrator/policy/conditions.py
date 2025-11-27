@@ -321,6 +321,10 @@ def evaluate_audio_is_multi_language(
 
     # Check each audio track for multi-language analysis
     for track in audio_tracks:
+        # Skip tracks without database ID (can't lookup language results)
+        if track.id is None:
+            continue
+
         # Get analysis result by track database ID
         result = language_results.get(track.id)
         if result is None:
