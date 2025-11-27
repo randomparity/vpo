@@ -4,7 +4,6 @@ This module defines the interface for execution adapters and utilities
 to check external tool availability.
 """
 
-import shutil
 import threading
 from pathlib import Path
 from typing import Protocol
@@ -218,46 +217,3 @@ def get_tool_path(tool_name: str) -> Path | None:
     if tool and tool.is_available():
         return tool.path
     return None
-
-
-# =============================================================================
-# Legacy Compatibility Functions
-# =============================================================================
-# These provide backwards compatibility with code that directly uses shutil.which
-
-
-def check_tool_availability_simple() -> dict[str, bool]:
-    """Check tool availability using simple PATH lookup (no config).
-
-    This is the original implementation, kept for cases where
-    configuration is not yet loaded.
-
-    Returns:
-        Dict mapping tool name to availability.
-    """
-    return {
-        "mkvpropedit": shutil.which("mkvpropedit") is not None,
-        "mkvmerge": shutil.which("mkvmerge") is not None,
-        "ffmpeg": shutil.which("ffmpeg") is not None,
-        "ffprobe": shutil.which("ffprobe") is not None,
-    }
-
-
-def require_tool_simple(tool_name: str) -> Path:
-    """Get path to a tool using simple PATH lookup (no config).
-
-    Args:
-        tool_name: Name of the tool.
-
-    Returns:
-        Path to the tool.
-
-    Raises:
-        RuntimeError: If tool not found.
-    """
-    tool_path = shutil.which(tool_name)
-    if tool_path is None:
-        raise RuntimeError(
-            f"Required tool not available: {tool_name}. Install mkvtoolnix or ffmpeg."
-        )
-    return Path(tool_path)

@@ -6,6 +6,8 @@ repeated subprocess calls. Cache is stored in ~/.vpo/tool-capabilities.json.
 
 import json
 import logging
+import os
+import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -15,6 +17,7 @@ from video_policy_orchestrator.tools.models import (
     FFprobeInfo,
     MkvmergeInfo,
     MkvpropeditInfo,
+    ToolInfo,
     ToolRegistry,
     ToolStatus,
 )
@@ -44,6 +47,22 @@ def _iso_to_datetime(s: str | None) -> datetime | None:
         return datetime.fromisoformat(s)
     except (ValueError, TypeError):
         return None
+
+
+def _set_base_fields(info: ToolInfo, data: dict) -> None:
+    """Set common ToolInfo fields from serialized data.
+
+    Args:
+        info: ToolInfo instance to populate.
+        data: Serialized data dict.
+    """
+    info.path = Path(data["path"]) if data.get("path") else None
+    info.version = data.get("version")
+    version_tuple = data.get("version_tuple")
+    info.version_tuple = tuple(version_tuple) if version_tuple else None
+    info.status = ToolStatus(data.get("status", "missing"))
+    info.status_message = data.get("status_message")
+    info.detected_at = _iso_to_datetime(data.get("detected_at"))
 
 
 def _serialize_tool_info(
@@ -98,41 +117,22 @@ def _deserialize_ffmpeg_info(data: dict) -> FFmpegInfo:
         demuxers=set(caps_data.get("demuxers", [])),
         filters=set(caps_data.get("filters", [])),
     )
-
     info = FFmpegInfo(capabilities=capabilities)
-    info.path = Path(data["path"]) if data.get("path") else None
-    info.version = data.get("version")
-    version_tuple = data.get("version_tuple")
-    info.version_tuple = tuple(version_tuple) if version_tuple else None
-    info.status = ToolStatus(data.get("status", "missing"))
-    info.status_message = data.get("status_message")
-    info.detected_at = _iso_to_datetime(data.get("detected_at"))
+    _set_base_fields(info, data)
     return info
 
 
 def _deserialize_ffprobe_info(data: dict) -> FFprobeInfo:
     """Deserialize FFprobeInfo from dict."""
     info = FFprobeInfo()
-    info.path = Path(data["path"]) if data.get("path") else None
-    info.version = data.get("version")
-    version_tuple = data.get("version_tuple")
-    info.version_tuple = tuple(version_tuple) if version_tuple else None
-    info.status = ToolStatus(data.get("status", "missing"))
-    info.status_message = data.get("status_message")
-    info.detected_at = _iso_to_datetime(data.get("detected_at"))
+    _set_base_fields(info, data)
     return info
 
 
 def _deserialize_mkvmerge_info(data: dict) -> MkvmergeInfo:
     """Deserialize MkvmergeInfo from dict."""
     info = MkvmergeInfo()
-    info.path = Path(data["path"]) if data.get("path") else None
-    info.version = data.get("version")
-    version_tuple = data.get("version_tuple")
-    info.version_tuple = tuple(version_tuple) if version_tuple else None
-    info.status = ToolStatus(data.get("status", "missing"))
-    info.status_message = data.get("status_message")
-    info.detected_at = _iso_to_datetime(data.get("detected_at"))
+    _set_base_fields(info, data)
     info.supports_track_order = data.get("supports_track_order", True)
     info.supports_json_output = data.get("supports_json_output", True)
     return info
@@ -141,13 +141,7 @@ def _deserialize_mkvmerge_info(data: dict) -> MkvmergeInfo:
 def _deserialize_mkvpropedit_info(data: dict) -> MkvpropeditInfo:
     """Deserialize MkvpropeditInfo from dict."""
     info = MkvpropeditInfo()
-    info.path = Path(data["path"]) if data.get("path") else None
-    info.version = data.get("version")
-    version_tuple = data.get("version_tuple")
-    info.version_tuple = tuple(version_tuple) if version_tuple else None
-    info.status = ToolStatus(data.get("status", "missing"))
-    info.status_message = data.get("status_message")
-    info.detected_at = _iso_to_datetime(data.get("detected_at"))
+    _set_base_fields(info, data)
     info.supports_track_edit = data.get("supports_track_edit", True)
     info.supports_add_attachment = data.get("supports_add_attachment", True)
     return info
@@ -231,7 +225,7 @@ class ToolCapabilityCache:
             return None
 
         try:
-            with open(self.cache_path) as f:
+            with open(self.cache_path, encoding="utf-8") as f:
                 data = json.load(f)
 
             registry = deserialize_registry(data)
@@ -252,6 +246,9 @@ class ToolCapabilityCache:
     def save(self, registry: ToolRegistry) -> None:
         """Save tool registry to cache.
 
+        Uses atomic write (temp file + rename) to prevent corruption
+        if the process crashes mid-write.
+
         Args:
             registry: Tool registry to cache.
         """
@@ -263,9 +260,23 @@ class ToolCapabilityCache:
 
         try:
             data = serialize_registry(registry)
-            with open(self.cache_path, "w") as f:
-                json.dump(data, f, indent=2)
-            logger.debug("Saved cache to %s", self.cache_path)
+            json_content = json.dumps(data, indent=2)
+
+            # Atomic write: temp file + rename
+            fd, temp_path_str = tempfile.mkstemp(
+                suffix=self.cache_path.suffix,
+                dir=self.cache_path.parent,
+                text=True,
+            )
+            temp_path = Path(temp_path_str)
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    f.write(json_content)
+                temp_path.replace(self.cache_path)  # Atomic on POSIX
+                logger.debug("Saved cache to %s", self.cache_path)
+            except Exception:
+                temp_path.unlink(missing_ok=True)
+                raise
         except OSError as e:
             logger.warning("Failed to save cache: %s", e)
 
@@ -322,16 +333,20 @@ def get_tool_registry(
     if not force_refresh:
         registry = cache.load()
         if registry is not None:
-            # Check if configured paths match cached paths
+            # Check if configured paths match cached paths (use resolve() for symlinks)
             paths_match = True
-            if ffmpeg_path and registry.ffmpeg.path != ffmpeg_path:
-                paths_match = False
-            if ffprobe_path and registry.ffprobe.path != ffprobe_path:
-                paths_match = False
-            if mkvmerge_path and registry.mkvmerge.path != mkvmerge_path:
-                paths_match = False
-            if mkvpropedit_path and registry.mkvpropedit.path != mkvpropedit_path:
-                paths_match = False
+            if ffmpeg_path and registry.ffmpeg.path:
+                if registry.ffmpeg.path.resolve() != ffmpeg_path.resolve():
+                    paths_match = False
+            if ffprobe_path and registry.ffprobe.path:
+                if registry.ffprobe.path.resolve() != ffprobe_path.resolve():
+                    paths_match = False
+            if mkvmerge_path and registry.mkvmerge.path:
+                if registry.mkvmerge.path.resolve() != mkvmerge_path.resolve():
+                    paths_match = False
+            if mkvpropedit_path and registry.mkvpropedit.path:
+                if registry.mkvpropedit.path.resolve() != mkvpropedit_path.resolve():
+                    paths_match = False
 
             if paths_match:
                 return registry
