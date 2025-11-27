@@ -4,7 +4,14 @@ This module provides utility functions for parsing and formatting datetime value
 All datetime operations follow the project's constitution: UTC storage, ISO-8601 format.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+
+# Supported time filter values and their corresponding timedeltas
+TIME_FILTER_DELTAS: dict[str, timedelta] = {
+    "24h": timedelta(hours=24),
+    "7d": timedelta(days=7),
+    "30d": timedelta(days=30),
+}
 
 
 def parse_iso_timestamp(timestamp: str) -> datetime:
@@ -52,3 +59,29 @@ def mtime_to_utc_iso(mtime: float) -> str:
         UTC ISO-8601 timestamp string.
     """
     return datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
+
+
+def parse_time_filter(since: str | None) -> str | None:
+    """Parse time filter string to ISO-8601 timestamp.
+
+    Converts a human-readable time filter value (e.g., "24h", "7d") to an
+    ISO-8601 timestamp representing that duration before the current time.
+
+    Args:
+        since: Time filter string ("24h", "7d", "30d") or None.
+
+    Returns:
+        ISO-8601 timestamp string representing (now - duration),
+        or None if since is None, empty string, or not a valid filter value.
+
+    Examples:
+        >>> parse_time_filter("24h")  # Returns timestamp for 24 hours ago
+        '2024-01-14T10:30:00+00:00'
+        >>> parse_time_filter(None)   # Returns None
+        None
+        >>> parse_time_filter("invalid")  # Returns None for unknown values
+        None
+    """
+    if since is None or since not in TIME_FILTER_DELTAS:
+        return None
+    return (datetime.now(timezone.utc) - TIME_FILTER_DELTAS[since]).isoformat()

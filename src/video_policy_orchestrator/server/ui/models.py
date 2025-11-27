@@ -16,11 +16,33 @@ from video_policy_orchestrator.core.formatting import (
     get_resolution_label,
 )
 
+# Import generate_summary_text from jobs module and re-export for backward compatibility
+from video_policy_orchestrator.jobs.summary import (
+    generate_summary_text as generate_summary_text,
+)
+
+# Import policy view models and re-export for backward compatibility
+from video_policy_orchestrator.policy.view_models import (
+    PolicyListItem as PolicyListItem,
+)
+from video_policy_orchestrator.policy.view_models import (
+    PolicyListResponse as PolicyListResponse,
+)
+from video_policy_orchestrator.policy.view_models import (
+    format_language_preferences as format_language_preferences,
+)
+
 __all__ = [
     # Re-exported from core.formatting for backward compatibility
     "format_file_size",
     "get_resolution_label",
     "format_audio_languages",
+    # Re-exported from jobs.summary for backward compatibility
+    "generate_summary_text",
+    # Re-exported from policy.view_models for backward compatibility
+    "PolicyListItem",
+    "PolicyListResponse",
+    "format_language_preferences",
 ]
 
 
@@ -283,103 +305,6 @@ class JobListContext:
                 {"value": "7d", "label": "Last 7 days"},
             ],
         )
-
-
-def generate_summary_text(job_type: str, summary_raw: dict | None) -> str | None:
-    """Generate human-readable summary text from summary_json data.
-
-    Produces type-specific summaries based on job type and summary data.
-
-    Args:
-        job_type: Job type value (scan, apply, transcode, move).
-        summary_raw: Parsed summary_json dictionary, or None.
-
-    Returns:
-        Human-readable summary string, or None if no summary available.
-    """
-    if summary_raw is None:
-        return None
-
-    try:
-        if job_type == "scan":
-            # Scan job summary: "Scanned X files, Y new, Z errors"
-            # Fields from cli/scan.py: total_discovered, scanned, skipped,
-            # added, removed, errors
-            scanned = summary_raw.get("scanned", 0)
-            added = summary_raw.get("added", 0)
-            removed = summary_raw.get("removed", 0)
-            skipped = summary_raw.get("skipped", 0)
-            errors = summary_raw.get("errors", 0)
-
-            parts = [f"Scanned {scanned} files"]
-            if added > 0:
-                parts.append(f"{added} new")
-            if removed > 0:
-                parts.append(f"{removed} removed")
-            if skipped > 0:
-                parts.append(f"{skipped} unchanged")
-            if errors > 0:
-                parts.append(f"{errors} errors")
-
-            return ", ".join(parts)
-
-        elif job_type == "apply":
-            # Apply job summary: "Applied policy 'name' to X files"
-            policy_name = summary_raw.get("policy_name", "unknown")
-            files_affected = summary_raw.get("files_affected", 0)
-            actions = summary_raw.get("actions_applied", [])
-
-            summary = f"Applied policy '{policy_name}' to {files_affected} files"
-            if actions:
-                summary += f" ({', '.join(actions)})"
-            return summary
-
-        elif job_type == "transcode":
-            # Transcode job summary: "Transcoded input → output (compression ratio)"
-            input_file = summary_raw.get("input_file", "")
-            output_file = summary_raw.get("output_file", "")
-            input_size = summary_raw.get("input_size_bytes", 0)
-            output_size = summary_raw.get("output_size_bytes", 0)
-
-            # Extract just filenames for cleaner display
-            input_name = input_file.split("/")[-1] if input_file else "input"
-            output_name = output_file.split("/")[-1] if output_file else "output"
-
-            summary = f"Transcoded {input_name} → {output_name}"
-            if input_size > 0 and output_size > 0:
-                ratio = output_size / input_size
-                summary += f" ({ratio:.0%} of original size)"
-            return summary
-
-        elif job_type == "move":
-            # Move job summary: "Moved source → destination"
-            source = summary_raw.get("source_path", "")
-            dest = summary_raw.get("destination_path", "")
-            size = summary_raw.get("size_bytes", 0)
-
-            # Extract just filenames
-            source_name = source.split("/")[-1] if source else "source"
-            dest_path = dest if dest else "destination"
-
-            summary = f"Moved {source_name} → {dest_path}"
-            if size > 0:
-                # Format size
-                if size >= 1024 * 1024 * 1024:
-                    size_str = f"{size / (1024 * 1024 * 1024):.1f} GB"
-                elif size >= 1024 * 1024:
-                    size_str = f"{size / (1024 * 1024):.1f} MB"
-                else:
-                    size_str = f"{size / 1024:.1f} KB"
-                summary += f" ({size_str})"
-            return summary
-
-        else:
-            # Unknown job type - return None
-            return None
-
-    except (KeyError, TypeError, AttributeError):
-        # Handle malformed summary_json gracefully
-        return None
 
 
 @dataclass
@@ -1525,103 +1450,6 @@ class TranscriptionDetailContext:
 # ==========================================================================
 # Policies List View Models (023-policies-list-view)
 # ==========================================================================
-
-
-def format_language_preferences(languages: list[str]) -> str:
-    """Format language preference list for display.
-
-    Args:
-        languages: List of ISO 639-2 language codes.
-
-    Returns:
-        Formatted string (e.g., "eng, jpn" or "eng, jpn +2 more") or "-".
-    """
-    if not languages:
-        return "\u2014"
-
-    if len(languages) <= 3:
-        return ", ".join(languages)
-
-    return f"{', '.join(languages[:3])} +{len(languages) - 3} more"
-
-
-@dataclass
-class PolicyListItem:
-    """Policy data for Policies API response.
-
-    Attributes:
-        name: Policy name (filename without extension).
-        filename: Full filename with extension.
-        file_path: Absolute path to the policy file.
-        last_modified: ISO-8601 UTC timestamp.
-        schema_version: Policy schema version (null if parse error).
-        audio_languages: Formatted audio language preferences.
-        subtitle_languages: Formatted subtitle language preferences.
-        has_transcode: True if policy includes transcode settings.
-        has_transcription: True if transcription enabled.
-        is_default: True if this is the profile's default policy.
-        parse_error: Error message if YAML invalid, else None.
-    """
-
-    name: str
-    filename: str
-    file_path: str
-    last_modified: str
-    schema_version: int | None
-    audio_languages: str
-    subtitle_languages: str
-    has_transcode: bool
-    has_transcription: bool
-    is_default: bool
-    parse_error: str | None = None
-
-    def to_dict(self) -> dict:
-        """Convert to dictionary for JSON serialization."""
-        return {
-            "name": self.name,
-            "filename": self.filename,
-            "file_path": self.file_path,
-            "last_modified": self.last_modified,
-            "schema_version": self.schema_version,
-            "audio_languages": self.audio_languages,
-            "subtitle_languages": self.subtitle_languages,
-            "has_transcode": self.has_transcode,
-            "has_transcription": self.has_transcription,
-            "is_default": self.is_default,
-            "parse_error": self.parse_error,
-        }
-
-
-@dataclass
-class PolicyListResponse:
-    """API response wrapper for /api/policies.
-
-    Attributes:
-        policies: List of policy items.
-        total: Total number of policies found.
-        policies_directory: Path to policies directory.
-        default_policy_path: Configured default policy path (may be None).
-        default_policy_missing: True if configured default doesn't exist.
-        directory_exists: True if policies directory exists.
-    """
-
-    policies: list[PolicyListItem]
-    total: int
-    policies_directory: str
-    default_policy_path: str | None
-    default_policy_missing: bool
-    directory_exists: bool
-
-    def to_dict(self) -> dict:
-        """Convert to dictionary for JSON serialization."""
-        return {
-            "policies": [p.to_dict() for p in self.policies],
-            "total": self.total,
-            "policies_directory": self.policies_directory,
-            "default_policy_path": self.default_policy_path,
-            "default_policy_missing": self.default_policy_missing,
-            "directory_exists": self.directory_exists,
-        }
 
 
 @dataclass

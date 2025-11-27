@@ -84,6 +84,7 @@ from .types import (
     PlanRecord,
     PlanStatus,
     PluginAcknowledgment,
+    ScanErrorView,
     TrackClassification,
     TrackInfo,
     TrackRecord,
@@ -95,6 +96,7 @@ from .types import (
 
 # Views: Library list view queries
 # Views: Transcription view queries
+# Views: Scan errors view queries
 from .views import (
     get_distinct_audio_languages,
     get_distinct_audio_languages_typed,
@@ -102,6 +104,7 @@ from .views import (
     get_files_filtered_typed,
     get_files_with_transcriptions,
     get_files_with_transcriptions_typed,
+    get_scan_errors_for_job,
     get_transcription_detail,
     get_transcription_detail_typed,
 )
@@ -131,6 +134,7 @@ __all__ = [
     # View models
     "FileListViewItem",
     "LanguageOption",
+    "ScanErrorView",
     "TranscriptionDetailView",
     "TranscriptionListViewItem",
     # Helper functions
@@ -189,4 +193,6 @@ __all__ = [
     "get_files_with_transcriptions_typed",
     "get_transcription_detail",
     "get_transcription_detail_typed",
+    # Scan errors view queries
+    "get_scan_errors_for_job",
 ]

@@ -15,6 +15,7 @@ import sqlite3
 from .types import (
     FileListViewItem,
     LanguageOption,
+    ScanErrorView,
     TranscriptionDetailView,
     TranscriptionListViewItem,
 )
@@ -495,3 +496,58 @@ def get_transcription_detail_typed(
     """
     result = get_transcription_detail(conn, transcription_id)
     return TranscriptionDetailView(**result) if result else None
+
+
+# ==========================================================================
+# Scan Job Error Query Functions
+# ==========================================================================
+
+
+def get_scan_errors_for_job(
+    conn: sqlite3.Connection,
+    job_id: str,
+) -> list[ScanErrorView] | None:
+    """Get files with scan errors for a specific job.
+
+    Returns files that failed to scan during a scan job. Used by the
+    job errors API endpoint to display detailed error information.
+
+    Args:
+        conn: Database connection.
+        job_id: UUID of the scan job.
+
+    Returns:
+        List of ScanErrorView objects if job exists and is a scan job,
+        or None if job not found or is not a scan job.
+    """
+    # First verify job exists and is a scan job
+    cursor = conn.execute(
+        "SELECT job_type FROM jobs WHERE id = ?",
+        (job_id,),
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    if row["job_type"] != "scan":
+        return None
+
+    # Get files with errors for this specific job
+    cursor = conn.execute(
+        """
+        SELECT path, filename, scan_error
+        FROM files
+        WHERE job_id = ?
+          AND scan_status = 'error'
+          AND scan_error IS NOT NULL
+        ORDER BY filename
+        """,
+        (job_id,),
+    )
+    return [
+        ScanErrorView(
+            path=row["path"],
+            filename=row["filename"],
+            error=row["scan_error"],
+        )
+        for row in cursor.fetchall()
+    ]
