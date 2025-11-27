@@ -212,28 +212,28 @@
 
 ### Transcription Integration
 
-- [ ] T075 [US4] Add check for existing transcription results in analyze_track_languages() in src/video_policy_orchestrator/language_analysis/service.py
-- [ ] T076 [US4] Extract language from transcription_results when available in src/video_policy_orchestrator/language_analysis/service.py
-- [ ] T077 [US4] Add logic to upgrade single-sample transcription to full analysis when needed in src/video_policy_orchestrator/language_analysis/service.py
+- [X] T075 [US4] Add check for existing transcription results in analyze_track_languages() in src/video_policy_orchestrator/language_analysis/service.py
+- [X] T076 [US4] Extract language from transcription_results when available in src/video_policy_orchestrator/language_analysis/service.py
+- [X] T077 [US4] Add logic to upgrade single-sample transcription to full analysis when needed in src/video_policy_orchestrator/language_analysis/service.py
 
 ### Cache Validation
 
-- [ ] T078 [US4] Add file hash comparison for cache validation in src/video_policy_orchestrator/language_analysis/service.py
-- [ ] T079 [US4] Add stale result detection and re-analysis trigger in src/video_policy_orchestrator/language_analysis/service.py
+- [X] T078 [US4] Add file hash comparison for cache validation in src/video_policy_orchestrator/language_analysis/service.py
+- [X] T079 [US4] Add stale result detection and re-analysis trigger in src/video_policy_orchestrator/language_analysis/service.py
 
 ### CLI: Dedicated Analyze-Language Command
 
-- [ ] T080 [US4] Create analyze_language.py CLI module in src/video_policy_orchestrator/cli/analyze_language.py
-- [ ] T081 [US4] Add `run` subcommand for running language analysis in src/video_policy_orchestrator/cli/analyze_language.py
-- [ ] T082 [US4] Add `status` subcommand for showing analysis status in src/video_policy_orchestrator/cli/analyze_language.py
-- [ ] T083 [US4] Add `clear` subcommand for clearing cached results in src/video_policy_orchestrator/cli/analyze_language.py
-- [ ] T084 [US4] Register analyze-language command group in src/video_policy_orchestrator/cli/__init__.py
+- [X] T080 [US4] Create analyze_language.py CLI module in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T081 [US4] Add `run` subcommand for running language analysis in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T082 [US4] Add `status` subcommand for showing analysis status in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T083 [US4] Add `clear` subcommand for clearing cached results in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T084 [US4] Register analyze-language command group in src/video_policy_orchestrator/cli/__init__.py
 
 ### Unit Tests for User Story 4
 
-- [ ] T085 [P] [US4] Add tests for transcription result reuse in tests/unit/language_analysis/test_service.py
-- [ ] T086 [P] [US4] Add tests for cache validation logic in tests/unit/language_analysis/test_service.py
-- [ ] T087 [P] [US4] Add tests for stale result detection in tests/unit/language_analysis/test_service.py
+- [X] T085 [P] [US4] Add tests for transcription result reuse in tests/unit/language_analysis/test_service.py
+- [X] T086 [P] [US4] Add tests for cache validation logic in tests/unit/language_analysis/test_service.py
+- [X] T087 [P] [US4] Add tests for stale result detection in tests/unit/language_analysis/test_service.py
 
 **Checkpoint**: Optimized analysis with caching. Transcription results are reused when available.
 

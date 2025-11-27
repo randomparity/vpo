@@ -4,10 +4,16 @@ This module provides the high-level API for analyzing audio tracks to detect
 multiple languages, with caching and database persistence.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from video_policy_orchestrator.db.models import TranscriptionResultRecord
 
 from video_policy_orchestrator.db.models import (
     LanguageAnalysisResultRecord,
@@ -55,11 +61,16 @@ def analyze_track_languages(
     file_hash: str,
     transcriber: TranscriptionPlugin,
     config: MultiLanguageDetectionConfig | None = None,
+    transcription_result: TranscriptionResultRecord | None = None,
 ) -> LanguageAnalysisResult:
     """Analyze an audio track for multiple languages.
 
     Samples the track at multiple positions, detects the language at each
     position, and aggregates results into a LanguageAnalysisResult.
+
+    When transcription_result is provided, the detected language is used
+    as a starting point. If the confidence is high enough, a full analysis
+    may be skipped for single-language content.
 
     Args:
         file_path: Path to the video/audio file.
@@ -69,6 +80,9 @@ def analyze_track_languages(
         file_hash: Content hash of the file for caching.
         transcriber: Transcription plugin supporting multi_language_detection.
         config: Optional configuration for detection parameters.
+        transcription_result: Optional existing transcription result for
+            the track. If provided and confidence is high, may use this
+            as the language without full multi-sample analysis.
 
     Returns:
         LanguageAnalysisResult with classification and language segments.
@@ -79,6 +93,45 @@ def analyze_track_languages(
     """
     if config is None:
         config = MultiLanguageDetectionConfig()
+
+    # T076: Check for existing transcription result with high confidence
+    # If we have a transcription result with high confidence and the caller
+    # doesn't need detailed segment analysis, we can use that directly
+    if (
+        transcription_result is not None
+        and transcription_result.detected_language is not None
+        and transcription_result.confidence_score >= config.confidence_threshold
+    ):
+        # Use transcription result as primary language
+        # This provides a fast path for single-language content
+        logger.info(
+            "Using existing transcription result for track %d: %s (%.2f confidence)",
+            track_index,
+            transcription_result.detected_language,
+            transcription_result.confidence_score,
+        )
+
+        now = datetime.now(timezone.utc)
+        return LanguageAnalysisResult(
+            track_id=track_id,
+            file_hash=file_hash,
+            primary_language=transcription_result.detected_language,
+            primary_percentage=1.0,
+            secondary_languages=(),
+            classification=LanguageClassification.SINGLE_LANGUAGE,
+            segments=(),  # No segments from single-sample transcription
+            metadata=AnalysisMetadata(
+                plugin_name=transcription_result.plugin_name,
+                plugin_version="1.0.0",  # Not stored in transcription result
+                model_name="whisper",
+                sample_positions=(),  # Single sample, no positions
+                sample_duration=30.0,  # Default sample duration
+                total_duration=track_duration,
+                speech_ratio=1.0,  # Assume speech detected
+            ),
+            created_at=now,
+            updated_at=now,
+        )
 
     # Verify plugin supports the feature
     if not transcriber.supports_feature("multi_language_detection"):
@@ -468,3 +521,86 @@ def invalidate_analysis_cache(
     if deleted:
         logger.debug("Invalidated language analysis cache for track %d", track_id)
     return deleted
+
+
+def is_analysis_stale(
+    result: LanguageAnalysisResult,
+    file_hash: str,
+    max_age_days: int = 30,
+) -> bool:
+    """Check if a cached analysis result is stale and needs re-analysis.
+
+    A result is considered stale if:
+    - The file hash has changed (content modified)
+    - The result is older than max_age_days
+
+    Args:
+        result: The cached analysis result.
+        file_hash: Current content hash of the file.
+        max_age_days: Maximum age in days before result is considered stale.
+
+    Returns:
+        True if the result is stale, False otherwise.
+    """
+    # T079: Check if file hash changed
+    if result.file_hash != file_hash:
+        logger.debug(
+            "Analysis for track %d is stale: file hash changed",
+            result.track_id,
+        )
+        return True
+
+    # Check age
+    from datetime import timedelta
+
+    now = datetime.now(timezone.utc)
+    age = now - result.updated_at
+    if age > timedelta(days=max_age_days):
+        logger.debug(
+            "Analysis for track %d is stale: %.1f days old (max: %d)",
+            result.track_id,
+            age.total_seconds() / 86400,
+            max_age_days,
+        )
+        return True
+
+    return False
+
+
+def needs_full_analysis(result: LanguageAnalysisResult) -> bool:
+    """Check if a result needs upgrade from single-sample to full analysis.
+
+    A result needs full analysis if:
+    - It has no segment data (from single-sample transcription)
+    - It's marked as single-language but has low confidence indicators
+
+    This is used by T077 to determine if a single-sample transcription
+    result should be upgraded to full multi-sample analysis.
+
+    Args:
+        result: The analysis result to check.
+
+    Returns:
+        True if full multi-sample analysis is needed.
+    """
+    # No segments means this came from single-sample transcription
+    if not result.segments:
+        # Check if speech ratio indicates uncertain result
+        if result.metadata.speech_ratio < 0.5:
+            logger.debug(
+                "Analysis for track %d needs full analysis: low speech ratio (%.2f)",
+                result.track_id,
+                result.metadata.speech_ratio,
+            )
+            return True
+
+        # If classified as multi-language but no segments, something is wrong
+        if result.classification == LanguageClassification.MULTI_LANGUAGE:
+            logger.debug(
+                "Analysis for track %d needs full analysis: "
+                "multi-language without segments",
+                result.track_id,
+            )
+            return True
+
+    return False

@@ -1,0 +1,531 @@
+"""CLI command for language analysis operations.
+
+Provides commands to run, check status, and clear cached language analysis results.
+"""
+
+import json
+import logging
+import sqlite3
+from pathlib import Path
+
+import click
+
+from video_policy_orchestrator.db.connection import get_connection
+from video_policy_orchestrator.db.models import (
+    get_file_by_path,
+    get_tracks_for_file,
+)
+from video_policy_orchestrator.language_analysis.models import LanguageClassification
+from video_policy_orchestrator.language_analysis.service import (
+    LanguageAnalysisError,
+    analyze_track_languages,
+    get_cached_analysis,
+    invalidate_analysis_cache,
+    persist_analysis_result,
+)
+
+logger = logging.getLogger(__name__)
+
+
+@click.group("analyze-language")
+def analyze_language_group() -> None:
+    """Analyze audio tracks for multi-language detection.
+
+    This command group provides tools for detecting multiple languages
+    in audio tracks, useful for identifying dubbed or multi-language content.
+
+    Examples:
+
+        vpo analyze-language run /media/movie.mkv
+
+        vpo analyze-language status /media/movie.mkv
+
+        vpo analyze-language clear /media/movie.mkv
+    """
+    pass
+
+
+@analyze_language_group.command("run")
+@click.argument(
+    "target",
+    type=click.Path(exists=True, path_type=Path),
+)
+@click.option(
+    "--track",
+    "-t",
+    "track_index",
+    type=int,
+    default=None,
+    help="Analyze specific audio track index only.",
+)
+@click.option(
+    "--force",
+    "-f",
+    is_flag=True,
+    default=False,
+    help="Re-analyze even if cached result exists.",
+)
+@click.option(
+    "--json",
+    "-j",
+    "json_output",
+    is_flag=True,
+    default=False,
+    help="Output results in JSON format.",
+)
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    default=False,
+    help="Show detailed analysis output.",
+)
+def run_command(
+    target: Path,
+    track_index: int | None,
+    force: bool,
+    json_output: bool,
+    verbose: bool,
+) -> None:
+    """Run language analysis on audio tracks.
+
+    TARGET is the path to a media file to analyze.
+
+    Examples:
+
+        vpo analyze-language run /media/movie.mkv
+
+        vpo analyze-language run --track 1 /media/movie.mkv
+
+        vpo analyze-language run --force --json /media/movie.mkv
+    """
+    from video_policy_orchestrator.plugins.whisper_transcriber.plugin import (
+        PluginDependencyError,
+        WhisperTranscriptionPlugin,
+    )
+    from video_policy_orchestrator.transcription.interface import (
+        MultiLanguageDetectionConfig,
+    )
+
+    target = target.expanduser().resolve()
+
+    # Initialize transcriber plugin
+    try:
+        transcriber = WhisperTranscriptionPlugin()
+    except PluginDependencyError as e:
+        if json_output:
+            click.echo(
+                json.dumps({"status": "error", "error": str(e)}),
+                err=True,
+            )
+        else:
+            click.echo(f"Error: {e}", err=True)
+        raise SystemExit(1)
+
+    if not transcriber.supports_feature("multi_language_detection"):
+        msg = "Transcription plugin does not support multi-language detection."
+        if json_output:
+            click.echo(
+                json.dumps({"status": "error", "error": msg}),
+                err=True,
+            )
+        else:
+            click.echo(f"Error: {msg}", err=True)
+        raise SystemExit(1)
+
+    try:
+        with get_connection() as conn:
+            # Get file from database
+            file_record = get_file_by_path(conn, str(target))
+            if file_record is None:
+                msg = f"File not found in database. Run 'vpo scan' first: {target}"
+                if json_output:
+                    click.echo(
+                        json.dumps({"status": "error", "error": msg}),
+                        err=True,
+                    )
+                else:
+                    click.echo(f"Error: {msg}", err=True)
+                raise SystemExit(1)
+
+            # Get tracks from database
+            track_records = get_tracks_for_file(conn, file_record.id)
+            audio_tracks = [t for t in track_records if t.track_type == "audio"]
+
+            # Filter to specific track if requested
+            if track_index is not None:
+                audio_tracks = [t for t in audio_tracks if t.track_index == track_index]
+                if not audio_tracks:
+                    msg = f"Audio track {track_index} not found."
+                    if json_output:
+                        click.echo(
+                            json.dumps({"status": "error", "error": msg}),
+                            err=True,
+                        )
+                    else:
+                        click.echo(f"Error: {msg}", err=True)
+                    raise SystemExit(1)
+
+            if not audio_tracks:
+                msg = "No audio tracks found in file."
+                if json_output:
+                    click.echo(
+                        json.dumps({"status": "error", "error": msg}),
+                        err=True,
+                    )
+                else:
+                    click.echo(f"Error: {msg}", err=True)
+                raise SystemExit(1)
+
+            if not json_output:
+                click.echo(f"Analyzing {len(audio_tracks)} audio track(s)...")
+
+            config = MultiLanguageDetectionConfig()
+            file_hash = file_record.content_hash or ""
+            results = []
+
+            for track in audio_tracks:
+                if track.id is None:
+                    continue
+
+                # Check for cached result unless force flag
+                if not force:
+                    cached = get_cached_analysis(conn, track.id, file_hash)
+                    if cached is not None:
+                        if not json_output:
+                            click.echo(
+                                f"  Track {track.track_index}: "
+                                f"{cached.classification.value} (cached)"
+                            )
+                        results.append(
+                            {
+                                "track_index": track.track_index,
+                                "classification": cached.classification.value,
+                                "primary_language": cached.primary_language,
+                                "primary_percentage": cached.primary_percentage,
+                                "cached": True,
+                            }
+                        )
+                        continue
+
+                # Run analysis
+                track_duration = 3600.0  # Default 1 hour
+
+                try:
+                    result = analyze_track_languages(
+                        file_path=target,
+                        track_index=track.track_index,
+                        track_id=track.id,
+                        track_duration=track_duration,
+                        file_hash=file_hash,
+                        transcriber=transcriber,
+                        config=config,
+                    )
+                    persist_analysis_result(conn, result)
+
+                    if not json_output:
+                        click.echo(
+                            f"  Track {track.track_index}: "
+                            f"{result.classification.value} "
+                            f"({result.primary_language} "
+                            f"{result.primary_percentage:.0%})"
+                        )
+                        if verbose and result.secondary_languages:
+                            for sec in result.secondary_languages:
+                                click.echo(
+                                    f"    Secondary: {sec.language} "
+                                    f"({sec.percentage:.0%})"
+                                )
+
+                    results.append(
+                        {
+                            "track_index": track.track_index,
+                            "classification": result.classification.value,
+                            "primary_language": result.primary_language,
+                            "primary_percentage": result.primary_percentage,
+                            "secondary_languages": [
+                                {
+                                    "language": s.language,
+                                    "percentage": s.percentage,
+                                }
+                                for s in result.secondary_languages
+                            ],
+                            "cached": False,
+                        }
+                    )
+
+                except LanguageAnalysisError as e:
+                    if not json_output:
+                        click.echo(f"  Track {track.track_index}: Error - {e}")
+                    results.append(
+                        {
+                            "track_index": track.track_index,
+                            "error": str(e),
+                        }
+                    )
+
+            conn.commit()
+
+            if json_output:
+                output = {
+                    "status": "completed",
+                    "file": str(target),
+                    "tracks": results,
+                }
+                click.echo(json.dumps(output, indent=2))
+            elif not verbose:
+                click.echo(f"\nAnalysis complete for {len(results)} track(s).")
+
+    except sqlite3.Error as e:
+        msg = f"Database error: {e}"
+        if json_output:
+            click.echo(
+                json.dumps({"status": "error", "error": msg}),
+                err=True,
+            )
+        else:
+            click.echo(f"Error: {msg}", err=True)
+        raise SystemExit(1)
+
+
+@analyze_language_group.command("status")
+@click.argument(
+    "target",
+    type=click.Path(exists=True, path_type=Path),
+)
+@click.option(
+    "--json",
+    "-j",
+    "json_output",
+    is_flag=True,
+    default=False,
+    help="Output in JSON format.",
+)
+def status_command(
+    target: Path,
+    json_output: bool,
+) -> None:
+    """Show language analysis status for a file.
+
+    TARGET is the path to a media file to check.
+
+    Examples:
+
+        vpo analyze-language status /media/movie.mkv
+
+        vpo analyze-language status --json /media/movie.mkv
+    """
+    target = target.expanduser().resolve()
+
+    try:
+        with get_connection() as conn:
+            # Get file from database
+            file_record = get_file_by_path(conn, str(target))
+            if file_record is None:
+                msg = f"File not found in database. Run 'vpo scan' first: {target}"
+                if json_output:
+                    click.echo(
+                        json.dumps({"status": "not_found", "error": msg}),
+                        err=True,
+                    )
+                else:
+                    click.echo(f"Error: {msg}", err=True)
+                raise SystemExit(1)
+
+            # Get tracks from database
+            track_records = get_tracks_for_file(conn, file_record.id)
+            audio_tracks = [t for t in track_records if t.track_type == "audio"]
+
+            if not audio_tracks:
+                if json_output:
+                    click.echo(
+                        json.dumps(
+                            {
+                                "status": "no_audio",
+                                "file": str(target),
+                                "tracks": [],
+                            }
+                        )
+                    )
+                else:
+                    click.echo("No audio tracks found in file.")
+                return
+
+            file_hash = file_record.content_hash or ""
+            results = []
+            analyzed_count = 0
+            multi_language_count = 0
+
+            for track in audio_tracks:
+                if track.id is None:
+                    continue
+
+                cached = get_cached_analysis(conn, track.id, file_hash)
+                if cached is not None:
+                    analyzed_count += 1
+                    is_multi = (
+                        cached.classification == LanguageClassification.MULTI_LANGUAGE
+                    )
+                    if is_multi:
+                        multi_language_count += 1
+
+                    results.append(
+                        {
+                            "track_index": track.track_index,
+                            "analyzed": True,
+                            "classification": cached.classification.value,
+                            "primary_language": cached.primary_language,
+                            "primary_percentage": cached.primary_percentage,
+                            "analyzed_at": cached.updated_at.isoformat(),
+                        }
+                    )
+                else:
+                    results.append(
+                        {
+                            "track_index": track.track_index,
+                            "analyzed": False,
+                        }
+                    )
+
+            if json_output:
+                output = {
+                    "status": "ok",
+                    "file": str(target),
+                    "total_audio_tracks": len(audio_tracks),
+                    "analyzed_tracks": analyzed_count,
+                    "multi_language_tracks": multi_language_count,
+                    "tracks": results,
+                }
+                click.echo(json.dumps(output, indent=2))
+            else:
+                click.echo(f"File: {target}")
+                click.echo(f"Audio tracks: {len(audio_tracks)}")
+                click.echo(f"Analyzed: {analyzed_count}/{len(audio_tracks)}")
+                if multi_language_count > 0:
+                    click.echo(f"Multi-language: {multi_language_count}")
+                click.echo()
+                for r in results:
+                    if r["analyzed"]:
+                        click.echo(
+                            f"  Track {r['track_index']}: "
+                            f"{r['classification']} "
+                            f"({r['primary_language']} {r['primary_percentage']:.0%})"
+                        )
+                    else:
+                        click.echo(f"  Track {r['track_index']}: Not analyzed")
+
+    except sqlite3.Error as e:
+        msg = f"Database error: {e}"
+        if json_output:
+            click.echo(
+                json.dumps({"status": "error", "error": msg}),
+                err=True,
+            )
+        else:
+            click.echo(f"Error: {msg}", err=True)
+        raise SystemExit(1)
+
+
+@analyze_language_group.command("clear")
+@click.argument(
+    "target",
+    type=click.Path(exists=True, path_type=Path),
+)
+@click.option(
+    "--track",
+    "-t",
+    "track_index",
+    type=int,
+    default=None,
+    help="Clear specific audio track only.",
+)
+@click.option(
+    "--json",
+    "-j",
+    "json_output",
+    is_flag=True,
+    default=False,
+    help="Output in JSON format.",
+)
+def clear_command(
+    target: Path,
+    track_index: int | None,
+    json_output: bool,
+) -> None:
+    """Clear cached language analysis results.
+
+    TARGET is the path to a media file to clear analysis for.
+
+    Examples:
+
+        vpo analyze-language clear /media/movie.mkv
+
+        vpo analyze-language clear --track 1 /media/movie.mkv
+    """
+    target = target.expanduser().resolve()
+
+    try:
+        with get_connection() as conn:
+            # Get file from database
+            file_record = get_file_by_path(conn, str(target))
+            if file_record is None:
+                msg = f"File not found in database: {target}"
+                if json_output:
+                    click.echo(
+                        json.dumps({"status": "not_found", "error": msg}),
+                        err=True,
+                    )
+                else:
+                    click.echo(f"Error: {msg}", err=True)
+                raise SystemExit(1)
+
+            # Get tracks from database
+            track_records = get_tracks_for_file(conn, file_record.id)
+            audio_tracks = [t for t in track_records if t.track_type == "audio"]
+
+            # Filter to specific track if requested
+            if track_index is not None:
+                audio_tracks = [t for t in audio_tracks if t.track_index == track_index]
+                if not audio_tracks:
+                    msg = f"Audio track {track_index} not found."
+                    if json_output:
+                        click.echo(
+                            json.dumps({"status": "error", "error": msg}),
+                            err=True,
+                        )
+                    else:
+                        click.echo(f"Error: {msg}", err=True)
+                    raise SystemExit(1)
+
+            cleared_count = 0
+            for track in audio_tracks:
+                if track.id is None:
+                    continue
+                if invalidate_analysis_cache(conn, track.id):
+                    cleared_count += 1
+
+            conn.commit()
+
+            if json_output:
+                output = {
+                    "status": "completed",
+                    "file": str(target),
+                    "cleared_count": cleared_count,
+                }
+                click.echo(json.dumps(output, indent=2))
+            else:
+                if cleared_count > 0:
+                    click.echo(f"Cleared {cleared_count} cached analysis result(s).")
+                else:
+                    click.echo("No cached results to clear.")
+
+    except sqlite3.Error as e:
+        msg = f"Database error: {e}"
+        if json_output:
+            click.echo(
+                json.dumps({"status": "error", "error": msg}),
+                err=True,
+            )
+        else:
+            click.echo(f"Error: {msg}", err=True)
+        raise SystemExit(1)
