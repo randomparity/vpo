@@ -312,19 +312,19 @@ class TestLoadTomlFile:
         result = load_toml_file(config_file)
         assert result == {"server": {"port": 8080}}
 
-    def test_returns_empty_dict_and_warns_on_error(
+    def test_returns_empty_dict_and_logs_error_on_encoding_issue(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """Should return empty dict and log warning on parse error."""
+        """Should return empty dict and log error on encoding issue."""
         config_file = tmp_path / "config.toml"
         # Write invalid content that might cause issues
         config_file.write_bytes(b"\xff\xfe")  # Invalid UTF-8
 
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(logging.ERROR):
             result = load_toml_file(config_file)
 
         assert result == {}
-        assert "Failed to load TOML file" in caplog.text
+        assert "has encoding issues" in caplog.text
 
     def test_logs_debug_when_file_not_found(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture

@@ -6,7 +6,7 @@ multiple configuration sources with explicit precedence handling.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Any
 
@@ -92,6 +92,15 @@ class ConfigSource:
     logging_max_bytes: int | None = None
     logging_backup_count: int | None = None
 
+    # Transcription config
+    transcription_plugin: str | None = None
+    transcription_model_size: str | None = None
+    transcription_sample_duration: int | None = None
+    transcription_gpu_enabled: bool | None = None
+    transcription_max_samples: int | None = None
+    transcription_confidence_threshold: float | None = None
+    transcription_incumbent_bonus: float | None = None
+
 
 class ConfigBuilder:
     """Builds VPOConfig by layering ConfigSources with precedence.
@@ -113,6 +122,9 @@ class ConfigBuilder:
         self._plugin_dirs_from_file: list[Path] = []
         self._plugin_dirs_from_env: list[Path] = []
 
+    # Fields with special handling (merge instead of override)
+    _SPECIAL_FIELDS = frozenset({"plugin_dirs"})
+
     def apply(self, source: ConfigSource) -> None:
         """Apply configuration source, overriding existing values.
 
@@ -122,52 +134,18 @@ class ConfigBuilder:
         Args:
             source: Configuration source to apply.
         """
-        # Iterate through all fields of the source
-        for field_name in [
-            "ffmpeg_path",
-            "ffprobe_path",
-            "mkvmerge_path",
-            "mkvpropedit_path",
-            "database_path",
-            "cache_ttl_hours",
-            "auto_detect_on_startup",
-            "warn_on_missing_features",
-            "show_upgrade_suggestions",
-            "entry_point_group",
-            "plugin_auto_load",
-            "plugin_warn_unacknowledged",
-            "jobs_retention_days",
-            "jobs_auto_purge",
-            "jobs_temp_directory",
-            "jobs_backup_original",
-            "jobs_log_compression_days",
-            "jobs_log_deletion_days",
-            "worker_max_files",
-            "worker_max_duration",
-            "worker_end_by",
-            "worker_cpu_cores",
-            "server_bind",
-            "server_port",
-            "server_shutdown_timeout",
-            "server_auth_token",
-            "language_standard",
-            "language_warn_on_conversion",
-            "logging_level",
-            "logging_file",
-            "logging_format",
-            "logging_include_stderr",
-            "logging_max_bytes",
-            "logging_backup_count",
-        ]:
-            value = getattr(source, field_name)
+        # Iterate through all fields using dataclasses introspection
+        for field_obj in fields(source):
+            # Skip fields with special handling
+            if field_obj.name in self._SPECIAL_FIELDS:
+                continue
+
+            value = getattr(source, field_obj.name)
             if value is not None:
-                self._values[field_name] = value
+                self._values[field_obj.name] = value
 
         # Plugin dirs handled specially (they merge, not override)
-        if source.plugin_dirs is not None:
-            # We store the most recent plugin_dirs but track source type
-            # via set_plugin_dirs_from_file/env
-            pass
+        # Tracked via set_plugin_dirs_from_file/env methods
 
     def set_plugin_dirs_from_file(self, dirs: list[Path]) -> None:
         """Set plugin directories from config file.
@@ -286,6 +264,17 @@ class ConfigBuilder:
             backup_count=self._get("logging_backup_count", 5),
         )
 
+        # Build transcription config
+        transcription = TranscriptionPluginConfig(
+            plugin=self._get("transcription_plugin", None),
+            model_size=self._get("transcription_model_size", "base"),
+            sample_duration=self._get("transcription_sample_duration", 30),
+            gpu_enabled=self._get("transcription_gpu_enabled", True),
+            max_samples=self._get("transcription_max_samples", 3),
+            confidence_threshold=self._get("transcription_confidence_threshold", 0.85),
+            incumbent_bonus=self._get("transcription_incumbent_bonus", 0.15),
+        )
+
         return VPOConfig(
             tools=tools,
             detection=detection,
@@ -293,7 +282,7 @@ class ConfigBuilder:
             plugins=plugins,
             jobs=jobs,
             worker=worker,
-            transcription=TranscriptionPluginConfig(),  # Use defaults
+            transcription=transcription,
             logging=logging_config,
             server=server,
             language=language,
@@ -319,6 +308,7 @@ def source_from_file(file_config: dict[str, Any]) -> ConfigSource:
     server = file_config.get("server", {})
     language = file_config.get("language", {})
     logging_conf = file_config.get("logging", {})
+    transcription = file_config.get("transcription", {})
 
     # Parse plugin directories
     plugin_dirs: list[Path] | None = None
@@ -385,6 +375,14 @@ def source_from_file(file_config: dict[str, Any]) -> ConfigSource:
         logging_include_stderr=logging_conf.get("include_stderr"),
         logging_max_bytes=logging_conf.get("max_bytes"),
         logging_backup_count=logging_conf.get("backup_count"),
+        # Transcription
+        transcription_plugin=transcription.get("plugin"),
+        transcription_model_size=transcription.get("model_size"),
+        transcription_sample_duration=transcription.get("sample_duration"),
+        transcription_gpu_enabled=transcription.get("gpu_enabled"),
+        transcription_max_samples=transcription.get("max_samples"),
+        transcription_confidence_threshold=transcription.get("confidence_threshold"),
+        transcription_incumbent_bonus=transcription.get("incumbent_bonus"),
     )
 
 
@@ -443,4 +441,18 @@ def source_from_env(reader: EnvReader) -> ConfigSource:
         logging_include_stderr=None,
         logging_max_bytes=None,
         logging_backup_count=None,
+        # Transcription
+        transcription_plugin=reader.get_str("VPO_TRANSCRIPTION_PLUGIN"),
+        transcription_model_size=reader.get_str("VPO_TRANSCRIPTION_MODEL_SIZE"),
+        transcription_sample_duration=reader.get_int(
+            "VPO_TRANSCRIPTION_SAMPLE_DURATION"
+        ),
+        transcription_gpu_enabled=reader.get_bool("VPO_TRANSCRIPTION_GPU_ENABLED"),
+        transcription_max_samples=reader.get_int("VPO_TRANSCRIPTION_MAX_SAMPLES"),
+        transcription_confidence_threshold=reader.get_float(
+            "VPO_TRANSCRIPTION_CONFIDENCE_THRESHOLD"
+        ),
+        transcription_incumbent_bonus=reader.get_float(
+            "VPO_TRANSCRIPTION_INCUMBENT_BONUS"
+        ),
     )

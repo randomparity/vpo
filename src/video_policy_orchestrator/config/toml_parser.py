@@ -13,6 +13,12 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+class TomlParseError(Exception):
+    """Raised when TOML parsing fails in strict mode."""
+
+    pass
+
+
 class BasicTomlParser:
     """Limited TOML parser for basic key=value configs.
 
@@ -95,6 +101,33 @@ class BasicTomlParser:
 
         return result
 
+    def _strip_inline_comments(self, value: str) -> str:
+        """Strip inline comments from a value, respecting quoted strings.
+
+        Only removes comments that appear outside of quoted strings.
+        Handles both single and double quotes.
+
+        Args:
+            value: The value string potentially containing a comment.
+
+        Returns:
+            Value with trailing comment removed (if outside quotes).
+        """
+        in_double_quotes = False
+        in_single_quotes = False
+
+        for i, char in enumerate(value):
+            if char == '"' and not in_single_quotes:
+                in_double_quotes = not in_double_quotes
+            elif char == "'" and not in_double_quotes:
+                in_single_quotes = not in_single_quotes
+            elif char == "#" and not in_double_quotes and not in_single_quotes:
+                # Found comment outside quotes - only strip if preceded by space
+                if i > 0 and value[i - 1] == " ":
+                    return value[:i].rstrip()
+
+        return value
+
     def _parse_value(self, value: str) -> Any:
         """Parse a TOML value string into a Python object.
 
@@ -104,9 +137,8 @@ class BasicTomlParser:
         Returns:
             Parsed value (str, int, bool, or original string).
         """
-        # Remove inline comments
-        if " #" in value:
-            value = value.split(" #", 1)[0].strip()
+        # Remove inline comments (respecting quoted strings)
+        value = self._strip_inline_comments(value)
 
         # String with double quotes
         if value.startswith('"') and value.endswith('"'):
@@ -181,15 +213,22 @@ def parse_toml(content: str) -> dict[str, Any]:
     return BasicTomlParser().parse(content)
 
 
-def load_toml_file(path: Path) -> dict[str, Any]:
+def load_toml_file(path: Path, *, strict: bool = False) -> dict[str, Any]:
     """Load and parse a TOML file.
 
     Args:
         path: Path to the TOML file.
+        strict: If True, raise TomlParseError on parse/access failures.
+                If False (default), log errors and return empty dict.
 
     Returns:
         Parsed dictionary. Returns empty dict if file doesn't exist
-        or cannot be parsed.
+        or cannot be parsed (when strict=False).
+
+    Raises:
+        TomlParseError: When strict=True and the file exists but cannot
+            be read or parsed. Note: FileNotFoundError is never raised,
+            even in strict mode.
     """
     if not path.exists():
         logger.debug("TOML file not found: %s", path)
@@ -200,6 +239,22 @@ def load_toml_file(path: Path) -> dict[str, Any]:
         config = parse_toml(content)
         logger.debug("Loaded TOML config from %s", path)
         return config
+    except PermissionError as e:
+        msg = f"Permission denied reading config file {path}: {e}"
+        logger.error(msg)
+        if strict:
+            raise TomlParseError(msg) from e
+        return {}
+    except UnicodeDecodeError as e:
+        msg = f"Config file {path} has encoding issues (expected UTF-8): {e}"
+        logger.error(msg)
+        if strict:
+            raise TomlParseError(msg) from e
+        return {}
     except Exception as e:
-        logger.warning("Failed to load TOML file %s: %s", path, e)
+        # Parse errors from tomllib/tomli or BasicTomlParser
+        msg = f"Failed to parse config file {path}: {e}"
+        logger.error(msg)
+        if strict:
+            raise TomlParseError(msg) from e
         return {}

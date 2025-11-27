@@ -7,8 +7,9 @@ Profiles allow users to store named configurations for different libraries
 from __future__ import annotations
 
 import re
+from dataclasses import fields
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
@@ -26,6 +27,43 @@ class ProfileNotFoundError(ProfileError):
     """Profile does not exist."""
 
     pass
+
+
+def _validate_and_construct(
+    section_name: str,
+    dataclass_type: type,
+    data: dict[str, Any],
+    profile_name: str,
+) -> Any:
+    """Construct a dataclass with validation for unknown keys.
+
+    Args:
+        section_name: Name of the profile section (for error messages).
+        dataclass_type: The dataclass type to construct.
+        data: Dictionary of values to pass to the dataclass.
+        profile_name: Name of the profile (for error messages).
+
+    Returns:
+        Instance of the dataclass.
+
+    Raises:
+        ProfileError: If unknown keys are present or construction fails.
+    """
+    expected_fields = {f.name for f in fields(dataclass_type)}
+    unknown_keys = set(data.keys()) - expected_fields
+
+    if unknown_keys:
+        raise ProfileError(
+            f"Unknown keys in '{section_name}' section of profile '{profile_name}': "
+            f"{sorted(unknown_keys)}. Valid keys are: {sorted(expected_fields)}"
+        )
+
+    try:
+        return dataclass_type(**data)
+    except TypeError as e:
+        raise ProfileError(
+            f"Invalid '{section_name}' configuration in profile '{profile_name}': {e}"
+        ) from e
 
 
 def get_profiles_directory() -> Path:
@@ -100,16 +138,22 @@ def load_profile(name: str) -> Profile:
     jobs_config: JobsConfig | None = None
 
     if "tools" in data:
-        tools_config = ToolPathsConfig(**data["tools"])
+        tools_config = _validate_and_construct(
+            "tools", ToolPathsConfig, data["tools"], name
+        )
     if "behavior" in data:
-        behavior_config = BehaviorConfig(**data["behavior"])
+        behavior_config = _validate_and_construct(
+            "behavior", BehaviorConfig, data["behavior"], name
+        )
     if "logging" in data:
         logging_data = data["logging"].copy()
         if "file" in logging_data:
             logging_data["file"] = Path(logging_data["file"]).expanduser()
-        logging_config = LoggingConfig(**logging_data)
+        logging_config = _validate_and_construct(
+            "logging", LoggingConfig, logging_data, name
+        )
     if "jobs" in data:
-        jobs_config = JobsConfig(**data["jobs"])
+        jobs_config = _validate_and_construct("jobs", JobsConfig, data["jobs"], name)
 
     # Build immutable Profile with all values at once
     return Profile(
@@ -167,20 +211,19 @@ def merge_profile_with_config(profile: Profile, config: VPOConfig) -> VPOConfig:
     Returns:
         New VPOConfig with profile settings merged in.
     """
-    # Import here to avoid circular imports
     from dataclasses import replace
 
-    # Start with a copy of the base config
-    merged = replace(config)
+    # Collect overrides from profile
+    overrides: dict[str, Any] = {}
 
-    # Override sections that are specified in the profile
     if profile.tools:
-        merged.tools = profile.tools
+        overrides["tools"] = profile.tools
     if profile.behavior:
-        merged.behavior = profile.behavior
+        overrides["behavior"] = profile.behavior
     if profile.logging:
-        merged.logging = profile.logging
+        overrides["logging"] = profile.logging
     if profile.jobs:
-        merged.jobs = profile.jobs
+        overrides["jobs"] = profile.jobs
 
-    return merged
+    # Always return new config instance (replace creates a copy)
+    return replace(config, **overrides)

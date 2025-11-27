@@ -34,6 +34,7 @@ from video_policy_orchestrator.config.models import (
 )
 from video_policy_orchestrator.config.toml_parser import (
     BasicTomlParser,
+    TomlParseError,
     load_toml_file,
     parse_toml,
 )
@@ -58,4 +59,5 @@ __all__ = [
     "parse_toml",
     "load_toml_file",
     "BasicTomlParser",
+    "TomlParseError",
 ]
