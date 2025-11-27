@@ -21,6 +21,7 @@ from video_policy_orchestrator.policy.models import (
     AndCondition,
     AttachmentFilterConfig,
     AudioFilterConfig,
+    AudioIsMultiLanguageCondition,
     AudioSynthesisConfig,
     AudioTranscodeConfig,
     Comparison,
@@ -834,6 +835,28 @@ class CountConditionModel(BaseModel):
         return self
 
 
+class AudioIsMultiLanguageModel(BaseModel):
+    """Pydantic model for audio multi-language condition.
+
+    Checks if an audio track contains multiple detected languages.
+    Requires language analysis to have been performed on the track.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    track_index: int | None = None
+    threshold: float = Field(default=0.05, ge=0.0, le=1.0)
+    primary_language: str | None = None
+
+    @field_validator("threshold")
+    @classmethod
+    def validate_threshold(cls, v: float) -> float:
+        """Validate threshold is a reasonable percentage."""
+        if v < 0.0 or v > 1.0:
+            raise ValueError("threshold must be between 0.0 and 1.0")
+        return v
+
+
 class ConditionModel(BaseModel):
     """Pydantic model for condition (union of condition types)."""
 
@@ -842,6 +865,7 @@ class ConditionModel(BaseModel):
     # Leaf conditions
     exists: ExistsConditionModel | None = None
     count: CountConditionModel | None = None
+    audio_is_multi_language: AudioIsMultiLanguageModel | None = None
 
     # Boolean operators
     all_of: list["ConditionModel"] | None = Field(None, alias="and")
@@ -854,6 +878,7 @@ class ConditionModel(BaseModel):
         conditions = [
             ("exists", self.exists),
             ("count", self.count),
+            ("audio_is_multi_language", self.audio_is_multi_language),
             ("and", self.all_of),
             ("or", self.any_of),
             ("not", self.not_),
@@ -863,7 +888,8 @@ class ConditionModel(BaseModel):
         if len(set_conditions) != 1:
             if len(set_conditions) == 0:
                 raise ValueError(
-                    "Condition must specify exactly one type (exists/count/and/or/not)"
+                    "Condition must specify exactly one type "
+                    "(exists/count/audio_is_multi_language/and/or/not)"
                 )
             names = [name for name, _ in set_conditions]
             raise ValueError(
@@ -1202,6 +1228,17 @@ def _convert_count_condition(model: CountConditionModel) -> CountCondition:
     raise ValueError("No count comparison operator found")
 
 
+def _convert_audio_is_multi_language_condition(
+    model: AudioIsMultiLanguageModel,
+) -> AudioIsMultiLanguageCondition:
+    """Convert AudioIsMultiLanguageModel to AudioIsMultiLanguageCondition."""
+    return AudioIsMultiLanguageCondition(
+        track_index=model.track_index,
+        threshold=model.threshold,
+        primary_language=model.primary_language,
+    )
+
+
 def _convert_condition(model: ConditionModel) -> Condition:
     """Convert ConditionModel to Condition type."""
     if model.exists is not None:
@@ -1209,6 +1246,9 @@ def _convert_condition(model: ConditionModel) -> Condition:
 
     if model.count is not None:
         return _convert_count_condition(model.count)
+
+    if model.audio_is_multi_language is not None:
+        return _convert_audio_is_multi_language_condition(model.audio_is_multi_language)
 
     if model.all_of is not None:
         return AndCondition(

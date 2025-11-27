@@ -24,8 +24,13 @@ import re
 from typing import TYPE_CHECKING
 
 from video_policy_orchestrator.language import languages_match
+from video_policy_orchestrator.language_analysis.models import (
+    LanguageAnalysisResult,
+    LanguageClassification,
+)
 from video_policy_orchestrator.policy.models import (
     AndCondition,
+    AudioIsMultiLanguageCondition,
     Comparison,
     ComparisonOperator,
     Condition,
@@ -279,18 +284,101 @@ def evaluate_count(
     return (result, reason)
 
 
+def evaluate_audio_is_multi_language(
+    condition: AudioIsMultiLanguageCondition,
+    tracks: list[TrackInfo],
+    language_results: dict[int, LanguageAnalysisResult] | None = None,
+) -> tuple[bool, str]:
+    """Evaluate an audio multi-language condition.
+
+    Args:
+        condition: The multi-language condition to evaluate.
+        tracks: List of tracks (to filter audio tracks).
+        language_results: Dict mapping track_id to LanguageAnalysisResult.
+
+    Returns:
+        Tuple of (result, reason) where result is True if any audio track
+        has multi-language content above the threshold.
+    """
+    if language_results is None:
+        return (
+            False,
+            "audio_is_multi_language → False (no language analysis available)",
+        )
+
+    # Filter to audio tracks
+    audio_tracks = [t for t in tracks if t.track_type.lower() == "audio"]
+
+    # If specific track_index, filter to that track
+    if condition.track_index is not None:
+        audio_tracks = [t for t in audio_tracks if t.index == condition.track_index]
+        if not audio_tracks:
+            return (
+                False,
+                f"audio_is_multi_language → False "
+                f"(track {condition.track_index} not found)",
+            )
+
+    # Check each audio track for multi-language analysis
+    for track in audio_tracks:
+        # Get analysis result by track database ID
+        result = language_results.get(track.id)
+        if result is None:
+            continue
+
+        # Check classification
+        if result.classification != LanguageClassification.MULTI_LANGUAGE:
+            continue
+
+        # Check if primary language matches (if specified)
+        if condition.primary_language is not None:
+            if not languages_match(result.primary_language, condition.primary_language):
+                continue
+
+        # Check secondary language percentage threshold
+        # A track is multi-language if any secondary language exceeds threshold
+        has_significant_secondary = False
+        for secondary in result.secondary_languages:
+            if secondary.percentage >= condition.threshold:
+                has_significant_secondary = True
+                break
+
+        if has_significant_secondary:
+            reason = (
+                f"audio_is_multi_language → True "
+                f"(track[{track.index}] {result.primary_language} "
+                f"{result.primary_percentage:.0%}, "
+                f"secondary above {condition.threshold:.0%})"
+            )
+            return (True, reason)
+
+    # No track matched
+    if condition.track_index is not None:
+        reason = (
+            f"audio_is_multi_language → False "
+            f"(track {condition.track_index} not multi-language)"
+        )
+    else:
+        reason = "audio_is_multi_language → False (no multi-language audio tracks)"
+
+    return (False, reason)
+
+
 def evaluate_condition(
     condition: Condition,
     tracks: list[TrackInfo],
+    language_results: dict[int, LanguageAnalysisResult] | None = None,
 ) -> tuple[bool, str]:
     """Evaluate a condition against track metadata.
 
     This is the main entry point for condition evaluation. It handles
-    all condition types: exists, count, and, or, not.
+    all condition types: exists, count, audio_is_multi_language, and, or, not.
 
     Args:
         condition: The condition to evaluate.
         tracks: List of tracks to evaluate against.
+        language_results: Optional dict mapping track_id to LanguageAnalysisResult
+            (required for audio_is_multi_language conditions).
 
     Returns:
         Tuple of (result, reason) where result is the boolean outcome
@@ -302,22 +390,25 @@ def evaluate_condition(
     if isinstance(condition, CountCondition):
         return evaluate_count(condition, tracks)
 
+    if isinstance(condition, AudioIsMultiLanguageCondition):
+        return evaluate_audio_is_multi_language(condition, tracks, language_results)
+
     if isinstance(condition, AndCondition):
         for sub in condition.conditions:
-            result, reason = evaluate_condition(sub, tracks)
+            result, reason = evaluate_condition(sub, tracks, language_results)
             if not result:
                 return (False, f"and → False ({reason})")
         return (True, f"and → True ({len(condition.conditions)} conditions)")
 
     if isinstance(condition, OrCondition):
         for sub in condition.conditions:
-            result, reason = evaluate_condition(sub, tracks)
+            result, reason = evaluate_condition(sub, tracks, language_results)
             if result:
                 return (True, f"or → True ({reason})")
         return (False, f"or → False ({len(condition.conditions)} conditions failed)")
 
     if isinstance(condition, NotCondition):
-        result, reason = evaluate_condition(condition.inner, tracks)
+        result, reason = evaluate_condition(condition.inner, tracks, language_results)
         return (not result, f"not({reason}) → {not result}")
 
     # Should never reach here - all condition types handled above

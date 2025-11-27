@@ -69,6 +69,9 @@ class TrackInfo:
 
     index: int
     track_type: str  # "video", "audio", "subtitle", "attachment", "other"
+    # Database ID (optional, set when loaded from database)
+    # Used for linking to related data like language analysis results
+    id: int | None = None
     codec: str | None = None
     language: str | None = None
     title: str | None = None

@@ -126,21 +126,21 @@
 
 ### Policy Condition Dataclass
 
-- [ ] T039 [US2] Add AudioIsMultiLanguageCondition dataclass to src/video_policy_orchestrator/policy/models.py
-- [ ] T040 [US2] Update Condition union type to include AudioIsMultiLanguageCondition in src/video_policy_orchestrator/policy/models.py
+- [X] T039 [US2] Add AudioIsMultiLanguageCondition dataclass to src/video_policy_orchestrator/policy/models.py
+- [X] T040 [US2] Update Condition union type to include AudioIsMultiLanguageCondition in src/video_policy_orchestrator/policy/models.py
 
 ### Policy Loader (Pydantic Validation)
 
-- [ ] T041 [US2] Add AudioIsMultiLanguageModel Pydantic class in src/video_policy_orchestrator/policy/loader.py
-- [ ] T042 [US2] Update ConditionModel to include audio_is_multi_language field in src/video_policy_orchestrator/policy/loader.py
-- [ ] T043 [US2] Add _convert_audio_is_multi_language() conversion function in src/video_policy_orchestrator/policy/loader.py
-- [ ] T044 [US2] Update _convert_condition() to handle audio_is_multi_language in src/video_policy_orchestrator/policy/loader.py
+- [X] T041 [US2] Add AudioIsMultiLanguageModel Pydantic class in src/video_policy_orchestrator/policy/loader.py
+- [X] T042 [US2] Update ConditionModel to include audio_is_multi_language field in src/video_policy_orchestrator/policy/loader.py
+- [X] T043 [US2] Add _convert_audio_is_multi_language() conversion function in src/video_policy_orchestrator/policy/loader.py
+- [X] T044 [US2] Update _convert_condition() to handle audio_is_multi_language in src/video_policy_orchestrator/policy/loader.py
 
 ### Condition Evaluation
 
-- [ ] T045 [US2] Add evaluate_audio_is_multi_language() function in src/video_policy_orchestrator/policy/conditions.py
-- [ ] T046 [US2] Update evaluate_condition() to call evaluate_audio_is_multi_language() in src/video_policy_orchestrator/policy/conditions.py
-- [ ] T047 [US2] Update condition evaluation to pass language_results parameter in src/video_policy_orchestrator/policy/conditions.py
+- [X] T045 [US2] Add evaluate_audio_is_multi_language() function in src/video_policy_orchestrator/policy/conditions.py
+- [X] T046 [US2] Update evaluate_condition() to call evaluate_audio_is_multi_language() in src/video_policy_orchestrator/policy/conditions.py
+- [X] T047 [US2] Update condition evaluation to pass language_results parameter in src/video_policy_orchestrator/policy/conditions.py
 
 ### Policy Evaluator Integration
 
@@ -150,9 +150,9 @@
 ### Unit Tests for User Story 2
 
 - [ ] T050 [P] [US2] Add tests for AudioIsMultiLanguageCondition parsing in tests/unit/policy/test_loader.py
-- [ ] T051 [P] [US2] Add tests for evaluate_audio_is_multi_language() true case in tests/unit/policy/test_conditions.py
-- [ ] T052 [P] [US2] Add tests for evaluate_audio_is_multi_language() false cases (threshold, primary language) in tests/unit/policy/test_conditions.py
-- [ ] T053 [P] [US2] Add tests for audio_is_multi_language with boolean operators (and/or/not) in tests/unit/policy/test_conditions.py
+- [X] T051 [P] [US2] Add tests for evaluate_audio_is_multi_language() true case in tests/unit/policy/test_conditions.py
+- [X] T052 [P] [US2] Add tests for evaluate_audio_is_multi_language() false cases (threshold, primary language) in tests/unit/policy/test_conditions.py
+- [X] T053 [P] [US2] Add tests for audio_is_multi_language with boolean operators (and/or/not) in tests/unit/policy/test_conditions.py
 
 **Checkpoint**: Policies with `audio_is_multi_language` conditions evaluate correctly. Can dry-run policies to see condition results.
 

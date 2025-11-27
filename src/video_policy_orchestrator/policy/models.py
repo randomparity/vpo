@@ -774,8 +774,33 @@ class NotCondition:
     inner: "Condition"
 
 
+@dataclass(frozen=True)
+class AudioIsMultiLanguageCondition:
+    """Check if audio track(s) have multiple detected languages.
+
+    Evaluates language analysis results to determine if audio contains
+    multiple spoken languages. Supports threshold and primary language filters.
+
+    Attributes:
+        track_index: Specific audio track to check (None = check all audio tracks).
+        threshold: Minimum secondary language percentage to trigger (default 5%).
+        primary_language: If set, only match if this is the primary language.
+    """
+
+    track_index: int | None = None
+    threshold: float = 0.05  # 5% secondary language triggers multi-language
+    primary_language: str | None = None
+
+
 # Type alias for union of all condition types
-Condition = ExistsCondition | CountCondition | AndCondition | OrCondition | NotCondition
+Condition = (
+    ExistsCondition
+    | CountCondition
+    | AndCondition
+    | OrCondition
+    | NotCondition
+    | AudioIsMultiLanguageCondition
+)
 
 
 class SkipType(Enum):
