@@ -72,7 +72,7 @@ def parse_time_filter(since: str | None) -> str | None:
 
     Returns:
         ISO-8601 timestamp string representing (now - duration),
-        or None if since is None or not a valid filter value.
+        or None if since is None, empty string, or not a valid filter value.
 
     Examples:
         >>> parse_time_filter("24h")  # Returns timestamp for 24 hours ago

@@ -6,6 +6,8 @@ This module contains domain logic for interpreting job results.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 
 def generate_summary_text(job_type: str, summary_raw: dict | None) -> str | None:
     """Generate human-readable summary text from summary_json data.
@@ -41,7 +43,7 @@ def generate_summary_text(job_type: str, summary_raw: dict | None) -> str | None
             if skipped > 0:
                 parts.append(f"{skipped} unchanged")
             if errors > 0:
-                parts.append(f"{errors} errors")
+                parts.append(f"{errors} error{'s' if errors != 1 else ''}")
 
             return ", ".join(parts)
 
@@ -64,8 +66,8 @@ def generate_summary_text(job_type: str, summary_raw: dict | None) -> str | None
             output_size = summary_raw.get("output_size_bytes", 0)
 
             # Extract just filenames for cleaner display
-            input_name = input_file.split("/")[-1] if input_file else "input"
-            output_name = output_file.split("/")[-1] if output_file else "output"
+            input_name = Path(input_file).name if input_file else "input"
+            output_name = Path(output_file).name if output_file else "output"
 
             summary = f"Transcoded {input_name} \u2192 {output_name}"
             if input_size > 0 and output_size > 0:
@@ -80,7 +82,7 @@ def generate_summary_text(job_type: str, summary_raw: dict | None) -> str | None
             size = summary_raw.get("size_bytes", 0)
 
             # Extract just filenames
-            source_name = source.split("/")[-1] if source else "source"
+            source_name = Path(source).name if source else "source"
             dest_path = dest if dest else "destination"
 
             summary = f"Moved {source_name} \u2192 {dest_path}"
@@ -99,6 +101,6 @@ def generate_summary_text(job_type: str, summary_raw: dict | None) -> str | None
             # Unknown job type - return None
             return None
 
-    except (KeyError, TypeError, AttributeError):
+    except (TypeError, AttributeError):
         # Handle malformed summary_json gracefully
         return None

@@ -59,6 +59,10 @@ class PlanApprovalService:
     def approve(self, conn: sqlite3.Connection, plan_id: str) -> ApprovalResult:
         """Approve a pending plan and create an execution job.
 
+        This method reads the plan and then updates its status. The caller should
+        wrap this call in a transaction to ensure atomicity - there is a gap
+        between the read and update where concurrent modifications could occur.
+
         Args:
             conn: Database connection (within a transaction).
             plan_id: UUID of the plan to approve.

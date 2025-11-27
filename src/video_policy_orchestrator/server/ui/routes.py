@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import time
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -23,6 +24,7 @@ from video_policy_orchestrator.core.datetime_utils import (
     parse_time_filter,
 )
 from video_policy_orchestrator.core.validation import is_valid_uuid
+from video_policy_orchestrator.db.connection import DaemonConnectionPool
 from video_policy_orchestrator.db.views import get_scan_errors_for_job
 from video_policy_orchestrator.server.ui.models import (
     DEFAULT_SECTION,
@@ -68,6 +70,9 @@ from video_policy_orchestrator.server.ui.models import (
     group_tracks_by_type,
     highlight_keywords_in_transcript,
 )
+
+# Type alias for handler functions (used in middleware decorators)
+Handler = Callable[[web.Request], Awaitable[web.StreamResponse]]
 
 logger = logging.getLogger(__name__)
 
@@ -160,9 +165,7 @@ def _get_polling_config() -> dict:
 # ==========================================================================
 
 
-def shutdown_check_middleware(
-    handler: web.RequestHandler,
-) -> web.RequestHandler:
+def shutdown_check_middleware(handler: Handler) -> Handler:
     """Decorator middleware that returns 503 if server is shutting down.
 
     Usage:
@@ -186,9 +189,7 @@ def shutdown_check_middleware(
     return wrapper
 
 
-def database_required_middleware(
-    handler: web.RequestHandler,
-) -> web.RequestHandler:
+def database_required_middleware(handler: Handler) -> Handler:
     """Decorator middleware that returns 503 if database is unavailable.
 
     Stores connection_pool in request for handler use via request["connection_pool"].
@@ -202,7 +203,6 @@ def database_required_middleware(
     Returns:
         JSON response with 503 status if no connection pool, otherwise calls handler.
     """
-    from video_policy_orchestrator.db.connection import DaemonConnectionPool
 
     async def wrapper(request: web.Request) -> web.StreamResponse:
         pool: DaemonConnectionPool | None = request.app.get("connection_pool")
@@ -478,9 +478,6 @@ async def job_detail_handler(request: web.Request) -> dict:
         VPO is designed as a local tool, but authentication should be
         added before exposing the web UI to untrusted networks.
     """
-    import asyncio
-
-    from video_policy_orchestrator.db.connection import DaemonConnectionPool
     from video_policy_orchestrator.jobs.logs import log_file_exists
 
     job_id = request.match_info["job_id"]
@@ -823,7 +820,6 @@ async def file_detail_handler(request: web.Request) -> dict:
         HTTPBadRequest: If file ID format is invalid.
         HTTPServiceUnavailable: If database not available.
     """
-    from video_policy_orchestrator.db.connection import DaemonConnectionPool
     from video_policy_orchestrator.db.models import (
         get_file_by_id,
         get_tracks_for_file,
@@ -1088,7 +1084,6 @@ async def transcription_detail_handler(request: web.Request) -> dict:
         HTTPBadRequest: If ID format is invalid.
         HTTPServiceUnavailable: If database not available.
     """
-    from video_policy_orchestrator.db.connection import DaemonConnectionPool
     from video_policy_orchestrator.db.models import get_transcription_detail
 
     transcription_id_str = request.match_info["transcription_id"]

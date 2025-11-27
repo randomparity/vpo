@@ -13,7 +13,7 @@ from video_policy_orchestrator.policy.discovery import (
     DEFAULT_POLICIES_DIR,
     discover_policies,
 )
-from video_policy_orchestrator.server.ui.models import (
+from video_policy_orchestrator.policy.view_models import (
     PolicyListItem,
     PolicyListResponse,
     format_language_preferences,

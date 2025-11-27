@@ -126,8 +126,8 @@ class TestPlanApprovalServiceApprove:
 
         assert result.success is False
         assert result.error is not None
-        # Should contain info about invalid transition
-        assert "APPROVED" in result.error or "transition" in result.error.lower()
+        # Exact error message from InvalidPlanTransitionError
+        assert result.error == "Cannot transition plan from 'approved' to 'approved'"
 
     def test_approve_job_has_correct_policy_info(self, db_conn, service):
         """Job created has correct policy information from plan."""
@@ -179,6 +179,8 @@ class TestPlanApprovalServiceReject:
 
         assert result.success is False
         assert result.error is not None
+        # Exact error message from InvalidPlanTransitionError
+        assert result.error == "Cannot transition plan from 'approved' to 'rejected'"
 
 
 class TestApprovalResult:

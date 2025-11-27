@@ -54,7 +54,7 @@ class TestScanJobSummary:
         """Includes error count in scan summary."""
         summary = {"scanned": 10, "errors": 1}
         result = generate_summary_text("scan", summary)
-        assert result == "Scanned 10 files, 1 errors"
+        assert result == "Scanned 10 files, 1 error"
 
     def test_scan_with_all_fields(self):
         """Includes all fields in scan summary."""
