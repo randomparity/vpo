@@ -4,9 +4,16 @@ This module provides the core evaluation logic for applying policies
 to media file track metadata. All functions are pure (no side effects).
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from video_policy_orchestrator.language_analysis.models import (
+        LanguageAnalysisResult,
+    )
 
 from video_policy_orchestrator.db.models import (
     TrackInfo,
@@ -859,6 +866,7 @@ def evaluate_conditional_rules(
     rules: tuple[ConditionalRule, ...],
     tracks: list[TrackInfo],
     file_path: Path,
+    language_results: dict[int, LanguageAnalysisResult] | None = None,
 ) -> ConditionalResult:
     """Evaluate conditional rules and execute matching actions.
 
@@ -871,6 +879,8 @@ def evaluate_conditional_rules(
         rules: Tuple of ConditionalRule from PolicySchema.
         tracks: List of TrackInfo from the file.
         file_path: Path to the file being processed.
+        language_results: Optional dict mapping track_id to LanguageAnalysisResult
+            (required for audio_is_multi_language conditions).
 
     Returns:
         ConditionalResult with matched rule, skip flags, warnings, and trace.
@@ -897,8 +907,8 @@ def evaluate_conditional_rules(
     warnings: list[str] = []
 
     for i, rule in enumerate(rules):
-        # Evaluate the condition
-        result, reason = evaluate_condition(rule.when, tracks)
+        # Evaluate the condition, passing language_results for multi-language checks
+        result, reason = evaluate_condition(rule.when, tracks, language_results)
 
         if result:
             # Condition matched - execute then_actions
@@ -1014,6 +1024,7 @@ def evaluate_policy(
     tracks: list[TrackInfo],
     policy: PolicySchema,
     transcription_results: dict[int, TranscriptionResultRecord] | None = None,
+    language_results: dict[int, LanguageAnalysisResult] | None = None,
 ) -> Plan:
     """Evaluate a policy against file tracks to produce an execution plan.
 
@@ -1028,6 +1039,8 @@ def evaluate_policy(
         policy: Validated policy configuration.
         transcription_results: Optional map of track_id to transcription result.
             Required for transcription-based language updates.
+        language_results: Optional dict mapping track_id to LanguageAnalysisResult.
+            Required for audio_is_multi_language conditions.
 
     Returns:
         Plan describing all changes needed to make tracks conform to policy.
@@ -1057,6 +1070,7 @@ def evaluate_policy(
             rules=policy.conditional_rules,
             tracks=tracks,
             file_path=file_path,
+            language_results=language_results,
         )
         skip_flags = conditional_result.skip_flags
 

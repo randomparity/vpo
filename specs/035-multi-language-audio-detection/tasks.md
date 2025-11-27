@@ -104,9 +104,9 @@
 
 ### CLI: Scan Command
 
-- [ ] T033 [US1] Add --analyze-languages option to scan command in src/video_policy_orchestrator/cli/scan.py
-- [ ] T034 [US1] Integrate language analysis service with scan workflow in src/video_policy_orchestrator/cli/scan.py
-- [ ] T035 [US1] Add progress reporting for language analysis during scan in src/video_policy_orchestrator/cli/scan.py
+- [X] T033 [US1] Add --analyze-languages option to scan command in src/video_policy_orchestrator/cli/scan.py
+- [X] T034 [US1] Integrate language analysis service with scan workflow in src/video_policy_orchestrator/cli/scan.py
+- [X] T035 [US1] Add progress reporting for language analysis during scan in src/video_policy_orchestrator/cli/scan.py
 
 ### Unit Tests for User Story 1
 
@@ -144,12 +144,12 @@
 
 ### Policy Evaluator Integration
 
-- [ ] T048 [US2] Update evaluate_conditional_rules() to fetch language analysis results in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T049 [US2] Pass language_results to condition evaluation chain in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T048 [US2] Update evaluate_conditional_rules() to fetch language analysis results in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T049 [US2] Pass language_results to condition evaluation chain in src/video_policy_orchestrator/policy/evaluator.py
 
 ### Unit Tests for User Story 2
 
-- [ ] T050 [P] [US2] Add tests for AudioIsMultiLanguageCondition parsing in tests/unit/policy/test_loader.py
+- [X] T050 [P] [US2] Add tests for AudioIsMultiLanguageCondition parsing in tests/unit/policy/test_loader.py
 - [X] T051 [P] [US2] Add tests for evaluate_audio_is_multi_language() true case in tests/unit/policy/test_conditions.py
 - [X] T052 [P] [US2] Add tests for evaluate_audio_is_multi_language() false cases (threshold, primary language) in tests/unit/policy/test_conditions.py
 - [X] T053 [P] [US2] Add tests for audio_is_multi_language with boolean operators (and/or/not) in tests/unit/policy/test_conditions.py
