@@ -8,6 +8,17 @@ This module provides policy loading, validation, and evaluation functionality:
 - discovery: Policy file discovery and metadata extraction
 """
 
+# Codec matching utilities
+from video_policy_orchestrator.policy.codecs import (
+    AUDIO_CODEC_ALIASES,
+    VIDEO_CODEC_ALIASES,
+    audio_codec_matches,
+    audio_codec_matches_any,
+    normalize_audio_codec,
+    normalize_video_codec,
+    video_codec_matches,
+    video_codec_matches_any,
+)
 from video_policy_orchestrator.policy.discovery import (
     DEFAULT_POLICIES_DIR,
     PolicySummary,
@@ -36,6 +47,13 @@ from video_policy_orchestrator.policy.models import (
     PolicySchema,
     TrackType,
 )
+
+# Skip condition evaluation
+from video_policy_orchestrator.policy.transcode import (
+    SkipEvaluationResult,
+    evaluate_skip_condition,
+    should_skip_transcode,
+)
 from video_policy_orchestrator.policy.validation import (
     DiffSummary,
     FieldChange,
@@ -43,6 +61,20 @@ from video_policy_orchestrator.policy.validation import (
     ValidationResult,
     format_pydantic_errors,
     validate_policy_data,
+)
+
+# Video analysis utilities
+from video_policy_orchestrator.policy.video_analysis import (
+    HDRType,
+    VideoAnalysisResult,
+    analyze_video_tracks,
+    build_hdr_preservation_args,
+    detect_hdr_content,
+    detect_hdr_type,
+    detect_missing_bitrate,
+    detect_vfr_content,
+    parse_frame_rate,
+    select_primary_video_stream,
 )
 
 __all__ = [
@@ -78,4 +110,28 @@ __all__ = [
     "ValidationResult",
     "format_pydantic_errors",
     "validate_policy_data",
+    # Codec matching
+    "AUDIO_CODEC_ALIASES",
+    "VIDEO_CODEC_ALIASES",
+    "audio_codec_matches",
+    "audio_codec_matches_any",
+    "normalize_audio_codec",
+    "normalize_video_codec",
+    "video_codec_matches",
+    "video_codec_matches_any",
+    # Video analysis
+    "HDRType",
+    "VideoAnalysisResult",
+    "analyze_video_tracks",
+    "build_hdr_preservation_args",
+    "detect_hdr_content",
+    "detect_hdr_type",
+    "detect_missing_bitrate",
+    "detect_vfr_content",
+    "parse_frame_rate",
+    "select_primary_video_stream",
+    # Skip condition evaluation
+    "SkipEvaluationResult",
+    "evaluate_skip_condition",
+    "should_skip_transcode",
 ]

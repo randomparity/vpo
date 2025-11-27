@@ -5,24 +5,29 @@ to check external tool availability.
 """
 
 import threading
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
 from video_policy_orchestrator.policy.models import Plan
 
 
+@dataclass(frozen=True)
 class ExecutorResult:
-    """Result of an executor operation."""
+    """Result of an executor operation.
 
-    def __init__(
-        self,
-        success: bool,
-        message: str = "",
-        backup_path: Path | None = None,
-    ) -> None:
-        self.success = success
-        self.message = message
-        self.backup_path = backup_path
+    This is a frozen dataclass to ensure immutability and consistency
+    with project dataclass patterns (Constitution Principle IV).
+    """
+
+    success: bool
+    """True if the operation succeeded."""
+
+    message: str = ""
+    """Human-readable message describing the result."""
+
+    backup_path: Path | None = None
+    """Path to backup file, if one was created."""
 
 
 class Executor(Protocol):
