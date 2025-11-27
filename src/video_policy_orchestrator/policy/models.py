@@ -246,6 +246,38 @@ class TranscodePolicyConfig:
             return (self.max_width or 99999, self.max_height or 99999)
         return None
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "TranscodePolicyConfig":
+        """Create TranscodePolicyConfig from a dictionary.
+
+        Args:
+            data: Dictionary with policy configuration. Keys match dataclass fields.
+                  Supports both 'audio_transcode_bitrate' and legacy 'audio_bitrate'.
+
+        Returns:
+            TranscodePolicyConfig instance.
+
+        Raises:
+            ValueError: If validation fails on any field.
+        """
+        return cls(
+            target_video_codec=data.get("target_video_codec"),
+            target_crf=data.get("target_crf"),
+            target_bitrate=data.get("target_bitrate"),
+            max_resolution=data.get("max_resolution"),
+            max_width=data.get("max_width"),
+            max_height=data.get("max_height"),
+            audio_preserve_codecs=tuple(data.get("audio_preserve_codecs", [])),
+            audio_transcode_to=data.get("audio_transcode_to", "aac"),
+            audio_transcode_bitrate=data.get(
+                "audio_transcode_bitrate",
+                data.get("audio_bitrate", "192k"),  # Legacy key support
+            ),
+            audio_downmix=data.get("audio_downmix"),
+            destination=data.get("destination"),
+            destination_fallback=data.get("destination_fallback", "Unknown"),
+        )
+
 
 # =============================================================================
 # V3 Track Filtering Configuration Models

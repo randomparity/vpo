@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from video_policy_orchestrator.db.models import (
@@ -179,16 +179,10 @@ def maybe_purge_old_jobs(conn: sqlite3.Connection, config: JobsConfig) -> int:
     Returns:
         Number of jobs purged.
     """
-    if not config.auto_purge:
-        return 0
+    from video_policy_orchestrator.jobs.maintenance import purge_old_jobs
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=config.retention_days)
-    cursor = conn.execute(
-        """
-        DELETE FROM jobs
-        WHERE created_at < ? AND status IN ('completed', 'failed', 'cancelled')
-        """,
-        (cutoff.isoformat(),),
+    return purge_old_jobs(
+        conn,
+        config.retention_days,
+        auto_purge=config.auto_purge,
     )
-    conn.commit()
-    return cursor.rowcount
