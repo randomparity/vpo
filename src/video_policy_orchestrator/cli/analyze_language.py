@@ -10,6 +10,8 @@ from pathlib import Path
 
 import click
 
+from video_policy_orchestrator.cli.exit_codes import ExitCode
+from video_policy_orchestrator.cli.output import error_exit
 from video_policy_orchestrator.db.connection import get_connection
 from video_policy_orchestrator.db.models import (
     get_file_by_path,
@@ -26,6 +28,7 @@ from video_policy_orchestrator.language_analysis.service import (
     invalidate_analysis_cache,
     persist_analysis_result,
 )
+from video_policy_orchestrator.transcription.factory import get_transcriber
 
 logger = logging.getLogger(__name__)
 
@@ -102,39 +105,20 @@ def run_command(
 
         vpo analyze-language run --force --json /media/movie.mkv
     """
-    from video_policy_orchestrator.plugins.whisper_transcriber.plugin import (
-        PluginDependencyError,
-        WhisperTranscriptionPlugin,
-    )
     from video_policy_orchestrator.transcription.interface import (
         MultiLanguageDetectionConfig,
     )
 
     target = target.expanduser().resolve()
 
-    # Initialize transcriber plugin
-    try:
-        transcriber = WhisperTranscriptionPlugin()
-    except PluginDependencyError as e:
-        if json_output:
-            click.echo(
-                json.dumps({"status": "error", "error": str(e)}),
-                err=True,
-            )
-        else:
-            click.echo(f"Error: {e}", err=True)
-        raise SystemExit(1)
-
-    if not transcriber.supports_feature("multi_language_detection"):
-        msg = "Transcription plugin does not support multi-language detection."
-        if json_output:
-            click.echo(
-                json.dumps({"status": "error", "error": msg}),
-                err=True,
-            )
-        else:
-            click.echo(f"Error: {msg}", err=True)
-        raise SystemExit(1)
+    # Get transcriber via factory (requires multi-language support)
+    transcriber = get_transcriber(require_multi_language=True)
+    if transcriber is None:
+        error_exit(
+            "Transcription plugin unavailable or lacks multi-language support.",
+            ExitCode.PLUGIN_UNAVAILABLE,
+            json_output=json_output,
+        )
 
     try:
         with get_connection() as conn:

@@ -8,6 +8,7 @@ from typing import Any
 
 import click
 
+from video_policy_orchestrator.cli.exit_codes import INSPECT_EXIT_CODES
 from video_policy_orchestrator.db.models import IntrospectionResult, TrackInfo
 from video_policy_orchestrator.introspector.ffprobe import FFprobeIntrospector
 from video_policy_orchestrator.introspector.interface import MediaIntrospectionError
@@ -17,18 +18,19 @@ from video_policy_orchestrator.language_analysis import (
     LanguageClassification,
     analyze_track_languages,
 )
+from video_policy_orchestrator.transcription.factory import get_transcriber
 from video_policy_orchestrator.transcription.interface import (
     MultiLanguageDetectionConfig,
 )
 
 logger = logging.getLogger(__name__)
 
-# Exit codes per cli-inspect.md contract
-EXIT_SUCCESS = 0
-EXIT_FILE_NOT_FOUND = 1
-EXIT_FFPROBE_NOT_INSTALLED = 2
-EXIT_PARSE_ERROR = 3
-EXIT_ANALYSIS_ERROR = 4
+# Backward compatibility aliases - prefer using ExitCode or INSPECT_EXIT_CODES
+EXIT_SUCCESS = INSPECT_EXIT_CODES["EXIT_SUCCESS"]
+EXIT_FILE_NOT_FOUND = INSPECT_EXIT_CODES["EXIT_FILE_NOT_FOUND"]
+EXIT_FFPROBE_NOT_INSTALLED = INSPECT_EXIT_CODES["EXIT_FFPROBE_NOT_INSTALLED"]
+EXIT_PARSE_ERROR = INSPECT_EXIT_CODES["EXIT_PARSE_ERROR"]
+EXIT_ANALYSIS_ERROR = INSPECT_EXIT_CODES["EXIT_ANALYSIS_ERROR"]
 
 
 def format_human(result: IntrospectionResult) -> str:
@@ -310,26 +312,22 @@ def format_language_analysis_json(analysis: LanguageAnalysisResult) -> dict[str,
     }
 
 
-def _get_transcriber():
+def _get_transcriber_or_error():
     """Get a transcription plugin for language analysis.
 
     Returns:
-        TranscriptionPlugin instance.
+        TranscriptionPlugin instance or None if unavailable.
 
     Raises:
         click.ClickException: If no transcription plugin is available.
     """
-    try:
-        from video_policy_orchestrator.plugins.whisper_transcriber.plugin import (
-            WhisperTranscriptionPlugin,
-        )
-
-        return WhisperTranscriptionPlugin()
-    except Exception as e:
+    transcriber = get_transcriber(require_multi_language=True)
+    if transcriber is None:
         raise click.ClickException(
-            f"Could not initialize transcription plugin: {e}\n"
+            "Could not initialize transcription plugin.\n"
             "Make sure openai-whisper is installed: pip install openai-whisper"
         )
+    return transcriber
 
 
 @click.command("inspect")
@@ -426,7 +424,7 @@ def inspect_command(
 
         # Get transcriber plugin
         try:
-            transcriber = _get_transcriber()
+            transcriber = _get_transcriber_or_error()
         except click.ClickException as e:
             click.echo(f"Error: {e.message}", err=True)
             sys.exit(EXIT_ANALYSIS_ERROR)

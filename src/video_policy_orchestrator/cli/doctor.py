@@ -8,6 +8,7 @@ import sys
 
 import click
 
+from video_policy_orchestrator.cli.exit_codes import DOCTOR_EXIT_CODES
 from video_policy_orchestrator.config import get_config
 from video_policy_orchestrator.tools import (
     RequirementLevel,
@@ -17,10 +18,10 @@ from video_policy_orchestrator.tools import (
 )
 from video_policy_orchestrator.tools.cache import DEFAULT_CACHE_FILE
 
-# Exit codes
-EXIT_OK = 0
-EXIT_WARNINGS = 1
-EXIT_CRITICAL = 2
+# Backward compatibility aliases - prefer using DOCTOR_EXIT_CODES
+EXIT_OK = DOCTOR_EXIT_CODES["EXIT_OK"]
+EXIT_WARNINGS = DOCTOR_EXIT_CODES["EXIT_WARNINGS"]
+EXIT_CRITICAL = DOCTOR_EXIT_CODES["EXIT_CRITICAL"]
 
 
 def _format_status(available: bool) -> str:
