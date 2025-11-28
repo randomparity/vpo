@@ -99,6 +99,8 @@ class StubIntrospector:
                 title=None,
                 is_default=True,
                 is_forced=False,
+                channels=2,
+                channel_layout="stereo",
             )
         )
 

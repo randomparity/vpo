@@ -132,6 +132,17 @@ class IntrospectionResult:
         """Return True if introspection completed without fatal errors."""
         return self.error is None
 
+    @property
+    def primary_video_track(self) -> TrackInfo | None:
+        """Return the first video track, or None if no video tracks exist."""
+        return next((t for t in self.tracks if t.track_type == "video"), None)
+
+    @property
+    def duration_seconds(self) -> float | None:
+        """Return duration from primary video track, or None if unavailable."""
+        video = self.primary_video_track
+        return video.duration_seconds if video else None
+
 
 @dataclass
 class FileRecord:

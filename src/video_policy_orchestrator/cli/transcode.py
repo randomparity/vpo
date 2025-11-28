@@ -250,7 +250,7 @@ def transcode_command(
     for file_path in files:
         try:
             # Introspect file
-            result = introspector.introspect(file_path)
+            result = introspector.get_file_info(file_path)
             if not result.success:
                 click.echo(f"  [ERROR] {file_path.name}: {result.error}")
                 errors += 1

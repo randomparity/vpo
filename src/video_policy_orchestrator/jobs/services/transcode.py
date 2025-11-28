@@ -159,7 +159,7 @@ class TranscodeJobService:
         if job_log:
             job_log.write_section("Introspecting file")
 
-        result = self.introspector.introspect(input_path)
+        result = self.introspector.get_file_info(input_path)
         if not result.success:
             error = f"Introspection failed: {result.error}"
             if job_log:
@@ -168,7 +168,8 @@ class TranscodeJobService:
 
         if job_log:
             job_log.write_line(f"Container: {result.container_format}")
-            job_log.write_line(f"Duration: {result.duration}s")
+            if result.duration_seconds:
+                job_log.write_line(f"Duration: {result.duration_seconds}s")
             job_log.write_line(f"Tracks: {len(result.tracks)}")
 
         video_track = next((t for t in result.tracks if t.track_type == "video"), None)
@@ -238,7 +239,7 @@ class TranscodeJobService:
             video_codec=video_track.codec,
             video_width=video_track.width,
             video_height=video_track.height,
-            duration_seconds=introspection.duration,
+            duration_seconds=introspection.duration_seconds,
         )
 
         if job_log:

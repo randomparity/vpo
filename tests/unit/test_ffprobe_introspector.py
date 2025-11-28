@@ -153,10 +153,17 @@ class TestChannelLayoutMapping:
         """Test 7.1 (8 channels) mapping."""
         assert map_channel_layout(8) == "7.1"
 
+    def test_quad(self) -> None:
+        """Test quad (4 channels) mapping."""
+        assert map_channel_layout(4) == "quad"
+
+    def test_5_0(self) -> None:
+        """Test 5.0 (5 channels) mapping."""
+        assert map_channel_layout(5) == "5.0"
+
     def test_unknown_channels(self) -> None:
         """Test unknown channel counts use 'Nch' format."""
         assert map_channel_layout(3) == "3ch"
-        assert map_channel_layout(4) == "4ch"
         assert map_channel_layout(10) == "10ch"
 
 
