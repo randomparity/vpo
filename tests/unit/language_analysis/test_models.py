@@ -4,6 +4,10 @@ from datetime import datetime, timezone
 
 import pytest
 
+from video_policy_orchestrator.db.types import (
+    LanguageAnalysisResultRecord,
+    LanguageSegmentRecord,
+)
 from video_policy_orchestrator.language_analysis.models import (
     AnalysisMetadata,
     LanguageAnalysisResult,
@@ -431,3 +435,269 @@ class TestLanguageAnalysisResult:
             single_language_threshold=0.85,
         )
         assert result_custom.classification == LanguageClassification.SINGLE_LANGUAGE
+
+
+class TestLanguageSegmentSerialization:
+    """Tests for LanguageSegment serialization methods."""
+
+    def test_from_record(self) -> None:
+        """Test creating LanguageSegment from database record."""
+        record = LanguageSegmentRecord(
+            id=1,
+            analysis_id=10,
+            language_code="eng",
+            start_time=5.0,
+            end_time=10.0,
+            confidence=0.95,
+        )
+        segment = LanguageSegment.from_record(record)
+
+        assert segment.language_code == "eng"
+        assert segment.start_time == 5.0
+        assert segment.end_time == 10.0
+        assert segment.confidence == 0.95
+
+    def test_from_detection_result_with_speech(self) -> None:
+        """Test creating LanguageSegment from detection result with speech."""
+        from video_policy_orchestrator.transcription.interface import (
+            MultiLanguageDetectionResult,
+        )
+
+        detection = MultiLanguageDetectionResult(
+            position=30.0,
+            language="eng",
+            confidence=0.92,
+            has_speech=True,
+        )
+        segment = LanguageSegment.from_detection_result(detection, sample_duration=5.0)
+
+        assert segment is not None
+        assert segment.language_code == "eng"
+        assert segment.start_time == 30.0
+        assert segment.end_time == 35.0
+        assert segment.confidence == 0.92
+
+    def test_from_detection_result_no_speech(self) -> None:
+        """Test that detection with no speech returns None."""
+        from video_policy_orchestrator.transcription.interface import (
+            MultiLanguageDetectionResult,
+        )
+
+        detection = MultiLanguageDetectionResult(
+            position=30.0,
+            language=None,
+            confidence=0.0,
+            has_speech=False,
+        )
+        segment = LanguageSegment.from_detection_result(detection, sample_duration=5.0)
+
+        assert segment is None
+
+
+class TestAnalysisMetadataSerialization:
+    """Tests for AnalysisMetadata serialization methods."""
+
+    def test_to_dict(self) -> None:
+        """Test converting metadata to dictionary."""
+        metadata = AnalysisMetadata(
+            plugin_name="whisper",
+            plugin_version="1.0.0",
+            model_name="base",
+            sample_positions=(30.0, 60.0, 90.0),
+            sample_duration=5.0,
+            total_duration=120.0,
+            speech_ratio=0.8,
+        )
+        d = metadata.to_dict()
+
+        assert d["plugin_name"] == "whisper"
+        assert d["plugin_version"] == "1.0.0"
+        assert d["model_name"] == "base"
+        assert d["sample_positions"] == [30.0, 60.0, 90.0]
+        assert d["sample_duration"] == 5.0
+        assert d["total_duration"] == 120.0
+        assert d["speech_ratio"] == 0.8
+
+    def test_from_dict(self) -> None:
+        """Test creating metadata from dictionary."""
+        d = {
+            "plugin_name": "whisper",
+            "plugin_version": "2.0.0",
+            "model_name": "large",
+            "sample_positions": [10.0, 20.0],
+            "sample_duration": 10.0,
+            "total_duration": 60.0,
+            "speech_ratio": 0.9,
+        }
+        metadata = AnalysisMetadata.from_dict(d)
+
+        assert metadata.plugin_name == "whisper"
+        assert metadata.plugin_version == "2.0.0"
+        assert metadata.model_name == "large"
+        assert metadata.sample_positions == (10.0, 20.0)
+        assert metadata.sample_duration == 10.0
+        assert metadata.total_duration == 60.0
+        assert metadata.speech_ratio == 0.9
+
+    def test_from_dict_with_defaults(self) -> None:
+        """Test that missing keys get default values."""
+        metadata = AnalysisMetadata.from_dict({})
+
+        assert metadata.plugin_name == "unknown"
+        assert metadata.plugin_version == "0.0.0"
+        assert metadata.model_name == "unknown"
+        assert metadata.sample_positions == ()
+        assert metadata.sample_duration == 30.0
+        assert metadata.total_duration == 1.0
+        assert metadata.speech_ratio == 0.0
+
+    def test_to_json_and_from_json_roundtrip(self) -> None:
+        """Test JSON serialization roundtrip."""
+        original = AnalysisMetadata(
+            plugin_name="test-plugin",
+            plugin_version="3.0.0",
+            model_name="medium",
+            sample_positions=(15.0, 45.0, 75.0),
+            sample_duration=15.0,
+            total_duration=90.0,
+            speech_ratio=0.75,
+        )
+        json_str = original.to_json()
+        restored = AnalysisMetadata.from_json(json_str)
+
+        assert restored.plugin_name == original.plugin_name
+        assert restored.plugin_version == original.plugin_version
+        assert restored.model_name == original.model_name
+        assert restored.sample_positions == original.sample_positions
+        assert restored.sample_duration == original.sample_duration
+        assert restored.total_duration == original.total_duration
+        assert restored.speech_ratio == original.speech_ratio
+
+    def test_from_json_none(self) -> None:
+        """Test that from_json(None) returns defaults."""
+        metadata = AnalysisMetadata.from_json(None)
+        assert metadata.plugin_name == "unknown"
+
+
+class TestLanguageAnalysisResultSerialization:
+    """Tests for LanguageAnalysisResult serialization methods."""
+
+    @pytest.fixture
+    def sample_result(self) -> LanguageAnalysisResult:
+        """Create a sample result for testing."""
+        metadata = AnalysisMetadata(
+            plugin_name="whisper",
+            plugin_version="1.0.0",
+            model_name="base",
+            sample_positions=(30.0, 60.0),
+            sample_duration=5.0,
+            total_duration=90.0,
+            speech_ratio=0.8,
+        )
+        segments = [
+            LanguageSegment("eng", 30.0, 35.0, 0.95),
+            LanguageSegment("eng", 60.0, 65.0, 0.92),
+        ]
+        return LanguageAnalysisResult.from_segments(
+            track_id=42,
+            file_hash="hash123",
+            segments=segments,
+            metadata=metadata,
+        )
+
+    def test_to_records(self, sample_result: LanguageAnalysisResult) -> None:
+        """Test converting result to database records."""
+        main_record, segment_records = sample_result.to_records()
+
+        assert main_record.track_id == 42
+        assert main_record.file_hash == "hash123"
+        assert main_record.primary_language == "eng"
+        assert main_record.primary_percentage == 1.0
+        assert main_record.classification == "SINGLE_LANGUAGE"
+        assert main_record.id is None  # Not yet persisted
+
+        assert len(segment_records) == 2
+        assert all(sr.analysis_id == 0 for sr in segment_records)  # To be filled
+        assert segment_records[0].language_code == "eng"
+        assert segment_records[0].start_time == 30.0
+
+    def test_from_record(self) -> None:
+        """Test creating result from database records."""
+        import json
+
+        metadata_json = json.dumps(
+            {
+                "plugin_name": "whisper",
+                "plugin_version": "1.0.0",
+                "model_name": "base",
+                "sample_positions": [30.0, 60.0],
+                "sample_duration": 5.0,
+                "total_duration": 90.0,
+                "speech_ratio": 0.8,
+            }
+        )
+
+        main_record = LanguageAnalysisResultRecord(
+            id=100,
+            track_id=42,
+            file_hash="hash123",
+            primary_language="eng",
+            primary_percentage=0.8,
+            classification="MULTI_LANGUAGE",
+            analysis_metadata=metadata_json,
+            created_at="2024-01-01T00:00:00+00:00",
+            updated_at="2024-01-02T00:00:00+00:00",
+        )
+
+        segment_records = [
+            LanguageSegmentRecord(
+                id=1,
+                analysis_id=100,
+                language_code="eng",
+                start_time=30.0,
+                end_time=35.0,
+                confidence=0.95,
+            ),
+            LanguageSegmentRecord(
+                id=2,
+                analysis_id=100,
+                language_code="fre",
+                start_time=60.0,
+                end_time=65.0,
+                confidence=0.88,
+            ),
+        ]
+
+        result = LanguageAnalysisResult.from_record(main_record, segment_records)
+
+        assert result.track_id == 42
+        assert result.file_hash == "hash123"
+        assert result.primary_language == "eng"
+        assert result.primary_percentage == 0.8
+        assert result.classification == LanguageClassification.MULTI_LANGUAGE
+        assert len(result.segments) == 2
+        assert len(result.secondary_languages) == 1
+        assert result.secondary_languages[0].language_code == "fre"
+        assert result.metadata.plugin_name == "whisper"
+        assert result.created_at.year == 2024
+
+    def test_roundtrip_preserves_data(
+        self, sample_result: LanguageAnalysisResult
+    ) -> None:
+        """Test that to_records -> from_record preserves key data."""
+        main_record, segment_records = sample_result.to_records()
+
+        # Simulate database assignment of IDs
+        main_record.id = 999
+        for i, sr in enumerate(segment_records):
+            sr.id = i + 1
+            sr.analysis_id = 999
+
+        restored = LanguageAnalysisResult.from_record(main_record, segment_records)
+
+        assert restored.track_id == sample_result.track_id
+        assert restored.file_hash == sample_result.file_hash
+        assert restored.primary_language == sample_result.primary_language
+        assert restored.primary_percentage == sample_result.primary_percentage
+        assert restored.classification == sample_result.classification
+        assert len(restored.segments) == len(sample_result.segments)

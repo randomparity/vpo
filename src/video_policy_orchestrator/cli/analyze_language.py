@@ -18,17 +18,14 @@ from video_policy_orchestrator.db.models import (
     get_tracks_for_file,
 )
 from video_policy_orchestrator.language_analysis.models import LanguageClassification
+from video_policy_orchestrator.language_analysis.orchestrator import (
+    AnalysisProgress,
+    LanguageAnalysisOrchestrator,
+)
 from video_policy_orchestrator.language_analysis.service import (
-    InsufficientSpeechError,
-    LanguageAnalysisError,
-    ShortTrackError,
-    TranscriptionPluginError,
-    analyze_track_languages,
     get_cached_analysis,
     invalidate_analysis_cache,
-    persist_analysis_result,
 )
-from video_policy_orchestrator.transcription.factory import get_transcriber
 
 logger = logging.getLogger(__name__)
 
@@ -105,20 +102,79 @@ def run_command(
 
         vpo analyze-language run --force --json /media/movie.mkv
     """
-    from video_policy_orchestrator.transcription.interface import (
-        MultiLanguageDetectionConfig,
-    )
-
     target = target.expanduser().resolve()
 
-    # Get transcriber via factory (requires multi-language support)
-    transcriber = get_transcriber(require_multi_language=True)
-    if transcriber is None:
-        error_exit(
-            "Transcription plugin unavailable or lacks multi-language support.",
-            ExitCode.PLUGIN_UNAVAILABLE,
-            json_output=json_output,
-        )
+    # Results collected from progress callback
+    results: list[dict] = []
+
+    def progress_callback(progress: AnalysisProgress) -> None:
+        """Handle progress updates from orchestrator."""
+        if progress.status == "cached" and progress.result:
+            if not json_output:
+                click.echo(
+                    f"  Track {progress.track_index}: "
+                    f"{progress.result.classification.value} (cached)"
+                )
+            results.append(
+                {
+                    "track_index": progress.track_index,
+                    "classification": progress.result.classification.value,
+                    "primary_language": progress.result.primary_language,
+                    "primary_percentage": progress.result.primary_percentage,
+                    "cached": True,
+                }
+            )
+        elif progress.status == "analyzed" and progress.result:
+            if not json_output:
+                click.echo(
+                    f"  Track {progress.track_index}: "
+                    f"{progress.result.classification.value} "
+                    f"({progress.result.primary_language} "
+                    f"{progress.result.primary_percentage:.0%})"
+                )
+                if verbose and progress.result.secondary_languages:
+                    for sec in progress.result.secondary_languages:
+                        click.echo(
+                            f"    Secondary: {sec.language_code} ({sec.percentage:.0%})"
+                        )
+            results.append(
+                {
+                    "track_index": progress.track_index,
+                    "classification": progress.result.classification.value,
+                    "primary_language": progress.result.primary_language,
+                    "primary_percentage": progress.result.primary_percentage,
+                    "secondary_languages": [
+                        {
+                            "language_code": s.language_code,
+                            "percentage": s.percentage,
+                        }
+                        for s in progress.result.secondary_languages
+                    ],
+                    "cached": False,
+                }
+            )
+        elif progress.status == "skipped":
+            error_msg = progress.error or "unknown reason"
+            if not json_output:
+                click.echo(f"  Track {progress.track_index}: Skipped - {error_msg}")
+            results.append(
+                {
+                    "track_index": progress.track_index,
+                    "status": "skipped",
+                    "reason": error_msg,
+                }
+            )
+        elif progress.status == "error":
+            error_msg = progress.error or "unknown error"
+            if not json_output:
+                click.echo(f"  Track {progress.track_index}: Error - {error_msg}")
+            results.append(
+                {
+                    "track_index": progress.track_index,
+                    "status": "error",
+                    "error": error_msg,
+                }
+            )
 
     try:
         with get_connection() as conn:
@@ -167,135 +223,23 @@ def run_command(
             if not json_output:
                 click.echo(f"Analyzing {len(audio_tracks)} audio track(s)...")
 
-            config = MultiLanguageDetectionConfig()
-            file_hash = file_record.content_hash or ""
-            results = []
+            # Use orchestrator for analysis
+            orchestrator = LanguageAnalysisOrchestrator()
+            batch_result = orchestrator.analyze_tracks_for_file(
+                conn=conn,
+                file_record=file_record,
+                track_records=audio_tracks,
+                file_path=target,
+                force=force,
+                progress_callback=progress_callback,
+            )
 
-            for track in audio_tracks:
-                if track.id is None:
-                    continue
-
-                # Check for cached result unless force flag
-                if not force:
-                    cached = get_cached_analysis(conn, track.id, file_hash)
-                    if cached is not None:
-                        if not json_output:
-                            click.echo(
-                                f"  Track {track.track_index}: "
-                                f"{cached.classification.value} (cached)"
-                            )
-                        results.append(
-                            {
-                                "track_index": track.track_index,
-                                "classification": cached.classification.value,
-                                "primary_language": cached.primary_language,
-                                "primary_percentage": cached.primary_percentage,
-                                "cached": True,
-                            }
-                        )
-                        continue
-
-                # Run analysis (use actual duration or default to 1 hour)
-                track_duration = track.duration_seconds or 3600.0
-
-                try:
-                    result = analyze_track_languages(
-                        file_path=target,
-                        track_index=track.track_index,
-                        track_id=track.id,
-                        track_duration=track_duration,
-                        file_hash=file_hash,
-                        transcriber=transcriber,
-                        config=config,
-                    )
-                    persist_analysis_result(conn, result)
-
-                    if not json_output:
-                        click.echo(
-                            f"  Track {track.track_index}: "
-                            f"{result.classification.value} "
-                            f"({result.primary_language} "
-                            f"{result.primary_percentage:.0%})"
-                        )
-                        if verbose and result.secondary_languages:
-                            for sec in result.secondary_languages:
-                                click.echo(
-                                    f"    Secondary: {sec.language_code} "
-                                    f"({sec.percentage:.0%})"
-                                )
-
-                    results.append(
-                        {
-                            "track_index": track.track_index,
-                            "classification": result.classification.value,
-                            "primary_language": result.primary_language,
-                            "primary_percentage": result.primary_percentage,
-                            "secondary_languages": [
-                                {
-                                    "language_code": s.language_code,
-                                    "percentage": s.percentage,
-                                }
-                                for s in result.secondary_languages
-                            ],
-                            "cached": False,
-                        }
-                    )
-
-                except ShortTrackError as e:
-                    # T098: Handle short tracks gracefully
-                    if not json_output:
-                        click.echo(
-                            f"  Track {track.track_index}: Skipped - "
-                            f"too short ({e.duration:.1f}s)"
-                        )
-                    results.append(
-                        {
-                            "track_index": track.track_index,
-                            "status": "skipped",
-                            "reason": "track_too_short",
-                            "duration": e.duration,
-                        }
-                    )
-
-                except InsufficientSpeechError as e:
-                    # T097: Handle tracks with no speech
-                    if not json_output:
-                        click.echo(
-                            f"  Track {track.track_index}: Skipped - "
-                            f"insufficient speech ({e.speech_ratio:.0%})"
-                        )
-                    results.append(
-                        {
-                            "track_index": track.track_index,
-                            "status": "skipped",
-                            "reason": "insufficient_speech",
-                            "speech_ratio": e.speech_ratio,
-                        }
-                    )
-
-                except TranscriptionPluginError as e:
-                    # T099: Handle plugin unavailable
-                    if not json_output:
-                        click.echo(f"  Track {track.track_index}: Error - {e}")
-                    results.append(
-                        {
-                            "track_index": track.track_index,
-                            "status": "error",
-                            "reason": "plugin_error",
-                            "error": str(e),
-                        }
-                    )
-
-                except LanguageAnalysisError as e:
-                    if not json_output:
-                        click.echo(f"  Track {track.track_index}: Error - {e}")
-                    results.append(
-                        {
-                            "track_index": track.track_index,
-                            "status": "error",
-                            "error": str(e),
-                        }
-                    )
+            if not batch_result.transcriber_available:
+                error_exit(
+                    "Transcription plugin unavailable or lacks multi-language support.",
+                    ExitCode.PLUGIN_UNAVAILABLE,
+                    json_output=json_output,
+                )
 
             conn.commit()
 

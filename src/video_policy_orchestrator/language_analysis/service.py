@@ -6,7 +6,6 @@ multiple languages, with caching and database persistence.
 
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,7 +16,6 @@ if TYPE_CHECKING:
 
 from video_policy_orchestrator.db.models import (
     LanguageAnalysisResultRecord,
-    LanguageSegmentRecord,
     delete_language_analysis_result,
     get_language_analysis_result,
     get_language_segments,
@@ -28,7 +26,6 @@ from video_policy_orchestrator.language_analysis.models import (
     AnalysisMetadata,
     LanguageAnalysisResult,
     LanguageClassification,
-    LanguagePercentage,
     LanguageSegment,
 )
 from video_policy_orchestrator.transcription.audio_extractor import (
@@ -336,13 +333,8 @@ def _create_segments_from_samples(
     """
     segments = []
     for sample in samples:
-        if sample.has_speech and sample.language:
-            segment = LanguageSegment(
-                language_code=sample.language,
-                start_time=sample.position,
-                end_time=sample.position + sample_duration,
-                confidence=sample.confidence,
-            )
+        segment = LanguageSegment.from_detection_result(sample, sample_duration)
+        if segment is not None:
             segments.append(segment)
     return segments
 
@@ -395,92 +387,8 @@ def _record_to_result(
     Returns:
         LanguageAnalysisResult domain model.
     """
-    # Fetch segments
     segment_records = get_language_segments(conn, record.id)
-    segments = tuple(
-        LanguageSegment(
-            language_code=seg.language_code,
-            start_time=seg.start_time,
-            end_time=seg.end_time,
-            confidence=seg.confidence,
-        )
-        for seg in segment_records
-    )
-
-    # Parse metadata from JSON
-    metadata_dict = (
-        json.loads(record.analysis_metadata) if record.analysis_metadata else {}
-    )
-    metadata = AnalysisMetadata(
-        plugin_name=metadata_dict.get("plugin_name", "unknown"),
-        plugin_version=metadata_dict.get("plugin_version", "0.0.0"),
-        model_name=metadata_dict.get("model_name", "unknown"),
-        sample_positions=tuple(metadata_dict.get("sample_positions", [])),
-        sample_duration=metadata_dict.get("sample_duration", 30.0),
-        total_duration=metadata_dict.get("total_duration", 0.0),
-        speech_ratio=metadata_dict.get("speech_ratio", 0.0),
-    )
-
-    # Calculate secondary languages from segments
-    secondary_languages = _calculate_secondary_languages(
-        segments, record.primary_language, record.primary_percentage
-    )
-
-    return LanguageAnalysisResult(
-        track_id=record.track_id,
-        file_hash=record.file_hash,
-        primary_language=record.primary_language,
-        primary_percentage=record.primary_percentage,
-        secondary_languages=secondary_languages,
-        classification=LanguageClassification(record.classification),
-        segments=segments,
-        metadata=metadata,
-        created_at=datetime.fromisoformat(record.created_at),
-        updated_at=datetime.fromisoformat(record.updated_at),
-    )
-
-
-def _calculate_secondary_languages(
-    segments: tuple[LanguageSegment, ...],
-    primary_language: str,
-    primary_percentage: float,
-) -> tuple[LanguagePercentage, ...]:
-    """Calculate secondary language percentages from segments.
-
-    Args:
-        segments: All language segments.
-        primary_language: The primary language code.
-        primary_percentage: Primary language percentage.
-
-    Returns:
-        Tuple of LanguagePercentage for secondary languages.
-    """
-    if not segments:
-        return ()
-
-    # Count duration per language
-    language_durations: dict[str, float] = {}
-    for seg in segments:
-        duration = seg.end_time - seg.start_time
-        language_durations[seg.language_code] = (
-            language_durations.get(seg.language_code, 0.0) + duration
-        )
-
-    total_duration = sum(language_durations.values())
-    if total_duration <= 0:
-        return ()
-
-    # Build secondary languages (excluding primary)
-    secondary = []
-    for lang, duration in language_durations.items():
-        if lang != primary_language:
-            percentage = duration / total_duration
-            if percentage > 0:
-                secondary.append(LanguagePercentage(lang, percentage))
-
-    # Sort by percentage descending
-    secondary.sort(key=lambda lp: lp.percentage, reverse=True)
-    return tuple(secondary)
+    return LanguageAnalysisResult.from_record(record, segment_records)
 
 
 def persist_analysis_result(
@@ -498,51 +406,17 @@ def persist_analysis_result(
     Returns:
         ID of the persisted record.
     """
-    now = datetime.now(timezone.utc).isoformat()
-
-    # Serialize metadata to JSON
-    metadata_json = json.dumps(
-        {
-            "plugin_name": result.metadata.plugin_name,
-            "plugin_version": result.metadata.plugin_version,
-            "model_name": result.metadata.model_name,
-            "sample_positions": list(result.metadata.sample_positions),
-            "sample_duration": result.metadata.sample_duration,
-            "total_duration": result.metadata.total_duration,
-            "speech_ratio": result.metadata.speech_ratio,
-        }
-    )
-
-    # Create main record
-    record = LanguageAnalysisResultRecord(
-        id=None,
-        track_id=result.track_id,
-        file_hash=result.file_hash,
-        primary_language=result.primary_language,
-        primary_percentage=result.primary_percentage,
-        classification=result.classification.value,
-        analysis_metadata=metadata_json,
-        created_at=result.created_at.isoformat(),
-        updated_at=now,
-    )
+    # Convert domain model to database records
+    record, segment_records = result.to_records()
 
     # Upsert main record
     analysis_id = upsert_language_analysis_result(conn, record)
 
-    # Create segment records
-    segment_records = [
-        LanguageSegmentRecord(
-            id=None,
-            analysis_id=analysis_id,
-            language_code=seg.language_code,
-            start_time=seg.start_time,
-            end_time=seg.end_time,
-            confidence=seg.confidence,
-        )
-        for seg in result.segments
-    ]
+    # Update segment records with the analysis_id and upsert
+    for seg_record in segment_records:
+        # Create new record with correct analysis_id (dataclass is not frozen)
+        seg_record.analysis_id = analysis_id
 
-    # Upsert segments
     upsert_language_segments(conn, analysis_id, segment_records)
 
     logger.info(
