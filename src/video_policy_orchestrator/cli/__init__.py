@@ -103,20 +103,15 @@ def _configure_logging(
     if _logging_configured:
         return
 
-    from video_policy_orchestrator.config import get_config
-    from video_policy_orchestrator.config.logging_factory import build_logging_config
-    from video_policy_orchestrator.logging import configure_logging
+    from video_policy_orchestrator.config.logging_factory import (
+        configure_logging_from_cli,
+    )
 
-    # Start with config file settings and apply CLI overrides
-    config = get_config()
-    final_config = build_logging_config(
-        config.logging,
+    configure_logging_from_cli(
         level=log_level,
         file=log_file,
         format="json" if log_json else None,
     )
-
-    configure_logging(final_config)
     _logging_configured = True
 
 

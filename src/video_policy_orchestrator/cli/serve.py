@@ -35,21 +35,16 @@ def _configure_daemon_logging(
         log_format: CLI override for log format.
         config_path: Path to config file for reading logging settings.
     """
-    from video_policy_orchestrator.config import get_config
-    from video_policy_orchestrator.config.logging_factory import build_logging_config
-    from video_policy_orchestrator.logging import configure_logging
+    from video_policy_orchestrator.config.logging_factory import (
+        configure_logging_from_cli,
+    )
 
-    # Load base config and apply CLI overrides
-    # Daemon always includes stderr for journald integration
-    config = get_config(config_path=config_path)
-    final_config = build_logging_config(
-        config.logging,
+    configure_logging_from_cli(
+        config_path=config_path,
         level=log_level,
         format=log_format,
         include_stderr=True,  # Always include stderr for daemon (journald)
     )
-
-    configure_logging(final_config)
 
 
 async def run_server(

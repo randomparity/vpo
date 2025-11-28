@@ -21,29 +21,9 @@ class JSONFormatter(logging.Formatter):
     - context: Additional context from record.extra
     """
 
-    def format(self, record: logging.LogRecord) -> str:
-        """Format the log record as JSON.
-
-        Args:
-            record: Log record to format.
-
-        Returns:
-            JSON-formatted string.
-        """
-        # Build base log entry
-        log_entry: dict[str, Any] = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "level": record.levelname,
-            "message": record.getMessage(),
-        }
-
-        # Add logger name if not root
-        if record.name and record.name != "root":
-            log_entry["logger"] = record.name
-
-        # Add context from extra attributes
-        # Exclude standard LogRecord attributes
-        standard_attrs = {
+    # Standard LogRecord attributes to exclude from context
+    _STANDARD_ATTRS: frozenset[str] = frozenset(
+        {
             "name",
             "msg",
             "args",
@@ -67,11 +47,33 @@ class JSONFormatter(logging.Formatter):
             "stack_info",
             "taskName",
         }
+    )
 
+    def format(self, record: logging.LogRecord) -> str:
+        """Format the log record as JSON.
+
+        Args:
+            record: Log record to format.
+
+        Returns:
+            JSON-formatted string.
+        """
+        # Build base log entry
+        log_entry: dict[str, Any] = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "level": record.levelname,
+            "message": record.getMessage(),
+        }
+
+        # Add logger name if not root
+        if record.name and record.name != "root":
+            log_entry["logger"] = record.name
+
+        # Add context from extra attributes (exclude standard LogRecord attrs)
         context = {
             key: value
             for key, value in record.__dict__.items()
-            if key not in standard_attrs and not key.startswith("_")
+            if key not in self._STANDARD_ATTRS and not key.startswith("_")
         }
 
         if context:

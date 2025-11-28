@@ -16,6 +16,14 @@ from video_policy_orchestrator.logging.handlers import JSONFormatter
 if TYPE_CHECKING:
     from video_policy_orchestrator.config.models import LoggingConfig
 
+# Log level string to logging constant mapping
+_LEVEL_MAP: dict[str, int] = {
+    "debug": logging.DEBUG,
+    "info": logging.INFO,
+    "warning": logging.WARNING,
+    "error": logging.ERROR,
+}
+
 
 def configure_logging(config: LoggingConfig) -> None:
     """Configure logging based on LoggingConfig.
@@ -25,14 +33,7 @@ def configure_logging(config: LoggingConfig) -> None:
     Args:
         config: Logging configuration.
     """
-    # Map string level to logging constant
-    level_map = {
-        "debug": logging.DEBUG,
-        "info": logging.INFO,
-        "warning": logging.WARNING,
-        "error": logging.ERROR,
-    }
-    level = level_map.get(config.level.lower(), logging.INFO)
+    level = _LEVEL_MAP.get(config.level.lower(), logging.INFO)
 
     # Get root logger
     root_logger = logging.getLogger()

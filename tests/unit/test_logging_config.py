@@ -7,9 +7,23 @@ import json
 import logging
 from pathlib import Path
 
+import pytest
+
 from video_policy_orchestrator.config.models import LoggingConfig
 from video_policy_orchestrator.logging.config import configure_logging
 from video_policy_orchestrator.logging.handlers import JSONFormatter
+
+
+@pytest.fixture(autouse=True)
+def reset_root_logger():
+    """Save and restore root logger state between tests."""
+    root = logging.getLogger()
+    original_handlers = root.handlers[:]
+    original_level = root.level
+    yield
+    root.handlers[:] = original_handlers
+    root.setLevel(original_level)
+
 
 # =============================================================================
 # T052: Unit tests for logging configuration
