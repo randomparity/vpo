@@ -228,6 +228,32 @@ class TestJSONFormatter:
         assert "T" in timestamp
         assert timestamp.endswith("+00:00") or timestamp.endswith("Z")
 
+    def test_timestamp_uses_record_created_time(self) -> None:
+        """Should use record.created timestamp, not format time."""
+        from datetime import datetime, timezone
+
+        formatter = JSONFormatter()
+        record = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=42,
+            msg="Test",
+            args=(),
+            exc_info=None,
+        )
+        # Override record.created to a known past time (2020-01-01 00:00:00 UTC)
+        known_timestamp = 1577836800.0
+        record.created = known_timestamp
+
+        output = formatter.format(record)
+        data = json.loads(output)
+
+        # Parse the output timestamp and verify it matches record.created
+        output_dt = datetime.fromisoformat(data["timestamp"])
+        expected_dt = datetime.fromtimestamp(known_timestamp, tz=timezone.utc)
+        assert output_dt == expected_dt
+
     def test_message_formatting_with_args(self) -> None:
         """Should format message with arguments."""
         formatter = JSONFormatter()

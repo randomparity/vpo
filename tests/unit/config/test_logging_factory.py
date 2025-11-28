@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
-from video_policy_orchestrator.config.logging_factory import build_logging_config
-from video_policy_orchestrator.config.models import LoggingConfig
+from video_policy_orchestrator.config.logging_factory import (
+    build_logging_config,
+    configure_logging_from_cli,
+)
+from video_policy_orchestrator.config.models import LoggingConfig, VPOConfig
 
 
 class TestBuildLoggingConfig:
@@ -181,3 +186,89 @@ class TestBuildLoggingConfig:
         # Other values preserved
         assert result.level == "info"
         assert result.format == "text"
+
+
+class TestConfigureLoggingFromCli:
+    """Tests for configure_logging_from_cli function."""
+
+    @pytest.fixture(autouse=True)
+    def reset_root_logger(self):
+        """Save and restore root logger state between tests."""
+        root = logging.getLogger()
+        original_handlers = root.handlers[:]
+        original_level = root.level
+        yield
+        root.handlers[:] = original_handlers
+        root.setLevel(original_level)
+
+    def test_configures_logging_with_defaults(self) -> None:
+        """Should configure logging using default config when no overrides."""
+        mock_config = VPOConfig(logging=LoggingConfig(level="info", format="text"))
+
+        with patch(
+            "video_policy_orchestrator.config.get_config",
+            return_value=mock_config,
+        ):
+            configure_logging_from_cli()
+
+        root = logging.getLogger()
+        assert root.level == logging.INFO
+
+    def test_configures_logging_with_level_override(self) -> None:
+        """Should apply level override."""
+        mock_config = VPOConfig(logging=LoggingConfig(level="info", format="text"))
+
+        with patch(
+            "video_policy_orchestrator.config.get_config",
+            return_value=mock_config,
+        ):
+            configure_logging_from_cli(level="debug")
+
+        root = logging.getLogger()
+        assert root.level == logging.DEBUG
+
+    def test_configures_logging_with_format_override(self) -> None:
+        """Should apply format override."""
+        from video_policy_orchestrator.logging.handlers import JSONFormatter
+
+        mock_config = VPOConfig(logging=LoggingConfig(level="info", format="text"))
+
+        with patch(
+            "video_policy_orchestrator.config.get_config",
+            return_value=mock_config,
+        ):
+            configure_logging_from_cli(format="json")
+
+        root = logging.getLogger()
+        assert len(root.handlers) > 0
+        assert isinstance(root.handlers[0].formatter, JSONFormatter)
+
+    def test_configures_logging_with_include_stderr_override(self) -> None:
+        """Should apply include_stderr override."""
+        mock_config = VPOConfig(
+            logging=LoggingConfig(level="info", format="text", include_stderr=False)
+        )
+
+        with patch(
+            "video_policy_orchestrator.config.get_config",
+            return_value=mock_config,
+        ):
+            configure_logging_from_cli(include_stderr=True)
+
+        root = logging.getLogger()
+        # Should have stderr handler
+        assert len(root.handlers) >= 1
+        assert any(isinstance(h, logging.StreamHandler) for h in root.handlers)
+
+    def test_passes_config_path_to_get_config(self) -> None:
+        """Should pass config_path to get_config."""
+        mock_config = VPOConfig(logging=LoggingConfig(level="info", format="text"))
+        config_path = Path("/custom/config.toml")
+
+        with patch(
+            "video_policy_orchestrator.config.get_config",
+            return_value=mock_config,
+        ) as mock_get_config:
+            configure_logging_from_cli(config_path=config_path)
+
+        mock_get_config.assert_called_once_with(config_path=config_path)

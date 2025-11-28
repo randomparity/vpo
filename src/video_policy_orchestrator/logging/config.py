@@ -16,7 +16,8 @@ from video_policy_orchestrator.logging.handlers import JSONFormatter
 if TYPE_CHECKING:
     from video_policy_orchestrator.config.models import LoggingConfig
 
-# Log level string to logging constant mapping
+# Map of lowercase level names to logging module constants.
+# CRITICAL is intentionally excluded - not exposed via CLI configuration.
 _LEVEL_MAP: dict[str, int] = {
     "debug": logging.DEBUG,
     "info": logging.INFO,

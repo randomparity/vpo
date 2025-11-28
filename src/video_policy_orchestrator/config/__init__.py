@@ -25,7 +25,10 @@ from video_policy_orchestrator.config.loader import (
     get_default_config_path,
     load_config_file,
 )
-from video_policy_orchestrator.config.logging_factory import build_logging_config
+from video_policy_orchestrator.config.logging_factory import (
+    build_logging_config,
+    configure_logging_from_cli,
+)
 from video_policy_orchestrator.config.models import (
     BehaviorConfig,
     DetectionConfig,
@@ -56,6 +59,7 @@ __all__ = [
     "source_from_env",
     "source_from_file",
     "build_logging_config",
+    "configure_logging_from_cli",
     "parse_toml",
     "load_toml_file",
     "BasicTomlParser",

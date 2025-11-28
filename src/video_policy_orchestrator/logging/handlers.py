@@ -58,9 +58,10 @@ class JSONFormatter(logging.Formatter):
         Returns:
             JSON-formatted string.
         """
-        # Build base log entry
+        # Build base log entry using the record's actual timestamp
+        record_time = datetime.fromtimestamp(record.created, tz=timezone.utc)
         log_entry: dict[str, Any] = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": record_time.isoformat(),
             "level": record.levelname,
             "message": record.getMessage(),
         }
