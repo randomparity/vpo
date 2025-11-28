@@ -7,14 +7,15 @@ multiple languages, with caching and database persistence.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+import sqlite3
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from video_policy_orchestrator.db.models import TranscriptionResultRecord
+    from video_policy_orchestrator.db import TranscriptionResultRecord
 
-from video_policy_orchestrator.db.models import (
+from video_policy_orchestrator.db import (
     LanguageAnalysisResultRecord,
     delete_language_analysis_result,
     get_language_analysis_result,
@@ -48,23 +49,6 @@ class LanguageAnalysisError(Exception):
     """Exception raised when language analysis fails."""
 
     pass
-
-
-class InsufficientSpeechError(LanguageAnalysisError):
-    """Exception raised when audio track has insufficient speech for analysis.
-
-    This occurs when the speech ratio is below the minimum threshold,
-    indicating the track may be music, sound effects, or silence.
-    """
-
-    def __init__(self, track_index: int, speech_ratio: float, threshold: float = 0.1):
-        self.track_index = track_index
-        self.speech_ratio = speech_ratio
-        self.threshold = threshold
-        super().__init__(
-            f"Track {track_index} has insufficient speech for analysis "
-            f"(speech ratio: {speech_ratio:.1%}, threshold: {threshold:.1%})"
-        )
 
 
 class ShortTrackError(LanguageAnalysisError):
@@ -340,7 +324,7 @@ def _create_segments_from_samples(
 
 
 def get_cached_analysis(
-    conn,
+    conn: sqlite3.Connection,
     track_id: int,
     file_hash: str,
 ) -> LanguageAnalysisResult | None:
@@ -375,7 +359,7 @@ def get_cached_analysis(
 
 
 def _record_to_result(
-    conn,
+    conn: sqlite3.Connection,
     record: LanguageAnalysisResultRecord,
 ) -> LanguageAnalysisResult:
     """Convert database record to domain model.
@@ -392,7 +376,7 @@ def _record_to_result(
 
 
 def persist_analysis_result(
-    conn,
+    conn: sqlite3.Connection,
     result: LanguageAnalysisResult,
 ) -> int:
     """Persist language analysis result to database.
@@ -432,7 +416,7 @@ def persist_analysis_result(
 
 
 def invalidate_analysis_cache(
-    conn,
+    conn: sqlite3.Connection,
     track_id: int,
 ) -> bool:
     """Invalidate cached analysis for a track.
@@ -480,8 +464,6 @@ def is_analysis_stale(
         return True
 
     # Check age
-    from datetime import timedelta
-
     now = datetime.now(timezone.utc)
     age = now - result.updated_at
     if age > timedelta(days=max_age_days):
