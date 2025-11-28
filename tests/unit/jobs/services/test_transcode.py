@@ -21,11 +21,11 @@ from video_policy_orchestrator.jobs.services.transcode import (
 def mock_introspector():
     """Create a mock introspector."""
     introspector = MagicMock()
-    # Create a mock result that has the success property and duration attribute
+    # Create a mock result that has the success property and duration_seconds property
     mock_result = MagicMock()
     mock_result.success = True
     mock_result.container_format = "matroska"
-    mock_result.duration = 3600.0
+    mock_result.duration_seconds = 3600.0  # Now using duration_seconds property
     mock_result.tracks = [
         TrackInfo(
             index=0,
@@ -37,6 +37,7 @@ def mock_introspector():
             is_forced=False,
             width=1920,
             height=1080,
+            duration_seconds=3600.0,  # Track-level duration
         ),
         TrackInfo(
             index=1,
@@ -49,7 +50,7 @@ def mock_introspector():
         ),
     ]
     mock_result.error = None
-    introspector.introspect.return_value = mock_result
+    introspector.get_file_info.return_value = mock_result  # Changed from introspect
     return introspector
 
 
@@ -244,7 +245,7 @@ class TestTranscodeJobServiceProcess:
         mock_result = MagicMock()
         mock_result.success = False
         mock_result.error = "ffprobe failed"
-        mock_introspector.introspect.return_value = mock_result
+        mock_introspector.get_file_info.return_value = mock_result
         service = TranscodeJobService(introspector=mock_introspector)
         job = Job(
             id="test",
@@ -272,7 +273,7 @@ class TestTranscodeJobServiceProcess:
         mock_result = MagicMock()
         mock_result.success = True
         mock_result.container_format = "matroska"
-        mock_result.duration = 3600.0
+        mock_result.duration_seconds = 3600.0
         mock_result.tracks = [
             TrackInfo(
                 index=0,
@@ -285,7 +286,7 @@ class TestTranscodeJobServiceProcess:
             ),
         ]
         mock_result.error = None
-        mock_introspector.introspect.return_value = mock_result
+        mock_introspector.get_file_info.return_value = mock_result
         service = TranscodeJobService(introspector=mock_introspector)
         job = Job(
             id="test",
