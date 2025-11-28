@@ -1,18 +1,26 @@
-"""Unit tests for FFprobeIntrospector."""
+"""Unit tests for FFprobeIntrospector.
+
+Note: Stream parsing logic has been extracted to
+video_policy_orchestrator.introspector.parsers and is tested in
+test_introspector_parsers.py. This file tests FFprobeIntrospector-specific
+functionality and backward compatibility of static method wrappers.
+"""
 
 from video_policy_orchestrator.introspector.ffprobe import FFprobeIntrospector
+from video_policy_orchestrator.introspector.parsers import parse_streams
 
 
 class TestParseStreams:
-    """Tests for FFprobeIntrospector._parse_streams()."""
+    """Tests for stream parsing via parse_streams function.
+
+    These tests verify the parsing behavior using fixtures.
+    The actual parsing logic is in the parsers module.
+    """
 
     def test_parse_simple_single_track(self, simple_single_track_fixture: dict) -> None:
         """Test parsing a simple file with 1 video + 1 audio track."""
-        introspector = object.__new__(FFprobeIntrospector)
-        warnings: list[str] = []
-
         streams = simple_single_track_fixture["streams"]
-        tracks = introspector._parse_streams(streams, warnings)
+        tracks, warnings = parse_streams(streams)
 
         assert len(tracks) == 2
         assert len(warnings) == 0
@@ -41,11 +49,8 @@ class TestParseStreams:
 
     def test_parse_multi_audio(self, multi_audio_fixture: dict) -> None:
         """Test parsing a file with multiple audio tracks."""
-        introspector = object.__new__(FFprobeIntrospector)
-        warnings: list[str] = []
-
         streams = multi_audio_fixture["streams"]
-        tracks = introspector._parse_streams(streams, warnings)
+        tracks, warnings = parse_streams(streams)
 
         assert len(tracks) == 4
         assert len(warnings) == 0
@@ -73,11 +78,8 @@ class TestParseStreams:
 
     def test_parse_subtitle_heavy(self, subtitle_heavy_fixture: dict) -> None:
         """Test parsing a file with many subtitle tracks."""
-        introspector = object.__new__(FFprobeIntrospector)
-        warnings: list[str] = []
-
         streams = subtitle_heavy_fixture["streams"]
-        tracks = introspector._parse_streams(streams, warnings)
+        tracks, warnings = parse_streams(streams)
 
         assert len(tracks) == 7  # 1 video + 1 audio + 5 subtitles
         assert len(warnings) == 0
@@ -98,11 +100,8 @@ class TestParseStreams:
         self, edge_case_missing_metadata_fixture: dict
     ) -> None:
         """Test parsing a file with missing metadata fields."""
-        introspector = object.__new__(FFprobeIntrospector)
-        warnings: list[str] = []
-
         streams = edge_case_missing_metadata_fixture["streams"]
-        tracks = introspector._parse_streams(streams, warnings)
+        tracks, warnings = parse_streams(streams)
 
         assert len(tracks) == 3
         assert len(warnings) == 0
@@ -130,7 +129,7 @@ class TestParseStreams:
 
 
 class TestChannelLayoutMapping:
-    """Tests for FFprobeIntrospector._map_channel_layout()."""
+    """Tests for FFprobeIntrospector._map_channel_layout() backward compat."""
 
     def test_mono(self) -> None:
         """Test mono (1 channel) mapping."""
@@ -156,7 +155,7 @@ class TestChannelLayoutMapping:
 
 
 class TestTrackTypeMapping:
-    """Tests for FFprobeIntrospector._map_track_type()."""
+    """Tests for FFprobeIntrospector._map_track_type() backward compat."""
 
     def test_video(self) -> None:
         """Test video codec_type mapping."""
@@ -182,20 +181,17 @@ class TestTrackTypeMapping:
 
 
 class TestEdgeCaseHandling:
-    """Tests for edge case handling in FFprobeIntrospector."""
+    """Tests for edge case handling via parsers module."""
 
     def test_duplicate_stream_index(self) -> None:
         """Test that duplicate stream indices are skipped with warning."""
-        introspector = object.__new__(FFprobeIntrospector)
-        warnings: list[str] = []
-
         streams = [
             {"index": 0, "codec_type": "video", "codec_name": "h264"},
             {"index": 0, "codec_type": "audio", "codec_name": "aac"},  # Duplicate!
             {"index": 1, "codec_type": "audio", "codec_name": "opus"},
         ]
 
-        tracks = introspector._parse_streams(streams, warnings)
+        tracks, warnings = parse_streams(streams)
 
         assert len(tracks) == 2  # Only 2 tracks, duplicate skipped
         assert len(warnings) == 1
@@ -203,22 +199,16 @@ class TestEdgeCaseHandling:
 
     def test_empty_streams(self) -> None:
         """Test parsing empty streams list."""
-        introspector = object.__new__(FFprobeIntrospector)
-        warnings: list[str] = []
-
-        tracks = introspector._parse_streams([], warnings)
+        tracks, warnings = parse_streams([])
 
         assert len(tracks) == 0
-        assert len(warnings) == 0  # Warning added in _parse_output, not here
+        assert len(warnings) == 0  # Warning added in parse_ffprobe_output, not here
 
     def test_missing_tags_entirely(self) -> None:
         """Test stream with no tags at all."""
-        introspector = object.__new__(FFprobeIntrospector)
-        warnings: list[str] = []
-
         streams = [{"index": 0, "codec_type": "video", "codec_name": "h264"}]
 
-        tracks = introspector._parse_streams(streams, warnings)
+        tracks, warnings = parse_streams(streams)
 
         assert len(tracks) == 1
         assert tracks[0].language == "und"
@@ -226,34 +216,28 @@ class TestEdgeCaseHandling:
 
     def test_missing_disposition_entirely(self) -> None:
         """Test stream with no disposition at all."""
-        introspector = object.__new__(FFprobeIntrospector)
-        warnings: list[str] = []
-
         streams = [{"index": 0, "codec_type": "audio", "codec_name": "aac"}]
 
-        tracks = introspector._parse_streams(streams, warnings)
+        tracks, warnings = parse_streams(streams)
 
         assert len(tracks) == 1
         assert tracks[0].is_default is False
         assert tracks[0].is_forced is False
 
     def test_sanitize_string(self) -> None:
-        """Test _sanitize_string method."""
+        """Test _sanitize_string backward compat wrapper."""
         assert FFprobeIntrospector._sanitize_string(None) is None
         assert FFprobeIntrospector._sanitize_string("normal") == "normal"
         assert FFprobeIntrospector._sanitize_string("with spaces") == "with spaces"
 
     def test_uncommon_codec_preserved(self) -> None:
         """Test that uncommon codec names are preserved as-is."""
-        introspector = object.__new__(FFprobeIntrospector)
-        warnings: list[str] = []
-
         streams = [
             {"index": 0, "codec_type": "video", "codec_name": "prores_ks"},
             {"index": 1, "codec_type": "audio", "codec_name": "pcm_s24le"},
         ]
 
-        tracks = introspector._parse_streams(streams, warnings)
+        tracks, warnings = parse_streams(streams)
 
         assert tracks[0].codec == "prores_ks"
         assert tracks[1].codec == "pcm_s24le"
