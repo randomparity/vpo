@@ -3,11 +3,17 @@
 Note: Stream parsing logic has been extracted to
 video_policy_orchestrator.introspector.parsers and is tested in
 test_introspector_parsers.py. This file tests FFprobeIntrospector-specific
-functionality and backward compatibility of static method wrappers.
+functionality.
 """
 
-from video_policy_orchestrator.introspector.ffprobe import FFprobeIntrospector
-from video_policy_orchestrator.introspector.parsers import parse_streams
+from video_policy_orchestrator.introspector.mappings import (
+    map_channel_layout,
+    map_track_type,
+)
+from video_policy_orchestrator.introspector.parsers import (
+    parse_streams,
+    sanitize_string,
+)
 
 
 class TestParseStreams:
@@ -129,55 +135,55 @@ class TestParseStreams:
 
 
 class TestChannelLayoutMapping:
-    """Tests for FFprobeIntrospector._map_channel_layout() backward compat."""
+    """Tests for map_channel_layout function."""
 
     def test_mono(self) -> None:
         """Test mono (1 channel) mapping."""
-        assert FFprobeIntrospector._map_channel_layout(1) == "mono"
+        assert map_channel_layout(1) == "mono"
 
     def test_stereo(self) -> None:
         """Test stereo (2 channels) mapping."""
-        assert FFprobeIntrospector._map_channel_layout(2) == "stereo"
+        assert map_channel_layout(2) == "stereo"
 
     def test_5_1(self) -> None:
         """Test 5.1 (6 channels) mapping."""
-        assert FFprobeIntrospector._map_channel_layout(6) == "5.1"
+        assert map_channel_layout(6) == "5.1"
 
     def test_7_1(self) -> None:
         """Test 7.1 (8 channels) mapping."""
-        assert FFprobeIntrospector._map_channel_layout(8) == "7.1"
+        assert map_channel_layout(8) == "7.1"
 
     def test_unknown_channels(self) -> None:
         """Test unknown channel counts use 'Nch' format."""
-        assert FFprobeIntrospector._map_channel_layout(3) == "3ch"
-        assert FFprobeIntrospector._map_channel_layout(4) == "4ch"
-        assert FFprobeIntrospector._map_channel_layout(10) == "10ch"
+        assert map_channel_layout(3) == "3ch"
+        assert map_channel_layout(4) == "4ch"
+        assert map_channel_layout(10) == "10ch"
 
 
 class TestTrackTypeMapping:
-    """Tests for FFprobeIntrospector._map_track_type() backward compat."""
+    """Tests for map_track_type function."""
 
     def test_video(self) -> None:
         """Test video codec_type mapping."""
-        assert FFprobeIntrospector._map_track_type("video") == "video"
+        assert map_track_type("video") == "video"
 
     def test_audio(self) -> None:
         """Test audio codec_type mapping."""
-        assert FFprobeIntrospector._map_track_type("audio") == "audio"
+        assert map_track_type("audio") == "audio"
 
     def test_subtitle(self) -> None:
         """Test subtitle codec_type mapping."""
-        assert FFprobeIntrospector._map_track_type("subtitle") == "subtitle"
+        assert map_track_type("subtitle") == "subtitle"
 
     def test_attachment(self) -> None:
         """Test attachment codec_type mapping."""
-        assert FFprobeIntrospector._map_track_type("attachment") == "attachment"
+        assert map_track_type("attachment") == "attachment"
 
     def test_unknown_type(self) -> None:
         """Test unknown codec_type maps to 'other'."""
-        assert FFprobeIntrospector._map_track_type("data") == "other"
-        assert FFprobeIntrospector._map_track_type("unknown") == "other"
-        assert FFprobeIntrospector._map_track_type("") == "other"
+        assert map_track_type("data") == "other"
+        assert map_track_type("unknown") == "other"
+        assert map_track_type("") == "other"
 
 
 class TestEdgeCaseHandling:
@@ -225,10 +231,10 @@ class TestEdgeCaseHandling:
         assert tracks[0].is_forced is False
 
     def test_sanitize_string(self) -> None:
-        """Test _sanitize_string backward compat wrapper."""
-        assert FFprobeIntrospector._sanitize_string(None) is None
-        assert FFprobeIntrospector._sanitize_string("normal") == "normal"
-        assert FFprobeIntrospector._sanitize_string("with spaces") == "with spaces"
+        """Test sanitize_string function."""
+        assert sanitize_string(None) is None
+        assert sanitize_string("normal") == "normal"
+        assert sanitize_string("with spaces") == "with spaces"
 
     def test_uncommon_codec_preserved(self) -> None:
         """Test that uncommon codec names are preserved as-is."""
@@ -241,3 +247,44 @@ class TestEdgeCaseHandling:
 
         assert tracks[0].codec == "prores_ks"
         assert tracks[1].codec == "pcm_s24le"
+
+
+class TestFFprobeTimeout:
+    """Tests for FFprobeIntrospector timeout handling."""
+
+    def test_timeout_raises_introspection_error(self, monkeypatch, tmp_path) -> None:
+        """Test that subprocess timeout is wrapped in MediaIntrospectionError."""
+        import subprocess
+        from unittest.mock import MagicMock
+
+        from video_policy_orchestrator.introspector.ffprobe import FFprobeIntrospector
+        from video_policy_orchestrator.introspector.interface import (
+            MediaIntrospectionError,
+        )
+
+        # Mock subprocess.run to raise TimeoutExpired
+        mock_run = MagicMock(
+            side_effect=subprocess.TimeoutExpired(cmd="ffprobe", timeout=60)
+        )
+        monkeypatch.setattr(
+            "video_policy_orchestrator.introspector.ffprobe.subprocess.run",
+            mock_run,
+        )
+
+        # Mock the tool path check to return a valid path
+        monkeypatch.setattr(
+            FFprobeIntrospector,
+            "_get_configured_path",
+            staticmethod(lambda: tmp_path / "ffprobe"),
+        )
+
+        introspector = FFprobeIntrospector()
+
+        # Create a dummy file
+        test_file = tmp_path / "test.mkv"
+        test_file.touch()
+
+        import pytest
+
+        with pytest.raises(MediaIntrospectionError, match="timed out.*after 60s"):
+            introspector.get_file_info(test_file)

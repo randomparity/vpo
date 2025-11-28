@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Protocol
 
-from video_policy_orchestrator.db.models import IntrospectionResult
+from video_policy_orchestrator.db.types import IntrospectionResult
 
 
 class MediaIntrospectionError(Exception):

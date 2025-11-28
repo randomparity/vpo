@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from video_policy_orchestrator.db.models import IntrospectionResult, TrackInfo
+from video_policy_orchestrator.db.types import IntrospectionResult, TrackInfo
 from video_policy_orchestrator.introspector.interface import MediaIntrospectionError
 
 # Container format mapping from extension to format name
