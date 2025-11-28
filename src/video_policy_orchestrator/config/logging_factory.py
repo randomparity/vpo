@@ -60,3 +60,37 @@ def build_logging_config(
         max_bytes=base.max_bytes,
         backup_count=base.backup_count,
     )
+
+
+def configure_logging_from_cli(
+    *,
+    config_path: Path | None = None,
+    level: str | None = None,
+    file: Path | None = None,
+    format: str | None = None,
+    include_stderr: bool | None = None,
+) -> None:
+    """Configure logging with CLI overrides.
+
+    Convenience function that loads config, applies overrides, and configures
+    logging. Centralizes the pattern used by CLI commands.
+
+    Args:
+        config_path: Path to config file (None uses default).
+        level: Override log level.
+        file: Override log file path.
+        format: Override log format ("text" or "json").
+        include_stderr: Override stderr inclusion.
+    """
+    from video_policy_orchestrator.config import get_config
+    from video_policy_orchestrator.logging import configure_logging
+
+    config = get_config(config_path=config_path)
+    final_config = build_logging_config(
+        config.logging,
+        level=level,
+        file=file,
+        format=format,
+        include_stderr=include_stderr,
+    )
+    configure_logging(final_config)

@@ -7,9 +7,23 @@ import json
 import logging
 from pathlib import Path
 
+import pytest
+
 from video_policy_orchestrator.config.models import LoggingConfig
 from video_policy_orchestrator.logging.config import configure_logging
 from video_policy_orchestrator.logging.handlers import JSONFormatter
+
+
+@pytest.fixture(autouse=True)
+def reset_root_logger():
+    """Save and restore root logger state between tests."""
+    root = logging.getLogger()
+    original_handlers = root.handlers[:]
+    original_level = root.level
+    yield
+    root.handlers[:] = original_handlers
+    root.setLevel(original_level)
+
 
 # =============================================================================
 # T052: Unit tests for logging configuration
@@ -213,6 +227,32 @@ class TestJSONFormatter:
         timestamp = data["timestamp"]
         assert "T" in timestamp
         assert timestamp.endswith("+00:00") or timestamp.endswith("Z")
+
+    def test_timestamp_uses_record_created_time(self) -> None:
+        """Should use record.created timestamp, not format time."""
+        from datetime import datetime, timezone
+
+        formatter = JSONFormatter()
+        record = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=42,
+            msg="Test",
+            args=(),
+            exc_info=None,
+        )
+        # Override record.created to a known past time (2020-01-01 00:00:00 UTC)
+        known_timestamp = 1577836800.0
+        record.created = known_timestamp
+
+        output = formatter.format(record)
+        data = json.loads(output)
+
+        # Parse the output timestamp and verify it matches record.created
+        output_dt = datetime.fromisoformat(data["timestamp"])
+        expected_dt = datetime.fromtimestamp(known_timestamp, tz=timezone.utc)
+        assert output_dt == expected_dt
 
     def test_message_formatting_with_args(self) -> None:
         """Should format message with arguments."""
