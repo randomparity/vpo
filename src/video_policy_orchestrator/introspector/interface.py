@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Protocol
 
-from video_policy_orchestrator.db.models import FileInfo
+from video_policy_orchestrator.db.types import IntrospectionResult
 
 
 class MediaIntrospectionError(Exception):
@@ -20,14 +20,14 @@ class MediaIntrospector(Protocol):
     tools to gather track and container information.
     """
 
-    def get_file_info(self, path: Path) -> FileInfo:
+    def get_file_info(self, path: Path) -> IntrospectionResult:
         """Extract metadata from a video file.
 
         Args:
             path: Path to the video file.
 
         Returns:
-            FileInfo object containing file metadata and track information.
+            IntrospectionResult containing file metadata and track information.
 
         Raises:
             MediaIntrospectionError: If the file cannot be introspected.

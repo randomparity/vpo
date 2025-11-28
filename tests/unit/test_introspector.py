@@ -31,9 +31,9 @@ class TestMediaIntrospectorProtocol:
 class TestStubIntrospector:
     """Tests for StubIntrospector implementation."""
 
-    def test_get_file_info_returns_file_info(self, temp_dir: Path):
-        """Test that get_file_info returns a FileInfo object."""
-        from video_policy_orchestrator.db.models import FileInfo
+    def test_get_file_info_returns_introspection_result(self, temp_dir: Path):
+        """Test that get_file_info returns an IntrospectionResult object."""
+        from video_policy_orchestrator.db.models import IntrospectionResult
         from video_policy_orchestrator.introspector.stub import StubIntrospector
 
         # Create a test file
@@ -43,10 +43,9 @@ class TestStubIntrospector:
         introspector = StubIntrospector()
         result = introspector.get_file_info(file_path)
 
-        assert isinstance(result, FileInfo)
-        assert result.path == file_path
-        assert result.filename == "test.mkv"
-        assert result.extension == "mkv"
+        assert isinstance(result, IntrospectionResult)
+        assert result.file_path == file_path
+        assert result.container_format == "matroska"
 
     def test_container_format_mkv(self, temp_dir: Path):
         """Test that .mkv files get matroska container format."""
@@ -146,8 +145,8 @@ class TestStubIntrospector:
         assert len(result.tracks) >= 1
         assert any(t.track_type == "video" for t in result.tracks)
 
-    def test_file_info_has_correct_metadata(self, temp_dir: Path):
-        """Test that FileInfo has correct file metadata."""
+    def test_introspection_result_has_correct_structure(self, temp_dir: Path):
+        """Test that IntrospectionResult has correct structure."""
         from video_policy_orchestrator.introspector.stub import StubIntrospector
 
         file_path = temp_dir / "test_video.mkv"
@@ -157,10 +156,11 @@ class TestStubIntrospector:
         introspector = StubIntrospector()
         result = introspector.get_file_info(file_path)
 
-        assert result.filename == "test_video.mkv"
-        assert result.directory == temp_dir
-        assert result.size_bytes == len(content)
-        assert result.scan_status == "ok"
+        assert result.file_path == file_path
+        assert result.container_format == "matroska"
+        assert isinstance(result.tracks, list)
+        assert isinstance(result.warnings, list)
+        assert result.success is True
 
     def test_nonexistent_file_raises_error(self, temp_dir: Path):
         """Test that nonexistent file raises MediaIntrospectionError."""

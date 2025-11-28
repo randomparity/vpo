@@ -1,9 +1,8 @@
 """Stub implementation of MediaIntrospector for development and testing."""
 
-from datetime import datetime, timezone
 from pathlib import Path
 
-from video_policy_orchestrator.db.models import FileInfo, TrackInfo
+from video_policy_orchestrator.db.types import IntrospectionResult, TrackInfo
 from video_policy_orchestrator.introspector.interface import MediaIntrospectionError
 
 # Container format mapping from extension to format name
@@ -39,14 +38,14 @@ class StubIntrospector:
     and testing; a real implementation would use ffprobe or mkvmerge.
     """
 
-    def get_file_info(self, path: Path) -> FileInfo:
+    def get_file_info(self, path: Path) -> IntrospectionResult:
         """Extract metadata from a video file using extension-based inference.
 
         Args:
             path: Path to the video file.
 
         Returns:
-            FileInfo object with inferred container format and placeholder tracks.
+            IntrospectionResult with inferred container format and placeholder tracks.
 
         Raises:
             MediaIntrospectionError: If the file does not exist.
@@ -54,8 +53,6 @@ class StubIntrospector:
         if not path.exists():
             raise MediaIntrospectionError(f"File not found: {path}")
 
-        # Get file metadata
-        stat = path.stat()
         extension = path.suffix.lstrip(".").lower()
 
         # Infer container format from extension
@@ -64,17 +61,11 @@ class StubIntrospector:
         # Create placeholder tracks
         tracks = self._create_placeholder_tracks(extension)
 
-        return FileInfo(
-            path=path,
-            filename=path.name,
-            directory=path.parent,
-            extension=extension,
-            size_bytes=stat.st_size,
-            modified_at=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
+        return IntrospectionResult(
+            file_path=path,
             container_format=container_format,
-            scanned_at=datetime.now(timezone.utc),
-            scan_status="ok",
             tracks=tracks,
+            warnings=[],
         )
 
     def _create_placeholder_tracks(self, extension: str) -> list[TrackInfo]:
