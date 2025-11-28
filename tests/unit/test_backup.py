@@ -315,6 +315,31 @@ class TestFileLock:
         assert "first" in results
         assert "blocked" in results
 
+    def test_file_lock_does_not_delete_others_lock(self, temp_dir: Path) -> None:
+        """Should not delete lock file when acquisition fails.
+
+        This tests the fix for a race condition where a failed lock acquisition
+        would delete another process's lock file in the finally block.
+        """
+        test_file = temp_dir / "test.mkv"
+        test_file.touch()
+        lock_path = test_file.with_suffix(test_file.suffix + ".vpo-lock")
+
+        with file_lock(test_file):
+            # Lock file should exist while we hold the lock
+            assert lock_path.exists()
+
+            # Another process tries to acquire - should fail but NOT delete our lock
+            with pytest.raises(FileLockError):
+                with file_lock(test_file):
+                    pass
+
+            # Our lock file should STILL exist after failed acquisition
+            assert lock_path.exists(), (
+                "Lock file was deleted by failed acquisition! "
+                "This indicates the race condition fix is not working."
+            )
+
 
 # =============================================================================
 # FileLockError Tests

@@ -4,12 +4,15 @@ This module provides an executor for changing MKV metadata (flags, titles,
 language) using mkvpropedit. This is fast and in-place (no remux needed).
 """
 
+import logging
 import subprocess  # nosec B404 - subprocess is required for mkvpropedit execution
 from pathlib import Path
 
 from video_policy_orchestrator.executor.backup import create_backup, restore_from_backup
 from video_policy_orchestrator.executor.interface import ExecutorResult, require_tool
 from video_policy_orchestrator.policy.models import ActionType, Plan, PlannedAction
+
+logger = logging.getLogger(__name__)
 
 
 class MkvpropeditExecutor:
@@ -24,9 +27,16 @@ class MkvpropeditExecutor:
     It does NOT handle REORDER - that requires mkvmerge.
     """
 
-    def __init__(self) -> None:
-        """Initialize the executor."""
+    DEFAULT_TIMEOUT: int = 300  # 5 minutes
+
+    def __init__(self, timeout: int | None = None) -> None:
+        """Initialize the executor.
+
+        Args:
+            timeout: Subprocess timeout in seconds. None uses DEFAULT_TIMEOUT.
+        """
         self._tool_path: Path | None = None
+        self._timeout = timeout if timeout is not None else self.DEFAULT_TIMEOUT
 
     @property
     def tool_path(self) -> Path:
@@ -90,21 +100,32 @@ class MkvpropeditExecutor:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=300,  # 5 minute timeout
+                timeout=self._timeout if self._timeout > 0 else None,
+                encoding="utf-8",
+                errors="replace",
             )
         except subprocess.TimeoutExpired:
             # Restore backup on timeout
             restore_from_backup(backup_path)
+            timeout_mins = self._timeout // 60 if self._timeout else 0
             return ExecutorResult(
                 success=False,
-                message="mkvpropedit timed out after 5 minutes",
+                message=f"mkvpropedit timed out after {timeout_mins} minutes",
             )
-        except Exception as e:
-            # Restore backup on error
+        except (subprocess.SubprocessError, OSError) as e:
+            # Restore backup on subprocess error
             restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
                 message=f"mkvpropedit execution failed: {e}",
+            )
+        except Exception as e:
+            # Restore backup on unexpected error
+            logger.exception("Unexpected error during mkvpropedit execution")
+            restore_from_backup(backup_path)
+            return ExecutorResult(
+                success=False,
+                message=f"Unexpected error during mkvpropedit execution: {e}",
             )
 
         if result.returncode != 0:
@@ -155,8 +176,18 @@ class MkvpropeditExecutor:
         elif action.action_type == ActionType.CLEAR_FORCED:
             return ["--edit", track_selector, "--set", "flag-forced=0"]
         elif action.action_type == ActionType.SET_TITLE:
+            if action.desired_value is None:
+                raise ValueError(
+                    f"SET_TITLE requires a non-None desired_value "
+                    f"for track {action.track_index}"
+                )
             return ["--edit", track_selector, "--set", f"name={action.desired_value}"]
         elif action.action_type == ActionType.SET_LANGUAGE:
+            if action.desired_value is None:
+                raise ValueError(
+                    f"SET_LANGUAGE requires a non-None desired_value "
+                    f"for track {action.track_index}"
+                )
             return [
                 "--edit",
                 track_selector,

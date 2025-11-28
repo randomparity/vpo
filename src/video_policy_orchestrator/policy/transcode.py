@@ -1,7 +1,12 @@
-"""Audio codec matching and transcoding policy evaluation.
+"""Audio codec matching, skip evaluation, and transcoding policy evaluation.
 
-This module provides functions for matching audio codecs against preservation rules
-and determining how each audio track should be handled during transcoding.
+This module provides functions for:
+- Matching audio codecs against preservation rules
+- Determining how each audio track should be handled during transcoding
+- Evaluating skip conditions for video transcoding (V6 policies)
+
+Note: Audio codec matching uses the unified policy/codecs.py module internally,
+but maintains local functions for backward compatibility.
 """
 
 import fnmatch
@@ -9,10 +14,14 @@ from dataclasses import dataclass
 from enum import Enum
 
 from video_policy_orchestrator.db.models import TrackInfo
+from video_policy_orchestrator.policy.codecs import video_codec_matches_any
 from video_policy_orchestrator.policy.models import (
+    RESOLUTION_MAP,
     AudioPreservationRule,
     AudioTranscodeConfig,
+    SkipCondition,
     TranscodePolicyConfig,
+    parse_bitrate,
 )
 
 
@@ -413,3 +422,157 @@ def create_audio_plan_v6(
         audio_stream_index += 1
 
     return AudioPlan(tracks=track_plans, downmix_track=None)
+
+
+# =============================================================================
+# Skip Condition Evaluation (V6)
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class SkipEvaluationResult:
+    """Result of skip condition evaluation.
+
+    This dataclass provides a structured result for skip condition evaluation,
+    including the skip decision and a human-readable reason.
+    """
+
+    skip: bool
+    """True if transcoding should be skipped."""
+
+    reason: str | None = None
+    """Human-readable reason for the skip decision."""
+
+
+def _resolution_within_threshold(
+    width: int | None,
+    height: int | None,
+    resolution_within: str | None,
+) -> bool:
+    """Check if resolution is within the specified threshold.
+
+    Args:
+        width: Current video width.
+        height: Current video height.
+        resolution_within: Resolution preset (e.g., '1080p', '4k').
+
+    Returns:
+        True if resolution is at or below threshold.
+    """
+    if resolution_within is None:
+        return True  # No threshold = always passes
+    if width is None or height is None:
+        return True  # Unknown resolution = can't evaluate, pass
+
+    max_dims = RESOLUTION_MAP.get(resolution_within.lower())
+    if max_dims is None:
+        return True  # Invalid preset = pass (validation should catch this earlier)
+
+    max_width, max_height = max_dims
+    return width <= max_width and height <= max_height
+
+
+def _bitrate_under_threshold(
+    current_bitrate: int | None,
+    bitrate_under: str | None,
+) -> bool:
+    """Check if bitrate is under the specified threshold.
+
+    Args:
+        current_bitrate: Current video bitrate in bits per second.
+        bitrate_under: Threshold bitrate string (e.g., '10M', '5000k').
+
+    Returns:
+        True if bitrate is under threshold.
+    """
+    if bitrate_under is None:
+        return True  # No threshold = always passes
+    if current_bitrate is None:
+        return True  # Unknown bitrate = can't evaluate, pass
+
+    threshold = parse_bitrate(bitrate_under)
+    if threshold is None:
+        return True  # Invalid threshold = pass
+
+    return current_bitrate < threshold
+
+
+def evaluate_skip_condition(
+    skip_if: SkipCondition | None,
+    video_codec: str | None,
+    video_width: int | None,
+    video_height: int | None,
+    video_bitrate: int | None,
+) -> SkipEvaluationResult:
+    """Evaluate skip conditions for video transcoding.
+
+    All specified conditions must pass for skip (AND logic).
+    Unspecified conditions (None) are not evaluated and pass by default.
+
+    This is the policy-layer implementation of skip condition evaluation,
+    delegating codec matching to the unified policy/codecs.py module.
+
+    Args:
+        skip_if: Skip condition configuration.
+        video_codec: Current video codec.
+        video_width: Current video width.
+        video_height: Current video height.
+        video_bitrate: Current video bitrate in bits per second.
+
+    Returns:
+        SkipEvaluationResult with skip decision and reason.
+    """
+    if skip_if is None:
+        return SkipEvaluationResult(skip=False, reason=None)
+
+    # Check codec condition (uses unified codec matching from policy/codecs.py)
+    codec_matches = video_codec_matches_any(video_codec, skip_if.codec_matches)
+    if not codec_matches:
+        return SkipEvaluationResult(
+            skip=False,
+            reason=f"Codec '{video_codec}' not in skip list {skip_if.codec_matches}",
+        )
+
+    # Check resolution condition
+    resolution_ok = _resolution_within_threshold(
+        video_width, video_height, skip_if.resolution_within
+    )
+    if not resolution_ok:
+        return SkipEvaluationResult(
+            skip=False,
+            reason=(
+                f"Resolution {video_width}x{video_height} exceeds "
+                f"{skip_if.resolution_within} threshold"
+            ),
+        )
+
+    # Check bitrate condition
+    bitrate_ok = _bitrate_under_threshold(video_bitrate, skip_if.bitrate_under)
+    if not bitrate_ok:
+        threshold = parse_bitrate(skip_if.bitrate_under) or 0
+        return SkipEvaluationResult(
+            skip=False,
+            reason=(
+                f"Bitrate {video_bitrate} exceeds "
+                f"{skip_if.bitrate_under} ({threshold}) threshold"
+            ),
+        )
+
+    # All conditions passed - build skip reason
+    reasons = []
+    if skip_if.codec_matches:
+        reasons.append(f"codec is {video_codec}")
+    if skip_if.resolution_within:
+        res_str = f"{video_width}x{video_height}"
+        reasons.append(f"resolution {res_str} within {skip_if.resolution_within}")
+    if skip_if.bitrate_under:
+        reasons.append(f"bitrate under {skip_if.bitrate_under}")
+
+    reason = (
+        "Already compliant: " + ", ".join(reasons) if reasons else "All conditions met"
+    )
+    return SkipEvaluationResult(skip=True, reason=reason)
+
+
+# Backward compatibility alias for executor/transcode.py
+should_skip_transcode = evaluate_skip_condition

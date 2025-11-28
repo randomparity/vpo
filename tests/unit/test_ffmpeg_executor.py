@@ -171,6 +171,7 @@ class TestFfmpegExecute:
         assert result.success is True
         assert "No changes" in result.message
 
+    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.check_disk_space")
     @patch("video_policy_orchestrator.executor.ffmpeg_metadata.create_backup")
     @patch("video_policy_orchestrator.executor.ffmpeg_metadata.require_tool")
     @patch("subprocess.run")
@@ -181,6 +182,7 @@ class TestFfmpegExecute:
         mock_run: MagicMock,
         mock_require: MagicMock,
         mock_backup: MagicMock,
+        mock_disk_space: MagicMock,
         mp4_plan: Plan,
         temp_dir: Path,
     ) -> None:
@@ -207,6 +209,7 @@ class TestFfmpegExecute:
         assert result.success is True
         mock_backup.assert_called_once()
 
+    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.check_disk_space")
     @patch("video_policy_orchestrator.executor.ffmpeg_metadata.create_backup")
     @patch("video_policy_orchestrator.executor.ffmpeg_metadata.restore_from_backup")
     @patch("video_policy_orchestrator.executor.ffmpeg_metadata.require_tool")
@@ -219,6 +222,7 @@ class TestFfmpegExecute:
         mock_require: MagicMock,
         mock_restore: MagicMock,
         mock_backup: MagicMock,
+        mock_disk_space: MagicMock,
         mp4_plan: Plan,
     ) -> None:
         """Failed execution should restore from backup."""
@@ -244,6 +248,7 @@ class TestFfmpegExecute:
         assert result.success is False
         mock_restore.assert_called_once_with(backup_path)
 
+    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.check_disk_space")
     @patch("video_policy_orchestrator.executor.ffmpeg_metadata.create_backup")
     @patch("video_policy_orchestrator.executor.ffmpeg_metadata.restore_from_backup")
     @patch("video_policy_orchestrator.executor.ffmpeg_metadata.require_tool")
@@ -256,6 +261,7 @@ class TestFfmpegExecute:
         mock_require: MagicMock,
         mock_restore: MagicMock,
         mock_backup: MagicMock,
+        mock_disk_space: MagicMock,
         mp4_plan: Plan,
     ) -> None:
         """Timeout should restore from backup and return failure."""
@@ -284,10 +290,12 @@ class TestFfmpegExecute:
         assert "timed out" in result.message
         mock_restore.assert_called_once()
 
+    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.check_disk_space")
     @patch("video_policy_orchestrator.executor.ffmpeg_metadata.create_backup")
     def test_execute_backup_failure(
         self,
         mock_backup: MagicMock,
+        mock_disk_space: MagicMock,
         mp4_plan: Plan,
     ) -> None:
         """Backup failure should return failure result."""
@@ -507,6 +515,61 @@ class TestFfmpegActionToArgs:
         with pytest.raises(ValueError, match="Unsupported action type"):
             executor._action_to_args(action)
 
+    def test_action_to_args_set_title_none_raises(self) -> None:
+        """SET_TITLE with None desired_value should raise ValueError."""
+        executor = FfmpegMetadataExecutor()
+        action = PlannedAction(
+            action_type=ActionType.SET_TITLE,
+            track_index=1,
+            current_value="Old Title",
+            desired_value=None,
+        )
+
+        with pytest.raises(ValueError, match="non-None desired_value"):
+            executor._action_to_args(action)
+
+    def test_action_to_args_set_language_none_raises(self) -> None:
+        """SET_LANGUAGE with None desired_value should raise ValueError."""
+        executor = FfmpegMetadataExecutor()
+        action = PlannedAction(
+            action_type=ActionType.SET_LANGUAGE,
+            track_index=1,
+            current_value="und",
+            desired_value=None,
+        )
+
+        with pytest.raises(ValueError, match="non-None desired_value"):
+            executor._action_to_args(action)
+
+
+# =============================================================================
+# Disk Space Check Tests
+# =============================================================================
+
+
+class TestFfmpegDiskSpaceCheck:
+    """Tests for disk space check in FfmpegMetadataExecutor."""
+
+    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.check_disk_space")
+    def test_execute_insufficient_disk_space(
+        self,
+        mock_check: MagicMock,
+        mp4_plan: Plan,
+    ) -> None:
+        """Should return failure when disk space is insufficient."""
+        from video_policy_orchestrator.executor.backup import InsufficientDiskSpaceError
+
+        mock_check.side_effect = InsufficientDiskSpaceError(
+            "Insufficient disk space for remux operation"
+        )
+
+        executor = FfmpegMetadataExecutor()
+        result = executor.execute(mp4_plan)
+
+        assert result.success is False
+        assert "Insufficient disk space" in result.message
+        mock_check.assert_called_once_with(mp4_plan.file_path, multiplier=2.0)
+
 
 # =============================================================================
 # Backup Handling Tests
@@ -516,6 +579,7 @@ class TestFfmpegActionToArgs:
 class TestFfmpegBackupHandling:
     """Tests for backup handling in FfmpegMetadataExecutor."""
 
+    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.check_disk_space")
     @patch("video_policy_orchestrator.executor.ffmpeg_metadata.create_backup")
     @patch("video_policy_orchestrator.executor.ffmpeg_metadata.require_tool")
     @patch("subprocess.run")
@@ -526,6 +590,7 @@ class TestFfmpegBackupHandling:
         mock_run: MagicMock,
         mock_require: MagicMock,
         mock_backup: MagicMock,
+        mock_disk_space: MagicMock,
         mp4_plan: Plan,
     ) -> None:
         """Backup should be kept when keep_backup=True."""
@@ -552,6 +617,7 @@ class TestFfmpegBackupHandling:
         # unlink should NOT be called on backup_path when keeping
         # (it might be called for temp file cleanup)
 
+    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.check_disk_space")
     @patch("video_policy_orchestrator.executor.ffmpeg_metadata.create_backup")
     @patch("video_policy_orchestrator.executor.ffmpeg_metadata.require_tool")
     @patch("subprocess.run")
@@ -562,6 +628,7 @@ class TestFfmpegBackupHandling:
         mock_run: MagicMock,
         mock_require: MagicMock,
         mock_backup: MagicMock,
+        mock_disk_space: MagicMock,
         mp4_plan: Plan,
     ) -> None:
         """Backup should be removed when keep_backup=False."""

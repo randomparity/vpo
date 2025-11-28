@@ -2,6 +2,15 @@
 
 This module provides file movement functionality for organizing
 output files based on metadata-driven destination templates.
+
+Design Note:
+    MoveExecutor intentionally does not implement the Executor protocol
+    defined in interface.py. The Executor protocol is designed for media
+    file modification operations (metadata changes, transcoding, container
+    conversion), while MoveExecutor handles post-processing file organization.
+    The different interfaces reflect distinct responsibilities:
+    - Executor: operates on Plan, returns ExecutorResult
+    - MoveExecutor: operates on MovePlan, returns MoveResult
 """
 
 import logging
@@ -172,16 +181,26 @@ class MoveExecutor:
         }
 
 
-def ensure_unique_path(path: Path) -> Path:
+# Maximum number of suffix attempts before giving up
+MAX_UNIQUE_PATH_ATTEMPTS = 10000
+
+
+def ensure_unique_path(
+    path: Path, max_attempts: int = MAX_UNIQUE_PATH_ATTEMPTS
+) -> Path:
     """Ensure a path is unique by adding a suffix if needed.
 
     If the path already exists, adds (1), (2), etc. until unique.
 
     Args:
         path: Desired path.
+        max_attempts: Maximum number of attempts before raising error.
 
     Returns:
         Unique path that doesn't exist.
+
+    Raises:
+        RuntimeError: If no unique path found within max_attempts.
     """
     if not path.exists():
         return path
@@ -190,9 +209,11 @@ def ensure_unique_path(path: Path) -> Path:
     suffix = path.suffix
     parent = path.parent
 
-    counter = 1
-    while True:
+    for counter in range(1, max_attempts + 1):
         new_path = parent / f"{base} ({counter}){suffix}"
         if not new_path.exists():
             return new_path
-        counter += 1
+
+    raise RuntimeError(
+        f"Could not find unique path after {max_attempts} attempts: {path}"
+    )

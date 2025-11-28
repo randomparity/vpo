@@ -1,4 +1,14 @@
-"""Transcode executor for video/audio transcoding via FFmpeg."""
+"""Transcode executor for video/audio transcoding via FFmpeg.
+
+This module implements the TranscodeExecutor class for video transcoding
+operations. Business logic for skip evaluation, codec matching, and
+video analysis has been extracted to:
+
+- policy/video_analysis.py: VFR, HDR, bitrate detection
+- policy/codecs.py: Unified codec matching
+- policy/transcode.py: Skip condition evaluation
+- tools/encoders.py: Hardware encoder detection and selection
+"""
 
 import logging
 import platform
@@ -10,7 +20,6 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 
 from video_policy_orchestrator.db.models import TrackInfo
@@ -20,7 +29,6 @@ from video_policy_orchestrator.jobs.progress import (
     parse_stderr_progress,
 )
 from video_policy_orchestrator.policy.models import (
-    RESOLUTION_MAP,
     AudioTranscodeConfig,
     QualityMode,
     QualitySettings,
@@ -33,9 +41,24 @@ from video_policy_orchestrator.policy.transcode import (
     AudioAction,
     AudioPlan,
     AudioTrackPlan,
+    SkipEvaluationResult,
     create_audio_plan,
     create_audio_plan_v6,
     describe_audio_plan,
+    evaluate_skip_condition,
+)
+
+# Import from refactored modules
+from video_policy_orchestrator.policy.video_analysis import (
+    HDRType,
+    build_hdr_preservation_args,
+    detect_hdr_type,
+    detect_missing_bitrate,
+    detect_vfr_content,
+    select_primary_video_stream,
+)
+from video_policy_orchestrator.tools.encoders import (
+    get_software_encoder,
 )
 
 logger = logging.getLogger(__name__)
@@ -83,307 +106,13 @@ class TwoPassContext:
 # =============================================================================
 # Edge Case Detection Utilities
 # =============================================================================
-
-
-def _parse_frame_rate(frame_rate_str: str | None) -> float | None:
-    """Parse FFprobe frame rate string (e.g., '24000/1001') to float.
-
-    Args:
-        frame_rate_str: Frame rate string from ffprobe.
-
-    Returns:
-        Frame rate as float, or None if unparseable.
-    """
-    if not frame_rate_str or frame_rate_str == "0/0":
-        return None
-
-    if "/" in frame_rate_str:
-        try:
-            num, denom = frame_rate_str.split("/")
-            denom_val = float(denom)
-            if denom_val == 0:
-                return None
-            return float(num) / denom_val
-        except ValueError:
-            return None
-
-    try:
-        return float(frame_rate_str)
-    except ValueError:
-        return None
-
-
-def detect_vfr_content(
-    r_frame_rate: str | None,
-    avg_frame_rate: str | None,
-    tolerance: float = 0.01,
-) -> tuple[bool, str | None]:
-    """Detect if content is variable frame rate (VFR).
-
-    VFR content is detected when r_frame_rate and avg_frame_rate differ
-    significantly. This can cause issues with transcoding as some encoders
-    may not handle VFR well.
-
-    Args:
-        r_frame_rate: Real frame rate from ffprobe (r_frame_rate).
-        avg_frame_rate: Average frame rate from ffprobe (avg_frame_rate).
-        tolerance: Maximum relative difference to consider as CFR.
-
-    Returns:
-        Tuple of (is_vfr, warning_message).
-    """
-    r_fps = _parse_frame_rate(r_frame_rate)
-    avg_fps = _parse_frame_rate(avg_frame_rate)
-
-    if r_fps is None or avg_fps is None:
-        return False, None
-
-    if avg_fps == 0:
-        return False, None
-
-    # Calculate relative difference
-    relative_diff = abs(r_fps - avg_fps) / avg_fps
-
-    if relative_diff > tolerance:
-        return True, (
-            f"Variable frame rate detected (r_frame_rate={r_frame_rate}, "
-            f"avg_frame_rate={avg_frame_rate}). Transcoding may produce "
-            "inconsistent playback. Consider using -vsync cfr to force CFR output."
-        )
-
-    return False, None
-
-
-def detect_missing_bitrate(
-    bitrate: int | None,
-    file_size_bytes: int | None,
-    duration_seconds: float | None,
-) -> tuple[bool, int | None, str | None]:
-    """Handle missing bitrate metadata with estimation.
-
-    When bitrate metadata is missing, we can estimate it from file size
-    and duration to allow skip conditions to still work.
-
-    Args:
-        bitrate: Bitrate from metadata (may be None).
-        file_size_bytes: Total file size in bytes.
-        duration_seconds: Video duration in seconds.
-
-    Returns:
-        Tuple of (was_estimated, estimated_bitrate, warning_message).
-    """
-    if bitrate is not None and bitrate > 0:
-        return False, bitrate, None
-
-    if file_size_bytes is None or duration_seconds is None:
-        return (
-            True,
-            None,
-            (
-                "Video bitrate metadata is missing and cannot be estimated "
-                "(file size or duration unknown). Bitrate-based skip conditions "
-                "will be ignored."
-            ),
-        )
-
-    if duration_seconds <= 0:
-        return (
-            True,
-            None,
-            (
-                "Video bitrate metadata is missing and cannot be estimated "
-                "(duration is zero or negative). Bitrate-based skip conditions "
-                "will be ignored."
-            ),
-        )
-
-    # Estimate total bitrate from file size and duration
-    # This includes all streams, so it's an upper bound for video bitrate
-    estimated_bps = int((file_size_bytes * 8) / duration_seconds)
-
-    return (
-        True,
-        estimated_bps,
-        (
-            f"Video bitrate metadata is missing. Estimated total bitrate: "
-            f"{estimated_bps / 1_000_000:.1f} Mbps (based on file size/duration). "
-            "This estimate includes all streams and may be higher than actual "
-            "video bitrate."
-        ),
-    )
-
-
-def select_primary_video_stream(
-    tracks: list[TrackInfo],
-) -> tuple[TrackInfo | None, list[str]]:
-    """Select primary video stream when multiple video streams exist.
-
-    Selects the first video stream marked as default, or the first video
-    stream if none are marked default. Generates warnings about additional
-    video streams.
-
-    Args:
-        tracks: List of all tracks from the file.
-
-    Returns:
-        Tuple of (primary_video_track, list_of_warnings).
-    """
-    video_tracks = [t for t in tracks if t.track_type == "video"]
-    warnings: list[str] = []
-
-    if not video_tracks:
-        return None, ["No video streams found in file"]
-
-    if len(video_tracks) == 1:
-        return video_tracks[0], []
-
-    # Multiple video streams - select primary
-    # First check for default flagged stream
-    default_tracks = [t for t in video_tracks if t.is_default]
-
-    if default_tracks:
-        primary = default_tracks[0]
-    else:
-        primary = video_tracks[0]
-
-    # Generate warnings about other video streams
-    other_indices = [t.index for t in video_tracks if t.index != primary.index]
-    warnings.append(
-        f"Multiple video streams detected ({len(video_tracks)} total). "
-        f"Using stream {primary.index} as primary. "
-        f"Streams {other_indices} will be dropped during transcoding."
-    )
-
-    return primary, warnings
-
-
-class HDRType(Enum):
-    """Type of HDR content detected in video."""
-
-    NONE = "none"
-    """No HDR detected - standard dynamic range."""
-
-    HDR10 = "hdr10"
-    """HDR10 - PQ transfer function (smpte2084)."""
-
-    HLG = "hlg"
-    """Hybrid Log-Gamma - broadcast HDR (arib-std-b67)."""
-
-    DOLBY_VISION = "dolby_vision"
-    """Dolby Vision - detected from title metadata."""
-
-
-def detect_hdr_type(tracks: list[TrackInfo]) -> tuple[HDRType, str | None]:
-    """Detect HDR type from video color metadata.
-
-    Detection priority:
-    1. color_transfer field (most reliable):
-       - smpte2084 → HDR10 (PQ)
-       - arib-std-b67 → HLG
-    2. Title metadata fallback for Dolby Vision (not in color_transfer)
-
-    Args:
-        tracks: List of all tracks from the file.
-
-    Returns:
-        Tuple of (HDRType, description string or None).
-    """
-    video_tracks = [t for t in tracks if t.track_type == "video"]
-
-    if not video_tracks:
-        return HDRType.NONE, None
-
-    for track in video_tracks:
-        # Primary detection: color_transfer field
-        if track.color_transfer:
-            transfer = track.color_transfer.lower()
-            if transfer == "smpte2084":
-                return HDRType.HDR10, "HDR10 (PQ transfer function)"
-            if transfer == "arib-std-b67":
-                return HDRType.HLG, "HLG (Hybrid Log-Gamma)"
-
-        # Secondary detection: title metadata (for Dolby Vision and other formats)
-        if track.title:
-            title_lower = track.title.lower()
-            if "dolby vision" in title_lower or "dovi" in title_lower:
-                return HDRType.DOLBY_VISION, "Dolby Vision (from title)"
-            # Generic HDR indicators in title
-            hdr_indicators = ("hdr10+", "hdr10", "hdr", "hlg", "bt2020")
-            for indicator in hdr_indicators:
-                if indicator in title_lower:
-                    # Try to be specific about type
-                    if "hlg" in title_lower:
-                        return HDRType.HLG, f"HLG (title contains '{indicator}')"
-                    return HDRType.HDR10, f"HDR content (title contains '{indicator}')"
-
-    return HDRType.NONE, None
-
-
-def detect_hdr_content(tracks: list[TrackInfo]) -> tuple[bool, str | None]:
-    """Detect if video content contains HDR metadata.
-
-    This is a compatibility wrapper around detect_hdr_type() that returns
-    a boolean instead of HDRType enum.
-
-    Args:
-        tracks: List of all tracks from the file.
-
-    Returns:
-        Tuple of (is_hdr, hdr_type_description).
-    """
-    hdr_type, description = detect_hdr_type(tracks)
-    return hdr_type != HDRType.NONE, description
-
-
-def build_hdr_preservation_args(hdr_type: HDRType, scaling: bool = False) -> list[str]:
-    """Build FFmpeg arguments to preserve HDR metadata during transcoding.
-
-    When scaling HDR content, we need to preserve HDR metadata to avoid
-    converting to SDR. This function provides the necessary FFmpeg flags
-    based on the specific HDR format.
-
-    Args:
-        hdr_type: Type of HDR content (HDR10, HLG, Dolby Vision, or NONE).
-        scaling: Whether scaling is being applied.
-
-    Returns:
-        List of FFmpeg arguments for HDR preservation.
-    """
-    if hdr_type == HDRType.NONE:
-        return []
-
-    args: list[str] = []
-
-    # Map HDR type to transfer characteristics
-    color_trc_map = {
-        HDRType.HDR10: "smpte2084",  # PQ (Perceptual Quantizer)
-        HDRType.DOLBY_VISION: "smpte2084",  # Dolby Vision uses PQ
-        HDRType.HLG: "arib-std-b67",  # HLG transfer function
-    }
-    color_trc = color_trc_map.get(hdr_type, "smpte2084")
-
-    # Preserve color metadata
-    args.extend(
-        [
-            "-colorspace",
-            "bt2020nc",
-            "-color_primaries",
-            "bt2020",
-            "-color_trc",
-            color_trc,
-        ]
-    )
-
-    if scaling:
-        # When scaling, we need to ensure HDR metadata is copied
-        # Note: Complex HDR tone mapping would require additional filters
-        logger.warning(
-            "Scaling HDR content may affect quality. HDR metadata will be "
-            "preserved, but tone mapping is not applied. Consider keeping "
-            "original resolution for HDR."
-        )
-
-    return args
+# NOTE: These functions have been moved to policy/video_analysis.py
+# and are now imported at the top of this file:
+# - detect_vfr_content
+# - detect_missing_bitrate
+# - select_primary_video_stream
+# - HDRType, detect_hdr_type
+# - build_hdr_preservation_args
 
 
 @dataclass
@@ -396,192 +125,18 @@ class TranscodeResult:
     backup_path: Path | None = None
 
 
-@dataclass(frozen=True)
-class SkipEvaluationResult:
-    """Result of skip condition evaluation."""
-
-    skip: bool
-    """True if transcoding should be skipped."""
-
-    reason: str | None = None
-    """Human-readable reason for the skip decision."""
-
-
-# Codec aliases for matching
-CODEC_ALIASES: dict[str, tuple[str, ...]] = {
-    "hevc": ("hevc", "h265", "x265"),
-    "h265": ("hevc", "h265", "x265"),
-    "h264": ("h264", "avc", "x264"),
-    "avc": ("h264", "avc", "x264"),
-    "vp9": ("vp9", "vp09"),
-    "av1": ("av1", "av01", "libaom-av1"),
-}
-
-
-def _codec_matches_any(
-    current_codec: str | None, codec_patterns: tuple[str, ...] | None
-) -> bool:
-    """Check if current codec matches any pattern.
-
-    Args:
-        current_codec: Current video codec (from ffprobe).
-        codec_patterns: Tuple of codec patterns to match.
-
-    Returns:
-        True if codec matches any pattern.
-    """
-    if codec_patterns is None:
-        return True  # No patterns = always passes
-    if current_codec is None:
-        return False
-
-    current_lower = current_codec.lower()
-
-    for pattern in codec_patterns:
-        pattern_lower = pattern.lower()
-
-        # Direct match
-        if current_lower == pattern_lower:
-            return True
-
-        # Check if pattern has aliases - use exact matching
-        aliases = CODEC_ALIASES.get(pattern_lower, ())
-        if current_lower in aliases:
-            return True
-
-        # Check if current codec has aliases that match pattern exactly
-        current_aliases = CODEC_ALIASES.get(current_lower, ())
-        if pattern_lower in current_aliases:
-            return True
-
-    return False
-
-
-def _resolution_within_threshold(
-    width: int | None,
-    height: int | None,
-    resolution_within: str | None,
-) -> bool:
-    """Check if resolution is within the specified threshold.
-
-    Args:
-        width: Current video width.
-        height: Current video height.
-        resolution_within: Resolution preset (e.g., '1080p', '4k').
-
-    Returns:
-        True if resolution is at or below threshold.
-    """
-    if resolution_within is None:
-        return True  # No threshold = always passes
-    if width is None or height is None:
-        return True  # Unknown resolution = can't evaluate, pass
-
-    max_dims = RESOLUTION_MAP.get(resolution_within.lower())
-    if max_dims is None:
-        return True  # Invalid preset = pass (validation should catch this earlier)
-
-    max_width, max_height = max_dims
-    return width <= max_width and height <= max_height
-
-
-def _bitrate_under_threshold(
-    current_bitrate: int | None,
-    bitrate_under: str | None,
-) -> bool:
-    """Check if bitrate is under the specified threshold.
-
-    Args:
-        current_bitrate: Current video bitrate in bits per second.
-        bitrate_under: Threshold bitrate string (e.g., '10M', '5000k').
-
-    Returns:
-        True if bitrate is under threshold.
-    """
-    if bitrate_under is None:
-        return True  # No threshold = always passes
-    if current_bitrate is None:
-        return True  # Unknown bitrate = can't evaluate, pass
-
-    threshold = parse_bitrate(bitrate_under)
-    if threshold is None:
-        return True  # Invalid threshold = pass
-
-    return current_bitrate < threshold
-
-
-def should_skip_transcode(
-    skip_if: SkipCondition | None,
-    video_codec: str | None,
-    video_width: int | None,
-    video_height: int | None,
-    video_bitrate: int | None,
-) -> SkipEvaluationResult:
-    """Evaluate skip conditions for video transcoding.
-
-    All specified conditions must pass for skip (AND logic).
-    Unspecified conditions (None) are not evaluated and pass by default.
-
-    Args:
-        skip_if: Skip condition configuration.
-        video_codec: Current video codec.
-        video_width: Current video width.
-        video_height: Current video height.
-        video_bitrate: Current video bitrate in bits per second.
-
-    Returns:
-        SkipEvaluationResult with skip decision and reason.
-    """
-    if skip_if is None:
-        return SkipEvaluationResult(skip=False, reason=None)
-
-    # Check codec condition
-    codec_matches = _codec_matches_any(video_codec, skip_if.codec_matches)
-    if not codec_matches:
-        return SkipEvaluationResult(
-            skip=False,
-            reason=f"Codec '{video_codec}' not in skip list {skip_if.codec_matches}",
-        )
-
-    # Check resolution condition
-    resolution_ok = _resolution_within_threshold(
-        video_width, video_height, skip_if.resolution_within
-    )
-    if not resolution_ok:
-        return SkipEvaluationResult(
-            skip=False,
-            reason=(
-                f"Resolution {video_width}x{video_height} exceeds "
-                f"{skip_if.resolution_within} threshold"
-            ),
-        )
-
-    # Check bitrate condition
-    bitrate_ok = _bitrate_under_threshold(video_bitrate, skip_if.bitrate_under)
-    if not bitrate_ok:
-        threshold = parse_bitrate(skip_if.bitrate_under) or 0
-        return SkipEvaluationResult(
-            skip=False,
-            reason=(
-                f"Bitrate {video_bitrate} exceeds "
-                f"{skip_if.bitrate_under} ({threshold}) threshold"
-            ),
-        )
-
-    # All conditions passed - build skip reason
-    reasons = []
-    if skip_if.codec_matches:
-        reasons.append(f"codec is {video_codec}")
-    if skip_if.resolution_within:
-        res_str = f"{video_width}x{video_height}"
-        reasons.append(f"resolution {res_str} within {skip_if.resolution_within}")
-    if skip_if.bitrate_under:
-        reasons.append(f"bitrate under {skip_if.bitrate_under}")
-
-    reason = (
-        "Already compliant: " + ", ".join(reasons) if reasons else "All conditions met"
-    )
-    return SkipEvaluationResult(skip=True, reason=reason)
+# =============================================================================
+# Skip Condition Evaluation
+# =============================================================================
+# NOTE: These have been moved to policy/transcode.py:
+# - SkipEvaluationResult dataclass
+# - evaluate_skip_condition (renamed from should_skip_transcode)
+#
+# For backward compatibility, should_skip_transcode is aliased to
+# evaluate_skip_condition in policy/transcode.py and imported above.
+#
+# Local alias for code that still uses the old name in this module:
+should_skip_transcode = evaluate_skip_condition
 
 
 @dataclass
@@ -1126,150 +681,18 @@ def _build_downmix_filter(downmix_track: AudioTrackPlan) -> str | None:
     return None
 
 
-def _get_encoder(codec: str) -> str:
-    """Get FFmpeg encoder name for a codec (software encoders only)."""
-    encoders = {
-        "hevc": "libx265",
-        "h265": "libx265",
-        "h264": "libx264",
-        "vp9": "libvpx-vp9",
-        "av1": "libaom-av1",
-    }
-    return encoders.get(codec.lower(), "libx265")
+# =============================================================================
+# Hardware Encoder Selection
+# =============================================================================
+# NOTE: Encoder selection has been moved to tools/encoders.py.
+# get_software_encoder (renamed from _get_encoder) is imported above.
+# For hardware encoder detection, see tools/encoders.py for:
+# - HARDWARE_ENCODERS, HW_ENCODER_ERROR_PATTERNS
+# - select_encoder, select_encoder_with_fallback
+# - detect_hw_encoder_error
 
-
-# Hardware encoder mappings by codec and hardware type
-HARDWARE_ENCODERS: dict[str, dict[str, str]] = {
-    "hevc": {
-        "nvenc": "hevc_nvenc",
-        "qsv": "hevc_qsv",
-        "vaapi": "hevc_vaapi",
-    },
-    "h265": {
-        "nvenc": "hevc_nvenc",
-        "qsv": "hevc_qsv",
-        "vaapi": "hevc_vaapi",
-    },
-    "h264": {
-        "nvenc": "h264_nvenc",
-        "qsv": "h264_qsv",
-        "vaapi": "h264_vaapi",
-    },
-    "av1": {
-        "nvenc": "av1_nvenc",  # RTX 40 series only
-        "qsv": "av1_qsv",  # Intel Arc / newer iGPU
-    },
-}
-
-# Patterns in FFmpeg output that indicate hardware encoder memory/resource errors
-HW_ENCODER_ERROR_PATTERNS = (
-    "cannot load",
-    "not found",
-    "not supported",
-    "nvenc",
-    "cuda",
-    "device",
-    "memory",
-    "resource",
-    "initialization failed",
-    "encoder not found",
-    "could not open",
-)
-
-
-def _check_hw_encoder_available(encoder: str) -> bool:
-    """Check if a hardware encoder is available on this system.
-
-    Uses FFmpeg to test if the encoder can be loaded.
-
-    Args:
-        encoder: FFmpeg encoder name (e.g., 'hevc_nvenc').
-
-    Returns:
-        True if encoder appears to be available.
-    """
-    try:
-        ffmpeg_path = require_tool("ffmpeg")
-        # Use ffmpeg -encoders to check if encoder is listed
-        result = subprocess.run(  # nosec B603
-            [str(ffmpeg_path), "-hide_banner", "-encoders"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        return encoder in result.stdout
-    except (subprocess.TimeoutExpired, OSError):
-        return False
-
-
-def select_encoder_with_fallback(
-    codec: str,
-    hw_mode: str = "auto",
-    fallback_to_cpu: bool = True,
-) -> tuple[str, str]:
-    """Select the best available encoder with fallback support.
-
-    Args:
-        codec: Target video codec (hevc, h264, etc.).
-        hw_mode: Hardware acceleration mode (auto, nvenc, qsv, vaapi, none).
-        fallback_to_cpu: Whether to fall back to CPU if HW unavailable.
-
-    Returns:
-        Tuple of (encoder_name, encoder_type) where encoder_type is
-        'hardware' or 'software'.
-    """
-    codec_lower = codec.lower()
-
-    # If explicitly set to none, use software encoder
-    if hw_mode == "none":
-        return _get_encoder(codec_lower), "software"
-
-    # Get hardware encoders for this codec
-    hw_encoders = HARDWARE_ENCODERS.get(codec_lower, {})
-
-    if hw_mode == "auto":
-        # Try each hardware encoder in preferred order
-        hw_priority = ["nvenc", "qsv", "vaapi"]
-        for hw_type in hw_priority:
-            if hw_type in hw_encoders:
-                encoder = hw_encoders[hw_type]
-                if _check_hw_encoder_available(encoder):
-                    logger.info("Selected hardware encoder: %s", encoder)
-                    return encoder, "hardware"
-    else:
-        # Specific hardware type requested
-        if hw_mode in hw_encoders:
-            encoder = hw_encoders[hw_mode]
-            if _check_hw_encoder_available(encoder):
-                logger.info("Selected requested hardware encoder: %s", encoder)
-                return encoder, "hardware"
-            elif not fallback_to_cpu:
-                logger.error(
-                    "Requested hardware encoder %s not available and "
-                    "fallback_to_cpu is disabled",
-                    encoder,
-                )
-                raise RuntimeError(
-                    f"Hardware encoder {encoder} not available. "
-                    "Enable fallback_to_cpu or use a different hardware mode."
-                )
-
-    # Fall back to software encoder
-    logger.info("Hardware encoder not available for %s, using software encoder", codec)
-    return _get_encoder(codec_lower), "software"
-
-
-def detect_hw_encoder_error(stderr_output: str) -> bool:
-    """Check if FFmpeg stderr output indicates a hardware encoder error.
-
-    Args:
-        stderr_output: FFmpeg stderr output to analyze.
-
-    Returns:
-        True if output suggests a hardware encoder failure.
-    """
-    stderr_lower = stderr_output.lower()
-    return any(pattern in stderr_lower for pattern in HW_ENCODER_ERROR_PATTERNS)
+# Local alias for internal use (backward compatibility):
+_get_encoder = get_software_encoder
 
 
 class TranscodeExecutor:
@@ -1657,13 +1080,19 @@ class TranscodeExecutor:
         # Read stderr in a separate thread to support timeout
         stderr_output: list[str] = []
         stderr_queue: queue.Queue[str | None] = queue.Queue()
+        stop_event = threading.Event()
 
         def read_stderr() -> None:
             """Read stderr lines and put them in the queue."""
             try:
                 assert process.stderr is not None
                 for line in process.stderr:
+                    if stop_event.is_set():
+                        break
                     stderr_queue.put(line)
+            except (ValueError, OSError):
+                # Pipe closed or process terminated
+                pass
             finally:
                 stderr_queue.put(None)  # Signal end of output
 
@@ -1703,9 +1132,23 @@ class TranscodeExecutor:
             logger.warning(
                 "%s timed out after %s seconds", description, self.transcode_timeout
             )
+            stop_event.set()  # Signal thread to stop
             process.kill()
+            # Close stderr to unblock reader thread
+            if process.stderr:
+                try:
+                    process.stderr.close()
+                except Exception:  # nosec B110 - Intentionally ignoring close errors
+                    pass
             process.wait()  # Clean up zombie process
+            # Wait for reader thread to finish with shorter timeout
+            reader_thread.join(timeout=2.0)
+            if reader_thread.is_alive():
+                logger.warning("Stderr reader thread did not terminate cleanly")
             return (False, -1, stderr_output)
+
+        # Signal thread to stop (process completed normally)
+        stop_event.set()
 
         # Drain any remaining stderr output
         reader_thread.join(timeout=5.0)

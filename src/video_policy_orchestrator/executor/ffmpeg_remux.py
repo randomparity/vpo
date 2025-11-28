@@ -39,9 +39,16 @@ class FFmpegRemuxExecutor:
     4. Atomically moves the output to the final location
     """
 
-    def __init__(self) -> None:
-        """Initialize the executor."""
+    DEFAULT_TIMEOUT: int = 1800  # 30 minutes
+
+    def __init__(self, timeout: int | None = None) -> None:
+        """Initialize the executor.
+
+        Args:
+            timeout: Subprocess timeout in seconds. None uses DEFAULT_TIMEOUT.
+        """
         self._tool_path: Path | None = None
+        self._timeout = timeout if timeout is not None else self.DEFAULT_TIMEOUT
 
     @property
     def tool_path(self) -> Path:
@@ -111,14 +118,17 @@ class FFmpegRemuxExecutor:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=1800,  # 30 minute timeout for large files
+                timeout=self._timeout if self._timeout > 0 else None,
+                encoding="utf-8",
+                errors="replace",
             )
         except subprocess.TimeoutExpired:
             temp_path.unlink(missing_ok=True)
             restore_from_backup(backup_path)
+            timeout_mins = self._timeout // 60 if self._timeout else 0
             return ExecutorResult(
                 success=False,
-                message="ffmpeg timed out after 30 minutes",
+                message=f"ffmpeg timed out after {timeout_mins} minutes",
             )
         except (subprocess.SubprocessError, OSError) as e:
             temp_path.unlink(missing_ok=True)
