@@ -87,7 +87,7 @@ def format_track_line(track: TrackInfo) -> str:
     if track.codec:
         parts.append(track.codec)
 
-    # Video-specific: resolution and frame rate
+    # Video-specific: resolution, frame rate, and HDR indicator
     if track.track_type == "video":
         if track.width and track.height:
             parts.append(f"{track.width}x{track.height}")
@@ -96,6 +96,11 @@ def format_track_line(track: TrackInfo) -> str:
             fps = frame_rate_to_fps(track.frame_rate)
             if fps:
                 parts.append(f"@ {fps}fps")
+        # HDR indicator based on color transfer function
+        if track.color_transfer:
+            hdr_transfers = {"smpte2084", "arib-std-b67"}  # PQ and HLG
+            if track.color_transfer.lower() in hdr_transfers:
+                parts.append("[HDR]")
 
     # Audio-specific: channel layout and language
     if track.track_type == "audio":
@@ -158,6 +163,7 @@ def format_json(result: IntrospectionResult) -> str:
     data = {
         "file": str(result.file_path),
         "container": result.container_format,
+        "duration_seconds": result.duration_seconds,
         "tracks": [track_to_dict(t) for t in result.tracks],
         "warnings": result.warnings,
     }
@@ -191,10 +197,24 @@ def track_to_dict(track: TrackInfo) -> dict[str, Any]:
     if track.frame_rate is not None:
         d["frame_rate"] = track.frame_rate
 
+    # HDR color metadata (video tracks)
+    if track.color_transfer is not None:
+        d["color_transfer"] = track.color_transfer
+    if track.color_primaries is not None:
+        d["color_primaries"] = track.color_primaries
+    if track.color_space is not None:
+        d["color_space"] = track.color_space
+    if track.color_range is not None:
+        d["color_range"] = track.color_range
+
     # Add audio fields if present
     if track.channels is not None:
         d["channels"] = track.channels
     if track.channel_layout is not None:
         d["channel_layout"] = track.channel_layout
+
+    # Duration (available for all track types)
+    if track.duration_seconds is not None:
+        d["duration_seconds"] = track.duration_seconds
 
     return d

@@ -59,13 +59,13 @@ class TestMapChannelLayout:
         "channels,expected",
         [
             (3, "3ch"),
-            (4, "4ch"),
-            (5, "5ch"),
+            (4, "quad"),  # 4 channels is now mapped to "quad"
+            (5, "5.0"),  # 5 channels is now mapped to "5.0"
             (10, "10ch"),
         ],
     )
-    def test_unknown_channel_counts(self, channels, expected):
-        """Test that unknown channel counts return 'Nch' format."""
+    def test_known_and_unknown_channel_counts(self, channels, expected):
+        """Test channel count mapping including quad and 5.0."""
         assert map_channel_layout(channels) == expected
 
     def test_zero_channels(self):

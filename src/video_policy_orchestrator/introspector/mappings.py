@@ -29,6 +29,8 @@ def map_track_type(codec_type: str) -> str:
 CHANNEL_LAYOUT_NAMES: dict[int, str] = {
     1: "mono",
     2: "stereo",
+    4: "quad",
+    5: "5.0",
     6: "5.1",
     8: "7.1",
 }
