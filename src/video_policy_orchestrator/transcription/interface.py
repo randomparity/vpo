@@ -20,11 +20,14 @@ class MultiLanguageDetectionConfig:
         num_samples: Number of positions to sample (default: 5).
         sample_duration: Duration of each sample in seconds (default: 30).
         min_speech_ratio: Minimum speech-to-silence ratio to consider valid.
+        confidence_threshold: Minimum confidence score to accept a language
+            detection result (default: 0.85).
     """
 
     num_samples: int = 5
     sample_duration: float = 30.0
     min_speech_ratio: float = 0.1
+    confidence_threshold: float = 0.85
 
     def __post_init__(self) -> None:
         """Validate configuration."""
@@ -34,6 +37,8 @@ class MultiLanguageDetectionConfig:
             raise ValueError("sample_duration must be positive")
         if not 0.0 <= self.min_speech_ratio <= 1.0:
             raise ValueError("min_speech_ratio must be between 0.0 and 1.0")
+        if not 0.0 <= self.confidence_threshold <= 1.0:
+            raise ValueError("confidence_threshold must be between 0.0 and 1.0")
 
 
 @dataclass

@@ -4,6 +4,10 @@ This module provides functionality for detecting multiple languages in audio tra
 classifying tracks as single or multi-language, and caching analysis results.
 """
 
+from video_policy_orchestrator.language_analysis.formatters import (
+    format_human,
+    format_json,
+)
 from video_policy_orchestrator.language_analysis.models import (
     AnalysisMetadata,
     LanguageAnalysisResult,
@@ -27,6 +31,8 @@ __all__ = [
     "LanguagePercentage",
     "LanguageSegment",
     "analyze_track_languages",
+    "format_human",
+    "format_json",
     "get_cached_analysis",
     "invalidate_analysis_cache",
     "persist_analysis_result",

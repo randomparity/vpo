@@ -11,17 +11,17 @@ duplicate implementations in apply.py, scan.py, analyze_language.py, and inspect
 from __future__ import annotations
 
 import logging
+import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from video_policy_orchestrator.db.models import FileRecord, TrackRecord
+    from video_policy_orchestrator.db import FileRecord, TrackRecord
 
 from video_policy_orchestrator.language_analysis.models import LanguageAnalysisResult
 from video_policy_orchestrator.language_analysis.service import (
-    InsufficientSpeechError,
     LanguageAnalysisError,
     ShortTrackError,
     TranscriptionPluginError,
@@ -109,7 +109,7 @@ class LanguageAnalysisOrchestrator:
 
     def analyze_tracks_for_file(
         self,
-        conn,
+        conn: sqlite3.Connection,
         file_record: FileRecord,
         track_records: list[TrackRecord],
         file_path: Path,
@@ -196,7 +196,7 @@ class LanguageAnalysisOrchestrator:
                     progress.result = analysis_result
                     progress_callback(progress)
 
-            except (ShortTrackError, InsufficientSpeechError) as e:
+            except ShortTrackError as e:
                 result.skipped += 1
                 logger.debug("Track %d skipped: %s", track.track_index, e)
                 if progress_callback:
@@ -240,7 +240,7 @@ class LanguageAnalysisOrchestrator:
 
 
 def analyze_file_audio_tracks(
-    conn,
+    conn: sqlite3.Connection,
     file_record: FileRecord,
     track_records: list[TrackRecord],
     file_path: Path,
