@@ -65,7 +65,8 @@ from video_policy_orchestrator.policy.models import (
 )
 
 # Current maximum supported schema version
-MAX_SCHEMA_VERSION = 9
+# V10: Added music/sfx/non_speech track type support
+MAX_SCHEMA_VERSION = 10
 
 
 class PolicyValidationError(Exception):
@@ -413,13 +414,28 @@ class LanguageFallbackModel(BaseModel):
 
 
 class AudioFilterModel(BaseModel):
-    """Pydantic model for audio filter configuration."""
+    """Pydantic model for audio filter configuration.
+
+    V10: Added support for music, sfx, and non-speech track handling.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     languages: list[str]
     fallback: LanguageFallbackModel | None = None
     minimum: int = Field(default=1, ge=1)
+
+    # V10: Music track handling
+    keep_music_tracks: bool = True
+    exclude_music_from_language_filter: bool = True
+
+    # V10: SFX track handling
+    keep_sfx_tracks: bool = True
+    exclude_sfx_from_language_filter: bool = True
+
+    # V10: Non-speech track handling
+    keep_non_speech_tracks: bool = True
+    exclude_non_speech_from_language_filter: bool = True
 
     @field_validator("languages")
     @classmethod
@@ -1932,7 +1948,7 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
             reorder_commentary=model.transcription.reorder_commentary,
         )
 
-    # Convert V3 audio_filter config if present
+    # Convert V3 audio_filter config if present (V10 adds music/sfx/non_speech options)
     audio_filter: AudioFilterConfig | None = None
     if model.audio_filter is not None:
         fallback: LanguageFallbackConfig | None = None
@@ -1942,6 +1958,13 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
             languages=tuple(model.audio_filter.languages),
             fallback=fallback,
             minimum=model.audio_filter.minimum,
+            # V10: Music/SFX/Non-speech track handling
+            keep_music_tracks=model.audio_filter.keep_music_tracks,
+            exclude_music_from_language_filter=model.audio_filter.exclude_music_from_language_filter,
+            keep_sfx_tracks=model.audio_filter.keep_sfx_tracks,
+            exclude_sfx_from_language_filter=model.audio_filter.exclude_sfx_from_language_filter,
+            keep_non_speech_tracks=model.audio_filter.keep_non_speech_tracks,
+            exclude_non_speech_from_language_filter=model.audio_filter.exclude_non_speech_from_language_filter,
         )
 
     # Convert V3 subtitle_filter config if present

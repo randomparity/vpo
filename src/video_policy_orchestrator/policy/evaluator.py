@@ -25,7 +25,9 @@ from video_policy_orchestrator.policy.exceptions import (
     IncompatibleCodecError,
     InsufficientTracksError,
 )
-from video_policy_orchestrator.policy.matchers import CommentaryMatcher
+from video_policy_orchestrator.policy.matchers import (
+    CommentaryMatcher,
+)
 from video_policy_orchestrator.policy.models import (
     ActionType,
     AttachmentFilterConfig,
@@ -42,6 +44,10 @@ from video_policy_orchestrator.policy.models import (
     TrackDisposition,
     TrackFlagChange,
     TrackType,
+)
+from video_policy_orchestrator.transcription.models import (
+    is_music_by_metadata,
+    is_sfx_by_metadata,
 )
 
 
@@ -99,13 +105,20 @@ def classify_track(
 ) -> TrackType:
     """Classify a track according to policy rules.
 
+    Classification priority for audio tracks:
+    1. SFX (metadata-based) - most specific
+    2. Music (metadata-based)
+    3. Commentary (metadata-based)
+    4. Transcription-based classification (sfx, music, non_speech, commentary)
+    5. Language-based: AUDIO_MAIN if in preference, else AUDIO_ALTERNATE
+
     Args:
         track: Track metadata to classify.
         policy: Policy configuration.
         matcher: Commentary pattern matcher.
         transcription_results: Optional map of track_id to transcription result.
-            Used for transcription-based commentary detection when policy
-            has detect_commentary enabled.
+            Used for transcription-based classification (commentary, music,
+            sfx, non_speech) when policy has transcription enabled.
 
     Returns:
         TrackType enum value for sorting.
@@ -116,25 +129,43 @@ def classify_track(
         return TrackType.VIDEO
 
     if track_type == "audio":
-        # Check for commentary first (metadata-based)
+        # Stage 1: Metadata-based detection (most reliable)
+        # Check SFX first - most specific
+        if is_sfx_by_metadata(track.title):
+            return TrackType.AUDIO_SFX
+
+        # Check music keywords
+        if is_music_by_metadata(track.title):
+            return TrackType.AUDIO_MUSIC
+
+        # Check for commentary (metadata-based)
         if matcher.is_commentary(track.title):
             return TrackType.AUDIO_COMMENTARY
 
-        # Check for transcription-based commentary detection
-        if (
-            transcription_results is not None
-            and policy.has_transcription_settings
-            and policy.transcription.detect_commentary
-        ):
+        # Stage 2: Transcription-based classification
+        if transcription_results is not None:
             track_id = getattr(track, "id", None)
             if track_id is None:
                 track_id = getattr(track, "track_index", track.index)
 
             tr_result = transcription_results.get(track_id)
-            if tr_result is not None and tr_result.track_type == "commentary":
-                return TrackType.AUDIO_COMMENTARY
+            if tr_result is not None:
+                # Map transcription track_type to TrackType
+                if tr_result.track_type == "sfx":
+                    return TrackType.AUDIO_SFX
+                if tr_result.track_type == "music":
+                    return TrackType.AUDIO_MUSIC
+                if tr_result.track_type == "non_speech":
+                    return TrackType.AUDIO_NON_SPEECH
+                if tr_result.track_type == "commentary":
+                    # Only use transcription-based commentary if enabled
+                    if (
+                        policy.has_transcription_settings
+                        and policy.transcription.detect_commentary
+                    ):
+                        return TrackType.AUDIO_COMMENTARY
 
-        # Check if language is in preference list
+        # Stage 3: Language-based classification for dialog tracks
         # Use languages_match() to handle different ISO standards
         lang = track.language or "und"
         for pref_lang in policy.audio_language_preference:
@@ -453,16 +484,43 @@ def compute_language_updates(
 def _evaluate_audio_track(
     track: TrackInfo,
     config: AudioFilterConfig,
+    classification: TrackType | None = None,
 ) -> tuple[Literal["KEEP", "REMOVE"], str]:
     """Evaluate a single audio track against audio filter config.
+
+    V10: Handles music, sfx, and non_speech track exemptions from language filter.
 
     Args:
         track: Audio track to evaluate.
         config: Audio filter configuration.
+        classification: Optional track classification from classify_track().
+            Used to determine music/sfx/non_speech exemptions.
 
     Returns:
         Tuple of (action, reason) for the track.
     """
+    # V10: Check music track handling
+    if classification == TrackType.AUDIO_MUSIC or is_music_by_metadata(track.title):
+        if not config.keep_music_tracks:
+            return ("REMOVE", "music track excluded by policy")
+        if config.exclude_music_from_language_filter:
+            return ("KEEP", "music track (exempt from language filter)")
+
+    # V10: Check SFX track handling
+    if classification == TrackType.AUDIO_SFX or is_sfx_by_metadata(track.title):
+        if not config.keep_sfx_tracks:
+            return ("REMOVE", "sfx track excluded by policy")
+        if config.exclude_sfx_from_language_filter:
+            return ("KEEP", "sfx track (exempt from language filter)")
+
+    # V10: Check non-speech track handling (transcription-detected)
+    if classification == TrackType.AUDIO_NON_SPEECH:
+        if not config.keep_non_speech_tracks:
+            return ("REMOVE", "non-speech track excluded by policy")
+        if config.exclude_non_speech_from_language_filter:
+            return ("KEEP", "non-speech track (exempt from language filter)")
+
+    # Standard language filtering for dialog tracks
     lang = track.language or "und"
 
     # Check if track language matches any in the keep list
@@ -690,6 +748,9 @@ def compute_track_dispositions(
     # Pre-compute whether we have styled subtitles (for font warning)
     has_styled_subs = _has_styled_subtitles(tracks)
 
+    # Create commentary matcher for classification
+    matcher = CommentaryMatcher(policy.commentary_patterns)
+
     # First pass: evaluate each track
     audio_actions: dict[int, tuple[Literal["KEEP", "REMOVE"], str]] = {}
 
@@ -699,7 +760,13 @@ def compute_track_dispositions(
         reason = "no filter applied"
 
         if track_type == "audio" and policy.audio_filter:
-            action, reason = _evaluate_audio_track(track, policy.audio_filter)
+            # Classify track for V10 music/sfx/non_speech handling
+            classification = classify_track(
+                track, policy, matcher, transcription_results
+            )
+            action, reason = _evaluate_audio_track(
+                track, policy.audio_filter, classification
+            )
             audio_actions[track.index] = (action, reason)
         elif track_type == "subtitle" and policy.subtitle_filter:
             action, reason = _evaluate_subtitle_track(track, policy.subtitle_filter)

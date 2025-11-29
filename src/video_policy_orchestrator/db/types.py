@@ -43,11 +43,22 @@ class JobStatus(Enum):
 
 
 class TrackClassification(Enum):
-    """Classification of audio track purpose."""
+    """Classification of audio track purpose.
 
-    MAIN = "main"  # Primary audio track
+    Detection priority:
+    1. MUSIC/SFX: Identified by metadata keywords (title)
+    2. NON_SPEECH: Detected via transcription analysis (no speech/low confidence)
+    3. COMMENTARY: Identified by metadata keywords or transcript content
+    4. ALTERNATE: Identified as non-main dialog track
+    5. MAIN: Default for dialog tracks
+    """
+
+    MAIN = "main"  # Primary audio track with dialog
     COMMENTARY = "commentary"  # Director/cast commentary
-    ALTERNATE = "alternate"  # Alternate mix, isolated score, etc.
+    ALTERNATE = "alternate"  # Alternate mix with dialog
+    MUSIC = "music"  # Score, soundtrack (metadata-identified)
+    SFX = "sfx"  # Sound effects, ambient (metadata-identified)
+    NON_SPEECH = "non_speech"  # Unlabeled track detected as no speech
 
 
 class PlanStatus(Enum):
