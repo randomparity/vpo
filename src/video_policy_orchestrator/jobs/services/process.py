@@ -23,8 +23,8 @@ class ProcessJobResult:
     """Result of processing a workflow job."""
 
     success: bool
-    phases_completed: list[str] | None = None
-    phases_failed: list[str] | None = None
+    phases_completed: tuple[str, ...] = ()
+    phases_failed: tuple[str, ...] = ()
     error_message: str | None = None
 
 
@@ -88,8 +88,8 @@ class ProcessJobService:
 
             result = processor.process_file(input_path)
 
-            phases_completed = [p.value for p in result.phases_completed]
-            phases_failed = [p.value for p in result.phases_failed]
+            phases_completed = tuple(p.value for p in result.phases_completed)
+            phases_failed = tuple(p.value for p in result.phases_failed)
 
             if job_log:
                 for pr in result.phase_results:
@@ -141,17 +141,19 @@ class ProcessJobService:
                 # Re-load through loader for full validation
                 import tempfile
 
-                with tempfile.NamedTemporaryFile(
-                    mode="w", suffix=".yaml", delete=False
-                ) as f:
-                    import yaml
+                import yaml
 
-                    yaml.dump(data, f)
-                    temp_path = Path(f.name)
+                temp_path: Path | None = None
                 try:
+                    with tempfile.NamedTemporaryFile(
+                        mode="w", suffix=".yaml", delete=False
+                    ) as f:
+                        yaml.dump(data, f)
+                        temp_path = Path(f.name)
                     policy = load_policy(temp_path)
                 finally:
-                    temp_path.unlink()
+                    if temp_path and temp_path.exists():
+                        temp_path.unlink(missing_ok=True)
 
                 if job_log:
                     job_log.write_line(f"Policy: embedded (v{policy.schema_version})")

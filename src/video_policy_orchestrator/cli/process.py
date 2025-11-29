@@ -14,6 +14,11 @@ import click
 
 from video_policy_orchestrator.cli.exit_codes import ExitCode
 from video_policy_orchestrator.cli.output import error_exit
+from video_policy_orchestrator.cli.plan_formatter import (
+    OutputStyle,
+    format_plan_human,
+    format_plan_json,
+)
 from video_policy_orchestrator.cli.profile_loader import load_profile_or_exit
 from video_policy_orchestrator.db.connection import get_connection
 from video_policy_orchestrator.policy.loader import PolicyValidationError, load_policy
@@ -77,8 +82,17 @@ def _parse_phases(phases_str: str | None) -> tuple[ProcessingPhase, ...] | None:
     return tuple(phases)
 
 
-def _format_result_human(result, file_path: Path) -> str:
-    """Format processing result for human-readable output."""
+def _format_result_human(result, file_path: Path, verbose: bool = False) -> str:
+    """Format processing result for human-readable output.
+
+    Args:
+        result: FileProcessingResult from workflow processor.
+        file_path: Path to the processed file.
+        verbose: If True, show full BEFORE/AFTER tables for plans.
+
+    Returns:
+        Formatted string for terminal output.
+    """
     lines = [f"File: {file_path}"]
 
     if result.success:
@@ -95,13 +109,20 @@ def _format_result_human(result, file_path: Path) -> str:
             failed = [p.value for p in result.phases_failed]
             lines.append(f"Failed: {', '.join(failed)}")
 
+    # Add plan details if available (dry-run mode)
+    for pr in result.phase_results:
+        if pr.plan is not None:
+            lines.append("")
+            style = OutputStyle.VERBOSE if verbose else OutputStyle.NORMAL
+            lines.append(format_plan_human(pr.plan, style=style))
+
     lines.append(f"Duration: {result.duration_seconds:.1f}s")
     return "\n".join(lines)
 
 
 def _format_result_json(result, file_path: Path) -> dict:
     """Format processing result for JSON output."""
-    return {
+    output = {
         "file": str(file_path),
         "success": result.success,
         "phases_completed": [p.value for p in result.phases_completed],
@@ -116,10 +137,19 @@ def _format_result_json(result, file_path: Path) -> dict:
                 "message": pr.message,
                 "changes_made": pr.changes_made,
                 "duration_seconds": round(pr.duration_seconds, 2),
+                "plan": format_plan_json(pr.plan) if pr.plan else None,
             }
             for pr in result.phase_results
         ],
     }
+
+    # Also include plan at top level for convenience (first non-null plan)
+    for pr in result.phase_results:
+        if pr.plan is not None:
+            output["plan"] = format_plan_json(pr.plan)
+            break
+
+    return output
 
 
 @click.command("process")
@@ -294,6 +324,7 @@ def process_command(
                 policy=policy,
                 dry_run=dry_run,
                 verbose=verbose,
+                policy_name=str(policy_path),
             )
 
             for file_path in file_paths:
@@ -309,12 +340,15 @@ def process_command(
                     fail_count += 1
 
                 if not json_output:
-                    if verbose:
-                        click.echo(_format_result_human(result, file_path))
+                    # In dry-run mode, always show plan details (use verbose for tables)
+                    # In non-dry-run mode, only show details if verbose
+                    if dry_run or verbose:
+                        formatted = _format_result_human(result, file_path, verbose)
+                        click.echo(formatted)
                         click.echo("")
                     else:
-                        status = "✓" if result.success else "✗"
-                        click.echo(f"{status} {file_path.name}")
+                        status = "OK" if result.success else "FAILED"
+                        click.echo(f"[{status}] {file_path.name}")
 
     except sqlite3.Error as e:
         error_exit(f"Database error: {e}", ExitCode.GENERAL_ERROR, json_output)

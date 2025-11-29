@@ -93,13 +93,11 @@ class TranscodePhase:
                 backup_original=True,
             )
 
-            # Create output path (same directory, same name)
-            output_path = file_path
-
-            # Create plan
+            # Create plan (output_path same as input for in-place transcode;
+            # executor handles temp file + atomic replacement internally)
             plan = executor.create_plan(
                 input_path=file_path,
-                output_path=output_path,
+                output_path=file_path,
                 video_codec=video_track.codec,
                 video_width=video_track.width,
                 video_height=video_track.height,
@@ -125,8 +123,8 @@ class TranscodePhase:
             if self.verbose:
                 logger.info("Transcoding %s", file_path)
 
-            # Execute transcode
-            result = executor.execute(plan, file_path, output_path)
+            # Execute transcode (plan contains input_path and output_path)
+            result = executor.execute(plan)
 
             if not result.success:
                 raise PhaseError(

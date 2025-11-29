@@ -5,17 +5,22 @@ processing phases (analyze, apply, transcode) in the correct order.
 """
 
 import logging
+import sqlite3
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from sqlite3 import Connection
+from typing import TYPE_CHECKING
 
 from video_policy_orchestrator.policy.models import (
     PolicySchema,
     ProcessingPhase,
     WorkflowConfig,
 )
+
+if TYPE_CHECKING:
+    from video_policy_orchestrator.policy.models import Plan
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +49,7 @@ class PhaseResult:
     message: str | None = None
     duration_seconds: float = 0.0
     changes_made: int = 0
+    plan: "Plan | None" = None  # Populated in dry-run mode for rich output
 
 
 @dataclass
@@ -108,6 +114,7 @@ class WorkflowProcessor:
         dry_run: bool = False,
         verbose: bool = False,
         progress_callback: ProgressCallback | None = None,
+        policy_name: str = "workflow",
     ) -> None:
         """Initialize the workflow processor.
 
@@ -117,12 +124,14 @@ class WorkflowProcessor:
             dry_run: If True, preview changes without modifying files.
             verbose: If True, emit detailed logging.
             progress_callback: Optional callback for progress updates.
+            policy_name: Name of the policy for audit records.
         """
         self.conn = conn
         self.policy = policy
         self.dry_run = dry_run
         self.verbose = verbose
         self.progress_callback = progress_callback
+        self.policy_name = policy_name
 
         # Get workflow config, defaulting to just APPLY if not specified
         self.config: WorkflowConfig = policy.workflow or WorkflowConfig(
@@ -150,6 +159,7 @@ class WorkflowProcessor:
                 policy=self.policy,
                 dry_run=self.dry_run,
                 verbose=self.verbose,
+                policy_name=self.policy_name,
             ),
             ProcessingPhase.TRANSCODE: TranscodePhase(
                 conn=self.conn,
@@ -217,19 +227,13 @@ class WorkflowProcessor:
                 )
 
                 # Handle error according to on_error policy
-                if self.config.on_error == "fail":
+                if self.config.on_error in ("fail", "skip"):
+                    # Both modes abort workflow, marking remaining phases skipped
                     result.success = False
-                    # Mark remaining phases as skipped
                     remaining = list(self.config.phases)[idx + 1 :]
                     result.phases_skipped.extend(remaining)
                     break
-                elif self.config.on_error == "skip":
-                    result.success = False
-                    # Mark remaining phases as skipped
-                    remaining = list(self.config.phases)[idx + 1 :]
-                    result.phases_skipped.extend(remaining)
-                    break
-                # "continue": proceed to next phase
+                # "continue": proceed to next phase despite error
 
         result.duration_seconds = time.time() - start_time
         return result
@@ -255,10 +259,27 @@ class WorkflowProcessor:
         start_time = time.time()
         try:
             changes = phase_impl.run(file_path)
+
+            # Extract plan from ApplyPhase for dry-run output
+            plan = None
+            if self.dry_run and phase == ProcessingPhase.APPLY:
+                plan = getattr(phase_impl, "_last_plan", None)
+
             return PhaseResult(
                 phase=phase,
                 success=True,
                 changes_made=changes,
+                duration_seconds=time.time() - start_time,
+                plan=plan,
+            )
+        except sqlite3.Error as e:
+            # Database error - rollback any uncommitted changes
+            self.conn.rollback()
+            logger.exception("Database error in phase %s", phase.value)
+            return PhaseResult(
+                phase=phase,
+                success=False,
+                message=f"Database error: {e}",
                 duration_seconds=time.time() - start_time,
             )
         except PhaseError as e:

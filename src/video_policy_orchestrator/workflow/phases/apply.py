@@ -8,9 +8,15 @@ import logging
 from pathlib import Path
 from sqlite3 import Connection
 
+from video_policy_orchestrator.db.operations import (
+    OperationStatus,
+    create_operation,
+    update_operation_status,
+)
 from video_policy_orchestrator.db.queries import get_file_by_path, get_tracks_for_file
 from video_policy_orchestrator.db.types import tracks_to_track_info
-from video_policy_orchestrator.policy.models import PolicySchema
+from video_policy_orchestrator.executor.backup import FileLockError, file_lock
+from video_policy_orchestrator.policy.models import Plan, PolicySchema
 from video_policy_orchestrator.workflow.processor import PhaseError
 
 logger = logging.getLogger(__name__)
@@ -25,6 +31,7 @@ class ApplyPhase:
         policy: PolicySchema,
         dry_run: bool = False,
         verbose: bool = False,
+        policy_name: str = "workflow",
     ) -> None:
         """Initialize the apply phase.
 
@@ -33,12 +40,15 @@ class ApplyPhase:
             policy: PolicySchema configuration.
             dry_run: If True, preview without making changes.
             verbose: If True, emit detailed logging.
+            policy_name: Name of the policy for audit records.
         """
         self.conn = conn
         self.policy = policy
         self.dry_run = dry_run
         self.verbose = verbose
+        self.policy_name = policy_name
         self._policy_engine = None
+        self._last_plan: Plan | None = None  # Store for dry-run output
 
     def _get_policy_engine(self):
         """Get or create PolicyEnginePlugin instance."""
@@ -98,6 +108,9 @@ class ApplyPhase:
                 policy=self.policy,
             )
 
+            # Store plan for dry-run output access
+            self._last_plan = plan
+
             if plan.is_empty:
                 logger.info("No changes required for %s", file_path)
                 return 0
@@ -115,18 +128,53 @@ class ApplyPhase:
             if self.verbose:
                 logger.info("Applying %d changes to %s", changes_count, file_path)
 
-            # Execute the plan
-            result = policy_engine.execute(
-                plan,
-                keep_backup=True,
-                keep_original=False,
+            # Create operation record for audit trail
+            operation = create_operation(
+                conn=self.conn,
+                plan=plan,
+                file_id=file_record.id,
+                policy_name=self.policy_name,
             )
 
+            # Acquire file lock and execute the plan
+            try:
+                with file_lock(file_path):
+                    result = policy_engine.execute(
+                        plan,
+                        keep_backup=True,
+                        keep_original=False,
+                    )
+            except FileLockError as e:
+                update_operation_status(
+                    self.conn,
+                    operation.id,
+                    OperationStatus.FAILED,
+                    error_message=f"File lock error: {e}",
+                )
+                raise PhaseError(
+                    ProcessingPhase.APPLY,
+                    f"Cannot acquire file lock: {e}",
+                ) from e
+
             if not result.success:
+                update_operation_status(
+                    self.conn,
+                    operation.id,
+                    OperationStatus.FAILED,
+                    error_message=result.message,
+                )
                 raise PhaseError(
                     ProcessingPhase.APPLY,
                     f"Execution failed: {result.message}",
                 )
+
+            # Update operation as completed
+            update_operation_status(
+                self.conn,
+                operation.id,
+                OperationStatus.COMPLETED,
+                backup_path=str(result.backup_path) if result.backup_path else None,
+            )
 
             logger.info("Applied %d changes to %s", changes_count, file_path)
             return changes_count
