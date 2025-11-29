@@ -61,7 +61,9 @@ def sample_operation(sample_track: TrackInfo) -> SynthesisOperation:
 
 
 @pytest.fixture
-def sample_plan(sample_operation: SynthesisOperation, tmp_path: Path) -> SynthesisPlan:
+def sample_plan(
+    sample_operation: SynthesisOperation, sample_track: TrackInfo, tmp_path: Path
+) -> SynthesisPlan:
     """Create a sample synthesis plan."""
     test_file = tmp_path / "test.mkv"
     test_file.write_bytes(b"test content")
@@ -72,6 +74,7 @@ def sample_plan(sample_operation: SynthesisOperation, tmp_path: Path) -> Synthes
         operations=(sample_operation,),
         skipped=(),
         final_track_order=(),
+        audio_tracks=(sample_track,),
     )
 
 
@@ -133,28 +136,40 @@ class TestFFmpegSynthesisExecutor:
         assert "No synthesis operations" in result.message
 
     def test_build_ffmpeg_args_includes_encoder(
-        self, sample_operation: SynthesisOperation, tmp_path: Path
+        self,
+        sample_operation: SynthesisOperation,
+        sample_track: TrackInfo,
+        tmp_path: Path,
     ) -> None:
         """Test that FFmpeg args include correct encoder."""
         executor = FFmpegSynthesisExecutor(ffmpeg_path=Path("/usr/bin/ffmpeg"))
         input_path = tmp_path / "input.mkv"
         output_path = tmp_path / "output.eac3"
+        audio_tracks = (sample_track,)
 
-        args = executor._build_ffmpeg_args(input_path, sample_operation, output_path)
+        args = executor._build_ffmpeg_args(
+            input_path, sample_operation, output_path, audio_tracks
+        )
 
         assert "/usr/bin/ffmpeg" in args
         assert "-c:a" in args
         assert "eac3" in args  # encoder name
 
     def test_build_ffmpeg_args_includes_downmix_filter(
-        self, sample_operation: SynthesisOperation, tmp_path: Path
+        self,
+        sample_operation: SynthesisOperation,
+        sample_track: TrackInfo,
+        tmp_path: Path,
     ) -> None:
         """Test that FFmpeg args include downmix filter when present."""
         executor = FFmpegSynthesisExecutor(ffmpeg_path=Path("/usr/bin/ffmpeg"))
         input_path = tmp_path / "input.mkv"
         output_path = tmp_path / "output.eac3"
+        audio_tracks = (sample_track,)
 
-        args = executor._build_ffmpeg_args(input_path, sample_operation, output_path)
+        args = executor._build_ffmpeg_args(
+            input_path, sample_operation, output_path, audio_tracks
+        )
 
         assert "-af" in args
         # Should have the filter after -af
@@ -162,14 +177,20 @@ class TestFFmpegSynthesisExecutor:
         assert "pan=5.1" in args[af_idx + 1]
 
     def test_build_ffmpeg_args_includes_bitrate(
-        self, sample_operation: SynthesisOperation, tmp_path: Path
+        self,
+        sample_operation: SynthesisOperation,
+        sample_track: TrackInfo,
+        tmp_path: Path,
     ) -> None:
         """Test that FFmpeg args include bitrate."""
         executor = FFmpegSynthesisExecutor(ffmpeg_path=Path("/usr/bin/ffmpeg"))
         input_path = tmp_path / "input.mkv"
         output_path = tmp_path / "output.eac3"
+        audio_tracks = (sample_track,)
 
-        args = executor._build_ffmpeg_args(input_path, sample_operation, output_path)
+        args = executor._build_ffmpeg_args(
+            input_path, sample_operation, output_path, audio_tracks
+        )
 
         assert "-b:a" in args
         assert "640000" in args

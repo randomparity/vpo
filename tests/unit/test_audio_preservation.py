@@ -6,14 +6,23 @@ Tests the AudioTranscodeConfig dataclass and preserve_codecs matching logic.
 import pytest
 
 from video_policy_orchestrator.db.models import TrackInfo
+from video_policy_orchestrator.policy.codecs import (
+    audio_codec_matches,
+    audio_codec_matches_any,
+    normalize_audio_codec,
+)
 from video_policy_orchestrator.policy.models import (
     AudioTranscodeConfig,
 )
-from video_policy_orchestrator.policy.transcode import (
-    codec_matches,
-    normalize_codec_name,
-    should_preserve_codec,
-)
+
+
+def should_preserve_codec(codec: str | None, preserve_list: tuple[str, ...]) -> bool:
+    """Check if a codec should be preserved (stream-copied).
+
+    This is a compatibility wrapper for tests - the actual logic is in
+    audio_codec_matches_any.
+    """
+    return audio_codec_matches_any(codec, preserve_list)
 
 
 class TestAudioTranscodeConfigDataclass:
@@ -69,41 +78,41 @@ class TestPreserveCodecsMatching:
 
     def test_exact_codec_match(self) -> None:
         """Exact codec name matches."""
-        assert codec_matches("truehd", "truehd") is True
-        assert codec_matches("flac", "flac") is True
-        assert codec_matches("aac", "aac") is True
+        assert audio_codec_matches("truehd", "truehd") is True
+        assert audio_codec_matches("flac", "flac") is True
+        assert audio_codec_matches("aac", "aac") is True
 
     def test_case_insensitive_match(self) -> None:
         """Codec matching is case-insensitive."""
-        assert codec_matches("TrueHD", "truehd") is True
-        assert codec_matches("truehd", "TRUEHD") is True
-        assert codec_matches("FLAC", "flac") is True
+        assert audio_codec_matches("TrueHD", "truehd") is True
+        assert audio_codec_matches("truehd", "TRUEHD") is True
+        assert audio_codec_matches("FLAC", "flac") is True
 
     def test_dts_hd_variants(self) -> None:
         """DTS-HD variants all match 'dts-hd' pattern."""
-        assert codec_matches("dts-hd ma", "dts-hd") is True
-        assert codec_matches("dts-hd", "dts-hd") is True
-        assert codec_matches("dtshd", "dts-hd") is True
+        assert audio_codec_matches("dts-hd ma", "dts-hd") is True
+        assert audio_codec_matches("dts-hd", "dts-hd") is True
+        assert audio_codec_matches("dtshd", "dts-hd") is True
 
     def test_pcm_variants(self) -> None:
         """PCM variants match 'pcm' pattern."""
-        assert codec_matches("pcm_s16le", "pcm") is True
-        assert codec_matches("pcm_s24le", "pcm") is True
-        assert codec_matches("pcm_s32le", "pcm") is True
+        assert audio_codec_matches("pcm_s16le", "pcm") is True
+        assert audio_codec_matches("pcm_s24le", "pcm") is True
+        assert audio_codec_matches("pcm_s32le", "pcm") is True
 
     def test_wildcard_patterns(self) -> None:
         """Wildcard patterns work for codec matching."""
-        assert codec_matches("pcm_s24le", "pcm_*") is True
-        assert codec_matches("pcm_s16le", "pcm_*") is True
+        assert audio_codec_matches("pcm_s24le", "pcm_*") is True
+        assert audio_codec_matches("pcm_s16le", "pcm_*") is True
 
     def test_no_match(self) -> None:
         """Non-matching codecs return False."""
-        assert codec_matches("aac", "truehd") is False
-        assert codec_matches("ac3", "flac") is False
+        assert audio_codec_matches("aac", "truehd") is False
+        assert audio_codec_matches("ac3", "flac") is False
 
     def test_none_codec(self) -> None:
         """None codec returns False."""
-        assert codec_matches(None, "truehd") is False  # type: ignore[arg-type]
+        assert audio_codec_matches(None, "truehd") is False
 
 
 class TestShouldPreserveCodec:
@@ -205,28 +214,28 @@ class TestAudioTrackPlanning:
         assert should_preserve_codec(track.codec, preserve_codecs) is True
 
 
-class TestNormalizeCodecName:
-    """Tests for codec name normalization."""
+class TestNormalizeAudioCodec:
+    """Tests for audio codec name normalization."""
 
     def test_normalize_truehd(self) -> None:
         """TrueHD variants normalize correctly."""
-        assert normalize_codec_name("truehd") == "truehd"
-        assert normalize_codec_name("TrueHD") == "truehd"
-        assert normalize_codec_name("TRUEHD") == "truehd"
+        assert normalize_audio_codec("truehd") == "truehd"
+        assert normalize_audio_codec("TrueHD") == "truehd"
+        assert normalize_audio_codec("TRUEHD") == "truehd"
 
     def test_normalize_dts_hd(self) -> None:
         """DTS-HD variants normalize correctly."""
-        assert normalize_codec_name("dts-hd ma") == "dts-hd"
-        assert normalize_codec_name("dts-hd") == "dts-hd"
-        assert normalize_codec_name("dtshd") == "dts-hd"
-        assert normalize_codec_name("DTS-HD MA") == "dts-hd"
+        assert normalize_audio_codec("dts-hd ma") == "dts-hd"
+        assert normalize_audio_codec("dts-hd") == "dts-hd"
+        assert normalize_audio_codec("dtshd") == "dts-hd"
+        assert normalize_audio_codec("DTS-HD MA") == "dts-hd"
 
     def test_normalize_standard_codecs(self) -> None:
         """Standard codecs normalize to lowercase."""
-        assert normalize_codec_name("AAC") == "aac"
-        assert normalize_codec_name("AC3") == "ac3"
-        assert normalize_codec_name("FLAC") == "flac"
+        assert normalize_audio_codec("AAC") == "aac"
+        assert normalize_audio_codec("AC3") == "ac3"
+        assert normalize_audio_codec("FLAC") == "flac"
 
     def test_normalize_none(self) -> None:
         """None input returns empty string."""
-        assert normalize_codec_name(None) == ""  # type: ignore[arg-type]
+        assert normalize_audio_codec(None) == ""
