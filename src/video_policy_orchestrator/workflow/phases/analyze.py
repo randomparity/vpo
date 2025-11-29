@@ -101,9 +101,7 @@ class AnalyzePhase:
                 )
                 return 0
 
-            # Commit analysis results
-            self.conn.commit()
-
+            # Note: Commit is handled by WorkflowProcessor after successful phase
             analyzed_count = len(result.results) if result.results else 0
             logger.info(
                 "Analyzed %d track(s) in %s",

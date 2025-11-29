@@ -7,13 +7,18 @@ execute the unified workflow (analyze → apply → transcode) on files.
 import json
 import logging
 import sqlite3
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+import yaml
+
+from video_policy_orchestrator.config.loader import get_data_dir
 from video_policy_orchestrator.db.types import Job
 from video_policy_orchestrator.jobs.logs import JobLogWriter
 from video_policy_orchestrator.policy.loader import load_policy
 from video_policy_orchestrator.policy.models import PolicySchema
+from video_policy_orchestrator.workflow import WorkflowProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -71,8 +76,6 @@ class ProcessJobService:
 
         # Execute workflow
         try:
-            from video_policy_orchestrator.workflow import WorkflowProcessor
-
             processor = WorkflowProcessor(
                 conn=self.conn,
                 policy=policy,
@@ -139,10 +142,6 @@ class ProcessJobService:
             if job.policy_json:
                 data = json.loads(job.policy_json)
                 # Re-load through loader for full validation
-                import tempfile
-
-                import yaml
-
                 temp_path: Path | None = None
                 try:
                     with tempfile.NamedTemporaryFile(
@@ -164,9 +163,7 @@ class ProcessJobService:
                 policy_path = Path(job.policy_name)
                 if not policy_path.exists():
                     # Try in ~/.vpo/policies/
-                    from video_policy_orchestrator.config import get_config_dir
-
-                    policy_path = get_config_dir() / "policies" / job.policy_name
+                    policy_path = get_data_dir() / "policies" / job.policy_name
                     if not policy_path.suffix:
                         policy_path = policy_path.with_suffix(".yaml")
 

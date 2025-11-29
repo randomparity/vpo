@@ -301,7 +301,7 @@ class TestProcessJobServiceTempFileCleanup:
 class TestProcessJobServiceWorkflowExecution:
     """Tests for workflow execution."""
 
-    @patch("video_policy_orchestrator.workflow.WorkflowProcessor")
+    @patch("video_policy_orchestrator.jobs.services.process.WorkflowProcessor")
     def test_process_executes_workflow(
         self, mock_processor_cls, db_conn, test_job_with_json
     ):
@@ -321,7 +321,7 @@ class TestProcessJobServiceWorkflowExecution:
         assert result.success is True
         mock_processor.process_file.assert_called_once()
 
-    @patch("video_policy_orchestrator.workflow.WorkflowProcessor")
+    @patch("video_policy_orchestrator.jobs.services.process.WorkflowProcessor")
     def test_process_handles_workflow_failure(
         self, mock_processor_cls, db_conn, test_job_with_json
     ):
@@ -342,7 +342,7 @@ class TestProcessJobServiceWorkflowExecution:
         assert result.success is False
         assert "Apply phase failed" in result.error_message
 
-    @patch("video_policy_orchestrator.workflow.WorkflowProcessor")
+    @patch("video_policy_orchestrator.jobs.services.process.WorkflowProcessor")
     def test_process_handles_workflow_exception(
         self, mock_processor_cls, db_conn, test_job_with_json
     ):

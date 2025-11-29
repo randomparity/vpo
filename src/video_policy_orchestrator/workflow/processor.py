@@ -54,10 +54,24 @@ class PhaseResult:
 
 @dataclass
 class FileProcessingResult:
-    """Result of processing one file through the workflow."""
+    """Result of processing one file through the workflow.
+
+    Attributes:
+        file_path: Path to the processed file.
+        success: Whether processing succeeded.
+        batch_should_stop: If True, batch processing should halt (on_error='fail').
+            When False, batch processing can continue to next file (on_error='skip').
+        phases_completed: List of successfully completed phases.
+        phases_failed: List of phases that failed.
+        phases_skipped: List of phases that were skipped due to earlier failure.
+        phase_results: Detailed results for each phase.
+        error_message: Error message if processing failed.
+        duration_seconds: Total processing duration.
+    """
 
     file_path: Path
     success: bool
+    batch_should_stop: bool = False  # True if on_error='fail', batch should halt
     phases_completed: list[ProcessingPhase] = field(default_factory=list)
     phases_failed: list[ProcessingPhase] = field(default_factory=list)
     phases_skipped: list[ProcessingPhase] = field(default_factory=list)
@@ -227,9 +241,17 @@ class WorkflowProcessor:
                 )
 
                 # Handle error according to on_error policy
-                if self.config.on_error in ("fail", "skip"):
-                    # Both modes abort workflow, marking remaining phases skipped
+                if self.config.on_error == "fail":
+                    # Abort workflow AND signal batch should stop
                     result.success = False
+                    result.batch_should_stop = True
+                    remaining = list(self.config.phases)[idx + 1 :]
+                    result.phases_skipped.extend(remaining)
+                    break
+                elif self.config.on_error == "skip":
+                    # Abort workflow for this file, but batch can continue
+                    result.success = False
+                    result.batch_should_stop = False
                     remaining = list(self.config.phases)[idx + 1 :]
                     result.phases_skipped.extend(remaining)
                     break
@@ -259,6 +281,11 @@ class WorkflowProcessor:
         start_time = time.time()
         try:
             changes = phase_impl.run(file_path)
+
+            # Commit any database changes made by the phase
+            # (centralized commit to ensure transaction boundaries are managed here)
+            if not self.dry_run:
+                self.conn.commit()
 
             # Extract plan from ApplyPhase for dry-run output
             plan = None

@@ -159,6 +159,7 @@ def _format_verbose(plan: Plan) -> str:
             "LANG",
             "DETAILS",
             "TITLE",
+            "ANALYSIS",
             "ACTION",
             "AFTER",
         )
@@ -176,7 +177,15 @@ def _format_verbose(plan: Plan) -> str:
         after_rows = _build_after_rows(final_order)
         lines.extend(
             _format_table(
-                headers=("TRACK", "TYPE", "CODEC", "LANG", "DETAILS", "TITLE"),
+                headers=(
+                    "TRACK",
+                    "TYPE",
+                    "CODEC",
+                    "LANG",
+                    "DETAILS",
+                    "TITLE",
+                    "ANALYSIS",
+                ),
                 rows=after_rows,
                 indent=2,
             )
@@ -254,11 +263,14 @@ def _build_before_rows(
         lang = disp.language or ""
         details = _get_track_details(disp)
 
-        # Build title with transcription status for audio tracks
-        title_parts = [disp.title or ""]
-        if disp.transcription_status:
-            title_parts.append(f"[{disp.transcription_status}]")
-        title = _truncate(" ".join(filter(None, title_parts)), 25)
+        # Title only - no transcription status appended
+        title = _truncate(disp.title or "", 17)
+
+        # ANALYSIS column - transcription status for audio, "-" otherwise
+        if disp.track_type == "audio" and disp.transcription_status:
+            analysis = disp.transcription_status
+        else:
+            analysis = "-"
 
         action = "KEEP" if disp.action == "KEEP" else "DELETE"
         if disp.action == "KEEP":
@@ -266,7 +278,9 @@ def _build_before_rows(
         else:
             after = "-"
 
-        rows.append((track_id, track_type, codec, lang, details, title, action, after))
+        rows.append(
+            (track_id, track_type, codec, lang, details, title, analysis, action, after)
+        )
 
     return rows
 
@@ -283,13 +297,16 @@ def _build_after_rows(final_order: list[TrackDisposition]) -> list[tuple[str, ..
         lang = disp.language or ""
         details = _get_track_details(disp)
 
-        # Build title with transcription status for audio tracks
-        title_parts = [disp.title or ""]
-        if disp.transcription_status:
-            title_parts.append(f"[{disp.transcription_status}]")
-        title = _truncate(" ".join(filter(None, title_parts)), 25)
+        # Title only - no transcription status appended
+        title = _truncate(disp.title or "", 17)
 
-        rows.append((track_id, track_type, codec, lang, details, title))
+        # ANALYSIS column - transcription status for audio, "-" otherwise
+        if disp.track_type == "audio" and disp.transcription_status:
+            analysis = disp.transcription_status
+        else:
+            analysis = "-"
+
+        rows.append((track_id, track_type, codec, lang, details, title, analysis))
 
     return rows
 

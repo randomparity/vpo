@@ -8,6 +8,7 @@ import json
 import logging
 import sqlite3
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import click
@@ -22,7 +23,8 @@ from video_policy_orchestrator.cli.plan_formatter import (
 from video_policy_orchestrator.cli.profile_loader import load_profile_or_exit
 from video_policy_orchestrator.db.connection import get_connection
 from video_policy_orchestrator.policy.loader import PolicyValidationError, load_policy
-from video_policy_orchestrator.policy.models import ProcessingPhase
+from video_policy_orchestrator.policy.models import ProcessingPhase, WorkflowConfig
+from video_policy_orchestrator.workflow import WorkflowProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -297,9 +299,6 @@ def process_command(
 
     try:
         with get_connection() as conn:
-            from video_policy_orchestrator.policy.models import WorkflowConfig
-            from video_policy_orchestrator.workflow import WorkflowProcessor
-
             # Create effective workflow config with overrides
             if phase_override or on_error:
                 base_config = policy.workflow or WorkflowConfig(
@@ -314,8 +313,6 @@ def process_command(
                 )
                 # Create modified policy with new workflow
                 # Note: PolicySchema is frozen, so we need to create a new one
-                from dataclasses import replace
-
                 policy = replace(policy, workflow=effective_config)
 
             # Create processor
@@ -349,6 +346,15 @@ def process_command(
                     else:
                         status = "OK" if result.success else "FAILED"
                         click.echo(f"[{status}] {file_path.name}")
+
+                # Check if batch processing should stop (on_error='fail')
+                if result.batch_should_stop:
+                    if not json_output:
+                        click.echo(
+                            f"Stopping batch due to error (on_error='fail'): "
+                            f"{result.error_message}"
+                        )
+                    break
 
     except sqlite3.Error as e:
         error_exit(f"Database error: {e}", ExitCode.GENERAL_ERROR, json_output)

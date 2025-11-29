@@ -97,31 +97,39 @@ def sample_plan(sample_dispositions):
 class TestPlanFormatterTranscriptionStatus:
     """Tests for transcription status display in plan formatter."""
 
-    def test_title_includes_transcription_status(self, sample_dispositions):
-        """Title column includes transcription status in brackets."""
+    def test_analysis_column_shows_transcription_status(self, sample_dispositions):
+        """ANALYSIS column (index 6) shows transcription status for audio tracks."""
         new_index_map = {0: 0, 1: 1, 2: 2, 3: 3}
         rows = _build_before_rows(sample_dispositions, new_index_map)
 
-        # Check audio tracks have transcription status
-        # Row 1 (audio track 1): title="English", status="main 95%"
-        assert "[main 95%]" in rows[1][5]
-        # Row 2 (audio track 2): title="Commentary", status="commentary 88%"
-        # This gets truncated due to length, check it starts with bracket or contains it
-        assert "[commentary" in rows[2][5]
-        # Row 3 (audio track 3): title="Audio", status="TBD"
-        assert "[TBD]" in rows[3][5]
+        # Check audio tracks have transcription status in ANALYSIS column (index 6)
+        # Row 1 (audio track 1): status="main 95%"
+        assert rows[1][6] == "main 95%"
+        # Row 2 (audio track 2): status="commentary 88%"
+        assert rows[2][6] == "commentary 88%"
+        # Row 3 (audio track 3): status="TBD"
+        assert rows[3][6] == "TBD"
 
-    def test_video_track_no_transcription_in_title(self, sample_dispositions):
-        """Video tracks should not have transcription status."""
+    def test_analysis_column_shows_dash_for_non_audio(self, sample_dispositions):
+        """Non-audio tracks show '-' in ANALYSIS column."""
         new_index_map = {0: 0, 1: 1, 2: 2, 3: 3}
         rows = _build_before_rows(sample_dispositions, new_index_map)
 
-        # First row is video track - should not have any brackets
-        assert "[" not in rows[0][5]
-        assert "]" not in rows[0][5]
+        # First row is video track - should show "-" in ANALYSIS column
+        assert rows[0][6] == "-"
 
-    def test_title_truncation_includes_status(self):
-        """Long titles with status are properly truncated."""
+    def test_title_column_no_longer_includes_status(self, sample_dispositions):
+        """Title column (index 5) no longer includes transcription status."""
+        new_index_map = {0: 0, 1: 1, 2: 2, 3: 3}
+        rows = _build_before_rows(sample_dispositions, new_index_map)
+
+        # Title column should just be the title, not the status
+        assert rows[1][5] == "English"
+        assert rows[2][5] == "Commentary"
+        assert rows[3][5] == "Audio"
+
+    def test_title_truncation_without_status(self):
+        """Title column is truncated to 17 chars (without status appended)."""
         dispositions = (
             TrackDisposition(
                 track_index=0,
@@ -139,15 +147,16 @@ class TestPlanFormatterTranscriptionStatus:
         new_index_map = {0: 0}
         rows = _build_before_rows(dispositions, new_index_map)
 
-        # Title should be truncated to 25 chars max
+        # Title should be truncated to 17 chars max
         title = rows[0][5]
-        # Use visual width since _truncate uses display width
         from video_policy_orchestrator.cli.plan_formatter import _display_width
 
-        assert _display_width(title) <= 25
+        assert _display_width(title) <= 17
+        # Status should be in ANALYSIS column, not title
+        assert rows[0][6] == "main 95%"
 
-    def test_tbd_displayed_for_unanalyzed_tracks(self):
-        """'TBD' shown for audio tracks without transcription."""
+    def test_tbd_displayed_in_analysis_column(self):
+        """'TBD' shown in ANALYSIS column for audio tracks with TBD status."""
         dispositions = (
             TrackDisposition(
                 track_index=0,
@@ -165,18 +174,18 @@ class TestPlanFormatterTranscriptionStatus:
         new_index_map = {0: 0}
         rows = _build_before_rows(dispositions, new_index_map)
 
-        assert "[TBD]" in rows[0][5]
+        assert rows[0][6] == "TBD"
 
-    def test_after_rows_include_transcription_status(self, sample_dispositions):
-        """AFTER table rows also include transcription status."""
+    def test_after_rows_include_analysis_column(self, sample_dispositions):
+        """AFTER table rows also include ANALYSIS column."""
         final_order = list(sample_dispositions)
         rows = _build_after_rows(final_order)
 
-        # Audio tracks should have transcription status in title
-        assert "[main 95%]" in rows[1][5]
-        # This gets truncated, check partial match
-        assert "[commentary" in rows[2][5]
-        assert "[TBD]" in rows[3][5]
+        # ANALYSIS column (index 6) should have transcription status for audio
+        assert rows[0][6] == "-"  # video track
+        assert rows[1][6] == "main 95%"
+        assert rows[2][6] == "commentary 88%"
+        assert rows[3][6] == "TBD"
 
     def test_json_output_includes_transcription_status(self, sample_plan):
         """JSON output includes transcription_status field."""
