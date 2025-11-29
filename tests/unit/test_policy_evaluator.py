@@ -403,6 +403,166 @@ class TestComputeDefaultFlags:
         assert result[0] is True  # Video gets default
         assert result[1] is False  # Subtitle cleared
 
+    def test_subtitle_default_when_audio_language_differs(
+        self, matcher: CommentaryMatcher
+    ):
+        """English subtitle gets default when audio is German and English preferred."""
+        policy = PolicySchema(
+            schema_version=1,
+            audio_language_preference=("eng", "und"),
+            subtitle_language_preference=("eng", "und"),
+            commentary_patterns=("commentary", "director"),
+            default_flags=DefaultFlagsConfig(
+                set_first_video_default=True,
+                set_preferred_audio_default=True,
+                set_preferred_subtitle_default=False,
+                clear_other_defaults=True,
+                set_subtitle_default_when_audio_differs=True,
+            ),
+        )
+        tracks = [
+            TrackInfo(index=0, track_type="video", codec="hevc"),
+            TrackInfo(index=1, track_type="audio", codec="aac", language="deu"),
+            TrackInfo(index=2, track_type="subtitle", codec="subrip", language="eng"),
+            TrackInfo(index=3, track_type="subtitle", codec="subrip", language="deu"),
+        ]
+        result = compute_default_flags(tracks, policy, matcher)
+        assert result[0] is True  # Video gets default
+        assert result[1] is True  # Audio gets default (only audio)
+        assert result[2] is True  # English subtitle gets default
+        assert result[3] is False  # German subtitle cleared
+
+    def test_subtitle_default_when_audio_matches(self, matcher: CommentaryMatcher):
+        """No subtitle default when audio matches preferred language."""
+        policy = PolicySchema(
+            schema_version=1,
+            audio_language_preference=("eng", "und"),
+            subtitle_language_preference=("eng", "und"),
+            commentary_patterns=("commentary", "director"),
+            default_flags=DefaultFlagsConfig(
+                set_first_video_default=True,
+                set_preferred_audio_default=True,
+                set_preferred_subtitle_default=False,
+                clear_other_defaults=True,
+                set_subtitle_default_when_audio_differs=True,
+            ),
+        )
+        tracks = [
+            TrackInfo(index=0, track_type="video", codec="hevc"),
+            TrackInfo(index=1, track_type="audio", codec="aac", language="eng"),
+            TrackInfo(index=2, track_type="subtitle", codec="subrip", language="eng"),
+        ]
+        result = compute_default_flags(tracks, policy, matcher)
+        assert result[0] is True  # Video gets default
+        assert result[1] is True  # Audio gets default
+        assert result[2] is False  # Subtitle does NOT get default
+
+    def test_subtitle_default_when_audio_undefined(self, matcher: CommentaryMatcher):
+        """Subtitle gets default when audio language is undefined."""
+        policy = PolicySchema(
+            schema_version=1,
+            audio_language_preference=("eng",),  # Note: 'und' NOT in preference
+            subtitle_language_preference=("eng", "und"),
+            commentary_patterns=("commentary", "director"),
+            default_flags=DefaultFlagsConfig(
+                set_first_video_default=True,
+                set_preferred_audio_default=True,
+                set_preferred_subtitle_default=False,
+                clear_other_defaults=True,
+                set_subtitle_default_when_audio_differs=True,
+            ),
+        )
+        tracks = [
+            TrackInfo(index=0, track_type="video", codec="hevc"),
+            TrackInfo(index=1, track_type="audio", codec="aac", language="und"),
+            TrackInfo(index=2, track_type="subtitle", codec="subrip", language="eng"),
+        ]
+        result = compute_default_flags(tracks, policy, matcher)
+        assert result[0] is True  # Video gets default
+        assert result[1] is True  # Audio gets default (only audio)
+        assert result[2] is True  # Subtitle gets default (audio lang doesn't match)
+
+    def test_subtitle_default_when_only_commentary_audio(
+        self, matcher: CommentaryMatcher
+    ):
+        """Subtitle gets default when only commentary audio exists."""
+        policy = PolicySchema(
+            schema_version=1,
+            audio_language_preference=("eng", "und"),
+            subtitle_language_preference=("eng", "und"),
+            commentary_patterns=("commentary", "director"),
+            default_flags=DefaultFlagsConfig(
+                set_first_video_default=True,
+                set_preferred_audio_default=True,
+                set_preferred_subtitle_default=False,
+                clear_other_defaults=True,
+                set_subtitle_default_when_audio_differs=True,
+            ),
+        )
+        tracks = [
+            TrackInfo(index=0, track_type="video", codec="hevc"),
+            TrackInfo(
+                index=1,
+                track_type="audio",
+                codec="aac",
+                language="eng",
+                title="Director Commentary",
+            ),
+            TrackInfo(index=2, track_type="subtitle", codec="subrip", language="eng"),
+        ]
+        result = compute_default_flags(tracks, policy, matcher)
+        assert result[0] is True  # Video gets default
+        assert result[1] is True  # Commentary audio gets default (only audio)
+        assert result[2] is True  # Subtitle gets default (no main audio)
+
+    def test_subtitle_default_when_no_audio(self, matcher: CommentaryMatcher):
+        """Subtitle gets default when no audio tracks exist."""
+        policy = PolicySchema(
+            schema_version=1,
+            audio_language_preference=("eng", "und"),
+            subtitle_language_preference=("eng", "und"),
+            commentary_patterns=("commentary", "director"),
+            default_flags=DefaultFlagsConfig(
+                set_first_video_default=True,
+                set_preferred_audio_default=True,
+                set_preferred_subtitle_default=False,
+                clear_other_defaults=True,
+                set_subtitle_default_when_audio_differs=True,
+            ),
+        )
+        tracks = [
+            TrackInfo(index=0, track_type="video", codec="hevc"),
+            TrackInfo(index=1, track_type="subtitle", codec="subrip", language="eng"),
+        ]
+        result = compute_default_flags(tracks, policy, matcher)
+        assert result[0] is True  # Video gets default
+        assert result[1] is True  # Subtitle gets default (no audio)
+
+    def test_subtitle_default_disabled_by_config(self, matcher: CommentaryMatcher):
+        """No subtitle default when feature is disabled, regardless of audio."""
+        policy = PolicySchema(
+            schema_version=1,
+            audio_language_preference=("eng", "und"),
+            subtitle_language_preference=("eng", "und"),
+            commentary_patterns=("commentary", "director"),
+            default_flags=DefaultFlagsConfig(
+                set_first_video_default=True,
+                set_preferred_audio_default=True,
+                set_preferred_subtitle_default=False,
+                clear_other_defaults=True,
+                set_subtitle_default_when_audio_differs=False,  # Feature disabled
+            ),
+        )
+        tracks = [
+            TrackInfo(index=0, track_type="video", codec="hevc"),
+            TrackInfo(index=1, track_type="audio", codec="aac", language="deu"),
+            TrackInfo(index=2, track_type="subtitle", codec="subrip", language="eng"),
+        ]
+        result = compute_default_flags(tracks, policy, matcher)
+        assert result[0] is True  # Video gets default
+        assert result[1] is True  # Audio gets default (only audio)
+        assert result[2] is False  # Subtitle does NOT get default (feature disabled)
+
 
 # =============================================================================
 # Full Evaluation Tests

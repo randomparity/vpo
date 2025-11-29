@@ -276,6 +276,26 @@ def compute_default_flags(
         for track in subtitle_tracks:
             result[track.index] = False
 
+    # Set subtitle default when audio language differs from preference
+    if (
+        flags.set_subtitle_default_when_audio_differs
+        and subtitle_tracks
+        and not _audio_matches_language_preference(
+            audio_tracks, policy.audio_language_preference, matcher
+        )
+    ):
+        # Only set if we haven't already set a subtitle default above
+        if not any(result.get(t.index) for t in subtitle_tracks):
+            default_subtitle = _find_preferred_track(
+                subtitle_tracks, policy.subtitle_language_preference, matcher
+            )
+            if default_subtitle is not None:
+                result[default_subtitle.index] = True
+            if flags.clear_other_defaults:
+                for track in subtitle_tracks:
+                    if track.index not in result:
+                        result[track.index] = False
+
     return result
 
 
@@ -311,6 +331,41 @@ def _find_preferred_track(
 
     # Fall back to first non-commentary track
     return non_commentary[0]
+
+
+def _audio_matches_language_preference(
+    audio_tracks: list[TrackInfo],
+    language_preference: tuple[str, ...],
+    matcher: CommentaryMatcher,
+) -> bool:
+    """Check if any non-commentary audio track matches language preference.
+
+    Returns False if:
+    - No audio tracks exist
+    - All audio tracks are commentary
+    - No audio track language matches any preferred language
+    - Audio language is undefined ('und') and 'und' not in preference
+
+    Args:
+        audio_tracks: List of audio tracks to check.
+        language_preference: Ordered list of preferred languages.
+        matcher: Commentary pattern matcher.
+
+    Returns:
+        True if at least one non-commentary audio matches preference.
+    """
+    non_commentary = [t for t in audio_tracks if not matcher.is_commentary(t.title)]
+
+    if not non_commentary:
+        return False  # No main audio = mismatch
+
+    for track in non_commentary:
+        track_lang = track.language or "und"
+        for pref_lang in language_preference:
+            if languages_match(track_lang, pref_lang):
+                return True
+
+    return False
 
 
 def compute_language_updates(

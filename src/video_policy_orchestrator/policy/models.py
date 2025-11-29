@@ -155,6 +155,7 @@ class DefaultFlagsConfig:
     set_preferred_audio_default: bool = True
     set_preferred_subtitle_default: bool = False
     clear_other_defaults: bool = True
+    set_subtitle_default_when_audio_differs: bool = False
 
 
 @dataclass(frozen=True)

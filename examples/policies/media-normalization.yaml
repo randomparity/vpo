@@ -121,3 +121,4 @@ default_flags:
   set_preferred_audio_default: true
   set_preferred_subtitle_default: false
   clear_other_defaults: true
+  set_subtitle_default_when_audio_differs: true
