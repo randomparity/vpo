@@ -46,6 +46,42 @@ if TYPE_CHECKING:
     from video_policy_orchestrator.db.models import TrackInfo
 
 
+# Default patterns for identifying commentary tracks
+DEFAULT_COMMENTARY_PATTERNS = ("commentary", "director", "cast")
+
+
+def _is_commentary_track(
+    track: TrackInfo,
+    commentary_patterns: tuple[str, ...] | None = None,
+) -> bool:
+    """Check if a track is likely a commentary track.
+
+    Args:
+        track: The track to check.
+        commentary_patterns: Regex patterns that indicate commentary.
+
+    Returns:
+        True if the track appears to be commentary.
+    """
+    if not track.title:
+        return False
+
+    patterns = commentary_patterns or DEFAULT_COMMENTARY_PATTERNS
+    title_lower = track.title.lower()
+
+    for pattern in patterns:
+        try:
+            compiled = re.compile(pattern, re.IGNORECASE)
+            if compiled.search(title_lower):
+                return True
+        except re.error:
+            # Invalid regex, fall back to substring match
+            if pattern.lower() in title_lower:
+                return True
+
+    return False
+
+
 def _compare_value(actual: int, comparison: Comparison) -> bool:
     """Compare an actual value against a comparison spec.
 
@@ -140,12 +176,18 @@ def _matches_title(actual: str | None, pattern: str | TitleMatch) -> bool:
     raise ValueError("TitleMatch must have either 'contains' or 'regex' set")
 
 
-def matches_track(track: TrackInfo, filters: TrackFilters) -> bool:
+def matches_track(
+    track: TrackInfo,
+    filters: TrackFilters,
+    commentary_patterns: tuple[str, ...] | None = None,
+) -> bool:
     """Check if a track matches all filter criteria.
 
     Args:
         track: Track metadata to check.
         filters: Filter criteria to apply.
+        commentary_patterns: Patterns to identify commentary tracks
+            (for not_commentary filter).
 
     Returns:
         True if track matches all specified criteria.
@@ -208,18 +250,25 @@ def matches_track(track: TrackInfo, filters: TrackFilters) -> bool:
         if not _matches_title(track.title, filters.title):
             return False
 
+    # Not commentary filter (V8)
+    if filters.not_commentary is True:
+        if _is_commentary_track(track, commentary_patterns):
+            return False
+
     return True
 
 
 def evaluate_exists(
     condition: ExistsCondition,
     tracks: list[TrackInfo],
+    commentary_patterns: tuple[str, ...] | None = None,
 ) -> tuple[bool, str]:
     """Evaluate an existence condition.
 
     Args:
         condition: The existence condition to evaluate.
         tracks: List of tracks to check.
+        commentary_patterns: Patterns to identify commentary tracks.
 
     Returns:
         Tuple of (result, reason) where result is True if at least one
@@ -232,7 +281,7 @@ def evaluate_exists(
     for track in tracks:
         if track.track_type.lower() != track_type:
             continue
-        if matches_track(track, filters):
+        if matches_track(track, filters, commentary_patterns):
             matching_tracks.append(track)
 
     if matching_tracks:
@@ -253,12 +302,14 @@ def evaluate_exists(
 def evaluate_count(
     condition: CountCondition,
     tracks: list[TrackInfo],
+    commentary_patterns: tuple[str, ...] | None = None,
 ) -> tuple[bool, str]:
     """Evaluate a count condition.
 
     Args:
         condition: The count condition to evaluate.
         tracks: List of tracks to count.
+        commentary_patterns: Patterns to identify commentary tracks.
 
     Returns:
         Tuple of (result, reason) where result is True if count
@@ -271,7 +322,7 @@ def evaluate_count(
     for track in tracks:
         if track.track_type.lower() != track_type:
             continue
-        if matches_track(track, filters):
+        if matches_track(track, filters, commentary_patterns):
             count += 1
 
     comparison = Comparison(operator=condition.operator, value=condition.value)
@@ -372,6 +423,7 @@ def evaluate_condition(
     condition: Condition,
     tracks: list[TrackInfo],
     language_results: dict[int, LanguageAnalysisResult] | None = None,
+    commentary_patterns: tuple[str, ...] | None = None,
 ) -> tuple[bool, str]:
     """Evaluate a condition against track metadata.
 
@@ -383,36 +435,44 @@ def evaluate_condition(
         tracks: List of tracks to evaluate against.
         language_results: Optional dict mapping track_id to LanguageAnalysisResult
             (required for audio_is_multi_language conditions).
+        commentary_patterns: Patterns to identify commentary tracks
+            (for not_commentary filter).
 
     Returns:
         Tuple of (result, reason) where result is the boolean outcome
         and reason is a human-readable explanation for dry-run output.
     """
     if isinstance(condition, ExistsCondition):
-        return evaluate_exists(condition, tracks)
+        return evaluate_exists(condition, tracks, commentary_patterns)
 
     if isinstance(condition, CountCondition):
-        return evaluate_count(condition, tracks)
+        return evaluate_count(condition, tracks, commentary_patterns)
 
     if isinstance(condition, AudioIsMultiLanguageCondition):
         return evaluate_audio_is_multi_language(condition, tracks, language_results)
 
     if isinstance(condition, AndCondition):
         for sub in condition.conditions:
-            result, reason = evaluate_condition(sub, tracks, language_results)
+            result, reason = evaluate_condition(
+                sub, tracks, language_results, commentary_patterns
+            )
             if not result:
                 return (False, f"and → False ({reason})")
         return (True, f"and → True ({len(condition.conditions)} conditions)")
 
     if isinstance(condition, OrCondition):
         for sub in condition.conditions:
-            result, reason = evaluate_condition(sub, tracks, language_results)
+            result, reason = evaluate_condition(
+                sub, tracks, language_results, commentary_patterns
+            )
             if result:
                 return (True, f"or → True ({reason})")
         return (False, f"or → False ({len(condition.conditions)} conditions failed)")
 
     if isinstance(condition, NotCondition):
-        result, reason = evaluate_condition(condition.inner, tracks, language_results)
+        result, reason = evaluate_condition(
+            condition.inner, tracks, language_results, commentary_patterns
+        )
         return (not result, f"not({reason}) → {not result}")
 
     # Should never reach here - all condition types handled above

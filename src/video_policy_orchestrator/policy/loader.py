@@ -5,7 +5,7 @@ them using Pydantic models.
 """
 
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Union
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -48,6 +48,7 @@ from video_policy_orchestrator.policy.models import (
     SetForcedAction,
     SkipAction,
     SkipCondition,
+    SkipIfExistsCriteria,
     SkipType,
     SubtitleFilterConfig,
     SynthesisTrackDefinitionRef,
@@ -62,7 +63,7 @@ from video_policy_orchestrator.policy.models import (
 )
 
 # Current maximum supported schema version
-MAX_SCHEMA_VERSION = 7
+MAX_SCHEMA_VERSION = 8
 
 
 class PolicyValidationError(Exception):
@@ -557,6 +558,41 @@ class SourcePreferencesModel(BaseModel):
         return v
 
 
+class SkipIfExistsModel(BaseModel):
+    """Pydantic model for skip_if_exists criteria in audio synthesis.
+
+    Allows synthesis to be skipped if a matching track already exists.
+    All specified criteria must match (AND logic).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    codec: str | list[str] | None = None
+    channels: Union[int, "ComparisonModel", None] = None
+    language: str | list[str] | None = None
+    not_commentary: bool | None = None
+
+    @field_validator("codec", mode="before")
+    @classmethod
+    def normalize_codec(cls, v: str | list[str] | None) -> str | list[str] | None:
+        """Normalize codec to lowercase."""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            return v.lower()
+        return [codec.lower() for codec in v]
+
+    @field_validator("language", mode="before")
+    @classmethod
+    def normalize_language(cls, v: str | list[str] | None) -> str | list[str] | None:
+        """Normalize language to lowercase."""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            return v.lower()
+        return [lang.lower() for lang in v]
+
+
 class SynthesisTrackDefinitionModel(BaseModel):
     """Pydantic model for a synthesis track definition."""
 
@@ -568,6 +604,7 @@ class SynthesisTrackDefinitionModel(BaseModel):
     source: SourcePreferencesModel
     bitrate: str | None = None
     create_if: "ConditionModel | None" = None
+    skip_if_exists: SkipIfExistsModel | None = None
     title: str | Literal["inherit"] = "inherit"
     language: str | Literal["inherit"] = "inherit"
     position: Literal["after_source", "end"] | int = "end"
@@ -772,6 +809,7 @@ class TrackFiltersModel(BaseModel):
     width: int | ComparisonModel | None = None
     height: int | ComparisonModel | None = None
     title: str | TitleMatchModel | None = None
+    not_commentary: bool | None = None  # V8: exclude commentary tracks
 
 
 class ExistsConditionModel(BaseModel):
@@ -788,6 +826,7 @@ class ExistsConditionModel(BaseModel):
     width: int | ComparisonModel | None = None
     height: int | ComparisonModel | None = None
     title: str | TitleMatchModel | None = None
+    not_commentary: bool | None = None  # V8: exclude commentary tracks
 
 
 class CountConditionModel(BaseModel):
@@ -800,6 +839,7 @@ class CountConditionModel(BaseModel):
     codec: str | list[str] | None = None
     is_default: bool | None = None
     is_forced: bool | None = None
+    not_commentary: bool | None = None  # V8: exclude commentary tracks
     channels: int | ComparisonModel | None = None
     width: int | ComparisonModel | None = None
     height: int | ComparisonModel | None = None
@@ -1077,6 +1117,62 @@ def _check_v7_features_in_rules(rules: list[ConditionalRuleModel]) -> set[str]:
     return features
 
 
+def _check_v8_features_in_condition(condition: ConditionModel) -> set[str]:
+    """Check if a condition uses V8 features.
+
+    Recursively checks conditions for V8-specific features like not_commentary.
+
+    Args:
+        condition: The condition to check.
+
+    Returns:
+        Set of V8 feature names found in the condition.
+    """
+    features: set[str] = set()
+
+    # Check exists condition for not_commentary
+    if condition.exists is not None:
+        if condition.exists.not_commentary is not None:
+            features.add("not_commentary")
+
+    # Check count condition for not_commentary
+    if condition.count is not None:
+        if condition.count.not_commentary is not None:
+            features.add("not_commentary")
+
+    # Check nested conditions
+    if condition.all_of is not None:
+        for sub in condition.all_of:
+            features.update(_check_v8_features_in_condition(sub))
+    if condition.any_of is not None:
+        for sub in condition.any_of:
+            features.update(_check_v8_features_in_condition(sub))
+    if condition.not_ is not None:
+        features.update(_check_v8_features_in_condition(condition.not_))
+
+    return features
+
+
+def _check_v8_features_in_rules(rules: list[ConditionalRuleModel]) -> set[str]:
+    """Check if any conditional rules use V8 features.
+
+    Checks conditions for V8-specific features like not_commentary.
+
+    Args:
+        rules: List of conditional rules to check.
+
+    Returns:
+        Set of V8 feature names found in the rules.
+    """
+    features: set[str] = set()
+
+    for rule in rules:
+        # Check condition
+        features.update(_check_v8_features_in_condition(rule.when))
+
+    return features
+
+
 class PolicyModel(BaseModel):
     """Pydantic model for policy YAML validation."""
 
@@ -1163,6 +1259,21 @@ class PolicyModel(BaseModel):
                     f"but schema_version is {self.schema_version}"
                 )
 
+        # V8 field validation: skip_if_exists, not_commentary
+        v8_features: set[str] = set()
+        if self.audio_synthesis is not None:
+            for track in self.audio_synthesis.tracks:
+                if track.skip_if_exists is not None:
+                    v8_features.add("skip_if_exists")
+        if self.conditional is not None:
+            v8_features.update(_check_v8_features_in_rules(self.conditional))
+        if v8_features and self.schema_version < 8:
+            features_str = ", ".join(sorted(v8_features))
+            raise ValueError(
+                f"V8 features ({features_str}) require schema_version >= 8, "
+                f"but schema_version is {self.schema_version}"
+            )
+
         return self
 
     @field_validator("track_order")
@@ -1245,6 +1356,7 @@ def _convert_track_filters(
     width: int | ComparisonModel | None = None,
     height: int | ComparisonModel | None = None,
     title: str | TitleMatchModel | None = None,
+    not_commentary: bool | None = None,
 ) -> TrackFilters:
     """Convert filter fields to TrackFilters dataclass."""
     # Normalize language to tuple
@@ -1304,6 +1416,7 @@ def _convert_track_filters(
         width=width_val,
         height=height_val,
         title=title_val,
+        not_commentary=not_commentary,
     )
 
 
@@ -1318,6 +1431,7 @@ def _convert_exists_condition(model: ExistsConditionModel) -> ExistsCondition:
         width=model.width,
         height=model.height,
         title=model.title,
+        not_commentary=model.not_commentary,
     )
     return ExistsCondition(track_type=model.track_type, filters=filters)
 
@@ -1333,6 +1447,7 @@ def _convert_count_condition(model: CountConditionModel) -> CountCondition:
         width=model.width,
         height=model.height,
         title=model.title,
+        not_commentary=model.not_commentary,
     )
 
     # Get count comparison operator
@@ -1517,6 +1632,45 @@ def _convert_preference_criterion(
     return result
 
 
+def _convert_skip_if_exists(
+    model: SkipIfExistsModel | None,
+) -> SkipIfExistsCriteria | None:
+    """Convert SkipIfExistsModel to SkipIfExistsCriteria dataclass."""
+    if model is None:
+        return None
+
+    # Normalize codec to tuple
+    codec: str | tuple[str, ...] | None = None
+    if model.codec is not None:
+        if isinstance(model.codec, list):
+            codec = tuple(model.codec)
+        else:
+            codec = model.codec
+
+    # Convert channels comparison
+    channels: int | Comparison | None = None
+    if model.channels is not None:
+        if isinstance(model.channels, ComparisonModel):
+            channels = _convert_comparison(model.channels)
+        else:
+            channels = model.channels
+
+    # Normalize language to tuple
+    language: str | tuple[str, ...] | None = None
+    if model.language is not None:
+        if isinstance(model.language, list):
+            language = tuple(model.language)
+        else:
+            language = model.language
+
+    return SkipIfExistsCriteria(
+        codec=codec,
+        channels=channels,
+        language=language,
+        not_commentary=model.not_commentary,
+    )
+
+
 def _convert_synthesis_track_definition(
     model: SynthesisTrackDefinitionModel,
 ) -> SynthesisTrackDefinitionRef:
@@ -1529,6 +1683,9 @@ def _convert_synthesis_track_definition(
     if model.create_if is not None:
         create_if = _convert_condition(model.create_if)
 
+    # Convert skip_if_exists criteria if present (V8+)
+    skip_if_exists = _convert_skip_if_exists(model.skip_if_exists)
+
     return SynthesisTrackDefinitionRef(
         name=model.name,
         codec=model.codec,
@@ -1536,6 +1693,7 @@ def _convert_synthesis_track_definition(
         source_prefer=source_prefer,
         bitrate=model.bitrate,
         create_if=create_if,
+        skip_if_exists=skip_if_exists,
         title=model.title,
         language=model.language,
         position=model.position,

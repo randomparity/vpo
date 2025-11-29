@@ -38,6 +38,7 @@ from video_policy_orchestrator.policy.synthesis.models import (
     TrackOrderEntry,
 )
 from video_policy_orchestrator.policy.synthesis.source_selector import (
+    _is_commentary_track,
     filter_audio_tracks,
     select_source_track,
 )
@@ -46,11 +47,135 @@ if TYPE_CHECKING:
     from video_policy_orchestrator.db.models import TrackInfo
     from video_policy_orchestrator.policy.models import (
         AudioSynthesisConfig,
+        Comparison,
         Condition,
+        SkipIfExistsCriteria,
         SynthesisTrackDefinitionRef,
     )
 
 logger = logging.getLogger(__name__)
+
+
+def _compare_channels(
+    actual: int,
+    criteria: int | Comparison,
+) -> bool:
+    """Compare actual channel count against criteria.
+
+    Args:
+        actual: The actual channel count from the track.
+        criteria: Either an exact int or a Comparison object.
+
+    Returns:
+        True if the comparison passes.
+    """
+    from video_policy_orchestrator.policy.models import (
+        ComparisonOperator,
+    )
+
+    if isinstance(criteria, int):
+        return actual == criteria
+
+    # It's a Comparison object
+    op = criteria.operator
+    value = criteria.value
+
+    if op == ComparisonOperator.EQ:
+        return actual == value
+    elif op == ComparisonOperator.LT:
+        return actual < value
+    elif op == ComparisonOperator.LTE:
+        return actual <= value
+    elif op == ComparisonOperator.GT:
+        return actual > value
+    elif op == ComparisonOperator.GTE:
+        return actual >= value
+
+    return False
+
+
+def _evaluate_skip_if_exists(
+    criteria: SkipIfExistsCriteria,
+    audio_tracks: list[TrackInfo],
+    commentary_patterns: tuple[str, ...] | None = None,
+) -> tuple[bool, str | None]:
+    """Evaluate skip_if_exists criteria against existing audio tracks.
+
+    Checks if any existing audio track matches ALL specified criteria.
+    If a match is found, synthesis should be skipped.
+
+    Args:
+        criteria: The skip criteria from the synthesis definition.
+        audio_tracks: List of audio tracks in the file.
+        commentary_patterns: Patterns to identify commentary tracks.
+
+    Returns:
+        Tuple of (should_skip, reason) where should_skip is True if a
+        matching track exists and reason describes the match.
+    """
+    from video_policy_orchestrator.language import languages_match
+
+    for track in audio_tracks:
+        # Check codec criteria
+        if criteria.codec is not None:
+            codecs = (
+                criteria.codec
+                if isinstance(criteria.codec, tuple)
+                else (criteria.codec,)
+            )
+            if not track.codec or not any(
+                track.codec.lower() == c.lower() for c in codecs
+            ):
+                continue  # Codec doesn't match, try next track
+
+        # Check channels criteria
+        if criteria.channels is not None:
+            if track.channels is None:
+                continue  # No channel info, try next track
+            if not _compare_channels(track.channels, criteria.channels):
+                continue  # Channels don't match, try next track
+
+        # Check language criteria
+        if criteria.language is not None:
+            languages = (
+                criteria.language
+                if isinstance(criteria.language, tuple)
+                else (criteria.language,)
+            )
+            if not track.language or not any(
+                languages_match(track.language, lang) for lang in languages
+            ):
+                continue  # Language doesn't match, try next track
+
+        # Check not_commentary criteria
+        if criteria.not_commentary is True:
+            if _is_commentary_track(track, commentary_patterns):
+                continue  # Is commentary, try next track
+
+        # All criteria matched!
+        reason_parts = []
+        if criteria.codec:
+            reason_parts.append(f"codec={track.codec}")
+        if criteria.channels:
+            reason_parts.append(f"channels={track.channels}")
+        if criteria.language:
+            reason_parts.append(f"language={track.language}")
+        if criteria.not_commentary:
+            reason_parts.append("not_commentary")
+
+        reason = (
+            f"Track {track.index} matches skip_if_exists criteria "
+            f"({', '.join(reason_parts)})"
+        )
+        logger.debug(
+            "skip_if_exists matched: track %d (%s)",
+            track.index,
+            ", ".join(reason_parts),
+        )
+        return (True, reason)
+
+    # No matching track found
+    return (False, None)
 
 
 def _convert_ref_to_definition(
@@ -397,6 +522,29 @@ def plan_synthesis(
     audio_tracks = filter_audio_tracks(tracks)
 
     for ref in synthesis_config.tracks:
+        # Evaluate skip_if_exists FIRST (V8 feature)
+        if ref.skip_if_exists is not None:
+            should_skip, skip_reason = _evaluate_skip_if_exists(
+                ref.skip_if_exists,
+                audio_tracks,
+                commentary_patterns,
+            )
+            if should_skip:
+                skipped.append(
+                    SkippedSynthesis(
+                        definition_name=ref.name,
+                        reason=SkipReason.ALREADY_EXISTS,
+                        details=skip_reason or "Matching track already exists",
+                    )
+                )
+                logger.info(
+                    "Skipped synthesis '%s': %s - %s",
+                    ref.name,
+                    SkipReason.ALREADY_EXISTS.value,
+                    skip_reason,
+                )
+                continue
+
         definition = _convert_ref_to_definition(ref)
 
         result = resolve_synthesis_operation(
