@@ -70,7 +70,7 @@ audio_synthesis:
         prefer:
           - language: [eng, und]
           - not_commentary: true
-          - codec: [truehd, "dts-hd ma", flac, pcm_s24le]
+          - codec: [truehd, "truehd atmos", "dts-hd ma", dts, flac, pcm_s24le]
           - channels: max
       # Only create if there's a multi-channel source
       create_if:
