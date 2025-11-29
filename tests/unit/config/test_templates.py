@@ -9,6 +9,7 @@ from video_policy_orchestrator.config.templates import (
     InitResult,
     check_initialization_state,
     create_data_directory,
+    create_logs_directory,
     create_plugins_directory,
     run_init,
     validate_data_dir_path,
@@ -331,6 +332,35 @@ class TestCreatePluginsDirectory:
         assert not (temp_dir / "plugins").exists()
 
 
+class TestCreateLogsDirectory:
+    """Tests for create_logs_directory function."""
+
+    def test_create_logs_dir(self, temp_dir: Path):
+        """Test creating logs directory."""
+        success, error = create_logs_directory(temp_dir)
+
+        assert success is True
+        assert error is None
+        assert (temp_dir / "logs").exists()
+
+    def test_dry_run_does_not_create(self, temp_dir: Path):
+        """Test dry run doesn't create directory."""
+        success, error = create_logs_directory(temp_dir, dry_run=True)
+
+        assert success is True
+        assert not (temp_dir / "logs").exists()
+
+    def test_existing_directory_ok(self, temp_dir: Path):
+        """Test existing logs directory is handled."""
+        logs_dir = temp_dir / "logs"
+        logs_dir.mkdir()
+
+        success, error = create_logs_directory(temp_dir)
+
+        assert success is True
+        assert error is None
+
+
 class TestRunInit:
     """Tests for run_init orchestration function."""
 
@@ -345,10 +375,11 @@ class TestRunInit:
         assert len(result.created_files) > 0
         assert result.error is None
 
-        # Verify files exist
+        # Verify files and directories exist
         assert (data_dir / "config.toml").exists()
         assert (data_dir / "policies" / "default.yaml").exists()
         assert (data_dir / "plugins").exists()
+        assert (data_dir / "logs").exists()
 
     def test_already_initialized_error(self, temp_dir: Path):
         """Test error when already initialized."""

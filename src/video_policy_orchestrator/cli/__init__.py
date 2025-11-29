@@ -1,6 +1,8 @@
 """CLI module for Video Policy Orchestrator."""
 
 import atexit
+import logging
+import os
 import sqlite3
 from pathlib import Path
 
@@ -15,6 +17,9 @@ from video_policy_orchestrator.db.schema import create_schema
 _db_conn: sqlite3.Connection | None = None
 _logging_configured: bool = False
 _atexit_registered: bool = False
+_startup_logged: bool = False
+
+logger = logging.getLogger(__name__)
 
 
 def _cleanup_db_connection() -> None:
@@ -115,6 +120,82 @@ def _configure_logging(
     _logging_configured = True
 
 
+def _log_startup_settings(
+    cli_log_level: str | None,
+    cli_log_file: Path | None,
+) -> None:
+    """Log key settings with their sources at startup.
+
+    This logs a summary of important configuration settings,
+    showing where each value came from (default, config, env, cli).
+
+    Args:
+        cli_log_level: Log level from CLI option (or None).
+        cli_log_file: Log file from CLI option (or None).
+    """
+    global _startup_logged
+    if _startup_logged:
+        return
+    _startup_logged = True
+
+    from video_policy_orchestrator.config import get_config
+    from video_policy_orchestrator.config.loader import (
+        DEFAULT_CONFIG_DIR,
+        get_data_dir,
+        load_config_file,
+    )
+
+    # Get the effective configuration
+    config = get_config()
+    file_config = load_config_file()
+    file_logging = file_config.get("logging", {})
+
+    # Determine data_dir source
+    data_dir = get_data_dir()
+    if os.environ.get("VPO_DATA_DIR"):
+        data_dir_source = "env"
+    elif data_dir == DEFAULT_CONFIG_DIR:
+        data_dir_source = "default"
+    else:
+        data_dir_source = "config"
+
+    # Determine log_level source
+    if cli_log_level:
+        log_level_source = "cli"
+        log_level = cli_log_level
+    elif file_logging.get("level"):
+        log_level_source = "config"
+        log_level = config.logging.level
+    else:
+        log_level_source = "default"
+        log_level = config.logging.level
+
+    # Determine log_file source
+    if cli_log_file:
+        log_file_source = "cli"
+        log_file = str(cli_log_file)
+    elif file_logging.get("file"):
+        log_file_source = "config"
+        log_file = str(config.logging.file) if config.logging.file else "stderr"
+    else:
+        log_file_source = "default"
+        log_file = str(config.logging.file) if config.logging.file else "stderr"
+
+    # Compact the data_dir for display
+    data_dir_display = str(data_dir).replace(str(Path.home()), "~")
+    log_file_display = log_file.replace(str(Path.home()), "~") if log_file else "stderr"
+
+    logger.info(
+        "VPO starting: data_dir=%s (%s), log_level=%s (%s), log_file=%s (%s)",
+        data_dir_display,
+        data_dir_source,
+        log_level,
+        log_level_source,
+        log_file_display,
+        log_file_source,
+    )
+
+
 @click.group()
 @click.version_option(package_name="video-policy-orchestrator")
 @click.option(
@@ -154,6 +235,11 @@ def main(
 
     # Configure logging from CLI options
     _configure_logging(log_level, log_file, log_json)
+
+    # Log startup settings (skip for init command - it should be silent)
+    # ctx.invoked_subcommand is the name of the subcommand being invoked
+    if ctx.invoked_subcommand != "init":
+        _log_startup_settings(log_level, log_file)
 
     # Initialize database connection for subcommands
     ctx.obj["db_conn"] = _get_db_connection()

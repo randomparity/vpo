@@ -170,8 +170,8 @@ CONFIG_TEMPLATE = """\
 # Structured logging configuration.
 
 [logging]
-# level = "info"                 # Log level: debug, info, warning, error
-# file = ""                      # Log file path (empty = stderr only)
+level = "info"                   # Log level: debug, info, warning, error
+file = "~/.vpo/logs/vpo.log"     # Log file path (empty = stderr only)
 # format = "text"                # Log format: text, json
 # include_stderr = true          # Also log to stderr when file is set
 # max_bytes = 10485760           # Rotation threshold in bytes (10MB)
@@ -454,7 +454,7 @@ def create_data_directory(
 
     try:
         data_dir.mkdir(parents=True, exist_ok=True)
-        logger.info("Created data directory: %s", data_dir)
+        logger.debug("Created data directory: %s", data_dir)
         return True, None
     except PermissionError:
         return False, f"Permission denied: cannot create {data_dir}"
@@ -482,7 +482,7 @@ def write_config_file(data_dir: Path, dry_run: bool = False) -> tuple[bool, str 
 
     try:
         _atomic_write_text(config_path, CONFIG_TEMPLATE)
-        logger.info("Created config file: %s", config_path)
+        logger.debug("Created config file: %s", config_path)
         return True, None
     except PermissionError:
         return False, f"Permission denied: cannot write {config_path}"
@@ -517,7 +517,7 @@ def write_default_policy(
         logger.debug("Created policies directory: %s", policies_dir)
 
         _atomic_write_text(policy_path, DEFAULT_POLICY_TEMPLATE)
-        logger.info("Created default policy: %s", policy_path)
+        logger.debug("Created default policy: %s", policy_path)
         return True, None
     except PermissionError:
         return False, f"Permission denied: cannot write to {policies_dir}"
@@ -549,12 +549,44 @@ def create_plugins_directory(
 
     try:
         plugins_dir.mkdir(parents=True, exist_ok=True)
-        logger.info("Created plugins directory: %s", plugins_dir)
+        logger.debug("Created plugins directory: %s", plugins_dir)
         return True, None
     except PermissionError:
         return False, f"Permission denied: cannot create {plugins_dir}"
     except OSError as e:
         return False, f"Cannot create plugins directory: {e}"
+
+
+def create_logs_directory(
+    data_dir: Path, dry_run: bool = False
+) -> tuple[bool, str | None]:
+    """Create the logs directory.
+
+    Args:
+        data_dir: VPO data directory path.
+        dry_run: If True, don't actually create anything.
+
+    Returns:
+        Tuple of (success, error_message). Error is None on success.
+    """
+    logs_dir = data_dir / "logs"
+
+    if logs_dir.exists():
+        logger.debug("Logs directory already exists: %s", logs_dir)
+        return True, None
+
+    if dry_run:
+        logger.debug("Would create logs directory: %s", logs_dir)
+        return True, None
+
+    try:
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        logger.debug("Created logs directory: %s", logs_dir)
+        return True, None
+    except PermissionError:
+        return False, f"Permission denied: cannot create {logs_dir}"
+    except OSError as e:
+        return False, f"Cannot create logs directory: {e}"
 
 
 def run_init(
@@ -576,7 +608,7 @@ def run_init(
     Returns:
         InitResult describing what was done.
     """
-    logger.info(
+    logger.debug(
         "Running init: data_dir=%s, force=%s, dry_run=%s",
         data_dir,
         force,
@@ -639,6 +671,20 @@ def run_init(
         if not dry_run:
             actually_created_dirs.append(data_dir)
 
+    # Create logs directory
+    logs_dir = data_dir / "logs"
+    logs_dir_existed = logs_dir.exists()
+    if logs_dir_existed:
+        skipped_files.append(logs_dir)
+
+    success, error = create_logs_directory(data_dir, dry_run)
+    if not success:
+        return handle_failure(error or "Failed to create logs directory.")
+    if not logs_dir_existed:
+        planned_directories.append(logs_dir)
+        if not dry_run:
+            actually_created_dirs.append(logs_dir)
+
     # Write config file
     config_path = data_dir / "config.toml"
     config_existed = config_path.exists()
@@ -687,7 +733,7 @@ def run_init(
         if not dry_run:
             actually_created_dirs.append(plugins_dir)
 
-    logger.info(
+    logger.debug(
         "Init completed: created %d files, %d directories",
         len(planned_files),
         len(planned_directories),
