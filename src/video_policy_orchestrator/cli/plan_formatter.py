@@ -253,7 +253,13 @@ def _build_before_rows(
         codec = (disp.codec or "").upper()
         lang = disp.language or ""
         details = _get_track_details(disp)
-        title = _truncate(disp.title or "", 20)
+
+        # Build title with transcription status for audio tracks
+        title_parts = [disp.title or ""]
+        if disp.transcription_status:
+            title_parts.append(f"[{disp.transcription_status}]")
+        title = _truncate(" ".join(filter(None, title_parts)), 25)
+
         action = "KEEP" if disp.action == "KEEP" else "DELETE"
         if disp.action == "KEEP":
             after = f"[T:{new_index_map[disp.track_index]}]"
@@ -276,7 +282,12 @@ def _build_after_rows(final_order: list[TrackDisposition]) -> list[tuple[str, ..
         codec = (disp.codec or "").upper()
         lang = disp.language or ""
         details = _get_track_details(disp)
-        title = _truncate(disp.title or "", 20)
+
+        # Build title with transcription status for audio tracks
+        title_parts = [disp.title or ""]
+        if disp.transcription_status:
+            title_parts.append(f"[{disp.transcription_status}]")
+        title = _truncate(" ".join(filter(None, title_parts)), 25)
 
         rows.append((track_id, track_type, codec, lang, details, title))
 
@@ -401,6 +412,7 @@ def _disposition_to_dict(disp: TrackDisposition) -> dict[str, Any]:
         "resolution": disp.resolution,
         "action": disp.action,
         "reason": disp.reason,
+        "transcription_status": disp.transcription_status,
     }
 
 

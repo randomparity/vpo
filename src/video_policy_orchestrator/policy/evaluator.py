@@ -663,6 +663,7 @@ def _apply_fallback(
 def compute_track_dispositions(
     tracks: list[TrackInfo],
     policy: PolicySchema,
+    transcription_results: dict[int, TranscriptionResultRecord] | None = None,
 ) -> tuple[TrackDisposition, ...]:
     """Compute disposition for each track based on policy filters.
 
@@ -673,6 +674,8 @@ def compute_track_dispositions(
     Args:
         tracks: List of track metadata from introspection.
         policy: Validated policy configuration.
+        transcription_results: Optional map of track_id to transcription result.
+            Used to populate transcription_status for audio tracks.
 
     Returns:
         Tuple of TrackDisposition objects, one per track.
@@ -710,6 +713,18 @@ def compute_track_dispositions(
         if track.width and track.height:
             resolution = f"{track.width}x{track.height}"
 
+        # Compute transcription status for audio tracks
+        transcription_status: str | None = None
+        if track_type == "audio":
+            # Get track ID for lookup (TrackInfo uses id attribute if available)
+            track_id = getattr(track, "id", None)
+            if transcription_results and track_id in transcription_results:
+                tr = transcription_results[track_id]
+                pct = int(tr.confidence_score * 100)
+                transcription_status = f"{tr.track_type} {pct}%"
+            else:
+                transcription_status = "TBD"
+
         dispositions.append(
             TrackDisposition(
                 track_index=track.index,
@@ -721,6 +736,7 @@ def compute_track_dispositions(
                 resolution=resolution,
                 action=action,
                 reason=reason,
+                transcription_status=transcription_status,
             )
         )
 
@@ -753,6 +769,7 @@ def compute_track_dispositions(
                             resolution=disp.resolution,
                             action=new_action,
                             reason=new_reason,
+                            transcription_status=disp.transcription_status,
                         )
 
     return tuple(dispositions)
@@ -1250,7 +1267,9 @@ def evaluate_policy(
     # V4: Check skip_track_filter flag before applying track filtering
     should_filter = policy.has_track_filtering and not skip_flags.skip_track_filter
     if should_filter:
-        track_dispositions = compute_track_dispositions(tracks, policy)
+        track_dispositions = compute_track_dispositions(
+            tracks, policy, transcription_results
+        )
         tracks_removed = sum(1 for d in track_dispositions if d.action == "REMOVE")
         tracks_kept = sum(1 for d in track_dispositions if d.action == "KEEP")
         if tracks_removed > 0:

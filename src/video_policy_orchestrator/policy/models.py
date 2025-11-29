@@ -427,6 +427,13 @@ class TrackDisposition:
     reason: str
     """Human-readable reason for the action."""
 
+    transcription_status: str | None = None
+    """Transcription analysis status for audio tracks.
+
+    Format: 'main 95%', 'commentary 88%', 'alternate 72%', or 'TBD'.
+    None for non-audio tracks.
+    """
+
 
 @dataclass(frozen=True)
 class ContainerChange:

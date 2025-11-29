@@ -13,7 +13,11 @@ from video_policy_orchestrator.db.operations import (
     create_operation,
     update_operation_status,
 )
-from video_policy_orchestrator.db.queries import get_file_by_path, get_tracks_for_file
+from video_policy_orchestrator.db.queries import (
+    get_file_by_path,
+    get_tracks_for_file,
+    get_transcriptions_for_tracks,
+)
 from video_policy_orchestrator.db.types import tracks_to_track_info
 from video_policy_orchestrator.executor.backup import FileLockError, file_lock
 from video_policy_orchestrator.policy.models import Plan, PolicySchema
@@ -95,6 +99,12 @@ class ApplyPhase:
         # Determine container format
         container = file_record.container_format or file_path.suffix.lstrip(".")
 
+        # Load transcription results for audio tracks
+        audio_track_ids = [t.id for t in track_records if t.track_type == "audio"]
+        transcription_results = get_transcriptions_for_tracks(
+            self.conn, audio_track_ids
+        )
+
         # Get policy engine
         policy_engine = self._get_policy_engine()
 
@@ -106,6 +116,7 @@ class ApplyPhase:
                 container=container,
                 tracks=tracks,
                 policy=self.policy,
+                transcription_results=transcription_results,
             )
 
             # Store plan for dry-run output access
