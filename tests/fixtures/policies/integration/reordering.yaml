@@ -1,0 +1,32 @@
+# Track reordering policy (schema v2)
+# Used for testing track order changes via mkvmerge
+schema_version: 2
+
+track_order:
+  - video
+  - audio_main
+  - audio_alternate
+  - subtitle_main
+  - subtitle_alternate
+  - audio_commentary
+
+audio_language_preference:
+  - eng
+  - jpn
+  - fra
+  - deu
+
+subtitle_language_preference:
+  - eng
+  - jpn
+
+commentary_patterns:
+  - commentary
+  - director
+  - cast
+
+default_flags:
+  set_first_video_default: true
+  set_preferred_audio_default: true
+  set_preferred_subtitle_default: true
+  clear_other_defaults: true
