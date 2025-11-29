@@ -20,6 +20,20 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import yaml
+
+
+@dataclass
+class TranscodeInfo:
+    """Information about transcode settings from policy."""
+
+    has_video_transcode: bool = False
+    video_target_codec: str | None = None
+    video_skip_codecs: list[str] = field(default_factory=list)
+    has_audio_transcode: bool = False
+    audio_preserve_codecs: list[str] = field(default_factory=list)
+    audio_transcode_to: str | None = None
+
 
 @dataclass
 class TrackInfo:
@@ -82,6 +96,56 @@ def find_video_files(
     for ext in extensions:
         files.extend(directory.rglob(f"*{ext}"))
     return sorted(files)
+
+
+def load_transcode_info(policy_path: Path) -> TranscodeInfo:
+    """Load transcode settings from a policy file.
+
+    Args:
+        policy_path: Path to the policy YAML file.
+
+    Returns:
+        TranscodeInfo with parsed settings.
+    """
+    info = TranscodeInfo()
+
+    try:
+        with open(policy_path) as f:
+            policy = yaml.safe_load(f)
+
+        if not policy:
+            return info
+
+        transcode = policy.get("transcode", {})
+        if not transcode:
+            return info
+
+        # Video transcode settings
+        video = transcode.get("video", {})
+        if video:
+            info.has_video_transcode = True
+            info.video_target_codec = video.get("target_codec")
+            skip_if = video.get("skip_if", {})
+            codec_matches = skip_if.get("codec_matches", [])
+            if isinstance(codec_matches, list):
+                info.video_skip_codecs = codec_matches
+            elif isinstance(codec_matches, str):
+                info.video_skip_codecs = [codec_matches]
+
+        # Audio transcode settings
+        audio = transcode.get("audio", {})
+        if audio:
+            info.has_audio_transcode = True
+            preserve = audio.get("preserve_codecs", [])
+            if isinstance(preserve, list):
+                info.audio_preserve_codecs = preserve
+            info.audio_transcode_to = audio.get("transcode_to")
+
+    except Exception:  # noqa: BLE001
+        # If we can't parse, just return empty info
+        return info
+
+    return info
 
 
 def run_policy_preview(file_path: Path, policy_path: Path) -> ScanResult:
@@ -215,11 +279,51 @@ def _channels_to_layout(channels: int | None) -> str:
     return layouts.get(channels, f"{channels}ch")
 
 
-def _print_track_comparison(tracks: list[TrackInfo]) -> None:
+def _compute_final_track_order(
+    tracks: list[TrackInfo],
+    reorder_action: dict | None,
+) -> list[TrackInfo]:
+    """Compute the final track order after policy application.
+
+    Args:
+        tracks: List of all tracks with disposition info.
+        reorder_action: The REORDER action from the plan, if any.
+
+    Returns:
+        List of kept tracks in their final order.
+    """
+    # Get kept tracks
+    kept_indices = {t.index for t in tracks if t.action == "KEEP"}
+    track_by_index = {t.index: t for t in tracks}
+
+    if reorder_action and reorder_action.get("desired_value"):
+        # Use the desired order from REORDER action, filtering to kept tracks
+        desired_order = reorder_action["desired_value"]
+        ordered_tracks = []
+        for idx in desired_order:
+            if idx in kept_indices:
+                ordered_tracks.append(track_by_index[idx])
+        return ordered_tracks
+
+    # No REORDER action - apply standard type-based ordering
+    # Order: video -> audio -> subtitle -> attachment
+    type_order = {"video": 0, "audio": 1, "subtitle": 2, "attachment": 3}
+    kept_tracks = [t for t in tracks if t.action == "KEEP"]
+    return sorted(
+        kept_tracks,
+        key=lambda t: (type_order.get(t.track_type, 99), t.index),
+    )
+
+
+def _print_track_comparison(
+    tracks: list[TrackInfo],
+    actions: list[dict] | None = None,
+) -> None:
     """Print BEFORE and AFTER track comparison as separate tables.
 
     Args:
         tracks: List of all tracks with disposition info.
+        actions: List of plan actions from JSON output.
     """
     if not tracks:
         return
@@ -227,9 +331,19 @@ def _print_track_comparison(tracks: list[TrackInfo]) -> None:
     # Sort all tracks by original index
     all_tracks_sorted = sorted(tracks, key=lambda t: t.index)
 
-    # Build mapping of original index to new index for kept tracks
-    kept_tracks = [t for t in all_tracks_sorted if t.action == "KEEP"]
-    new_index_map = {t.index: i for i, t in enumerate(kept_tracks)}
+    # Find REORDER action if present
+    reorder_action = None
+    if actions:
+        for action in actions:
+            if action.get("action_type") == "REORDER":
+                reorder_action = action
+                break
+
+    # Compute final track order
+    final_order_tracks = _compute_final_track_order(tracks, reorder_action)
+
+    # Build mapping of original index to new index
+    new_index_map = {t.index: i for i, t in enumerate(final_order_tracks)}
 
     # Type abbreviations
     type_abbrev = {
@@ -291,27 +405,27 @@ def _print_track_comparison(tracks: list[TrackInfo]) -> None:
             after_idx = "-"
 
         before_rows.append(
-            (idx, action, track_type, codec, lang, details, title, after_idx)
+            (idx, track_type, codec, lang, details, title, action, after_idx)
         )
 
     # Print BEFORE table
     print("\n  BEFORE:")
     before_headers = (
         "TRACK",
-        "ACTION",
         "TYPE",
         "CODEC",
         "LANG",
         "DETAILS",
         "TITLE",
+        "ACTION",
         "AFTER",
     )
     print_table(before_headers, before_rows)
 
-    # Build AFTER table rows (only kept tracks)
+    # Build AFTER table rows (kept tracks in final order)
     after_rows: list[tuple[str, ...]] = []
-    for track in kept_tracks:
-        idx = f"[T:{new_index_map[track.index]}]"
+    for i, track in enumerate(final_order_tracks):
+        idx = f"[T:{i}]"
         track_type, codec, lang, details, title = get_track_details(track)
         after_rows.append((idx, track_type, codec, lang, details, title))
 
@@ -330,17 +444,79 @@ def _print_track_comparison(tracks: list[TrackInfo]) -> None:
             f"{count} {ttype}" for ttype, count in sorted(removed_types.items())
         )
         print(
-            f"\n    Summary: {len(kept_tracks)} kept, "
+            f"\n    Summary: {len(final_order_tracks)} kept, "
             f"{len(removed_tracks)} removed ({removed_summary})"
         )
 
 
-def print_result(result: ScanResult, verbose: bool = True) -> None:
+def _print_transcode_notes(
+    tracks: list[TrackInfo],
+    transcode_info: TranscodeInfo,
+) -> None:
+    """Print notes about pending transcode operations.
+
+    Args:
+        tracks: List of tracks from the file.
+        transcode_info: Transcode settings from policy.
+    """
+    notes: list[str] = []
+
+    # Check video transcode
+    if transcode_info.has_video_transcode:
+        video_tracks = [
+            t for t in tracks if t.track_type == "video" and t.action == "KEEP"
+        ]
+        for vt in video_tracks:
+            codec = (vt.codec or "").lower()
+            skip_codecs = [c.lower() for c in transcode_info.video_skip_codecs]
+            # Check if codec matches any skip pattern
+            should_skip = any(
+                codec == sc or codec.startswith(sc.rstrip("*")) for sc in skip_codecs
+            )
+            if not should_skip:
+                target = transcode_info.video_target_codec or "hevc"
+                notes.append(
+                    f"Video [T:{vt.index}] {(vt.codec or 'unknown').upper()} "
+                    f"-> {target.upper()} (via 'vpo transcode')"
+                )
+
+    # Check audio transcode
+    if transcode_info.has_audio_transcode:
+        audio_tracks = [
+            t for t in tracks if t.track_type == "audio" and t.action == "KEEP"
+        ]
+        for at in audio_tracks:
+            codec = (at.codec or "").lower()
+            preserve = [c.lower() for c in transcode_info.audio_preserve_codecs]
+            # Check if codec matches any preserve pattern
+            should_preserve = any(
+                codec == pc or codec.startswith(pc.rstrip("*")) or pc in codec
+                for pc in preserve
+            )
+            if not should_preserve and transcode_info.audio_transcode_to:
+                target = transcode_info.audio_transcode_to
+                notes.append(
+                    f"Audio [T:{at.index}] {(at.codec or 'unknown').upper()} "
+                    f"-> {target.upper()} (via 'vpo transcode')"
+                )
+
+    if notes:
+        print("\n  TRANSCODE (requires 'vpo transcode'):")
+        for note in notes:
+            print(f"    {note}")
+
+
+def print_result(
+    result: ScanResult,
+    verbose: bool = True,
+    transcode_info: TranscodeInfo | None = None,
+) -> None:
     """Print a single scan result.
 
     Args:
         result: The scan result to print.
         verbose: If True, print full output; otherwise just summary.
+        transcode_info: Transcode settings from policy.
     """
     print(f"\n{'=' * 80}")
     print(f"File: {result.file_path.name}")
@@ -366,7 +542,15 @@ def print_result(result: ScanResult, verbose: bool = True) -> None:
 
         # Print track comparison if we have track info
         if result.tracks:
-            _print_track_comparison(result.tracks)
+            # Extract actions from JSON data if available
+            actions = None
+            if result.json_data:
+                actions = result.json_data.get("plan", {}).get("actions", [])
+            _print_track_comparison(result.tracks, actions)
+
+            # Print transcode notes if we have transcode info
+            if transcode_info:
+                _print_transcode_notes(result.tracks, transcode_info)
         else:
             # Fall back to parsing text output for synthesis info
             lines = result.output.strip().split("\n")
@@ -518,6 +702,9 @@ Examples:
     print(f"Found {len(files)} video file(s)")
     print(f"Using policy: {args.policy}")
 
+    # Load transcode info from policy
+    transcode_info = load_transcode_info(args.policy)
+
     # Redirect output if requested
     output_file = None
     if args.output:
@@ -551,7 +738,11 @@ Examples:
                 summary.failed += 1
                 summary.errors.append((file_path, result.error or "Unknown error"))
 
-            print_result(result, verbose=not args.summary_only)
+            print_result(
+                result,
+                verbose=not args.summary_only,
+                transcode_info=transcode_info,
+            )
 
         # Print summary
         print_summary(summary)
