@@ -4,6 +4,7 @@ import atexit
 import logging
 import os
 import sqlite3
+import sys
 from pathlib import Path
 
 import click
@@ -196,6 +197,72 @@ def _log_startup_settings(
     )
 
 
+def _is_interactive() -> bool:
+    """Check if running in interactive mode (TTY).
+
+    This is extracted as a function to allow easier mocking in tests.
+
+    Returns:
+        True if stdin is a TTY, False otherwise.
+    """
+    return sys.stdin.isatty()
+
+
+def _check_initialization(ctx: click.Context) -> None:
+    """Check if VPO is initialized and prompt to initialize if not.
+
+    This check runs before any subcommand except 'init'. If VPO is not
+    initialized (config.toml missing), it prompts the user to initialize
+    interactively, or exits with an error in non-interactive mode.
+
+    Args:
+        ctx: Click context with invoked_subcommand.
+    """
+    # Skip check for init command
+    if ctx.invoked_subcommand == "init":
+        return
+
+    from video_policy_orchestrator.config.loader import get_data_dir
+
+    data_dir = get_data_dir()
+    config_path = data_dir / "config.toml"
+
+    if config_path.exists():
+        return  # Already initialized
+
+    # Check if running interactively
+    if not _is_interactive():
+        click.echo("Error: VPO is not initialized.", err=True)
+        click.echo(
+            "Run 'vpo init' to set up configuration and data directories.", err=True
+        )
+        raise SystemExit(1)
+
+    # Prompt user
+    click.echo("")
+    if click.confirm(
+        "VPO is not initialized. Would you like to initialize now?", default=True
+    ):
+        # Run init
+        from video_policy_orchestrator.cli.init import _display_result
+        from video_policy_orchestrator.config.templates import run_init
+
+        result = run_init(data_dir)
+        _display_result(result, force=False)
+
+        if not result.success:
+            raise SystemExit(1)
+
+        click.echo("")
+        click.echo(f"Continuing with {ctx.invoked_subcommand}...")
+        click.echo("")
+    else:
+        click.echo("")
+        click.echo("VPO requires initialization before use.")
+        click.echo("Run 'vpo init' to set up configuration and data directories.")
+        raise SystemExit(1)
+
+
 @click.group()
 @click.version_option(package_name="video-policy-orchestrator")
 @click.option(
@@ -232,6 +299,9 @@ def main(
     """Video Policy Orchestrator - Scan, organize, and transform video libraries."""
     ctx.ensure_object(dict)
     ctx.obj["force_load_plugins"] = force_load_plugins
+
+    # Check initialization before any other setup (except for init command)
+    _check_initialization(ctx)
 
     # Configure logging from CLI options
     _configure_logging(log_level, log_file, log_json)
