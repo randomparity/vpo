@@ -153,7 +153,7 @@ class LoggingConfig:
     format: str = "text"
 
     # Also log to stderr when file is set
-    include_stderr: bool = True
+    include_stderr: bool = False
 
     # Rotation threshold in bytes (default 10MB)
     max_bytes: int = 10_485_760

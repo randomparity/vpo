@@ -1,7 +1,10 @@
 """CLI module for Video Policy Orchestrator."""
 
 import atexit
+import logging
+import os
 import sqlite3
+import sys
 from pathlib import Path
 
 import click
@@ -15,6 +18,9 @@ from video_policy_orchestrator.db.schema import create_schema
 _db_conn: sqlite3.Connection | None = None
 _logging_configured: bool = False
 _atexit_registered: bool = False
+_startup_logged: bool = False
+
+logger = logging.getLogger(__name__)
 
 
 def _cleanup_db_connection() -> None:
@@ -115,6 +121,145 @@ def _configure_logging(
     _logging_configured = True
 
 
+def _log_startup_settings(
+    cli_log_level: str | None,
+    cli_log_file: Path | None,
+) -> None:
+    """Log key settings with their sources at startup.
+
+    This logs a summary of important configuration settings,
+    showing where each value came from (default, config, env, cli).
+
+    Args:
+        cli_log_level: Log level from CLI option (or None).
+        cli_log_file: Log file from CLI option (or None).
+    """
+    global _startup_logged
+    if _startup_logged:
+        return
+    _startup_logged = True
+
+    from video_policy_orchestrator.config import get_config
+    from video_policy_orchestrator.config.loader import (
+        get_data_dir,
+        load_config_file,
+    )
+
+    # Get the effective configuration
+    config = get_config()
+    file_config = load_config_file()
+    file_logging = file_config.get("logging", {})
+
+    # Determine data_dir source
+    data_dir = get_data_dir()
+    if os.environ.get("VPO_DATA_DIR"):
+        data_dir_source = "env"
+    else:
+        data_dir_source = "default"
+
+    # Determine log_level source
+    if cli_log_level:
+        log_level_source = "cli"
+        log_level = cli_log_level
+    elif file_logging.get("level"):
+        log_level_source = "config"
+        log_level = config.logging.level
+    else:
+        log_level_source = "default"
+        log_level = config.logging.level
+
+    # Determine log_file source
+    if cli_log_file:
+        log_file_source = "cli"
+        log_file = str(cli_log_file)
+    elif file_logging.get("file"):
+        log_file_source = "config"
+        log_file = str(config.logging.file) if config.logging.file else "stderr"
+    else:
+        log_file_source = "default"
+        log_file = str(config.logging.file) if config.logging.file else "stderr"
+
+    # Compact the data_dir for display
+    data_dir_display = str(data_dir).replace(str(Path.home()), "~")
+    log_file_display = log_file.replace(str(Path.home()), "~") if log_file else "stderr"
+
+    logger.info(
+        "VPO starting: data_dir=%s (%s), log_level=%s (%s), log_file=%s (%s)",
+        data_dir_display,
+        data_dir_source,
+        log_level,
+        log_level_source,
+        log_file_display,
+        log_file_source,
+    )
+
+
+def _is_interactive() -> bool:
+    """Check if running in interactive mode (TTY).
+
+    This is extracted as a function to allow easier mocking in tests.
+
+    Returns:
+        True if stdin is a TTY, False otherwise.
+    """
+    return sys.stdin.isatty()
+
+
+def _check_initialization(ctx: click.Context) -> None:
+    """Check if VPO is initialized and prompt to initialize if not.
+
+    This check runs before any subcommand except 'init'. If VPO is not
+    initialized (config.toml missing), it prompts the user to initialize
+    interactively, or exits with an error in non-interactive mode.
+
+    Args:
+        ctx: Click context with invoked_subcommand.
+    """
+    # Skip check for init command
+    if ctx.invoked_subcommand == "init":
+        return
+
+    from video_policy_orchestrator.config.loader import get_data_dir
+
+    data_dir = get_data_dir()
+    config_path = data_dir / "config.toml"
+
+    if config_path.exists():
+        return  # Already initialized
+
+    # Check if running interactively
+    if not _is_interactive():
+        click.echo("Error: VPO is not initialized.", err=True)
+        click.echo(
+            "Run 'vpo init' to set up configuration and data directories.", err=True
+        )
+        raise SystemExit(1)
+
+    # Prompt user
+    click.echo("")
+    if click.confirm(
+        "VPO is not initialized. Would you like to initialize now?", default=True
+    ):
+        # Run init
+        from video_policy_orchestrator.cli.init import _display_result
+        from video_policy_orchestrator.config.templates import run_init
+
+        result = run_init(data_dir)
+        _display_result(result, force=False)
+
+        if not result.success:
+            raise SystemExit(1)
+
+        click.echo("")
+        click.echo(f"Continuing with {ctx.invoked_subcommand}...")
+        click.echo("")
+    else:
+        click.echo("")
+        click.echo("VPO requires initialization before use.")
+        click.echo("Run 'vpo init' to set up configuration and data directories.")
+        raise SystemExit(1)
+
+
 @click.group()
 @click.version_option(package_name="video-policy-orchestrator")
 @click.option(
@@ -152,8 +297,16 @@ def main(
     ctx.ensure_object(dict)
     ctx.obj["force_load_plugins"] = force_load_plugins
 
+    # Check initialization before any other setup (except for init command)
+    _check_initialization(ctx)
+
     # Configure logging from CLI options
     _configure_logging(log_level, log_file, log_json)
+
+    # Log startup settings (skip for init command - it should be silent)
+    # ctx.invoked_subcommand is the name of the subcommand being invoked
+    if ctx.invoked_subcommand != "init":
+        _log_startup_settings(log_level, log_file)
 
     # Initialize database connection for subcommands
     ctx.obj["db_conn"] = _get_db_connection()

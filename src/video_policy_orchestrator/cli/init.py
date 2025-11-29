@@ -15,8 +15,47 @@ from video_policy_orchestrator.config.templates import (
     check_initialization_state,
     run_init,
 )
+from video_policy_orchestrator.tools.cache import get_tool_registry
+from video_policy_orchestrator.tools.models import ToolRegistry
 
 logger = logging.getLogger(__name__)
+
+
+def _display_tools_status(registry: ToolRegistry) -> None:
+    """Display detected tools status.
+
+    Args:
+        registry: The detected tool registry.
+    """
+    click.echo("Tool Detection:")
+
+    # ffprobe
+    ffprobe = registry.ffprobe
+    if ffprobe.is_available():
+        click.echo(f"  [OK] ffprobe: {ffprobe.version} ({ffprobe.path})")
+    else:
+        click.echo("  [--] ffprobe: not found")
+
+    # ffmpeg
+    ffmpeg = registry.ffmpeg
+    if ffmpeg.is_available():
+        click.echo(f"  [OK] ffmpeg:  {ffmpeg.version} ({ffmpeg.path})")
+    else:
+        click.echo("  [--] ffmpeg:  not found")
+
+    # mkvmerge
+    mkvmerge = registry.mkvmerge
+    if mkvmerge.is_available():
+        click.echo(f"  [OK] mkvmerge: {mkvmerge.version} ({mkvmerge.path})")
+    else:
+        click.echo("  [--] mkvmerge: not found")
+
+    # mkvpropedit
+    mkvpropedit = registry.mkvpropedit
+    if mkvpropedit.is_available():
+        click.echo(f"  [OK] mkvpropedit: {mkvpropedit.version} ({mkvpropedit.path})")
+    else:
+        click.echo("  [--] mkvpropedit: not found")
 
 
 def _get_data_dir(data_dir_option: Path | None) -> Path:
@@ -77,6 +116,22 @@ def _display_result(result: InitResult, force: bool) -> None:
             else:
                 click.echo(f"Created {file}")
 
+        # Detect and display tools
+        click.echo("")
+        try:
+            registry = get_tool_registry(
+                force_refresh=True,
+                cache_path=result.data_dir / "tool-capabilities.json",
+            )
+            _display_tools_status(registry)
+        except (OSError, PermissionError) as e:
+            # Handle case where cache cannot be written (e.g., in tests)
+            logger.debug("Could not cache tool detection results: %s", e)
+            from video_policy_orchestrator.tools.detection import detect_all_tools
+
+            registry = detect_all_tools()
+            _display_tools_status(registry)
+
         click.echo("")
         if force:
             click.echo("VPO re-initialized with defaults.")
@@ -86,8 +141,7 @@ def _display_result(result: InitResult, force: bool) -> None:
         click.echo("")
         click.echo("Next steps:")
         click.echo(f"  1. Review configuration: {result.data_dir}/config.toml")
-        click.echo("  2. Verify setup: vpo doctor")
-        click.echo("  3. Scan your library: vpo scan /path/to/videos")
+        click.echo("  2. Scan your library: vpo scan /path/to/videos")
     else:
         # Failed initialization
         _display_error(result)
@@ -191,7 +245,7 @@ def init_command(
     # Resolve the data directory
     target_dir = _get_data_dir(data_dir)
 
-    logger.info(
+    logger.debug(
         "Init command: data_dir=%s, force=%s, dry_run=%s",
         target_dir,
         force,

@@ -259,7 +259,7 @@ class ConfigBuilder:
             level=self._get("logging_level", "info"),
             file=self._get("logging_file", None),
             format=self._get("logging_format", "text"),
-            include_stderr=self._get("logging_include_stderr", True),
+            include_stderr=self._get("logging_include_stderr", False),
             max_bytes=self._get("logging_max_bytes", 10_485_760),
             backup_count=self._get("logging_backup_count", 5),
         )
