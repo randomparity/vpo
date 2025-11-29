@@ -29,6 +29,7 @@ class JobType(Enum):
     MOVE = "move"
     SCAN = "scan"  # Directory scan operation
     APPLY = "apply"  # Policy application operation
+    PROCESS = "process"  # Full workflow processing (analyze → apply → transcode)
 
 
 class JobStatus(Enum):

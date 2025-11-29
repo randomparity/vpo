@@ -37,6 +37,14 @@ class ActionType(Enum):
     MOVE = "move"  # Move file to new location
 
 
+class ProcessingPhase(Enum):
+    """Workflow processing phases for video file operations."""
+
+    ANALYZE = "analyze"  # Language detection via transcription
+    APPLY = "apply"  # Track ordering, filtering, metadata, container
+    TRANSCODE = "transcode"  # Video/audio codec conversion
+
+
 # Valid video codecs for transcoding
 VALID_VIDEO_CODECS = frozenset({"h264", "hevc", "vp9", "av1"})
 
@@ -459,6 +467,54 @@ DEFAULT_TRACK_ORDER: tuple[TrackType, ...] = (
 )
 
 
+# =============================================================================
+# V9 Workflow Configuration
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class WorkflowConfig:
+    """Workflow configuration from policy YAML (V9+).
+
+    Defines the processing phases to run and their execution behavior.
+    Phases execute in order: ANALYZE → APPLY → TRANSCODE.
+    """
+
+    phases: tuple[ProcessingPhase, ...]
+    """Phases to execute in order."""
+
+    auto_process: bool = False
+    """If True, daemon auto-queues PROCESS jobs when files are scanned."""
+
+    on_error: Literal["skip", "continue", "fail"] = "continue"
+    """Error handling:
+    - skip: Stop processing file, mark as failed
+    - continue: Log error and proceed to next phase
+    - fail: Stop entire batch with error
+    """
+
+    def __post_init__(self) -> None:
+        """Validate workflow configuration."""
+        if not self.phases:
+            raise ValueError("workflow.phases cannot be empty")
+
+        valid_phases = set(ProcessingPhase)
+        for phase in self.phases:
+            if phase not in valid_phases:
+                raise ValueError(f"Invalid phase: {phase}")
+
+        # Check for duplicate phases
+        if len(self.phases) != len(set(self.phases)):
+            raise ValueError("Duplicate phases not allowed")
+
+        valid_on_error = ("skip", "continue", "fail")
+        if self.on_error not in valid_on_error:
+            raise ValueError(
+                f"Invalid on_error: {self.on_error}. "
+                f"Must be one of: {', '.join(valid_on_error)}"
+            )
+
+
 @dataclass(frozen=True)
 class PolicySchema:
     """Validated policy configuration loaded from YAML.
@@ -502,6 +558,10 @@ class PolicySchema:
 
     audio_transcode: "AudioTranscodeConfig | None" = None
     """Audio transcode configuration. Requires schema_version >= 6."""
+
+    # V9 fields (all optional for backward compatibility)
+    workflow: WorkflowConfig | None = None
+    """Workflow configuration. Requires schema_version >= 9."""
 
     def __post_init__(self) -> None:
         """Validate policy schema after initialization."""
@@ -549,6 +609,11 @@ class PolicySchema:
     def has_audio_synthesis(self) -> bool:
         """True if audio synthesis is configured."""
         return self.audio_synthesis is not None
+
+    @property
+    def has_workflow(self) -> bool:
+        """True if workflow configuration is present."""
+        return self.workflow is not None
 
 
 # =============================================================================
