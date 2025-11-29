@@ -14,10 +14,25 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess  # nosec B404
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+
+
+@dataclass
+class TrackInfo:
+    """Information about a track in the final output."""
+
+    index: int
+    track_type: str
+    codec: str | None = None
+    language: str | None = None
+    title: str | None = None
+    channels: int | None = None
+    resolution: str | None = None
+    action: str = "KEEP"  # KEEP or REMOVE
 
 
 @dataclass
@@ -32,6 +47,8 @@ class ScanResult:
     synthesis_planned: bool = False
     synthesis_skipped: bool = False
     skip_reason: str | None = None
+    tracks: list[TrackInfo] = field(default_factory=list)
+    json_data: dict | None = None
 
 
 @dataclass
@@ -86,6 +103,7 @@ def run_policy_preview(file_path: Path, policy_path: Path) -> ScanResult:
         str(policy_path),
         str(file_path),
         "--dry-run",
+        "--json",
     ]
 
     try:
@@ -99,14 +117,52 @@ def run_policy_preview(file_path: Path, policy_path: Path) -> ScanResult:
         output = result.stdout + result.stderr
         success = result.returncode == 0
 
-        # Analyze output
-        has_changes = "Summary:" in output or "Tracks to create" in output
-        synthesis_planned = "Tracks to create" in output
-        synthesis_skipped = "SKIPPED" in output
-
-        # Extract skip reason if present
+        # Parse JSON output
+        json_data = None
+        tracks: list[TrackInfo] = []
+        has_changes = False
+        synthesis_planned = False
+        synthesis_skipped = False
         skip_reason = None
-        if synthesis_skipped:
+
+        if success and result.stdout.strip():
+            try:
+                json_data = json.loads(result.stdout)
+
+                # Extract track dispositions
+                plan = json_data.get("plan", {})
+                track_dispositions = plan.get("track_dispositions", [])
+
+                for disp in track_dispositions:
+                    tracks.append(
+                        TrackInfo(
+                            index=disp.get("track_index", 0),
+                            track_type=disp.get("track_type", "unknown"),
+                            codec=disp.get("codec"),
+                            language=disp.get("language"),
+                            title=disp.get("title"),
+                            channels=disp.get("channels"),
+                            resolution=disp.get("resolution"),
+                            action=disp.get("action", "KEEP"),
+                        )
+                    )
+
+                # Determine if there are changes
+                actions = plan.get("actions", [])
+                tracks_removed = plan.get("tracks_removed", 0)
+                has_changes = len(actions) > 0 or tracks_removed > 0
+
+            except json.JSONDecodeError:
+                # Fall back to text parsing if JSON fails
+                pass
+
+        # Fall back to text-based detection for synthesis info
+        # (synthesis plan is not yet in JSON output)
+        if "Tracks to create" in output:
+            synthesis_planned = True
+            has_changes = True
+        if "SKIPPED" in output:
+            synthesis_skipped = True
             if "Already exists" in output:
                 skip_reason = "Already exists"
             elif "Condition not met" in output:
@@ -126,6 +182,8 @@ def run_policy_preview(file_path: Path, policy_path: Path) -> ScanResult:
             synthesis_planned=synthesis_planned,
             synthesis_skipped=synthesis_skipped,
             skip_reason=skip_reason,
+            tracks=tracks,
+            json_data=json_data,
         )
 
     except subprocess.TimeoutExpired:
@@ -141,6 +199,139 @@ def run_policy_preview(file_path: Path, policy_path: Path) -> ScanResult:
             success=False,
             output="",
             error=str(e),
+        )
+
+
+def _channels_to_layout(channels: int | None) -> str:
+    """Convert channel count to layout description."""
+    if channels is None:
+        return ""
+    layouts = {
+        1: "mono",
+        2: "stereo",
+        6: "5.1",
+        8: "7.1",
+    }
+    return layouts.get(channels, f"{channels}ch")
+
+
+def _print_track_comparison(tracks: list[TrackInfo]) -> None:
+    """Print BEFORE and AFTER track comparison as separate tables.
+
+    Args:
+        tracks: List of all tracks with disposition info.
+    """
+    if not tracks:
+        return
+
+    # Sort all tracks by original index
+    all_tracks_sorted = sorted(tracks, key=lambda t: t.index)
+
+    # Build mapping of original index to new index for kept tracks
+    kept_tracks = [t for t in all_tracks_sorted if t.action == "KEEP"]
+    new_index_map = {t.index: i for i, t in enumerate(kept_tracks)}
+
+    # Type abbreviations
+    type_abbrev = {
+        "video": "V",
+        "audio": "A",
+        "subtitle": "S",
+        "attachment": "X",
+    }
+
+    def get_track_details(track: TrackInfo) -> tuple[str, str, str, str, str]:
+        """Extract common track details."""
+        track_type = type_abbrev.get(track.track_type, "?")
+        codec = (track.codec or "").upper()
+
+        if track.track_type == "video" and track.resolution:
+            details = track.resolution
+        elif track.track_type == "audio" and track.channels:
+            details = _channels_to_layout(track.channels)
+        else:
+            details = ""
+
+        lang = track.language or ""
+
+        title = ""
+        if track.title:
+            title = track.title[:25] + "..." if len(track.title) > 25 else track.title
+
+        return (track_type, codec, lang, details, title)
+
+    def print_table(
+        headers: tuple[str, ...],
+        rows: list[tuple[str, ...]],
+    ) -> None:
+        """Print a formatted table."""
+        widths = [len(h) for h in headers]
+        for row in rows:
+            for i, cell in enumerate(row):
+                widths[i] = max(widths[i], len(cell))
+
+        def print_row(cells: tuple[str, ...]) -> None:
+            formatted = "  ".join(cell.ljust(widths[i]) for i, cell in enumerate(cells))
+            print(f"    {formatted}")
+
+        print_row(headers)
+        print(f"    {'-' * (sum(widths) + 2 * (len(widths) - 1))}")
+        for row in rows:
+            print_row(row)
+
+    # Build BEFORE table rows
+    before_rows: list[tuple[str, ...]] = []
+    for track in all_tracks_sorted:
+        idx = f"[T:{track.index}]"
+        action = "KEEP" if track.action == "KEEP" else "DELETE"
+        track_type, codec, lang, details, title = get_track_details(track)
+
+        if track.action == "KEEP":
+            after_idx = f"[T:{new_index_map[track.index]}]"
+        else:
+            after_idx = "-"
+
+        before_rows.append(
+            (idx, action, track_type, codec, lang, details, title, after_idx)
+        )
+
+    # Print BEFORE table
+    print("\n  BEFORE:")
+    before_headers = (
+        "TRACK",
+        "ACTION",
+        "TYPE",
+        "CODEC",
+        "LANG",
+        "DETAILS",
+        "TITLE",
+        "AFTER",
+    )
+    print_table(before_headers, before_rows)
+
+    # Build AFTER table rows (only kept tracks)
+    after_rows: list[tuple[str, ...]] = []
+    for track in kept_tracks:
+        idx = f"[T:{new_index_map[track.index]}]"
+        track_type, codec, lang, details, title = get_track_details(track)
+        after_rows.append((idx, track_type, codec, lang, details, title))
+
+    # Print AFTER table
+    print("\n  AFTER:")
+    after_headers = ("TRACK", "TYPE", "CODEC", "LANG", "DETAILS", "TITLE")
+    print_table(after_headers, after_rows)
+
+    # Print summary of changes
+    removed_tracks = [t for t in tracks if t.action != "KEEP"]
+    if removed_tracks:
+        removed_types: dict[str, int] = {}
+        for t in removed_tracks:
+            removed_types[t.track_type] = removed_types.get(t.track_type, 0) + 1
+        removed_summary = ", ".join(
+            f"{count} {ttype}" for ttype, count in sorted(removed_types.items())
+        )
+        print(
+            f"\n    Summary: {len(kept_tracks)} kept, "
+            f"{len(removed_tracks)} removed ({removed_summary})"
         )
 
 
@@ -161,29 +352,44 @@ def print_result(result: ScanResult, verbose: bool = True) -> None:
         return
 
     if verbose:
-        # Print relevant parts of output
-        lines = result.output.strip().split("\n")
-        in_relevant_section = False
+        # Print status summary
+        status_parts = []
+        if result.synthesis_planned:
+            status_parts.append("WILL CREATE EAC3")
+        if result.synthesis_skipped:
+            status_parts.append(f"SKIPPED ({result.skip_reason or 'unknown'})")
+        if result.has_changes and not result.synthesis_planned:
+            status_parts.append("METADATA CHANGES")
+        if not status_parts:
+            status_parts.append("NO CHANGES")
+        print(f"  Status: {', '.join(status_parts)}")
 
-        for line in lines:
-            # Skip log lines unless they contain useful info
-            if " - INFO - " in line:
-                if "Skipped synthesis" in line or "Planned synthesis" in line:
-                    # Extract just the message part
-                    msg = line.split(" - INFO - ")[-1]
-                    print(f"  {msg}")
-                continue
+        # Print track comparison if we have track info
+        if result.tracks:
+            _print_track_comparison(result.tracks)
+        else:
+            # Fall back to parsing text output for synthesis info
+            lines = result.output.strip().split("\n")
+            in_relevant_section = False
 
-            # Start printing from "Audio Synthesis Plan" or "Proposed changes"
-            if "Audio Synthesis Plan" in line or "Proposed changes:" in line:
-                in_relevant_section = True
+            for line in lines:
+                # Skip log lines unless they contain useful info
+                if " - INFO - " in line:
+                    if "Skipped synthesis" in line or "Planned synthesis" in line:
+                        msg = line.split(" - INFO - ")[-1]
+                        print(f"  {msg}")
+                    continue
 
-            if in_relevant_section:
-                print(line)
+                # Start printing from "Audio Synthesis Plan" or "Proposed changes"
+                if "Audio Synthesis Plan" in line or "Proposed changes:" in line:
+                    in_relevant_section = True
 
-            # Stop at "To apply these changes"
-            if "To apply these changes" in line:
-                break
+                if in_relevant_section:
+                    print(line)
+
+                # Stop at "To apply these changes"
+                if "To apply these changes" in line:
+                    break
     else:
         # Summary only
         status_parts = []
