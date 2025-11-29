@@ -1,23 +1,23 @@
-"""Audio codec matching, skip evaluation, and transcoding policy evaluation.
+"""Audio transcoding policy evaluation and skip condition handling.
 
 This module provides functions for:
-- Matching audio codecs against preservation rules
 - Determining how each audio track should be handled during transcoding
 - Evaluating skip conditions for video transcoding (V6 policies)
+- Creating audio plans from policy configurations
 
-Note: Audio codec matching uses the unified policy/codecs.py module internally,
-but maintains local functions for backward compatibility.
+Audio codec matching is delegated to policy/codecs.py.
 """
 
-import fnmatch
 from dataclasses import dataclass
 from enum import Enum
 
 from video_policy_orchestrator.db.models import TrackInfo
-from video_policy_orchestrator.policy.codecs import video_codec_matches_any
+from video_policy_orchestrator.policy.codecs import (
+    audio_codec_matches_any,
+    video_codec_matches_any,
+)
 from video_policy_orchestrator.policy.models import (
     RESOLUTION_MAP,
-    AudioPreservationRule,
     AudioTranscodeConfig,
     SkipCondition,
     TranscodePolicyConfig,
@@ -64,133 +64,6 @@ class AudioPlan:
         return any(t.action != AudioAction.COPY for t in self.tracks)
 
 
-# Common codec name aliases for matching
-CODEC_ALIASES: dict[str, tuple[str, ...]] = {
-    "truehd": ("truehd", "dolby truehd"),
-    "dts-hd": ("dts-hd ma", "dts-hd", "dtshd", "dts_hd"),
-    "dts": ("dts", "dca"),
-    "flac": ("flac",),
-    "pcm": ("pcm_s16le", "pcm_s24le", "pcm_s32le", "pcm_f32le", "pcm"),
-    "aac": ("aac", "aac_latm"),
-    "ac3": ("ac3", "ac-3", "a52"),
-    "eac3": ("eac3", "e-ac-3", "ec3"),
-    "opus": ("opus",),
-    "mp3": ("mp3", "mp3float"),
-    "vorbis": ("vorbis",),
-}
-
-
-def normalize_codec_name(codec: str) -> str:
-    """Normalize a codec name for comparison.
-
-    Args:
-        codec: Codec name from ffprobe or policy.
-
-    Returns:
-        Normalized lowercase codec name.
-    """
-    if codec is None:
-        return ""
-    # Remove common suffixes and normalize
-    normalized = codec.lower().strip()
-    # Handle dts variants
-    if "dts-hd" in normalized or "dtshd" in normalized:
-        if "ma" in normalized.lower():
-            return "dts-hd"
-        return "dts-hd"
-    if "truehd" in normalized:
-        return "truehd"
-    return normalized
-
-
-def codec_matches(codec: str, pattern: str) -> bool:
-    """Check if a codec matches a pattern.
-
-    The pattern can be:
-    - An exact codec name (e.g., "truehd")
-    - A wildcard pattern (e.g., "pcm_*")
-    - An alias group name (e.g., "dts" matches all DTS variants)
-
-    Args:
-        codec: Codec name to check (from ffprobe).
-        pattern: Pattern to match against.
-
-    Returns:
-        True if the codec matches the pattern.
-    """
-    if codec is None:
-        return False
-
-    normalized_codec = normalize_codec_name(codec)
-    normalized_pattern = pattern.lower().strip()
-
-    # Direct match
-    if normalized_codec == normalized_pattern:
-        return True
-
-    # Check aliases
-    for alias_group, variants in CODEC_ALIASES.items():
-        if normalized_pattern == alias_group:
-            # Pattern is an alias group name, check if codec is in variants
-            for variant in variants:
-                if normalized_codec == variant or normalized_codec.startswith(variant):
-                    return True
-            # Also check if codec starts with the alias
-            if normalized_codec.startswith(alias_group):
-                return True
-
-    # Wildcard match (e.g., "pcm_*")
-    if "*" in normalized_pattern or "?" in normalized_pattern:
-        if fnmatch.fnmatch(normalized_codec, normalized_pattern):
-            return True
-
-    # Check if normalized codec contains the pattern (fuzzy match)
-    if normalized_pattern in normalized_codec:
-        return True
-
-    return False
-
-
-def match_codec_to_rule(
-    codec: str | None, rules: list[AudioPreservationRule]
-) -> AudioPreservationRule | None:
-    """Find the first matching rule for a codec.
-
-    Args:
-        codec: Codec name to check.
-        rules: List of rules to check against.
-
-    Returns:
-        First matching rule, or None if no match.
-    """
-    if codec is None:
-        return None
-
-    for rule in rules:
-        if codec_matches(codec, rule.codec_pattern):
-            return rule
-    return None
-
-
-def should_preserve_codec(codec: str | None, preserve_list: tuple[str, ...]) -> bool:
-    """Check if a codec should be preserved (stream-copied).
-
-    Args:
-        codec: Codec name to check.
-        preserve_list: Tuple of codec patterns to preserve.
-
-    Returns:
-        True if the codec should be preserved.
-    """
-    if codec is None:
-        return False
-
-    for pattern in preserve_list:
-        if codec_matches(codec, pattern):
-            return True
-    return False
-
-
 def evaluate_audio_track(
     track: TrackInfo, policy: TranscodePolicyConfig
 ) -> AudioTrackPlan:
@@ -207,7 +80,7 @@ def evaluate_audio_track(
     stream_index = track.index  # Will be re-indexed by caller
 
     # Check if codec should be preserved
-    if should_preserve_codec(codec, policy.audio_preserve_codecs):
+    if audio_codec_matches_any(codec, policy.audio_preserve_codecs):
         return AudioTrackPlan(
             track_index=track.index,
             stream_index=stream_index,
@@ -359,7 +232,7 @@ def evaluate_audio_track_v6(
     stream_index = track.index  # Will be re-indexed by caller
 
     # Check if codec should be preserved (stream-copied)
-    if should_preserve_codec(codec, audio_config.preserve_codecs):
+    if audio_codec_matches_any(codec, audio_config.preserve_codecs):
         return AudioTrackPlan(
             track_index=track.index,
             stream_index=stream_index,
