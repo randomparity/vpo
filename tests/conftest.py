@@ -1,9 +1,11 @@
 """Shared test fixtures for Video Policy Orchestrator."""
 
 import json
+import os
 import shutil
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -98,3 +100,31 @@ def subtitle_heavy_fixture() -> dict:
 def edge_case_missing_metadata_fixture() -> dict:
     """Load the edge case missing metadata ffprobe fixture."""
     return load_ffprobe_fixture("edge_case_missing_metadata")
+
+
+@pytest.fixture(autouse=True)
+def vpo_initialized(temp_dir: Path):
+    """Automatically set up VPO as initialized for all tests.
+
+    This fixture creates a minimal config.toml in a temporary VPO data
+    directory and sets VPO_DATA_DIR to point to it. This ensures all
+    CLI commands pass the initialization check.
+
+    The fixture is autouse=True so it applies to all tests automatically.
+    """
+    vpo_data_dir = temp_dir / ".vpo"
+    vpo_data_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create minimal config.toml
+    config_content = """\
+[logging]
+level = "info"
+"""
+    (vpo_data_dir / "config.toml").write_text(config_content)
+
+    # Create logs directory (expected by default config)
+    (vpo_data_dir / "logs").mkdir(exist_ok=True)
+
+    # Set the environment variable for this test
+    with patch.dict(os.environ, {"VPO_DATA_DIR": str(vpo_data_dir)}):
+        yield vpo_data_dir

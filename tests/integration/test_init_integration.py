@@ -134,7 +134,8 @@ class TestInitCommand:
 
         assert result.exit_code == 0
         assert "Next steps:" in result.output
-        assert "vpo doctor" in result.output
+        # vpo doctor was removed from next steps - now shows config review and scan
+        assert "config.toml" in result.output
         assert "vpo scan" in result.output
 
     def test_permission_error_message(self):
