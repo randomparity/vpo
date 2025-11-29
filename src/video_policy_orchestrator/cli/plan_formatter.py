@@ -8,6 +8,8 @@ detailed information about what changes would be made.
 from enum import Enum, auto
 from typing import Any
 
+from wcwidth import wcswidth
+
 from video_policy_orchestrator.policy.models import (
     Plan,
     PlannedAction,
@@ -296,11 +298,42 @@ def _channels_to_layout(channels: int) -> str:
     return layouts.get(channels, f"{channels}ch")
 
 
-def _truncate(s: str, max_len: int) -> str:
-    """Truncate string with ellipsis if too long."""
-    if len(s) <= max_len:
+def _display_width(s: str) -> int:
+    """Get the display width of a string, accounting for wide Unicode chars.
+
+    Wide characters (CJK, emoji, etc.) take 2 columns in a terminal.
+    This function returns the actual column width for proper alignment.
+    """
+    width = wcswidth(s)
+    # wcswidth returns -1 if string contains non-printable characters
+    return width if width >= 0 else len(s)
+
+
+def _truncate(s: str, max_width: int) -> str:
+    """Truncate string with ellipsis if display width exceeds max.
+
+    Uses display width (not character count) for proper Unicode handling.
+    """
+    if _display_width(s) <= max_width:
         return s
-    return s[: max_len - 3] + "..."
+    # Truncate character by character until we fit
+    truncated = ""
+    for char in s:
+        test = truncated + char + "..."
+        if _display_width(test) > max_width:
+            break
+        truncated += char
+    return truncated + "..."
+
+
+def _pad_to_width(s: str, width: int) -> str:
+    """Pad string with spaces to reach target display width.
+
+    Accounts for wide Unicode characters that take 2 columns.
+    """
+    current_width = _display_width(s)
+    padding = width - current_width
+    return s + " " * max(0, padding)
 
 
 def _format_table(
@@ -308,28 +341,33 @@ def _format_table(
     rows: list[tuple[str, ...]],
     indent: int = 0,
 ) -> list[str]:
-    """Format a table with headers and rows."""
-    # Calculate column widths
-    widths = [len(h) for h in headers]
+    """Format a table with headers and rows.
+
+    Uses display width for proper alignment with Unicode characters.
+    """
+    # Calculate column widths using display width
+    widths = [_display_width(h) for h in headers]
     for row in rows:
         for i, cell in enumerate(row):
-            widths[i] = max(widths[i], len(cell))
+            widths[i] = max(widths[i], _display_width(cell))
 
     # Format lines
     prefix = " " * indent
     lines: list[str] = []
 
-    # Header
-    header_line = "  ".join(h.ljust(widths[i]) for i, h in enumerate(headers))
+    # Header - use _pad_to_width for proper Unicode alignment
+    header_line = "  ".join(_pad_to_width(h, widths[i]) for i, h in enumerate(headers))
     lines.append(f"{prefix}{header_line}")
 
     # Separator
     sep = "  ".join("-" * w for w in widths)
     lines.append(f"{prefix}{sep}")
 
-    # Rows
+    # Rows - use _pad_to_width for proper Unicode alignment
     for row in rows:
-        row_line = "  ".join(cell.ljust(widths[i]) for i, cell in enumerate(row))
+        row_line = "  ".join(
+            _pad_to_width(cell, widths[i]) for i, cell in enumerate(row)
+        )
         lines.append(f"{prefix}{row_line}")
 
     return lines
