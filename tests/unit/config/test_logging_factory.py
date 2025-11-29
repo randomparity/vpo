@@ -140,7 +140,7 @@ class TestBuildLoggingConfig:
         assert result.level == "debug"
         assert result.file is None  # Default
         assert result.format == "text"  # Default
-        assert result.include_stderr is True  # Default
+        assert result.include_stderr is False  # Default
 
     def test_cli_override_use_case(self) -> None:
         """Simulate typical CLI override pattern."""

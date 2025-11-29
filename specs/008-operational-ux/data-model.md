@@ -119,7 +119,7 @@ class LoggingConfig:
     level: str = "info"              # debug, info, warning, error
     file: Path | None = None         # Log file path (None = stderr only)
     format: str = "text"             # text, json
-    include_stderr: bool = True      # Also log to stderr when file is set
+    include_stderr: bool = False     # Also log to stderr when file is set
     max_bytes: int = 10_485_760      # 10MB rotation threshold
     backup_count: int = 5            # Number of rotated files to keep
 
