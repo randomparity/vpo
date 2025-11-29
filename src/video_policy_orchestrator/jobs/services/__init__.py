@@ -9,6 +9,10 @@ from video_policy_orchestrator.jobs.services.approval import (
     PlanApprovalService,
     RejectionResult,
 )
+from video_policy_orchestrator.jobs.services.process import (
+    ProcessJobResult,
+    ProcessJobService,
+)
 from video_policy_orchestrator.jobs.services.transcode import (
     TranscodeJobResult,
     TranscodeJobService,
@@ -17,6 +21,8 @@ from video_policy_orchestrator.jobs.services.transcode import (
 __all__ = [
     "ApprovalResult",
     "PlanApprovalService",
+    "ProcessJobResult",
+    "ProcessJobService",
     "RejectionResult",
     "TranscodeJobResult",
     "TranscodeJobService",
