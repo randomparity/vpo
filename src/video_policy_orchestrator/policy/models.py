@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Union
 
 
 class TrackType(Enum):
@@ -155,6 +155,7 @@ class DefaultFlagsConfig:
     set_preferred_audio_default: bool = True
     set_preferred_subtitle_default: bool = False
     clear_other_defaults: bool = True
+    set_subtitle_default_when_audio_differs: bool = False
 
 
 @dataclass(frozen=True)
@@ -568,6 +569,31 @@ class AudioSynthesisConfig:
 
 
 @dataclass(frozen=True)
+class SkipIfExistsCriteria:
+    """Criteria for skipping synthesis if a matching track exists.
+
+    Used in audio_synthesis.tracks[].skip_if_exists to implement
+    "use existing OR create new" behavior. If any track matches ALL
+    specified criteria, synthesis is skipped.
+
+    All specified criteria must match (AND logic). Unspecified criteria
+    (None values) match any track.
+    """
+
+    codec: str | tuple[str, ...] | None = None
+    """Codec(s) that satisfy the requirement (case-insensitive)."""
+
+    channels: Union[int, "Comparison", None] = None
+    """Channel count or comparison (e.g., {gte: 6} for 5.1+)."""
+
+    language: str | tuple[str, ...] | None = None
+    """Language code(s) that satisfy the requirement."""
+
+    not_commentary: bool | None = None
+    """If True, track must not be commentary."""
+
+
+@dataclass(frozen=True)
 class SynthesisTrackDefinitionRef:
     """Reference to a synthesis track definition in policy.
 
@@ -592,6 +618,9 @@ class SynthesisTrackDefinitionRef:
 
     create_if: "Condition | None" = None
     """Condition that must be true for synthesis."""
+
+    skip_if_exists: SkipIfExistsCriteria | None = None
+    """Skip synthesis if a matching track already exists (V8+)."""
 
     title: str = "inherit"
     """Track title or 'inherit'."""
@@ -757,6 +786,7 @@ class TrackFilters:
     width: int | Comparison | None = None
     height: int | Comparison | None = None
     title: str | TitleMatch | None = None
+    not_commentary: bool | None = None  # V8: exclude commentary tracks
 
 
 @dataclass(frozen=True)
