@@ -32,30 +32,30 @@ def _display_tools_status(registry: ToolRegistry) -> None:
     # ffprobe
     ffprobe = registry.ffprobe
     if ffprobe.is_available():
-        click.echo(f"  \u2713 ffprobe: {ffprobe.version} ({ffprobe.path})")
+        click.echo(f"  [OK] ffprobe: {ffprobe.version} ({ffprobe.path})")
     else:
-        click.echo("  \u2717 ffprobe: not found")
+        click.echo("  [--] ffprobe: not found")
 
     # ffmpeg
     ffmpeg = registry.ffmpeg
     if ffmpeg.is_available():
-        click.echo(f"  \u2713 ffmpeg:  {ffmpeg.version} ({ffmpeg.path})")
+        click.echo(f"  [OK] ffmpeg:  {ffmpeg.version} ({ffmpeg.path})")
     else:
-        click.echo("  \u2717 ffmpeg:  not found")
+        click.echo("  [--] ffmpeg:  not found")
 
     # mkvmerge
     mkvmerge = registry.mkvmerge
     if mkvmerge.is_available():
-        click.echo(f"  \u2713 mkvmerge: {mkvmerge.version} ({mkvmerge.path})")
+        click.echo(f"  [OK] mkvmerge: {mkvmerge.version} ({mkvmerge.path})")
     else:
-        click.echo("  \u2717 mkvmerge: not found")
+        click.echo("  [--] mkvmerge: not found")
 
     # mkvpropedit
     mkvpropedit = registry.mkvpropedit
     if mkvpropedit.is_available():
-        click.echo(f"  \u2713 mkvpropedit: {mkvpropedit.version} ({mkvpropedit.path})")
+        click.echo(f"  [OK] mkvpropedit: {mkvpropedit.version} ({mkvpropedit.path})")
     else:
-        click.echo("  \u2717 mkvpropedit: not found")
+        click.echo("  [--] mkvpropedit: not found")
 
 
 def _get_data_dir(data_dir_option: Path | None) -> Path:

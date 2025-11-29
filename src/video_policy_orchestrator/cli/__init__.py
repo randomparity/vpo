@@ -141,7 +141,6 @@ def _log_startup_settings(
 
     from video_policy_orchestrator.config import get_config
     from video_policy_orchestrator.config.loader import (
-        DEFAULT_CONFIG_DIR,
         get_data_dir,
         load_config_file,
     )
@@ -155,10 +154,8 @@ def _log_startup_settings(
     data_dir = get_data_dir()
     if os.environ.get("VPO_DATA_DIR"):
         data_dir_source = "env"
-    elif data_dir == DEFAULT_CONFIG_DIR:
-        data_dir_source = "default"
     else:
-        data_dir_source = "config"
+        data_dir_source = "default"
 
     # Determine log_level source
     if cli_log_level:

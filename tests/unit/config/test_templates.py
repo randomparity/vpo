@@ -3,7 +3,6 @@
 from pathlib import Path
 
 from video_policy_orchestrator.config.templates import (
-    CONFIG_TEMPLATE,
     DEFAULT_POLICY_TEMPLATE,
     InitializationState,
     InitResult,
@@ -11,6 +10,7 @@ from video_policy_orchestrator.config.templates import (
     create_data_directory,
     create_logs_directory,
     create_plugins_directory,
+    get_config_template,
     run_init,
     validate_data_dir_path,
     write_config_file,
@@ -89,23 +89,32 @@ class TestInitResult:
 class TestTemplates:
     """Tests for template strings."""
 
-    def test_config_template_has_sections(self):
+    def test_config_template_has_sections(self, tmp_path):
         """Test config template contains expected sections."""
-        assert "[tools]" in CONFIG_TEMPLATE
-        assert "[tools.detection]" in CONFIG_TEMPLATE
-        assert "[behavior]" in CONFIG_TEMPLATE
-        assert "[plugins]" in CONFIG_TEMPLATE
-        assert "[jobs]" in CONFIG_TEMPLATE
-        assert "[worker]" in CONFIG_TEMPLATE
-        assert "[transcription]" in CONFIG_TEMPLATE
-        assert "[logging]" in CONFIG_TEMPLATE
-        assert "[server]" in CONFIG_TEMPLATE
-        assert "[language]" in CONFIG_TEMPLATE
+        config_template = get_config_template(tmp_path)
+        assert "[tools]" in config_template
+        assert "[tools.detection]" in config_template
+        assert "[behavior]" in config_template
+        assert "[plugins]" in config_template
+        assert "[jobs]" in config_template
+        assert "[worker]" in config_template
+        assert "[transcription]" in config_template
+        assert "[logging]" in config_template
+        assert "[server]" in config_template
+        assert "[language]" in config_template
 
-    def test_config_template_has_header(self):
+    def test_config_template_has_header(self, tmp_path):
         """Test config template has header comment."""
-        assert "Video Policy Orchestrator Configuration" in CONFIG_TEMPLATE
-        assert "vpo init" in CONFIG_TEMPLATE
+        config_template = get_config_template(tmp_path)
+        assert "Video Policy Orchestrator Configuration" in config_template
+        assert "vpo init" in config_template
+
+    def test_config_template_uses_data_dir_for_log_path(self, tmp_path):
+        """Test config template uses provided data_dir for log file path."""
+        data_dir = tmp_path / "custom-vpo"
+        config_template = get_config_template(data_dir)
+        # The log path should contain the data_dir path
+        assert "custom-vpo/logs/vpo.log" in config_template
 
     def test_policy_template_has_schema_version(self):
         """Test default policy has schema version."""

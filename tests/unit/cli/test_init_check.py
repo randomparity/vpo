@@ -101,6 +101,34 @@ class TestInitializationCheckEdgeCases:
         """Create a Click test runner."""
         return CliRunner()
 
+    @pytest.fixture
+    def temp_data_dir(self, tmp_path):
+        """Create a temporary data directory."""
+        data_dir = tmp_path / ".vpo"
+        return data_dir
+
+    def test_tool_detection_failure_handled_gracefully(self, runner, temp_data_dir):
+        """Test that tool detection failures during interactive init don't crash."""
+        with (
+            patch.dict(os.environ, {"VPO_DATA_DIR": str(temp_data_dir)}),
+            patch("video_policy_orchestrator.cli._is_interactive", return_value=True),
+            patch(
+                "video_policy_orchestrator.cli.init.get_tool_registry",
+                side_effect=OSError("Mock cache error"),
+            ),
+        ):
+            # Simulate user typing 'y' to accept
+            result = runner.invoke(main, ["doctor"], input="y\n")
+
+        # Should still succeed despite tool detection cache error
+        # (falls back to detect_all_tools)
+        assert result.exit_code == 0 or "Continuing with doctor" in result.output
+        # Should show init output
+        assert (
+            "VPO initialized successfully" in result.output
+            or "Created" in result.output
+        )
+
     def test_version_flag_works_without_init(self, runner):
         """Test that --version works without initialization."""
         result = runner.invoke(main, ["--version"])
