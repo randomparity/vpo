@@ -41,6 +41,7 @@ from video_policy_orchestrator.policy.models import (
     SkipAction,
     SkipFlags,
     SkipType,
+    TrackFlagChange,
     WarnAction,
 )
 
@@ -48,19 +49,6 @@ if TYPE_CHECKING:
     from video_policy_orchestrator.db.models import TrackInfo
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class TrackFlagChange:
-    """A pending change to a track's flags.
-
-    Represents a set_forced or set_default action that should
-    be applied to a specific track.
-    """
-
-    track_index: int
-    flag_type: str  # "forced" or "default"
-    value: bool
 
 
 @dataclass

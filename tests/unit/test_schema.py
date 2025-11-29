@@ -347,3 +347,318 @@ class TestMigrationV10ToV11:
         assert cursor.fetchone()[0] == "de"
 
         conn.close()
+
+
+class TestMigrationV15ToV16:
+    """Tests for v15 to v16 migration (expanded track_type constraint)."""
+
+    @pytest.fixture
+    def db_v15(self, tmp_path: Path) -> sqlite3.Connection:
+        """Create a database at version 15 with test data."""
+        db_path = tmp_path / "test.db"
+        conn = sqlite3.connect(str(db_path))
+
+        # Create minimal schema at v15 with old CHECK constraint
+        conn.executescript(
+            """
+            CREATE TABLE _meta (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            INSERT INTO _meta (key, value) VALUES ('schema_version', '15');
+
+            CREATE TABLE files (
+                id INTEGER PRIMARY KEY,
+                path TEXT UNIQUE NOT NULL
+            );
+            INSERT INTO files (id, path) VALUES
+                (1, '/test1.mkv'),
+                (2, '/test2.mkv');
+
+            CREATE TABLE tracks (
+                id INTEGER PRIMARY KEY,
+                file_id INTEGER NOT NULL,
+                track_type TEXT,
+                language TEXT,
+                FOREIGN KEY (file_id) REFERENCES files(id)
+            );
+            INSERT INTO tracks (id, file_id, track_type, language) VALUES
+                (1, 1, 'audio', 'eng'),
+                (2, 1, 'audio', 'fre'),
+                (3, 2, 'audio', 'eng');
+
+            CREATE TABLE transcription_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                track_id INTEGER NOT NULL UNIQUE,
+                detected_language TEXT,
+                confidence_score REAL NOT NULL,
+                track_type TEXT NOT NULL DEFAULT 'main',
+                transcript_sample TEXT,
+                plugin_name TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+                CONSTRAINT valid_confidence CHECK (
+                    confidence_score >= 0.0 AND confidence_score <= 1.0
+                ),
+                CONSTRAINT valid_track_type CHECK (
+                    track_type IN ('main', 'commentary', 'alternate')
+                )
+            );
+            INSERT INTO transcription_results (
+                track_id, detected_language, confidence_score, track_type,
+                transcript_sample, plugin_name, created_at, updated_at
+            ) VALUES
+                (1, 'eng', 0.95, 'main', 'Hello world...', 'whisper-local',
+                 '2025-01-15T10:00:00+00:00', '2025-01-15T10:00:00+00:00'),
+                (2, 'fre', 0.85, 'commentary', 'Bonjour...', 'whisper-local',
+                 '2025-01-15T10:05:00+00:00', '2025-01-15T10:05:00+00:00'),
+                (3, 'eng', 0.90, 'alternate', 'Alt track...', 'whisper-local',
+                 '2025-01-15T10:10:00+00:00', '2025-01-15T10:10:00+00:00');
+
+            CREATE INDEX idx_transcription_track_id
+                ON transcription_results(track_id);
+            """
+        )
+
+        conn.commit()
+        return conn
+
+    def test_migration_allows_new_track_types(self, db_v15: sqlite3.Connection):
+        """Test that migration allows 'music', 'sfx', 'non_speech' track_types."""
+        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+
+        # Run migration
+        migrate_v15_to_v16(db_v15)
+
+        # Verify we can now insert new track_type values
+        # First insert a new track for the transcription to reference
+        db_v15.execute(
+            "INSERT INTO tracks (id, file_id, track_type, language) "
+            "VALUES (4, 1, 'audio', NULL)"
+        )
+        db_v15.execute(
+            "INSERT INTO tracks (id, file_id, track_type, language) "
+            "VALUES (5, 1, 'audio', NULL)"
+        )
+        db_v15.execute(
+            "INSERT INTO tracks (id, file_id, track_type, language) "
+            "VALUES (6, 1, 'audio', NULL)"
+        )
+
+        # Now insert transcription results with new track_types
+        db_v15.execute(
+            """
+            INSERT INTO transcription_results (
+                track_id, detected_language, confidence_score, track_type,
+                transcript_sample, plugin_name, created_at, updated_at
+            ) VALUES (
+                4, NULL, 0.25, 'music',
+                NULL, 'whisper-local',
+                '2025-01-15T11:00:00+00:00', '2025-01-15T11:00:00+00:00'
+            )
+            """
+        )
+        db_v15.execute(
+            """
+            INSERT INTO transcription_results (
+                track_id, detected_language, confidence_score, track_type,
+                transcript_sample, plugin_name, created_at, updated_at
+            ) VALUES (
+                5, NULL, 0.15, 'sfx',
+                NULL, 'whisper-local',
+                '2025-01-15T11:01:00+00:00', '2025-01-15T11:01:00+00:00'
+            )
+            """
+        )
+        db_v15.execute(
+            """
+            INSERT INTO transcription_results (
+                track_id, detected_language, confidence_score, track_type,
+                transcript_sample, plugin_name, created_at, updated_at
+            ) VALUES (
+                6, NULL, 0.20, 'non_speech',
+                '[Music]', 'whisper-local',
+                '2025-01-15T11:02:00+00:00', '2025-01-15T11:02:00+00:00'
+            )
+            """
+        )
+        db_v15.commit()
+
+        # Verify the new records exist
+        cursor = db_v15.execute(
+            "SELECT track_type FROM transcription_results WHERE track_id IN (4, 5, 6) "
+            "ORDER BY track_id"
+        )
+        track_types = [row[0] for row in cursor.fetchall()]
+        assert track_types == ["music", "sfx", "non_speech"]
+
+    def test_migration_preserves_existing_data(self, db_v15: sqlite3.Connection):
+        """Test that existing main/commentary/alternate records are preserved."""
+        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+
+        # Run migration
+        migrate_v15_to_v16(db_v15)
+
+        # Check existing data is preserved
+        cursor = db_v15.execute(
+            "SELECT track_id, detected_language, confidence_score, track_type, "
+            "transcript_sample, plugin_name FROM transcription_results "
+            "ORDER BY track_id"
+        )
+        results = cursor.fetchall()
+
+        assert len(results) == 3
+
+        # Record 1: main track
+        assert results[0][0] == 1  # track_id
+        assert results[0][1] == "eng"  # detected_language
+        assert results[0][2] == 0.95  # confidence_score
+        assert results[0][3] == "main"  # track_type
+        assert results[0][4] == "Hello world..."  # transcript_sample
+        assert results[0][5] == "whisper-local"  # plugin_name
+
+        # Record 2: commentary track
+        assert results[1][0] == 2
+        assert results[1][1] == "fre"
+        assert results[1][3] == "commentary"
+
+        # Record 3: alternate track
+        assert results[2][0] == 3
+        assert results[2][3] == "alternate"
+
+    def test_migration_updates_schema_version(self, db_v15: sqlite3.Connection):
+        """Test that schema version is updated to 16."""
+        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+
+        # Run migration
+        migrate_v15_to_v16(db_v15)
+
+        # Check schema version updated
+        cursor = db_v15.execute("SELECT value FROM _meta WHERE key = 'schema_version'")
+        assert cursor.fetchone()[0] == "16"
+
+    def test_migration_is_idempotent(self, db_v15: sqlite3.Connection):
+        """Test that running migration twice doesn't error."""
+        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+
+        # Run migration twice
+        migrate_v15_to_v16(db_v15)
+        migrate_v15_to_v16(db_v15)
+
+        # Verify data is still correct
+        cursor = db_v15.execute("SELECT COUNT(*) FROM transcription_results")
+        assert cursor.fetchone()[0] == 3
+
+        # Verify version is still 16
+        cursor = db_v15.execute("SELECT value FROM _meta WHERE key = 'schema_version'")
+        assert cursor.fetchone()[0] == "16"
+
+    def test_migration_recreates_indexes(self, db_v15: sqlite3.Connection):
+        """Test that indexes are recreated after migration."""
+        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+
+        # Run migration
+        migrate_v15_to_v16(db_v15)
+
+        # Check that indexes exist
+        cursor = db_v15.execute(
+            "SELECT name FROM sqlite_master WHERE type='index' "
+            "AND tbl_name='transcription_results'"
+        )
+        indexes = {row[0] for row in cursor.fetchall()}
+
+        assert "idx_transcription_track_id" in indexes
+        assert "idx_transcription_language" in indexes
+        assert "idx_transcription_type" in indexes
+        assert "idx_transcription_plugin" in indexes
+
+    def test_migration_constraint_rejects_invalid_track_type(
+        self, db_v15: sqlite3.Connection
+    ):
+        """Test that invalid track_type values are still rejected after migration."""
+        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+
+        # Run migration
+        migrate_v15_to_v16(db_v15)
+
+        # Insert a track for FK constraint
+        db_v15.execute(
+            "INSERT INTO tracks (id, file_id, track_type) VALUES (10, 1, 'audio')"
+        )
+
+        # Attempt to insert an invalid track_type
+        with pytest.raises(sqlite3.IntegrityError):
+            db_v15.execute(
+                """
+                INSERT INTO transcription_results (
+                    track_id, detected_language, confidence_score, track_type,
+                    transcript_sample, plugin_name, created_at, updated_at
+                ) VALUES (
+                    10, 'eng', 0.5, 'invalid_type',
+                    NULL, 'test',
+                    '2025-01-15T12:00:00+00:00', '2025-01-15T12:00:00+00:00'
+                )
+                """
+            )
+
+    def test_migration_handles_empty_table(self, tmp_path: Path):
+        """Test that migration works correctly on empty transcription_results table."""
+        db_path = tmp_path / "test.db"
+        conn = sqlite3.connect(str(db_path))
+
+        # Create minimal v15 schema with empty transcription_results table
+        conn.executescript(
+            """
+            CREATE TABLE _meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            INSERT INTO _meta (key, value) VALUES ('schema_version', '15');
+            CREATE TABLE files (id INTEGER PRIMARY KEY, path TEXT);
+            INSERT INTO files (id, path) VALUES (1, '/test.mkv');
+            CREATE TABLE tracks (
+                id INTEGER PRIMARY KEY, file_id INTEGER
+            );
+            INSERT INTO tracks (id, file_id) VALUES (1, 1);
+            CREATE TABLE transcription_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                track_id INTEGER NOT NULL UNIQUE,
+                detected_language TEXT,
+                confidence_score REAL NOT NULL,
+                track_type TEXT NOT NULL DEFAULT 'main',
+                transcript_sample TEXT,
+                plugin_name TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                CONSTRAINT valid_track_type CHECK (
+                    track_type IN ('main', 'commentary', 'alternate')
+                )
+            );
+            """
+        )
+        conn.commit()
+
+        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+
+        # Run migration on empty table
+        migrate_v15_to_v16(conn)
+
+        # Should be able to insert new track_types
+        conn.execute(
+            """
+            INSERT INTO transcription_results (
+                track_id, detected_language, confidence_score, track_type,
+                transcript_sample, plugin_name, created_at, updated_at
+            ) VALUES (
+                1, NULL, 0.10, 'non_speech',
+                NULL, 'whisper-local',
+                '2025-01-15T10:00:00+00:00', '2025-01-15T10:00:00+00:00'
+            )
+            """
+        )
+        conn.commit()
+
+        cursor = conn.execute(
+            "SELECT track_type FROM transcription_results WHERE track_id = 1"
+        )
+        assert cursor.fetchone()[0] == "non_speech"
+
+        conn.close()

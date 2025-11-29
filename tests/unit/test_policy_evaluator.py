@@ -747,3 +747,204 @@ class TestEvaluatePolicy:
         assert plan.file_path == Path("/test/file.mkv")
         assert plan.policy_version == 1
         assert isinstance(plan.created_at, datetime)
+
+
+# =============================================================================
+# Transcription Status Tests
+# =============================================================================
+
+
+class TestTrackDispositionTranscriptionStatus:
+    """Tests for transcription status in TrackDisposition."""
+
+    def test_audio_track_with_transcription_shows_status(self):
+        """Audio tracks with transcription show type and confidence."""
+        from video_policy_orchestrator.db.types import TranscriptionResultRecord
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+        from video_policy_orchestrator.policy.models import AudioFilterConfig
+
+        tracks = [
+            TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="eng"),
+        ]
+        policy = PolicySchema(
+            schema_version=3,
+            audio_filter=AudioFilterConfig(languages=("eng",)),
+        )
+        transcription_results = {
+            100: TranscriptionResultRecord(
+                id=1,
+                track_id=100,
+                detected_language="eng",
+                confidence_score=0.95,
+                track_type="main",
+                transcript_sample=None,
+                plugin_name="test",
+                created_at="2025-01-01T00:00:00Z",
+                updated_at="2025-01-01T00:00:00Z",
+            )
+        }
+
+        dispositions = compute_track_dispositions(tracks, policy, transcription_results)
+
+        assert len(dispositions) == 1
+        assert dispositions[0].transcription_status == "main 95%"
+
+    def test_audio_track_without_transcription_shows_tbd(self):
+        """Audio tracks without transcription show 'TBD'."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+        from video_policy_orchestrator.policy.models import AudioFilterConfig
+
+        tracks = [
+            TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="eng"),
+        ]
+        policy = PolicySchema(
+            schema_version=3,
+            audio_filter=AudioFilterConfig(languages=("eng",)),
+        )
+
+        # No transcription results
+        dispositions = compute_track_dispositions(tracks, policy, None)
+
+        assert len(dispositions) == 1
+        assert dispositions[0].transcription_status == "TBD"
+
+    def test_video_track_has_no_transcription_status(self):
+        """Video tracks have None for transcription_status."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+        from video_policy_orchestrator.policy.models import AudioFilterConfig
+
+        tracks = [
+            TrackInfo(index=0, track_type="video", codec="hevc"),
+        ]
+        policy = PolicySchema(
+            schema_version=3,
+            audio_filter=AudioFilterConfig(languages=("eng",)),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy, None)
+
+        assert len(dispositions) == 1
+        assert dispositions[0].transcription_status is None
+
+    def test_subtitle_track_has_no_transcription_status(self):
+        """Subtitle tracks have None for transcription_status."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+        from video_policy_orchestrator.policy.models import SubtitleFilterConfig
+
+        tracks = [
+            TrackInfo(index=0, track_type="subtitle", codec="subrip", language="eng"),
+        ]
+        policy = PolicySchema(
+            schema_version=3,
+            subtitle_filter=SubtitleFilterConfig(languages=("eng",)),
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy, None)
+
+        assert len(dispositions) == 1
+        assert dispositions[0].transcription_status is None
+
+    def test_commentary_transcription_status(self):
+        """Commentary audio tracks show commentary status."""
+        from video_policy_orchestrator.db.types import TranscriptionResultRecord
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+        from video_policy_orchestrator.policy.models import AudioFilterConfig
+
+        tracks = [
+            TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="eng"),
+            TrackInfo(
+                index=1,
+                id=101,
+                track_type="audio",
+                codec="aac",
+                language="eng",
+                title="Director Commentary",
+            ),
+        ]
+        policy = PolicySchema(
+            schema_version=3,
+            audio_filter=AudioFilterConfig(languages=("eng",)),
+        )
+        transcription_results = {
+            100: TranscriptionResultRecord(
+                id=1,
+                track_id=100,
+                detected_language="eng",
+                confidence_score=0.95,
+                track_type="main",
+                transcript_sample=None,
+                plugin_name="test",
+                created_at="2025-01-01T00:00:00Z",
+                updated_at="2025-01-01T00:00:00Z",
+            ),
+            101: TranscriptionResultRecord(
+                id=2,
+                track_id=101,
+                detected_language="eng",
+                confidence_score=0.88,
+                track_type="commentary",
+                transcript_sample=None,
+                plugin_name="test",
+                created_at="2025-01-01T00:00:00Z",
+                updated_at="2025-01-01T00:00:00Z",
+            ),
+        }
+
+        dispositions = compute_track_dispositions(tracks, policy, transcription_results)
+
+        assert len(dispositions) == 2
+        # Sort by track index to ensure consistent ordering
+        disp_by_idx = {d.track_index: d for d in dispositions}
+        assert disp_by_idx[0].transcription_status == "main 95%"
+        assert disp_by_idx[1].transcription_status == "commentary 88%"
+
+    def test_transcription_status_preserved_on_fallback(self):
+        """Transcription status is preserved when fallback is applied."""
+        from video_policy_orchestrator.db.types import TranscriptionResultRecord
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+        from video_policy_orchestrator.policy.models import (
+            AudioFilterConfig,
+            LanguageFallbackConfig,
+        )
+
+        tracks = [
+            TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="fra"),
+        ]
+        policy = PolicySchema(
+            schema_version=3,
+            audio_filter=AudioFilterConfig(
+                languages=("eng",),
+                fallback=LanguageFallbackConfig(mode="keep_all"),
+            ),
+        )
+        transcription_results = {
+            100: TranscriptionResultRecord(
+                id=1,
+                track_id=100,
+                detected_language="fra",
+                confidence_score=0.92,
+                track_type="main",
+                transcript_sample=None,
+                plugin_name="test",
+                created_at="2025-01-01T00:00:00Z",
+                updated_at="2025-01-01T00:00:00Z",
+            ),
+        }
+
+        dispositions = compute_track_dispositions(tracks, policy, transcription_results)
+
+        assert len(dispositions) == 1
+        # Even with fallback, transcription status should be preserved
+        assert dispositions[0].transcription_status == "main 92%"

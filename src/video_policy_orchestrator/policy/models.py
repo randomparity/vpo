@@ -17,6 +17,9 @@ class TrackType(Enum):
     AUDIO_MAIN = "audio_main"
     AUDIO_ALTERNATE = "audio_alternate"
     AUDIO_COMMENTARY = "audio_commentary"
+    AUDIO_MUSIC = "audio_music"  # Music score, soundtrack (metadata-identified)
+    AUDIO_SFX = "audio_sfx"  # Sound effects, ambient (metadata-identified)
+    AUDIO_NON_SPEECH = "audio_non_speech"  # Unlabeled track detected as no speech
     SUBTITLE_MAIN = "subtitle_main"
     SUBTITLE_FORCED = "subtitle_forced"
     SUBTITLE_COMMENTARY = "subtitle_commentary"
@@ -35,6 +38,14 @@ class ActionType(Enum):
     SET_LANGUAGE = "set_language"  # Change language tag
     TRANSCODE = "transcode"  # Transcode video/audio
     MOVE = "move"  # Move file to new location
+
+
+class ProcessingPhase(Enum):
+    """Workflow processing phases for video file operations."""
+
+    ANALYZE = "analyze"  # Language detection via transcription
+    APPLY = "apply"  # Track ordering, filtering, metadata, container
+    TRANSCODE = "transcode"  # Video/audio codec conversion
 
 
 # Valid video codecs for transcoding
@@ -309,6 +320,8 @@ class AudioFilterConfig:
     Audio filtering removes tracks whose language doesn't match the preferred
     languages list. A minimum of 1 audio track is always enforced to prevent
     creating audio-less files.
+
+    V10: Added support for music, sfx, and non-speech track handling.
     """
 
     languages: tuple[str, ...]
@@ -321,6 +334,27 @@ class AudioFilterConfig:
     minimum: int = 1
     """Minimum number of audio tracks that must remain.
     If filtering would leave fewer tracks, fallback is triggered."""
+
+    # V10: Music track handling
+    keep_music_tracks: bool = True
+    """If True, keep music tracks (score, soundtrack) even if not in languages list."""
+
+    exclude_music_from_language_filter: bool = True
+    """If True, music tracks bypass language filtering entirely."""
+
+    # V10: SFX track handling
+    keep_sfx_tracks: bool = True
+    """If True, keep SFX tracks (sound effects) even if not in languages list."""
+
+    exclude_sfx_from_language_filter: bool = True
+    """If True, SFX tracks bypass language filtering entirely."""
+
+    # V10: Non-speech track handling (unlabeled tracks detected as no speech)
+    keep_non_speech_tracks: bool = True
+    """If True, keep non-speech tracks (unlabeled tracks with no dialog)."""
+
+    exclude_non_speech_from_language_filter: bool = True
+    """If True, non-speech tracks bypass language filtering entirely."""
 
     def __post_init__(self) -> None:
         """Validate audio filter configuration."""
@@ -419,6 +453,13 @@ class TrackDisposition:
     reason: str
     """Human-readable reason for the action."""
 
+    transcription_status: str | None = None
+    """Transcription analysis status for audio tracks.
+
+    Format: 'main 95%', 'commentary 88%', 'alternate 72%', or 'TBD'.
+    None for non-audio tracks.
+    """
+
 
 @dataclass(frozen=True)
 class ContainerChange:
@@ -451,12 +492,63 @@ DEFAULT_TRACK_ORDER: tuple[TrackType, ...] = (
     TrackType.VIDEO,
     TrackType.AUDIO_MAIN,
     TrackType.AUDIO_ALTERNATE,
+    TrackType.AUDIO_MUSIC,
+    TrackType.AUDIO_SFX,
+    TrackType.AUDIO_NON_SPEECH,
     TrackType.SUBTITLE_MAIN,
     TrackType.SUBTITLE_FORCED,
     TrackType.AUDIO_COMMENTARY,
     TrackType.SUBTITLE_COMMENTARY,
     TrackType.ATTACHMENT,
 )
+
+
+# =============================================================================
+# V9 Workflow Configuration
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class WorkflowConfig:
+    """Workflow configuration from policy YAML (V9+).
+
+    Defines the processing phases to run and their execution behavior.
+    Phases execute in order: ANALYZE → APPLY → TRANSCODE.
+    """
+
+    phases: tuple[ProcessingPhase, ...]
+    """Phases to execute in order."""
+
+    auto_process: bool = False
+    """If True, daemon auto-queues PROCESS jobs when files are scanned."""
+
+    on_error: Literal["skip", "continue", "fail"] = "continue"
+    """Error handling:
+    - skip: Stop processing file, mark as failed
+    - continue: Log error and proceed to next phase
+    - fail: Stop entire batch with error
+    """
+
+    def __post_init__(self) -> None:
+        """Validate workflow configuration."""
+        if not self.phases:
+            raise ValueError("workflow.phases cannot be empty")
+
+        valid_phases = set(ProcessingPhase)
+        for phase in self.phases:
+            if phase not in valid_phases:
+                raise ValueError(f"Invalid phase: {phase}")
+
+        # Check for duplicate phases
+        if len(self.phases) != len(set(self.phases)):
+            raise ValueError("Duplicate phases not allowed")
+
+        valid_on_error = ("skip", "continue", "fail")
+        if self.on_error not in valid_on_error:
+            raise ValueError(
+                f"Invalid on_error: {self.on_error}. "
+                f"Must be one of: {', '.join(valid_on_error)}"
+            )
 
 
 @dataclass(frozen=True)
@@ -502,6 +594,10 @@ class PolicySchema:
 
     audio_transcode: "AudioTranscodeConfig | None" = None
     """Audio transcode configuration. Requires schema_version >= 6."""
+
+    # V9 fields (all optional for backward compatibility)
+    workflow: WorkflowConfig | None = None
+    """Workflow configuration. Requires schema_version >= 9."""
 
     def __post_init__(self) -> None:
         """Validate policy schema after initialization."""
@@ -549,6 +645,11 @@ class PolicySchema:
     def has_audio_synthesis(self) -> bool:
         """True if audio synthesis is configured."""
         return self.audio_synthesis is not None
+
+    @property
+    def has_workflow(self) -> bool:
+        """True if workflow configuration is present."""
+        return self.workflow is not None
 
 
 # =============================================================================
@@ -982,11 +1083,24 @@ class RuleEvaluation:
 
 
 @dataclass(frozen=True)
+class TrackFlagChange:
+    """A pending change to a track's flags.
+
+    Represents a set_forced or set_default action that should
+    be applied to a specific track.
+    """
+
+    track_index: int
+    flag_type: str  # "forced" or "default"
+    value: bool
+
+
+@dataclass(frozen=True)
 class ConditionalResult:
     """Result of conditional rule evaluation.
 
     Captures which rule matched, which branch was executed,
-    any warnings generated, and a trace for debugging.
+    any warnings generated, track flag changes, and a trace for debugging.
     """
 
     matched_rule: str | None  # Name of first matching rule, None if no match
@@ -994,6 +1108,7 @@ class ConditionalResult:
     warnings: tuple[str, ...]  # Formatted warning messages
     evaluation_trace: tuple[RuleEvaluation, ...]  # For dry-run output
     skip_flags: SkipFlags = field(default_factory=SkipFlags)
+    track_flag_changes: tuple[TrackFlagChange, ...] = ()  # From set_forced/set_default
 
 
 # =============================================================================

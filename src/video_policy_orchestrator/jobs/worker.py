@@ -31,7 +31,10 @@ from video_policy_orchestrator.jobs.queue import (
     release_job,
     update_heartbeat,
 )
-from video_policy_orchestrator.jobs.services import TranscodeJobService
+from video_policy_orchestrator.jobs.services import (
+    ProcessJobService,
+    TranscodeJobService,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -77,8 +80,9 @@ class JobWorker:
         self.auto_purge = auto_purge
         self.retention_days = retention_days
 
-        # Cache transcode service for reuse across jobs
+        # Cache services for reuse across jobs
         self._transcode_service = TranscodeJobService(cpu_cores=cpu_cores)
+        self._process_service: ProcessJobService | None = None
 
         # State
         self._shutdown_requested = False
@@ -231,6 +235,25 @@ class JobWorker:
         )
         return result.success, result.error_message, result.output_path
 
+    def _process_workflow_job(
+        self, job: Job, job_log: JobLogWriter | None = None
+    ) -> tuple[bool, str | None, str | None]:
+        """Process a workflow (PROCESS) job.
+
+        Args:
+            job: The job to process.
+            job_log: Optional log writer for this job.
+
+        Returns:
+            Tuple of (success, error_message, output_path).
+        """
+        # Lazy init process service (needs conn)
+        if self._process_service is None:
+            self._process_service = ProcessJobService(self.conn)
+
+        result = self._process_service.process(job, job_log)
+        return result.success, result.error_message, None
+
     def process_job(self, job: Job) -> None:
         """Process a single job.
 
@@ -266,6 +289,10 @@ class JobWorker:
 
             if job.job_type == JobType.TRANSCODE:
                 success, error_msg, output_path = self._process_transcode_job(
+                    job, job_log
+                )
+            elif job.job_type == JobType.PROCESS:
+                success, error_msg, output_path = self._process_workflow_job(
                     job, job_log
                 )
             elif job.job_type == JobType.MOVE:

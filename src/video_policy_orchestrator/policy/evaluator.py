@@ -25,7 +25,9 @@ from video_policy_orchestrator.policy.exceptions import (
     IncompatibleCodecError,
     InsufficientTracksError,
 )
-from video_policy_orchestrator.policy.matchers import CommentaryMatcher
+from video_policy_orchestrator.policy.matchers import (
+    CommentaryMatcher,
+)
 from video_policy_orchestrator.policy.models import (
     ActionType,
     AttachmentFilterConfig,
@@ -40,7 +42,12 @@ from video_policy_orchestrator.policy.models import (
     SkipFlags,
     SubtitleFilterConfig,
     TrackDisposition,
+    TrackFlagChange,
     TrackType,
+)
+from video_policy_orchestrator.transcription.models import (
+    is_music_by_metadata,
+    is_sfx_by_metadata,
 )
 
 
@@ -98,13 +105,20 @@ def classify_track(
 ) -> TrackType:
     """Classify a track according to policy rules.
 
+    Classification priority for audio tracks:
+    1. SFX (metadata-based) - most specific
+    2. Music (metadata-based)
+    3. Commentary (metadata-based)
+    4. Transcription-based classification (sfx, music, non_speech, commentary)
+    5. Language-based: AUDIO_MAIN if in preference, else AUDIO_ALTERNATE
+
     Args:
         track: Track metadata to classify.
         policy: Policy configuration.
         matcher: Commentary pattern matcher.
         transcription_results: Optional map of track_id to transcription result.
-            Used for transcription-based commentary detection when policy
-            has detect_commentary enabled.
+            Used for transcription-based classification (commentary, music,
+            sfx, non_speech) when policy has transcription enabled.
 
     Returns:
         TrackType enum value for sorting.
@@ -115,25 +129,43 @@ def classify_track(
         return TrackType.VIDEO
 
     if track_type == "audio":
-        # Check for commentary first (metadata-based)
+        # Stage 1: Metadata-based detection (most reliable)
+        # Check SFX first - most specific
+        if is_sfx_by_metadata(track.title):
+            return TrackType.AUDIO_SFX
+
+        # Check music keywords
+        if is_music_by_metadata(track.title):
+            return TrackType.AUDIO_MUSIC
+
+        # Check for commentary (metadata-based)
         if matcher.is_commentary(track.title):
             return TrackType.AUDIO_COMMENTARY
 
-        # Check for transcription-based commentary detection
-        if (
-            transcription_results is not None
-            and policy.has_transcription_settings
-            and policy.transcription.detect_commentary
-        ):
+        # Stage 2: Transcription-based classification
+        if transcription_results is not None:
             track_id = getattr(track, "id", None)
             if track_id is None:
                 track_id = getattr(track, "track_index", track.index)
 
             tr_result = transcription_results.get(track_id)
-            if tr_result is not None and tr_result.track_type == "commentary":
-                return TrackType.AUDIO_COMMENTARY
+            if tr_result is not None:
+                # Map transcription track_type to TrackType
+                if tr_result.track_type == "sfx":
+                    return TrackType.AUDIO_SFX
+                if tr_result.track_type == "music":
+                    return TrackType.AUDIO_MUSIC
+                if tr_result.track_type == "non_speech":
+                    return TrackType.AUDIO_NON_SPEECH
+                if tr_result.track_type == "commentary":
+                    # Only use transcription-based commentary if enabled
+                    if (
+                        policy.has_transcription_settings
+                        and policy.transcription.detect_commentary
+                    ):
+                        return TrackType.AUDIO_COMMENTARY
 
-        # Check if language is in preference list
+        # Stage 3: Language-based classification for dialog tracks
         # Use languages_match() to handle different ISO standards
         lang = track.language or "und"
         for pref_lang in policy.audio_language_preference:
@@ -452,16 +484,43 @@ def compute_language_updates(
 def _evaluate_audio_track(
     track: TrackInfo,
     config: AudioFilterConfig,
+    classification: TrackType | None = None,
 ) -> tuple[Literal["KEEP", "REMOVE"], str]:
     """Evaluate a single audio track against audio filter config.
+
+    V10: Handles music, sfx, and non_speech track exemptions from language filter.
 
     Args:
         track: Audio track to evaluate.
         config: Audio filter configuration.
+        classification: Optional track classification from classify_track().
+            Used to determine music/sfx/non_speech exemptions.
 
     Returns:
         Tuple of (action, reason) for the track.
     """
+    # V10: Check music track handling
+    if classification == TrackType.AUDIO_MUSIC or is_music_by_metadata(track.title):
+        if not config.keep_music_tracks:
+            return ("REMOVE", "music track excluded by policy")
+        if config.exclude_music_from_language_filter:
+            return ("KEEP", "music track (exempt from language filter)")
+
+    # V10: Check SFX track handling
+    if classification == TrackType.AUDIO_SFX or is_sfx_by_metadata(track.title):
+        if not config.keep_sfx_tracks:
+            return ("REMOVE", "sfx track excluded by policy")
+        if config.exclude_sfx_from_language_filter:
+            return ("KEEP", "sfx track (exempt from language filter)")
+
+    # V10: Check non-speech track handling (transcription-detected)
+    if classification == TrackType.AUDIO_NON_SPEECH:
+        if not config.keep_non_speech_tracks:
+            return ("REMOVE", "non-speech track excluded by policy")
+        if config.exclude_non_speech_from_language_filter:
+            return ("KEEP", "non-speech track (exempt from language filter)")
+
+    # Standard language filtering for dialog tracks
     lang = track.language or "und"
 
     # Check if track language matches any in the keep list
@@ -662,6 +721,7 @@ def _apply_fallback(
 def compute_track_dispositions(
     tracks: list[TrackInfo],
     policy: PolicySchema,
+    transcription_results: dict[int, TranscriptionResultRecord] | None = None,
 ) -> tuple[TrackDisposition, ...]:
     """Compute disposition for each track based on policy filters.
 
@@ -672,6 +732,8 @@ def compute_track_dispositions(
     Args:
         tracks: List of track metadata from introspection.
         policy: Validated policy configuration.
+        transcription_results: Optional map of track_id to transcription result.
+            Used to populate transcription_status for audio tracks.
 
     Returns:
         Tuple of TrackDisposition objects, one per track.
@@ -686,6 +748,9 @@ def compute_track_dispositions(
     # Pre-compute whether we have styled subtitles (for font warning)
     has_styled_subs = _has_styled_subtitles(tracks)
 
+    # Create commentary matcher for classification
+    matcher = CommentaryMatcher(policy.commentary_patterns)
+
     # First pass: evaluate each track
     audio_actions: dict[int, tuple[Literal["KEEP", "REMOVE"], str]] = {}
 
@@ -695,7 +760,13 @@ def compute_track_dispositions(
         reason = "no filter applied"
 
         if track_type == "audio" and policy.audio_filter:
-            action, reason = _evaluate_audio_track(track, policy.audio_filter)
+            # Classify track for V10 music/sfx/non_speech handling
+            classification = classify_track(
+                track, policy, matcher, transcription_results
+            )
+            action, reason = _evaluate_audio_track(
+                track, policy.audio_filter, classification
+            )
             audio_actions[track.index] = (action, reason)
         elif track_type == "subtitle" and policy.subtitle_filter:
             action, reason = _evaluate_subtitle_track(track, policy.subtitle_filter)
@@ -709,6 +780,18 @@ def compute_track_dispositions(
         if track.width and track.height:
             resolution = f"{track.width}x{track.height}"
 
+        # Compute transcription status for audio tracks
+        transcription_status: str | None = None
+        if track_type == "audio":
+            # Get track ID for lookup (TrackInfo uses id attribute if available)
+            track_id = getattr(track, "id", None)
+            if transcription_results and track_id in transcription_results:
+                tr = transcription_results[track_id]
+                pct = int(tr.confidence_score * 100)
+                transcription_status = f"{tr.track_type} {pct}%"
+            else:
+                transcription_status = "TBD"
+
         dispositions.append(
             TrackDisposition(
                 track_index=track.index,
@@ -720,6 +803,7 @@ def compute_track_dispositions(
                 resolution=resolution,
                 action=action,
                 reason=reason,
+                transcription_status=transcription_status,
             )
         )
 
@@ -752,6 +836,7 @@ def compute_track_dispositions(
                             resolution=disp.resolution,
                             action=new_action,
                             reason=new_reason,
+                            transcription_status=disp.transcription_status,
                         )
 
     return tuple(dispositions)
@@ -960,6 +1045,7 @@ def evaluate_conditional_rules(
     matched_branch: Literal["then", "else"] | None = None
     skip_flags = SkipFlags()
     warnings: list[str] = []
+    track_flag_changes: list[TrackFlagChange] = []
 
     for i, rule in enumerate(rules):
         # Evaluate the condition, passing language_results for multi-language checks
@@ -987,6 +1073,7 @@ def evaluate_conditional_rules(
             context = execute_actions(rule.then_actions, context)
             skip_flags = context.skip_flags
             warnings = context.warnings
+            track_flag_changes = context.track_flag_changes
 
             # First match wins - stop evaluation
             break
@@ -1016,6 +1103,7 @@ def evaluate_conditional_rules(
                 context = execute_actions(rule.else_actions, context)
                 skip_flags = context.skip_flags
                 warnings = context.warnings
+                track_flag_changes = context.track_flag_changes
 
     return ConditionalResult(
         matched_rule=matched_rule,
@@ -1023,6 +1111,7 @@ def evaluate_conditional_rules(
         warnings=tuple(warnings),
         evaluation_trace=tuple(evaluation_trace),
         skip_flags=skip_flags,
+        track_flag_changes=tuple(track_flag_changes),
     )
 
 
@@ -1135,6 +1224,45 @@ def evaluate_policy(
     actions: list[PlannedAction] = []
     requires_remux = False
 
+    # Convert track flag changes from conditional rules to PlannedActions
+    if conditional_result is not None and conditional_result.track_flag_changes:
+        for change in conditional_result.track_flag_changes:
+            # Find current track state
+            track = next((t for t in tracks if t.index == change.track_index), None)
+            if track is None:
+                continue
+
+            if change.flag_type == "forced":
+                current = track.is_forced
+                if current != change.value:
+                    if change.value:
+                        action_type = ActionType.SET_FORCED
+                    else:
+                        action_type = ActionType.CLEAR_FORCED
+                    actions.append(
+                        PlannedAction(
+                            action_type=action_type,
+                            track_index=change.track_index,
+                            current_value=current,
+                            desired_value=change.value,
+                        )
+                    )
+            elif change.flag_type == "default":
+                current = track.is_default
+                if current != change.value:
+                    if change.value:
+                        action_type = ActionType.SET_DEFAULT
+                    else:
+                        action_type = ActionType.CLEAR_DEFAULT
+                    actions.append(
+                        PlannedAction(
+                            action_type=action_type,
+                            track_index=change.track_index,
+                            current_value=current,
+                            desired_value=change.value,
+                        )
+                    )
+
     # Compute desired track order (handles empty tracks gracefully)
     # Pass transcription_results to enable transcription-based commentary detection
     current_order = [t.index for t in sorted(tracks, key=lambda t: t.index)]
@@ -1206,7 +1334,9 @@ def evaluate_policy(
     # V4: Check skip_track_filter flag before applying track filtering
     should_filter = policy.has_track_filtering and not skip_flags.skip_track_filter
     if should_filter:
-        track_dispositions = compute_track_dispositions(tracks, policy)
+        track_dispositions = compute_track_dispositions(
+            tracks, policy, transcription_results
+        )
         tracks_removed = sum(1 for d in track_dispositions if d.action == "REMOVE")
         tracks_kept = sum(1 for d in track_dispositions if d.action == "KEEP")
         if tracks_removed > 0:

@@ -27,13 +27,21 @@ class TestIsCommentaryByMetadata:
             "Behind the Scenes Audio",
             "Making of Feature",
             "Composer Notes",
-            "Isolated Score",
-            "Alternate Mix",
         ],
     )
     def test_detects_commentary_keywords(self, title):
         """Should detect tracks with commentary keywords in title."""
         assert is_commentary_by_metadata(title) is True
+
+    def test_isolated_score_is_not_commentary(self):
+        """Isolated Score should be music, not commentary."""
+        # "Isolated Score" contains "score" which is a music keyword, not commentary
+        assert is_commentary_by_metadata("Isolated Score") is False
+
+    def test_alternate_mix_is_not_commentary(self):
+        """Alternate Mix is just an alternate track, not commentary."""
+        # "Alternate Mix" doesn't contain any commentary keywords
+        assert is_commentary_by_metadata("Alternate Mix") is False
 
     @pytest.mark.parametrize(
         "title",

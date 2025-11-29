@@ -1338,3 +1338,211 @@ class TestMinimumTrackCountEnforcement:
         audio_disps = [d for d in dispositions if d.track_type == "audio"]
         kept = [d for d in audio_disps if d.action == "KEEP"]
         assert len(kept) == 3  # All tracks kept to meet minimum
+
+
+# =============================================================================
+# V10 Music/SFX/Non-Speech Track Filtering Tests
+# =============================================================================
+
+
+def make_v10_policy_with_audio_filter(
+    languages: tuple[str, ...],
+    minimum: int = 1,
+    fallback: LanguageFallbackConfig | None = None,
+    keep_music_tracks: bool = True,
+    exclude_music_from_language_filter: bool = True,
+    keep_sfx_tracks: bool = True,
+    exclude_sfx_from_language_filter: bool = True,
+    keep_non_speech_tracks: bool = True,
+    exclude_non_speech_from_language_filter: bool = True,
+) -> PolicySchema:
+    """Create a V10 test policy with music/sfx/non_speech filter options."""
+    return PolicySchema(
+        schema_version=10,
+        audio_filter=AudioFilterConfig(
+            languages=languages,
+            minimum=minimum,
+            fallback=fallback,
+            keep_music_tracks=keep_music_tracks,
+            exclude_music_from_language_filter=exclude_music_from_language_filter,
+            keep_sfx_tracks=keep_sfx_tracks,
+            exclude_sfx_from_language_filter=exclude_sfx_from_language_filter,
+            keep_non_speech_tracks=keep_non_speech_tracks,
+            exclude_non_speech_from_language_filter=exclude_non_speech_from_language_filter,
+        ),
+    )
+
+
+class TestMusicSfxNonSpeechFiltering:
+    """Tests for V10 music/sfx/non_speech track filtering."""
+
+    def test_music_track_exempt_from_language_filter(self) -> None:
+        """Music tracks are kept despite not matching language filter."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng", title="Main Audio"),
+            make_audio_track(index=2, language=None, title="Isolated Score"),  # Music
+        ]
+        policy = make_v10_policy_with_audio_filter(
+            languages=("eng",),
+            keep_music_tracks=True,
+            exclude_music_from_language_filter=True,
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # English track should be kept
+        eng_disp = [d for d in dispositions if d.language == "eng"][0]
+        assert eng_disp.action == "KEEP"
+
+        # Music track should also be kept (exempt from language filter)
+        music_disp = [d for d in dispositions if d.title == "Isolated Score"][0]
+        assert music_disp.action == "KEEP"
+        assert "music" in music_disp.reason.lower()
+
+    def test_music_track_removed_when_keep_false(self) -> None:
+        """Music tracks are removed when keep_music_tracks=False."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng", title="Main Audio"),
+            make_audio_track(index=2, language=None, title="M&E Track"),  # Music
+        ]
+        policy = make_v10_policy_with_audio_filter(
+            languages=("eng",),
+            keep_music_tracks=False,  # Remove music tracks
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # Music track should be removed
+        music_disp = [d for d in dispositions if d.title == "M&E Track"][0]
+        assert music_disp.action == "REMOVE"
+        assert "music" in music_disp.reason.lower()
+
+    def test_sfx_track_exempt_from_language_filter(self) -> None:
+        """SFX tracks are kept despite not matching language filter."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng", title="Main Audio"),
+            make_audio_track(index=2, language=None, title="Sound Effects"),  # SFX
+        ]
+        policy = make_v10_policy_with_audio_filter(
+            languages=("eng",),
+            keep_sfx_tracks=True,
+            exclude_sfx_from_language_filter=True,
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # SFX track should be kept (exempt from language filter)
+        sfx_disp = [d for d in dispositions if d.title == "Sound Effects"][0]
+        assert sfx_disp.action == "KEEP"
+        assert "sfx" in sfx_disp.reason.lower()
+
+    def test_sfx_track_removed_when_keep_false(self) -> None:
+        """SFX tracks are removed when keep_sfx_tracks=False."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng", title="Main Audio"),
+            make_audio_track(index=2, language=None, title="SFX Only"),
+        ]
+        policy = make_v10_policy_with_audio_filter(
+            languages=("eng",),
+            keep_sfx_tracks=False,  # Remove SFX tracks
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # SFX track should be removed
+        sfx_disp = [d for d in dispositions if d.title == "SFX Only"][0]
+        assert sfx_disp.action == "REMOVE"
+        assert "sfx" in sfx_disp.reason.lower()
+
+    def test_music_subject_to_language_filter_when_exempt_false(self) -> None:
+        """Music tracks are subject to language filter when exempt=False."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng", title="Main Audio"),
+            make_audio_track(index=2, language="und", title="Soundtrack"),  # Music
+        ]
+        policy = make_v10_policy_with_audio_filter(
+            languages=("eng",),  # Only English
+            keep_music_tracks=True,
+            exclude_music_from_language_filter=False,  # Apply language filter
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+
+        # Music track with und language should be removed (not in lang list)
+        music_disp = [d for d in dispositions if d.title == "Soundtrack"][0]
+        assert music_disp.action == "REMOVE"
+
+    def test_multiple_special_track_types(self) -> None:
+        """Multiple music, sfx tracks are handled correctly."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng", title="Main Audio"),
+            make_audio_track(index=2, language=None, title="Isolated Score"),  # Music
+            make_audio_track(index=3, language=None, title="SFX Only"),  # SFX
+            make_audio_track(index=4, language="fra", title="French Audio"),  # Remove
+        ]
+        policy = make_v10_policy_with_audio_filter(
+            languages=("eng",),
+            keep_music_tracks=True,
+            keep_sfx_tracks=True,
+        )
+
+        dispositions = compute_track_dispositions(tracks, policy)
+        audio_disps = [d for d in dispositions if d.track_type == "audio"]
+
+        # Main + Music + SFX = 3 kept, French = 1 removed
+        kept = [d for d in audio_disps if d.action == "KEEP"]
+        removed = [d for d in audio_disps if d.action == "REMOVE"]
+        assert len(kept) == 3
+        assert len(removed) == 1
+        assert removed[0].title == "French Audio"
+
+    def test_default_behavior_keeps_music_sfx(self) -> None:
+        """Default V10 policy keeps music and SFX tracks."""
+        from video_policy_orchestrator.policy.evaluator import (
+            compute_track_dispositions,
+        )
+
+        tracks = [
+            make_video_track(index=0),
+            make_audio_track(index=1, language="eng", title="Main"),
+            make_audio_track(index=2, language=None, title="Score"),  # Music
+        ]
+        # Use defaults (all keep options are True by default)
+        policy = make_v10_policy_with_audio_filter(languages=("eng",))
+
+        dispositions = compute_track_dispositions(tracks, policy)
+        audio_disps = [d for d in dispositions if d.track_type == "audio"]
+
+        # Both should be kept with defaults
+        kept = [d for d in audio_disps if d.action == "KEEP"]
+        assert len(kept) == 2

@@ -40,6 +40,7 @@ from video_policy_orchestrator.policy.models import (
     NotCondition,
     OrCondition,
     PolicySchema,
+    ProcessingPhase,
     QualityMode,
     QualitySettings,
     ScaleAlgorithm,
@@ -59,11 +60,13 @@ from video_policy_orchestrator.policy.models import (
     TranscriptionPolicyOptions,
     VideoTranscodeConfig,
     WarnAction,
+    WorkflowConfig,
     parse_bitrate,
 )
 
 # Current maximum supported schema version
-MAX_SCHEMA_VERSION = 8
+# V10: Added music/sfx/non_speech track type support
+MAX_SCHEMA_VERSION = 10
 
 
 class PolicyValidationError(Exception):
@@ -411,13 +414,28 @@ class LanguageFallbackModel(BaseModel):
 
 
 class AudioFilterModel(BaseModel):
-    """Pydantic model for audio filter configuration."""
+    """Pydantic model for audio filter configuration.
+
+    V10: Added support for music, sfx, and non-speech track handling.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     languages: list[str]
     fallback: LanguageFallbackModel | None = None
     minimum: int = Field(default=1, ge=1)
+
+    # V10: Music track handling
+    keep_music_tracks: bool = True
+    exclude_music_from_language_filter: bool = True
+
+    # V10: SFX track handling
+    keep_sfx_tracks: bool = True
+    exclude_sfx_from_language_filter: bool = True
+
+    # V10: Non-speech track handling
+    keep_non_speech_tracks: bool = True
+    exclude_non_speech_from_language_filter: bool = True
 
     @field_validator("languages")
     @classmethod
@@ -724,6 +742,42 @@ class AudioSynthesisModel(BaseModel):
                 raise ValueError(f"Duplicate synthesis track name: '{track.name}'")
             names.add(track.name)
         return self
+
+
+class WorkflowConfigModel(BaseModel):
+    """Pydantic model for workflow configuration (V9+)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    phases: list[str]
+    """Processing phases to run in order."""
+
+    auto_process: bool = False
+    """If True, daemon auto-queues PROCESS jobs when files are scanned."""
+
+    on_error: Literal["skip", "continue", "fail"] = "continue"
+    """Error handling mode."""
+
+    @field_validator("phases")
+    @classmethod
+    def validate_phases(cls, v: list[str]) -> list[str]:
+        """Validate phases list."""
+        if not v:
+            raise ValueError("workflow.phases cannot be empty")
+
+        valid_phases = {p.value for p in ProcessingPhase}
+        for phase in v:
+            if phase not in valid_phases:
+                raise ValueError(
+                    f"Invalid phase '{phase}'. "
+                    f"Valid phases: {', '.join(sorted(valid_phases))}"
+                )
+
+        # Check for duplicates
+        if len(v) != len(set(v)):
+            raise ValueError("Duplicate phases not allowed")
+
+        return v
 
 
 class ComparisonModel(BaseModel):
@@ -1207,6 +1261,9 @@ class PolicyModel(BaseModel):
     # V5 fields (optional, require schema_version >= 5)
     audio_synthesis: AudioSynthesisModel | None = None
 
+    # V9 fields (optional, require schema_version >= 9)
+    workflow: WorkflowConfigModel | None = None
+
     @model_validator(mode="after")
     def validate_versioned_fields(self) -> "PolicyModel":
         """Validate that versioned fields are used with correct schema_version."""
@@ -1272,6 +1329,13 @@ class PolicyModel(BaseModel):
             features_str = ", ".join(sorted(v8_features))
             raise ValueError(
                 f"V8 features ({features_str}) require schema_version >= 8, "
+                f"but schema_version is {self.schema_version}"
+            )
+
+        # V9 field validation: workflow
+        if self.workflow is not None and self.schema_version < 9:
+            raise ValueError(
+                f"V9 fields (workflow) require schema_version >= 9, "
                 f"but schema_version is {self.schema_version}"
             )
 
@@ -1884,7 +1948,7 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
             reorder_commentary=model.transcription.reorder_commentary,
         )
 
-    # Convert V3 audio_filter config if present
+    # Convert V3 audio_filter config if present (V10 adds music/sfx/non_speech options)
     audio_filter: AudioFilterConfig | None = None
     if model.audio_filter is not None:
         fallback: LanguageFallbackConfig | None = None
@@ -1894,6 +1958,13 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
             languages=tuple(model.audio_filter.languages),
             fallback=fallback,
             minimum=model.audio_filter.minimum,
+            # V10: Music/SFX/Non-speech track handling
+            keep_music_tracks=model.audio_filter.keep_music_tracks,
+            exclude_music_from_language_filter=model.audio_filter.exclude_music_from_language_filter,
+            keep_sfx_tracks=model.audio_filter.keep_sfx_tracks,
+            exclude_sfx_from_language_filter=model.audio_filter.exclude_sfx_from_language_filter,
+            keep_non_speech_tracks=model.audio_filter.keep_non_speech_tracks,
+            exclude_non_speech_from_language_filter=model.audio_filter.exclude_non_speech_from_language_filter,
         )
 
     # Convert V3 subtitle_filter config if present
@@ -1929,6 +2000,15 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
     # Convert V5 audio synthesis if present
     audio_synthesis = _convert_audio_synthesis(model.audio_synthesis)
 
+    # Convert V9 workflow config if present
+    workflow: WorkflowConfig | None = None
+    if model.workflow is not None:
+        workflow = WorkflowConfig(
+            phases=tuple(ProcessingPhase(p) for p in model.workflow.phases),
+            auto_process=model.workflow.auto_process,
+            on_error=model.workflow.on_error,
+        )
+
     return PolicySchema(
         schema_version=model.schema_version,
         track_order=track_order,
@@ -1946,6 +2026,7 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
         audio_synthesis=audio_synthesis,
         video_transcode=video_transcode,
         audio_transcode=audio_transcode,
+        workflow=workflow,
     )
 
 
