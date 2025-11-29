@@ -1047,11 +1047,24 @@ class RuleEvaluation:
 
 
 @dataclass(frozen=True)
+class TrackFlagChange:
+    """A pending change to a track's flags.
+
+    Represents a set_forced or set_default action that should
+    be applied to a specific track.
+    """
+
+    track_index: int
+    flag_type: str  # "forced" or "default"
+    value: bool
+
+
+@dataclass(frozen=True)
 class ConditionalResult:
     """Result of conditional rule evaluation.
 
     Captures which rule matched, which branch was executed,
-    any warnings generated, and a trace for debugging.
+    any warnings generated, track flag changes, and a trace for debugging.
     """
 
     matched_rule: str | None  # Name of first matching rule, None if no match
@@ -1059,6 +1072,7 @@ class ConditionalResult:
     warnings: tuple[str, ...]  # Formatted warning messages
     evaluation_trace: tuple[RuleEvaluation, ...]  # For dry-run output
     skip_flags: SkipFlags = field(default_factory=SkipFlags)
+    track_flag_changes: tuple[TrackFlagChange, ...] = ()  # From set_forced/set_default
 
 
 # =============================================================================

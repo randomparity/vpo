@@ -438,3 +438,395 @@ class TestNoRulesMatching:
         assert result.matched_branch == "else"
         assert len(result.warnings) == 1
         assert "No attachment found" in result.warnings[0]
+
+
+# =============================================================================
+# Tests for track_flag_changes propagation (set_forced/set_default)
+# =============================================================================
+
+
+@pytest.fixture
+def audio_track_ger() -> TrackInfo:
+    """A German audio track (non-English)."""
+    return TrackInfo(
+        index=1,
+        track_type="audio",
+        codec="eac3",
+        language="ger",
+        title="German Audio",
+        is_default=True,
+        is_forced=False,
+        channels=6,
+        channel_layout="5.1(side)",
+        width=None,
+        height=None,
+        frame_rate=None,
+    )
+
+
+@pytest.fixture
+def subtitle_track_eng_not_forced() -> TrackInfo:
+    """An English subtitle track that is not forced."""
+    return TrackInfo(
+        index=2,
+        track_type="subtitle",
+        codec="subrip",
+        language="eng",
+        title="English Subtitles",
+        is_default=False,
+        is_forced=False,
+        channels=None,
+        channel_layout=None,
+        width=None,
+        height=None,
+        frame_rate=None,
+    )
+
+
+@pytest.fixture
+def foreign_audio_tracks(
+    video_track_1080p: TrackInfo,
+    audio_track_ger: TrackInfo,
+    subtitle_track_eng_not_forced: TrackInfo,
+) -> list[TrackInfo]:
+    """Track set with German audio and English subtitle (not forced)."""
+    return [video_track_1080p, audio_track_ger, subtitle_track_eng_not_forced]
+
+
+class TestSetForcedActionPropagation:
+    """Test that set_forced actions create track_flag_changes in ConditionalResult."""
+
+    def test_set_forced_creates_track_flag_change_in_result(
+        self, foreign_audio_tracks: list[TrackInfo]
+    ) -> None:
+        """When set_forced action executes, track_flag_changes should be populated."""
+        from video_policy_orchestrator.policy.models import (
+            NotCondition,
+            SetForcedAction,
+        )
+
+        # Rule: if no English audio exists, set forced on English subtitles
+        rule = ConditionalRule(
+            name="force_subs_for_foreign_audio",
+            when=NotCondition(inner=make_exists_condition("audio", language="eng")),
+            then_actions=(
+                SetForcedAction(track_type="subtitle", language="eng", value=True),
+            ),
+            else_actions=None,
+        )
+
+        result = evaluate_conditional_rules(
+            rules=(rule,),
+            tracks=foreign_audio_tracks,
+            file_path=Path("/test/file.mkv"),
+        )
+
+        assert result.matched_rule == "force_subs_for_foreign_audio"
+        assert result.matched_branch == "then"
+        assert len(result.track_flag_changes) == 1
+
+        change = result.track_flag_changes[0]
+        assert change.track_index == 2  # English subtitle track
+        assert change.flag_type == "forced"
+        assert change.value is True
+
+    def test_set_forced_from_else_branch(self, basic_tracks: list[TrackInfo]) -> None:
+        """set_forced in else branch should also populate track_flag_changes."""
+        from video_policy_orchestrator.policy.models import SetForcedAction
+
+        # Rule: if attachment exists (false), else set forced on subtitles
+        rule = ConditionalRule(
+            name="fallback_set_forced",
+            when=make_exists_condition("attachment"),  # Will fail
+            then_actions=(),
+            else_actions=(
+                SetForcedAction(track_type="subtitle", language="eng", value=True),
+            ),
+        )
+
+        result = evaluate_conditional_rules(
+            rules=(rule,),
+            tracks=basic_tracks,
+            file_path=Path("/test/file.mkv"),
+        )
+
+        assert result.matched_rule == "fallback_set_forced"
+        assert result.matched_branch == "else"
+        assert len(result.track_flag_changes) == 1
+
+        change = result.track_flag_changes[0]
+        assert change.track_index == 3  # English subtitle track in basic_tracks
+        assert change.flag_type == "forced"
+        assert change.value is True
+
+    def test_set_forced_clear_forced(
+        self, subtitle_track_eng: TrackInfo, video_track_1080p: TrackInfo
+    ) -> None:
+        """set_forced with value=False should create CLEAR_FORCED change."""
+        from video_policy_orchestrator.policy.models import SetForcedAction
+
+        # Create a subtitle track that is already forced
+        forced_subtitle = TrackInfo(
+            index=1,
+            track_type="subtitle",
+            codec="subrip",
+            language="eng",
+            title="English Subtitles",
+            is_default=False,
+            is_forced=True,  # Already forced
+            channels=None,
+            channel_layout=None,
+            width=None,
+            height=None,
+            frame_rate=None,
+        )
+        tracks = [video_track_1080p, forced_subtitle]
+
+        rule = ConditionalRule(
+            name="clear_forced",
+            when=make_exists_condition("video"),
+            then_actions=(
+                SetForcedAction(track_type="subtitle", language="eng", value=False),
+            ),
+            else_actions=None,
+        )
+
+        result = evaluate_conditional_rules(
+            rules=(rule,),
+            tracks=tracks,
+            file_path=Path("/test/file.mkv"),
+        )
+
+        assert len(result.track_flag_changes) == 1
+        change = result.track_flag_changes[0]
+        assert change.flag_type == "forced"
+        assert change.value is False
+
+    def test_no_matching_tracks_no_flag_changes(
+        self, basic_tracks: list[TrackInfo]
+    ) -> None:
+        """No matching tracks means track_flag_changes should be empty."""
+        from video_policy_orchestrator.policy.models import SetForcedAction
+
+        # Try to set forced on Japanese subtitles (none exist)
+        rule = ConditionalRule(
+            name="set_forced_jpn",
+            when=make_exists_condition("video"),
+            then_actions=(
+                SetForcedAction(track_type="subtitle", language="jpn", value=True),
+            ),
+            else_actions=None,
+        )
+
+        result = evaluate_conditional_rules(
+            rules=(rule,),
+            tracks=basic_tracks,
+            file_path=Path("/test/file.mkv"),
+        )
+
+        assert result.matched_rule == "set_forced_jpn"
+        assert len(result.track_flag_changes) == 0
+
+
+class TestSetDefaultActionPropagation:
+    """Test that set_default actions create track_flag_changes in ConditionalResult."""
+
+    def test_set_default_creates_track_flag_change(
+        self, basic_tracks: list[TrackInfo]
+    ) -> None:
+        """When set_default action executes, track_flag_changes should be populated."""
+        from video_policy_orchestrator.policy.models import SetDefaultAction
+
+        rule = ConditionalRule(
+            name="set_subtitle_default",
+            when=make_exists_condition("video"),
+            then_actions=(
+                SetDefaultAction(track_type="subtitle", language="eng", value=True),
+            ),
+            else_actions=None,
+        )
+
+        result = evaluate_conditional_rules(
+            rules=(rule,),
+            tracks=basic_tracks,
+            file_path=Path("/test/file.mkv"),
+        )
+
+        assert len(result.track_flag_changes) == 1
+        change = result.track_flag_changes[0]
+        assert change.track_index == 3  # English subtitle
+        assert change.flag_type == "default"
+        assert change.value is True
+
+
+# =============================================================================
+# Tests for track_flag_changes conversion to PlannedAction in evaluate_plan()
+# =============================================================================
+
+
+class TestTrackFlagChangesToPlannedAction:
+    """Test that track_flag_changes become PlannedAction in evaluate_plan()."""
+
+    def test_set_forced_becomes_planned_action(
+        self, foreign_audio_tracks: list[TrackInfo], tmp_path: Path
+    ) -> None:
+        """set_forced action should create SET_FORCED PlannedAction in plan."""
+        from video_policy_orchestrator.policy.evaluator import evaluate_policy
+        from video_policy_orchestrator.policy.loader import load_policy
+        from video_policy_orchestrator.policy.models import ActionType
+
+        # Create a policy with conditional set_forced
+        policy_path = tmp_path / "policy.yaml"
+        policy_path.write_text("""
+schema_version: 8
+
+conditional:
+  - name: force_english_subs_for_foreign_audio
+    when:
+      not:
+        exists:
+          track_type: audio
+          language: eng
+    then:
+      - set_forced:
+          track_type: subtitle
+          language: eng
+          value: true
+""")
+        policy = load_policy(policy_path)
+
+        plan = evaluate_policy(
+            file_id=None,
+            file_path=Path("/test/file.mkv"),
+            container="mkv",
+            tracks=foreign_audio_tracks,
+            policy=policy,
+        )
+
+        # Find SET_FORCED action
+        forced_actions = [
+            a for a in plan.actions if a.action_type == ActionType.SET_FORCED
+        ]
+        assert len(forced_actions) == 1
+
+        action = forced_actions[0]
+        assert action.track_index == 2  # English subtitle
+        assert action.current_value is False
+        assert action.desired_value is True
+
+    def test_clear_forced_becomes_planned_action(
+        self, video_track_1080p: TrackInfo, tmp_path: Path
+    ) -> None:
+        """set_forced(value=False) should create CLEAR_FORCED PlannedAction."""
+        from video_policy_orchestrator.policy.evaluator import evaluate_policy
+        from video_policy_orchestrator.policy.loader import load_policy
+        from video_policy_orchestrator.policy.models import ActionType
+
+        # Create a subtitle track that is already forced
+        forced_subtitle = TrackInfo(
+            index=1,
+            track_type="subtitle",
+            codec="subrip",
+            language="eng",
+            title="English Subtitles",
+            is_default=False,
+            is_forced=True,
+            channels=None,
+            channel_layout=None,
+            width=None,
+            height=None,
+            frame_rate=None,
+        )
+        tracks = [video_track_1080p, forced_subtitle]
+
+        policy_path = tmp_path / "policy.yaml"
+        policy_path.write_text("""
+schema_version: 8
+
+conditional:
+  - name: clear_forced_subs
+    when:
+      exists:
+        track_type: video
+    then:
+      - set_forced:
+          track_type: subtitle
+          language: eng
+          value: false
+""")
+        policy = load_policy(policy_path)
+
+        plan = evaluate_policy(
+            file_id=None,
+            file_path=Path("/test/file.mkv"),
+            container="mkv",
+            tracks=tracks,
+            policy=policy,
+        )
+
+        # Find CLEAR_FORCED action
+        clear_actions = [
+            a for a in plan.actions if a.action_type == ActionType.CLEAR_FORCED
+        ]
+        assert len(clear_actions) == 1
+
+        action = clear_actions[0]
+        assert action.track_index == 1
+        assert action.current_value is True
+        assert action.desired_value is False
+
+    def test_no_action_when_flag_already_matches(
+        self, video_track_1080p: TrackInfo, tmp_path: Path
+    ) -> None:
+        """No PlannedAction when track already has the requested flag value."""
+        from video_policy_orchestrator.policy.evaluator import evaluate_policy
+        from video_policy_orchestrator.policy.loader import load_policy
+        from video_policy_orchestrator.policy.models import ActionType
+
+        # Create a subtitle that is already forced
+        already_forced = TrackInfo(
+            index=1,
+            track_type="subtitle",
+            codec="subrip",
+            language="eng",
+            title="English Subtitles",
+            is_default=False,
+            is_forced=True,  # Already forced
+            channels=None,
+            channel_layout=None,
+            width=None,
+            height=None,
+            frame_rate=None,
+        )
+        tracks = [video_track_1080p, already_forced]
+
+        policy_path = tmp_path / "policy.yaml"
+        policy_path.write_text("""
+schema_version: 8
+
+conditional:
+  - name: set_forced_subs
+    when:
+      exists:
+        track_type: video
+    then:
+      - set_forced:
+          track_type: subtitle
+          language: eng
+          value: true
+""")
+        policy = load_policy(policy_path)
+
+        plan = evaluate_policy(
+            file_id=None,
+            file_path=Path("/test/file.mkv"),
+            container="mkv",
+            tracks=tracks,
+            policy=policy,
+        )
+
+        # Should NOT have SET_FORCED action (already forced)
+        forced_actions = [
+            a for a in plan.actions if a.action_type == ActionType.SET_FORCED
+        ]
+        assert len(forced_actions) == 0

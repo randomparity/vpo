@@ -40,6 +40,7 @@ from video_policy_orchestrator.policy.models import (
     SkipFlags,
     SubtitleFilterConfig,
     TrackDisposition,
+    TrackFlagChange,
     TrackType,
 )
 
@@ -960,6 +961,7 @@ def evaluate_conditional_rules(
     matched_branch: Literal["then", "else"] | None = None
     skip_flags = SkipFlags()
     warnings: list[str] = []
+    track_flag_changes: list[TrackFlagChange] = []
 
     for i, rule in enumerate(rules):
         # Evaluate the condition, passing language_results for multi-language checks
@@ -987,6 +989,7 @@ def evaluate_conditional_rules(
             context = execute_actions(rule.then_actions, context)
             skip_flags = context.skip_flags
             warnings = context.warnings
+            track_flag_changes = context.track_flag_changes
 
             # First match wins - stop evaluation
             break
@@ -1016,6 +1019,7 @@ def evaluate_conditional_rules(
                 context = execute_actions(rule.else_actions, context)
                 skip_flags = context.skip_flags
                 warnings = context.warnings
+                track_flag_changes = context.track_flag_changes
 
     return ConditionalResult(
         matched_rule=matched_rule,
@@ -1023,6 +1027,7 @@ def evaluate_conditional_rules(
         warnings=tuple(warnings),
         evaluation_trace=tuple(evaluation_trace),
         skip_flags=skip_flags,
+        track_flag_changes=tuple(track_flag_changes),
     )
 
 
@@ -1134,6 +1139,45 @@ def evaluate_policy(
     matcher = CommentaryMatcher(policy.commentary_patterns)
     actions: list[PlannedAction] = []
     requires_remux = False
+
+    # Convert track flag changes from conditional rules to PlannedActions
+    if conditional_result is not None and conditional_result.track_flag_changes:
+        for change in conditional_result.track_flag_changes:
+            # Find current track state
+            track = next((t for t in tracks if t.index == change.track_index), None)
+            if track is None:
+                continue
+
+            if change.flag_type == "forced":
+                current = track.is_forced
+                if current != change.value:
+                    if change.value:
+                        action_type = ActionType.SET_FORCED
+                    else:
+                        action_type = ActionType.CLEAR_FORCED
+                    actions.append(
+                        PlannedAction(
+                            action_type=action_type,
+                            track_index=change.track_index,
+                            current_value=current,
+                            desired_value=change.value,
+                        )
+                    )
+            elif change.flag_type == "default":
+                current = track.is_default
+                if current != change.value:
+                    if change.value:
+                        action_type = ActionType.SET_DEFAULT
+                    else:
+                        action_type = ActionType.CLEAR_DEFAULT
+                    actions.append(
+                        PlannedAction(
+                            action_type=action_type,
+                            track_index=change.track_index,
+                            current_value=current,
+                            desired_value=change.value,
+                        )
+                    )
 
     # Compute desired track order (handles empty tracks gracefully)
     # Pass transcription_results to enable transcription-based commentary detection
