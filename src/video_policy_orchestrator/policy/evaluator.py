@@ -927,6 +927,7 @@ def evaluate_conditional_rules(
             context = ActionContext(
                 file_path=file_path,
                 rule_name=rule.name,
+                tracks=tracks,
             )
             context = execute_actions(rule.then_actions, context)
             skip_flags = context.skip_flags
@@ -955,6 +956,7 @@ def evaluate_conditional_rules(
                 context = ActionContext(
                     file_path=file_path,
                     rule_name=rule.name,
+                    tracks=tracks,
                 )
                 context = execute_actions(rule.else_actions, context)
                 skip_flags = context.skip_flags

@@ -118,6 +118,7 @@ class PolicyRoundTripEditor:
         # Validate only known fields using PolicyModel
         # Extract known fields for validation, ignore unknown fields
         known_fields = {
+            # V1-7 base fields
             "schema_version",
             "track_order",
             "audio_language_preference",
@@ -126,6 +127,15 @@ class PolicyRoundTripEditor:
             "default_flags",
             "transcode",
             "transcription",
+            # V3+ fields
+            "audio_filter",
+            "subtitle_filter",
+            "attachment_filter",
+            "container",
+            # V4+ fields
+            "conditional",
+            # V5+ fields
+            "audio_synthesis",
         }
 
         validation_data = {k: v for k, v in data.items() if k in known_fields}

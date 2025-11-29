@@ -10,6 +10,7 @@ Key Functions:
 
 from __future__ import annotations
 
+import functools
 import logging
 import re
 from typing import TYPE_CHECKING
@@ -107,6 +108,24 @@ def score_track(
     return score, reasons
 
 
+@functools.lru_cache(maxsize=128)
+def _compile_pattern(pattern: str) -> re.Pattern[str] | None:
+    """Compile a regex pattern, returning None if invalid.
+
+    Uses LRU cache to avoid recompiling the same patterns repeatedly.
+
+    Args:
+        pattern: The regex pattern to compile.
+
+    Returns:
+        Compiled pattern, or None if the pattern is invalid regex.
+    """
+    try:
+        return re.compile(pattern, re.IGNORECASE)
+    except re.error:
+        return None
+
+
 def _is_commentary_track(
     track: TrackInfo,
     commentary_patterns: tuple[str, ...] | None = None,
@@ -127,11 +146,12 @@ def _is_commentary_track(
     title_lower = track.title.lower()
 
     for pattern in patterns:
-        try:
-            if re.search(pattern, title_lower, re.IGNORECASE):
+        compiled = _compile_pattern(pattern)
+        if compiled is not None:
+            if compiled.search(title_lower):
                 return True
-        except re.error:
-            # Invalid regex, try simple substring match
+        else:
+            # Invalid regex, fall back to substring match
             if pattern.lower() in title_lower:
                 return True
 

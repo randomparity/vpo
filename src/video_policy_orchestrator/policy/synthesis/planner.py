@@ -433,6 +433,7 @@ def plan_synthesis(
         operations=tuple(operations),
         skipped=tuple(skipped),
         final_track_order=final_order,
+        audio_tracks=tuple(audio_tracks),
     )
 
 

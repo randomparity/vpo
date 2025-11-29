@@ -131,6 +131,7 @@ class FFmpegSynthesisExecutor:
         input_path: Path,
         operation: SynthesisOperation,
         output_path: Path,
+        audio_tracks: tuple,
     ) -> list[str]:
         """Build FFmpeg command arguments for a synthesis operation.
 
@@ -138,12 +139,21 @@ class FFmpegSynthesisExecutor:
             input_path: Path to input file.
             operation: The synthesis operation to perform.
             output_path: Path for output audio file.
+            audio_tracks: Tuple of audio TrackInfo from the file.
 
         Returns:
             List of command arguments.
         """
         ffmpeg = str(self._get_ffmpeg())
         encoder = get_encoder_for_codec(operation.target_codec)
+
+        # Calculate audio-relative stream index from global track index.
+        # FFmpeg -map 0:a:N expects N to be the audio stream index
+        # (0-based within audio), not the global track index.
+        source_track_index = operation.source_track.track_index
+        audio_stream_index = sum(
+            1 for t in audio_tracks if t.index < source_track_index
+        )
 
         args = [
             ffmpeg,
@@ -152,7 +162,7 @@ class FFmpegSynthesisExecutor:
             "-i",
             str(input_path),
             "-map",
-            f"0:a:{operation.source_track.track_index}",
+            f"0:a:{audio_stream_index}",
         ]
 
         # Apply downmix filter if needed
@@ -186,6 +196,7 @@ class FFmpegSynthesisExecutor:
         input_path: Path,
         operation: SynthesisOperation,
         work_dir: Path,
+        audio_tracks: tuple,
     ) -> Path | None:
         """Transcode a single audio track.
 
@@ -193,6 +204,7 @@ class FFmpegSynthesisExecutor:
             input_path: Path to input file.
             operation: The synthesis operation to perform.
             work_dir: Working directory for temp files.
+            audio_tracks: Tuple of audio TrackInfo for stream index calculation.
 
         Returns:
             Path to transcoded audio file, or None on failure.
@@ -208,7 +220,7 @@ class FFmpegSynthesisExecutor:
         ext = ext_map.get(operation.target_codec, ".audio")
         output_path = work_dir / f"synth_{operation.definition_name}{ext}"
 
-        args = self._build_ffmpeg_args(input_path, operation, output_path)
+        args = self._build_ffmpeg_args(input_path, operation, output_path, audio_tracks)
         logger.debug("FFmpeg command: %s", " ".join(args))
 
         try:
@@ -441,6 +453,7 @@ class FFmpegSynthesisExecutor:
                         plan.file_path,
                         operation,
                         work_dir,
+                        plan.audio_tracks,
                     )
                     if audio_path is None:
                         errors.append(

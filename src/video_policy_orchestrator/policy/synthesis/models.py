@@ -294,6 +294,9 @@ class SynthesisPlan:
     final_track_order: tuple[TrackOrderEntry, ...] = field(default_factory=tuple)
     """Projected final audio track order."""
 
+    audio_tracks: tuple["TrackInfo", ...] = ()
+    """Audio tracks from the file, needed for correct FFmpeg stream mapping."""
+
     @property
     def has_operations(self) -> bool:
         """True if there are operations to execute."""
