@@ -1307,6 +1307,11 @@ async def policy_editor_handler(request: web.Request) -> dict:
         "clear_other_defaults": True,
     }
 
+    # Get unknown fields for warning banner (T076)
+    from video_policy_orchestrator.policy.editor import KNOWN_POLICY_FIELDS
+
+    unknown_fields = [k for k in policy_data.keys() if k not in KNOWN_POLICY_FIELDS]
+
     editor_context = PolicyEditorContext(
         name=policy_name,
         filename=policy_path.name,
@@ -1324,6 +1329,19 @@ async def policy_editor_handler(request: web.Request) -> dict:
         default_flags=policy_data.get("default_flags", default_flags),
         transcode=policy_data.get("transcode"),
         transcription=policy_data.get("transcription"),
+        # V3+ fields (036-v9-policy-editor)
+        audio_filter=policy_data.get("audio_filter"),
+        subtitle_filter=policy_data.get("subtitle_filter"),
+        attachment_filter=policy_data.get("attachment_filter"),
+        container=policy_data.get("container"),
+        # V4+ fields
+        conditional=policy_data.get("conditional"),
+        # V5+ fields
+        audio_synthesis=policy_data.get("audio_synthesis"),
+        # V9+ fields
+        workflow=policy_data.get("workflow"),
+        # Meta
+        unknown_fields=unknown_fields if unknown_fields else None,
         parse_error=parse_error,
     )
 
@@ -1410,8 +1428,12 @@ async def api_policy_detail_handler(request: web.Request) -> web.Response:
             status=400,
         )
 
-    # Build response
+    # Build response with V3-V10 fields (036-v9-policy-editor T010)
+    from video_policy_orchestrator.policy.editor import KNOWN_POLICY_FIELDS
     from video_policy_orchestrator.server.ui.models import PolicyEditorContext
+
+    # Get unknown fields for warning banner
+    unknown_fields = [k for k in policy_data.keys() if k not in KNOWN_POLICY_FIELDS]
 
     response = PolicyEditorContext(
         name=policy_name,
@@ -1428,6 +1450,19 @@ async def api_policy_detail_handler(request: web.Request) -> web.Response:
         default_flags=policy_data.get("default_flags", {}),
         transcode=policy_data.get("transcode"),
         transcription=policy_data.get("transcription"),
+        # V3+ fields (036-v9-policy-editor)
+        audio_filter=policy_data.get("audio_filter"),
+        subtitle_filter=policy_data.get("subtitle_filter"),
+        attachment_filter=policy_data.get("attachment_filter"),
+        container=policy_data.get("container"),
+        # V4+ fields
+        conditional=policy_data.get("conditional"),
+        # V5+ fields
+        audio_synthesis=policy_data.get("audio_synthesis"),
+        # V9+ fields
+        workflow=policy_data.get("workflow"),
+        # Meta
+        unknown_fields=unknown_fields if unknown_fields else None,
         parse_error=parse_error,
     )
 
@@ -1602,8 +1637,12 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
         ]
         changed_fields_summary = diff.to_summary_text()
 
-    # Build response with policy editor context
+    # Build response with policy editor context (T011)
+    from video_policy_orchestrator.policy.editor import KNOWN_POLICY_FIELDS
     from video_policy_orchestrator.server.ui.models import PolicyEditorContext
+
+    # Get unknown fields
+    unknown_fields = [k for k in policy_data.keys() if k not in KNOWN_POLICY_FIELDS]
 
     policy_context = PolicyEditorContext(
         name=policy_name,
@@ -1620,6 +1659,19 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
         default_flags=policy_data.get("default_flags", {}),
         transcode=policy_data.get("transcode"),
         transcription=policy_data.get("transcription"),
+        # V3+ fields (036-v9-policy-editor)
+        audio_filter=policy_data.get("audio_filter"),
+        subtitle_filter=policy_data.get("subtitle_filter"),
+        attachment_filter=policy_data.get("attachment_filter"),
+        container=policy_data.get("container"),
+        # V4+ fields
+        conditional=policy_data.get("conditional"),
+        # V5+ fields
+        audio_synthesis=policy_data.get("audio_synthesis"),
+        # V9+ fields
+        workflow=policy_data.get("workflow"),
+        # Meta
+        unknown_fields=unknown_fields if unknown_fields else None,
         parse_error=None,
     )
 

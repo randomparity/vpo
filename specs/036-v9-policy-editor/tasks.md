@@ -42,14 +42,14 @@ Based on plan.md structure:
 
 **Note**: T005-T009 all modify editor.py - implement sequentially or as a single combined task to avoid merge conflicts.
 
-- [ ] T005 Extend PolicyRoundTripEditor with V3 field accessors (audio_filter, subtitle_filter, attachment_filter, container) in src/video_policy_orchestrator/policy/editor.py
-- [ ] T006 Extend PolicyRoundTripEditor with V4 field accessors (conditional) in src/video_policy_orchestrator/policy/editor.py
-- [ ] T007 Extend PolicyRoundTripEditor with V5 field accessors (audio_synthesis) in src/video_policy_orchestrator/policy/editor.py
-- [ ] T008 Extend PolicyRoundTripEditor with V6 field accessors (transcode.video, transcode.audio) in src/video_policy_orchestrator/policy/editor.py
-- [ ] T009 Extend PolicyRoundTripEditor with V9 field accessors (workflow) in src/video_policy_orchestrator/policy/editor.py
-- [ ] T010 Extend api_policy_get handler to return all V3-V10 fields in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T011 Extend api_policy_put handler to accept and validate all V3-V10 fields in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T012 Extend api_policy_validate handler for V3-V10 field validation in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T005 Extend PolicyRoundTripEditor with V3 field accessors (audio_filter, subtitle_filter, attachment_filter, container) in src/video_policy_orchestrator/policy/editor.py
+- [X] T006 Extend PolicyRoundTripEditor with V4 field accessors (conditional) in src/video_policy_orchestrator/policy/editor.py
+- [X] T007 Extend PolicyRoundTripEditor with V5 field accessors (audio_synthesis) in src/video_policy_orchestrator/policy/editor.py
+- [X] T008 Extend PolicyRoundTripEditor with V6 field accessors (transcode.video, transcode.audio) in src/video_policy_orchestrator/policy/editor.py
+- [X] T009 Extend PolicyRoundTripEditor with V9 field accessors (workflow) in src/video_policy_orchestrator/policy/editor.py
+- [X] T010 Extend api_policy_get handler to return all V3-V10 fields in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T011 Extend api_policy_put handler to accept and validate all V3-V10 fields in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T012 Extend api_policy_validate handler for V3-V10 field validation in src/video_policy_orchestrator/server/ui/routes.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
