@@ -1557,6 +1557,14 @@ class PolicyEditorContext:
         default_flags: Default flags configuration dict.
         transcode: Transcode configuration dict, or None.
         transcription: Transcription configuration dict, or None.
+        audio_filter: Audio filter configuration (V3+), or None.
+        subtitle_filter: Subtitle filter configuration (V3+), or None.
+        attachment_filter: Attachment filter configuration (V3+), or None.
+        container: Container configuration (V3+), or None.
+        conditional: Conditional rules list (V4+), or None.
+        audio_synthesis: Audio synthesis config list (V5+), or None.
+        workflow: Workflow configuration (V9+), or None.
+        unknown_fields: List of field names not in known schema.
         parse_error: Error message if policy invalid, else None.
     """
 
@@ -1572,6 +1580,19 @@ class PolicyEditorContext:
     default_flags: dict
     transcode: dict | None
     transcription: dict | None
+    # V3+ fields (036-v9-policy-editor)
+    audio_filter: dict | None = None
+    subtitle_filter: dict | None = None
+    attachment_filter: dict | None = None
+    container: dict | None = None
+    # V4+ fields
+    conditional: list | None = None
+    # V5+ fields
+    audio_synthesis: list | None = None
+    # V9+ fields
+    workflow: dict | None = None
+    # Unknown fields for warning banner
+    unknown_fields: list[str] | None = None
     parse_error: str | None = None
 
     def to_dict(self) -> dict:
@@ -1589,6 +1610,19 @@ class PolicyEditorContext:
             "default_flags": self.default_flags,
             "transcode": self.transcode,
             "transcription": self.transcription,
+            # V3+ fields
+            "audio_filter": self.audio_filter,
+            "subtitle_filter": self.subtitle_filter,
+            "attachment_filter": self.attachment_filter,
+            "container": self.container,
+            # V4+ fields
+            "conditional": self.conditional,
+            # V5+ fields
+            "audio_synthesis": self.audio_synthesis,
+            # V9+ fields
+            "workflow": self.workflow,
+            # Meta
+            "unknown_fields": self.unknown_fields,
             "parse_error": self.parse_error,
         }
 
@@ -1605,6 +1639,13 @@ class PolicyEditorRequest:
         default_flags: Updated default flags configuration.
         transcode: Updated transcode settings, or None.
         transcription: Updated transcription settings, or None.
+        audio_filter: Audio filter configuration (V3+), or None.
+        subtitle_filter: Subtitle filter configuration (V3+), or None.
+        attachment_filter: Attachment filter configuration (V3+), or None.
+        container: Container configuration (V3+), or None.
+        conditional: Conditional rules list (V4+), or None.
+        audio_synthesis: Audio synthesis config list (V5+), or None.
+        workflow: Workflow configuration (V9+), or None.
         last_modified_timestamp: ISO-8601 UTC timestamp for optimistic locking.
     """
 
@@ -1615,6 +1656,17 @@ class PolicyEditorRequest:
     default_flags: dict
     transcode: dict | None
     transcription: dict | None
+    # V3+ fields (036-v9-policy-editor)
+    audio_filter: dict | None
+    subtitle_filter: dict | None
+    attachment_filter: dict | None
+    container: dict | None
+    # V4+ fields
+    conditional: list | None
+    # V5+ fields
+    audio_synthesis: list | None
+    # V9+ fields
+    workflow: dict | None
     last_modified_timestamp: str
 
     @classmethod
@@ -1651,6 +1703,17 @@ class PolicyEditorRequest:
             default_flags=data["default_flags"],
             transcode=data.get("transcode"),
             transcription=data.get("transcription"),
+            # V3+ fields
+            audio_filter=data.get("audio_filter"),
+            subtitle_filter=data.get("subtitle_filter"),
+            attachment_filter=data.get("attachment_filter"),
+            container=data.get("container"),
+            # V4+ fields
+            conditional=data.get("conditional"),
+            # V5+ fields
+            audio_synthesis=data.get("audio_synthesis"),
+            # V9+ fields
+            workflow=data.get("workflow"),
             last_modified_timestamp=data["last_modified_timestamp"],
         )
 
@@ -1661,8 +1724,30 @@ class PolicyEditorRequest:
             Dictionary in PolicyModel format.
         """
         # Must include schema_version for validation
+        # Determine schema version based on features used
+        schema_version = 2  # Default base version
+        if self.workflow is not None:
+            schema_version = 9
+        elif self.transcode is not None and (
+            self.transcode.get("video") or self.transcode.get("audio")
+        ):
+            schema_version = 6
+        elif self.audio_synthesis is not None:
+            schema_version = 5
+        elif self.conditional is not None:
+            schema_version = 4
+        elif any(
+            [
+                self.audio_filter,
+                self.subtitle_filter,
+                self.attachment_filter,
+                self.container,
+            ]
+        ):
+            schema_version = 3
+
         result = {
-            "schema_version": 2,  # Always use current schema version
+            "schema_version": schema_version,
             "track_order": self.track_order,
             "audio_language_preference": self.audio_language_preference,
             "subtitle_language_preference": self.subtitle_language_preference,
@@ -1675,6 +1760,31 @@ class PolicyEditorRequest:
 
         if self.transcription is not None:
             result["transcription"] = self.transcription
+
+        # V3+ fields
+        if self.audio_filter is not None:
+            result["audio_filter"] = self.audio_filter
+
+        if self.subtitle_filter is not None:
+            result["subtitle_filter"] = self.subtitle_filter
+
+        if self.attachment_filter is not None:
+            result["attachment_filter"] = self.attachment_filter
+
+        if self.container is not None:
+            result["container"] = self.container
+
+        # V4+ fields
+        if self.conditional is not None:
+            result["conditional"] = self.conditional
+
+        # V5+ fields
+        if self.audio_synthesis is not None:
+            result["audio_synthesis"] = self.audio_synthesis
+
+        # V9+ fields
+        if self.workflow is not None:
+            result["workflow"] = self.workflow
 
         return result
 

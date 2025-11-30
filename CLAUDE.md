@@ -163,29 +163,38 @@ The visual policy editor (`/policies/{name}/edit`) provides form-based editing o
 - **Routes**: GET/PUT `/api/policies/{name}` for load/save, POST `/api/policies/{name}/validate` for dry-run validation
 - **Usage docs**: See `/docs/usage/policy-editor.md` for user guide
 
-## Transcode Policy (V6)
+## Policy Schema
 
-The conditional video transcode feature (schema version 6) supports:
+The current policy schema version is **V10** (defined in `policy/loader.py` as `MAX_SCHEMA_VERSION`). Key schema versions:
 
-**V6 Policy Structure:**
+- **V3**: Track filtering (audio_filter, subtitle_filter, attachment_filter), container conversion
+- **V4**: Conditional rules (when/then/else conditions and actions)
+- **V5**: Audio synthesis (create downmixed or re-encoded tracks)
+- **V6**: Video/audio transcoding with skip conditions, quality settings, hardware acceleration
+- **V7**: Multi-language conditions (audio_is_multi_language), set_forced/set_default actions
+- **V8**: skip_if_exists criteria, not_commentary filter
+- **V9**: Workflow configuration (phases, auto_process, on_error)
+- **V10**: Music/sfx/non_speech track type support
+
+**Example V6+ policy with transcoding:**
 ```yaml
-schema_version: 6
+schema_version: 10
 transcode:
   video:
     target_codec: hevc
-    skip_if:           # Skip if already compliant
+    skip_if:
       codec_matches: [hevc, h265]
       resolution_within: 1080p
       bitrate_under: 15M
     quality:
-      mode: crf        # crf, bitrate, constrained_quality
+      mode: crf
       crf: 20
       preset: medium
     scaling:
       max_resolution: 1080p
       algorithm: lanczos
     hardware_acceleration:
-      enabled: auto    # auto, nvenc, qsv, vaapi, none
+      enabled: auto
       fallback_to_cpu: true
   audio:
     preserve_codecs: [truehd, dts-hd, flac]
@@ -194,21 +203,14 @@ transcode:
 ```
 
 **Key modules:**
+- `policy/models.py`: All schema dataclasses (SkipCondition, QualitySettings, ConditionalRule, etc.)
+- `policy/loader.py`: PolicyModel validation, schema loading, MAX_SCHEMA_VERSION constant
 - `executor/transcode.py`: TranscodeExecutor, FFmpeg command building, edge case detection
-- `policy/models.py`: V6 dataclasses (SkipCondition, QualitySettings, ScalingSettings)
-- `policy/loader.py`: QualitySettingsModel validation, V6 schema loading
 - `policy/transcode.py`: Audio plan creation for V6 audio config
 
-**Edge case handling:**
+**Transcode edge cases:**
 - VFR detection: warns about variable frame rate content
 - Bitrate estimation: estimates from file size when metadata missing
 - Multiple video streams: selects primary, warns about others
 - HDR preservation: warns when scaling HDR content
 - HW encoder fallback: falls back to CPU if hardware unavailable
-
-## Active Technologies
-- Python 3.10+ (existing project standard) + ffmpeg (transcoding), ffprobe (introspection), click (CLI), pydantic (validation), aiohttp (web UI) (034-conditional-video-transcode)
-- SQLite at ~/.vpo/library.db (existing), temp files for transcode output (034-conditional-video-transcode)
-
-## Recent Changes
-- 034-conditional-video-transcode: Added V6 schema with conditional skip, quality modes, hardware acceleration, and edge case detection

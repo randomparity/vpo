@@ -2508,6 +2508,20 @@ html, body {
     gap: var(--spacing-md);
 }
 
+/* Header with Create New Policy button */
+.policies-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.policies-header .policies-info {
+    flex: 1;
+    margin: 0;
+}
+
 /* Info and warning banners */
 .policies-info {
     padding: var(--spacing-sm) var(--spacing-md);
@@ -2676,6 +2690,89 @@ html, body {
     padding: var(--spacing-sm) 0;
 }
 
+/* Create New Policy Dialog (036-v9-policy-editor) */
+.create-policy-dialog {
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+    max-width: 450px;
+    width: 90%;
+}
+
+.create-policy-dialog::backdrop {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.create-policy-dialog form {
+    padding: var(--spacing-lg);
+}
+
+.create-policy-dialog h2 {
+    margin: 0 0 var(--spacing-lg) 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.create-policy-dialog .form-group {
+    margin-bottom: var(--spacing-md);
+}
+
+.create-policy-dialog .form-group label {
+    display: block;
+    margin-bottom: var(--spacing-xs);
+    font-weight: 500;
+    color: var(--color-text);
+}
+
+.create-policy-dialog .form-group input {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    font-size: var(--font-size-base);
+    background-color: var(--color-bg);
+    color: var(--color-text);
+}
+
+.create-policy-dialog .form-group input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.create-policy-dialog .form-group input:disabled {
+    background-color: var(--color-body-bg);
+    cursor: not-allowed;
+}
+
+.create-policy-dialog .form-hint {
+    display: block;
+    margin-top: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+.create-policy-dialog .form-error {
+    padding: var(--spacing-sm) var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 4px;
+    color: #dc2626;
+    font-size: var(--font-size-sm);
+}
+
+.create-policy-dialog .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--color-border);
+}
+
 /* Graceful degradation for below minimum supported viewport (< 768px) */
 @media (max-width: 767px) {
     .app-shell {
@@ -2764,6 +2861,37 @@ html, body {
     align-items: center;
     gap: var(--spacing-md);
     margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
+}
+
+/* Policy version badge */
+.policy-version-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    background: var(--color-primary);
+    color: white;
+    border-radius: 4px;
+}
+
+/* Unknown fields warning banner (T076) */
+.unknown-fields-warning {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    border-radius: 4px;
+    padding: var(--spacing-sm) var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+}
+
+/* Advanced settings container */
+.advanced-settings-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
 }
 
 .policy-editor-title {
@@ -3273,6 +3401,668 @@ input.valid:focus {
         top: 0;
         max-height: 600px;
     }
+}
+
+/* ==========================================================================
+   Accordion Component Styles (036-v9-policy-editor)
+   ========================================================================== */
+
+/* Accordion section using native <details> element */
+.accordion-section {
+    background: var(--color-content-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    margin-bottom: var(--spacing-md);
+    overflow: hidden;
+}
+
+.accordion-section[open] {
+    border-color: var(--color-primary);
+}
+
+/* Accordion header (summary element) */
+.accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-md) var(--spacing-lg);
+    cursor: pointer;
+    user-select: none;
+    background: var(--color-content-bg);
+    list-style: none; /* Remove default marker */
+}
+
+.accordion-header::-webkit-details-marker {
+    display: none; /* Remove marker in WebKit browsers */
+}
+
+.accordion-header:hover {
+    background: var(--color-body-bg);
+}
+
+.accordion-header:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.accordion-header:focus:not(:focus-visible) {
+    outline: none;
+}
+
+.accordion-header:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+/* Accordion title */
+.accordion-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--color-text);
+    margin: 0;
+}
+
+/* Accordion icon (chevron indicator) */
+.accordion-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    font-size: 1rem;
+    color: var(--color-text-muted);
+    transition: transform 0.2s ease;
+}
+
+.accordion-section[open] .accordion-icon {
+    transform: rotate(180deg);
+}
+
+/* Accordion badge for showing status/count */
+.accordion-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    background: var(--color-primary);
+    color: white;
+    border-radius: 10px;
+}
+
+.accordion-badge--warning {
+    background: #f59e0b;
+}
+
+.accordion-badge--error {
+    background: var(--color-error);
+}
+
+/* Accordion content area */
+.accordion-content {
+    padding: var(--spacing-lg);
+    border-top: 1px solid var(--color-border);
+    animation: accordion-expand 0.2s ease-out;
+}
+
+@keyframes accordion-expand {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Accordion section description */
+.accordion-description {
+    margin: 0 0 var(--spacing-md) 0;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
+/* Accordion within editor section - adjust spacing */
+.editor-section .accordion-section {
+    margin-bottom: var(--spacing-md);
+}
+
+.editor-section .accordion-section:last-child {
+    margin-bottom: 0;
+}
+
+/* Form elements within accordion */
+.accordion-content .form-group {
+    margin-bottom: var(--spacing-md);
+}
+
+.accordion-content .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.accordion-content .form-group label {
+    display: block;
+    margin-bottom: var(--spacing-xs);
+    font-weight: 500;
+    color: var(--color-text);
+}
+
+.accordion-content .form-group .form-hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    margin-top: var(--spacing-xs);
+}
+
+/* Form row for inline elements */
+.accordion-content .form-row {
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+}
+
+.accordion-content .form-row > * {
+    flex: 1;
+}
+
+/* Select inputs */
+.accordion-content select {
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-body-bg);
+    color: var(--color-text);
+    font-size: var(--font-size-base);
+}
+
+.accordion-content select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Text inputs within accordion */
+.accordion-content input[type="text"],
+.accordion-content input[type="number"] {
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-body-bg);
+    color: var(--color-text);
+    font-size: var(--font-size-base);
+}
+
+.accordion-content input[type="text"]:focus,
+.accordion-content input[type="number"]:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Checkbox groups within accordion */
+.accordion-content .checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+/* Subsection divider */
+.accordion-subsection {
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--color-border);
+}
+
+.accordion-subsection-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 var(--spacing-md) 0;
+    color: var(--color-text);
+}
+
+/* List editing within accordion (for arrays like languages, codecs) */
+.accordion-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.accordion-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-body-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+}
+
+.accordion-list-empty {
+    padding: var(--spacing-md);
+    color: var(--color-text-muted);
+    font-style: italic;
+    text-align: center;
+    background: var(--color-body-bg);
+    border: 1px dashed var(--color-border);
+    border-radius: 4px;
+}
+
+.accordion-list-add {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+}
+
+.accordion-list-add input {
+    flex: 1;
+}
+
+.accordion-list-add select {
+    min-width: 150px;
+}
+
+/* Codec tags for transcode settings (036-v9-policy-editor) */
+.codec-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    min-height: 32px;
+    padding: var(--spacing-xs);
+    margin-bottom: var(--spacing-xs);
+}
+
+.codec-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--color-primary);
+    color: white;
+    border-radius: 4px;
+    font-size: var(--font-size-sm);
+    font-family: 'Courier New', monospace;
+}
+
+.codec-tag-remove {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    margin-left: var(--spacing-xs);
+    opacity: 0.8;
+}
+
+.codec-tag-remove:hover {
+    opacity: 1;
+}
+
+/* Warning text utility class */
+.warning-text {
+    color: var(--color-warning, #f59e0b);
+}
+
+/* ==========================================================================
+   Conditional Rules Styles (036-v9-policy-editor Phase 6)
+   ========================================================================== */
+
+/* Rule builder container */
+.conditional-rule-builder {
+    background: var(--bg-subtle, #f8f9fa);
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: var(--radius-md, 8px);
+    padding: var(--spacing-md, 16px);
+    margin-bottom: var(--spacing-md, 16px);
+}
+
+.rule-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+    margin-bottom: var(--spacing-md, 16px);
+}
+
+.rule-name-input {
+    flex: 1;
+    font-weight: 600;
+}
+
+.btn-remove-rule {
+    background: var(--color-error-bg, #fef2f2);
+    color: var(--color-error, #dc2626);
+    border: 1px solid var(--color-error, #dc2626);
+}
+
+.btn-remove-rule:hover {
+    background: var(--color-error, #dc2626);
+    color: white;
+}
+
+.rule-section-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary, #6b7280);
+    margin: var(--spacing-sm, 8px) 0;
+}
+
+/* Condition builder */
+.condition-builder {
+    background: white;
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: var(--radius-sm, 4px);
+    padding: var(--spacing-sm, 8px);
+    margin: var(--spacing-xs, 4px) 0;
+}
+
+.condition-builder[data-level="1"],
+.condition-builder[data-level="2"] {
+    margin-left: var(--spacing-md, 16px);
+    border-left: 3px solid var(--color-primary, #3b82f6);
+}
+
+.condition-type-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+    margin-bottom: var(--spacing-sm, 8px);
+}
+
+.condition-field-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+    margin-bottom: var(--spacing-xs, 4px);
+    flex-wrap: wrap;
+}
+
+/* Track filters builder */
+.track-filters-builder {
+    background: var(--bg-subtle, #f8f9fa);
+    padding: var(--spacing-sm, 8px);
+    border-radius: var(--radius-sm, 4px);
+    margin-top: var(--spacing-xs, 4px);
+}
+
+.filter-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+    margin-bottom: var(--spacing-xs, 4px);
+    flex-wrap: wrap;
+}
+
+.filter-checkboxes {
+    gap: var(--spacing-md, 16px);
+}
+
+.form-label-inline {
+    font-size: 0.85rem;
+    color: var(--text-secondary, #6b7280);
+    min-width: 100px;
+}
+
+.form-input-small {
+    width: 120px;
+}
+
+.form-select-small {
+    width: 120px;
+}
+
+/* Sub-conditions */
+.sub-conditions-list {
+    margin: var(--spacing-sm, 8px) 0;
+}
+
+.sub-condition-wrapper {
+    position: relative;
+    margin-bottom: var(--spacing-sm, 8px);
+}
+
+.btn-remove-sub {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: var(--color-error-bg, #fef2f2);
+    color: var(--color-error, #dc2626);
+    border: 1px solid var(--color-error, #dc2626);
+    width: 20px;
+    height: 20px;
+    font-size: 14px;
+    padding: 0;
+    line-height: 1;
+}
+
+.not-label {
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-bottom: var(--spacing-xs, 4px);
+    display: block;
+}
+
+/* Actions list */
+.actions-list {
+    margin-top: var(--spacing-md, 16px);
+}
+
+.actions-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-sm, 8px);
+}
+
+.actions-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.actions-items {
+    border: 1px dashed var(--border-color, #e5e7eb);
+    border-radius: var(--radius-sm, 4px);
+    padding: var(--spacing-sm, 8px);
+    min-height: 40px;
+}
+
+.actions-empty {
+    color: var(--text-muted, #9ca3af);
+    font-style: italic;
+    font-size: 0.85rem;
+    margin: 0;
+}
+
+.action-item-wrapper {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm, 8px);
+    margin-bottom: var(--spacing-sm, 8px);
+    padding: var(--spacing-xs, 4px);
+    background: var(--bg-subtle, #f8f9fa);
+    border-radius: var(--radius-sm, 4px);
+}
+
+.btn-remove-action {
+    background: var(--color-error-bg, #fef2f2);
+    color: var(--color-error, #dc2626);
+    border: 1px solid var(--color-error, #dc2626);
+    flex-shrink: 0;
+}
+
+.action-builder {
+    flex: 1;
+}
+
+.action-type-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+    flex-wrap: wrap;
+}
+
+.action-type-select {
+    width: 180px;
+}
+
+.action-details {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+    flex-wrap: wrap;
+    flex: 1;
+}
+
+.message-input {
+    flex: 1;
+    min-width: 200px;
+}
+
+/* ==========================================================================
+   Audio Synthesis Styles (036-v9-policy-editor Phase 7)
+   ========================================================================== */
+
+/* Synthesis track builder */
+.synthesis-track-builder {
+    background: var(--bg-subtle, #f8f9fa);
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: var(--radius-md, 8px);
+    padding: var(--spacing-md, 16px);
+    margin-bottom: var(--spacing-md, 16px);
+}
+
+.synthesis-track-builder .track-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+    margin-bottom: var(--spacing-md, 16px);
+}
+
+.synthesis-track-builder .track-name-input {
+    flex: 1;
+    font-weight: 600;
+}
+
+.btn-remove-track {
+    background: var(--color-error-bg, #fef2f2);
+    color: var(--color-error, #dc2626);
+    border: 1px solid var(--color-error, #dc2626);
+}
+
+.btn-remove-track:hover {
+    background: var(--color-error, #dc2626);
+    color: white;
+}
+
+.track-main-fields {
+    margin-bottom: var(--spacing-md, 16px);
+}
+
+/* Source prefer builder */
+.source-prefer-builder {
+    background: white;
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: var(--radius-sm, 4px);
+    padding: var(--spacing-sm, 8px);
+    margin-bottom: var(--spacing-sm, 8px);
+}
+
+.source-prefer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-sm, 8px);
+}
+
+.source-prefer-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.source-prefer-list {
+    min-height: 30px;
+}
+
+.source-prefer-empty {
+    color: var(--text-muted, #9ca3af);
+    font-style: italic;
+    font-size: 0.85rem;
+    margin: 0;
+}
+
+.source-prefer-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+    padding: var(--spacing-xs, 4px);
+    background: var(--bg-subtle, #f8f9fa);
+    border-radius: var(--radius-sm, 4px);
+    margin-bottom: var(--spacing-xs, 4px);
+}
+
+.source-prefer-item .pref-type-select {
+    width: 140px;
+}
+
+.source-prefer-item .pref-value-container {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs, 4px);
+    flex: 1;
+}
+
+.btn-remove-pref {
+    background: var(--color-error-bg, #fef2f2);
+    color: var(--color-error, #dc2626);
+    border: 1px solid var(--color-error, #dc2626);
+    flex-shrink: 0;
+}
+
+/* Skip if exists builder */
+.skip-if-exists-builder {
+    background: white;
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: var(--radius-sm, 4px);
+    padding: var(--spacing-sm, 8px);
+}
+
+.skip-if-exists-header {
+    margin-bottom: var(--spacing-sm, 8px);
+}
+
+.skip-if-exists-fields {
+    padding-left: var(--spacing-md, 16px);
+    border-left: 3px solid var(--color-primary, #3b82f6);
+}
+
+/* Disabled state for accordion sections */
+.accordion-section.disabled {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.accordion-section.disabled .accordion-header {
+    cursor: not-allowed;
+}
+
+/* Error state for accordion sections */
+.accordion-section.has-error {
+    border-color: var(--color-error);
+}
+
+.accordion-section.has-error .accordion-title {
+    color: var(--color-error);
 }
 
 /* ==========================================================================
@@ -3844,4 +4634,121 @@ input.valid:focus {
         color: #ff6b6b;
         border-color: #5a2020;
     }
+}
+
+/* ======================================
+   Undo Toast Component (UI/UX Review)
+   ====================================== */
+
+.undo-toast {
+    position: fixed;
+    bottom: var(--spacing-lg, 24px);
+    left: 50%;
+    transform: translateX(-50%) translateY(100%);
+    background: var(--color-gray-900, #1f2937);
+    color: white;
+    padding: var(--spacing-sm, 8px) var(--spacing-md, 16px);
+    border-radius: var(--radius-md, 8px);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md, 16px);
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.undo-toast.visible {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+}
+
+.toast-message {
+    font-size: 0.9rem;
+}
+
+.toast-undo-btn {
+    background: transparent;
+    color: var(--color-primary-light, #60a5fa);
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: var(--spacing-xs, 4px) var(--spacing-sm, 8px);
+}
+
+.toast-undo-btn:hover {
+    text-decoration: underline;
+}
+
+.toast-close-btn {
+    background: transparent;
+    color: var(--color-gray-400, #9ca3af);
+    border: none;
+    cursor: pointer;
+    padding: 0 var(--spacing-xs, 4px);
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.toast-close-btn:hover {
+    color: white;
+}
+
+/* Screen reader only class */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ======================================
+   L1: Improved empty list placeholder
+   ====================================== */
+
+.accordion-list-empty {
+    padding: var(--spacing-lg, 24px);
+    text-align: center;
+    color: var(--text-secondary, #6b7280);
+    background: var(--bg-subtle, #f9fafb);
+    border-radius: var(--radius-md, 8px);
+    border: 1px dashed var(--border-color, #e5e7eb);
+}
+
+/* ======================================
+   L2: btn-outline-primary class
+   ====================================== */
+
+.btn-outline-primary {
+    background: transparent;
+    color: var(--color-primary, #3b82f6);
+    border: 1px solid var(--color-primary, #3b82f6);
+}
+
+.btn-outline-primary:hover {
+    background: var(--color-primary, #3b82f6);
+    color: white;
+}
+
+/* ======================================
+   M4: V10 option indent class
+   ====================================== */
+
+.v10-option-indent {
+    margin-left: var(--spacing-lg, 24px);
+}
+
+/* ======================================
+   H4: Level 0 condition builder styling
+   ====================================== */
+
+.condition-builder[data-level="0"] {
+    border-left: 3px solid var(--border-color, #e5e7eb);
+    padding-left: var(--spacing-md, 16px);
 }

@@ -5,6 +5,7 @@ This module provides a round-trip editor for policy files that:
 2. Best-effort preservation of YAML comments
 3. Selective field updates without modifying untouched fields
 4. Structured logging of policy edits
+5. Field accessors for V3-V10 schema features (036-v9-policy-editor)
 """
 
 import logging
@@ -19,6 +20,38 @@ from video_policy_orchestrator.policy.loader import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Known policy fields by schema version
+# V1-V2: Base fields
+# V3: audio_filter, subtitle_filter, attachment_filter, container
+# V4: conditional
+# V5: audio_synthesis
+# V6: transcode (extended with video/audio)
+# V7: Multi-language conditions (in conditional)
+# V9: workflow
+# V10: music/sfx/non_speech track types (in transcription)
+KNOWN_POLICY_FIELDS = {
+    # V1-V2 base fields
+    "schema_version",
+    "track_order",
+    "audio_language_preference",
+    "subtitle_language_preference",
+    "commentary_patterns",
+    "default_flags",
+    "transcode",
+    "transcription",
+    # V3+ fields
+    "audio_filter",
+    "subtitle_filter",
+    "attachment_filter",
+    "container",
+    # V4+ fields
+    "conditional",
+    # V5+ fields
+    "audio_synthesis",
+    # V9+ fields
+    "workflow",
+}
 
 
 class PolicyRoundTripEditor:
@@ -115,30 +148,8 @@ class PolicyRoundTripEditor:
         Raises:
             PolicyValidationError: If the updated policy fails validation.
         """
-        # Validate only known fields using PolicyModel
         # Extract known fields for validation, ignore unknown fields
-        known_fields = {
-            # V1-7 base fields
-            "schema_version",
-            "track_order",
-            "audio_language_preference",
-            "subtitle_language_preference",
-            "commentary_patterns",
-            "default_flags",
-            "transcode",
-            "transcription",
-            # V3+ fields
-            "audio_filter",
-            "subtitle_filter",
-            "attachment_filter",
-            "container",
-            # V4+ fields
-            "conditional",
-            # V5+ fields
-            "audio_synthesis",
-        }
-
-        validation_data = {k: v for k, v in data.items() if k in known_fields}
+        validation_data = {k: v for k, v in data.items() if k in KNOWN_POLICY_FIELDS}
 
         # This raises PolicyValidationError if invalid
         _ = load_policy_from_dict(validation_data)
@@ -178,3 +189,314 @@ class PolicyRoundTripEditor:
             Policy name derived from filename.
         """
         return self.policy_path.stem
+
+    def get_unknown_fields(self, data: dict[str, Any]) -> list[str]:
+        """Get list of unknown fields in the policy data.
+
+        Args:
+            data: Policy data dictionary.
+
+        Returns:
+            List of field names not in KNOWN_POLICY_FIELDS.
+        """
+        return [k for k in data.keys() if k not in KNOWN_POLICY_FIELDS]
+
+    # =========================================================================
+    # V3+ Field Accessors (audio_filter, subtitle_filter, attachment_filter, container)
+    # =========================================================================
+
+    @staticmethod
+    def get_audio_filter(data: dict[str, Any]) -> dict[str, Any] | None:
+        """Get audio_filter configuration from policy data (V3+).
+
+        Args:
+            data: Policy data dictionary.
+
+        Returns:
+            Audio filter configuration dict or None if not configured.
+        """
+        return data.get("audio_filter")
+
+    @staticmethod
+    def set_audio_filter(data: dict[str, Any], value: dict[str, Any] | None) -> None:
+        """Set audio_filter configuration in policy data (V3+).
+
+        Args:
+            data: Policy data dictionary to modify.
+            value: Audio filter configuration or None to remove.
+        """
+        if value is None:
+            data.pop("audio_filter", None)
+        else:
+            data["audio_filter"] = value
+
+    @staticmethod
+    def get_subtitle_filter(data: dict[str, Any]) -> dict[str, Any] | None:
+        """Get subtitle_filter configuration from policy data (V3+).
+
+        Args:
+            data: Policy data dictionary.
+
+        Returns:
+            Subtitle filter configuration dict or None if not configured.
+        """
+        return data.get("subtitle_filter")
+
+    @staticmethod
+    def set_subtitle_filter(data: dict[str, Any], value: dict[str, Any] | None) -> None:
+        """Set subtitle_filter configuration in policy data (V3+).
+
+        Args:
+            data: Policy data dictionary to modify.
+            value: Subtitle filter configuration or None to remove.
+        """
+        if value is None:
+            data.pop("subtitle_filter", None)
+        else:
+            data["subtitle_filter"] = value
+
+    @staticmethod
+    def get_attachment_filter(data: dict[str, Any]) -> dict[str, Any] | None:
+        """Get attachment_filter configuration from policy data (V3+).
+
+        Args:
+            data: Policy data dictionary.
+
+        Returns:
+            Attachment filter configuration dict or None if not configured.
+        """
+        return data.get("attachment_filter")
+
+    @staticmethod
+    def set_attachment_filter(
+        data: dict[str, Any], value: dict[str, Any] | None
+    ) -> None:
+        """Set attachment_filter configuration in policy data (V3+).
+
+        Args:
+            data: Policy data dictionary to modify.
+            value: Attachment filter configuration or None to remove.
+        """
+        if value is None:
+            data.pop("attachment_filter", None)
+        else:
+            data["attachment_filter"] = value
+
+    @staticmethod
+    def get_container(data: dict[str, Any]) -> dict[str, Any] | None:
+        """Get container configuration from policy data (V3+).
+
+        Args:
+            data: Policy data dictionary.
+
+        Returns:
+            Container configuration dict or None if not configured.
+        """
+        return data.get("container")
+
+    @staticmethod
+    def set_container(data: dict[str, Any], value: dict[str, Any] | None) -> None:
+        """Set container configuration in policy data (V3+).
+
+        Args:
+            data: Policy data dictionary to modify.
+            value: Container configuration or None to remove.
+        """
+        if value is None:
+            data.pop("container", None)
+        else:
+            data["container"] = value
+
+    # =========================================================================
+    # V4+ Field Accessors (conditional)
+    # =========================================================================
+
+    @staticmethod
+    def get_conditional(data: dict[str, Any]) -> list[dict[str, Any]] | None:
+        """Get conditional rules from policy data (V4+).
+
+        Args:
+            data: Policy data dictionary.
+
+        Returns:
+            List of conditional rules or None if not configured.
+        """
+        return data.get("conditional")
+
+    @staticmethod
+    def set_conditional(
+        data: dict[str, Any], value: list[dict[str, Any]] | None
+    ) -> None:
+        """Set conditional rules in policy data (V4+).
+
+        Args:
+            data: Policy data dictionary to modify.
+            value: List of conditional rules or None to remove.
+        """
+        if value is None:
+            data.pop("conditional", None)
+        else:
+            data["conditional"] = value
+
+    # =========================================================================
+    # V5+ Field Accessors (audio_synthesis)
+    # =========================================================================
+
+    @staticmethod
+    def get_audio_synthesis(data: dict[str, Any]) -> list[dict[str, Any]] | None:
+        """Get audio synthesis configurations from policy data (V5+).
+
+        Args:
+            data: Policy data dictionary.
+
+        Returns:
+            List of audio synthesis track configs or None if not configured.
+        """
+        return data.get("audio_synthesis")
+
+    @staticmethod
+    def set_audio_synthesis(
+        data: dict[str, Any], value: list[dict[str, Any]] | None
+    ) -> None:
+        """Set audio synthesis configurations in policy data (V5+).
+
+        Args:
+            data: Policy data dictionary to modify.
+            value: List of audio synthesis configs or None to remove.
+        """
+        if value is None:
+            data.pop("audio_synthesis", None)
+        else:
+            data["audio_synthesis"] = value
+
+    # =========================================================================
+    # V6+ Field Accessors (transcode.video, transcode.audio)
+    # =========================================================================
+
+    @staticmethod
+    def get_transcode(data: dict[str, Any]) -> dict[str, Any] | None:
+        """Get transcode configuration from policy data (V6+).
+
+        Args:
+            data: Policy data dictionary.
+
+        Returns:
+            Transcode configuration dict or None if not configured.
+        """
+        return data.get("transcode")
+
+    @staticmethod
+    def set_transcode(data: dict[str, Any], value: dict[str, Any] | None) -> None:
+        """Set transcode configuration in policy data (V6+).
+
+        Args:
+            data: Policy data dictionary to modify.
+            value: Transcode configuration or None to remove.
+        """
+        if value is None:
+            data.pop("transcode", None)
+        else:
+            data["transcode"] = value
+
+    @staticmethod
+    def get_video_transcode(data: dict[str, Any]) -> dict[str, Any] | None:
+        """Get video transcode configuration from policy data (V6+).
+
+        Args:
+            data: Policy data dictionary.
+
+        Returns:
+            Video transcode configuration dict or None if not configured.
+        """
+        transcode = data.get("transcode")
+        if transcode is None:
+            return None
+        return transcode.get("video")
+
+    @staticmethod
+    def set_video_transcode(data: dict[str, Any], value: dict[str, Any] | None) -> None:
+        """Set video transcode configuration in policy data (V6+).
+
+        Creates the transcode parent key if needed.
+
+        Args:
+            data: Policy data dictionary to modify.
+            value: Video transcode configuration or None to remove.
+        """
+        if value is None:
+            transcode = data.get("transcode")
+            if transcode is not None:
+                transcode.pop("video", None)
+                # Remove transcode if empty
+                if not transcode:
+                    data.pop("transcode", None)
+        else:
+            if "transcode" not in data:
+                data["transcode"] = {}
+            data["transcode"]["video"] = value
+
+    @staticmethod
+    def get_audio_transcode(data: dict[str, Any]) -> dict[str, Any] | None:
+        """Get audio transcode configuration from policy data (V6+).
+
+        Args:
+            data: Policy data dictionary.
+
+        Returns:
+            Audio transcode configuration dict or None if not configured.
+        """
+        transcode = data.get("transcode")
+        if transcode is None:
+            return None
+        return transcode.get("audio")
+
+    @staticmethod
+    def set_audio_transcode(data: dict[str, Any], value: dict[str, Any] | None) -> None:
+        """Set audio transcode configuration in policy data (V6+).
+
+        Creates the transcode parent key if needed.
+
+        Args:
+            data: Policy data dictionary to modify.
+            value: Audio transcode configuration or None to remove.
+        """
+        if value is None:
+            transcode = data.get("transcode")
+            if transcode is not None:
+                transcode.pop("audio", None)
+                # Remove transcode if empty
+                if not transcode:
+                    data.pop("transcode", None)
+        else:
+            if "transcode" not in data:
+                data["transcode"] = {}
+            data["transcode"]["audio"] = value
+
+    # =========================================================================
+    # V9+ Field Accessors (workflow)
+    # =========================================================================
+
+    @staticmethod
+    def get_workflow(data: dict[str, Any]) -> dict[str, Any] | None:
+        """Get workflow configuration from policy data (V9+).
+
+        Args:
+            data: Policy data dictionary.
+
+        Returns:
+            Workflow configuration dict or None if not configured.
+        """
+        return data.get("workflow")
+
+    @staticmethod
+    def set_workflow(data: dict[str, Any], value: dict[str, Any] | None) -> None:
+        """Set workflow configuration in policy data (V9+).
+
+        Args:
+            data: Policy data dictionary to modify.
+            value: Workflow configuration or None to remove.
+        """
+        if value is None:
+            data.pop("workflow", None)
+        else:
+            data["workflow"] = value

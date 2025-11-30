@@ -1,9 +1,94 @@
 /**
- * Policy Editor Main Module (024-policy-editor)
+ * Policy Editor Main Module (024-policy-editor, 036-v9-policy-editor)
  *
  * Handles policy editing form with track ordering, language preferences,
- * and save functionality with field preservation.
+ * V3-V10 schema features, and save functionality with field preservation.
  */
+
+import { initAccordion } from './accordion.js'
+import { initTranscodeSection } from './section-transcode.js'
+import { initFiltersSection } from './section-filters.js'
+import { initConditionalSection } from './section-conditional.js'
+import { initSynthesisSection } from './section-synthesis.js'
+import { initContainerSection } from './section-container.js'
+import { initWorkflowSection } from './section-workflow.js'
+
+// ======================================
+// Toast Module (H3: Undo toast for destructive actions)
+// ======================================
+
+let toastTimeout = null
+let undoCallback = null
+
+/**
+ * Show an undo toast notification
+ * @param {string} message - Message to display
+ * @param {Function} onUndo - Callback when undo is clicked
+ */
+export function showUndoToast(message, onUndo) {
+    const toast = document.getElementById('undo-toast')
+    if (!toast) return
+
+    const msgEl = toast.querySelector('.toast-message')
+    const undoBtn = toast.querySelector('.toast-undo-btn')
+    const closeBtn = toast.querySelector('.toast-close-btn')
+
+    msgEl.textContent = message
+    undoCallback = onUndo
+    toast.hidden = false
+
+    // Trigger reflow to enable CSS transition
+    toast.offsetHeight
+    toast.classList.add('visible')
+
+    // Clear any existing timeout
+    clearTimeout(toastTimeout)
+
+    // Auto-dismiss after 5 seconds
+    toastTimeout = setTimeout(() => {
+        hideToast()
+        undoCallback = null
+    }, 5000)
+
+    // Set up button handlers (use once to avoid duplicate handlers)
+    undoBtn.onclick = () => {
+        if (undoCallback) {
+            undoCallback()
+        }
+        hideToast()
+        undoCallback = null
+    }
+
+    closeBtn.onclick = () => {
+        hideToast()
+        undoCallback = null
+    }
+}
+
+/**
+ * Hide the undo toast
+ */
+export function hideToast() {
+    const toast = document.getElementById('undo-toast')
+    if (!toast) return
+
+    clearTimeout(toastTimeout)
+    toast.classList.remove('visible')
+    setTimeout(() => {
+        toast.hidden = true
+    }, 300) // Wait for CSS transition
+}
+
+/**
+ * Announce a message to screen readers (H5)
+ * @param {string} message - Message to announce
+ */
+function announceToScreenReader(message) {
+    const statusRegion = document.getElementById('save-status')
+    if (statusRegion) {
+        statusRegion.textContent = message
+    }
+}
 
 (function () {
     'use strict'
@@ -12,6 +97,29 @@
     if (typeof window.POLICY_DATA === 'undefined') {
         console.error('POLICY_DATA not found')
         return
+    }
+
+    // Initialize accordion for advanced settings
+    const accordionController = initAccordion('#advanced-settings', {
+        allowMultiple: true,
+        onToggle: ({ sectionId, isOpen }) => {
+            // Store accordion state in localStorage for persistence
+            const storedState = JSON.parse(localStorage.getItem('policy-editor-accordion') || '{}')
+            storedState[sectionId] = isOpen
+            localStorage.setItem('policy-editor-accordion', JSON.stringify(storedState))
+        }
+    })
+
+    // Restore accordion state from localStorage
+    if (accordionController) {
+        const storedState = JSON.parse(localStorage.getItem('policy-editor-accordion') || '{}')
+        Object.entries(storedState).forEach(([sectionId, isOpen]) => {
+            if (isOpen) {
+                accordionController.open(sectionId)
+            } else {
+                accordionController.close(sectionId)
+            }
+        })
     }
 
     // State management
@@ -24,9 +132,26 @@
         commentary_patterns: [...window.POLICY_DATA.commentary_patterns],
         default_flags: {...window.POLICY_DATA.default_flags},
         transcription: window.POLICY_DATA.transcription ? {...window.POLICY_DATA.transcription} : null,
+        // V3-V10 fields (036-v9-policy-editor)
+        transcode: window.POLICY_DATA.transcode ? JSON.parse(JSON.stringify(window.POLICY_DATA.transcode)) : null,
+        audio_filter: window.POLICY_DATA.audio_filter ? JSON.parse(JSON.stringify(window.POLICY_DATA.audio_filter)) : null,
+        subtitle_filter: window.POLICY_DATA.subtitle_filter ? JSON.parse(JSON.stringify(window.POLICY_DATA.subtitle_filter)) : null,
+        attachment_filter: window.POLICY_DATA.attachment_filter ? JSON.parse(JSON.stringify(window.POLICY_DATA.attachment_filter)) : null,
+        container: window.POLICY_DATA.container ? JSON.parse(JSON.stringify(window.POLICY_DATA.container)) : null,
+        conditional: window.POLICY_DATA.conditional ? JSON.parse(JSON.stringify(window.POLICY_DATA.conditional)) : null,
+        audio_synthesis: window.POLICY_DATA.audio_synthesis ? JSON.parse(JSON.stringify(window.POLICY_DATA.audio_synthesis)) : null,
+        workflow: window.POLICY_DATA.workflow ? JSON.parse(JSON.stringify(window.POLICY_DATA.workflow)) : null,
         isDirty: false,
         isSaving: false
     }
+
+    // Section controllers (036-v9-policy-editor)
+    let transcodeController = null
+    let filtersController = null
+    let conditionalController = null
+    let synthesisController = null
+    let containerController = null
+    let workflowController = null
 
     const originalState = JSON.stringify(formState)
 
@@ -772,6 +897,14 @@
         saveBtn.innerHTML = '<span class="spinner"></span> Saving...'
         saveBtn.setAttribute('aria-busy', 'true')
         saveStatus.textContent = ''
+        announceToScreenReader('Saving policy...')
+
+        // Get filter configs from controller if available
+        const filtersConfig = filtersController ? filtersController.getConfig() : {
+            audio_filter: formState.audio_filter,
+            subtitle_filter: formState.subtitle_filter,
+            attachment_filter: formState.attachment_filter
+        }
 
         const requestData = {
             track_order: formState.track_order,
@@ -779,8 +912,16 @@
             subtitle_language_preference: formState.subtitle_language_preference,
             commentary_patterns: formState.commentary_patterns,
             default_flags: formState.default_flags,
-            transcode: window.POLICY_DATA.transcode,
+            transcode: transcodeController ? transcodeController.getConfig() : formState.transcode,
             transcription: formState.transcription,
+            // V3-V10 fields (036-v9-policy-editor)
+            audio_filter: filtersConfig.audio_filter,
+            subtitle_filter: filtersConfig.subtitle_filter,
+            attachment_filter: filtersConfig.attachment_filter,
+            container: containerController ? containerController.getConfig() : formState.container,
+            conditional: conditionalController ? conditionalController.getConfig() : formState.conditional,
+            audio_synthesis: synthesisController ? synthesisController.getConfig() : formState.audio_synthesis,
+            workflow: workflowController ? workflowController.getConfig() : formState.workflow,
             last_modified_timestamp: formState.last_modified
         }
 
@@ -862,6 +1003,7 @@
                 successMsg = `Saved: ${updatedPolicy.changed_fields_summary}`
             }
             showSaveStatus(successMsg)
+            announceToScreenReader(successMsg)
 
             // Clear any existing error highlighting
             clearFieldHighlighting()
@@ -878,6 +1020,7 @@
                 errorMsg = `Connection error: ${error.message}`
             }
             showError(errorMsg)
+            announceToScreenReader(`Save failed: ${errorMsg}`)
             formState.isSaving = false
             saveBtn.innerHTML = 'Save Changes'
             saveBtn.setAttribute('aria-busy', 'false')
@@ -903,14 +1046,29 @@
         testBtn.setAttribute('aria-busy', 'true')
         testBtn.disabled = true
 
+        // Get filter configs from controller if available
+        const filtersConfigForTest = filtersController ? filtersController.getConfig() : {
+            audio_filter: formState.audio_filter,
+            subtitle_filter: formState.subtitle_filter,
+            attachment_filter: formState.attachment_filter
+        }
+
         const requestData = {
             track_order: formState.track_order,
             audio_language_preference: formState.audio_language_preference,
             subtitle_language_preference: formState.subtitle_language_preference,
             commentary_patterns: formState.commentary_patterns,
             default_flags: formState.default_flags,
-            transcode: window.POLICY_DATA.transcode,
+            transcode: transcodeController ? transcodeController.getConfig() : formState.transcode,
             transcription: formState.transcription,
+            // V3-V10 fields (036-v9-policy-editor)
+            audio_filter: filtersConfigForTest.audio_filter,
+            subtitle_filter: filtersConfigForTest.subtitle_filter,
+            attachment_filter: filtersConfigForTest.attachment_filter,
+            container: containerController ? containerController.getConfig() : formState.container,
+            conditional: conditionalController ? conditionalController.getConfig() : formState.conditional,
+            audio_synthesis: synthesisController ? synthesisController.getConfig() : formState.audio_synthesis,
+            workflow: workflowController ? workflowController.getConfig() : formState.workflow,
             last_modified_timestamp: formState.last_modified
         }
 
@@ -1194,6 +1352,57 @@
     }
 
     /**
+     * Initialize V3-V10 section controllers (036-v9-policy-editor)
+     */
+    function initSectionControllers() {
+        // Initialize transcode section (US1, US2)
+        transcodeController = initTranscodeSection(window.POLICY_DATA, (transcodeConfig) => {
+            formState.transcode = transcodeConfig
+            markDirty()
+        })
+
+        // Initialize filters section (US5)
+        filtersController = initFiltersSection(window.POLICY_DATA, (filtersConfig) => {
+            formState.audio_filter = filtersConfig.audio_filter
+            formState.subtitle_filter = filtersConfig.subtitle_filter
+            formState.attachment_filter = filtersConfig.attachment_filter
+            markDirty()
+        })
+
+        // Initialize conditional section (US4)
+        conditionalController = initConditionalSection(window.POLICY_DATA, (conditionalConfig) => {
+            formState.conditional = conditionalConfig
+            markDirty()
+        })
+
+        // Initialize synthesis section (US3)
+        synthesisController = initSynthesisSection(window.POLICY_DATA, (synthesisConfig) => {
+            formState.audio_synthesis = synthesisConfig
+            markDirty()
+        })
+
+        // Initialize container section (US6)
+        containerController = initContainerSection(window.POLICY_DATA, (containerConfig) => {
+            formState.container = containerConfig
+            markDirty()
+        })
+
+        // Initialize workflow section (US7)
+        workflowController = initWorkflowSection(window.POLICY_DATA, (workflowConfig) => {
+            formState.workflow = workflowConfig
+            markDirty()
+        })
+
+        // Show unknown fields warning if present
+        if (window.POLICY_DATA.unknown_fields && window.POLICY_DATA.unknown_fields.length > 0) {
+            const warningEl = document.getElementById('unknown-fields-warning')
+            if (warningEl) {
+                warningEl.style.display = 'block'
+            }
+        }
+    }
+
+    /**
      * Initialize editor
      */
     function init() {
@@ -1204,6 +1413,9 @@
         updateYAMLPreview()
         initEventListeners()
         updateSaveButtonState()
+
+        // Initialize V3-V10 section controllers
+        initSectionControllers()
     }
 
     // Start the editor
