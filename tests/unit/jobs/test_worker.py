@@ -7,6 +7,7 @@ and job processing logic that are not covered by integration tests.
 import signal
 import sqlite3
 import time
+import uuid
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
@@ -28,8 +29,6 @@ def make_test_job(
     file_path: str = "/test/file.mkv",
 ) -> Job:
     """Create a test Job instance."""
-    import uuid
-
     return Job(
         id=job_id or str(uuid.uuid4()),
         file_id=None,
@@ -61,15 +60,16 @@ class TestParseEndBy:
 
     def test_parses_valid_time(self, db_conn: sqlite3.Connection) -> None:
         """Parses valid HH:MM time string."""
-        # Use a future time to avoid the "add day" logic
-        future_hour = (datetime.now().hour + 2) % 24
-        end_by_str = f"{future_hour:02d}:30"
+        # Freeze time to avoid flakiness near midnight boundaries
+        with patch("video_policy_orchestrator.jobs.worker.datetime") as mock_dt:
+            # Set current time to 10:00 AM
+            mock_dt.now.return_value = datetime(2024, 1, 15, 10, 0, 0)
 
-        worker = JobWorker(conn=db_conn, end_by=end_by_str)
+            worker = JobWorker(conn=db_conn, end_by="12:30")
 
-        assert worker.end_by is not None
-        assert worker.end_by.hour == future_hour
-        assert worker.end_by.minute == 30
+            assert worker.end_by is not None
+            assert worker.end_by.hour == 12
+            assert worker.end_by.minute == 30
 
     def test_adds_day_when_time_in_past(self, db_conn: sqlite3.Connection) -> None:
         """Adds a day when end time is in the past."""
@@ -241,12 +241,15 @@ class TestHeartbeatManagement:
         insert_job(db_conn, job)
 
         worker._start_heartbeat(job.id)
-        time.sleep(0.1)  # Let thread start
+        assert worker._heartbeat_thread is not None
+        assert worker._heartbeat_thread.is_alive()
 
         worker._stop_heartbeat()
 
-        # Give thread time to terminate
-        time.sleep(0.2)
+        # Use join with timeout instead of sleep for reliable synchronization
+        if worker._heartbeat_thread is not None:
+            worker._heartbeat_thread.join(timeout=1.0)
+
         assert (
             worker._heartbeat_thread is None or not worker._heartbeat_thread.is_alive()
         )

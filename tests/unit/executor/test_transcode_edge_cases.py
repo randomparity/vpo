@@ -356,6 +356,9 @@ class TestCleanupPartial:
             # Should not raise
             basic_executor._cleanup_partial(existing)
 
+        # Verify file still exists (cleanup failed but didn't crash)
+        assert existing.exists()
+
 
 # =============================================================================
 # TestTwoPassContext
