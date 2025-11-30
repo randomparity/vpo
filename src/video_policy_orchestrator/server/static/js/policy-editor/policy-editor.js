@@ -10,6 +10,8 @@ import { initTranscodeSection } from './section-transcode.js'
 import { initFiltersSection } from './section-filters.js'
 import { initConditionalSection } from './section-conditional.js'
 import { initSynthesisSection } from './section-synthesis.js'
+import { initContainerSection } from './section-container.js'
+import { initWorkflowSection } from './section-workflow.js'
 
 (function () {
     'use strict'
@@ -71,6 +73,8 @@ import { initSynthesisSection } from './section-synthesis.js'
     let filtersController = null
     let conditionalController = null
     let synthesisController = null
+    let containerController = null
+    let workflowController = null
 
     const originalState = JSON.stringify(formState)
 
@@ -836,10 +840,10 @@ import { initSynthesisSection } from './section-synthesis.js'
             audio_filter: filtersConfig.audio_filter,
             subtitle_filter: filtersConfig.subtitle_filter,
             attachment_filter: filtersConfig.attachment_filter,
-            container: formState.container,
+            container: containerController ? containerController.getConfig() : formState.container,
             conditional: conditionalController ? conditionalController.getConfig() : formState.conditional,
             audio_synthesis: synthesisController ? synthesisController.getConfig() : formState.audio_synthesis,
-            workflow: formState.workflow,
+            workflow: workflowController ? workflowController.getConfig() : formState.workflow,
             last_modified_timestamp: formState.last_modified
         }
 
@@ -981,10 +985,10 @@ import { initSynthesisSection } from './section-synthesis.js'
             audio_filter: filtersConfigForTest.audio_filter,
             subtitle_filter: filtersConfigForTest.subtitle_filter,
             attachment_filter: filtersConfigForTest.attachment_filter,
-            container: formState.container,
+            container: containerController ? containerController.getConfig() : formState.container,
             conditional: conditionalController ? conditionalController.getConfig() : formState.conditional,
             audio_synthesis: synthesisController ? synthesisController.getConfig() : formState.audio_synthesis,
-            workflow: formState.workflow,
+            workflow: workflowController ? workflowController.getConfig() : formState.workflow,
             last_modified_timestamp: formState.last_modified
         }
 
@@ -1294,6 +1298,18 @@ import { initSynthesisSection } from './section-synthesis.js'
         // Initialize synthesis section (US3)
         synthesisController = initSynthesisSection(window.POLICY_DATA, (synthesisConfig) => {
             formState.audio_synthesis = synthesisConfig
+            markDirty()
+        })
+
+        // Initialize container section (US6)
+        containerController = initContainerSection(window.POLICY_DATA, (containerConfig) => {
+            formState.container = containerConfig
+            markDirty()
+        })
+
+        // Initialize workflow section (US7)
+        workflowController = initWorkflowSection(window.POLICY_DATA, (workflowConfig) => {
+            formState.workflow = workflowConfig
             markDirty()
         })
 
