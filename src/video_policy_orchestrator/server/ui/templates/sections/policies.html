@@ -2,9 +2,14 @@
 
 {% block content %}
 <div class="policies-section">
-    {# Info banner showing policies directory #}
-    <div class="policies-info" role="status">
-        Policies directory: <code>{{ policies_context.policies_directory }}</code>
+    {# Header with Create New Policy button #}
+    <div class="policies-header">
+        <div class="policies-info" role="status">
+            Policies directory: <code>{{ policies_context.policies_directory }}</code>
+        </div>
+        <button type="button" id="create-policy-btn" class="btn btn-primary">
+            + Create New Policy
+        </button>
     </div>
 
     {% if policies_response.default_policy_missing %}
@@ -96,6 +101,44 @@
         Showing {{ policies_response.total }} polic{{ 'y' if policies_response.total == 1 else 'ies' }}
     </div>
     {% endif %}
+
+    {# Create New Policy Dialog #}
+    <dialog id="create-policy-dialog" class="create-policy-dialog" aria-labelledby="dialog-title">
+        <form id="create-policy-form" method="dialog">
+            <h2 id="dialog-title">Create New Policy</h2>
+
+            <div class="form-group">
+                <label for="policy-name">Policy Name</label>
+                <input type="text"
+                       id="policy-name"
+                       name="name"
+                       pattern="^[a-zA-Z0-9_-]+$"
+                       placeholder="my-policy"
+                       required
+                       autocomplete="off"
+                       aria-describedby="name-help">
+                <small id="name-help" class="form-hint">
+                    Letters, numbers, dashes, and underscores only.
+                </small>
+            </div>
+
+            <div class="form-group">
+                <label for="policy-description">Description (optional)</label>
+                <input type="text"
+                       id="policy-description"
+                       name="description"
+                       placeholder="Brief description of this policy"
+                       autocomplete="off">
+            </div>
+
+            <div id="create-policy-error" class="form-error" role="alert" hidden></div>
+
+            <div class="dialog-actions">
+                <button type="button" id="cancel-create-btn" class="btn btn-secondary">Cancel</button>
+                <button type="submit" id="submit-create-btn" class="btn btn-primary">Create Policy</button>
+            </div>
+        </form>
+    </dialog>
 </div>
 <script src="/static/js/policies.js"></script>
 {% endblock %}

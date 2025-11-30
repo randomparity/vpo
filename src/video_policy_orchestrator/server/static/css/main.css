@@ -2508,6 +2508,20 @@ html, body {
     gap: var(--spacing-md);
 }
 
+/* Header with Create New Policy button */
+.policies-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.policies-header .policies-info {
+    flex: 1;
+    margin: 0;
+}
+
 /* Info and warning banners */
 .policies-info {
     padding: var(--spacing-sm) var(--spacing-md);
@@ -2674,6 +2688,89 @@ html, body {
     font-size: var(--font-size-sm);
     color: var(--color-text-muted);
     padding: var(--spacing-sm) 0;
+}
+
+/* Create New Policy Dialog (036-v9-policy-editor) */
+.create-policy-dialog {
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+    max-width: 450px;
+    width: 90%;
+}
+
+.create-policy-dialog::backdrop {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.create-policy-dialog form {
+    padding: var(--spacing-lg);
+}
+
+.create-policy-dialog h2 {
+    margin: 0 0 var(--spacing-lg) 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.create-policy-dialog .form-group {
+    margin-bottom: var(--spacing-md);
+}
+
+.create-policy-dialog .form-group label {
+    display: block;
+    margin-bottom: var(--spacing-xs);
+    font-weight: 500;
+    color: var(--color-text);
+}
+
+.create-policy-dialog .form-group input {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    font-size: var(--font-size-base);
+    background-color: var(--color-bg);
+    color: var(--color-text);
+}
+
+.create-policy-dialog .form-group input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.create-policy-dialog .form-group input:disabled {
+    background-color: var(--color-body-bg);
+    cursor: not-allowed;
+}
+
+.create-policy-dialog .form-hint {
+    display: block;
+    margin-top: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+.create-policy-dialog .form-error {
+    padding: var(--spacing-sm) var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 4px;
+    color: #dc2626;
+    font-size: var(--font-size-sm);
+}
+
+.create-policy-dialog .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--color-border);
 }
 
 /* Graceful degradation for below minimum supported viewport (< 768px) */

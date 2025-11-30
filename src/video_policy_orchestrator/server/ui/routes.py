@@ -1757,6 +1757,174 @@ async def api_policy_validate_handler(request: web.Request) -> web.Response:
         return web.json_response(response.to_dict())
 
 
+@shutdown_check_middleware
+async def api_policy_create_handler(request: web.Request) -> web.Response:
+    """Handle POST /api/policies - Create a new policy file.
+
+    Creates a new policy file with the given name and default settings.
+    Returns 409 Conflict if a policy with that name already exists.
+
+    Request body:
+        {
+            "name": "policy-name",  // Required: alphanumeric, dash, underscore
+            "description": "..."    // Optional: policy description
+        }
+
+    Returns:
+        JSON response with created policy data or error.
+    """
+    from ruamel.yaml import YAML
+
+    from video_policy_orchestrator.policy.discovery import DEFAULT_POLICIES_DIR
+    from video_policy_orchestrator.policy.editor import KNOWN_POLICY_FIELDS
+    from video_policy_orchestrator.policy.loader import MAX_SCHEMA_VERSION
+    from video_policy_orchestrator.server.ui.models import PolicyEditorContext
+
+    # Parse request body
+    try:
+        request_data = await request.json()
+    except Exception:
+        return web.json_response(
+            {"error": "Invalid JSON payload"},
+            status=400,
+        )
+
+    # Extract and validate policy name
+    policy_name = request_data.get("name", "").strip()
+    if not policy_name:
+        return web.json_response(
+            {"error": "Policy name is required"},
+            status=400,
+        )
+
+    if not re.match(r"^[a-zA-Z0-9_-]+$", policy_name):
+        return web.json_response(
+            {
+                "error": (
+                    "Invalid policy name format. "
+                    "Use only letters, numbers, dashes, and underscores."
+                )
+            },
+            status=400,
+        )
+
+    # Get policy directory (allow test override)
+    policies_dir = request.app.get("policy_dir", DEFAULT_POLICIES_DIR)
+
+    # Ensure policies directory exists
+    policies_dir.mkdir(parents=True, exist_ok=True)
+
+    # Check if policy already exists (409 Conflict)
+    policy_path = policies_dir / f"{policy_name}.yaml"
+    alt_path = policies_dir / f"{policy_name}.yml"
+
+    if policy_path.exists() or alt_path.exists():
+        return web.json_response(
+            {"error": f"Policy '{policy_name}' already exists"},
+            status=409,
+        )
+
+    # Verify resolved path is within allowed directory (prevent path traversal)
+    try:
+        resolved_path = policy_path.resolve()
+        resolved_dir = policies_dir.resolve()
+        resolved_path.relative_to(resolved_dir)
+    except (ValueError, OSError):
+        return web.json_response(
+            {"error": "Invalid policy path"},
+            status=400,
+        )
+
+    # Create default policy data with current schema version
+    policy_data = {
+        "schema_version": MAX_SCHEMA_VERSION,
+        "track_order": ["video", "audio", "subtitle"],
+        "audio_language_preference": ["eng"],
+        "subtitle_language_preference": ["eng"],
+    }
+
+    # Add optional description if provided
+    description = request_data.get("description", "").strip()
+    if description:
+        policy_data["description"] = description
+
+    # Write new policy file
+    def _create_policy():
+        try:
+            yaml = YAML()
+            yaml.preserve_quotes = True
+            yaml.default_flow_style = False
+            yaml.indent(mapping=2, sequence=4, offset=2)
+
+            with open(policy_path, "w") as f:
+                yaml.dump(policy_data, f)
+
+            # Get file timestamp
+            stat = policy_path.stat()
+            last_modified = datetime.fromtimestamp(
+                stat.st_mtime, tz=timezone.utc
+            ).isoformat()
+
+            return policy_data, last_modified, None
+        except Exception as e:
+            logger.error(f"Failed to create policy {policy_name}: {e}")
+            return None, None, str(e)
+
+    created_data, last_modified, error = await asyncio.to_thread(_create_policy)
+
+    if error:
+        return web.json_response(
+            {"error": "Failed to create policy", "details": error},
+            status=500,
+        )
+
+    # Build response with policy editor context
+    unknown_fields = [k for k in created_data.keys() if k not in KNOWN_POLICY_FIELDS]
+
+    policy_context = PolicyEditorContext(
+        name=policy_name,
+        filename=policy_path.name,
+        file_path=str(policy_path),
+        last_modified=last_modified,
+        schema_version=created_data.get("schema_version", MAX_SCHEMA_VERSION),
+        track_order=created_data.get("track_order", []),
+        audio_language_preference=created_data.get("audio_language_preference", []),
+        subtitle_language_preference=created_data.get(
+            "subtitle_language_preference", []
+        ),
+        commentary_patterns=created_data.get("commentary_patterns", []),
+        default_flags=created_data.get("default_flags", {}),
+        transcode=created_data.get("transcode"),
+        transcription=created_data.get("transcription"),
+        audio_filter=created_data.get("audio_filter"),
+        subtitle_filter=created_data.get("subtitle_filter"),
+        attachment_filter=created_data.get("attachment_filter"),
+        container=created_data.get("container"),
+        conditional=created_data.get("conditional"),
+        audio_synthesis=created_data.get("audio_synthesis"),
+        workflow=created_data.get("workflow"),
+        unknown_fields=unknown_fields if unknown_fields else None,
+        parse_error=None,
+    )
+
+    logger.info(
+        "Policy created",
+        extra={
+            "policy_name": policy_name,
+            "policy_path": str(policy_path),
+        },
+    )
+
+    return web.json_response(
+        {
+            "success": True,
+            "message": f"Policy '{policy_name}' created successfully",
+            "policy": policy_context.to_dict(),
+        },
+        status=201,
+    )
+
+
 # ==========================================================================
 # Plans List View Handlers (026-plans-list-view)
 # ==========================================================================
@@ -2177,6 +2345,8 @@ def setup_ui_routes(app: web.Application) -> None:
     )
     # Policies API route (023-policies-list-view)
     app.router.add_get("/api/policies", policies_api_handler)
+    # Create new policy endpoint (036-v9-policy-editor T068)
+    app.router.add_post("/api/policies", api_policy_create_handler)
     # Policy editor routes (024-policy-editor)
     app.router.add_get(
         "/policies/{name}/edit",
