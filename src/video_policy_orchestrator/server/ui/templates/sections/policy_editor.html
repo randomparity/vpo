@@ -380,6 +380,16 @@
 
     </div><!-- End policy-editor-container -->
     {% endif %}
+
+    <!-- Undo toast for destructive actions (H3) -->
+    <div id="undo-toast" class="undo-toast" hidden role="alert" aria-live="assertive">
+        <span class="toast-message"></span>
+        <button type="button" class="toast-undo-btn">Undo</button>
+        <button type="button" class="toast-close-btn" aria-label="Dismiss">&times;</button>
+    </div>
+
+    <!-- Screen reader status region for save announcements (H5) -->
+    <span id="save-status" class="sr-only" aria-live="polite"></span>
 </div>
 
 <!-- Pass policy data and CSRF token to JavaScript -->

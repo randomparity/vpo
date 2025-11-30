@@ -123,8 +123,8 @@ export function initAccordion(container, options = {}) {
 
         if (summary) {
             // Set initial ARIA attributes
+            // Note: role="button" is implicit for <summary> elements, so we don't set it
             summary.setAttribute('aria-expanded', section.open ? 'true' : 'false')
-            summary.setAttribute('role', 'button')
 
             // Add keyboard handler
             summary.addEventListener('keydown', (e) => handleKeyboard(summary, e))

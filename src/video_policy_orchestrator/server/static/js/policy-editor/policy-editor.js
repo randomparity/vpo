@@ -13,6 +13,83 @@ import { initSynthesisSection } from './section-synthesis.js'
 import { initContainerSection } from './section-container.js'
 import { initWorkflowSection } from './section-workflow.js'
 
+// ======================================
+// Toast Module (H3: Undo toast for destructive actions)
+// ======================================
+
+let toastTimeout = null
+let undoCallback = null
+
+/**
+ * Show an undo toast notification
+ * @param {string} message - Message to display
+ * @param {Function} onUndo - Callback when undo is clicked
+ */
+export function showUndoToast(message, onUndo) {
+    const toast = document.getElementById('undo-toast')
+    if (!toast) return
+
+    const msgEl = toast.querySelector('.toast-message')
+    const undoBtn = toast.querySelector('.toast-undo-btn')
+    const closeBtn = toast.querySelector('.toast-close-btn')
+
+    msgEl.textContent = message
+    undoCallback = onUndo
+    toast.hidden = false
+
+    // Trigger reflow to enable CSS transition
+    toast.offsetHeight
+    toast.classList.add('visible')
+
+    // Clear any existing timeout
+    clearTimeout(toastTimeout)
+
+    // Auto-dismiss after 5 seconds
+    toastTimeout = setTimeout(() => {
+        hideToast()
+        undoCallback = null
+    }, 5000)
+
+    // Set up button handlers (use once to avoid duplicate handlers)
+    undoBtn.onclick = () => {
+        if (undoCallback) {
+            undoCallback()
+        }
+        hideToast()
+        undoCallback = null
+    }
+
+    closeBtn.onclick = () => {
+        hideToast()
+        undoCallback = null
+    }
+}
+
+/**
+ * Hide the undo toast
+ */
+export function hideToast() {
+    const toast = document.getElementById('undo-toast')
+    if (!toast) return
+
+    clearTimeout(toastTimeout)
+    toast.classList.remove('visible')
+    setTimeout(() => {
+        toast.hidden = true
+    }, 300) // Wait for CSS transition
+}
+
+/**
+ * Announce a message to screen readers (H5)
+ * @param {string} message - Message to announce
+ */
+function announceToScreenReader(message) {
+    const statusRegion = document.getElementById('save-status')
+    if (statusRegion) {
+        statusRegion.textContent = message
+    }
+}
+
 (function () {
     'use strict'
 
@@ -820,6 +897,7 @@ import { initWorkflowSection } from './section-workflow.js'
         saveBtn.innerHTML = '<span class="spinner"></span> Saving...'
         saveBtn.setAttribute('aria-busy', 'true')
         saveStatus.textContent = ''
+        announceToScreenReader('Saving policy...')
 
         // Get filter configs from controller if available
         const filtersConfig = filtersController ? filtersController.getConfig() : {
@@ -925,6 +1003,7 @@ import { initWorkflowSection } from './section-workflow.js'
                 successMsg = `Saved: ${updatedPolicy.changed_fields_summary}`
             }
             showSaveStatus(successMsg)
+            announceToScreenReader(successMsg)
 
             // Clear any existing error highlighting
             clearFieldHighlighting()
@@ -941,6 +1020,7 @@ import { initWorkflowSection } from './section-workflow.js'
                 errorMsg = `Connection error: ${error.message}`
             }
             showError(errorMsg)
+            announceToScreenReader(`Save failed: ${errorMsg}`)
             formState.isSaving = false
             saveBtn.innerHTML = 'Save Changes'
             saveBtn.setAttribute('aria-busy', 'false')

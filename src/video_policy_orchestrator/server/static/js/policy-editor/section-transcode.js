@@ -717,9 +717,11 @@ export function initTranscodeSection(policyData, onUpdate) {
         })
 
         // Skip codec add
-        document.getElementById('video-skip-codec-add')?.addEventListener('click', () => {
-            const select = document.getElementById('video-skip-codec-select')
-            const codec = select?.value
+        const videoSkipCodecSelect = document.getElementById('video-skip-codec-select')
+        const videoSkipCodecAddBtn = document.getElementById('video-skip-codec-add')
+
+        videoSkipCodecAddBtn?.addEventListener('click', () => {
+            const codec = videoSkipCodecSelect?.value
             if (!codec) return
 
             if (!state.video) state.video = { target_codec: videoCodecSelect?.value || '' }
@@ -738,13 +740,26 @@ export function initTranscodeSection(policyData, onUpdate) {
                 )
                 updateState()
             }
-            select.value = ''
+            videoSkipCodecSelect.value = ''
+            // H2: Update button state after clearing select
+            if (videoSkipCodecAddBtn) videoSkipCodecAddBtn.disabled = true
         })
 
+        // H2: Disable Add button when no codec selected
+        if (videoSkipCodecSelect && videoSkipCodecAddBtn) {
+            const updateVideoSkipAddBtnState = () => {
+                videoSkipCodecAddBtn.disabled = !videoSkipCodecSelect.value
+            }
+            videoSkipCodecSelect.addEventListener('change', updateVideoSkipAddBtnState)
+            updateVideoSkipAddBtnState() // Initial state
+        }
+
         // Audio preserve codec add
-        document.getElementById('audio-preserve-codec-add')?.addEventListener('click', () => {
-            const select = document.getElementById('audio-preserve-codec-select')
-            const codec = select?.value
+        const audioPreserveCodecSelect = document.getElementById('audio-preserve-codec-select')
+        const audioPreserveCodecAddBtn = document.getElementById('audio-preserve-codec-add')
+
+        audioPreserveCodecAddBtn?.addEventListener('click', () => {
+            const codec = audioPreserveCodecSelect?.value
             if (!codec) return
 
             if (!state.audio) state.audio = { transcode_to: audioTranscodeSelect?.value || 'aac' }
@@ -762,8 +777,19 @@ export function initTranscodeSection(policyData, onUpdate) {
                 )
                 updateState()
             }
-            select.value = ''
+            audioPreserveCodecSelect.value = ''
+            // H2: Update button state after clearing select
+            if (audioPreserveCodecAddBtn) audioPreserveCodecAddBtn.disabled = true
         })
+
+        // H2: Disable Add button when no codec selected
+        if (audioPreserveCodecSelect && audioPreserveCodecAddBtn) {
+            const updateAudioPreserveAddBtnState = () => {
+                audioPreserveCodecAddBtn.disabled = !audioPreserveCodecSelect.value
+            }
+            audioPreserveCodecSelect.addEventListener('change', updateAudioPreserveAddBtnState)
+            updateAudioPreserveAddBtnState() // Initial state
+        }
 
         // All input changes trigger update
         const inputs = [

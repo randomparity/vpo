@@ -13,6 +13,8 @@
  * - 2-level nesting enforcement for boolean conditions
  */
 
+import { showUndoToast } from './policy-editor.js'
+
 // Constants for condition building
 const TRACK_TYPES = [
     { value: 'video', label: 'Video' },
@@ -85,71 +87,88 @@ function createTrackFiltersBuilder(filters, onUpdate, trackType) {
             <div class="filter-row">
                 <label class="form-label-inline">Language:</label>
                 <input type="text" class="form-input form-input-small" id="${generateId('lang')}"
-                       placeholder="e.g., eng or eng,jpn" value="${filtersData.language || ''}">
+                       placeholder="e.g., eng or eng,jpn" value="${filtersData.language || ''}"
+                       aria-label="Filter by language code (comma-separated)">
             </div>
             <div class="filter-row">
                 <label class="form-label-inline">Codec:</label>
                 <input type="text" class="form-input form-input-small" id="${generateId('codec')}"
-                       placeholder="e.g., hevc or hevc,h264" value="${filtersData.codec || ''}">
+                       placeholder="e.g., hevc or hevc,h264" value="${filtersData.codec || ''}"
+                       aria-label="Filter by codec (comma-separated)">
             </div>
             <div class="filter-row filter-checkboxes">
                 <label class="checkbox-label">
                     <input type="checkbox" id="${generateId('default')}" ${filtersData.is_default === true ? 'checked' : ''}
-                           ${filtersData.is_default === false ? 'data-unchecked="true"' : ''}>
+                           ${filtersData.is_default === false ? 'data-unchecked="true"' : ''}
+                           aria-label="Filter for default tracks">
                     Is Default
                 </label>
                 <label class="checkbox-label">
                     <input type="checkbox" id="${generateId('forced')}" ${filtersData.is_forced === true ? 'checked' : ''}
-                           ${filtersData.is_forced === false ? 'data-unchecked="true"' : ''}>
+                           ${filtersData.is_forced === false ? 'data-unchecked="true"' : ''}
+                           aria-label="Filter for forced tracks">
                     Is Forced
                 </label>
                 <label class="checkbox-label">
-                    <input type="checkbox" id="${generateId('notcomm')}" ${filtersData.not_commentary === true ? 'checked' : ''}>
+                    <input type="checkbox" id="${generateId('notcomm')}" ${filtersData.not_commentary === true ? 'checked' : ''}
+                           aria-label="Exclude commentary tracks">
                     Not Commentary (V8)
                 </label>
             </div>
             ${trackType === 'audio' ? `
             <div class="filter-row">
                 <label class="form-label-inline">Channels:</label>
-                <select class="form-select form-select-small" id="${generateId('chanop')}">
+                <select class="form-select form-select-small" id="${generateId('chanop')}"
+                        aria-label="Channel count comparison operator">
                     <option value="">Any</option>
                     ${COMPARISON_OPERATORS.map(op => `<option value="${op.value}">${op.label}</option>`).join('')}
                 </select>
                 <input type="number" class="form-input form-input-small" id="${generateId('chanval')}"
-                       placeholder="e.g., 6" min="1" max="32" value="${filtersData.channels?.value || ''}">
+                       placeholder="e.g., 6" min="1" max="32" value="${filtersData.channels?.value || ''}"
+                       aria-label="Channel count value">
             </div>
             ` : ''}
             ${trackType === 'video' ? `
             <div class="filter-row">
                 <label class="form-label-inline">Width:</label>
-                <select class="form-select form-select-small" id="${generateId('widthop')}">
+                <select class="form-select form-select-small" id="${generateId('widthop')}"
+                        aria-label="Width comparison operator">
                     <option value="">Any</option>
                     ${COMPARISON_OPERATORS.map(op => `<option value="${op.value}">${op.label}</option>`).join('')}
                 </select>
                 <input type="number" class="form-input form-input-small" id="${generateId('widthval')}"
-                       placeholder="e.g., 1920" min="1" value="${filtersData.width?.value || ''}">
+                       placeholder="e.g., 1920" min="1" value="${filtersData.width?.value || ''}"
+                       aria-label="Width value in pixels">
             </div>
             <div class="filter-row">
                 <label class="form-label-inline">Height:</label>
-                <select class="form-select form-select-small" id="${generateId('heightop')}">
+                <select class="form-select form-select-small" id="${generateId('heightop')}"
+                        aria-label="Height comparison operator">
                     <option value="">Any</option>
                     ${COMPARISON_OPERATORS.map(op => `<option value="${op.value}">${op.label}</option>`).join('')}
                 </select>
                 <input type="number" class="form-input form-input-small" id="${generateId('heightval')}"
-                       placeholder="e.g., 1080" min="1" value="${filtersData.height?.value || ''}">
+                       placeholder="e.g., 1080" min="1" value="${filtersData.height?.value || ''}"
+                       aria-label="Height value in pixels">
             </div>
             ` : ''}
             <div class="filter-row">
                 <label class="form-label-inline">Title contains:</label>
                 <input type="text" class="form-input form-input-small" id="${generateId('title')}"
-                       placeholder="Substring match" value="${filtersData.title?.contains || filtersData.title || ''}">
+                       placeholder="Substring match" value="${filtersData.title?.contains || filtersData.title || ''}"
+                       aria-label="Filter by title substring">
             </div>
         `
 
-        // Attach event listeners
+        // Attach event listeners with debouncing for inputs (M5)
+        let filterDebounceTimer
+        const debouncedCollect = () => {
+            clearTimeout(filterDebounceTimer)
+            filterDebounceTimer = setTimeout(collectFilters, 150)
+        }
         container.querySelectorAll('input, select').forEach(el => {
-            el.addEventListener('change', collectFilters)
-            el.addEventListener('input', collectFilters)
+            el.addEventListener('change', collectFilters) // Immediate on change
+            el.addEventListener('input', debouncedCollect) // Debounced on input
         })
     }
 
@@ -385,10 +404,19 @@ function createConditionBuilder(condition, onUpdate, nestingLevel = 0) {
                         removeBtn.className = 'btn-icon btn-remove-sub'
                         removeBtn.textContent = '\u00d7'
                         removeBtn.title = 'Remove sub-condition'
+                        removeBtn.setAttribute('aria-label', 'Remove this sub-condition')
                         removeBtn.onclick = () => {
-                            condData.conditions.splice(idx, 1)
+                            // H3: Undo toast for sub-condition removal
+                            const removedCond = condData.conditions.splice(idx, 1)[0]
+                            const removedIdx = idx
                             renderSubConditions()
                             onUpdate(buildCondition())
+
+                            showUndoToast('Sub-condition removed', () => {
+                                condData.conditions.splice(removedIdx, 0, removedCond)
+                                renderSubConditions()
+                                onUpdate(buildCondition())
+                            })
                         }
 
                         const subBuilder = createConditionBuilder(
@@ -412,6 +440,13 @@ function createConditionBuilder(condition, onUpdate, nestingLevel = 0) {
                     condData.conditions.push({ _type: 'exists', track_type: 'audio' })
                     renderSubConditions()
                     onUpdate(buildCondition())
+
+                    // H1: Focus management - focus the new sub-condition's type select
+                    const typeSelects = subCondList.querySelectorAll('.condition-type-select')
+                    const lastSelect = typeSelects[typeSelects.length - 1]
+                    if (lastSelect) {
+                        lastSelect.focus()
+                    }
                 }
             } else if (type === 'not') {
                 detailsDiv.innerHTML = `
@@ -696,10 +731,19 @@ function createActionsList(actions, onUpdate, label) {
             removeBtn.className = 'btn-icon btn-remove-action'
             removeBtn.textContent = '\u00d7'
             removeBtn.title = 'Remove action'
+            removeBtn.setAttribute('aria-label', 'Remove this action')
             removeBtn.onclick = () => {
-                actionsData.splice(idx, 1)
+                // H3: Undo toast for action removal
+                const removedAction = actionsData.splice(idx, 1)[0]
+                const removedIdx = idx
                 render()
                 onUpdate([...actionsData])
+
+                showUndoToast('Action removed', () => {
+                    actionsData.splice(removedIdx, 0, removedAction)
+                    render()
+                    onUpdate([...actionsData])
+                })
             }
 
             const actionBuilder = createActionBuilder(action, (updated) => {
@@ -723,6 +767,13 @@ function createActionsList(actions, onUpdate, label) {
             actionsData.push({ _type: 'skip', skip_type: 'skip_video_transcode' })
             render()
             onUpdate([...actionsData])
+
+            // H1: Focus management - focus the new action's type select
+            const actionSelects = itemsDiv.querySelectorAll('.action-type-select')
+            const lastSelect = actionSelects[actionSelects.length - 1]
+            if (lastSelect) {
+                lastSelect.focus()
+            }
         }
     }
 
@@ -840,7 +891,7 @@ export function initConditionalSection(policyData, onUpdate) {
         if (rules.length === 0) {
             const empty = document.createElement('p')
             empty.className = 'accordion-list-empty'
-            empty.textContent = 'No conditional rules configured. Click "Add Rule" to create one.'
+            empty.textContent = 'No conditional rules configured.'
             rulesListEl.appendChild(empty)
             return
         }
@@ -853,9 +904,17 @@ export function initConditionalSection(policyData, onUpdate) {
                     notifyUpdate()
                 },
                 () => {
-                    rules.splice(idx, 1)
+                    // H3: Undo toast for rule removal
+                    const removedRule = rules.splice(idx, 1)[0]
+                    const removedIdx = idx
                     renderRules()
                     notifyUpdate()
+
+                    showUndoToast('Rule removed', () => {
+                        rules.splice(removedIdx, 0, removedRule)
+                        renderRules()
+                        notifyUpdate()
+                    })
                 }
             )
             rulesListEl.appendChild(ruleBuilder)
@@ -872,6 +931,14 @@ export function initConditionalSection(policyData, onUpdate) {
         })
         renderRules()
         notifyUpdate()
+
+        // H1: Focus management - focus the newly added rule's name input
+        const inputs = rulesListEl.querySelectorAll('.rule-name-input')
+        const lastInput = inputs[inputs.length - 1]
+        if (lastInput) {
+            lastInput.focus()
+            lastInput.select()
+        }
     }
 
     // Initial render

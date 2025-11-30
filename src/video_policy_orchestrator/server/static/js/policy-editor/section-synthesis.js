@@ -10,6 +10,8 @@
  * - Skip if exists criteria (V8: codec, channels, language, not_commentary)
  */
 
+import { showUndoToast } from './policy-editor.js'
+
 // Constants for synthesis options
 const SYNTHESIS_CODECS = [
     { value: 'eac3', label: 'E-AC3 (Dolby Digital Plus)' },
@@ -216,10 +218,19 @@ function createSourcePreferBuilder(sourcePrefer, onUpdate) {
                     onUpdate([...prefsData])
                 })
 
+                removeBtn.setAttribute('aria-label', 'Remove this source preference')
                 removeBtn.addEventListener('click', () => {
-                    prefsData.splice(idx, 1)
+                    // H3: Undo toast for source preference removal
+                    const removedPref = prefsData.splice(idx, 1)[0]
+                    const removedIdx = idx
                     render()
                     onUpdate([...prefsData])
+
+                    showUndoToast('Source preference removed', () => {
+                        prefsData.splice(removedIdx, 0, removedPref)
+                        render()
+                        onUpdate([...prefsData])
+                    })
                 })
 
                 renderValue()
@@ -231,6 +242,13 @@ function createSourcePreferBuilder(sourcePrefer, onUpdate) {
             prefsData.push({ language: '' })
             render()
             onUpdate([...prefsData])
+
+            // H1: Focus management - focus the new preference's type select
+            const typeSelects = listDiv.querySelectorAll('.pref-type-select')
+            const lastSelect = typeSelects[typeSelects.length - 1]
+            if (lastSelect) {
+                lastSelect.focus()
+            }
         })
     }
 
@@ -349,11 +367,15 @@ function createSkipIfExistsBuilder(skipIfExists, onUpdate) {
  * @param {Object} track - Track definition
  * @param {Function} onUpdate - Callback when track changes
  * @param {Function} onRemove - Callback to remove track
+ * @param {number} trackIndex - Index of this track for generating unique IDs (B2)
  * @returns {HTMLElement} Track builder container
  */
-function createSynthesisTrackBuilder(track, onUpdate, onRemove) {
+function createSynthesisTrackBuilder(track, onUpdate, onRemove, trackIndex = 0) {
     const container = document.createElement('div')
     container.className = 'synthesis-track-builder'
+
+    // Generate unique IDs for this track instance (B2: label associations)
+    const idPrefix = `synth-track-${trackIndex}`
 
     const trackData = track ? { ...track } : {
         name: 'New Synthesis Track',
@@ -368,45 +390,47 @@ function createSynthesisTrackBuilder(track, onUpdate, onRemove) {
     function render() {
         container.innerHTML = `
             <div class="track-header">
-                <input type="text" class="form-input track-name-input" placeholder="Track name" value="${trackData.name || ''}">
-                <button type="button" class="btn-icon btn-remove-track" title="Remove track">\u00d7</button>
+                <label for="${idPrefix}-name" class="sr-only">Track name</label>
+                <input type="text" id="${idPrefix}-name" class="form-input track-name-input" placeholder="Track name" value="${trackData.name || ''}"
+                       aria-label="Synthesis track name">
+                <button type="button" class="btn-icon btn-remove-track" title="Remove track" aria-label="Remove this synthesis track">\u00d7</button>
             </div>
             <div class="track-main-fields">
                 <div class="form-row">
                     <div class="form-group">
-                        <label class="form-label">Codec</label>
-                        <select class="form-select track-codec-select">
+                        <label class="form-label" for="${idPrefix}-codec">Codec</label>
+                        <select id="${idPrefix}-codec" class="form-select track-codec-select">
                             ${SYNTHESIS_CODECS.map(c => `<option value="${c.value}" ${trackData.codec === c.value ? 'selected' : ''}>${c.label}</option>`).join('')}
                         </select>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Channels</label>
-                        <select class="form-select track-channels-select">
+                        <label class="form-label" for="${idPrefix}-channels">Channels</label>
+                        <select id="${idPrefix}-channels" class="form-select track-channels-select">
                             ${CHANNEL_CONFIGS.map(c => `<option value="${c.value}" ${String(trackData.channels) === String(c.value) ? 'selected' : ''}>${c.label}</option>`).join('')}
                         </select>
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label class="form-label">Bitrate (optional)</label>
-                        <input type="text" class="form-input track-bitrate" placeholder="e.g., 640k, 192k" value="${trackData.bitrate || ''}">
+                        <label class="form-label" for="${idPrefix}-bitrate">Bitrate (optional)</label>
+                        <input type="text" id="${idPrefix}-bitrate" class="form-input track-bitrate" placeholder="e.g., 640k, 192k" value="${trackData.bitrate || ''}">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Position</label>
-                        <select class="form-select track-position-select">
+                        <label class="form-label" for="${idPrefix}-position">Position</label>
+                        <select id="${idPrefix}-position" class="form-select track-position-select">
                             ${POSITION_OPTIONS.map(p => `<option value="${p.value}" ${String(trackData.position) === String(p.value) ? 'selected' : ''}>${p.label}</option>`).join('')}
                         </select>
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label class="form-label">Title</label>
-                        <input type="text" class="form-input track-title" placeholder="inherit" value="${trackData.title === 'inherit' ? '' : trackData.title || ''}">
+                        <label class="form-label" for="${idPrefix}-title">Title</label>
+                        <input type="text" id="${idPrefix}-title" class="form-input track-title" placeholder="inherit" value="${trackData.title === 'inherit' ? '' : trackData.title || ''}">
                         <span class="form-hint">Leave empty for 'inherit'</span>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Language</label>
-                        <input type="text" class="form-input track-language" placeholder="inherit" value="${trackData.language === 'inherit' ? '' : trackData.language || ''}">
+                        <label class="form-label" for="${idPrefix}-language">Language</label>
+                        <input type="text" id="${idPrefix}-language" class="form-input track-language" placeholder="inherit" value="${trackData.language === 'inherit' ? '' : trackData.language || ''}">
                         <span class="form-hint">Leave empty for 'inherit'</span>
                     </div>
                 </div>
@@ -557,7 +581,7 @@ export function initSynthesisSection(policyData, onUpdate) {
         if (tracks.length === 0) {
             const empty = document.createElement('p')
             empty.className = 'accordion-list-empty'
-            empty.textContent = 'No audio synthesis tracks configured. Click "Add Track" to create one.'
+            empty.textContent = 'No audio synthesis tracks configured.'
             tracksListEl.appendChild(empty)
             return
         }
@@ -570,10 +594,19 @@ export function initSynthesisSection(policyData, onUpdate) {
                     notifyUpdate()
                 },
                 () => {
-                    tracks.splice(idx, 1)
+                    // H3: Undo toast for track removal
+                    const removedTrack = tracks.splice(idx, 1)[0]
+                    const removedIdx = idx
                     renderTracks()
                     notifyUpdate()
-                }
+
+                    showUndoToast('Synthesis track removed', () => {
+                        tracks.splice(removedIdx, 0, removedTrack)
+                        renderTracks()
+                        notifyUpdate()
+                    })
+                },
+                idx // B2: Pass track index for unique IDs
             )
             tracksListEl.appendChild(trackBuilder)
         })
@@ -589,6 +622,14 @@ export function initSynthesisSection(policyData, onUpdate) {
         })
         renderTracks()
         notifyUpdate()
+
+        // H1: Focus management - focus the newly added track's name input
+        const inputs = tracksListEl.querySelectorAll('.track-name-input')
+        const lastInput = inputs[inputs.length - 1]
+        if (lastInput) {
+            lastInput.focus()
+            lastInput.select()
+        }
     })
 
     // Initial render
