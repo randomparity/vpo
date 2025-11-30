@@ -11,11 +11,29 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from video_policy_orchestrator.db.queries import get_job, insert_job
 from video_policy_orchestrator.db.types import Job, JobStatus, JobType
 from video_policy_orchestrator.jobs.worker import (
     JobWorker,
 )
+
+
+@pytest.fixture(autouse=True)
+def mock_transcode_service():
+    """Mock TranscodeJobService to avoid ffprobe dependency in unit tests.
+
+    JobWorker creates a TranscodeJobService in __init__, which in turn
+    creates an FFprobeIntrospector that requires ffprobe to be installed.
+    This fixture mocks the service to avoid that dependency.
+    """
+    with patch(
+        "video_policy_orchestrator.jobs.worker.TranscodeJobService"
+    ) as mock_service:
+        mock_service.return_value = MagicMock()
+        yield mock_service
+
 
 # =============================================================================
 # Fixtures
