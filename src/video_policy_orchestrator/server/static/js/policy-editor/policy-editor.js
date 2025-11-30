@@ -7,6 +7,7 @@
 
 import { initAccordion } from './accordion.js'
 import { initTranscodeSection } from './section-transcode.js'
+import { initFiltersSection } from './section-filters.js'
 
 (function () {
     'use strict'
@@ -65,6 +66,7 @@ import { initTranscodeSection } from './section-transcode.js'
 
     // Section controllers (036-v9-policy-editor)
     let transcodeController = null
+    let filtersController = null
 
     const originalState = JSON.stringify(formState)
 
@@ -811,6 +813,13 @@ import { initTranscodeSection } from './section-transcode.js'
         saveBtn.setAttribute('aria-busy', 'true')
         saveStatus.textContent = ''
 
+        // Get filter configs from controller if available
+        const filtersConfig = filtersController ? filtersController.getConfig() : {
+            audio_filter: formState.audio_filter,
+            subtitle_filter: formState.subtitle_filter,
+            attachment_filter: formState.attachment_filter
+        }
+
         const requestData = {
             track_order: formState.track_order,
             audio_language_preference: formState.audio_language_preference,
@@ -820,9 +829,9 @@ import { initTranscodeSection } from './section-transcode.js'
             transcode: transcodeController ? transcodeController.getConfig() : formState.transcode,
             transcription: formState.transcription,
             // V3-V10 fields (036-v9-policy-editor)
-            audio_filter: formState.audio_filter,
-            subtitle_filter: formState.subtitle_filter,
-            attachment_filter: formState.attachment_filter,
+            audio_filter: filtersConfig.audio_filter,
+            subtitle_filter: filtersConfig.subtitle_filter,
+            attachment_filter: filtersConfig.attachment_filter,
             container: formState.container,
             conditional: formState.conditional,
             audio_synthesis: formState.audio_synthesis,
@@ -949,6 +958,13 @@ import { initTranscodeSection } from './section-transcode.js'
         testBtn.setAttribute('aria-busy', 'true')
         testBtn.disabled = true
 
+        // Get filter configs from controller if available
+        const filtersConfigForTest = filtersController ? filtersController.getConfig() : {
+            audio_filter: formState.audio_filter,
+            subtitle_filter: formState.subtitle_filter,
+            attachment_filter: formState.attachment_filter
+        }
+
         const requestData = {
             track_order: formState.track_order,
             audio_language_preference: formState.audio_language_preference,
@@ -958,9 +974,9 @@ import { initTranscodeSection } from './section-transcode.js'
             transcode: transcodeController ? transcodeController.getConfig() : formState.transcode,
             transcription: formState.transcription,
             // V3-V10 fields (036-v9-policy-editor)
-            audio_filter: formState.audio_filter,
-            subtitle_filter: formState.subtitle_filter,
-            attachment_filter: formState.attachment_filter,
+            audio_filter: filtersConfigForTest.audio_filter,
+            subtitle_filter: filtersConfigForTest.subtitle_filter,
+            attachment_filter: filtersConfigForTest.attachment_filter,
             container: formState.container,
             conditional: formState.conditional,
             audio_synthesis: formState.audio_synthesis,
@@ -1254,6 +1270,14 @@ import { initTranscodeSection } from './section-transcode.js'
         // Initialize transcode section (US1, US2)
         transcodeController = initTranscodeSection(window.POLICY_DATA, (transcodeConfig) => {
             formState.transcode = transcodeConfig
+            markDirty()
+        })
+
+        // Initialize filters section (US5)
+        filtersController = initFiltersSection(window.POLICY_DATA, (filtersConfig) => {
+            formState.audio_filter = filtersConfig.audio_filter
+            formState.subtitle_filter = filtersConfig.subtitle_filter
+            formState.attachment_filter = filtersConfig.attachment_filter
             markDirty()
         })
 

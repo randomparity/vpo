@@ -3613,6 +3613,11 @@ input.valid:focus {
     opacity: 1;
 }
 
+/* Warning text utility class */
+.warning-text {
+    color: var(--color-warning, #f59e0b);
+}
+
 /* Disabled state for accordion sections */
 .accordion-section.disabled {
     opacity: 0.6;
