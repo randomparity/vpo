@@ -1,12 +1,12 @@
 # Policy Editor Usage Guide
 
-**Feature**: Visual Policy Editor (024-policy-editor)
+**Feature**: Visual Policy Editor (024-policy-editor, 036-v9-policy-editor)
 **Status**: Production Ready
-**Version**: 1.0
+**Version**: 2.0 (V3-V10 Schema Support)
 
 ## Overview
 
-The Visual Policy Editor provides a web-based interface for creating and modifying VPO policy files without manually editing YAML. The editor preserves unknown fields and comments during round-trip operations, ensuring safe editing of complex policies.
+The Visual Policy Editor provides a web-based interface for creating and modifying VPO policy files without manually editing YAML. The editor supports policy schema versions V3-V10, including video/audio transcoding, track filtering, conditional rules, audio synthesis, container conversion, and workflow configuration. The editor preserves unknown fields and comments during round-trip operations, ensuring safe editing of complex policies.
 
 ## Accessing the Editor
 
@@ -23,8 +23,16 @@ uv run vpo serve --port 8080
 
 1. Open your browser to `http://localhost:8080`
 2. Navigate to the **Policies** page
-3. Click on any policy name to view details
-4. Click the **Edit** button to open the editor
+3. Click the **Edit** button next to any policy to open the editor
+
+### Creating a New Policy
+
+1. Navigate to the **Policies** page
+2. Click the **+ Create New Policy** button in the header
+3. Enter a policy name (letters, numbers, dashes, underscores only)
+4. Optionally add a description
+5. Click **Create Policy** to create and open the editor
+6. The new policy is created with schema version 10 and sensible defaults
 
 ## Editor Features
 
@@ -115,6 +123,170 @@ Real-time preview of the policy file as YAML.
 - Read-only view of generated YAML
 - Shows exactly what will be saved
 - Useful for verifying changes before saving
+
+## Advanced Settings (V3-V10 Schema Features)
+
+The **Advanced Settings** accordion contains configuration for policy schema versions V3-V10. These settings are organized in collapsible sections.
+
+### 7. Video Transcoding (V6+)
+
+Configure video transcoding settings for converting video tracks.
+
+**Enable Video Transcoding:**
+- Toggle to enable video transcoding
+- Shows/hides all video transcode options
+
+**Target Codec:**
+- Select target codec: `hevc`, `h264`, `av1`, `vp9`
+- Determines the output video codec
+
+**Skip Conditions:**
+Configure conditions to skip transcoding:
+- **Codec matches** - Skip if source matches these codecs (comma-separated)
+- **Resolution within** - Skip if source resolution ≤ selected (1080p, 720p, 480p)
+- **Bitrate under** - Skip if source bitrate under threshold (e.g., `15M`, `8M`)
+
+**Quality Settings:**
+- **Mode** - `crf` (constant rate factor) or `cbr` (constant bitrate)
+- **CRF Value** - Quality level for CRF mode (0-51, lower = better)
+- **Preset** - Encoding speed preset (ultrafast to veryslow)
+- **Target Bitrate** - Bitrate for CBR mode (e.g., `8M`)
+
+**Scaling:**
+- **Max Resolution** - Maximum output resolution (1080p, 720p, 480p, or none)
+- **Algorithm** - Scaling algorithm (lanczos, bilinear, bicubic, spline)
+
+**Hardware Acceleration:**
+- **Enabled** - `auto`, `true`, or `false`
+- **Fallback to CPU** - Fall back to software encoding if HW unavailable
+
+### 8. Audio Transcoding (V6+)
+
+Configure audio transcoding settings.
+
+**Enable Audio Transcoding:**
+- Toggle to enable audio transcode section
+- Shows/hides all audio transcode options
+
+**Preserve Codecs:**
+- List of codecs to never transcode (comma-separated)
+- Example: `truehd, dts-hd, flac`
+- Preserves high-quality lossless audio
+
+**Transcode Target:**
+- **Target Codec** - Codec for transcoded audio (aac, ac3, opus, flac)
+- **Bitrate** - Target bitrate (e.g., `192k`, `256k`)
+
+### 9. Track Filtering (V3+)
+
+Configure which tracks to keep, remove, or filter.
+
+**Audio Filter:**
+- **Languages** - Keep only tracks with these languages (comma-separated ISO codes)
+- **Fallback Mode** - Action when preferred languages not found:
+  - `keep_original` - Keep original audio
+  - `first_available` - Use first available track
+  - `error` - Fail the operation
+- **Minimum Tracks** - Minimum audio tracks to keep (0 = no minimum)
+- **V10 Options:**
+  - **Include Music** - Keep music-only tracks
+  - **Include SFX** - Keep sound effects tracks
+  - **Include Non-Speech** - Keep non-speech tracks
+
+**Subtitle Filter:**
+- **Languages** - Keep only subtitles with these languages
+- **Preserve Forced** - Always keep forced subtitles
+- **Remove All** - Remove all subtitle tracks
+
+**Attachment Filter:**
+- **Remove All** - Remove all attachment tracks (fonts, images, etc.)
+
+### 10. Conditional Rules (V4+)
+
+Define rules that apply different actions based on file conditions.
+
+**Adding Rules:**
+1. Click **+ Add Rule** to create a new conditional rule
+2. Configure the condition (when)
+3. Configure the action (then)
+4. Optionally add an else action
+
+**Condition Types:**
+- **exists** - Check if a track type exists
+- **count** - Check track count with operator (=, <, >, ≤, ≥)
+- **and** - Combine multiple conditions (all must match)
+- **or** - Combine multiple conditions (any must match)
+- **not** - Negate a condition
+- **audio_is_multi_language** - Check if file has audio in multiple languages
+
+**Track Filters in Conditions:**
+- **languages** - Match specific language codes
+- **codecs** - Match specific codecs
+- **is_default** - Match default tracks
+- **is_commentary** - Match commentary tracks
+- **is_hearing_impaired** - Match HI tracks
+
+**Actions:**
+- **skip_video** / **skip_audio** / **skip_subtitle** - Skip processing specific tracks
+- **skip_file** - Skip the entire file
+- **warn** - Log a warning message
+- **fail** - Fail the operation with an error
+- **set_forced** - Set/unset forced flag on matching tracks (V7+)
+- **set_default** - Set/unset default flag on matching tracks (V7+)
+
+### 11. Audio Synthesis (V5+)
+
+Create new audio tracks from existing ones (e.g., stereo downmix from surround).
+
+**Adding Synthesis Tracks:**
+1. Click **+ Add Synthesis Track**
+2. Configure the track settings
+3. Click **× Remove** to delete unwanted tracks
+
+**Track Configuration:**
+- **Track Name** - Name for the synthesized track
+- **Codec** - Output codec (aac, ac3, opus, flac)
+- **Channels** - Channel count (2 = stereo, 6 = 5.1, 8 = 7.1)
+
+**Source Preference:**
+- Priority order for selecting source track:
+  - `original_language` - Prefer original language
+  - `most_channels` - Prefer highest channel count
+  - `first_match` - Use first matching track
+
+**Skip If Exists (V8+):**
+- Skip creating track if similar already exists
+- Match criteria: `channel_count`, `codec`, `language`
+
+### 12. Container Settings (V3+)
+
+Configure container format conversion.
+
+**Target Container:**
+- Select target format: `mkv` or `mp4`
+- Empty = no container conversion
+
+**On Incompatible Codec:**
+- Action when source contains incompatible codecs:
+  - `error` - Fail the operation (default)
+  - `skip` - Skip the file
+  - `transcode` - Transcode incompatible tracks
+
+### 13. Workflow Configuration (V9+)
+
+Configure how VPO processes files.
+
+**Processing Phases:**
+- **Analyze** - Analyze file and generate plan
+- **Apply** - Apply metadata changes
+- **Transcode** - Run video/audio transcoding
+
+**Workflow Options:**
+- **Auto Process** - Automatically process files after scan
+- **On Error** - Error handling behavior:
+  - `continue` - Continue with next file
+  - `skip` - Skip the current file
+  - `fail` - Stop processing
 
 ## Validation Features
 
@@ -216,7 +388,7 @@ The editor preserves elements not exposed in the UI:
 ### Always Preserved
 
 - **Unknown top-level fields** - Custom fields like `x_custom_field`
-- **Transcode section** - Transcoding settings (not editable in UI)
+- **Advanced nested settings** - Subsection options not shown in the UI
 - **YAML formatting** - Indentation, line breaks, key order
 
 ### Best-Effort Preservation
@@ -350,14 +522,15 @@ If your policy has a `transcription` section, you can:
 - Enable/disable automatic reordering
 - Other transcription settings preserved but not editable in UI
 
-### Editing Policies with Transcode
+### Editing Policies with Transcode (V6+)
 
-The `transcode` section is preserved but not editable in the UI.
+The Visual Policy Editor fully supports V6+ transcode configuration:
 
-To edit transcode settings:
-1. Save your UI changes
-2. Edit the YAML file manually for transcode section
-3. Validate with `vpo apply --dry-run`
+1. Enable video/audio transcoding in the **Advanced Settings** accordion
+2. Configure codec, quality, and skip conditions
+3. Preview changes in the YAML panel
+4. Test with **Test Policy** before saving
+5. Validate with `vpo apply --dry-run` after saving
 
 ### Multiple Policies
 
