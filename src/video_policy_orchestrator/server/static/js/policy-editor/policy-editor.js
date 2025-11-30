@@ -9,6 +9,7 @@ import { initAccordion } from './accordion.js'
 import { initTranscodeSection } from './section-transcode.js'
 import { initFiltersSection } from './section-filters.js'
 import { initConditionalSection } from './section-conditional.js'
+import { initSynthesisSection } from './section-synthesis.js'
 
 (function () {
     'use strict'
@@ -69,6 +70,7 @@ import { initConditionalSection } from './section-conditional.js'
     let transcodeController = null
     let filtersController = null
     let conditionalController = null
+    let synthesisController = null
 
     const originalState = JSON.stringify(formState)
 
@@ -836,7 +838,7 @@ import { initConditionalSection } from './section-conditional.js'
             attachment_filter: filtersConfig.attachment_filter,
             container: formState.container,
             conditional: conditionalController ? conditionalController.getConfig() : formState.conditional,
-            audio_synthesis: formState.audio_synthesis,
+            audio_synthesis: synthesisController ? synthesisController.getConfig() : formState.audio_synthesis,
             workflow: formState.workflow,
             last_modified_timestamp: formState.last_modified
         }
@@ -981,7 +983,7 @@ import { initConditionalSection } from './section-conditional.js'
             attachment_filter: filtersConfigForTest.attachment_filter,
             container: formState.container,
             conditional: conditionalController ? conditionalController.getConfig() : formState.conditional,
-            audio_synthesis: formState.audio_synthesis,
+            audio_synthesis: synthesisController ? synthesisController.getConfig() : formState.audio_synthesis,
             workflow: formState.workflow,
             last_modified_timestamp: formState.last_modified
         }
@@ -1286,6 +1288,12 @@ import { initConditionalSection } from './section-conditional.js'
         // Initialize conditional section (US4)
         conditionalController = initConditionalSection(window.POLICY_DATA, (conditionalConfig) => {
             formState.conditional = conditionalConfig
+            markDirty()
+        })
+
+        // Initialize synthesis section (US3)
+        synthesisController = initSynthesisSection(window.POLICY_DATA, (synthesisConfig) => {
+            formState.audio_synthesis = synthesisConfig
             markDirty()
         })
 

@@ -3832,6 +3832,123 @@ input.valid:focus {
     min-width: 200px;
 }
 
+/* ==========================================================================
+   Audio Synthesis Styles (036-v9-policy-editor Phase 7)
+   ========================================================================== */
+
+/* Synthesis track builder */
+.synthesis-track-builder {
+    background: var(--bg-subtle, #f8f9fa);
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: var(--radius-md, 8px);
+    padding: var(--spacing-md, 16px);
+    margin-bottom: var(--spacing-md, 16px);
+}
+
+.synthesis-track-builder .track-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+    margin-bottom: var(--spacing-md, 16px);
+}
+
+.synthesis-track-builder .track-name-input {
+    flex: 1;
+    font-weight: 600;
+}
+
+.btn-remove-track {
+    background: var(--color-error-bg, #fef2f2);
+    color: var(--color-error, #dc2626);
+    border: 1px solid var(--color-error, #dc2626);
+}
+
+.btn-remove-track:hover {
+    background: var(--color-error, #dc2626);
+    color: white;
+}
+
+.track-main-fields {
+    margin-bottom: var(--spacing-md, 16px);
+}
+
+/* Source prefer builder */
+.source-prefer-builder {
+    background: white;
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: var(--radius-sm, 4px);
+    padding: var(--spacing-sm, 8px);
+    margin-bottom: var(--spacing-sm, 8px);
+}
+
+.source-prefer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-sm, 8px);
+}
+
+.source-prefer-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.source-prefer-list {
+    min-height: 30px;
+}
+
+.source-prefer-empty {
+    color: var(--text-muted, #9ca3af);
+    font-style: italic;
+    font-size: 0.85rem;
+    margin: 0;
+}
+
+.source-prefer-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+    padding: var(--spacing-xs, 4px);
+    background: var(--bg-subtle, #f8f9fa);
+    border-radius: var(--radius-sm, 4px);
+    margin-bottom: var(--spacing-xs, 4px);
+}
+
+.source-prefer-item .pref-type-select {
+    width: 140px;
+}
+
+.source-prefer-item .pref-value-container {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs, 4px);
+    flex: 1;
+}
+
+.btn-remove-pref {
+    background: var(--color-error-bg, #fef2f2);
+    color: var(--color-error, #dc2626);
+    border: 1px solid var(--color-error, #dc2626);
+    flex-shrink: 0;
+}
+
+/* Skip if exists builder */
+.skip-if-exists-builder {
+    background: white;
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: var(--radius-sm, 4px);
+    padding: var(--spacing-sm, 8px);
+}
+
+.skip-if-exists-header {
+    margin-bottom: var(--spacing-sm, 8px);
+}
+
+.skip-if-exists-fields {
+    padding-left: var(--spacing-md, 16px);
+    border-left: 3px solid var(--color-primary, #3b82f6);
+}
+
 /* Disabled state for accordion sections */
 .accordion-section.disabled {
     opacity: 0.6;
