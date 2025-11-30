@@ -3,11 +3,14 @@
 import json
 import os
 import shutil
+import sqlite3
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+
+from video_policy_orchestrator.db.schema import create_schema
 
 
 @pytest.fixture
@@ -128,3 +131,98 @@ level = "info"
     # Set the environment variable for this test
     with patch.dict(os.environ, {"VPO_DATA_DIR": str(vpo_data_dir)}):
         yield vpo_data_dir
+
+
+# =============================================================================
+# Database Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def db_conn() -> sqlite3.Connection:
+    """Create an in-memory database with schema for testing.
+
+    This is a shared fixture for any tests that need a database connection.
+    The database is created fresh for each test and uses the full schema.
+
+    Yields:
+        sqlite3.Connection: An in-memory database connection with schema.
+    """
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    create_schema(conn)
+    yield conn
+    conn.close()
+
+
+# =============================================================================
+# Transcode Testing Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def mock_ffmpeg():
+    """Mock require_tool to return a fake ffmpeg path.
+
+    Use this fixture when testing FFmpeg command building functions
+    without actually requiring FFmpeg to be installed.
+
+    Yields:
+        MagicMock: The patched require_tool function.
+    """
+    with patch(
+        "video_policy_orchestrator.executor.transcode.require_tool"
+    ) as mock_require:
+        mock_require.return_value = Path("/usr/bin/ffmpeg")
+        yield mock_require
+
+
+@pytest.fixture
+def make_transcode_plan():
+    """Factory for creating TranscodePlan objects with sensible defaults.
+
+    Returns a callable that creates TranscodePlan instances. All parameters
+    have defaults, so you can create minimal plans for simple tests or
+    override specific fields for edge cases.
+
+    Returns:
+        Callable: Factory function that creates TranscodePlan instances.
+
+    Example:
+        def test_something(make_transcode_plan):
+            plan = make_transcode_plan(needs_video_transcode=True)
+            assert plan.needs_any_transcode is True
+    """
+    from video_policy_orchestrator.executor.transcode import TranscodePlan
+    from video_policy_orchestrator.policy.models import TranscodePolicyConfig
+
+    def _make_plan(
+        input_path: Path | str = Path("/input.mkv"),
+        output_path: Path | str = Path("/output.mkv"),
+        policy: TranscodePolicyConfig | None = None,
+        needs_video_transcode: bool = False,
+        needs_video_scale: bool = False,
+        target_width: int | None = None,
+        target_height: int | None = None,
+        video_codec: str | None = None,
+        video_width: int | None = None,
+        video_height: int | None = None,
+        **kwargs,
+    ) -> TranscodePlan:
+        return TranscodePlan(
+            input_path=Path(input_path) if isinstance(input_path, str) else input_path,
+            output_path=(
+                Path(output_path) if isinstance(output_path, str) else output_path
+            ),
+            policy=policy or TranscodePolicyConfig(),
+            needs_video_transcode=needs_video_transcode,
+            needs_video_scale=needs_video_scale,
+            target_width=target_width,
+            target_height=target_height,
+            video_codec=video_codec,
+            video_width=video_width,
+            video_height=video_height,
+            **kwargs,
+        )
+
+    return _make_plan
