@@ -6,6 +6,7 @@
  */
 
 import { initAccordion } from './accordion.js'
+import { initTranscodeSection } from './section-transcode.js'
 
 (function () {
     'use strict'
@@ -49,9 +50,21 @@ import { initAccordion } from './accordion.js'
         commentary_patterns: [...window.POLICY_DATA.commentary_patterns],
         default_flags: {...window.POLICY_DATA.default_flags},
         transcription: window.POLICY_DATA.transcription ? {...window.POLICY_DATA.transcription} : null,
+        // V3-V10 fields (036-v9-policy-editor)
+        transcode: window.POLICY_DATA.transcode ? JSON.parse(JSON.stringify(window.POLICY_DATA.transcode)) : null,
+        audio_filter: window.POLICY_DATA.audio_filter ? JSON.parse(JSON.stringify(window.POLICY_DATA.audio_filter)) : null,
+        subtitle_filter: window.POLICY_DATA.subtitle_filter ? JSON.parse(JSON.stringify(window.POLICY_DATA.subtitle_filter)) : null,
+        attachment_filter: window.POLICY_DATA.attachment_filter ? JSON.parse(JSON.stringify(window.POLICY_DATA.attachment_filter)) : null,
+        container: window.POLICY_DATA.container ? JSON.parse(JSON.stringify(window.POLICY_DATA.container)) : null,
+        conditional: window.POLICY_DATA.conditional ? JSON.parse(JSON.stringify(window.POLICY_DATA.conditional)) : null,
+        audio_synthesis: window.POLICY_DATA.audio_synthesis ? JSON.parse(JSON.stringify(window.POLICY_DATA.audio_synthesis)) : null,
+        workflow: window.POLICY_DATA.workflow ? JSON.parse(JSON.stringify(window.POLICY_DATA.workflow)) : null,
         isDirty: false,
         isSaving: false
     }
+
+    // Section controllers (036-v9-policy-editor)
+    let transcodeController = null
 
     const originalState = JSON.stringify(formState)
 
@@ -804,8 +817,16 @@ import { initAccordion } from './accordion.js'
             subtitle_language_preference: formState.subtitle_language_preference,
             commentary_patterns: formState.commentary_patterns,
             default_flags: formState.default_flags,
-            transcode: window.POLICY_DATA.transcode,
+            transcode: transcodeController ? transcodeController.getConfig() : formState.transcode,
             transcription: formState.transcription,
+            // V3-V10 fields (036-v9-policy-editor)
+            audio_filter: formState.audio_filter,
+            subtitle_filter: formState.subtitle_filter,
+            attachment_filter: formState.attachment_filter,
+            container: formState.container,
+            conditional: formState.conditional,
+            audio_synthesis: formState.audio_synthesis,
+            workflow: formState.workflow,
             last_modified_timestamp: formState.last_modified
         }
 
@@ -934,8 +955,16 @@ import { initAccordion } from './accordion.js'
             subtitle_language_preference: formState.subtitle_language_preference,
             commentary_patterns: formState.commentary_patterns,
             default_flags: formState.default_flags,
-            transcode: window.POLICY_DATA.transcode,
+            transcode: transcodeController ? transcodeController.getConfig() : formState.transcode,
             transcription: formState.transcription,
+            // V3-V10 fields (036-v9-policy-editor)
+            audio_filter: formState.audio_filter,
+            subtitle_filter: formState.subtitle_filter,
+            attachment_filter: formState.attachment_filter,
+            container: formState.container,
+            conditional: formState.conditional,
+            audio_synthesis: formState.audio_synthesis,
+            workflow: formState.workflow,
             last_modified_timestamp: formState.last_modified
         }
 
@@ -1219,6 +1248,25 @@ import { initAccordion } from './accordion.js'
     }
 
     /**
+     * Initialize V3-V10 section controllers (036-v9-policy-editor)
+     */
+    function initSectionControllers() {
+        // Initialize transcode section (US1, US2)
+        transcodeController = initTranscodeSection(window.POLICY_DATA, (transcodeConfig) => {
+            formState.transcode = transcodeConfig
+            markDirty()
+        })
+
+        // Show unknown fields warning if present
+        if (window.POLICY_DATA.unknown_fields && window.POLICY_DATA.unknown_fields.length > 0) {
+            const warningEl = document.getElementById('unknown-fields-warning')
+            if (warningEl) {
+                warningEl.style.display = 'block'
+            }
+        }
+    }
+
+    /**
      * Initialize editor
      */
     function init() {
@@ -1229,6 +1277,9 @@ import { initAccordion } from './accordion.js'
         updateYAMLPreview()
         initEventListeners()
         updateSaveButtonState()
+
+        // Initialize V3-V10 section controllers
+        initSectionControllers()
     }
 
     // Start the editor

@@ -63,15 +63,15 @@ Based on plan.md structure:
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] Create section-transcode.js module skeleton in src/video_policy_orchestrator/server/static/js/policy-editor/section-transcode.js
-- [ ] T014 [US1] Add video transcode HTML section to policy_editor.html template in src/video_policy_orchestrator/server/ui/templates/sections/policy_editor.html
-- [ ] T015 [US1] Implement target_codec dropdown with validation in section-transcode.js
-- [ ] T016 [US1] Implement skip_if subsection (codec_matches list, resolution_within dropdown, bitrate_under input) in section-transcode.js
-- [ ] T017 [US1] Implement quality subsection (mode dropdown, crf input, bitrate input, preset dropdown, tune dropdown, two_pass checkbox) in section-transcode.js
-- [ ] T018 [US1] Implement scaling subsection (max_resolution dropdown, max_width/max_height inputs, algorithm dropdown, upscale checkbox) in section-transcode.js
-- [ ] T019 [US1] Implement hardware_acceleration subsection (enabled dropdown, fallback_to_cpu checkbox) in section-transcode.js
-- [ ] T020 [US1] Add quality mode cross-field validation (bitrate required when mode=bitrate, crf+bitrate conflict detection) in section-transcode.js
-- [ ] T021 [US1] Wire section-transcode.js to main policy-editor.js for state management and YAML preview updates
+- [X] T013 [US1] Create section-transcode.js module skeleton in src/video_policy_orchestrator/server/static/js/policy-editor/section-transcode.js
+- [X] T014 [US1] Add video transcode HTML section to policy_editor.html template in src/video_policy_orchestrator/server/ui/templates/sections/policy_editor.html
+- [X] T015 [US1] Implement target_codec dropdown with validation in section-transcode.js
+- [X] T016 [US1] Implement skip_if subsection (codec_matches list, resolution_within dropdown, bitrate_under input) in section-transcode.js
+- [X] T017 [US1] Implement quality subsection (mode dropdown, crf input, bitrate input, preset dropdown, tune dropdown, two_pass checkbox) in section-transcode.js
+- [X] T018 [US1] Implement scaling subsection (max_resolution dropdown, max_width/max_height inputs, algorithm dropdown, upscale checkbox) in section-transcode.js
+- [X] T019 [US1] Implement hardware_acceleration subsection (enabled dropdown, fallback_to_cpu checkbox) in section-transcode.js
+- [X] T020 [US1] Add quality mode cross-field validation (bitrate required when mode=bitrate, crf+bitrate conflict detection) in section-transcode.js
+- [X] T021 [US1] Wire section-transcode.js to main policy-editor.js for state management and YAML preview updates
 
 **Checkpoint**: Video transcode settings can be configured through GUI - MVP complete
 
@@ -85,10 +85,10 @@ Based on plan.md structure:
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Add audio transcode HTML section (within transcode accordion) to policy_editor.html template
-- [ ] T023 [US2] Implement preserve_codecs list with add/remove controls in section-transcode.js
-- [ ] T024 [US2] Implement transcode_to dropdown and transcode_bitrate input with validation in section-transcode.js
-- [ ] T025 [US2] Add bitrate format validation (pattern: \d+(\.\d+)?[kKmM]) in section-transcode.js
+- [X] T022 [US2] Add audio transcode HTML section (within transcode accordion) to policy_editor.html template
+- [X] T023 [US2] Implement preserve_codecs list with add/remove controls in section-transcode.js
+- [X] T024 [US2] Implement transcode_to dropdown and transcode_bitrate input with validation in section-transcode.js
+- [X] T025 [US2] Add bitrate format validation (pattern: \d+(\.\d+)?[kKmM]) in section-transcode.js
 
 **Checkpoint**: Audio transcode settings can be configured through GUI
 

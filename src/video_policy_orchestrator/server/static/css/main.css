@@ -3571,6 +3571,48 @@ input.valid:focus {
     flex: 1;
 }
 
+.accordion-list-add select {
+    min-width: 150px;
+}
+
+/* Codec tags for transcode settings (036-v9-policy-editor) */
+.codec-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    min-height: 32px;
+    padding: var(--spacing-xs);
+    margin-bottom: var(--spacing-xs);
+}
+
+.codec-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--color-primary);
+    color: white;
+    border-radius: 4px;
+    font-size: var(--font-size-sm);
+    font-family: 'Courier New', monospace;
+}
+
+.codec-tag-remove {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    margin-left: var(--spacing-xs);
+    opacity: 0.8;
+}
+
+.codec-tag-remove:hover {
+    opacity: 1;
+}
+
 /* Disabled state for accordion sections */
 .accordion-section.disabled {
     opacity: 0.6;
