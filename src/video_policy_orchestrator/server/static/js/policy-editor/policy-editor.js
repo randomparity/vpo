@@ -8,6 +8,7 @@
 import { initAccordion } from './accordion.js'
 import { initTranscodeSection } from './section-transcode.js'
 import { initFiltersSection } from './section-filters.js'
+import { initConditionalSection } from './section-conditional.js'
 
 (function () {
     'use strict'
@@ -67,6 +68,7 @@ import { initFiltersSection } from './section-filters.js'
     // Section controllers (036-v9-policy-editor)
     let transcodeController = null
     let filtersController = null
+    let conditionalController = null
 
     const originalState = JSON.stringify(formState)
 
@@ -833,7 +835,7 @@ import { initFiltersSection } from './section-filters.js'
             subtitle_filter: filtersConfig.subtitle_filter,
             attachment_filter: filtersConfig.attachment_filter,
             container: formState.container,
-            conditional: formState.conditional,
+            conditional: conditionalController ? conditionalController.getConfig() : formState.conditional,
             audio_synthesis: formState.audio_synthesis,
             workflow: formState.workflow,
             last_modified_timestamp: formState.last_modified
@@ -978,7 +980,7 @@ import { initFiltersSection } from './section-filters.js'
             subtitle_filter: filtersConfigForTest.subtitle_filter,
             attachment_filter: filtersConfigForTest.attachment_filter,
             container: formState.container,
-            conditional: formState.conditional,
+            conditional: conditionalController ? conditionalController.getConfig() : formState.conditional,
             audio_synthesis: formState.audio_synthesis,
             workflow: formState.workflow,
             last_modified_timestamp: formState.last_modified
@@ -1278,6 +1280,12 @@ import { initFiltersSection } from './section-filters.js'
             formState.audio_filter = filtersConfig.audio_filter
             formState.subtitle_filter = filtersConfig.subtitle_filter
             formState.attachment_filter = filtersConfig.attachment_filter
+            markDirty()
+        })
+
+        // Initialize conditional section (US4)
+        conditionalController = initConditionalSection(window.POLICY_DATA, (conditionalConfig) => {
+            formState.conditional = conditionalConfig
             markDirty()
         })
 

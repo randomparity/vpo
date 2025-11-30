@@ -3618,6 +3618,220 @@ input.valid:focus {
     color: var(--color-warning, #f59e0b);
 }
 
+/* ==========================================================================
+   Conditional Rules Styles (036-v9-policy-editor Phase 6)
+   ========================================================================== */
+
+/* Rule builder container */
+.conditional-rule-builder {
+    background: var(--bg-subtle, #f8f9fa);
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: var(--radius-md, 8px);
+    padding: var(--spacing-md, 16px);
+    margin-bottom: var(--spacing-md, 16px);
+}
+
+.rule-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+    margin-bottom: var(--spacing-md, 16px);
+}
+
+.rule-name-input {
+    flex: 1;
+    font-weight: 600;
+}
+
+.btn-remove-rule {
+    background: var(--color-error-bg, #fef2f2);
+    color: var(--color-error, #dc2626);
+    border: 1px solid var(--color-error, #dc2626);
+}
+
+.btn-remove-rule:hover {
+    background: var(--color-error, #dc2626);
+    color: white;
+}
+
+.rule-section-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary, #6b7280);
+    margin: var(--spacing-sm, 8px) 0;
+}
+
+/* Condition builder */
+.condition-builder {
+    background: white;
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: var(--radius-sm, 4px);
+    padding: var(--spacing-sm, 8px);
+    margin: var(--spacing-xs, 4px) 0;
+}
+
+.condition-builder[data-level="1"],
+.condition-builder[data-level="2"] {
+    margin-left: var(--spacing-md, 16px);
+    border-left: 3px solid var(--color-primary, #3b82f6);
+}
+
+.condition-type-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+    margin-bottom: var(--spacing-sm, 8px);
+}
+
+.condition-field-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+    margin-bottom: var(--spacing-xs, 4px);
+    flex-wrap: wrap;
+}
+
+/* Track filters builder */
+.track-filters-builder {
+    background: var(--bg-subtle, #f8f9fa);
+    padding: var(--spacing-sm, 8px);
+    border-radius: var(--radius-sm, 4px);
+    margin-top: var(--spacing-xs, 4px);
+}
+
+.filter-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+    margin-bottom: var(--spacing-xs, 4px);
+    flex-wrap: wrap;
+}
+
+.filter-checkboxes {
+    gap: var(--spacing-md, 16px);
+}
+
+.form-label-inline {
+    font-size: 0.85rem;
+    color: var(--text-secondary, #6b7280);
+    min-width: 100px;
+}
+
+.form-input-small {
+    width: 120px;
+}
+
+.form-select-small {
+    width: 120px;
+}
+
+/* Sub-conditions */
+.sub-conditions-list {
+    margin: var(--spacing-sm, 8px) 0;
+}
+
+.sub-condition-wrapper {
+    position: relative;
+    margin-bottom: var(--spacing-sm, 8px);
+}
+
+.btn-remove-sub {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: var(--color-error-bg, #fef2f2);
+    color: var(--color-error, #dc2626);
+    border: 1px solid var(--color-error, #dc2626);
+    width: 20px;
+    height: 20px;
+    font-size: 14px;
+    padding: 0;
+    line-height: 1;
+}
+
+.not-label {
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-bottom: var(--spacing-xs, 4px);
+    display: block;
+}
+
+/* Actions list */
+.actions-list {
+    margin-top: var(--spacing-md, 16px);
+}
+
+.actions-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-sm, 8px);
+}
+
+.actions-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.actions-items {
+    border: 1px dashed var(--border-color, #e5e7eb);
+    border-radius: var(--radius-sm, 4px);
+    padding: var(--spacing-sm, 8px);
+    min-height: 40px;
+}
+
+.actions-empty {
+    color: var(--text-muted, #9ca3af);
+    font-style: italic;
+    font-size: 0.85rem;
+    margin: 0;
+}
+
+.action-item-wrapper {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm, 8px);
+    margin-bottom: var(--spacing-sm, 8px);
+    padding: var(--spacing-xs, 4px);
+    background: var(--bg-subtle, #f8f9fa);
+    border-radius: var(--radius-sm, 4px);
+}
+
+.btn-remove-action {
+    background: var(--color-error-bg, #fef2f2);
+    color: var(--color-error, #dc2626);
+    border: 1px solid var(--color-error, #dc2626);
+    flex-shrink: 0;
+}
+
+.action-builder {
+    flex: 1;
+}
+
+.action-type-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+    flex-wrap: wrap;
+}
+
+.action-type-select {
+    width: 180px;
+}
+
+.action-details {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+    flex-wrap: wrap;
+    flex: 1;
+}
+
+.message-input {
+    flex: 1;
+    min-width: 200px;
+}
+
 /* Disabled state for accordion sections */
 .accordion-section.disabled {
     opacity: 0.6;
