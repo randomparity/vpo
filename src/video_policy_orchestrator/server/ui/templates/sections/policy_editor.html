@@ -11,6 +11,7 @@
         {% if policy.parse_error %}
         <span class="status-badge status-badge--failed">parse error</span>
         {% endif %}
+        <span class="policy-version-badge">Schema v{{ policy.schema_version }}</span>
     </header>
 
     {% if policy.parse_error %}
@@ -21,6 +22,12 @@
         <p>Please fix the YAML syntax errors before editing.</p>
     </section>
     {% else %}
+    <!-- Unknown fields warning banner (T076) -->
+    <div id="unknown-fields-warning" class="unknown-fields-warning" style="display: none;">
+        <strong>Note:</strong> This policy contains fields not shown in the editor.
+        These fields will be preserved when saving.
+    </div>
+
     <!-- Editor container with form and preview -->
     <div class="policy-editor-container">
 
@@ -152,6 +159,201 @@
                 </div>
             </div>
         </section>
+
+        <!-- V3-V10 Advanced Settings (Accordion Sections) -->
+        <div id="advanced-settings" class="advanced-settings-container">
+
+            <!-- V6 Video Transcode Section (US1 - MVP) -->
+            <details id="section-transcode" class="accordion-section" open>
+                <summary class="accordion-header">
+                    <h3 class="accordion-title">Video & Audio Transcoding</h3>
+                    <span class="accordion-icon">▼</span>
+                </summary>
+                <div class="accordion-content">
+                    <p class="accordion-description">Configure video and audio transcoding settings (V6+ features).</p>
+
+                    <!-- Video Transcode Subsection -->
+                    <div id="video-transcode-section">
+                        <h4 class="accordion-subsection-title">Video Transcode</h4>
+                        <!-- Populated by section-transcode.js -->
+                        <div class="form-group">
+                            <label for="video-target-codec">Target Codec</label>
+                            <select id="video-target-codec">
+                                <option value="">-- Not configured --</option>
+                                <option value="hevc">HEVC (H.265)</option>
+                                <option value="h264">H.264 (AVC)</option>
+                                <option value="vp9">VP9</option>
+                                <option value="av1">AV1</option>
+                            </select>
+                        </div>
+                        <div id="video-transcode-options" style="display: none;">
+                            <!-- Dynamic options populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Audio Transcode Subsection -->
+                    <div id="audio-transcode-section" class="accordion-subsection">
+                        <h4 class="accordion-subsection-title">Audio Transcode</h4>
+                        <!-- Populated by section-transcode.js -->
+                        <div class="form-group">
+                            <label for="audio-transcode-to">Transcode Non-Preserved Audio To</label>
+                            <select id="audio-transcode-to">
+                                <option value="">-- Not configured --</option>
+                                <option value="aac">AAC</option>
+                                <option value="ac3">AC3 (Dolby Digital)</option>
+                                <option value="eac3">E-AC3 (Dolby Digital Plus)</option>
+                                <option value="opus">Opus</option>
+                                <option value="flac">FLAC</option>
+                            </select>
+                        </div>
+                        <div id="audio-transcode-options" style="display: none;">
+                            <!-- Dynamic options populated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <!-- V3 Track Filters Section (US5) -->
+            <details id="section-filters" class="accordion-section">
+                <summary class="accordion-header">
+                    <h3 class="accordion-title">Track Filtering</h3>
+                    <span class="accordion-icon">▼</span>
+                </summary>
+                <div class="accordion-content">
+                    <p class="accordion-description">Configure audio, subtitle, and attachment filtering (V3+ features).</p>
+                    <!-- Populated by section-filters.js -->
+                    <div id="audio-filter-section">
+                        <h4 class="accordion-subsection-title">Audio Filter</h4>
+                        <p class="form-hint">Filter audio tracks by language.</p>
+                    </div>
+                    <div id="subtitle-filter-section" class="accordion-subsection">
+                        <h4 class="accordion-subsection-title">Subtitle Filter</h4>
+                        <p class="form-hint">Filter subtitle tracks by language.</p>
+                    </div>
+                    <div id="attachment-filter-section" class="accordion-subsection">
+                        <h4 class="accordion-subsection-title">Attachment Filter</h4>
+                        <p class="form-hint">Configure attachment handling.</p>
+                    </div>
+                </div>
+            </details>
+
+            <!-- V4 Conditional Rules Section (US4) -->
+            <details id="section-conditional" class="accordion-section">
+                <summary class="accordion-header">
+                    <h3 class="accordion-title">Conditional Rules</h3>
+                    <span class="accordion-icon">▼</span>
+                </summary>
+                <div class="accordion-content">
+                    <p class="accordion-description">Define conditional rules with when/then/else logic (V4+ features).</p>
+                    <!-- Populated by section-conditional.js -->
+                    <div id="conditional-rules-list">
+                        <p class="accordion-list-empty">No conditional rules configured. Click "Add Rule" to create one.</p>
+                    </div>
+                    <button type="button" id="add-conditional-rule-btn" class="btn-secondary" style="margin-top: var(--spacing-md);">
+                        Add Rule
+                    </button>
+                </div>
+            </details>
+
+            <!-- V5 Audio Synthesis Section (US3) -->
+            <details id="section-synthesis" class="accordion-section">
+                <summary class="accordion-header">
+                    <h3 class="accordion-title">Audio Synthesis</h3>
+                    <span class="accordion-icon">▼</span>
+                </summary>
+                <div class="accordion-content">
+                    <p class="accordion-description">Create synthesized audio tracks from existing sources (V5+ features).</p>
+                    <!-- Populated by section-synthesis.js -->
+                    <div id="synthesis-tracks-list">
+                        <p class="accordion-list-empty">No synthesis tracks configured. Click "Add Track" to create one.</p>
+                    </div>
+                    <button type="button" id="add-synthesis-track-btn" class="btn-secondary" style="margin-top: var(--spacing-md);">
+                        Add Track
+                    </button>
+                </div>
+            </details>
+
+            <!-- V3 Container Section (US6) -->
+            <details id="section-container" class="accordion-section">
+                <summary class="accordion-header">
+                    <h3 class="accordion-title">Container Format</h3>
+                    <span class="accordion-icon">▼</span>
+                </summary>
+                <div class="accordion-content">
+                    <p class="accordion-description">Configure container format conversion (V3+ features).</p>
+                    <!-- Populated by section-container.js -->
+                    <div class="form-group">
+                        <label for="container-target">Target Container</label>
+                        <select id="container-target">
+                            <option value="">-- No conversion --</option>
+                            <option value="mkv">MKV (Matroska)</option>
+                            <option value="mp4">MP4</option>
+                        </select>
+                    </div>
+                    <div id="container-options" style="display: none;">
+                        <div class="form-group">
+                            <label for="container-on-incompatible">On Incompatible Codec</label>
+                            <select id="container-on-incompatible">
+                                <option value="error">Error (stop processing)</option>
+                                <option value="skip">Skip (keep original)</option>
+                                <option value="transcode">Transcode (convert codec)</option>
+                            </select>
+                            <p class="form-hint">Action when a track's codec isn't compatible with the target container.</p>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <!-- V9 Workflow Section (US7) -->
+            <details id="section-workflow" class="accordion-section">
+                <summary class="accordion-header">
+                    <h3 class="accordion-title">Workflow Configuration</h3>
+                    <span class="accordion-icon">▼</span>
+                </summary>
+                <div class="accordion-content">
+                    <p class="accordion-description">Configure workflow phases and error handling (V9+ features).</p>
+                    <!-- Populated by section-workflow.js -->
+                    <div class="form-group">
+                        <label>Processing Phases</label>
+                        <div class="checkbox-group" id="workflow-phases">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="phase-analyze" name="phases" value="analyze" checked>
+                                <span>Analyze</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="phase-apply" name="phases" value="apply" checked>
+                                <span>Apply</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="phase-transcode" name="phases" value="transcode">
+                                <span>Transcode</span>
+                            </label>
+                        </div>
+                        <p class="form-hint">Select which phases to include in the workflow.</p>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="workflow-auto-process">Auto Process</label>
+                            <select id="workflow-auto-process">
+                                <option value="false">Disabled</option>
+                                <option value="true">Enabled</option>
+                            </select>
+                            <p class="form-hint">Automatically process files when scanned.</p>
+                        </div>
+                        <div class="form-group">
+                            <label for="workflow-on-error">On Error</label>
+                            <select id="workflow-on-error">
+                                <option value="continue">Continue</option>
+                                <option value="skip">Skip File</option>
+                                <option value="fail">Fail Job</option>
+                            </select>
+                            <p class="form-hint">Action when an error occurs during processing.</p>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+        </div><!-- End advanced-settings -->
 
         <!-- Form actions -->
         <div class="editor-actions">

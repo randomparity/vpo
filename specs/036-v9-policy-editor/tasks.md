@@ -27,10 +27,10 @@ Based on plan.md structure:
 
 **Purpose**: Foundation components required by all user stories
 
-- [ ] T001 Create accordion.js component in src/video_policy_orchestrator/server/static/js/policy-editor/accordion.js
-- [ ] T002 [P] Add accordion CSS styles in src/video_policy_orchestrator/server/static/css/policy-editor.css
-- [ ] T003 Update policy_editor.html template structure with accordion sections in src/video_policy_orchestrator/server/ui/templates/sections/policy_editor.html
-- [ ] T004 Update policy-editor.js main module to import and initialize accordion in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
+- [X] T001 Create accordion.js component in src/video_policy_orchestrator/server/static/js/policy-editor/accordion.js
+- [X] T002 [P] Add accordion CSS styles in src/video_policy_orchestrator/server/static/css/main.css
+- [X] T003 Update policy_editor.html template structure with accordion sections in src/video_policy_orchestrator/server/ui/templates/sections/policy_editor.html
+- [X] T004 Update policy-editor.js main module to import and initialize accordion in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
 
 ---
 

@@ -1,9 +1,11 @@
 /**
- * Policy Editor Main Module (024-policy-editor)
+ * Policy Editor Main Module (024-policy-editor, 036-v9-policy-editor)
  *
  * Handles policy editing form with track ordering, language preferences,
- * and save functionality with field preservation.
+ * V3-V10 schema features, and save functionality with field preservation.
  */
+
+import { initAccordion } from './accordion.js'
 
 (function () {
     'use strict'
@@ -12,6 +14,29 @@
     if (typeof window.POLICY_DATA === 'undefined') {
         console.error('POLICY_DATA not found')
         return
+    }
+
+    // Initialize accordion for advanced settings
+    const accordionController = initAccordion('#advanced-settings', {
+        allowMultiple: true,
+        onToggle: ({ sectionId, isOpen }) => {
+            // Store accordion state in localStorage for persistence
+            const storedState = JSON.parse(localStorage.getItem('policy-editor-accordion') || '{}')
+            storedState[sectionId] = isOpen
+            localStorage.setItem('policy-editor-accordion', JSON.stringify(storedState))
+        }
+    })
+
+    // Restore accordion state from localStorage
+    if (accordionController) {
+        const storedState = JSON.parse(localStorage.getItem('policy-editor-accordion') || '{}')
+        Object.entries(storedState).forEach(([sectionId, isOpen]) => {
+            if (isOpen) {
+                accordionController.open(sectionId)
+            } else {
+                accordionController.close(sectionId)
+            }
+        })
     }
 
     // State management

@@ -2764,6 +2764,37 @@ html, body {
     align-items: center;
     gap: var(--spacing-md);
     margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
+}
+
+/* Policy version badge */
+.policy-version-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    background: var(--color-primary);
+    color: white;
+    border-radius: 4px;
+}
+
+/* Unknown fields warning banner (T076) */
+.unknown-fields-warning {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    border-radius: 4px;
+    padding: var(--spacing-sm) var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+}
+
+/* Advanced settings container */
+.advanced-settings-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
 }
 
 .policy-editor-title {
@@ -3273,6 +3304,290 @@ input.valid:focus {
         top: 0;
         max-height: 600px;
     }
+}
+
+/* ==========================================================================
+   Accordion Component Styles (036-v9-policy-editor)
+   ========================================================================== */
+
+/* Accordion section using native <details> element */
+.accordion-section {
+    background: var(--color-content-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    margin-bottom: var(--spacing-md);
+    overflow: hidden;
+}
+
+.accordion-section[open] {
+    border-color: var(--color-primary);
+}
+
+/* Accordion header (summary element) */
+.accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-md) var(--spacing-lg);
+    cursor: pointer;
+    user-select: none;
+    background: var(--color-content-bg);
+    list-style: none; /* Remove default marker */
+}
+
+.accordion-header::-webkit-details-marker {
+    display: none; /* Remove marker in WebKit browsers */
+}
+
+.accordion-header:hover {
+    background: var(--color-body-bg);
+}
+
+.accordion-header:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.accordion-header:focus:not(:focus-visible) {
+    outline: none;
+}
+
+.accordion-header:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+/* Accordion title */
+.accordion-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--color-text);
+    margin: 0;
+}
+
+/* Accordion icon (chevron indicator) */
+.accordion-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    font-size: 1rem;
+    color: var(--color-text-muted);
+    transition: transform 0.2s ease;
+}
+
+.accordion-section[open] .accordion-icon {
+    transform: rotate(180deg);
+}
+
+/* Accordion badge for showing status/count */
+.accordion-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    background: var(--color-primary);
+    color: white;
+    border-radius: 10px;
+}
+
+.accordion-badge--warning {
+    background: #f59e0b;
+}
+
+.accordion-badge--error {
+    background: var(--color-error);
+}
+
+/* Accordion content area */
+.accordion-content {
+    padding: var(--spacing-lg);
+    border-top: 1px solid var(--color-border);
+    animation: accordion-expand 0.2s ease-out;
+}
+
+@keyframes accordion-expand {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Accordion section description */
+.accordion-description {
+    margin: 0 0 var(--spacing-md) 0;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
+/* Accordion within editor section - adjust spacing */
+.editor-section .accordion-section {
+    margin-bottom: var(--spacing-md);
+}
+
+.editor-section .accordion-section:last-child {
+    margin-bottom: 0;
+}
+
+/* Form elements within accordion */
+.accordion-content .form-group {
+    margin-bottom: var(--spacing-md);
+}
+
+.accordion-content .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.accordion-content .form-group label {
+    display: block;
+    margin-bottom: var(--spacing-xs);
+    font-weight: 500;
+    color: var(--color-text);
+}
+
+.accordion-content .form-group .form-hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    margin-top: var(--spacing-xs);
+}
+
+/* Form row for inline elements */
+.accordion-content .form-row {
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+}
+
+.accordion-content .form-row > * {
+    flex: 1;
+}
+
+/* Select inputs */
+.accordion-content select {
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-body-bg);
+    color: var(--color-text);
+    font-size: var(--font-size-base);
+}
+
+.accordion-content select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Text inputs within accordion */
+.accordion-content input[type="text"],
+.accordion-content input[type="number"] {
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-body-bg);
+    color: var(--color-text);
+    font-size: var(--font-size-base);
+}
+
+.accordion-content input[type="text"]:focus,
+.accordion-content input[type="number"]:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Checkbox groups within accordion */
+.accordion-content .checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+/* Subsection divider */
+.accordion-subsection {
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--color-border);
+}
+
+.accordion-subsection-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 var(--spacing-md) 0;
+    color: var(--color-text);
+}
+
+/* List editing within accordion (for arrays like languages, codecs) */
+.accordion-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.accordion-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-body-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+}
+
+.accordion-list-empty {
+    padding: var(--spacing-md);
+    color: var(--color-text-muted);
+    font-style: italic;
+    text-align: center;
+    background: var(--color-body-bg);
+    border: 1px dashed var(--color-border);
+    border-radius: 4px;
+}
+
+.accordion-list-add {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+}
+
+.accordion-list-add input {
+    flex: 1;
+}
+
+/* Disabled state for accordion sections */
+.accordion-section.disabled {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.accordion-section.disabled .accordion-header {
+    cursor: not-allowed;
+}
+
+/* Error state for accordion sections */
+.accordion-section.has-error {
+    border-color: var(--color-error);
+}
+
+.accordion-section.has-error .accordion-title {
+    color: var(--color-error);
 }
 
 /* ==========================================================================
