@@ -390,17 +390,24 @@ def process_command(
     fail_count = 0
     is_v11 = isinstance(policy, V11PolicySchema)
 
+    # Validate phase names for V11 policies before processing
+    selected_phases = None
+    if is_v11 and phases_str:
+        selected_phases = [p.strip() for p in phases_str.split(",") if p.strip()]
+        # Validate phase names against policy's phases list
+        valid_names = set(policy.phase_names)
+        invalid_names = [name for name in selected_phases if name not in valid_names]
+        if invalid_names:
+            error_msg = (
+                f"Invalid phase name(s): {', '.join(invalid_names)}. "
+                f"Valid phases: {', '.join(sorted(valid_names))}"
+            )
+            error_exit(error_msg, ExitCode.INVALID_ARGUMENTS, json_output)
+
     try:
         with get_connection() as conn:
             if is_v11:
                 # V11 policy with user-defined phases
-                # Parse phase names for selective execution
-                selected_phases = None
-                if phases_str:
-                    selected_phases = [
-                        p.strip() for p in phases_str.split(",") if p.strip()
-                    ]
-
                 processor = V11WorkflowProcessor(
                     conn=conn,
                     policy=policy,
@@ -506,12 +513,16 @@ def process_command(
     # Output summary
     if json_output:
         if is_v11:
+            policy_info = {
+                "path": str(policy_path),
+                "version": policy.schema_version,
+                "phases": list(policy.phase_names),
+            }
+            # Add filtered phases if selective execution was used
+            if selected_phases:
+                policy_info["phases_filtered"] = selected_phases
             output = {
-                "policy": {
-                    "path": str(policy_path),
-                    "version": policy.schema_version,
-                    "phases": list(policy.phase_names),
-                },
+                "policy": policy_info,
                 "dry_run": dry_run,
                 "summary": {
                     "total": len(results),

@@ -1340,6 +1340,9 @@ async def policy_editor_handler(request: web.Request) -> dict:
         audio_synthesis=policy_data.get("audio_synthesis"),
         # V9+ fields
         workflow=policy_data.get("workflow"),
+        # V11+ fields (user-defined phases)
+        phases=policy_data.get("phases"),
+        config=policy_data.get("config"),
         # Meta
         unknown_fields=unknown_fields if unknown_fields else None,
         parse_error=parse_error,
@@ -1461,6 +1464,9 @@ async def api_policy_detail_handler(request: web.Request) -> web.Response:
         audio_synthesis=policy_data.get("audio_synthesis"),
         # V9+ fields
         workflow=policy_data.get("workflow"),
+        # V11+ fields (user-defined phases)
+        phases=policy_data.get("phases"),
+        config=policy_data.get("config"),
         # Meta
         unknown_fields=unknown_fields if unknown_fields else None,
         parse_error=parse_error,
@@ -1670,6 +1676,9 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
         audio_synthesis=policy_data.get("audio_synthesis"),
         # V9+ fields
         workflow=policy_data.get("workflow"),
+        # V11+ fields (user-defined phases)
+        phases=policy_data.get("phases"),
+        config=policy_data.get("config"),
         # Meta
         unknown_fields=unknown_fields if unknown_fields else None,
         parse_error=None,
@@ -1903,6 +1912,9 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
         conditional=created_data.get("conditional"),
         audio_synthesis=created_data.get("audio_synthesis"),
         workflow=created_data.get("workflow"),
+        # V11+ fields
+        phases=created_data.get("phases"),
+        config=created_data.get("config"),
         unknown_fields=unknown_fields if unknown_fields else None,
         parse_error=None,
     )

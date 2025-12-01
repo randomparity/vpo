@@ -88,12 +88,12 @@
 
 ### Implementation for User Story 2
 
-- [ ] T035 [P] [US2] Add phase name pattern validation (^[a-zA-Z][a-zA-Z0-9_-]{0,63}$) to PhaseModel in src/video_policy_orchestrator/policy/loader.py
-- [ ] T036 [P] [US2] Add reserved word rejection (config, schema_version, phases) to PhaseModel in src/video_policy_orchestrator/policy/loader.py
-- [ ] T037 [US2] Add phase name and index to structured logging in PhaseExecutor in src/video_policy_orchestrator/workflow/phases/executor.py
-- [ ] T038 [US2] Add phase name to console output (Phase 1/4 [cleanup]: ...) in src/video_policy_orchestrator/cli/process.py
-- [ ] T039 [US2] Include phase names in JSON output per contracts/api.md in src/video_policy_orchestrator/cli/process.py
-- [ ] T040 [US2] Add descriptive error messages with phase name for validation failures in src/video_policy_orchestrator/policy/loader.py
+- [x] T035 [P] [US2] Add phase name pattern validation (^[a-zA-Z][a-zA-Z0-9_-]{0,63}$) to PhaseModel in src/video_policy_orchestrator/policy/loader.py
+- [x] T036 [P] [US2] Add reserved word rejection (config, schema_version, phases) to PhaseModel in src/video_policy_orchestrator/policy/loader.py
+- [x] T037 [US2] Add phase name and index to structured logging in PhaseExecutor in src/video_policy_orchestrator/workflow/phases/executor.py
+- [x] T038 [US2] Add phase name to console output (Phase 1/4 [cleanup]: ...) in src/video_policy_orchestrator/cli/process.py
+- [x] T039 [US2] Include phase names in JSON output per contracts/api.md in src/video_policy_orchestrator/cli/process.py
+- [x] T040 [US2] Add descriptive error messages with phase name for validation failures in src/video_policy_orchestrator/policy/loader.py
 
 **Checkpoint**: Custom phase names appear correctly in all output and validation errors are descriptive
 
@@ -107,18 +107,18 @@
 
 ### Implementation for User Story 3
 
-- [ ] T041 [P] [US3] Ensure container operation is dispatchable from any phase in src/video_policy_orchestrator/workflow/phases/executor.py
-- [ ] T042 [P] [US3] Ensure audio_filter operation is dispatchable from any phase in src/video_policy_orchestrator/workflow/phases/executor.py
-- [ ] T043 [P] [US3] Ensure subtitle_filter operation is dispatchable from any phase in src/video_policy_orchestrator/workflow/phases/executor.py
-- [ ] T044 [P] [US3] Ensure attachment_filter operation is dispatchable from any phase in src/video_policy_orchestrator/workflow/phases/executor.py
-- [ ] T045 [P] [US3] Ensure track_order operation is dispatchable from any phase in src/video_policy_orchestrator/workflow/phases/executor.py
-- [ ] T046 [P] [US3] Ensure default_flags operation is dispatchable from any phase in src/video_policy_orchestrator/workflow/phases/executor.py
-- [ ] T047 [P] [US3] Ensure conditional operation is dispatchable from any phase in src/video_policy_orchestrator/workflow/phases/executor.py
-- [ ] T048 [P] [US3] Ensure audio_synthesis operation is dispatchable from any phase in src/video_policy_orchestrator/workflow/phases/executor.py
-- [ ] T049 [P] [US3] Ensure transcode operation is dispatchable from any phase in src/video_policy_orchestrator/workflow/phases/executor.py
-- [ ] T050 [P] [US3] Ensure transcription operation is dispatchable from any phase in src/video_policy_orchestrator/workflow/phases/executor.py
-- [ ] T051 [US3] Add multiple operations per phase support in PhaseExecutor in src/video_policy_orchestrator/workflow/phases/executor.py
-- [ ] T052 [US3] Add empty phase handling (skip with warning) in src/video_policy_orchestrator/workflow/phases/executor.py
+- [x] T041 [P] [US3] Ensure container operation is dispatchable from any phase in src/video_policy_orchestrator/workflow/phases/executor.py
+- [x] T042 [P] [US3] Ensure audio_filter operation is dispatchable from any phase in src/video_policy_orchestrator/workflow/phases/executor.py
+- [x] T043 [P] [US3] Ensure subtitle_filter operation is dispatchable from any phase in src/video_policy_orchestrator/workflow/phases/executor.py
+- [x] T044 [P] [US3] Ensure attachment_filter operation is dispatchable from any phase in src/video_policy_orchestrator/workflow/phases/executor.py
+- [x] T045 [P] [US3] Ensure track_order operation is dispatchable from any phase in src/video_policy_orchestrator/workflow/phases/executor.py
+- [x] T046 [P] [US3] Ensure default_flags operation is dispatchable from any phase in src/video_policy_orchestrator/workflow/phases/executor.py
+- [x] T047 [P] [US3] Ensure conditional operation is dispatchable from any phase in src/video_policy_orchestrator/workflow/phases/executor.py
+- [x] T048 [P] [US3] Ensure audio_synthesis operation is dispatchable from any phase in src/video_policy_orchestrator/workflow/phases/executor.py
+- [x] T049 [P] [US3] Ensure transcode operation is dispatchable from any phase in src/video_policy_orchestrator/workflow/phases/executor.py
+- [x] T050 [P] [US3] Ensure transcription operation is dispatchable from any phase in src/video_policy_orchestrator/workflow/phases/executor.py
+- [x] T051 [US3] Add multiple operations per phase support in PhaseExecutor in src/video_policy_orchestrator/workflow/phases/executor.py
+- [x] T052 [US3] Add empty phase handling (skip with warning) in src/video_policy_orchestrator/workflow/phases/executor.py
 
 **Checkpoint**: All operations work in any phase configuration, multiple operations per phase work
 
@@ -132,13 +132,13 @@
 
 ### Implementation for User Story 4
 
-- [ ] T053 [P] [US4] Add audio_language_preference to GlobalConfig and GlobalConfigModel in src/video_policy_orchestrator/policy/models.py and loader.py
-- [ ] T054 [P] [US4] Add subtitle_language_preference to GlobalConfig and GlobalConfigModel in src/video_policy_orchestrator/policy/models.py and loader.py
-- [ ] T055 [P] [US4] Add commentary_patterns to GlobalConfig and GlobalConfigModel in src/video_policy_orchestrator/policy/models.py and loader.py
-- [ ] T056 [P] [US4] Add on_error to GlobalConfig and GlobalConfigModel in src/video_policy_orchestrator/policy/models.py and loader.py
-- [ ] T057 [US4] Pass global config to PhaseExecutionContext in src/video_policy_orchestrator/workflow/processor.py
-- [ ] T058 [US4] Make operations use global config when per-phase config not specified in src/video_policy_orchestrator/workflow/phases/executor.py
-- [ ] T059 [US4] Add validation for required global config when operations need it (FR-009) in src/video_policy_orchestrator/policy/loader.py
+- [x] T053 [P] [US4] Add audio_language_preference to GlobalConfig and GlobalConfigModel in src/video_policy_orchestrator/policy/models.py and loader.py
+- [x] T054 [P] [US4] Add subtitle_language_preference to GlobalConfig and GlobalConfigModel in src/video_policy_orchestrator/policy/models.py and loader.py
+- [x] T055 [P] [US4] Add commentary_patterns to GlobalConfig and GlobalConfigModel in src/video_policy_orchestrator/policy/models.py and loader.py
+- [x] T056 [P] [US4] Add on_error to GlobalConfig and GlobalConfigModel in src/video_policy_orchestrator/policy/models.py and loader.py
+- [x] T057 [US4] Pass global config to PhaseExecutionContext in src/video_policy_orchestrator/workflow/processor.py
+- [x] T058 [US4] Make operations use global config when per-phase config not specified in src/video_policy_orchestrator/workflow/phases/executor.py
+- [x] T059 [US4] Add validation for required global config when operations need it (FR-009) in src/video_policy_orchestrator/policy/loader.py
 
 **Checkpoint**: Global config works across all phases, operations inherit settings correctly
 
@@ -152,12 +152,12 @@
 
 ### Implementation for User Story 5
 
-- [ ] T060 [US5] Add --phases CLI option accepting comma-separated names in src/video_policy_orchestrator/cli/process.py
-- [ ] T061 [US5] Validate --phases names against policy's phases list in src/video_policy_orchestrator/cli/process.py
-- [ ] T062 [US5] Add phase_filter parameter to WorkflowProcessor.__init__() in src/video_policy_orchestrator/workflow/processor.py
-- [ ] T063 [US5] Filter phases in process_file() respecting policy-defined order in src/video_policy_orchestrator/workflow/processor.py
-- [ ] T064 [US5] Add error exit code 3 for invalid phase names in src/video_policy_orchestrator/cli/process.py
-- [ ] T065 [US5] Update JSON output to indicate filtered phases in src/video_policy_orchestrator/cli/process.py
+- [x] T060 [US5] Add --phases CLI option accepting comma-separated names in src/video_policy_orchestrator/cli/process.py
+- [x] T061 [US5] Validate --phases names against policy's phases list in src/video_policy_orchestrator/cli/process.py
+- [x] T062 [US5] Add phase_filter parameter to WorkflowProcessor.__init__() in src/video_policy_orchestrator/workflow/processor.py
+- [x] T063 [US5] Filter phases in process_file() respecting policy-defined order in src/video_policy_orchestrator/workflow/processor.py
+- [x] T064 [US5] Add error exit code 3 for invalid phase names in src/video_policy_orchestrator/cli/process.py
+- [x] T065 [US5] Update JSON output to indicate filtered phases in src/video_policy_orchestrator/cli/process.py
 
 **Checkpoint**: --phases flag works correctly, filters execute in policy order, invalid names error properly
 
@@ -171,11 +171,11 @@
 
 ### Implementation for User Story 6
 
-- [ ] T066 [US6] Update GET /api/policies/{name} to include phases list in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T067 [US6] Update PUT /api/policies/{name} to handle V11 phases in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T068 [US6] Update POST /api/policies/{name}/validate to validate V11 phases in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T069 [US6] Add phase-specific validation errors to API responses in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T070 [US6] Update PolicyRoundTripEditor to preserve V11 phase structure in src/video_policy_orchestrator/policy/editor.py
+- [x] T066 [US6] Update GET /api/policies/{name} to include phases list in src/video_policy_orchestrator/server/ui/routes.py
+- [x] T067 [US6] Update PUT /api/policies/{name} to handle V11 phases in src/video_policy_orchestrator/server/ui/routes.py
+- [x] T068 [US6] Update POST /api/policies/{name}/validate to validate V11 phases in src/video_policy_orchestrator/server/ui/routes.py
+- [x] T069 [US6] Add phase-specific validation errors to API responses in src/video_policy_orchestrator/server/ui/routes.py
+- [x] T070 [US6] Update PolicyRoundTripEditor to preserve V11 phase structure in src/video_policy_orchestrator/policy/editor.py
 - [ ] T071 [US6] Create section-phases.js for phase GUI components in src/video_policy_orchestrator/server/static/js/policy-editor/section-phases.js
 - [ ] T072 [US6] Add "Add Phase" button handler in section-phases.js
 - [ ] T073 [US6] Add phase name input field with validation in section-phases.js

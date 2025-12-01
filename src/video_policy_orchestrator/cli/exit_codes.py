@@ -29,6 +29,7 @@ class ExitCode(IntEnum):
     # General errors (1-9)
     GENERAL_ERROR = 1
     INTERRUPTED = 2  # Ctrl+C / SIGINT (conventionally 130, but we use 2 for simplicity)
+    INVALID_ARGUMENTS = 3  # Invalid CLI arguments (e.g., invalid phase names)
 
     # Validation errors (10-19)
     POLICY_VALIDATION_ERROR = 10

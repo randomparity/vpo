@@ -1591,13 +1591,16 @@ class PolicyEditorContext:
     audio_synthesis: list | None = None
     # V9+ fields
     workflow: dict | None = None
+    # V11+ fields (user-defined phases)
+    phases: list | None = None
+    config: dict | None = None
     # Unknown fields for warning banner
     unknown_fields: list[str] | None = None
     parse_error: str | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
-        return {
+        result = {
             "name": self.name,
             "filename": self.filename,
             "file_path": self.file_path,
@@ -1621,10 +1624,19 @@ class PolicyEditorContext:
             "audio_synthesis": self.audio_synthesis,
             # V9+ fields
             "workflow": self.workflow,
+            # V11+ fields
+            "phases": self.phases,
+            "config": self.config,
             # Meta
             "unknown_fields": self.unknown_fields,
             "parse_error": self.parse_error,
         }
+        # Add convenience field for V11 policies
+        if self.phases is not None:
+            result["phase_names"] = [
+                p.get("name", "") for p in self.phases if isinstance(p, dict)
+            ]
+        return result
 
 
 @dataclass
