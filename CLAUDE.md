@@ -214,3 +214,10 @@ transcode:
 - Multiple video streams: selects primary, warns about others
 - HDR preservation: warns when scaling HDR content
 - HW encoder fallback: falls back to CPU if hardware unavailable
+
+## Active Technologies
+- Python 3.10+ + Click (CLI), Pydantic (validation), ruamel.yaml (round-trip YAML), aiohttp (web UI) (037-user-defined-phases)
+- SQLite (~/.vpo/library.db) (037-user-defined-phases)
+
+## Recent Changes
+- 037-user-defined-phases: Added Python 3.10+ + Click (CLI), Pydantic (validation), ruamel.yaml (round-trip YAML), aiohttp (web UI)

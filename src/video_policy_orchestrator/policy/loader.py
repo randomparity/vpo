@@ -34,11 +34,14 @@ from video_policy_orchestrator.policy.models import (
     DefaultFlagsConfig,
     ExistsCondition,
     FailAction,
+    GlobalConfig,
     HardwareAccelConfig,
     HardwareAccelMode,
     LanguageFallbackConfig,
     NotCondition,
+    OnErrorMode,
     OrCondition,
+    PhaseDefinition,
     PolicySchema,
     ProcessingPhase,
     QualityMode,
@@ -58,6 +61,7 @@ from video_policy_orchestrator.policy.models import (
     TrackType,
     TranscodePolicyConfig,
     TranscriptionPolicyOptions,
+    V11PolicySchema,
     VideoTranscodeConfig,
     WarnAction,
     WorkflowConfig,
@@ -65,8 +69,11 @@ from video_policy_orchestrator.policy.models import (
 )
 
 # Current maximum supported schema version
-# V10: Added music/sfx/non_speech track type support
-MAX_SCHEMA_VERSION = 10
+# V11: User-defined processing phases
+MAX_SCHEMA_VERSION = 11
+
+# Reserved phase names that cannot be used as user-defined phase names
+RESERVED_PHASE_NAMES = frozenset({"config", "schema_version", "phases"})
 
 
 class PolicyValidationError(Exception):
@@ -1386,6 +1393,136 @@ class PolicyModel(BaseModel):
 
 
 # =============================================================================
+# V11 Pydantic Models for User-Defined Phases
+# =============================================================================
+
+
+# Phase name validation pattern: starts with letter, alphanumeric + hyphen + underscore
+PHASE_NAME_PATTERN = r"^[a-zA-Z][a-zA-Z0-9_-]{0,63}$"
+
+
+class GlobalConfigModel(BaseModel):
+    """Pydantic model for V11 global configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    audio_language_preference: list[str] = Field(default_factory=lambda: ["eng", "und"])
+    """Ordered list of preferred audio languages (ISO 639-2/B codes)."""
+
+    subtitle_language_preference: list[str] = Field(
+        default_factory=lambda: ["eng", "und"]
+    )
+    """Ordered list of preferred subtitle languages (ISO 639-2/B codes)."""
+
+    commentary_patterns: list[str] = Field(
+        default_factory=lambda: ["commentary", "director", "audio description"]
+    )
+    """Patterns to match commentary track titles."""
+
+    on_error: Literal["skip", "continue", "fail"] = "continue"
+    """How to handle errors during phase execution."""
+
+    @field_validator("audio_language_preference", "subtitle_language_preference")
+    @classmethod
+    def validate_language_codes(cls, v: list[str]) -> list[str]:
+        """Validate language codes are valid ISO 639-2/B format."""
+        import re
+
+        pattern = re.compile(r"^[a-z]{2,3}$")
+        for idx, lang in enumerate(v):
+            if not pattern.match(lang):
+                raise ValueError(
+                    f"Invalid language code '{lang}' at index {idx}. "
+                    "Use ISO 639-2 codes (e.g., 'eng', 'jpn')."
+                )
+        return v
+
+    @field_validator("commentary_patterns")
+    @classmethod
+    def validate_patterns(cls, v: list[str]) -> list[str]:
+        """Validate commentary patterns are valid regex."""
+        errors = validate_regex_patterns(v)
+        if errors:
+            raise ValueError(errors[0])
+        return v
+
+
+class PhaseModel(BaseModel):
+    """Pydantic model for a V11 phase definition."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(..., pattern=PHASE_NAME_PATTERN)
+    """User-defined phase name."""
+
+    # Operations (all optional)
+    container: ContainerModel | None = None
+    audio_filter: AudioFilterModel | None = None
+    subtitle_filter: SubtitleFilterModel | None = None
+    attachment_filter: AttachmentFilterModel | None = None
+    track_order: list[str] | None = None
+    default_flags: DefaultFlagsModel | None = None
+    conditional: list[ConditionalRuleModel] | None = None
+    audio_synthesis: AudioSynthesisModel | None = None
+    transcode: TranscodeV6Model | None = None
+    transcription: TranscriptionPolicyModel | None = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_not_reserved(cls, v: str) -> str:
+        """Validate that phase name is not a reserved word."""
+        if v.lower() in RESERVED_PHASE_NAMES:
+            raise ValueError(
+                f"Phase name '{v}' is reserved. "
+                f"Reserved names: {', '.join(sorted(RESERVED_PHASE_NAMES))}"
+            )
+        return v
+
+    @field_validator("track_order")
+    @classmethod
+    def validate_track_order(cls, v: list[str] | None) -> list[str] | None:
+        """Validate track order contains valid track types."""
+        if v is None:
+            return None
+        if not v:
+            raise ValueError("track_order cannot be empty if specified")
+
+        valid_types = {t.value for t in TrackType}
+        for idx, track_type in enumerate(v):
+            if track_type not in valid_types:
+                raise ValueError(
+                    f"Unknown track type '{track_type}' at track_order[{idx}]. "
+                    f"Valid types: {', '.join(sorted(valid_types))}"
+                )
+        return v
+
+
+class V11PolicyModel(BaseModel):
+    """Pydantic model for V11 policy with user-defined phases."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal[11]
+    """Schema version, must be exactly 11."""
+
+    config: GlobalConfigModel = Field(default_factory=GlobalConfigModel)
+    """Global configuration."""
+
+    phases: list[PhaseModel] = Field(..., min_length=1)
+    """List of phase definitions (at least one required)."""
+
+    @field_validator("phases")
+    @classmethod
+    def validate_unique_names(cls, v: list[PhaseModel]) -> list[PhaseModel]:
+        """Validate that all phase names are unique."""
+        names = [p.name for p in v]
+        if len(names) != len(set(names)):
+            duplicates = [n for n in names if names.count(n) > 1]
+            raise ValueError(f"Duplicate phase names: {set(duplicates)}")
+        return v
+
+
+# =============================================================================
 # V4 Conversion Functions for Conditional Rules
 # =============================================================================
 
@@ -2030,14 +2167,150 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
     )
 
 
-def load_policy(policy_path: Path) -> PolicySchema:
+# =============================================================================
+# V11 Conversion Functions
+# =============================================================================
+
+
+def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
+    """Convert PhaseModel to PhaseDefinition dataclass."""
+    # Convert container
+    container: ContainerConfig | None = None
+    if phase.container is not None:
+        container = ContainerConfig(
+            target=phase.container.target,
+            on_incompatible_codec=phase.container.on_incompatible_codec,
+        )
+
+    # Convert audio_filter
+    audio_filter: AudioFilterConfig | None = None
+    if phase.audio_filter is not None:
+        fallback: LanguageFallbackConfig | None = None
+        if phase.audio_filter.fallback is not None:
+            fallback = LanguageFallbackConfig(mode=phase.audio_filter.fallback.mode)
+        audio_filter = AudioFilterConfig(
+            languages=tuple(phase.audio_filter.languages),
+            fallback=fallback,
+            minimum=phase.audio_filter.minimum,
+            keep_music_tracks=phase.audio_filter.keep_music_tracks,
+            exclude_music_from_language_filter=phase.audio_filter.exclude_music_from_language_filter,
+            keep_sfx_tracks=phase.audio_filter.keep_sfx_tracks,
+            exclude_sfx_from_language_filter=phase.audio_filter.exclude_sfx_from_language_filter,
+            keep_non_speech_tracks=phase.audio_filter.keep_non_speech_tracks,
+            exclude_non_speech_from_language_filter=phase.audio_filter.exclude_non_speech_from_language_filter,
+        )
+
+    # Convert subtitle_filter
+    subtitle_filter: SubtitleFilterConfig | None = None
+    if phase.subtitle_filter is not None:
+        languages = None
+        if phase.subtitle_filter.languages is not None:
+            languages = tuple(phase.subtitle_filter.languages)
+        subtitle_filter = SubtitleFilterConfig(
+            languages=languages,
+            preserve_forced=phase.subtitle_filter.preserve_forced,
+            remove_all=phase.subtitle_filter.remove_all,
+        )
+
+    # Convert attachment_filter
+    attachment_filter: AttachmentFilterConfig | None = None
+    if phase.attachment_filter is not None:
+        attachment_filter = AttachmentFilterConfig(
+            remove_all=phase.attachment_filter.remove_all,
+        )
+
+    # Convert track_order
+    track_order: tuple[TrackType, ...] | None = None
+    if phase.track_order is not None:
+        track_order = tuple(TrackType(t) for t in phase.track_order)
+
+    # Convert default_flags
+    default_flags: DefaultFlagsConfig | None = None
+    if phase.default_flags is not None:
+        default_flags = DefaultFlagsConfig(
+            set_first_video_default=phase.default_flags.set_first_video_default,
+            set_preferred_audio_default=phase.default_flags.set_preferred_audio_default,
+            set_preferred_subtitle_default=phase.default_flags.set_preferred_subtitle_default,
+            clear_other_defaults=phase.default_flags.clear_other_defaults,
+        )
+
+    # Convert conditional rules
+    conditional: tuple[ConditionalRule, ...] | None = None
+    if phase.conditional is not None:
+        conditional = _convert_conditional_rules(phase.conditional)
+
+    # Convert audio_synthesis
+    audio_synthesis: AudioSynthesisConfig | None = None
+    if phase.audio_synthesis is not None:
+        audio_synthesis = _convert_audio_synthesis(phase.audio_synthesis)
+
+    # Convert transcode (V6-style)
+    transcode: VideoTranscodeConfig | None = None
+    audio_transcode: AudioTranscodeConfig | None = None
+    if phase.transcode is not None:
+        transcode = _convert_video_transcode_config(phase.transcode.video)
+        audio_transcode = _convert_audio_transcode_config(phase.transcode.audio)
+
+    # Convert transcription
+    transcription: TranscriptionPolicyOptions | None = None
+    if phase.transcription is not None:
+        transcription = TranscriptionPolicyOptions(
+            enabled=phase.transcription.enabled,
+            update_language_from_transcription=phase.transcription.update_language_from_transcription,
+            confidence_threshold=phase.transcription.confidence_threshold,
+            detect_commentary=phase.transcription.detect_commentary,
+            reorder_commentary=phase.transcription.reorder_commentary,
+        )
+
+    return PhaseDefinition(
+        name=phase.name,
+        container=container,
+        audio_filter=audio_filter,
+        subtitle_filter=subtitle_filter,
+        attachment_filter=attachment_filter,
+        track_order=track_order,
+        default_flags=default_flags,
+        conditional=conditional,
+        audio_synthesis=audio_synthesis,
+        transcode=transcode,
+        audio_transcode=audio_transcode,
+        transcription=transcription,
+    )
+
+
+def _convert_to_v11_policy_schema(model: V11PolicyModel) -> V11PolicySchema:
+    """Convert V11PolicyModel to V11PolicySchema dataclass."""
+    # Convert global config
+    on_error_map = {
+        "skip": OnErrorMode.SKIP,
+        "continue": OnErrorMode.CONTINUE,
+        "fail": OnErrorMode.FAIL,
+    }
+    global_config = GlobalConfig(
+        audio_language_preference=tuple(model.config.audio_language_preference),
+        subtitle_language_preference=tuple(model.config.subtitle_language_preference),
+        commentary_patterns=tuple(model.config.commentary_patterns),
+        on_error=on_error_map[model.config.on_error],
+    )
+
+    # Convert phases
+    phases = tuple(_convert_phase_model(p) for p in model.phases)
+
+    return V11PolicySchema(
+        schema_version=11,
+        config=global_config,
+        phases=phases,
+    )
+
+
+def load_policy(policy_path: Path) -> PolicySchema | V11PolicySchema:
     """Load and validate a policy from a YAML file.
 
     Args:
         policy_path: Path to the YAML policy file.
 
     Returns:
-        Validated PolicySchema object.
+        Validated PolicySchema (V1-10) or V11PolicySchema (V11) object.
 
     Raises:
         PolicyValidationError: If the policy file is invalid.
@@ -2061,18 +2334,23 @@ def load_policy(policy_path: Path) -> PolicySchema:
     return load_policy_from_dict(data)
 
 
-def load_policy_from_dict(data: dict[str, Any]) -> PolicySchema:
+def load_policy_from_dict(data: dict[str, Any]) -> PolicySchema | V11PolicySchema:
     """Load and validate a policy from a dictionary.
 
     Args:
         data: Dictionary containing policy configuration.
 
     Returns:
-        Validated PolicySchema object.
+        Validated PolicySchema (V1-10) or V11PolicySchema (V11) object.
 
     Raises:
         PolicyValidationError: If the policy data is invalid.
     """
+    # Check schema version to determine which model to use
+    schema_version = data.get("schema_version")
+    if schema_version == 11:
+        return load_v11_policy_from_dict(data)
+
     try:
         model = PolicyModel.model_validate(data)
     except Exception as e:
@@ -2081,6 +2359,28 @@ def load_policy_from_dict(data: dict[str, Any]) -> PolicySchema:
         raise PolicyValidationError(error_msg) from e
 
     return _convert_to_policy_schema(model)
+
+
+def load_v11_policy_from_dict(data: dict[str, Any]) -> V11PolicySchema:
+    """Load and validate a V11 policy from a dictionary.
+
+    Args:
+        data: Dictionary containing V11 policy configuration.
+
+    Returns:
+        Validated V11PolicySchema object.
+
+    Raises:
+        PolicyValidationError: If the policy data is invalid.
+    """
+    try:
+        model = V11PolicyModel.model_validate(data)
+    except Exception as e:
+        # Transform Pydantic errors to user-friendly messages
+        error_msg = _format_validation_error(e)
+        raise PolicyValidationError(error_msg) from e
+
+    return _convert_to_v11_policy_schema(model)
 
 
 def _format_validation_error(error: Exception) -> str:
