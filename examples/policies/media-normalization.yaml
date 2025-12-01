@@ -42,47 +42,33 @@ phases:
       clear_other_defaults: true
       set_subtitle_default_when_audio_differs: true
     conditional:
-      # V12: Use Radarr/Sonarr plugin metadata for Japanese anime detection
-      # Also set video track language to match the original language from Radarr/Sonarr
-      - name: detect_japanese_anime_from_radarr
+      # V12: Set video track language from Radarr/Sonarr plugin metadata
+      # If the plugin reports an original_language, use it for the video track
+      - name: sync_video_language_from_radarr
         when:
           plugin_metadata:
             plugin: radarr
             field: original_language
-            value: jpn
+            operator: exists
         then:
-          - warn: "Japanese anime detected via Radarr metadata - setting video language and forcing English subtitles"
           - set_language:
               track_type: video
-              new_language: jpn
-          - set_forced:
-              track_type: subtitle
-              language: eng
-              value: true
-          - set_default:
-              track_type: subtitle
-              language: eng
-              value: true
+              from_plugin_metadata:
+                plugin: radarr
+                field: original_language
 
-      - name: detect_japanese_anime_from_sonarr
+      - name: sync_video_language_from_sonarr
         when:
           plugin_metadata:
             plugin: sonarr
             field: original_language
-            value: jpn
+            operator: exists
         then:
-          - warn: "Japanese anime detected via Sonarr metadata - setting video language and forcing English subtitles"
           - set_language:
               track_type: video
-              new_language: jpn
-          - set_forced:
-              track_type: subtitle
-              language: eng
-              value: true
-          - set_default:
-              track_type: subtitle
-              language: eng
-              value: true
+              from_plugin_metadata:
+                plugin: sonarr
+                field: original_language
 
       - name: force_english_subs_for_foreign_audio
         when:

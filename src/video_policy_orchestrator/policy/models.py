@@ -1135,21 +1135,43 @@ class SetDefaultAction:
 
 
 @dataclass(frozen=True)
+class PluginMetadataReference:
+    """Reference to a plugin metadata field for dynamic value resolution.
+
+    Used to pull values from plugin metadata at runtime, e.g., getting the
+    original_language from Radarr/Sonarr to set as the video track language.
+
+    Attributes:
+        plugin: Name of the plugin (e.g., "radarr", "sonarr").
+        field: Field name within the plugin's metadata (e.g., "original_language").
+    """
+
+    plugin: str
+    field: str
+
+
+@dataclass(frozen=True)
 class SetLanguageAction:
     """Set the language tag on matching tracks.
 
     Used to correct or set track language metadata based on external sources
     like Radarr/Sonarr plugin metadata.
 
+    Either new_language OR from_plugin_metadata must be specified, but not both.
+    If from_plugin_metadata is used and the plugin/field is not available,
+    the action is skipped (no change made).
+
     Attributes:
         track_type: Type of track to modify ("video", "audio", "subtitle").
-        new_language: The ISO 639-2/B language code to set.
+        new_language: The ISO 639-2/B language code to set (static value).
+        from_plugin_metadata: Reference to plugin metadata for dynamic language.
         match_language: Only modify tracks with this language (optional).
             If None, modifies all tracks of the specified type.
     """
 
     track_type: str
-    new_language: str
+    new_language: str | None = None
+    from_plugin_metadata: PluginMetadataReference | None = None
     match_language: str | None = None
 
 

@@ -44,6 +44,7 @@ from video_policy_orchestrator.policy.models import (
     PhaseDefinition,
     PluginMetadataCondition,
     PluginMetadataOperator,
+    PluginMetadataReference,
     PolicySchema,
     ProcessingPhase,
     QualityMode,
@@ -1110,17 +1111,49 @@ class SetDefaultActionModel(BaseModel):
     value: bool = True
 
 
+class PluginMetadataReferenceModel(BaseModel):
+    """Pydantic model for referencing plugin metadata values.
+
+    Used to dynamically pull values from plugin metadata at runtime.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    plugin: str
+    field: str
+
+
 class SetLanguageActionModel(BaseModel):
     """Pydantic model for set_language action.
 
-    Sets the language tag on matching tracks.
+    Sets the language tag on matching tracks. Either new_language or
+    from_plugin_metadata must be specified, but not both.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     track_type: Literal["video", "audio", "subtitle"]
-    new_language: str
+    new_language: str | None = None
+    from_plugin_metadata: PluginMetadataReferenceModel | None = None
     match_language: str | None = None
+
+    @model_validator(mode="after")
+    def validate_language_source(self) -> "SetLanguageActionModel":
+        """Validate that exactly one language source is specified."""
+        has_static = self.new_language is not None
+        has_dynamic = self.from_plugin_metadata is not None
+
+        if not has_static and not has_dynamic:
+            raise ValueError(
+                "set_language must specify either 'new_language' or "
+                "'from_plugin_metadata'"
+            )
+        if has_static and has_dynamic:
+            raise ValueError(
+                "set_language cannot specify both 'new_language' and "
+                "'from_plugin_metadata'"
+            )
+        return self
 
 
 class ActionModel(BaseModel):
@@ -1939,10 +1972,17 @@ def _convert_action(model: ActionModel) -> tuple[ConditionalAction, ...]:
         )
 
     if model.set_language is not None:
+        from_plugin_ref = None
+        if model.set_language.from_plugin_metadata is not None:
+            from_plugin_ref = PluginMetadataReference(
+                plugin=model.set_language.from_plugin_metadata.plugin,
+                field=model.set_language.from_plugin_metadata.field,
+            )
         actions.append(
             SetLanguageAction(
                 track_type=model.set_language.track_type,
                 new_language=model.set_language.new_language,
+                from_plugin_metadata=from_plugin_ref,
                 match_language=model.set_language.match_language,
             )
         )

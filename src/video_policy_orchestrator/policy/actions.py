@@ -64,8 +64,12 @@ class ActionContext:
     file_path: Path
     rule_name: str
 
-    # Tracks for set_forced/set_default actions (optional)
+    # Tracks for set_forced/set_default/set_language actions (optional)
     tracks: list[TrackInfo] = field(default_factory=list)
+
+    # Plugin metadata for dynamic value resolution (optional)
+    # Keys are plugin names, values are dicts of field -> value
+    plugin_metadata: dict[str, dict[str, str]] | None = None
 
     # Accumulated state
     skip_flags: SkipFlags = field(default_factory=SkipFlags)
@@ -289,6 +293,53 @@ def execute_set_default_action(
     return context
 
 
+def _resolve_language_from_action(
+    action: SetLanguageAction, context: ActionContext
+) -> str | None:
+    """Resolve the target language from the action.
+
+    If new_language is specified, returns it directly.
+    If from_plugin_metadata is specified, looks up the value from context.
+
+    Args:
+        action: The set_language action.
+        context: Action context with optional plugin_metadata.
+
+    Returns:
+        The resolved language code, or None if not available.
+    """
+    if action.new_language is not None:
+        return action.new_language
+
+    if action.from_plugin_metadata is not None:
+        ref = action.from_plugin_metadata
+        if context.plugin_metadata is None:
+            logger.debug("set_language: no plugin_metadata in context, skipping action")
+            return None
+
+        plugin_data = context.plugin_metadata.get(ref.plugin)
+        if plugin_data is None:
+            logger.debug(
+                "set_language: plugin '%s' not found in metadata, skipping action",
+                ref.plugin,
+            )
+            return None
+
+        value = plugin_data.get(ref.field)
+        if value is None:
+            logger.debug(
+                "set_language: field '%s' not found in plugin '%s' metadata, "
+                "skipping action",
+                ref.field,
+                ref.plugin,
+            )
+            return None
+
+        return str(value)
+
+    return None
+
+
 def execute_set_language_action(
     action: SetLanguageAction, context: ActionContext
 ) -> ActionContext:
@@ -304,6 +355,15 @@ def execute_set_language_action(
     if not context.tracks:
         logger.warning(
             "set_language action skipped: no tracks available in context for %s",
+            context.file_path,
+        )
+        return context
+
+    # Resolve the target language (static or from plugin metadata)
+    new_language = _resolve_language_from_action(action, context)
+    if new_language is None:
+        logger.debug(
+            "set_language action skipped: could not resolve language for %s",
             context.file_path,
         )
         return context
@@ -338,13 +398,13 @@ def execute_set_language_action(
         context.track_language_changes.append(
             TrackLanguageChange(
                 track_index=track.index,
-                new_language=action.new_language,
+                new_language=new_language,
             )
         )
         logger.debug(
             "set_language: track[%d] language=%s for %s",
             track.index,
-            action.new_language,
+            new_language,
             context.file_path,
         )
 
