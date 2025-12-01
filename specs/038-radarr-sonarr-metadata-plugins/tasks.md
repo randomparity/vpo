@@ -68,14 +68,14 @@
 
 ### Implementation for User Story 1
 
-- [ ] T017 [US1] Implement RadarrClient class with __init__ accepting PluginConnectionConfig in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [ ] T018 [US1] Implement _headers method returning X-Api-Key header in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [ ] T019 [US1] Implement get_status method calling GET /api/v3/system/status in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [ ] T020 [US1] Implement validate_connection method with timeout and error handling in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [ ] T021 [US1] Add connection validation error messages for invalid API key (401) and unreachable URL in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [ ] T022 [US1] Create RadarrMetadataPlugin class with name, version, events attributes in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
-- [ ] T023 [US1] Implement plugin __init__ that validates connection on startup in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
-- [ ] T024 [US1] Add structured logging for connection success/failure in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
+- [X] T017 [US1] Implement RadarrClient class with __init__ accepting PluginConnectionConfig in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
+- [X] T018 [US1] Implement _headers method returning X-Api-Key header in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
+- [X] T019 [US1] Implement get_status method calling GET /api/v3/system/status in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
+- [X] T020 [US1] Implement validate_connection method with timeout and error handling in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
+- [X] T021 [US1] Add connection validation error messages for invalid API key (401) and unreachable URL in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
+- [X] T022 [US1] Create RadarrMetadataPlugin class with name, version, events attributes in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
+- [X] T023 [US1] Implement plugin __init__ that validates connection on startup in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
+- [X] T024 [US1] Add structured logging for connection success/failure in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
 
 **Checkpoint**: Radarr connection configuration is functional and testable independently
 
