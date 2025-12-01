@@ -127,6 +127,9 @@ class FileInfo:
     scan_status: str = "ok"  # "ok", "error", "pending"
     scan_error: str | None = None
     tracks: list[TrackInfo] = field(default_factory=list)
+    # Plugin-provided metadata (039-plugin-metadata-policy)
+    # Dict keyed by plugin name, e.g., {"radarr": {"original_language": "jpn", ...}}
+    plugin_metadata: dict[str, dict[str, str | int | float | bool | None]] | None = None
 
 
 @dataclass
@@ -173,10 +176,19 @@ class FileRecord:
     scan_status: str
     scan_error: str | None
     job_id: str | None = None  # UUID of scan job that discovered/updated this file
+    # Plugin-provided metadata (039-plugin-metadata-policy)
+    # JSON-serialized dict keyed by plugin name
+    plugin_metadata: str | None = None
 
     @classmethod
     def from_file_info(cls, info: FileInfo, job_id: str | None = None) -> "FileRecord":
         """Create a FileRecord from a FileInfo domain object."""
+        import json
+
+        plugin_metadata_json: str | None = None
+        if info.plugin_metadata:
+            plugin_metadata_json = json.dumps(info.plugin_metadata)
+
         return cls(
             id=None,
             path=str(info.path),
@@ -191,6 +203,7 @@ class FileRecord:
             scan_status=info.scan_status,
             scan_error=info.scan_error,
             job_id=job_id,
+            plugin_metadata=plugin_metadata_json,
         )
 
 

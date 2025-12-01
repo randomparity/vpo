@@ -1011,6 +1011,48 @@ class AudioIsMultiLanguageCondition:
     primary_language: str | None = None
 
 
+class PluginMetadataOperator(Enum):
+    """Operators for plugin metadata comparisons.
+
+    Used in PluginMetadataCondition to compare field values.
+    """
+
+    EQ = "eq"  # Equality (string, integer, boolean)
+    NEQ = "neq"  # Not equal (string, integer, boolean)
+    CONTAINS = "contains"  # Substring match (strings only)
+    LT = "lt"  # Less than (integers only)
+    LTE = "lte"  # Less than or equal (integers only)
+    GT = "gt"  # Greater than (integers only)
+    GTE = "gte"  # Greater than or equal (integers only)
+
+
+@dataclass(frozen=True)
+class PluginMetadataCondition:
+    """Check plugin-provided metadata for a file.
+
+    Evaluates metadata stored by plugins (e.g., Radarr, Sonarr) against
+    specified criteria. This enables policy rules based on external metadata.
+
+    Attributes:
+        plugin: Name of the plugin that provided the metadata (e.g., "radarr").
+        field: Field name within the plugin's metadata (e.g., "original_language").
+        operator: Comparison operator (default: eq for equality).
+        value: Value to compare against (string, int, float, or bool).
+
+    Example YAML:
+        when:
+          plugin_metadata:
+            plugin: radarr
+            field: original_language
+            value: jpn
+    """
+
+    plugin: str
+    field: str
+    value: str | int | float | bool
+    operator: PluginMetadataOperator = PluginMetadataOperator.EQ
+
+
 # Type alias for union of all condition types
 Condition = (
     ExistsCondition
@@ -1019,6 +1061,7 @@ Condition = (
     | OrCondition
     | NotCondition
     | AudioIsMultiLanguageCondition
+    | PluginMetadataCondition
 )
 
 
