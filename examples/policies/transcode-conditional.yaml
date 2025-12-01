@@ -1,11 +1,16 @@
-# Simple HEVC Transcoding Policy (V11)
-# Minimal single-phase policy for video transcoding
+# Conditional Transcoding Policy (V11)
+# Two-phase workflow with smart skip conditions and hardware acceleration
 schema_version: 11
 
 config:
   on_error: skip
 
 phases:
+  - name: prepare
+    container:
+      target: mkv
+      on_incompatible_codec: transcode
+
   - name: compress
     transcode:
       video:
@@ -18,10 +23,15 @@ phases:
           mode: crf
           crf: 20
           preset: medium
+          tune: film
         scaling:
           max_resolution: 1080p
           algorithm: lanczos
+          upscale: false
+        hardware_acceleration:
+          enabled: auto
+          fallback_to_cpu: true
       audio:
-        preserve_codecs: [truehd, dts-hd, flac]
+        preserve_codecs: [truehd, dts-hd, flac, pcm_s24le]
         transcode_to: aac
         transcode_bitrate: 192k

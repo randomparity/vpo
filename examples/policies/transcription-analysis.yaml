@@ -1,0 +1,34 @@
+# Transcription Analysis Policy (V11)
+# Two-phase workflow for language detection and track organization
+schema_version: 11
+
+config:
+  audio_language_preference: [eng, jpn, und]
+  subtitle_language_preference: [eng, jpn, und]
+  commentary_patterns: [commentary, director, cast, crew, "behind.*scenes", "making.*of"]
+  on_error: continue
+
+phases:
+  - name: analyze
+    transcription:
+      enabled: true
+      update_language_from_transcription: true
+      confidence_threshold: 0.8
+      detect_commentary: true
+      reorder_commentary: true
+
+  - name: organize
+    track_order:
+      - video
+      - audio_main
+      - audio_alternate
+      - audio_commentary
+      - subtitle_forced
+      - subtitle_main
+      - subtitle_commentary
+      - attachment
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: false
+      clear_other_defaults: true

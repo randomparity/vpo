@@ -1,0 +1,50 @@
+# Audio Synthesis Policy (V11)
+# Create compatibility audio tracks from lossless sources
+schema_version: 11
+
+config:
+  audio_language_preference: [eng, und]
+  on_error: skip
+
+phases:
+  - name: synthesize
+    audio_synthesis:
+      tracks:
+        - name: "AAC Stereo Downmix"
+          codec: aac
+          channels: stereo
+          bitrate: "192k"
+          skip_if_exists:
+            codec: aac
+            channels: 2
+            language: [eng, und]
+          source:
+            prefer:
+              - language: [eng, und]
+              - codec: [truehd, "truehd atmos", dts-hd, flac]
+              - channels: max
+          title: "Stereo (AAC)"
+          language: inherit
+          position: after_source
+
+        - name: "EAC3 5.1 Surround"
+          codec: eac3
+          channels: "5.1"
+          bitrate: "640k"
+          skip_if_exists:
+            codec: [eac3, ac3]
+            channels: { gte: 6 }
+            language: [eng, und]
+            not_commentary: true
+          source:
+            prefer:
+              - codec: [truehd, "truehd atmos", "dts-hd ma", dts, flac]
+              - channels: max
+          create_if:
+            exists:
+              track_type: audio
+              channels: { gte: 6 }
+              language: [eng, und]
+          title: "Dolby Digital Plus 5.1"
+          language: inherit
+          position: 1

@@ -1,0 +1,62 @@
+# Selective Phases Policy (V11)
+# Designed for CLI phase selection: vpo process -p selective-phases.yaml --phases quick-fix
+schema_version: 11
+
+config:
+  audio_language_preference: [eng, und]
+  subtitle_language_preference: [eng]
+  on_error: skip
+
+phases:
+  # Quick metadata fixes only (no transcoding)
+  # Usage: vpo process -p selective-phases.yaml --phases quick-fix video.mkv
+  - name: quick-fix
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      clear_other_defaults: true
+
+  # Full normalization without transcoding
+  # Usage: vpo process -p selective-phases.yaml --phases full-normalize video.mkv
+  - name: full-normalize
+    audio_filter:
+      languages: [eng, und]
+      minimum: 1
+    subtitle_filter:
+      languages: [eng]
+      preserve_forced: true
+    attachment_filter:
+      remove_all: true
+    track_order:
+      - video
+      - audio_main
+      - audio_alternate
+      - subtitle_main
+      - subtitle_forced
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      clear_other_defaults: true
+
+  # Archive quality transcoding for long-term storage
+  # Usage: vpo process -p selective-phases.yaml --phases archive video.mkv
+  - name: archive
+    transcode:
+      video:
+        target_codec: hevc
+        skip_if:
+          codec_matches: [hevc, h265]
+        quality:
+          mode: crf
+          crf: 18
+          preset: slow
+        scaling:
+          max_resolution: 1080p
+          algorithm: lanczos
+        hardware_acceleration:
+          enabled: auto
+          fallback_to_cpu: true
+      audio:
+        preserve_codecs: [truehd, dts-hd, flac]
+        transcode_to: aac
+        transcode_bitrate: 256k

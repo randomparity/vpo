@@ -1,0 +1,96 @@
+# Multi-Phase Production Policy (V11)
+# Enterprise workflow with all operations across 5 phases
+schema_version: 11
+
+config:
+  audio_language_preference: [eng, jpn, und]
+  subtitle_language_preference: [eng, jpn]
+  commentary_patterns: [commentary, director, "audio description"]
+  on_error: continue
+
+phases:
+  - name: prepare
+    container:
+      target: mkv
+      on_incompatible_codec: transcode
+
+  - name: cleanup
+    audio_filter:
+      languages: [eng, jpn, und]
+      minimum: 1
+      fallback:
+        mode: content_language
+    subtitle_filter:
+      languages: [eng, jpn]
+      preserve_forced: true
+    attachment_filter:
+      remove_all: false
+
+  - name: organize
+    track_order:
+      - video
+      - audio_main
+      - audio_alternate
+      - audio_commentary
+      - subtitle_main
+      - subtitle_forced
+      - subtitle_commentary
+      - attachment
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: false
+      clear_other_defaults: true
+    conditional:
+      - name: force-subs-for-foreign
+        when:
+          not:
+            exists:
+              track_type: audio
+              language: eng
+        then:
+          - set_forced:
+              track_type: subtitle
+              language: eng
+              value: true
+
+  - name: enhance
+    audio_synthesis:
+      tracks:
+        - name: "AAC Stereo"
+          codec: aac
+          channels: stereo
+          bitrate: "192k"
+          skip_if_exists:
+            codec: aac
+            channels: 2
+          source:
+            prefer:
+              - codec: [truehd, dts-hd, flac]
+              - codec: [dts, ac3]
+    transcription:
+      enabled: true
+      detect_commentary: true
+      reorder_commentary: true
+
+  - name: compress
+    transcode:
+      video:
+        target_codec: hevc
+        skip_if:
+          codec_matches: [hevc, h265]
+          resolution_within: 1080p
+        quality:
+          mode: crf
+          crf: 20
+          preset: medium
+        scaling:
+          max_resolution: 1080p
+          algorithm: lanczos
+        hardware_acceleration:
+          enabled: auto
+          fallback_to_cpu: true
+      audio:
+        preserve_codecs: [truehd, dts-hd, flac, aac]
+        transcode_to: aac
+        transcode_bitrate: 128k

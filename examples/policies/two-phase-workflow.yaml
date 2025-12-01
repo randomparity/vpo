@@ -1,0 +1,33 @@
+# Two Phase Workflow Policy (V11)
+# Demonstrates cleanup-then-organize pattern
+schema_version: 11
+
+config:
+  audio_language_preference: [eng, jpn, und]
+  subtitle_language_preference: [eng, jpn]
+  on_error: skip
+
+phases:
+  - name: cleanup
+    audio_filter:
+      languages: [eng, jpn, und]
+      minimum: 1
+      fallback:
+        mode: keep_first
+    subtitle_filter:
+      languages: [eng, jpn]
+      preserve_forced: true
+    attachment_filter:
+      remove_all: true
+
+  - name: finalize
+    track_order:
+      - video
+      - audio_main
+      - audio_alternate
+      - subtitle_main
+      - subtitle_forced
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      clear_other_defaults: true

@@ -1,0 +1,17 @@
+# Single Phase Minimal Policy (V11)
+# Simplest possible V11 policy structure
+schema_version: 11
+
+config:
+  audio_language_preference: [eng, und]
+  subtitle_language_preference: [eng]
+  on_error: skip
+
+phases:
+  - name: filter
+    audio_filter:
+      languages: [eng, und]
+      minimum: 1
+    subtitle_filter:
+      languages: [eng]
+      preserve_forced: true
