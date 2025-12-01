@@ -243,6 +243,79 @@ def test_radarr_connection():
     assert status["appName"] == "Radarr"
 ```
 
+## Policy Usage with Original Language
+
+After files are enriched with metadata from Radarr or Sonarr, the `original_language` field becomes available for use in policy conditions. This allows you to automatically tag video tracks with the correct language based on the content's original language.
+
+### Using original_language in Policies
+
+The enriched metadata is accessible in policy conditions. Here are common use cases:
+
+#### Tag Video Tracks with Original Language
+
+```yaml
+# tag-original-language.yaml
+schema_version: 10
+
+# When original_language is known and video track is undefined,
+# set the video track's language to the original language
+video:
+  - when:
+      original_language_is: jpn
+      video_language_is: und
+    then:
+      set_language: jpn
+
+  - when:
+      original_language_is: eng
+      video_language_is: und
+    then:
+      set_language: eng
+
+  - when:
+      original_language_is: kor
+      video_language_is: und
+    then:
+      set_language: kor
+```
+
+#### Conditional Audio Track Selection Based on Original Language
+
+```yaml
+# audio-selection.yaml
+schema_version: 10
+
+# Keep original language audio as default, others as secondary
+audio:
+  - when:
+      matches_original_language: true
+    then:
+      set_default: true
+      keep: true
+
+  - when:
+      matches_original_language: false
+      language_is: [eng, jpn, kor]
+    then:
+      set_default: false
+      keep: true
+```
+
+### Available Enrichment Fields
+
+After enrichment, the following fields are available in the file context:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `original_language` | string | ISO 639-2/B code (e.g., "eng", "jpn") |
+| `external_source` | string | "radarr" or "sonarr" |
+| `external_id` | int | Movie/Series ID from external service |
+| `external_title` | string | Title from external service |
+| `external_year` | int | Release year |
+| `series_title` | string | (Sonarr only) Series title |
+| `season_number` | int | (Sonarr only) Season number |
+| `episode_number` | int | (Sonarr only) Episode number |
+
 ## Usage Example
 
 After configuration, scan files normally:

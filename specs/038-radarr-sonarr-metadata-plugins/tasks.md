@@ -110,17 +110,17 @@
 
 ### Implementation for User Story 3
 
-- [ ] T033 [US3] Implement get_movies method calling GET /api/v3/movie in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [ ] T034 [US3] Implement get_movie_files method calling GET /api/v3/moviefile in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [ ] T035 [US3] Implement _parse_movie_response to convert JSON to RadarrMovie in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [ ] T036 [US3] Implement _parse_movie_file_response to convert JSON to RadarrMovieFile in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [ ] T037 [US3] Implement build_cache method that fetches all movies and files and builds path index in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [ ] T038 [US3] Add path normalization helper for consistent path matching in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [ ] T039 [US3] Implement on_file_scanned event handler in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
-- [ ] T040 [US3] Implement cache initialization on first file scanned in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
-- [ ] T041 [US3] Implement _create_enrichment method using normalize_language in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
-- [ ] T042 [US3] Add error handling for API failures (graceful degradation) in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
-- [ ] T043 [US3] Add structured logging for match success, no match, and errors in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
+- [X] T033 [US3] Implement get_movies method calling GET /api/v3/movie in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
+- [X] T034 [US3] Implement get_movie_files method calling GET /api/v3/moviefile in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
+- [X] T035 [US3] Implement _parse_movie_response to convert JSON to RadarrMovie in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
+- [X] T036 [US3] Implement _parse_movie_file_response to convert JSON to RadarrMovieFile in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
+- [X] T037 [US3] Implement build_cache method that fetches all movies and files and builds path index in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
+- [X] T038 [US3] Add path normalization helper for consistent path matching in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
+- [X] T039 [US3] Implement on_file_scanned event handler in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
+- [X] T040 [US3] Implement cache initialization on first file scanned in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
+- [X] T041 [US3] Implement _create_enrichment method using normalize_language in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
+- [X] T042 [US3] Add error handling for API failures (graceful degradation) in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
+- [X] T043 [US3] Add structured logging for match success, no match, and errors in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
 
 **Checkpoint**: Movie files are enriched with Radarr metadata during scans
 
@@ -134,16 +134,16 @@
 
 ### Implementation for User Story 4
 
-- [ ] T044 [US4] Implement parse method calling GET /api/v3/parse?path= in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
-- [ ] T045 [US4] Implement _parse_series_response to convert JSON to SonarrSeries in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
-- [ ] T046 [US4] Implement _parse_episode_response to convert JSON to SonarrEpisode in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
-- [ ] T047 [US4] Implement _parse_parse_result to convert full parse response to SonarrParseResult in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
-- [ ] T048 [US4] Add path normalization helper for consistent path matching in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
-- [ ] T049 [US4] Implement on_file_scanned event handler in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
-- [ ] T050 [US4] Implement lazy cache population using parse endpoint in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
-- [ ] T051 [US4] Implement _create_enrichment method using normalize_language with TV-specific fields in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
-- [ ] T052 [US4] Add error handling for API failures (graceful degradation) in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
-- [ ] T053 [US4] Add structured logging for match success, no match, and errors in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
+- [X] T044 [US4] Implement parse method calling GET /api/v3/parse?path= in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
+- [X] T045 [US4] Implement _parse_series_response to convert JSON to SonarrSeries in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
+- [X] T046 [US4] Implement _parse_episode_response to convert JSON to SonarrEpisode in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
+- [X] T047 [US4] Implement _parse_parse_result to convert full parse response to SonarrParseResult in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
+- [X] T048 [US4] Add path normalization helper for consistent path matching in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
+- [X] T049 [US4] Implement on_file_scanned event handler in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
+- [X] T050 [US4] Implement lazy cache population using parse endpoint in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
+- [X] T051 [US4] Implement _create_enrichment method using normalize_language with TV-specific fields in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
+- [X] T052 [US4] Add error handling for API failures (graceful degradation) in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
+- [X] T053 [US4] Add structured logging for match success, no match, and errors in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
 
 **Checkpoint**: TV episode files are enriched with Sonarr metadata during scans
 
@@ -157,9 +157,9 @@
 
 ### Implementation for User Story 5
 
-- [ ] T054 [US5] Document policy condition syntax for original_language in specs/038-radarr-sonarr-metadata-plugins/quickstart.md
-- [ ] T055 [US5] Add example policy YAML showing original_language usage in specs/038-radarr-sonarr-metadata-plugins/quickstart.md
-- [ ] T056 [US5] Verify enriched metadata is accessible in policy evaluation context
+- [X] T054 [US5] Document policy condition syntax for original_language in specs/038-radarr-sonarr-metadata-plugins/quickstart.md
+- [X] T055 [US5] Add example policy YAML showing original_language usage in specs/038-radarr-sonarr-metadata-plugins/quickstart.md
+- [X] T056 [US5] Verify enriched metadata is accessible in policy evaluation context
 
 **Checkpoint**: Policies can use enriched original_language metadata
 
@@ -173,12 +173,12 @@
 
 ### Implementation for User Story 6
 
-- [ ] T057 [US6] Add enriched metadata section to src/video_policy_orchestrator/server/ui/templates/file_detail.html
-- [ ] T058 [US6] Display external_source (Radarr/Sonarr) badge in file detail template
-- [ ] T059 [US6] Display original_language in file detail template
-- [ ] T060 [US6] Display external_title and external_year in file detail template
-- [ ] T061 [US6] Display TV-specific fields (series_title, season_number, episode_number) conditionally in file detail template
-- [ ] T062 [US6] Handle case when no enrichment is present (show nothing extra)
+- [X] T057 [US6] Add enriched metadata section to src/video_policy_orchestrator/server/ui/templates/file_detail.html
+- [X] T058 [US6] Display external_source (Radarr/Sonarr) badge in file detail template
+- [X] T059 [US6] Display original_language in file detail template
+- [X] T060 [US6] Display external_title and external_year in file detail template
+- [X] T061 [US6] Display TV-specific fields (series_title, season_number, episode_number) conditionally in file detail template
+- [X] T062 [US6] Handle case when no enrichment is present (show nothing extra)
 
 **Checkpoint**: Web UI displays enriched metadata from external sources
 

@@ -54,6 +54,60 @@
         </dl>
     </section>
 
+    <!-- Enriched metadata section (from Radarr/Sonarr) -->
+    {% if file.external_source %}
+    <section class="file-detail-enrichment">
+        <h2>
+            External Metadata
+            <span class="status-badge status-badge--{{ file.external_source }}">{{ file.external_source }}</span>
+        </h2>
+        <dl class="file-detail-dl">
+            {% if file.external_title %}
+            <div class="file-detail-dl-row">
+                <dt>Title</dt>
+                <dd>{{ file.external_title }}{% if file.external_year %} ({{ file.external_year }}){% endif %}</dd>
+            </div>
+            {% endif %}
+            {% if file.original_language %}
+            <div class="file-detail-dl-row">
+                <dt>Original Language</dt>
+                <dd>{{ file.original_language }}</dd>
+            </div>
+            {% endif %}
+            {% if file.series_title %}
+            <div class="file-detail-dl-row">
+                <dt>Series</dt>
+                <dd>{{ file.series_title }}</dd>
+            </div>
+            {% endif %}
+            {% if file.season_number is not none and file.episode_number is not none %}
+            <div class="file-detail-dl-row">
+                <dt>Episode</dt>
+                <dd>S{{ '%02d' % file.season_number }}E{{ '%02d' % file.episode_number }}{% if file.episode_title %} - {{ file.episode_title }}{% endif %}</dd>
+            </div>
+            {% endif %}
+            {% if file.imdb_id %}
+            <div class="file-detail-dl-row">
+                <dt>IMDb</dt>
+                <dd><a href="https://www.imdb.com/title/{{ file.imdb_id }}" target="_blank" rel="noopener">{{ file.imdb_id }}</a></dd>
+            </div>
+            {% endif %}
+            {% if file.tmdb_id %}
+            <div class="file-detail-dl-row">
+                <dt>TMDb</dt>
+                <dd><a href="https://www.themoviedb.org/movie/{{ file.tmdb_id }}" target="_blank" rel="noopener">{{ file.tmdb_id }}</a></dd>
+            </div>
+            {% endif %}
+            {% if file.tvdb_id %}
+            <div class="file-detail-dl-row">
+                <dt>TVDb</dt>
+                <dd><a href="https://thetvdb.com/dereferrer/series/{{ file.tvdb_id }}" target="_blank" rel="noopener">{{ file.tvdb_id }}</a></dd>
+            </div>
+            {% endif %}
+        </dl>
+    </section>
+    {% endif %}
+
     <!-- Scan job link (US4) -->
     {% if file.scan_job_id %}
     <section class="file-detail-jobs">
