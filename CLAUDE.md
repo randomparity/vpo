@@ -237,9 +237,48 @@ transcode:
 - HDR preservation: warns when scaling HDR content
 - HW encoder fallback: falls back to CPU if hardware unavailable
 
-## Active Technologies
-- Python 3.10+ + Click (CLI), Pydantic (validation), ruamel.yaml (round-trip YAML), aiohttp (web UI) (037-user-defined-phases)
-- SQLite (~/.vpo/library.db) (037-user-defined-phases)
+## Plugin System
 
+Plugins extend VPO's functionality through a well-defined protocol system:
+
+```
+plugin/
+├── interfaces.py    # AnalyzerPlugin, MutatorPlugin protocols
+├── events.py        # Event types: file.scanned, policy.before_evaluate, etc.
+├── registry.py      # PluginRegistry for loading/managing plugins
+├── loader.py        # Discovery from entry points and ~/.vpo/plugins/
+└── manifest.py      # PluginManifest metadata (name, version, events)
+
+plugins/             # Built-in reference plugins
+├── policy_engine/   # Core policy executor (built-in)
+└── whisper_transcriber/  # Example analyzer plugin
+```
+
+**Plugin types:**
+- `AnalyzerPlugin`: Read-only plugins that enrich metadata (subscribe to `file.scanned`)
+- `MutatorPlugin`: Plugins that can modify files (subscribe to `plan.before_execute`, etc.)
+
+**Creating a plugin:**
+```python
+class MyPlugin:
+    name = "my-plugin"      # kebab-case identifier
+    version = "1.0.0"       # semver
+    events = ["file.scanned"]
+
+    def on_file_scanned(self, event: FileScannedEvent) -> dict[str, Any] | None:
+        # Return dict to merge into file metadata, or None
+        return {"enriched_field": value}
+```
+
+**Plugin configuration** goes in `~/.vpo/config.toml` under `[plugins.<name>]` sections.
+
+<!-- speckit:technologies -->
+## Active Technologies
+- Python 3.10+ + Click (CLI), Pydantic (validation), ruamel.yaml (round-trip YAML), aiohttp (web UI)
+- SQLite (~/.vpo/library.db)
+<!-- speckit:end -->
+
+<!-- speckit:recent-changes -->
 ## Recent Changes
-- 037-user-defined-phases: Added Python 3.10+ + Click (CLI), Pydantic (validation), ruamel.yaml (round-trip YAML), aiohttp (web UI)
+- 038-radarr-sonarr-metadata-plugins: Radarr and Sonarr metadata enrichment plugins (in progress)
+<!-- speckit:end -->
