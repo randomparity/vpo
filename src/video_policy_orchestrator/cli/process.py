@@ -2,6 +2,8 @@
 
 This command replaces the separate apply and transcode commands with a
 unified workflow that runs phases in order: analyze → apply → transcode.
+
+For V11 policies, the workflow runs user-defined phases in order.
 """
 
 import json
@@ -23,8 +25,12 @@ from video_policy_orchestrator.cli.plan_formatter import (
 from video_policy_orchestrator.cli.profile_loader import load_profile_or_exit
 from video_policy_orchestrator.db.connection import get_connection
 from video_policy_orchestrator.policy.loader import PolicyValidationError, load_policy
-from video_policy_orchestrator.policy.models import ProcessingPhase, WorkflowConfig
-from video_policy_orchestrator.workflow import WorkflowProcessor
+from video_policy_orchestrator.policy.models import (
+    ProcessingPhase,
+    V11PolicySchema,
+    WorkflowConfig,
+)
+from video_policy_orchestrator.workflow import V11WorkflowProcessor, WorkflowProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +158,92 @@ def _format_result_json(result, file_path: Path) -> dict:
             break
 
     return output
+
+
+# =============================================================================
+# V11 Result Formatting (User-Defined Phases)
+# =============================================================================
+
+
+def _format_v11_result_human(result, file_path: Path, verbose: bool = False) -> str:
+    """Format V11 processing result for human-readable output.
+
+    Args:
+        result: FileProcessingResult from V11 workflow processor.
+        file_path: Path to the processed file.
+        verbose: If True, show detailed output.
+
+    Returns:
+        Formatted string for terminal output.
+    """
+    lines = [f"File: {file_path}"]
+
+    if result.success:
+        lines.append("Status: Success")
+        lines.append(f"Phases completed: {result.phases_completed}")
+        lines.append(f"Total changes: {result.total_changes}")
+    else:
+        lines.append("Status: Failed")
+        lines.append(f"Error: {result.error_message}")
+        if result.failed_phase:
+            lines.append(f"Failed phase: {result.failed_phase}")
+        lines.append(f"Phases completed: {result.phases_completed}")
+        lines.append(f"Phases failed: {result.phases_failed}")
+        lines.append(f"Phases skipped: {result.phases_skipped}")
+
+    # Add phase details
+    if verbose:
+        lines.append("")
+        lines.append("Phase details:")
+        for pr in result.phase_results:
+            status = "OK" if pr.success else "FAILED"
+            lines.append(
+                f"  [{status}] {pr.phase_name}: "
+                f"{pr.changes_made} changes, {pr.duration_seconds:.2f}s"
+            )
+            if pr.operations_executed:
+                ops_str = ", ".join(pr.operations_executed)
+                lines.append(f"         Operations: {ops_str}")
+            if pr.error:
+                lines.append(f"         Error: {pr.error}")
+
+    lines.append(f"Duration: {result.total_duration_seconds:.1f}s")
+    return "\n".join(lines)
+
+
+def _format_v11_result_json(result, file_path: Path) -> dict:
+    """Format V11 processing result for JSON output.
+
+    Args:
+        result: FileProcessingResult from V11 workflow processor.
+        file_path: Path to the processed file.
+
+    Returns:
+        Dictionary for JSON serialization.
+    """
+    return {
+        "file": str(file_path),
+        "success": result.success,
+        "phases_completed": result.phases_completed,
+        "phases_failed": result.phases_failed,
+        "phases_skipped": result.phases_skipped,
+        "total_changes": result.total_changes,
+        "failed_phase": result.failed_phase,
+        "error_message": result.error_message,
+        "duration_seconds": round(result.total_duration_seconds, 2),
+        "phase_results": [
+            {
+                "phase": pr.phase_name,
+                "success": pr.success,
+                "operations_executed": list(pr.operations_executed),
+                "changes_made": pr.changes_made,
+                "duration_seconds": round(pr.duration_seconds, 2),
+                "message": pr.message,
+                "error": pr.error,
+            }
+            for pr in result.phase_results
+        ],
+    }
 
 
 @click.command("process")
@@ -296,84 +388,152 @@ def process_command(
     results = []
     success_count = 0
     fail_count = 0
+    is_v11 = isinstance(policy, V11PolicySchema)
 
     try:
         with get_connection() as conn:
-            # Create effective workflow config with overrides
-            if phase_override or on_error:
-                base_config = policy.workflow or WorkflowConfig(
-                    phases=(ProcessingPhase.APPLY,),
+            if is_v11:
+                # V11 policy with user-defined phases
+                # Parse phase names for selective execution
+                selected_phases = None
+                if phases_str:
+                    selected_phases = [
+                        p.strip() for p in phases_str.split(",") if p.strip()
+                    ]
+
+                processor = V11WorkflowProcessor(
+                    conn=conn,
+                    policy=policy,
+                    dry_run=dry_run,
+                    verbose=verbose,
+                    policy_name=str(policy_path),
+                    selected_phases=selected_phases,
                 )
-                effective_phases = phase_override or base_config.phases
-                effective_on_error = on_error or base_config.on_error
-                effective_config = WorkflowConfig(
-                    phases=effective_phases,
-                    auto_process=base_config.auto_process,
-                    on_error=effective_on_error,
-                )
-                # Create modified policy with new workflow
-                # Note: PolicySchema is frozen, so we need to create a new one
-                policy = replace(policy, workflow=effective_config)
 
-            # Create processor
-            processor = WorkflowProcessor(
-                conn=conn,
-                policy=policy,
-                dry_run=dry_run,
-                verbose=verbose,
-                policy_name=str(policy_path),
-            )
+                for file_path in file_paths:
+                    if verbose and not json_output:
+                        click.echo(f"Processing: {file_path}")
 
-            for file_path in file_paths:
-                if verbose and not json_output:
-                    click.echo(f"Processing: {file_path}")
+                    result = processor.process_file(file_path)
+                    results.append(result)
 
-                result = processor.process_file(file_path)
-                results.append(result)
-
-                if result.success:
-                    success_count += 1
-                else:
-                    fail_count += 1
-
-                if not json_output:
-                    # In dry-run mode, always show plan details (use verbose for tables)
-                    # In non-dry-run mode, only show details if verbose
-                    if dry_run or verbose:
-                        formatted = _format_result_human(result, file_path, verbose)
-                        click.echo(formatted)
-                        click.echo("")
+                    if result.success:
+                        success_count += 1
                     else:
-                        status = "OK" if result.success else "FAILED"
-                        click.echo(f"[{status}] {file_path.name}")
+                        fail_count += 1
 
-                # Check if batch processing should stop (on_error='fail')
-                if result.batch_should_stop:
                     if not json_output:
-                        click.echo(
-                            f"Stopping batch due to error (on_error='fail'): "
-                            f"{result.error_message}"
-                        )
-                    break
+                        if dry_run or verbose:
+                            formatted = _format_v11_result_human(
+                                result, file_path, verbose
+                            )
+                            click.echo(formatted)
+                            click.echo("")
+                        else:
+                            status = "OK" if result.success else "FAILED"
+                            click.echo(f"[{status}] {file_path.name}")
+
+                    # Check if batch should stop
+                    if not result.success and policy.config.on_error.value == "fail":
+                        if not json_output:
+                            click.echo(
+                                f"Stopping batch due to error (on_error='fail'): "
+                                f"{result.error_message}"
+                            )
+                        break
+            else:
+                # V1-V10 policy - use existing workflow processor
+                # Create effective workflow config with overrides
+                if phase_override or on_error:
+                    base_config = policy.workflow or WorkflowConfig(
+                        phases=(ProcessingPhase.APPLY,),
+                    )
+                    effective_phases = phase_override or base_config.phases
+                    effective_on_error = on_error or base_config.on_error
+                    effective_config = WorkflowConfig(
+                        phases=effective_phases,
+                        auto_process=base_config.auto_process,
+                        on_error=effective_on_error,
+                    )
+                    # Create modified policy with new workflow
+                    # Note: PolicySchema is frozen, so we need to create a new one
+                    policy = replace(policy, workflow=effective_config)
+
+                # Create processor
+                processor = WorkflowProcessor(
+                    conn=conn,
+                    policy=policy,
+                    dry_run=dry_run,
+                    verbose=verbose,
+                    policy_name=str(policy_path),
+                )
+
+                for file_path in file_paths:
+                    if verbose and not json_output:
+                        click.echo(f"Processing: {file_path}")
+
+                    result = processor.process_file(file_path)
+                    results.append(result)
+
+                    if result.success:
+                        success_count += 1
+                    else:
+                        fail_count += 1
+
+                    if not json_output:
+                        # In dry-run mode, always show plan details
+                        # In non-dry-run mode, only show details if verbose
+                        if dry_run or verbose:
+                            formatted = _format_result_human(result, file_path, verbose)
+                            click.echo(formatted)
+                            click.echo("")
+                        else:
+                            status = "OK" if result.success else "FAILED"
+                            click.echo(f"[{status}] {file_path.name}")
+
+                    # Check if batch processing should stop (on_error='fail')
+                    if result.batch_should_stop:
+                        if not json_output:
+                            click.echo(
+                                f"Stopping batch due to error (on_error='fail'): "
+                                f"{result.error_message}"
+                            )
+                        break
 
     except sqlite3.Error as e:
         error_exit(f"Database error: {e}", ExitCode.GENERAL_ERROR, json_output)
 
     # Output summary
     if json_output:
-        output = {
-            "policy": {
-                "path": str(policy_path),
-                "version": policy.schema_version,
-            },
-            "dry_run": dry_run,
-            "summary": {
-                "total": len(results),
-                "success": success_count,
-                "failed": fail_count,
-            },
-            "results": [_format_result_json(r, r.file_path) for r in results],
-        }
+        if is_v11:
+            output = {
+                "policy": {
+                    "path": str(policy_path),
+                    "version": policy.schema_version,
+                    "phases": list(policy.phase_names),
+                },
+                "dry_run": dry_run,
+                "summary": {
+                    "total": len(results),
+                    "success": success_count,
+                    "failed": fail_count,
+                },
+                "results": [_format_v11_result_json(r, r.file_path) for r in results],
+            }
+        else:
+            output = {
+                "policy": {
+                    "path": str(policy_path),
+                    "version": policy.schema_version,
+                },
+                "dry_run": dry_run,
+                "summary": {
+                    "total": len(results),
+                    "success": success_count,
+                    "failed": fail_count,
+                },
+                "results": [_format_result_json(r, r.file_path) for r in results],
+            }
         click.echo(json.dumps(output, indent=2))
     else:
         click.echo("")

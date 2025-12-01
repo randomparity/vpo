@@ -58,23 +58,23 @@
 
 ### Implementation for User Story 1
 
-- [ ] T018 Create workflow/phases/ directory at src/video_policy_orchestrator/workflow/phases/
-- [ ] T019 [P] [US1] Create BasePhase protocol/abstract class in src/video_policy_orchestrator/workflow/phases/base.py
-- [ ] T020 [US1] Create PhaseExecutor class in src/video_policy_orchestrator/workflow/phases/executor.py implementing execute_phase() and rollback_phase() methods
-- [ ] T021 [US1] Add phase-level backup creation in PhaseExecutor.execute_phase() in src/video_policy_orchestrator/workflow/phases/executor.py
-- [ ] T022 [US1] Add canonical operation ordering logic to PhaseExecutor in src/video_policy_orchestrator/workflow/phases/executor.py
-- [ ] T023 [US1] Implement operation dispatch to existing executors in PhaseExecutor in src/video_policy_orchestrator/workflow/phases/executor.py
-- [ ] T024 [US1] Implement rollback_phase() with backup restoration in src/video_policy_orchestrator/workflow/phases/executor.py
-- [ ] T025 [US1] Update WorkflowProcessor in src/video_policy_orchestrator/workflow/processor.py to accept PolicySchema V11
-- [ ] T026 [US1] Replace ProcessingPhase enum dispatch with dynamic phase name lookup in src/video_policy_orchestrator/workflow/processor.py
-- [ ] T027 [US1] Implement sequential phase execution loop in WorkflowProcessor.process_file() in src/video_policy_orchestrator/workflow/processor.py
-- [ ] T028 [US1] Add file_modified tracking and re-introspection between phases in src/video_policy_orchestrator/workflow/processor.py
-- [ ] T029 [US1] Implement on_error handling (skip, continue, fail) in WorkflowProcessor in src/video_policy_orchestrator/workflow/processor.py
-- [ ] T030 [US1] Update or create vpo process command in src/video_policy_orchestrator/cli/process.py with policy file loading
-- [ ] T031 [US1] Add V11 policy validation in vpo process command in src/video_policy_orchestrator/cli/process.py
-- [ ] T032 [US1] Implement file processing with WorkflowProcessor in src/video_policy_orchestrator/cli/process.py
-- [ ] T033 [US1] Add JSON output format (--json flag) in src/video_policy_orchestrator/cli/process.py per contracts/api.md
-- [ ] T034 [US1] Add exit codes per CLI contract (0, 1, 2, 3) in src/video_policy_orchestrator/cli/process.py
+- [x] T018 Create workflow/phases/ directory at src/video_policy_orchestrator/workflow/phases/
+- [x] T019 [P] [US1] Create BasePhase protocol/abstract class in src/video_policy_orchestrator/workflow/phases/base.py
+- [x] T020 [US1] Create PhaseExecutor class in src/video_policy_orchestrator/workflow/phases/executor.py implementing execute_phase() and rollback_phase() methods
+- [x] T021 [US1] Add phase-level backup creation in PhaseExecutor.execute_phase() in src/video_policy_orchestrator/workflow/phases/executor.py
+- [x] T022 [US1] Add canonical operation ordering logic to PhaseExecutor in src/video_policy_orchestrator/workflow/phases/executor.py
+- [x] T023 [US1] Implement operation dispatch to existing executors in PhaseExecutor in src/video_policy_orchestrator/workflow/phases/executor.py
+- [x] T024 [US1] Implement rollback_phase() with backup restoration in src/video_policy_orchestrator/workflow/phases/executor.py
+- [x] T025 [US1] Update WorkflowProcessor in src/video_policy_orchestrator/workflow/processor.py to accept PolicySchema V11
+- [x] T026 [US1] Replace ProcessingPhase enum dispatch with dynamic phase name lookup in src/video_policy_orchestrator/workflow/processor.py
+- [x] T027 [US1] Implement sequential phase execution loop in WorkflowProcessor.process_file() in src/video_policy_orchestrator/workflow/processor.py
+- [x] T028 [US1] Add file_modified tracking and re-introspection between phases in src/video_policy_orchestrator/workflow/processor.py
+- [x] T029 [US1] Implement on_error handling (skip, continue, fail) in WorkflowProcessor in src/video_policy_orchestrator/workflow/processor.py
+- [x] T030 [US1] Update or create vpo process command in src/video_policy_orchestrator/cli/process.py with policy file loading
+- [x] T031 [US1] Add V11 policy validation in vpo process command in src/video_policy_orchestrator/cli/process.py
+- [x] T032 [US1] Implement file processing with WorkflowProcessor in src/video_policy_orchestrator/cli/process.py
+- [x] T033 [US1] Add JSON output format (--json flag) in src/video_policy_orchestrator/cli/process.py per contracts/api.md
+- [x] T034 [US1] Add exit codes per CLI contract (0, 1, 2, 3) in src/video_policy_orchestrator/cli/process.py
 
 **Checkpoint**: `vpo process -p policy.yaml /path/to/file.mkv` executes all phases in order
 
