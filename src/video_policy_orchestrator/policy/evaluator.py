@@ -21,6 +21,7 @@ from video_policy_orchestrator.db.models import (
     TranscriptionResultRecord,
 )
 from video_policy_orchestrator.language import languages_match, normalize_language
+from video_policy_orchestrator.policy.conditions import PluginMetadataDict
 from video_policy_orchestrator.policy.exceptions import (
     IncompatibleCodecError,
     InsufficientTracksError,
@@ -1007,6 +1008,7 @@ def evaluate_conditional_rules(
     tracks: list[TrackInfo],
     file_path: Path,
     language_results: dict[int, LanguageAnalysisResult] | None = None,
+    plugin_metadata: PluginMetadataDict | None = None,
 ) -> ConditionalResult:
     """Evaluate conditional rules and execute matching actions.
 
@@ -1021,6 +1023,8 @@ def evaluate_conditional_rules(
         file_path: Path to the file being processed.
         language_results: Optional dict mapping track_id to LanguageAnalysisResult
             (required for audio_is_multi_language conditions).
+        plugin_metadata: Optional dict of plugin metadata keyed by plugin name
+            (required for plugin_metadata conditions).
 
     Returns:
         ConditionalResult with matched rule, skip flags, warnings, and trace.
@@ -1048,8 +1052,10 @@ def evaluate_conditional_rules(
     track_flag_changes: list[TrackFlagChange] = []
 
     for i, rule in enumerate(rules):
-        # Evaluate the condition, passing language_results for multi-language checks
-        result, reason = evaluate_condition(rule.when, tracks, language_results)
+        # Evaluate the condition, passing all context for condition types
+        result, reason = evaluate_condition(
+            rule.when, tracks, language_results, None, plugin_metadata
+        )
 
         if result:
             # Condition matched - execute then_actions
@@ -1171,6 +1177,7 @@ def evaluate_policy(
     policy: PolicySchema,
     transcription_results: dict[int, TranscriptionResultRecord] | None = None,
     language_results: dict[int, LanguageAnalysisResult] | None = None,
+    plugin_metadata: PluginMetadataDict | None = None,
 ) -> Plan:
     """Evaluate a policy against file tracks to produce an execution plan.
 
@@ -1187,6 +1194,8 @@ def evaluate_policy(
             Required for transcription-based language updates.
         language_results: Optional dict mapping track_id to LanguageAnalysisResult.
             Required for audio_is_multi_language conditions.
+        plugin_metadata: Optional dict of plugin metadata keyed by plugin name.
+            Required for plugin_metadata conditions.
 
     Returns:
         Plan describing all changes needed to make tracks conform to policy.
@@ -1217,6 +1226,7 @@ def evaluate_policy(
             tracks=tracks,
             file_path=file_path,
             language_results=language_results,
+            plugin_metadata=plugin_metadata,
         )
         skip_flags = conditional_result.skip_flags
 

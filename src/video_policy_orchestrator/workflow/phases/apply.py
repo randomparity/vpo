@@ -105,6 +105,16 @@ class ApplyPhase:
             self.conn, audio_track_ids
         )
 
+        # Parse plugin metadata from FileRecord (stored as JSON string)
+        plugin_metadata: dict | None = None
+        if file_record.plugin_metadata:
+            import json
+
+            try:
+                plugin_metadata = json.loads(file_record.plugin_metadata)
+            except json.JSONDecodeError:
+                logger.warning("Failed to parse plugin_metadata for file %s", file_path)
+
         # Get policy engine
         policy_engine = self._get_policy_engine()
 
@@ -117,6 +127,7 @@ class ApplyPhase:
                 tracks=tracks,
                 policy=self.policy,
                 transcription_results=transcription_results,
+                plugin_metadata=plugin_metadata,
             )
 
             # Store plan for dry-run output access

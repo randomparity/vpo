@@ -248,6 +248,7 @@ class PolicyEnginePlugin:
         policy: PolicySchema,
         transcription_results: dict | None = None,
         language_results: dict | None = None,
+        plugin_metadata: dict | None = None,
     ) -> Plan:
         """Evaluate a policy against file tracks.
 
@@ -264,6 +265,8 @@ class PolicyEnginePlugin:
                 TranscriptionResultRecord for displaying transcription status.
             language_results: Optional dict mapping track_id to
                 LanguageAnalysisResult for audio_is_multi_language conditions.
+            plugin_metadata: Optional dict of plugin metadata keyed by plugin name
+                (required for plugin_metadata conditions).
 
         Returns:
             Plan describing changes needed to conform to policy.
@@ -276,6 +279,7 @@ class PolicyEnginePlugin:
             policy=policy,
             transcription_results=transcription_results,
             language_results=language_results,
+            plugin_metadata=plugin_metadata,
         )
 
     # ============================================================
