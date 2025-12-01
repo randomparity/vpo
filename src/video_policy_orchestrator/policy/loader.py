@@ -42,6 +42,8 @@ from video_policy_orchestrator.policy.models import (
     OnErrorMode,
     OrCondition,
     PhaseDefinition,
+    PluginMetadataCondition,
+    PluginMetadataOperator,
     PolicySchema,
     ProcessingPhase,
     QualityMode,
@@ -961,6 +963,74 @@ class AudioIsMultiLanguageModel(BaseModel):
         return v
 
 
+class PluginMetadataConditionModel(BaseModel):
+    """Pydantic model for plugin metadata condition (V12+).
+
+    Checks plugin-provided metadata for a file against expected values.
+    Enables policy rules based on external metadata from plugins like
+    Radarr/Sonarr.
+
+    Example YAML:
+        when:
+          plugin_metadata:
+            plugin: radarr
+            field: original_language
+            value: jpn
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    plugin: str
+    """Name of the plugin that provided the metadata (e.g., 'radarr')."""
+
+    field: str
+    """Field name within the plugin's metadata (e.g., 'original_language')."""
+
+    value: str | int | float | bool
+    """Value to compare against."""
+
+    operator: Literal["eq", "neq", "contains", "lt", "lte", "gt", "gte"] = "eq"
+    """Comparison operator (default: eq for equality)."""
+
+    @field_validator("plugin")
+    @classmethod
+    def validate_plugin_name(cls, v: str) -> str:
+        """Validate plugin name is non-empty and valid."""
+        if not v or not v.strip():
+            raise ValueError("plugin name cannot be empty")
+        v = v.strip().lower()
+        # Plugin names should be kebab-case identifiers
+        import re
+
+        if not re.match(r"^[a-z][a-z0-9-]*$", v):
+            raise ValueError(
+                f"Invalid plugin name '{v}'. "
+                "Plugin names must be lowercase, start with a letter, "
+                "and contain only letters, numbers, and hyphens."
+            )
+        return v
+
+    @field_validator("field")
+    @classmethod
+    def validate_field_name(cls, v: str) -> str:
+        """Validate field name is non-empty."""
+        if not v or not v.strip():
+            raise ValueError("field name cannot be empty")
+        return v.strip()
+
+    @model_validator(mode="after")
+    def validate_operator_value_compatibility(self) -> "PluginMetadataConditionModel":
+        """Validate that operator is compatible with value type."""
+        numeric_ops = ("lt", "lte", "gt", "gte")
+        if self.operator in numeric_ops:
+            if not isinstance(self.value, (int, float)):
+                raise ValueError(
+                    f"Operator '{self.operator}' requires a numeric value, "
+                    f"got {type(self.value).__name__}"
+                )
+        return self
+
+
 class ConditionModel(BaseModel):
     """Pydantic model for condition (union of condition types)."""
 
@@ -970,6 +1040,7 @@ class ConditionModel(BaseModel):
     exists: ExistsConditionModel | None = None
     count: CountConditionModel | None = None
     audio_is_multi_language: AudioIsMultiLanguageModel | None = None
+    plugin_metadata: PluginMetadataConditionModel | None = None  # V12+
 
     # Boolean operators
     all_of: list["ConditionModel"] | None = Field(None, alias="and")
@@ -983,6 +1054,7 @@ class ConditionModel(BaseModel):
             ("exists", self.exists),
             ("count", self.count),
             ("audio_is_multi_language", self.audio_is_multi_language),
+            ("plugin_metadata", self.plugin_metadata),
             ("and", self.all_of),
             ("or", self.any_of),
             ("not", self.not_),
@@ -993,7 +1065,7 @@ class ConditionModel(BaseModel):
             if len(set_conditions) == 0:
                 raise ValueError(
                     "Condition must specify exactly one type "
-                    "(exists/count/audio_is_multi_language/and/or/not)"
+                    "(exists/count/audio_is_multi_language/plugin_metadata/and/or/not)"
                 )
             names = [name for name, _ in set_conditions]
             raise ValueError(
@@ -1235,6 +1307,56 @@ def _check_v8_features_in_rules(rules: list[ConditionalRuleModel]) -> set[str]:
     return features
 
 
+def _check_v12_features_in_condition(condition: ConditionModel) -> set[str]:
+    """Check if a condition uses V12 features.
+
+    Recursively checks conditions for V12-specific features like plugin_metadata.
+
+    Args:
+        condition: The condition to check.
+
+    Returns:
+        Set of V12 feature names found in the condition.
+    """
+    features: set[str] = set()
+
+    # Check plugin_metadata condition
+    if condition.plugin_metadata is not None:
+        features.add("plugin_metadata")
+
+    # Check nested conditions
+    if condition.all_of is not None:
+        for sub in condition.all_of:
+            features.update(_check_v12_features_in_condition(sub))
+    if condition.any_of is not None:
+        for sub in condition.any_of:
+            features.update(_check_v12_features_in_condition(sub))
+    if condition.not_ is not None:
+        features.update(_check_v12_features_in_condition(condition.not_))
+
+    return features
+
+
+def _check_v12_features_in_rules(rules: list[ConditionalRuleModel]) -> set[str]:
+    """Check if any conditional rules use V12 features.
+
+    Checks conditions for V12-specific features like plugin_metadata.
+
+    Args:
+        rules: List of conditional rules to check.
+
+    Returns:
+        Set of V12 feature names found in the rules.
+    """
+    features: set[str] = set()
+
+    for rule in rules:
+        # Check condition
+        features.update(_check_v12_features_in_condition(rule.when))
+
+    return features
+
+
 class PolicyModel(BaseModel):
     """Pydantic model for policy YAML validation."""
 
@@ -1345,6 +1467,16 @@ class PolicyModel(BaseModel):
                 f"V9 fields (workflow) require schema_version >= 9, "
                 f"but schema_version is {self.schema_version}"
             )
+
+        # V12 field validation: plugin_metadata condition
+        if self.conditional is not None and self.schema_version < 12:
+            v12_features = _check_v12_features_in_rules(self.conditional)
+            if v12_features:
+                features_str = ", ".join(sorted(v12_features))
+                raise ValueError(
+                    f"V12 features ({features_str}) require schema_version >= 12, "
+                    f"but schema_version is {self.schema_version}"
+                )
 
         return self
 
@@ -1695,6 +1827,28 @@ def _convert_audio_is_multi_language_condition(
     )
 
 
+def _convert_plugin_metadata_condition(
+    model: PluginMetadataConditionModel,
+) -> PluginMetadataCondition:
+    """Convert PluginMetadataConditionModel to PluginMetadataCondition."""
+    # Convert operator string to enum
+    op_map = {
+        "eq": PluginMetadataOperator.EQ,
+        "neq": PluginMetadataOperator.NEQ,
+        "contains": PluginMetadataOperator.CONTAINS,
+        "lt": PluginMetadataOperator.LT,
+        "lte": PluginMetadataOperator.LTE,
+        "gt": PluginMetadataOperator.GT,
+        "gte": PluginMetadataOperator.GTE,
+    }
+    return PluginMetadataCondition(
+        plugin=model.plugin,
+        field=model.field,
+        value=model.value,
+        operator=op_map[model.operator],
+    )
+
+
 def _convert_condition(model: ConditionModel) -> Condition:
     """Convert ConditionModel to Condition type."""
     if model.exists is not None:
@@ -1705,6 +1859,9 @@ def _convert_condition(model: ConditionModel) -> Condition:
 
     if model.audio_is_multi_language is not None:
         return _convert_audio_is_multi_language_condition(model.audio_is_multi_language)
+
+    if model.plugin_metadata is not None:
+        return _convert_plugin_metadata_condition(model.plugin_metadata)
 
     if model.all_of is not None:
         return AndCondition(
