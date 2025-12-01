@@ -187,7 +187,7 @@ The visual policy editor (`/policies/{name}/edit`) provides form-based editing o
 
 ## Policy Schema
 
-The current policy schema version is **V10** (defined in `policy/loader.py` as `MAX_SCHEMA_VERSION`). Key schema versions:
+The current policy schema version is **V11** (defined in `policy/loader.py` as `MAX_SCHEMA_VERSION`). Key schema versions:
 
 - **V3**: Track filtering (audio_filter, subtitle_filter, attachment_filter), container conversion
 - **V4**: Conditional rules (when/then/else conditions and actions)
@@ -197,6 +197,7 @@ The current policy schema version is **V10** (defined in `policy/loader.py` as `
 - **V8**: skip_if_exists criteria, not_commentary filter
 - **V9**: Workflow configuration (phases, auto_process, on_error)
 - **V10**: Music/sfx/non_speech track type support
+- **V11**: Enhanced conditional rule operators
 
 **Example V6+ policy with transcoding:**
 ```yaml
@@ -272,13 +273,11 @@ class MyPlugin:
 
 **Plugin configuration** goes in `~/.vpo/config.toml` under `[plugins.<name>]` sections.
 
-<!-- speckit:technologies -->
-## Active Technologies
-- Python 3.10+ + Click (CLI), Pydantic (validation), ruamel.yaml (round-trip YAML), aiohttp (web UI)
-- SQLite (~/.vpo/library.db)
-<!-- speckit:end -->
+## Condition Evaluation Pattern
 
-<!-- speckit:recent-changes -->
-## Recent Changes
-- 038-radarr-sonarr-metadata-plugins: Radarr and Sonarr metadata enrichment plugins (in progress)
-<!-- speckit:end -->
+When adding new condition types to the policy system:
+1. Create condition dataclass in `policy/models.py` (add to `Condition` union type)
+2. Add Pydantic model in `policy/loader.py` for YAML parsing
+3. Add parsing case to `convert_condition()` in `policy/loader.py`
+4. Add evaluation function in `policy/conditions.py`
+5. Thread any new context through `policy/evaluator.py`
