@@ -43,6 +43,7 @@ phases:
       set_subtitle_default_when_audio_differs: true
     conditional:
       # V12: Use Radarr/Sonarr plugin metadata for Japanese anime detection
+      # Also set video track language to match the original language from Radarr/Sonarr
       - name: detect_japanese_anime_from_radarr
         when:
           plugin_metadata:
@@ -50,7 +51,10 @@ phases:
             field: original_language
             value: jpn
         then:
-          - warn: "Japanese anime detected via Radarr metadata - forcing English subtitles"
+          - warn: "Japanese anime detected via Radarr metadata - setting video language and forcing English subtitles"
+          - set_language:
+              track_type: video
+              new_language: jpn
           - set_forced:
               track_type: subtitle
               language: eng
@@ -67,7 +71,10 @@ phases:
             field: original_language
             value: jpn
         then:
-          - warn: "Japanese anime detected via Sonarr metadata - forcing English subtitles"
+          - warn: "Japanese anime detected via Sonarr metadata - setting video language and forcing English subtitles"
+          - set_language:
+              track_type: video
+              new_language: jpn
           - set_forced:
               track_type: subtitle
               language: eng

@@ -52,6 +52,7 @@ from video_policy_orchestrator.policy.models import (
     ScalingSettings,
     SetDefaultAction,
     SetForcedAction,
+    SetLanguageAction,
     SkipAction,
     SkipCondition,
     SkipIfExistsCriteria,
@@ -1109,6 +1110,19 @@ class SetDefaultActionModel(BaseModel):
     value: bool = True
 
 
+class SetLanguageActionModel(BaseModel):
+    """Pydantic model for set_language action.
+
+    Sets the language tag on matching tracks.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    track_type: Literal["video", "audio", "subtitle"]
+    new_language: str
+    match_language: str | None = None
+
+
 class ActionModel(BaseModel):
     """Pydantic model for conditional action."""
 
@@ -1127,6 +1141,9 @@ class ActionModel(BaseModel):
     set_forced: SetForcedActionModel | None = None
     set_default: SetDefaultActionModel | None = None
 
+    # Track metadata actions
+    set_language: SetLanguageActionModel | None = None
+
     @model_validator(mode="after")
     def validate_at_least_one_action(self) -> "ActionModel":
         """Validate that at least one action is specified."""
@@ -1138,12 +1155,13 @@ class ActionModel(BaseModel):
             self.fail,
             self.set_forced,
             self.set_default,
+            self.set_language,
         ]
         if not any(a is not None for a in actions):
             raise ValueError(
                 "Action must specify at least one action "
                 "(skip_video_transcode/skip_audio_transcode/skip_track_filter/"
-                "warn/fail/set_forced/set_default)"
+                "warn/fail/set_forced/set_default/set_language)"
             )
         return self
 
@@ -1917,6 +1935,15 @@ def _convert_action(model: ActionModel) -> tuple[ConditionalAction, ...]:
                 track_type=model.set_default.track_type,
                 language=model.set_default.language,
                 value=model.set_default.value,
+            )
+        )
+
+    if model.set_language is not None:
+        actions.append(
+            SetLanguageAction(
+                track_type=model.set_language.track_type,
+                new_language=model.set_language.new_language,
+                match_language=model.set_language.match_language,
             )
         )
 

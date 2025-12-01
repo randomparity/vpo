@@ -1134,9 +1134,33 @@ class SetDefaultAction:
     value: bool = True
 
 
+@dataclass(frozen=True)
+class SetLanguageAction:
+    """Set the language tag on matching tracks.
+
+    Used to correct or set track language metadata based on external sources
+    like Radarr/Sonarr plugin metadata.
+
+    Attributes:
+        track_type: Type of track to modify ("video", "audio", "subtitle").
+        new_language: The ISO 639-2/B language code to set.
+        match_language: Only modify tracks with this language (optional).
+            If None, modifies all tracks of the specified type.
+    """
+
+    track_type: str
+    new_language: str
+    match_language: str | None = None
+
+
 # Type alias for union of all action types
 ConditionalAction = (
-    SkipAction | WarnAction | FailAction | SetForcedAction | SetDefaultAction
+    SkipAction
+    | WarnAction
+    | FailAction
+    | SetForcedAction
+    | SetDefaultAction
+    | SetLanguageAction
 )
 
 
@@ -1192,6 +1216,18 @@ class TrackFlagChange:
     track_index: int
     flag_type: str  # "forced" or "default"
     value: bool
+
+
+@dataclass(frozen=True)
+class TrackLanguageChange:
+    """A pending change to a track's language tag.
+
+    Represents a set_language action that should be applied
+    to a specific track.
+    """
+
+    track_index: int
+    new_language: str
 
 
 @dataclass(frozen=True)

@@ -38,10 +38,12 @@ from video_policy_orchestrator.policy.models import (
     FailAction,
     SetDefaultAction,
     SetForcedAction,
+    SetLanguageAction,
     SkipAction,
     SkipFlags,
     SkipType,
     TrackFlagChange,
+    TrackLanguageChange,
     WarnAction,
 )
 
@@ -69,6 +71,7 @@ class ActionContext:
     skip_flags: SkipFlags = field(default_factory=SkipFlags)
     warnings: list[str] = field(default_factory=list)
     track_flag_changes: list[TrackFlagChange] = field(default_factory=list)
+    track_language_changes: list[TrackLanguageChange] = field(default_factory=list)
 
     @property
     def filename(self) -> str:
@@ -286,6 +289,68 @@ def execute_set_default_action(
     return context
 
 
+def execute_set_language_action(
+    action: SetLanguageAction, context: ActionContext
+) -> ActionContext:
+    """Execute a set_language action, setting language tag on matching tracks.
+
+    Args:
+        action: The set_language action to execute.
+        context: Current action context (must have tracks populated).
+
+    Returns:
+        Updated context with track language changes recorded.
+    """
+    if not context.tracks:
+        logger.warning(
+            "set_language action skipped: no tracks available in context for %s",
+            context.file_path,
+        )
+        return context
+
+    # Find matching tracks by type
+    matching_tracks = [
+        t for t in context.tracks if t.track_type.lower() == action.track_type.lower()
+    ]
+
+    # Apply match_language filter if specified
+    if action.match_language is not None:
+        matching_tracks = [
+            t
+            for t in matching_tracks
+            if t.language and languages_match(t.language, action.match_language)
+        ]
+
+    if not matching_tracks:
+        lang_filter = ""
+        if action.match_language:
+            lang_filter = f" (match_language={action.match_language})"
+        logger.warning(
+            "set_language action: no matching %s tracks%s found in %s",
+            action.track_type,
+            lang_filter,
+            context.file_path,
+        )
+        return context
+
+    # Add language changes for matching tracks
+    for track in matching_tracks:
+        context.track_language_changes.append(
+            TrackLanguageChange(
+                track_index=track.index,
+                new_language=action.new_language,
+            )
+        )
+        logger.debug(
+            "set_language: track[%d] language=%s for %s",
+            track.index,
+            action.new_language,
+            context.file_path,
+        )
+
+    return context
+
+
 def execute_actions(
     actions: tuple[ConditionalAction, ...],
     context: ActionContext,
@@ -314,6 +379,8 @@ def execute_actions(
             context = execute_set_forced_action(action, context)
         elif isinstance(action, SetDefaultAction):
             context = execute_set_default_action(action, context)
+        elif isinstance(action, SetLanguageAction):
+            context = execute_set_language_action(action, context)
         elif isinstance(action, FailAction):
             execute_fail_action(action, context)
 
