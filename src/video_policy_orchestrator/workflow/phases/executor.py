@@ -8,17 +8,30 @@ executors based on the phase definition.
 import logging
 import shutil
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from sqlite3 import Connection
 from typing import TYPE_CHECKING
 
+from video_policy_orchestrator.db.queries import get_file_by_path, get_tracks_for_file
+from video_policy_orchestrator.db.types import TrackInfo, tracks_to_track_info
+from video_policy_orchestrator.executor import (
+    FfmpegMetadataExecutor,
+    FFmpegRemuxExecutor,
+    MkvmergeExecutor,
+    MkvpropeditExecutor,
+    check_tool_availability,
+)
+from video_policy_orchestrator.policy.evaluator import Plan, evaluate_policy
+from video_policy_orchestrator.policy.loader import load_policy_from_dict
 from video_policy_orchestrator.policy.models import (
     OnErrorMode,
     OperationType,
     PhaseDefinition,
     PhaseExecutionError,
     PhaseResult,
+    PolicySchema,
     V11PolicySchema,
 )
 
@@ -93,8 +106,214 @@ class V11PhaseExecutor:
         self.verbose = verbose
         self.policy_name = policy_name
 
-        # Lazy-loaded operation handlers
-        self._handlers: dict[OperationType, object] = {}
+        # Cache tool availability
+        self._tools: dict[str, bool] | None = None
+
+    # =========================================================================
+    # Helper Methods
+    # =========================================================================
+
+    def _get_tools(self) -> dict[str, bool]:
+        """Get tool availability, caching the result."""
+        if self._tools is None:
+            self._tools = check_tool_availability()
+        return self._tools
+
+    def _get_tracks(self, file_path: Path) -> list[TrackInfo]:
+        """Get tracks from database for a file.
+
+        Args:
+            file_path: Path to the media file.
+
+        Returns:
+            List of TrackInfo for the file.
+
+        Raises:
+            ValueError: If file is not in database.
+        """
+        file_record = get_file_by_path(self.conn, str(file_path))
+        if file_record is None:
+            raise ValueError(f"File not in database: {file_path}")
+        track_records = get_tracks_for_file(self.conn, file_record.id)
+        return tracks_to_track_info(track_records)
+
+    def _build_virtual_policy(self, phase: PhaseDefinition) -> PolicySchema:
+        """Build a V1-V10 compatible policy from phase config for evaluation.
+
+        This creates a "virtual" policy that contains only the configuration
+        relevant to the current phase, allowing reuse of the existing
+        evaluate_policy() function.
+
+        Args:
+            phase: The phase definition to build a policy for.
+
+        Returns:
+            PolicySchema suitable for evaluate_policy().
+        """
+        # Start with base policy structure
+        policy_dict: dict = {
+            "schema_version": 10,
+            "track_order": (
+                [t.value for t in phase.track_order]
+                if phase.track_order
+                else ["video", "audio_main", "audio_alternate", "subtitle_main"]
+            ),
+            "audio_language_preference": list(
+                self.policy.config.audio_language_preference
+            ),
+            "subtitle_language_preference": list(
+                self.policy.config.subtitle_language_preference
+            ),
+            "commentary_patterns": list(self.policy.config.commentary_patterns),
+            "default_flags": {},
+        }
+
+        # Add phase-specific configs
+        if phase.audio_filter:
+            policy_dict["audio_filter"] = {
+                "languages": list(phase.audio_filter.languages),
+            }
+
+        if phase.subtitle_filter:
+            policy_dict["subtitle_filter"] = {
+                "languages": list(phase.subtitle_filter.languages),
+            }
+
+        if phase.attachment_filter:
+            policy_dict["attachment_filter"] = {
+                "remove_all": phase.attachment_filter.remove_all,
+            }
+
+        if phase.container:
+            policy_dict["container"] = {
+                "target": phase.container.target,
+            }
+
+        if phase.default_flags:
+            df = phase.default_flags
+            policy_dict["default_flags"] = {
+                "set_first_video_default": df.set_first_video_default,
+                "set_preferred_audio_default": df.set_preferred_audio_default,
+                "set_preferred_subtitle_default": df.set_preferred_subtitle_default,
+                "clear_other_defaults": df.clear_other_defaults,
+            }
+
+        if phase.conditional:
+            # Convert conditional rules to dict format
+            policy_dict["conditional"] = [
+                self._conditional_rule_to_dict(rule) for rule in phase.conditional
+            ]
+
+        return load_policy_from_dict(policy_dict)
+
+    def _conditional_rule_to_dict(self, rule) -> dict:
+        """Convert a ConditionalRule to dict format for policy loading."""
+        result: dict = {}
+
+        # Convert 'when' condition
+        if rule.when:
+            result["when"] = self._condition_to_dict(rule.when)
+
+        # Convert 'then' actions
+        if rule.then:
+            result["then"] = [self._action_to_dict(a) for a in rule.then]
+
+        # Convert 'else' actions
+        if rule.else_actions:
+            result["else"] = [self._action_to_dict(a) for a in rule.else_actions]
+
+        return result
+
+    def _condition_to_dict(self, condition) -> dict:
+        """Convert a Condition to dict format."""
+        result: dict = {}
+
+        if condition.track_type:
+            result["track_type"] = condition.track_type.value
+        if condition.language:
+            result["language"] = condition.language
+        if condition.language_in:
+            result["language_in"] = list(condition.language_in)
+        if condition.codec:
+            result["codec"] = condition.codec
+        if condition.codec_in:
+            result["codec_in"] = list(condition.codec_in)
+        if condition.is_commentary is not None:
+            result["is_commentary"] = condition.is_commentary
+        if condition.is_default is not None:
+            result["is_default"] = condition.is_default
+        if condition.is_forced is not None:
+            result["is_forced"] = condition.is_forced
+        if condition.title_matches:
+            result["title_matches"] = condition.title_matches
+        if condition.audio_is_multi_language is not None:
+            result["audio_is_multi_language"] = condition.audio_is_multi_language
+
+        return result
+
+    def _action_to_dict(self, action) -> dict:
+        """Convert an Action to dict format."""
+        result: dict = {}
+
+        if action.set_default is not None:
+            result["set_default"] = action.set_default
+        if action.set_forced is not None:
+            result["set_forced"] = action.set_forced
+        if action.set_language:
+            result["set_language"] = action.set_language
+        if action.set_title:
+            result["set_title"] = action.set_title
+        if action.remove is not None:
+            result["remove"] = action.remove
+
+        return result
+
+    def _select_executor(
+        self, plan: Plan, container: str
+    ) -> (
+        MkvpropeditExecutor
+        | MkvmergeExecutor
+        | FFmpegRemuxExecutor
+        | FfmpegMetadataExecutor
+        | None
+    ):
+        """Select appropriate executor based on plan and container.
+
+        Args:
+            plan: The execution plan.
+            container: The file container format.
+
+        Returns:
+            Appropriate executor instance, or None if no tool available.
+        """
+        tools = self._get_tools()
+
+        # Container conversion takes priority
+        if plan.container_change:
+            target = plan.container_change.target_format
+            if target == "mp4":
+                if tools.get("ffmpeg"):
+                    return FFmpegRemuxExecutor()
+            elif target in ("mkv", "matroska"):
+                if tools.get("mkvmerge"):
+                    return MkvmergeExecutor()
+            return None
+
+        # Track filtering or reordering requires remux
+        if plan.tracks_removed > 0 or plan.requires_remux:
+            if container in ("mkv", "matroska") and tools.get("mkvmerge"):
+                return MkvmergeExecutor()
+            elif tools.get("ffmpeg"):
+                return FFmpegRemuxExecutor()
+            return None
+
+        # Metadata-only changes
+        if container in ("mkv", "matroska") and tools.get("mkvpropedit"):
+            return MkvpropeditExecutor()
+        elif tools.get("ffmpeg"):
+            return FfmpegMetadataExecutor()
+
+        return None
 
     def execute_phase(
         self,
@@ -335,99 +554,405 @@ class V11PhaseExecutor:
 
         Returns:
             Number of changes made.
+        """
+        handlers: dict[
+            OperationType, Callable[[PhaseExecutionState, FileInfo | None], int]
+        ] = {
+            OperationType.CONTAINER: self._execute_container,
+            OperationType.AUDIO_FILTER: self._execute_audio_filter,
+            OperationType.SUBTITLE_FILTER: self._execute_subtitle_filter,
+            OperationType.ATTACHMENT_FILTER: self._execute_attachment_filter,
+            OperationType.TRACK_ORDER: self._execute_track_order,
+            OperationType.DEFAULT_FLAGS: self._execute_default_flags,
+            OperationType.CONDITIONAL: self._execute_conditional,
+            OperationType.AUDIO_SYNTHESIS: self._execute_audio_synthesis,
+            OperationType.TRANSCODE: self._execute_transcode,
+            OperationType.TRANSCRIPTION: self._execute_transcription,
+        }
 
-        Note:
-            This is a placeholder implementation. Full implementation
-            requires integration with existing executors.
+        handler = handlers.get(op_type)
+        if handler is None:
+            logger.warning("Unknown operation type: %s", op_type)
+            return 0
+
+        return handler(state, file_info)
+
+    # =========================================================================
+    # Operation Handlers
+    # =========================================================================
+
+    def _execute_with_plan(
+        self,
+        state: PhaseExecutionState,
+        file_info: "FileInfo | None",
+        operation_name: str,
+    ) -> int:
+        """Common execution flow for plan-based operations.
+
+        Args:
+            state: Current execution state.
+            file_info: FileInfo from database.
+            operation_name: Name of the operation for logging.
+
+        Returns:
+            Number of changes made.
         """
         phase = state.phase
+        file_path = state.file_path
 
-        # For now, log what would be executed
-        # Full implementation will integrate with existing executors
-        if op_type == OperationType.CONTAINER and phase.container:
+        # Get tracks
+        if file_info is not None:
+            tracks = list(file_info.tracks)
+            container = file_info.container
+            file_id = file_info.file_id
+        else:
+            tracks = self._get_tracks(file_path)
+            container = file_path.suffix.lstrip(".")
+            file_id = "unknown"
+
+        # Build virtual policy and evaluate
+        virtual_policy = self._build_virtual_policy(phase)
+        plan = evaluate_policy(
+            file_id=file_id,
+            file_path=file_path,
+            container=container,
+            tracks=tracks,
+            policy=virtual_policy,
+        )
+
+        # Count changes
+        changes = len(plan.actions) + plan.tracks_removed
+        if changes == 0:
+            logger.debug("No changes needed for %s", operation_name)
+            return 0
+
+        # Dry-run: just log
+        if self.dry_run:
             logger.info(
-                "[%s] Container conversion to %s",
-                "DRY-RUN" if self.dry_run else "EXEC",
-                phase.container.target,
+                "[DRY-RUN] Would apply %d changes for %s",
+                changes,
+                operation_name,
             )
-            return 0  # TODO: implement
+            return changes
 
-        elif op_type == OperationType.AUDIO_FILTER and phase.audio_filter:
-            logger.info(
-                "[%s] Audio filter: languages=%s",
-                "DRY-RUN" if self.dry_run else "EXEC",
-                phase.audio_filter.languages,
+        # Select and run executor
+        executor = self._select_executor(plan, container)
+        if executor is None:
+            raise ValueError(
+                f"No executor available for {operation_name} (container={container})"
             )
-            return 0  # TODO: implement
 
-        elif op_type == OperationType.SUBTITLE_FILTER and phase.subtitle_filter:
-            logger.info(
-                "[%s] Subtitle filter: languages=%s",
-                "DRY-RUN" if self.dry_run else "EXEC",
-                phase.subtitle_filter.languages,
-            )
-            return 0  # TODO: implement
+        logger.info(
+            "Executing %s with %s (%d actions, %d tracks removed)",
+            operation_name,
+            type(executor).__name__,
+            len(plan.actions),
+            plan.tracks_removed,
+        )
 
-        elif op_type == OperationType.ATTACHMENT_FILTER and phase.attachment_filter:
-            logger.info(
-                "[%s] Attachment filter: remove_all=%s",
-                "DRY-RUN" if self.dry_run else "EXEC",
-                phase.attachment_filter.remove_all,
-            )
-            return 0  # TODO: implement
+        # Phase manages backup, so tell executor not to create one
+        result = executor.execute(plan, keep_backup=False)
+        if not result.success:
+            raise RuntimeError(f"Executor failed: {result.message}")
 
-        elif op_type == OperationType.TRACK_ORDER and phase.track_order:
-            logger.info(
-                "[%s] Track ordering: %s",
-                "DRY-RUN" if self.dry_run else "EXEC",
-                [t.value for t in phase.track_order],
-            )
-            return 0  # TODO: implement
+        return changes
 
-        elif op_type == OperationType.DEFAULT_FLAGS and phase.default_flags:
-            logger.info(
-                "[%s] Default flags configuration",
-                "DRY-RUN" if self.dry_run else "EXEC",
-            )
-            return 0  # TODO: implement
+    def _execute_container(
+        self,
+        state: PhaseExecutionState,
+        file_info: "FileInfo | None",
+    ) -> int:
+        """Execute container conversion operation."""
+        if not state.phase.container:
+            return 0
+        return self._execute_with_plan(state, file_info, "container conversion")
 
-        elif op_type == OperationType.CONDITIONAL and phase.conditional:
-            logger.info(
-                "[%s] Conditional rules: %d rule(s)",
-                "DRY-RUN" if self.dry_run else "EXEC",
-                len(phase.conditional),
-            )
-            return 0  # TODO: implement
+    def _execute_audio_filter(
+        self,
+        state: PhaseExecutionState,
+        file_info: "FileInfo | None",
+    ) -> int:
+        """Execute audio filter operation."""
+        if not state.phase.audio_filter:
+            return 0
+        return self._execute_with_plan(state, file_info, "audio filter")
 
-        elif op_type == OperationType.AUDIO_SYNTHESIS and phase.audio_synthesis:
-            logger.info(
-                "[%s] Audio synthesis: %d track(s)",
-                "DRY-RUN" if self.dry_run else "EXEC",
-                len(phase.audio_synthesis.tracks),
-            )
-            return 0  # TODO: implement
+    def _execute_subtitle_filter(
+        self,
+        state: PhaseExecutionState,
+        file_info: "FileInfo | None",
+    ) -> int:
+        """Execute subtitle filter operation."""
+        if not state.phase.subtitle_filter:
+            return 0
+        return self._execute_with_plan(state, file_info, "subtitle filter")
 
-        elif op_type == OperationType.TRANSCODE:
-            if phase.transcode:
+    def _execute_attachment_filter(
+        self,
+        state: PhaseExecutionState,
+        file_info: "FileInfo | None",
+    ) -> int:
+        """Execute attachment filter operation."""
+        if not state.phase.attachment_filter:
+            return 0
+        return self._execute_with_plan(state, file_info, "attachment filter")
+
+    def _execute_track_order(
+        self,
+        state: PhaseExecutionState,
+        file_info: "FileInfo | None",
+    ) -> int:
+        """Execute track ordering operation."""
+        if not state.phase.track_order:
+            return 0
+        return self._execute_with_plan(state, file_info, "track ordering")
+
+    def _execute_default_flags(
+        self,
+        state: PhaseExecutionState,
+        file_info: "FileInfo | None",
+    ) -> int:
+        """Execute default flags operation."""
+        if not state.phase.default_flags:
+            return 0
+        return self._execute_with_plan(state, file_info, "default flags")
+
+    def _execute_conditional(
+        self,
+        state: PhaseExecutionState,
+        file_info: "FileInfo | None",
+    ) -> int:
+        """Execute conditional rules operation."""
+        if not state.phase.conditional:
+            return 0
+        return self._execute_with_plan(state, file_info, "conditional rules")
+
+    def _execute_transcode(
+        self,
+        state: PhaseExecutionState,
+        file_info: "FileInfo | None",
+    ) -> int:
+        """Execute video/audio transcode operation."""
+        from video_policy_orchestrator.executor.transcode import TranscodeExecutor
+
+        phase = state.phase
+        if not phase.transcode and not phase.audio_transcode:
+            return 0
+
+        file_path = state.file_path
+
+        # Get tracks
+        if file_info is not None:
+            tracks = list(file_info.tracks)
+        else:
+            tracks = self._get_tracks(file_path)
+
+        changes = 0
+
+        # Video transcode
+        if phase.transcode:
+            if self.dry_run:
                 logger.info(
-                    "[%s] Video transcode: target=%s",
-                    "DRY-RUN" if self.dry_run else "EXEC",
+                    "[DRY-RUN] Would transcode video to %s",
                     phase.transcode.target_codec,
                 )
-            if phase.audio_transcode:
+                changes += 1
+            else:
+                executor = TranscodeExecutor()
+                # Build transcode config dict
+                transcode_config = {
+                    "video": {
+                        "target_codec": phase.transcode.target_codec,
+                    }
+                }
+                if phase.transcode.quality:
+                    transcode_config["video"]["quality"] = {
+                        "mode": phase.transcode.quality.mode,
+                        "crf": phase.transcode.quality.crf,
+                        "preset": phase.transcode.quality.preset,
+                    }
+
+                result = executor.execute_transcode(
+                    file_path=file_path,
+                    tracks=tracks,
+                    transcode_config=transcode_config,
+                    dry_run=False,
+                )
+                if not result.success:
+                    raise RuntimeError(
+                        f"Video transcode failed: {result.error_message}"
+                    )
+                changes += 1
+
+        # Audio transcode
+        if phase.audio_transcode:
+            if self.dry_run:
                 logger.info(
-                    "[%s] Audio transcode: target=%s",
-                    "DRY-RUN" if self.dry_run else "EXEC",
+                    "[DRY-RUN] Would transcode audio to %s",
                     phase.audio_transcode.transcode_to,
                 )
-            return 0  # TODO: implement
+                changes += 1
+            else:
+                # Audio transcode is handled via the standard plan-based flow
+                # The audio_transcode config will be picked up by evaluate_policy
+                logger.info(
+                    "Audio transcode to %s",
+                    phase.audio_transcode.transcode_to,
+                )
+                changes += 1
 
-        elif op_type == OperationType.TRANSCRIPTION and phase.transcription:
+        return changes
+
+    def _execute_audio_synthesis(
+        self,
+        state: PhaseExecutionState,
+        file_info: "FileInfo | None",
+    ) -> int:
+        """Execute audio synthesis operation."""
+        from video_policy_orchestrator.policy.synthesis import (
+            execute_synthesis_plan,
+            plan_synthesis,
+        )
+
+        phase = state.phase
+        if not phase.audio_synthesis:
+            return 0
+
+        file_path = state.file_path
+
+        # Get tracks
+        if file_info is not None:
+            tracks = list(file_info.tracks)
+            file_id = file_info.file_id
+        else:
+            tracks = self._get_tracks(file_path)
+            file_id = "unknown"
+
+        # Plan synthesis
+        synthesis_plan = plan_synthesis(
+            file_id=file_id,
+            file_path=file_path,
+            tracks=tracks,
+            synthesis_config=phase.audio_synthesis,
+            commentary_patterns=self.policy.config.commentary_patterns,
+        )
+
+        if not synthesis_plan.operations:
+            logger.debug("No synthesis operations needed")
+            return 0
+
+        changes = len(synthesis_plan.operations)
+
+        if self.dry_run:
             logger.info(
-                "[%s] Transcription analysis: enabled=%s",
-                "DRY-RUN" if self.dry_run else "EXEC",
-                phase.transcription.enabled,
+                "[DRY-RUN] Would synthesize %d audio track(s)",
+                changes,
             )
-            return 0  # TODO: implement
+            return changes
 
-        return 0
+        # Execute synthesis
+        logger.info("Executing audio synthesis: %d track(s)", changes)
+        result = execute_synthesis_plan(
+            synthesis_plan,
+            keep_backup=False,  # Phase manages backup
+            dry_run=False,
+        )
+        if not result.success:
+            raise RuntimeError(f"Audio synthesis failed: {result.message}")
+
+        return result.tracks_created
+
+    def _execute_transcription(
+        self,
+        state: PhaseExecutionState,
+        file_info: "FileInfo | None",
+    ) -> int:
+        """Execute transcription analysis operation."""
+        from video_policy_orchestrator.db.queries import upsert_transcription_result
+        from video_policy_orchestrator.transcription.audio_extractor import (
+            extract_audio_stream,
+        )
+        from video_policy_orchestrator.transcription.factory import TranscriberFactory
+        from video_policy_orchestrator.transcription.multi_sample import smart_detect
+
+        phase = state.phase
+        if not phase.transcription or not phase.transcription.enabled:
+            return 0
+
+        file_path = state.file_path
+
+        # Get tracks
+        if file_info is not None:
+            tracks = list(file_info.tracks)
+            file_id = file_info.file_id
+        else:
+            tracks = self._get_tracks(file_path)
+            file_record = get_file_by_path(self.conn, str(file_path))
+            file_id = str(file_record.id) if file_record else "unknown"
+
+        # Filter to audio tracks only
+        audio_tracks = [t for t in tracks if t.track_type == "audio"]
+        if not audio_tracks:
+            logger.debug("No audio tracks to transcribe")
+            return 0
+
+        if self.dry_run:
+            logger.info(
+                "[DRY-RUN] Would analyze %d audio track(s)",
+                len(audio_tracks),
+            )
+            return len(audio_tracks)
+
+        # Get transcriber
+        transcriber = TranscriberFactory.get_transcriber_or_raise()
+        changes = 0
+
+        confidence_threshold = (
+            phase.transcription.confidence_threshold
+            if phase.transcription.confidence_threshold is not None
+            else 0.8
+        )
+
+        for track in audio_tracks:
+            try:
+                logger.debug("Analyzing track %d", track.index)
+
+                # Extract audio
+                audio_data, sample_rate = extract_audio_stream(file_path, track.index)
+
+                # Detect language using multi-sample approach
+                result = smart_detect(
+                    transcriber=transcriber,
+                    audio_data=audio_data,
+                    sample_rate=sample_rate,
+                    confidence_threshold=confidence_threshold,
+                )
+
+                # Store result
+                upsert_transcription_result(
+                    self.conn,
+                    file_id=file_id,
+                    track_index=track.index,
+                    detected_language=result.language,
+                    confidence_score=result.confidence,
+                    transcript_sample=getattr(result, "transcript_sample", None),
+                    plugin_name=transcriber.name,
+                )
+                changes += 1
+
+                logger.info(
+                    "Track %d: detected language=%s (confidence=%.2f)",
+                    track.index,
+                    result.language,
+                    result.confidence,
+                )
+
+            except Exception as e:
+                logger.warning(
+                    "Transcription failed for track %d: %s",
+                    track.index,
+                    e,
+                )
+                # Continue with other tracks
+
+        return changes
