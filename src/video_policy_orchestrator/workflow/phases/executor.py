@@ -5,6 +5,7 @@ user-defined phases in V11 policies. It dispatches operations to existing
 executors based on the phase definition.
 """
 
+import json
 import logging
 import shutil
 import time
@@ -836,6 +837,20 @@ class V11PhaseExecutor:
         file_record = get_file_by_path(self.conn, str(file_path))
         file_id = str(file_record.id) if file_record else "unknown"
 
+        # Parse plugin metadata from FileRecord (stored as JSON string)
+        plugin_metadata: dict | None = None
+        if file_record and file_record.plugin_metadata:
+            try:
+                plugin_metadata = json.loads(file_record.plugin_metadata)
+            except json.JSONDecodeError as e:
+                logger.error(
+                    "Corrupted plugin_metadata JSON for file %s (file_id=%s): %s. "
+                    "Plugin metadata conditions in synthesis will not be evaluated.",
+                    file_path,
+                    file_id,
+                    e,
+                )
+
         # Plan synthesis
         synthesis_plan = plan_synthesis(
             file_id=file_id,
@@ -843,6 +858,7 @@ class V11PhaseExecutor:
             tracks=tracks,
             synthesis_config=phase.audio_synthesis,
             commentary_patterns=self.policy.config.commentary_patterns,
+            plugin_metadata=plugin_metadata,
         )
 
         if not synthesis_plan.operations:

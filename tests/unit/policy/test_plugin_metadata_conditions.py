@@ -328,3 +328,124 @@ class TestPluginMetadataConditionDataclass:
         expected = {"eq", "neq", "contains", "lt", "lte", "gt", "gte"}
         actual = {op.value for op in PluginMetadataOperator}
         assert actual == expected
+
+
+class TestBooleanPluginMetadata:
+    """Tests for boolean values in plugin metadata conditions."""
+
+    def test_eq_boolean_true_match(self) -> None:
+        """Test equality comparison with matching boolean True."""
+        condition = PluginMetadataCondition(
+            plugin="myapp",
+            field="is_anime",
+            value=True,
+            operator=PluginMetadataOperator.EQ,
+        )
+        metadata: PluginMetadataDict = {"myapp": {"is_anime": True}}
+
+        result, reason = evaluate_plugin_metadata(condition, metadata)
+
+        assert result is True
+        assert "True" in reason
+
+    def test_eq_boolean_false_match(self) -> None:
+        """Test equality comparison with matching boolean False."""
+        condition = PluginMetadataCondition(
+            plugin="myapp",
+            field="is_anime",
+            value=False,
+            operator=PluginMetadataOperator.EQ,
+        )
+        metadata: PluginMetadataDict = {"myapp": {"is_anime": False}}
+
+        result, reason = evaluate_plugin_metadata(condition, metadata)
+
+        assert result is True
+
+    def test_eq_boolean_no_match(self) -> None:
+        """Test equality comparison with non-matching boolean."""
+        condition = PluginMetadataCondition(
+            plugin="myapp",
+            field="is_anime",
+            value=True,
+            operator=PluginMetadataOperator.EQ,
+        )
+        metadata: PluginMetadataDict = {"myapp": {"is_anime": False}}
+
+        result, reason = evaluate_plugin_metadata(condition, metadata)
+
+        assert result is False
+
+    def test_neq_boolean(self) -> None:
+        """Test not-equal comparison with booleans."""
+        condition = PluginMetadataCondition(
+            plugin="myapp",
+            field="is_anime",
+            value=False,
+            operator=PluginMetadataOperator.NEQ,
+        )
+        metadata: PluginMetadataDict = {"myapp": {"is_anime": True}}
+
+        result, reason = evaluate_plugin_metadata(condition, metadata)
+
+        assert result is True
+
+
+class TestNotConditionWithPluginMetadata:
+    """Tests for NOT condition wrapping plugin_metadata conditions."""
+
+    def test_not_wrapping_plugin_metadata_true_becomes_false(self) -> None:
+        """Test NOT condition inverts a True plugin_metadata result."""
+        from video_policy_orchestrator.policy.conditions import evaluate_condition
+        from video_policy_orchestrator.policy.models import NotCondition
+
+        inner_condition = PluginMetadataCondition(
+            plugin="radarr",
+            field="original_language",
+            value="jpn",
+            operator=PluginMetadataOperator.EQ,
+        )
+        not_condition = NotCondition(inner=inner_condition)
+        metadata: PluginMetadataDict = {"radarr": {"original_language": "jpn"}}
+
+        result, reason = evaluate_condition(not_condition, [], plugin_metadata=metadata)
+
+        assert result is False  # NOT(True) = False
+        assert "not(" in reason  # Uses lowercase "not" in the reason string
+
+    def test_not_wrapping_plugin_metadata_false_becomes_true(self) -> None:
+        """Test NOT condition inverts a False plugin_metadata result."""
+        from video_policy_orchestrator.policy.conditions import evaluate_condition
+        from video_policy_orchestrator.policy.models import NotCondition
+
+        inner_condition = PluginMetadataCondition(
+            plugin="radarr",
+            field="original_language",
+            value="jpn",
+            operator=PluginMetadataOperator.EQ,
+        )
+        not_condition = NotCondition(inner=inner_condition)
+        metadata: PluginMetadataDict = {"radarr": {"original_language": "eng"}}
+
+        result, reason = evaluate_condition(not_condition, [], plugin_metadata=metadata)
+
+        assert result is True  # NOT(False) = True
+        assert "not(" in reason  # Uses lowercase "not" in the reason string
+
+    def test_not_wrapping_plugin_metadata_no_metadata(self) -> None:
+        """Test NOT condition when plugin_metadata is None (inverts False to True)."""
+        from video_policy_orchestrator.policy.conditions import evaluate_condition
+        from video_policy_orchestrator.policy.models import NotCondition
+
+        inner_condition = PluginMetadataCondition(
+            plugin="radarr",
+            field="original_language",
+            value="jpn",
+            operator=PluginMetadataOperator.EQ,
+        )
+        not_condition = NotCondition(inner=inner_condition)
+
+        result, reason = evaluate_condition(not_condition, [], plugin_metadata=None)
+
+        # Inner returns False (no metadata), NOT inverts to True
+        assert result is True

@@ -13,6 +13,8 @@ from pathlib import Path
 
 # Type alias for plugin-provided metadata
 # Structure: {"plugin_name": {"field": value, ...}, ...}
+# Note: Values must be scalar types (str, int, float, bool, None).
+# Nested structures (lists, dicts) are not supported in condition evaluation.
 PluginMetadataDict = dict[str, dict[str, str | int | float | bool | None]]
 
 

@@ -4,6 +4,7 @@ This phase applies the policy to the file, handling track ordering,
 filtering, metadata changes, and container conversion.
 """
 
+import json
 import logging
 from pathlib import Path
 from sqlite3 import Connection
@@ -108,8 +109,6 @@ class ApplyPhase:
         # Parse plugin metadata from FileRecord (stored as JSON string)
         plugin_metadata: dict | None = None
         if file_record.plugin_metadata:
-            import json
-
             try:
                 plugin_metadata = json.loads(file_record.plugin_metadata)
             except json.JSONDecodeError as e:

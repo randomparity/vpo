@@ -1017,13 +1017,13 @@ class PluginMetadataOperator(Enum):
     Used in PluginMetadataCondition to compare field values.
     """
 
-    EQ = "eq"  # Equality (string, integer, boolean)
-    NEQ = "neq"  # Not equal (string, integer, boolean)
+    EQ = "eq"  # Equality (string, integer, float, boolean)
+    NEQ = "neq"  # Not equal (string, integer, float, boolean)
     CONTAINS = "contains"  # Substring match (strings only)
-    LT = "lt"  # Less than (integers only)
-    LTE = "lte"  # Less than or equal (integers only)
-    GT = "gt"  # Greater than (integers only)
-    GTE = "gte"  # Greater than or equal (integers only)
+    LT = "lt"  # Less than (numeric types: int/float)
+    LTE = "lte"  # Less than or equal (numeric types: int/float)
+    GT = "gt"  # Greater than (numeric types: int/float)
+    GTE = "gte"  # Greater than or equal (numeric types: int/float)
 
 
 @dataclass(frozen=True)
