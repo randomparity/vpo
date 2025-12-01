@@ -141,6 +141,106 @@ class TestFileOperations:
 
         conn.close()
 
+    def test_file_record_plugin_metadata_roundtrip(self, temp_db: Path):
+        """Test FileRecord with plugin_metadata survives insert/get cycle."""
+        import json
+
+        from video_policy_orchestrator.db.models import (
+            FileRecord,
+            get_file_by_id,
+            insert_file,
+        )
+        from video_policy_orchestrator.db.schema import create_schema
+
+        conn = sqlite3.connect(str(temp_db))
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
+        create_schema(conn)
+
+        # Create FileRecord with plugin metadata
+        plugin_metadata_json = json.dumps(
+            {
+                "radarr": {
+                    "original_language": "jpn",
+                    "tmdb_id": 8392,
+                    "external_title": "My Neighbor Totoro",
+                    "year": 1988,
+                },
+                "sonarr": None,
+            }
+        )
+
+        file_record = FileRecord(
+            id=None,
+            path="/media/movie.mkv",
+            filename="movie.mkv",
+            directory="/media",
+            extension="mkv",
+            size_bytes=2000000,
+            modified_at="2025-01-01T00:00:00",
+            content_hash="xxh64:abc:def:2000000",
+            container_format="matroska",
+            scanned_at="2025-01-01T00:00:00",
+            scan_status="ok",
+            scan_error=None,
+            plugin_metadata=plugin_metadata_json,
+        )
+
+        # Insert and retrieve
+        file_id = insert_file(conn, file_record)
+        retrieved = get_file_by_id(conn, file_id)
+
+        assert retrieved is not None
+        assert retrieved.plugin_metadata == plugin_metadata_json
+
+        # Verify JSON is valid and contains expected data
+        parsed = json.loads(retrieved.plugin_metadata)
+        assert parsed["radarr"]["original_language"] == "jpn"
+        assert parsed["radarr"]["tmdb_id"] == 8392
+        assert parsed["radarr"]["external_title"] == "My Neighbor Totoro"
+        assert parsed["radarr"]["year"] == 1988
+        assert parsed["sonarr"] is None
+
+        conn.close()
+
+    def test_file_record_plugin_metadata_null(self, temp_db: Path):
+        """Test FileRecord with null plugin_metadata."""
+        from video_policy_orchestrator.db.models import (
+            FileRecord,
+            get_file_by_id,
+            insert_file,
+        )
+        from video_policy_orchestrator.db.schema import create_schema
+
+        conn = sqlite3.connect(str(temp_db))
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
+        create_schema(conn)
+
+        file_record = FileRecord(
+            id=None,
+            path="/media/movie.mkv",
+            filename="movie.mkv",
+            directory="/media",
+            extension="mkv",
+            size_bytes=1000000,
+            modified_at="2025-01-01T00:00:00",
+            content_hash="xxh64:abc:def:1000000",
+            container_format="matroska",
+            scanned_at="2025-01-01T00:00:00",
+            scan_status="ok",
+            scan_error=None,
+            plugin_metadata=None,  # Explicitly null
+        )
+
+        file_id = insert_file(conn, file_record)
+        retrieved = get_file_by_id(conn, file_id)
+
+        assert retrieved is not None
+        assert retrieved.plugin_metadata is None
+
+        conn.close()
+
 
 class TestTrackOperations:
     """Tests for track database operations."""

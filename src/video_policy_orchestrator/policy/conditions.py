@@ -23,6 +23,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+from video_policy_orchestrator.db.types import PluginMetadataDict
 from video_policy_orchestrator.language import languages_match
 from video_policy_orchestrator.language_analysis.models import (
     LanguageAnalysisResult,
@@ -419,10 +420,6 @@ def evaluate_audio_is_multi_language(
         reason = "audio_is_multi_language → False (no multi-language audio tracks)"
 
     return (False, reason)
-
-
-# Type alias for plugin metadata values
-PluginMetadataDict = dict[str, dict[str, str | int | float | bool | None]]
 
 
 def evaluate_plugin_metadata(

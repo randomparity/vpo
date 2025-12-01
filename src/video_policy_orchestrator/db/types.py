@@ -11,6 +11,10 @@ from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 
+# Type alias for plugin-provided metadata
+# Structure: {"plugin_name": {"field": value, ...}, ...}
+PluginMetadataDict = dict[str, dict[str, str | int | float | bool | None]]
+
 
 class OperationStatus(Enum):
     """Status of a policy operation."""
@@ -129,7 +133,7 @@ class FileInfo:
     tracks: list[TrackInfo] = field(default_factory=list)
     # Plugin-provided metadata (039-plugin-metadata-policy)
     # Dict keyed by plugin name, e.g., {"radarr": {"original_language": "jpn", ...}}
-    plugin_metadata: dict[str, dict[str, str | int | float | bool | None]] | None = None
+    plugin_metadata: PluginMetadataDict | None = None
 
 
 @dataclass

@@ -662,3 +662,118 @@ class TestMigrationV15ToV16:
         assert cursor.fetchone()[0] == "non_speech"
 
         conn.close()
+
+
+class TestMigrationV16ToV17:
+    """Tests for v16 to v17 migration (plugin_metadata column)."""
+
+    @pytest.fixture
+    def db_v16(self, tmp_path: Path) -> sqlite3.Connection:
+        """Create a database at version 16 without plugin_metadata column."""
+        db_path = tmp_path / "test.db"
+        conn = sqlite3.connect(str(db_path))
+
+        # Create minimal v16 schema without plugin_metadata
+        conn.executescript(
+            """
+            CREATE TABLE _meta (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            INSERT INTO _meta (key, value) VALUES ('schema_version', '16');
+
+            CREATE TABLE files (
+                id INTEGER PRIMARY KEY,
+                path TEXT UNIQUE NOT NULL,
+                filename TEXT NOT NULL,
+                directory TEXT NOT NULL,
+                extension TEXT NOT NULL,
+                size_bytes INTEGER NOT NULL,
+                modified_at TEXT NOT NULL,
+                content_hash TEXT,
+                container_format TEXT,
+                scanned_at TEXT NOT NULL,
+                scan_status TEXT NOT NULL DEFAULT 'pending',
+                scan_error TEXT,
+                job_id TEXT
+            );
+            INSERT INTO files (
+                id, path, filename, directory, extension, size_bytes,
+                modified_at, scanned_at, scan_status
+            ) VALUES (
+                1, '/test/movie.mkv', 'movie.mkv', '/test', '.mkv', 1000000,
+                '2025-01-01T00:00:00Z', '2025-01-01T00:00:00Z', 'ok'
+            );
+            """
+        )
+        conn.commit()
+        return conn
+
+    def test_migration_adds_plugin_metadata_column(self, db_v16: sqlite3.Connection):
+        """Test that migration adds plugin_metadata column."""
+        from video_policy_orchestrator.db.schema import migrate_v16_to_v17
+
+        migrate_v16_to_v17(db_v16)
+
+        cursor = db_v16.execute("PRAGMA table_info(files)")
+        columns = {row[1] for row in cursor.fetchall()}
+        assert "plugin_metadata" in columns
+
+    def test_migration_updates_schema_version(self, db_v16: sqlite3.Connection):
+        """Test that schema version is updated to 17."""
+        from video_policy_orchestrator.db.schema import migrate_v16_to_v17
+
+        migrate_v16_to_v17(db_v16)
+
+        cursor = db_v16.execute("SELECT value FROM _meta WHERE key = 'schema_version'")
+        assert cursor.fetchone()[0] == "17"
+
+    def test_migration_is_idempotent(self, db_v16: sqlite3.Connection):
+        """Test that running migration twice doesn't error."""
+        from video_policy_orchestrator.db.schema import migrate_v16_to_v17
+
+        migrate_v16_to_v17(db_v16)
+        migrate_v16_to_v17(db_v16)  # Should not raise
+
+        cursor = db_v16.execute("SELECT value FROM _meta WHERE key = 'schema_version'")
+        assert cursor.fetchone()[0] == "17"
+
+    def test_migration_preserves_existing_data(self, db_v16: sqlite3.Connection):
+        """Test that existing file records are preserved."""
+        from video_policy_orchestrator.db.schema import migrate_v16_to_v17
+
+        migrate_v16_to_v17(db_v16)
+
+        cursor = db_v16.execute(
+            "SELECT path, filename, size_bytes FROM files WHERE id = 1"
+        )
+        row = cursor.fetchone()
+        assert row[0] == "/test/movie.mkv"
+        assert row[1] == "movie.mkv"
+        assert row[2] == 1000000
+
+    def test_plugin_metadata_accepts_json(self, db_v16: sqlite3.Connection):
+        """Test that plugin_metadata column accepts JSON strings."""
+        from video_policy_orchestrator.db.schema import migrate_v16_to_v17
+
+        migrate_v16_to_v17(db_v16)
+
+        # Update with JSON data
+        json_data = '{"radarr": {"original_language": "jpn", "year": 2024}}'
+        db_v16.execute(
+            "UPDATE files SET plugin_metadata = ? WHERE id = 1",
+            (json_data,),
+        )
+        db_v16.commit()
+
+        cursor = db_v16.execute("SELECT plugin_metadata FROM files WHERE id = 1")
+        assert cursor.fetchone()[0] == json_data
+
+    def test_plugin_metadata_null_by_default(self, db_v16: sqlite3.Connection):
+        """Test that plugin_metadata is NULL for existing records after migration."""
+        from video_policy_orchestrator.db.schema import migrate_v16_to_v17
+
+        migrate_v16_to_v17(db_v16)
+
+        cursor = db_v16.execute("SELECT plugin_metadata FROM files WHERE id = 1")
+        assert cursor.fetchone()[0] is None

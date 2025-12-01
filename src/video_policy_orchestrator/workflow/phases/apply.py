@@ -112,8 +112,15 @@ class ApplyPhase:
 
             try:
                 plugin_metadata = json.loads(file_record.plugin_metadata)
-            except json.JSONDecodeError:
-                logger.warning("Failed to parse plugin_metadata for file %s", file_path)
+            except json.JSONDecodeError as e:
+                logger.error(
+                    "Corrupted plugin_metadata JSON for file %s (file_id=%s): %s. "
+                    "Plugin metadata conditions will not be evaluated. "
+                    "Re-scan the file to regenerate metadata.",
+                    file_path,
+                    file_record.id,
+                    e,
+                )
 
         # Get policy engine
         policy_engine = self._get_policy_engine()
