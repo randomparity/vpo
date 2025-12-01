@@ -89,14 +89,14 @@
 
 ### Implementation for User Story 2
 
-- [ ] T025 [US2] Implement SonarrClient class with __init__ accepting PluginConnectionConfig in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
-- [ ] T026 [US2] Implement _headers method returning X-Api-Key header in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
-- [ ] T027 [US2] Implement get_status method calling GET /api/v3/system/status in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
-- [ ] T028 [US2] Implement validate_connection method with timeout and error handling in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
-- [ ] T029 [US2] Add connection validation error messages for invalid API key (401) and unreachable URL in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
-- [ ] T030 [US2] Create SonarrMetadataPlugin class with name, version, events attributes in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
-- [ ] T031 [US2] Implement plugin __init__ that validates connection on startup in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
-- [ ] T032 [US2] Add structured logging for connection success/failure in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
+- [X] T025 [US2] Implement SonarrClient class with __init__ accepting PluginConnectionConfig in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
+- [X] T026 [US2] Implement _headers method returning X-Api-Key header in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
+- [X] T027 [US2] Implement get_status method calling GET /api/v3/system/status in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
+- [X] T028 [US2] Implement validate_connection method with timeout and error handling in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
+- [X] T029 [US2] Add connection validation error messages for invalid API key (401) and unreachable URL in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
+- [X] T030 [US2] Create SonarrMetadataPlugin class with name, version, events attributes in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
+- [X] T031 [US2] Implement plugin __init__ that validates connection on startup in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
+- [X] T032 [US2] Add structured logging for connection success/failure in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
 
 **Checkpoint**: Sonarr connection configuration is functional and testable independently
 
