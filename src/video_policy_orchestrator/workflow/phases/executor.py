@@ -600,15 +600,19 @@ class V11PhaseExecutor:
         phase = state.phase
         file_path = state.file_path
 
-        # Get tracks
+        # Get tracks and container format
+        # Note: FileInfo has container_format (not container), and no file_id
+        # We must look up file_id from the database for audit trail
         if file_info is not None:
             tracks = list(file_info.tracks)
-            container = file_info.container
-            file_id = file_info.file_id
+            container = file_info.container_format or file_path.suffix.lstrip(".")
         else:
             tracks = self._get_tracks(file_path)
             container = file_path.suffix.lstrip(".")
-            file_id = "unknown"
+
+        # Get file_id from database for audit trail
+        file_record = get_file_by_path(self.conn, str(file_path))
+        file_id = str(file_record.id) if file_record else "unknown"
 
         # Build virtual policy and evaluate
         virtual_policy = self._build_virtual_policy(phase)
@@ -793,13 +797,14 @@ class V11PhaseExecutor:
                 )
                 changes += 1
             else:
-                # Audio transcode is handled via the standard plan-based flow
-                # The audio_transcode config will be picked up by evaluate_policy
-                logger.info(
-                    "Audio transcode to %s",
+                # TODO: Audio transcode via phase executor not yet fully implemented
+                # This needs integration with evaluate_policy to build proper plan
+                logger.warning(
+                    "Audio transcode to %s requested but not yet implemented "
+                    "in V11 phase executor",
                     phase.audio_transcode.transcode_to,
                 )
-                changes += 1
+                # Don't increment changes since we didn't do anything
 
         return changes
 
@@ -821,12 +826,15 @@ class V11PhaseExecutor:
         file_path = state.file_path
 
         # Get tracks
+        # Note: FileInfo has no file_id attribute, we must look it up
         if file_info is not None:
             tracks = list(file_info.tracks)
-            file_id = file_info.file_id
         else:
             tracks = self._get_tracks(file_path)
-            file_id = "unknown"
+
+        # Get file_id from database for audit trail
+        file_record = get_file_by_path(self.conn, str(file_path))
+        file_id = str(file_record.id) if file_record else "unknown"
 
         # Plan synthesis
         synthesis_plan = plan_synthesis(
@@ -867,13 +875,22 @@ class V11PhaseExecutor:
         state: PhaseExecutionState,
         file_info: "FileInfo | None",
     ) -> int:
-        """Execute transcription analysis operation."""
-        from video_policy_orchestrator.db.queries import upsert_transcription_result
-        from video_policy_orchestrator.transcription.audio_extractor import (
-            extract_audio_stream,
-        )
+        """Execute transcription analysis operation.
+
+        Uses TranscriptionService to coordinate:
+        1. Multi-sample language detection via smart_detect
+        2. Track type classification
+        3. Database persistence with proper TranscriptionResultRecord
+        """
         from video_policy_orchestrator.transcription.factory import TranscriberFactory
-        from video_policy_orchestrator.transcription.multi_sample import smart_detect
+        from video_policy_orchestrator.transcription.service import (
+            DEFAULT_CONFIDENCE_THRESHOLD,
+            TranscriptionOptions,
+            TranscriptionService,
+        )
+        from video_policy_orchestrator.workflow.phases.context import (
+            FileOperationContext,
+        )
 
         phase = state.phase
         if not phase.transcription or not phase.transcription.enabled:
@@ -881,19 +898,22 @@ class V11PhaseExecutor:
 
         file_path = state.file_path
 
-        # Get tracks
+        # Build operation context (handles FileInfo → DB ID mapping)
+        # This ensures tracks have their database IDs populated
         if file_info is not None:
-            tracks = list(file_info.tracks)
-            file_id = file_info.file_id
+            context = FileOperationContext.from_file_info(file_info, self.conn)
         else:
-            tracks = self._get_tracks(file_path)
-            file_record = get_file_by_path(self.conn, str(file_path))
-            file_id = str(file_record.id) if file_record else "unknown"
+            context = FileOperationContext.from_file_path(file_path, self.conn)
 
-        # Filter to audio tracks only
-        audio_tracks = [t for t in tracks if t.track_type == "audio"]
+        # Filter to audio tracks with duration
+        audio_tracks = [
+            t
+            for t in context.tracks
+            if t.track_type == "audio" and t.duration_seconds is not None
+        ]
+
         if not audio_tracks:
-            logger.debug("No audio tracks to transcribe")
+            logger.debug("No audio tracks with duration to transcribe")
             return 0
 
         if self.dry_run:
@@ -903,49 +923,33 @@ class V11PhaseExecutor:
             )
             return len(audio_tracks)
 
-        # Get transcriber
+        # Get transcriber and create service
         transcriber = TranscriberFactory.get_transcriber_or_raise()
-        changes = 0
+        service = TranscriptionService(transcriber)
 
+        # Build options from policy config
         confidence_threshold = (
             phase.transcription.confidence_threshold
             if phase.transcription.confidence_threshold is not None
-            else 0.8
+            else DEFAULT_CONFIDENCE_THRESHOLD
         )
+        options = TranscriptionOptions(confidence_threshold=confidence_threshold)
 
+        # Analyze each track
+        changes = 0
         for track in audio_tracks:
             try:
                 logger.debug("Analyzing track %d", track.index)
 
-                # Extract audio
-                audio_data, sample_rate = extract_audio_stream(file_path, track.index)
-
-                # Detect language using multi-sample approach
-                result = smart_detect(
-                    transcriber=transcriber,
-                    audio_data=audio_data,
-                    sample_rate=sample_rate,
-                    confidence_threshold=confidence_threshold,
-                )
-
-                # Store result
-                upsert_transcription_result(
-                    self.conn,
-                    file_id=file_id,
-                    track_index=track.index,
-                    detected_language=result.language,
-                    confidence_score=result.confidence,
-                    transcript_sample=getattr(result, "transcript_sample", None),
-                    plugin_name=transcriber.name,
+                # Service handles extraction → detection → persistence
+                service.analyze_and_persist(
+                    file_path=context.file_path,
+                    track=track,
+                    track_duration=track.duration_seconds,
+                    conn=self.conn,
+                    options=options,
                 )
                 changes += 1
-
-                logger.info(
-                    "Track %d: detected language=%s (confidence=%.2f)",
-                    track.index,
-                    result.language,
-                    result.confidence,
-                )
 
             except Exception as e:
                 logger.warning(

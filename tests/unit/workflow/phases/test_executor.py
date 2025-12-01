@@ -41,15 +41,12 @@ from video_policy_orchestrator.workflow.phases.executor import (
 class MockFileInfo:
     """Mock FileInfo for testing V11 executor.
 
-    Note: The actual FileInfo class in db.types has different fields.
-    The V11 executor expects file_id, path, container, tracks but
-    this is an existing bug in v11_processor.py. This mock matches
-    what the executor code expects.
+    This matches the actual FileInfo class in db.types with
+    container_format (not container) and no file_id attribute.
     """
 
-    file_id: str
     path: Path
-    container: str
+    container_format: str
     tracks: list[TrackInfo] = field(default_factory=list)
 
 
@@ -126,9 +123,8 @@ def mock_tracks():
 def mock_file_info(test_file, mock_tracks):
     """Create mock FileInfo."""
     return MockFileInfo(
-        file_id="test-file-id",
         path=test_file,
-        container="mkv",
+        container_format="mkv",
         tracks=mock_tracks,
     )
 
@@ -452,6 +448,9 @@ class TestDryRunMode:
         self, mock_evaluate, db_conn, v11_policy, mock_file_info
     ):
         """Dry-run logs changes but doesn't call executor."""
+        # Insert file into database (required for file_id lookup)
+        insert_test_file(db_conn, mock_file_info.path)
+
         mock_plan = MagicMock()
         mock_plan.actions = [MagicMock()]
         mock_plan.tracks_removed = 1
@@ -476,6 +475,9 @@ class TestDryRunMode:
         self, db_conn, v11_policy, mock_file_info
     ):
         """Dry-run for audio synthesis logs without executing."""
+        # Insert file into database (required for file_id lookup)
+        insert_test_file(db_conn, mock_file_info.path)
+
         executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
 
         # Create a mock phase with audio_synthesis that has a non-None value
@@ -497,19 +499,43 @@ class TestDryRunMode:
         # Returns operation count
         assert result == 2
 
-    def test_dry_run_transcription_logs_only(self, db_conn, v11_policy, mock_file_info):
+    def test_dry_run_transcription_logs_only(self, db_conn, v11_policy, test_file):
         """Dry-run for transcription logs without executing."""
+        # Insert file and tracks into database (required for context lookup)
+        # Transcription requires tracks with duration_seconds set
+        file_id = insert_test_file(db_conn, test_file)
+        insert_test_track(db_conn, file_id, 0, "video")
+        # Insert audio tracks with duration (manually set via SQL)
+        db_conn.execute(
+            """
+            INSERT INTO tracks (
+                file_id, track_index, track_type, codec, language, duration_seconds
+            ) VALUES (?, 1, 'audio', 'aac', 'eng', 120.0)
+            """,
+            (file_id,),
+        )
+        db_conn.execute(
+            """
+            INSERT INTO tracks (
+                file_id, track_index, track_type, codec, language, duration_seconds
+            ) VALUES (?, 2, 'audio', 'aac', 'spa', 120.0)
+            """,
+            (file_id,),
+        )
+        db_conn.commit()
+
         executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
 
         phase = PhaseDefinition(
             name="test",
             transcription=TranscriptionPolicyOptions(enabled=True),
         )
-        state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
+        state = PhaseExecutionState(file_path=test_file, phase=phase)
 
-        result = executor._execute_transcription(state, mock_file_info)
+        # Pass None for file_info to trigger context creation from database
+        result = executor._execute_transcription(state, None)
 
-        # Returns audio track count (2 audio tracks in mock_tracks)
+        # Returns audio track count (2 audio tracks with duration)
         assert result == 2
 
 
@@ -532,6 +558,9 @@ class TestPhaseExecution:
         self, mock_evaluate, db_conn, v11_policy, mock_file_info
     ):
         """Phase accumulates changes from multiple operations."""
+        # Insert file into database (required for file_id lookup)
+        insert_test_file(db_conn, mock_file_info.path)
+
         mock_plan = MagicMock()
         mock_plan.actions = [MagicMock()]
         mock_plan.tracks_removed = 1
@@ -655,9 +684,8 @@ class TestBackupHandling:
     ):
         """Backup is removed after successful phase execution."""
         file_info = MockFileInfo(
-            file_id="test",
             path=test_file,
-            container="mkv",
+            container_format="mkv",
             tracks=mock_tracks,
         )
 
