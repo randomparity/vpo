@@ -12,9 +12,7 @@ from typing import Any
 from video_policy_orchestrator.config.models import PluginConnectionConfig
 from video_policy_orchestrator.language import normalize_language
 from video_policy_orchestrator.plugin.events import FileScannedEvent
-from video_policy_orchestrator.plugins.radarr_metadata.models import (
-    MetadataEnrichment,
-)
+from video_policy_orchestrator.plugin_sdk.models import MetadataEnrichment
 from video_policy_orchestrator.plugins.sonarr_metadata.client import (
     SonarrAuthError,
     SonarrClient,
@@ -40,7 +38,7 @@ class SonarrMetadataPlugin:
 
     name: str = "sonarr-metadata"
     version: str = "1.0.0"
-    events: list[str] = ["file.scanned"]
+    events: tuple[str, ...] = ("file.scanned",)
 
     def __init__(self, config: PluginConnectionConfig) -> None:
         """Initialize the plugin.
@@ -179,3 +177,7 @@ class SonarrMetadataPlugin:
     def on_plan_complete(self, event: Any) -> None:
         """Not implemented - plugin only subscribes to file.scanned."""
         pass
+
+    def close(self) -> None:
+        """Clean up HTTP client resources."""
+        self._client.close()

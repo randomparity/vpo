@@ -82,7 +82,7 @@ def get_data_dir() -> Path:
         config = load_config()
         if config.data_dir:
             return config.data_dir
-    except Exception:
+    except Exception:  # nosec B110 - intentional fallback to default
         pass
 
     # Default to ~/.vpo/
@@ -124,6 +124,29 @@ def normalize_path(path: str | Path) -> Path:
 
     """
     return Path(path).expanduser().resolve()
+
+
+def normalize_path_for_matching(path: str) -> str:
+    """Normalize a file path for consistent matching.
+
+    Used by metadata plugins to match file paths from external APIs
+    (Radarr, Sonarr) with local file paths.
+
+    Args:
+        path: File path to normalize.
+
+    Returns:
+        Normalized path string without trailing slashes.
+    """
+    p = Path(path)
+    try:
+        # Try to resolve symlinks if the path exists
+        resolved = p.resolve()
+    except OSError:
+        # Path doesn't exist or is inaccessible, use absolute
+        resolved = p.absolute()
+    # Strip trailing slashes for consistency
+    return str(resolved).rstrip("/")
 
 
 def is_supported_container(container: str) -> bool:

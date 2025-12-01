@@ -192,6 +192,147 @@ _ISO_639_2T_TO_639_2B: dict[str, str] = {
 _ISO_639_2B_TO_639_1: dict[str, str] = {v: k for k, v in _ISO_639_1_TO_639_2B.items()}
 _ISO_639_2B_TO_639_2T: dict[str, str] = {v: k for k, v in _ISO_639_2T_TO_639_2B.items()}
 
+# Language names (lowercase) to ISO 639-2/B codes
+# Used for converting full language names from external APIs (Radarr/Sonarr)
+_LANGUAGE_NAME_TO_639_2B: dict[str, str] = {
+    "afar": "aar",
+    "abkhazian": "abk",
+    "afrikaans": "afr",
+    "albanian": "alb",
+    "amharic": "amh",
+    "arabic": "ara",
+    "armenian": "arm",
+    "assamese": "asm",
+    "aymara": "aym",
+    "azerbaijani": "aze",
+    "bashkir": "bak",
+    "basque": "baq",
+    "belarusian": "bel",
+    "bengali": "ben",
+    "bihari": "bih",
+    "bislama": "bis",
+    "breton": "bre",
+    "bulgarian": "bul",
+    "burmese": "bur",
+    "catalan": "cat",
+    "chinese": "chi",
+    "corsican": "cos",
+    "czech": "cze",
+    "danish": "dan",
+    "dutch": "dut",
+    "dzongkha": "dzo",
+    "english": "eng",
+    "esperanto": "epo",
+    "estonian": "est",
+    "faroese": "fao",
+    "fijian": "fij",
+    "finnish": "fin",
+    "french": "fre",
+    "western frisian": "fry",
+    "galician": "glg",
+    "georgian": "geo",
+    "german": "ger",
+    "greek": "gre",
+    "guarani": "grn",
+    "gujarati": "guj",
+    "hausa": "hau",
+    "hebrew": "heb",
+    "hindi": "hin",
+    "hungarian": "hun",
+    "icelandic": "ice",
+    "indonesian": "ind",
+    "interlingua": "ina",
+    "interlingue": "ile",
+    "inuktitut": "iku",
+    "inupiaq": "ipk",
+    "irish": "gle",
+    "italian": "ita",
+    "japanese": "jpn",
+    "javanese": "jav",
+    "kalaallisut": "kal",
+    "kannada": "kan",
+    "kashmiri": "kas",
+    "kazakh": "kaz",
+    "khmer": "khm",
+    "kinyarwanda": "kin",
+    "kyrgyz": "kir",
+    "korean": "kor",
+    "kurdish": "kur",
+    "lao": "lao",
+    "latin": "lat",
+    "latvian": "lav",
+    "lingala": "lin",
+    "lithuanian": "lit",
+    "macedonian": "mac",
+    "malagasy": "mlg",
+    "malay": "may",
+    "malayalam": "mal",
+    "maltese": "mlt",
+    "maori": "mao",
+    "marathi": "mar",
+    "mongolian": "mon",
+    "nauru": "nau",
+    "nepali": "nep",
+    "norwegian": "nor",
+    "occitan": "oci",
+    "oriya": "ori",
+    "oromo": "orm",
+    "pashto": "pus",
+    "persian": "per",
+    "polish": "pol",
+    "portuguese": "por",
+    "punjabi": "pan",
+    "quechua": "que",
+    "romansh": "roh",
+    "romanian": "rum",
+    "rundi": "run",
+    "russian": "rus",
+    "samoan": "smo",
+    "sango": "sag",
+    "sanskrit": "san",
+    "scottish gaelic": "gla",
+    "serbian": "srp",
+    "shona": "sna",
+    "sindhi": "snd",
+    "sinhala": "sin",
+    "slovak": "slo",
+    "slovenian": "slv",
+    "somali": "som",
+    "southern sotho": "sot",
+    "spanish": "spa",
+    "sundanese": "sun",
+    "swahili": "swa",
+    "swati": "ssw",
+    "swedish": "swe",
+    "tagalog": "tgl",
+    "tajik": "tgk",
+    "tamil": "tam",
+    "tatar": "tat",
+    "telugu": "tel",
+    "thai": "tha",
+    "tibetan": "tib",
+    "tigrinya": "tir",
+    "tonga": "ton",
+    "tsonga": "tso",
+    "tswana": "tsn",
+    "turkish": "tur",
+    "turkmen": "tuk",
+    "twi": "twi",
+    "uyghur": "uig",
+    "ukrainian": "ukr",
+    "urdu": "urd",
+    "uzbek": "uzb",
+    "vietnamese": "vie",
+    "volapük": "vol",
+    "welsh": "wel",
+    "wolof": "wol",
+    "xhosa": "xho",
+    "yiddish": "yid",
+    "yoruba": "yor",
+    "zhuang": "zha",
+    "zulu": "zul",
+}
+
 # All valid ISO 639-2/B codes (3-letter)
 _VALID_639_2B: set[str] = set(_ISO_639_2B_TO_639_1.keys()) | {
     "und",
@@ -199,6 +340,32 @@ _VALID_639_2B: set[str] = set(_ISO_639_2B_TO_639_1.keys()) | {
     "mul",
     "zxx",
 }
+
+
+def language_name_to_code(name: str | None) -> str | None:
+    """Convert a language name to ISO 639-2/B code.
+
+    This function is useful for converting full language names from external
+    APIs (like Radarr/Sonarr) to ISO 639-2/B codes used by VPO.
+
+    Args:
+        name: Full language name (e.g., "English", "Japanese").
+              Case-insensitive.
+
+    Returns:
+        ISO 639-2/B code if recognized, None otherwise.
+
+    Examples:
+        >>> language_name_to_code("English")
+        'eng'
+        >>> language_name_to_code("Japanese")
+        'jpn'
+        >>> language_name_to_code("Unknown Language")
+        None
+    """
+    if not name:
+        return None
+    return _LANGUAGE_NAME_TO_639_2B.get(name.lower().strip())
 
 
 def normalize_language(
@@ -210,6 +377,7 @@ def normalize_language(
 
     Args:
         code: Language code to normalize (ISO 639-1, 639-2/B, or 639-2/T).
+              Also accepts full language names (e.g., "English", "Japanese").
               If None or empty, returns "und" (undefined).
         target: Target ISO standard ("639-1", "639-2/B", or "639-2/T").
         warn_on_conversion: Log a warning when converting between standards.
@@ -227,6 +395,8 @@ def normalize_language(
         'ger'
         >>> normalize_language("eng", target="639-1")
         'en'
+        >>> normalize_language("English")  # Full language name
+        'eng'
     """
     # Handle None/empty
     if not code:
@@ -249,6 +419,24 @@ def normalize_language(
         # ISO 639-2 input (B or T)
         return _convert_from_639_2(code, target, warn_on_conversion)
     else:
+        # Might be a full language name (e.g., "English" from Radarr/Sonarr APIs)
+        converted = _LANGUAGE_NAME_TO_639_2B.get(code)
+        if converted:
+            if warn_on_conversion:
+                logger.debug(
+                    "Converted language name '%s' to '%s' (ISO 639-2/B)",
+                    code,
+                    converted,
+                )
+            # Now convert to target standard if needed
+            if target == "639-2/B":
+                return converted
+            elif target == "639-2/T":
+                return _ISO_639_2B_TO_639_2T.get(converted, converted)
+            elif target == "639-1":
+                return _ISO_639_2B_TO_639_1.get(converted, converted)
+            return converted
+
         # Unrecognized format
         if warn_on_conversion:
             logger.warning(

@@ -7,13 +7,13 @@ connection validation and metadata fetching for TV episode files.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
 import httpx
 
 from video_policy_orchestrator.config.models import PluginConnectionConfig
+from video_policy_orchestrator.plugin_sdk.helpers import normalize_path_for_matching
 from video_policy_orchestrator.plugins.sonarr_metadata.models import (
     SonarrEpisode,
     SonarrLanguage,
@@ -22,6 +22,9 @@ from video_policy_orchestrator.plugins.sonarr_metadata.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Re-export for backward compatibility
+normalize_path = normalize_path_for_matching
 
 
 class SonarrConnectionError(Exception):
@@ -34,27 +37,6 @@ class SonarrAuthError(SonarrConnectionError):
     """Raised when Sonarr API key is invalid."""
 
     pass
-
-
-def normalize_path(path: str) -> str:
-    """Normalize a file path for consistent matching.
-
-    Args:
-        path: File path to normalize.
-
-    Returns:
-        Normalized path string.
-    """
-    # Resolve to absolute path and normalize separators
-    p = Path(path)
-    try:
-        # Try to resolve symlinks if the path exists
-        resolved = p.resolve()
-    except OSError:
-        # Path doesn't exist or is inaccessible, use as-is
-        resolved = p.absolute()
-    # Use forward slashes for consistency and strip trailing slashes
-    return str(resolved).rstrip("/")
 
 
 class SonarrClient:
@@ -180,7 +162,14 @@ class SonarrClient:
 
         Returns:
             SonarrSeries dataclass.
+
+        Raises:
+            SonarrConnectionError: If response is missing required 'id' field.
         """
+        series_id = data.get("id")
+        if series_id is None:
+            raise SonarrConnectionError("Series response missing required 'id' field")
+
         original_language = None
         if lang_data := data.get("originalLanguage"):
             original_language = SonarrLanguage(
@@ -189,7 +178,7 @@ class SonarrClient:
             )
 
         return SonarrSeries(
-            id=data["id"],
+            id=series_id,
             title=data.get("title", ""),
             year=data.get("year", 0),
             path=data.get("path", ""),

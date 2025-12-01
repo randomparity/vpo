@@ -7,12 +7,12 @@ connection validation and metadata fetching for movie files.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any
 
 import httpx
 
 from video_policy_orchestrator.config.models import PluginConnectionConfig
+from video_policy_orchestrator.plugin_sdk.helpers import normalize_path_for_matching
 from video_policy_orchestrator.plugins.radarr_metadata.models import (
     RadarrCache,
     RadarrLanguage,
@@ -21,6 +21,9 @@ from video_policy_orchestrator.plugins.radarr_metadata.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Re-export for backward compatibility
+normalize_path = normalize_path_for_matching
 
 
 class RadarrConnectionError(Exception):
@@ -33,27 +36,6 @@ class RadarrAuthError(RadarrConnectionError):
     """Raised when Radarr API key is invalid."""
 
     pass
-
-
-def normalize_path(path: str) -> str:
-    """Normalize a file path for consistent matching.
-
-    Args:
-        path: File path to normalize.
-
-    Returns:
-        Normalized path string.
-    """
-    # Resolve to absolute path and normalize separators
-    p = Path(path)
-    try:
-        # Try to resolve symlinks if the path exists
-        resolved = p.resolve()
-    except OSError:
-        # Path doesn't exist or is inaccessible, use as-is
-        resolved = p.absolute()
-    # Use forward slashes for consistency and strip trailing slashes
-    return str(resolved).rstrip("/")
 
 
 class RadarrClient:

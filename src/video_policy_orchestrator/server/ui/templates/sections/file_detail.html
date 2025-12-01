@@ -95,7 +95,11 @@
             {% if file.tmdb_id %}
             <div class="file-detail-dl-row">
                 <dt>TMDb</dt>
+                {% if file.external_source == 'sonarr' %}
+                <dd><a href="https://www.themoviedb.org/tv/{{ file.tmdb_id }}" target="_blank" rel="noopener">{{ file.tmdb_id }}</a></dd>
+                {% else %}
                 <dd><a href="https://www.themoviedb.org/movie/{{ file.tmdb_id }}" target="_blank" rel="noopener">{{ file.tmdb_id }}</a></dd>
+                {% endif %}
             </div>
             {% endif %}
             {% if file.tvdb_id %}
