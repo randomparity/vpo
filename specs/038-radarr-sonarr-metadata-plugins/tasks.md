@@ -30,10 +30,10 @@
 
 **Purpose**: Create plugin package structure and shared configuration models
 
-- [ ] T001 [P] Create Radarr plugin package directory at src/video_policy_orchestrator/plugins/radarr_metadata/__init__.py
-- [ ] T002 [P] Create Sonarr plugin package directory at src/video_policy_orchestrator/plugins/sonarr_metadata/__init__.py
-- [ ] T003 Add PluginConnectionConfig dataclass to src/video_policy_orchestrator/config/models.py
-- [ ] T004 Add MetadataPluginSettings dataclass to src/video_policy_orchestrator/config/models.py
+- [X] T001 [P] Create Radarr plugin package directory at src/video_policy_orchestrator/plugins/radarr_metadata/__init__.py
+- [X] T002 [P] Create Sonarr plugin package directory at src/video_policy_orchestrator/plugins/sonarr_metadata/__init__.py
+- [X] T003 Add PluginConnectionConfig dataclass to src/video_policy_orchestrator/config/models.py
+- [X] T004 Add MetadataPluginSettings dataclass to src/video_policy_orchestrator/config/models.py
 
 ---
 
