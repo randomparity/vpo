@@ -188,11 +188,11 @@
 
 **Purpose**: Finalization and documentation
 
-- [ ] T063 [P] Export plugin classes from package __init__.py files
-- [ ] T064 [P] Add plugin entry points to pyproject.toml for automatic discovery
-- [ ] T065 Update plugin documentation with Radarr/Sonarr configuration examples
-- [ ] T066 Run quickstart.md validation with sample configuration
-- [ ] T067 Verify graceful degradation when services are unavailable
+- [X] T063 [P] Export plugin classes from package __init__.py files
+- [X] T064 [P] Add plugin entry points to pyproject.toml for automatic discovery
+- [X] T065 Update plugin documentation with Radarr/Sonarr configuration examples
+- [X] T066 Run quickstart.md validation with sample configuration
+- [X] T067 Verify graceful degradation when services are unavailable
 
 ---
 
