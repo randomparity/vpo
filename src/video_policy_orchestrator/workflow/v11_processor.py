@@ -11,8 +11,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from sqlite3 import Connection
 
-from video_policy_orchestrator.db.queries import get_file_by_path, get_tracks_for_file
+from video_policy_orchestrator.db.queries import (
+    get_file_by_path,
+    get_tracks_for_file,
+    upsert_tracks_for_file,
+)
 from video_policy_orchestrator.db.types import FileInfo, tracks_to_track_info
+from video_policy_orchestrator.introspector.ffprobe import (
+    FFprobeIntrospector,
+    MediaIntrospectionError,
+)
 from video_policy_orchestrator.policy.models import (
     FileProcessingResult,
     OnErrorMode,
@@ -300,12 +308,37 @@ class V11WorkflowProcessor:
 
         Returns:
             Updated FileInfo, or None if introspection failed.
-
-        Note:
-            This is a simplified implementation that just re-fetches from DB.
-            Full implementation would re-introspect with ffprobe and update DB.
         """
-        logger.debug("Re-fetching file info after modification: %s", file_path)
-        # For now, just re-read from DB (the file was modified but DB may be stale)
-        # A full implementation would run ffprobe and update the DB
-        return self._get_file_info(file_path)
+        logger.debug("Re-introspecting file after modification: %s", file_path)
+
+        # Get file record from database (we need the file_id)
+        file_record = get_file_by_path(self.conn, str(file_path))
+        if file_record is None:
+            logger.warning("File not in database, cannot re-introspect: %s", file_path)
+            return None
+
+        try:
+            # Run ffprobe to get fresh track data
+            introspector = FFprobeIntrospector()
+            result = introspector.introspect(file_path)
+
+            # Update tracks in database
+            upsert_tracks_for_file(self.conn, file_record.id, result.tracks)
+            logger.debug(
+                "Updated %d tracks in database for file %s",
+                len(result.tracks),
+                file_path,
+            )
+
+            # Return fresh FileInfo
+            return FileInfo(
+                file_id=str(file_record.id),
+                path=file_path,
+                container=result.container or file_path.suffix.lstrip("."),
+                tracks=result.tracks,
+            )
+
+        except MediaIntrospectionError as e:
+            logger.error("Re-introspection failed for %s: %s", file_path, e)
+            # Fall back to existing database info
+            return self._get_file_info(file_path)

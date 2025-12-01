@@ -98,7 +98,7 @@ class PolicyRoundTripEditor:
         if not self.policy_path.exists():
             raise FileNotFoundError(f"Policy file not found: {self.policy_path}")
 
-        self.yaml = YAML(typ="safe")
+        self.yaml = YAML(typ="rt")
         self.yaml.preserve_quotes = True
         self.yaml.default_flow_style = False
         self._original_data: dict[str, Any] | None = None

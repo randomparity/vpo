@@ -173,6 +173,9 @@ class V11PhaseExecutor:
                         break
                     # OnErrorMode.CONTINUE - proceed to next operation
 
+            # Clean up backup on success
+            self._cleanup_backup(state)
+
             duration = time.time() - start_time
             return PhaseResult(
                 phase_name=phase.name,
@@ -263,6 +266,24 @@ class V11PhaseExecutor:
             else:
                 logger.error("Rollback failed - file may be in inconsistent state")
 
+    def _cleanup_backup(self, state: PhaseExecutionState) -> None:
+        """Remove backup file after successful phase completion.
+
+        Args:
+            state: The execution state containing backup path.
+        """
+        if state.backup_path is None:
+            return
+
+        if not state.backup_path.exists():
+            return
+
+        try:
+            state.backup_path.unlink()
+            logger.debug("Removed backup file: %s", state.backup_path)
+        except Exception as e:
+            logger.warning("Failed to remove backup file: %s", e)
+
     def _execute_operation(
         self,
         op_type: OperationType,
@@ -329,7 +350,7 @@ class V11PhaseExecutor:
                 "DRY-RUN" if self.dry_run else "EXEC",
                 phase.container.target,
             )
-            return 0 if self.dry_run else 0  # TODO: implement
+            return 0  # TODO: implement
 
         elif op_type == OperationType.AUDIO_FILTER and phase.audio_filter:
             logger.info(
@@ -337,7 +358,7 @@ class V11PhaseExecutor:
                 "DRY-RUN" if self.dry_run else "EXEC",
                 phase.audio_filter.languages,
             )
-            return 0 if self.dry_run else 0  # TODO: implement
+            return 0  # TODO: implement
 
         elif op_type == OperationType.SUBTITLE_FILTER and phase.subtitle_filter:
             logger.info(
@@ -345,7 +366,7 @@ class V11PhaseExecutor:
                 "DRY-RUN" if self.dry_run else "EXEC",
                 phase.subtitle_filter.languages,
             )
-            return 0 if self.dry_run else 0  # TODO: implement
+            return 0  # TODO: implement
 
         elif op_type == OperationType.ATTACHMENT_FILTER and phase.attachment_filter:
             logger.info(
@@ -353,7 +374,7 @@ class V11PhaseExecutor:
                 "DRY-RUN" if self.dry_run else "EXEC",
                 phase.attachment_filter.remove_all,
             )
-            return 0 if self.dry_run else 0  # TODO: implement
+            return 0  # TODO: implement
 
         elif op_type == OperationType.TRACK_ORDER and phase.track_order:
             logger.info(
@@ -361,14 +382,14 @@ class V11PhaseExecutor:
                 "DRY-RUN" if self.dry_run else "EXEC",
                 [t.value for t in phase.track_order],
             )
-            return 0 if self.dry_run else 0  # TODO: implement
+            return 0  # TODO: implement
 
         elif op_type == OperationType.DEFAULT_FLAGS and phase.default_flags:
             logger.info(
                 "[%s] Default flags configuration",
                 "DRY-RUN" if self.dry_run else "EXEC",
             )
-            return 0 if self.dry_run else 0  # TODO: implement
+            return 0  # TODO: implement
 
         elif op_type == OperationType.CONDITIONAL and phase.conditional:
             logger.info(
@@ -376,7 +397,7 @@ class V11PhaseExecutor:
                 "DRY-RUN" if self.dry_run else "EXEC",
                 len(phase.conditional),
             )
-            return 0 if self.dry_run else 0  # TODO: implement
+            return 0  # TODO: implement
 
         elif op_type == OperationType.AUDIO_SYNTHESIS and phase.audio_synthesis:
             logger.info(
@@ -384,7 +405,7 @@ class V11PhaseExecutor:
                 "DRY-RUN" if self.dry_run else "EXEC",
                 len(phase.audio_synthesis.tracks),
             )
-            return 0 if self.dry_run else 0  # TODO: implement
+            return 0  # TODO: implement
 
         elif op_type == OperationType.TRANSCODE:
             if phase.transcode:
@@ -399,7 +420,7 @@ class V11PhaseExecutor:
                     "DRY-RUN" if self.dry_run else "EXEC",
                     phase.audio_transcode.transcode_to,
                 )
-            return 0 if self.dry_run else 0  # TODO: implement
+            return 0  # TODO: implement
 
         elif op_type == OperationType.TRANSCRIPTION and phase.transcription:
             logger.info(
@@ -407,6 +428,6 @@ class V11PhaseExecutor:
                 "DRY-RUN" if self.dry_run else "EXEC",
                 phase.transcription.enabled,
             )
-            return 0 if self.dry_run else 0  # TODO: implement
+            return 0  # TODO: implement
 
         return 0

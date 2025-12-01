@@ -26,6 +26,7 @@ from video_policy_orchestrator.cli.profile_loader import load_profile_or_exit
 from video_policy_orchestrator.db.connection import get_connection
 from video_policy_orchestrator.policy.loader import PolicyValidationError, load_policy
 from video_policy_orchestrator.policy.models import (
+    OnErrorMode,
     ProcessingPhase,
     V11PolicySchema,
     WorkflowConfig,
@@ -441,7 +442,10 @@ def process_command(
                             click.echo(f"[{status}] {file_path.name}")
 
                     # Check if batch should stop
-                    if not result.success and policy.config.on_error.value == "fail":
+                    if (
+                        not result.success
+                        and policy.config.on_error == OnErrorMode.FAIL
+                    ):
                         if not json_output:
                             click.echo(
                                 f"Stopping batch due to error (on_error='fail'): "

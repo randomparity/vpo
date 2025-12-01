@@ -1514,11 +1514,22 @@ class V11PolicyModel(BaseModel):
     @field_validator("phases")
     @classmethod
     def validate_unique_names(cls, v: list[PhaseModel]) -> list[PhaseModel]:
-        """Validate that all phase names are unique."""
+        """Validate that all phase names are unique (case-insensitive)."""
         names = [p.name for p in v]
+        # Check for exact duplicates
         if len(names) != len(set(names)):
             duplicates = [n for n in names if names.count(n) > 1]
             raise ValueError(f"Duplicate phase names: {set(duplicates)}")
+        # Check for case-insensitive collisions
+        seen: dict[str, str] = {}
+        for name in names:
+            lower = name.lower()
+            if lower in seen:
+                raise ValueError(
+                    f"Phase names must be unique (case-insensitive): "
+                    f"'{seen[lower]}' and '{name}' collide"
+                )
+            seen[lower] = name
         return v
 
 

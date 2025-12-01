@@ -1679,6 +1679,9 @@ class PolicyEditorRequest:
     audio_synthesis: list | None
     # V9+ fields
     workflow: dict | None
+    # V11+ fields (user-defined phases)
+    phases: list | None
+    config: dict | None
     last_modified_timestamp: str
 
     @classmethod
@@ -1726,11 +1729,47 @@ class PolicyEditorRequest:
             audio_synthesis=data.get("audio_synthesis"),
             # V9+ fields
             workflow=data.get("workflow"),
+            # V11+ fields
+            phases=data.get("phases"),
+            config=data.get("config"),
             last_modified_timestamp=data["last_modified_timestamp"],
         )
 
     def to_policy_dict(self) -> dict:
         """Convert to dictionary for policy validation and saving.
+
+        Returns:
+            Dictionary in PolicyModel format (V1-V10) or V11PolicySchema format.
+        """
+        # V11 policies have a different structure
+        if self.phases is not None:
+            return self._to_v11_policy_dict()
+        return self._to_legacy_policy_dict()
+
+    def _to_v11_policy_dict(self) -> dict:
+        """Convert to V11 policy dictionary format.
+
+        Returns:
+            Dictionary in V11PolicySchema format.
+        """
+        result: dict = {
+            "schema_version": 11,
+            "phases": self.phases,
+        }
+        if self.config is not None:
+            result["config"] = self.config
+        else:
+            # Build config from legacy fields
+            result["config"] = {
+                "audio_language_preference": self.audio_language_preference,
+                "subtitle_language_preference": self.subtitle_language_preference,
+                "commentary_patterns": self.commentary_patterns,
+                "on_error": "continue",  # Default
+            }
+        return result
+
+    def _to_legacy_policy_dict(self) -> dict:
+        """Convert to legacy (V1-V10) policy dictionary format.
 
         Returns:
             Dictionary in PolicyModel format.

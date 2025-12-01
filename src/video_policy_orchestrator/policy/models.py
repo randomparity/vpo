@@ -1752,11 +1752,22 @@ class V11PolicySchema:
         if not self.phases:
             raise ValueError("phases cannot be empty, at least one phase required")
 
-        # Check for duplicate phase names
+        # Check for duplicate phase names (exact match)
         names = [p.name for p in self.phases]
         if len(names) != len(set(names)):
             duplicates = [n for n in names if names.count(n) > 1]
             raise ValueError(f"Duplicate phase names: {set(duplicates)}")
+
+        # Check for case-insensitive collisions
+        seen: dict[str, str] = {}
+        for name in names:
+            lower = name.lower()
+            if lower in seen:
+                raise ValueError(
+                    f"Phase names must be unique (case-insensitive): "
+                    f"'{seen[lower]}' and '{name}' collide"
+                )
+            seen[lower] = name
 
     @property
     def phase_names(self) -> tuple[str, ...]:
