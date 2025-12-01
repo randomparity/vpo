@@ -43,18 +43,18 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Create RadarrLanguage dataclass in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
-- [ ] T006 Create RadarrMovie dataclass in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
-- [ ] T007 Create RadarrMovieFile dataclass in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
-- [ ] T008 Create RadarrCache dataclass with lookup_by_path method in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
-- [ ] T009 [P] Create SonarrLanguage dataclass in src/video_policy_orchestrator/plugins/sonarr_metadata/models.py
-- [ ] T010 [P] Create SonarrSeries dataclass in src/video_policy_orchestrator/plugins/sonarr_metadata/models.py
-- [ ] T011 [P] Create SonarrEpisode dataclass in src/video_policy_orchestrator/plugins/sonarr_metadata/models.py
-- [ ] T012 [P] Create SonarrParseResult dataclass in src/video_policy_orchestrator/plugins/sonarr_metadata/models.py
-- [ ] T013 [P] Create SonarrCache dataclass with lookup_by_path method in src/video_policy_orchestrator/plugins/sonarr_metadata/models.py
-- [ ] T014 Create MatchStatus enum in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
-- [ ] T015 Create MatchResult dataclass in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
-- [ ] T016 Create MetadataEnrichment dataclass with to_dict method in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
+- [X] T005 Create RadarrLanguage dataclass in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
+- [X] T006 Create RadarrMovie dataclass in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
+- [X] T007 Create RadarrMovieFile dataclass in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
+- [X] T008 Create RadarrCache dataclass with lookup_by_path method in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
+- [X] T009 [P] Create SonarrLanguage dataclass in src/video_policy_orchestrator/plugins/sonarr_metadata/models.py
+- [X] T010 [P] Create SonarrSeries dataclass in src/video_policy_orchestrator/plugins/sonarr_metadata/models.py
+- [X] T011 [P] Create SonarrEpisode dataclass in src/video_policy_orchestrator/plugins/sonarr_metadata/models.py
+- [X] T012 [P] Create SonarrParseResult dataclass in src/video_policy_orchestrator/plugins/sonarr_metadata/models.py
+- [X] T013 [P] Create SonarrCache dataclass with lookup_by_path method in src/video_policy_orchestrator/plugins/sonarr_metadata/models.py
+- [X] T014 Create MatchStatus enum in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
+- [X] T015 Create MatchResult dataclass in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
+- [X] T016 Create MetadataEnrichment dataclass with to_dict method in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
