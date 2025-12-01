@@ -1,6 +1,6 @@
-# Media Normalization Policy (V11)
+# Media Normalization Policy (V12)
 # Production-ready policy for standardizing media files
-schema_version: 11
+schema_version: 12
 
 config:
   audio_language_preference: [eng, und]
@@ -42,6 +42,41 @@ phases:
       clear_other_defaults: true
       set_subtitle_default_when_audio_differs: true
     conditional:
+      # V12: Use Radarr/Sonarr plugin metadata for Japanese anime detection
+      - name: detect_japanese_anime_from_radarr
+        when:
+          plugin_metadata:
+            plugin: radarr
+            field: original_language
+            value: jpn
+        then:
+          - warn: "Japanese anime detected via Radarr metadata - forcing English subtitles"
+          - set_forced:
+              track_type: subtitle
+              language: eng
+              value: true
+          - set_default:
+              track_type: subtitle
+              language: eng
+              value: true
+
+      - name: detect_japanese_anime_from_sonarr
+        when:
+          plugin_metadata:
+            plugin: sonarr
+            field: original_language
+            value: jpn
+        then:
+          - warn: "Japanese anime detected via Sonarr metadata - forcing English subtitles"
+          - set_forced:
+              track_type: subtitle
+              language: eng
+              value: true
+          - set_default:
+              track_type: subtitle
+              language: eng
+              value: true
+
       - name: force_english_subs_for_foreign_audio
         when:
           or:
