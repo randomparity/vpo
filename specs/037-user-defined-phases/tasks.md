@@ -176,15 +176,15 @@
 - [x] T068 [US6] Update POST /api/policies/{name}/validate to validate V11 phases in src/video_policy_orchestrator/server/ui/routes.py
 - [x] T069 [US6] Add phase-specific validation errors to API responses in src/video_policy_orchestrator/server/ui/routes.py
 - [x] T070 [US6] Update PolicyRoundTripEditor to preserve V11 phase structure in src/video_policy_orchestrator/policy/editor.py
-- [ ] T071 [US6] Create section-phases.js for phase GUI components in src/video_policy_orchestrator/server/static/js/policy-editor/section-phases.js
-- [ ] T072 [US6] Add "Add Phase" button handler in section-phases.js
-- [ ] T073 [US6] Add phase name input field with validation in section-phases.js
-- [ ] T074 [US6] Add operation toggles for each phase in section-phases.js
-- [ ] T075 [US6] Add drag-and-drop phase reordering in section-phases.js
-- [ ] T076 [US6] Add phase delete functionality in section-phases.js
-- [ ] T077 [US6] Add real-time YAML preview updates for phases in section-phases.js
-- [ ] T078 [US6] Update policy_editor.html template to include phases section in src/video_policy_orchestrator/server/ui/templates/sections/policy_editor.html
-- [ ] T079 [US6] Add CSS styling for phase editor in src/video_policy_orchestrator/server/static/css/
+- [x] T071 [US6] Create section-phases.js for phase GUI components in src/video_policy_orchestrator/server/static/js/policy-editor/section-phases.js
+- [x] T072 [US6] Add "Add Phase" button handler in section-phases.js
+- [x] T073 [US6] Add phase name input field with validation in section-phases.js
+- [x] T074 [US6] Add operation toggles for each phase in section-phases.js
+- [x] T075 [US6] Add drag-and-drop phase reordering in section-phases.js
+- [x] T076 [US6] Add phase delete functionality in section-phases.js
+- [x] T077 [US6] Add real-time YAML preview updates for phases in section-phases.js
+- [x] T078 [US6] Update policy_editor.html template to include phases section in src/video_policy_orchestrator/server/ui/templates/sections/policy_editor.html
+- [x] T079 [US6] Add CSS styling for phase editor in src/video_policy_orchestrator/server/static/css/
 
 **Checkpoint**: Phase editor GUI fully functional for creating, editing, and reordering phases
 
