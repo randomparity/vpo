@@ -194,12 +194,12 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T080 [P] Add V11 schema documentation examples to docs/usage/policy-editor.md
-- [ ] T081 [P] Update docs/overview/ with V11 phase system overview
-- [ ] T082 [P] Add migration guide from V10 to V11 in docs/usage/
-- [ ] T083 Run all quickstart.md scenarios to validate feature completeness
-- [ ] T084 Performance validation: verify < 100ms phase dispatch overhead for 10 phases
-- [ ] T085 Performance validation: verify < 1s policy validation for 20 phases
+- [x] T080 [P] Add V11 schema documentation examples to docs/usage/policy-editor.md
+- [x] T081 [P] Update docs/overview/ with V11 phase system overview
+- [x] T082 [P] Add migration guide from V10 to V11 in docs/usage/
+- [x] T083 Run all quickstart.md scenarios to validate feature completeness
+- [x] T084 Performance validation: verify < 100ms phase dispatch overhead for 10 phases
+- [x] T085 Performance validation: verify < 1s policy validation for 20 phases
 
 ---
 
