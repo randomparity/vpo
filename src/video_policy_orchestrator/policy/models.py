@@ -1257,7 +1257,7 @@ class ConditionalResult:
     """Result of conditional rule evaluation.
 
     Captures which rule matched, which branch was executed,
-    any warnings generated, track flag changes, and a trace for debugging.
+    any warnings generated, track flag/language changes, and a trace for debugging.
     """
 
     matched_rule: str | None  # Name of first matching rule, None if no match
@@ -1266,6 +1266,7 @@ class ConditionalResult:
     evaluation_trace: tuple[RuleEvaluation, ...]  # For dry-run output
     skip_flags: SkipFlags = field(default_factory=SkipFlags)
     track_flag_changes: tuple[TrackFlagChange, ...] = ()  # From set_forced/set_default
+    track_language_changes: tuple[TrackLanguageChange, ...] = ()  # From set_language
 
 
 # =============================================================================

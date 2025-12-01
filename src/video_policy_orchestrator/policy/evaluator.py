@@ -44,6 +44,7 @@ from video_policy_orchestrator.policy.models import (
     SubtitleFilterConfig,
     TrackDisposition,
     TrackFlagChange,
+    TrackLanguageChange,
     TrackType,
 )
 from video_policy_orchestrator.transcription.models import (
@@ -1050,6 +1051,7 @@ def evaluate_conditional_rules(
     skip_flags = SkipFlags()
     warnings: list[str] = []
     track_flag_changes: list[TrackFlagChange] = []
+    track_language_changes: list[TrackLanguageChange] = []
 
     for i, rule in enumerate(rules):
         # Evaluate the condition, passing all context for condition types
@@ -1075,11 +1077,13 @@ def evaluate_conditional_rules(
                 file_path=file_path,
                 rule_name=rule.name,
                 tracks=tracks,
+                plugin_metadata=plugin_metadata,
             )
             context = execute_actions(rule.then_actions, context)
             skip_flags = context.skip_flags
             warnings = context.warnings
             track_flag_changes = context.track_flag_changes
+            track_language_changes = context.track_language_changes
 
             # First match wins - stop evaluation
             break
@@ -1105,11 +1109,13 @@ def evaluate_conditional_rules(
                     file_path=file_path,
                     rule_name=rule.name,
                     tracks=tracks,
+                    plugin_metadata=plugin_metadata,
                 )
                 context = execute_actions(rule.else_actions, context)
                 skip_flags = context.skip_flags
                 warnings = context.warnings
                 track_flag_changes = context.track_flag_changes
+                track_language_changes = context.track_language_changes
 
     return ConditionalResult(
         matched_rule=matched_rule,
@@ -1118,6 +1124,7 @@ def evaluate_conditional_rules(
         evaluation_trace=tuple(evaluation_trace),
         skip_flags=skip_flags,
         track_flag_changes=tuple(track_flag_changes),
+        track_language_changes=tuple(track_language_changes),
     )
 
 
@@ -1272,6 +1279,25 @@ def evaluate_policy(
                             desired_value=change.value,
                         )
                     )
+
+    # Convert track language changes from conditional rules to PlannedActions
+    if conditional_result is not None and conditional_result.track_language_changes:
+        for change in conditional_result.track_language_changes:
+            # Find current track state
+            track = next((t for t in tracks if t.index == change.track_index), None)
+            if track is None:
+                continue
+
+            current = track.language
+            if current != change.new_language:
+                actions.append(
+                    PlannedAction(
+                        action_type=ActionType.SET_LANGUAGE,
+                        track_index=change.track_index,
+                        current_value=current,
+                        desired_value=change.new_language,
+                    )
+                )
 
     # Compute desired track order (handles empty tracks gracefully)
     # Pass transcription_results to enable transcription-based commentary detection

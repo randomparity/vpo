@@ -313,29 +313,44 @@ def _resolve_language_from_action(
 
     if action.from_plugin_metadata is not None:
         ref = action.from_plugin_metadata
-        if context.plugin_metadata is None:
-            logger.debug("set_language: no plugin_metadata in context, skipping action")
-            return None
+        plugin_name = ref.plugin.lower()
+        field_name = ref.field.lower()
 
-        plugin_data = context.plugin_metadata.get(ref.plugin)
-        if plugin_data is None:
-            logger.debug(
-                "set_language: plugin '%s' not found in metadata, skipping action",
-                ref.plugin,
+        if context.plugin_metadata is None:
+            logger.warning(
+                "set_language: no plugin_metadata in context, skipping action"
             )
             return None
 
-        value = plugin_data.get(ref.field)
-        if value is None:
-            logger.debug(
+        # Case-insensitive plugin lookup
+        plugin_data = None
+        for key, value in context.plugin_metadata.items():
+            if key.lower() == plugin_name:
+                plugin_data = value
+                break
+        if plugin_data is None:
+            logger.warning(
+                "set_language: plugin '%s' not found in metadata, skipping action",
+                plugin_name,
+            )
+            return None
+
+        # Case-insensitive field lookup
+        field_value = None
+        for key, value in plugin_data.items():
+            if key.lower() == field_name:
+                field_value = value
+                break
+        if field_value is None:
+            logger.warning(
                 "set_language: field '%s' not found in plugin '%s' metadata, "
                 "skipping action",
-                ref.field,
-                ref.plugin,
+                field_name,
+                plugin_name,
             )
             return None
 
-        return str(value)
+        return str(field_value)
 
     return None
 

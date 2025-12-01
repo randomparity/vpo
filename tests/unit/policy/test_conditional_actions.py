@@ -1013,3 +1013,35 @@ class TestSetLanguageFromPluginMetadata:
 
         assert len(result.track_language_changes) == 1
         assert result.track_language_changes[0].new_language == "jpn"
+
+    def test_from_plugin_metadata_case_insensitive_lookup(
+        self, tracks_with_video: list[TrackInfo]
+    ) -> None:
+        """from_plugin_metadata looks up fields case-insensitively."""
+        from video_policy_orchestrator.policy.actions import execute_set_language_action
+        from video_policy_orchestrator.policy.models import (
+            PluginMetadataReference,
+            SetLanguageAction,
+        )
+
+        # Plugin metadata has mixed-case keys
+        context = ActionContext(
+            file_path=Path("/videos/test.mkv"),
+            rule_name="Test",
+            tracks=tracks_with_video,
+            plugin_metadata={
+                "Radarr": {"Original_Language": "jpn"},  # Mixed case
+            },
+        )
+        # Action uses lowercase
+        action = SetLanguageAction(
+            track_type="video",
+            from_plugin_metadata=PluginMetadataReference(
+                plugin="radarr", field="original_language"
+            ),
+        )
+
+        result = execute_set_language_action(action, context)
+
+        assert len(result.track_language_changes) == 1
+        assert result.track_language_changes[0].new_language == "jpn"

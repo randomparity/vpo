@@ -1015,10 +1015,10 @@ class PluginMetadataConditionModel(BaseModel):
     @field_validator("field")
     @classmethod
     def validate_field_name(cls, v: str) -> str:
-        """Validate field name is non-empty."""
+        """Validate field name is non-empty and normalize to lowercase."""
         if not v or not v.strip():
             raise ValueError("field name cannot be empty")
-        return v.strip()
+        return v.strip().lower()
 
     @model_validator(mode="after")
     def validate_operator_value_compatibility(self) -> "PluginMetadataConditionModel":
@@ -1121,6 +1121,22 @@ class PluginMetadataReferenceModel(BaseModel):
 
     plugin: str
     field: str
+
+    @field_validator("plugin")
+    @classmethod
+    def validate_plugin_name(cls, v: str) -> str:
+        """Validate and normalize plugin name to lowercase."""
+        if not v or not v.strip():
+            raise ValueError("plugin name cannot be empty")
+        return v.strip().lower()
+
+    @field_validator("field")
+    @classmethod
+    def validate_field_name(cls, v: str) -> str:
+        """Validate and normalize field name to lowercase."""
+        if not v or not v.strip():
+            raise ValueError("field name cannot be empty")
+        return v.strip().lower()
 
 
 class SetLanguageActionModel(BaseModel):

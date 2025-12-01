@@ -242,6 +242,57 @@ class TestEvaluatePluginMetadata:
         assert result is False
 
 
+class TestPluginMetadataCaseInsensitivity:
+    """Tests for case-insensitive plugin and field lookups."""
+
+    def test_plugin_name_case_insensitive(self) -> None:
+        """Test that plugin names are matched case-insensitively."""
+        condition = PluginMetadataCondition(
+            plugin="radarr",  # lowercase in condition
+            field="original_language",
+            value="jpn",
+            operator=PluginMetadataOperator.EQ,
+        )
+        # Plugin name in metadata has different case
+        metadata: PluginMetadataDict = {"Radarr": {"original_language": "jpn"}}
+
+        result, reason = evaluate_plugin_metadata(condition, metadata)
+
+        assert result is True
+        assert "actual='jpn'" in reason
+
+    def test_field_name_case_insensitive(self) -> None:
+        """Test that field names are matched case-insensitively."""
+        condition = PluginMetadataCondition(
+            plugin="radarr",
+            field="original_language",  # lowercase in condition
+            value="jpn",
+            operator=PluginMetadataOperator.EQ,
+        )
+        # Field name in metadata has different case
+        metadata: PluginMetadataDict = {"radarr": {"Original_Language": "jpn"}}
+
+        result, reason = evaluate_plugin_metadata(condition, metadata)
+
+        assert result is True
+        assert "actual='jpn'" in reason
+
+    def test_both_plugin_and_field_case_insensitive(self) -> None:
+        """Test that both plugin and field names are matched case-insensitively."""
+        condition = PluginMetadataCondition(
+            plugin="radarr",
+            field="original_language",
+            value="eng",
+            operator=PluginMetadataOperator.NEQ,
+        )
+        # Both names have different case in metadata
+        metadata: PluginMetadataDict = {"RADARR": {"ORIGINAL_LANGUAGE": "jpn"}}
+
+        result, reason = evaluate_plugin_metadata(condition, metadata)
+
+        assert result is True  # jpn != eng
+
+
 class TestPluginMetadataValidation:
     """Tests for validation of unknown plugins and fields."""
 

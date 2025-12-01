@@ -437,8 +437,8 @@ def evaluate_plugin_metadata(
         Tuple of (result, reason) where result is True if the condition
         matches and reason is a human-readable explanation.
     """
-    plugin_name = condition.plugin
-    field_name = condition.field
+    plugin_name = condition.plugin.lower()
+    field_name = condition.field.lower()
     expected_value = condition.value
     op = condition.operator
 
@@ -450,8 +450,12 @@ def evaluate_plugin_metadata(
             "(no plugin metadata available)",
         )
 
-    # Check if plugin exists in metadata
-    plugin_data = plugin_metadata.get(plugin_name)
+    # Check if plugin exists in metadata (case-insensitive lookup)
+    plugin_data = None
+    for key, value in plugin_metadata.items():
+        if key.lower() == plugin_name:
+            plugin_data = value
+            break
     if plugin_data is None:
         return (
             False,
@@ -459,15 +463,20 @@ def evaluate_plugin_metadata(
             f"(plugin '{plugin_name}' not in metadata)",
         )
 
-    # Check if field exists in plugin data
-    if field_name not in plugin_data:
+    # Check if field exists in plugin data (case-insensitive lookup)
+    actual_value = None
+    field_found = False
+    for key, value in plugin_data.items():
+        if key.lower() == field_name:
+            actual_value = value
+            field_found = True
+            break
+    if not field_found:
         return (
             False,
             f"plugin_metadata({plugin_name}.{field_name}) → False "
             f"(field '{field_name}' not found)",
         )
-
-    actual_value = plugin_data[field_name]
 
     # Handle None values
     if actual_value is None:
