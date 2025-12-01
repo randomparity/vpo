@@ -81,6 +81,28 @@ crates/vpo-core/   # Rust extension for parallel discovery/hashing
 - No local-time datetime storage, hardcoded paths, ad-hoc subprocess calls, or inline SQL in business logic
 - Before finalizing: check idempotence, error handling, logging/auditability, and tests
 
+## Git Commit Guidelines
+
+This project uses pre-commit hooks (ruff format, trailing whitespace, etc.) that may modify files during commit.
+
+**When a commit fails due to pre-commit hooks:**
+1. **Stage the reformatted files**: `git add <modified-files>`
+2. **Run the same commit command again** (do NOT use `--amend`)
+3. The second commit attempt should succeed with all hooks passing
+
+**Never use `git commit --amend`** after a hook failure - this risks amending someone else's commit or a commit that was already pushed. Always create a fresh commit attempt by re-running the original commit command.
+
+**Pre-commit workflow example:**
+```bash
+# First attempt - hooks may reformat files
+git add . && git commit -m "feat: add feature"
+# If hooks modified files, the commit fails
+
+# Correct recovery - stage and retry (NO --amend)
+git add . && git commit -m "feat: add feature"
+# Second attempt succeeds
+```
+
 ## Constitution
 
 This project has a formal constitution at `.specify/memory/constitution.md` with 18 core principles. Key rules:
