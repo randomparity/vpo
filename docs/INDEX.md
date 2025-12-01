@@ -52,6 +52,9 @@ Docs focused on tasks and workflows: how to run the tools, configure them, and p
 - [usage/transcode-policy.md](usage/transcode-policy.md)
   Transcode policy settings: video codecs, quality, resolution scaling, audio preservation.
 
+- [usage/v11-migration.md](usage/v11-migration.md)
+  V11 migration guide: upgrading from V10 to V11 with user-defined processing phases.
+
 - [usage/jobs.md](usage/jobs.md)
   Job queue management: listing, starting workers, canceling, and cleanup.
 

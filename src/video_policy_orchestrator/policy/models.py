@@ -41,11 +41,67 @@ class ActionType(Enum):
 
 
 class ProcessingPhase(Enum):
-    """Workflow processing phases for video file operations."""
+    """Workflow processing phases for video file operations.
+
+    NOTE: This enum is used for V9/V10 policies with fixed phase names.
+    For V11+ policies, phases are user-defined strings. See PhaseDefinition.
+    """
 
     ANALYZE = "analyze"  # Language detection via transcription
     APPLY = "apply"  # Track ordering, filtering, metadata, container
     TRANSCODE = "transcode"  # Video/audio codec conversion
+
+
+# =============================================================================
+# V11 User-Defined Phases
+# =============================================================================
+
+
+class OperationType(Enum):
+    """Types of operations that can appear in a V11 phase.
+
+    Operations within a phase execute in canonical order (as defined below).
+    This ordering ensures dependencies are respected (e.g., filters run
+    before track_order, synthesis runs before transcode).
+    """
+
+    CONTAINER = "container"
+    AUDIO_FILTER = "audio_filter"
+    SUBTITLE_FILTER = "subtitle_filter"
+    ATTACHMENT_FILTER = "attachment_filter"
+    TRACK_ORDER = "track_order"
+    DEFAULT_FLAGS = "default_flags"
+    CONDITIONAL = "conditional"
+    AUDIO_SYNTHESIS = "audio_synthesis"
+    TRANSCODE = "transcode"
+    TRANSCRIPTION = "transcription"
+
+
+# Canonical execution order for operations within a phase
+# This tuple defines the order in which operations are dispatched
+CANONICAL_OPERATION_ORDER: tuple[OperationType, ...] = (
+    OperationType.CONTAINER,
+    OperationType.AUDIO_FILTER,
+    OperationType.SUBTITLE_FILTER,
+    OperationType.ATTACHMENT_FILTER,
+    OperationType.TRACK_ORDER,
+    OperationType.DEFAULT_FLAGS,
+    OperationType.CONDITIONAL,
+    OperationType.AUDIO_SYNTHESIS,
+    OperationType.TRANSCODE,
+    OperationType.TRANSCRIPTION,
+)
+
+
+class OnErrorMode(Enum):
+    """How to handle errors during phase execution (V11+).
+
+    Controls behavior when an operation or phase fails.
+    """
+
+    SKIP = "skip"  # Stop processing this file, continue batch
+    CONTINUE = "continue"  # Log error, continue to next phase
+    FAIL = "fail"  # Stop entire batch processing
 
 
 # Valid video codecs for transcoding
@@ -1536,3 +1592,341 @@ class AudioTrackAction:
 
     reason: str = ""
     """Human-readable reason for the action."""
+
+
+# =============================================================================
+# V11 User-Defined Phases Data Models
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class GlobalConfig:
+    """Global configuration shared across all phases (V11+).
+
+    Settings defined here are available to all phases unless overridden
+    by per-phase configuration.
+    """
+
+    # Language preferences (existing)
+    audio_language_preference: tuple[str, ...] = ("eng", "und")
+    """Ordered list of preferred audio languages (ISO 639-2/B codes)."""
+
+    subtitle_language_preference: tuple[str, ...] = ("eng", "und")
+    """Ordered list of preferred subtitle languages (ISO 639-2/B codes)."""
+
+    # Track classification (existing)
+    commentary_patterns: tuple[str, ...] = (
+        "commentary",
+        "director",
+        "audio description",
+    )
+    """Patterns to match commentary track titles."""
+
+    # Error handling (moved from WorkflowConfig)
+    on_error: OnErrorMode = OnErrorMode.CONTINUE
+    """How to handle errors during phase execution."""
+
+
+@dataclass(frozen=True)
+class PhaseDefinition:
+    """A named phase containing zero or more operations (V11+).
+
+    Each phase groups related operations that execute together.
+    Operations within a phase execute in canonical order regardless
+    of their definition order in the YAML.
+    """
+
+    name: str
+    """User-defined phase name (validated: alphanumeric + hyphen + underscore)."""
+
+    # Operations (all optional, at most one of each type)
+    container: ContainerConfig | None = None
+    """Container format conversion configuration."""
+
+    audio_filter: AudioFilterConfig | None = None
+    """Audio track filtering configuration."""
+
+    subtitle_filter: SubtitleFilterConfig | None = None
+    """Subtitle track filtering configuration."""
+
+    attachment_filter: AttachmentFilterConfig | None = None
+    """Attachment track filtering configuration."""
+
+    track_order: tuple[TrackType, ...] | None = None
+    """Track ordering configuration."""
+
+    default_flags: DefaultFlagsConfig | None = None
+    """Default flag configuration."""
+
+    conditional: tuple["ConditionalRule", ...] | None = None
+    """Conditional rules for this phase."""
+
+    audio_synthesis: "AudioSynthesisConfig | None" = None
+    """Audio synthesis configuration."""
+
+    transcode: "VideoTranscodeConfig | None" = None
+    """Video transcode configuration (V6-style nested format)."""
+
+    audio_transcode: "AudioTranscodeConfig | None" = None
+    """Audio transcode configuration (V6-style)."""
+
+    transcription: TranscriptionPolicyOptions | None = None
+    """Transcription analysis configuration."""
+
+    def get_operations(self) -> list[OperationType]:
+        """Return list of operations defined in this phase.
+
+        Returns operations in canonical execution order, not definition order.
+        """
+        ops: list[OperationType] = []
+        for op_type in CANONICAL_OPERATION_ORDER:
+            if op_type == OperationType.CONTAINER and self.container is not None:
+                ops.append(op_type)
+            elif (
+                op_type == OperationType.AUDIO_FILTER and self.audio_filter is not None
+            ):
+                ops.append(op_type)
+            elif (
+                op_type == OperationType.SUBTITLE_FILTER
+                and self.subtitle_filter is not None
+            ):
+                ops.append(op_type)
+            elif (
+                op_type == OperationType.ATTACHMENT_FILTER
+                and self.attachment_filter is not None
+            ):
+                ops.append(op_type)
+            elif op_type == OperationType.TRACK_ORDER and self.track_order is not None:
+                ops.append(op_type)
+            elif (
+                op_type == OperationType.DEFAULT_FLAGS
+                and self.default_flags is not None
+            ):
+                ops.append(op_type)
+            elif op_type == OperationType.CONDITIONAL and self.conditional is not None:
+                ops.append(op_type)
+            elif (
+                op_type == OperationType.AUDIO_SYNTHESIS
+                and self.audio_synthesis is not None
+            ):
+                ops.append(op_type)
+            elif op_type == OperationType.TRANSCODE and (
+                self.transcode is not None or self.audio_transcode is not None
+            ):
+                ops.append(op_type)
+            elif (
+                op_type == OperationType.TRANSCRIPTION
+                and self.transcription is not None
+            ):
+                ops.append(op_type)
+        return ops
+
+    def is_empty(self) -> bool:
+        """Return True if no operations are defined in this phase."""
+        return len(self.get_operations()) == 0
+
+
+@dataclass(frozen=True)
+class V11PolicySchema:
+    """V11 policy schema with user-defined phases.
+
+    This is the new top-level policy structure for V11 policies.
+    It replaces the flat PolicySchema structure with a phase-based approach.
+    """
+
+    schema_version: Literal[11]
+    """Schema version, must be exactly 11."""
+
+    config: GlobalConfig
+    """Global configuration shared across all phases."""
+
+    phases: tuple[PhaseDefinition, ...]
+    """Ordered list of named phases."""
+
+    def __post_init__(self) -> None:
+        """Validate V11 policy schema."""
+        if self.schema_version != 11:
+            raise ValueError(
+                f"V11PolicySchema requires schema_version=11, got {self.schema_version}"
+            )
+        if not self.phases:
+            raise ValueError("phases cannot be empty, at least one phase required")
+
+        # Check for duplicate phase names (exact match)
+        names = [p.name for p in self.phases]
+        if len(names) != len(set(names)):
+            duplicates = [n for n in names if names.count(n) > 1]
+            raise ValueError(f"Duplicate phase names: {set(duplicates)}")
+
+        # Check for case-insensitive collisions
+        seen: dict[str, str] = {}
+        for name in names:
+            lower = name.lower()
+            if lower in seen:
+                raise ValueError(
+                    f"Phase names must be unique (case-insensitive): "
+                    f"'{seen[lower]}' and '{name}' collide"
+                )
+            seen[lower] = name
+
+    @property
+    def phase_names(self) -> tuple[str, ...]:
+        """Return ordered list of phase names."""
+        return tuple(p.name for p in self.phases)
+
+    def get_phase(self, name: str) -> PhaseDefinition | None:
+        """Look up phase by name.
+
+        Args:
+            name: Phase name to look up.
+
+        Returns:
+            PhaseDefinition if found, None otherwise.
+        """
+        for phase in self.phases:
+            if phase.name == name:
+                return phase
+        return None
+
+
+@dataclass
+class PhaseExecutionContext:
+    """Mutable context passed through phase execution (V11+).
+
+    This context is created at the start of file processing and
+    updated as each phase executes.
+    """
+
+    file_path: Path
+    """Path to the media file being processed."""
+
+    file_info: Any  # FileInfo from db module - avoiding circular import
+    """Current introspection data for the file."""
+
+    policy: V11PolicySchema
+    """The policy being applied."""
+
+    current_phase: str
+    """Name of the currently executing phase."""
+
+    phase_index: int
+    """1-based index of the current phase."""
+
+    total_phases: int
+    """Total number of phases to execute."""
+
+    global_config: GlobalConfig
+    """Global configuration from policy."""
+
+    # Execution state
+    backup_path: Path | None = None
+    """Path to backup file created at phase start."""
+
+    file_modified: bool = False
+    """True if any operation in this phase modified the file."""
+
+    operations_completed: list[str] = field(default_factory=list)
+    """List of operation names completed in this phase."""
+
+    # Dry-run output
+    dry_run: bool = False
+    """True if running in dry-run mode (no file modifications)."""
+
+    planned_actions: list[PlannedAction] = field(default_factory=list)
+    """Actions planned during dry-run."""
+
+
+@dataclass(frozen=True)
+class PhaseResult:
+    """Result from executing a single phase (V11+)."""
+
+    phase_name: str
+    """Name of the phase that was executed."""
+
+    success: bool
+    """True if phase completed successfully."""
+
+    duration_seconds: float
+    """Time taken to execute the phase."""
+
+    operations_executed: tuple[str, ...]
+    """Names of operations that were executed."""
+
+    changes_made: int
+    """Number of changes made to the file."""
+
+    message: str | None = None
+    """Human-readable status message."""
+
+    error: str | None = None
+    """Error message if success is False."""
+
+    # For dry-run output
+    planned_actions: tuple[PlannedAction, ...] = ()
+    """Actions that would be taken (dry-run mode)."""
+
+
+@dataclass(frozen=True)
+class FileProcessingResult:
+    """Result from processing a file through all phases (V11+)."""
+
+    file_path: Path
+    """Path to the processed file."""
+
+    success: bool
+    """True if all phases completed successfully."""
+
+    phase_results: tuple[PhaseResult, ...]
+    """Results from each executed phase."""
+
+    total_duration_seconds: float
+    """Total time taken to process the file."""
+
+    total_changes: int
+    """Total number of changes made across all phases."""
+
+    # Summary counts
+    phases_completed: int
+    """Number of phases that completed successfully."""
+
+    phases_failed: int
+    """Number of phases that failed."""
+
+    phases_skipped: int
+    """Number of phases that were skipped."""
+
+    # Error info
+    failed_phase: str | None = None
+    """Name of the phase that failed, if any."""
+
+    error_message: str | None = None
+    """Error message from failed phase, if any."""
+
+
+class PhaseExecutionError(Exception):
+    """Raised when phase execution fails (V11+).
+
+    This exception wraps operation-level errors and provides context
+    about which phase and operation failed.
+    """
+
+    def __init__(
+        self,
+        phase_name: str,
+        operation: str | None,
+        message: str,
+        cause: Exception | None = None,
+    ) -> None:
+        """Initialize PhaseExecutionError.
+
+        Args:
+            phase_name: Name of the phase that failed.
+            operation: Name of the operation that failed, if known.
+            message: Human-readable error message.
+            cause: The underlying exception, if any.
+        """
+        self.phase_name = phase_name
+        self.operation = operation
+        self.message = message
+        self.cause = cause
+        super().__init__(f"Phase '{phase_name}' failed: {message}")

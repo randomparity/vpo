@@ -1,12 +1,12 @@
 # Policy Editor Usage Guide
 
-**Feature**: Visual Policy Editor (024-policy-editor, 036-v9-policy-editor)
+**Feature**: Visual Policy Editor (024-policy-editor, 036-v9-policy-editor, 037-user-defined-phases)
 **Status**: Production Ready
-**Version**: 2.0 (V3-V10 Schema Support)
+**Version**: 3.0 (V3-V11 Schema Support)
 
 ## Overview
 
-The Visual Policy Editor provides a web-based interface for creating and modifying VPO policy files without manually editing YAML. The editor supports policy schema versions V3-V10, including video/audio transcoding, track filtering, conditional rules, audio synthesis, container conversion, and workflow configuration. The editor preserves unknown fields and comments during round-trip operations, ensuring safe editing of complex policies.
+The Visual Policy Editor provides a web-based interface for creating and modifying VPO policy files without manually editing YAML. The editor supports policy schema versions V3-V11, including video/audio transcoding, track filtering, conditional rules, audio synthesis, container conversion, workflow configuration, and **V11 user-defined phases**. The editor preserves unknown fields and comments during round-trip operations, ensuring safe editing of complex policies.
 
 ## Accessing the Editor
 
@@ -288,6 +288,92 @@ Configure how VPO processes files.
   - `skip` - Skip the current file
   - `fail` - Stop processing
 
+**Note:** For V11 policies, use the User-Defined Phases section instead. The V9 Workflow Configuration section is hidden for V11 policies.
+
+### 14. User-Defined Phases (V11)
+
+V11 introduces user-defined processing phases, replacing the fixed V9 workflow with customizable named phases. This section only appears for V11 policies.
+
+**Creating Phases:**
+1. Click **+ Add Phase** to create a new phase
+2. Enter a descriptive phase name (e.g., "cleanup", "normalize", "compress")
+3. Select which operations to enable for this phase
+4. Drag phases to reorder execution sequence
+
+**Phase Naming Rules:**
+- Must start with a letter (a-z, A-Z)
+- Can contain letters, numbers, hyphens, and underscores
+- Maximum 64 characters
+- Cannot use reserved names: `config`, `schema_version`, `phases`
+- Each phase name must be unique within the policy
+
+**Available Operations:**
+Each phase can include any combination of these operations (executed in canonical order):
+
+| Operation | Description |
+|-----------|-------------|
+| Container Conversion | Convert container format (mkv, mp4) |
+| Audio Filter | Filter audio tracks by language |
+| Subtitle Filter | Filter subtitle tracks by language |
+| Attachment Filter | Remove attachments |
+| Track Ordering | Reorder tracks by type |
+| Default Flags | Set default track flags |
+| Conditional Rules | Apply conditional logic |
+| Audio Synthesis | Create synthesized audio tracks |
+| Transcode | Transcode video/audio |
+| Transcription | Transcription analysis |
+
+**Operation Execution Order:**
+Within each phase, operations execute in the canonical order shown above, regardless of the order you enable them. This ensures consistent and predictable behavior.
+
+**Global Configuration:**
+- **On Error** - How to handle errors during phase execution:
+  - `skip` - Skip the current file and continue (default)
+  - `continue` - Log error and continue with next phase
+  - `fail` - Stop processing immediately
+
+**Drag-and-Drop Reordering:**
+- Drag the ⋮⋮ handle to reorder phases
+- Visual indicators show insertion point during drag
+- Phase order determines execution sequence
+
+**Example V11 Policy Structure:**
+```yaml
+schema_version: 11
+config:
+  on_error: skip
+phases:
+  - name: cleanup
+    audio_filter:
+      languages: [eng, jpn]
+    subtitle_filter:
+      languages: [eng]
+  - name: normalize
+    track_order: [video, audio, subtitle]
+    default_flags:
+      set_first_video_default: true
+  - name: compress
+    transcode:
+      target_codec: hevc
+      quality:
+        mode: crf
+        crf: 20
+```
+
+**CLI Integration:**
+V11 policies can be executed with selective phase filtering:
+
+```bash
+# Execute all phases
+vpo process -p policy.yaml /path/to/video.mkv
+
+# Execute specific phases only
+vpo process -p policy.yaml --phases cleanup,normalize /path/to/video.mkv
+
+# Dry-run to preview changes
+vpo process -p policy.yaml --dry-run /path/to/video.mkv
+```
+
 ## Validation Features
 
 The policy editor includes comprehensive validation to help you create correct policy configurations.
@@ -488,6 +574,26 @@ Validation errors are displayed with field-level detail:
 - Cause: Server not responding or connection lost
 - Solution: Check server is running, verify network connection
 
+**"Phase name is required"** (V11)
+- Cause: A phase was created without a name
+- Solution: Enter a valid phase name starting with a letter
+
+**"Phase name must start with a letter..."** (V11)
+- Cause: Phase name doesn't match the naming pattern
+- Solution: Use a name starting with a letter, containing only letters, numbers, hyphens, or underscores (max 64 chars)
+
+**"'config' is a reserved name"** (V11)
+- Cause: Trying to use a reserved word as phase name
+- Solution: Choose a different name; `config`, `schema_version`, and `phases` are reserved
+
+**"Phase 'name' already exists"** (V11)
+- Cause: Duplicate phase name in the policy
+- Solution: Use unique names for each phase
+
+**"Invalid phase name(s): ..."** (CLI)
+- Cause: `--phases` option specified names not in the policy
+- Solution: Check available phase names with `vpo process -p policy.yaml --help` or review the policy file
+
 ## Best Practices
 
 ### Editing Workflow
@@ -577,6 +683,7 @@ You can edit multiple policies in separate browser tabs, but:
 
 ## Related Documentation
 
+- [V11 Migration Guide](v11-migration.md) - Upgrading from V10 to V11 policies
 - [Policy Schema Reference](../reference/policy-schema.md)
 - [Policy Loader Documentation](../design/policy-loader.md)
 - [Web UI Overview](../overview/web-ui.md)

@@ -4752,3 +4752,153 @@ input.valid:focus {
     border-left: 3px solid var(--border-color, #e5e7eb);
     padding-left: var(--spacing-md, 16px);
 }
+
+/* ======================================
+   V11: User-Defined Phases Section (037-user-defined-phases)
+   ====================================== */
+
+.phase-item {
+    background: var(--color-content-bg, #fff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: var(--radius-md, 8px);
+    padding: var(--spacing-md, 16px);
+    margin-bottom: var(--spacing-md, 16px);
+    cursor: grab;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.phase-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.phase-item.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+}
+
+.phase-item.drag-over-top {
+    border-top: 3px solid var(--color-primary, #3498db);
+}
+
+.phase-item.drag-over-bottom {
+    border-bottom: 3px solid var(--color-primary, #3498db);
+}
+
+.phase-item-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+    margin-bottom: var(--spacing-md, 16px);
+}
+
+.phase-drag-handle {
+    cursor: grab;
+    color: var(--color-text-muted, #6b7280);
+    font-size: 1.2rem;
+    user-select: none;
+    padding: 0 var(--spacing-xs, 4px);
+}
+
+.phase-drag-handle:hover {
+    color: var(--color-text, #333);
+}
+
+.phase-name-input {
+    flex: 1;
+    font-weight: 500;
+    font-size: 1rem;
+    padding: var(--spacing-xs, 4px) var(--spacing-sm, 8px);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: var(--radius-sm, 4px);
+    background: transparent;
+}
+
+.phase-name-input:focus {
+    outline: none;
+    border-color: var(--color-primary, #3498db);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.phase-name-input.input-error {
+    border-color: var(--color-error, #e74c3c);
+    background: rgba(231, 76, 60, 0.05);
+}
+
+.phase-delete-btn {
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted, #6b7280);
+    cursor: pointer;
+    font-size: 1.5rem;
+    padding: 0 var(--spacing-xs, 4px);
+    line-height: 1;
+    border-radius: var(--radius-sm, 4px);
+}
+
+.phase-delete-btn:hover {
+    color: var(--color-error, #e74c3c);
+    background: rgba(231, 76, 60, 0.1);
+}
+
+.phase-operations {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs, 4px);
+}
+
+.phase-operations-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text-muted, #6b7280);
+    margin-bottom: var(--spacing-xs, 4px);
+}
+
+.phase-operations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: var(--spacing-xs, 4px);
+}
+
+.phase-operation-checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs, 4px);
+    font-size: 0.875rem;
+    cursor: pointer;
+    padding: var(--spacing-xs, 4px);
+    border-radius: var(--radius-sm, 4px);
+}
+
+.phase-operation-checkbox:hover {
+    background: var(--color-sidebar-hover, rgba(0, 0, 0, 0.05));
+}
+
+.phase-operation-checkbox input[type="checkbox"] {
+    accent-color: var(--color-primary, #3498db);
+}
+
+/* Dark mode support for phases */
+@media (prefers-color-scheme: dark) {
+    .phase-item {
+        background: var(--color-content-bg, #2d2d2d);
+        border-color: var(--color-border, #404040);
+    }
+
+    .phase-item:hover {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .phase-name-input {
+        color: var(--color-text, #e0e0e0);
+        background: var(--input-bg, #3a3a3a);
+        border-color: var(--input-border, #555);
+    }
+
+    .phase-name-input:focus {
+        border-color: var(--input-focus-border, #5dade2);
+    }
+
+    .phase-operation-checkbox:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+}

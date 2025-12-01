@@ -12,6 +12,7 @@ import { initConditionalSection } from './section-conditional.js'
 import { initSynthesisSection } from './section-synthesis.js'
 import { initContainerSection } from './section-container.js'
 import { initWorkflowSection } from './section-workflow.js'
+import { initPhasesSection } from './section-phases.js'
 
 // ======================================
 // Toast Module (H3: Undo toast for destructive actions)
@@ -141,6 +142,9 @@ function announceToScreenReader(message) {
         conditional: window.POLICY_DATA.conditional ? JSON.parse(JSON.stringify(window.POLICY_DATA.conditional)) : null,
         audio_synthesis: window.POLICY_DATA.audio_synthesis ? JSON.parse(JSON.stringify(window.POLICY_DATA.audio_synthesis)) : null,
         workflow: window.POLICY_DATA.workflow ? JSON.parse(JSON.stringify(window.POLICY_DATA.workflow)) : null,
+        // V11 fields (037-user-defined-phases)
+        phases: window.POLICY_DATA.phases ? JSON.parse(JSON.stringify(window.POLICY_DATA.phases)) : null,
+        config: window.POLICY_DATA.config ? JSON.parse(JSON.stringify(window.POLICY_DATA.config)) : null,
         isDirty: false,
         isSaving: false
     }
@@ -152,6 +156,8 @@ function announceToScreenReader(message) {
     let synthesisController = null
     let containerController = null
     let workflowController = null
+    // V11 section controller (037-user-defined-phases)
+    let phasesController = null
 
     const originalState = JSON.stringify(formState)
 
@@ -922,6 +928,9 @@ function announceToScreenReader(message) {
             conditional: conditionalController ? conditionalController.getConfig() : formState.conditional,
             audio_synthesis: synthesisController ? synthesisController.getConfig() : formState.audio_synthesis,
             workflow: workflowController ? workflowController.getConfig() : formState.workflow,
+            // V11 fields (037-user-defined-phases)
+            phases: phasesController ? phasesController.getConfig().phases : formState.phases,
+            config: phasesController ? phasesController.getConfig().config : formState.config,
             last_modified_timestamp: formState.last_modified
         }
 
@@ -1069,6 +1078,9 @@ function announceToScreenReader(message) {
             conditional: conditionalController ? conditionalController.getConfig() : formState.conditional,
             audio_synthesis: synthesisController ? synthesisController.getConfig() : formState.audio_synthesis,
             workflow: workflowController ? workflowController.getConfig() : formState.workflow,
+            // V11 fields (037-user-defined-phases)
+            phases: phasesController ? phasesController.getConfig().phases : formState.phases,
+            config: phasesController ? phasesController.getConfig().config : formState.config,
             last_modified_timestamp: formState.last_modified
         }
 
@@ -1390,6 +1402,13 @@ function announceToScreenReader(message) {
         // Initialize workflow section (US7)
         workflowController = initWorkflowSection(window.POLICY_DATA, (workflowConfig) => {
             formState.workflow = workflowConfig
+            markDirty()
+        })
+
+        // Initialize V11 phases section (037-user-defined-phases)
+        phasesController = initPhasesSection(window.POLICY_DATA, (phasesConfig) => {
+            formState.phases = phasesConfig.phases
+            formState.config = phasesConfig.config
             markDirty()
         })
 

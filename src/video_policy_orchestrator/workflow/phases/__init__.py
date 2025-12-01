@@ -2,6 +2,8 @@
 
 Each phase wraps existing VPO functionality into a consistent interface.
 All phases implement the Phase protocol.
+
+V11 adds user-defined phases via V11PhaseExecutor.
 """
 
 from pathlib import Path
@@ -9,6 +11,7 @@ from typing import Protocol
 
 from video_policy_orchestrator.workflow.phases.analyze import AnalyzePhase
 from video_policy_orchestrator.workflow.phases.apply import ApplyPhase
+from video_policy_orchestrator.workflow.phases.executor import V11PhaseExecutor
 from video_policy_orchestrator.workflow.phases.transcode import TranscodePhase
 
 
@@ -48,4 +51,5 @@ __all__ = [
     "AnalyzePhase",
     "ApplyPhase",
     "TranscodePhase",
+    "V11PhaseExecutor",
 ]

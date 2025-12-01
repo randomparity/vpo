@@ -1,0 +1,40 @@
+# Track Filtering Policy (V11)
+# Comprehensive audio, subtitle, and attachment filtering
+schema_version: 11
+
+config:
+  audio_language_preference: [eng, jpn, fra, deu, und]
+  subtitle_language_preference: [eng, jpn, fra]
+  on_error: skip
+
+phases:
+  - name: filter
+    audio_filter:
+      languages: [eng, jpn, fra, deu, und]
+      minimum: 1
+      fallback:
+        mode: content_language
+      keep_music_tracks: true
+      exclude_music_from_language_filter: true
+      keep_sfx_tracks: false
+      keep_non_speech_tracks: false
+
+    subtitle_filter:
+      languages: [eng, jpn, fra]
+      preserve_forced: true
+      remove_all: false
+
+    attachment_filter:
+      remove_all: false
+
+  - name: organize
+    track_order:
+      - video
+      - audio_main
+      - audio_alternate
+      - subtitle_main
+      - subtitle_forced
+      - attachment
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true

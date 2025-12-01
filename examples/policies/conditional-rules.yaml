@@ -1,0 +1,67 @@
+# Conditional Rules Policy (V11)
+# Advanced conditional logic with boolean operators
+schema_version: 11
+
+config:
+  audio_language_preference: [eng, jpn, und]
+  subtitle_language_preference: [eng, jpn]
+  on_error: continue
+
+phases:
+  - name: apply-rules
+    conditional:
+      - name: force-subs-for-multi-language
+        when:
+          audio_is_multi_language:
+            threshold: 0.05
+        then:
+          - set_forced:
+              track_type: subtitle
+              language: eng
+              value: true
+          - set_default:
+              track_type: subtitle
+              language: eng
+              value: true
+
+      - name: force-subs-when-no-english-audio
+        when:
+          not:
+            exists:
+              track_type: audio
+              language: eng
+        then:
+          - set_forced:
+              track_type: subtitle
+              language: eng
+              value: true
+
+      - name: skip-transcode-for-compliant-files
+        when:
+          and:
+            - exists:
+                track_type: video
+                codec: [hevc, h265]
+            - count:
+                track_type: audio
+                gte: 1
+        then:
+          - skip_video_transcode: true
+
+      - name: warn-for-missing-subtitles
+        when:
+          not:
+            exists:
+              track_type: subtitle
+        then:
+          - warn: "No subtitle tracks found"
+
+      - name: set-audio-default-if-single-track
+        when:
+          count:
+            track_type: audio
+            eq: 1
+        then:
+          - set_default:
+              track_type: audio
+              value: true

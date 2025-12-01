@@ -1,0 +1,12 @@
+# Container Conversion Policy (V11)
+# Convert container format with codec compatibility handling
+schema_version: 11
+
+config:
+  on_error: skip
+
+phases:
+  - name: convert
+    container:
+      target: mkv
+      on_incompatible_codec: transcode

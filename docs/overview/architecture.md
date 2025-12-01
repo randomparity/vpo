@@ -99,6 +99,39 @@ Processes user-defined policies:
 - Produces an execution **plan**: an abstract description of changes
 - Supports dry-run mode for preview without modification
 
+#### Policy Schema Evolution
+
+The policy schema has evolved through multiple versions:
+- **V3-V5**: Track filtering, audio synthesis, container conversion
+- **V6-V8**: Video/audio transcoding with skip conditions, quality settings
+- **V9-V10**: Fixed workflow phases (ANALYZE → APPLY → TRANSCODE)
+- **V11**: User-defined processing phases (current)
+
+#### V11 User-Defined Phases
+
+V11 introduces customizable processing phases, allowing users to:
+- Define multiple named phases with arbitrary operations
+- Control the order of phase execution
+- Configure error handling per-policy
+
+```yaml
+schema_version: 11
+config:
+  on_error: skip
+phases:
+  - name: cleanup
+    audio_filter: { languages: [eng] }
+  - name: optimize
+    transcode: { target_codec: hevc }
+```
+
+**Canonical Operation Order** (within each phase):
+1. container, 2. audio_filter, 3. subtitle_filter, 4. attachment_filter,
+5. track_order, 6. default_flags, 7. conditional, 8. audio_synthesis,
+9. transcode, 10. transcription
+
+See [Policy Editor Guide](../usage/policy-editor.md) for GUI-based policy editing.
+
 ### Execution Layer
 
 Performs actual file operations:
