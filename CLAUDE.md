@@ -187,7 +187,7 @@ The visual policy editor (`/policies/{name}/edit`) provides form-based editing o
 
 ## Policy Schema
 
-The current policy schema version is **V11** (defined in `policy/loader.py` as `MAX_SCHEMA_VERSION`). Key schema versions:
+The current policy schema version is **V12** (defined in `policy/loader.py` as `MAX_SCHEMA_VERSION`). Key schema versions:
 
 - **V3**: Track filtering (audio_filter, subtitle_filter, attachment_filter), container conversion
 - **V4**: Conditional rules (when/then/else conditions and actions)
@@ -198,6 +198,7 @@ The current policy schema version is **V11** (defined in `policy/loader.py` as `
 - **V9**: Workflow configuration (phases, auto_process, on_error)
 - **V10**: Music/sfx/non_speech track type support
 - **V11**: Enhanced conditional rule operators
+- **V12**: Plugin metadata conditions (access plugin-provided metadata in policy conditions)
 
 **Example V6+ policy with transcoding:**
 ```yaml

@@ -69,8 +69,8 @@ from video_policy_orchestrator.policy.models import (
 )
 
 # Current maximum supported schema version
-# V11: User-defined processing phases
-MAX_SCHEMA_VERSION = 11
+# V12: Plugin metadata conditions in policies
+MAX_SCHEMA_VERSION = 12
 
 # Reserved phase names that cannot be used as user-defined phase names
 RESERVED_PHASE_NAMES = frozenset({"config", "schema_version", "phases"})
