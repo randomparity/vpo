@@ -262,6 +262,24 @@ class PluginRegistry:
         self._plugins.clear()
         logger.debug("Cleared all plugins from registry")
 
+    def shutdown_all(self) -> None:
+        """Call close() on all plugins that support it.
+
+        This method should be called during application shutdown to allow
+        plugins to clean up resources (HTTP clients, file handles, etc.).
+        """
+        for plugin in self._plugins.values():
+            if hasattr(plugin.instance, "close") and callable(plugin.instance.close):
+                try:
+                    plugin.instance.close()
+                    logger.debug("Closed plugin: %s", plugin.name)
+                except Exception as e:
+                    logger.warning(
+                        "Error closing plugin %s: %s",
+                        plugin.name,
+                        e,
+                    )
+
     def load_builtin_plugins(self) -> list[LoadedPlugin]:
         """Load and register all built-in plugins.
 

@@ -72,6 +72,52 @@ class BehaviorConfig:
     show_upgrade_suggestions: bool = True
 
 
+@dataclass(frozen=True)
+class PluginConnectionConfig:
+    """Configuration for connecting to an external metadata service.
+
+    Used by Radarr and Sonarr metadata plugins to configure API access.
+    """
+
+    url: str
+    """Base URL of the service (e.g., "http://localhost:7878")."""
+
+    api_key: str
+    """API key for authentication (found in Settings > General > Security)."""
+
+    enabled: bool = True
+    """Whether the plugin is enabled."""
+
+    timeout_seconds: int = 30
+    """Request timeout in seconds (1-300)."""
+
+    def __post_init__(self) -> None:
+        """Validate configuration."""
+        if not self.url.startswith(("http://", "https://")):
+            raise ValueError("URL must start with http:// or https://")
+        if not self.api_key or not self.api_key.strip():
+            raise ValueError("API key is required")
+        if " " in self.api_key:
+            raise ValueError("API key must not contain whitespace")
+        if not 1 <= self.timeout_seconds <= 300:
+            raise ValueError("Timeout must be between 1 and 300 seconds")
+
+
+@dataclass
+class MetadataPluginSettings:
+    """Settings for all metadata enrichment plugins.
+
+    Configure connections to Radarr (movies) and Sonarr (TV series) for
+    automatic metadata enrichment during file scans.
+    """
+
+    radarr: PluginConnectionConfig | None = None
+    """Radarr connection configuration for movie metadata."""
+
+    sonarr: PluginConnectionConfig | None = None
+    """Sonarr connection configuration for TV series metadata."""
+
+
 @dataclass
 class PluginConfig:
     """Configuration for plugin system."""
@@ -88,6 +134,9 @@ class PluginConfig:
 
     # Whether to warn about unacknowledged directory plugins
     warn_unacknowledged: bool = True
+
+    # Metadata plugin connections (Radarr, Sonarr)
+    metadata: MetadataPluginSettings = field(default_factory=MetadataPluginSettings)
 
 
 @dataclass

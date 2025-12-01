@@ -81,6 +81,10 @@ class AnalyzerPlugin(Protocol):
         """
         ...
 
+    # Note: Plugins may optionally implement close() for resource cleanup.
+    # This is NOT part of the protocol to maintain backward compatibility.
+    # The registry's shutdown_all() method will call close() if it exists.
+
 
 @runtime_checkable
 class MutatorPlugin(Protocol):
@@ -153,3 +157,7 @@ class MutatorPlugin(Protocol):
 
         """
         ...
+
+    # Note: Plugins may optionally implement close() for resource cleanup.
+    # This is NOT part of the protocol to maintain backward compatibility.
+    # The registry's shutdown_all() method will call close() if it exists.
