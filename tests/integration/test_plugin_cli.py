@@ -141,6 +141,9 @@ class TestPluginAcknowledgeCommand:
 
     def test_acknowledge_plugin_not_found(self, runner: CliRunner, monkeypatch):
         """Acknowledge a plugin that doesn't exist."""
+        # Create in-memory database for the test
+        conn = sqlite3.connect(":memory:")
+        create_schema(conn)
 
         def mock_get_config():
             from video_policy_orchestrator.config.models import PluginConfig, VPOConfig
@@ -151,7 +154,11 @@ class TestPluginAcknowledgeCommand:
             "video_policy_orchestrator.cli.plugins.get_config", mock_get_config
         )
 
-        result = runner.invoke(main, ["plugins", "acknowledge", "nonexistent-plugin"])
+        result = runner.invoke(
+            main,
+            ["plugins", "acknowledge", "nonexistent-plugin"],
+            obj={"db_conn": conn},
+        )
 
         assert result.exit_code == 1
         assert "not found" in result.output.lower()
