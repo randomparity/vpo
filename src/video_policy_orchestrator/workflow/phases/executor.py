@@ -32,6 +32,7 @@ from video_policy_orchestrator.policy.models import (
     Comparison,
     CountCondition,
     ExistsCondition,
+    FailAction,
     NotCondition,
     OnErrorMode,
     OperationType,
@@ -41,8 +42,13 @@ from video_policy_orchestrator.policy.models import (
     PhaseResult,
     PluginMetadataCondition,
     PolicySchema,
+    SetDefaultAction,
+    SetForcedAction,
+    SetLanguageAction,
+    SkipAction,
     TitleMatch,
     V11PolicySchema,
+    WarnAction,
 )
 
 if TYPE_CHECKING:
@@ -218,15 +224,15 @@ class V11PhaseExecutor:
 
     def _conditional_rule_to_dict(self, rule) -> dict:
         """Convert a ConditionalRule to dict format for policy loading."""
-        result: dict = {}
+        result: dict = {"name": rule.name}
 
         # Convert 'when' condition
         if rule.when:
             result["when"] = self._condition_to_dict(rule.when)
 
         # Convert 'then' actions
-        if rule.then:
-            result["then"] = [self._action_to_dict(a) for a in rule.then]
+        if rule.then_actions:
+            result["then"] = [self._action_to_dict(a) for a in rule.then_actions]
 
         # Convert 'else' actions
         if rule.else_actions:
@@ -336,21 +342,57 @@ class V11PhaseExecutor:
         return result
 
     def _action_to_dict(self, action) -> dict:
-        """Convert an Action to dict format."""
-        result: dict = {}
+        """Convert a ConditionalAction to dict format for policy loading.
 
-        if action.set_default is not None:
-            result["set_default"] = action.set_default
-        if action.set_forced is not None:
-            result["set_forced"] = action.set_forced
-        if action.set_language:
-            result["set_language"] = action.set_language
-        if action.set_title:
-            result["set_title"] = action.set_title
-        if action.remove is not None:
-            result["remove"] = action.remove
+        ConditionalAction is a union type of:
+        - SkipAction -> {"skip_video_transcode": True} etc.
+        - WarnAction -> {"warn": "message"}
+        - FailAction -> {"fail": "message"}
+        - SetForcedAction -> {"set_forced": {...}}
+        - SetDefaultAction -> {"set_default": {...}}
+        - SetLanguageAction -> {"set_language": {...}}
+        """
+        if isinstance(action, SkipAction):
+            # Map SkipType enum to dict key
+            return {action.skip_type.value: True}
 
-        return result
+        if isinstance(action, WarnAction):
+            return {"warn": action.message}
+
+        if isinstance(action, FailAction):
+            return {"fail": action.message}
+
+        if isinstance(action, SetForcedAction):
+            inner: dict = {"track_type": action.track_type}
+            if action.language is not None:
+                inner["language"] = action.language
+            if action.value is not True:  # Only include if not default
+                inner["value"] = action.value
+            return {"set_forced": inner}
+
+        if isinstance(action, SetDefaultAction):
+            inner = {"track_type": action.track_type}
+            if action.language is not None:
+                inner["language"] = action.language
+            if action.value is not True:  # Only include if not default
+                inner["value"] = action.value
+            return {"set_default": inner}
+
+        if isinstance(action, SetLanguageAction):
+            inner = {"track_type": action.track_type}
+            if action.new_language is not None:
+                inner["new_language"] = action.new_language
+            if action.from_plugin_metadata is not None:
+                inner["from_plugin_metadata"] = {
+                    "plugin": action.from_plugin_metadata.plugin,
+                    "field": action.from_plugin_metadata.field,
+                }
+            if action.match_language is not None:
+                inner["match_language"] = action.match_language
+            return {"set_language": inner}
+
+        # Fallback for unknown action types
+        raise ValueError(f"Unknown action type: {type(action).__name__}")
 
     def _select_executor(
         self, plan: Plan, container: str

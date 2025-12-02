@@ -18,18 +18,36 @@ import pytest
 from video_policy_orchestrator.db.schema import create_schema
 from video_policy_orchestrator.db.types import TrackInfo
 from video_policy_orchestrator.policy.models import (
+    AndCondition,
     AudioFilterConfig,
+    AudioIsMultiLanguageCondition,
+    Comparison,
+    ComparisonOperator,
+    ConditionalRule,
     ContainerConfig,
+    CountCondition,
     DefaultFlagsConfig,
+    ExistsCondition,
     GlobalConfig,
+    NotCondition,
     OnErrorMode,
     OperationType,
+    OrCondition,
     PhaseDefinition,
     PhasedPolicySchema,
     PhaseExecutionError,
+    PluginMetadataCondition,
+    PluginMetadataOperator,
+    SetDefaultAction,
+    SetForcedAction,
+    SkipAction,
+    SkipType,
     SubtitleFilterConfig,
+    TitleMatch,
+    TrackFilters,
     TrackType,
     TranscriptionPolicyOptions,
+    WarnAction,
 )
 from video_policy_orchestrator.workflow.phases.executor import (
     PhaseExecutionState,
@@ -868,3 +886,409 @@ class TestToolAvailabilityCaching:
         # Should only call check_tool_availability once
         mock_check.assert_called_once()
         assert tools1 is tools2
+
+
+class TestConditionalRuleConversion:
+    """Tests for conditional rule conversion methods.
+
+    These tests verify that _build_virtual_policy correctly converts
+    ConditionalRule dataclasses to dict format for policy loading.
+    This catches bugs like accessing rule.then instead of rule.then_actions.
+    """
+
+    def test_build_virtual_policy_with_conditional_rules(self, db_conn, v11_policy):
+        """Virtual policy includes conditional rules with then_actions.
+
+        This test would have caught the original bug where _conditional_rule_to_dict
+        accessed rule.then instead of rule.then_actions.
+        """
+        rule = ConditionalRule(
+            name="test_rule",
+            when=ExistsCondition(track_type="video", filters=TrackFilters()),
+            then_actions=(SkipAction(skip_type=SkipType.VIDEO_TRANSCODE),),
+            else_actions=None,
+        )
+
+        phase = PhaseDefinition(name="test", conditional=(rule,))
+
+        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        policy = executor._build_virtual_policy(phase)
+
+        # Verify conditional rules were converted
+        assert policy.conditional_rules is not None
+        assert len(policy.conditional_rules) == 1
+
+        # Verify rule loaded correctly - catches then vs then_actions bug
+        loaded_rule = policy.conditional_rules[0]
+        assert loaded_rule.name == "test_rule"
+        assert loaded_rule.then_actions is not None
+        assert len(loaded_rule.then_actions) == 1
+
+    def test_conditional_rule_with_then_and_else_actions(self, db_conn, v11_policy):
+        """Virtual policy correctly converts rules with both then and else branches."""
+        rule = ConditionalRule(
+            name="dual_branch_rule",
+            when=ExistsCondition(
+                track_type="audio",
+                filters=TrackFilters(language="eng"),
+            ),
+            then_actions=(SkipAction(skip_type=SkipType.TRACK_FILTER),),
+            else_actions=(WarnAction(message="No English audio found"),),
+        )
+
+        phase = PhaseDefinition(name="test", conditional=(rule,))
+
+        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        policy = executor._build_virtual_policy(phase)
+
+        loaded_rule = policy.conditional_rules[0]
+        assert loaded_rule.then_actions is not None
+        assert loaded_rule.else_actions is not None
+        assert len(loaded_rule.then_actions) == 1
+        assert len(loaded_rule.else_actions) == 1
+
+    def test_condition_to_dict_exists_condition(self, db_conn, v11_policy):
+        """ExistsCondition with filters converts correctly."""
+        rule = ConditionalRule(
+            name="exists_test",
+            when=ExistsCondition(
+                track_type="subtitle",
+                filters=TrackFilters(
+                    language="eng",
+                    is_forced=True,
+                ),
+            ),
+            then_actions=(SkipAction(skip_type=SkipType.VIDEO_TRANSCODE),),
+        )
+
+        phase = PhaseDefinition(name="test", conditional=(rule,))
+
+        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        policy = executor._build_virtual_policy(phase)
+
+        loaded_rule = policy.conditional_rules[0]
+        assert isinstance(loaded_rule.when, ExistsCondition)
+        assert loaded_rule.when.track_type == "subtitle"
+        assert loaded_rule.when.filters.language == "eng"
+        assert loaded_rule.when.filters.is_forced is True
+
+    def test_condition_to_dict_count_condition(self, db_conn, v11_policy):
+        """CountCondition converts correctly with operator and value."""
+        rule = ConditionalRule(
+            name="count_test",
+            when=CountCondition(
+                track_type="audio",
+                filters=TrackFilters(),
+                operator=ComparisonOperator.GTE,
+                value=2,
+            ),
+            then_actions=(SkipAction(skip_type=SkipType.TRACK_FILTER),),
+        )
+
+        phase = PhaseDefinition(name="test", conditional=(rule,))
+
+        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        policy = executor._build_virtual_policy(phase)
+
+        loaded_rule = policy.conditional_rules[0]
+        assert isinstance(loaded_rule.when, CountCondition)
+        assert loaded_rule.when.track_type == "audio"
+        assert loaded_rule.when.operator == ComparisonOperator.GTE
+        assert loaded_rule.when.value == 2
+
+    def test_condition_to_dict_and_condition(self, db_conn, v11_policy):
+        """AndCondition converts correctly with nested conditions."""
+        rule = ConditionalRule(
+            name="and_test",
+            when=AndCondition(
+                conditions=(
+                    ExistsCondition(track_type="video", filters=TrackFilters()),
+                    ExistsCondition(
+                        track_type="audio", filters=TrackFilters(language="eng")
+                    ),
+                )
+            ),
+            then_actions=(SkipAction(skip_type=SkipType.VIDEO_TRANSCODE),),
+        )
+
+        phase = PhaseDefinition(name="test", conditional=(rule,))
+
+        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        policy = executor._build_virtual_policy(phase)
+
+        loaded_rule = policy.conditional_rules[0]
+        assert isinstance(loaded_rule.when, AndCondition)
+        assert len(loaded_rule.when.conditions) == 2
+
+    def test_condition_to_dict_or_condition(self, db_conn, v11_policy):
+        """OrCondition converts correctly."""
+        rule = ConditionalRule(
+            name="or_test",
+            when=OrCondition(
+                conditions=(
+                    ExistsCondition(
+                        track_type="audio", filters=TrackFilters(language="eng")
+                    ),
+                    ExistsCondition(
+                        track_type="audio", filters=TrackFilters(language="und")
+                    ),
+                )
+            ),
+            then_actions=(SkipAction(skip_type=SkipType.VIDEO_TRANSCODE),),
+        )
+
+        phase = PhaseDefinition(name="test", conditional=(rule,))
+
+        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        policy = executor._build_virtual_policy(phase)
+
+        loaded_rule = policy.conditional_rules[0]
+        assert isinstance(loaded_rule.when, OrCondition)
+        assert len(loaded_rule.when.conditions) == 2
+
+    def test_condition_to_dict_not_condition(self, db_conn, v11_policy):
+        """NotCondition converts correctly."""
+        rule = ConditionalRule(
+            name="not_test",
+            when=NotCondition(
+                inner=ExistsCondition(
+                    track_type="audio", filters=TrackFilters(language="eng")
+                )
+            ),
+            then_actions=(SkipAction(skip_type=SkipType.VIDEO_TRANSCODE),),
+        )
+
+        phase = PhaseDefinition(name="test", conditional=(rule,))
+
+        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        policy = executor._build_virtual_policy(phase)
+
+        loaded_rule = policy.conditional_rules[0]
+        assert isinstance(loaded_rule.when, NotCondition)
+        assert isinstance(loaded_rule.when.inner, ExistsCondition)
+
+    def test_condition_to_dict_audio_is_multi_language(self, db_conn, v11_policy):
+        """AudioIsMultiLanguageCondition converts correctly."""
+        rule = ConditionalRule(
+            name="multi_lang_test",
+            when=AudioIsMultiLanguageCondition(threshold=0.1),
+            then_actions=(WarnAction(message="Multi-language audio detected"),),
+        )
+
+        phase = PhaseDefinition(name="test", conditional=(rule,))
+
+        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        policy = executor._build_virtual_policy(phase)
+
+        loaded_rule = policy.conditional_rules[0]
+        assert isinstance(loaded_rule.when, AudioIsMultiLanguageCondition)
+        assert loaded_rule.when.threshold == 0.1
+
+    def test_condition_to_dict_plugin_metadata(self, db_conn, v11_policy):
+        """PluginMetadataCondition converts correctly."""
+        rule = ConditionalRule(
+            name="plugin_test",
+            when=PluginMetadataCondition(
+                plugin="radarr",
+                field="original_language",
+                value="jpn",
+                operator=PluginMetadataOperator.EQ,
+            ),
+            then_actions=(SkipAction(skip_type=SkipType.VIDEO_TRANSCODE),),
+        )
+
+        phase = PhaseDefinition(name="test", conditional=(rule,))
+
+        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        policy = executor._build_virtual_policy(phase)
+
+        loaded_rule = policy.conditional_rules[0]
+        assert isinstance(loaded_rule.when, PluginMetadataCondition)
+        assert loaded_rule.when.plugin == "radarr"
+        assert loaded_rule.when.field == "original_language"
+        assert loaded_rule.when.value == "jpn"
+
+    def test_action_to_dict_skip_action(self, db_conn, v11_policy):
+        """SkipAction converts correctly."""
+        rule = ConditionalRule(
+            name="skip_test",
+            when=ExistsCondition(track_type="video", filters=TrackFilters()),
+            then_actions=(
+                SkipAction(skip_type=SkipType.VIDEO_TRANSCODE),
+                SkipAction(skip_type=SkipType.AUDIO_TRANSCODE),
+            ),
+        )
+
+        phase = PhaseDefinition(name="test", conditional=(rule,))
+
+        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        policy = executor._build_virtual_policy(phase)
+
+        loaded_rule = policy.conditional_rules[0]
+        assert len(loaded_rule.then_actions) == 2
+        # Both should be SkipActions
+        assert all(isinstance(a, SkipAction) for a in loaded_rule.then_actions)
+
+    def test_action_to_dict_warn_action(self, db_conn, v11_policy):
+        """WarnAction converts correctly."""
+        rule = ConditionalRule(
+            name="warn_test",
+            when=ExistsCondition(track_type="video", filters=TrackFilters()),
+            then_actions=(WarnAction(message="Test warning message"),),
+        )
+
+        phase = PhaseDefinition(name="test", conditional=(rule,))
+
+        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        policy = executor._build_virtual_policy(phase)
+
+        loaded_rule = policy.conditional_rules[0]
+        assert len(loaded_rule.then_actions) == 1
+        action = loaded_rule.then_actions[0]
+        assert isinstance(action, WarnAction)
+        assert action.message == "Test warning message"
+
+    def test_action_to_dict_set_forced_action(self, db_conn, v11_policy):
+        """SetForcedAction converts correctly."""
+        rule = ConditionalRule(
+            name="set_forced_test",
+            when=NotCondition(
+                inner=ExistsCondition(
+                    track_type="audio", filters=TrackFilters(language="eng")
+                )
+            ),
+            then_actions=(
+                SetForcedAction(track_type="subtitle", language="eng", value=True),
+            ),
+        )
+
+        phase = PhaseDefinition(name="test", conditional=(rule,))
+
+        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        policy = executor._build_virtual_policy(phase)
+
+        loaded_rule = policy.conditional_rules[0]
+        assert len(loaded_rule.then_actions) == 1
+        action = loaded_rule.then_actions[0]
+        assert isinstance(action, SetForcedAction)
+        assert action.track_type == "subtitle"
+        assert action.language == "eng"
+        assert action.value is True
+
+    def test_action_to_dict_set_default_action(self, db_conn, v11_policy):
+        """SetDefaultAction converts correctly."""
+        rule = ConditionalRule(
+            name="set_default_test",
+            when=ExistsCondition(track_type="video", filters=TrackFilters()),
+            then_actions=(
+                SetDefaultAction(track_type="audio", language="eng", value=True),
+            ),
+        )
+
+        phase = PhaseDefinition(name="test", conditional=(rule,))
+
+        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        policy = executor._build_virtual_policy(phase)
+
+        loaded_rule = policy.conditional_rules[0]
+        assert len(loaded_rule.then_actions) == 1
+        action = loaded_rule.then_actions[0]
+        assert isinstance(action, SetDefaultAction)
+        assert action.track_type == "audio"
+        assert action.language == "eng"
+
+    def test_filters_to_dict_all_fields(self, db_conn, v11_policy):
+        """TrackFilters with all fields converts correctly."""
+        rule = ConditionalRule(
+            name="filters_test",
+            when=ExistsCondition(
+                track_type="audio",
+                filters=TrackFilters(
+                    language=("eng", "und"),
+                    codec=("aac", "ac3"),
+                    is_default=True,
+                    is_forced=False,
+                    channels=Comparison(operator=ComparisonOperator.GTE, value=6),
+                    not_commentary=True,
+                ),
+            ),
+            then_actions=(SkipAction(skip_type=SkipType.VIDEO_TRANSCODE),),
+        )
+
+        phase = PhaseDefinition(name="test", conditional=(rule,))
+
+        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        policy = executor._build_virtual_policy(phase)
+
+        loaded_rule = policy.conditional_rules[0]
+        filters = loaded_rule.when.filters
+        # Language and codec may be list or tuple depending on loader
+        assert set(filters.language) == {"eng", "und"}
+        assert set(filters.codec) == {"aac", "ac3"}
+        assert filters.is_default is True
+        assert filters.is_forced is False
+        assert filters.not_commentary is True
+        # Channels comparison
+        assert filters.channels is not None
+
+    def test_filters_to_dict_with_title_match(self, db_conn, v11_policy):
+        """TrackFilters with TitleMatch converts correctly."""
+        rule = ConditionalRule(
+            name="title_test",
+            when=ExistsCondition(
+                track_type="audio",
+                filters=TrackFilters(
+                    title=TitleMatch(contains="Commentary"),
+                ),
+            ),
+            then_actions=(SkipAction(skip_type=SkipType.TRACK_FILTER),),
+        )
+
+        phase = PhaseDefinition(name="test", conditional=(rule,))
+
+        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        policy = executor._build_virtual_policy(phase)
+
+        loaded_rule = policy.conditional_rules[0]
+        filters = loaded_rule.when.filters
+        assert filters.title is not None
+        # Title could be TitleMatch or dict depending on loader
+        if isinstance(filters.title, TitleMatch):
+            assert filters.title.contains == "Commentary"
+        else:
+            assert filters.title.get("contains") == "Commentary"
+
+    def test_multiple_conditional_rules(self, db_conn, v11_policy):
+        """Multiple conditional rules convert correctly."""
+        rules = (
+            ConditionalRule(
+                name="rule1",
+                when=ExistsCondition(track_type="video", filters=TrackFilters()),
+                then_actions=(SkipAction(skip_type=SkipType.VIDEO_TRANSCODE),),
+            ),
+            ConditionalRule(
+                name="rule2",
+                when=ExistsCondition(
+                    track_type="audio", filters=TrackFilters(language="eng")
+                ),
+                then_actions=(WarnAction(message="English audio found"),),
+            ),
+            ConditionalRule(
+                name="rule3",
+                when=NotCondition(
+                    inner=ExistsCondition(track_type="subtitle", filters=TrackFilters())
+                ),
+                then_actions=(WarnAction(message="No subtitles"),),
+            ),
+        )
+
+        phase = PhaseDefinition(name="test", conditional=rules)
+
+        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        policy = executor._build_virtual_policy(phase)
+
+        assert policy.conditional_rules is not None
+        assert len(policy.conditional_rules) == 3
+        assert policy.conditional_rules[0].name == "rule1"
+        assert policy.conditional_rules[1].name == "rule2"
+        assert policy.conditional_rules[2].name == "rule3"
