@@ -1114,6 +1114,12 @@ def upsert_transcription_result(
     from .connection import execute_with_retry
 
     def do_upsert() -> int:
+        # Guard against nested transactions
+        if conn.in_transaction:
+            raise sqlite3.ProgrammingError(
+                "Connection already in transaction; "
+                "upsert_transcription_result manages its own transaction"
+            )
         # Use BEGIN IMMEDIATE to fail fast on lock contention
         # This allows the retry logic to kick in quickly rather than
         # waiting for busy_timeout
@@ -1153,7 +1159,10 @@ def upsert_transcription_result(
                 )
             return result[0]
         except Exception:
-            conn.execute("ROLLBACK")
+            try:
+                conn.execute("ROLLBACK")
+            except sqlite3.Error:
+                pass  # Original error is more important
             raise
 
     return execute_with_retry(do_upsert)
@@ -1276,7 +1285,8 @@ def upsert_language_analysis_result(
 ) -> int:
     """Insert or update language analysis result for a track.
 
-    Uses ON CONFLICT to handle re-analysis scenarios.
+    Uses ON CONFLICT to handle re-analysis scenarios. Uses BEGIN IMMEDIATE
+    with retry logic to handle concurrent write contention gracefully.
 
     Args:
         conn: Database connection.
@@ -1286,45 +1296,60 @@ def upsert_language_analysis_result(
         The record ID.
 
     Raises:
-        sqlite3.Error: If database operation fails.
+        sqlite3.Error: If database operation fails after retries.
     """
-    try:
-        cursor = conn.execute(
-            """
-            INSERT INTO language_analysis_results (
-                track_id, file_hash, primary_language, primary_percentage,
-                classification, analysis_metadata, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(track_id) DO UPDATE SET
-                file_hash = excluded.file_hash,
-                primary_language = excluded.primary_language,
-                primary_percentage = excluded.primary_percentage,
-                classification = excluded.classification,
-                analysis_metadata = excluded.analysis_metadata,
-                updated_at = excluded.updated_at
-            RETURNING id
-            """,
-            (
-                record.track_id,
-                record.file_hash,
-                record.primary_language,
-                record.primary_percentage,
-                record.classification,
-                record.analysis_metadata,
-                record.created_at,
-                record.updated_at,
-            ),
-        )
-        result = cursor.fetchone()
-        conn.commit()
-        if result is None:
-            raise sqlite3.Error(
-                f"RETURNING clause failed for track_id={record.track_id}"
+    from .connection import execute_with_retry
+
+    def do_upsert() -> int:
+        # Guard against nested transactions
+        if conn.in_transaction:
+            raise sqlite3.ProgrammingError(
+                "Connection already in transaction; "
+                "upsert_language_analysis_result manages its own transaction"
             )
-        return result[0]
-    except sqlite3.Error:
-        conn.rollback()
-        raise
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            cursor = conn.execute(
+                """
+                INSERT INTO language_analysis_results (
+                    track_id, file_hash, primary_language, primary_percentage,
+                    classification, analysis_metadata, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(track_id) DO UPDATE SET
+                    file_hash = excluded.file_hash,
+                    primary_language = excluded.primary_language,
+                    primary_percentage = excluded.primary_percentage,
+                    classification = excluded.classification,
+                    analysis_metadata = excluded.analysis_metadata,
+                    updated_at = excluded.updated_at
+                RETURNING id
+                """,
+                (
+                    record.track_id,
+                    record.file_hash,
+                    record.primary_language,
+                    record.primary_percentage,
+                    record.classification,
+                    record.analysis_metadata,
+                    record.created_at,
+                    record.updated_at,
+                ),
+            )
+            result = cursor.fetchone()
+            conn.execute("COMMIT")
+            if result is None:
+                raise sqlite3.Error(
+                    f"RETURNING clause failed for track_id={record.track_id}"
+                )
+            return result[0]
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except sqlite3.Error:
+                pass  # Original error is more important
+            raise
+
+    return execute_with_retry(do_upsert)
 
 
 def get_language_analysis_result(
@@ -1391,7 +1416,8 @@ def upsert_language_segments(
     """Insert or replace language segments for an analysis.
 
     Deletes existing segments for the analysis_id and inserts new ones.
-    This ensures segments stay in sync with the analysis result.
+    This ensures segments stay in sync with the analysis result. Uses
+    BEGIN IMMEDIATE with retry logic to handle concurrent write contention.
 
     Args:
         conn: Database connection.
@@ -1402,42 +1428,57 @@ def upsert_language_segments(
         List of inserted segment IDs.
 
     Raises:
-        sqlite3.Error: If database operation fails.
+        sqlite3.Error: If database operation fails after retries.
     """
-    try:
-        # Delete existing segments for this analysis
-        conn.execute(
-            "DELETE FROM language_segments WHERE analysis_id = ?",
-            (analysis_id,),
-        )
+    from .connection import execute_with_retry
 
-        # Insert new segments
-        segment_ids = []
-        for segment in segments:
-            cursor = conn.execute(
-                """
-                INSERT INTO language_segments (
-                    analysis_id, language_code, start_time, end_time, confidence
-                ) VALUES (?, ?, ?, ?, ?)
-                RETURNING id
-                """,
-                (
-                    analysis_id,
-                    segment.language_code,
-                    segment.start_time,
-                    segment.end_time,
-                    segment.confidence,
-                ),
+    def do_upsert() -> list[int]:
+        # Guard against nested transactions
+        if conn.in_transaction:
+            raise sqlite3.ProgrammingError(
+                "Connection already in transaction; "
+                "upsert_language_segments manages its own transaction"
             )
-            result = cursor.fetchone()
-            if result:
-                segment_ids.append(result[0])
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            # Delete existing segments for this analysis
+            conn.execute(
+                "DELETE FROM language_segments WHERE analysis_id = ?",
+                (analysis_id,),
+            )
 
-        conn.commit()
-        return segment_ids
-    except sqlite3.Error:
-        conn.rollback()
-        raise
+            # Insert new segments
+            segment_ids = []
+            for segment in segments:
+                cursor = conn.execute(
+                    """
+                    INSERT INTO language_segments (
+                        analysis_id, language_code, start_time, end_time, confidence
+                    ) VALUES (?, ?, ?, ?, ?)
+                    RETURNING id
+                    """,
+                    (
+                        analysis_id,
+                        segment.language_code,
+                        segment.start_time,
+                        segment.end_time,
+                        segment.confidence,
+                    ),
+                )
+                result = cursor.fetchone()
+                if result:
+                    segment_ids.append(result[0])
+
+            conn.execute("COMMIT")
+            return segment_ids
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except sqlite3.Error:
+                pass  # Original error is more important
+            raise
+
+    return execute_with_retry(do_upsert)
 
 
 def get_language_segments(
