@@ -102,14 +102,14 @@
 
 ### Implementation for User Story 3
 
-- [ ] T038 [US3] Add get_policy_stats() aggregate query function in src/video_policy_orchestrator/db/views.py
-- [ ] T039 [US3] Add get_policy_stats_by_name() query function in src/video_policy_orchestrator/db/views.py
-- [ ] T040 [US3] Implement `vpo stats policy` subcommand (list all) with --since/--until date filtering in src/video_policy_orchestrator/cli/stats.py
-- [ ] T041 [US3] Implement `vpo stats policy <name>` subcommand (single policy) in src/video_policy_orchestrator/cli/stats.py
-- [ ] T042 [US3] Add table formatter for policy comparison in src/video_policy_orchestrator/cli/stats.py
-- [ ] T043 [US3] Add GET /api/stats/policies route handler in src/video_policy_orchestrator/server/routes.py
-- [ ] T044 [US3] Add GET /api/stats/policies/{name} route handler in src/video_policy_orchestrator/server/routes.py
-- [ ] T045 [US3] Update stats dashboard template with policy comparison table in src/video_policy_orchestrator/server/ui/templates/stats.html
+- [x] T038 [US3] Add get_policy_stats() aggregate query function in src/video_policy_orchestrator/db/views.py
+- [x] T039 [US3] Add get_policy_stats_by_name() query function in src/video_policy_orchestrator/db/views.py
+- [x] T040 [US3] Implement `vpo stats policies` subcommand (list all) with --since/--until date filtering in src/video_policy_orchestrator/cli/stats.py
+- [x] T041 [US3] Implement `vpo stats policy <name>` subcommand (single policy) in src/video_policy_orchestrator/cli/stats.py
+- [x] T042 [US3] Add table formatter for policy comparison in src/video_policy_orchestrator/cli/stats.py
+- [x] T043 [US3] Add GET /api/stats/policies route handler in src/video_policy_orchestrator/server/ui/routes.py
+- [x] T044 [US3] Add GET /api/stats/policies/{name} route handler in src/video_policy_orchestrator/server/ui/routes.py
+- [x] T045 [US3] Update stats dashboard template with policy comparison table in src/video_policy_orchestrator/server/ui/templates/sections/stats.html
 
 **Checkpoint**: User Story 3 complete - users can compare policy effectiveness
 

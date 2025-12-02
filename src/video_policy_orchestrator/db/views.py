@@ -799,6 +799,88 @@ def get_policy_stats(
     return results
 
 
+def get_policy_stats_by_name(
+    conn: sqlite3.Connection,
+    policy_name: str,
+    *,
+    since: str | None = None,
+    until: str | None = None,
+) -> PolicyStats | None:
+    """Get statistics for a specific policy.
+
+    Args:
+        conn: Database connection.
+        policy_name: Name of the policy to query.
+        since: ISO-8601 timestamp for start of date range (inclusive).
+        until: ISO-8601 timestamp for end of date range (inclusive).
+
+    Returns:
+        PolicyStats for the policy, or None if no stats found for policy.
+    """
+    conditions: list[str] = ["policy_name = ?"]
+    params: list[str] = [policy_name]
+
+    if since is not None:
+        conditions.append("processed_at >= ?")
+        params.append(since)
+    if until is not None:
+        conditions.append("processed_at <= ?")
+        params.append(until)
+
+    where_clause = " WHERE " + " AND ".join(conditions)
+
+    query = f"""
+        SELECT
+            policy_name,
+            COUNT(*) as files_processed,
+            SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful,
+            SUM(size_change) as total_size_saved,
+            SUM(size_before) as total_size_before,
+            SUM(audio_tracks_removed) as audio_tracks_removed,
+            SUM(subtitle_tracks_removed) as subtitle_tracks_removed,
+            SUM(attachments_removed) as attachments_removed,
+            SUM(CASE WHEN video_target_codec IS NOT NULL
+                AND video_transcode_skipped = 0 THEN 1 ELSE 0 END)
+                as videos_transcoded,
+            SUM(audio_tracks_transcoded) as audio_transcoded,
+            AVG(duration_seconds) as avg_processing_time,
+            MAX(processed_at) as last_used
+        FROM processing_stats
+        {where_clause}
+        GROUP BY policy_name
+    """
+
+    cursor = conn.execute(query, params)
+    row = cursor.fetchone()
+    if row is None:
+        return None
+
+    files_processed = row[1] or 0
+    if files_processed == 0:
+        return None
+
+    successful = row[2] or 0
+    size_before = row[4] or 0
+
+    success_rate = (successful / files_processed) if files_processed > 0 else 0.0
+    avg_savings = ((row[3] / size_before) * 100) if size_before > 0 else 0.0
+
+    return PolicyStats(
+        policy_name=row[0],
+        files_processed=files_processed,
+        success_rate=success_rate,
+        total_size_saved=row[3] or 0,
+        avg_savings_percent=avg_savings,
+        audio_tracks_removed=row[5] or 0,
+        subtitle_tracks_removed=row[6] or 0,
+        attachments_removed=row[7] or 0,
+        videos_transcoded=row[8] or 0,
+        audio_transcoded=row[9] or 0,
+        avg_processing_time=row[10] or 0.0,
+        last_used=row[11],
+    )
+
+
 def get_stats_detail(
     conn: sqlite3.Connection,
     stats_id: str,

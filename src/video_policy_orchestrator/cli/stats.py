@@ -12,6 +12,7 @@ import click
 
 from video_policy_orchestrator.db.views import (
     get_policy_stats,
+    get_policy_stats_by_name,
     get_recent_stats,
     get_stats_detail,
     get_stats_for_file,
@@ -577,6 +578,121 @@ def _output_policies_csv(policies) -> None:
             policy.last_used or "",
         ]
         click.echo(",".join(values))
+
+
+@stats_group.command("policy")
+@click.argument("name")
+@click.option(
+    "--since",
+    default=None,
+    help="Show stats since (relative: 7d, 1w, 2h or ISO-8601).",
+)
+@click.option(
+    "--until",
+    default=None,
+    help="Show stats until (relative: 7d, 1w, 2h or ISO-8601).",
+)
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    type=click.Choice(["table", "json"], case_sensitive=False),
+    default="table",
+    help="Output format (default: table).",
+)
+@click.pass_context
+def stats_policy(
+    ctx: click.Context,
+    name: str,
+    since: str | None,
+    until: str | None,
+    output_format: str,
+) -> None:
+    """Show statistics for a specific policy.
+
+    Displays detailed statistics for a single policy including files processed,
+    success rate, space saved, tracks removed, and transcode info.
+
+    Examples:
+
+        # View stats for a specific policy
+        vpo stats policy normalize.yaml
+
+        # View policy stats from last week
+        vpo stats policy normalize.yaml --since 7d
+
+        # Export as JSON
+        vpo stats policy normalize.yaml --format json
+    """
+    conn = ctx.obj.get("db_conn")
+    if conn is None:
+        raise click.ClickException("Failed to connect to database.")
+
+    # Parse time filters
+    since_ts = _parse_time_filter(since) if since else None
+    until_ts = _parse_time_filter(until) if until else None
+
+    policy = get_policy_stats_by_name(
+        conn,
+        name,
+        since=since_ts,
+        until=until_ts,
+    )
+
+    if policy is None:
+        raise click.ClickException(f"No statistics found for policy: {name}")
+
+    if output_format == "json":
+        click.echo(json.dumps(asdict(policy), indent=2))
+        return
+
+    # Table format
+    click.echo("")
+    click.echo(f"Policy Statistics: {name}")
+    click.echo("=" * 50)
+
+    if since or until:
+        filters = []
+        if since:
+            filters.append(f"Since: {since}")
+        if until:
+            filters.append(f"Until: {until}")
+        click.echo(f"Filters: {', '.join(filters)}")
+        click.echo("-" * 50)
+
+    click.echo("")
+    click.echo("Processing Overview")
+    click.echo("-" * 30)
+    click.echo(f"  Files Processed:    {policy.files_processed:,}")
+    click.echo(f"  Success Rate:       {_format_percent(policy.success_rate * 100)}")
+    last_used = policy.last_used[:19] if policy.last_used else "N/A"
+    click.echo(f"  Last Used:          {last_used}")
+
+    click.echo("")
+    click.echo("Disk Space")
+    click.echo("-" * 30)
+    click.echo(f"  Total Saved:        {_format_bytes(policy.total_size_saved)}")
+    click.echo(f"  Avg Savings:        {_format_percent(policy.avg_savings_percent)}")
+
+    click.echo("")
+    click.echo("Tracks Removed")
+    click.echo("-" * 30)
+    click.echo(f"  Audio Tracks:       {policy.audio_tracks_removed:,}")
+    click.echo(f"  Subtitle Tracks:    {policy.subtitle_tracks_removed:,}")
+    click.echo(f"  Attachments:        {policy.attachments_removed:,}")
+
+    click.echo("")
+    click.echo("Transcoding")
+    click.echo("-" * 30)
+    click.echo(f"  Videos Transcoded:  {policy.videos_transcoded:,}")
+    click.echo(f"  Audio Transcoded:   {policy.audio_transcoded:,}")
+
+    click.echo("")
+    click.echo("Performance")
+    click.echo("-" * 30)
+    click.echo(f"  Avg Processing Time: {_format_duration(policy.avg_processing_time)}")
+
+    click.echo("")
 
 
 def _parse_time_filter(value: str) -> str:

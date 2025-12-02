@@ -124,6 +124,7 @@ from .views import (
     get_files_with_transcriptions,
     get_files_with_transcriptions_typed,
     get_policy_stats,
+    get_policy_stats_by_name,
     get_recent_stats,
     get_scan_errors_for_job,
     get_stats_detail,
@@ -239,6 +240,7 @@ __all__ = [
     "get_scan_errors_for_job",
     # Processing statistics view queries
     "get_policy_stats",
+    "get_policy_stats_by_name",
     "get_recent_stats",
     "get_stats_detail",
     "get_stats_for_file",

@@ -27,6 +27,7 @@ from video_policy_orchestrator.core.validation import is_valid_uuid
 from video_policy_orchestrator.db.connection import DaemonConnectionPool
 from video_policy_orchestrator.db.views import (
     get_policy_stats,
+    get_policy_stats_by_name,
     get_recent_stats,
     get_scan_errors_for_job,
     get_stats_detail,
@@ -2398,6 +2399,75 @@ async def api_stats_file_handler(request: web.Request) -> web.Response:
     return web.json_response([asdict(h) for h in history])
 
 
+@database_required_middleware
+async def api_stats_policy_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/stats/policies/{name} - JSON API for single policy stats.
+
+    Path parameters:
+        name: Name of the policy to get stats for.
+
+    Query parameters:
+        since: Time filter (24h, 7d, 30d, or ISO-8601)
+        until: Time filter end (ISO-8601)
+
+    Returns:
+        JSON response with PolicyStats for the policy.
+    """
+    from dataclasses import asdict
+
+    policy_name = request.match_info.get("name")
+    if not policy_name:
+        return web.json_response(
+            {"error": "Policy name is required"},
+            status=400,
+        )
+
+    # Parse query parameters
+    since_str = request.query.get("since")
+    until_str = request.query.get("until")
+
+    # Parse time filters
+    since_ts = None
+    if since_str:
+        since_ts = parse_time_filter(since_str)
+        if since_ts is None:
+            return web.json_response(
+                {"error": f"Invalid since value: '{since_str}'"},
+                status=400,
+            )
+
+    until_ts = None
+    if until_str:
+        until_ts = parse_time_filter(until_str)
+        if until_ts is None:
+            return web.json_response(
+                {"error": f"Invalid until value: '{until_str}'"},
+                status=400,
+            )
+
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
+
+    def _query_policy():
+        with connection_pool.transaction() as conn:
+            return get_policy_stats_by_name(
+                conn,
+                policy_name,
+                since=since_ts,
+                until=until_ts,
+            )
+
+    policy = await asyncio.to_thread(_query_policy)
+
+    if policy is None:
+        return web.json_response(
+            {"error": f"No statistics found for policy: {policy_name}"},
+            status=404,
+        )
+
+    return web.json_response(asdict(policy))
+
+
 # Documentation URL constant
 DOCS_URL = "https://github.com/randomparity/vpo/tree/main/docs"
 
@@ -2639,6 +2709,7 @@ def setup_ui_routes(app: web.Application) -> None:
     app.router.add_get("/api/stats/summary", api_stats_summary_handler)
     app.router.add_get("/api/stats/recent", api_stats_recent_handler)
     app.router.add_get("/api/stats/policies", api_stats_policies_handler)
+    app.router.add_get("/api/stats/policies/{name}", api_stats_policy_handler)
     app.router.add_get("/api/stats/files/{file_id}", api_stats_file_handler)
     app.router.add_get("/api/stats/{stats_id}", api_stats_detail_handler)
     app.router.add_get(
