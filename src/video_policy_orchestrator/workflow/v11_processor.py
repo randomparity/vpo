@@ -329,7 +329,7 @@ class V11WorkflowProcessor:
         try:
             # Run ffprobe to get fresh track data
             introspector = FFprobeIntrospector()
-            result = introspector.introspect(file_path)
+            result = introspector.get_file_info(file_path)
 
             # Update tracks in database
             upsert_tracks_for_file(self.conn, file_record.id, result.tracks)
