@@ -1113,13 +1113,25 @@ def upsert_transcription_result(
     """
     from .connection import execute_with_retry
 
+    # Store original busy_timeout for restoration
+    # Default connection timeout is 10000ms, but we want fail-fast for retries
+    original_busy_timeout: int | None = None
+
     def do_upsert() -> int:
+        nonlocal original_busy_timeout
         # Check if already in a transaction (implicit or explicit)
         # If so, just do the upsert within that transaction
         # If not, use BEGIN IMMEDIATE for fail-fast lock detection
         manage_transaction = not conn.in_transaction
 
         if manage_transaction:
+            # Set short busy_timeout for fail-fast behavior with retries.
+            # The default 10s timeout defeats the purpose of BEGIN IMMEDIATE
+            # with retry logic - we want to fail quickly and retry with backoff.
+            cursor = conn.execute("PRAGMA busy_timeout")
+            row = cursor.fetchone()
+            original_busy_timeout = row[0] if row else 10000
+            conn.execute("PRAGMA busy_timeout = 100")  # 100ms fail-fast
             conn.execute("BEGIN IMMEDIATE")
         try:
             cursor = conn.execute(
@@ -1163,6 +1175,13 @@ def upsert_transcription_result(
                 except sqlite3.Error:
                     pass  # Original error is more important
             raise
+        finally:
+            # Restore original busy_timeout if we changed it
+            if manage_transaction and original_busy_timeout is not None:
+                try:
+                    conn.execute(f"PRAGMA busy_timeout = {original_busy_timeout}")
+                except sqlite3.Error:
+                    pass  # Best effort restoration
 
     return execute_with_retry(do_upsert)
 
