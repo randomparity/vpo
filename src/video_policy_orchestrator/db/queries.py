@@ -1114,16 +1114,13 @@ def upsert_transcription_result(
     from .connection import execute_with_retry
 
     def do_upsert() -> int:
-        # Guard against nested transactions
-        if conn.in_transaction:
-            raise sqlite3.ProgrammingError(
-                "Connection already in transaction; "
-                "upsert_transcription_result manages its own transaction"
-            )
-        # Use BEGIN IMMEDIATE to fail fast on lock contention
-        # This allows the retry logic to kick in quickly rather than
-        # waiting for busy_timeout
-        conn.execute("BEGIN IMMEDIATE")
+        # Check if already in a transaction (implicit or explicit)
+        # If so, just do the upsert within that transaction
+        # If not, use BEGIN IMMEDIATE for fail-fast lock detection
+        manage_transaction = not conn.in_transaction
+
+        if manage_transaction:
+            conn.execute("BEGIN IMMEDIATE")
         try:
             cursor = conn.execute(
                 """
@@ -1152,17 +1149,19 @@ def upsert_transcription_result(
                 ),
             )
             result = cursor.fetchone()
-            conn.execute("COMMIT")
+            if manage_transaction:
+                conn.execute("COMMIT")
             if result is None:
                 raise sqlite3.Error(
                     f"RETURNING clause failed for track_id={record.track_id}"
                 )
             return result[0]
         except Exception:
-            try:
-                conn.execute("ROLLBACK")
-            except sqlite3.Error:
-                pass  # Original error is more important
+            if manage_transaction:
+                try:
+                    conn.execute("ROLLBACK")
+                except sqlite3.Error:
+                    pass  # Original error is more important
             raise
 
     return execute_with_retry(do_upsert)
@@ -1301,13 +1300,13 @@ def upsert_language_analysis_result(
     from .connection import execute_with_retry
 
     def do_upsert() -> int:
-        # Guard against nested transactions
-        if conn.in_transaction:
-            raise sqlite3.ProgrammingError(
-                "Connection already in transaction; "
-                "upsert_language_analysis_result manages its own transaction"
-            )
-        conn.execute("BEGIN IMMEDIATE")
+        # Check if already in a transaction (implicit or explicit)
+        # If so, just do the upsert within that transaction
+        # If not, use BEGIN IMMEDIATE for fail-fast lock detection
+        manage_transaction = not conn.in_transaction
+
+        if manage_transaction:
+            conn.execute("BEGIN IMMEDIATE")
         try:
             cursor = conn.execute(
                 """
@@ -1336,17 +1335,19 @@ def upsert_language_analysis_result(
                 ),
             )
             result = cursor.fetchone()
-            conn.execute("COMMIT")
+            if manage_transaction:
+                conn.execute("COMMIT")
             if result is None:
                 raise sqlite3.Error(
                     f"RETURNING clause failed for track_id={record.track_id}"
                 )
             return result[0]
         except Exception:
-            try:
-                conn.execute("ROLLBACK")
-            except sqlite3.Error:
-                pass  # Original error is more important
+            if manage_transaction:
+                try:
+                    conn.execute("ROLLBACK")
+                except sqlite3.Error:
+                    pass  # Original error is more important
             raise
 
     return execute_with_retry(do_upsert)
@@ -1433,13 +1434,13 @@ def upsert_language_segments(
     from .connection import execute_with_retry
 
     def do_upsert() -> list[int]:
-        # Guard against nested transactions
-        if conn.in_transaction:
-            raise sqlite3.ProgrammingError(
-                "Connection already in transaction; "
-                "upsert_language_segments manages its own transaction"
-            )
-        conn.execute("BEGIN IMMEDIATE")
+        # Check if already in a transaction (implicit or explicit)
+        # If so, just do the upsert within that transaction
+        # If not, use BEGIN IMMEDIATE for fail-fast lock detection
+        manage_transaction = not conn.in_transaction
+
+        if manage_transaction:
+            conn.execute("BEGIN IMMEDIATE")
         try:
             # Delete existing segments for this analysis
             conn.execute(
@@ -1469,13 +1470,15 @@ def upsert_language_segments(
                 if result:
                     segment_ids.append(result[0])
 
-            conn.execute("COMMIT")
+            if manage_transaction:
+                conn.execute("COMMIT")
             return segment_ids
         except Exception:
-            try:
-                conn.execute("ROLLBACK")
-            except sqlite3.Error:
-                pass  # Original error is more important
+            if manage_transaction:
+                try:
+                    conn.execute("ROLLBACK")
+                except sqlite3.Error:
+                    pass  # Original error is more important
             raise
 
     return execute_with_retry(do_upsert)
