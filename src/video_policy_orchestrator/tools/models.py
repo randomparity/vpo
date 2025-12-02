@@ -85,6 +85,16 @@ class FFmpegCapabilities:
     # Filter support
     filters: set[str] = field(default_factory=set)  # Available filters
 
+    # Version-gated behavioral flags (set during detection)
+    requires_explicit_pcm_codec: bool = False  # WAV output needs -acodec pcm_s16le
+    supports_stats_period: bool = False  # -stats_period flag (FFmpeg 4.3+)
+    supports_fps_mode: bool = False  # -fps_mode replaces -vsync (FFmpeg 5.1+)
+
+    # Hardware encoder runtime availability (probed, not just listed)
+    hw_nvenc_available: bool = False  # NVIDIA NVENC actually usable
+    hw_qsv_available: bool = False  # Intel Quick Sync actually usable
+    hw_vaapi_available: bool = False  # VA-API actually usable
+
     # Common codec checks (convenience methods)
     def has_encoder(self, name: str) -> bool:
         """Check if encoder is available."""

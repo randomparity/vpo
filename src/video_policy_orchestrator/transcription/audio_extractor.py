@@ -1,8 +1,11 @@
-"""Audio extraction module using ffmpeg for streaming audio data."""
+"""Audio extraction module using ffmpeg for streaming audio data.
 
-import json
+This module provides functions to extract audio streams from video files
+for transcription processing. It uses the version-aware FFmpegAdapter
+to handle ffmpeg command-line differences across versions.
+"""
+
 import logging
-import subprocess
 from pathlib import Path
 
 from video_policy_orchestrator.transcription.interface import TranscriptionError
@@ -26,7 +29,8 @@ def extract_audio_stream(
     """Extract audio from a specific track as WAV data.
 
     Uses ffmpeg to extract audio from a video file, converting it to
-    mono 16kHz WAV format suitable for Whisper processing.
+    mono 16kHz WAV format suitable for Whisper processing. Automatically
+    handles version-specific ffmpeg command differences.
 
     Args:
         file_path: Path to the video file.
@@ -41,82 +45,42 @@ def extract_audio_stream(
     Raises:
         AudioExtractionError: If extraction fails.
     """
-    if not file_path.exists():
-        raise AudioExtractionError(f"File not found: {file_path}")
-
-    cmd = [
-        "ffmpeg",
-        "-hide_banner",
-        "-loglevel",
-        "error",
-    ]
-
-    # Add seek position before input for fast seeking
-    if start_offset > 0:
-        cmd.extend(["-ss", str(start_offset)])
-
-    cmd.extend(
-        [
-            "-i",
-            str(file_path),
-            "-map",
-            f"0:{track_index}",
-            "-ac",
-            "1",  # Mono
-            "-ar",
-            str(sample_rate),  # Sample rate
-            "-f",
-            "wav",  # WAV format
-        ]
+    from video_policy_orchestrator.tools.ffmpeg_adapter import (
+        FFmpegError,
+        get_ffmpeg_adapter,
     )
 
-    # Add duration limit if specified
-    if sample_duration > 0:
-        cmd.extend(["-t", str(sample_duration)])
-
-    # Output to stdout
-    cmd.append("pipe:1")
-
-    logger.debug("Running ffmpeg command: %s", " ".join(cmd))
-
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            check=True,
-            timeout=300,  # 5 minute timeout
+        adapter = get_ffmpeg_adapter()
+        wav_data = adapter.extract_audio_stream(
+            input_path=file_path,
+            track_index=track_index,
+            sample_rate=sample_rate,
+            sample_duration=sample_duration if sample_duration > 0 else None,
+            start_offset=start_offset,
         )
-        logger.debug("Extracted %d bytes of audio data", len(result.stdout))
-        return result.stdout
-    except subprocess.TimeoutExpired as e:
-        raise AudioExtractionError(
-            f"Audio extraction timed out after 300 seconds: {file_path}"
-        ) from e
-    except subprocess.CalledProcessError as e:
-        error_msg = e.stderr.decode("utf-8", errors="replace") if e.stderr else ""
-        raise AudioExtractionError(
-            f"ffmpeg failed to extract audio from {file_path}: {error_msg}"
-        ) from e
-    except FileNotFoundError as e:
-        raise AudioExtractionError(
-            "ffmpeg not found. Please install ffmpeg and ensure it's in PATH."
-        ) from e
+        logger.debug("Extracted %d bytes of audio data", len(wav_data))
+        return wav_data
+
+    except FFmpegError as e:
+        raise AudioExtractionError(str(e)) from e
 
 
 def is_ffmpeg_available() -> bool:
     """Check if ffmpeg is available on the system.
 
+    Uses the tool registry to check ffmpeg availability, ensuring
+    configured paths are respected.
+
     Returns:
         True if ffmpeg is available, False otherwise.
     """
     try:
-        result = subprocess.run(
-            ["ffmpeg", "-version"],
-            capture_output=True,
-            timeout=10,
-        )
-        return result.returncode == 0
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+        from video_policy_orchestrator.tools.cache import get_tool_registry
+
+        registry = get_tool_registry()
+        return registry.ffmpeg.is_available()
+    except Exception:
         return False
 
 
@@ -124,6 +88,7 @@ def get_file_duration(file_path: Path) -> float:
     """Get the duration of a media file in seconds.
 
     Uses ffprobe to extract duration from file format metadata.
+    Respects configured tool paths.
 
     Args:
         file_path: Path to the media file.
@@ -134,52 +99,13 @@ def get_file_duration(file_path: Path) -> float:
     Raises:
         AudioExtractionError: If duration cannot be determined.
     """
-    if not file_path.exists():
-        raise AudioExtractionError(f"File not found: {file_path}")
-
-    cmd = [
-        "ffprobe",
-        "-v",
-        "error",
-        "-show_entries",
-        "format=duration",
-        "-of",
-        "json",
-        str(file_path),
-    ]
-
-    logger.debug("Running ffprobe command: %s", " ".join(cmd))
+    from video_policy_orchestrator.tools.ffmpeg_adapter import (
+        FFmpegError,
+        get_ffmpeg_adapter,
+    )
 
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=30,
-        )
-        data = json.loads(result.stdout)
-        duration_str = data.get("format", {}).get("duration")
-
-        if duration_str is None:
-            raise AudioExtractionError(f"Could not determine duration for {file_path}")
-
-        return float(duration_str)
-
-    except subprocess.TimeoutExpired as e:
-        raise AudioExtractionError(
-            f"ffprobe timed out getting duration for {file_path}"
-        ) from e
-    except subprocess.CalledProcessError as e:
-        error_msg = e.stderr if e.stderr else ""
-        raise AudioExtractionError(
-            f"ffprobe failed for {file_path}: {error_msg}"
-        ) from e
-    except (json.JSONDecodeError, ValueError) as e:
-        raise AudioExtractionError(
-            f"Could not parse duration for {file_path}: {e}"
-        ) from e
-    except FileNotFoundError as e:
-        raise AudioExtractionError(
-            "ffprobe not found. Please install ffmpeg and ensure it's in PATH."
-        ) from e
+        adapter = get_ffmpeg_adapter()
+        return adapter.get_file_duration(file_path)
+    except FFmpegError as e:
+        raise AudioExtractionError(str(e)) from e

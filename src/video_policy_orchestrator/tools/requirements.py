@@ -155,6 +155,46 @@ CAPABILITY_REQUIREMENTS = [
     ),
 ]
 
+# FFmpeg version requirements for specific features
+FFMPEG_VERSION_REQUIREMENTS = [
+    ToolRequirement(
+        tool_name="ffmpeg",
+        feature_name="FFmpeg Core",
+        description="FFmpeg 3.0+ required for basic VPO functionality",
+        level=RequirementLevel.REQUIRED,
+        min_version=(3, 0),
+        install_hint="Install ffmpeg 4.0+: https://ffmpeg.org/download.html",
+    ),
+    ToolRequirement(
+        tool_name="ffprobe",
+        feature_name="FFprobe Core",
+        description="FFprobe 3.0+ required for media introspection",
+        level=RequirementLevel.REQUIRED,
+        min_version=(3, 0),
+        install_hint="Install ffmpeg 4.0+: https://ffmpeg.org/download.html",
+    ),
+    ToolRequirement(
+        tool_name="ffmpeg",
+        feature_name="Progress Reporting",
+        description="FFmpeg 4.3+ enables accurate progress reporting",
+        level=RequirementLevel.RECOMMENDED,
+        min_version=(4, 3),
+        install_hint="Upgrade ffmpeg for better progress tracking",
+    ),
+]
+
+# Transcription-specific requirements
+TRANSCRIPTION_REQUIREMENTS = [
+    ToolRequirement(
+        tool_name="ffmpeg",
+        feature_name="Audio Extraction",
+        description="FFmpeg required to extract audio tracks for transcription",
+        level=RequirementLevel.REQUIRED,
+        min_version=(3, 0),
+        install_hint="Install ffmpeg: https://ffmpeg.org/download.html",
+    ),
+]
+
 # All requirements combined
 ALL_REQUIREMENTS = (
     CORE_REQUIREMENTS
@@ -162,6 +202,8 @@ ALL_REQUIREMENTS = (
     + NON_MKV_REQUIREMENTS
     + VERSION_RECOMMENDATIONS
     + CAPABILITY_REQUIREMENTS
+    + FFMPEG_VERSION_REQUIREMENTS
+    + TRANSCRIPTION_REQUIREMENTS
 )
 
 
@@ -322,3 +364,27 @@ def get_missing_tool_hints(registry: ToolRegistry) -> dict[str, str]:
                     hints[tool_name] = req.install_hint
                     break
     return hints
+
+
+def check_transcription_requirements(registry: ToolRegistry) -> RequirementsReport:
+    """Check requirements for transcription features.
+
+    Args:
+        registry: Tool registry with detected tools.
+
+    Returns:
+        RequirementsReport for transcription requirements.
+    """
+    return check_requirements(registry, TRANSCRIPTION_REQUIREMENTS)
+
+
+def check_ffmpeg_version_requirements(registry: ToolRegistry) -> RequirementsReport:
+    """Check FFmpeg version-specific requirements.
+
+    Args:
+        registry: Tool registry with detected tools.
+
+    Returns:
+        RequirementsReport for FFmpeg version requirements.
+    """
+    return check_requirements(registry, FFMPEG_VERSION_REQUIREMENTS)

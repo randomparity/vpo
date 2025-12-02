@@ -178,10 +178,141 @@ def _detect_tool_generic(
 # =============================================================================
 
 
+def _probe_wav_codec_requirement(ffmpeg_path: Path) -> bool:
+    """Probe whether FFmpeg requires explicit codec for WAV output.
+
+    Some FFmpeg builds disable the default PCM encoder for format detection,
+    requiring explicit -acodec pcm_s16le for WAV output.
+
+    Args:
+        ffmpeg_path: Path to ffmpeg executable.
+
+    Returns:
+        True if explicit codec is required, False otherwise.
+    """
+    import platform
+
+    null_device = "NUL" if platform.system() == "Windows" else "/dev/null"
+    cmd = [
+        str(ffmpeg_path),
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=r=16000:cl=mono",
+        "-t",
+        "0.1",
+        "-f",
+        "wav",
+        "-y",
+        null_device,
+    ]
+    try:
+        result = subprocess.run(  # nosec B603
+            cmd, capture_output=True, timeout=5
+        )
+        return result.returncode != 0
+    except Exception:
+        # On probe failure, assume explicit codec is required (safer default)
+        return True
+
+
+def _probe_single_hw_encoder(ffmpeg_path: Path, encoder: str) -> bool:
+    """Probe a single hardware encoder for actual usability.
+
+    Args:
+        ffmpeg_path: Path to ffmpeg executable.
+        encoder: Encoder name to test (e.g., "h264_nvenc").
+
+    Returns:
+        True if encoder is usable, False otherwise.
+    """
+    import platform
+
+    null_device = "NUL" if platform.system() == "Windows" else "/dev/null"
+    cmd = [
+        str(ffmpeg_path),
+        "-f",
+        "lavfi",
+        "-i",
+        "nullsrc=s=64x64:d=0.1",
+        "-c:v",
+        encoder,
+        "-f",
+        "null",
+        "-y",
+        null_device,
+    ]
+    try:
+        result = subprocess.run(  # nosec B603
+            cmd, capture_output=True, timeout=10
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def _probe_hw_encoder_availability(
+    ffmpeg_path: Path, caps: FFmpegCapabilities
+) -> dict[str, bool]:
+    """Probe hardware encoders for actual runtime usability.
+
+    Encoder being listed in ffmpeg -encoders does not mean it works.
+    This probes actual usability by attempting to encode a test frame.
+
+    Args:
+        ffmpeg_path: Path to ffmpeg executable.
+        caps: FFmpegCapabilities with encoder list.
+
+    Returns:
+        Dict mapping encoder type to availability status.
+    """
+    hw_status: dict[str, bool] = {"nvenc": False, "qsv": False, "vaapi": False}
+
+    # Only probe encoders that appear in the encoder list
+    if caps.has_encoder("h264_nvenc") or caps.has_encoder("hevc_nvenc"):
+        hw_status["nvenc"] = _probe_single_hw_encoder(ffmpeg_path, "h264_nvenc")
+        logger.debug("NVENC probe result: %s", hw_status["nvenc"])
+
+    if caps.has_encoder("h264_qsv") or caps.has_encoder("hevc_qsv"):
+        hw_status["qsv"] = _probe_single_hw_encoder(ffmpeg_path, "h264_qsv")
+        logger.debug("QSV probe result: %s", hw_status["qsv"])
+
+    if caps.has_encoder("h264_vaapi") or caps.has_encoder("hevc_vaapi"):
+        hw_status["vaapi"] = _probe_single_hw_encoder(ffmpeg_path, "h264_vaapi")
+        logger.debug("VAAPI probe result: %s", hw_status["vaapi"])
+
+    return hw_status
+
+
 def _ffmpeg_post_detect(info: ToolInfo, path: Path, stdout: str) -> None:
     """Post-detection hook for FFmpeg capabilities."""
     assert isinstance(info, FFmpegInfo)
     info.capabilities = _detect_ffmpeg_capabilities(path, stdout)
+
+    # Set version-derived behavioral flags
+    v = info.version_tuple
+    if v:
+        caps = info.capabilities
+        caps.supports_stats_period = v >= (4, 3)
+        caps.supports_fps_mode = v >= (5, 1)
+        logger.debug(
+            "FFmpeg %s: stats_period=%s, fps_mode=%s",
+            info.version,
+            caps.supports_stats_period,
+            caps.supports_fps_mode,
+        )
+
+        # Probe build-specific behaviors
+        caps.requires_explicit_pcm_codec = _probe_wav_codec_requirement(path)
+        logger.debug(
+            "FFmpeg requires_explicit_pcm_codec=%s", caps.requires_explicit_pcm_codec
+        )
+
+        # Probe hardware encoder availability
+        hw = _probe_hw_encoder_availability(path, caps)
+        caps.hw_nvenc_available = hw.get("nvenc", False)
+        caps.hw_qsv_available = hw.get("qsv", False)
+        caps.hw_vaapi_available = hw.get("vaapi", False)
 
 
 def _mkvmerge_post_detect(info: ToolInfo, _path: Path, _stdout: str) -> None:
