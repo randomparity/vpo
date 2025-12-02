@@ -17,6 +17,7 @@ import shutil
 import signal
 import subprocess  # nosec B404 - subprocess needed for FFmpeg/mkvmerge
 import tempfile
+import threading
 from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -48,7 +49,21 @@ def _sigint_handler() -> Generator[None, None, None]:
 
     Converts SIGINT into a SynthesisCancelledError for clean shutdown.
     Restores original handler on exit.
+
+    Note: Signal handlers can only be set from the main thread.
+    When running in a background thread (e.g., from the web UI job system),
+    the signal handler setup is skipped and cancellation must happen through
+    other means (e.g., job cancellation via the job system).
     """
+    # Signal handlers can only be set from the main thread
+    if threading.current_thread() is not threading.main_thread():
+        logger.debug(
+            "Not in main thread, skipping SIGINT handler setup "
+            "(cancellation via job system)"
+        )
+        yield
+        return
+
     cancelled = False
 
     def handler(signum: int, frame: object) -> None:
