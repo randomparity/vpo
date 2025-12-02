@@ -1,0 +1,583 @@
+openapi: 3.0.3
+info:
+  title: VPO Processing Statistics API
+  description: REST API endpoints for processing statistics and metrics
+  version: 1.0.0
+
+servers:
+  - url: /api
+    description: VPO server API
+
+paths:
+  /stats/summary:
+    get:
+      summary: Get aggregate processing statistics
+      description: Returns overall statistics including total files processed, space saved, and success rates
+      operationId: getStatsSummary
+      parameters:
+        - name: since
+          in: query
+          description: Start date for time range filter (ISO-8601)
+          schema:
+            type: string
+            format: date-time
+        - name: until
+          in: query
+          description: End date for time range filter (ISO-8601)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Summary statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsSummary'
+
+  /stats/policies:
+    get:
+      summary: Get per-policy statistics
+      description: Returns statistics grouped by policy name
+      operationId: getPolicyStats
+      parameters:
+        - name: since
+          in: query
+          description: Start date for time range filter (ISO-8601)
+          schema:
+            type: string
+            format: date-time
+        - name: until
+          in: query
+          description: End date for time range filter (ISO-8601)
+          schema:
+            type: string
+            format: date-time
+        - name: sort
+          in: query
+          description: Sort field
+          schema:
+            type: string
+            enum: [policy_name, files_processed, total_size_saved, last_used]
+            default: files_processed
+        - name: order
+          in: query
+          description: Sort order
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: List of per-policy statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  policies:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PolicyStats'
+
+  /stats/policies/{name}:
+    get:
+      summary: Get statistics for a specific policy
+      description: Returns detailed statistics for a single policy
+      operationId: getPolicyStatsByName
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Policy name
+          schema:
+            type: string
+        - name: since
+          in: query
+          description: Start date for time range filter (ISO-8601)
+          schema:
+            type: string
+            format: date-time
+        - name: until
+          in: query
+          description: End date for time range filter (ISO-8601)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Policy statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyStats'
+        '404':
+          description: Policy not found
+
+  /stats/files/{file_id}:
+    get:
+      summary: Get processing history for a file
+      description: Returns all processing runs for a specific file
+      operationId: getFileStats
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          description: File ID
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: Maximum number of records to return
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+      responses:
+        '200':
+          description: File processing history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  file_id:
+                    type: integer
+                  file_path:
+                    type: string
+                  history:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProcessingHistoryEntry'
+        '404':
+          description: File not found
+
+  /stats/recent:
+    get:
+      summary: Get recent processing runs
+      description: Returns the most recent processing operations
+      operationId: getRecentStats
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of records to return
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: success_only
+          in: query
+          description: Filter to only successful runs
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Recent processing runs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProcessingStatsItem'
+
+  /stats/{stats_id}:
+    get:
+      summary: Get detailed statistics for a processing run
+      description: Returns full details including action results and performance metrics
+      operationId: getStatsDetail
+      parameters:
+        - name: stats_id
+          in: path
+          required: true
+          description: Processing stats ID (UUID)
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detailed processing statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessingStatsDetail'
+        '404':
+          description: Stats record not found
+
+  /stats/purge:
+    delete:
+      summary: Purge processing statistics
+      description: Delete statistics matching the specified criteria
+      operationId: purgeStats
+      parameters:
+        - name: before
+          in: query
+          description: Delete stats older than this date (ISO-8601)
+          schema:
+            type: string
+            format: date-time
+        - name: policy
+          in: query
+          description: Delete stats for this policy only
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Purge result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted_count:
+                    type: integer
+                  message:
+                    type: string
+        '400':
+          description: Invalid parameters (must specify at least one filter)
+
+components:
+  schemas:
+    StatsSummary:
+      type: object
+      required:
+        - total_files_processed
+        - total_successful
+        - total_failed
+        - success_rate
+        - total_size_before
+        - total_size_after
+        - total_size_saved
+        - avg_savings_percent
+      properties:
+        total_files_processed:
+          type: integer
+        total_successful:
+          type: integer
+        total_failed:
+          type: integer
+        success_rate:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        total_size_before:
+          type: integer
+          description: Total bytes before processing
+        total_size_after:
+          type: integer
+          description: Total bytes after processing
+        total_size_saved:
+          type: integer
+          description: Total bytes saved (positive = saved, negative = added)
+        avg_savings_percent:
+          type: number
+          format: float
+        total_audio_removed:
+          type: integer
+        total_subtitles_removed:
+          type: integer
+        total_attachments_removed:
+          type: integer
+        total_videos_transcoded:
+          type: integer
+        total_videos_skipped:
+          type: integer
+        total_audio_transcoded:
+          type: integer
+        avg_processing_time:
+          type: number
+          format: float
+          description: Average processing time in seconds
+        earliest_processing:
+          type: string
+          format: date-time
+          nullable: true
+        latest_processing:
+          type: string
+          format: date-time
+          nullable: true
+
+    PolicyStats:
+      type: object
+      required:
+        - policy_name
+        - files_processed
+        - success_rate
+        - total_size_saved
+      properties:
+        policy_name:
+          type: string
+        files_processed:
+          type: integer
+        success_rate:
+          type: number
+          format: float
+        total_size_saved:
+          type: integer
+        avg_savings_percent:
+          type: number
+          format: float
+        audio_tracks_removed:
+          type: integer
+        subtitle_tracks_removed:
+          type: integer
+        attachments_removed:
+          type: integer
+        videos_transcoded:
+          type: integer
+        audio_transcoded:
+          type: integer
+        avg_processing_time:
+          type: number
+          format: float
+        last_used:
+          type: string
+          format: date-time
+
+    ProcessingHistoryEntry:
+      type: object
+      required:
+        - stats_id
+        - processed_at
+        - policy_name
+        - size_before
+        - size_after
+        - size_change
+        - success
+      properties:
+        stats_id:
+          type: string
+          format: uuid
+        processed_at:
+          type: string
+          format: date-time
+        policy_name:
+          type: string
+        size_before:
+          type: integer
+        size_after:
+          type: integer
+        size_change:
+          type: integer
+        audio_removed:
+          type: integer
+        subtitle_removed:
+          type: integer
+        attachments_removed:
+          type: integer
+        duration_seconds:
+          type: number
+          format: float
+        success:
+          type: boolean
+        error_message:
+          type: string
+          nullable: true
+
+    ProcessingStatsItem:
+      type: object
+      required:
+        - id
+        - file_id
+        - file_path
+        - processed_at
+        - policy_name
+        - size_change
+        - success
+      properties:
+        id:
+          type: string
+          format: uuid
+        file_id:
+          type: integer
+        file_path:
+          type: string
+        processed_at:
+          type: string
+          format: date-time
+        policy_name:
+          type: string
+        size_before:
+          type: integer
+        size_after:
+          type: integer
+        size_change:
+          type: integer
+        duration_seconds:
+          type: number
+          format: float
+        success:
+          type: boolean
+        error_message:
+          type: string
+          nullable: true
+
+    ProcessingStatsDetail:
+      type: object
+      required:
+        - id
+        - file_id
+        - processed_at
+        - policy_name
+        - success
+      properties:
+        id:
+          type: string
+          format: uuid
+        file_id:
+          type: integer
+        file_path:
+          type: string
+        processed_at:
+          type: string
+          format: date-time
+        policy_name:
+          type: string
+
+        # Size metrics
+        size_before:
+          type: integer
+        size_after:
+          type: integer
+        size_change:
+          type: integer
+
+        # Track counts
+        audio_tracks_before:
+          type: integer
+        audio_tracks_after:
+          type: integer
+        audio_tracks_removed:
+          type: integer
+        subtitle_tracks_before:
+          type: integer
+        subtitle_tracks_after:
+          type: integer
+        subtitle_tracks_removed:
+          type: integer
+        attachments_before:
+          type: integer
+        attachments_after:
+          type: integer
+        attachments_removed:
+          type: integer
+
+        # Processing metrics
+        duration_seconds:
+          type: number
+          format: float
+        phases_completed:
+          type: integer
+        phases_total:
+          type: integer
+        total_changes:
+          type: integer
+
+        # Transcode info
+        video_source_codec:
+          type: string
+          nullable: true
+        video_target_codec:
+          type: string
+          nullable: true
+        video_transcode_skipped:
+          type: boolean
+        video_skip_reason:
+          type: string
+          nullable: true
+        audio_tracks_transcoded:
+          type: integer
+        audio_tracks_preserved:
+          type: integer
+
+        # File integrity
+        hash_before:
+          type: string
+          nullable: true
+        hash_after:
+          type: string
+          nullable: true
+
+        # Status
+        success:
+          type: boolean
+        error_message:
+          type: string
+          nullable: true
+
+        # Related data
+        action_results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActionResult'
+        performance_metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/PerformanceMetric'
+
+    ActionResult:
+      type: object
+      required:
+        - id
+        - action_type
+        - success
+      properties:
+        id:
+          type: integer
+        action_type:
+          type: string
+        track_type:
+          type: string
+          nullable: true
+        track_index:
+          type: integer
+          nullable: true
+        before_state:
+          type: object
+          nullable: true
+        after_state:
+          type: object
+          nullable: true
+        success:
+          type: boolean
+        duration_ms:
+          type: integer
+          nullable: true
+        rule_reference:
+          type: string
+          nullable: true
+        message:
+          type: string
+          nullable: true
+
+    PerformanceMetric:
+      type: object
+      required:
+        - id
+        - phase_name
+        - wall_time_seconds
+      properties:
+        id:
+          type: integer
+        phase_name:
+          type: string
+        wall_time_seconds:
+          type: number
+          format: float
+        bytes_read:
+          type: integer
+          nullable: true
+        bytes_written:
+          type: integer
+          nullable: true
+        encoding_fps:
+          type: number
+          format: float
+          nullable: true
+        encoding_bitrate:
+          type: integer
+          nullable: true

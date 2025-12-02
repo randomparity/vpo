@@ -41,7 +41,7 @@ uv run vpo serve --port 8080          # Start daemon with web UI
 
 - **Python 3.10+** with click (CLI), pydantic, PyYAML, aiohttp (daemon), Jinja2 (templates)
 - **Rust** (PyO3/maturin) for parallel file discovery and hashing in `crates/vpo-core/`
-- **SQLite** database at `~/.vpo/library.db`
+- **SQLite** database at `~/.vpo/library.db` (schema version 17)
 - **Web UI**: Vanilla JavaScript (ES6+), no frameworks - uses polling for live updates
 - **External tools:** ffprobe (introspection), mkvpropedit/mkvmerge (MKV editing), ffmpeg (metadata editing)
 
@@ -49,10 +49,10 @@ uv run vpo serve --port 8080          # Start daemon with web UI
 
 ```
 src/video_policy_orchestrator/
-├── cli/           # Click commands: scan, inspect, apply, doctor, serve
+├── cli/           # Click commands: scan, inspect, apply, doctor, serve, process
 ├── config/        # Configuration loading and models
 ├── db/            # SQLite schema, models, and query functions (see below)
-├── executor/      # Tool executors: mkvpropedit, mkvmerge, ffmpeg_metadata
+├── executor/      # Tool executors: mkvpropedit, mkvmerge, ffmpeg_metadata, transcode
 ├── introspector/  # MediaIntrospector protocol, ffprobe implementation
 ├── jobs/          # Background job management, logging, queue operations
 ├── plugin/        # Plugin system: registry, loader, interfaces, events
@@ -63,7 +63,8 @@ src/video_policy_orchestrator/
 ├── server/        # aiohttp daemon: app, routes, lifecycle, signals
 │   ├── ui/        # Web UI: Jinja2 templates, routes, models
 │   └── static/    # CSS, JavaScript (vanilla JS, no frameworks)
-└── tools/         # External tool detection and capability caching
+├── tools/         # External tool detection and capability caching
+└── workflow/      # V11WorkflowProcessor: multi-phase policy execution pipeline
 
 crates/vpo-core/   # Rust extension for parallel discovery/hashing
 ```
