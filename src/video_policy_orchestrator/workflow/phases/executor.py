@@ -754,6 +754,7 @@ class V11PhaseExecutor:
     ) -> int:
         """Execute video/audio transcode operation."""
         from video_policy_orchestrator.executor.transcode import TranscodeExecutor
+        from video_policy_orchestrator.policy.models import TranscodePolicyConfig
 
         phase = state.phase
         if not phase.transcode and not phase.audio_transcode:
@@ -771,41 +772,70 @@ class V11PhaseExecutor:
 
         # Video transcode
         if phase.transcode:
+            vt = phase.transcode
+
+            # Build TranscodePolicyConfig from VideoTranscodeConfig
+            transcode_policy = TranscodePolicyConfig(
+                target_video_codec=vt.target_codec,
+                target_crf=vt.quality.crf if vt.quality else None,
+                max_resolution=vt.scaling.max_resolution if vt.scaling else None,
+            )
+
+            # Get video track info
+            video_tracks = [t for t in tracks if t.track_type == "video"]
+            if not video_tracks:
+                logger.info("No video track found in %s, skipping transcode", file_path)
+                return 0
+            video_track = video_tracks[0]
+            audio_tracks = [t for t in tracks if t.track_type == "audio"]
+
+            # Get file record for size info
+            file_record = get_file_by_path(self.conn, str(file_path))
+            file_size_bytes = file_record.size_bytes if file_record else None
+
+            executor = TranscodeExecutor(
+                policy=transcode_policy,
+                skip_if=vt.skip_if,
+                audio_config=phase.audio_transcode,
+                backup_original=True,
+            )
+
+            # Create plan
+            plan = executor.create_plan(
+                input_path=file_path,
+                output_path=file_path,
+                video_codec=video_track.codec,
+                video_width=video_track.width,
+                video_height=video_track.height,
+                duration_seconds=video_track.duration_seconds,
+                audio_tracks=audio_tracks,
+                all_tracks=tracks,
+                file_size_bytes=file_size_bytes,
+            )
+
+            # Check if transcoding should be skipped
+            if plan.skip_reason:
+                logger.info(
+                    "Skipping transcode for %s: %s",
+                    file_path,
+                    plan.skip_reason,
+                )
+                return 0
+
             if self.dry_run:
                 logger.info(
                     "[DRY-RUN] Would transcode video to %s",
-                    phase.transcode.target_codec,
+                    vt.target_codec,
                 )
                 changes += 1
             else:
-                executor = TranscodeExecutor()
-                # Build transcode config dict
-                transcode_config = {
-                    "video": {
-                        "target_codec": phase.transcode.target_codec,
-                    }
-                }
-                if phase.transcode.quality:
-                    transcode_config["video"]["quality"] = {
-                        "mode": phase.transcode.quality.mode,
-                        "crf": phase.transcode.quality.crf,
-                        "preset": phase.transcode.quality.preset,
-                    }
-
-                result = executor.execute_transcode(
-                    file_path=file_path,
-                    tracks=tracks,
-                    transcode_config=transcode_config,
-                    dry_run=False,
-                )
+                result = executor.execute(plan)
                 if not result.success:
-                    raise RuntimeError(
-                        f"Video transcode failed: {result.error_message}"
-                    )
+                    raise RuntimeError(f"Video transcode failed: {result.message}")
                 changes += 1
 
-        # Audio transcode
-        if phase.audio_transcode:
+        # Audio transcode (without video transcode)
+        elif phase.audio_transcode:
             if self.dry_run:
                 logger.info(
                     "[DRY-RUN] Would transcode audio to %s",
@@ -813,8 +843,8 @@ class V11PhaseExecutor:
                 )
                 changes += 1
             else:
-                # TODO: Audio transcode via phase executor not yet fully implemented
-                # This needs integration with evaluate_policy to build proper plan
+                # TODO: Audio-only transcode not yet fully implemented
+                # Needs integration with evaluate_policy to build proper plan
                 logger.warning(
                     "Audio transcode to %s requested but not yet implemented "
                     "in V11 phase executor",
