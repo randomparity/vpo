@@ -478,6 +478,13 @@ def evaluate_plugin_metadata(
             f"(field '{field_name}' not found)",
         )
 
+    # Handle EXISTS operator - field was found, so it exists
+    if op == PluginMetadataOperator.EXISTS:
+        return (
+            True,
+            f"plugin_metadata({plugin_name}.{field_name}) exists → True",
+        )
+
     # Handle None values
     if actual_value is None:
         return (

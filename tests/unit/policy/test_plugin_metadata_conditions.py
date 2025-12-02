@@ -293,6 +293,52 @@ class TestPluginMetadataCaseInsensitivity:
         assert result is True  # jpn != eng
 
 
+class TestExistsOperator:
+    """Tests for the EXISTS operator."""
+
+    def test_exists_returns_true_when_field_present(self) -> None:
+        """Test EXISTS operator returns True when field is present."""
+        condition = PluginMetadataCondition(
+            plugin="radarr",
+            field="original_language",
+            operator=PluginMetadataOperator.EXISTS,
+        )
+        metadata: PluginMetadataDict = {"radarr": {"original_language": "jpn"}}
+
+        result, reason = evaluate_plugin_metadata(condition, metadata)
+
+        assert result is True
+        assert "exists → True" in reason
+
+    def test_exists_returns_false_when_field_missing(self) -> None:
+        """Test EXISTS operator returns False when field is missing."""
+        condition = PluginMetadataCondition(
+            plugin="radarr",
+            field="original_language",
+            operator=PluginMetadataOperator.EXISTS,
+        )
+        metadata: PluginMetadataDict = {"radarr": {"title": "Some Movie"}}
+
+        result, reason = evaluate_plugin_metadata(condition, metadata)
+
+        assert result is False
+        assert "not found" in reason
+
+    def test_exists_returns_false_when_plugin_missing(self) -> None:
+        """Test EXISTS operator returns False when plugin is missing."""
+        condition = PluginMetadataCondition(
+            plugin="radarr",
+            field="original_language",
+            operator=PluginMetadataOperator.EXISTS,
+        )
+        metadata: PluginMetadataDict = {"sonarr": {"series_title": "Some Show"}}
+
+        result, reason = evaluate_plugin_metadata(condition, metadata)
+
+        assert result is False
+        assert "plugin 'radarr' not in metadata" in reason
+
+
 class TestPluginMetadataValidation:
     """Tests for validation of unknown plugins and fields."""
 
@@ -376,7 +422,7 @@ class TestPluginMetadataConditionDataclass:
 
     def test_all_operators_have_values(self) -> None:
         """Test all operators have string values for serialization."""
-        expected = {"eq", "neq", "contains", "lt", "lte", "gt", "gte"}
+        expected = {"eq", "neq", "contains", "lt", "lte", "gt", "gte", "exists"}
         actual = {op.value for op in PluginMetadataOperator}
         assert actual == expected
 

@@ -1024,6 +1024,7 @@ class PluginMetadataOperator(Enum):
     LTE = "lte"  # Less than or equal (numeric types: int/float)
     GT = "gt"  # Greater than (numeric types: int/float)
     GTE = "gte"  # Greater than or equal (numeric types: int/float)
+    EXISTS = "exists"  # Check if field exists (no value needed)
 
 
 @dataclass(frozen=True)
@@ -1037,7 +1038,7 @@ class PluginMetadataCondition:
         plugin: Name of the plugin that provided the metadata (e.g., "radarr").
         field: Field name within the plugin's metadata (e.g., "original_language").
         operator: Comparison operator (default: eq for equality).
-        value: Value to compare against (string, int, float, or bool).
+        value: Value to compare against. Required for all operators except EXISTS.
 
     Example YAML:
         when:
@@ -1045,11 +1046,18 @@ class PluginMetadataCondition:
             plugin: radarr
             field: original_language
             value: jpn
+
+        # Check if field exists:
+        when:
+          plugin_metadata:
+            plugin: radarr
+            field: original_language
+            operator: exists
     """
 
     plugin: str
     field: str
-    value: str | int | float | bool
+    value: str | int | float | bool | None = None
     operator: PluginMetadataOperator = PluginMetadataOperator.EQ
 
 

@@ -988,11 +988,13 @@ class PluginMetadataConditionModel(BaseModel):
     field: str
     """Field name within the plugin's metadata (e.g., 'original_language')."""
 
-    value: str | int | float | bool
-    """Value to compare against."""
+    value: str | int | float | bool | None = None
+    """Value to compare against. Required for all operators except 'exists'."""
 
-    operator: Literal["eq", "neq", "contains", "lt", "lte", "gt", "gte"] = "eq"
-    """Comparison operator (default: eq for equality)."""
+    operator: Literal["eq", "neq", "contains", "lt", "lte", "gt", "gte", "exists"] = (
+        "eq"
+    )
+    """Comparison operator. Use 'exists' to check if field is present."""
 
     @field_validator("plugin")
     @classmethod
@@ -1023,6 +1025,18 @@ class PluginMetadataConditionModel(BaseModel):
     @model_validator(mode="after")
     def validate_operator_value_compatibility(self) -> "PluginMetadataConditionModel":
         """Validate that operator is compatible with value type."""
+        # 'exists' operator doesn't need a value
+        if self.operator == "exists":
+            return self
+
+        # All other operators require a value
+        if self.value is None:
+            raise ValueError(
+                f"Operator '{self.operator}' requires a value. "
+                "Use operator: exists to check if a field is present."
+            )
+
+        # Numeric operators require numeric values
         numeric_ops = ("lt", "lte", "gt", "gte")
         if self.operator in numeric_ops:
             if not isinstance(self.value, (int, float)):
@@ -1697,12 +1711,12 @@ class PhaseModel(BaseModel):
 
 
 class V11PolicyModel(BaseModel):
-    """Pydantic model for V11 policy with user-defined phases."""
+    """Pydantic model for V11+ policy with user-defined phases."""
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: Literal[11]
-    """Schema version, must be exactly 11."""
+    schema_version: int = Field(ge=11, le=MAX_SCHEMA_VERSION)
+    """Schema version, must be 11 or higher."""
 
     config: GlobalConfigModel = Field(default_factory=GlobalConfigModel)
     """Global configuration."""
@@ -1907,6 +1921,7 @@ def _convert_plugin_metadata_condition(
         "lte": PluginMetadataOperator.LTE,
         "gt": PluginMetadataOperator.GT,
         "gte": PluginMetadataOperator.GTE,
+        "exists": PluginMetadataOperator.EXISTS,
     }
     return PluginMetadataCondition(
         plugin=model.plugin,
@@ -2598,8 +2613,11 @@ def load_policy_from_dict(data: dict[str, Any]) -> PolicySchema | V11PolicySchem
         PolicyValidationError: If the policy data is invalid.
     """
     # Check schema version to determine which model to use
+    # V11+ policies with user-defined phases use V11PolicyModel
+    # V12+ can also use the flat structure (PolicyModel) for backward compatibility
     schema_version = data.get("schema_version")
-    if schema_version == 11:
+    has_phases = "phases" in data
+    if isinstance(schema_version, int) and schema_version >= 11 and has_phases:
         return load_v11_policy_from_dict(data)
 
     try:
