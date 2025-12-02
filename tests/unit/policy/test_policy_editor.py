@@ -20,7 +20,7 @@ def create_test_policy(
     path: Path, with_unknown_fields: bool = False, with_comments: bool = False
 ):
     """Helper to create test policy files."""
-    content = """schema_version: 2
+    content = """schema_version: 12
 track_order:
   - video
   - audio_main
@@ -42,7 +42,7 @@ default_flags:
 """
 
     if with_comments:
-        content = """schema_version: 2
+        content = """schema_version: 12
 # This is a comment about track order
 track_order:
   - video
@@ -79,7 +79,7 @@ def test_load_valid_policy(tmp_path):
     editor = PolicyRoundTripEditor(policy_file)
     data = editor.load()
 
-    assert data["schema_version"] == 2
+    assert data["schema_version"] == 12
     assert "track_order" in data
     assert "audio_language_preference" in data
     assert "subtitle_language_preference" in data
@@ -244,7 +244,7 @@ def test_save_multiple_times(tmp_path):
 def test_load_policy_with_transcode(tmp_path):
     """Test loading policy with transcode section."""
     policy_file = tmp_path / "transcode.yaml"
-    policy_file.write_text("""schema_version: 2
+    policy_file.write_text("""schema_version: 12
 track_order:
   - video
   - audio_main
@@ -280,7 +280,7 @@ transcode:
 def test_save_preserves_transcode(tmp_path):
     """Test save preserves transcode section."""
     policy_file = tmp_path / "transcode.yaml"
-    policy_file.write_text("""schema_version: 2
+    policy_file.write_text("""schema_version: 12
 track_order:
   - video
   - audio_main
@@ -322,7 +322,7 @@ transcode:
 def test_load_policy_with_transcription(tmp_path):
     """Test loading policy with transcription section."""
     policy_file = tmp_path / "transcription.yaml"
-    policy_file.write_text("""schema_version: 2
+    policy_file.write_text("""schema_version: 12
 track_order:
   - video
   - audio_main
@@ -371,7 +371,7 @@ def test_path_traversal_protection(tmp_path):
     # Test 1: Valid path within allowed directory should work
     editor = PolicyRoundTripEditor(policy_file, allowed_dir=allowed_dir)
     data = editor.load()
-    assert data["schema_version"] == 2
+    assert data["schema_version"] == 12
 
     # Test 2: Path outside allowed directory should be rejected
     with pytest.raises(ValueError, match="outside allowed directory"):
@@ -405,7 +405,7 @@ def test_yaml_safe_mode_blocks_dangerous_objects(tmp_path):
 
     # Attempt to create a malicious YAML file with Python object execution
     # This would execute arbitrary code if safe mode is not enabled
-    malicious_content = """schema_version: 2
+    malicious_content = """schema_version: 12
 track_order:
   - video
 audio_language_preference:
@@ -441,9 +441,9 @@ def test_no_path_restriction_when_allowed_dir_not_provided(tmp_path):
     # Should work without allowed_dir parameter
     editor = PolicyRoundTripEditor(policy_file)
     data = editor.load()
-    assert data["schema_version"] == 2
+    assert data["schema_version"] == 12
 
     # Should also work with allowed_dir=None explicitly
     editor2 = PolicyRoundTripEditor(policy_file, allowed_dir=None)
     data2 = editor2.load()
-    assert data2["schema_version"] == 2
+    assert data2["schema_version"] == 12

@@ -1,4 +1,4 @@
-# Media Normalization Policy (V8)
+# Media Normalization Policy
 #
 # A production-ready policy for standardizing media file formats:
 # 1. Convert all videos to MKV containers
@@ -10,7 +10,7 @@
 # 7. Set English subtitle as forced when audio is foreign/multi-language
 # 8. Remove attachments (cover art, fonts)
 
-schema_version: 8
+schema_version: 12
 
 track_order:
   - video

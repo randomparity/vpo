@@ -23,10 +23,10 @@ from video_policy_orchestrator.policy.models import (
 
 @pytest.fixture
 def v3_mkv_target_policy(temp_dir: Path) -> Path:
-    """Create a V3 policy file with MKV container target."""
+    """Create a policy file with MKV container target."""
     policy_path = temp_dir / "mkv-target-policy.yaml"
     policy_path.write_text("""
-schema_version: 3
+schema_version: 12
 track_order:
   - video
   - audio_main
@@ -48,10 +48,10 @@ default_flags:
 
 @pytest.fixture
 def v3_mp4_target_policy(temp_dir: Path) -> Path:
-    """Create a V3 policy file with MP4 container target."""
+    """Create a policy file with MP4 container target."""
     policy_path = temp_dir / "mp4-target-policy.yaml"
     policy_path.write_text("""
-schema_version: 3
+schema_version: 12
 track_order:
   - video
   - audio_main
@@ -73,10 +73,10 @@ default_flags:
 
 @pytest.fixture
 def v3_mp4_skip_policy(temp_dir: Path) -> Path:
-    """Create a V3 policy file with MP4 target and skip mode."""
+    """Create a policy file with MP4 target and skip mode."""
     policy_path = temp_dir / "mp4-skip-policy.yaml"
     policy_path.write_text("""
-schema_version: 3
+schema_version: 12
 track_order:
   - video
   - audio_main
@@ -179,7 +179,7 @@ class TestAviToMkvConversion:
     ) -> None:
         """AVI to MKV conversion should create a plan with container_change."""
         policy = PolicySchema(
-            schema_version=3,
+            schema_version=12,
             container=ContainerConfig(target="mkv"),
         )
 
@@ -203,7 +203,7 @@ class TestAviToMkvConversion:
     ) -> None:
         """MOV to MKV conversion should create a plan with container_change."""
         policy = PolicySchema(
-            schema_version=3,
+            schema_version=12,
             container=ContainerConfig(target="mkv"),
         )
 
@@ -225,7 +225,7 @@ class TestAviToMkvConversion:
     ) -> None:
         """MKV to MKV should not create a container_change."""
         policy = PolicySchema(
-            schema_version=3,
+            schema_version=12,
             container=ContainerConfig(target="mkv"),
         )
 
@@ -245,7 +245,7 @@ class TestAviToMkvConversion:
     ) -> None:
         """'matroska' container format should be normalized to 'mkv'."""
         policy = PolicySchema(
-            schema_version=3,
+            schema_version=12,
             container=ContainerConfig(target="mkv"),
         )
 
@@ -275,7 +275,7 @@ class TestMkvToMp4Conversion:
     ) -> None:
         """MKV to MP4 with compatible codecs should create a valid plan."""
         policy = PolicySchema(
-            schema_version=3,
+            schema_version=12,
             container=ContainerConfig(target="mp4", on_incompatible_codec="error"),
         )
 
@@ -299,7 +299,7 @@ class TestMkvToMp4Conversion:
     ) -> None:
         """MKV to MP4 with incompatible codecs should raise error in error mode."""
         policy = PolicySchema(
-            schema_version=3,
+            schema_version=12,
             container=ContainerConfig(target="mp4", on_incompatible_codec="error"),
         )
 
@@ -325,7 +325,7 @@ class TestMkvToMp4Conversion:
     ) -> None:
         """MKV to MP4 with incompatible codecs should skip conversion in skip mode."""
         policy = PolicySchema(
-            schema_version=3,
+            schema_version=12,
             container=ContainerConfig(target="mp4", on_incompatible_codec="skip"),
         )
 
@@ -346,7 +346,7 @@ class TestMkvToMp4Conversion:
     ) -> None:
         """MP4 to MP4 should not create a container_change."""
         policy = PolicySchema(
-            schema_version=3,
+            schema_version=12,
             container=ContainerConfig(target="mp4"),
         )
 
@@ -398,7 +398,7 @@ class TestCombinedFilteringAndConversion:
         ]
 
         policy = PolicySchema(
-            schema_version=3,
+            schema_version=12,
             audio_filter=AudioFilterConfig(languages=("eng",)),
             container=ContainerConfig(target="mkv"),
         )

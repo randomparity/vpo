@@ -92,7 +92,7 @@ class TestTranscriptionPolicyLoading:
         """Loading policy with transcription options should work."""
         policy = load_policy_from_dict(
             {
-                "schema_version": 1,
+                "schema_version": 12,
                 "transcription": {
                     "enabled": True,
                     "update_language_from_transcription": True,
@@ -111,14 +111,14 @@ class TestTranscriptionPolicyLoading:
 
     def test_load_policy_without_transcription(self):
         """Loading policy without transcription options should work."""
-        policy = load_policy_from_dict({"schema_version": 1})
+        policy = load_policy_from_dict({"schema_version": 12})
         assert policy.transcription is None
 
     def test_load_policy_partial_transcription(self):
         """Partial transcription options should use defaults."""
         policy = load_policy_from_dict(
             {
-                "schema_version": 1,
+                "schema_version": 12,
                 "transcription": {
                     "enabled": True,
                 },
@@ -137,7 +137,7 @@ class TestTranscriptionPolicyLoading:
         with pytest.raises(PolicyValidationError):
             load_policy_from_dict(
                 {
-                    "schema_version": 1,
+                    "schema_version": 12,
                     "transcription": {
                         "confidence_threshold": 1.5,
                     },
@@ -149,7 +149,7 @@ class TestTranscriptionPolicyLoading:
         with pytest.raises(PolicyValidationError):
             load_policy_from_dict(
                 {
-                    "schema_version": 1,
+                    "schema_version": 12,
                     "transcription": {
                         "enabled": True,
                         "invalid_field": "value",
@@ -161,7 +161,7 @@ class TestTranscriptionPolicyLoading:
         """has_transcription_settings should return True when enabled."""
         policy_disabled = load_policy_from_dict(
             {
-                "schema_version": 1,
+                "schema_version": 12,
                 "transcription": {"enabled": False},
             }
         )
@@ -169,13 +169,13 @@ class TestTranscriptionPolicyLoading:
 
         policy_enabled = load_policy_from_dict(
             {
-                "schema_version": 1,
+                "schema_version": 12,
                 "transcription": {"enabled": True},
             }
         )
         assert policy_enabled.has_transcription_settings is True
 
-        policy_none = load_policy_from_dict({"schema_version": 1})
+        policy_none = load_policy_from_dict({"schema_version": 12})
         assert policy_none.has_transcription_settings is False
 
 
@@ -222,7 +222,7 @@ class TestComputeLanguageUpdates:
         """Create a policy with transcription enabled."""
         return load_policy_from_dict(
             {
-                "schema_version": 1,
+                "schema_version": 12,
                 "transcription": {
                     "enabled": True,
                     "update_language_from_transcription": True,
@@ -236,7 +236,7 @@ class TestComputeLanguageUpdates:
         """Create a policy with transcription disabled."""
         return load_policy_from_dict(
             {
-                "schema_version": 1,
+                "schema_version": 12,
                 "transcription": {
                     "enabled": False,
                 },
@@ -329,7 +329,7 @@ class TestComputeLanguageUpdates:
         """Should not update when update_language_from_transcription is False."""
         policy = load_policy_from_dict(
             {
-                "schema_version": 1,
+                "schema_version": 12,
                 "transcription": {
                     "enabled": True,
                     "update_language_from_transcription": False,  # Disabled
@@ -358,7 +358,7 @@ class TestComputeLanguageUpdates:
         # With 0.5 threshold, should update
         policy_low = load_policy_from_dict(
             {
-                "schema_version": 1,
+                "schema_version": 12,
                 "transcription": {
                     "enabled": True,
                     "update_language_from_transcription": True,
@@ -373,7 +373,7 @@ class TestComputeLanguageUpdates:
         # With 0.8 threshold, should not update
         policy_high = load_policy_from_dict(
             {
-                "schema_version": 1,
+                "schema_version": 12,
                 "transcription": {
                     "enabled": True,
                     "update_language_from_transcription": True,
@@ -386,7 +386,7 @@ class TestComputeLanguageUpdates:
 
     def test_no_policy_transcription_settings(self, audio_track, transcription_result):
         """Should return empty when policy has no transcription settings."""
-        policy = load_policy_from_dict({"schema_version": 1})
+        policy = load_policy_from_dict({"schema_version": 12})
         results = {audio_track.id: transcription_result}
         updates = compute_language_updates([audio_track], results, policy)
 

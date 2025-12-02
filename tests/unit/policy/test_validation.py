@@ -67,10 +67,10 @@ class TestValidationResult:
 
     def test_to_dict_success(self):
         """Test dict serialization for success."""
-        result = ValidationResult(success=True, policy={"schema_version": 2})
+        result = ValidationResult(success=True, policy={"schema_version": 12})
         d = result.to_dict()
         assert d["success"] is True
-        assert d["policy"] == {"schema_version": 2}
+        assert d["policy"] == {"schema_version": 12}
         assert "errors" not in d  # Empty errors should be excluded
 
     def test_to_dict_failure(self):
@@ -92,7 +92,7 @@ class TestFormatPydanticErrors:
         try:
             PolicyModel.model_validate(
                 {
-                    "schema_version": 2,
+                    "schema_version": 12,
                     "track_order": [],  # Invalid: cannot be empty
                     "audio_language_preference": ["eng"],
                     "subtitle_language_preference": ["eng"],
@@ -113,7 +113,7 @@ class TestFormatPydanticErrors:
         try:
             PolicyModel.model_validate(
                 {
-                    "schema_version": 2,
+                    "schema_version": 12,
                     "track_order": ["video"],
                     "audio_language_preference": ["english"],  # Invalid: not ISO 639-2
                     "subtitle_language_preference": ["eng"],
@@ -137,7 +137,7 @@ class TestFormatPydanticErrors:
         try:
             PolicyModel.model_validate(
                 {
-                    "schema_version": 2,
+                    "schema_version": 12,
                     "track_order": [],  # Invalid
                     "audio_language_preference": [],  # Invalid
                     "subtitle_language_preference": [],  # Invalid
@@ -155,7 +155,7 @@ class TestFormatPydanticErrors:
         try:
             PolicyModel.model_validate(
                 {
-                    "schema_version": 2,
+                    "schema_version": 12,
                     "track_order": ["video"],
                     "audio_language_preference": ["toolongcode"],  # Invalid pattern
                     "subtitle_language_preference": ["eng"],
@@ -177,7 +177,7 @@ class TestValidatePolicyData:
     def test_valid_policy(self):
         """Test validation of valid policy data."""
         data = {
-            "schema_version": 2,
+            "schema_version": 12,
             "track_order": ["video", "audio_main"],
             "audio_language_preference": ["eng", "jpn"],
             "subtitle_language_preference": ["eng"],
@@ -193,12 +193,12 @@ class TestValidatePolicyData:
         assert result.success is True
         assert len(result.errors) == 0
         assert result.policy is not None
-        assert result.policy["schema_version"] == 2
+        assert result.policy["schema_version"] == 12
 
     def test_invalid_empty_track_order(self):
         """Test validation fails for empty track_order."""
         data = {
-            "schema_version": 2,
+            "schema_version": 12,
             "track_order": [],
             "audio_language_preference": ["eng"],
             "subtitle_language_preference": ["eng"],
@@ -212,7 +212,7 @@ class TestValidatePolicyData:
     def test_invalid_language_code(self):
         """Test validation fails for invalid language code."""
         data = {
-            "schema_version": 2,
+            "schema_version": 12,
             "track_order": ["video"],
             "audio_language_preference": ["english"],  # Invalid
             "subtitle_language_preference": ["eng"],
@@ -229,7 +229,7 @@ class TestValidatePolicyData:
     def test_invalid_regex_pattern(self):
         """Test validation fails for invalid regex pattern."""
         data = {
-            "schema_version": 2,
+            "schema_version": 12,
             "track_order": ["video"],
             "audio_language_preference": ["eng"],
             "subtitle_language_preference": ["eng"],
@@ -243,7 +243,7 @@ class TestValidatePolicyData:
     def test_empty_language_preference(self):
         """Test validation fails for empty language preference."""
         data = {
-            "schema_version": 2,
+            "schema_version": 12,
             "track_order": ["video"],
             "audio_language_preference": [],  # Empty
             "subtitle_language_preference": ["eng"],

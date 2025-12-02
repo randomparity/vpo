@@ -29,7 +29,7 @@ def db_conn():
 @pytest.fixture
 def base_policy():
     """Create a minimal policy for testing."""
-    return PolicySchema(schema_version=9)
+    return PolicySchema(schema_version=12)
 
 
 @pytest.fixture

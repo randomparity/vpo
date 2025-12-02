@@ -14,6 +14,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from video_policy_orchestrator.db.types import PluginMetadataDict
 from video_policy_orchestrator.policy.conditions import evaluate_condition
 from video_policy_orchestrator.policy.synthesis.downmix import (
     get_downmix_filter,
@@ -260,6 +261,7 @@ def _evaluate_create_condition(
     condition: Condition | None,
     tracks: list[TrackInfo],
     definition_name: str,
+    plugin_metadata: PluginMetadataDict | None = None,
 ) -> tuple[bool, str]:
     """Evaluate a create_if condition.
 
@@ -267,6 +269,7 @@ def _evaluate_create_condition(
         condition: The condition to evaluate, or None.
         tracks: List of all tracks in the file.
         definition_name: Name of the synthesis definition (for logging).
+        plugin_metadata: Plugin-provided metadata for condition evaluation.
 
     Returns:
         Tuple of (should_create, reason).
@@ -274,7 +277,9 @@ def _evaluate_create_condition(
     if condition is None:
         return True, "no condition specified"
 
-    result, reason = evaluate_condition(condition, tracks)
+    result, reason = evaluate_condition(
+        condition, tracks, plugin_metadata=plugin_metadata
+    )
     logger.debug(
         "create_if condition for '%s': %s (%s)",
         definition_name,
@@ -322,6 +327,7 @@ def resolve_synthesis_operation(
     all_tracks: list[TrackInfo],
     commentary_patterns: tuple[str, ...] | None = None,
     existing_operations: list[SynthesisOperation] | None = None,
+    plugin_metadata: PluginMetadataDict | None = None,
 ) -> SynthesisOperation | SkippedSynthesis:
     """Resolve a single synthesis definition to an operation or skip record.
 
@@ -330,6 +336,7 @@ def resolve_synthesis_operation(
         all_tracks: All tracks in the file.
         commentary_patterns: Patterns to identify commentary tracks.
         existing_operations: Already-planned operations (for position calculation).
+        plugin_metadata: Plugin-provided metadata for condition evaluation.
 
     Returns:
         Either a SynthesisOperation or SkippedSynthesis.
@@ -344,6 +351,7 @@ def resolve_synthesis_operation(
         definition.create_if,
         all_tracks,
         definition.name,
+        plugin_metadata,
     )
     if not should_create:
         return SkippedSynthesis(
@@ -503,6 +511,7 @@ def plan_synthesis(
     tracks: list[TrackInfo],
     synthesis_config: AudioSynthesisConfig,
     commentary_patterns: tuple[str, ...] | None = None,
+    plugin_metadata: PluginMetadataDict | None = None,
 ) -> SynthesisPlan:
     """Generate a complete synthesis plan for a file.
 
@@ -512,6 +521,7 @@ def plan_synthesis(
         tracks: All tracks in the file.
         synthesis_config: Audio synthesis configuration from policy.
         commentary_patterns: Patterns to identify commentary tracks.
+        plugin_metadata: Plugin-provided metadata for condition evaluation.
 
     Returns:
         Complete SynthesisPlan with operations and skipped tracks.
@@ -552,6 +562,7 @@ def plan_synthesis(
             tracks,
             commentary_patterns,
             operations,
+            plugin_metadata,
         )
 
         if isinstance(result, SynthesisOperation):

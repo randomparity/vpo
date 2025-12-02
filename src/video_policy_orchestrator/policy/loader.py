@@ -42,6 +42,10 @@ from video_policy_orchestrator.policy.models import (
     OnErrorMode,
     OrCondition,
     PhaseDefinition,
+    PhasedPolicySchema,
+    PluginMetadataCondition,
+    PluginMetadataOperator,
+    PluginMetadataReference,
     PolicySchema,
     ProcessingPhase,
     QualityMode,
@@ -50,6 +54,7 @@ from video_policy_orchestrator.policy.models import (
     ScalingSettings,
     SetDefaultAction,
     SetForcedAction,
+    SetLanguageAction,
     SkipAction,
     SkipCondition,
     SkipIfExistsCriteria,
@@ -61,16 +66,17 @@ from video_policy_orchestrator.policy.models import (
     TrackType,
     TranscodePolicyConfig,
     TranscriptionPolicyOptions,
-    V11PolicySchema,
     VideoTranscodeConfig,
     WarnAction,
     WorkflowConfig,
     parse_bitrate,
 )
 
-# Current maximum supported schema version
-# V11: User-defined processing phases
-MAX_SCHEMA_VERSION = 11
+# Current supported schema version (only V12 is supported)
+SCHEMA_VERSION = 12
+
+# Backward compatibility alias (deprecated)
+MAX_SCHEMA_VERSION = SCHEMA_VERSION
 
 # Reserved phase names that cannot be used as user-defined phase names
 RESERVED_PHASE_NAMES = frozenset({"config", "schema_version", "phases"})
@@ -961,6 +967,88 @@ class AudioIsMultiLanguageModel(BaseModel):
         return v
 
 
+class PluginMetadataConditionModel(BaseModel):
+    """Pydantic model for plugin metadata condition (V12+).
+
+    Checks plugin-provided metadata for a file against expected values.
+    Enables policy rules based on external metadata from plugins like
+    Radarr/Sonarr.
+
+    Example YAML:
+        when:
+          plugin_metadata:
+            plugin: radarr
+            field: original_language
+            value: jpn
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    plugin: str
+    """Name of the plugin that provided the metadata (e.g., 'radarr')."""
+
+    field: str
+    """Field name within the plugin's metadata (e.g., 'original_language')."""
+
+    value: str | int | float | bool | None = None
+    """Value to compare against. Required for all operators except 'exists'."""
+
+    operator: Literal["eq", "neq", "contains", "lt", "lte", "gt", "gte", "exists"] = (
+        "eq"
+    )
+    """Comparison operator. Use 'exists' to check if field is present."""
+
+    @field_validator("plugin")
+    @classmethod
+    def validate_plugin_name(cls, v: str) -> str:
+        """Validate plugin name is non-empty and valid."""
+        if not v or not v.strip():
+            raise ValueError("plugin name cannot be empty")
+        v = v.strip().lower()
+        # Plugin names should be kebab-case identifiers
+        import re
+
+        if not re.match(r"^[a-z][a-z0-9-]*$", v):
+            raise ValueError(
+                f"Invalid plugin name '{v}'. "
+                "Plugin names must be lowercase, start with a letter, "
+                "and contain only letters, numbers, and hyphens."
+            )
+        return v
+
+    @field_validator("field")
+    @classmethod
+    def validate_field_name(cls, v: str) -> str:
+        """Validate field name is non-empty and normalize to lowercase."""
+        if not v or not v.strip():
+            raise ValueError("field name cannot be empty")
+        return v.strip().lower()
+
+    @model_validator(mode="after")
+    def validate_operator_value_compatibility(self) -> "PluginMetadataConditionModel":
+        """Validate that operator is compatible with value type."""
+        # 'exists' operator doesn't need a value
+        if self.operator == "exists":
+            return self
+
+        # All other operators require a value
+        if self.value is None:
+            raise ValueError(
+                f"Operator '{self.operator}' requires a value. "
+                "Use operator: exists to check if a field is present."
+            )
+
+        # Numeric operators require numeric values
+        numeric_ops = ("lt", "lte", "gt", "gte")
+        if self.operator in numeric_ops:
+            if not isinstance(self.value, (int, float)):
+                raise ValueError(
+                    f"Operator '{self.operator}' requires a numeric value, "
+                    f"got {type(self.value).__name__}"
+                )
+        return self
+
+
 class ConditionModel(BaseModel):
     """Pydantic model for condition (union of condition types)."""
 
@@ -970,6 +1058,7 @@ class ConditionModel(BaseModel):
     exists: ExistsConditionModel | None = None
     count: CountConditionModel | None = None
     audio_is_multi_language: AudioIsMultiLanguageModel | None = None
+    plugin_metadata: PluginMetadataConditionModel | None = None  # V12+
 
     # Boolean operators
     all_of: list["ConditionModel"] | None = Field(None, alias="and")
@@ -983,6 +1072,7 @@ class ConditionModel(BaseModel):
             ("exists", self.exists),
             ("count", self.count),
             ("audio_is_multi_language", self.audio_is_multi_language),
+            ("plugin_metadata", self.plugin_metadata),
             ("and", self.all_of),
             ("or", self.any_of),
             ("not", self.not_),
@@ -993,7 +1083,7 @@ class ConditionModel(BaseModel):
             if len(set_conditions) == 0:
                 raise ValueError(
                     "Condition must specify exactly one type "
-                    "(exists/count/audio_is_multi_language/and/or/not)"
+                    "(exists/count/audio_is_multi_language/plugin_metadata/and/or/not)"
                 )
             names = [name for name, _ in set_conditions]
             raise ValueError(
@@ -1037,6 +1127,67 @@ class SetDefaultActionModel(BaseModel):
     value: bool = True
 
 
+class PluginMetadataReferenceModel(BaseModel):
+    """Pydantic model for referencing plugin metadata values.
+
+    Used to dynamically pull values from plugin metadata at runtime.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    plugin: str
+    field: str
+
+    @field_validator("plugin")
+    @classmethod
+    def validate_plugin_name(cls, v: str) -> str:
+        """Validate and normalize plugin name to lowercase."""
+        if not v or not v.strip():
+            raise ValueError("plugin name cannot be empty")
+        return v.strip().lower()
+
+    @field_validator("field")
+    @classmethod
+    def validate_field_name(cls, v: str) -> str:
+        """Validate and normalize field name to lowercase."""
+        if not v or not v.strip():
+            raise ValueError("field name cannot be empty")
+        return v.strip().lower()
+
+
+class SetLanguageActionModel(BaseModel):
+    """Pydantic model for set_language action.
+
+    Sets the language tag on matching tracks. Either new_language or
+    from_plugin_metadata must be specified, but not both.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    track_type: Literal["video", "audio", "subtitle"]
+    new_language: str | None = None
+    from_plugin_metadata: PluginMetadataReferenceModel | None = None
+    match_language: str | None = None
+
+    @model_validator(mode="after")
+    def validate_language_source(self) -> "SetLanguageActionModel":
+        """Validate that exactly one language source is specified."""
+        has_static = self.new_language is not None
+        has_dynamic = self.from_plugin_metadata is not None
+
+        if not has_static and not has_dynamic:
+            raise ValueError(
+                "set_language must specify either 'new_language' or "
+                "'from_plugin_metadata'"
+            )
+        if has_static and has_dynamic:
+            raise ValueError(
+                "set_language cannot specify both 'new_language' and "
+                "'from_plugin_metadata'"
+            )
+        return self
+
+
 class ActionModel(BaseModel):
     """Pydantic model for conditional action."""
 
@@ -1055,6 +1206,9 @@ class ActionModel(BaseModel):
     set_forced: SetForcedActionModel | None = None
     set_default: SetDefaultActionModel | None = None
 
+    # Track metadata actions
+    set_language: SetLanguageActionModel | None = None
+
     @model_validator(mode="after")
     def validate_at_least_one_action(self) -> "ActionModel":
         """Validate that at least one action is specified."""
@@ -1066,12 +1220,13 @@ class ActionModel(BaseModel):
             self.fail,
             self.set_forced,
             self.set_default,
+            self.set_language,
         ]
         if not any(a is not None for a in actions):
             raise ValueError(
                 "Action must specify at least one action "
                 "(skip_video_transcode/skip_audio_transcode/skip_track_filter/"
-                "warn/fail/set_forced/set_default)"
+                "warn/fail/set_forced/set_default/set_language)"
             )
         return self
 
@@ -1095,152 +1250,12 @@ class ConditionalRuleModel(BaseModel):
         return v.strip()
 
 
-def _check_v7_features_in_condition(condition: ConditionModel) -> set[str]:
-    """Check if a condition uses V7 features.
-
-    Recursively checks conditions for V7-specific features.
-
-    Args:
-        condition: The condition to check.
-
-    Returns:
-        Set of V7 feature names found in the condition.
-    """
-    features: set[str] = set()
-
-    if condition.audio_is_multi_language is not None:
-        features.add("audio_is_multi_language")
-
-    # Check nested conditions
-    if condition.all_of is not None:
-        for sub in condition.all_of:
-            features.update(_check_v7_features_in_condition(sub))
-    if condition.any_of is not None:
-        for sub in condition.any_of:
-            features.update(_check_v7_features_in_condition(sub))
-    if condition.not_ is not None:
-        features.update(_check_v7_features_in_condition(condition.not_))
-
-    return features
-
-
-def _check_v7_features_in_action(action: ActionModel) -> set[str]:
-    """Check if an action uses V7 features.
-
-    Args:
-        action: The action to check.
-
-    Returns:
-        Set of V7 feature names found in the action.
-    """
-    features: set[str] = set()
-
-    if action.set_forced is not None:
-        features.add("set_forced")
-    if action.set_default is not None:
-        features.add("set_default")
-
-    return features
-
-
-def _check_v7_features_in_rules(rules: list[ConditionalRuleModel]) -> set[str]:
-    """Check if any conditional rules use V7 features.
-
-    Checks conditions and actions for V7-specific features like
-    audio_is_multi_language, set_forced, and set_default.
-
-    Args:
-        rules: List of conditional rules to check.
-
-    Returns:
-        Set of V7 feature names found in the rules.
-    """
-    features: set[str] = set()
-
-    for rule in rules:
-        # Check condition
-        features.update(_check_v7_features_in_condition(rule.when))
-
-        # Check then actions
-        if isinstance(rule.then, list):
-            for action in rule.then:
-                features.update(_check_v7_features_in_action(action))
-        else:
-            features.update(_check_v7_features_in_action(rule.then))
-
-        # Check else actions
-        if rule.else_ is not None:
-            if isinstance(rule.else_, list):
-                for action in rule.else_:
-                    features.update(_check_v7_features_in_action(action))
-            else:
-                features.update(_check_v7_features_in_action(rule.else_))
-
-    return features
-
-
-def _check_v8_features_in_condition(condition: ConditionModel) -> set[str]:
-    """Check if a condition uses V8 features.
-
-    Recursively checks conditions for V8-specific features like not_commentary.
-
-    Args:
-        condition: The condition to check.
-
-    Returns:
-        Set of V8 feature names found in the condition.
-    """
-    features: set[str] = set()
-
-    # Check exists condition for not_commentary
-    if condition.exists is not None:
-        if condition.exists.not_commentary is not None:
-            features.add("not_commentary")
-
-    # Check count condition for not_commentary
-    if condition.count is not None:
-        if condition.count.not_commentary is not None:
-            features.add("not_commentary")
-
-    # Check nested conditions
-    if condition.all_of is not None:
-        for sub in condition.all_of:
-            features.update(_check_v8_features_in_condition(sub))
-    if condition.any_of is not None:
-        for sub in condition.any_of:
-            features.update(_check_v8_features_in_condition(sub))
-    if condition.not_ is not None:
-        features.update(_check_v8_features_in_condition(condition.not_))
-
-    return features
-
-
-def _check_v8_features_in_rules(rules: list[ConditionalRuleModel]) -> set[str]:
-    """Check if any conditional rules use V8 features.
-
-    Checks conditions for V8-specific features like not_commentary.
-
-    Args:
-        rules: List of conditional rules to check.
-
-    Returns:
-        Set of V8 feature names found in the rules.
-    """
-    features: set[str] = set()
-
-    for rule in rules:
-        # Check condition
-        features.update(_check_v8_features_in_condition(rule.when))
-
-    return features
-
-
 class PolicyModel(BaseModel):
     """Pydantic model for policy YAML validation."""
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: int = Field(ge=1, le=MAX_SCHEMA_VERSION)
+    schema_version: Literal[12] = 12
     track_order: list[str] = Field(
         default_factory=lambda: [t.value for t in DEFAULT_TRACK_ORDER]
     )
@@ -1252,101 +1267,23 @@ class PolicyModel(BaseModel):
         default_factory=lambda: ["commentary", "director"]
     )
     default_flags: DefaultFlagsModel = Field(default_factory=DefaultFlagsModel)
-    # V1-5: flat transcode config; V6: nested with video/audio sections
     transcode: TranscodePolicyModel | TranscodeV6Model | None = None
     transcription: TranscriptionPolicyModel | None = None
 
-    # V3 fields (optional, require schema_version >= 3)
+    # Track filtering configuration
     audio_filter: AudioFilterModel | None = None
     subtitle_filter: SubtitleFilterModel | None = None
     attachment_filter: AttachmentFilterModel | None = None
     container: ContainerModel | None = None
 
-    # V4 fields (optional, require schema_version >= 4)
+    # Conditional rules
     conditional: list[ConditionalRuleModel] | None = None
 
-    # V5 fields (optional, require schema_version >= 5)
+    # Audio synthesis
     audio_synthesis: AudioSynthesisModel | None = None
 
-    # V9 fields (optional, require schema_version >= 9)
+    # Workflow configuration
     workflow: WorkflowConfigModel | None = None
-
-    @model_validator(mode="after")
-    def validate_versioned_fields(self) -> "PolicyModel":
-        """Validate that versioned fields are used with correct schema_version."""
-        # V3 field validation
-        v3_fields = {
-            "audio_filter": self.audio_filter,
-            "subtitle_filter": self.subtitle_filter,
-            "attachment_filter": self.attachment_filter,
-            "container": self.container,
-        }
-        used_v3_fields = [
-            name for name, value in v3_fields.items() if value is not None
-        ]
-
-        if used_v3_fields and self.schema_version < 3:
-            fields_str = ", ".join(used_v3_fields)
-            raise ValueError(
-                f"V3 fields ({fields_str}) require schema_version >= 3, "
-                f"but schema_version is {self.schema_version}"
-            )
-
-        # V4 field validation
-        if self.conditional is not None and self.schema_version < 4:
-            raise ValueError(
-                f"V4 fields (conditional) require schema_version >= 4, "
-                f"but schema_version is {self.schema_version}"
-            )
-
-        # V5 field validation
-        if self.audio_synthesis is not None and self.schema_version < 5:
-            raise ValueError(
-                f"V5 fields (audio_synthesis) require schema_version >= 5, "
-                f"but schema_version is {self.schema_version}"
-            )
-
-        # V6 field validation: transcode with video/audio sections
-        if self.transcode is not None and isinstance(self.transcode, TranscodeV6Model):
-            if self.schema_version < 6:
-                raise ValueError(
-                    "V6 transcode format (video/audio sections) requires "
-                    f"schema_version >= 6, but schema_version is {self.schema_version}"
-                )
-
-        # V7 field validation: audio_is_multi_language, set_forced, set_default
-        if self.conditional is not None and self.schema_version < 7:
-            v7_features = _check_v7_features_in_rules(self.conditional)
-            if v7_features:
-                features_str = ", ".join(sorted(v7_features))
-                raise ValueError(
-                    f"V7 features ({features_str}) require schema_version >= 7, "
-                    f"but schema_version is {self.schema_version}"
-                )
-
-        # V8 field validation: skip_if_exists, not_commentary
-        v8_features: set[str] = set()
-        if self.audio_synthesis is not None:
-            for track in self.audio_synthesis.tracks:
-                if track.skip_if_exists is not None:
-                    v8_features.add("skip_if_exists")
-        if self.conditional is not None:
-            v8_features.update(_check_v8_features_in_rules(self.conditional))
-        if v8_features and self.schema_version < 8:
-            features_str = ", ".join(sorted(v8_features))
-            raise ValueError(
-                f"V8 features ({features_str}) require schema_version >= 8, "
-                f"but schema_version is {self.schema_version}"
-            )
-
-        # V9 field validation: workflow
-        if self.workflow is not None and self.schema_version < 9:
-            raise ValueError(
-                f"V9 fields (workflow) require schema_version >= 9, "
-                f"but schema_version is {self.schema_version}"
-            )
-
-        return self
 
     @field_validator("track_order")
     @classmethod
@@ -1497,13 +1434,13 @@ class PhaseModel(BaseModel):
         return v
 
 
-class V11PolicyModel(BaseModel):
-    """Pydantic model for V11 policy with user-defined phases."""
+class PhasedPolicyModel(BaseModel):
+    """Pydantic model for phased policy with user-defined phases."""
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: Literal[11]
-    """Schema version, must be exactly 11."""
+    schema_version: Literal[12] = 12
+    """Schema version, must be exactly 12."""
 
     config: GlobalConfigModel = Field(default_factory=GlobalConfigModel)
     """Global configuration."""
@@ -1531,6 +1468,10 @@ class V11PolicyModel(BaseModel):
                 )
             seen[lower] = name
         return v
+
+
+# Backward compatibility alias (deprecated)
+V11PolicyModel = PhasedPolicyModel
 
 
 # =============================================================================
@@ -1695,6 +1636,29 @@ def _convert_audio_is_multi_language_condition(
     )
 
 
+def _convert_plugin_metadata_condition(
+    model: PluginMetadataConditionModel,
+) -> PluginMetadataCondition:
+    """Convert PluginMetadataConditionModel to PluginMetadataCondition."""
+    # Convert operator string to enum
+    op_map = {
+        "eq": PluginMetadataOperator.EQ,
+        "neq": PluginMetadataOperator.NEQ,
+        "contains": PluginMetadataOperator.CONTAINS,
+        "lt": PluginMetadataOperator.LT,
+        "lte": PluginMetadataOperator.LTE,
+        "gt": PluginMetadataOperator.GT,
+        "gte": PluginMetadataOperator.GTE,
+        "exists": PluginMetadataOperator.EXISTS,
+    }
+    return PluginMetadataCondition(
+        plugin=model.plugin,
+        field=model.field,
+        value=model.value,
+        operator=op_map[model.operator],
+    )
+
+
 def _convert_condition(model: ConditionModel) -> Condition:
     """Convert ConditionModel to Condition type."""
     if model.exists is not None:
@@ -1705,6 +1669,9 @@ def _convert_condition(model: ConditionModel) -> Condition:
 
     if model.audio_is_multi_language is not None:
         return _convert_audio_is_multi_language_condition(model.audio_is_multi_language)
+
+    if model.plugin_metadata is not None:
+        return _convert_plugin_metadata_condition(model.plugin_metadata)
 
     if model.all_of is not None:
         return AndCondition(
@@ -1760,6 +1727,22 @@ def _convert_action(model: ActionModel) -> tuple[ConditionalAction, ...]:
                 track_type=model.set_default.track_type,
                 language=model.set_default.language,
                 value=model.set_default.value,
+            )
+        )
+
+    if model.set_language is not None:
+        from_plugin_ref = None
+        if model.set_language.from_plugin_metadata is not None:
+            from_plugin_ref = PluginMetadataReference(
+                plugin=model.set_language.from_plugin_metadata.plugin,
+                field=model.set_language.from_plugin_metadata.field,
+            )
+        actions.append(
+            SetLanguageAction(
+                track_type=model.set_language.track_type,
+                new_language=model.set_language.new_language,
+                from_plugin_metadata=from_plugin_ref,
+                match_language=model.set_language.match_language,
             )
         )
 
@@ -2289,8 +2272,8 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
     )
 
 
-def _convert_to_v11_policy_schema(model: V11PolicyModel) -> V11PolicySchema:
-    """Convert V11PolicyModel to V11PolicySchema dataclass."""
+def _convert_to_phased_policy_schema(model: PhasedPolicyModel) -> PhasedPolicySchema:
+    """Convert PhasedPolicyModel to PhasedPolicySchema dataclass."""
     # Convert global config
     on_error_map = {
         "skip": OnErrorMode.SKIP,
@@ -2307,21 +2290,25 @@ def _convert_to_v11_policy_schema(model: V11PolicyModel) -> V11PolicySchema:
     # Convert phases
     phases = tuple(_convert_phase_model(p) for p in model.phases)
 
-    return V11PolicySchema(
-        schema_version=11,
+    return PhasedPolicySchema(
+        schema_version=12,
         config=global_config,
         phases=phases,
     )
 
 
-def load_policy(policy_path: Path) -> PolicySchema | V11PolicySchema:
+# Backward compatibility alias (deprecated)
+_convert_to_v11_policy_schema = _convert_to_phased_policy_schema
+
+
+def load_policy(policy_path: Path) -> PolicySchema | PhasedPolicySchema:
     """Load and validate a policy from a YAML file.
 
     Args:
         policy_path: Path to the YAML policy file.
 
     Returns:
-        Validated PolicySchema (V1-10) or V11PolicySchema (V11) object.
+        Validated PolicySchema (flat format) or PhasedPolicySchema (phased format).
 
     Raises:
         PolicyValidationError: If the policy file is invalid.
@@ -2345,22 +2332,29 @@ def load_policy(policy_path: Path) -> PolicySchema | V11PolicySchema:
     return load_policy_from_dict(data)
 
 
-def load_policy_from_dict(data: dict[str, Any]) -> PolicySchema | V11PolicySchema:
+def load_policy_from_dict(data: dict[str, Any]) -> PolicySchema | PhasedPolicySchema:
     """Load and validate a policy from a dictionary.
 
     Args:
         data: Dictionary containing policy configuration.
 
     Returns:
-        Validated PolicySchema (V1-10) or V11PolicySchema (V11) object.
+        Validated PolicySchema (flat format) or PhasedPolicySchema (phased format).
 
     Raises:
         PolicyValidationError: If the policy data is invalid.
     """
-    # Check schema version to determine which model to use
+    # Check schema version - only V12 is supported
     schema_version = data.get("schema_version")
-    if schema_version == 11:
-        return load_v11_policy_from_dict(data)
+    if schema_version != 12:
+        raise PolicyValidationError(
+            f"Only schema_version 12 is supported, got {schema_version}"
+        )
+
+    # Route to phased loader if 'phases' key is present
+    has_phases = "phases" in data
+    if has_phases:
+        return load_phased_policy_from_dict(data)
 
     try:
         model = PolicyModel.model_validate(data)
@@ -2372,26 +2366,30 @@ def load_policy_from_dict(data: dict[str, Any]) -> PolicySchema | V11PolicySchem
     return _convert_to_policy_schema(model)
 
 
-def load_v11_policy_from_dict(data: dict[str, Any]) -> V11PolicySchema:
-    """Load and validate a V11 policy from a dictionary.
+def load_phased_policy_from_dict(data: dict[str, Any]) -> PhasedPolicySchema:
+    """Load and validate a phased policy from a dictionary.
 
     Args:
-        data: Dictionary containing V11 policy configuration.
+        data: Dictionary containing phased policy configuration.
 
     Returns:
-        Validated V11PolicySchema object.
+        Validated PhasedPolicySchema object.
 
     Raises:
         PolicyValidationError: If the policy data is invalid.
     """
     try:
-        model = V11PolicyModel.model_validate(data)
+        model = PhasedPolicyModel.model_validate(data)
     except Exception as e:
         # Transform Pydantic errors to user-friendly messages
         error_msg = _format_validation_error(e)
         raise PolicyValidationError(error_msg) from e
 
-    return _convert_to_v11_policy_schema(model)
+    return _convert_to_phased_policy_schema(model)
+
+
+# Backward compatibility alias (deprecated)
+load_v11_policy_from_dict = load_phased_policy_from_dict
 
 
 def _format_validation_error(error: Exception) -> str:

@@ -1,6 +1,6 @@
-# V11 Single Phase Policy Fixture
-# Used to test basic V11 schema parsing and single phase execution
-schema_version: 11
+# Single Phase Policy Fixture
+# Used to test basic phased schema parsing and single phase execution
+schema_version: 12
 
 config:
   audio_language_preference: [eng, und]

@@ -154,10 +154,10 @@ def mock_video_track() -> TrackInfo:
 
 @pytest.fixture
 def v7_multi_language_policy(temp_dir: Path) -> Path:
-    """Create a V7 policy file with audio_is_multi_language condition."""
+    """Create a policy file with audio_is_multi_language condition."""
     policy_path = temp_dir / "multi-language-policy.yaml"
     policy_path.write_text("""
-schema_version: 7
+schema_version: 12
 
 conditional:
   - name: "Enable forced subs for multi-language audio"
@@ -202,10 +202,10 @@ subtitle_language_preference:
 
 @pytest.fixture
 def v7_simple_multi_language_policy(temp_dir: Path) -> Path:
-    """Create a V7 policy with simple boolean audio_is_multi_language."""
+    """Create a policy with simple boolean audio_is_multi_language."""
     policy_path = temp_dir / "simple-multi-language.yaml"
     policy_path.write_text("""
-schema_version: 7
+schema_version: 12
 
 conditional:
   - name: "Detect any multi-language content"
@@ -223,10 +223,10 @@ audio_language_preference:
 
 @pytest.fixture
 def v6_policy_no_v7_features(temp_dir: Path) -> Path:
-    """Create a V6 policy without any V7 features."""
+    """Create a policy without any V7+ features."""
     policy_path = temp_dir / "v6-policy.yaml"
     policy_path.write_text("""
-schema_version: 6
+schema_version: 12
 
 conditional:
   - name: "Skip 4K HEVC"
@@ -303,10 +303,10 @@ class TestAudioIsMultiLanguageCondition:
         self,
         v7_multi_language_policy: Path,
     ):
-        """Test that V7 policy with audio_is_multi_language loads correctly."""
+        """Test that policy with audio_is_multi_language loads correctly."""
         policy = load_policy(v7_multi_language_policy)
 
-        assert policy.schema_version == 7
+        assert policy.schema_version == 12
         assert len(policy.conditional_rules) == 2
         assert (
             policy.conditional_rules[0].name
@@ -317,10 +317,10 @@ class TestAudioIsMultiLanguageCondition:
         self,
         v7_simple_multi_language_policy: Path,
     ):
-        """Test that V7 policy with simple boolean audio_is_multi_language loads."""
+        """Test that policy with simple boolean audio_is_multi_language loads."""
         policy = load_policy(v7_simple_multi_language_policy)
 
-        assert policy.schema_version == 7
+        assert policy.schema_version == 12
         assert len(policy.conditional_rules) == 1
 
     def test_audio_is_multi_language_condition_matches_multi_language_track(
@@ -406,7 +406,7 @@ class TestAudioIsMultiLanguageCondition:
         # Policy expects English primary
         policy_path = temp_dir / "english-primary.yaml"
         policy_path.write_text("""
-schema_version: 7
+schema_version: 12
 
 conditional:
   - name: "English primary multi-language"
@@ -470,7 +470,7 @@ audio_language_preference:
         # Policy with 5% threshold
         policy_path = temp_dir / "threshold-policy.yaml"
         policy_path.write_text("""
-schema_version: 7
+schema_version: 12
 
 conditional:
   - name: "Multi-language with 5% threshold"
@@ -557,96 +557,17 @@ class TestForcedSubtitleEnablement:
 
 
 # =============================================================================
-# Backward Compatibility Tests
+# Feature Tests (formerly Backward Compatibility)
 # =============================================================================
 
 
-class TestV7BackwardCompatibility:
-    """Tests for V7 backward compatibility with V6 policies."""
+class TestLanguageAnalysisFeatures:
+    """Tests for language analysis policy features."""
 
-    def test_v6_policy_still_loads(self, v6_policy_no_v7_features: Path):
-        """Test that V6 policies without V7 features still load correctly."""
+    def test_policy_with_conditional_rules_loads(self, v6_policy_no_v7_features: Path):
+        """Test that policy with conditional rules loads correctly."""
         policy = load_policy(v6_policy_no_v7_features)
 
-        assert policy.schema_version == 6
+        assert policy.schema_version == 12
         assert len(policy.conditional_rules) == 1
         assert policy.conditional_rules[0].name == "Skip 4K HEVC"
-
-    def test_v6_policy_rejects_v7_features(self, temp_dir: Path):
-        """Test that V6 policies reject V7 features."""
-        from video_policy_orchestrator.policy.loader import PolicyValidationError
-
-        policy_path = temp_dir / "invalid-v6.yaml"
-        policy_path.write_text("""
-schema_version: 6
-
-conditional:
-  - name: "Invalid V6 with V7 feature"
-    when:
-      audio_is_multi_language:
-        threshold: 0.05
-    then:
-      - warn: "This should fail"
-
-audio_language_preference:
-  - eng
-""")
-
-        with pytest.raises(PolicyValidationError) as exc_info:
-            load_policy(policy_path)
-
-        assert "V7" in str(exc_info.value) or "schema_version" in str(exc_info.value)
-
-    def test_v6_policy_rejects_set_forced_action(self, temp_dir: Path):
-        """Test that V6 policies reject set_forced action."""
-        from video_policy_orchestrator.policy.loader import PolicyValidationError
-
-        policy_path = temp_dir / "invalid-v6-set-forced.yaml"
-        policy_path.write_text("""
-schema_version: 6
-
-conditional:
-  - name: "Invalid V6 with set_forced"
-    when:
-      exists:
-        track_type: subtitle
-    then:
-      - set_forced:
-          track_type: subtitle
-          language: eng
-
-audio_language_preference:
-  - eng
-""")
-
-        with pytest.raises(PolicyValidationError) as exc_info:
-            load_policy(policy_path)
-
-        assert "V7" in str(exc_info.value) or "set_forced" in str(exc_info.value)
-
-    def test_v6_policy_rejects_set_default_action(self, temp_dir: Path):
-        """Test that V6 policies reject set_default action."""
-        from video_policy_orchestrator.policy.loader import PolicyValidationError
-
-        policy_path = temp_dir / "invalid-v6-set-default.yaml"
-        policy_path.write_text("""
-schema_version: 6
-
-conditional:
-  - name: "Invalid V6 with set_default"
-    when:
-      exists:
-        track_type: subtitle
-    then:
-      - set_default:
-          track_type: subtitle
-          language: eng
-
-audio_language_preference:
-  - eng
-""")
-
-        with pytest.raises(PolicyValidationError) as exc_info:
-            load_policy(policy_path)
-
-        assert "V7" in str(exc_info.value) or "set_default" in str(exc_info.value)

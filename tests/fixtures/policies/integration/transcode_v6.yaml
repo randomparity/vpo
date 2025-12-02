@@ -1,6 +1,6 @@
-# Transcode policy with skip conditions (schema v6)
+# Transcode policy with skip conditions
 # Used for testing video/audio transcoding operations
-schema_version: 6
+schema_version: 12
 
 audio_language_preference:
   - eng

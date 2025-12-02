@@ -12,7 +12,7 @@ from video_policy_orchestrator.policy.loader import PolicyValidationError
 def minimal_policy_file(tmp_path):
     """Create a minimal valid policy file for testing."""
     policy_file = tmp_path / "minimal.yaml"
-    policy_file.write_text("""schema_version: 2
+    policy_file.write_text("""schema_version: 12
 track_order:
   - video
   - audio_main
@@ -35,7 +35,7 @@ default_flags:
 def policy_with_unknown_fields(tmp_path):
     """Create a policy file with unknown fields for round-trip testing."""
     policy_file = tmp_path / "unknown.yaml"
-    policy_file.write_text("""schema_version: 2
+    policy_file.write_text("""schema_version: 12
 track_order:
   - video
   - audio_main
@@ -64,7 +64,7 @@ x_another_field:
 def policy_with_comments(tmp_path):
     """Create a policy file with YAML comments for preservation testing."""
     policy_file = tmp_path / "comments.yaml"
-    policy_file.write_text("""schema_version: 2
+    policy_file.write_text("""schema_version: 12
 
 # Track ordering configuration
 track_order:
@@ -99,7 +99,7 @@ def test_load_valid_policy(minimal_policy_file):
     editor = PolicyRoundTripEditor(minimal_policy_file)
     data = editor.load()
 
-    assert data["schema_version"] == 2
+    assert data["schema_version"] == 12
     assert data["track_order"] == ["video", "audio_main"]
     assert data["audio_language_preference"] == ["eng"]
     assert data["default_flags"]["set_first_video_default"] is True
@@ -202,7 +202,7 @@ def test_unknown_field_preservation(policy_with_unknown_fields):
 def test_multiple_unknown_fields_preserved(tmp_path):
     """Test that multiple unknown fields at different levels are preserved."""
     policy_file = tmp_path / "multi_unknown.yaml"
-    policy_file.write_text("""schema_version: 2
+    policy_file.write_text("""schema_version: 12
 x_top_level: value1
 track_order:
   - video
@@ -305,7 +305,7 @@ def test_comment_preservation_best_effort(policy_with_comments):
 def test_comment_on_unchanged_field_preserved(tmp_path):
     """Test that comments on unchanged fields are definitely preserved."""
     policy_file = tmp_path / "comments_unchanged.yaml"
-    policy_file.write_text("""schema_version: 2
+    policy_file.write_text("""schema_version: 12
 
 # This comment should be preserved
 track_order:

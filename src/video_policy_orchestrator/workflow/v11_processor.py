@@ -8,6 +8,7 @@ import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from sqlite3 import Connection
 
@@ -293,10 +294,18 @@ class V11WorkflowProcessor:
         track_records = get_tracks_for_file(self.conn, file_record.id)
         tracks = tracks_to_track_info(track_records)
 
+        # Parse ISO 8601 timestamp from database
+        modified_at = datetime.fromisoformat(file_record.modified_at)
+
         return FileInfo(
-            file_id=str(file_record.id),
             path=file_path,
-            container=file_record.container_format or file_path.suffix.lstrip("."),
+            filename=file_record.filename,
+            directory=Path(file_record.directory),
+            extension=file_record.extension,
+            size_bytes=file_record.size_bytes,
+            modified_at=modified_at,
+            content_hash=file_record.content_hash,
+            container_format=file_record.container_format,
             tracks=tracks,
         )
 
@@ -320,7 +329,7 @@ class V11WorkflowProcessor:
         try:
             # Run ffprobe to get fresh track data
             introspector = FFprobeIntrospector()
-            result = introspector.introspect(file_path)
+            result = introspector.get_file_info(file_path)
 
             # Update tracks in database
             upsert_tracks_for_file(self.conn, file_record.id, result.tracks)
@@ -330,11 +339,19 @@ class V11WorkflowProcessor:
                 file_path,
             )
 
-            # Return fresh FileInfo
+            # Parse ISO 8601 timestamp from database
+            modified_at = datetime.fromisoformat(file_record.modified_at)
+
+            # Return fresh FileInfo with updated tracks
             return FileInfo(
-                file_id=str(file_record.id),
                 path=file_path,
-                container=result.container or file_path.suffix.lstrip("."),
+                filename=file_record.filename,
+                directory=Path(file_record.directory),
+                extension=file_record.extension,
+                size_bytes=file_record.size_bytes,
+                modified_at=modified_at,
+                content_hash=file_record.content_hash,
+                container_format=result.container_format,
                 tracks=result.tracks,
             )
 

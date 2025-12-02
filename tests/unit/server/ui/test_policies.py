@@ -56,7 +56,7 @@ class TestPolicyListItem:
             filename="test.yaml",
             file_path="/path/to/test.yaml",
             last_modified="2025-01-01T00:00:00+00:00",
-            schema_version=2,
+            schema_version=12,
             audio_languages="eng, jpn",
             subtitle_languages="eng",
             has_transcode=True,
@@ -71,7 +71,7 @@ class TestPolicyListItem:
         assert d["filename"] == "test.yaml"
         assert d["file_path"] == "/path/to/test.yaml"
         assert d["last_modified"] == "2025-01-01T00:00:00+00:00"
-        assert d["schema_version"] == 2
+        assert d["schema_version"] == 12
         assert d["audio_languages"] == "eng, jpn"
         assert d["subtitle_languages"] == "eng"
         assert d["has_transcode"] is True
@@ -114,7 +114,7 @@ class TestPolicyListResponse:
                     filename="test.yaml",
                     file_path="/path/test.yaml",
                     last_modified="2025-01-01T00:00:00+00:00",
-                    schema_version=2,
+                    schema_version=12,
                     audio_languages="eng",
                     subtitle_languages="eng",
                     has_transcode=False,

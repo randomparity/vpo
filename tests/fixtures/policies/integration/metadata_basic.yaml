@@ -1,6 +1,6 @@
-# Basic metadata policy (schema v1)
+# Basic metadata policy
 # Used for testing default flag operations via mkvpropedit
-schema_version: 1
+schema_version: 12
 
 audio_language_preference:
   - eng

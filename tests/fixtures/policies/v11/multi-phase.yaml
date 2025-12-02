@@ -1,6 +1,6 @@
-# V11 Multi-Phase Policy Fixture
+# Multi-Phase Policy Fixture
 # Used to test multiple phase execution in order
-schema_version: 11
+schema_version: 12
 
 config:
   audio_language_preference: [eng, jpn, und]

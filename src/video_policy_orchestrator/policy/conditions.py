@@ -23,6 +23,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+from video_policy_orchestrator.db.types import PluginMetadataDict
 from video_policy_orchestrator.language import languages_match
 from video_policy_orchestrator.language_analysis.models import (
     LanguageAnalysisResult,
@@ -38,6 +39,8 @@ from video_policy_orchestrator.policy.models import (
     ExistsCondition,
     NotCondition,
     OrCondition,
+    PluginMetadataCondition,
+    PluginMetadataOperator,
     TitleMatch,
     TrackFilters,
 )
@@ -419,16 +422,158 @@ def evaluate_audio_is_multi_language(
     return (False, reason)
 
 
+def evaluate_plugin_metadata(
+    condition: PluginMetadataCondition,
+    plugin_metadata: PluginMetadataDict | None,
+) -> tuple[bool, str]:
+    """Evaluate a plugin metadata condition.
+
+    Args:
+        condition: The plugin metadata condition to evaluate.
+        plugin_metadata: Dict of plugin metadata keyed by plugin name,
+            e.g., {"radarr": {"original_language": "jpn", ...}}.
+
+    Returns:
+        Tuple of (result, reason) where result is True if the condition
+        matches and reason is a human-readable explanation.
+    """
+    plugin_name = condition.plugin.lower()
+    field_name = condition.field.lower()
+    expected_value = condition.value
+    op = condition.operator
+
+    # Check if plugin metadata is available
+    if plugin_metadata is None:
+        return (
+            False,
+            f"plugin_metadata({plugin_name}.{field_name}) → False "
+            "(no plugin metadata available)",
+        )
+
+    # Check if plugin exists in metadata (case-insensitive lookup)
+    plugin_data = None
+    for key, value in plugin_metadata.items():
+        if key.lower() == plugin_name:
+            plugin_data = value
+            break
+    if plugin_data is None:
+        return (
+            False,
+            f"plugin_metadata({plugin_name}.{field_name}) → False "
+            f"(plugin '{plugin_name}' not in metadata)",
+        )
+
+    # Check if field exists in plugin data (case-insensitive lookup)
+    actual_value = None
+    field_found = False
+    for key, value in plugin_data.items():
+        if key.lower() == field_name:
+            actual_value = value
+            field_found = True
+            break
+    if not field_found:
+        return (
+            False,
+            f"plugin_metadata({plugin_name}.{field_name}) → False "
+            f"(field '{field_name}' not found)",
+        )
+
+    # Handle EXISTS operator - field was found, so it exists
+    if op == PluginMetadataOperator.EXISTS:
+        return (
+            True,
+            f"plugin_metadata({plugin_name}.{field_name}) exists → True",
+        )
+
+    # Handle None values
+    if actual_value is None:
+        return (
+            False,
+            f"plugin_metadata({plugin_name}.{field_name}) → False "
+            "(field value is null)",
+        )
+
+    # Evaluate based on operator
+    result = _evaluate_plugin_metadata_op(actual_value, expected_value, op)
+
+    op_str = op.value
+    if result:
+        reason = (
+            f"plugin_metadata({plugin_name}.{field_name}) {op_str} "
+            f"{expected_value!r} → True (actual={actual_value!r})"
+        )
+    else:
+        reason = (
+            f"plugin_metadata({plugin_name}.{field_name}) {op_str} "
+            f"{expected_value!r} → False (actual={actual_value!r})"
+        )
+
+    return (result, reason)
+
+
+def _evaluate_plugin_metadata_op(
+    actual: str | int | float | bool,
+    expected: str | int | float | bool,
+    op: PluginMetadataOperator,
+) -> bool:
+    """Evaluate a plugin metadata comparison operation.
+
+    Args:
+        actual: The actual value from plugin metadata.
+        expected: The expected value from the condition.
+        op: The comparison operator.
+
+    Returns:
+        True if the comparison succeeds, False otherwise.
+    """
+    if op == PluginMetadataOperator.EQ:
+        # String comparison is case-insensitive
+        if isinstance(actual, str) and isinstance(expected, str):
+            return actual.lower() == expected.lower()
+        return actual == expected
+
+    if op == PluginMetadataOperator.NEQ:
+        # String comparison is case-insensitive
+        if isinstance(actual, str) and isinstance(expected, str):
+            return actual.lower() != expected.lower()
+        return actual != expected
+
+    if op == PluginMetadataOperator.CONTAINS:
+        # Substring match (strings only)
+        if isinstance(actual, str) and isinstance(expected, str):
+            return expected.lower() in actual.lower()
+        # Non-string types: convert to string and match
+        return str(expected).lower() in str(actual).lower()
+
+    # Numeric comparisons (integers/floats only)
+    if not isinstance(actual, (int, float)) or not isinstance(expected, (int, float)):
+        # Comparison operators only work on numeric types
+        return False
+
+    if op == PluginMetadataOperator.LT:
+        return actual < expected
+    if op == PluginMetadataOperator.LTE:
+        return actual <= expected
+    if op == PluginMetadataOperator.GT:
+        return actual > expected
+    if op == PluginMetadataOperator.GTE:
+        return actual >= expected
+
+    return False
+
+
 def evaluate_condition(
     condition: Condition,
     tracks: list[TrackInfo],
     language_results: dict[int, LanguageAnalysisResult] | None = None,
     commentary_patterns: tuple[str, ...] | None = None,
+    plugin_metadata: PluginMetadataDict | None = None,
 ) -> tuple[bool, str]:
     """Evaluate a condition against track metadata.
 
     This is the main entry point for condition evaluation. It handles
-    all condition types: exists, count, audio_is_multi_language, and, or, not.
+    all condition types: exists, count, audio_is_multi_language,
+    plugin_metadata, and, or, not.
 
     Args:
         condition: The condition to evaluate.
@@ -437,6 +582,8 @@ def evaluate_condition(
             (required for audio_is_multi_language conditions).
         commentary_patterns: Patterns to identify commentary tracks
             (for not_commentary filter).
+        plugin_metadata: Optional dict of plugin metadata keyed by plugin name
+            (required for plugin_metadata conditions).
 
     Returns:
         Tuple of (result, reason) where result is the boolean outcome
@@ -451,10 +598,13 @@ def evaluate_condition(
     if isinstance(condition, AudioIsMultiLanguageCondition):
         return evaluate_audio_is_multi_language(condition, tracks, language_results)
 
+    if isinstance(condition, PluginMetadataCondition):
+        return evaluate_plugin_metadata(condition, plugin_metadata)
+
     if isinstance(condition, AndCondition):
         for sub in condition.conditions:
             result, reason = evaluate_condition(
-                sub, tracks, language_results, commentary_patterns
+                sub, tracks, language_results, commentary_patterns, plugin_metadata
             )
             if not result:
                 return (False, f"and → False ({reason})")
@@ -463,7 +613,7 @@ def evaluate_condition(
     if isinstance(condition, OrCondition):
         for sub in condition.conditions:
             result, reason = evaluate_condition(
-                sub, tracks, language_results, commentary_patterns
+                sub, tracks, language_results, commentary_patterns, plugin_metadata
             )
             if result:
                 return (True, f"or → True ({reason})")
@@ -471,7 +621,11 @@ def evaluate_condition(
 
     if isinstance(condition, NotCondition):
         result, reason = evaluate_condition(
-            condition.inner, tracks, language_results, commentary_patterns
+            condition.inner,
+            tracks,
+            language_results,
+            commentary_patterns,
+            plugin_metadata,
         )
         return (not result, f"not({reason}) → {not result}")
 

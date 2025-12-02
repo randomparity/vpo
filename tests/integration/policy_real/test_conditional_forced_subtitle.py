@@ -74,7 +74,7 @@ class TestConditionalForcedSubtitle:
         # Create policy with conditional set_forced
         policy_path = tmp_path / "force_subs_policy.yaml"
         policy_path.write_text("""
-schema_version: 8
+schema_version: 12
 
 subtitle_language_preference: [eng, und]
 
@@ -173,7 +173,7 @@ conditional:
         # Same policy as above
         policy_path = tmp_path / "force_subs_policy.yaml"
         policy_path.write_text("""
-schema_version: 8
+schema_version: 12
 
 subtitle_language_preference: [eng, und]
 
@@ -250,7 +250,7 @@ conditional:
 
         policy_path = tmp_path / "policy.yaml"
         policy_path.write_text("""
-schema_version: 8
+schema_version: 12
 
 conditional:
   - name: force_english_subs_for_foreign_audio

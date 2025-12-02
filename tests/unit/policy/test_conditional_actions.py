@@ -654,3 +654,394 @@ class TestCombinedActions:
         ]
         assert len(forced_changes) == 1
         assert len(default_changes) == 2
+
+
+# =============================================================================
+# Tests for SetLanguageAction
+# =============================================================================
+
+
+class TestSetLanguageAction:
+    """Test set_language action behavior."""
+
+    @pytest.fixture
+    def tracks_with_video(self) -> list[TrackInfo]:
+        """Create a list of tracks including video."""
+        return [
+            TrackInfo(index=0, track_type="video", codec="h264", language="und"),
+            TrackInfo(index=1, track_type="audio", codec="aac", language="eng"),
+            TrackInfo(index=2, track_type="audio", codec="dts", language="jpn"),
+            TrackInfo(index=3, track_type="subtitle", codec="srt", language="eng"),
+        ]
+
+    @pytest.fixture
+    def context_with_video_tracks(
+        self, tracks_with_video: list[TrackInfo]
+    ) -> ActionContext:
+        """ActionContext with video and audio tracks."""
+        return ActionContext(
+            file_path=Path("/videos/test_movie.mkv"),
+            rule_name="Test Rule",
+            tracks=tracks_with_video,
+        )
+
+    def test_set_language_creates_language_change(
+        self, context_with_video_tracks: ActionContext
+    ) -> None:
+        """Set language action creates language changes for matching tracks."""
+        from video_policy_orchestrator.policy.actions import execute_set_language_action
+        from video_policy_orchestrator.policy.models import SetLanguageAction
+
+        action = SetLanguageAction(track_type="video", new_language="jpn")
+
+        result = execute_set_language_action(action, context_with_video_tracks)
+
+        assert len(result.track_language_changes) == 1
+        assert result.track_language_changes[0].track_index == 0
+        assert result.track_language_changes[0].new_language == "jpn"
+
+    def test_set_language_filters_by_match_language(
+        self, context_with_video_tracks: ActionContext
+    ) -> None:
+        """Set language action filters tracks by match_language."""
+        from video_policy_orchestrator.policy.actions import execute_set_language_action
+        from video_policy_orchestrator.policy.models import SetLanguageAction
+
+        action = SetLanguageAction(
+            track_type="audio", new_language="kor", match_language="jpn"
+        )
+
+        result = execute_set_language_action(action, context_with_video_tracks)
+
+        assert len(result.track_language_changes) == 1
+        assert result.track_language_changes[0].track_index == 2  # Japanese audio
+
+    def test_set_language_no_matching_tracks(
+        self, context_with_video_tracks: ActionContext
+    ) -> None:
+        """Set language action with no matching tracks records nothing."""
+        from video_policy_orchestrator.policy.actions import execute_set_language_action
+        from video_policy_orchestrator.policy.models import SetLanguageAction
+
+        action = SetLanguageAction(
+            track_type="audio", new_language="kor", match_language="fre"
+        )
+
+        result = execute_set_language_action(action, context_with_video_tracks)
+
+        assert len(result.track_language_changes) == 0
+
+    def test_set_language_all_tracks_of_type(
+        self, context_with_video_tracks: ActionContext
+    ) -> None:
+        """Set language without match_language affects all tracks of type."""
+        from video_policy_orchestrator.policy.actions import execute_set_language_action
+        from video_policy_orchestrator.policy.models import SetLanguageAction
+
+        action = SetLanguageAction(track_type="audio", new_language="kor")
+
+        result = execute_set_language_action(action, context_with_video_tracks)
+
+        assert len(result.track_language_changes) == 2  # Both audio tracks
+        indices = [c.track_index for c in result.track_language_changes]
+        assert 1 in indices
+        assert 2 in indices
+
+    def test_set_language_via_execute_actions(
+        self, context_with_video_tracks: ActionContext
+    ) -> None:
+        """Set language action works through execute_actions."""
+        from video_policy_orchestrator.policy.models import SetLanguageAction
+
+        actions = (SetLanguageAction(track_type="video", new_language="jpn"),)
+
+        result = execute_actions(actions, context_with_video_tracks)
+
+        assert len(result.track_language_changes) == 1
+        assert result.track_language_changes[0].new_language == "jpn"
+
+    def test_set_language_combined_with_other_actions(
+        self, context_with_video_tracks: ActionContext
+    ) -> None:
+        """Set language can be combined with other actions."""
+        from video_policy_orchestrator.policy.models import SetLanguageAction
+
+        actions = (
+            WarnAction(message="Setting language from plugin metadata"),
+            SetLanguageAction(track_type="video", new_language="jpn"),
+            SetForcedAction(track_type="subtitle", language="eng"),
+        )
+
+        result = execute_actions(actions, context_with_video_tracks)
+
+        assert len(result.warnings) == 1
+        assert len(result.track_language_changes) == 1
+        assert len(result.track_flag_changes) == 1
+
+    def test_set_language_no_tracks_in_context(self) -> None:
+        """Set language action with no tracks in context logs warning."""
+        from video_policy_orchestrator.policy.actions import execute_set_language_action
+        from video_policy_orchestrator.policy.models import SetLanguageAction
+
+        context = ActionContext(
+            file_path=Path("/videos/test.mkv"),
+            rule_name="Test",
+            tracks=[],
+        )
+        action = SetLanguageAction(track_type="video", new_language="jpn")
+
+        result = execute_set_language_action(action, context)
+
+        assert len(result.track_language_changes) == 0
+
+    def test_set_language_warns_on_no_match(self, caplog) -> None:
+        """Set language logs warning when no tracks match."""
+        from video_policy_orchestrator.policy.actions import execute_set_language_action
+        from video_policy_orchestrator.policy.models import SetLanguageAction
+
+        context = ActionContext(
+            file_path=Path("/test/video.mkv"),
+            rule_name="Test",
+            tracks=[TrackInfo(index=0, track_type="audio", codec="aac")],
+        )
+        action = SetLanguageAction(track_type="video", new_language="jpn")
+
+        execute_set_language_action(action, context)
+
+        assert "no matching video tracks" in caplog.text.lower()
+
+
+# =============================================================================
+# Tests for SetLanguageAction with from_plugin_metadata
+# =============================================================================
+
+
+class TestSetLanguageFromPluginMetadata:
+    """Test set_language action with from_plugin_metadata for dynamic language."""
+
+    @pytest.fixture
+    def tracks_with_video(self) -> list[TrackInfo]:
+        """Create a list of tracks including video."""
+        return [
+            TrackInfo(index=0, track_type="video", codec="h264", language="und"),
+            TrackInfo(index=1, track_type="audio", codec="aac", language="eng"),
+        ]
+
+    @pytest.fixture
+    def context_with_plugin_metadata(
+        self, tracks_with_video: list[TrackInfo]
+    ) -> ActionContext:
+        """ActionContext with plugin metadata."""
+        return ActionContext(
+            file_path=Path("/videos/test_movie.mkv"),
+            rule_name="Test Rule",
+            tracks=tracks_with_video,
+            plugin_metadata={
+                "radarr": {"original_language": "jpn", "title": "Test Movie"},
+                "sonarr": {"original_language": "kor"},
+            },
+        )
+
+    def test_from_plugin_metadata_resolves_language(
+        self, context_with_plugin_metadata: ActionContext
+    ) -> None:
+        """from_plugin_metadata resolves language from plugin data."""
+        from video_policy_orchestrator.policy.actions import execute_set_language_action
+        from video_policy_orchestrator.policy.models import (
+            PluginMetadataReference,
+            SetLanguageAction,
+        )
+
+        action = SetLanguageAction(
+            track_type="video",
+            from_plugin_metadata=PluginMetadataReference(
+                plugin="radarr", field="original_language"
+            ),
+        )
+
+        result = execute_set_language_action(action, context_with_plugin_metadata)
+
+        assert len(result.track_language_changes) == 1
+        assert result.track_language_changes[0].new_language == "jpn"
+
+    def test_from_plugin_metadata_different_plugin(
+        self, context_with_plugin_metadata: ActionContext
+    ) -> None:
+        """from_plugin_metadata works with different plugins."""
+        from video_policy_orchestrator.policy.actions import execute_set_language_action
+        from video_policy_orchestrator.policy.models import (
+            PluginMetadataReference,
+            SetLanguageAction,
+        )
+
+        action = SetLanguageAction(
+            track_type="video",
+            from_plugin_metadata=PluginMetadataReference(
+                plugin="sonarr", field="original_language"
+            ),
+        )
+
+        result = execute_set_language_action(action, context_with_plugin_metadata)
+
+        assert len(result.track_language_changes) == 1
+        assert result.track_language_changes[0].new_language == "kor"
+
+    def test_from_plugin_metadata_missing_plugin(
+        self, tracks_with_video: list[TrackInfo]
+    ) -> None:
+        """from_plugin_metadata skips action when plugin not found."""
+        from video_policy_orchestrator.policy.actions import execute_set_language_action
+        from video_policy_orchestrator.policy.models import (
+            PluginMetadataReference,
+            SetLanguageAction,
+        )
+
+        context = ActionContext(
+            file_path=Path("/videos/test.mkv"),
+            rule_name="Test",
+            tracks=tracks_with_video,
+            plugin_metadata={"radarr": {"original_language": "jpn"}},
+        )
+        action = SetLanguageAction(
+            track_type="video",
+            from_plugin_metadata=PluginMetadataReference(
+                plugin="sonarr", field="original_language"
+            ),
+        )
+
+        result = execute_set_language_action(action, context)
+
+        assert len(result.track_language_changes) == 0
+
+    def test_from_plugin_metadata_missing_field(
+        self, tracks_with_video: list[TrackInfo]
+    ) -> None:
+        """from_plugin_metadata skips action when field not found."""
+        from video_policy_orchestrator.policy.actions import execute_set_language_action
+        from video_policy_orchestrator.policy.models import (
+            PluginMetadataReference,
+            SetLanguageAction,
+        )
+
+        context = ActionContext(
+            file_path=Path("/videos/test.mkv"),
+            rule_name="Test",
+            tracks=tracks_with_video,
+            plugin_metadata={"radarr": {"title": "Test Movie"}},  # No original_language
+        )
+        action = SetLanguageAction(
+            track_type="video",
+            from_plugin_metadata=PluginMetadataReference(
+                plugin="radarr", field="original_language"
+            ),
+        )
+
+        result = execute_set_language_action(action, context)
+
+        assert len(result.track_language_changes) == 0
+
+    def test_from_plugin_metadata_no_metadata_in_context(
+        self, tracks_with_video: list[TrackInfo]
+    ) -> None:
+        """from_plugin_metadata skips action when no plugin_metadata in context."""
+        from video_policy_orchestrator.policy.actions import execute_set_language_action
+        from video_policy_orchestrator.policy.models import (
+            PluginMetadataReference,
+            SetLanguageAction,
+        )
+
+        context = ActionContext(
+            file_path=Path("/videos/test.mkv"),
+            rule_name="Test",
+            tracks=tracks_with_video,
+            plugin_metadata=None,
+        )
+        action = SetLanguageAction(
+            track_type="video",
+            from_plugin_metadata=PluginMetadataReference(
+                plugin="radarr", field="original_language"
+            ),
+        )
+
+        result = execute_set_language_action(action, context)
+
+        assert len(result.track_language_changes) == 0
+
+    def test_from_plugin_metadata_with_match_language(
+        self, context_with_plugin_metadata: ActionContext
+    ) -> None:
+        """from_plugin_metadata respects match_language filter."""
+        from video_policy_orchestrator.policy.actions import execute_set_language_action
+        from video_policy_orchestrator.policy.models import (
+            PluginMetadataReference,
+            SetLanguageAction,
+        )
+
+        # Only change tracks that have "und" language
+        action = SetLanguageAction(
+            track_type="video",
+            from_plugin_metadata=PluginMetadataReference(
+                plugin="radarr", field="original_language"
+            ),
+            match_language="und",
+        )
+
+        result = execute_set_language_action(action, context_with_plugin_metadata)
+
+        assert len(result.track_language_changes) == 1
+        assert result.track_language_changes[0].new_language == "jpn"
+
+    def test_from_plugin_metadata_via_execute_actions(
+        self, context_with_plugin_metadata: ActionContext
+    ) -> None:
+        """from_plugin_metadata works through execute_actions."""
+        from video_policy_orchestrator.policy.models import (
+            PluginMetadataReference,
+            SetLanguageAction,
+        )
+
+        actions = (
+            SetLanguageAction(
+                track_type="video",
+                from_plugin_metadata=PluginMetadataReference(
+                    plugin="radarr", field="original_language"
+                ),
+            ),
+        )
+
+        result = execute_actions(actions, context_with_plugin_metadata)
+
+        assert len(result.track_language_changes) == 1
+        assert result.track_language_changes[0].new_language == "jpn"
+
+    def test_from_plugin_metadata_case_insensitive_lookup(
+        self, tracks_with_video: list[TrackInfo]
+    ) -> None:
+        """from_plugin_metadata looks up fields case-insensitively."""
+        from video_policy_orchestrator.policy.actions import execute_set_language_action
+        from video_policy_orchestrator.policy.models import (
+            PluginMetadataReference,
+            SetLanguageAction,
+        )
+
+        # Plugin metadata has mixed-case keys
+        context = ActionContext(
+            file_path=Path("/videos/test.mkv"),
+            rule_name="Test",
+            tracks=tracks_with_video,
+            plugin_metadata={
+                "Radarr": {"Original_Language": "jpn"},  # Mixed case
+            },
+        )
+        # Action uses lowercase
+        action = SetLanguageAction(
+            track_type="video",
+            from_plugin_metadata=PluginMetadataReference(
+                plugin="radarr", field="original_language"
+            ),
+        )
+
+        result = execute_set_language_action(action, context)
+
+        assert len(result.track_language_changes) == 1
+        assert result.track_language_changes[0].new_language == "jpn"

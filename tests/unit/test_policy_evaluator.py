@@ -30,7 +30,7 @@ from video_policy_orchestrator.policy.models import (
 def default_policy() -> PolicySchema:
     """Create a default policy for testing."""
     return PolicySchema(
-        schema_version=1,
+        schema_version=12,
         track_order=(
             TrackType.VIDEO,
             TrackType.AUDIO_MAIN,
@@ -57,7 +57,7 @@ def default_policy() -> PolicySchema:
 def japanese_policy() -> PolicySchema:
     """Create a Japanese-preferred policy for testing."""
     return PolicySchema(
-        schema_version=1,
+        schema_version=12,
         audio_language_preference=("jpn", "eng", "und"),
         subtitle_language_preference=("eng", "und"),
         commentary_patterns=("commentary", "director"),
@@ -408,7 +408,7 @@ class TestComputeDefaultFlags:
     ):
         """English subtitle gets default when audio is German and English preferred."""
         policy = PolicySchema(
-            schema_version=1,
+            schema_version=12,
             audio_language_preference=("eng", "und"),
             subtitle_language_preference=("eng", "und"),
             commentary_patterns=("commentary", "director"),
@@ -435,7 +435,7 @@ class TestComputeDefaultFlags:
     def test_subtitle_default_when_audio_matches(self, matcher: CommentaryMatcher):
         """No subtitle default when audio matches preferred language."""
         policy = PolicySchema(
-            schema_version=1,
+            schema_version=12,
             audio_language_preference=("eng", "und"),
             subtitle_language_preference=("eng", "und"),
             commentary_patterns=("commentary", "director"),
@@ -460,7 +460,7 @@ class TestComputeDefaultFlags:
     def test_subtitle_default_when_audio_undefined(self, matcher: CommentaryMatcher):
         """Subtitle gets default when audio language is undefined."""
         policy = PolicySchema(
-            schema_version=1,
+            schema_version=12,
             audio_language_preference=("eng",),  # Note: 'und' NOT in preference
             subtitle_language_preference=("eng", "und"),
             commentary_patterns=("commentary", "director"),
@@ -487,7 +487,7 @@ class TestComputeDefaultFlags:
     ):
         """Subtitle gets default when only commentary audio exists."""
         policy = PolicySchema(
-            schema_version=1,
+            schema_version=12,
             audio_language_preference=("eng", "und"),
             subtitle_language_preference=("eng", "und"),
             commentary_patterns=("commentary", "director"),
@@ -518,7 +518,7 @@ class TestComputeDefaultFlags:
     def test_subtitle_default_when_no_audio(self, matcher: CommentaryMatcher):
         """Subtitle gets default when no audio tracks exist."""
         policy = PolicySchema(
-            schema_version=1,
+            schema_version=12,
             audio_language_preference=("eng", "und"),
             subtitle_language_preference=("eng", "und"),
             commentary_patterns=("commentary", "director"),
@@ -541,7 +541,7 @@ class TestComputeDefaultFlags:
     def test_subtitle_default_disabled_by_config(self, matcher: CommentaryMatcher):
         """No subtitle default when feature is disabled, regardless of audio."""
         policy = PolicySchema(
-            schema_version=1,
+            schema_version=12,
             audio_language_preference=("eng", "und"),
             subtitle_language_preference=("eng", "und"),
             commentary_patterns=("commentary", "director"),
@@ -745,7 +745,7 @@ class TestEvaluatePolicy:
         )
         assert plan.file_id == "test-file-id"
         assert plan.file_path == Path("/test/file.mkv")
-        assert plan.policy_version == 1
+        assert plan.policy_version == 12
         assert isinstance(plan.created_at, datetime)
 
 
@@ -769,7 +769,7 @@ class TestTrackDispositionTranscriptionStatus:
             TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="eng"),
         ]
         policy = PolicySchema(
-            schema_version=3,
+            schema_version=12,
             audio_filter=AudioFilterConfig(languages=("eng",)),
         )
         transcription_results = {
@@ -802,7 +802,7 @@ class TestTrackDispositionTranscriptionStatus:
             TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="eng"),
         ]
         policy = PolicySchema(
-            schema_version=3,
+            schema_version=12,
             audio_filter=AudioFilterConfig(languages=("eng",)),
         )
 
@@ -823,7 +823,7 @@ class TestTrackDispositionTranscriptionStatus:
             TrackInfo(index=0, track_type="video", codec="hevc"),
         ]
         policy = PolicySchema(
-            schema_version=3,
+            schema_version=12,
             audio_filter=AudioFilterConfig(languages=("eng",)),
         )
 
@@ -843,7 +843,7 @@ class TestTrackDispositionTranscriptionStatus:
             TrackInfo(index=0, track_type="subtitle", codec="subrip", language="eng"),
         ]
         policy = PolicySchema(
-            schema_version=3,
+            schema_version=12,
             subtitle_filter=SubtitleFilterConfig(languages=("eng",)),
         )
 
@@ -872,7 +872,7 @@ class TestTrackDispositionTranscriptionStatus:
             ),
         ]
         policy = PolicySchema(
-            schema_version=3,
+            schema_version=12,
             audio_filter=AudioFilterConfig(languages=("eng",)),
         )
         transcription_results = {
@@ -923,7 +923,7 @@ class TestTrackDispositionTranscriptionStatus:
             TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="fra"),
         ]
         policy = PolicySchema(
-            schema_version=3,
+            schema_version=12,
             audio_filter=AudioFilterConfig(
                 languages=("eng",),
                 fallback=LanguageFallbackConfig(mode="keep_all"),

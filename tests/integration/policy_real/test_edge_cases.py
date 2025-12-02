@@ -70,7 +70,7 @@ class TestToolAvailability:
             plan = Plan(
                 file_id="test",
                 file_path=generated_basic_h264,
-                policy_version=1,
+                policy_version=12,
                 requires_remux=False,
                 actions=(
                     PlannedAction(
@@ -116,7 +116,7 @@ class TestFileNotFound:
         plan = Plan(
             file_id="test",
             file_path=missing_path,
-            policy_version=1,
+            policy_version=12,
             requires_remux=False,
             actions=(
                 PlannedAction(
@@ -292,7 +292,7 @@ class TestBackupAndRecovery:
         plan = Plan(
             file_id="test",
             file_path=working_copy,
-            policy_version=1,
+            policy_version=12,
             requires_remux=False,
             actions=(
                 PlannedAction(
@@ -336,7 +336,7 @@ class TestIdempotency:
         plan = Plan(
             file_id="test",
             file_path=working_copy,
-            policy_version=1,
+            policy_version=12,
             requires_remux=False,
             actions=(
                 PlannedAction(

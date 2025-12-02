@@ -121,7 +121,7 @@ class TestInitCommand:
 
         # Parse and verify structure
         data = yaml.safe_load(content)
-        assert data["schema_version"] == 1
+        assert data["schema_version"] == 12
         assert "track_order" in data
         assert "audio_language_preference" in data
 

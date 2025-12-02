@@ -118,7 +118,7 @@ class TestTemplates:
 
     def test_policy_template_has_schema_version(self):
         """Test default policy has schema version."""
-        assert "schema_version: 1" in DEFAULT_POLICY_TEMPLATE
+        assert "schema_version: 12" in DEFAULT_POLICY_TEMPLATE
 
     def test_policy_template_has_track_order(self):
         """Test default policy has track order."""
@@ -302,7 +302,7 @@ class TestWriteDefaultPolicy:
         policy_path = temp_dir / "policies" / "default.yaml"
         assert policy_path.exists()
         content = policy_path.read_text()
-        assert "schema_version: 1" in content
+        assert "schema_version: 12" in content
 
     def test_creates_policies_directory(self, temp_dir: Path):
         """Test that policies directory is created."""

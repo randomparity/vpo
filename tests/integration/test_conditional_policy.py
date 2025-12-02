@@ -14,7 +14,7 @@ from video_policy_orchestrator.policy.evaluator import (
     evaluate_policy,
 )
 from video_policy_orchestrator.policy.exceptions import ConditionalFailError
-from video_policy_orchestrator.policy.loader import PolicyValidationError, load_policy
+from video_policy_orchestrator.policy.loader import load_policy
 from video_policy_orchestrator.policy.models import (
     SkipFlags,
 )
@@ -29,7 +29,7 @@ def v4_conditional_policy(temp_dir: Path) -> Path:
     """Create a V4 policy file with conditional rules."""
     policy_path = temp_dir / "conditional-policy.yaml"
     policy_path.write_text("""
-schema_version: 4
+schema_version: 12
 
 conditional:
   - name: "4K HEVC passthrough"
@@ -82,7 +82,7 @@ def v4_fail_policy(temp_dir: Path) -> Path:
     """Create a V4 policy file with fail action."""
     policy_path = temp_dir / "fail-policy.yaml"
     policy_path.write_text("""
-schema_version: 4
+schema_version: 12
 
 conditional:
   - name: "Missing English audio"
@@ -105,7 +105,7 @@ def v4_track_filter_policy(temp_dir: Path) -> Path:
     """Create a V4 policy with conditional skip_track_filter."""
     policy_path = temp_dir / "track-filter-policy.yaml"
     policy_path.write_text("""
-schema_version: 4
+schema_version: 12
 
 conditional:
   - name: "Skip filtering for single audio"
@@ -237,7 +237,7 @@ class TestConditionalPolicyLoading:
         """V4 policy with conditional section should load correctly."""
         policy = load_policy(v4_conditional_policy)
 
-        assert policy.schema_version == 4
+        assert policy.schema_version == 12
         assert policy.has_conditional_rules is True
         assert len(policy.conditional_rules) == 3
 
@@ -245,27 +245,6 @@ class TestConditionalPolicyLoading:
         rule1 = policy.conditional_rules[0]
         assert rule1.name == "4K HEVC passthrough"
         assert len(rule1.then_actions) == 2
-
-    def test_v4_fields_rejected_on_v3_policy(self, temp_dir: Path) -> None:
-        """V4 conditional section should be rejected on v3 policies."""
-        policy_path = temp_dir / "invalid-v3.yaml"
-        policy_path.write_text("""
-schema_version: 3
-conditional:
-  - name: "Test"
-    when:
-      exists:
-        track_type: video
-    then:
-      - warn: "test"
-audio_language_preference:
-  - eng
-""")
-
-        with pytest.raises(PolicyValidationError) as exc_info:
-            load_policy(policy_path)
-
-        assert "schema_version" in str(exc_info.value).lower()
 
 
 class TestConditionalRuleEvaluation:
@@ -568,7 +547,7 @@ class TestEvaluatePolicyWithConditionals:
         """evaluate_policy should work with V3 policy (no conditionals)."""
         policy_path = temp_dir / "v3-policy.yaml"
         policy_path.write_text("""
-schema_version: 3
+schema_version: 12
 audio_language_preference:
   - eng
 subtitle_language_preference:
@@ -626,7 +605,7 @@ class TestConditionalPolicyFixtureLoading:
 
         policy = load_policy(fixture_path)
 
-        assert policy.schema_version == 4
+        assert policy.schema_version == 12
         assert policy.has_conditional_rules is True
         assert len(policy.conditional_rules) == 4
 

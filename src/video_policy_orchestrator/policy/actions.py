@@ -38,10 +38,12 @@ from video_policy_orchestrator.policy.models import (
     FailAction,
     SetDefaultAction,
     SetForcedAction,
+    SetLanguageAction,
     SkipAction,
     SkipFlags,
     SkipType,
     TrackFlagChange,
+    TrackLanguageChange,
     WarnAction,
 )
 
@@ -62,13 +64,18 @@ class ActionContext:
     file_path: Path
     rule_name: str
 
-    # Tracks for set_forced/set_default actions (optional)
+    # Tracks for set_forced/set_default/set_language actions (optional)
     tracks: list[TrackInfo] = field(default_factory=list)
+
+    # Plugin metadata for dynamic value resolution (optional)
+    # Keys are plugin names, values are dicts of field -> value
+    plugin_metadata: dict[str, dict[str, str]] | None = None
 
     # Accumulated state
     skip_flags: SkipFlags = field(default_factory=SkipFlags)
     warnings: list[str] = field(default_factory=list)
     track_flag_changes: list[TrackFlagChange] = field(default_factory=list)
+    track_language_changes: list[TrackLanguageChange] = field(default_factory=list)
 
     @property
     def filename(self) -> str:
@@ -286,6 +293,139 @@ def execute_set_default_action(
     return context
 
 
+def _resolve_language_from_action(
+    action: SetLanguageAction, context: ActionContext
+) -> str | None:
+    """Resolve the target language from the action.
+
+    If new_language is specified, returns it directly.
+    If from_plugin_metadata is specified, looks up the value from context.
+
+    Args:
+        action: The set_language action.
+        context: Action context with optional plugin_metadata.
+
+    Returns:
+        The resolved language code, or None if not available.
+    """
+    if action.new_language is not None:
+        return action.new_language
+
+    if action.from_plugin_metadata is not None:
+        ref = action.from_plugin_metadata
+        plugin_name = ref.plugin.lower()
+        field_name = ref.field.lower()
+
+        if context.plugin_metadata is None:
+            logger.warning(
+                "set_language: no plugin_metadata in context, skipping action"
+            )
+            return None
+
+        # Case-insensitive plugin lookup
+        plugin_data = None
+        for key, value in context.plugin_metadata.items():
+            if key.lower() == plugin_name:
+                plugin_data = value
+                break
+        if plugin_data is None:
+            logger.warning(
+                "set_language: plugin '%s' not found in metadata, skipping action",
+                plugin_name,
+            )
+            return None
+
+        # Case-insensitive field lookup
+        field_value = None
+        for key, value in plugin_data.items():
+            if key.lower() == field_name:
+                field_value = value
+                break
+        if field_value is None:
+            logger.warning(
+                "set_language: field '%s' not found in plugin '%s' metadata, "
+                "skipping action",
+                field_name,
+                plugin_name,
+            )
+            return None
+
+        return str(field_value)
+
+    return None
+
+
+def execute_set_language_action(
+    action: SetLanguageAction, context: ActionContext
+) -> ActionContext:
+    """Execute a set_language action, setting language tag on matching tracks.
+
+    Args:
+        action: The set_language action to execute.
+        context: Current action context (must have tracks populated).
+
+    Returns:
+        Updated context with track language changes recorded.
+    """
+    if not context.tracks:
+        logger.warning(
+            "set_language action skipped: no tracks available in context for %s",
+            context.file_path,
+        )
+        return context
+
+    # Resolve the target language (static or from plugin metadata)
+    new_language = _resolve_language_from_action(action, context)
+    if new_language is None:
+        logger.debug(
+            "set_language action skipped: could not resolve language for %s",
+            context.file_path,
+        )
+        return context
+
+    # Find matching tracks by type
+    matching_tracks = [
+        t for t in context.tracks if t.track_type.lower() == action.track_type.lower()
+    ]
+
+    # Apply match_language filter if specified
+    if action.match_language is not None:
+        matching_tracks = [
+            t
+            for t in matching_tracks
+            if t.language and languages_match(t.language, action.match_language)
+        ]
+
+    if not matching_tracks:
+        lang_filter = ""
+        if action.match_language:
+            lang_filter = f" (match_language={action.match_language})"
+        logger.warning(
+            "set_language action: no matching %s tracks%s found in %s",
+            action.track_type,
+            lang_filter,
+            context.file_path,
+        )
+        return context
+
+    # Add language changes for matching tracks
+    for track in matching_tracks:
+        context.track_language_changes.append(
+            TrackLanguageChange(
+                track_index=track.index,
+                new_language=new_language,
+            )
+        )
+        logger.debug(
+            "set_language: track[%d] language=%s for %s",
+            track.index,
+            new_language,
+            context.file_path,
+        )
+
+    return context
+
+
 def execute_actions(
     actions: tuple[ConditionalAction, ...],
     context: ActionContext,
@@ -314,6 +454,8 @@ def execute_actions(
             context = execute_set_forced_action(action, context)
         elif isinstance(action, SetDefaultAction):
             context = execute_set_default_action(action, context)
+        elif isinstance(action, SetLanguageAction):
+            context = execute_set_language_action(action, context)
         elif isinstance(action, FailAction):
             execute_fail_action(action, context)
 

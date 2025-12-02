@@ -678,7 +678,7 @@ class TestTrackFlagChangesToPlannedAction:
         # Create a policy with conditional set_forced
         policy_path = tmp_path / "policy.yaml"
         policy_path.write_text("""
-schema_version: 8
+schema_version: 12
 
 conditional:
   - name: force_english_subs_for_foreign_audio
@@ -741,7 +741,7 @@ conditional:
 
         policy_path = tmp_path / "policy.yaml"
         policy_path.write_text("""
-schema_version: 8
+schema_version: 12
 
 conditional:
   - name: clear_forced_subs
@@ -802,7 +802,7 @@ conditional:
 
         policy_path = tmp_path / "policy.yaml"
         policy_path.write_text("""
-schema_version: 8
+schema_version: 12
 
 conditional:
   - name: set_forced_subs

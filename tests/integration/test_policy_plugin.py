@@ -49,7 +49,7 @@ def registry() -> PluginRegistry:
 def default_policy() -> PolicySchema:
     """Create a default policy for testing."""
     return PolicySchema(
-        schema_version=1,
+        schema_version=12,
         track_order=(
             TrackType.VIDEO,
             TrackType.AUDIO_MAIN,
@@ -178,7 +178,7 @@ class TestPolicyEngineEvaluationIntegration:
         assert plan is not None
         assert plan.file_id == "test-uuid"
         assert plan.file_path == file_path
-        assert plan.policy_version == 1
+        assert plan.policy_version == 12
 
     def test_evaluate_detects_default_flag_changes(
         self,
@@ -587,7 +587,7 @@ class TestPolicyEngineBackwardsCompatibility:
     ):
         """Plugin should respect language preference like direct evaluator."""
         japanese_policy = PolicySchema(
-            schema_version=1,
+            schema_version=12,
             audio_language_preference=("jpn", "eng", "und"),
             subtitle_language_preference=("eng", "und"),
             default_flags=DefaultFlagsConfig(

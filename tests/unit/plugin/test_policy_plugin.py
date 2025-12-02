@@ -36,7 +36,7 @@ def plugin() -> PolicyEnginePlugin:
 @pytest.fixture
 def sample_policy() -> PolicySchema:
     """Create a sample policy for testing."""
-    return PolicySchema(schema_version=1)
+    return PolicySchema(schema_version=12)
 
 
 @pytest.fixture
@@ -56,7 +56,7 @@ def sample_plan(tmp_path: Path) -> Plan:
     return Plan(
         file_id="test-uuid",
         file_path=tmp_path / "test.mkv",
-        policy_version=1,
+        policy_version=12,
         actions=(
             PlannedAction(
                 action_type=ActionType.SET_DEFAULT,
@@ -75,7 +75,7 @@ def empty_plan(tmp_path: Path) -> Plan:
     return Plan(
         file_id="test-uuid",
         file_path=tmp_path / "test.mkv",
-        policy_version=1,
+        policy_version=12,
         actions=(),
         requires_remux=False,
     )
@@ -298,7 +298,7 @@ class TestPolicyEnginePluginEvaluation:
         assert isinstance(plan, Plan)
         assert plan.file_id == "test-uuid"
         assert plan.file_path == file_path
-        assert plan.policy_version == 1
+        assert plan.policy_version == 12
 
     def test_evaluate_computes_actions(
         self,

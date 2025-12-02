@@ -140,6 +140,41 @@ def get_config_template(data_dir: Path) -> str:
 # auto_load = true               # Automatically load plugins on startup
 # warn_unacknowledged = true     # Warn about unacknowledged directory plugins
 
+# -----------------------------------------------------------------------------
+# Metadata Plugins
+# -----------------------------------------------------------------------------
+# Configure connections to Radarr (movies) and Sonarr (TV series) for
+# automatic metadata enrichment during file scans. When configured, VPO
+# stores plugin metadata that can be used in policy conditions and actions.
+#
+# Example policy using plugin metadata:
+#   conditional_rules:
+#     - name: "Set language from Radarr"
+#       when:
+#         plugin_metadata:
+#           plugin: radarr
+#           field: original_language
+#           operator: neq
+#           value: eng
+#       then:
+#         - set_language:
+#             track_type: audio
+#             from_plugin_metadata:
+#               plugin: radarr
+#               field: original_language
+
+# [plugins.metadata.radarr]
+# url = "http://localhost:7878"  # Radarr server URL
+# api_key = ""                   # Radarr API key (Settings > General > Security)
+# enabled = true                 # Enable/disable this plugin
+# timeout_seconds = 30           # API request timeout (1-300)
+
+# [plugins.metadata.sonarr]
+# url = "http://localhost:8989"  # Sonarr server URL
+# api_key = ""                   # Sonarr API key (Settings > General > Security)
+# enabled = true                 # Enable/disable this plugin
+# timeout_seconds = 30           # API request timeout (1-300)
+
 # =============================================================================
 # Jobs
 # =============================================================================
@@ -226,7 +261,7 @@ DEFAULT_POLICY_TEMPLATE = """\
 # This policy provides sensible defaults for organizing track metadata.
 # Customize as needed for your library.
 
-schema_version: 1
+schema_version: 12
 
 # Track type ordering (first = top priority)
 # Tracks are reordered to match this sequence

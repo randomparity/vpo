@@ -1,4 +1,4 @@
-schema_version: 1
+schema_version: 12
 
 # Anime-focused policy: Japanese audio with English subtitles
 audio_language_preference:

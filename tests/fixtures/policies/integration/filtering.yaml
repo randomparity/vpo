@@ -1,6 +1,6 @@
-# Track filtering policy (schema v3)
+# Track filtering policy
 # Used for testing track removal/filtering via mkvmerge
-schema_version: 3
+schema_version: 12
 
 audio_language_preference:
   - eng

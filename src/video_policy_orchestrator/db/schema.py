@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 16
+SCHEMA_VERSION = 17
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS files (
     scanned_at TEXT NOT NULL,   -- ISO 8601 UTC timestamp
     scan_status TEXT NOT NULL DEFAULT 'pending',
     scan_error TEXT,
-    job_id TEXT  -- Links file to scan job that discovered/updated it
+    job_id TEXT,  -- Links file to scan job that discovered/updated it
+    plugin_metadata TEXT  -- JSON: plugin-provided enrichment data keyed by plugin name
 );
 
 CREATE INDEX IF NOT EXISTS idx_files_directory ON files(directory);
@@ -1192,6 +1193,31 @@ def migrate_v15_to_v16(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def migrate_v16_to_v17(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 16 to version 17.
+
+    Adds plugin_metadata column to files table for storing plugin-provided
+    enrichment data (039-plugin-metadata-policy):
+    - plugin_metadata: JSON text storing plugin enrichment keyed by plugin name
+
+    This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Check if column already exists (idempotent)
+    cursor = conn.execute("PRAGMA table_info(files)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "plugin_metadata" not in columns:
+        conn.execute("ALTER TABLE files ADD COLUMN plugin_metadata TEXT")
+
+    # Update schema version to 17
+    conn.execute(
+        "UPDATE _meta SET value = '17' WHERE key = 'schema_version'",
+    )
+    conn.commit()
+
+
 def initialize_database(conn: sqlite3.Connection) -> None:
     """Initialize the database with schema, creating tables if needed.
 
@@ -1248,3 +1274,6 @@ def initialize_database(conn: sqlite3.Connection) -> None:
             current_version = 15
         if current_version == 15:
             migrate_v15_to_v16(conn)
+            current_version = 16
+        if current_version == 16:
+            migrate_v16_to_v17(conn)

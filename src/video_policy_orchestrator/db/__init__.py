@@ -67,6 +67,7 @@ from .queries import (
 # Types: Database records
 # Types: View models
 # Types: Helper functions
+# Types: Type aliases
 from .types import (
     FileInfo,
     FileListViewItem,
@@ -84,6 +85,7 @@ from .types import (
     PlanRecord,
     PlanStatus,
     PluginAcknowledgment,
+    PluginMetadataDict,
     ScanErrorView,
     TrackClassification,
     TrackInfo,
@@ -137,6 +139,8 @@ __all__ = [
     "ScanErrorView",
     "TranscriptionDetailView",
     "TranscriptionListViewItem",
+    # Type aliases
+    "PluginMetadataDict",
     # Helper functions
     "tracks_to_track_info",
     # File operations

@@ -1,6 +1,6 @@
-# Track reordering policy (schema v2)
+# Track reordering policy
 # Used for testing track order changes via mkvmerge
-schema_version: 2
+schema_version: 12
 
 track_order:
   - video

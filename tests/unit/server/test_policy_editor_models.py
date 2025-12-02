@@ -66,7 +66,7 @@ class TestPolicyEditorRequestV11:
         )
         result = request.to_policy_dict()
 
-        assert result["schema_version"] == 11
+        assert result["schema_version"] == 12
         assert "phases" in result
         assert result["phases"] == [
             {"name": "test", "audio_filter": {"languages": ["eng"]}}
@@ -93,7 +93,7 @@ class TestPolicyEditorRequestV11:
         )
         result = request.to_policy_dict()
 
-        assert result["schema_version"] == 11
+        assert result["schema_version"] == 12
         assert result["config"]["audio_language_preference"] == ["eng", "und"]
         assert result["config"]["subtitle_language_preference"] == ["eng"]
         assert result["config"]["commentary_patterns"] == ["commentary"]
@@ -117,7 +117,7 @@ class TestPolicyEditorRequestV11:
         )
         result = request.to_policy_dict()
 
-        assert result["schema_version"] == 2
+        assert result["schema_version"] == 12
         assert "track_order" in result
         assert "phases" not in result
         assert "config" not in result
@@ -140,7 +140,7 @@ class TestPolicyEditorRequestV11:
         )
         result = request.to_policy_dict()
 
-        assert result["schema_version"] == 9
+        assert result["schema_version"] == 12
         assert result["workflow"] == {
             "phases": ["ANALYZE", "APPLY"],
             "on_error": "skip",
@@ -190,7 +190,7 @@ class TestPolicyEditorRequestVersionDetection:
         result = request.to_policy_dict()
 
         # V11 wins because phases is set
-        assert result["schema_version"] == 11
+        assert result["schema_version"] == 12
         assert "phases" in result
         # Legacy fields should not appear at top level
         assert "workflow" not in result

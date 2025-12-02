@@ -1739,21 +1739,21 @@ class PolicyEditorRequest:
         """Convert to dictionary for policy validation and saving.
 
         Returns:
-            Dictionary in PolicyModel format (V1-V10) or V11PolicySchema format.
+            Dictionary in PolicyModel format or PhasedPolicySchema format.
         """
-        # V11 policies have a different structure
+        # Phased policies have a different structure
         if self.phases is not None:
-            return self._to_v11_policy_dict()
+            return self._to_phased_policy_dict()
         return self._to_legacy_policy_dict()
 
-    def _to_v11_policy_dict(self) -> dict:
-        """Convert to V11 policy dictionary format.
+    def _to_phased_policy_dict(self) -> dict:
+        """Convert to phased policy dictionary format.
 
         Returns:
-            Dictionary in V11PolicySchema format.
+            Dictionary in PhasedPolicySchema format.
         """
         result: dict = {
-            "schema_version": 11,
+            "schema_version": 12,
             "phases": self.phases,
         }
         if self.config is not None:
@@ -1769,36 +1769,14 @@ class PolicyEditorRequest:
         return result
 
     def _to_legacy_policy_dict(self) -> dict:
-        """Convert to legacy (V1-V10) policy dictionary format.
+        """Convert to flat policy dictionary format.
 
         Returns:
             Dictionary in PolicyModel format.
         """
-        # Must include schema_version for validation
-        # Determine schema version based on features used
-        schema_version = 2  # Default base version
-        if self.workflow is not None:
-            schema_version = 9
-        elif self.transcode is not None and (
-            self.transcode.get("video") or self.transcode.get("audio")
-        ):
-            schema_version = 6
-        elif self.audio_synthesis is not None:
-            schema_version = 5
-        elif self.conditional is not None:
-            schema_version = 4
-        elif any(
-            [
-                self.audio_filter,
-                self.subtitle_filter,
-                self.attachment_filter,
-                self.container,
-            ]
-        ):
-            schema_version = 3
-
+        # Always use schema_version 12
         result = {
-            "schema_version": schema_version,
+            "schema_version": 12,
             "track_order": self.track_order,
             "audio_language_preference": self.audio_language_preference,
             "subtitle_language_preference": self.subtitle_language_preference,

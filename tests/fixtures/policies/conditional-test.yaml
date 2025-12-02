@@ -1,6 +1,5 @@
 # Test policy for conditional rule evaluation
-# Schema version 4 required for conditional section
-schema_version: 4
+schema_version: 12
 
 # Conditional rules - evaluated first, first match wins
 conditional:
