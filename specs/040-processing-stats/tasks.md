@@ -59,16 +59,16 @@
 
 ### Implementation for User Story 1
 
-- [ ] T021 [US1] Add get_stats_summary() aggregate query function in src/video_policy_orchestrator/db/views.py
-- [ ] T022 [US1] Add get_recent_stats() query function in src/video_policy_orchestrator/db/views.py
-- [ ] T023 [US1] Create CLI stats command group in src/video_policy_orchestrator/cli/stats.py
-- [ ] T024 [US1] Implement `vpo stats summary` subcommand with --since/--until date filtering in src/video_policy_orchestrator/cli/stats.py
-- [ ] T025 [US1] Add table/json/csv output formatters for summary in src/video_policy_orchestrator/cli/stats.py
-- [ ] T026 [US1] Register stats command in src/video_policy_orchestrator/cli/__init__.py
-- [ ] T027 [US1] Add GET /api/stats/summary route handler in src/video_policy_orchestrator/server/routes.py
-- [ ] T028 [US1] Add GET /api/stats/recent route handler in src/video_policy_orchestrator/server/routes.py
-- [ ] T029 [US1] Create statistics dashboard template in src/video_policy_orchestrator/server/ui/templates/stats.html
-- [ ] T030 [US1] Add stats dashboard route (GET /stats) in src/video_policy_orchestrator/server/ui/routes.py
+- [x] T021 [US1] Add get_stats_summary() aggregate query function in src/video_policy_orchestrator/db/views.py
+- [x] T022 [US1] Add get_recent_stats() query function in src/video_policy_orchestrator/db/views.py
+- [x] T023 [US1] Create CLI stats command group in src/video_policy_orchestrator/cli/stats.py
+- [x] T024 [US1] Implement `vpo stats summary` subcommand with --since/--until date filtering in src/video_policy_orchestrator/cli/stats.py
+- [x] T025 [US1] Add table/json/csv output formatters for summary in src/video_policy_orchestrator/cli/stats.py
+- [x] T026 [US1] Register stats command in src/video_policy_orchestrator/cli/__init__.py
+- [x] T027 [US1] Add GET /api/stats/summary route handler in src/video_policy_orchestrator/server/ui/routes.py
+- [x] T028 [US1] Add GET /api/stats/recent route handler in src/video_policy_orchestrator/server/ui/routes.py
+- [x] T029 [US1] Create statistics dashboard template in src/video_policy_orchestrator/server/ui/templates/sections/stats.html
+- [x] T030 [US1] Add stats dashboard route (GET /stats) in src/video_policy_orchestrator/server/ui/routes.py
 
 **Checkpoint**: User Story 1 complete - users can view disk space savings via CLI and Web UI
 

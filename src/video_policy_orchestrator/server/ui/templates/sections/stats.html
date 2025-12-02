@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="stats-dashboard">
+    <!-- Loading state -->
+    <div id="stats-loading" class="stats-loading" role="status" aria-label="Loading statistics">
+        <div class="stats-loading-spinner" aria-hidden="true"></div>
+        <p>Loading statistics...</p>
+    </div>
+
+    <!-- Error state (hidden by default) -->
+    <div id="stats-error" class="stats-error" style="display: none;" role="alert">
+        <div class="stats-error-icon" aria-hidden="true">!</div>
+        <div class="stats-error-title">Error loading statistics</div>
+        <div class="stats-error-message" id="stats-error-message">Failed to load statistics.</div>
+        <button class="stats-retry-btn" id="stats-retry-btn" type="button">Retry</button>
+    </div>
+
+    <!-- Main content (hidden until loaded) -->
+    <div id="stats-content" style="display: none;">
+        <!-- Time filter -->
+        <div class="stats-filters">
+            <label for="stats-time-filter">Time range:</label>
+            <select id="stats-time-filter">
+                <option value="">All time</option>
+                <option value="24h">Last 24 hours</option>
+                <option value="7d" selected>Last 7 days</option>
+                <option value="30d">Last 30 days</option>
+                <option value="90d">Last 90 days</option>
+            </select>
+        </div>
+
+        <!-- Summary cards -->
+        <div class="stats-summary-cards">
+            <div class="stats-card stats-card-primary">
+                <div class="stats-card-title">Files Processed</div>
+                <div class="stats-card-value" id="stats-files-processed">0</div>
+                <div class="stats-card-detail">
+                    <span id="stats-success-count">0</span> successful,
+                    <span id="stats-fail-count">0</span> failed
+                </div>
+            </div>
+            <div class="stats-card stats-card-success">
+                <div class="stats-card-title">Space Saved</div>
+                <div class="stats-card-value" id="stats-space-saved">0 B</div>
+                <div class="stats-card-detail">
+                    <span id="stats-avg-savings">0%</span> average savings
+                </div>
+            </div>
+            <div class="stats-card stats-card-info">
+                <div class="stats-card-title">Tracks Removed</div>
+                <div class="stats-card-value" id="stats-tracks-removed">0</div>
+                <div class="stats-card-detail">
+                    <span id="stats-audio-removed">0</span> audio,
+                    <span id="stats-subtitle-removed">0</span> subtitle
+                </div>
+            </div>
+            <div class="stats-card stats-card-transcode">
+                <div class="stats-card-title">Videos Transcoded</div>
+                <div class="stats-card-value" id="stats-videos-transcoded">0</div>
+                <div class="stats-card-detail">
+                    <span id="stats-videos-skipped">0</span> skipped
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty state for no data -->
+        <div id="stats-empty" class="stats-empty" style="display: none;" role="status">
+            <div class="stats-empty-icon" aria-hidden="true">&#128200;</div>
+            <div class="stats-empty-title">No processing statistics</div>
+            <div class="stats-empty-hint">
+                Statistics are captured during <code>vpo process</code> (non-dry-run).<br>
+                Process some files to see statistics here.
+            </div>
+        </div>
+
+        <!-- Recent processing table -->
+        <div id="stats-recent-section" class="stats-section">
+            <h3 class="stats-section-title">Recent Processing</h3>
+            <div class="stats-table-container">
+                <table class="stats-table" id="stats-recent-table" aria-label="Recent processing history">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Policy</th>
+                            <th>Space Saved</th>
+                            <th>Tracks Removed</th>
+                            <th>Duration</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stats-recent-body">
+                        <!-- Rows populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Policy comparison table -->
+        <div id="stats-policies-section" class="stats-section">
+            <h3 class="stats-section-title">Policy Comparison</h3>
+            <div class="stats-table-container">
+                <table class="stats-table" id="stats-policies-table" aria-label="Policy statistics comparison">
+                    <thead>
+                        <tr>
+                            <th>Policy</th>
+                            <th>Files</th>
+                            <th>Success</th>
+                            <th>Space Saved</th>
+                            <th>Avg Savings</th>
+                            <th>Last Used</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stats-policies-body">
+                        <!-- Rows populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/stats.js"></script>
+{% endblock %}
