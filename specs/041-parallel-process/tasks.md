@@ -55,13 +55,13 @@
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Add --workers/-w CLI option to process_command in src/video_policy_orchestrator/cli/process.py
-- [ ] T010 [US1] Create DaemonConnectionPool instance at batch start (replacing get_connection) in src/video_policy_orchestrator/cli/process.py
-- [ ] T011 [US1] Implement process_files_parallel() function using ThreadPoolExecutor and as_completed (relies on existing fcntl.flock for file safety) in src/video_policy_orchestrator/cli/process.py
-- [ ] T012 [US1] Update V11WorkflowProcessor instantiation to accept DaemonConnectionPool in src/video_policy_orchestrator/cli/process.py
-- [ ] T013 [US1] Integrate ProgressTracker to display aggregate progress line on stderr in src/video_policy_orchestrator/cli/process.py
-- [ ] T014 [US1] Add batch summary output (success/fail counts, total duration) in src/video_policy_orchestrator/cli/process.py
-- [ ] T015 [US1] Add integration test for parallel processing with 2 workers in tests/integration/test_parallel_process.py
+- [x] T009 [US1] Add --workers/-w CLI option to process_command in src/video_policy_orchestrator/cli/process.py
+- [x] T010 [US1] Create DaemonConnectionPool instance at batch start (replacing get_connection) in src/video_policy_orchestrator/cli/process.py
+- [x] T011 [US1] Implement process_files_parallel() function using ThreadPoolExecutor and as_completed (relies on existing fcntl.flock for file safety) in src/video_policy_orchestrator/cli/process.py
+- [x] T012 [US1] Update V11WorkflowProcessor instantiation to accept DaemonConnectionPool in src/video_policy_orchestrator/cli/process.py
+- [x] T013 [US1] Integrate ProgressTracker to display aggregate progress line on stderr in src/video_policy_orchestrator/cli/process.py
+- [x] T014 [US1] Add batch summary output (success/fail counts, total duration) in src/video_policy_orchestrator/cli/process.py
+- [x] T015 [US1] Add integration test for parallel processing with 2 workers in tests/integration/test_parallel_process.py
 
 **Checkpoint**: User Story 1 complete - parallel processing works with --workers flag, progress displays correctly
 
@@ -75,10 +75,10 @@
 
 ### Implementation for User Story 4
 
-- [ ] T016 [US4] Add stop_event (threading.Event) for coordinating early termination in src/video_policy_orchestrator/cli/process.py
-- [ ] T017 [US4] Implement on_error=fail logic: set stop_event, cancel pending futures, let in-progress complete in src/video_policy_orchestrator/cli/process.py
-- [ ] T018 [US4] Implement on_error=skip logic: record failure, continue other workers, collect all results in src/video_policy_orchestrator/cli/process.py
-- [ ] T019 [US4] Add stopped_early flag to batch result and include in summary output in src/video_policy_orchestrator/cli/process.py
+- [x] T016 [US4] Add stop_event (threading.Event) for coordinating early termination in src/video_policy_orchestrator/cli/process.py
+- [x] T017 [US4] Implement on_error=fail logic: set stop_event, cancel pending futures, let in-progress complete in src/video_policy_orchestrator/cli/process.py
+- [x] T018 [US4] Implement on_error=skip logic: record failure, continue other workers, collect all results in src/video_policy_orchestrator/cli/process.py
+- [x] T019 [US4] Add stopped_early flag to batch result and include in summary output in src/video_policy_orchestrator/cli/process.py
 - [ ] T020 [US4] Add integration test for on_error=fail stopping batch in tests/integration/test_parallel_process.py
 - [ ] T021 [US4] Add integration test for on_error=skip continuing batch in tests/integration/test_parallel_process.py
 
@@ -94,10 +94,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Load processing config from get_config() and use workers value as default in src/video_policy_orchestrator/cli/process.py
-- [ ] T023 [US2] Ensure CLI --workers flag overrides config file value in src/video_policy_orchestrator/cli/process.py
-- [ ] T024 [US2] Add unit test for config loading with [processing] section in tests/unit/config/test_builder.py
-- [ ] T025 [US2] Add integration test for config-based worker count in tests/integration/test_parallel_process.py
+- [x] T022 [US2] Load processing config from get_config() and use workers value as default in src/video_policy_orchestrator/cli/process.py
+- [x] T023 [US2] Ensure CLI --workers flag overrides config file value in src/video_policy_orchestrator/cli/process.py
+- [x] T024 [US2] Add unit test for config loading with [processing] section in tests/unit/config/test_builder.py
+- [x] T025 [US2] Add integration test for config-based worker count in tests/integration/test_parallel_process.py
 
 **Checkpoint**: User Story 2 complete - default worker count configurable via config.toml
 
@@ -111,9 +111,9 @@
 
 ### Implementation for User Story 3
 
-- [ ] T026 [US3] Ensure --workers 1 uses sequential execution path (ThreadPoolExecutor with max_workers=1) in src/video_policy_orchestrator/cli/process.py
-- [ ] T027 [US3] Verify output order matches input order with --workers 1 in src/video_policy_orchestrator/cli/process.py
-- [ ] T028 [US3] Add integration test for sequential processing with --workers 1 in tests/integration/test_parallel_process.py
+- [x] T026 [US3] Ensure --workers 1 uses sequential execution path (ThreadPoolExecutor with max_workers=1) in src/video_policy_orchestrator/cli/process.py
+- [x] T027 [US3] Verify output order matches input order with --workers 1 in src/video_policy_orchestrator/cli/process.py
+- [x] T028 [US3] Add integration test for sequential processing with --workers 1 in tests/integration/test_parallel_process.py
 
 **Checkpoint**: User Story 3 complete - sequential mode works correctly
 

@@ -12,7 +12,9 @@ import os
 import sqlite3
 import sys
 import threading
-from dataclasses import replace
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import click
@@ -25,7 +27,8 @@ from video_policy_orchestrator.cli.plan_formatter import (
     format_plan_json,
 )
 from video_policy_orchestrator.cli.profile_loader import load_profile_or_exit
-from video_policy_orchestrator.db.connection import get_connection
+from video_policy_orchestrator.config.loader import get_config
+from video_policy_orchestrator.db.connection import DaemonConnectionPool, get_connection
 from video_policy_orchestrator.policy.loader import PolicyValidationError, load_policy
 from video_policy_orchestrator.policy.models import (
     OnErrorMode,
@@ -338,6 +341,86 @@ def _format_v11_result_json(result, file_path: Path) -> dict:
     }
 
 
+# =============================================================================
+# Batch Processing Results
+# =============================================================================
+
+
+@dataclass
+class BatchResult:
+    """Aggregated result of parallel batch processing."""
+
+    total_files: int
+    success_count: int
+    fail_count: int
+    results: list  # List of FileProcessingResult
+    total_duration_seconds: float
+    stopped_early: bool = False
+
+
+def _process_single_file_v11(
+    file_path: Path,
+    pool: DaemonConnectionPool,
+    policy: V11PolicySchema,
+    dry_run: bool,
+    verbose: bool,
+    policy_name: str,
+    selected_phases: list[str] | None,
+    progress: ProgressTracker,
+    stop_event: threading.Event,
+) -> tuple[Path, any, bool]:
+    """Process a single file with V11 policy (worker function).
+
+    Args:
+        file_path: Path to the video file.
+        pool: Database connection pool.
+        policy: V11 policy schema.
+        dry_run: Whether to preview changes without modifying.
+        verbose: Whether to emit verbose logging.
+        policy_name: Name of the policy for audit.
+        selected_phases: Optional phases to execute.
+        progress: Progress tracker for display.
+        stop_event: Event signaling batch should stop.
+
+    Returns:
+        Tuple of (file_path, result, success).
+    """
+    if stop_event.is_set():
+        return file_path, None, False
+
+    progress.start_file()
+    try:
+        # Get connection from pool for this operation
+        conn = pool.get_connection()
+        processor = V11WorkflowProcessor(
+            conn=conn,
+            policy=policy,
+            dry_run=dry_run,
+            verbose=verbose,
+            policy_name=policy_name,
+            selected_phases=selected_phases,
+        )
+        result = processor.process_file(file_path)
+        return file_path, result, result.success
+    except Exception as e:
+        logger.exception("Error processing %s: %s", file_path, e)
+        # Create a minimal failure result
+        from video_policy_orchestrator.policy.models import FileProcessingResult
+
+        result = FileProcessingResult(
+            file_path=file_path,
+            phases_completed=[],
+            phases_failed=[],
+            phases_skipped=[],
+            phase_results=[],
+            total_changes=0,
+            error_message=str(e),
+        )
+        return file_path, result, False
+    finally:
+        progress.complete_file()
+
+
 @click.command("process")
 @click.option(
     "--policy",
@@ -394,6 +477,17 @@ def _format_v11_result_json(result, file_path: Path) -> dict:
     default=False,
     help="Output in JSON format",
 )
+@click.option(
+    "--workers",
+    "-w",
+    type=int,
+    default=None,
+    help=(
+        "Number of parallel workers for batch processing "
+        "(default: from config or 2, max: half CPU cores). "
+        "Each worker needs ~2.5x file size disk space for transcoding."
+    ),
+)
 @click.argument(
     "paths",
     nargs=-1,
@@ -409,6 +503,7 @@ def process_command(
     on_error: str | None,
     verbose: bool,
     json_output: bool,
+    workers: int | None,
     paths: tuple[Path, ...],
 ) -> None:
     """Process media files through the unified workflow.
@@ -470,10 +565,15 @@ def process_command(
             json_output,
         )
 
+    # Resolve worker count from config and CLI
+    config = get_config()
+    effective_workers = resolve_worker_count(workers, config.processing.workers)
+
     if verbose and not json_output:
         click.echo(f"Policy: {policy_path} (v{policy.schema_version})")
         click.echo(f"Files: {len(file_paths)}")
         click.echo(f"Mode: {'dry-run' if dry_run else 'live'}")
+        click.echo(f"Workers: {effective_workers}")
         click.echo("")
 
     # Process files
@@ -481,6 +581,8 @@ def process_command(
     success_count = 0
     fail_count = 0
     is_v11 = isinstance(policy, V11PolicySchema)
+    stopped_early = False
+    batch_start_time = time.time()
 
     # Validate phase names for V11 policies before processing
     selected_phases = None
@@ -496,55 +598,90 @@ def process_command(
             )
             error_exit(error_msg, ExitCode.INVALID_ARGUMENTS, json_output)
 
+    # Create connection pool for thread-safe database access
+    from video_policy_orchestrator.db.connection import get_default_db_path
+
+    db_path = get_default_db_path()
+    pool = DaemonConnectionPool(db_path)
+    progress = ProgressTracker(
+        total=len(file_paths),
+        enabled=not json_output and not verbose,  # Disable if JSON or verbose
+    )
+    stop_event = threading.Event()
+
     try:
-        with get_connection() as conn:
-            if is_v11:
-                # V11 policy with user-defined phases
-                processor = V11WorkflowProcessor(
-                    conn=conn,
-                    policy=policy,
-                    dry_run=dry_run,
-                    verbose=verbose,
-                    policy_name=str(policy_path),
-                    selected_phases=selected_phases,
-                )
+        if is_v11:
+            # V11 policy - parallel processing with ThreadPoolExecutor
+            # Determine on_error mode from policy config
+            policy_on_error = policy.config.on_error
 
+            with ThreadPoolExecutor(max_workers=effective_workers) as executor:
+                # Submit all files as futures
+                futures = {}
                 for file_path in file_paths:
-                    if verbose and not json_output:
-                        click.echo(f"Processing: {file_path}")
+                    if stop_event.is_set():
+                        break
+                    future = executor.submit(
+                        _process_single_file_v11,
+                        file_path,
+                        pool,
+                        policy,
+                        dry_run,
+                        verbose,
+                        str(policy_path),
+                        selected_phases,
+                        progress,
+                        stop_event,
+                    )
+                    futures[future] = file_path
 
-                    result = processor.process_file(file_path)
-                    results.append(result)
+                # Process results as they complete
+                for future in as_completed(futures):
+                    file_path = futures[future]
+                    try:
+                        _, result, success = future.result()
+                        if result is not None:
+                            results.append(result)
+                            if success:
+                                success_count += 1
+                            else:
+                                fail_count += 1
 
-                    if result.success:
-                        success_count += 1
-                    else:
+                            # Output result if verbose
+                            if not json_output and verbose:
+                                formatted = _format_v11_result_human(
+                                    result, file_path, verbose
+                                )
+                                click.echo(formatted)
+                                click.echo("")
+                            elif not json_output and not progress.enabled:
+                                # Not verbose, not progress mode - show status
+                                status = "OK" if success else "FAILED"
+                                click.echo(f"[{status}] {file_path.name}")
+
+                            # Handle on_error=fail mode
+                            if not success and policy_on_error == OnErrorMode.FAIL:
+                                stop_event.set()
+                                stopped_early = True
+                                if not json_output:
+                                    click.echo(
+                                        "Stopping batch due to error "
+                                        f"(on_error='fail'): {result.error_message}"
+                                    )
+                                # Cancel pending futures
+                                for f in futures:
+                                    f.cancel()
+                    except Exception as e:
+                        logger.exception("Unexpected error for %s: %s", file_path, e)
                         fail_count += 1
 
-                    if not json_output:
-                        if dry_run or verbose:
-                            formatted = _format_v11_result_human(
-                                result, file_path, verbose
-                            )
-                            click.echo(formatted)
-                            click.echo("")
-                        else:
-                            status = "OK" if result.success else "FAILED"
-                            click.echo(f"[{status}] {file_path.name}")
+            # Finish progress display
+            progress.finish()
 
-                    # Check if batch should stop
-                    if (
-                        not result.success
-                        and policy.config.on_error == OnErrorMode.FAIL
-                    ):
-                        if not json_output:
-                            click.echo(
-                                f"Stopping batch due to error (on_error='fail'): "
-                                f"{result.error_message}"
-                            )
-                        break
-            else:
-                # V1-V10 policy - use existing workflow processor
+        else:
+            # V1-V10 policy - use existing sequential workflow processor
+            # (parallel not implemented for legacy policies)
+            with get_connection() as conn:
                 # Create effective workflow config with overrides
                 if phase_override or on_error:
                     base_config = policy.workflow or WorkflowConfig(
@@ -595,6 +732,7 @@ def process_command(
 
                     # Check if batch processing should stop (on_error='fail')
                     if result.batch_should_stop:
+                        stopped_early = True
                         if not json_output:
                             click.echo(
                                 f"Stopping batch due to error (on_error='fail'): "
@@ -604,6 +742,11 @@ def process_command(
 
     except sqlite3.Error as e:
         error_exit(f"Database error: {e}", ExitCode.GENERAL_ERROR, json_output)
+    finally:
+        pool.close()
+
+    # Calculate batch duration
+    batch_duration = time.time() - batch_start_time
 
     # Output summary
     if json_output:
@@ -619,10 +762,13 @@ def process_command(
             output = {
                 "policy": policy_info,
                 "dry_run": dry_run,
+                "workers": effective_workers,
                 "summary": {
                     "total": len(results),
                     "success": success_count,
                     "failed": fail_count,
+                    "duration_seconds": round(batch_duration, 2),
+                    "stopped_early": stopped_early,
                 },
                 "results": [_format_v11_result_json(r, r.file_path) for r in results],
             }
@@ -633,10 +779,13 @@ def process_command(
                     "version": policy.schema_version,
                 },
                 "dry_run": dry_run,
+                "workers": effective_workers,
                 "summary": {
                     "total": len(results),
                     "success": success_count,
                     "failed": fail_count,
+                    "duration_seconds": round(batch_duration, 2),
+                    "stopped_early": stopped_early,
                 },
                 "results": [_format_result_json(r, r.file_path) for r in results],
             }
@@ -644,7 +793,11 @@ def process_command(
     else:
         click.echo("")
         n = len(results)
-        click.echo(f"Processed {n} file(s): {success_count} ok, {fail_count} failed")
+        duration_str = f" in {batch_duration:.1f}s" if batch_duration > 0 else ""
+        msg = f"Processed {n} file(s): {success_count} ok, {fail_count} failed"
+        click.echo(f"{msg}{duration_str}")
+        if stopped_early:
+            click.echo("(Batch stopped early due to error)")
 
     # Exit code
     if fail_count > 0:
