@@ -17,6 +17,8 @@ from pathlib import Path
 
 from video_policy_orchestrator.tools.models import FFmpegCapabilities
 
+__all__ = ["FFmpegCommandBuilder", "get_ffmpeg_builder"]
+
 
 @dataclass
 class FFmpegCommandBuilder:

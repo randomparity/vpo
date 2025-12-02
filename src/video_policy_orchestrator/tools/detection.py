@@ -5,6 +5,7 @@ and enumerate their capabilities (codecs, formats, filters for ffmpeg).
 """
 
 import logging
+import platform
 import re
 import shutil
 import subprocess  # nosec B404 - subprocess is required for tool detection
@@ -190,8 +191,6 @@ def _probe_wav_codec_requirement(ffmpeg_path: Path) -> bool:
     Returns:
         True if explicit codec is required, False otherwise.
     """
-    import platform
-
     null_device = "NUL" if platform.system() == "Windows" else "/dev/null"
     cmd = [
         str(ffmpeg_path),
@@ -226,8 +225,6 @@ def _probe_single_hw_encoder(ffmpeg_path: Path, encoder: str) -> bool:
     Returns:
         True if encoder is usable, False otherwise.
     """
-    import platform
-
     null_device = "NUL" if platform.system() == "Windows" else "/dev/null"
     cmd = [
         str(ffmpeg_path),

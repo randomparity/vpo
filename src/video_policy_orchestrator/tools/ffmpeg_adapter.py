@@ -16,8 +16,18 @@ Example:
 """
 
 import subprocess  # nosec B404 - subprocess is required for FFmpeg execution
+import threading
 from dataclasses import dataclass
 from pathlib import Path
+
+__all__ = [
+    "FFmpegAdapter",
+    "FFmpegError",
+    "FFmpegVersionError",
+    "FFmpegCapabilityError",
+    "get_ffmpeg_adapter",
+    "reset_ffmpeg_adapter",
+]
 
 from video_policy_orchestrator.tools.ffmpeg_builder import FFmpegCommandBuilder
 from video_policy_orchestrator.tools.models import ToolRegistry
@@ -59,6 +69,10 @@ class FFmpegCapabilityError(FFmpegError):
     """Error due to missing FFmpeg capability.
 
     Raised when FFmpeg is missing a required encoder, decoder, or feature.
+
+    Note:
+        Currently defined for future capability checking. Will be used when
+        verifying encoder/decoder availability before operations.
     """
 
     def __init__(self, capability: str, suggestion: str = ""):
@@ -232,7 +246,8 @@ class FFmpegAdapter:
             raise FFmpegError(f"Could not parse duration for {file_path}: {e}") from e
 
 
-# Module-level cached adapter
+# Module-level cached adapter with thread-safe access
+_adapter_lock = threading.Lock()
 _adapter_cache: FFmpegAdapter | None = None
 
 
@@ -241,6 +256,7 @@ def get_ffmpeg_adapter() -> FFmpegAdapter:
 
     Creates and caches an FFmpegAdapter using the tool registry.
     The adapter is cached for efficiency across multiple calls.
+    Thread-safe for use with parallel file processing.
 
     Returns:
         Configured FFmpegAdapter.
@@ -251,9 +267,12 @@ def get_ffmpeg_adapter() -> FFmpegAdapter:
     """
     global _adapter_cache
     if _adapter_cache is None:
-        from video_policy_orchestrator.tools.cache import get_tool_registry
+        with _adapter_lock:
+            # Double-checked locking pattern
+            if _adapter_cache is None:
+                from video_policy_orchestrator.tools.cache import get_tool_registry
 
-        _adapter_cache = FFmpegAdapter(get_tool_registry())
+                _adapter_cache = FFmpegAdapter(get_tool_registry())
     return _adapter_cache
 
 
@@ -261,7 +280,8 @@ def reset_ffmpeg_adapter() -> None:
     """Reset the cached FFmpegAdapter.
 
     Call this after refreshing the tool registry to ensure the adapter
-    picks up new capabilities.
+    picks up new capabilities. Thread-safe.
     """
     global _adapter_cache
-    _adapter_cache = None
+    with _adapter_lock:
+        _adapter_cache = None
