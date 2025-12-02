@@ -114,7 +114,7 @@ This project has a formal constitution at `.specify/memory/constitution.md` with
 - **Schemas**: Versioned with explicit migration logic; bump version on changes
 - **Idempotency**: All policy operations must be safe to repeat
 - **IO Separation**: Core logic in pure functions; external tools behind adapters
-- **Concurrency**: Use `DaemonConnectionPool` for thread-safe DB access via `asyncio.to_thread`
+- **Concurrency**: Use `DaemonConnectionPool` for thread-safe DB access; `ThreadPoolExecutor` for parallel CLI operations
 
 ## Database Module Structure
 

@@ -511,3 +511,38 @@ class TestBuilderPrecedence:
         assert config.detection.cache_ttl_hours == 24
         # Default for language (nothing set it)
         assert config.language.standard == "639-2/B"
+
+
+class TestProcessingConfig:
+    """Tests for processing config in ConfigBuilder."""
+
+    def test_default_processing_config(self, tmp_path: Path) -> None:
+        """Should use default processing config when not specified."""
+        builder = ConfigBuilder()
+        config = builder.build(default_plugins_dir=tmp_path / "plugins")
+
+        assert config.processing.workers == 2
+
+    def test_processing_workers_from_source(self, tmp_path: Path) -> None:
+        """Should configure processing workers from source."""
+        builder = ConfigBuilder()
+        builder.apply(ConfigSource(processing_workers=4))
+        config = builder.build(default_plugins_dir=tmp_path / "plugins")
+
+        assert config.processing.workers == 4
+
+    def test_processing_from_file_config(self) -> None:
+        """Should parse processing section from TOML config."""
+        file_config = {
+            "processing": {
+                "workers": 8,
+            }
+        }
+        source = source_from_file(file_config)
+        assert source.processing_workers == 8
+
+    def test_processing_from_env(self) -> None:
+        """Should read processing workers from environment."""
+        reader = EnvReader(env={"VPO_PROCESSING_WORKERS": "6"})
+        source = source_from_env(reader)
+        assert source.processing_workers == 6

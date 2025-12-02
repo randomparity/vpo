@@ -189,6 +189,22 @@ class WorkerConfig:
 
 
 @dataclass
+class ProcessingConfig:
+    """Configuration for batch processing behavior.
+
+    Controls parallel file processing in the `vpo process` command.
+    """
+
+    workers: int = 2
+    """Number of parallel workers for batch processing (1 = sequential)."""
+
+    def __post_init__(self) -> None:
+        """Validate configuration."""
+        if self.workers < 1:
+            raise ValueError(f"workers must be at least 1, got {self.workers}")
+
+
+@dataclass
 class LoggingConfig:
     """Configuration for structured logging (008-operational-ux)."""
 
@@ -341,6 +357,7 @@ class VPOConfig:
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     server: ServerConfig = field(default_factory=ServerConfig)
     language: LanguageConfig = field(default_factory=LanguageConfig)
+    processing: ProcessingConfig = field(default_factory=ProcessingConfig)
 
     # Database path (can be overridden)
     database_path: Path | None = None
