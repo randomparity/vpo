@@ -39,6 +39,10 @@ auto_detect_on_startup = true     # Detect tools on first use
 [behavior]
 warn_on_missing_features = true   # Warn when optional features unavailable
 show_upgrade_suggestions = true   # Show upgrade hints for old versions
+
+# Batch processing settings
+[processing]
+workers = 2                       # Number of parallel workers (1 = sequential)
 ```
 
 ### Configuration File Location
@@ -83,6 +87,12 @@ export VPO_AUTO_DETECT_ON_STARTUP=true
 ```bash
 export VPO_WARN_ON_MISSING_FEATURES=true
 export VPO_SHOW_UPGRADE_SUGGESTIONS=true
+```
+
+### Processing Settings
+
+```bash
+export VPO_PROCESSING_WORKERS=4    # Default number of parallel workers
 ```
 
 ---

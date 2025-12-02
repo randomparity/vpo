@@ -123,13 +123,13 @@
 
 **Purpose**: Documentation, edge cases, and final validation
 
-- [ ] T029 [P] Update CLI help text for --workers option in src/video_policy_orchestrator/cli/process.py
-- [ ] T030 [P] Add [processing] section documentation to example config comments
-- [ ] T030a [P] Document disk space requirements (2.5x per file × workers) in CLI help text for --workers option
-- [ ] T031 Verify JSON output mode still works correctly with parallel processing in src/video_policy_orchestrator/cli/process.py
-- [ ] T032 Test verbose mode (-v) output with parallel processing in src/video_policy_orchestrator/cli/process.py
-- [ ] T033 Ensure DaemonConnectionPool is properly closed on batch completion/error in src/video_policy_orchestrator/cli/process.py
-- [ ] T034 Run full test suite to verify no regressions: `uv run pytest`
+- [x] T029 [P] Update CLI help text for --workers option in src/video_policy_orchestrator/cli/process.py
+- [x] T030 [P] Add [processing] section documentation to example config comments
+- [x] T030a [P] Document disk space requirements (2.5x per file × workers) in CLI help text for --workers option
+- [x] T031 Verify JSON output mode still works correctly with parallel processing in src/video_policy_orchestrator/cli/process.py
+- [x] T032 Test verbose mode (-v) output with parallel processing in src/video_policy_orchestrator/cli/process.py
+- [x] T033 Ensure DaemonConnectionPool is properly closed on batch completion/error in src/video_policy_orchestrator/cli/process.py
+- [x] T034 Run full test suite to verify no regressions: `uv run pytest`
 
 ---
 
