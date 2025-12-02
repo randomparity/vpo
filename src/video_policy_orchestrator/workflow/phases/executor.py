@@ -27,12 +27,21 @@ from video_policy_orchestrator.executor import (
 from video_policy_orchestrator.policy.evaluator import Plan, evaluate_policy
 from video_policy_orchestrator.policy.loader import load_policy_from_dict
 from video_policy_orchestrator.policy.models import (
+    AndCondition,
+    AudioIsMultiLanguageCondition,
+    Comparison,
+    CountCondition,
+    ExistsCondition,
+    NotCondition,
     OnErrorMode,
     OperationType,
+    OrCondition,
     PhaseDefinition,
     PhaseExecutionError,
     PhaseResult,
+    PluginMetadataCondition,
     PolicySchema,
+    TitleMatch,
     V11PolicySchema,
 )
 
@@ -226,30 +235,104 @@ class V11PhaseExecutor:
         return result
 
     def _condition_to_dict(self, condition) -> dict:
-        """Convert a Condition to dict format."""
+        """Convert a Condition to dict format for policy loading.
+
+        Handles all condition types in the Condition union:
+        - ExistsCondition -> {"exists": {...}}
+        - CountCondition -> {"count": {...}}
+        - AndCondition -> {"and": [...]}
+        - OrCondition -> {"or": [...]}
+        - NotCondition -> {"not": {...}}
+        - AudioIsMultiLanguageCondition -> {"audio_is_multi_language": {...}}
+        - PluginMetadataCondition -> {"plugin_metadata": {...}}
+        """
+        if isinstance(condition, ExistsCondition):
+            inner: dict = {"track_type": condition.track_type}
+            inner.update(self._filters_to_dict(condition.filters))
+            return {"exists": inner}
+
+        if isinstance(condition, CountCondition):
+            inner = {"track_type": condition.track_type}
+            inner.update(self._filters_to_dict(condition.filters))
+            # Add the count comparison operator
+            inner[condition.operator.value] = condition.value
+            return {"count": inner}
+
+        if isinstance(condition, AndCondition):
+            return {"and": [self._condition_to_dict(c) for c in condition.conditions]}
+
+        if isinstance(condition, OrCondition):
+            return {"or": [self._condition_to_dict(c) for c in condition.conditions]}
+
+        if isinstance(condition, NotCondition):
+            return {"not": self._condition_to_dict(condition.inner)}
+
+        if isinstance(condition, AudioIsMultiLanguageCondition):
+            inner = {}
+            if condition.threshold is not None:
+                inner["threshold"] = condition.threshold
+            return {"audio_is_multi_language": inner}
+
+        if isinstance(condition, PluginMetadataCondition):
+            inner = {
+                "plugin": condition.plugin,
+                "field": condition.field,
+            }
+            if condition.value is not None:
+                inner["value"] = condition.value
+            if condition.operator.value != "eq":  # Only include if not default
+                inner["operator"] = condition.operator.value
+            return {"plugin_metadata": inner}
+
+        # Fallback for unknown condition types
+        raise ValueError(f"Unknown condition type: {type(condition).__name__}")
+
+    def _filters_to_dict(self, filters) -> dict:
+        """Convert TrackFilters to dict format."""
         result: dict = {}
+        if filters.language is not None:
+            if isinstance(filters.language, tuple):
+                result["language"] = list(filters.language)
+            else:
+                result["language"] = filters.language
+        if filters.codec is not None:
+            if isinstance(filters.codec, tuple):
+                result["codec"] = list(filters.codec)
+            else:
+                result["codec"] = filters.codec
+        if filters.is_default is not None:
+            result["is_default"] = filters.is_default
+        if filters.is_forced is not None:
+            result["is_forced"] = filters.is_forced
+        if filters.channels is not None:
+            result["channels"] = self._comparison_to_dict(filters.channels)
+        if filters.width is not None:
+            result["width"] = self._comparison_to_dict(filters.width)
+        if filters.height is not None:
+            result["height"] = self._comparison_to_dict(filters.height)
+        if filters.title is not None:
+            result["title"] = self._title_match_to_dict(filters.title)
+        if filters.not_commentary is not None:
+            result["not_commentary"] = filters.not_commentary
+        return result
 
-        if condition.track_type:
-            result["track_type"] = condition.track_type.value
-        if condition.language:
-            result["language"] = condition.language
-        if condition.language_in:
-            result["language_in"] = list(condition.language_in)
-        if condition.codec:
-            result["codec"] = condition.codec
-        if condition.codec_in:
-            result["codec_in"] = list(condition.codec_in)
-        if condition.is_commentary is not None:
-            result["is_commentary"] = condition.is_commentary
-        if condition.is_default is not None:
-            result["is_default"] = condition.is_default
-        if condition.is_forced is not None:
-            result["is_forced"] = condition.is_forced
-        if condition.title_matches:
-            result["title_matches"] = condition.title_matches
-        if condition.audio_is_multi_language is not None:
-            result["audio_is_multi_language"] = condition.audio_is_multi_language
+    def _comparison_to_dict(self, comparison: int | Comparison) -> int | dict:
+        """Convert Comparison or int to dict format."""
+        if isinstance(comparison, int):
+            return comparison
+        # Comparison dataclass with operator and value
+        return {comparison.operator.value: comparison.value}
 
+    def _title_match_to_dict(self, title_match: str | TitleMatch) -> str | dict:
+        """Convert TitleMatch or str to dict format."""
+        if isinstance(title_match, str):
+            return title_match
+        # TitleMatch dataclass
+        result: dict = {}
+        if title_match.contains is not None:
+            result["contains"] = title_match.contains
+        if title_match.regex is not None:
+            result["regex"] = title_match.regex
         return result
 
     def _action_to_dict(self, action) -> dict:
