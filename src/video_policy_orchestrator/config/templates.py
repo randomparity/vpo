@@ -261,7 +261,7 @@ DEFAULT_POLICY_TEMPLATE = """\
 # This policy provides sensible defaults for organizing track metadata.
 # Customize as needed for your library.
 
-schema_version: 1
+schema_version: 12
 
 # Track type ordering (first = top priority)
 # Tracks are reordered to match this sequence

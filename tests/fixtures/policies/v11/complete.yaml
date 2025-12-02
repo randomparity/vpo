@@ -1,6 +1,6 @@
-# V11 Complete Policy Fixture
+# Complete Phased Policy Fixture
 # Used to test all operation types across phases
-schema_version: 11
+schema_version: 12
 
 config:
   audio_language_preference: [eng, jpn, und]

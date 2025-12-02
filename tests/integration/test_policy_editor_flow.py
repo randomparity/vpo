@@ -42,7 +42,7 @@ async def test_app_with_policies(tmp_path):
 
     # Create test policy with unknown fields and comments
     test_policy = policy_dir / "integration-test.yaml"
-    test_policy.write_text("""schema_version: 2
+    test_policy.write_text("""schema_version: 12
 
 # Track ordering configuration
 track_order:
@@ -410,7 +410,7 @@ async def test_policy_with_transcription_section(aiohttp_client, tmp_path):
 
     # Create policy with transcription
     policy = policy_dir / "transcription-test.yaml"
-    policy.write_text("""schema_version: 2
+    policy.write_text("""schema_version: 12
 track_order:
   - video
   - audio_main

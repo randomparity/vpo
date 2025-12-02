@@ -1,6 +1,6 @@
-"""Unit tests for V11PhaseExecutor operation dispatch.
+"""Unit tests for PhaseExecutor operation dispatch.
 
-Tests the V11 phase executor including:
+Tests the phase executor including:
 - Operation dispatch to correct handlers
 - Virtual policy building from phase config
 - Executor selection based on plan/container
@@ -25,11 +25,11 @@ from video_policy_orchestrator.policy.models import (
     OnErrorMode,
     OperationType,
     PhaseDefinition,
+    PhasedPolicySchema,
     PhaseExecutionError,
     SubtitleFilterConfig,
     TrackType,
     TranscriptionPolicyOptions,
-    V11PolicySchema,
 )
 from video_policy_orchestrator.workflow.phases.executor import (
     PhaseExecutionState,
@@ -72,9 +72,9 @@ def global_config():
 
 @pytest.fixture
 def v11_policy(global_config):
-    """Create a V11 policy for testing."""
-    return V11PolicySchema(
-        schema_version=11,
+    """Create a phased policy for testing."""
+    return PhasedPolicySchema(
+        schema_version=12,
         config=global_config,
         phases=(PhaseDefinition(name="cleanup"),),
     )
@@ -284,7 +284,7 @@ class TestVirtualPolicyBuilding:
         phase = PhaseDefinition(name="test")
         policy = executor._build_virtual_policy(phase)
 
-        assert policy.schema_version == 10
+        assert policy.schema_version == 12
         assert list(policy.audio_language_preference) == ["eng", "und"]
         assert list(policy.subtitle_language_preference) == ["eng"]
         assert list(policy.commentary_patterns) == ["commentary", "director"]
@@ -590,8 +590,8 @@ class TestPhaseExecution:
             commentary_patterns=global_config.commentary_patterns,
             on_error=OnErrorMode.SKIP,
         )
-        policy = V11PolicySchema(
-            schema_version=11,
+        policy = PhasedPolicySchema(
+            schema_version=12,
             config=skip_config,
             phases=(PhaseDefinition(name="test"),),
         )
@@ -625,8 +625,8 @@ class TestPhaseExecution:
             commentary_patterns=global_config.commentary_patterns,
             on_error=OnErrorMode.FAIL,
         )
-        policy = V11PolicySchema(
-            schema_version=11,
+        policy = PhasedPolicySchema(
+            schema_version=12,
             config=fail_config,
             phases=(PhaseDefinition(name="test"),),
         )

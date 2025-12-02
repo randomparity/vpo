@@ -28,14 +28,14 @@ def db_conn():
 @pytest.fixture
 def base_policy():
     """Create a minimal policy for testing."""
-    return PolicySchema(schema_version=9)
+    return PolicySchema(schema_version=12)
 
 
 @pytest.fixture
 def policy_with_transcode():
     """Create a policy with transcode config."""
     return PolicySchema(
-        schema_version=9,
+        schema_version=12,
         transcode=TranscodePolicyConfig(
             target_video_codec="hevc",
         ),

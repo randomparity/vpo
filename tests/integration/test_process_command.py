@@ -16,7 +16,7 @@ def policy_file(temp_dir: Path) -> Path:
     policy_path = temp_dir / "test_policy.yaml"
     policy_path.write_text(
         """
-schema_version: 10
+schema_version: 12
 workflow:
   phases:
     - apply
@@ -32,7 +32,7 @@ def policy_file_with_fail(temp_dir: Path) -> Path:
     policy_path = temp_dir / "fail_policy.yaml"
     policy_path.write_text(
         """
-schema_version: 10
+schema_version: 12
 workflow:
   phases:
     - apply
@@ -48,7 +48,7 @@ def policy_file_with_continue(temp_dir: Path) -> Path:
     policy_path = temp_dir / "continue_policy.yaml"
     policy_path.write_text(
         """
-schema_version: 10
+schema_version: 12
 workflow:
   phases:
     - apply

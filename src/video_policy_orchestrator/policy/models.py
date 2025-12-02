@@ -43,8 +43,8 @@ class ActionType(Enum):
 class ProcessingPhase(Enum):
     """Workflow processing phases for video file operations.
 
-    NOTE: This enum is used for V9/V10 policies with fixed phase names.
-    For V11+ policies, phases are user-defined strings. See PhaseDefinition.
+    Used by flat-format policies. For phase-based policies, phases are
+    user-defined strings. See PhaseDefinition.
     """
 
     ANALYZE = "analyze"  # Language detection via transcription
@@ -53,12 +53,12 @@ class ProcessingPhase(Enum):
 
 
 # =============================================================================
-# V11 User-Defined Phases
+# User-Defined Phases (Phased Policies)
 # =============================================================================
 
 
 class OperationType(Enum):
-    """Types of operations that can appear in a V11 phase.
+    """Types of operations that can appear in a phase.
 
     Operations within a phase execute in canonical order (as defined below).
     This ordering ensures dependencies are respected (e.g., filters run
@@ -94,7 +94,7 @@ CANONICAL_OPERATION_ORDER: tuple[OperationType, ...] = (
 
 
 class OnErrorMode(Enum):
-    """How to handle errors during phase execution (V11+).
+    """How to handle errors during phase execution.
 
     Controls behavior when an operation or phase fails.
     """
@@ -566,7 +566,7 @@ DEFAULT_TRACK_ORDER: tuple[TrackType, ...] = (
 
 @dataclass(frozen=True)
 class WorkflowConfig:
-    """Workflow configuration from policy YAML (V9+).
+    """Workflow configuration from policy YAML.
 
     Defines the processing phases to run and their execution behavior.
     Phases execute in order: ANALYZE → APPLY → TRANSCODE.
@@ -623,42 +623,42 @@ class PolicySchema:
     transcode: TranscodePolicyConfig | None = None
     transcription: TranscriptionPolicyOptions | None = None
 
-    # V3 fields (all optional for backward compatibility)
+    # Track filtering configuration
     audio_filter: AudioFilterConfig | None = None
-    """Audio track filtering configuration. Requires schema_version >= 3."""
+    """Audio track filtering configuration."""
 
     subtitle_filter: SubtitleFilterConfig | None = None
-    """Subtitle track filtering configuration. Requires schema_version >= 3."""
+    """Subtitle track filtering configuration."""
 
     attachment_filter: AttachmentFilterConfig | None = None
-    """Attachment track filtering configuration. Requires schema_version >= 3."""
+    """Attachment track filtering configuration."""
 
     container: ContainerConfig | None = None
-    """Container format conversion configuration. Requires schema_version >= 3."""
+    """Container format conversion configuration."""
 
-    # V4 fields (all optional for backward compatibility)
+    # Conditional rules
     conditional_rules: tuple["ConditionalRule", ...] = ()
-    """Conditional rules evaluated before other policy sections. Schema v4+."""
+    """Conditional rules evaluated before other policy sections."""
 
-    # V5 fields (all optional for backward compatibility)
+    # Audio synthesis
     audio_synthesis: "AudioSynthesisConfig | None" = None
-    """Audio synthesis configuration. Requires schema_version >= 5."""
+    """Audio synthesis configuration."""
 
-    # V6 fields (all optional for backward compatibility)
+    # Transcode configuration
     video_transcode: "VideoTranscodeConfig | None" = None
-    """Video transcode configuration. Requires schema_version >= 6."""
+    """Video transcode configuration."""
 
     audio_transcode: "AudioTranscodeConfig | None" = None
-    """Audio transcode configuration. Requires schema_version >= 6."""
+    """Audio transcode configuration."""
 
-    # V9 fields (all optional for backward compatibility)
+    # Workflow configuration
     workflow: WorkflowConfig | None = None
-    """Workflow configuration. Requires schema_version >= 9."""
+    """Workflow configuration."""
 
     def __post_init__(self) -> None:
         """Validate policy schema after initialization."""
-        if self.schema_version < 1:
-            raise ValueError("schema_version must be >= 1")
+        if self.schema_version != 12:
+            raise ValueError("Only schema_version 12 is supported")
         if not self.track_order:
             raise ValueError("track_order cannot be empty")
         if not self.audio_language_preference:
@@ -1705,13 +1705,13 @@ class AudioTrackAction:
 
 
 # =============================================================================
-# V11 User-Defined Phases Data Models
+# Phased Policy Data Models
 # =============================================================================
 
 
 @dataclass(frozen=True)
 class GlobalConfig:
-    """Global configuration shared across all phases (V11+).
+    """Global configuration shared across all phases.
 
     Settings defined here are available to all phases unless overridden
     by per-phase configuration.
@@ -1739,7 +1739,7 @@ class GlobalConfig:
 
 @dataclass(frozen=True)
 class PhaseDefinition:
-    """A named phase containing zero or more operations (V11+).
+    """A named phase containing zero or more operations.
 
     Each phase groups related operations that execute together.
     Operations within a phase execute in canonical order regardless
@@ -1775,10 +1775,10 @@ class PhaseDefinition:
     """Audio synthesis configuration."""
 
     transcode: "VideoTranscodeConfig | None" = None
-    """Video transcode configuration (V6-style nested format)."""
+    """Video transcode configuration."""
 
     audio_transcode: "AudioTranscodeConfig | None" = None
-    """Audio transcode configuration (V6-style)."""
+    """Audio transcode configuration."""
 
     transcription: TranscriptionPolicyOptions | None = None
     """Transcription analysis configuration."""
@@ -1837,15 +1837,15 @@ class PhaseDefinition:
 
 
 @dataclass(frozen=True)
-class V11PolicySchema:
-    """V11 policy schema with user-defined phases.
+class PhasedPolicySchema:
+    """Phased policy schema with user-defined phases.
 
-    This is the new top-level policy structure for V11 policies.
-    It replaces the flat PolicySchema structure with a phase-based approach.
+    This is the top-level structure for phase-based policies.
+    It uses a phase-based approach where each phase groups related operations.
     """
 
-    schema_version: Literal[11]
-    """Schema version, must be exactly 11."""
+    schema_version: Literal[12]
+    """Schema version, must be exactly 12."""
 
     config: GlobalConfig
     """Global configuration shared across all phases."""
@@ -1854,10 +1854,11 @@ class V11PolicySchema:
     """Ordered list of named phases."""
 
     def __post_init__(self) -> None:
-        """Validate V11 policy schema."""
-        if self.schema_version != 11:
+        """Validate phased policy schema."""
+        if self.schema_version != 12:
             raise ValueError(
-                f"V11PolicySchema requires schema_version=11, got {self.schema_version}"
+                f"PhasedPolicySchema requires schema_version=12, "
+                f"got {self.schema_version}"
             )
         if not self.phases:
             raise ValueError("phases cannot be empty, at least one phase required")
@@ -1901,7 +1902,7 @@ class V11PolicySchema:
 
 @dataclass
 class PhaseExecutionContext:
-    """Mutable context passed through phase execution (V11+).
+    """Mutable context passed through phase execution.
 
     This context is created at the start of file processing and
     updated as each phase executes.
@@ -1913,7 +1914,7 @@ class PhaseExecutionContext:
     file_info: Any  # FileInfo from db module - avoiding circular import
     """Current introspection data for the file."""
 
-    policy: V11PolicySchema
+    policy: PhasedPolicySchema
     """The policy being applied."""
 
     current_phase: str
@@ -1948,7 +1949,7 @@ class PhaseExecutionContext:
 
 @dataclass(frozen=True)
 class PhaseResult:
-    """Result from executing a single phase (V11+)."""
+    """Result from executing a single phase."""
 
     phase_name: str
     """Name of the phase that was executed."""
@@ -1978,7 +1979,7 @@ class PhaseResult:
 
 @dataclass(frozen=True)
 class FileProcessingResult:
-    """Result from processing a file through all phases (V11+)."""
+    """Result from processing a file through all phases."""
 
     file_path: Path
     """Path to the processed file."""
@@ -2014,7 +2015,7 @@ class FileProcessingResult:
 
 
 class PhaseExecutionError(Exception):
-    """Raised when phase execution fails (V11+).
+    """Raised when phase execution fails.
 
     This exception wraps operation-level errors and provides context
     about which phase and operation failed.
@@ -2040,3 +2041,7 @@ class PhaseExecutionError(Exception):
         self.message = message
         self.cause = cause
         super().__init__(f"Phase '{phase_name}' failed: {message}")
+
+
+# Backward compatibility alias (deprecated)
+V11PolicySchema = PhasedPolicySchema

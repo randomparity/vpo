@@ -153,7 +153,7 @@ class V11PhaseExecutor:
         """
         # Start with base policy structure
         policy_dict: dict = {
-            "schema_version": 10,
+            "schema_version": 12,
             "track_order": (
                 [t.value for t in phase.track_order]
                 if phase.track_order

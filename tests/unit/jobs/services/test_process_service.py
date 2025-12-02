@@ -53,7 +53,7 @@ def test_job_with_json(tmp_path):
     test_file.write_bytes(b"\x00" * 100)
 
     policy_data = {
-        "schema_version": 9,
+        "schema_version": 12,
         "workflow": {
             "phases": ["apply"],
             "on_error": "fail",
@@ -182,13 +182,13 @@ class TestProcessJobServiceParsing:
 
         assert error is None
         assert policy is not None
-        assert policy.schema_version == 9
+        assert policy.schema_version == 12
 
     def test_parse_policy_from_name(self, db_conn, tmp_path):
         """_parse_policy loads policy from file path."""
         # Create a real policy file
         policy_file = tmp_path / "test_policy.yaml"
-        policy_file.write_text("schema_version: 9\n")
+        policy_file.write_text("schema_version: 12\n")
 
         job = Job(
             id="test-job-id",
@@ -209,7 +209,7 @@ class TestProcessJobServiceParsing:
 
         assert error is None
         assert policy is not None
-        assert policy.schema_version == 9
+        assert policy.schema_version == 12
 
     def test_parse_policy_missing_file_returns_error(self, db_conn, tmp_path):
         """_parse_policy returns error for missing policy file."""

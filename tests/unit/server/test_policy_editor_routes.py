@@ -32,7 +32,7 @@ async def test_app(tmp_path):
 
     # Create test policy
     test_policy = policy_dir / "test.yaml"
-    test_policy.write_text("""schema_version: 2
+    test_policy.write_text("""schema_version: 12
 track_order:
   - video
   - audio_main
@@ -80,7 +80,7 @@ async def test_get_policy_for_editing_success(aiohttp_client, test_app):
     assert "commentary_patterns" in data
     assert "default_flags" in data
     assert "last_modified" in data
-    assert data["schema_version"] == 2
+    assert data["schema_version"] == 12
 
 
 @pytest.mark.asyncio

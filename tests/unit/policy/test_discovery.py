@@ -28,7 +28,7 @@ class TestParsePolicyFile:
         assert result.name == "valid-basic"
         assert result.filename == "valid-basic.yaml"
         assert result.parse_error is None
-        assert result.schema_version == 2
+        assert result.schema_version == 12
         assert result.audio_languages == ["eng"]
         assert result.subtitle_languages == ["eng"]
         assert result.has_transcode is False
@@ -43,7 +43,7 @@ class TestParsePolicyFile:
         assert result.name == "valid-full"
         assert result.filename == "valid-full.yaml"
         assert result.parse_error is None
-        assert result.schema_version == 2
+        assert result.schema_version == 12
         assert result.audio_languages == ["eng", "jpn", "spa"]
         assert result.subtitle_languages == ["eng", "spa"]
         assert result.has_transcode is True
@@ -79,7 +79,7 @@ class TestParsePolicyFile:
         result = _parse_policy_file(path)
 
         assert result.name == "audio_preference"
-        assert result.schema_version == 1
+        assert result.schema_version == 12
         assert result.parse_error is None
         assert result.audio_languages == ["jpn", "eng", "und"]
         assert result.subtitle_languages == ["eng", "und"]
@@ -121,7 +121,7 @@ class TestIsDefaultPolicy:
     def test_matching_paths(self, tmp_path: Path) -> None:
         """Match when paths resolve to same file."""
         policy_file = tmp_path / "test.yaml"
-        policy_file.write_text("schema_version: 1")
+        policy_file.write_text("schema_version: 12")
 
         assert _is_default_policy(policy_file, policy_file) is True
 
@@ -129,15 +129,15 @@ class TestIsDefaultPolicy:
         """No match when paths are different files."""
         policy1 = tmp_path / "policy1.yaml"
         policy2 = tmp_path / "policy2.yaml"
-        policy1.write_text("schema_version: 1")
-        policy2.write_text("schema_version: 1")
+        policy1.write_text("schema_version: 12")
+        policy2.write_text("schema_version: 12")
 
         assert _is_default_policy(policy1, policy2) is False
 
     def test_none_default_path(self, tmp_path: Path) -> None:
         """No match when default_policy_path is None."""
         policy_file = tmp_path / "test.yaml"
-        policy_file.write_text("schema_version: 1")
+        policy_file.write_text("schema_version: 12")
 
         assert _is_default_policy(policy_file, None) is False
 
@@ -147,7 +147,7 @@ class TestIsDefaultPolicy:
         """Match works with tilde-expanded paths."""
         # Create a file
         policy_file = tmp_path / "test.yaml"
-        policy_file.write_text("schema_version: 1")
+        policy_file.write_text("schema_version: 12")
 
         # If default uses tilde, it should still match resolved path
         # This is a simplified test since we can't easily mock home
@@ -156,7 +156,7 @@ class TestIsDefaultPolicy:
     def test_nonexistent_default(self, tmp_path: Path) -> None:
         """Handle nonexistent default path gracefully."""
         policy_file = tmp_path / "test.yaml"
-        policy_file.write_text("schema_version: 1")
+        policy_file.write_text("schema_version: 12")
         nonexistent = tmp_path / "nonexistent.yaml"
 
         # Should return False, not raise
@@ -190,8 +190,8 @@ class TestDiscoverPolicies:
     def test_default_first_sorting(self, tmp_path: Path) -> None:
         """Default policy appears first in list."""
         # Create test policies
-        (tmp_path / "aaa-policy.yaml").write_text("schema_version: 1")
-        (tmp_path / "zzz-policy.yaml").write_text("schema_version: 1")
+        (tmp_path / "aaa-policy.yaml").write_text("schema_version: 12")
+        (tmp_path / "zzz-policy.yaml").write_text("schema_version: 12")
 
         # Set zzz-policy as default
         default_path = tmp_path / "zzz-policy.yaml"
@@ -234,7 +234,7 @@ class TestDiscoverPolicies:
     def test_missing_default_policy(self, tmp_path: Path) -> None:
         """Detect when configured default doesn't exist."""
         # Create a policy
-        (tmp_path / "test.yaml").write_text("schema_version: 1")
+        (tmp_path / "test.yaml").write_text("schema_version: 12")
 
         # Set default to nonexistent file
         nonexistent_default = tmp_path / "nonexistent.yaml"
@@ -246,8 +246,8 @@ class TestDiscoverPolicies:
 
     def test_finds_yaml_and_yml_files(self, tmp_path: Path) -> None:
         """Discover both .yaml and .yml files."""
-        (tmp_path / "policy1.yaml").write_text("schema_version: 1")
-        (tmp_path / "policy2.yml").write_text("schema_version: 2")
+        (tmp_path / "policy1.yaml").write_text("schema_version: 12")
+        (tmp_path / "policy2.yml").write_text("schema_version: 12")
 
         policies, _ = discover_policies(tmp_path, None)
 
@@ -258,7 +258,7 @@ class TestDiscoverPolicies:
 
     def test_ignores_non_yaml_files(self, tmp_path: Path) -> None:
         """Don't discover non-YAML files."""
-        (tmp_path / "policy.yaml").write_text("schema_version: 1")
+        (tmp_path / "policy.yaml").write_text("schema_version: 12")
         (tmp_path / "readme.txt").write_text("This is not a policy")
         (tmp_path / "config.json").write_text("{}")
 
@@ -327,15 +327,15 @@ class TestPolicyCaching:
 
         # Create a policy file
         policy_path = tmp_path / "cached.yaml"
-        policy_path.write_text("schema_version: 2\n")
+        policy_path.write_text("schema_version: 12\n")
 
         # First parse (cache miss)
         result1 = _parse_policy_file(policy_path)
-        assert result1.schema_version == 2
+        assert result1.schema_version == 12
 
         # Second parse (cache hit - same content returned)
         result2 = _parse_policy_file(policy_path)
-        assert result2.schema_version == 2
+        assert result2.schema_version == 12
         assert result1 == result2
 
     def test_cache_invalidation_on_modification(self, tmp_path: Path) -> None:
@@ -350,22 +350,26 @@ class TestPolicyCaching:
 
         # Create a policy file
         policy_path = tmp_path / "modified.yaml"
-        policy_path.write_text("schema_version: 1\n")
+        policy_path.write_text(
+            "schema_version: 12\naudio_language_preference:\n  - eng\n"
+        )
 
         # First parse
         result1 = _parse_policy_file(policy_path)
-        assert result1.schema_version == 1
+        assert result1.schema_version == 12
 
         # Ensure mtime changes (some filesystems have 1-second resolution)
         time.sleep(0.1)
-        # Modify the file
-        policy_path.write_text("schema_version: 2\n")
+        # Modify the file (add a new language)
+        policy_path.write_text(
+            "schema_version: 12\naudio_language_preference:\n  - jpn\n"
+        )
         # Force mtime update
         os.utime(policy_path, None)
 
         # Second parse should return new content
         result2 = _parse_policy_file(policy_path)
-        assert result2.schema_version == 2
+        assert result2.schema_version == 12
 
     def test_clear_policy_cache(self, tmp_path: Path) -> None:
         """clear_policy_cache() clears all cached entries."""
@@ -379,7 +383,7 @@ class TestPolicyCaching:
 
         # Create and parse a policy
         policy_path = tmp_path / "test.yaml"
-        policy_path.write_text("schema_version: 1\n")
+        policy_path.write_text("schema_version: 12\n")
         _parse_policy_file(policy_path)
 
         # Cache should have entry

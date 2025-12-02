@@ -187,22 +187,27 @@ The visual policy editor (`/policies/{name}/edit`) provides form-based editing o
 
 ## Policy Schema
 
-The current policy schema version is **V12** (defined in `policy/loader.py` as `MAX_SCHEMA_VERSION`). Key schema versions:
+The current policy schema version is **V12** (defined in `policy/loader.py` as `SCHEMA_VERSION`). **Only V12 is supported**—no backward compatibility with older schema versions.
 
-- **V3**: Track filtering (audio_filter, subtitle_filter, attachment_filter), container conversion
-- **V4**: Conditional rules (when/then/else conditions and actions)
-- **V5**: Audio synthesis (create downmixed or re-encoded tracks)
-- **V6**: Video/audio transcoding with skip conditions, quality settings, hardware acceleration
-- **V7**: Multi-language conditions (audio_is_multi_language), set_forced/set_default actions
-- **V8**: skip_if_exists criteria, not_commentary filter
-- **V9**: Workflow configuration (phases, auto_process, on_error)
-- **V10**: Music/sfx/non_speech track type support
-- **V11**: Enhanced conditional rule operators
-- **V12**: Plugin metadata conditions (access plugin-provided metadata in policy conditions)
+Key V12 features:
+- Track filtering (audio_filter, subtitle_filter, attachment_filter), container conversion
+- Conditional rules (when/then/else conditions and actions)
+- Audio synthesis (create downmixed or re-encoded tracks)
+- Video/audio transcoding with skip conditions, quality settings, hardware acceleration
+- Multi-language conditions (audio_is_multi_language), set_forced/set_default actions
+- skip_if_exists criteria, not_commentary filter
+- Workflow configuration (phases, auto_process, on_error)
+- Music/sfx/non_speech track type support
+- Enhanced conditional rule operators (EXISTS operator)
+- Plugin metadata conditions (access plugin-provided metadata in policy conditions)
 
-**Example V6+ policy with transcoding:**
+**Two policy formats:**
+- **Flat format** (`PolicySchema`): Traditional single-section policy
+- **Phased format** (`PhasedPolicySchema`): Multi-phase pipelines with `phases` and `config` sections
+
+**Example policy with transcoding:**
 ```yaml
-schema_version: 10
+schema_version: 12
 transcode:
   video:
     target_codec: hevc
@@ -227,10 +232,10 @@ transcode:
 ```
 
 **Key modules:**
-- `policy/models.py`: All schema dataclasses (SkipCondition, QualitySettings, ConditionalRule, etc.)
-- `policy/loader.py`: PolicyModel validation, schema loading, MAX_SCHEMA_VERSION constant
+- `policy/models.py`: All schema dataclasses (PolicySchema, PhasedPolicySchema, SkipCondition, QualitySettings, ConditionalRule, etc.)
+- `policy/loader.py`: PolicyModel validation, schema loading, SCHEMA_VERSION constant
 - `executor/transcode.py`: TranscodeExecutor, FFmpeg command building, edge case detection
-- `policy/transcode.py`: Audio plan creation for V6 audio config
+- `policy/transcode.py`: Audio plan creation for audio config
 
 **Transcode edge cases:**
 - VFR detection: warns about variable frame rate content

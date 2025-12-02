@@ -21,7 +21,7 @@ from video_policy_orchestrator.policy.models import TrackType
 def valid_policy_yaml(tmp_path: Path) -> Path:
     """Create a valid policy YAML file."""
     content = dedent("""
-        schema_version: 1
+        schema_version: 12
         track_order:
           - video
           - audio_main
@@ -48,7 +48,7 @@ def valid_policy_yaml(tmp_path: Path) -> Path:
 @pytest.fixture
 def minimal_policy_yaml(tmp_path: Path) -> Path:
     """Create a minimal valid policy with just schema_version."""
-    content = "schema_version: 1\n"
+    content = "schema_version: 12\n"
     policy_file = tmp_path / "minimal.yaml"
     policy_file.write_text(content)
     return policy_file
@@ -65,7 +65,7 @@ class TestLoadPolicy:
     def test_load_valid_policy(self, valid_policy_yaml: Path):
         """Loading a valid policy file should succeed."""
         policy = load_policy(valid_policy_yaml)
-        assert policy.schema_version == 1
+        assert policy.schema_version == 12
         assert policy.track_order == (
             TrackType.VIDEO,
             TrackType.AUDIO_MAIN,
@@ -77,7 +77,7 @@ class TestLoadPolicy:
     def test_load_minimal_policy_uses_defaults(self, minimal_policy_yaml: Path):
         """Minimal policy should use default values."""
         policy = load_policy(minimal_policy_yaml)
-        assert policy.schema_version == 1
+        assert policy.schema_version == 12
         # Check defaults are applied
         assert len(policy.track_order) > 0
         assert "eng" in policy.audio_language_preference
@@ -144,7 +144,7 @@ class TestPolicyValidation:
         with pytest.raises(PolicyValidationError, match="Unknown track type"):
             load_policy_from_dict(
                 {
-                    "schema_version": 1,
+                    "schema_version": 12,
                     "track_order": ["video", "invalid_type"],
                 }
             )
@@ -154,7 +154,7 @@ class TestPolicyValidation:
         with pytest.raises(PolicyValidationError, match="empty"):
             load_policy_from_dict(
                 {
-                    "schema_version": 1,
+                    "schema_version": 12,
                     "track_order": [],
                 }
             )
@@ -164,7 +164,7 @@ class TestPolicyValidation:
         with pytest.raises(PolicyValidationError, match="Invalid language code"):
             load_policy_from_dict(
                 {
-                    "schema_version": 1,
+                    "schema_version": 12,
                     "audio_language_preference": ["english"],  # Should be "eng"
                 }
             )
@@ -174,7 +174,7 @@ class TestPolicyValidation:
         with pytest.raises(PolicyValidationError, match="empty"):
             load_policy_from_dict(
                 {
-                    "schema_version": 1,
+                    "schema_version": 12,
                     "audio_language_preference": [],
                 }
             )
@@ -184,7 +184,7 @@ class TestPolicyValidation:
         with pytest.raises(PolicyValidationError):
             load_policy_from_dict(
                 {
-                    "schema_version": 1,
+                    "schema_version": 12,
                     "commentary_patterns": ["[invalid(regex"],
                 }
             )
@@ -194,7 +194,7 @@ class TestPolicyValidation:
         with pytest.raises(PolicyValidationError):
             load_policy_from_dict(
                 {
-                    "schema_version": 1,
+                    "schema_version": 12,
                     "unknown_field": "value",
                 }
             )
@@ -204,7 +204,7 @@ class TestPolicyValidation:
         with pytest.raises(PolicyValidationError):
             load_policy_from_dict(
                 {
-                    "schema_version": 1,
+                    "schema_version": 12,
                     "default_flags": {
                         "set_first_video_default": True,
                         "invalid_flag": True,
@@ -225,7 +225,7 @@ class TestLanguageCodeValidation:
         """Valid ISO 639-2 language codes should be accepted."""
         policy = load_policy_from_dict(
             {
-                "schema_version": 1,
+                "schema_version": 12,
                 "audio_language_preference": ["eng", "jpn", "fra", "und"],
             }
         )
@@ -235,7 +235,7 @@ class TestLanguageCodeValidation:
         """ISO 639-1 two-letter codes should be accepted."""
         policy = load_policy_from_dict(
             {
-                "schema_version": 1,
+                "schema_version": 12,
                 "audio_language_preference": ["en", "ja", "fr"],
             }
         )
@@ -246,7 +246,7 @@ class TestLanguageCodeValidation:
         with pytest.raises(PolicyValidationError, match="Invalid language code"):
             load_policy_from_dict(
                 {
-                    "schema_version": 1,
+                    "schema_version": 12,
                     "audio_language_preference": ["ENG"],
                 }
             )
@@ -256,7 +256,7 @@ class TestLanguageCodeValidation:
         with pytest.raises(PolicyValidationError, match="Invalid language code"):
             load_policy_from_dict(
                 {
-                    "schema_version": 1,
+                    "schema_version": 12,
                     "audio_language_preference": ["english"],
                 }
             )
@@ -274,7 +274,7 @@ class TestCommentaryPatternValidation:
         """Simple string patterns should be accepted."""
         policy = load_policy_from_dict(
             {
-                "schema_version": 1,
+                "schema_version": 12,
                 "commentary_patterns": ["commentary", "director", "making of"],
             }
         )
@@ -284,7 +284,7 @@ class TestCommentaryPatternValidation:
         """Valid regex patterns should be accepted."""
         policy = load_policy_from_dict(
             {
-                "schema_version": 1,
+                "schema_version": 12,
                 "commentary_patterns": [
                     r"\bcast\b",
                     r"behind.+scenes?",
@@ -299,7 +299,7 @@ class TestCommentaryPatternValidation:
         with pytest.raises(PolicyValidationError):
             load_policy_from_dict(
                 {
-                    "schema_version": 1,
+                    "schema_version": 12,
                     "commentary_patterns": ["[unclosed"],
                 }
             )
@@ -317,7 +317,7 @@ class TestDefaultFlagsValidation:
         """Specifying all flags should work."""
         policy = load_policy_from_dict(
             {
-                "schema_version": 1,
+                "schema_version": 12,
                 "default_flags": {
                     "set_first_video_default": False,
                     "set_preferred_audio_default": False,
@@ -334,7 +334,7 @@ class TestDefaultFlagsValidation:
         """Partial default_flags should fill in defaults."""
         policy = load_policy_from_dict(
             {
-                "schema_version": 1,
+                "schema_version": 12,
                 "default_flags": {
                     "set_preferred_subtitle_default": True,
                 },
@@ -353,7 +353,7 @@ class TestDefaultFlagsValidation:
         with pytest.raises(PolicyValidationError):
             load_policy_from_dict(
                 {
-                    "schema_version": 1,
+                    "schema_version": 12,
                     "default_flags": {
                         "set_first_video_default": [1, 2, 3],  # List can't be boolean
                     },
@@ -362,117 +362,18 @@ class TestDefaultFlagsValidation:
 
 
 # =============================================================================
-# V2 Backward Compatibility Tests (T080)
+# Policy Features Tests
 # =============================================================================
 
 
-class TestV2BackwardCompatibility:
-    """Tests for v2 policy backward compatibility with v3 features."""
+class TestPolicyFeatures:
+    """Tests for V12 policy features."""
 
-    def test_v2_policy_loads_without_filter_fields(self):
-        """V2 policy without filter fields should load with None defaults."""
+    def test_policy_with_filter_fields(self):
+        """V12 policy with filter fields should load correctly."""
         policy = load_policy_from_dict(
             {
-                "schema_version": 2,
-                "track_order": ["video", "audio_main", "subtitle_main"],
-                "audio_language_preference": ["eng"],
-                "subtitle_language_preference": ["eng"],
-            }
-        )
-        assert policy.schema_version == 2
-        assert policy.audio_filter is None
-        assert policy.subtitle_filter is None
-        assert policy.attachment_filter is None
-        assert policy.container is None
-
-    def test_v2_policy_full_features_load(self):
-        """V2 policy with all v2 features should load correctly."""
-        policy = load_policy_from_dict(
-            {
-                "schema_version": 2,
-                "track_order": [
-                    "video",
-                    "audio_main",
-                    "audio_commentary",
-                    "subtitle_main",
-                    "subtitle_forced",
-                    "subtitle_commentary",
-                    "audio_alternate",
-                    "attachment",
-                ],
-                "audio_language_preference": ["eng", "jpn", "und"],
-                "subtitle_language_preference": ["eng", "jpn"],
-                "commentary_patterns": ["commentary", "director", r"\bcast\b"],
-                "default_flags": {
-                    "set_first_video_default": True,
-                    "set_preferred_audio_default": True,
-                    "set_preferred_subtitle_default": True,
-                    "clear_other_defaults": True,
-                },
-            }
-        )
-        assert policy.schema_version == 2
-        assert len(policy.track_order) == 8
-        assert policy.audio_language_preference == ("eng", "jpn", "und")
-        assert policy.default_flags.set_preferred_subtitle_default is True
-
-    def test_v2_policy_rejects_v3_audio_filter(self):
-        """V2 policy should reject audio_filter field."""
-        with pytest.raises(PolicyValidationError) as exc_info:
-            load_policy_from_dict(
-                {
-                    "schema_version": 2,
-                    "track_order": ["video", "audio_main"],
-                    "audio_language_preference": ["eng"],
-                    "audio_filter": {"languages": ["eng"]},
-                }
-            )
-        assert "schema_version" in str(exc_info.value).lower()
-
-    def test_v2_policy_rejects_v3_subtitle_filter(self):
-        """V2 policy should reject subtitle_filter field."""
-        with pytest.raises(PolicyValidationError) as exc_info:
-            load_policy_from_dict(
-                {
-                    "schema_version": 2,
-                    "track_order": ["video", "audio_main"],
-                    "audio_language_preference": ["eng"],
-                    "subtitle_filter": {"languages": ["eng"]},
-                }
-            )
-        assert "schema_version" in str(exc_info.value).lower()
-
-    def test_v2_policy_rejects_v3_attachment_filter(self):
-        """V2 policy should reject attachment_filter field."""
-        with pytest.raises(PolicyValidationError) as exc_info:
-            load_policy_from_dict(
-                {
-                    "schema_version": 2,
-                    "track_order": ["video", "audio_main"],
-                    "audio_language_preference": ["eng"],
-                    "attachment_filter": {"remove_all": True},
-                }
-            )
-        assert "schema_version" in str(exc_info.value).lower()
-
-    def test_v2_policy_rejects_v3_container(self):
-        """V2 policy should reject container field."""
-        with pytest.raises(PolicyValidationError) as exc_info:
-            load_policy_from_dict(
-                {
-                    "schema_version": 2,
-                    "track_order": ["video", "audio_main"],
-                    "audio_language_preference": ["eng"],
-                    "container": {"target": "mkv"},
-                }
-            )
-        assert "schema_version" in str(exc_info.value).lower()
-
-    def test_v3_policy_accepts_all_filter_fields(self):
-        """V3 policy should accept all filter fields."""
-        policy = load_policy_from_dict(
-            {
-                "schema_version": 3,
+                "schema_version": 12,
                 "track_order": ["video", "audio_main", "subtitle_main"],
                 "audio_language_preference": ["eng"],
                 "subtitle_language_preference": ["eng"],
@@ -489,7 +390,7 @@ class TestV2BackwardCompatibility:
                 "container": {"target": "mkv"},
             }
         )
-        assert policy.schema_version == 3
+        assert policy.schema_version == 12
         assert policy.audio_filter is not None
         assert policy.audio_filter.languages == ("eng", "jpn")
         assert policy.audio_filter.fallback.mode == "keep_first"
@@ -500,32 +401,29 @@ class TestV2BackwardCompatibility:
         assert policy.container is not None
         assert policy.container.target == "mkv"
 
-    def test_v3_policy_optional_filter_fields(self):
-        """V3 policy should work without filter fields (all optional)."""
+    def test_policy_optional_filter_fields(self):
+        """V12 policy should work without filter fields (all optional)."""
         policy = load_policy_from_dict(
             {
-                "schema_version": 3,
+                "schema_version": 12,
                 "track_order": ["video", "audio_main"],
                 "audio_language_preference": ["eng"],
             }
         )
-        assert policy.schema_version == 3
+        assert policy.schema_version == 12
         assert policy.audio_filter is None
         assert policy.subtitle_filter is None
         assert policy.attachment_filter is None
         assert policy.container is None
 
-    def test_v1_to_v3_upgrade_path(self):
-        """Test loading policies at each version level."""
-        for version in [1, 2, 3]:
-            policy = load_policy_from_dict(
-                {
-                    "schema_version": version,
-                    "track_order": ["video", "audio_main"],
-                    "audio_language_preference": ["eng"],
-                }
-            )
-            assert policy.schema_version == version
-            # V3 fields should be None for all versions without them
-            assert policy.audio_filter is None
-            assert policy.subtitle_filter is None
+    def test_older_schema_versions_rejected(self):
+        """Older schema versions should be rejected."""
+        for version in [1, 2, 3, 10, 11]:
+            with pytest.raises(PolicyValidationError, match="schema_version 12"):
+                load_policy_from_dict(
+                    {
+                        "schema_version": version,
+                        "track_order": ["video", "audio_main"],
+                        "audio_language_preference": ["eng"],
+                    }
+                )

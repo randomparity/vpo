@@ -33,7 +33,7 @@ def db_conn():
 def base_policy():
     """Create a minimal policy for testing."""
     return PolicySchema(
-        schema_version=9,
+        schema_version=12,
         workflow=WorkflowConfig(
             phases=(ProcessingPhase.ANALYZE, ProcessingPhase.APPLY),
             on_error="fail",
@@ -69,7 +69,7 @@ class TestWorkflowProcessorInit:
 
     def test_init_without_workflow_defaults_to_apply(self, db_conn):
         """WorkflowProcessor defaults to APPLY phase when no workflow config."""
-        policy = PolicySchema(schema_version=9)
+        policy = PolicySchema(schema_version=12)
 
         processor = WorkflowProcessor(
             conn=db_conn,
@@ -118,7 +118,7 @@ class TestWorkflowProcessorPhaseExecution:
         mock_apply_cls.return_value = mock_apply
 
         policy = PolicySchema(
-            schema_version=9,
+            schema_version=12,
             workflow=WorkflowConfig(
                 phases=(ProcessingPhase.ANALYZE, ProcessingPhase.APPLY),
             ),
@@ -142,7 +142,7 @@ class TestWorkflowProcessorPhaseExecution:
         mock_apply_cls.return_value = mock_apply
 
         policy = PolicySchema(
-            schema_version=9,
+            schema_version=12,
             workflow=WorkflowConfig(
                 phases=(ProcessingPhase.APPLY, ProcessingPhase.TRANSCODE),
                 on_error="fail",
@@ -164,7 +164,7 @@ class TestWorkflowProcessorPhaseExecution:
         mock_apply_cls.return_value = mock_apply
 
         policy = PolicySchema(
-            schema_version=9,
+            schema_version=12,
             workflow=WorkflowConfig(
                 phases=(ProcessingPhase.APPLY,),
                 on_error="continue",
@@ -190,7 +190,7 @@ class TestWorkflowProcessorDatabaseHandling:
         mock_apply_cls.return_value = mock_apply
 
         policy = PolicySchema(
-            schema_version=9,
+            schema_version=12,
             workflow=WorkflowConfig(
                 phases=(ProcessingPhase.APPLY,),
                 on_error="fail",  # Explicitly set to fail so result.success=False
@@ -222,7 +222,7 @@ class TestWorkflowProcessorProgress:
             progress_updates.append(progress)
 
         policy = PolicySchema(
-            schema_version=9,
+            schema_version=12,
             workflow=WorkflowConfig(phases=(ProcessingPhase.APPLY,)),
         )
 

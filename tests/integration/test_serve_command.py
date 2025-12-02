@@ -338,13 +338,13 @@ class TestConcurrentHealthRequests:
         # Create a valid basic policy
         basic_policy = policies_dir / "test-basic.yaml"
         basic_policy.write_text(
-            "schema_version: 2\naudio_language_preference:\n  - eng\n"
+            "schema_version: 12\naudio_language_preference:\n  - eng\n"
         )
 
         # Create a policy with features
         full_policy = policies_dir / "test-full.yaml"
         full_policy.write_text(
-            "schema_version: 2\n"
+            "schema_version: 12\n"
             "audio_language_preference:\n  - eng\n  - jpn\n"
             "transcode:\n  target_video_codec: hevc\n"
             "transcription:\n  enabled: true\n"
@@ -391,7 +391,7 @@ class TestConcurrentHealthRequests:
 
             # Verify policy metadata
             full = next(p for p in data["policies"] if p["name"] == "test-full")
-            assert full["schema_version"] == 2
+            assert full["schema_version"] == 12
             assert full["has_transcode"] is True
             assert full["has_transcription"] is True
 
@@ -481,7 +481,7 @@ class TestConcurrentHealthRequests:
 
         # Create a valid policy for comparison
         valid_policy = policies_dir / "good-policy.yaml"
-        valid_policy.write_text("schema_version: 2\n")
+        valid_policy.write_text("schema_version: 12\n")
 
         env = os.environ.copy()
         env["VPO_DATABASE_PATH"] = str(temp_db)
@@ -520,7 +520,7 @@ class TestConcurrentHealthRequests:
             # Valid policy should have no error
             good = next(p for p in data["policies"] if p["name"] == "good-policy")
             assert good["parse_error"] is None
-            assert good["schema_version"] == 2
+            assert good["schema_version"] == 12
 
         finally:
             proc.send_signal(signal.SIGTERM)
@@ -608,10 +608,10 @@ class TestConcurrentHealthRequests:
         policies_dir.mkdir(parents=True, exist_ok=True)
 
         yaml_policy = policies_dir / "policy-yaml.yaml"
-        yaml_policy.write_text("schema_version: 2\n")
+        yaml_policy.write_text("schema_version: 12\n")
 
         yml_policy = policies_dir / "policy-yml.yml"
-        yml_policy.write_text("schema_version: 2\n")
+        yml_policy.write_text("schema_version: 12\n")
 
         env = os.environ.copy()
         env["VPO_DATABASE_PATH"] = str(temp_db)

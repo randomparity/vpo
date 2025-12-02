@@ -247,34 +247,6 @@ class TestPluginMetadataPolicyLoading:
         assert isinstance(rule.when, PluginMetadataCondition)
         assert rule.when.operator == PluginMetadataOperator.CONTAINS
 
-    def test_plugin_metadata_requires_v12(self) -> None:
-        """Test plugin_metadata condition requires schema_version >= 12."""
-        from video_policy_orchestrator.policy.loader import PolicyValidationError
-
-        # Use schema_version 4 (minimum for conditional rules) but below 12
-        policy_data = {
-            "schema_version": 4,
-            "conditional": [
-                {
-                    "name": "check-anime",
-                    "when": {
-                        "plugin_metadata": {
-                            "plugin": "radarr",
-                            "field": "original_language",
-                            "value": "jpn",
-                        }
-                    },
-                    "then": {"warn": "Japanese anime detected"},
-                }
-            ],
-        }
-
-        with pytest.raises(PolicyValidationError) as exc_info:
-            load_policy_from_dict(policy_data)
-
-        assert "V12 features" in str(exc_info.value)
-        assert "plugin_metadata" in str(exc_info.value)
-
     def test_load_combined_with_and_condition(self) -> None:
         """Test plugin_metadata in combined AND condition."""
         policy_data = {

@@ -36,7 +36,7 @@ def sample_plan() -> Plan:
     return Plan(
         file_id="test-file-id",
         file_path=Path("/test/video.mkv"),
-        policy_version=1,
+        policy_version=12,
         actions=(
             PlannedAction(
                 action_type=ActionType.SET_DEFAULT,
@@ -104,7 +104,7 @@ class TestCreateOperation:
         assert operation.file_id == sample_file_id
         assert operation.file_path == str(sample_plan.file_path)
         assert operation.policy_name == "test-policy.yaml"
-        assert operation.policy_version == 1
+        assert operation.policy_version == 12
         assert operation.status == OperationStatus.PENDING
         assert operation.started_at is not None
         assert operation.error_message is None
