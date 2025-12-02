@@ -14,6 +14,15 @@ phases:
       target: mkv
       on_incompatible_codec: transcode
 
+  # Analyze audio tracks to detect actual language content
+  # This runs BEFORE cleanup so language tags are corrected first
+  - name: analyze
+    transcription:
+      enabled: true
+      update_language_from_transcription: true
+      confidence_threshold: 0.8
+      detect_commentary: true
+
   - name: cleanup
     audio_filter:
       languages: [eng, und]
