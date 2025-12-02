@@ -226,3 +226,33 @@ def make_transcode_plan():
         )
 
     return _make_plan
+
+
+@pytest.fixture
+def make_transcode_result():
+    """Factory for creating TranscodeResult objects with sensible defaults.
+
+    Using this fixture (or spec=TranscodeResult with MagicMock) ensures tests
+    fail if code accesses non-existent attributes on TranscodeResult.
+
+    Example:
+        def test_failure_handling(make_transcode_result):
+            result = make_transcode_result(success=False, error_message="FFmpeg error")
+            assert result.error_message == "FFmpeg error"
+    """
+    from video_policy_orchestrator.executor.transcode import TranscodeResult
+
+    def _make_result(
+        success: bool = True,
+        output_path: Path | None = None,
+        error_message: str | None = None,
+        backup_path: Path | None = None,
+    ) -> TranscodeResult:
+        return TranscodeResult(
+            success=success,
+            output_path=output_path,
+            error_message=error_message,
+            backup_path=backup_path,
+        )
+
+    return _make_result
