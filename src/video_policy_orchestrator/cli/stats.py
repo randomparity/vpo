@@ -976,3 +976,151 @@ def _output_detail_table(detail) -> None:
                 click.echo(f"     {action.message}")
 
     click.echo("")
+
+
+@stats_group.command("purge")
+@click.option(
+    "--before",
+    "before_date",
+    default=None,
+    help="Delete stats older than (relative: 30d, 90d or ISO-8601).",
+)
+@click.option(
+    "--policy",
+    "policy_name",
+    default=None,
+    help="Delete stats for a specific policy name.",
+)
+@click.option(
+    "--all",
+    "delete_all",
+    is_flag=True,
+    default=False,
+    help="Delete ALL statistics (requires --yes to confirm).",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Preview what would be deleted without making changes.",
+)
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Skip confirmation prompt.",
+)
+@click.pass_context
+def stats_purge(
+    ctx: click.Context,
+    before_date: str | None,
+    policy_name: str | None,
+    delete_all: bool,
+    dry_run: bool,
+    yes: bool,
+) -> None:
+    """Delete processing statistics.
+
+    Remove old or unwanted statistics from the database. Use with caution
+    as this operation cannot be undone.
+
+    Examples:
+
+        # Preview deletion of stats older than 30 days
+        vpo stats purge --before 30d --dry-run
+
+        # Delete stats older than 90 days
+        vpo stats purge --before 90d
+
+        # Delete stats for a specific policy
+        vpo stats purge --policy my-policy.yaml
+
+        # Delete ALL stats (requires confirmation)
+        vpo stats purge --all --yes
+    """
+    from video_policy_orchestrator.db.queries import (
+        delete_all_processing_stats,
+        delete_processing_stats_before,
+        delete_processing_stats_by_policy,
+    )
+
+    conn = ctx.obj.get("db_conn")
+    if conn is None:
+        raise click.ClickException("Failed to connect to database.")
+
+    # Validate options
+    if not before_date and not policy_name and not delete_all:
+        raise click.ClickException(
+            "Must specify at least one of: --before, --policy, or --all"
+        )
+
+    if delete_all and (before_date or policy_name):
+        raise click.ClickException("--all cannot be combined with --before or --policy")
+
+    # Build operation description
+    if delete_all:
+        description = "ALL processing statistics"
+    elif before_date and policy_name:
+        # Parse the time filter
+        before_ts = _parse_time_filter(before_date)
+        description = f"stats for policy '{policy_name}' before {before_date}"
+        # For combined filter, we need to handle this specially
+        raise click.ClickException(
+            "Cannot combine --before and --policy. Use separate commands."
+        )
+    elif before_date:
+        before_ts = _parse_time_filter(before_date)
+        description = f"stats older than {before_date}"
+    else:
+        description = f"stats for policy '{policy_name}'"
+
+    # Dry run - show what would be deleted
+    if dry_run:
+        if delete_all:
+            count = delete_all_processing_stats(conn, dry_run=True)
+        elif before_date:
+            count = delete_processing_stats_before(conn, before_ts, dry_run=True)
+        else:
+            count = delete_processing_stats_by_policy(
+                conn,
+                policy_name,
+                dry_run=True,  # type: ignore
+            )
+
+        click.echo(f"[DRY-RUN] Would delete {count} processing stats records.")
+        click.echo(f"Target: {description}")
+        return
+
+    # Confirmation for destructive operations
+    if not yes:
+        if delete_all:
+            count = delete_all_processing_stats(conn, dry_run=True)
+        elif before_date:
+            count = delete_processing_stats_before(conn, before_ts, dry_run=True)
+        else:
+            count = delete_processing_stats_by_policy(
+                conn,
+                policy_name,
+                dry_run=True,  # type: ignore
+            )
+
+        if count == 0:
+            click.echo("No statistics match the specified criteria.")
+            return
+
+        click.echo(f"About to delete {count} processing stats records.")
+        click.echo(f"Target: {description}")
+        if not click.confirm("Are you sure you want to continue?"):
+            click.echo("Operation cancelled.")
+            return
+
+    # Execute deletion
+    if delete_all:
+        deleted = delete_all_processing_stats(conn)
+    elif before_date:
+        deleted = delete_processing_stats_before(conn, before_ts)
+    else:
+        deleted = delete_processing_stats_by_policy(conn, policy_name)  # type: ignore
+
+    click.echo(f"Deleted {deleted} processing stats records.")

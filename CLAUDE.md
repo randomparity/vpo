@@ -288,3 +288,52 @@ When adding new condition types to the policy system:
 3. Add parsing case to `convert_condition()` in `policy/loader.py`
 4. Add evaluation function in `policy/conditions.py`
 5. Thread any new context through `policy/evaluator.py`
+
+## Processing Statistics
+
+VPO captures detailed processing statistics for each file operation:
+
+**Database tables:**
+- `processing_stats`: Core metrics (sizes, track counts, transcode info, timing)
+- `action_results`: Individual action details (track type, before/after state)
+- `performance_metrics`: Per-phase timing data
+
+**Key modules:**
+- `workflow/stats_capture.py`: `StatsCollector` class for capturing metrics during workflow execution
+- `db/views.py`: View queries (`get_stats_summary()`, `get_recent_stats()`, `get_policy_stats()`)
+- `db/types.py`: `ProcessingStatsRecord`, `ActionResultRecord`, `PerformanceMetricsRecord`
+- `cli/stats.py`: CLI commands (`vpo stats summary`, `vpo stats recent`, `vpo stats purge`)
+- `server/ui/routes.py`: REST API endpoints (`/api/stats/*`)
+
+**CLI Commands:**
+```bash
+# View summary statistics
+vpo stats summary --since 7d
+
+# View recent processing history
+vpo stats recent --limit 20
+
+# View per-policy breakdown
+vpo stats policies --since 30d
+
+# View single file history
+vpo stats file 123
+
+# View single record details
+vpo stats detail <stats-id>
+
+# Delete old statistics (purge)
+vpo stats purge --before 90d --dry-run   # Preview
+vpo stats purge --before 90d             # Execute
+vpo stats purge --policy my-policy.yaml  # By policy
+vpo stats purge --all --yes              # Delete all
+```
+
+**REST API Endpoints:**
+- `GET /api/stats/summary` - Aggregate statistics
+- `GET /api/stats/recent` - Recent processing history
+- `GET /api/stats/policies` - Per-policy breakdown
+- `GET /api/stats/policies/{name}` - Single policy stats
+- `GET /api/stats/files/{file_id}` - File processing history
+- `GET /api/stats/{stats_id}` - Single record detail
+- `DELETE /api/stats/purge?before=30d&dry_run=true` - Delete statistics

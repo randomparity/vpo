@@ -156,15 +156,17 @@
 
 **Purpose**: Purge capability, edge cases, documentation
 
-- [ ] T057 [P] Add delete_processing_stats_before() purge function in src/video_policy_orchestrator/db/queries.py (DEFERRED)
-- [ ] T058 [P] Add delete_processing_stats_by_policy() purge function in src/video_policy_orchestrator/db/queries.py (DEFERRED)
-- [ ] T059 Implement `vpo stats purge` subcommand with --before, --policy, --all, --dry-run flags in src/video_policy_orchestrator/cli/stats.py (DEFERRED)
-- [ ] T060 Add DELETE /api/stats/purge route handler in src/video_policy_orchestrator/server/routes.py (DEFERRED)
+- [x] T057 [P] Add delete_processing_stats_before() purge function in src/video_policy_orchestrator/db/queries.py
+- [x] T058 [P] Add delete_processing_stats_by_policy() purge function in src/video_policy_orchestrator/db/queries.py (also added delete_all_processing_stats)
+- [x] T059 Implement `vpo stats purge` subcommand with --before, --policy, --all, --dry-run flags in src/video_policy_orchestrator/cli/stats.py
+- [x] T060 Add DELETE /api/stats/purge route handler in src/video_policy_orchestrator/server/ui/routes.py
 - [x] T061 Handle edge case: partial stats on processing failure in src/video_policy_orchestrator/workflow/v11_processor.py (handled - stats persisted even on failure)
 - [x] T062 Handle edge case: negative size_change (file size increase) display in src/video_policy_orchestrator/cli/stats.py
 - [x] T063 Handle edge case: zero-change processing display in src/video_policy_orchestrator/cli/stats.py
 - [x] T064 Add file integrity hash verification display (hash_before, hash_after) in src/video_policy_orchestrator/cli/stats.py
-- [ ] T065 Update CLAUDE.md with stats module documentation (DEFERRED)
+- [x] T065 Update CLAUDE.md with stats module documentation
+
+**Checkpoint**: Phase 8 complete - all purge functionality implemented, edge cases handled, documentation updated
 
 ---
 

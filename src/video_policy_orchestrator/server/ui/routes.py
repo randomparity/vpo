@@ -2399,6 +2399,105 @@ async def api_stats_file_handler(request: web.Request) -> web.Response:
     return web.json_response([asdict(h) for h in history])
 
 
+@shutdown_check_middleware
+@database_required_middleware
+async def api_stats_purge_handler(request: web.Request) -> web.Response:
+    """Handle DELETE /api/stats/purge - Delete processing statistics.
+
+    Query parameters:
+        before: Delete stats older than (relative: 30d, 90d or ISO-8601)
+        policy: Delete stats for a specific policy name
+        all: Delete ALL statistics (requires confirmation)
+        dry_run: Preview what would be deleted without making changes
+
+    Returns:
+        JSON response with purge result (deleted count or error).
+    """
+    from video_policy_orchestrator.db.queries import (
+        delete_all_processing_stats,
+        delete_processing_stats_before,
+        delete_processing_stats_by_policy,
+    )
+
+    # Parse query parameters
+    before_str = request.query.get("before")
+    policy_name = request.query.get("policy")
+    delete_all = request.query.get("all", "").lower() in ("true", "1", "yes")
+    dry_run = request.query.get("dry_run", "").lower() in ("true", "1", "yes")
+
+    # Validate options
+    if not before_str and not policy_name and not delete_all:
+        return web.json_response(
+            {"error": "Must specify at least one of: before, policy, or all"},
+            status=400,
+        )
+
+    if delete_all and (before_str or policy_name):
+        return web.json_response(
+            {"error": "all cannot be combined with before or policy"},
+            status=400,
+        )
+
+    if before_str and policy_name:
+        return web.json_response(
+            {"error": "before and policy cannot be combined. Use separate requests."},
+            status=400,
+        )
+
+    # Parse time filter if provided
+    before_ts = None
+    if before_str:
+        before_ts = parse_time_filter(before_str)
+        if before_ts is None:
+            return web.json_response(
+                {"error": f"Invalid before value: '{before_str}'"},
+                status=400,
+            )
+
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
+
+    # Execute purge
+    def _execute_purge() -> int:
+        with connection_pool.transaction() as conn:
+            if delete_all:
+                return delete_all_processing_stats(conn, dry_run=dry_run)
+            elif before_ts:
+                return delete_processing_stats_before(conn, before_ts, dry_run=dry_run)
+            else:
+                return delete_processing_stats_by_policy(
+                    conn,
+                    policy_name,
+                    dry_run=dry_run,  # type: ignore
+                )
+
+    deleted = await asyncio.to_thread(_execute_purge)
+
+    # Build description
+    if delete_all:
+        target = "all processing statistics"
+    elif before_ts:
+        target = f"stats older than {before_str}"
+    else:
+        target = f"stats for policy '{policy_name}'"
+
+    if dry_run:
+        return web.json_response(
+            {
+                "dry_run": True,
+                "would_delete": deleted,
+                "target": target,
+            }
+        )
+    else:
+        return web.json_response(
+            {
+                "deleted": deleted,
+                "target": target,
+            }
+        )
+
+
 @database_required_middleware
 async def api_stats_policy_handler(request: web.Request) -> web.Response:
     """Handle GET /api/stats/policies/{name} - JSON API for single policy stats.
@@ -2712,6 +2811,7 @@ def setup_ui_routes(app: web.Application) -> None:
     app.router.add_get("/api/stats/policies/{name}", api_stats_policy_handler)
     app.router.add_get("/api/stats/files/{file_id}", api_stats_file_handler)
     app.router.add_get("/api/stats/{stats_id}", api_stats_detail_handler)
+    app.router.add_delete("/api/stats/purge", api_stats_purge_handler)
     app.router.add_get(
         "/about",
         aiohttp_jinja2.template("sections/about.html")(about_handler),

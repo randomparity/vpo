@@ -1851,3 +1851,85 @@ def get_performance_metrics_for_stats(
         )
         for row in cursor.fetchall()
     ]
+
+
+def delete_processing_stats_before(
+    conn: sqlite3.Connection, before_date: str, dry_run: bool = False
+) -> int:
+    """Delete processing stats older than the specified date.
+
+    Related action_results and performance_metrics are deleted via CASCADE.
+
+    Args:
+        conn: Database connection.
+        before_date: ISO-8601 UTC timestamp. Stats with processed_at before
+            this date are deleted.
+        dry_run: If True, return count without deleting.
+
+    Returns:
+        Number of stats records deleted (or would be deleted if dry_run).
+    """
+    if dry_run:
+        cursor = conn.execute(
+            "SELECT COUNT(*) FROM processing_stats WHERE processed_at < ?",
+            (before_date,),
+        )
+        return cursor.fetchone()[0]
+
+    cursor = conn.execute(
+        "DELETE FROM processing_stats WHERE processed_at < ?",
+        (before_date,),
+    )
+    conn.commit()
+    return cursor.rowcount
+
+
+def delete_processing_stats_by_policy(
+    conn: sqlite3.Connection, policy_name: str, dry_run: bool = False
+) -> int:
+    """Delete processing stats for a specific policy.
+
+    Related action_results and performance_metrics are deleted via CASCADE.
+
+    Args:
+        conn: Database connection.
+        policy_name: Name of the policy to delete stats for.
+        dry_run: If True, return count without deleting.
+
+    Returns:
+        Number of stats records deleted (or would be deleted if dry_run).
+    """
+    if dry_run:
+        cursor = conn.execute(
+            "SELECT COUNT(*) FROM processing_stats WHERE policy_name = ?",
+            (policy_name,),
+        )
+        return cursor.fetchone()[0]
+
+    cursor = conn.execute(
+        "DELETE FROM processing_stats WHERE policy_name = ?",
+        (policy_name,),
+    )
+    conn.commit()
+    return cursor.rowcount
+
+
+def delete_all_processing_stats(conn: sqlite3.Connection, dry_run: bool = False) -> int:
+    """Delete all processing stats.
+
+    Related action_results and performance_metrics are deleted via CASCADE.
+
+    Args:
+        conn: Database connection.
+        dry_run: If True, return count without deleting.
+
+    Returns:
+        Number of stats records deleted (or would be deleted if dry_run).
+    """
+    if dry_run:
+        cursor = conn.execute("SELECT COUNT(*) FROM processing_stats")
+        return cursor.fetchone()[0]
+
+    cursor = conn.execute("DELETE FROM processing_stats")
+    conn.commit()
+    return cursor.rowcount
