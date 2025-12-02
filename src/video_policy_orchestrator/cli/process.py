@@ -14,7 +14,7 @@ import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from pathlib import Path
 
 import click
@@ -28,9 +28,10 @@ from video_policy_orchestrator.cli.plan_formatter import (
 )
 from video_policy_orchestrator.cli.profile_loader import load_profile_or_exit
 from video_policy_orchestrator.config.loader import get_config
-from video_policy_orchestrator.db.connection import DaemonConnectionPool, get_connection
+from video_policy_orchestrator.db.connection import get_connection
 from video_policy_orchestrator.policy.loader import PolicyValidationError, load_policy
 from video_policy_orchestrator.policy.models import (
+    FileProcessingResult,
     OnErrorMode,
     ProcessingPhase,
     V11PolicySchema,
@@ -77,6 +78,27 @@ def resolve_worker_count(requested: int | None, config_default: int) -> int:
         return max_workers
 
     return max(1, effective)
+
+
+def _validate_workers(
+    ctx: click.Context, param: click.Parameter, value: int | None
+) -> int | None:
+    """Validate --workers option value.
+
+    Args:
+        ctx: Click context.
+        param: Click parameter.
+        value: Worker count from CLI.
+
+    Returns:
+        Validated value (unchanged if valid).
+
+    Raises:
+        click.BadParameter: If value is less than 1.
+    """
+    if value is not None and value < 1:
+        raise click.BadParameter("must be at least 1")
+    return value
 
 
 # =============================================================================
@@ -342,25 +364,17 @@ def _format_v11_result_json(result, file_path: Path) -> dict:
 
 
 # =============================================================================
-# Batch Processing Results
+# Parallel Processing Worker
 # =============================================================================
 
 
-@dataclass
-class BatchResult:
-    """Aggregated result of parallel batch processing."""
-
-    total_files: int
-    success_count: int
-    fail_count: int
-    results: list  # List of FileProcessingResult
-    total_duration_seconds: float
-    stopped_early: bool = False
+# Lock for synchronizing verbose output across worker threads
+_output_lock = threading.Lock()
 
 
 def _process_single_file_v11(
     file_path: Path,
-    pool: DaemonConnectionPool,
+    db_path: Path,
     policy: V11PolicySchema,
     dry_run: bool,
     verbose: bool,
@@ -368,12 +382,14 @@ def _process_single_file_v11(
     selected_phases: list[str] | None,
     progress: ProgressTracker,
     stop_event: threading.Event,
-) -> tuple[Path, any, bool]:
+) -> tuple[Path, FileProcessingResult | None, bool]:
     """Process a single file with V11 policy (worker function).
+
+    Each worker creates its own database connection for thread safety.
 
     Args:
         file_path: Path to the video file.
-        pool: Database connection pool.
+        db_path: Path to the database file.
         policy: V11 policy schema.
         dry_run: Whether to preview changes without modifying.
         verbose: Whether to emit verbose logging.
@@ -390,23 +406,21 @@ def _process_single_file_v11(
 
     progress.start_file()
     try:
-        # Get connection from pool for this operation
-        conn = pool.get_connection()
-        processor = V11WorkflowProcessor(
-            conn=conn,
-            policy=policy,
-            dry_run=dry_run,
-            verbose=verbose,
-            policy_name=policy_name,
-            selected_phases=selected_phases,
-        )
-        result = processor.process_file(file_path)
-        return file_path, result, result.success
+        # Each worker gets its own connection for thread safety
+        with get_connection(db_path) as conn:
+            processor = V11WorkflowProcessor(
+                conn=conn,
+                policy=policy,
+                dry_run=dry_run,
+                verbose=verbose,
+                policy_name=policy_name,
+                selected_phases=selected_phases,
+            )
+            result = processor.process_file(file_path)
+            return file_path, result, result.success
     except Exception as e:
         logger.exception("Error processing %s: %s", file_path, e)
         # Create a minimal failure result
-        from video_policy_orchestrator.policy.models import FileProcessingResult
-
         result = FileProcessingResult(
             file_path=file_path,
             phases_completed=[],
@@ -482,6 +496,7 @@ def _process_single_file_v11(
     "-w",
     type=int,
     default=None,
+    callback=_validate_workers,
     help=(
         "Number of parallel workers for batch processing "
         "(default: from config or 2, max: half CPU cores). "
@@ -598,11 +613,10 @@ def process_command(
             )
             error_exit(error_msg, ExitCode.INVALID_ARGUMENTS, json_output)
 
-    # Create connection pool for thread-safe database access
+    # Get database path for workers (each worker creates its own connection)
     from video_policy_orchestrator.db.connection import get_default_db_path
 
     db_path = get_default_db_path()
-    pool = DaemonConnectionPool(db_path)
     progress = ProgressTracker(
         total=len(file_paths),
         enabled=not json_output and not verbose,  # Disable if JSON or verbose
@@ -624,7 +638,7 @@ def process_command(
                     future = executor.submit(
                         _process_single_file_v11,
                         file_path,
-                        pool,
+                        db_path,
                         policy,
                         dry_run,
                         verbose,
@@ -647,17 +661,19 @@ def process_command(
                             else:
                                 fail_count += 1
 
-                            # Output result if verbose
+                            # Output result if verbose (use lock for thread safety)
                             if not json_output and verbose:
                                 formatted = _format_v11_result_human(
                                     result, file_path, verbose
                                 )
-                                click.echo(formatted)
-                                click.echo("")
+                                with _output_lock:
+                                    click.echo(formatted)
+                                    click.echo("")
                             elif not json_output and not progress.enabled:
                                 # Not verbose, not progress mode - show status
                                 status = "OK" if success else "FAILED"
-                                click.echo(f"[{status}] {file_path.name}")
+                                with _output_lock:
+                                    click.echo(f"[{status}] {file_path.name}")
 
                             # Handle on_error=fail mode
                             if not success and policy_on_error == OnErrorMode.FAIL:
@@ -674,6 +690,17 @@ def process_command(
                     except Exception as e:
                         logger.exception("Unexpected error for %s: %s", file_path, e)
                         fail_count += 1
+                        # Create minimal result for tracking
+                        error_result = FileProcessingResult(
+                            file_path=file_path,
+                            phases_completed=[],
+                            phases_failed=[],
+                            phases_skipped=[],
+                            phase_results=[],
+                            total_changes=0,
+                            error_message=str(e),
+                        )
+                        results.append(error_result)
 
             # Finish progress display
             progress.finish()
@@ -742,8 +769,6 @@ def process_command(
 
     except sqlite3.Error as e:
         error_exit(f"Database error: {e}", ExitCode.GENERAL_ERROR, json_output)
-    finally:
-        pool.close()
 
     # Calculate batch duration
     batch_duration = time.time() - batch_start_time
