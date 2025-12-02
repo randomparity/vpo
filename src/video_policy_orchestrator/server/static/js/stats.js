@@ -17,6 +17,13 @@ const state = {
     detailLoading: false
 }
 
+// Focus management for modal accessibility
+let lastFocusedElement = null
+
+// Debounce for time filter
+const DEBOUNCE_DELAY = 300
+let filterDebounceTimer = null
+
 // DOM Elements
 let elements = {}
 
@@ -82,11 +89,33 @@ function init() {
 }
 
 /**
- * Handle time filter change
+ * Handle time filter change with debouncing
  */
 function onTimeFilterChange(event) {
     state.timeFilter = event.target.value
-    loadStats()
+
+    // Debounce to prevent rapid API calls
+    if (filterDebounceTimer) {
+        clearTimeout(filterDebounceTimer)
+    }
+    filterDebounceTimer = setTimeout(() => {
+        loadStats()
+    }, DEBOUNCE_DELAY)
+}
+
+/**
+ * Build query string using URLSearchParams
+ */
+function buildQueryParams(extras = {}) {
+    const params = new URLSearchParams()
+    if (state.timeFilter) {
+        params.set('since', state.timeFilter)
+    }
+    Object.entries(extras).forEach(([key, value]) => {
+        params.set(key, String(value))
+    })
+    const str = params.toString()
+    return str ? `?${str}` : ''
 }
 
 /**
@@ -96,13 +125,11 @@ async function loadStats() {
     showLoading()
 
     try {
-        const params = state.timeFilter ? `?since=${state.timeFilter}` : ''
-
         // Fetch all data in parallel
         const [summaryRes, recentRes, policiesRes] = await Promise.all([
-            fetch(`/api/stats/summary${params}`),
-            fetch(`/api/stats/recent${params}&limit=20`),
-            fetch(`/api/stats/policies${params}`)
+            fetch(`/api/stats/summary${buildQueryParams()}`),
+            fetch(`/api/stats/recent${buildQueryParams({ limit: 20 })}`),
+            fetch(`/api/stats/policies${buildQueryParams()}`)
         ])
 
         if (!summaryRes.ok || !recentRes.ok || !policiesRes.ok) {
@@ -408,14 +435,53 @@ function formatDate(isoString) {
 // =====================
 
 /**
+ * Trap focus within the modal for accessibility
+ */
+function trapFocusInModal(e) {
+    if (e.key !== 'Tab') return
+
+    const focusableElements = elements.detailModal.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    )
+    if (focusableElements.length === 0) return
+
+    const first = focusableElements[0]
+    const last = focusableElements[focusableElements.length - 1]
+
+    if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+    }
+}
+
+/**
  * Show the detail modal for a stats entry
  */
 async function showDetailModal(statsId) {
     if (!elements.detailModal) return
 
+    // Save the currently focused element for restoration
+    lastFocusedElement = document.activeElement
+
     state.detailLoading = true
     elements.detailModal.style.display = 'flex'
-    elements.detailBody.innerHTML = '<div class="stats-detail-loading">Loading details...</div>'
+    elements.detailBody.innerHTML = `
+        <div class="stats-detail-loading">
+            <div class="stats-loading-spinner"></div>
+            <span>Loading details...</span>
+        </div>
+    `
+
+    // Add focus trap listener
+    document.addEventListener('keydown', trapFocusInModal)
+
+    // Move focus to close button
+    if (elements.detailClose) {
+        elements.detailClose.focus()
+    }
 
     try {
         const res = await fetch(`/api/stats/${statsId}`)
@@ -431,9 +497,14 @@ async function showDetailModal(statsId) {
         elements.detailBody.innerHTML = `
             <div class="stats-detail-error">
                 <p>Failed to load processing details.</p>
-                <button type="button" class="stats-retry-btn" onclick="showDetailModal('${statsId}')">Retry</button>
+                <button type="button" class="stats-retry-btn" id="detail-retry-btn">Retry</button>
             </div>
         `
+        // Attach event listener properly instead of inline onclick
+        const retryBtn = document.getElementById('detail-retry-btn')
+        if (retryBtn) {
+            retryBtn.addEventListener('click', () => showDetailModal(statsId))
+        }
     } finally {
         state.detailLoading = false
     }
@@ -446,6 +517,15 @@ function closeDetailModal() {
     if (elements.detailModal) {
         elements.detailModal.style.display = 'none'
         state.selectedDetail = null
+
+        // Remove focus trap listener
+        document.removeEventListener('keydown', trapFocusInModal)
+
+        // Restore focus to the element that triggered the modal
+        if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+            lastFocusedElement.focus()
+        }
+        lastFocusedElement = null
     }
 }
 

@@ -4970,6 +4970,20 @@ input.valid:focus {
     background: var(--color-primary-hover);
 }
 
+.stats-retry-btn:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.stats-retry-btn:focus:not(:focus-visible) {
+    outline: none;
+}
+
+.stats-retry-btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
 /* Filters */
 .stats-filters {
     display: flex;
@@ -5286,6 +5300,19 @@ input.valid:focus {
     text-align: center;
     padding: var(--spacing-xl);
     color: var(--color-text-secondary);
+}
+
+.stats-detail-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+}
+
+.stats-detail-loading .stats-loading-spinner {
+    width: 32px;
+    height: 32px;
 }
 
 .stats-detail-error {

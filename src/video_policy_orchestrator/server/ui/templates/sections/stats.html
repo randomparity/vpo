@@ -65,7 +65,7 @@
         </div>
 
         <!-- Empty state for no data -->
-        <div id="stats-empty" class="stats-empty" style="display: none;" role="status">
+        <div id="stats-empty" class="stats-empty" style="display: none;" role="status" aria-live="polite">
             <div class="stats-empty-icon" aria-hidden="true">&#128200;</div>
             <div class="stats-empty-title">No processing statistics</div>
             <div class="stats-empty-hint">
@@ -75,7 +75,7 @@
         </div>
 
         <!-- Recent processing table -->
-        <div id="stats-recent-section" class="stats-section">
+        <div id="stats-recent-section" class="stats-section" aria-live="polite">
             <h3 class="stats-section-title">Recent Processing</h3>
             <p class="stats-section-hint">Click a row to view detailed track changes</p>
             <div class="stats-table-container">
@@ -114,7 +114,7 @@
         </div>
 
         <!-- Policy comparison table -->
-        <div id="stats-policies-section" class="stats-section">
+        <div id="stats-policies-section" class="stats-section" aria-live="polite">
             <h3 class="stats-section-title">Policy Comparison</h3>
             <div class="stats-table-container">
                 <table class="stats-table" id="stats-policies-table" aria-label="Policy statistics comparison">
