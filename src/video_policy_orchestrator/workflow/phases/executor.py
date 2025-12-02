@@ -27,12 +27,21 @@ from video_policy_orchestrator.executor import (
 from video_policy_orchestrator.policy.evaluator import Plan, evaluate_policy
 from video_policy_orchestrator.policy.loader import load_policy_from_dict
 from video_policy_orchestrator.policy.models import (
+    AndCondition,
+    AudioIsMultiLanguageCondition,
+    Comparison,
+    CountCondition,
+    ExistsCondition,
+    NotCondition,
     OnErrorMode,
     OperationType,
+    OrCondition,
     PhaseDefinition,
     PhaseExecutionError,
     PhaseResult,
+    PluginMetadataCondition,
     PolicySchema,
+    TitleMatch,
     V11PolicySchema,
 )
 
@@ -226,30 +235,104 @@ class V11PhaseExecutor:
         return result
 
     def _condition_to_dict(self, condition) -> dict:
-        """Convert a Condition to dict format."""
+        """Convert a Condition to dict format for policy loading.
+
+        Handles all condition types in the Condition union:
+        - ExistsCondition -> {"exists": {...}}
+        - CountCondition -> {"count": {...}}
+        - AndCondition -> {"and": [...]}
+        - OrCondition -> {"or": [...]}
+        - NotCondition -> {"not": {...}}
+        - AudioIsMultiLanguageCondition -> {"audio_is_multi_language": {...}}
+        - PluginMetadataCondition -> {"plugin_metadata": {...}}
+        """
+        if isinstance(condition, ExistsCondition):
+            inner: dict = {"track_type": condition.track_type}
+            inner.update(self._filters_to_dict(condition.filters))
+            return {"exists": inner}
+
+        if isinstance(condition, CountCondition):
+            inner = {"track_type": condition.track_type}
+            inner.update(self._filters_to_dict(condition.filters))
+            # Add the count comparison operator
+            inner[condition.operator.value] = condition.value
+            return {"count": inner}
+
+        if isinstance(condition, AndCondition):
+            return {"and": [self._condition_to_dict(c) for c in condition.conditions]}
+
+        if isinstance(condition, OrCondition):
+            return {"or": [self._condition_to_dict(c) for c in condition.conditions]}
+
+        if isinstance(condition, NotCondition):
+            return {"not": self._condition_to_dict(condition.inner)}
+
+        if isinstance(condition, AudioIsMultiLanguageCondition):
+            inner = {}
+            if condition.threshold is not None:
+                inner["threshold"] = condition.threshold
+            return {"audio_is_multi_language": inner}
+
+        if isinstance(condition, PluginMetadataCondition):
+            inner = {
+                "plugin": condition.plugin,
+                "field": condition.field,
+            }
+            if condition.value is not None:
+                inner["value"] = condition.value
+            if condition.operator.value != "eq":  # Only include if not default
+                inner["operator"] = condition.operator.value
+            return {"plugin_metadata": inner}
+
+        # Fallback for unknown condition types
+        raise ValueError(f"Unknown condition type: {type(condition).__name__}")
+
+    def _filters_to_dict(self, filters) -> dict:
+        """Convert TrackFilters to dict format."""
         result: dict = {}
+        if filters.language is not None:
+            if isinstance(filters.language, tuple):
+                result["language"] = list(filters.language)
+            else:
+                result["language"] = filters.language
+        if filters.codec is not None:
+            if isinstance(filters.codec, tuple):
+                result["codec"] = list(filters.codec)
+            else:
+                result["codec"] = filters.codec
+        if filters.is_default is not None:
+            result["is_default"] = filters.is_default
+        if filters.is_forced is not None:
+            result["is_forced"] = filters.is_forced
+        if filters.channels is not None:
+            result["channels"] = self._comparison_to_dict(filters.channels)
+        if filters.width is not None:
+            result["width"] = self._comparison_to_dict(filters.width)
+        if filters.height is not None:
+            result["height"] = self._comparison_to_dict(filters.height)
+        if filters.title is not None:
+            result["title"] = self._title_match_to_dict(filters.title)
+        if filters.not_commentary is not None:
+            result["not_commentary"] = filters.not_commentary
+        return result
 
-        if condition.track_type:
-            result["track_type"] = condition.track_type.value
-        if condition.language:
-            result["language"] = condition.language
-        if condition.language_in:
-            result["language_in"] = list(condition.language_in)
-        if condition.codec:
-            result["codec"] = condition.codec
-        if condition.codec_in:
-            result["codec_in"] = list(condition.codec_in)
-        if condition.is_commentary is not None:
-            result["is_commentary"] = condition.is_commentary
-        if condition.is_default is not None:
-            result["is_default"] = condition.is_default
-        if condition.is_forced is not None:
-            result["is_forced"] = condition.is_forced
-        if condition.title_matches:
-            result["title_matches"] = condition.title_matches
-        if condition.audio_is_multi_language is not None:
-            result["audio_is_multi_language"] = condition.audio_is_multi_language
+    def _comparison_to_dict(self, comparison: int | Comparison) -> int | dict:
+        """Convert Comparison or int to dict format."""
+        if isinstance(comparison, int):
+            return comparison
+        # Comparison dataclass with operator and value
+        return {comparison.operator.value: comparison.value}
 
+    def _title_match_to_dict(self, title_match: str | TitleMatch) -> str | dict:
+        """Convert TitleMatch or str to dict format."""
+        if isinstance(title_match, str):
+            return title_match
+        # TitleMatch dataclass
+        result: dict = {}
+        if title_match.contains is not None:
+            result["contains"] = title_match.contains
+        if title_match.regex is not None:
+            result["regex"] = title_match.regex
         return result
 
     def _action_to_dict(self, action) -> dict:
@@ -754,6 +837,7 @@ class V11PhaseExecutor:
     ) -> int:
         """Execute video/audio transcode operation."""
         from video_policy_orchestrator.executor.transcode import TranscodeExecutor
+        from video_policy_orchestrator.policy.models import TranscodePolicyConfig
 
         phase = state.phase
         if not phase.transcode and not phase.audio_transcode:
@@ -771,41 +855,70 @@ class V11PhaseExecutor:
 
         # Video transcode
         if phase.transcode:
+            vt = phase.transcode
+
+            # Build TranscodePolicyConfig from VideoTranscodeConfig
+            transcode_policy = TranscodePolicyConfig(
+                target_video_codec=vt.target_codec,
+                target_crf=vt.quality.crf if vt.quality else None,
+                max_resolution=vt.scaling.max_resolution if vt.scaling else None,
+            )
+
+            # Get video track info
+            video_tracks = [t for t in tracks if t.track_type == "video"]
+            if not video_tracks:
+                logger.info("No video track found in %s, skipping transcode", file_path)
+                return 0
+            video_track = video_tracks[0]
+            audio_tracks = [t for t in tracks if t.track_type == "audio"]
+
+            # Get file record for size info
+            file_record = get_file_by_path(self.conn, str(file_path))
+            file_size_bytes = file_record.size_bytes if file_record else None
+
+            executor = TranscodeExecutor(
+                policy=transcode_policy,
+                skip_if=vt.skip_if,
+                audio_config=phase.audio_transcode,
+                backup_original=True,
+            )
+
+            # Create plan
+            plan = executor.create_plan(
+                input_path=file_path,
+                output_path=file_path,
+                video_codec=video_track.codec,
+                video_width=video_track.width,
+                video_height=video_track.height,
+                duration_seconds=video_track.duration_seconds,
+                audio_tracks=audio_tracks,
+                all_tracks=tracks,
+                file_size_bytes=file_size_bytes,
+            )
+
+            # Check if transcoding should be skipped
+            if plan.skip_reason:
+                logger.info(
+                    "Skipping transcode for %s: %s",
+                    file_path,
+                    plan.skip_reason,
+                )
+                return 0
+
             if self.dry_run:
                 logger.info(
                     "[DRY-RUN] Would transcode video to %s",
-                    phase.transcode.target_codec,
+                    vt.target_codec,
                 )
                 changes += 1
             else:
-                executor = TranscodeExecutor()
-                # Build transcode config dict
-                transcode_config = {
-                    "video": {
-                        "target_codec": phase.transcode.target_codec,
-                    }
-                }
-                if phase.transcode.quality:
-                    transcode_config["video"]["quality"] = {
-                        "mode": phase.transcode.quality.mode,
-                        "crf": phase.transcode.quality.crf,
-                        "preset": phase.transcode.quality.preset,
-                    }
-
-                result = executor.execute_transcode(
-                    file_path=file_path,
-                    tracks=tracks,
-                    transcode_config=transcode_config,
-                    dry_run=False,
-                )
+                result = executor.execute(plan)
                 if not result.success:
-                    raise RuntimeError(
-                        f"Video transcode failed: {result.error_message}"
-                    )
+                    raise RuntimeError(f"Video transcode failed: {result.message}")
                 changes += 1
 
-        # Audio transcode
-        if phase.audio_transcode:
+        # Audio transcode (without video transcode)
+        elif phase.audio_transcode:
             if self.dry_run:
                 logger.info(
                     "[DRY-RUN] Would transcode audio to %s",
@@ -813,8 +926,8 @@ class V11PhaseExecutor:
                 )
                 changes += 1
             else:
-                # TODO: Audio transcode via phase executor not yet fully implemented
-                # This needs integration with evaluate_policy to build proper plan
+                # TODO: Audio-only transcode not yet fully implemented
+                # Needs integration with evaluate_policy to build proper plan
                 logger.warning(
                     "Audio transcode to %s requested but not yet implemented "
                     "in V11 phase executor",
