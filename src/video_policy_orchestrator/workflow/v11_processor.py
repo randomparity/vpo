@@ -30,6 +30,10 @@ from video_policy_orchestrator.policy.models import (
     V11PolicySchema,
 )
 from video_policy_orchestrator.workflow.phases.executor import V11PhaseExecutor
+from video_policy_orchestrator.workflow.stats_capture import (
+    PhaseMetrics,
+    StatsCollector,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +152,20 @@ class V11WorkflowProcessor:
         # Get initial file info from database
         file_info = self._get_file_info(file_path)
 
+        # Initialize stats collector for non-dry-run processing
+        stats_collector: StatsCollector | None = None
+        if not self.dry_run and file_info:
+            # Get file_id from database
+            file_record = get_file_by_path(self.conn, str(file_path))
+            if file_record and file_record.id:
+                stats_collector = StatsCollector(
+                    conn=self.conn,
+                    file_id=file_record.id,
+                    policy_name=self.policy_name,
+                )
+                stats_collector.phases_total = len(self.phases_to_execute)
+                stats_collector.capture_before_state(file_info, file_path)
+
         for idx, phase in enumerate(self.phases_to_execute):
             # Report progress
             if self.progress_callback:
@@ -168,6 +186,7 @@ class V11WorkflowProcessor:
                 phase.name,
             )
 
+            phase_start_time = time.time()
             try:
                 # Execute the phase
                 phase_result = self._executor.execute_phase(
@@ -176,6 +195,16 @@ class V11WorkflowProcessor:
                     file_info=file_info,
                 )
                 phase_results.append(phase_result)
+
+                # Capture phase metrics for stats
+                if stats_collector:
+                    phase_duration = time.time() - phase_start_time
+                    stats_collector.add_phase_metrics(
+                        PhaseMetrics(
+                            phase_name=phase.name,
+                            wall_time_seconds=phase_duration,
+                        )
+                    )
 
                 if phase_result.success:
                     phases_completed.append(phase.name)
@@ -240,7 +269,7 @@ class V11WorkflowProcessor:
 
         duration = time.time() - start_time
 
-        return FileProcessingResult(
+        result = FileProcessingResult(
             file_path=file_path,
             success=len(phases_failed) == 0,
             phase_results=tuple(phase_results),
@@ -252,6 +281,17 @@ class V11WorkflowProcessor:
             failed_phase=failed_phase,
             error_message=error_message,
         )
+
+        # Capture after state and persist statistics
+        if stats_collector:
+            stats_collector.capture_after_state(file_info, file_path, result)
+            try:
+                stats_collector.persist()
+            except Exception as e:
+                # Stats persistence failure should not affect workflow result
+                logger.warning("Failed to persist processing stats: %s", e)
+
+        return result
 
     def process_files(self, file_paths: list[Path]) -> list[FileProcessingResult]:
         """Process multiple files through the workflow.

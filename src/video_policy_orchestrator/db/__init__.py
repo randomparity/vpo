@@ -22,6 +22,7 @@ Usage:
 # Queries: Job operations
 # Queries: Transcription result operations
 # Queries: Language analysis operations
+# Queries: Processing statistics operations
 from .queries import (
     delete_file,
     delete_job,
@@ -32,6 +33,7 @@ from .queries import (
     delete_tracks_for_file,
     delete_transcription_results_for_file,
     get_acknowledgments_for_plugin,
+    get_action_results_for_stats,
     get_all_jobs,
     get_file_by_id,
     get_file_by_path,
@@ -42,14 +44,20 @@ from .queries import (
     get_language_analysis_by_file_hash,
     get_language_analysis_result,
     get_language_segments,
+    get_performance_metrics_for_stats,
     get_plugin_acknowledgment,
+    get_processing_stats_by_id,
+    get_processing_stats_for_file,
     get_queued_jobs,
     get_tracks_for_file,
     get_transcription_result,
     get_transcriptions_for_tracks,
+    insert_action_result,
     insert_file,
     insert_job,
+    insert_performance_metric,
     insert_plugin_acknowledgment,
+    insert_processing_stats,
     insert_track,
     is_plugin_acknowledged,
     update_job_output,
@@ -69,8 +77,11 @@ from .queries import (
 # Types: Helper functions
 # Types: Type aliases
 from .types import (
+    ActionResultRecord,
+    ActionSummary,
     FileInfo,
     FileListViewItem,
+    FileProcessingHistory,
     FileRecord,
     IntrospectionResult,
     Job,
@@ -82,11 +93,16 @@ from .types import (
     LanguageSegmentRecord,
     OperationRecord,
     OperationStatus,
+    PerformanceMetricsRecord,
     PlanRecord,
     PlanStatus,
     PluginAcknowledgment,
     PluginMetadataDict,
+    PolicyStats,
+    ProcessingStatsRecord,
     ScanErrorView,
+    StatsDetailView,
+    StatsSummary,
     TrackClassification,
     TrackInfo,
     TrackRecord,
@@ -99,6 +115,7 @@ from .types import (
 # Views: Library list view queries
 # Views: Transcription view queries
 # Views: Scan errors view queries
+# Views: Processing statistics view queries
 from .views import (
     get_distinct_audio_languages,
     get_distinct_audio_languages_typed,
@@ -106,7 +123,13 @@ from .views import (
     get_files_filtered_typed,
     get_files_with_transcriptions,
     get_files_with_transcriptions_typed,
+    get_policy_stats,
+    get_policy_stats_by_name,
+    get_recent_stats,
     get_scan_errors_for_job,
+    get_stats_detail,
+    get_stats_for_file,
+    get_stats_summary,
     get_transcription_detail,
     get_transcription_detail_typed,
 )
@@ -123,20 +146,28 @@ __all__ = [
     "IntrospectionResult",
     "TrackInfo",
     # Database records
+    "ActionResultRecord",
     "FileRecord",
     "Job",
     "JobProgress",
     "LanguageAnalysisResultRecord",
     "LanguageSegmentRecord",
     "OperationRecord",
+    "PerformanceMetricsRecord",
     "PlanRecord",
     "PluginAcknowledgment",
+    "ProcessingStatsRecord",
     "TrackRecord",
     "TranscriptionResultRecord",
     # View models
+    "ActionSummary",
     "FileListViewItem",
+    "FileProcessingHistory",
     "LanguageOption",
+    "PolicyStats",
     "ScanErrorView",
+    "StatsDetailView",
+    "StatsSummary",
     "TranscriptionDetailView",
     "TranscriptionListViewItem",
     # Type aliases
@@ -187,6 +218,14 @@ __all__ = [
     "get_language_segments",
     "upsert_language_analysis_result",
     "upsert_language_segments",
+    # Processing statistics operations
+    "get_action_results_for_stats",
+    "get_performance_metrics_for_stats",
+    "get_processing_stats_by_id",
+    "get_processing_stats_for_file",
+    "insert_action_result",
+    "insert_performance_metric",
+    "insert_processing_stats",
     # Library list view queries
     "get_distinct_audio_languages",
     "get_distinct_audio_languages_typed",
@@ -199,4 +238,11 @@ __all__ = [
     "get_transcription_detail_typed",
     # Scan errors view queries
     "get_scan_errors_for_job",
+    # Processing statistics view queries
+    "get_policy_stats",
+    "get_policy_stats_by_name",
+    "get_recent_stats",
+    "get_stats_detail",
+    "get_stats_for_file",
+    "get_stats_summary",
 ]

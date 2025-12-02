@@ -41,7 +41,7 @@ uv run vpo serve --port 8080          # Start daemon with web UI
 
 - **Python 3.10+** with click (CLI), pydantic, PyYAML, aiohttp (daemon), Jinja2 (templates)
 - **Rust** (PyO3/maturin) for parallel file discovery and hashing in `crates/vpo-core/`
-- **SQLite** database at `~/.vpo/library.db`
+- **SQLite** database at `~/.vpo/library.db` (schema version 17)
 - **Web UI**: Vanilla JavaScript (ES6+), no frameworks - uses polling for live updates
 - **External tools:** ffprobe (introspection), mkvpropedit/mkvmerge (MKV editing), ffmpeg (metadata editing)
 
@@ -49,10 +49,10 @@ uv run vpo serve --port 8080          # Start daemon with web UI
 
 ```
 src/video_policy_orchestrator/
-├── cli/           # Click commands: scan, inspect, apply, doctor, serve
+├── cli/           # Click commands: scan, inspect, apply, doctor, serve, process
 ├── config/        # Configuration loading and models
 ├── db/            # SQLite schema, models, and query functions (see below)
-├── executor/      # Tool executors: mkvpropedit, mkvmerge, ffmpeg_metadata
+├── executor/      # Tool executors: mkvpropedit, mkvmerge, ffmpeg_metadata, transcode
 ├── introspector/  # MediaIntrospector protocol, ffprobe implementation
 ├── jobs/          # Background job management, logging, queue operations
 ├── plugin/        # Plugin system: registry, loader, interfaces, events
@@ -63,7 +63,8 @@ src/video_policy_orchestrator/
 ├── server/        # aiohttp daemon: app, routes, lifecycle, signals
 │   ├── ui/        # Web UI: Jinja2 templates, routes, models
 │   └── static/    # CSS, JavaScript (vanilla JS, no frameworks)
-└── tools/         # External tool detection and capability caching
+├── tools/         # External tool detection and capability caching
+└── workflow/      # V11WorkflowProcessor: multi-phase policy execution pipeline
 
 crates/vpo-core/   # Rust extension for parallel discovery/hashing
 ```
@@ -287,3 +288,52 @@ When adding new condition types to the policy system:
 3. Add parsing case to `convert_condition()` in `policy/loader.py`
 4. Add evaluation function in `policy/conditions.py`
 5. Thread any new context through `policy/evaluator.py`
+
+## Processing Statistics
+
+VPO captures detailed processing statistics for each file operation:
+
+**Database tables:**
+- `processing_stats`: Core metrics (sizes, track counts, transcode info, timing)
+- `action_results`: Individual action details (track type, before/after state)
+- `performance_metrics`: Per-phase timing data
+
+**Key modules:**
+- `workflow/stats_capture.py`: `StatsCollector` class for capturing metrics during workflow execution
+- `db/views.py`: View queries (`get_stats_summary()`, `get_recent_stats()`, `get_policy_stats()`)
+- `db/types.py`: `ProcessingStatsRecord`, `ActionResultRecord`, `PerformanceMetricsRecord`
+- `cli/stats.py`: CLI commands (`vpo stats summary`, `vpo stats recent`, `vpo stats purge`)
+- `server/ui/routes.py`: REST API endpoints (`/api/stats/*`)
+
+**CLI Commands:**
+```bash
+# View summary statistics
+vpo stats summary --since 7d
+
+# View recent processing history
+vpo stats recent --limit 20
+
+# View per-policy breakdown
+vpo stats policies --since 30d
+
+# View single file history
+vpo stats file 123
+
+# View single record details
+vpo stats detail <stats-id>
+
+# Delete old statistics (purge)
+vpo stats purge --before 90d --dry-run   # Preview
+vpo stats purge --before 90d             # Execute
+vpo stats purge --policy my-policy.yaml  # By policy
+vpo stats purge --all --yes              # Delete all
+```
+
+**REST API Endpoints:**
+- `GET /api/stats/summary` - Aggregate statistics
+- `GET /api/stats/recent` - Recent processing history
+- `GET /api/stats/policies` - Per-policy breakdown
+- `GET /api/stats/policies/{name}` - Single policy stats
+- `GET /api/stats/files/{file_id}` - File processing history
+- `GET /api/stats/{stats_id}` - Single record detail
+- `DELETE /api/stats/purge?before=30d&dry_run=true` - Delete statistics

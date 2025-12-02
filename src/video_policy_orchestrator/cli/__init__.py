@@ -326,6 +326,7 @@ def _register_commands():
     from video_policy_orchestrator.cli.profiles import profiles_group
     from video_policy_orchestrator.cli.report import report_group
     from video_policy_orchestrator.cli.serve import serve_command
+    from video_policy_orchestrator.cli.stats import stats_group
     from video_policy_orchestrator.cli.transcribe import transcribe_group
 
     main.add_command(analyze_language_group)
@@ -335,6 +336,7 @@ def _register_commands():
     main.add_command(plugins)
     main.add_command(process_command)
     main.add_command(jobs_group)
+    main.add_command(stats_group)
     main.add_command(transcribe_group)
     main.add_command(profiles_group)
     main.add_command(report_group)

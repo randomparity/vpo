@@ -10,10 +10,22 @@ from video_policy_orchestrator.workflow.processor import (
     FileProcessingResult,
     WorkflowProcessor,
 )
+from video_policy_orchestrator.workflow.stats_capture import (
+    ActionCapture,
+    PhaseMetrics,
+    StatsCollector,
+    compute_partial_hash,
+    count_tracks_by_type,
+)
 from video_policy_orchestrator.workflow.v11_processor import V11WorkflowProcessor
 
 __all__ = [
+    "ActionCapture",
     "FileProcessingResult",
-    "WorkflowProcessor",
+    "PhaseMetrics",
+    "StatsCollector",
     "V11WorkflowProcessor",
+    "WorkflowProcessor",
+    "compute_partial_hash",
+    "count_tracks_by_type",
 ]

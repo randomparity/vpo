@@ -25,7 +25,15 @@ from video_policy_orchestrator.core.datetime_utils import (
 )
 from video_policy_orchestrator.core.validation import is_valid_uuid
 from video_policy_orchestrator.db.connection import DaemonConnectionPool
-from video_policy_orchestrator.db.views import get_scan_errors_for_job
+from video_policy_orchestrator.db.views import (
+    get_policy_stats,
+    get_policy_stats_by_name,
+    get_recent_stats,
+    get_scan_errors_for_job,
+    get_stats_detail,
+    get_stats_for_file,
+    get_stats_summary,
+)
 from video_policy_orchestrator.server.ui.models import (
     DEFAULT_SECTION,
     NAVIGATION_ITEMS,
@@ -2147,6 +2155,418 @@ async def approvals_handler(request: web.Request) -> dict:
     )
 
 
+# ==========================================================================
+# Processing Statistics View Handlers (040-processing-stats)
+# ==========================================================================
+
+
+async def stats_handler(request: web.Request) -> dict:
+    """Handle GET /stats - Statistics dashboard page.
+
+    Renders the Statistics page with overview of processing metrics.
+    """
+    context = _create_template_context(
+        active_id="stats",
+        section_title="Statistics",
+    )
+    return context
+
+
+@shutdown_check_middleware
+@database_required_middleware
+async def api_stats_summary_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/stats/summary - JSON API for statistics summary.
+
+    Query parameters:
+        since: Time filter (24h, 7d, 30d, or ISO-8601)
+        until: Time filter end (ISO-8601)
+        policy_name: Filter by policy name
+
+    Returns:
+        JSON response with StatsSummary payload.
+    """
+    from dataclasses import asdict
+
+    # Parse query parameters
+    since_str = request.query.get("since")
+    until_str = request.query.get("until")
+    policy_name = request.query.get("policy")
+
+    # Parse time filters
+    since_ts = None
+    if since_str:
+        since_ts = parse_time_filter(since_str)
+        if since_ts is None:
+            return web.json_response(
+                {"error": f"Invalid since value: '{since_str}'"},
+                status=400,
+            )
+
+    until_ts = None
+    if until_str:
+        until_ts = parse_time_filter(until_str)
+        if until_ts is None:
+            return web.json_response(
+                {"error": f"Invalid until value: '{until_str}'"},
+                status=400,
+            )
+
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
+
+    # Query stats summary
+    def _query_summary():
+        with connection_pool.transaction() as conn:
+            return get_stats_summary(
+                conn,
+                since=since_ts,
+                until=until_ts,
+                policy_name=policy_name,
+            )
+
+    summary = await asyncio.to_thread(_query_summary)
+
+    return web.json_response(asdict(summary))
+
+
+@shutdown_check_middleware
+@database_required_middleware
+async def api_stats_recent_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/stats/recent - JSON API for recent processing history.
+
+    Query parameters:
+        limit: Maximum entries to return (1-100, default 10)
+        policy_name: Filter by policy name
+
+    Returns:
+        JSON response with list of FileProcessingHistory items.
+    """
+    from dataclasses import asdict
+
+    # Parse query parameters
+    try:
+        limit = int(request.query.get("limit", 10))
+        limit = max(1, min(100, limit))
+    except (ValueError, TypeError):
+        limit = 10
+
+    policy_name = request.query.get("policy")
+
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
+
+    # Query recent stats
+    def _query_recent():
+        with connection_pool.transaction() as conn:
+            return get_recent_stats(
+                conn,
+                limit=limit,
+                policy_name=policy_name,
+            )
+
+    entries = await asyncio.to_thread(_query_recent)
+
+    return web.json_response([asdict(e) for e in entries])
+
+
+@shutdown_check_middleware
+@database_required_middleware
+async def api_stats_policies_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/stats/policies - JSON API for per-policy statistics.
+
+    Query parameters:
+        since: Time filter (24h, 7d, 30d, or ISO-8601)
+        until: Time filter end (ISO-8601)
+
+    Returns:
+        JSON response with list of PolicyStats items.
+    """
+    from dataclasses import asdict
+
+    # Parse query parameters
+    since_str = request.query.get("since")
+    until_str = request.query.get("until")
+
+    # Parse time filters
+    since_ts = None
+    if since_str:
+        since_ts = parse_time_filter(since_str)
+        if since_ts is None:
+            return web.json_response(
+                {"error": f"Invalid since value: '{since_str}'"},
+                status=400,
+            )
+
+    until_ts = None
+    if until_str:
+        until_ts = parse_time_filter(until_str)
+        if until_ts is None:
+            return web.json_response(
+                {"error": f"Invalid until value: '{until_str}'"},
+                status=400,
+            )
+
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
+
+    # Query policy stats
+    def _query_policies():
+        with connection_pool.transaction() as conn:
+            return get_policy_stats(
+                conn,
+                since=since_ts,
+                until=until_ts,
+            )
+
+    policies = await asyncio.to_thread(_query_policies)
+
+    return web.json_response([asdict(p) for p in policies])
+
+
+@database_required_middleware
+async def api_stats_detail_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/stats/{stats_id} - JSON API for single stats record detail.
+
+    Path parameters:
+        stats_id: UUID of the processing_stats record.
+
+    Returns:
+        JSON response with full StatsDetailView including actions.
+    """
+    from dataclasses import asdict
+
+    stats_id = request.match_info.get("stats_id")
+    if not stats_id or not is_valid_uuid(stats_id):
+        return web.json_response(
+            {"error": "Invalid stats_id"},
+            status=400,
+        )
+
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
+
+    def _query_detail():
+        with connection_pool.transaction() as conn:
+            return get_stats_detail(conn, stats_id)
+
+    detail = await asyncio.to_thread(_query_detail)
+
+    if detail is None:
+        return web.json_response(
+            {"error": f"Stats record not found: {stats_id}"},
+            status=404,
+        )
+
+    return web.json_response(asdict(detail))
+
+
+@database_required_middleware
+async def api_stats_file_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/stats/files/{file_id} - JSON API for file processing history.
+
+    Path parameters:
+        file_id: ID of the file to get history for.
+
+    Returns:
+        JSON response with list of FileProcessingHistory items.
+    """
+    from dataclasses import asdict
+
+    file_id_str = request.match_info.get("file_id")
+    if not file_id_str:
+        return web.json_response(
+            {"error": "file_id is required"},
+            status=400,
+        )
+
+    try:
+        file_id = int(file_id_str)
+    except ValueError:
+        return web.json_response(
+            {"error": "file_id must be an integer"},
+            status=400,
+        )
+
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
+
+    def _query_file_stats():
+        with connection_pool.transaction() as conn:
+            return get_stats_for_file(conn, file_id=file_id)
+
+    history = await asyncio.to_thread(_query_file_stats)
+
+    return web.json_response([asdict(h) for h in history])
+
+
+@shutdown_check_middleware
+@database_required_middleware
+async def api_stats_purge_handler(request: web.Request) -> web.Response:
+    """Handle DELETE /api/stats/purge - Delete processing statistics.
+
+    Query parameters:
+        before: Delete stats older than (relative: 30d, 90d or ISO-8601)
+        policy: Delete stats for a specific policy name
+        all: Delete ALL statistics (requires confirmation)
+        dry_run: Preview what would be deleted without making changes
+
+    Returns:
+        JSON response with purge result (deleted count or error).
+    """
+    from video_policy_orchestrator.db.queries import (
+        delete_all_processing_stats,
+        delete_processing_stats_before,
+        delete_processing_stats_by_policy,
+    )
+
+    # Parse query parameters
+    before_str = request.query.get("before")
+    policy_name = request.query.get("policy")
+    delete_all = request.query.get("all", "").lower() in ("true", "1", "yes")
+    dry_run = request.query.get("dry_run", "").lower() in ("true", "1", "yes")
+
+    # Validate options
+    if not before_str and not policy_name and not delete_all:
+        return web.json_response(
+            {"error": "Must specify at least one of: before, policy, or all"},
+            status=400,
+        )
+
+    if delete_all and (before_str or policy_name):
+        return web.json_response(
+            {"error": "all cannot be combined with before or policy"},
+            status=400,
+        )
+
+    if before_str and policy_name:
+        return web.json_response(
+            {"error": "before and policy cannot be combined. Use separate requests."},
+            status=400,
+        )
+
+    # Parse time filter if provided
+    before_ts = None
+    if before_str:
+        before_ts = parse_time_filter(before_str)
+        if before_ts is None:
+            return web.json_response(
+                {"error": f"Invalid before value: '{before_str}'"},
+                status=400,
+            )
+
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
+
+    # Execute purge
+    def _execute_purge() -> int:
+        with connection_pool.transaction() as conn:
+            if delete_all:
+                return delete_all_processing_stats(conn, dry_run=dry_run)
+            elif before_ts:
+                return delete_processing_stats_before(conn, before_ts, dry_run=dry_run)
+            else:
+                return delete_processing_stats_by_policy(
+                    conn,
+                    policy_name,
+                    dry_run=dry_run,  # type: ignore
+                )
+
+    deleted = await asyncio.to_thread(_execute_purge)
+
+    # Build description
+    if delete_all:
+        target = "all processing statistics"
+    elif before_ts:
+        target = f"stats older than {before_str}"
+    else:
+        target = f"stats for policy '{policy_name}'"
+
+    if dry_run:
+        return web.json_response(
+            {
+                "dry_run": True,
+                "would_delete": deleted,
+                "target": target,
+            }
+        )
+    else:
+        return web.json_response(
+            {
+                "deleted": deleted,
+                "target": target,
+            }
+        )
+
+
+@database_required_middleware
+async def api_stats_policy_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/stats/policies/{name} - JSON API for single policy stats.
+
+    Path parameters:
+        name: Name of the policy to get stats for.
+
+    Query parameters:
+        since: Time filter (24h, 7d, 30d, or ISO-8601)
+        until: Time filter end (ISO-8601)
+
+    Returns:
+        JSON response with PolicyStats for the policy.
+    """
+    from dataclasses import asdict
+
+    policy_name = request.match_info.get("name")
+    if not policy_name:
+        return web.json_response(
+            {"error": "Policy name is required"},
+            status=400,
+        )
+
+    # Parse query parameters
+    since_str = request.query.get("since")
+    until_str = request.query.get("until")
+
+    # Parse time filters
+    since_ts = None
+    if since_str:
+        since_ts = parse_time_filter(since_str)
+        if since_ts is None:
+            return web.json_response(
+                {"error": f"Invalid since value: '{since_str}'"},
+                status=400,
+            )
+
+    until_ts = None
+    if until_str:
+        until_ts = parse_time_filter(until_str)
+        if until_ts is None:
+            return web.json_response(
+                {"error": f"Invalid until value: '{until_str}'"},
+                status=400,
+            )
+
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
+
+    def _query_policy():
+        with connection_pool.transaction() as conn:
+            return get_policy_stats_by_name(
+                conn,
+                policy_name,
+                since=since_ts,
+                until=until_ts,
+            )
+
+    policy = await asyncio.to_thread(_query_policy)
+
+    if policy is None:
+        return web.json_response(
+            {"error": f"No statistics found for policy: {policy_name}"},
+            status=404,
+        )
+
+    return web.json_response(asdict(policy))
+
+
 # Documentation URL constant
 DOCS_URL = "https://github.com/randomparity/vpo/tree/main/docs"
 
@@ -2380,6 +2800,18 @@ def setup_ui_routes(app: web.Application) -> None:
         "/approvals",
         aiohttp_jinja2.template("sections/approvals.html")(approvals_handler),
     )
+    # Processing statistics routes (040-processing-stats)
+    app.router.add_get(
+        "/stats",
+        aiohttp_jinja2.template("sections/stats.html")(stats_handler),
+    )
+    app.router.add_get("/api/stats/summary", api_stats_summary_handler)
+    app.router.add_get("/api/stats/recent", api_stats_recent_handler)
+    app.router.add_get("/api/stats/policies", api_stats_policies_handler)
+    app.router.add_get("/api/stats/policies/{name}", api_stats_policy_handler)
+    app.router.add_get("/api/stats/files/{file_id}", api_stats_file_handler)
+    app.router.add_get("/api/stats/{stats_id}", api_stats_detail_handler)
+    app.router.add_delete("/api/stats/purge", api_stats_purge_handler)
     app.router.add_get(
         "/about",
         aiohttp_jinja2.template("sections/about.html")(about_handler),

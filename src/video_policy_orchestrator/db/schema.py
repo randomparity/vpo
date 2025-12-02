@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 17
+SCHEMA_VERSION = 18
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -272,6 +272,111 @@ CREATE INDEX IF NOT EXISTS idx_lang_segments_analysis
     ON language_segments(analysis_id);
 CREATE INDEX IF NOT EXISTS idx_lang_segments_language
     ON language_segments(language_code);
+
+-- Processing statistics table (040-processing-stats)
+CREATE TABLE IF NOT EXISTS processing_stats (
+    id TEXT PRIMARY KEY,                    -- UUIDv4
+    file_id INTEGER NOT NULL,               -- FK to files.id
+    processed_at TEXT NOT NULL,             -- ISO-8601 UTC timestamp
+    policy_name TEXT NOT NULL,              -- Name of policy used
+
+    -- Size metrics
+    size_before INTEGER NOT NULL,           -- File size (bytes) before
+    size_after INTEGER NOT NULL,            -- File size (bytes) after
+    size_change INTEGER NOT NULL,           -- Bytes saved (+) or added (-)
+
+    -- Track counts (before)
+    audio_tracks_before INTEGER NOT NULL DEFAULT 0,
+    subtitle_tracks_before INTEGER NOT NULL DEFAULT 0,
+    attachments_before INTEGER NOT NULL DEFAULT 0,
+
+    -- Track counts (after)
+    audio_tracks_after INTEGER NOT NULL DEFAULT 0,
+    subtitle_tracks_after INTEGER NOT NULL DEFAULT 0,
+    attachments_after INTEGER NOT NULL DEFAULT 0,
+
+    -- Track counts (removed)
+    audio_tracks_removed INTEGER NOT NULL DEFAULT 0,
+    subtitle_tracks_removed INTEGER NOT NULL DEFAULT 0,
+    attachments_removed INTEGER NOT NULL DEFAULT 0,
+
+    -- Processing metrics
+    duration_seconds REAL NOT NULL,         -- Total wall-clock time
+    phases_completed INTEGER NOT NULL DEFAULT 0,
+    phases_total INTEGER NOT NULL DEFAULT 0,
+    total_changes INTEGER NOT NULL DEFAULT 0,
+
+    -- Transcode info
+    video_source_codec TEXT,                -- Original video codec
+    video_target_codec TEXT,                -- Target codec (NULL if not transcoded)
+    video_transcode_skipped INTEGER NOT NULL DEFAULT 0,  -- 1 if skipped
+    video_skip_reason TEXT,                 -- Skip reason (codec_matches, etc.)
+    audio_tracks_transcoded INTEGER NOT NULL DEFAULT 0,
+    audio_tracks_preserved INTEGER NOT NULL DEFAULT 0,
+
+    -- File integrity
+    hash_before TEXT,                       -- File hash before processing
+    hash_after TEXT,                        -- File hash after processing
+
+    -- Status
+    success INTEGER NOT NULL,               -- 1 = success, 0 = failure
+    error_message TEXT,                     -- Error details if failed
+
+    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_stats_file ON processing_stats(file_id);
+CREATE INDEX IF NOT EXISTS idx_stats_policy ON processing_stats(policy_name);
+CREATE INDEX IF NOT EXISTS idx_stats_time ON processing_stats(processed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_stats_success ON processing_stats(success);
+
+-- Action results table (040-processing-stats)
+CREATE TABLE IF NOT EXISTS action_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stats_id TEXT NOT NULL,                 -- FK to processing_stats.id
+    action_type TEXT NOT NULL,              -- set_default, remove, transcode, etc.
+    track_type TEXT,                        -- audio, video, subtitle, attachment
+    track_index INTEGER,                    -- Track index affected
+
+    -- State tracking (JSON for flexibility)
+    before_state TEXT,                      -- JSON: {"codec": "aac", ...}
+    after_state TEXT,                       -- JSON: {"codec": "aac", ...}
+
+    -- Result
+    success INTEGER NOT NULL,               -- 1 = success, 0 = failure
+    duration_ms INTEGER,                    -- Time taken for this action
+    rule_reference TEXT,                    -- Policy rule that triggered this action
+    message TEXT,                           -- Human-readable result message
+
+    FOREIGN KEY (stats_id) REFERENCES processing_stats(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_action_stats_id ON action_results(stats_id);
+CREATE INDEX IF NOT EXISTS idx_action_type ON action_results(action_type);
+CREATE INDEX IF NOT EXISTS idx_action_track_type ON action_results(track_type);
+
+-- Performance metrics table (040-processing-stats)
+CREATE TABLE IF NOT EXISTS performance_metrics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stats_id TEXT NOT NULL,                 -- FK to processing_stats.id
+    phase_name TEXT NOT NULL,               -- Phase name (analyze, transcode, etc.)
+
+    -- Timing
+    wall_time_seconds REAL NOT NULL,        -- Wall-clock duration
+
+    -- I/O metrics
+    bytes_read INTEGER,                     -- Bytes read from disk
+    bytes_written INTEGER,                  -- Bytes written to disk
+
+    -- FFmpeg-specific metrics (for transcode phases)
+    encoding_fps REAL,                      -- Average encoding FPS
+    encoding_bitrate INTEGER,               -- Average output bitrate (bits/sec)
+
+    FOREIGN KEY (stats_id) REFERENCES processing_stats(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_perf_stats_id ON performance_metrics(stats_id);
+CREATE INDEX IF NOT EXISTS idx_perf_phase ON performance_metrics(phase_name);
 """
 
 
@@ -1218,6 +1323,148 @@ def migrate_v16_to_v17(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def migrate_v17_to_v18(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 17 to version 18.
+
+    Adds processing statistics tables for metrics tracking (040-processing-stats):
+    - processing_stats: Core statistics per processing run
+    - action_results: Per-action details within a processing run
+    - performance_metrics: Per-phase performance data
+
+    This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Check if processing_stats table already exists
+    cursor = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='processing_stats'"
+    )
+    if cursor.fetchone() is None:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS processing_stats (
+                id TEXT PRIMARY KEY,
+                file_id INTEGER NOT NULL,
+                processed_at TEXT NOT NULL,
+                policy_name TEXT NOT NULL,
+
+                size_before INTEGER NOT NULL,
+                size_after INTEGER NOT NULL,
+                size_change INTEGER NOT NULL,
+
+                audio_tracks_before INTEGER NOT NULL DEFAULT 0,
+                subtitle_tracks_before INTEGER NOT NULL DEFAULT 0,
+                attachments_before INTEGER NOT NULL DEFAULT 0,
+
+                audio_tracks_after INTEGER NOT NULL DEFAULT 0,
+                subtitle_tracks_after INTEGER NOT NULL DEFAULT 0,
+                attachments_after INTEGER NOT NULL DEFAULT 0,
+
+                audio_tracks_removed INTEGER NOT NULL DEFAULT 0,
+                subtitle_tracks_removed INTEGER NOT NULL DEFAULT 0,
+                attachments_removed INTEGER NOT NULL DEFAULT 0,
+
+                duration_seconds REAL NOT NULL,
+                phases_completed INTEGER NOT NULL DEFAULT 0,
+                phases_total INTEGER NOT NULL DEFAULT 0,
+                total_changes INTEGER NOT NULL DEFAULT 0,
+
+                video_source_codec TEXT,
+                video_target_codec TEXT,
+                video_transcode_skipped INTEGER NOT NULL DEFAULT 0,
+                video_skip_reason TEXT,
+                audio_tracks_transcoded INTEGER NOT NULL DEFAULT 0,
+                audio_tracks_preserved INTEGER NOT NULL DEFAULT 0,
+
+                hash_before TEXT,
+                hash_after TEXT,
+
+                success INTEGER NOT NULL,
+                error_message TEXT,
+
+                FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_stats_file
+                ON processing_stats(file_id);
+            CREATE INDEX IF NOT EXISTS idx_stats_policy
+                ON processing_stats(policy_name);
+            CREATE INDEX IF NOT EXISTS idx_stats_time
+                ON processing_stats(processed_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_stats_success
+                ON processing_stats(success);
+        """)
+
+    # Check if action_results table already exists
+    cursor = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='action_results'"
+    )
+    if cursor.fetchone() is None:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS action_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                stats_id TEXT NOT NULL,
+                action_type TEXT NOT NULL,
+                track_type TEXT,
+                track_index INTEGER,
+
+                before_state TEXT,
+                after_state TEXT,
+
+                success INTEGER NOT NULL,
+                duration_ms INTEGER,
+                rule_reference TEXT,
+                message TEXT,
+
+                FOREIGN KEY (stats_id) REFERENCES processing_stats(id)
+                    ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_action_stats_id
+                ON action_results(stats_id);
+            CREATE INDEX IF NOT EXISTS idx_action_type
+                ON action_results(action_type);
+            CREATE INDEX IF NOT EXISTS idx_action_track_type
+                ON action_results(track_type);
+        """)
+
+    # Check if performance_metrics table already exists
+    cursor = conn.execute(
+        "SELECT name FROM sqlite_master "
+        "WHERE type='table' AND name='performance_metrics'"
+    )
+    if cursor.fetchone() is None:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS performance_metrics (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                stats_id TEXT NOT NULL,
+                phase_name TEXT NOT NULL,
+
+                wall_time_seconds REAL NOT NULL,
+
+                bytes_read INTEGER,
+                bytes_written INTEGER,
+
+                encoding_fps REAL,
+                encoding_bitrate INTEGER,
+
+                FOREIGN KEY (stats_id) REFERENCES processing_stats(id)
+                    ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_perf_stats_id
+                ON performance_metrics(stats_id);
+            CREATE INDEX IF NOT EXISTS idx_perf_phase
+                ON performance_metrics(phase_name);
+        """)
+
+    # Update schema version to 18
+    conn.execute(
+        "UPDATE _meta SET value = '18' WHERE key = 'schema_version'",
+    )
+    conn.commit()
+
+
 def initialize_database(conn: sqlite3.Connection) -> None:
     """Initialize the database with schema, creating tables if needed.
 
@@ -1277,3 +1524,6 @@ def initialize_database(conn: sqlite3.Connection) -> None:
             current_version = 16
         if current_version == 16:
             migrate_v16_to_v17(conn)
+            current_version = 17
+        if current_version == 17:
+            migrate_v17_to_v18(conn)

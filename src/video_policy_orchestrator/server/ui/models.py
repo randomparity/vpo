@@ -141,6 +141,7 @@ NAVIGATION_ITEMS: list[NavigationItem] = [
     NavigationItem(id="transcriptions", label="Transcriptions", path="/transcriptions"),
     NavigationItem(id="policies", label="Policies", path="/policies"),
     NavigationItem(id="plans", label="Plans", path="/plans"),
+    NavigationItem(id="stats", label="Statistics", path="/stats"),
     NavigationItem(id="approvals", label="Approvals", path="/approvals"),
     NavigationItem(id="about", label="About", path="/about"),
 ]

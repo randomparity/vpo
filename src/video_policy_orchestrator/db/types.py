@@ -509,6 +509,164 @@ class LanguageSegmentRecord:
     confidence: float
 
 
+@dataclass
+class ProcessingStatsRecord:
+    """Database record for processing_stats table.
+
+    Stores core statistics for each processing operation including
+    file sizes, track counts, transcode info, and status.
+
+    Attributes:
+        id: Unique identifier (UUIDv4).
+        file_id: Foreign key to files.id.
+        processed_at: ISO-8601 UTC timestamp.
+        policy_name: Name of policy used.
+        size_before: File size in bytes before processing.
+        size_after: File size in bytes after processing.
+        size_change: Bytes saved (positive) or added (negative).
+        audio_tracks_before: Audio track count before processing.
+        subtitle_tracks_before: Subtitle track count before processing.
+        attachments_before: Attachment count before processing.
+        audio_tracks_after: Audio track count after processing.
+        subtitle_tracks_after: Subtitle track count after processing.
+        attachments_after: Attachment count after processing.
+        audio_tracks_removed: Number of audio tracks removed.
+        subtitle_tracks_removed: Number of subtitle tracks removed.
+        attachments_removed: Number of attachments removed.
+        duration_seconds: Total wall-clock processing time.
+        phases_completed: Number of phases completed.
+        phases_total: Total number of phases in policy.
+        total_changes: Total number of changes applied.
+        video_source_codec: Original video codec.
+        video_target_codec: Target video codec (None if not transcoded).
+        video_transcode_skipped: Whether video transcode was skipped.
+        video_skip_reason: Reason for skip (codec_matches, etc.).
+        audio_tracks_transcoded: Number of audio tracks transcoded.
+        audio_tracks_preserved: Number of audio tracks preserved.
+        hash_before: File hash before processing.
+        hash_after: File hash after processing.
+        success: Whether processing succeeded.
+        error_message: Error details if failed.
+    """
+
+    id: str  # UUIDv4
+    file_id: int
+    processed_at: str  # ISO-8601 UTC
+    policy_name: str
+
+    # Size metrics
+    size_before: int
+    size_after: int
+    size_change: int
+
+    # Track counts (before)
+    audio_tracks_before: int
+    subtitle_tracks_before: int
+    attachments_before: int
+
+    # Track counts (after)
+    audio_tracks_after: int
+    subtitle_tracks_after: int
+    attachments_after: int
+
+    # Track counts (removed)
+    audio_tracks_removed: int
+    subtitle_tracks_removed: int
+    attachments_removed: int
+
+    # Processing metrics
+    duration_seconds: float
+    phases_completed: int
+    phases_total: int
+    total_changes: int
+
+    # Transcode info
+    video_source_codec: str | None
+    video_target_codec: str | None
+    video_transcode_skipped: bool
+    video_skip_reason: str | None
+    audio_tracks_transcoded: int
+    audio_tracks_preserved: int
+
+    # File integrity
+    hash_before: str | None
+    hash_after: str | None
+
+    # Status
+    success: bool
+    error_message: str | None
+
+
+@dataclass
+class ActionResultRecord:
+    """Database record for action_results table.
+
+    Stores per-action details within a processing operation.
+
+    Attributes:
+        id: Primary key (None for new records).
+        stats_id: Foreign key to processing_stats.id.
+        action_type: Action type (set_default, set_language, remove, etc.).
+        track_type: Track type (audio, video, subtitle, attachment).
+        track_index: Index of track affected.
+        before_state: JSON-serialized state before action.
+        after_state: JSON-serialized state after action.
+        success: Whether action succeeded.
+        duration_ms: Time taken for this action in milliseconds.
+        rule_reference: Policy rule that triggered this action.
+        message: Human-readable result message.
+    """
+
+    id: int | None
+    stats_id: str  # FK to processing_stats.id
+    action_type: str
+    track_type: str | None
+    track_index: int | None
+
+    # State (JSON serialized)
+    before_state: str | None
+    after_state: str | None
+
+    # Result
+    success: bool
+    duration_ms: int | None
+    rule_reference: str | None
+    message: str | None
+
+
+@dataclass
+class PerformanceMetricsRecord:
+    """Database record for performance_metrics table.
+
+    Stores per-phase performance data for a processing operation.
+
+    Attributes:
+        id: Primary key (None for new records).
+        stats_id: Foreign key to processing_stats.id.
+        phase_name: Phase name (analyze, remux, transcode, etc.).
+        wall_time_seconds: Wall-clock duration in seconds.
+        bytes_read: Bytes read from disk.
+        bytes_written: Bytes written to disk.
+        encoding_fps: Average encoding FPS (transcode phases).
+        encoding_bitrate: Average output bitrate in bits/sec.
+    """
+
+    id: int | None
+    stats_id: str  # FK to processing_stats.id
+    phase_name: str
+
+    # Timing
+    wall_time_seconds: float
+
+    # I/O metrics
+    bytes_read: int | None
+    bytes_written: int | None
+
+    # FFmpeg metrics
+    encoding_fps: float | None
+    encoding_bitrate: int | None
+
+
 # ==========================================================================
 # View Model Dataclasses
 # ==========================================================================
@@ -656,3 +814,234 @@ class ScanErrorView:
     path: str
     filename: str
     error: str
+
+
+@dataclass
+class StatsSummary:
+    """Aggregate statistics summary for dashboard display.
+
+    Attributes:
+        total_files_processed: Total number of files processed.
+        total_successful: Number of successful processing runs.
+        total_failed: Number of failed processing runs.
+        success_rate: Success rate (0.0 to 1.0).
+        total_size_before: Total bytes before processing.
+        total_size_after: Total bytes after processing.
+        total_size_saved: Total bytes saved (positive = saved).
+        avg_savings_percent: Average savings as percentage.
+        total_audio_removed: Total audio tracks removed.
+        total_subtitles_removed: Total subtitle tracks removed.
+        total_attachments_removed: Total attachments removed.
+        total_videos_transcoded: Total videos transcoded.
+        total_videos_skipped: Total videos where transcode was skipped.
+        total_audio_transcoded: Total audio tracks transcoded.
+        avg_processing_time: Average processing time in seconds.
+        earliest_processing: ISO-8601 timestamp of earliest processing.
+        latest_processing: ISO-8601 timestamp of latest processing.
+    """
+
+    total_files_processed: int
+    total_successful: int
+    total_failed: int
+    success_rate: float  # 0.0 - 1.0
+
+    total_size_before: int  # bytes
+    total_size_after: int  # bytes
+    total_size_saved: int  # bytes (positive = saved)
+    avg_savings_percent: float
+
+    total_audio_removed: int
+    total_subtitles_removed: int
+    total_attachments_removed: int
+
+    total_videos_transcoded: int
+    total_videos_skipped: int
+    total_audio_transcoded: int
+
+    avg_processing_time: float  # seconds
+
+    # Time range
+    earliest_processing: str | None  # ISO-8601
+    latest_processing: str | None  # ISO-8601
+
+
+@dataclass
+class PolicyStats:
+    """Statistics for a single policy.
+
+    Attributes:
+        policy_name: Name of the policy.
+        files_processed: Number of files processed with this policy.
+        success_rate: Success rate (0.0 to 1.0).
+        total_size_saved: Total bytes saved by this policy.
+        avg_savings_percent: Average savings as percentage.
+        audio_tracks_removed: Total audio tracks removed.
+        subtitle_tracks_removed: Total subtitle tracks removed.
+        attachments_removed: Total attachments removed.
+        videos_transcoded: Total videos transcoded.
+        audio_transcoded: Total audio tracks transcoded.
+        avg_processing_time: Average processing time in seconds.
+        last_used: ISO-8601 timestamp of last use.
+    """
+
+    policy_name: str
+    files_processed: int
+    success_rate: float
+
+    total_size_saved: int
+    avg_savings_percent: float
+
+    audio_tracks_removed: int
+    subtitle_tracks_removed: int
+    attachments_removed: int
+
+    videos_transcoded: int
+    audio_transcoded: int
+
+    avg_processing_time: float
+
+    last_used: str  # ISO-8601
+
+
+@dataclass
+class FileProcessingHistory:
+    """Processing history entry for a file.
+
+    Attributes:
+        stats_id: Processing stats ID (UUID).
+        processed_at: ISO-8601 timestamp of processing.
+        policy_name: Policy used for processing.
+        size_before: File size before processing.
+        size_after: File size after processing.
+        size_change: Size change (positive = saved).
+        audio_removed: Number of audio tracks removed.
+        subtitle_removed: Number of subtitle tracks removed.
+        attachments_removed: Number of attachments removed.
+        duration_seconds: Processing duration in seconds.
+        success: Whether processing succeeded.
+        error_message: Error message if failed.
+    """
+
+    stats_id: str
+    processed_at: str
+    policy_name: str
+
+    size_before: int
+    size_after: int
+    size_change: int
+
+    audio_removed: int
+    subtitle_removed: int
+    attachments_removed: int
+
+    duration_seconds: float
+    success: bool
+    error_message: str | None
+
+
+@dataclass
+class ActionSummary:
+    """Summary of an action performed during processing.
+
+    Simplified view of action_results for display in stats detail.
+
+    Attributes:
+        action_type: Type of action (set_default, remove, etc.).
+        track_type: Track type affected (audio, video, subtitle, attachment).
+        track_index: Index of track affected.
+        success: Whether action succeeded.
+        message: Human-readable result message.
+    """
+
+    action_type: str
+    track_type: str | None
+    track_index: int | None
+    success: bool
+    message: str | None
+
+
+@dataclass
+class StatsDetailView:
+    """Detailed view of a processing stats record with actions.
+
+    Combines processing_stats with action_results for detailed display.
+
+    Attributes:
+        stats_id: Processing stats ID (UUID).
+        file_id: ID of file processed.
+        file_path: Path to file (if available).
+        filename: Filename (if available).
+        processed_at: ISO-8601 timestamp of processing.
+        policy_name: Policy used for processing.
+        size_before: File size before processing.
+        size_after: File size after processing.
+        size_change: Size change (positive = saved).
+        audio_tracks_before: Audio track count before.
+        audio_tracks_after: Audio track count after.
+        audio_tracks_removed: Number of audio tracks removed.
+        subtitle_tracks_before: Subtitle track count before.
+        subtitle_tracks_after: Subtitle track count after.
+        subtitle_tracks_removed: Number of subtitle tracks removed.
+        attachments_before: Attachment count before.
+        attachments_after: Attachment count after.
+        attachments_removed: Number of attachments removed.
+        video_source_codec: Original video codec.
+        video_target_codec: Target codec (if transcoded).
+        video_transcode_skipped: Whether video transcode was skipped.
+        video_skip_reason: Reason transcode was skipped.
+        audio_tracks_transcoded: Number of audio tracks transcoded.
+        audio_tracks_preserved: Number of audio tracks preserved.
+        duration_seconds: Processing duration in seconds.
+        phases_completed: Number of phases completed.
+        phases_total: Total phases in policy.
+        total_changes: Total changes applied.
+        hash_before: File hash before processing.
+        hash_after: File hash after processing.
+        success: Whether processing succeeded.
+        error_message: Error message if failed.
+        actions: List of action summaries.
+    """
+
+    stats_id: str
+    file_id: int
+    file_path: str | None
+    filename: str | None
+    processed_at: str
+    policy_name: str
+
+    size_before: int
+    size_after: int
+    size_change: int
+
+    audio_tracks_before: int
+    audio_tracks_after: int
+    audio_tracks_removed: int
+
+    subtitle_tracks_before: int
+    subtitle_tracks_after: int
+    subtitle_tracks_removed: int
+
+    attachments_before: int
+    attachments_after: int
+    attachments_removed: int
+
+    video_source_codec: str | None
+    video_target_codec: str | None
+    video_transcode_skipped: bool
+    video_skip_reason: str | None
+
+    audio_tracks_transcoded: int
+    audio_tracks_preserved: int
+
+    duration_seconds: float
+    phases_completed: int
+    phases_total: int
+    total_changes: int
+
+    hash_before: str | None
+    hash_after: str | None
+
+    success: bool
+    error_message: str | None
+
+    actions: list[ActionSummary] = field(default_factory=list)
