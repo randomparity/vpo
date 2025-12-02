@@ -18,6 +18,7 @@ from video_policy_orchestrator.config.models import (
     LanguageConfig,
     LoggingConfig,
     PluginConfig,
+    ProcessingConfig,
     ServerConfig,
     ToolPathsConfig,
     TranscriptionPluginConfig,
@@ -100,6 +101,9 @@ class ConfigSource:
     transcription_max_samples: int | None = None
     transcription_confidence_threshold: float | None = None
     transcription_incumbent_bonus: float | None = None
+
+    # Processing config
+    processing_workers: int | None = None
 
 
 class ConfigBuilder:
@@ -275,6 +279,11 @@ class ConfigBuilder:
             incumbent_bonus=self._get("transcription_incumbent_bonus", 0.15),
         )
 
+        # Build processing config
+        processing = ProcessingConfig(
+            workers=self._get("processing_workers", 2),
+        )
+
         return VPOConfig(
             tools=tools,
             detection=detection,
@@ -286,6 +295,7 @@ class ConfigBuilder:
             logging=logging_config,
             server=server,
             language=language,
+            processing=processing,
             database_path=self._get("database_path", None),
         )
 
@@ -309,6 +319,7 @@ def source_from_file(file_config: dict[str, Any]) -> ConfigSource:
     language = file_config.get("language", {})
     logging_conf = file_config.get("logging", {})
     transcription = file_config.get("transcription", {})
+    processing = file_config.get("processing", {})
 
     # Parse plugin directories
     plugin_dirs: list[Path] | None = None
@@ -383,6 +394,8 @@ def source_from_file(file_config: dict[str, Any]) -> ConfigSource:
         transcription_max_samples=transcription.get("max_samples"),
         transcription_confidence_threshold=transcription.get("confidence_threshold"),
         transcription_incumbent_bonus=transcription.get("incumbent_bonus"),
+        # Processing
+        processing_workers=processing.get("workers"),
     )
 
 
@@ -455,4 +468,6 @@ def source_from_env(reader: EnvReader) -> ConfigSource:
         transcription_incumbent_bonus=reader.get_float(
             "VPO_TRANSCRIPTION_INCUMBENT_BONUS"
         ),
+        # Processing
+        processing_workers=reader.get_int("VPO_PROCESSING_WORKERS"),
     )

@@ -8,8 +8,10 @@ For V11 policies, the workflow runs user-defined phases in order.
 
 import json
 import logging
+import os
 import sqlite3
 import sys
+import threading
 from dataclasses import replace
 from pathlib import Path
 
@@ -34,6 +36,95 @@ from video_policy_orchestrator.policy.models import (
 from video_policy_orchestrator.workflow import V11WorkflowProcessor, WorkflowProcessor
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Worker Count Utilities
+# =============================================================================
+
+
+def get_max_workers() -> int:
+    """Calculate maximum worker count (half CPU cores, minimum 1).
+
+    Returns:
+        Maximum number of workers based on available CPU cores.
+    """
+    cpu_count = os.cpu_count() or 2  # Default to 2 if detection fails
+    return max(1, cpu_count // 2)
+
+
+def resolve_worker_count(requested: int | None, config_default: int) -> int:
+    """Resolve effective worker count with capping.
+
+    Args:
+        requested: Worker count from CLI (None if not specified).
+        config_default: Default worker count from configuration.
+
+    Returns:
+        Effective worker count (capped at max_workers).
+    """
+    max_workers = get_max_workers()
+    effective = requested if requested is not None else config_default
+
+    if effective > max_workers:
+        logger.warning(
+            f"Requested {effective} workers exceeds cap of {max_workers} "
+            f"(half of {os.cpu_count()} cores). Using {max_workers}."
+        )
+        return max_workers
+
+    return max(1, effective)
+
+
+# =============================================================================
+# Progress Tracking
+# =============================================================================
+
+
+class ProgressTracker:
+    """Thread-safe progress tracking for parallel file processing.
+
+    Displays aggregate progress on stderr using in-place updates.
+    """
+
+    def __init__(self, total: int, enabled: bool = True) -> None:
+        """Initialize progress tracker.
+
+        Args:
+            total: Total number of files to process.
+            enabled: If False, suppresses output (for JSON mode).
+        """
+        self.total = total
+        self.completed = 0
+        self.active = 0
+        self.enabled = enabled
+        self._lock = threading.Lock()
+
+    def start_file(self) -> None:
+        """Mark a file as starting processing."""
+        with self._lock:
+            self.active += 1
+            self._update()
+
+    def complete_file(self) -> None:
+        """Mark a file as completed processing."""
+        with self._lock:
+            self.active -= 1
+            self.completed += 1
+            self._update()
+
+    def _update(self) -> None:
+        """Update progress display on stderr."""
+        if self.enabled:
+            msg = f"\rProcessing: {self.completed}/{self.total} [{self.active} active]"
+            sys.stderr.write(msg)
+            sys.stderr.flush()
+
+    def finish(self) -> None:
+        """Complete progress display with newline."""
+        if self.enabled:
+            sys.stderr.write("\n")
+            sys.stderr.flush()
 
 
 def _discover_files(paths: list[Path], recursive: bool) -> list[Path]:

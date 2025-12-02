@@ -34,14 +34,14 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T001 [P] Add ProcessingConfig dataclass with workers field (default=2, validation >=1) in src/video_policy_orchestrator/config/models.py
-- [ ] T002 [P] Add processing field to VPOConfig dataclass in src/video_policy_orchestrator/config/models.py
-- [ ] T003 Update ConfigBuilder to handle [processing] section from TOML in src/video_policy_orchestrator/config/builder.py
-- [ ] T004 Add get_max_workers() utility function (half CPU cores, min 1) in src/video_policy_orchestrator/cli/process.py
-- [ ] T005 Add resolve_worker_count() function to apply cap and log warning in src/video_policy_orchestrator/cli/process.py
-- [ ] T006 Add ProgressTracker class with thread-safe start_file/complete_file methods in src/video_policy_orchestrator/cli/process.py
-- [ ] T007 Add unit tests for ProcessingConfig validation in tests/unit/config/test_models.py
-- [ ] T008 Add unit tests for get_max_workers and resolve_worker_count in tests/unit/cli/test_process.py
+- [x] T001 [P] Add ProcessingConfig dataclass with workers field (default=2, validation >=1) in src/video_policy_orchestrator/config/models.py
+- [x] T002 [P] Add processing field to VPOConfig dataclass in src/video_policy_orchestrator/config/models.py
+- [x] T003 Update ConfigBuilder to handle [processing] section from TOML in src/video_policy_orchestrator/config/builder.py
+- [x] T004 Add get_max_workers() utility function (half CPU cores, min 1) in src/video_policy_orchestrator/cli/process.py
+- [x] T005 Add resolve_worker_count() function to apply cap and log warning in src/video_policy_orchestrator/cli/process.py
+- [x] T006 Add ProgressTracker class with thread-safe start_file/complete_file methods in src/video_policy_orchestrator/cli/process.py
+- [x] T007 Add unit tests for ProcessingConfig validation in tests/unit/config/test_models.py
+- [x] T008 Add unit tests for get_max_workers and resolve_worker_count in tests/unit/cli/test_process.py
 
 **Checkpoint**: Foundation ready - ProcessingConfig loads from config.toml, worker utilities work, ProgressTracker is thread-safe
 
