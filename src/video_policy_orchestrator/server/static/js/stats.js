@@ -12,7 +12,9 @@ const state = {
     error: null,
     summary: null,
     recent: [],
-    policies: []
+    policies: [],
+    selectedDetail: null,
+    detailLoading: false
 }
 
 // DOM Elements
@@ -45,7 +47,11 @@ function init() {
         recentSection: document.getElementById('stats-recent-section'),
         recentBody: document.getElementById('stats-recent-body'),
         policiesSection: document.getElementById('stats-policies-section'),
-        policiesBody: document.getElementById('stats-policies-body')
+        policiesBody: document.getElementById('stats-policies-body'),
+        // Detail modal
+        detailModal: document.getElementById('stats-detail-modal'),
+        detailClose: document.getElementById('stats-detail-close'),
+        detailBody: document.getElementById('stats-detail-body')
     }
 
     // Set up event listeners
@@ -54,6 +60,21 @@ function init() {
     }
     if (elements.retryBtn) {
         elements.retryBtn.addEventListener('click', loadStats)
+    }
+
+    // Modal event listeners
+    if (elements.detailClose) {
+        elements.detailClose.addEventListener('click', closeDetailModal)
+    }
+    if (elements.detailModal) {
+        // Close on backdrop click
+        elements.detailModal.querySelector('.stats-modal-backdrop').addEventListener('click', closeDetailModal)
+        // Close on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && elements.detailModal.style.display !== 'none') {
+                closeDetailModal()
+            }
+        })
     }
 
     // Initial load
@@ -180,12 +201,23 @@ function renderRecentTable() {
     tbody.innerHTML = ''
 
     if (!state.recent || state.recent.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="stats-empty-row">No recent processing history</td></tr>'
+        tbody.innerHTML = '<tr><td colspan="7" class="stats-empty-row">No recent processing history</td></tr>'
         return
     }
 
     for (const entry of state.recent) {
         const row = document.createElement('tr')
+        row.classList.add('stats-row-clickable')
+        row.dataset.statsId = entry.stats_id
+        row.addEventListener('click', () => showDetailModal(entry.stats_id))
+        row.setAttribute('role', 'button')
+        row.setAttribute('tabindex', '0')
+        row.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                showDetailModal(entry.stats_id)
+            }
+        })
 
         // Date
         const dateCell = document.createElement('td')
@@ -208,11 +240,15 @@ function renderRecentTable() {
         }
         row.appendChild(savedCell)
 
-        // Tracks removed
-        const tracksCell = document.createElement('td')
-        const totalRemoved = entry.audio_removed + entry.subtitle_removed + entry.attachments_removed
-        tracksCell.textContent = totalRemoved.toString()
-        row.appendChild(tracksCell)
+        // Audio tracks removed
+        const audioCell = document.createElement('td')
+        audioCell.textContent = entry.audio_removed.toString()
+        row.appendChild(audioCell)
+
+        // Subtitle tracks removed
+        const subCell = document.createElement('td')
+        subCell.textContent = entry.subtitle_removed.toString()
+        row.appendChild(subCell)
 
         // Duration
         const durationCell = document.createElement('td')
@@ -365,6 +401,196 @@ function formatDate(isoString) {
     } catch {
         return isoString.slice(0, 16).replace('T', ' ')
     }
+}
+
+// =====================
+// Detail modal functions
+// =====================
+
+/**
+ * Show the detail modal for a stats entry
+ */
+async function showDetailModal(statsId) {
+    if (!elements.detailModal) return
+
+    state.detailLoading = true
+    elements.detailModal.style.display = 'flex'
+    elements.detailBody.innerHTML = '<div class="stats-detail-loading">Loading details...</div>'
+
+    try {
+        const res = await fetch(`/api/stats/${statsId}`)
+        if (!res.ok) {
+            throw new Error('Failed to load details')
+        }
+
+        const detail = await res.json()
+        state.selectedDetail = detail
+        renderDetailContent(detail)
+    } catch (err) {
+        console.error('Error loading detail:', err)
+        elements.detailBody.innerHTML = `
+            <div class="stats-detail-error">
+                <p>Failed to load processing details.</p>
+                <button type="button" class="stats-retry-btn" onclick="showDetailModal('${statsId}')">Retry</button>
+            </div>
+        `
+    } finally {
+        state.detailLoading = false
+    }
+}
+
+/**
+ * Close the detail modal
+ */
+function closeDetailModal() {
+    if (elements.detailModal) {
+        elements.detailModal.style.display = 'none'
+        state.selectedDetail = null
+    }
+}
+
+/**
+ * Render detail content inside modal
+ */
+function renderDetailContent(detail) {
+    const savingsPercent = detail.size_before > 0
+        ? ((detail.size_change / detail.size_before) * 100).toFixed(1)
+        : '0.0'
+
+    let html = `
+        <div class="stats-detail-section">
+            <h4>File Information</h4>
+            <dl class="stats-detail-list">
+                <dt>File</dt>
+                <dd>${escapeHtml(detail.filename || 'N/A')}</dd>
+                ${detail.file_path ? `<dt>Path</dt><dd>${escapeHtml(detail.file_path)}</dd>` : ''}
+                <dt>Processed</dt>
+                <dd>${formatDate(detail.processed_at)}</dd>
+                <dt>Policy</dt>
+                <dd>${escapeHtml(detail.policy_name)}</dd>
+                <dt>Status</dt>
+                <dd class="${detail.success ? 'stats-positive' : 'stats-negative'}">${detail.success ? 'Success' : 'Failed'}</dd>
+                ${detail.error_message ? `<dt>Error</dt><dd class="stats-negative">${escapeHtml(detail.error_message)}</dd>` : ''}
+            </dl>
+        </div>
+
+        <div class="stats-detail-section">
+            <h4>Size Changes</h4>
+            <dl class="stats-detail-list">
+                <dt>Before</dt>
+                <dd>${formatBytes(detail.size_before)}</dd>
+                <dt>After</dt>
+                <dd>${formatBytes(detail.size_after)}</dd>
+                <dt>${detail.size_change >= 0 ? 'Saved' : 'Added'}</dt>
+                <dd class="${detail.size_change >= 0 ? 'stats-positive' : 'stats-negative'}">${formatBytes(Math.abs(detail.size_change))} (${savingsPercent}%)</dd>
+            </dl>
+        </div>
+
+        <div class="stats-detail-section">
+            <h4>Track Changes</h4>
+            <table class="stats-detail-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Before</th>
+                        <th>After</th>
+                        <th>Removed</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Audio</td>
+                        <td>${detail.audio_tracks_before}</td>
+                        <td>${detail.audio_tracks_after}</td>
+                        <td class="${detail.audio_tracks_removed > 0 ? 'stats-positive' : ''}">${detail.audio_tracks_removed}</td>
+                    </tr>
+                    <tr>
+                        <td>Subtitle</td>
+                        <td>${detail.subtitle_tracks_before}</td>
+                        <td>${detail.subtitle_tracks_after}</td>
+                        <td class="${detail.subtitle_tracks_removed > 0 ? 'stats-positive' : ''}">${detail.subtitle_tracks_removed}</td>
+                    </tr>
+                    <tr>
+                        <td>Attachments</td>
+                        <td>${detail.attachments_before}</td>
+                        <td>${detail.attachments_after}</td>
+                        <td class="${detail.attachments_removed > 0 ? 'stats-positive' : ''}">${detail.attachments_removed}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    `
+
+    // Transcode info
+    if (detail.video_source_codec || detail.video_target_codec) {
+        html += `
+            <div class="stats-detail-section">
+                <h4>Transcode Information</h4>
+                <dl class="stats-detail-list">
+                    ${detail.video_source_codec ? `<dt>Source Codec</dt><dd>${escapeHtml(detail.video_source_codec)}</dd>` : ''}
+                    ${detail.video_target_codec ? `<dt>Target Codec</dt><dd>${escapeHtml(detail.video_target_codec)}</dd>` : ''}
+                    <dt>Skipped</dt>
+                    <dd>${detail.video_transcode_skipped ? `Yes (${escapeHtml(detail.video_skip_reason || 'N/A')})` : 'No'}</dd>
+                    <dt>Audio Transcoded</dt>
+                    <dd>${detail.audio_tracks_transcoded}</dd>
+                    <dt>Audio Preserved</dt>
+                    <dd>${detail.audio_tracks_preserved}</dd>
+                </dl>
+            </div>
+        `
+    }
+
+    // Processing info
+    html += `
+        <div class="stats-detail-section">
+            <h4>Processing Info</h4>
+            <dl class="stats-detail-list">
+                <dt>Duration</dt>
+                <dd>${formatDuration(detail.duration_seconds)}</dd>
+                <dt>Phases</dt>
+                <dd>${detail.phases_completed}/${detail.phases_total}</dd>
+                <dt>Total Changes</dt>
+                <dd>${detail.total_changes}</dd>
+            </dl>
+        </div>
+    `
+
+    // Actions
+    if (detail.actions && detail.actions.length > 0) {
+        html += `
+            <div class="stats-detail-section">
+                <h4>Actions Performed</h4>
+                <ul class="stats-action-list">
+        `
+        for (const action of detail.actions) {
+            const trackInfo = action.track_type
+                ? ` (${escapeHtml(action.track_type)}${action.track_index !== null ? ` #${action.track_index}` : ''})`
+                : ''
+            const statusClass = action.success ? 'stats-action-success' : 'stats-action-error'
+            html += `
+                <li class="${statusClass}">
+                    <span class="stats-action-type">${escapeHtml(action.action_type)}</span>${trackInfo}
+                    ${action.message ? `<span class="stats-action-message">${escapeHtml(action.message)}</span>` : ''}
+                </li>
+            `
+        }
+        html += `
+                </ul>
+            </div>
+        `
+    }
+
+    elements.detailBody.innerHTML = html
+}
+
+/**
+ * Escape HTML special characters
+ */
+function escapeHtml(text) {
+    if (text === null || text === undefined) return ''
+    const div = document.createElement('div')
+    div.textContent = text
+    return div.innerHTML
 }
 
 // Initialize on DOM ready

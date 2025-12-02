@@ -5191,3 +5191,197 @@ input.valid:focus {
         grid-template-columns: 1fr;
     }
 }
+
+/* Stats section hint */
+.stats-section-hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--spacing-sm);
+}
+
+/* Clickable table rows */
+.stats-table-clickable tbody tr {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.stats-table-clickable tbody tr:hover {
+    background: var(--color-surface-hover);
+}
+
+.stats-table-clickable tbody tr:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.stats-row-clickable {
+    cursor: pointer;
+}
+
+/* Stats detail modal */
+.stats-modal {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.stats-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.stats-modal-content {
+    position: relative;
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    max-width: 700px;
+    width: 90%;
+    max-height: 85vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.stats-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.stats-modal-title {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+}
+
+.stats-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    padding: var(--spacing-xs);
+    line-height: 1;
+}
+
+.stats-modal-close:hover {
+    color: var(--color-text);
+}
+
+.stats-modal-body {
+    padding: var(--spacing-lg);
+    overflow-y: auto;
+}
+
+/* Detail loading/error states */
+.stats-detail-loading,
+.stats-detail-error {
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--color-text-secondary);
+}
+
+.stats-detail-error {
+    color: var(--color-error);
+}
+
+/* Detail sections */
+.stats-detail-section {
+    margin-bottom: var(--spacing-lg);
+}
+
+.stats-detail-section:last-child {
+    margin-bottom: 0;
+}
+
+.stats-detail-section h4 {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    color: var(--color-text);
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: var(--spacing-xs);
+}
+
+/* Detail list (dl/dt/dd) */
+.stats-detail-list {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--spacing-xs) var(--spacing-md);
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.stats-detail-list dt {
+    font-weight: 500;
+    color: var(--color-text-secondary);
+}
+
+.stats-detail-list dd {
+    margin: 0;
+    word-break: break-word;
+}
+
+/* Detail table (track changes) */
+.stats-detail-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+}
+
+.stats-detail-table th,
+.stats-detail-table td {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    text-align: left;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.stats-detail-table th {
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    background: var(--color-surface-secondary);
+}
+
+/* Action list */
+.stats-action-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.stats-action-list li {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-left: 3px solid var(--color-border);
+    margin-bottom: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+}
+
+.stats-action-list li:last-child {
+    margin-bottom: 0;
+}
+
+.stats-action-success {
+    border-left-color: var(--color-success);
+}
+
+.stats-action-error {
+    border-left-color: var(--color-error);
+}
+
+.stats-action-type {
+    font-weight: 500;
+}
+
+.stats-action-message {
+    display: block;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    margin-top: var(--spacing-xxs);
+}

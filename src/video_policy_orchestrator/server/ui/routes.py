@@ -29,6 +29,8 @@ from video_policy_orchestrator.db.views import (
     get_policy_stats,
     get_recent_stats,
     get_scan_errors_for_job,
+    get_stats_detail,
+    get_stats_for_file,
     get_stats_summary,
 )
 from video_policy_orchestrator.server.ui.models import (
@@ -2320,6 +2322,82 @@ async def api_stats_policies_handler(request: web.Request) -> web.Response:
     return web.json_response([asdict(p) for p in policies])
 
 
+@database_required_middleware
+async def api_stats_detail_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/stats/{stats_id} - JSON API for single stats record detail.
+
+    Path parameters:
+        stats_id: UUID of the processing_stats record.
+
+    Returns:
+        JSON response with full StatsDetailView including actions.
+    """
+    from dataclasses import asdict
+
+    stats_id = request.match_info.get("stats_id")
+    if not stats_id or not is_valid_uuid(stats_id):
+        return web.json_response(
+            {"error": "Invalid stats_id"},
+            status=400,
+        )
+
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
+
+    def _query_detail():
+        with connection_pool.transaction() as conn:
+            return get_stats_detail(conn, stats_id)
+
+    detail = await asyncio.to_thread(_query_detail)
+
+    if detail is None:
+        return web.json_response(
+            {"error": f"Stats record not found: {stats_id}"},
+            status=404,
+        )
+
+    return web.json_response(asdict(detail))
+
+
+@database_required_middleware
+async def api_stats_file_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/stats/files/{file_id} - JSON API for file processing history.
+
+    Path parameters:
+        file_id: ID of the file to get history for.
+
+    Returns:
+        JSON response with list of FileProcessingHistory items.
+    """
+    from dataclasses import asdict
+
+    file_id_str = request.match_info.get("file_id")
+    if not file_id_str:
+        return web.json_response(
+            {"error": "file_id is required"},
+            status=400,
+        )
+
+    try:
+        file_id = int(file_id_str)
+    except ValueError:
+        return web.json_response(
+            {"error": "file_id must be an integer"},
+            status=400,
+        )
+
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
+
+    def _query_file_stats():
+        with connection_pool.transaction() as conn:
+            return get_stats_for_file(conn, file_id=file_id)
+
+    history = await asyncio.to_thread(_query_file_stats)
+
+    return web.json_response([asdict(h) for h in history])
+
+
 # Documentation URL constant
 DOCS_URL = "https://github.com/randomparity/vpo/tree/main/docs"
 
@@ -2561,6 +2639,8 @@ def setup_ui_routes(app: web.Application) -> None:
     app.router.add_get("/api/stats/summary", api_stats_summary_handler)
     app.router.add_get("/api/stats/recent", api_stats_recent_handler)
     app.router.add_get("/api/stats/policies", api_stats_policies_handler)
+    app.router.add_get("/api/stats/files/{file_id}", api_stats_file_handler)
+    app.router.add_get("/api/stats/{stats_id}", api_stats_detail_handler)
     app.router.add_get(
         "/about",
         aiohttp_jinja2.template("sections/about.html")(about_handler),

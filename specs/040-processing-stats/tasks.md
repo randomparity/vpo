@@ -82,13 +82,13 @@
 
 ### Implementation for User Story 2
 
-- [ ] T031 [US2] Add get_stats_detail() query with action_results join in src/video_policy_orchestrator/db/views.py
-- [ ] T032 [US2] Implement `vpo stats file <path>` subcommand in src/video_policy_orchestrator/cli/stats.py
-- [ ] T033 [US2] Implement `vpo stats detail <id>` subcommand in src/video_policy_orchestrator/cli/stats.py
-- [ ] T034 [US2] Add table formatter for track removal display in src/video_policy_orchestrator/cli/stats.py
-- [ ] T035 [US2] Add GET /api/stats/files/{file_id} route handler in src/video_policy_orchestrator/server/routes.py
-- [ ] T036 [US2] Add GET /api/stats/{stats_id} route handler in src/video_policy_orchestrator/server/routes.py
-- [ ] T037 [US2] Update stats dashboard template with track removal section in src/video_policy_orchestrator/server/ui/templates/stats.html
+- [x] T031 [US2] Add get_stats_detail() query with action_results join in src/video_policy_orchestrator/db/views.py
+- [x] T032 [US2] Implement `vpo stats file <path>` subcommand in src/video_policy_orchestrator/cli/stats.py
+- [x] T033 [US2] Implement `vpo stats detail <id>` subcommand in src/video_policy_orchestrator/cli/stats.py
+- [x] T034 [US2] Add table formatter for track removal display in src/video_policy_orchestrator/cli/stats.py
+- [x] T035 [US2] Add GET /api/stats/files/{file_id} route handler in src/video_policy_orchestrator/server/ui/routes.py
+- [x] T036 [US2] Add GET /api/stats/{stats_id} route handler in src/video_policy_orchestrator/server/ui/routes.py
+- [x] T037 [US2] Update stats dashboard template with track removal section in src/video_policy_orchestrator/server/ui/templates/sections/stats.html
 
 **Checkpoint**: User Story 2 complete - users can view track removal details
 

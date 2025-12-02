@@ -77,14 +77,16 @@
         <!-- Recent processing table -->
         <div id="stats-recent-section" class="stats-section">
             <h3 class="stats-section-title">Recent Processing</h3>
+            <p class="stats-section-hint">Click a row to view detailed track changes</p>
             <div class="stats-table-container">
-                <table class="stats-table" id="stats-recent-table" aria-label="Recent processing history">
+                <table class="stats-table stats-table-clickable" id="stats-recent-table" aria-label="Recent processing history">
                     <thead>
                         <tr>
                             <th>Date</th>
                             <th>Policy</th>
                             <th>Space Saved</th>
-                            <th>Tracks Removed</th>
+                            <th>Audio</th>
+                            <th>Subtitles</th>
                             <th>Duration</th>
                             <th>Status</th>
                         </tr>
@@ -93,6 +95,21 @@
                         <!-- Rows populated by JavaScript -->
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- Stats detail modal -->
+        <div id="stats-detail-modal" class="stats-modal" style="display: none;" role="dialog" aria-labelledby="stats-detail-title" aria-modal="true">
+            <div class="stats-modal-backdrop" aria-hidden="true"></div>
+            <div class="stats-modal-content">
+                <div class="stats-modal-header">
+                    <h3 id="stats-detail-title" class="stats-modal-title">Processing Details</h3>
+                    <button type="button" class="stats-modal-close" id="stats-detail-close" aria-label="Close">&times;</button>
+                </div>
+                <div class="stats-modal-body" id="stats-detail-body">
+                    <!-- Detail content populated by JavaScript -->
+                    <div class="stats-detail-loading">Loading details...</div>
+                </div>
             </div>
         </div>
 

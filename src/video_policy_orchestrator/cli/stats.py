@@ -13,6 +13,8 @@ import click
 from video_policy_orchestrator.db.views import (
     get_policy_stats,
     get_recent_stats,
+    get_stats_detail,
+    get_stats_for_file,
     get_stats_summary,
 )
 
@@ -624,3 +626,237 @@ def _parse_time_filter(value: str) -> str:
         raise click.ClickException(
             f"Invalid time format: {value}. Use relative time (7d, 1w, 2h) or ISO-8601."
         )
+
+
+@stats_group.command("file")
+@click.argument("path", type=click.Path(exists=True))
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    type=click.Choice(["table", "json", "csv"], case_sensitive=False),
+    default="table",
+    help="Output format (default: table).",
+)
+@click.pass_context
+def stats_file(
+    ctx: click.Context,
+    path: str,
+    output_format: str,
+) -> None:
+    """Show processing history for a specific file.
+
+    Displays all processing runs for the given file, including size changes,
+    track removals, and status.
+
+    Examples:
+
+        # View history for a file
+        vpo stats file /path/to/video.mkv
+
+        # Export as JSON
+        vpo stats file /path/to/video.mkv --format json
+    """
+    from pathlib import Path as PathLib
+
+    conn = ctx.obj.get("db_conn")
+    if conn is None:
+        raise click.ClickException("Failed to connect to database.")
+
+    # Resolve to absolute path
+    file_path = str(PathLib(path).resolve())
+
+    entries = get_stats_for_file(conn, file_path=file_path)
+
+    if output_format == "json":
+        click.echo(json.dumps([asdict(e) for e in entries], indent=2))
+        return
+
+    if output_format == "csv":
+        _output_recent_csv(entries)
+        return
+
+    # Table format
+    if not entries:
+        click.echo(f"No processing history found for: {path}")
+        return
+
+    click.echo("")
+    click.echo(f"Processing History for: {path}")
+    click.echo("=" * 100)
+
+    # Header
+    click.echo(
+        f"{'DATE':<20} {'POLICY':<25} {'SAVED':<12} "
+        f"{'AUDIO':<6} {'SUBS':<6} {'TIME':<10} {'STATUS':<8}"
+    )
+    click.echo("-" * 100)
+
+    for entry in entries:
+        date = entry.processed_at[:19] if entry.processed_at else ""
+        policy = entry.policy_name[:24] if entry.policy_name else ""
+        saved = _format_bytes(entry.size_change)
+        audio = str(entry.audio_removed)
+        subs = str(entry.subtitle_removed)
+        duration = _format_duration(entry.duration_seconds)
+        status = "OK" if entry.success else "FAIL"
+
+        click.echo(
+            f"{date:<20} {policy:<25} {saved:<12} "
+            f"{audio:<6} {subs:<6} {duration:<10} {status:<8}"
+        )
+
+    click.echo("")
+    click.echo("Use 'vpo stats detail <stats_id>' for detailed action breakdown.")
+    click.echo("")
+
+
+@stats_group.command("detail")
+@click.argument("stats_id")
+@click.option(
+    "--format",
+    "-f",
+    "output_format",
+    type=click.Choice(["table", "json"], case_sensitive=False),
+    default="table",
+    help="Output format (default: table).",
+)
+@click.pass_context
+def stats_detail_cmd(
+    ctx: click.Context,
+    stats_id: str,
+    output_format: str,
+) -> None:
+    """Show detailed statistics for a processing run.
+
+    Displays full details including track counts before/after, all actions
+    performed, transcode information, and performance metrics.
+
+    Examples:
+
+        # View detail for a processing run
+        vpo stats detail abc12345-6789-...
+
+        # Export as JSON
+        vpo stats detail abc12345-6789-... --format json
+    """
+    conn = ctx.obj.get("db_conn")
+    if conn is None:
+        raise click.ClickException("Failed to connect to database.")
+
+    detail = get_stats_detail(conn, stats_id)
+
+    if detail is None:
+        raise click.ClickException(f"Processing stats not found: {stats_id}")
+
+    if output_format == "json":
+        click.echo(json.dumps(asdict(detail), indent=2))
+        return
+
+    # Table format
+    _output_detail_table(detail)
+
+
+def _output_detail_table(detail) -> None:
+    """Output detailed stats in table format."""
+    click.echo("")
+    click.echo("Processing Details")
+    click.echo("=" * 60)
+
+    # File info
+    click.echo("")
+    click.echo("File Information")
+    click.echo("-" * 40)
+    click.echo(f"  Stats ID:       {detail.stats_id}")
+    click.echo(f"  File:           {detail.filename or 'N/A'}")
+    if detail.file_path:
+        click.echo(f"  Path:           {detail.file_path}")
+    click.echo(f"  Processed:      {detail.processed_at[:19]}")
+    click.echo(f"  Policy:         {detail.policy_name}")
+    click.echo(f"  Status:         {'SUCCESS' if detail.success else 'FAILED'}")
+    if detail.error_message:
+        click.echo(f"  Error:          {detail.error_message}")
+
+    # Size changes
+    click.echo("")
+    click.echo("Size Changes")
+    click.echo("-" * 40)
+    click.echo(f"  Before:         {_format_bytes(detail.size_before)}")
+    click.echo(f"  After:          {_format_bytes(detail.size_after)}")
+    if detail.size_change >= 0:
+        click.echo(f"  Saved:          {_format_bytes(detail.size_change)}")
+    else:
+        click.echo(f"  Added:          {_format_bytes(abs(detail.size_change))}")
+    if detail.size_before > 0:
+        pct = (detail.size_change / detail.size_before) * 100
+        click.echo(f"  Savings:        {_format_percent(pct)}")
+
+    # Track counts
+    click.echo("")
+    click.echo("Track Changes")
+    click.echo("-" * 40)
+    click.echo(
+        f"  Audio:          {detail.audio_tracks_before} → "
+        f"{detail.audio_tracks_after} (-{detail.audio_tracks_removed})"
+    )
+    click.echo(
+        f"  Subtitle:       {detail.subtitle_tracks_before} → "
+        f"{detail.subtitle_tracks_after} (-{detail.subtitle_tracks_removed})"
+    )
+    click.echo(
+        f"  Attachments:    {detail.attachments_before} → "
+        f"{detail.attachments_after} (-{detail.attachments_removed})"
+    )
+
+    # Transcode info
+    if detail.video_source_codec or detail.video_target_codec:
+        click.echo("")
+        click.echo("Transcode Information")
+        click.echo("-" * 40)
+        if detail.video_source_codec:
+            click.echo(f"  Video Codec:    {detail.video_source_codec}")
+        if detail.video_target_codec:
+            click.echo(f"  Target Codec:   {detail.video_target_codec}")
+        if detail.video_transcode_skipped:
+            click.echo(f"  Skipped:        Yes ({detail.video_skip_reason or 'N/A'})")
+        else:
+            click.echo("  Skipped:        No")
+        click.echo(f"  Audio Transcoded: {detail.audio_tracks_transcoded}")
+        click.echo(f"  Audio Preserved:  {detail.audio_tracks_preserved}")
+
+    # Processing info
+    click.echo("")
+    click.echo("Processing Info")
+    click.echo("-" * 40)
+    click.echo(f"  Duration:       {_format_duration(detail.duration_seconds)}")
+    click.echo(f"  Phases:         {detail.phases_completed}/{detail.phases_total}")
+    click.echo(f"  Total Changes:  {detail.total_changes}")
+
+    # File integrity
+    if detail.hash_before or detail.hash_after:
+        click.echo("")
+        click.echo("File Integrity")
+        click.echo("-" * 40)
+        if detail.hash_before:
+            click.echo(f"  Hash Before:    {detail.hash_before[:16]}...")
+        if detail.hash_after:
+            click.echo(f"  Hash After:     {detail.hash_after[:16]}...")
+
+    # Actions
+    if detail.actions:
+        click.echo("")
+        click.echo("Actions Performed")
+        click.echo("-" * 40)
+        for i, action in enumerate(detail.actions, 1):
+            track_info = ""
+            if action.track_type:
+                track_info = f" ({action.track_type}"
+                if action.track_index is not None:
+                    track_info += f" #{action.track_index}"
+                track_info += ")"
+            status = "OK" if action.success else "FAIL"
+            click.echo(f"  {i}. [{status}] {action.action_type}{track_info}")
+            if action.message:
+                click.echo(f"     {action.message}")
+
+    click.echo("")

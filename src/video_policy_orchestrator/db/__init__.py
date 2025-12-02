@@ -78,6 +78,7 @@ from .queries import (
 # Types: Type aliases
 from .types import (
     ActionResultRecord,
+    ActionSummary,
     FileInfo,
     FileListViewItem,
     FileProcessingHistory,
@@ -100,6 +101,7 @@ from .types import (
     PolicyStats,
     ProcessingStatsRecord,
     ScanErrorView,
+    StatsDetailView,
     StatsSummary,
     TrackClassification,
     TrackInfo,
@@ -124,6 +126,8 @@ from .views import (
     get_policy_stats,
     get_recent_stats,
     get_scan_errors_for_job,
+    get_stats_detail,
+    get_stats_for_file,
     get_stats_summary,
     get_transcription_detail,
     get_transcription_detail_typed,
@@ -155,11 +159,13 @@ __all__ = [
     "TrackRecord",
     "TranscriptionResultRecord",
     # View models
+    "ActionSummary",
     "FileListViewItem",
     "FileProcessingHistory",
     "LanguageOption",
     "PolicyStats",
     "ScanErrorView",
+    "StatsDetailView",
     "StatsSummary",
     "TranscriptionDetailView",
     "TranscriptionListViewItem",
@@ -234,5 +240,7 @@ __all__ = [
     # Processing statistics view queries
     "get_policy_stats",
     "get_recent_stats",
+    "get_stats_detail",
+    "get_stats_for_file",
     "get_stats_summary",
 ]

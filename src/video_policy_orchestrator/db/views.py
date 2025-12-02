@@ -13,11 +13,13 @@ New code should use the _typed variants that return dataclasses.
 import sqlite3
 
 from .types import (
+    ActionSummary,
     FileListViewItem,
     FileProcessingHistory,
     LanguageOption,
     PolicyStats,
     ScanErrorView,
+    StatsDetailView,
     StatsSummary,
     TranscriptionDetailView,
     TranscriptionListViewItem,
@@ -795,3 +797,185 @@ def get_policy_stats(
             )
         )
     return results
+
+
+def get_stats_detail(
+    conn: sqlite3.Connection,
+    stats_id: str,
+) -> StatsDetailView | None:
+    """Get detailed statistics for a single processing run.
+
+    Retrieves full processing stats record with joined action results
+    for detailed display of track removal and other changes.
+
+    Args:
+        conn: Database connection.
+        stats_id: UUID of processing_stats record.
+
+    Returns:
+        StatsDetailView with full details and actions, or None if not found.
+    """
+    # Get main stats record with file info
+    cursor = conn.execute(
+        """
+        SELECT
+            ps.id,
+            ps.file_id,
+            f.path,
+            f.filename,
+            ps.processed_at,
+            ps.policy_name,
+            ps.size_before,
+            ps.size_after,
+            ps.size_change,
+            ps.audio_tracks_before,
+            ps.audio_tracks_after,
+            ps.audio_tracks_removed,
+            ps.subtitle_tracks_before,
+            ps.subtitle_tracks_after,
+            ps.subtitle_tracks_removed,
+            ps.attachments_before,
+            ps.attachments_after,
+            ps.attachments_removed,
+            ps.video_source_codec,
+            ps.video_target_codec,
+            ps.video_transcode_skipped,
+            ps.video_skip_reason,
+            ps.audio_tracks_transcoded,
+            ps.audio_tracks_preserved,
+            ps.duration_seconds,
+            ps.phases_completed,
+            ps.phases_total,
+            ps.total_changes,
+            ps.hash_before,
+            ps.hash_after,
+            ps.success,
+            ps.error_message
+        FROM processing_stats ps
+        LEFT JOIN files f ON ps.file_id = f.id
+        WHERE ps.id = ?
+        """,
+        (stats_id,),
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+
+    # Get associated actions
+    actions_cursor = conn.execute(
+        """
+        SELECT action_type, track_type, track_index, success, message
+        FROM action_results
+        WHERE stats_id = ?
+        ORDER BY id
+        """,
+        (stats_id,),
+    )
+    actions = [
+        ActionSummary(
+            action_type=a[0],
+            track_type=a[1],
+            track_index=a[2],
+            success=a[3] == 1,
+            message=a[4],
+        )
+        for a in actions_cursor.fetchall()
+    ]
+
+    return StatsDetailView(
+        stats_id=row[0],
+        file_id=row[1],
+        file_path=row[2],
+        filename=row[3],
+        processed_at=row[4],
+        policy_name=row[5],
+        size_before=row[6] or 0,
+        size_after=row[7] or 0,
+        size_change=row[8] or 0,
+        audio_tracks_before=row[9] or 0,
+        audio_tracks_after=row[10] or 0,
+        audio_tracks_removed=row[11] or 0,
+        subtitle_tracks_before=row[12] or 0,
+        subtitle_tracks_after=row[13] or 0,
+        subtitle_tracks_removed=row[14] or 0,
+        attachments_before=row[15] or 0,
+        attachments_after=row[16] or 0,
+        attachments_removed=row[17] or 0,
+        video_source_codec=row[18],
+        video_target_codec=row[19],
+        video_transcode_skipped=row[20] == 1,
+        video_skip_reason=row[21],
+        audio_tracks_transcoded=row[22] or 0,
+        audio_tracks_preserved=row[23] or 0,
+        duration_seconds=row[24] or 0.0,
+        phases_completed=row[25] or 0,
+        phases_total=row[26] or 0,
+        total_changes=row[27] or 0,
+        hash_before=row[28],
+        hash_after=row[29],
+        success=row[30] == 1,
+        error_message=row[31],
+        actions=actions,
+    )
+
+
+def get_stats_for_file(
+    conn: sqlite3.Connection,
+    file_id: int | None = None,
+    file_path: str | None = None,
+) -> list[FileProcessingHistory]:
+    """Get processing history for a specific file.
+
+    Looks up file by ID or path and returns all processing stats for it.
+
+    Args:
+        conn: Database connection.
+        file_id: ID of file to look up.
+        file_path: Path of file to look up (used if file_id not provided).
+
+    Returns:
+        List of FileProcessingHistory entries for the file, ordered by
+        processed_at DESC (most recent first). Empty list if file not found
+        or no processing history.
+    """
+    # Resolve file_id from path if needed
+    if file_id is None and file_path is not None:
+        cursor = conn.execute("SELECT id FROM files WHERE path = ?", (file_path,))
+        row = cursor.fetchone()
+        if row is None:
+            return []
+        file_id = row[0]
+
+    if file_id is None:
+        return []
+
+    cursor = conn.execute(
+        """
+        SELECT
+            id, processed_at, policy_name,
+            size_before, size_after, size_change,
+            audio_tracks_removed, subtitle_tracks_removed, attachments_removed,
+            duration_seconds, success, error_message
+        FROM processing_stats
+        WHERE file_id = ?
+        ORDER BY processed_at DESC
+        """,
+        (file_id,),
+    )
+    return [
+        FileProcessingHistory(
+            stats_id=row[0],
+            processed_at=row[1],
+            policy_name=row[2],
+            size_before=row[3] or 0,
+            size_after=row[4] or 0,
+            size_change=row[5] or 0,
+            audio_removed=row[6] or 0,
+            subtitle_removed=row[7] or 0,
+            attachments_removed=row[8] or 0,
+            duration_seconds=row[9] or 0.0,
+            success=row[10] == 1,
+            error_message=row[11],
+        )
+        for row in cursor.fetchall()
+    ]

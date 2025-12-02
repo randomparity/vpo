@@ -937,3 +937,111 @@ class FileProcessingHistory:
     duration_seconds: float
     success: bool
     error_message: str | None
+
+
+@dataclass
+class ActionSummary:
+    """Summary of an action performed during processing.
+
+    Simplified view of action_results for display in stats detail.
+
+    Attributes:
+        action_type: Type of action (set_default, remove, etc.).
+        track_type: Track type affected (audio, video, subtitle, attachment).
+        track_index: Index of track affected.
+        success: Whether action succeeded.
+        message: Human-readable result message.
+    """
+
+    action_type: str
+    track_type: str | None
+    track_index: int | None
+    success: bool
+    message: str | None
+
+
+@dataclass
+class StatsDetailView:
+    """Detailed view of a processing stats record with actions.
+
+    Combines processing_stats with action_results for detailed display.
+
+    Attributes:
+        stats_id: Processing stats ID (UUID).
+        file_id: ID of file processed.
+        file_path: Path to file (if available).
+        filename: Filename (if available).
+        processed_at: ISO-8601 timestamp of processing.
+        policy_name: Policy used for processing.
+        size_before: File size before processing.
+        size_after: File size after processing.
+        size_change: Size change (positive = saved).
+        audio_tracks_before: Audio track count before.
+        audio_tracks_after: Audio track count after.
+        audio_tracks_removed: Number of audio tracks removed.
+        subtitle_tracks_before: Subtitle track count before.
+        subtitle_tracks_after: Subtitle track count after.
+        subtitle_tracks_removed: Number of subtitle tracks removed.
+        attachments_before: Attachment count before.
+        attachments_after: Attachment count after.
+        attachments_removed: Number of attachments removed.
+        video_source_codec: Original video codec.
+        video_target_codec: Target codec (if transcoded).
+        video_transcode_skipped: Whether video transcode was skipped.
+        video_skip_reason: Reason transcode was skipped.
+        audio_tracks_transcoded: Number of audio tracks transcoded.
+        audio_tracks_preserved: Number of audio tracks preserved.
+        duration_seconds: Processing duration in seconds.
+        phases_completed: Number of phases completed.
+        phases_total: Total phases in policy.
+        total_changes: Total changes applied.
+        hash_before: File hash before processing.
+        hash_after: File hash after processing.
+        success: Whether processing succeeded.
+        error_message: Error message if failed.
+        actions: List of action summaries.
+    """
+
+    stats_id: str
+    file_id: int
+    file_path: str | None
+    filename: str | None
+    processed_at: str
+    policy_name: str
+
+    size_before: int
+    size_after: int
+    size_change: int
+
+    audio_tracks_before: int
+    audio_tracks_after: int
+    audio_tracks_removed: int
+
+    subtitle_tracks_before: int
+    subtitle_tracks_after: int
+    subtitle_tracks_removed: int
+
+    attachments_before: int
+    attachments_after: int
+    attachments_removed: int
+
+    video_source_codec: str | None
+    video_target_codec: str | None
+    video_transcode_skipped: bool
+    video_skip_reason: str | None
+
+    audio_tracks_transcoded: int
+    audio_tracks_preserved: int
+
+    duration_seconds: float
+    phases_completed: int
+    phases_total: int
+    total_changes: int
+
+    hash_before: str | None
+    hash_after: str | None
+
+    success: bool
+    error_message: str | None
+
+    actions: list[ActionSummary] = field(default_factory=list)
