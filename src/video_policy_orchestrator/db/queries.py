@@ -1579,6 +1579,8 @@ def insert_processing_stats(
 ) -> str:
     """Insert a new processing stats record.
 
+    Note: Does not commit. Caller is responsible for transaction management.
+
     Args:
         conn: Database connection.
         record: ProcessingStatsRecord to insert.
@@ -1636,12 +1638,13 @@ def insert_processing_stats(
             record.error_message,
         ),
     )
-    conn.commit()
     return record.id
 
 
 def insert_action_result(conn: sqlite3.Connection, record: ActionResultRecord) -> int:
     """Insert a new action result record.
+
+    Note: Does not commit. Caller is responsible for transaction management.
 
     Args:
         conn: Database connection.
@@ -1671,7 +1674,6 @@ def insert_action_result(conn: sqlite3.Connection, record: ActionResultRecord) -
             record.message,
         ),
     )
-    conn.commit()
     return cursor.lastrowid
 
 
@@ -1679,6 +1681,8 @@ def insert_performance_metric(
     conn: sqlite3.Connection, record: PerformanceMetricsRecord
 ) -> int:
     """Insert a new performance metric record.
+
+    Note: Does not commit. Caller is responsible for transaction management.
 
     Args:
         conn: Database connection.
@@ -1704,7 +1708,6 @@ def insert_performance_metric(
             record.encoding_bitrate,
         ),
     )
-    conn.commit()
     return cursor.lastrowid
 
 
@@ -1749,10 +1752,13 @@ def get_processing_stats_for_file(
     Args:
         conn: Database connection.
         file_id: ID of the file.
-        limit: Maximum number of records to return.
+        limit: Maximum number of records to return (1-10000).
 
     Returns:
         List of ProcessingStatsRecord objects ordered by processed_at DESC.
+
+    Raises:
+        ValueError: If limit is not a positive integer or exceeds 10000.
     """
     query = """
         SELECT id, file_id, processed_at, policy_name,
@@ -1769,6 +1775,8 @@ def get_processing_stats_for_file(
         ORDER BY processed_at DESC
     """
     if limit is not None:
+        if not isinstance(limit, int) or limit <= 0 or limit > 10000:
+            raise ValueError(f"Invalid limit value: {limit}")
         cursor = conn.execute(query + " LIMIT ?", (file_id, limit))
     else:
         cursor = conn.execute(query, (file_id,))

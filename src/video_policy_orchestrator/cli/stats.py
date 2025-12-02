@@ -4,8 +4,10 @@ This module provides commands for viewing disk space savings, track removal
 statistics, policy effectiveness, and processing performance metrics.
 """
 
+import csv
 import json
 import logging
+import sys
 from dataclasses import asdict
 
 import click
@@ -268,7 +270,8 @@ def _output_summary_table(summary, since, until, policy_name) -> None:
 
 
 def _output_summary_csv(summary) -> None:
-    """Output summary in CSV format."""
+    """Output summary in CSV format with proper escaping."""
+    writer = csv.writer(sys.stdout)
     headers = [
         "total_files_processed",
         "total_successful",
@@ -288,28 +291,28 @@ def _output_summary_csv(summary) -> None:
         "earliest_processing",
         "latest_processing",
     ]
-    click.echo(",".join(headers))
+    writer.writerow(headers)
 
     values = [
-        str(summary.total_files_processed),
-        str(summary.total_successful),
-        str(summary.total_failed),
+        summary.total_files_processed,
+        summary.total_successful,
+        summary.total_failed,
         f"{summary.success_rate:.4f}",
-        str(summary.total_size_before),
-        str(summary.total_size_after),
-        str(summary.total_size_saved),
+        summary.total_size_before,
+        summary.total_size_after,
+        summary.total_size_saved,
         f"{summary.avg_savings_percent:.2f}",
-        str(summary.total_audio_removed),
-        str(summary.total_subtitles_removed),
-        str(summary.total_attachments_removed),
-        str(summary.total_videos_transcoded),
-        str(summary.total_videos_skipped),
-        str(summary.total_audio_transcoded),
+        summary.total_audio_removed,
+        summary.total_subtitles_removed,
+        summary.total_attachments_removed,
+        summary.total_videos_transcoded,
+        summary.total_videos_skipped,
+        summary.total_audio_transcoded,
         f"{summary.avg_processing_time:.2f}",
         summary.earliest_processing or "",
         summary.latest_processing or "",
     ]
-    click.echo(",".join(values))
+    writer.writerow(values)
 
 
 @stats_group.command("recent")
@@ -411,7 +414,8 @@ def stats_recent(
 
 
 def _output_recent_csv(entries) -> None:
-    """Output recent entries in CSV format."""
+    """Output recent entries in CSV format with proper escaping."""
+    writer = csv.writer(sys.stdout)
     headers = [
         "stats_id",
         "processed_at",
@@ -426,24 +430,24 @@ def _output_recent_csv(entries) -> None:
         "success",
         "error_message",
     ]
-    click.echo(",".join(headers))
+    writer.writerow(headers)
 
     for entry in entries:
         values = [
             entry.stats_id,
             entry.processed_at,
             entry.policy_name,
-            str(entry.size_before),
-            str(entry.size_after),
-            str(entry.size_change),
-            str(entry.audio_removed),
-            str(entry.subtitle_removed),
-            str(entry.attachments_removed),
+            entry.size_before,
+            entry.size_after,
+            entry.size_change,
+            entry.audio_removed,
+            entry.subtitle_removed,
+            entry.attachments_removed,
             f"{entry.duration_seconds:.2f}",
             "true" if entry.success else "false",
             entry.error_message or "",
         ]
-        click.echo(",".join(values))
+        writer.writerow(values)
 
 
 @stats_group.command("policies")
@@ -545,7 +549,8 @@ def stats_policies(
 
 
 def _output_policies_csv(policies) -> None:
-    """Output policies in CSV format."""
+    """Output policies in CSV format with proper escaping."""
+    writer = csv.writer(sys.stdout)
     headers = [
         "policy_name",
         "files_processed",
@@ -560,24 +565,24 @@ def _output_policies_csv(policies) -> None:
         "avg_processing_time",
         "last_used",
     ]
-    click.echo(",".join(headers))
+    writer.writerow(headers)
 
     for policy in policies:
         values = [
             policy.policy_name,
-            str(policy.files_processed),
+            policy.files_processed,
             f"{policy.success_rate:.4f}",
-            str(policy.total_size_saved),
+            policy.total_size_saved,
             f"{policy.avg_savings_percent:.2f}",
-            str(policy.audio_tracks_removed),
-            str(policy.subtitle_tracks_removed),
-            str(policy.attachments_removed),
-            str(policy.videos_transcoded),
-            str(policy.audio_transcoded),
+            policy.audio_tracks_removed,
+            policy.subtitle_tracks_removed,
+            policy.attachments_removed,
+            policy.videos_transcoded,
+            policy.audio_transcoded,
             f"{policy.avg_processing_time:.2f}",
             policy.last_used or "",
         ]
-        click.echo(",".join(values))
+        writer.writerow(values)
 
 
 @stats_group.command("policy")

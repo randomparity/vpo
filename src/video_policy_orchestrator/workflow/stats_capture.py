@@ -194,12 +194,14 @@ class StatsCollector:
         try:
             stat = file_path.stat()
             self.size_before = stat.st_size
-        except OSError:
+        except OSError as e:
+            logger.debug("Failed to stat file before processing: %s - %s", file_path, e)
             self.size_before = 0
 
         try:
             self.hash_before = compute_partial_hash(file_path)
-        except OSError:
+        except OSError as e:
+            logger.debug("Failed to hash file before processing: %s - %s", file_path, e)
             self.hash_before = None
 
         if file_info and file_info.tracks:
@@ -225,12 +227,14 @@ class StatsCollector:
         try:
             stat = file_path.stat()
             self.size_after = stat.st_size
-        except OSError:
+        except OSError as e:
+            logger.debug("Failed to stat file after processing: %s - %s", file_path, e)
             self.size_after = self.size_before
 
         try:
             self.hash_after = compute_partial_hash(file_path)
-        except OSError:
+        except OSError as e:
+            logger.debug("Failed to hash file after processing: %s - %s", file_path, e)
             self.hash_after = None
 
         if file_info and file_info.tracks:
@@ -301,94 +305,106 @@ class StatsCollector:
     def persist(self) -> str:
         """Persist collected statistics to database.
 
+        All inserts are performed atomically within a single transaction.
+        If any insert fails, all changes are rolled back.
+
         Returns:
             The stats_id (UUID) of the persisted record.
         """
-        # Calculate derived values
-        size_change = self.size_before - self.size_after
-        audio_removed = self.audio_before - self.audio_after
-        subtitle_removed = self.subtitle_before - self.subtitle_after
-        attachments_removed = self.attachments_before - self.attachments_after
+        try:
+            # Calculate derived values
+            size_change = self.size_before - self.size_after
+            audio_removed = self.audio_before - self.audio_after
+            subtitle_removed = self.subtitle_before - self.subtitle_after
+            attachments_removed = self.attachments_before - self.attachments_after
 
-        # Create main stats record
-        stats_record = ProcessingStatsRecord(
-            id=self.stats_id,
-            file_id=self.file_id,
-            processed_at=datetime.now(timezone.utc).isoformat(),
-            policy_name=self.policy_name,
-            size_before=self.size_before,
-            size_after=self.size_after,
-            size_change=size_change,
-            audio_tracks_before=self.audio_before,
-            subtitle_tracks_before=self.subtitle_before,
-            attachments_before=self.attachments_before,
-            audio_tracks_after=self.audio_after,
-            subtitle_tracks_after=self.subtitle_after,
-            attachments_after=self.attachments_after,
-            audio_tracks_removed=max(0, audio_removed),
-            subtitle_tracks_removed=max(0, subtitle_removed),
-            attachments_removed=max(0, attachments_removed),
-            duration_seconds=self.duration_seconds,
-            phases_completed=self.phases_completed,
-            phases_total=self.phases_total,
-            total_changes=self.total_changes,
-            video_source_codec=self.video_source_codec,
-            video_target_codec=self.video_target_codec,
-            video_transcode_skipped=self.video_transcode_skipped,
-            video_skip_reason=self.video_skip_reason,
-            audio_tracks_transcoded=self.audio_tracks_transcoded,
-            audio_tracks_preserved=self.audio_tracks_preserved,
-            hash_before=self.hash_before,
-            hash_after=self.hash_after,
-            success=self.success,
-            error_message=self.error_message,
-        )
-
-        insert_processing_stats(self.conn, stats_record)
-        logger.debug(
-            "Persisted processing stats %s for file_id %d", self.stats_id, self.file_id
-        )
-
-        # Persist action results
-        for action in self.actions:
-            action_record = ActionResultRecord(
-                id=None,
-                stats_id=self.stats_id,
-                action_type=action.action_type,
-                track_type=action.track_type,
-                track_index=action.track_index,
-                before_state=json.dumps(action.before_state)
-                if action.before_state
-                else None,
-                after_state=json.dumps(action.after_state)
-                if action.after_state
-                else None,
-                success=action.success,
-                duration_ms=action.duration_ms,
-                rule_reference=action.rule_reference,
-                message=action.message,
+            # Create main stats record
+            stats_record = ProcessingStatsRecord(
+                id=self.stats_id,
+                file_id=self.file_id,
+                processed_at=datetime.now(timezone.utc).isoformat(),
+                policy_name=self.policy_name,
+                size_before=self.size_before,
+                size_after=self.size_after,
+                size_change=size_change,
+                audio_tracks_before=self.audio_before,
+                subtitle_tracks_before=self.subtitle_before,
+                attachments_before=self.attachments_before,
+                audio_tracks_after=self.audio_after,
+                subtitle_tracks_after=self.subtitle_after,
+                attachments_after=self.attachments_after,
+                audio_tracks_removed=max(0, audio_removed),
+                subtitle_tracks_removed=max(0, subtitle_removed),
+                attachments_removed=max(0, attachments_removed),
+                duration_seconds=self.duration_seconds,
+                phases_completed=self.phases_completed,
+                phases_total=self.phases_total,
+                total_changes=self.total_changes,
+                video_source_codec=self.video_source_codec,
+                video_target_codec=self.video_target_codec,
+                video_transcode_skipped=self.video_transcode_skipped,
+                video_skip_reason=self.video_skip_reason,
+                audio_tracks_transcoded=self.audio_tracks_transcoded,
+                audio_tracks_preserved=self.audio_tracks_preserved,
+                hash_before=self.hash_before,
+                hash_after=self.hash_after,
+                success=self.success,
+                error_message=self.error_message,
             )
-            insert_action_result(self.conn, action_record)
 
-        # Persist phase metrics
-        for metrics in self.phase_metrics:
-            metric_record = PerformanceMetricsRecord(
-                id=None,
-                stats_id=self.stats_id,
-                phase_name=metrics.phase_name,
-                wall_time_seconds=metrics.wall_time_seconds,
-                bytes_read=metrics.bytes_read,
-                bytes_written=metrics.bytes_written,
-                encoding_fps=metrics.encoding_fps,
-                encoding_bitrate=metrics.encoding_bitrate,
+            insert_processing_stats(self.conn, stats_record)
+            logger.debug(
+                "Persisted processing stats %s for file_id %d",
+                self.stats_id,
+                self.file_id,
             )
-            insert_performance_metric(self.conn, metric_record)
 
-        logger.debug(
-            "Persisted %d actions and %d phase metrics for stats %s",
-            len(self.actions),
-            len(self.phase_metrics),
-            self.stats_id,
-        )
+            # Persist action results
+            for action in self.actions:
+                action_record = ActionResultRecord(
+                    id=None,
+                    stats_id=self.stats_id,
+                    action_type=action.action_type,
+                    track_type=action.track_type,
+                    track_index=action.track_index,
+                    before_state=json.dumps(action.before_state)
+                    if action.before_state
+                    else None,
+                    after_state=json.dumps(action.after_state)
+                    if action.after_state
+                    else None,
+                    success=action.success,
+                    duration_ms=action.duration_ms,
+                    rule_reference=action.rule_reference,
+                    message=action.message,
+                )
+                insert_action_result(self.conn, action_record)
 
-        return self.stats_id
+            # Persist phase metrics
+            for metrics in self.phase_metrics:
+                metric_record = PerformanceMetricsRecord(
+                    id=None,
+                    stats_id=self.stats_id,
+                    phase_name=metrics.phase_name,
+                    wall_time_seconds=metrics.wall_time_seconds,
+                    bytes_read=metrics.bytes_read,
+                    bytes_written=metrics.bytes_written,
+                    encoding_fps=metrics.encoding_fps,
+                    encoding_bitrate=metrics.encoding_bitrate,
+                )
+                insert_performance_metric(self.conn, metric_record)
+
+            # Commit all inserts atomically
+            self.conn.commit()
+
+            logger.debug(
+                "Persisted %d actions and %d phase metrics for stats %s",
+                len(self.actions),
+                len(self.phase_metrics),
+                self.stats_id,
+            )
+
+            return self.stats_id
+        except Exception:
+            self.conn.rollback()
+            raise
