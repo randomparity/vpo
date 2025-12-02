@@ -956,7 +956,8 @@ class V11PhaseExecutor:
             else:
                 result = executor.execute(plan)
                 if not result.success:
-                    raise RuntimeError(f"Video transcode failed: {result.message}")
+                    msg = f"Video transcode failed: {result.error_message}"
+                    raise RuntimeError(msg)
                 changes += 1
 
         # Audio transcode (without video transcode)

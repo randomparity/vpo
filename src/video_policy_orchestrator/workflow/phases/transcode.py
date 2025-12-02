@@ -129,7 +129,7 @@ class TranscodePhase:
             if not result.success:
                 raise PhaseError(
                     ProcessingPhase.TRANSCODE,
-                    f"Transcode failed: {result.message}",
+                    f"Transcode failed: {result.error_message}",
                 )
 
             logger.info("Transcoded %s successfully", file_path)

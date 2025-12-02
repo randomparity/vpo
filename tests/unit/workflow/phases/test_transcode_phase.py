@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from video_policy_orchestrator.db.schema import create_schema
+from video_policy_orchestrator.executor.transcode import TranscodeResult
 from video_policy_orchestrator.policy.models import (
     PolicySchema,
     ProcessingPhase,
@@ -208,7 +209,7 @@ class TestTranscodePhaseExecution:
         mock_plan.skip_reason = None
         mock_executor.create_plan.return_value = mock_plan
 
-        mock_result = MagicMock()
+        mock_result = MagicMock(spec=TranscodeResult)
         mock_result.success = True
         mock_executor.execute.return_value = mock_result
         mock_executor_cls.return_value = mock_executor
@@ -233,9 +234,9 @@ class TestTranscodePhaseExecution:
         mock_plan.skip_reason = None
         mock_executor.create_plan.return_value = mock_plan
 
-        mock_result = MagicMock()
+        mock_result = MagicMock(spec=TranscodeResult)
         mock_result.success = False
-        mock_result.message = "FFmpeg error"
+        mock_result.error_message = "FFmpeg error"
         mock_executor.execute.return_value = mock_result
         mock_executor_cls.return_value = mock_executor
 
@@ -245,6 +246,7 @@ class TestTranscodePhaseExecution:
             phase.run(test_file)
 
         assert "Transcode failed" in str(exc_info.value)
+        assert "FFmpeg error" in str(exc_info.value)
         assert exc_info.value.phase == ProcessingPhase.TRANSCODE
 
     @patch("video_policy_orchestrator.executor.transcode.TranscodeExecutor")

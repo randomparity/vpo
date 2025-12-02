@@ -17,6 +17,7 @@ import pytest
 
 from video_policy_orchestrator.db.schema import create_schema
 from video_policy_orchestrator.db.types import TrackInfo
+from video_policy_orchestrator.executor.transcode import TranscodeResult
 from video_policy_orchestrator.policy.models import (
     AndCondition,
     AudioFilterConfig,
@@ -47,6 +48,7 @@ from video_policy_orchestrator.policy.models import (
     TrackFilters,
     TrackType,
     TranscriptionPolicyOptions,
+    VideoTranscodeConfig,
     WarnAction,
 )
 from video_policy_orchestrator.workflow.phases.executor import (
@@ -833,6 +835,157 @@ class TestOperationHandlerNoConfig:
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
 
         result = executor._execute_transcription(state, mock_file_info)
+        assert result == 0
+
+
+class TestExecuteTranscode:
+    """Tests for _execute_transcode method."""
+
+    @patch("video_policy_orchestrator.executor.transcode.TranscodeExecutor")
+    @patch("video_policy_orchestrator.db.queries.get_file_by_path")
+    def test_transcode_success(
+        self, mock_get_file, mock_executor_cls, db_conn, v11_policy, mock_file_info
+    ):
+        """Successful transcode returns 1 change."""
+        mock_get_file.return_value = MagicMock(size_bytes=1000000)
+
+        mock_executor = MagicMock()
+        mock_plan = MagicMock()
+        mock_plan.skip_reason = None
+        mock_executor.create_plan.return_value = mock_plan
+
+        mock_result = MagicMock(spec=TranscodeResult)
+        mock_result.success = True
+        mock_executor.execute.return_value = mock_result
+        mock_executor_cls.return_value = mock_executor
+
+        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=False)
+
+        phase = PhaseDefinition(
+            name="compress",
+            transcode=VideoTranscodeConfig(target_codec="hevc"),
+        )
+        state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
+
+        result = executor._execute_transcode(state, mock_file_info)
+
+        assert result == 1
+        mock_executor.execute.assert_called_once_with(mock_plan)
+
+    @patch("video_policy_orchestrator.executor.transcode.TranscodeExecutor")
+    @patch("video_policy_orchestrator.db.queries.get_file_by_path")
+    def test_transcode_failure_raises_runtime_error(
+        self, mock_get_file, mock_executor_cls, db_conn, v11_policy, mock_file_info
+    ):
+        """Failed transcode raises RuntimeError with error_message."""
+        mock_get_file.return_value = MagicMock(size_bytes=1000000)
+
+        mock_executor = MagicMock()
+        mock_plan = MagicMock()
+        mock_plan.skip_reason = None
+        mock_executor.create_plan.return_value = mock_plan
+
+        mock_result = MagicMock(spec=TranscodeResult)
+        mock_result.success = False
+        mock_result.error_message = "FFmpeg exited with code 1: encoding failed"
+        mock_executor.execute.return_value = mock_result
+        mock_executor_cls.return_value = mock_executor
+
+        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=False)
+
+        phase = PhaseDefinition(
+            name="compress",
+            transcode=VideoTranscodeConfig(target_codec="hevc"),
+        )
+        state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            executor._execute_transcode(state, mock_file_info)
+
+        assert "Video transcode failed" in str(exc_info.value)
+        assert "FFmpeg exited with code 1" in str(exc_info.value)
+
+    @patch("video_policy_orchestrator.executor.transcode.TranscodeExecutor")
+    @patch("video_policy_orchestrator.db.queries.get_file_by_path")
+    def test_transcode_dry_run_does_not_execute(
+        self, mock_get_file, mock_executor_cls, db_conn, v11_policy, mock_file_info
+    ):
+        """Dry-run mode logs but doesn't execute transcode."""
+        mock_get_file.return_value = MagicMock(size_bytes=1000000)
+
+        mock_executor = MagicMock()
+        mock_plan = MagicMock()
+        mock_plan.skip_reason = None
+        mock_executor.create_plan.return_value = mock_plan
+        mock_executor_cls.return_value = mock_executor
+
+        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+
+        phase = PhaseDefinition(
+            name="compress",
+            transcode=VideoTranscodeConfig(target_codec="hevc"),
+        )
+        state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
+
+        result = executor._execute_transcode(state, mock_file_info)
+
+        assert result == 1
+        mock_executor.execute.assert_not_called()
+
+    def test_transcode_skips_when_plan_has_skip_reason(
+        self, db_conn, v11_policy, mock_file_info
+    ):
+        """Transcode is skipped when plan has a skip_reason."""
+        with (
+            patch(
+                "video_policy_orchestrator.executor.transcode.TranscodeExecutor"
+            ) as mock_executor_cls,
+            patch(
+                "video_policy_orchestrator.db.queries.get_file_by_path"
+            ) as mock_get_file,
+        ):
+            mock_get_file.return_value = MagicMock(size_bytes=1000000)
+
+            mock_executor = MagicMock()
+            mock_plan = MagicMock()
+            mock_plan.skip_reason = "Already HEVC at target quality"
+            mock_executor.create_plan.return_value = mock_plan
+            mock_executor_cls.return_value = mock_executor
+
+            executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=False)
+
+            phase = PhaseDefinition(
+                name="compress",
+                transcode=VideoTranscodeConfig(target_codec="hevc"),
+            )
+            state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
+
+            result = executor._execute_transcode(state, mock_file_info)
+
+            assert result == 0
+            mock_executor.execute.assert_not_called()
+
+    def test_transcode_skips_when_no_video_track(self, db_conn, v11_policy, test_file):
+        """Transcode is skipped when file has no video track."""
+        # Create file_info with only audio tracks
+        audio_only_file_info = MockFileInfo(
+            path=test_file,
+            container_format="mkv",
+            tracks=[
+                TrackInfo(index=0, track_type="audio", codec="aac", language="eng"),
+            ],
+        )
+
+        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=False)
+
+        phase = PhaseDefinition(
+            name="compress",
+            transcode=VideoTranscodeConfig(target_codec="hevc"),
+        )
+        state = PhaseExecutionState(file_path=test_file, phase=phase)
+
+        result = executor._execute_transcode(state, audio_only_file_info)
+
         assert result == 0
 
 

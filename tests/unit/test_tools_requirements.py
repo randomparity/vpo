@@ -15,8 +15,10 @@ from video_policy_orchestrator.tools.requirements import (
     ALL_REQUIREMENTS,
     CAPABILITY_REQUIREMENTS,
     CORE_REQUIREMENTS,
+    FFMPEG_VERSION_REQUIREMENTS,
     MKV_REQUIREMENTS,
     NON_MKV_REQUIREMENTS,
+    TRANSCRIPTION_REQUIREMENTS,
     VERSION_RECOMMENDATIONS,
     RequirementCheckResult,
     RequirementLevel,
@@ -587,6 +589,8 @@ class TestPredefinedRequirements:
             + len(NON_MKV_REQUIREMENTS)
             + len(VERSION_RECOMMENDATIONS)
             + len(CAPABILITY_REQUIREMENTS)
+            + len(FFMPEG_VERSION_REQUIREMENTS)
+            + len(TRANSCRIPTION_REQUIREMENTS)
         )
         assert len(ALL_REQUIREMENTS) == expected_count
 
