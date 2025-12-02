@@ -1,13 +1,17 @@
-"""Unit tests for DaemonConnectionPool."""
+"""Unit tests for DaemonConnectionPool and execute_with_retry."""
 
 import concurrent.futures
 import sqlite3
 import threading
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
-from video_policy_orchestrator.db.connection import DaemonConnectionPool
+from video_policy_orchestrator.db.connection import (
+    DaemonConnectionPool,
+    execute_with_retry,
+)
 
 
 class TestDaemonConnectionPool:
@@ -355,3 +359,185 @@ class TestDaemonConnectionPool:
 
         # No errors should have occurred
         assert len(errors) == 0, f"Errors: {errors}"
+
+
+class TestExecuteWithRetry:
+    """Tests for execute_with_retry function."""
+
+    def test_succeeds_on_first_attempt(self) -> None:
+        """Test that successful function returns immediately."""
+        call_count = 0
+
+        def successful_func() -> str:
+            nonlocal call_count
+            call_count += 1
+            return "success"
+
+        result = execute_with_retry(successful_func)
+
+        assert result == "success"
+        assert call_count == 1
+
+    def test_retries_on_database_locked_error(self) -> None:
+        """Test that database locked errors trigger retry."""
+        call_count = 0
+
+        def fail_then_succeed() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                raise sqlite3.OperationalError("database is locked")
+            return "success"
+
+        with patch("time.sleep"):  # Skip actual delays
+            result = execute_with_retry(fail_then_succeed, base_delay=0.01)
+
+        assert result == "success"
+        assert call_count == 3
+
+    def test_retries_on_database_busy_error(self) -> None:
+        """Test that database busy errors trigger retry."""
+        call_count = 0
+
+        def fail_then_succeed() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count < 2:
+                raise sqlite3.OperationalError("database table is busy")
+            return "success"
+
+        with patch("time.sleep"):
+            result = execute_with_retry(fail_then_succeed, base_delay=0.01)
+
+        assert result == "success"
+        assert call_count == 2
+
+    def test_raises_after_max_retries_exhausted(self) -> None:
+        """Test that error is raised after max retries."""
+
+        def always_fails() -> str:
+            raise sqlite3.OperationalError("database is locked")
+
+        with patch("time.sleep"):
+            with pytest.raises(sqlite3.OperationalError, match="database is locked"):
+                execute_with_retry(always_fails, max_retries=3, base_delay=0.01)
+
+    def test_does_not_retry_non_lock_errors(self) -> None:
+        """Test that non-lock OperationalErrors are not retried."""
+        call_count = 0
+
+        def non_lock_error() -> str:
+            nonlocal call_count
+            call_count += 1
+            raise sqlite3.OperationalError("no such table: foo")
+
+        with pytest.raises(sqlite3.OperationalError, match="no such table"):
+            execute_with_retry(non_lock_error)
+
+        assert call_count == 1  # Should not retry
+
+    def test_does_not_retry_other_exceptions(self) -> None:
+        """Test that non-OperationalError exceptions are not retried."""
+        call_count = 0
+
+        def value_error() -> str:
+            nonlocal call_count
+            call_count += 1
+            raise ValueError("something else")
+
+        with pytest.raises(ValueError, match="something else"):
+            execute_with_retry(value_error)
+
+        assert call_count == 1
+
+    def test_exponential_backoff(self) -> None:
+        """Test that delays increase exponentially."""
+        call_count = 0
+        sleep_calls: list[float] = []
+
+        def fail_three_times() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count <= 3:
+                raise sqlite3.OperationalError("database is locked")
+            return "success"
+
+        def mock_sleep(seconds: float) -> None:
+            sleep_calls.append(seconds)
+
+        with patch("time.sleep", side_effect=mock_sleep):
+            # No jitter for predictable test
+            with patch("random.uniform", return_value=0):
+                result = execute_with_retry(
+                    fail_three_times,
+                    base_delay=0.1,
+                    max_delay=10.0,
+                    jitter=0,
+                )
+
+        assert result == "success"
+        assert len(sleep_calls) == 3
+        # Delays should be 0.1, 0.2, 0.4 (exponential)
+        assert sleep_calls[0] == pytest.approx(0.1)
+        assert sleep_calls[1] == pytest.approx(0.2)
+        assert sleep_calls[2] == pytest.approx(0.4)
+
+    def test_max_delay_caps_backoff(self) -> None:
+        """Test that max_delay caps the backoff."""
+        call_count = 0
+        sleep_calls: list[float] = []
+
+        def fail_many_times() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count <= 5:
+                raise sqlite3.OperationalError("database is locked")
+            return "success"
+
+        def mock_sleep(seconds: float) -> None:
+            sleep_calls.append(seconds)
+
+        with patch("time.sleep", side_effect=mock_sleep):
+            with patch("random.uniform", return_value=0):
+                result = execute_with_retry(
+                    fail_many_times,
+                    base_delay=1.0,
+                    max_delay=2.0,
+                    jitter=0,
+                    max_retries=5,
+                )
+
+        assert result == "success"
+        # Delays should be 1.0, 2.0, 2.0, 2.0, 2.0 (capped at max_delay)
+        assert sleep_calls[0] == pytest.approx(1.0)
+        assert sleep_calls[1] == pytest.approx(2.0)
+        assert sleep_calls[2] == pytest.approx(2.0)
+        assert all(d <= 2.0 for d in sleep_calls)
+
+    def test_jitter_adds_randomness(self) -> None:
+        """Test that jitter adds randomness to delays."""
+        call_count = 0
+        sleep_calls: list[float] = []
+
+        def fail_once() -> str:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise sqlite3.OperationalError("database is locked")
+            return "success"
+
+        def mock_sleep(seconds: float) -> None:
+            sleep_calls.append(seconds)
+
+        # Mock random.uniform to return 0.05 (5% jitter)
+        with patch("time.sleep", side_effect=mock_sleep):
+            with patch("random.uniform", return_value=0.05):
+                execute_with_retry(
+                    fail_once,
+                    base_delay=1.0,
+                    jitter=0.1,  # 10% max jitter
+                )
+
+        # Delay should be 1.0 * (1 + 0.05) = 1.05
+        assert len(sleep_calls) == 1
+        assert sleep_calls[0] == pytest.approx(1.05)
