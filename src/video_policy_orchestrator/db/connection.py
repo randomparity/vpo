@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import logging
+import random
 import sqlite3
 import threading
-from collections.abc import Iterator
+import time
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import TypeVar
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 DEFAULT_DB_PATH = Path.home() / ".vpo" / "library.db"
 
@@ -94,6 +99,88 @@ def handle_database_locked(func):
             raise
 
     return wrapper
+
+
+def execute_with_retry(
+    func: Callable[[], T],
+    max_retries: int = 5,
+    base_delay: float = 0.1,
+    max_delay: float = 5.0,
+    jitter: float = 0.1,
+) -> T:
+    """Execute a function with exponential backoff retry on database lock errors.
+
+    Uses BEGIN IMMEDIATE semantics: fails fast on lock contention rather than
+    waiting for busy_timeout, then retries with exponential backoff.
+
+    Args:
+        func: Function to execute. Should raise sqlite3.OperationalError
+            with "locked" or "busy" message on lock contention.
+        max_retries: Maximum number of retry attempts. Default 5.
+        base_delay: Initial delay in seconds. Default 0.1s.
+        max_delay: Maximum delay between retries. Default 5.0s.
+        jitter: Random jitter factor (0-1) to avoid thundering herd. Default 0.1.
+
+    Returns:
+        The return value of func.
+
+    Raises:
+        sqlite3.OperationalError: If all retries exhausted or non-lock error.
+        Any other exception raised by func.
+
+    Example:
+        def do_write():
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                cursor = conn.execute("INSERT ...", params)
+                conn.commit()
+                return cursor.lastrowid
+            except:
+                conn.rollback()
+                raise
+
+        result = execute_with_retry(do_write)
+    """
+    last_error: sqlite3.OperationalError | None = None
+    delay = base_delay
+
+    for attempt in range(max_retries + 1):
+        try:
+            return func()
+        except sqlite3.OperationalError as e:
+            error_msg = str(e).lower()
+            if "locked" not in error_msg and "busy" not in error_msg:
+                # Not a lock error, don't retry
+                raise
+
+            last_error = e
+
+            if attempt >= max_retries:
+                logger.warning(
+                    "Database lock retry exhausted after %d attempts: %s",
+                    max_retries + 1,
+                    e,
+                )
+                raise
+
+            # Add jitter to avoid thundering herd
+            jittered_delay = delay * (1 + random.uniform(-jitter, jitter))  # nosec B311
+            logger.debug(
+                "Database locked (attempt %d/%d), retrying in %.2fs: %s",
+                attempt + 1,
+                max_retries + 1,
+                jittered_delay,
+                e,
+            )
+            time.sleep(jittered_delay)
+
+            # Exponential backoff, capped at max_delay
+            delay = min(delay * 2, max_delay)
+
+    # Should not reach here, but satisfy type checker
+    if last_error:
+        raise last_error
+    raise RuntimeError("execute_with_retry: unexpected state")
 
 
 def check_database_connectivity(db_path: Path | None = None) -> bool:
