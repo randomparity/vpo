@@ -93,6 +93,9 @@ class PhaseExecutionState:
     total_changes: int = 0
     """Total changes made in this phase."""
 
+    transcode_skip_reason: str | None = None
+    """If transcode was skipped, the reason (for stats tracking)."""
+
 
 class V11PhaseExecutor:
     """Executor for V11 user-defined phases.
@@ -531,6 +534,7 @@ class V11PhaseExecutor:
                 operations_executed=tuple(state.operations_completed),
                 changes_made=state.total_changes,
                 message=f"Completed {len(state.operations_completed)} operation(s)",
+                transcode_skip_reason=state.transcode_skip_reason,
             )
 
         except PhaseExecutionError:
@@ -961,6 +965,8 @@ class V11PhaseExecutor:
                     file_path,
                     plan.skip_reason,
                 )
+                # Record skip reason for stats tracking
+                state.transcode_skip_reason = plan.skip_reason
                 return 0
 
             if self.dry_run:

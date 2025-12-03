@@ -1976,6 +1976,10 @@ class PhaseResult:
     planned_actions: tuple[PlannedAction, ...] = ()
     """Actions that would be taken (dry-run mode)."""
 
+    # Transcode tracking for stats
+    transcode_skip_reason: str | None = None
+    """If transcode was skipped, the reason (e.g., 'codec_matches')."""
+
 
 @dataclass(frozen=True)
 class FileProcessingResult:

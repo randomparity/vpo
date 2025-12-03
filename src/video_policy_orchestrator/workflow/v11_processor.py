@@ -205,6 +205,13 @@ class V11WorkflowProcessor:
                             wall_time_seconds=phase_duration,
                         )
                     )
+                    # Capture transcode skip info if present
+                    if phase_result.transcode_skip_reason:
+                        stats_collector.set_video_transcode_info(
+                            target_codec=None,
+                            skipped=True,
+                            skip_reason=phase_result.transcode_skip_reason,
+                        )
 
                 if phase_result.success:
                     phases_completed.append(phase.name)
