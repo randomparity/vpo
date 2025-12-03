@@ -24,6 +24,7 @@ from video_policy_orchestrator.config.loader import (
     clear_config_cache,
     get_config,
     get_default_config_path,
+    get_temp_directory,
     load_config_file,
 )
 from video_policy_orchestrator.config.logging_factory import (
@@ -52,8 +53,9 @@ __all__ = [
     # Loader
     "clear_config_cache",
     "get_config",
-    "load_config_file",
     "get_default_config_path",
+    "get_temp_directory",
+    "load_config_file",
     # New modules (refactored architecture)
     "EnvReader",
     "ConfigBuilder",

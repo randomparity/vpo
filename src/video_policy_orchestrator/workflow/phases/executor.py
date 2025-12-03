@@ -15,6 +15,7 @@ from pathlib import Path
 from sqlite3 import Connection
 from typing import TYPE_CHECKING
 
+from video_policy_orchestrator.config.loader import get_temp_directory
 from video_policy_orchestrator.db.queries import get_file_by_path, get_tracks_for_file
 from video_policy_orchestrator.db.types import TrackInfo, tracks_to_track_info
 from video_policy_orchestrator.executor import (
@@ -925,6 +926,7 @@ class V11PhaseExecutor:
                 skip_if=vt.skip_if,
                 audio_config=phase.audio_transcode,
                 backup_original=True,
+                temp_directory=get_temp_directory(),
             )
 
             # Create plan

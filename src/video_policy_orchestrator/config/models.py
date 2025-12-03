@@ -71,6 +71,24 @@ class BehaviorConfig:
     # Show upgrade suggestions when tools are outdated
     show_upgrade_suggestions: bool = True
 
+    # Temporary directory for intermediate files (None = system default)
+    # Set to /dev/shm for RAM-backed storage on Linux
+    temp_directory: Path | None = None
+
+    def __post_init__(self) -> None:
+        """Validate configuration."""
+        if self.temp_directory is not None:
+            # Expand ~ and resolve path
+            self.temp_directory = Path(self.temp_directory).expanduser().resolve()
+            if not self.temp_directory.exists():
+                raise ValueError(
+                    f"temp_directory does not exist: {self.temp_directory}"
+                )
+            if not self.temp_directory.is_dir():
+                raise ValueError(
+                    f"temp_directory is not a directory: {self.temp_directory}"
+                )
+
 
 @dataclass(frozen=True)
 class PluginConnectionConfig:

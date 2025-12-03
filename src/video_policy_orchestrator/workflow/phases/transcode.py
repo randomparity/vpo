@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 from sqlite3 import Connection
 
+from video_policy_orchestrator.config.loader import get_temp_directory
 from video_policy_orchestrator.db.queries import get_file_by_path, get_tracks_for_file
 from video_policy_orchestrator.db.types import TrackInfo, tracks_to_track_info
 from video_policy_orchestrator.policy.models import PolicySchema
@@ -93,6 +94,7 @@ class TranscodePhase:
                 skip_if=skip_if,
                 audio_config=audio_config,
                 backup_original=True,
+                temp_directory=get_temp_directory(),
             )
 
             # Create plan (output_path same as input for in-place transcode;

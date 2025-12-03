@@ -82,6 +82,37 @@ def get_data_dir() -> Path:
     return DEFAULT_CONFIG_DIR
 
 
+def get_temp_directory() -> Path:
+    """Get the temporary directory for intermediate files.
+
+    Precedence (highest to lowest):
+    1. VPO_TEMP_DIR environment variable
+    2. Config file [behavior] temp_directory
+    3. System default (tempfile.gettempdir())
+
+    Use /dev/shm on Linux for RAM-backed storage.
+
+    Returns:
+        Path to the temp directory.
+    """
+    import tempfile
+
+    # Check environment variable first
+    env_path = os.environ.get("VPO_TEMP_DIR")
+    if env_path:
+        path = Path(env_path).expanduser().resolve()
+        if path.exists() and path.is_dir():
+            return path
+
+    # Check config file
+    config = get_config()
+    if config.behavior.temp_directory is not None:
+        return config.behavior.temp_directory
+
+    # Fall back to system default
+    return Path(tempfile.gettempdir())
+
+
 def load_config_file(path: Path | None = None) -> dict:
     """Load configuration from TOML file.
 

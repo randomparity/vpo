@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from video_policy_orchestrator.config.loader import get_temp_directory
 from video_policy_orchestrator.db.types import IntrospectionResult, Job, TrackInfo
 from video_policy_orchestrator.executor.move import MoveExecutor
 from video_policy_orchestrator.executor.transcode import TranscodeExecutor
@@ -231,6 +232,7 @@ class TranscodeJobService:
             policy=policy,
             cpu_cores=self.cpu_cores,
             progress_callback=progress_callback,
+            temp_directory=get_temp_directory(),
         )
 
         plan = executor.create_plan(
