@@ -372,6 +372,7 @@ def normalize_language(
     code: str | None,
     target: ISOStandard = DEFAULT_STANDARD,
     warn_on_conversion: bool = True,
+    context: str | None = None,
 ) -> str:
     """Normalize a language code to the target ISO standard.
 
@@ -381,6 +382,8 @@ def normalize_language(
               If None or empty, returns "und" (undefined).
         target: Target ISO standard ("639-1", "639-2/B", or "639-2/T").
         warn_on_conversion: Log a warning when converting between standards.
+        context: Optional context string (e.g., file path) to include in
+                 warning messages for easier debugging.
 
     Returns:
         Normalized language code in the target standard.
@@ -414,10 +417,10 @@ def normalize_language(
     # Determine input format based on length
     if len(code) == 2:
         # ISO 639-1 input
-        return _convert_from_639_1(code, target, warn_on_conversion)
+        return _convert_from_639_1(code, target, warn_on_conversion, context)
     elif len(code) == 3:
         # ISO 639-2 input (B or T)
-        return _convert_from_639_2(code, target, warn_on_conversion)
+        return _convert_from_639_2(code, target, warn_on_conversion, context)
     else:
         # Might be a full language name (e.g., "English" from Radarr/Sonarr APIs)
         converted = _LANGUAGE_NAME_TO_639_2B.get(code)
@@ -439,9 +442,11 @@ def normalize_language(
 
         # Unrecognized format
         if warn_on_conversion:
+            ctx_msg = f" (in {context})" if context else ""
             logger.warning(
-                "Unrecognized language code format '%s', using 'und'",
+                "Unrecognized language code format '%s'%s, using 'und'",
                 code,
+                ctx_msg,
             )
         return "und"
 
@@ -450,16 +455,20 @@ def _convert_from_639_1(
     code: str,
     target: ISOStandard,
     warn: bool,
+    context: str | None = None,
 ) -> str:
     """Convert from ISO 639-1 to target standard."""
+    ctx_msg = f" (in {context})" if context else ""
+
     if target == "639-1":
         # Validate it's a known 639-1 code
         if code in _ISO_639_1_TO_639_2B:
             return code
         if warn:
             logger.warning(
-                "Unknown ISO 639-1 code '%s', using 'und'",
+                "Unknown ISO 639-1 code '%s'%s, using 'und'",
                 code,
+                ctx_msg,
             )
         return "und"
 
@@ -467,8 +476,9 @@ def _convert_from_639_1(
     if code not in _ISO_639_1_TO_639_2B:
         if warn:
             logger.warning(
-                "Unknown ISO 639-1 code '%s', using 'und'",
+                "Unknown ISO 639-1 code '%s'%s, using 'und'",
                 code,
+                ctx_msg,
             )
         return "und"
 
@@ -493,8 +503,11 @@ def _convert_from_639_2(
     code: str,
     target: ISOStandard,
     warn: bool,
+    context: str | None = None,
 ) -> str:
     """Convert from ISO 639-2 (B or T) to target standard."""
+    ctx_msg = f" (in {context})" if context else ""
+
     # First, normalize to 639-2/B
     if code in _ISO_639_2T_TO_639_2B:
         # Input is 639-2/T, convert to 639-2/B
@@ -513,8 +526,9 @@ def _convert_from_639_2(
         # Keep it but warn
         if warn:
             logger.warning(
-                "Unknown ISO 639-2 code '%s', keeping as-is",
+                "Unknown ISO 639-2 code '%s'%s, keeping as-is",
                 code,
+                ctx_msg,
             )
         code_2b = code
 
@@ -529,8 +543,9 @@ def _convert_from_639_2(
         # No 639-1 equivalent
         if warn:
             logger.warning(
-                "No ISO 639-1 equivalent for '%s', keeping as '%s'",
+                "No ISO 639-1 equivalent for '%s'%s, keeping as '%s'",
                 code_2b,
+                ctx_msg,
                 code_2b,
             )
         return code_2b
