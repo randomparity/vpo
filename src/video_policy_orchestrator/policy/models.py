@@ -2082,6 +2082,10 @@ class FileProcessingResult:
     error_message: str | None = None
     """Error message from failed phase, if any."""
 
+    # Statistics reference
+    stats_id: str | None = None
+    """UUID of the processing_stats record, for lookup via 'vpo stats detail'."""
+
 
 class PhaseExecutionError(Exception):
     """Raised when phase execution fails.

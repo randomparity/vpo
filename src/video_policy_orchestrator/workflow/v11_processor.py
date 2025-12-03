@@ -7,7 +7,7 @@ processing through user-defined phases in V11 policies.
 import logging
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from sqlite3 import Connection
@@ -293,7 +293,8 @@ class V11WorkflowProcessor:
         if stats_collector:
             stats_collector.capture_after_state(file_info, file_path, result)
             try:
-                stats_collector.persist()
+                stats_id = stats_collector.persist()
+                result = replace(result, stats_id=stats_id)
             except Exception as e:
                 # Stats persistence failure should not affect workflow result
                 logger.warning("Failed to persist processing stats: %s", e)

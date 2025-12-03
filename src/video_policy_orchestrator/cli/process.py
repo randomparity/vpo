@@ -334,6 +334,8 @@ def _format_v11_result_human(result, file_path: Path, verbose: bool = False) -> 
                 lines.append(f"         Error: {pr.error}")
 
     lines.append(f"Duration: {result.total_duration_seconds:.1f}s")
+    if result.stats_id:
+        lines.append(f"Stats ID: {result.stats_id}")
     return "\n".join(lines)
 
 
@@ -350,6 +352,7 @@ def _format_v11_result_json(result, file_path: Path) -> dict:
     return {
         "file": str(file_path),
         "success": result.success,
+        "stats_id": result.stats_id,
         "phases_completed": result.phases_completed,
         "phases_failed": result.phases_failed,
         "phases_skipped": result.phases_skipped,
