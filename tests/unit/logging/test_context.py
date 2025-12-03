@@ -4,6 +4,8 @@ import logging
 import threading
 from pathlib import Path
 
+import pytest
+
 from video_policy_orchestrator.logging.context import (
     WorkerContextFilter,
     clear_worker_context,
@@ -11,6 +13,14 @@ from video_policy_orchestrator.logging.context import (
     set_worker_context,
     worker_context,
 )
+
+
+@pytest.fixture(autouse=True)
+def clean_worker_context():
+    """Ensure worker context is clean before and after each test."""
+    clear_worker_context()
+    yield
+    clear_worker_context()
 
 
 class TestSetAndGetWorkerContext:
@@ -25,8 +35,6 @@ class TestSetAndGetWorkerContext:
         assert file_id == "F001"
         assert file_path == "/path/to/file.mkv"
 
-        clear_worker_context()
-
     def test_set_and_get_partial_context(self) -> None:
         """Test setting only worker_id."""
         set_worker_context("02")
@@ -36,16 +44,12 @@ class TestSetAndGetWorkerContext:
         assert file_id is None
         assert file_path is None
 
-        clear_worker_context()
-
     def test_set_with_path_object(self) -> None:
         """Test setting file_path as Path object."""
         set_worker_context("01", "F001", Path("/path/to/file.mkv"))
         _, _, file_path = get_worker_context()
 
         assert file_path == "/path/to/file.mkv"
-
-        clear_worker_context()
 
     def test_clear_context(self) -> None:
         """Test clearing all context values."""
@@ -59,7 +63,6 @@ class TestSetAndGetWorkerContext:
 
     def test_default_context_is_none(self) -> None:
         """Test that default context values are None."""
-        clear_worker_context()
         worker_id, file_id, file_path = get_worker_context()
 
         assert worker_id is None
@@ -80,7 +83,6 @@ class TestWorkerContextManager:
 
     def test_context_manager_clears_on_exit(self) -> None:
         """Test that context manager restores previous values on exit."""
-        clear_worker_context()
         with worker_context("03", "F042", "/path/to/movie.mkv"):
             pass
         worker_id, file_id, file_path = get_worker_context()
@@ -106,7 +108,6 @@ class TestWorkerContextManager:
 
     def test_context_manager_on_exception(self) -> None:
         """Test that context is restored even on exception."""
-        clear_worker_context()
         try:
             with worker_context("01", "F001", "/path.mkv"):
                 raise ValueError("test error")
@@ -146,7 +147,6 @@ class TestWorkerContextFilter:
 
     def test_filter_with_no_context(self) -> None:
         """Test filter behavior when no context is set."""
-        clear_worker_context()
         filter_ = WorkerContextFilter()
         record = logging.LogRecord(
             name="test",

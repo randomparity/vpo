@@ -652,8 +652,10 @@ def process_command(
                     if stop_event.is_set():
                         break
 
-                    # Generate worker and file IDs for logging context
-                    # Worker ID cycles through available workers (01, 02, etc.)
+                    # Generate worker and file IDs for logging context.
+                    # Worker ID is a logical slot (1 to effective_workers), not
+                    # the actual thread ID. ThreadPoolExecutor assigns files to
+                    # threads as they become available, so W01 may run on any thread.
                     worker_id = f"{((file_idx - 1) % effective_workers) + 1:02d}"
                     file_id = f"F{file_idx:0{file_id_width}d}"
 

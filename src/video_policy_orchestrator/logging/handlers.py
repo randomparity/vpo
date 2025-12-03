@@ -82,7 +82,10 @@ class JSONFormatter(logging.Formatter):
             if key not in self._STANDARD_ATTRS and not key.startswith("_")
         }
 
-        # Add worker context if present (from WorkerContextFilter)
+        # Worker context fields are handled explicitly here (not via the dict
+        # comprehension above) to ensure they're always present and correctly
+        # named, even if someone passes extra={'file_path': ...} to a logger.
+        # These fields are also in _STANDARD_ATTRS to prevent duplication.
         if hasattr(record, "worker_id") and record.worker_id:
             context["worker_id"] = record.worker_id
         if hasattr(record, "file_id") and record.file_id:
