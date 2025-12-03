@@ -678,57 +678,75 @@ def process_command(
                     futures[future] = file_path
 
                 # Process results as they complete
-                for future in as_completed(futures):
-                    file_path = futures[future]
-                    try:
-                        _, result, success = future.result()
-                        if result is not None:
-                            results.append(result)
-                            if success:
-                                success_count += 1
-                            else:
-                                fail_count += 1
+                try:
+                    for future in as_completed(futures):
+                        file_path = futures[future]
+                        try:
+                            _, result, success = future.result()
+                            if result is not None:
+                                results.append(result)
+                                if success:
+                                    success_count += 1
+                                else:
+                                    fail_count += 1
 
-                            # Output result if verbose (use lock for thread safety)
-                            if not json_output and verbose:
-                                formatted = _format_v11_result_human(
-                                    result, file_path, verbose
-                                )
-                                with _output_lock:
-                                    click.echo(formatted)
-                                    click.echo("")
-                            elif not json_output and not progress.enabled:
-                                # Not verbose, not progress mode - show status
-                                status = "OK" if success else "FAILED"
-                                with _output_lock:
-                                    click.echo(f"[{status}] {file_path.name}")
-
-                            # Handle on_error=fail mode
-                            if not success and policy_on_error == OnErrorMode.FAIL:
-                                stop_event.set()
-                                stopped_early = True
-                                if not json_output:
-                                    click.echo(
-                                        "Stopping batch due to error "
-                                        f"(on_error='fail'): {result.error_message}"
+                                # Output result if verbose (use lock for thread safety)
+                                if not json_output and verbose:
+                                    formatted = _format_v11_result_human(
+                                        result, file_path, verbose
                                     )
-                                # Cancel pending futures
-                                for f in futures:
-                                    f.cancel()
-                    except Exception as e:
-                        logger.exception("Unexpected error for %s: %s", file_path, e)
-                        fail_count += 1
-                        # Create minimal result for tracking
-                        error_result = FileProcessingResult(
-                            file_path=file_path,
-                            phases_completed=[],
-                            phases_failed=[],
-                            phases_skipped=[],
-                            phase_results=[],
-                            total_changes=0,
-                            error_message=str(e),
-                        )
-                        results.append(error_result)
+                                    with _output_lock:
+                                        click.echo(formatted)
+                                        click.echo("")
+                                elif not json_output and not progress.enabled:
+                                    # Not verbose, not progress mode - show status
+                                    status = "OK" if success else "FAILED"
+                                    with _output_lock:
+                                        click.echo(f"[{status}] {file_path.name}")
+
+                                # Handle on_error=fail mode
+                                if not success and policy_on_error == OnErrorMode.FAIL:
+                                    stop_event.set()
+                                    stopped_early = True
+                                    if not json_output:
+                                        click.echo(
+                                            "Stopping batch due to error "
+                                            f"(on_error='fail'): {result.error_message}"
+                                        )
+                                    # Cancel pending futures
+                                    for f in futures:
+                                        f.cancel()
+                                    break
+                        except Exception as e:
+                            logger.exception(
+                                "Unexpected error for %s: %s", file_path, e
+                            )
+                            fail_count += 1
+                            # Create minimal result for tracking
+                            error_result = FileProcessingResult(
+                                file_path=file_path,
+                                success=False,
+                                phase_results=(),
+                                total_duration_seconds=0.0,
+                                total_changes=0,
+                                phases_completed=0,
+                                phases_failed=0,
+                                phases_skipped=0,
+                                error_message=str(e),
+                            )
+                            results.append(error_result)
+
+                except KeyboardInterrupt:
+                    # User pressed CTRL-C, cancel remaining work
+                    stop_event.set()
+                    stopped_early = True
+                    if not json_output:
+                        click.echo("\nInterrupted - cancelling remaining files...")
+                    # Cancel pending futures
+                    for f in futures:
+                        f.cancel()
+                    # Shutdown executor without waiting for running tasks
+                    executor.shutdown(wait=False, cancel_futures=True)
 
             # Finish progress display
             progress.finish()
