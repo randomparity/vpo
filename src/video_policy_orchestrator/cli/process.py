@@ -29,6 +29,7 @@ from video_policy_orchestrator.cli.plan_formatter import (
 from video_policy_orchestrator.cli.profile_loader import load_profile_or_exit
 from video_policy_orchestrator.config.loader import get_config
 from video_policy_orchestrator.db.connection import get_connection
+from video_policy_orchestrator.logging import worker_context
 from video_policy_orchestrator.policy.loader import PolicyValidationError, load_policy
 from video_policy_orchestrator.policy.models import (
     FileProcessingResult,
@@ -382,6 +383,8 @@ def _process_single_file_v11(
     selected_phases: list[str] | None,
     progress: ProgressTracker,
     stop_event: threading.Event,
+    worker_id: str,
+    file_id: str,
 ) -> tuple[Path, FileProcessingResult | None, bool]:
     """Process a single file with V11 policy (worker function).
 
@@ -397,6 +400,8 @@ def _process_single_file_v11(
         selected_phases: Optional phases to execute.
         progress: Progress tracker for display.
         stop_event: Event signaling batch should stop.
+        worker_id: Worker identifier for logging (e.g., "01").
+        file_id: File identifier for logging (e.g., "F001").
 
     Returns:
         Tuple of (file_path, result, success).
@@ -406,18 +411,24 @@ def _process_single_file_v11(
 
     progress.start_file()
     try:
-        # Each worker gets its own connection for thread safety
-        with get_connection(db_path) as conn:
-            processor = V11WorkflowProcessor(
-                conn=conn,
-                policy=policy,
-                dry_run=dry_run,
-                verbose=verbose,
-                policy_name=policy_name,
-                selected_phases=selected_phases,
-            )
-            result = processor.process_file(file_path)
-            return file_path, result, result.success
+        # Set worker context for logging - all logs within this context
+        # will include [W{worker_id}:{file_id}] tag
+        with worker_context(worker_id, file_id, file_path):
+            # Log file mapping line so full path can be found by file_id
+            logger.info("=== FILE %s: %s", file_id, file_path)
+
+            # Each worker gets its own connection for thread safety
+            with get_connection(db_path) as conn:
+                processor = V11WorkflowProcessor(
+                    conn=conn,
+                    policy=policy,
+                    dry_run=dry_run,
+                    verbose=verbose,
+                    policy_name=policy_name,
+                    selected_phases=selected_phases,
+                )
+                result = processor.process_file(file_path)
+                return file_path, result, result.success
     except Exception as e:
         logger.exception("Error processing %s: %s", file_path, e)
         # Create a minimal failure result
@@ -632,9 +643,20 @@ def process_command(
             with ThreadPoolExecutor(max_workers=effective_workers) as executor:
                 # Submit all files as futures
                 futures = {}
-                for file_path in file_paths:
+
+                # Calculate file ID width based on batch size for consistent formatting
+                # e.g., 50 files -> F01-F50, 5000 files -> F0001-F5000
+                file_id_width = len(str(len(file_paths)))
+
+                for file_idx, file_path in enumerate(file_paths, start=1):
                     if stop_event.is_set():
                         break
+
+                    # Generate worker and file IDs for logging context
+                    # Worker ID cycles through available workers (01, 02, etc.)
+                    worker_id = f"{((file_idx - 1) % effective_workers) + 1:02d}"
+                    file_id = f"F{file_idx:0{file_id_width}d}"
+
                     future = executor.submit(
                         _process_single_file_v11,
                         file_path,
@@ -646,6 +668,8 @@ def process_command(
                         selected_phases,
                         progress,
                         stop_event,
+                        worker_id,
+                        file_id,
                     )
                     futures[future] = file_path
 

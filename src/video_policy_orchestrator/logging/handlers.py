@@ -46,6 +46,11 @@ class JSONFormatter(logging.Formatter):
             "exc_text",
             "stack_info",
             "taskName",
+            # Worker context fields (added by WorkerContextFilter)
+            "worker_id",
+            "file_id",
+            "file_path",
+            "worker_tag",
         }
     )
 
@@ -76,6 +81,14 @@ class JSONFormatter(logging.Formatter):
             for key, value in record.__dict__.items()
             if key not in self._STANDARD_ATTRS and not key.startswith("_")
         }
+
+        # Add worker context if present (from WorkerContextFilter)
+        if hasattr(record, "worker_id") and record.worker_id:
+            context["worker_id"] = record.worker_id
+        if hasattr(record, "file_id") and record.file_id:
+            context["file_id"] = record.file_id
+        if hasattr(record, "file_path") and record.file_path:
+            context["file_path"] = record.file_path
 
         if context:
             log_entry["context"] = context

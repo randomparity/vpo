@@ -11,6 +11,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from video_policy_orchestrator.logging.context import WorkerContextFilter
 from video_policy_orchestrator.logging.handlers import JSONFormatter
 
 if TYPE_CHECKING:
@@ -47,10 +48,15 @@ def configure_logging(config: LoggingConfig) -> None:
     if config.format.lower() == "json":
         formatter: logging.Formatter = JSONFormatter()
     else:
+        # Text format includes worker_tag for parallel processing context
+        # worker_tag is "[W01:F001] " when set, empty string otherwise
         formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            "%(asctime)s - %(worker_tag)s%(name)s - %(levelname)s - %(message)s",
             datefmt="%Y-%m-%dT%H:%M:%S%z",
         )
+
+    # Create filter to inject worker context into all log records
+    context_filter = WorkerContextFilter()
 
     # Add file handler if configured
     file_handler_added = False
@@ -67,6 +73,7 @@ def configure_logging(config: LoggingConfig) -> None:
             )
             file_handler.setLevel(level)
             file_handler.setFormatter(formatter)
+            file_handler.addFilter(context_filter)
             root_logger.addHandler(file_handler)
             file_handler_added = True
         except (OSError, PermissionError) as e:
@@ -78,4 +85,5 @@ def configure_logging(config: LoggingConfig) -> None:
         stderr_handler = logging.StreamHandler(sys.stderr)
         stderr_handler.setLevel(level)
         stderr_handler.setFormatter(formatter)
+        stderr_handler.addFilter(context_filter)
         root_logger.addHandler(stderr_handler)
