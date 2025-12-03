@@ -42,6 +42,10 @@ DEFAULT_CONFIG_DIR = Path.home() / ".vpo"
 DEFAULT_CONFIG_FILE = DEFAULT_CONFIG_DIR / "config.toml"
 DEFAULT_PLUGINS_DIR = DEFAULT_CONFIG_DIR / "plugins"
 
+# Cache for loaded config files (path -> parsed dict)
+# This prevents redundant file reads during startup
+_config_cache: dict[Path, dict] = {}
+
 
 def get_default_config_path() -> Path:
     """Get the default config file path.
@@ -81,6 +85,9 @@ def get_data_dir() -> Path:
 def load_config_file(path: Path | None = None) -> dict:
     """Load configuration from TOML file.
 
+    Results are cached to prevent redundant file reads during startup.
+    Use clear_config_cache() to force a reload.
+
     Args:
         path: Path to config file. If None, uses default location.
 
@@ -89,7 +96,24 @@ def load_config_file(path: Path | None = None) -> dict:
     """
     if path is None:
         path = get_default_config_path()
-    return load_toml_file(path)
+
+    # Check cache first
+    if path in _config_cache:
+        return _config_cache[path]
+
+    # Load and cache
+    result = load_toml_file(path)
+    _config_cache[path] = result
+    return result
+
+
+def clear_config_cache() -> None:
+    """Clear the config file cache.
+
+    Call this if the config file may have changed and you need
+    a fresh load. Primarily useful for testing.
+    """
+    _config_cache.clear()
 
 
 def get_config(

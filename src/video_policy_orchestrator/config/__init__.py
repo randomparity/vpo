@@ -21,6 +21,7 @@ from video_policy_orchestrator.config.builder import (
 )
 from video_policy_orchestrator.config.env import EnvReader
 from video_policy_orchestrator.config.loader import (
+    clear_config_cache,
     get_config,
     get_default_config_path,
     load_config_file,
@@ -49,6 +50,7 @@ __all__ = [
     "ToolPathsConfig",
     "VPOConfig",
     # Loader
+    "clear_config_cache",
     "get_config",
     "load_config_file",
     "get_default_config_path",
