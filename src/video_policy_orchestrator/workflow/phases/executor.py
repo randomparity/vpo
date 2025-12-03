@@ -26,6 +26,7 @@ from video_policy_orchestrator.executor import (
     check_tool_availability,
 )
 from video_policy_orchestrator.policy.evaluator import Plan, evaluate_policy
+from video_policy_orchestrator.policy.exceptions import PolicyError
 from video_policy_orchestrator.policy.loader import load_policy_from_dict
 from video_policy_orchestrator.policy.models import (
     AndCondition,
@@ -655,6 +656,17 @@ class V11PhaseExecutor:
                 operation=op_type,
                 success=True,
                 changes_made=changes,
+                duration_seconds=time.time() - start_time,
+            )
+        except PolicyError as e:
+            # Policy constraint violations (e.g., no matching tracks) are
+            # informational - the policy is working correctly by not making
+            # changes that would violate constraints
+            logger.info("Operation %s skipped: %s", op_type.value, e)
+            return OperationResult(
+                operation=op_type,
+                success=False,
+                message=str(e),
                 duration_seconds=time.time() - start_time,
             )
         except Exception as e:
