@@ -103,7 +103,9 @@ _ISO_639_1_TO_639_2B: dict[str, str] = {
     "my": "bur",  # Burmese (bibliographic)
     "na": "nau",  # Nauru
     "ne": "nep",  # Nepali
+    "nb": "nob",  # Norwegian Bokmål
     "nl": "dut",  # Dutch (bibliographic)
+    "nn": "nno",  # Norwegian Nynorsk
     "no": "nor",  # Norwegian
     "oc": "oci",  # Occitan
     "om": "orm",  # Oromo
@@ -274,6 +276,9 @@ _LANGUAGE_NAME_TO_639_2B: dict[str, str] = {
     "nauru": "nau",
     "nepali": "nep",
     "norwegian": "nor",
+    "norwegian bokmål": "nob",
+    "norwegian bokmal": "nob",
+    "norwegian nynorsk": "nno",
     "occitan": "oci",
     "oriya": "ori",
     "oromo": "orm",
@@ -305,6 +310,7 @@ _LANGUAGE_NAME_TO_639_2B: dict[str, str] = {
     "swati": "ssw",
     "swedish": "swe",
     "tagalog": "tgl",
+    "filipino": "fil",
     "tajik": "tgk",
     "tamil": "tam",
     "tatar": "tat",
@@ -335,10 +341,11 @@ _LANGUAGE_NAME_TO_639_2B: dict[str, str] = {
 
 # All valid ISO 639-2/B codes (3-letter)
 _VALID_639_2B: set[str] = set(_ISO_639_2B_TO_639_1.keys()) | {
-    "und",
-    "mis",
-    "mul",
-    "zxx",
+    "und",  # Undetermined
+    "mis",  # Miscellaneous languages
+    "mul",  # Multiple languages
+    "zxx",  # No linguistic content
+    "fil",  # Filipino (shares ISO 639-1 'tl' with Tagalog)
 }
 
 
