@@ -137,7 +137,7 @@ class V11WorkflowProcessor:
 
         logger.info(
             "Processing %s with %d phase(s)",
-            file_path,
+            file_path.name,
             len(self.phases_to_execute),
         )
 

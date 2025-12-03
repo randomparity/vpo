@@ -140,7 +140,7 @@ class ApplyPhase:
             self._last_plan = plan
 
             if plan.is_empty:
-                logger.info("No changes required for %s", file_path)
+                logger.info("No changes required for %s", file_path.name)
                 return 0
 
             changes_count = len(plan.actions) + plan.tracks_removed
@@ -149,12 +149,12 @@ class ApplyPhase:
                 logger.info(
                     "[DRY-RUN] Would apply %d changes to %s",
                     changes_count,
-                    file_path,
+                    file_path.name,
                 )
                 return changes_count
 
             if self.verbose:
-                logger.info("Applying %d changes to %s", changes_count, file_path)
+                logger.info("Applying %d changes to %s", changes_count, file_path.name)
 
             # Create operation record for audit trail
             operation = create_operation(
@@ -204,7 +204,7 @@ class ApplyPhase:
                 backup_path=str(result.backup_path) if result.backup_path else None,
             )
 
-            logger.info("Applied %d changes to %s", changes_count, file_path)
+            logger.info("Applied %d changes to %s", changes_count, file_path.name)
             return changes_count
 
         except PhaseError:

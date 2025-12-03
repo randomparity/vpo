@@ -564,7 +564,7 @@ class V11PhaseExecutor:
         try:
             # Restore original file from backup
             shutil.copy2(state.backup_path, state.file_path)
-            logger.info("Restored %s from backup", state.file_path)
+            logger.info("Restored %s from backup", state.file_path.name)
             return True
         except Exception as e:
             logger.error("Failed to restore from backup: %s", e)
@@ -909,7 +909,9 @@ class V11PhaseExecutor:
             # Get video track info
             video_tracks = [t for t in tracks if t.track_type == "video"]
             if not video_tracks:
-                logger.info("No video track found in %s, skipping transcode", file_path)
+                logger.info(
+                    "No video track found in %s, skipping transcode", file_path.name
+                )
                 return 0
             video_track = video_tracks[0]
             audio_tracks = [t for t in tracks if t.track_type == "audio"]
