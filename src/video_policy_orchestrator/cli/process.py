@@ -434,11 +434,13 @@ def _process_single_file_v11(
         # Create a minimal failure result
         result = FileProcessingResult(
             file_path=file_path,
-            phases_completed=[],
-            phases_failed=[],
-            phases_skipped=[],
-            phase_results=[],
+            success=False,
+            phase_results=(),
+            total_duration_seconds=0.0,
             total_changes=0,
+            phases_completed=0,
+            phases_failed=0,
+            phases_skipped=0,
             error_message=str(e),
         )
         return file_path, result, False
