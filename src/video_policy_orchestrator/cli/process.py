@@ -213,13 +213,17 @@ def _format_result_human(result, file_path: Path, verbose: bool = False) -> str:
 
     Args:
         result: FileProcessingResult from workflow processor.
-        file_path: Path to the processed file (unused, kept for API compat).
+        file_path: Path to the processed file.
         verbose: If True, show full BEFORE/AFTER tables for plans.
 
     Returns:
         Formatted string for terminal output.
     """
     lines = []
+
+    # Always show file path in verbose mode
+    if verbose:
+        lines.append(f"File: {file_path}")
 
     if result.success:
         completed = [p.value for p in result.phases_completed]
@@ -288,13 +292,17 @@ def _format_v11_result_human(result, file_path: Path, verbose: bool = False) -> 
 
     Args:
         result: FileProcessingResult from V11 workflow processor.
-        file_path: Path to the processed file (unused, kept for API compat).
+        file_path: Path to the processed file.
         verbose: If True, show detailed output.
 
     Returns:
         Formatted string for terminal output.
     """
     lines = []
+
+    # Always show file path in verbose mode
+    if verbose:
+        lines.append(f"File: {file_path}")
 
     if result.success:
         lines.append("Status: Success")
