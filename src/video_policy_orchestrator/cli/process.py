@@ -732,8 +732,7 @@ def process_command(
             progress.finish()
 
         else:
-            # V1-V10 policy - use existing sequential workflow processor
-            # (parallel not implemented for legacy policies)
+            # Flat policy - sequential workflow processor with worker context
             with get_connection() as conn:
                 # Create effective workflow config with overrides
                 if phase_override or on_error:
@@ -760,11 +759,19 @@ def process_command(
                     policy_name=str(policy_path),
                 )
 
-                for file_path in file_paths:
+                # Calculate file ID width for consistent formatting
+                file_id_width = len(str(len(file_paths)))
+
+                for file_idx, file_path in enumerate(file_paths, start=1):
                     if verbose and not json_output:
                         click.echo(f"Processing: {file_path}")
 
-                    result = processor.process_file(file_path)
+                    # Use worker context for log correlation (single worker "01")
+                    file_id = f"F{file_idx:0{file_id_width}d}"
+                    with worker_context("01", file_id, file_path):
+                        logger.info("=== FILE %s: %s", file_id, file_path)
+                        result = processor.process_file(file_path)
+
                     results.append(result)
 
                     if result.success:
