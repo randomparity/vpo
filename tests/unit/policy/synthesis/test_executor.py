@@ -326,3 +326,26 @@ class TestSigintHandler:
         # Handler should be restored (may be different from original if nested)
         current_handler = signal.getsignal(signal.SIGINT)
         assert current_handler == original_handler
+
+    def test_handler_skips_setup_in_non_main_thread(self) -> None:
+        """Test that SIGINT handler setup is skipped in non-main thread.
+
+        When running in a background thread (e.g., from job system),
+        signal handlers cannot be set. The context manager should
+        gracefully skip setup rather than raising ValueError.
+        """
+        import threading
+
+        result: list[str] = []
+
+        def run_in_thread() -> None:
+            # This should NOT raise ValueError when in non-main thread
+            with _sigint_handler():
+                result.append("completed")
+
+        thread = threading.Thread(target=run_in_thread)
+        thread.start()
+        thread.join()
+
+        # Should have completed successfully without error
+        assert result == ["completed"]

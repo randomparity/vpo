@@ -9,8 +9,6 @@ import sqlite3
 import threading
 from pathlib import Path
 
-import pytest
-
 from video_policy_orchestrator.db.queries import (
     insert_file,
     insert_track,
@@ -185,10 +183,8 @@ class TestConcurrentTranscriptionWrites:
 
         assert count == 1
 
-    def test_transaction_guard_raises_on_nested_transaction(
-        self, tmp_path: Path
-    ) -> None:
-        """Test that calling upsert while in a transaction raises clear error."""
+    def test_upsert_works_within_existing_transaction(self, tmp_path: Path) -> None:
+        """Test that upsert works when called within an existing transaction."""
         db_path = tmp_path / "test.db"
 
         self._setup_db_with_tracks(db_path, 1)
@@ -210,9 +206,20 @@ class TestConcurrentTranscriptionWrites:
             updated_at="2024-01-01T00:00:00Z",
         )
 
-        # Should raise ProgrammingError due to nested transaction
-        with pytest.raises(sqlite3.ProgrammingError, match="already in transaction"):
-            upsert_transcription_result(conn, record)
+        # Should succeed - upsert participates in existing transaction
+        result_id = upsert_transcription_result(conn, record)
+        assert result_id is not None
 
-        conn.execute("ROLLBACK")
+        # Commit the outer transaction
+        conn.execute("COMMIT")
+
+        # Verify record was persisted
+        cursor = conn.execute(
+            "SELECT detected_language FROM transcription_results WHERE id = ?",
+            (result_id,),
+        )
+        row = cursor.fetchone()
+        assert row is not None
+        assert row[0] == "eng"
+
         conn.close()
