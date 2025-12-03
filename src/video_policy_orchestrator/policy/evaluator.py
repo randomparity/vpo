@@ -536,12 +536,16 @@ def _evaluate_audio_track(
 def _evaluate_subtitle_track(
     track: TrackInfo,
     config: SubtitleFilterConfig,
+    forced_will_be_cleared: bool = False,
 ) -> tuple[Literal["KEEP", "REMOVE"], str]:
     """Evaluate a single subtitle track against subtitle filter config.
 
     Args:
         track: Subtitle track to evaluate.
         config: Subtitle filter configuration.
+        forced_will_be_cleared: If True, all forced flags will be cleared by
+            subtitle_actions before filtering, so don't preserve based on
+            current forced state.
 
     Returns:
         Tuple of (action, reason) for the track.
@@ -551,7 +555,9 @@ def _evaluate_subtitle_track(
         return ("REMOVE", "remove_all enabled")
 
     # Check forced flag first (if preserve_forced is enabled)
-    if config.preserve_forced and track.is_forced:
+    # But if forced flags will be cleared by actions, don't preserve based on
+    # the current forced state
+    if config.preserve_forced and not forced_will_be_cleared and track.is_forced:
         return ("KEEP", "forced subtitle preserved")
 
     # If no language filter is specified, keep all (unless remove_all)
@@ -724,6 +730,7 @@ def compute_track_dispositions(
     tracks: list[TrackInfo],
     policy: PolicySchema,
     transcription_results: dict[int, TranscriptionResultRecord] | None = None,
+    subtitle_forced_will_be_cleared: bool = False,
 ) -> tuple[TrackDisposition, ...]:
     """Compute disposition for each track based on policy filters.
 
@@ -736,6 +743,9 @@ def compute_track_dispositions(
         policy: Validated policy configuration.
         transcription_results: Optional map of track_id to transcription result.
             Used to populate transcription_status for audio tracks.
+        subtitle_forced_will_be_cleared: If True, subtitle_actions will clear
+            all forced flags before filtering, so preserve_forced should not
+            preserve tracks based on current forced state.
 
     Returns:
         Tuple of TrackDisposition objects, one per track.
@@ -771,7 +781,9 @@ def compute_track_dispositions(
             )
             audio_actions[track.index] = (action, reason)
         elif track_type == "subtitle" and policy.subtitle_filter:
-            action, reason = _evaluate_subtitle_track(track, policy.subtitle_filter)
+            action, reason = _evaluate_subtitle_track(
+                track, policy.subtitle_filter, subtitle_forced_will_be_cleared
+            )
         elif track_type == "attachment" and policy.attachment_filter:
             action, reason = _evaluate_attachment_track(
                 track, policy.attachment_filter, has_styled_subs
@@ -1241,6 +1253,72 @@ def evaluate_policy(
     actions: list[PlannedAction] = []
     requires_remux = False
 
+    # Process track actions (pre-processing, applied before filters)
+    # These generate CLEAR_FORCED/CLEAR_DEFAULT/SET_TITLE actions to normalize metadata
+    if policy.audio_actions is not None:
+        for track in tracks:
+            if track.track_type.lower() != "audio":
+                continue
+            if policy.audio_actions.clear_all_forced and track.is_forced:
+                actions.append(
+                    PlannedAction(
+                        action_type=ActionType.CLEAR_FORCED,
+                        track_index=track.index,
+                        current_value=True,
+                        desired_value=False,
+                    )
+                )
+            if policy.audio_actions.clear_all_default and track.is_default:
+                actions.append(
+                    PlannedAction(
+                        action_type=ActionType.CLEAR_DEFAULT,
+                        track_index=track.index,
+                        current_value=True,
+                        desired_value=False,
+                    )
+                )
+            if policy.audio_actions.clear_all_titles and track.title:
+                actions.append(
+                    PlannedAction(
+                        action_type=ActionType.SET_TITLE,
+                        track_index=track.index,
+                        current_value=track.title,
+                        desired_value="",
+                    )
+                )
+
+    if policy.subtitle_actions is not None:
+        for track in tracks:
+            if track.track_type.lower() != "subtitle":
+                continue
+            if policy.subtitle_actions.clear_all_forced and track.is_forced:
+                actions.append(
+                    PlannedAction(
+                        action_type=ActionType.CLEAR_FORCED,
+                        track_index=track.index,
+                        current_value=True,
+                        desired_value=False,
+                    )
+                )
+            if policy.subtitle_actions.clear_all_default and track.is_default:
+                actions.append(
+                    PlannedAction(
+                        action_type=ActionType.CLEAR_DEFAULT,
+                        track_index=track.index,
+                        current_value=True,
+                        desired_value=False,
+                    )
+                )
+            if policy.subtitle_actions.clear_all_titles and track.title:
+                actions.append(
+                    PlannedAction(
+                        action_type=ActionType.SET_TITLE,
+                        track_index=track.index,
+                        current_value=track.title,
+                        desired_value="",
+                    )
+                )
+
     # Convert track flag changes from conditional rules to PlannedActions
     if conditional_result is not None and conditional_result.track_flag_changes:
         for change in conditional_result.track_flag_changes:
@@ -1370,8 +1448,13 @@ def evaluate_policy(
     # V4: Check skip_track_filter flag before applying track filtering
     should_filter = policy.has_track_filtering and not skip_flags.skip_track_filter
     if should_filter:
+        # Check if subtitle forced flags will be cleared by actions
+        subtitle_forced_will_be_cleared = (
+            policy.subtitle_actions is not None
+            and policy.subtitle_actions.clear_all_forced
+        )
         track_dispositions = compute_track_dispositions(
-            tracks, policy, transcription_results
+            tracks, policy, transcription_results, subtitle_forced_will_be_cleared
         )
         tracks_removed = sum(1 for d in track_dispositions if d.action == "REMOVE")
         tracks_kept = sum(1 for d in track_dispositions if d.action == "KEEP")

@@ -20,6 +20,7 @@ from video_policy_orchestrator.policy.models import (
     X264_X265_TUNES,
     AndCondition,
     AttachmentFilterConfig,
+    AudioActionsConfig,
     AudioFilterConfig,
     AudioIsMultiLanguageCondition,
     AudioSynthesisConfig,
@@ -59,6 +60,7 @@ from video_policy_orchestrator.policy.models import (
     SkipCondition,
     SkipIfExistsCriteria,
     SkipType,
+    SubtitleActionsConfig,
     SubtitleFilterConfig,
     SynthesisTrackDefinitionRef,
     TitleMatch,
@@ -483,6 +485,32 @@ class AttachmentFilterModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     remove_all: bool = False
+
+
+class AudioActionsModel(BaseModel):
+    """Pydantic model for audio track pre-processing actions.
+
+    Actions are applied BEFORE filtering to clean up misconfigured metadata.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    clear_all_forced: bool = False
+    clear_all_default: bool = False
+    clear_all_titles: bool = False
+
+
+class SubtitleActionsModel(BaseModel):
+    """Pydantic model for subtitle track pre-processing actions.
+
+    Actions are applied BEFORE filtering to clean up misconfigured metadata.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    clear_all_forced: bool = False
+    clear_all_default: bool = False
+    clear_all_titles: bool = False
 
 
 class ContainerModel(BaseModel):
@@ -1269,6 +1297,10 @@ class PolicyModel(BaseModel):
     default_flags: DefaultFlagsModel = Field(default_factory=DefaultFlagsModel)
     transcode: TranscodePolicyModel | TranscodeV6Model | None = None
     transcription: TranscriptionPolicyModel | None = None
+
+    # Track actions (pre-processing, applied before filters)
+    audio_actions: AudioActionsModel | None = None
+    subtitle_actions: SubtitleActionsModel | None = None
 
     # Track filtering configuration
     audio_filter: AudioFilterModel | None = None
@@ -2079,6 +2111,23 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
             reorder_commentary=model.transcription.reorder_commentary,
         )
 
+    # Convert track actions if present (applied before filters)
+    audio_actions: AudioActionsConfig | None = None
+    if model.audio_actions is not None:
+        audio_actions = AudioActionsConfig(
+            clear_all_forced=model.audio_actions.clear_all_forced,
+            clear_all_default=model.audio_actions.clear_all_default,
+            clear_all_titles=model.audio_actions.clear_all_titles,
+        )
+
+    subtitle_actions: SubtitleActionsConfig | None = None
+    if model.subtitle_actions is not None:
+        subtitle_actions = SubtitleActionsConfig(
+            clear_all_forced=model.subtitle_actions.clear_all_forced,
+            clear_all_default=model.subtitle_actions.clear_all_default,
+            clear_all_titles=model.subtitle_actions.clear_all_titles,
+        )
+
     # Convert V3 audio_filter config if present (V10 adds music/sfx/non_speech options)
     audio_filter: AudioFilterConfig | None = None
     if model.audio_filter is not None:
@@ -2149,6 +2198,8 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
         default_flags=default_flags,
         transcode=transcode,
         transcription=transcription,
+        audio_actions=audio_actions,
+        subtitle_actions=subtitle_actions,
         audio_filter=audio_filter,
         subtitle_filter=subtitle_filter,
         attachment_filter=attachment_filter,
