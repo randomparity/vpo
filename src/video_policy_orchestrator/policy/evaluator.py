@@ -1421,6 +1421,28 @@ def evaluate_policy(
                 )
             )
 
+    # Set subtitle forced flag when audio language differs from preference
+    if policy.default_flags.set_subtitle_forced_when_audio_differs:
+        audio_tracks = [t for t in tracks if t.track_type.lower() == "audio"]
+        subtitle_tracks = [t for t in tracks if t.track_type.lower() == "subtitle"]
+
+        if subtitle_tracks and not _audio_matches_language_preference(
+            audio_tracks, policy.audio_language_preference, matcher
+        ):
+            # Find the preferred subtitle track
+            forced_subtitle = _find_preferred_track(
+                subtitle_tracks, policy.subtitle_language_preference, matcher
+            )
+            if forced_subtitle is not None and not forced_subtitle.is_forced:
+                actions.append(
+                    PlannedAction(
+                        action_type=ActionType.SET_FORCED,
+                        track_index=forced_subtitle.index,
+                        current_value=False,
+                        desired_value=True,
+                    )
+                )
+
     # Compute language updates from transcription results
     if transcription_results is not None:
         language_updates = compute_language_updates(

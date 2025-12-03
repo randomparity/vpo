@@ -216,13 +216,17 @@ class TranscriptionPolicyOptions:
 
 @dataclass(frozen=True)
 class DefaultFlagsConfig:
-    """Configuration for default flag behavior in a policy."""
+    """Configuration for default and forced flag behavior in a policy."""
 
     set_first_video_default: bool = True
     set_preferred_audio_default: bool = True
     set_preferred_subtitle_default: bool = False
     clear_other_defaults: bool = True
     set_subtitle_default_when_audio_differs: bool = False
+    set_subtitle_forced_when_audio_differs: bool = False
+    """If True, set forced flag on preferred subtitle when default audio
+    language differs from audio_language_preference. Useful for ensuring
+    subtitles display automatically for foreign language content."""
 
 
 @dataclass(frozen=True)

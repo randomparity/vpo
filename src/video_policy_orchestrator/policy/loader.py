@@ -103,6 +103,7 @@ class DefaultFlagsModel(BaseModel):
     set_preferred_subtitle_default: bool = False
     clear_other_defaults: bool = True
     set_subtitle_default_when_audio_differs: bool = False
+    set_subtitle_forced_when_audio_differs: bool = False
 
 
 class TranscriptionPolicyModel(BaseModel):
@@ -2071,6 +2072,8 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
         set_preferred_audio_default=model.default_flags.set_preferred_audio_default,
         set_preferred_subtitle_default=model.default_flags.set_preferred_subtitle_default,
         clear_other_defaults=model.default_flags.clear_other_defaults,
+        set_subtitle_default_when_audio_differs=model.default_flags.set_subtitle_default_when_audio_differs,
+        set_subtitle_forced_when_audio_differs=model.default_flags.set_subtitle_forced_when_audio_differs,
     )
 
     # Convert transcode config (supports both V1-5 flat and V6 nested formats)
@@ -2277,6 +2280,8 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
             set_preferred_audio_default=phase.default_flags.set_preferred_audio_default,
             set_preferred_subtitle_default=phase.default_flags.set_preferred_subtitle_default,
             clear_other_defaults=phase.default_flags.clear_other_defaults,
+            set_subtitle_default_when_audio_differs=phase.default_flags.set_subtitle_default_when_audio_differs,
+            set_subtitle_forced_when_audio_differs=phase.default_flags.set_subtitle_forced_when_audio_differs,
         )
 
     # Convert conditional rules
