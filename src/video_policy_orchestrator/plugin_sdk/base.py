@@ -15,6 +15,8 @@ from video_policy_orchestrator.plugin.events import (
     FileScannedEvent,
     PlanExecuteEvent,
     PolicyEvaluateEvent,
+    TranscriptionCompletedEvent,
+    TranscriptionRequestedEvent,
 )
 
 
@@ -99,6 +101,33 @@ class BaseAnalyzerPlugin(ABC):
 
         Args:
             event: PlanExecuteEvent with plan and result/error.
+
+        """
+        pass
+
+    def on_transcription_requested(
+        self, event: TranscriptionRequestedEvent
+    ) -> Any | None:
+        """Called when transcription is requested.
+
+        Override to provide transcription services.
+
+        Args:
+            event: TranscriptionRequestedEvent with audio data and options.
+
+        Returns:
+            TranscriptionResult if transcription succeeded, None otherwise.
+
+        """
+        return None
+
+    def on_transcription_completed(self, event: TranscriptionCompletedEvent) -> None:
+        """Called after transcription completes.
+
+        Override to observe or process transcription results.
+
+        Args:
+            event: TranscriptionCompletedEvent with the result.
 
         """
         pass

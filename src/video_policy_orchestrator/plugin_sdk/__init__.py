@@ -73,6 +73,8 @@ from video_policy_orchestrator.plugin_sdk.testing import (
     create_file_scanned_event,
     create_plan_execute_event,
     create_policy_evaluate_event,
+    create_transcription_completed_event,
+    create_transcription_requested_event,
     mock_executor_result,
     mock_file_info,
     mock_plan,
@@ -104,4 +106,6 @@ __all__ = [
     "create_file_scanned_event",
     "create_policy_evaluate_event",
     "create_plan_execute_event",
+    "create_transcription_requested_event",
+    "create_transcription_completed_event",
 ]
