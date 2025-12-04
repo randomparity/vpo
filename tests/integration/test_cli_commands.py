@@ -15,12 +15,19 @@ class TestRemovedCommands:
         assert result.exit_code != 0
         assert "No such command" in result.output
 
-    def test_analyze_language_command_removed(self) -> None:
-        """Verify analyze-language command was removed."""
+
+class TestAnalyzeLanguageCommand:
+    """Tests for analyze-language command availability."""
+
+    def test_analyze_language_command_available(self) -> None:
+        """Verify analyze-language command is available."""
         runner = CliRunner()
-        result = runner.invoke(main, ["analyze-language"])
-        assert result.exit_code != 0
-        assert "No such command" in result.output
+        result = runner.invoke(main, ["analyze-language", "--help"])
+        assert result.exit_code == 0
+        assert "Analyze and manage multi-language detection results" in result.output
+        assert "run" in result.output
+        assert "status" in result.output
+        assert "clear" in result.output
 
 
 class TestDoctorCommand:

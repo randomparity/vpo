@@ -24,6 +24,9 @@ Usage:
 # Queries: Language analysis operations
 # Queries: Processing statistics operations
 from .queries import (
+    delete_all_analysis,
+    delete_analysis_by_path_prefix,
+    delete_analysis_for_file,
     delete_file,
     delete_job,
     delete_language_analysis_for_file,
@@ -37,6 +40,7 @@ from .queries import (
     get_all_jobs,
     get_file_by_id,
     get_file_by_path,
+    get_file_ids_by_path_prefix,
     get_job,
     get_jobs_by_id_prefix,
     get_jobs_by_status,
@@ -79,6 +83,8 @@ from .queries import (
 from .types import (
     ActionResultRecord,
     ActionSummary,
+    AnalysisStatusSummary,
+    FileAnalysisStatus,
     FileInfo,
     FileListViewItem,
     FileProcessingHistory,
@@ -103,6 +109,7 @@ from .types import (
     ScanErrorView,
     StatsDetailView,
     StatsSummary,
+    TrackAnalysisDetail,
     TrackClassification,
     TrackInfo,
     TrackRecord,
@@ -117,9 +124,13 @@ from .types import (
 # Views: Scan errors view queries
 # Views: Processing statistics view queries
 # Views: Plugin data view queries
+# Views: Language analysis view queries
 from .views import (
+    get_analysis_status_summary,
     get_distinct_audio_languages,
     get_distinct_audio_languages_typed,
+    get_file_analysis_detail,
+    get_files_analysis_status,
     get_files_filtered,
     get_files_filtered_typed,
     get_files_with_plugin_data,
@@ -164,6 +175,8 @@ __all__ = [
     "TranscriptionResultRecord",
     # View models
     "ActionSummary",
+    "AnalysisStatusSummary",
+    "FileAnalysisStatus",
     "FileListViewItem",
     "FileProcessingHistory",
     "LanguageOption",
@@ -171,6 +184,7 @@ __all__ = [
     "ScanErrorView",
     "StatsDetailView",
     "StatsSummary",
+    "TrackAnalysisDetail",
     "TranscriptionDetailView",
     "TranscriptionListViewItem",
     # Type aliases
@@ -214,8 +228,12 @@ __all__ = [
     "get_transcriptions_for_tracks",
     "upsert_transcription_result",
     # Language analysis operations
+    "delete_all_analysis",
+    "delete_analysis_by_path_prefix",
+    "delete_analysis_for_file",
     "delete_language_analysis_for_file",
     "delete_language_analysis_result",
+    "get_file_ids_by_path_prefix",
     "get_language_analysis_by_file_hash",
     "get_language_analysis_result",
     "get_language_segments",
@@ -251,4 +269,8 @@ __all__ = [
     # Plugin data view queries
     "get_files_with_plugin_data",
     "get_plugin_data_for_file",
+    # Language analysis view queries
+    "get_analysis_status_summary",
+    "get_file_analysis_detail",
+    "get_files_analysis_status",
 ]

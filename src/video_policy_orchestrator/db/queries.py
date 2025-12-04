@@ -31,6 +31,29 @@ from .types import (
 )
 
 # ==========================================================================
+# SQL Utility Helpers
+# ==========================================================================
+
+
+def _escape_like_pattern(value: str) -> str:
+    """Escape special characters in SQL LIKE patterns.
+
+    SQLite LIKE patterns treat %, _, and [ as special characters.
+    This function escapes them so they match literally.
+
+    Args:
+        value: The string to escape for use in a LIKE pattern.
+
+    Returns:
+        Escaped string safe for LIKE pattern matching.
+
+    Note:
+        Queries using this must include ESCAPE '\\' clause.
+    """
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+# ==========================================================================
 # Row Mapping Helpers
 # ==========================================================================
 
@@ -1722,6 +1745,105 @@ def delete_language_analysis_for_file(conn: sqlite3.Connection, file_id: int) ->
     )
     conn.commit()
     return cursor.rowcount
+
+
+def delete_all_analysis(conn: sqlite3.Connection) -> int:
+    """Delete all language analysis results.
+
+    Args:
+        conn: Database connection.
+
+    Returns:
+        Count of deleted records.
+    """
+    cursor = conn.execute("DELETE FROM language_analysis_results")
+    conn.commit()
+    return cursor.rowcount
+
+
+def delete_analysis_by_path_prefix(
+    conn: sqlite3.Connection,
+    path_prefix: str,
+) -> int:
+    """Delete language analysis results for files under a path.
+
+    Args:
+        conn: Database connection.
+        path_prefix: Directory path prefix (e.g., "/media/movies/").
+
+    Returns:
+        Count of deleted records.
+    """
+    escaped_prefix = _escape_like_pattern(path_prefix)
+    cursor = conn.execute(
+        """
+        DELETE FROM language_analysis_results
+        WHERE track_id IN (
+            SELECT t.id FROM tracks t
+            JOIN files f ON t.file_id = f.id
+            WHERE f.path LIKE ? || '%' ESCAPE '\\'
+        )
+        """,
+        (escaped_prefix,),
+    )
+    conn.commit()
+    return cursor.rowcount
+
+
+def delete_analysis_for_file(conn: sqlite3.Connection, file_id: int) -> int:
+    """Delete all language analysis results for a specific file.
+
+    Alias for delete_language_analysis_for_file for consistency.
+
+    Args:
+        conn: Database connection.
+        file_id: ID of the file.
+
+    Returns:
+        Count of deleted records.
+    """
+    return delete_language_analysis_for_file(conn, file_id)
+
+
+def get_file_ids_by_path_prefix(
+    conn: sqlite3.Connection,
+    path_prefix: str,
+    *,
+    include_subdirs: bool = True,
+) -> list[int]:
+    """Get file IDs for files under a path prefix.
+
+    Args:
+        conn: Database connection.
+        path_prefix: Directory path prefix.
+        include_subdirs: If True, include files in subdirectories.
+
+    Returns:
+        List of file IDs matching the path prefix.
+    """
+    escaped_prefix = _escape_like_pattern(path_prefix)
+    if include_subdirs:
+        pattern = escaped_prefix + "%"
+        cursor = conn.execute(
+            "SELECT id FROM files WHERE path LIKE ? ESCAPE '\\'",
+            (pattern,),
+        )
+    else:
+        # Non-recursive: only direct children
+        pattern = escaped_prefix
+        if not path_prefix.endswith("/"):
+            pattern += "/"
+        # Match files in directory but not in subdirs
+        cursor = conn.execute(
+            """
+            SELECT id FROM files
+            WHERE path LIKE ? || '%' ESCAPE '\\'
+            AND path NOT LIKE ? || '%/%' ESCAPE '\\'
+            """,
+            (pattern, pattern),
+        )
+
+    return [row[0] for row in cursor.fetchall()]
 
 
 # ==========================================================================

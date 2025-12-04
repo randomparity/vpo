@@ -337,3 +337,10 @@ vpo stats purge --all --yes              # Delete all
 - `GET /api/stats/files/{file_id}` - File processing history
 - `GET /api/stats/{stats_id}` - Single record detail
 - `DELETE /api/stats/purge?before=30d&dry_run=true` - Delete statistics
+
+## Active Technologies
+- Python 3.10+ + click (CLI), existing `language_analysis` module, existing `db` module (042-analyze-language-cli)
+- SQLite at `~/.vpo/library.db` - uses existing `language_analysis_results` and `language_segments` tables (042-analyze-language-cli)
+
+## Recent Changes
+- 042-analyze-language-cli: Added Python 3.10+ + click (CLI), existing `language_analysis` module, existing `db` module

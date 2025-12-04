@@ -54,14 +54,51 @@ vpo scan --analyze-languages /media/videos
 Use the `analyze-language` command group for more control:
 
 ```bash
-# Run analysis
+# Run analysis on a file (requires Whisper plugin)
 vpo analyze-language run /path/to/movie.mkv
 
-# Check analysis status
+# Run analysis on a directory
+vpo analyze-language run /media/movies/ --recursive
+
+# Force re-analysis (ignore cache)
+vpo analyze-language run /path/to/movie.mkv --force
+
+# Output results as JSON
+vpo analyze-language run /path/to/movie.mkv --json
+```
+
+#### View Analysis Status
+
+```bash
+# Show library-wide summary
+vpo analyze-language status
+
+# Filter by classification
+vpo analyze-language status --filter multi-language
+vpo analyze-language status --filter single-language
+vpo analyze-language status --filter pending
+
+# Show details for a specific file
 vpo analyze-language status /path/to/movie.mkv
 
-# Clear cached results
-vpo analyze-language clear /path/to/movie.mkv
+# Output as JSON
+vpo analyze-language status --json
+```
+
+#### Clear Cached Results
+
+```bash
+# Preview what would be cleared (dry run)
+vpo analyze-language clear /media/movies/ --dry-run
+
+# Clear results for a directory
+vpo analyze-language clear /media/movies/ --yes
+
+# Clear all results in library
+vpo analyze-language clear --all --yes
+
+# Clear with JSON output
+vpo analyze-language clear --all --yes --json
 ```
 
 ## Policy Integration
