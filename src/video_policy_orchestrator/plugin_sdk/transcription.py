@@ -2,6 +2,36 @@
 
 This module provides base classes and utilities to help plugin authors
 create transcription plugins for VPO.
+
+Multi-Sample Detection:
+    SampleResult: Result from a single audio sample
+    MultiSampleConfig: Configuration for multi-sample detection
+    AggregatedResult: Aggregated result from multiple samples
+    calculate_sample_positions: Calculate sample positions throughout track
+    aggregate_results: Aggregate samples using weighted voting
+
+Example:
+    from video_policy_orchestrator.plugin_sdk import (
+        MultiSampleConfig,
+        SampleResult,
+        AggregatedResult,
+        calculate_sample_positions,
+        aggregate_results,
+    )
+
+    # Configure multi-sample detection
+    config = MultiSampleConfig(max_samples=5, confidence_threshold=0.9)
+
+    # Calculate where to sample
+    positions = calculate_sample_positions(
+        track_duration=7200.0,
+        num_samples=config.max_samples,
+        sample_duration=config.sample_duration,
+    )
+
+    # Process samples and aggregate results
+    samples = [...]  # Collect SampleResult from each position
+    result = aggregate_results(samples, incumbent_language="eng")
 """
 
 from abc import ABC, abstractmethod
@@ -14,6 +44,17 @@ from video_policy_orchestrator.transcription.interface import (
 from video_policy_orchestrator.transcription.models import (
     TrackClassification,
     TranscriptionResult,
+)
+
+# Re-export multi-sample utilities from transcription module
+# The implementation lives there to avoid circular imports
+from video_policy_orchestrator.transcription.multi_sample import (
+    AggregatedResult,
+    MultiSampleConfig,
+    SampleResult,
+    aggregate_results,
+    calculate_sample_positions,
+    smart_detect,
 )
 
 
@@ -163,9 +204,17 @@ class TranscriptionPluginBase(ABC):
 
 # Re-export common types for plugin authors
 __all__ = [
+    # Base class and types
     "TrackClassification",
     "TranscriptionError",
     "TranscriptionPlugin",
     "TranscriptionPluginBase",
     "TranscriptionResult",
+    # Multi-sample detection
+    "AggregatedResult",
+    "MultiSampleConfig",
+    "SampleResult",
+    "aggregate_results",
+    "calculate_sample_positions",
+    "smart_detect",
 ]
