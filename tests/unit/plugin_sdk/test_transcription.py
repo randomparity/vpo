@@ -7,9 +7,14 @@ from datetime import datetime, timezone
 import pytest
 
 from video_policy_orchestrator.plugin_sdk.transcription import (
+    AggregatedResult,
+    MultiSampleConfig,
+    SampleResult,
     TrackClassification,
     TranscriptionPluginBase,
     TranscriptionResult,
+    aggregate_results,
+    calculate_sample_positions,
 )
 
 
@@ -207,3 +212,328 @@ class TestConcreteImplementation:
         result = plugin.transcribe(b"audio data", language="fr")
         assert result.detected_language == "fr"
         assert result.transcript_sample == "Hello world"
+
+
+# =============================================================================
+# Multi-Sample Detection Tests
+# =============================================================================
+
+
+class TestSampleResult:
+    """Tests for SampleResult dataclass."""
+
+    def test_basic_creation(self) -> None:
+        """Test creating a basic sample result."""
+        result = SampleResult(
+            position=0.0,
+            language="en",
+            confidence=0.95,
+        )
+        assert result.position == 0.0
+        assert result.language == "en"
+        assert result.confidence == 0.95
+        assert result.transcript_sample is None
+
+    def test_with_transcript(self) -> None:
+        """Test creating a sample result with transcript."""
+        result = SampleResult(
+            position=30.0,
+            language="es",
+            confidence=0.88,
+            transcript_sample="Hola mundo",
+        )
+        assert result.transcript_sample == "Hola mundo"
+
+    def test_none_language(self) -> None:
+        """Test sample result with no detected language."""
+        result = SampleResult(
+            position=60.0,
+            language=None,
+            confidence=0.0,
+        )
+        assert result.language is None
+
+
+class TestMultiSampleConfig:
+    """Tests for MultiSampleConfig dataclass."""
+
+    def test_defaults(self) -> None:
+        """Test default configuration values."""
+        config = MultiSampleConfig()
+        assert config.max_samples == 3
+        assert config.sample_duration == 30
+        assert config.confidence_threshold == 0.85
+        assert config.incumbent_bonus == 0.15
+
+    def test_custom_values(self) -> None:
+        """Test custom configuration values."""
+        config = MultiSampleConfig(
+            max_samples=5,
+            sample_duration=60,
+            confidence_threshold=0.9,
+            incumbent_bonus=0.2,
+        )
+        assert config.max_samples == 5
+        assert config.sample_duration == 60
+        assert config.confidence_threshold == 0.9
+        assert config.incumbent_bonus == 0.2
+
+    def test_validation_max_samples_zero(self) -> None:
+        """Test max_samples must be at least 1."""
+        with pytest.raises(ValueError, match="max_samples must be at least 1"):
+            MultiSampleConfig(max_samples=0)
+
+    def test_validation_max_samples_negative(self) -> None:
+        """Test max_samples cannot be negative."""
+        with pytest.raises(ValueError, match="max_samples must be at least 1"):
+            MultiSampleConfig(max_samples=-1)
+
+    def test_validation_sample_duration_zero(self) -> None:
+        """Test sample_duration must be at least 1."""
+        with pytest.raises(ValueError, match="sample_duration must be at least 1"):
+            MultiSampleConfig(sample_duration=0)
+
+    def test_validation_confidence_threshold_negative(self) -> None:
+        """Test confidence_threshold must be in [0.0, 1.0]."""
+        with pytest.raises(
+            ValueError, match="confidence_threshold must be between 0.0 and 1.0"
+        ):
+            MultiSampleConfig(confidence_threshold=-0.1)
+
+    def test_validation_confidence_threshold_too_high(self) -> None:
+        """Test confidence_threshold must be at most 1.0."""
+        with pytest.raises(
+            ValueError, match="confidence_threshold must be between 0.0 and 1.0"
+        ):
+            MultiSampleConfig(confidence_threshold=1.1)
+
+    def test_validation_incumbent_bonus_negative(self) -> None:
+        """Test incumbent_bonus must be non-negative."""
+        with pytest.raises(ValueError, match="incumbent_bonus must be non-negative"):
+            MultiSampleConfig(incumbent_bonus=-0.1)
+
+
+class TestAggregatedResult:
+    """Tests for AggregatedResult dataclass."""
+
+    def test_basic_creation(self) -> None:
+        """Test creating an aggregated result."""
+        result = AggregatedResult(
+            language="eng",
+            confidence=0.9,
+            samples_taken=3,
+        )
+        assert result.language == "eng"
+        assert result.confidence == 0.9
+        assert result.samples_taken == 3
+        assert result.sample_results == []
+        assert result.transcript_sample is None
+
+    def test_with_sample_results(self) -> None:
+        """Test aggregated result with sample details."""
+        samples = [
+            SampleResult(position=0.0, language="en", confidence=0.9),
+            SampleResult(position=1000.0, language="en", confidence=0.85),
+        ]
+        result = AggregatedResult(
+            language="eng",
+            confidence=0.875,
+            samples_taken=2,
+            sample_results=samples,
+        )
+        assert len(result.sample_results) == 2
+
+    def test_none_language(self) -> None:
+        """Test aggregated result with no detected language."""
+        result = AggregatedResult(
+            language=None,
+            confidence=0.0,
+            samples_taken=3,
+        )
+        assert result.language is None
+
+
+class TestCalculateSamplePositions:
+    """Tests for calculate_sample_positions function."""
+
+    def test_single_sample(self) -> None:
+        """Test single sample returns start position."""
+        positions = calculate_sample_positions(7200.0, 1, 30)
+        assert positions == [0.0]
+
+    def test_two_samples(self) -> None:
+        """Test two samples returns start and middle."""
+        positions = calculate_sample_positions(7200.0, 2, 30)
+        assert len(positions) == 2
+        assert positions[0] == 0.0
+        # Middle position: (7200 - 30) * 0.5 = 3585
+        assert positions[1] == pytest.approx(3585.0)
+
+    def test_three_samples(self) -> None:
+        """Test three samples returns start, middle, quarter."""
+        positions = calculate_sample_positions(7200.0, 3, 30)
+        assert len(positions) == 3
+        assert positions[0] == 0.0
+        assert positions[1] == pytest.approx(3585.0)  # Middle
+        assert positions[2] == pytest.approx(1792.5)  # Quarter
+
+    def test_four_samples(self) -> None:
+        """Test four samples returns start, middle, quarter, three-quarter."""
+        positions = calculate_sample_positions(7200.0, 4, 30)
+        assert len(positions) == 4
+        assert positions[0] == 0.0
+        assert positions[1] == pytest.approx(3585.0)  # Middle
+        assert positions[2] == pytest.approx(1792.5)  # Quarter
+        assert positions[3] == pytest.approx(5377.5)  # Three-quarters
+
+    def test_zero_samples(self) -> None:
+        """Test requesting zero samples."""
+        positions = calculate_sample_positions(7200.0, 0, 30)
+        assert positions == []
+
+    def test_short_track(self) -> None:
+        """Test track shorter than sample duration."""
+        positions = calculate_sample_positions(20.0, 3, 30)
+        assert positions == [0.0]
+
+    def test_zero_duration(self) -> None:
+        """Test zero duration track."""
+        positions = calculate_sample_positions(0.0, 3, 30)
+        assert positions == [0.0]
+
+    def test_exact_sample_duration(self) -> None:
+        """Test track exactly equals sample duration."""
+        positions = calculate_sample_positions(30.0, 3, 30)
+        # max_start = 0, so only start position
+        assert positions == [0.0]
+
+
+class TestAggregateResults:
+    """Tests for aggregate_results function."""
+
+    def test_empty_samples(self) -> None:
+        """Test aggregating empty sample list."""
+        result = aggregate_results([])
+        assert result.language is None
+        assert result.confidence == 0.0
+        assert result.samples_taken == 0
+
+    def test_single_sample(self) -> None:
+        """Test aggregating single sample."""
+        samples = [SampleResult(position=0.0, language="en", confidence=0.95)]
+        result = aggregate_results(samples)
+        # Language should be normalized to ISO 639-2/B
+        assert result.language == "eng"
+        assert result.confidence == 0.95
+        assert result.samples_taken == 1
+
+    def test_unanimous_samples(self) -> None:
+        """Test aggregating samples with same language."""
+        samples = [
+            SampleResult(position=0.0, language="en", confidence=0.90),
+            SampleResult(position=1000.0, language="en", confidence=0.85),
+            SampleResult(position=2000.0, language="en", confidence=0.95),
+        ]
+        result = aggregate_results(samples)
+        assert result.language == "eng"
+        # Average confidence: (0.90 + 0.85 + 0.95) / 3 = 0.9
+        assert result.confidence == pytest.approx(0.9)
+        assert result.samples_taken == 3
+
+    def test_majority_voting(self) -> None:
+        """Test majority voting when samples differ."""
+        samples = [
+            SampleResult(position=0.0, language="en", confidence=0.85),
+            SampleResult(position=1000.0, language="en", confidence=0.90),
+            SampleResult(position=2000.0, language="es", confidence=0.70),
+        ]
+        result = aggregate_results(samples)
+        # en wins: 2 samples with total weight 0.85 + 0.90 = 1.75
+        # es has: 1 sample with weight 0.70
+        assert result.language == "eng"
+
+    def test_incumbent_bonus(self) -> None:
+        """Test incumbent language gets bonus vote."""
+        # Without bonus, es would win (higher confidence)
+        samples = [
+            SampleResult(position=0.0, language="en", confidence=0.80),
+            SampleResult(position=1000.0, language="es", confidence=0.95),
+        ]
+        # With incumbent bonus of 0.5, en gets 0.80 + 0.5 = 1.30 vs es 0.95
+        result = aggregate_results(
+            samples, incumbent_language="en", incumbent_bonus=0.5
+        )
+        assert result.language == "eng"
+
+    def test_all_none_language(self) -> None:
+        """Test when all samples have None language."""
+        samples = [
+            SampleResult(position=0.0, language=None, confidence=0.0),
+            SampleResult(position=1000.0, language=None, confidence=0.0),
+        ]
+        result = aggregate_results(samples)
+        assert result.language is None
+        assert result.confidence == 0.0
+        assert result.samples_taken == 2
+
+    def test_best_transcript_selected(self) -> None:
+        """Test highest-confidence transcript is selected."""
+        samples = [
+            SampleResult(
+                position=0.0,
+                language="en",
+                confidence=0.80,
+                transcript_sample="First sample",
+            ),
+            SampleResult(
+                position=1000.0,
+                language="en",
+                confidence=0.95,
+                transcript_sample="Second sample - best",
+            ),
+            SampleResult(
+                position=2000.0,
+                language="en",
+                confidence=0.85,
+                transcript_sample="Third sample",
+            ),
+        ]
+        result = aggregate_results(samples)
+        assert result.transcript_sample == "Second sample - best"
+
+
+class TestMultiSampleSdkImports:
+    """Tests to verify multi-sample SDK imports work correctly."""
+
+    def test_import_from_plugin_sdk(self) -> None:
+        """Verify utilities can be imported from plugin_sdk."""
+        from video_policy_orchestrator.plugin_sdk import (
+            AggregatedResult,
+            MultiSampleConfig,
+            SampleResult,
+            aggregate_results,
+            calculate_sample_positions,
+        )
+
+        # Just verify they're callable/types
+        assert callable(aggregate_results)
+        assert callable(calculate_sample_positions)
+        assert SampleResult is not None
+        assert MultiSampleConfig is not None
+        assert AggregatedResult is not None
+
+    def test_import_from_transcription_module(self) -> None:
+        """Verify utilities can be imported from transcription submodule."""
+        from video_policy_orchestrator.plugin_sdk.transcription import (
+            AggregatedResult,
+            MultiSampleConfig,
+            SampleResult,
+            aggregate_results,
+            calculate_sample_positions,
+        )
+
+        assert callable(aggregate_results)
+        assert callable(calculate_sample_positions)
+        assert SampleResult is not None
+        assert MultiSampleConfig is not None
+        assert AggregatedResult is not None

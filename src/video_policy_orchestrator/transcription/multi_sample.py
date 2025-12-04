@@ -321,3 +321,13 @@ def smart_detect(
         incumbent_language=incumbent_language,
         incumbent_bonus=config.incumbent_bonus,
     )
+
+
+__all__ = [
+    "AggregatedResult",
+    "MultiSampleConfig",
+    "SampleResult",
+    "aggregate_results",
+    "calculate_sample_positions",
+    "smart_detect",
+]

@@ -109,3 +109,11 @@ def get_file_duration(file_path: Path) -> float:
         return adapter.get_file_duration(file_path)
     except FFmpegError as e:
         raise AudioExtractionError(str(e)) from e
+
+
+__all__ = [
+    "AudioExtractionError",
+    "extract_audio_stream",
+    "get_file_duration",
+    "is_ffmpeg_available",
+]

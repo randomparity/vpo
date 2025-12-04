@@ -49,6 +49,13 @@ Example:
 """
 
 # Base classes
+# Audio utilities
+from video_policy_orchestrator.plugin_sdk.audio import (
+    AudioExtractionError,
+    extract_audio_stream,
+    get_file_duration,
+    is_ffmpeg_available,
+)
 from video_policy_orchestrator.plugin_sdk.base import (
     BaseAnalyzerPlugin,
     BaseDualPlugin,
@@ -82,6 +89,15 @@ from video_policy_orchestrator.plugin_sdk.testing import (
     mock_tracks,
 )
 
+# Multi-sample transcription utilities
+from video_policy_orchestrator.plugin_sdk.transcription import (
+    AggregatedResult,
+    MultiSampleConfig,
+    SampleResult,
+    aggregate_results,
+    calculate_sample_positions,
+)
+
 __all__ = [
     # Base classes
     "BaseAnalyzerPlugin",
@@ -96,6 +112,17 @@ __all__ = [
     "normalize_path",
     "is_supported_container",
     "is_mkv_container",
+    # Audio utilities
+    "AudioExtractionError",
+    "extract_audio_stream",
+    "get_file_duration",
+    "is_ffmpeg_available",
+    # Multi-sample transcription utilities
+    "AggregatedResult",
+    "MultiSampleConfig",
+    "SampleResult",
+    "aggregate_results",
+    "calculate_sample_positions",
     # Testing
     "PluginTestCase",
     "mock_file_info",
