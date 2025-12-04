@@ -88,8 +88,10 @@ class PluginTranscriberAdapter:
     The adapter creates TranscriptionRequestedEvent and dispatches it to all
     plugins subscribed to the transcription.requested event.
 
-    NOTE: This adapter is NOT thread-safe. Create a new instance for each
-    analyze_track() call. Do not reuse instances across concurrent operations.
+    IMPORTANT: This adapter is single-use per analyze_track() call. Create a
+    new instance for each track analysis. The adapter tracks the plugin that
+    handled the request so it can be reported after smart_detect() completes.
+    Do not reuse instances across different tracks or concurrent operations.
     """
 
     # Default sample rate for audio extraction (Whisper-compatible)
@@ -112,6 +114,7 @@ class PluginTranscriberAdapter:
         self._file_path = file_path
         self._track = track
         self._last_plugin_name: str | None = None
+        self._finalized = False
 
     @property
     def name(self) -> str:
@@ -125,7 +128,13 @@ class PluginTranscriberAdapter:
 
     @property
     def last_plugin_name(self) -> str | None:
-        """Name of the last plugin that successfully handled a request."""
+        """Name of the last plugin that successfully handled a request.
+
+        Reading this property finalizes the adapter, preventing further use.
+        This ensures the adapter is not accidentally reused after results
+        are collected.
+        """
+        self._finalized = True
         return self._last_plugin_name
 
     def _dispatch_event(
@@ -146,7 +155,14 @@ class PluginTranscriberAdapter:
 
         Raises:
             TranscriptionError: If no plugin can handle the request.
+            RuntimeError: If adapter has been finalized (reuse attempt).
         """
+        if self._finalized:
+            raise RuntimeError(
+                "PluginTranscriberAdapter has been finalized and cannot be reused. "
+                "Create a new adapter instance for each analyze_track() call."
+            )
+
         event = TranscriptionRequestedEvent(
             file_path=self._file_path,
             track=self._track,

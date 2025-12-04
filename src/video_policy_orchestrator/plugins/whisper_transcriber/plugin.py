@@ -19,6 +19,18 @@ from video_policy_orchestrator.transcription.models import (
     detect_commentary_type,
 )
 
+# Confidence scores based on transcript quality.
+# Empty or very short transcripts indicate no speech was detected,
+# which means the language detection is unreliable.
+CONFIDENCE_NO_SPEECH = 0.3  # No speech detected
+CONFIDENCE_VERY_SHORT = 0.5  # Transcript < 20 chars
+CONFIDENCE_SHORT = 0.7  # Transcript < 50 chars
+CONFIDENCE_SUBSTANTIAL = 0.9  # Substantial transcript
+
+# Transcript length thresholds (characters) for confidence scoring
+TRANSCRIPT_LENGTH_VERY_SHORT = 20
+TRANSCRIPT_LENGTH_SHORT = 50
+
 
 class PluginDependencyError(TranscriptionError):
     """Raised when a required plugin dependency is not installed."""
@@ -249,20 +261,14 @@ class WhisperTranscriptionPlugin:
             detected_lang = normalize_language(detected_lang_raw)
 
             # Confidence scoring based on transcript quality
-            # Empty or very short transcripts indicate no speech was detected,
-            # which means the language detection is unreliable
             if not transcript:
-                # No speech detected - very low confidence
-                confidence = 0.3
-            elif len(transcript) < 20:
-                # Very short transcript - low confidence
-                confidence = 0.5
-            elif len(transcript) < 50:
-                # Short transcript - moderate confidence
-                confidence = 0.7
+                confidence = CONFIDENCE_NO_SPEECH
+            elif len(transcript) < TRANSCRIPT_LENGTH_VERY_SHORT:
+                confidence = CONFIDENCE_VERY_SHORT
+            elif len(transcript) < TRANSCRIPT_LENGTH_SHORT:
+                confidence = CONFIDENCE_SHORT
             else:
-                # Substantial transcript - high confidence
-                confidence = 0.9
+                confidence = CONFIDENCE_SUBSTANTIAL
 
             # Detect track type using transcript analysis
             # Note: title is not available here, so we pass None
@@ -399,15 +405,11 @@ class WhisperTranscriptionPlugin:
         Returns:
             TranscriptionResult if successful, None if cannot handle.
         """
-        try:
-            return self.transcribe(
-                audio_data=event.audio_data,
-                sample_rate=event.sample_rate,
-                language=event.options.get("language"),
-            )
-        except TranscriptionError:
-            # Return None to let coordinator try other plugins
-            return None
+        return self.transcribe(
+            audio_data=event.audio_data,
+            sample_rate=event.sample_rate,
+            language=event.options.get("language"),
+        )
 
 
 # Plugin instance for discovery

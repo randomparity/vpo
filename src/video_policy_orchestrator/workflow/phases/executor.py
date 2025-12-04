@@ -8,6 +8,8 @@ executors based on the phase definition.
 import json
 import logging
 import shutil
+import subprocess  # nosec B404 - subprocess required for FFmpeg execution
+import tempfile
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -17,7 +19,11 @@ from typing import TYPE_CHECKING
 
 from video_policy_orchestrator.config.loader import get_temp_directory
 from video_policy_orchestrator.db.queries import get_file_by_path, get_tracks_for_file
-from video_policy_orchestrator.db.types import TrackInfo, tracks_to_track_info
+from video_policy_orchestrator.db.types import (
+    FileRecord,
+    TrackInfo,
+    tracks_to_track_info,
+)
 from video_policy_orchestrator.executor import (
     FfmpegMetadataExecutor,
     FFmpegRemuxExecutor,
@@ -25,6 +31,12 @@ from video_policy_orchestrator.executor import (
     MkvpropeditExecutor,
     check_tool_availability,
 )
+from video_policy_orchestrator.executor.backup import (
+    check_disk_space,
+    create_backup,
+    restore_from_backup,
+)
+from video_policy_orchestrator.executor.interface import require_tool
 from video_policy_orchestrator.policy.evaluator import Plan, evaluate_policy
 from video_policy_orchestrator.policy.exceptions import PolicyError
 from video_policy_orchestrator.policy.loader import load_policy_from_dict
@@ -51,6 +63,11 @@ from video_policy_orchestrator.policy.models import (
     TitleMatch,
     V11PolicySchema,
     WarnAction,
+)
+from video_policy_orchestrator.policy.transcode import (
+    AudioAction,
+    AudioPlan,
+    create_audio_plan_v6,
 )
 
 if TYPE_CHECKING:
@@ -163,6 +180,40 @@ class V11PhaseExecutor:
             raise ValueError(f"File not in database: {file_path}")
         track_records = get_tracks_for_file(self.conn, file_record.id)
         return tracks_to_track_info(track_records)
+
+    def _parse_plugin_metadata(
+        self,
+        file_record: FileRecord | None,
+        file_path: Path,
+        file_id: str,
+        context: str = "operations",
+    ) -> dict | None:
+        """Parse plugin metadata JSON from FileRecord.
+
+        Args:
+            file_record: File record from database (may be None).
+            file_path: Path to file (for error logging).
+            file_id: File ID string (for error logging).
+            context: Context description for error message.
+
+        Returns:
+            Parsed metadata dict, or None if unavailable or corrupted.
+        """
+        if not file_record or not file_record.plugin_metadata:
+            return None
+
+        try:
+            return json.loads(file_record.plugin_metadata)
+        except json.JSONDecodeError as e:
+            logger.error(
+                "Corrupted plugin_metadata JSON for file %s (file_id=%s): %s. "
+                "Plugin metadata conditions in %s will not be evaluated.",
+                file_path,
+                file_id,
+                e,
+                context,
+            )
+            return None
 
     def _build_virtual_policy(self, phase: PhaseDefinition) -> PolicySchema:
         """Build a V1-V10 compatible policy from phase config for evaluation.
@@ -763,19 +814,10 @@ class V11PhaseExecutor:
         file_record = get_file_by_path(self.conn, str(file_path))
         file_id = str(file_record.id) if file_record else "unknown"
 
-        # Parse plugin metadata from FileRecord (stored as JSON string)
-        plugin_metadata: dict | None = None
-        if file_record and file_record.plugin_metadata:
-            try:
-                plugin_metadata = json.loads(file_record.plugin_metadata)
-            except json.JSONDecodeError as e:
-                logger.error(
-                    "Corrupted plugin_metadata JSON for file %s (file_id=%s): %s. "
-                    "Plugin metadata conditions will not be evaluated.",
-                    file_path,
-                    file_id,
-                    e,
-                )
+        # Parse plugin metadata from FileRecord
+        plugin_metadata = self._parse_plugin_metadata(
+            file_record, file_path, file_id, "policy evaluation"
+        )
 
         # Build virtual policy and evaluate
         virtual_policy = self._build_virtual_policy(phase)
@@ -990,23 +1032,224 @@ class V11PhaseExecutor:
 
         # Audio transcode (without video transcode)
         elif phase.audio_transcode:
+            audio_tracks = [t for t in tracks if t.track_type == "audio"]
+            if not audio_tracks:
+                logger.info(
+                    "No audio tracks found in %s, skipping audio transcode",
+                    file_path.name,
+                )
+                return 0
+
+            # Create audio plan
+            audio_plan = create_audio_plan_v6(audio_tracks, phase.audio_transcode)
+
+            # Check if any tracks need transcoding
+            transcode_count = sum(
+                1 for t in audio_plan.tracks if t.action == AudioAction.TRANSCODE
+            )
+            if transcode_count == 0:
+                logger.info(
+                    "All audio tracks already in acceptable codecs, no transcode needed"
+                )
+                return 0
+
             if self.dry_run:
                 logger.info(
-                    "[DRY-RUN] Would transcode audio to %s",
+                    "[DRY-RUN] Would transcode %d audio track(s) to %s",
+                    transcode_count,
                     phase.audio_transcode.transcode_to,
                 )
-                changes += 1
+                changes += transcode_count
             else:
-                # TODO: Audio-only transcode not yet fully implemented
-                # Needs integration with evaluate_policy to build proper plan
-                logger.warning(
-                    "Audio transcode to %s requested but not yet implemented "
-                    "in V11 phase executor",
-                    phase.audio_transcode.transcode_to,
+                # Execute audio-only transcode
+                result = self._execute_audio_only_transcode(
+                    file_path, tracks, audio_plan, phase.audio_transcode.transcode_to
                 )
-                # Don't increment changes since we didn't do anything
+                if not result:
+                    raise RuntimeError("Audio transcode failed")
+                changes += transcode_count
 
         return changes
+
+    def _execute_audio_only_transcode(
+        self,
+        file_path: Path,
+        tracks: list[TrackInfo],
+        audio_plan: AudioPlan,
+        target_codec: str,
+    ) -> bool:
+        """Execute audio-only transcode using FFmpeg.
+
+        Copies video and subtitle streams unchanged while transcoding
+        audio streams according to the audio plan.
+
+        Args:
+            file_path: Path to the media file.
+            tracks: All tracks in the file.
+            audio_plan: Audio transcode plan from create_audio_plan_v6.
+            target_codec: Target audio codec name (for logging).
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        # Pre-flight disk space check
+        try:
+            check_disk_space(file_path)
+        except Exception as e:
+            logger.error("Insufficient disk space for audio transcode: %s", e)
+            return False
+
+        # Get FFmpeg path
+        try:
+            ffmpeg_path = require_tool("ffmpeg")
+        except FileNotFoundError as e:
+            logger.error("FFmpeg not available: %s", e)
+            return False
+
+        # Create backup
+        try:
+            backup_path = create_backup(file_path)
+        except (FileNotFoundError, PermissionError) as e:
+            logger.error("Backup failed for audio transcode: %s", e)
+            return False
+
+        # Create temp output file
+        temp_dir = get_temp_directory()
+        with tempfile.NamedTemporaryFile(
+            suffix=file_path.suffix, delete=False, dir=temp_dir or file_path.parent
+        ) as tmp:
+            temp_path = Path(tmp.name)
+
+        try:
+            # Build FFmpeg command
+            cmd = self._build_audio_transcode_command(
+                ffmpeg_path, file_path, temp_path, tracks, audio_plan
+            )
+
+            logger.info(
+                "Executing audio transcode to %s for %s",
+                target_codec,
+                file_path.name,
+            )
+            logger.debug("FFmpeg command: %s", " ".join(str(c) for c in cmd))
+
+            # Execute FFmpeg
+            result = subprocess.run(  # nosec B603 - cmd built from validated inputs
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=1800,  # 30 minute timeout
+                encoding="utf-8",
+                errors="replace",
+            )
+
+            if result.returncode != 0:
+                logger.error("FFmpeg audio transcode failed: %s", result.stderr)
+                temp_path.unlink(missing_ok=True)
+                restore_from_backup(backup_path)
+                return False
+
+            # Verify output exists and has reasonable size
+            if not temp_path.exists() or temp_path.stat().st_size == 0:
+                logger.error("Audio transcode produced empty or missing output")
+                temp_path.unlink(missing_ok=True)
+                restore_from_backup(backup_path)
+                return False
+
+            # Atomic replace: move temp to original
+            temp_path.replace(file_path)
+
+            # Clean up backup on success
+            backup_path.unlink(missing_ok=True)
+
+            logger.info("Audio transcode completed successfully for %s", file_path.name)
+            return True
+
+        except subprocess.TimeoutExpired:
+            logger.error("FFmpeg audio transcode timed out after 30 minutes")
+            temp_path.unlink(missing_ok=True)
+            restore_from_backup(backup_path)
+            return False
+        except Exception as e:
+            logger.exception("Unexpected error during audio transcode: %s", e)
+            temp_path.unlink(missing_ok=True)
+            restore_from_backup(backup_path)
+            return False
+
+    def _build_audio_transcode_command(
+        self,
+        ffmpeg_path: Path,
+        input_path: Path,
+        output_path: Path,
+        tracks: list[TrackInfo],
+        audio_plan: AudioPlan,
+    ) -> list[str]:
+        """Build FFmpeg command for audio-only transcode.
+
+        Args:
+            ffmpeg_path: Path to FFmpeg executable.
+            input_path: Path to input file.
+            output_path: Path for output file.
+            tracks: All tracks in the file.
+            audio_plan: Audio transcode plan.
+
+        Returns:
+            List of command arguments.
+        """
+        cmd = [
+            str(ffmpeg_path),
+            "-i",
+            str(input_path),
+            "-map",
+            "0",  # Copy all streams
+            "-c:v",
+            "copy",  # Copy video unchanged
+            "-c:s",
+            "copy",  # Copy subtitles unchanged
+        ]
+
+        # Build audio codec args from plan
+        output_stream_idx = 0
+        for track_plan in audio_plan.tracks:
+            if track_plan.action == AudioAction.COPY:
+                cmd.extend([f"-c:a:{output_stream_idx}", "copy"])
+                output_stream_idx += 1
+            elif track_plan.action == AudioAction.TRANSCODE:
+                # Map codec name to FFmpeg encoder
+                encoder = self._get_audio_encoder(track_plan.target_codec or "aac")
+                cmd.extend([f"-c:a:{output_stream_idx}", encoder])
+                if track_plan.target_bitrate:
+                    cmd.extend([f"-b:a:{output_stream_idx}", track_plan.target_bitrate])
+                output_stream_idx += 1
+            # AudioAction.REMOVE would exclude the track, but we don't support
+            # that in audio-only transcode currently
+
+        # Output file (overwrite if exists)
+        cmd.extend(["-y", str(output_path)])
+
+        return cmd
+
+    def _get_audio_encoder(self, codec: str) -> str:
+        """Get FFmpeg encoder name for a codec.
+
+        Args:
+            codec: Target codec name (e.g., 'aac', 'opus', 'flac').
+
+        Returns:
+            FFmpeg encoder name.
+        """
+        encoders = {
+            "aac": "aac",
+            "ac3": "ac3",
+            "eac3": "eac3",
+            "flac": "flac",
+            "opus": "libopus",
+            "mp3": "libmp3lame",
+            "vorbis": "libvorbis",
+            "pcm_s16le": "pcm_s16le",
+            "pcm_s24le": "pcm_s24le",
+        }
+        return encoders.get(codec.lower(), "aac")
 
     def _execute_audio_synthesis(
         self,
@@ -1036,19 +1279,10 @@ class V11PhaseExecutor:
         file_record = get_file_by_path(self.conn, str(file_path))
         file_id = str(file_record.id) if file_record else "unknown"
 
-        # Parse plugin metadata from FileRecord (stored as JSON string)
-        plugin_metadata: dict | None = None
-        if file_record and file_record.plugin_metadata:
-            try:
-                plugin_metadata = json.loads(file_record.plugin_metadata)
-            except json.JSONDecodeError as e:
-                logger.error(
-                    "Corrupted plugin_metadata JSON for file %s (file_id=%s): %s. "
-                    "Plugin metadata conditions in synthesis will not be evaluated.",
-                    file_path,
-                    file_id,
-                    e,
-                )
+        # Parse plugin metadata from FileRecord
+        plugin_metadata = self._parse_plugin_metadata(
+            file_record, file_path, file_id, "synthesis"
+        )
 
         # Plan synthesis
         synthesis_plan = plan_synthesis(
