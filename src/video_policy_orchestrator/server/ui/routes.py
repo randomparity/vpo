@@ -800,8 +800,12 @@ def _build_file_detail_item(file_record, tracks, transcriptions) -> FileDetailIt
     if file_record.plugin_metadata:
         try:
             plugin_metadata = json.loads(file_record.plugin_metadata)
-        except (json.JSONDecodeError, TypeError):
-            pass
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.warning(
+                "Failed to parse plugin_metadata for file %d: %s",
+                file_record.id,
+                e,
+            )
 
     return FileDetailItem(
         id=file_record.id,
@@ -2606,16 +2610,21 @@ async def api_plugins_list_handler(request: web.Request) -> web.Response:
     # Get all loaded plugins
     loaded_plugins = registry.get_all()
 
-    plugins = [
-        PluginInfo(
-            name=p.name,
-            version=p.version,
-            enabled=p.enabled,
-            is_builtin=p.source == PluginSource.BUILTIN,
-            events=p.events,
-        )
-        for p in loaded_plugins
-    ]
+    # Build plugin info with defensive error handling
+    plugins = []
+    for p in loaded_plugins:
+        try:
+            plugins.append(
+                PluginInfo(
+                    name=p.name,
+                    version=p.version,
+                    enabled=p.enabled,
+                    is_builtin=p.source == PluginSource.BUILTIN,
+                    events=p.events,
+                )
+            )
+        except AttributeError as e:
+            logger.warning("Skipping malformed plugin: %s", e)
 
     response = PluginListResponse(plugins=plugins, total=len(plugins))
     return web.json_response(response.to_dict())
@@ -2715,7 +2724,7 @@ async def api_file_plugin_data_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with FilePluginDataResponse payload.
     """
-    from video_policy_orchestrator.db.models import get_file_by_id
+    from video_policy_orchestrator.db import get_file_by_id
     from video_policy_orchestrator.db.views import get_plugin_data_for_file
     from video_policy_orchestrator.server.ui.models import FilePluginDataResponse
 
@@ -2773,7 +2782,7 @@ async def api_file_plugin_data_single_handler(request: web.Request) -> web.Respo
     Returns:
         JSON response with plugin-specific data.
     """
-    from video_policy_orchestrator.db.models import get_file_by_id
+    from video_policy_orchestrator.db import get_file_by_id
     from video_policy_orchestrator.db.views import get_plugin_data_for_file
 
     file_id_str = request.match_info["file_id"]
@@ -2849,7 +2858,7 @@ async def file_plugin_data_handler(request: web.Request) -> dict:
         HTTPBadRequest: If file ID format is invalid.
         HTTPServiceUnavailable: If database not available.
     """
-    from video_policy_orchestrator.db.models import get_file_by_id
+    from video_policy_orchestrator.db import get_file_by_id
     from video_policy_orchestrator.db.views import get_plugin_data_for_file
     from video_policy_orchestrator.server.ui.models import PluginDataContext
 

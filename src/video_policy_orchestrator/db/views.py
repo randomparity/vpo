@@ -10,6 +10,9 @@ The dict-returning versions are kept for backward compatibility.
 New code should use the _typed variants that return dataclasses.
 """
 
+import json
+import logging
+import re
 import sqlite3
 
 from .types import (
@@ -1097,8 +1100,13 @@ def get_files_with_plugin_data(
             "scan_status": str,
             "plugin_data": dict,  # Parsed plugin-specific data
         }
+
+    Raises:
+        ValueError: If plugin_name contains invalid characters.
     """
-    import json
+    # Validate plugin name for defense in depth (routes also validate)
+    if not re.match(r"^[a-zA-Z0-9_-]+$", plugin_name):
+        raise ValueError(f"Invalid plugin name format: {plugin_name}")
 
     # Count query
     total = 0
@@ -1163,9 +1171,9 @@ def get_plugin_data_for_file(
 
     Returns:
         Dictionary keyed by plugin name with each plugin's data.
-        Empty dict if file not found or no plugin metadata.
+        Empty dict if file not found, no plugin metadata, or malformed JSON.
     """
-    import json
+    logger = logging.getLogger(__name__)
 
     cursor = conn.execute(
         "SELECT plugin_metadata FROM files WHERE id = ?",
@@ -1176,4 +1184,8 @@ def get_plugin_data_for_file(
     if row is None or row[0] is None:
         return {}
 
-    return json.loads(row[0])
+    try:
+        return json.loads(row[0])
+    except (json.JSONDecodeError, TypeError) as e:
+        logger.warning("Failed to parse plugin_metadata for file_id=%d: %s", file_id, e)
+        return {}
