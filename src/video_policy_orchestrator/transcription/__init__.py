@@ -24,7 +24,7 @@ __all__ = [
     "TranscriptionError",
     "TranscriptionPlugin",
     "TranscriptionResult",
-    # Coordinator (primary API for plugin-based transcription)
+    # Coordinator API (the only supported transcription interface)
     "DEFAULT_CONFIDENCE_THRESHOLD",
     "NoTranscriptionPluginError",
     "PluginTranscriberAdapter",

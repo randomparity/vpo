@@ -264,7 +264,7 @@ def _show_transcription_plugins(verbose: bool) -> None:
 
         if not plugins:
             click.echo("  ✗ No transcription plugins available")
-            click.echo("    └─ Install a transcription plugin (e.g., whisper-local)")
+            click.echo("    └─ Install a transcription plugin (e.g., whisper-local).")
             return
 
         for loaded_plugin in plugins:
@@ -286,3 +286,7 @@ def _show_transcription_plugins(verbose: bool) -> None:
 
     except Exception as e:
         click.echo(f"  ✗ Error loading transcription plugins: {e}")
+        if verbose:
+            import traceback
+
+            click.echo(traceback.format_exc(), err=True)

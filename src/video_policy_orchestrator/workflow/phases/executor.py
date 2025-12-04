@@ -1113,7 +1113,7 @@ class V11PhaseExecutor:
 
         # Transcription requires plugin registry
         if self._plugin_registry is None:
-            logger.warning(
+            logger.info(
                 "Transcription requested but no plugin registry available. "
                 "Skipping transcription operation."
             )
