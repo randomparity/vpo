@@ -8,7 +8,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from video_policy_orchestrator.db.types import FileInfo, TrackInfo
+    from video_policy_orchestrator.executor.interface import ExecutorResult
+    from video_policy_orchestrator.metadata.parser import ParsedMetadata
+    from video_policy_orchestrator.policy.models import Plan, PolicySchema
+    from video_policy_orchestrator.transcription.models import TranscriptionResult
 
 # Event name constants
 FILE_SCANNED = "file.scanned"
@@ -69,8 +76,8 @@ class FileScannedEvent:
     """
 
     file_path: Path
-    file_info: Any  # FileInfo from db.models
-    tracks: list[Any]  # list[TrackInfo] from db.models
+    file_info: FileInfo
+    tracks: list[TrackInfo]
 
 
 @dataclass
@@ -81,7 +88,7 @@ class FileMetadataEnrichedEvent:
     """
 
     file_path: Path
-    file_info: Any  # FileInfo from db.models
+    file_info: FileInfo
     enrichments: dict[str, Any]  # Combined enrichments from all plugins
 
 
@@ -94,9 +101,9 @@ class PolicyEvaluateEvent:
     """
 
     file_path: Path
-    file_info: Any  # FileInfo from db.models
-    policy: Any  # PolicySchema from policy.models
-    plan: Any | None = None  # Plan from policy.models (after evaluation)
+    file_info: FileInfo
+    policy: PolicySchema
+    plan: Plan | None = None  # Set after evaluation
 
 
 @dataclass
@@ -108,8 +115,8 @@ class PlanExecuteEvent:
     For plan.execution_failed: error contains the exception.
     """
 
-    plan: Any  # Plan from policy.models
-    result: Any | None = None  # ExecutorResult from executor.interface
+    plan: Plan
+    result: ExecutorResult | None = None
     error: Exception | None = None
 
 
@@ -123,7 +130,7 @@ class MetadataExtractedEvent:
     """
 
     file_path: Path
-    parsed_metadata: Any  # ParsedMetadata from metadata.parser
+    parsed_metadata: ParsedMetadata
     metadata_dict: dict[str, str]  # Rendered metadata dictionary
 
 
@@ -137,7 +144,7 @@ class TranscriptionRequestedEvent:
     """
 
     file_path: Path
-    track: Any  # TrackInfo from db.types
+    track: TrackInfo
     audio_data: bytes
     sample_rate: int
     options: dict[str, Any]
@@ -153,7 +160,7 @@ class TranscriptionCompletedEvent:
 
     file_path: Path
     track_id: int
-    result: Any  # TranscriptionResult from transcription.models
+    result: TranscriptionResult
 
 
 def is_valid_event(event_name: str) -> bool:
