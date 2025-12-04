@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 from sqlite3 import Connection
 
+from video_policy_orchestrator.config.loader import get_temp_directory
 from video_policy_orchestrator.db.queries import get_file_by_path, get_tracks_for_file
 from video_policy_orchestrator.db.types import TrackInfo, tracks_to_track_info
 from video_policy_orchestrator.policy.models import PolicySchema
@@ -72,7 +73,9 @@ class TranscodePhase:
 
         video_track = self._get_primary_video_track(tracks)
         if video_track is None:
-            logger.info("No video track found in %s, skipping transcode", file_path)
+            logger.info(
+                "No video track found in %s, skipping transcode", file_path.name
+            )
             return 0
 
         audio_tracks = [t for t in tracks if t.track_type == "audio"]
@@ -91,6 +94,7 @@ class TranscodePhase:
                 skip_if=skip_if,
                 audio_config=audio_config,
                 backup_original=True,
+                temp_directory=get_temp_directory(),
             )
 
             # Create plan (output_path same as input for in-place transcode;
@@ -111,17 +115,17 @@ class TranscodePhase:
             if plan.skip_reason:
                 logger.info(
                     "Skipping transcode for %s: %s",
-                    file_path,
+                    file_path.name,
                     plan.skip_reason,
                 )
                 return 0
 
             if self.dry_run:
-                logger.info("[DRY-RUN] Would transcode %s", file_path)
+                logger.info("[DRY-RUN] Would transcode %s", file_path.name)
                 return 1
 
             if self.verbose:
-                logger.info("Transcoding %s", file_path)
+                logger.info("Transcoding %s", file_path.name)
 
             # Execute transcode (plan contains input_path and output_path)
             result = executor.execute(plan)
@@ -132,7 +136,7 @@ class TranscodePhase:
                     f"Transcode failed: {result.error_message}",
                 )
 
-            logger.info("Transcoded %s successfully", file_path)
+            logger.info("Transcoded %s successfully", file_path.name)
             return 1
 
         except PhaseError:

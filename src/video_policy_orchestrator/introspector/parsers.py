@@ -49,12 +49,14 @@ def parse_duration(value: str | None) -> float | None:
 def parse_stream(
     stream: dict,
     container_duration: float | None = None,
+    file_path: str | None = None,
 ) -> TrackInfo:
     """Parse a single ffprobe stream dict into a TrackInfo.
 
     Args:
         stream: Stream dictionary from ffprobe JSON.
         container_duration: Fallback duration from container format.
+        file_path: Optional file path for context in warning messages.
 
     Returns:
         TrackInfo domain object.
@@ -72,7 +74,7 @@ def parse_stream(
     tags = stream.get("tags", {})
     raw_language = tags.get("language") or "und"
     # Normalize language code to configured standard (default: ISO 639-2/B)
-    language = normalize_language(raw_language)
+    language = normalize_language(raw_language, context=file_path)
     title = sanitize_string(tags.get("title"))
 
     # Build track info
@@ -132,12 +134,14 @@ def parse_stream(
 def parse_streams(
     streams: list[dict],
     container_duration: float | None = None,
+    file_path: str | None = None,
 ) -> tuple[list[TrackInfo], list[str]]:
     """Parse stream data into TrackInfo objects.
 
     Args:
         streams: List of stream dictionaries from ffprobe.
         container_duration: Container-level duration as fallback.
+        file_path: Optional file path for context in warning messages.
 
     Returns:
         Tuple of (tracks list, warnings list).
@@ -155,7 +159,7 @@ def parse_streams(
             continue
         seen_indices.add(index)
 
-        track = parse_stream(stream, container_duration)
+        track = parse_stream(stream, container_duration, file_path)
         tracks.append(track)
 
     return tracks, warnings
@@ -182,7 +186,7 @@ def parse_ffprobe_output(
 
     # Parse streams
     streams = data.get("streams", [])
-    tracks, warnings = parse_streams(streams, container_duration)
+    tracks, warnings = parse_streams(streams, container_duration, str(path))
 
     if not tracks:
         warnings.append("No streams found in file")

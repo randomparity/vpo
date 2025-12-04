@@ -65,7 +65,7 @@ class AnalyzePhase:
         audio_tracks = [t for t in track_records if t.track_type == "audio"]
 
         if not audio_tracks:
-            logger.info("No audio tracks to analyze in %s", file_path)
+            logger.info("No audio tracks to analyze in %s", file_path.name)
             return 0
 
         # Import orchestrator here to avoid circular imports
@@ -79,13 +79,13 @@ class AnalyzePhase:
             logger.info(
                 "[DRY-RUN] Would analyze %d audio track(s) in %s",
                 len(audio_tracks),
-                file_path,
+                file_path.name,
             )
             return len(audio_tracks)
 
         if self.verbose:
             count = len(audio_tracks)
-            logger.info("Analyzing %d audio track(s) in %s", count, file_path)
+            logger.info("Analyzing %d audio track(s) in %s", count, file_path.name)
 
         try:
             result = orchestrator.analyze_tracks_for_file(

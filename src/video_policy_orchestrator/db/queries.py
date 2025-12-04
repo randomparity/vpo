@@ -382,9 +382,9 @@ def upsert_tracks_for_file(
 ) -> None:
     """Smart merge tracks for a file: update existing, insert new, delete missing.
 
-    Note:
-        This function does NOT commit. The caller is responsible for transaction
-        management to ensure atomicity with the parent file record.
+    Uses fail-fast busy_timeout with retry logic for concurrent access.
+    If already in a transaction, operates within it. Otherwise, creates
+    its own transaction with BEGIN IMMEDIATE.
 
     Args:
         conn: Database connection.
@@ -398,94 +398,145 @@ def upsert_tracks_for_file(
            - If track_index is new: INSERT
         3. DELETE tracks with indices not in new list
     """
-    # Get existing track indices
-    cursor = conn.execute(
-        "SELECT track_index FROM tracks WHERE file_id = ?", (file_id,)
-    )
-    existing_indices = {row[0] for row in cursor.fetchall()}
+    from .connection import execute_with_retry
 
-    # Track which indices we've processed
-    new_indices = {track.index for track in tracks}
+    # Store original busy_timeout for restoration
+    original_busy_timeout: int | None = None
+    attempt_count = 0
 
-    for track in tracks:
-        if track.index in existing_indices:
-            # Update existing track
-            conn.execute(
-                """
-                UPDATE tracks SET
-                    track_type = ?, codec = ?, language = ?, title = ?,
-                    is_default = ?, is_forced = ?, channels = ?, channel_layout = ?,
-                    width = ?, height = ?, frame_rate = ?, duration_seconds = ?,
-                    color_transfer = ?, color_primaries = ?, color_space = ?,
-                    color_range = ?
-                WHERE file_id = ? AND track_index = ?
-                """,
-                (
-                    track.track_type,
-                    track.codec,
-                    track.language,
-                    track.title,
-                    1 if track.is_default else 0,
-                    1 if track.is_forced else 0,
-                    track.channels,
-                    track.channel_layout,
-                    track.width,
-                    track.height,
-                    track.frame_rate,
-                    track.duration_seconds,
-                    track.color_transfer,
-                    track.color_primaries,
-                    track.color_space,
-                    track.color_range,
-                    file_id,
-                    track.index,
-                ),
+    def do_upsert() -> None:
+        nonlocal original_busy_timeout, attempt_count
+        attempt_count += 1
+
+        # On retry, ensure connection is in a clean state.
+        # This handles the case where a previous attempt failed mid-transaction.
+        # Don't do this on first attempt - allow participating in caller's transaction.
+        if attempt_count > 1 and conn.in_transaction:
+            try:
+                conn.execute("ROLLBACK")
+            except sqlite3.Error:
+                pass
+
+        # Check if already in a transaction
+        manage_transaction = not conn.in_transaction
+
+        if manage_transaction:
+            # Set short busy_timeout for fail-fast behavior with retries
+            cursor = conn.execute("PRAGMA busy_timeout")
+            row = cursor.fetchone()
+            original_busy_timeout = row[0] if row else 10000
+            conn.execute("PRAGMA busy_timeout = 100")
+            conn.execute("BEGIN IMMEDIATE")
+
+        try:
+            # Get existing track indices
+            cursor = conn.execute(
+                "SELECT track_index FROM tracks WHERE file_id = ?", (file_id,)
             )
-        else:
-            # Insert new track
-            record = TrackRecord.from_track_info(track, file_id)
-            conn.execute(
-                """
-                INSERT INTO tracks (
-                    file_id, track_index, track_type, codec,
-                    language, title, is_default, is_forced,
-                    channels, channel_layout, width, height, frame_rate,
-                    duration_seconds, color_transfer, color_primaries,
-                    color_space, color_range
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    record.file_id,
-                    record.track_index,
-                    record.track_type,
-                    record.codec,
-                    record.language,
-                    record.title,
-                    1 if record.is_default else 0,
-                    1 if record.is_forced else 0,
-                    record.channels,
-                    record.channel_layout,
-                    record.width,
-                    record.height,
-                    record.frame_rate,
-                    record.duration_seconds,
-                    record.color_transfer,
-                    record.color_primaries,
-                    record.color_space,
-                    record.color_range,
-                ),
-            )
+            existing_indices = {row[0] for row in cursor.fetchall()}
 
-    # Delete tracks that are no longer present
-    stale_indices = existing_indices - new_indices
-    if stale_indices:
-        placeholders = ",".join("?" * len(stale_indices))
-        conn.execute(
-            f"DELETE FROM tracks WHERE file_id = ? AND track_index IN ({placeholders})",
-            (file_id, *stale_indices),
-        )
+            # Track which indices we've processed
+            new_indices = {track.index for track in tracks}
 
-    # Note: commit removed - caller (upsert_file) handles transaction boundaries
+            for track in tracks:
+                if track.index in existing_indices:
+                    # Update existing track
+                    conn.execute(
+                        """
+                        UPDATE tracks SET
+                            track_type = ?, codec = ?, language = ?, title = ?,
+                            is_default = ?, is_forced = ?, channels = ?,
+                            channel_layout = ?, width = ?, height = ?,
+                            frame_rate = ?, duration_seconds = ?,
+                            color_transfer = ?, color_primaries = ?,
+                            color_space = ?, color_range = ?
+                        WHERE file_id = ? AND track_index = ?
+                        """,
+                        (
+                            track.track_type,
+                            track.codec,
+                            track.language,
+                            track.title,
+                            1 if track.is_default else 0,
+                            1 if track.is_forced else 0,
+                            track.channels,
+                            track.channel_layout,
+                            track.width,
+                            track.height,
+                            track.frame_rate,
+                            track.duration_seconds,
+                            track.color_transfer,
+                            track.color_primaries,
+                            track.color_space,
+                            track.color_range,
+                            file_id,
+                            track.index,
+                        ),
+                    )
+                else:
+                    # Insert new track
+                    record = TrackRecord.from_track_info(track, file_id)
+                    conn.execute(
+                        """
+                        INSERT INTO tracks (
+                            file_id, track_index, track_type, codec,
+                            language, title, is_default, is_forced,
+                            channels, channel_layout, width, height,
+                            frame_rate, duration_seconds, color_transfer,
+                            color_primaries, color_space, color_range
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            record.file_id,
+                            record.track_index,
+                            record.track_type,
+                            record.codec,
+                            record.language,
+                            record.title,
+                            1 if record.is_default else 0,
+                            1 if record.is_forced else 0,
+                            record.channels,
+                            record.channel_layout,
+                            record.width,
+                            record.height,
+                            record.frame_rate,
+                            record.duration_seconds,
+                            record.color_transfer,
+                            record.color_primaries,
+                            record.color_space,
+                            record.color_range,
+                        ),
+                    )
+
+            # Delete tracks that are no longer present
+            stale_indices = existing_indices - new_indices
+            if stale_indices:
+                placeholders = ",".join("?" * len(stale_indices))
+                conn.execute(
+                    "DELETE FROM tracks WHERE file_id = ? "
+                    f"AND track_index IN ({placeholders})",
+                    (file_id, *stale_indices),
+                )
+
+            if manage_transaction:
+                conn.execute("COMMIT")
+
+        except Exception:
+            if manage_transaction:
+                try:
+                    conn.execute("ROLLBACK")
+                except sqlite3.Error:
+                    pass
+            raise
+        finally:
+            # Restore original busy_timeout if we changed it
+            if manage_transaction and original_busy_timeout is not None:
+                try:
+                    conn.execute(f"PRAGMA busy_timeout = {original_busy_timeout}")
+                except sqlite3.Error:
+                    pass
+
+    execute_with_retry(do_upsert)
 
 
 # ==========================================================================
@@ -1116,10 +1167,22 @@ def upsert_transcription_result(
     # Store original busy_timeout for restoration
     # Default connection timeout is 10000ms, but we want fail-fast for retries
     original_busy_timeout: int | None = None
+    attempt_count = 0
 
     def do_upsert() -> int:
-        nonlocal original_busy_timeout
-        # Check if already in a transaction (implicit or explicit)
+        nonlocal original_busy_timeout, attempt_count
+        attempt_count += 1
+
+        # On retry, ensure connection is in a clean state.
+        # This handles the case where a previous attempt failed mid-transaction.
+        # Don't do this on first attempt - allow participating in caller's transaction.
+        if attempt_count > 1 and conn.in_transaction:
+            try:
+                conn.execute("ROLLBACK")
+            except sqlite3.Error:
+                pass
+
+        # Check if already in a transaction
         # If so, just do the upsert within that transaction
         # If not, use BEGIN IMMEDIATE for fail-fast lock detection
         manage_transaction = not conn.in_transaction
@@ -1321,10 +1384,22 @@ def upsert_language_analysis_result(
     # Store original busy_timeout for restoration
     # Default connection timeout is 10000ms, but we want fail-fast for retries
     original_busy_timeout: int | None = None
+    attempt_count = 0
 
     def do_upsert() -> int:
-        nonlocal original_busy_timeout
-        # Check if already in a transaction (implicit or explicit)
+        nonlocal original_busy_timeout, attempt_count
+        attempt_count += 1
+
+        # On retry, ensure connection is in a clean state.
+        # This handles the case where a previous attempt failed mid-transaction.
+        # Don't do this on first attempt - allow participating in caller's transaction.
+        if attempt_count > 1 and conn.in_transaction:
+            try:
+                conn.execute("ROLLBACK")
+            except sqlite3.Error:
+                pass
+
+        # Check if already in a transaction
         # If so, just do the upsert within that transaction
         # If not, use BEGIN IMMEDIATE for fail-fast lock detection
         manage_transaction = not conn.in_transaction
@@ -1474,10 +1549,22 @@ def upsert_language_segments(
     # Store original busy_timeout for restoration
     # Default connection timeout is 10000ms, but we want fail-fast for retries
     original_busy_timeout: int | None = None
+    attempt_count = 0
 
     def do_upsert() -> list[int]:
-        nonlocal original_busy_timeout
-        # Check if already in a transaction (implicit or explicit)
+        nonlocal original_busy_timeout, attempt_count
+        attempt_count += 1
+
+        # On retry, ensure connection is in a clean state.
+        # This handles the case where a previous attempt failed mid-transaction.
+        # Don't do this on first attempt - allow participating in caller's transaction.
+        if attempt_count > 1 and conn.in_transaction:
+            try:
+                conn.execute("ROLLBACK")
+            except sqlite3.Error:
+                pass
+
+        # Check if already in a transaction
         # If so, just do the upsert within that transaction
         # If not, use BEGIN IMMEDIATE for fail-fast lock detection
         manage_transaction = not conn.in_transaction

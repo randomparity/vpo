@@ -213,13 +213,17 @@ def _format_result_human(result, file_path: Path, verbose: bool = False) -> str:
 
     Args:
         result: FileProcessingResult from workflow processor.
-        file_path: Path to the processed file (unused, kept for API compat).
+        file_path: Path to the processed file.
         verbose: If True, show full BEFORE/AFTER tables for plans.
 
     Returns:
         Formatted string for terminal output.
     """
     lines = []
+
+    # Always show file path in verbose mode
+    if verbose:
+        lines.append(f"File: {file_path}")
 
     if result.success:
         completed = [p.value for p in result.phases_completed]
@@ -288,13 +292,17 @@ def _format_v11_result_human(result, file_path: Path, verbose: bool = False) -> 
 
     Args:
         result: FileProcessingResult from V11 workflow processor.
-        file_path: Path to the processed file (unused, kept for API compat).
+        file_path: Path to the processed file.
         verbose: If True, show detailed output.
 
     Returns:
         Formatted string for terminal output.
     """
     lines = []
+
+    # Always show file path in verbose mode
+    if verbose:
+        lines.append(f"File: {file_path}")
 
     if result.success:
         lines.append("Status: Success")
@@ -326,6 +334,8 @@ def _format_v11_result_human(result, file_path: Path, verbose: bool = False) -> 
                 lines.append(f"         Error: {pr.error}")
 
     lines.append(f"Duration: {result.total_duration_seconds:.1f}s")
+    if result.stats_id:
+        lines.append(f"Stats ID: {result.stats_id}")
     return "\n".join(lines)
 
 
@@ -342,6 +352,7 @@ def _format_v11_result_json(result, file_path: Path) -> dict:
     return {
         "file": str(file_path),
         "success": result.success,
+        "stats_id": result.stats_id,
         "phases_completed": result.phases_completed,
         "phases_failed": result.phases_failed,
         "phases_skipped": result.phases_skipped,
@@ -434,11 +445,13 @@ def _process_single_file_v11(
         # Create a minimal failure result
         result = FileProcessingResult(
             file_path=file_path,
-            phases_completed=[],
-            phases_failed=[],
-            phases_skipped=[],
-            phase_results=[],
+            success=False,
+            phase_results=(),
+            total_duration_seconds=0.0,
             total_changes=0,
+            phases_completed=0,
+            phases_failed=0,
+            phases_skipped=0,
             error_message=str(e),
         )
         return file_path, result, False
@@ -676,64 +689,81 @@ def process_command(
                     futures[future] = file_path
 
                 # Process results as they complete
-                for future in as_completed(futures):
-                    file_path = futures[future]
-                    try:
-                        _, result, success = future.result()
-                        if result is not None:
-                            results.append(result)
-                            if success:
-                                success_count += 1
-                            else:
-                                fail_count += 1
+                try:
+                    for future in as_completed(futures):
+                        file_path = futures[future]
+                        try:
+                            _, result, success = future.result()
+                            if result is not None:
+                                results.append(result)
+                                if success:
+                                    success_count += 1
+                                else:
+                                    fail_count += 1
 
-                            # Output result if verbose (use lock for thread safety)
-                            if not json_output and verbose:
-                                formatted = _format_v11_result_human(
-                                    result, file_path, verbose
-                                )
-                                with _output_lock:
-                                    click.echo(formatted)
-                                    click.echo("")
-                            elif not json_output and not progress.enabled:
-                                # Not verbose, not progress mode - show status
-                                status = "OK" if success else "FAILED"
-                                with _output_lock:
-                                    click.echo(f"[{status}] {file_path.name}")
-
-                            # Handle on_error=fail mode
-                            if not success and policy_on_error == OnErrorMode.FAIL:
-                                stop_event.set()
-                                stopped_early = True
-                                if not json_output:
-                                    click.echo(
-                                        "Stopping batch due to error "
-                                        f"(on_error='fail'): {result.error_message}"
+                                # Output result if verbose (use lock for thread safety)
+                                if not json_output and verbose:
+                                    formatted = _format_v11_result_human(
+                                        result, file_path, verbose
                                     )
-                                # Cancel pending futures
-                                for f in futures:
-                                    f.cancel()
-                    except Exception as e:
-                        logger.exception("Unexpected error for %s: %s", file_path, e)
-                        fail_count += 1
-                        # Create minimal result for tracking
-                        error_result = FileProcessingResult(
-                            file_path=file_path,
-                            phases_completed=[],
-                            phases_failed=[],
-                            phases_skipped=[],
-                            phase_results=[],
-                            total_changes=0,
-                            error_message=str(e),
-                        )
-                        results.append(error_result)
+                                    with _output_lock:
+                                        click.echo(formatted)
+                                        click.echo("")
+                                elif not json_output and not progress.enabled:
+                                    # Not verbose, not progress mode - show status
+                                    status = "OK" if success else "FAILED"
+                                    with _output_lock:
+                                        click.echo(f"[{status}] {file_path.name}")
+
+                                # Handle on_error=fail mode
+                                if not success and policy_on_error == OnErrorMode.FAIL:
+                                    stop_event.set()
+                                    stopped_early = True
+                                    if not json_output:
+                                        click.echo(
+                                            "Stopping batch due to error "
+                                            f"(on_error='fail'): {result.error_message}"
+                                        )
+                                    # Cancel pending futures
+                                    for f in futures:
+                                        f.cancel()
+                                    break
+                        except Exception as e:
+                            logger.exception(
+                                "Unexpected error for %s: %s", file_path, e
+                            )
+                            fail_count += 1
+                            # Create minimal result for tracking
+                            error_result = FileProcessingResult(
+                                file_path=file_path,
+                                success=False,
+                                phase_results=(),
+                                total_duration_seconds=0.0,
+                                total_changes=0,
+                                phases_completed=0,
+                                phases_failed=0,
+                                phases_skipped=0,
+                                error_message=str(e),
+                            )
+                            results.append(error_result)
+
+                except KeyboardInterrupt:
+                    # User pressed CTRL-C, cancel remaining work
+                    stop_event.set()
+                    stopped_early = True
+                    if not json_output:
+                        click.echo("\nInterrupted - cancelling remaining files...")
+                    # Cancel pending futures
+                    for f in futures:
+                        f.cancel()
+                    # Shutdown executor without waiting for running tasks
+                    executor.shutdown(wait=False, cancel_futures=True)
 
             # Finish progress display
             progress.finish()
 
         else:
-            # V1-V10 policy - use existing sequential workflow processor
-            # (parallel not implemented for legacy policies)
+            # Flat policy - sequential workflow processor with worker context
             with get_connection() as conn:
                 # Create effective workflow config with overrides
                 if phase_override or on_error:
@@ -760,11 +790,19 @@ def process_command(
                     policy_name=str(policy_path),
                 )
 
-                for file_path in file_paths:
+                # Calculate file ID width for consistent formatting
+                file_id_width = len(str(len(file_paths)))
+
+                for file_idx, file_path in enumerate(file_paths, start=1):
                     if verbose and not json_output:
                         click.echo(f"Processing: {file_path}")
 
-                    result = processor.process_file(file_path)
+                    # Use worker context for log correlation (single worker "01")
+                    file_id = f"F{file_idx:0{file_id_width}d}"
+                    with worker_context("01", file_id, file_path):
+                        logger.info("=== FILE %s: %s", file_id, file_path)
+                        result = processor.process_file(file_path)
+
                     results.append(result)
 
                     if result.success:

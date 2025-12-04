@@ -204,7 +204,9 @@ class WorkflowProcessor:
             phase_results=[],
         )
 
-        logger.info("Processing %s with %d phases", file_path, len(self.config.phases))
+        logger.info(
+            "Processing %s with %d phases", file_path.name, len(self.config.phases)
+        )
 
         for idx, phase in enumerate(self.config.phases):
             # Report progress

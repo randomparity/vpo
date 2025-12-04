@@ -28,6 +28,7 @@
     --color-error: #e74c3c;
 
     /* Spacing */
+    --spacing-xxs: 0.125rem;
     --spacing-xs: 0.25rem;
     --spacing-sm: 0.5rem;
     --spacing-md: 1rem;
@@ -40,8 +41,10 @@
 
     /* Typography */
     --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-    --font-size-base: 16px;
+    --font-size-xs: 0.75rem;
     --font-size-sm: 0.875rem;
+    --font-size-base: 16px;
+    --font-size-md: 1rem;
     --font-size-lg: 1.125rem;
     --line-height: 1.5;
 
@@ -1886,6 +1889,21 @@ html, body {
 
 .library-table tbody tr[data-file-id]:hover {
     background-color: rgba(52, 152, 219, 0.08);
+}
+
+/* Focus styles for keyboard accessibility */
+.library-table tbody tr[data-file-id]:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.library-table tbody tr[data-file-id]:focus:not(:focus-visible) {
+    outline: none;
+}
+
+.library-table tbody tr[data-file-id]:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
 }
 
 /* ==========================================================================
@@ -5209,7 +5227,7 @@ input.valid:focus {
 /* Stats section hint */
 .stats-section-hint {
     font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
+    color: var(--color-text-muted);
     margin-bottom: var(--spacing-sm);
 }
 
@@ -5220,7 +5238,7 @@ input.valid:focus {
 }
 
 .stats-table-clickable tbody tr:hover {
-    background: var(--color-surface-hover);
+    background: var(--color-body-bg);
 }
 
 .stats-table-clickable tbody tr:focus {
@@ -5250,9 +5268,9 @@ input.valid:focus {
 
 .stats-modal-content {
     position: relative;
-    background: var(--color-surface);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
+    background: var(--color-content-bg);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     max-width: 700px;
     width: 90%;
     max-height: 85vh;
@@ -5279,7 +5297,7 @@ input.valid:focus {
     background: none;
     border: none;
     font-size: 1.5rem;
-    color: var(--color-text-secondary);
+    color: var(--color-text-muted);
     cursor: pointer;
     padding: var(--spacing-xs);
     line-height: 1;
@@ -5299,7 +5317,7 @@ input.valid:focus {
 .stats-detail-error {
     text-align: center;
     padding: var(--spacing-xl);
-    color: var(--color-text-secondary);
+    color: var(--color-text-muted);
 }
 
 .stats-detail-loading {
@@ -5348,7 +5366,7 @@ input.valid:focus {
 
 .stats-detail-list dt {
     font-weight: 500;
-    color: var(--color-text-secondary);
+    color: var(--color-text-muted);
 }
 
 .stats-detail-list dd {
@@ -5372,8 +5390,8 @@ input.valid:focus {
 
 .stats-detail-table th {
     font-weight: 600;
-    color: var(--color-text-secondary);
-    background: var(--color-surface-secondary);
+    color: var(--color-text-muted);
+    background: var(--color-body-bg);
 }
 
 /* Action list */
@@ -5408,7 +5426,7 @@ input.valid:focus {
 
 .stats-action-message {
     display: block;
-    color: var(--color-text-secondary);
+    color: var(--color-text-muted);
     font-size: var(--font-size-xs);
     margin-top: var(--spacing-xxs);
 }

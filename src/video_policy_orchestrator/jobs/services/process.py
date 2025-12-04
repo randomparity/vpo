@@ -16,6 +16,7 @@ import yaml
 from video_policy_orchestrator.config.loader import get_data_dir
 from video_policy_orchestrator.db.types import Job
 from video_policy_orchestrator.jobs.logs import JobLogWriter
+from video_policy_orchestrator.logging import worker_context
 from video_policy_orchestrator.policy.loader import load_policy
 from video_policy_orchestrator.policy.models import PolicySchema
 from video_policy_orchestrator.workflow import WorkflowProcessor
@@ -74,56 +75,60 @@ class ProcessJobService:
                 job_log.write_error(error)
             return ProcessJobResult(success=False, error_message=error)
 
-        # Execute workflow
-        try:
-            processor = WorkflowProcessor(
-                conn=self.conn,
-                policy=policy,
-                dry_run=False,
-                verbose=True,
-            )
-
-            if job_log:
-                phases_str = ", ".join(
-                    p.value for p in (policy.workflow.phases if policy.workflow else [])
+        # Execute workflow with worker context for log correlation
+        # Use "D" for daemon worker, job ID prefix for file identification
+        job_id_short = f"J{job.id[:8]}"
+        with worker_context("D", job_id_short, input_path):
+            try:
+                processor = WorkflowProcessor(
+                    conn=self.conn,
+                    policy=policy,
+                    dry_run=False,
+                    verbose=True,
                 )
-                job_log.write_line(f"Workflow phases: {phases_str}")
 
-            result = processor.process_file(input_path)
-
-            phases_completed = tuple(p.value for p in result.phases_completed)
-            phases_failed = tuple(p.value for p in result.phases_failed)
-
-            if job_log:
-                for pr in result.phase_results:
-                    status = "OK" if pr.success else "FAILED"
-                    job_log.write_line(
-                        f"Phase {pr.phase.value}: {status} "
-                        f"({pr.changes_made} changes, {pr.duration_seconds:.1f}s)"
+                if job_log:
+                    phases_str = ", ".join(
+                        p.value
+                        for p in (policy.workflow.phases if policy.workflow else [])
                     )
-                    if pr.message:
-                        job_log.write_line(f"  {pr.message}")
+                    job_log.write_line(f"Workflow phases: {phases_str}")
 
-            if result.success:
-                return ProcessJobResult(
-                    success=True,
-                    phases_completed=phases_completed,
-                    phases_failed=phases_failed,
-                )
-            else:
-                return ProcessJobResult(
-                    success=False,
-                    phases_completed=phases_completed,
-                    phases_failed=phases_failed,
-                    error_message=result.error_message,
-                )
+                result = processor.process_file(input_path)
 
-        except Exception as e:
-            logger.exception("Workflow execution failed")
-            error = f"Workflow execution failed: {e}"
-            if job_log:
-                job_log.write_error(error, e)
-            return ProcessJobResult(success=False, error_message=error)
+                phases_completed = tuple(p.value for p in result.phases_completed)
+                phases_failed = tuple(p.value for p in result.phases_failed)
+
+                if job_log:
+                    for pr in result.phase_results:
+                        status = "OK" if pr.success else "FAILED"
+                        job_log.write_line(
+                            f"Phase {pr.phase.value}: {status} "
+                            f"({pr.changes_made} changes, {pr.duration_seconds:.1f}s)"
+                        )
+                        if pr.message:
+                            job_log.write_line(f"  {pr.message}")
+
+                if result.success:
+                    return ProcessJobResult(
+                        success=True,
+                        phases_completed=phases_completed,
+                        phases_failed=phases_failed,
+                    )
+                else:
+                    return ProcessJobResult(
+                        success=False,
+                        phases_completed=phases_completed,
+                        phases_failed=phases_failed,
+                        error_message=result.error_message,
+                    )
+
+            except Exception as e:
+                logger.exception("Workflow execution failed")
+                error = f"Workflow execution failed: {e}"
+                if job_log:
+                    job_log.write_error(error, e)
+                return ProcessJobResult(success=False, error_message=error)
 
     def _parse_policy(
         self, job: Job, job_log: JobLogWriter | None

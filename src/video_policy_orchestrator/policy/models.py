@@ -216,13 +216,17 @@ class TranscriptionPolicyOptions:
 
 @dataclass(frozen=True)
 class DefaultFlagsConfig:
-    """Configuration for default flag behavior in a policy."""
+    """Configuration for default and forced flag behavior in a policy."""
 
     set_first_video_default: bool = True
     set_preferred_audio_default: bool = True
     set_preferred_subtitle_default: bool = False
     clear_other_defaults: bool = True
     set_subtitle_default_when_audio_differs: bool = False
+    set_subtitle_forced_when_audio_differs: bool = False
+    """If True, set forced flag on preferred subtitle when default audio
+    language differs from audio_language_preference. Useful for ensuring
+    subtitles display automatically for foreign language content."""
 
 
 @dataclass(frozen=True)
@@ -450,6 +454,55 @@ class AttachmentFilterConfig:
     """If True, remove all attachment tracks (fonts, cover art, etc.)."""
 
 
+# =============================================================================
+# Track Actions Configuration Models
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class AudioActionsConfig:
+    """Pre-processing actions for audio tracks.
+
+    Actions are applied BEFORE filtering, allowing cleanup of misconfigured
+    metadata before filter decisions are made. Use these to normalize track
+    flags before applying language-based filtering.
+
+    Example use case: Clear all forced flags on audio tracks, then use
+    conditional rules to set the appropriate forced track.
+    """
+
+    clear_all_forced: bool = False
+    """If True, clear forced flag from all audio tracks before filtering."""
+
+    clear_all_default: bool = False
+    """If True, clear default flag from all audio tracks before filtering."""
+
+    clear_all_titles: bool = False
+    """If True, clear title from all audio tracks before filtering."""
+
+
+@dataclass(frozen=True)
+class SubtitleActionsConfig:
+    """Pre-processing actions for subtitle tracks.
+
+    Actions are applied BEFORE filtering, allowing cleanup of misconfigured
+    metadata before filter decisions are made. This is particularly useful
+    when multiple subtitle tracks are incorrectly marked as forced.
+
+    Example use case: Clear all forced flags, then use conditional rules
+    to set the correct track as forced based on language or title.
+    """
+
+    clear_all_forced: bool = False
+    """If True, clear forced flag from all subtitle tracks before filtering."""
+
+    clear_all_default: bool = False
+    """If True, clear default flag from all subtitle tracks before filtering."""
+
+    clear_all_titles: bool = False
+    """If True, clear title from all subtitle tracks before filtering."""
+
+
 @dataclass(frozen=True)
 class ContainerConfig:
     """Configuration for container format conversion.
@@ -623,6 +676,13 @@ class PolicySchema:
     transcode: TranscodePolicyConfig | None = None
     transcription: TranscriptionPolicyOptions | None = None
 
+    # Track actions (pre-processing, applied before filters)
+    audio_actions: AudioActionsConfig | None = None
+    """Audio track pre-processing actions (clear flags before filtering)."""
+
+    subtitle_actions: SubtitleActionsConfig | None = None
+    """Subtitle track pre-processing actions (clear flags before filtering)."""
+
     # Track filtering configuration
     audio_filter: AudioFilterConfig | None = None
     """Audio track filtering configuration."""
@@ -686,6 +746,11 @@ class PolicySchema:
                 self.attachment_filter is not None,
             ]
         )
+
+    @property
+    def has_track_actions(self) -> bool:
+        """True if any track actions are configured."""
+        return self.audio_actions is not None or self.subtitle_actions is not None
 
     @property
     def has_container_config(self) -> bool:
@@ -1976,6 +2041,10 @@ class PhaseResult:
     planned_actions: tuple[PlannedAction, ...] = ()
     """Actions that would be taken (dry-run mode)."""
 
+    # Transcode tracking for stats
+    transcode_skip_reason: str | None = None
+    """If transcode was skipped, the reason (e.g., 'codec_matches')."""
+
 
 @dataclass(frozen=True)
 class FileProcessingResult:
@@ -2012,6 +2081,10 @@ class FileProcessingResult:
 
     error_message: str | None = None
     """Error message from failed phase, if any."""
+
+    # Statistics reference
+    stats_id: str | None = None
+    """UUID of the processing_stats record, for lookup via 'vpo stats detail'."""
 
 
 class PhaseExecutionError(Exception):

@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from video_policy_orchestrator.config.loader import get_temp_directory
 from video_policy_orchestrator.executor.interface import require_tool
 from video_policy_orchestrator.policy.synthesis.encoders import (
     get_encoder_for_codec,
@@ -601,5 +602,5 @@ def execute_synthesis_plan(
     Returns:
         SynthesisExecutionResult with execution details.
     """
-    executor = FFmpegSynthesisExecutor()
+    executor = FFmpegSynthesisExecutor(temp_dir=get_temp_directory())
     return executor.execute(plan, keep_backup=keep_backup, dry_run=dry_run)

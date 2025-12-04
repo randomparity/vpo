@@ -9,13 +9,14 @@ config:
   on_error: skip
 
 phases:
+  # Migrate all container types to MKV
   - name: prepare
     container:
       target: mkv
       on_incompatible_codec: transcode
 
   # Analyze audio tracks to detect actual language content
-  # This runs BEFORE cleanup so language tags are corrected first
+  # and purpose (main audio vs. commentary audio)
   - name: analyze
     transcription:
       enabled: true
@@ -23,35 +24,44 @@ phases:
       confidence_threshold: 0.8
       detect_commentary: true
 
+  # Clear track settings, remove unwanted language tracks
   - name: cleanup
+    audio_actions:
+      clear_all_forced: true
+      clear_all_default: true
+      clear_all_titles: false
     audio_filter:
       languages: [eng, und]
       minimum: 1
       fallback:
         mode: content_language
+    subtitle_actions:
+      clear_all_forced: true
+      clear_all_default: true
+      clear_all_titles: false
     subtitle_filter:
       languages: [eng, und]
-      preserve_forced: true
+      preserve_forced: false
     attachment_filter:
       remove_all: true
 
+  # Organize track ordering, set track defaults
   - name: organize
     track_order:
       - video
       - audio_main
       - audio_alternate
+      - audio_commentary
       - subtitle_main
       - subtitle_forced
-      - audio_commentary
       - subtitle_commentary
     default_flags:
       set_first_video_default: true
       set_preferred_audio_default: true
       set_preferred_subtitle_default: false
-      clear_other_defaults: true
+      set_subtitle_forced_when_audio_differs: true
       set_subtitle_default_when_audio_differs: true
     conditional:
-      # V12: Set video track language from Radarr/Sonarr plugin metadata
       # If the plugin reports an original_language, use it for the video track
       - name: sync_video_language_from_radarr
         when:
@@ -79,22 +89,7 @@ phases:
                 plugin: sonarr
                 field: original_language
 
-      - name: force_english_subs_for_foreign_audio
-        when:
-          or:
-            - audio_is_multi_language:
-                threshold: 0.05
-            - not:
-                exists:
-                  track_type: audio
-                  language: eng
-                  is_default: true
-        then:
-          - set_forced:
-              track_type: subtitle
-              language: eng
-              value: true
-
+  # Improve audio compatability
   - name: enhance
     audio_synthesis:
       tracks:
@@ -122,6 +117,7 @@ phases:
           language: inherit
           position: 1
 
+  # Convert video to a more modern, space saving format, keep higher fidelity audio
   - name: compress
     transcode:
       video:

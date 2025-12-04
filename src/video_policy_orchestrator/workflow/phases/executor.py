@@ -15,6 +15,7 @@ from pathlib import Path
 from sqlite3 import Connection
 from typing import TYPE_CHECKING
 
+from video_policy_orchestrator.config.loader import get_temp_directory
 from video_policy_orchestrator.db.queries import get_file_by_path, get_tracks_for_file
 from video_policy_orchestrator.db.types import TrackInfo, tracks_to_track_info
 from video_policy_orchestrator.executor import (
@@ -25,6 +26,7 @@ from video_policy_orchestrator.executor import (
     check_tool_availability,
 )
 from video_policy_orchestrator.policy.evaluator import Plan, evaluate_policy
+from video_policy_orchestrator.policy.exceptions import PolicyError
 from video_policy_orchestrator.policy.loader import load_policy_from_dict
 from video_policy_orchestrator.policy.models import (
     AndCondition,
@@ -90,6 +92,9 @@ class PhaseExecutionState:
 
     total_changes: int = 0
     """Total changes made in this phase."""
+
+    transcode_skip_reason: str | None = None
+    """If transcode was skipped, the reason (for stats tracking)."""
 
 
 class V11PhaseExecutor:
@@ -529,6 +534,7 @@ class V11PhaseExecutor:
                 operations_executed=tuple(state.operations_completed),
                 changes_made=state.total_changes,
                 message=f"Completed {len(state.operations_completed)} operation(s)",
+                transcode_skip_reason=state.transcode_skip_reason,
             )
 
         except PhaseExecutionError:
@@ -564,7 +570,7 @@ class V11PhaseExecutor:
         try:
             # Restore original file from backup
             shutil.copy2(state.backup_path, state.file_path)
-            logger.info("Restored %s from backup", state.file_path)
+            logger.info("Restored %s from backup", state.file_path.name)
             return True
         except Exception as e:
             logger.error("Failed to restore from backup: %s", e)
@@ -654,6 +660,17 @@ class V11PhaseExecutor:
                 operation=op_type,
                 success=True,
                 changes_made=changes,
+                duration_seconds=time.time() - start_time,
+            )
+        except PolicyError as e:
+            # Policy constraint violations (e.g., no matching tracks) are
+            # informational - the policy is working correctly by not making
+            # changes that would violate constraints
+            logger.info("Operation %s skipped: %s", op_type.value, e)
+            return OperationResult(
+                operation=op_type,
+                success=False,
+                message=str(e),
                 duration_seconds=time.time() - start_time,
             )
         except Exception as e:
@@ -909,7 +926,9 @@ class V11PhaseExecutor:
             # Get video track info
             video_tracks = [t for t in tracks if t.track_type == "video"]
             if not video_tracks:
-                logger.info("No video track found in %s, skipping transcode", file_path)
+                logger.info(
+                    "No video track found in %s, skipping transcode", file_path.name
+                )
                 return 0
             video_track = video_tracks[0]
             audio_tracks = [t for t in tracks if t.track_type == "audio"]
@@ -923,6 +942,7 @@ class V11PhaseExecutor:
                 skip_if=vt.skip_if,
                 audio_config=phase.audio_transcode,
                 backup_original=True,
+                temp_directory=get_temp_directory(),
             )
 
             # Create plan
@@ -945,6 +965,8 @@ class V11PhaseExecutor:
                     file_path,
                     plan.skip_reason,
                 )
+                # Record skip reason for stats tracking
+                state.transcode_skip_reason = plan.skip_reason
                 return 0
 
             if self.dry_run:

@@ -20,6 +20,7 @@ from video_policy_orchestrator.policy.models import (
     X264_X265_TUNES,
     AndCondition,
     AttachmentFilterConfig,
+    AudioActionsConfig,
     AudioFilterConfig,
     AudioIsMultiLanguageCondition,
     AudioSynthesisConfig,
@@ -59,6 +60,7 @@ from video_policy_orchestrator.policy.models import (
     SkipCondition,
     SkipIfExistsCriteria,
     SkipType,
+    SubtitleActionsConfig,
     SubtitleFilterConfig,
     SynthesisTrackDefinitionRef,
     TitleMatch,
@@ -101,6 +103,7 @@ class DefaultFlagsModel(BaseModel):
     set_preferred_subtitle_default: bool = False
     clear_other_defaults: bool = True
     set_subtitle_default_when_audio_differs: bool = False
+    set_subtitle_forced_when_audio_differs: bool = False
 
 
 class TranscriptionPolicyModel(BaseModel):
@@ -483,6 +486,32 @@ class AttachmentFilterModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     remove_all: bool = False
+
+
+class AudioActionsModel(BaseModel):
+    """Pydantic model for audio track pre-processing actions.
+
+    Actions are applied BEFORE filtering to clean up misconfigured metadata.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    clear_all_forced: bool = False
+    clear_all_default: bool = False
+    clear_all_titles: bool = False
+
+
+class SubtitleActionsModel(BaseModel):
+    """Pydantic model for subtitle track pre-processing actions.
+
+    Actions are applied BEFORE filtering to clean up misconfigured metadata.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    clear_all_forced: bool = False
+    clear_all_default: bool = False
+    clear_all_titles: bool = False
 
 
 class ContainerModel(BaseModel):
@@ -1270,6 +1299,10 @@ class PolicyModel(BaseModel):
     transcode: TranscodePolicyModel | TranscodeV6Model | None = None
     transcription: TranscriptionPolicyModel | None = None
 
+    # Track actions (pre-processing, applied before filters)
+    audio_actions: AudioActionsModel | None = None
+    subtitle_actions: SubtitleActionsModel | None = None
+
     # Track filtering configuration
     audio_filter: AudioFilterModel | None = None
     subtitle_filter: SubtitleFilterModel | None = None
@@ -2039,6 +2072,8 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
         set_preferred_audio_default=model.default_flags.set_preferred_audio_default,
         set_preferred_subtitle_default=model.default_flags.set_preferred_subtitle_default,
         clear_other_defaults=model.default_flags.clear_other_defaults,
+        set_subtitle_default_when_audio_differs=model.default_flags.set_subtitle_default_when_audio_differs,
+        set_subtitle_forced_when_audio_differs=model.default_flags.set_subtitle_forced_when_audio_differs,
     )
 
     # Convert transcode config (supports both V1-5 flat and V6 nested formats)
@@ -2077,6 +2112,23 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
             confidence_threshold=model.transcription.confidence_threshold,
             detect_commentary=model.transcription.detect_commentary,
             reorder_commentary=model.transcription.reorder_commentary,
+        )
+
+    # Convert track actions if present (applied before filters)
+    audio_actions: AudioActionsConfig | None = None
+    if model.audio_actions is not None:
+        audio_actions = AudioActionsConfig(
+            clear_all_forced=model.audio_actions.clear_all_forced,
+            clear_all_default=model.audio_actions.clear_all_default,
+            clear_all_titles=model.audio_actions.clear_all_titles,
+        )
+
+    subtitle_actions: SubtitleActionsConfig | None = None
+    if model.subtitle_actions is not None:
+        subtitle_actions = SubtitleActionsConfig(
+            clear_all_forced=model.subtitle_actions.clear_all_forced,
+            clear_all_default=model.subtitle_actions.clear_all_default,
+            clear_all_titles=model.subtitle_actions.clear_all_titles,
         )
 
     # Convert V3 audio_filter config if present (V10 adds music/sfx/non_speech options)
@@ -2149,6 +2201,8 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
         default_flags=default_flags,
         transcode=transcode,
         transcription=transcription,
+        audio_actions=audio_actions,
+        subtitle_actions=subtitle_actions,
         audio_filter=audio_filter,
         subtitle_filter=subtitle_filter,
         attachment_filter=attachment_filter,
@@ -2226,6 +2280,8 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
             set_preferred_audio_default=phase.default_flags.set_preferred_audio_default,
             set_preferred_subtitle_default=phase.default_flags.set_preferred_subtitle_default,
             clear_other_defaults=phase.default_flags.clear_other_defaults,
+            set_subtitle_default_when_audio_differs=phase.default_flags.set_subtitle_default_when_audio_differs,
+            set_subtitle_forced_when_audio_differs=phase.default_flags.set_subtitle_forced_when_audio_differs,
         )
 
     # Convert conditional rules
