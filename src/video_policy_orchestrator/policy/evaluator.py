@@ -1287,6 +1287,10 @@ def evaluate_policy(
                     )
                 )
 
+    # NOTE: Execution order contract - subtitle_actions are applied BEFORE filters.
+    # This ensures clear_all_forced runs before preserve_forced filter evaluation.
+    # The subtitle_forced_will_be_cleared flag is passed to compute_track_dispositions
+    # so that preserve_forced correctly ignores tracks that will have forced cleared.
     if policy.subtitle_actions is not None:
         for track in tracks:
             if track.track_type.lower() != "subtitle":

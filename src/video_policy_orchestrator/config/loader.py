@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from pathlib import Path
 
 from video_policy_orchestrator.config.builder import (
@@ -45,6 +46,7 @@ DEFAULT_PLUGINS_DIR = DEFAULT_CONFIG_DIR / "plugins"
 # Cache for loaded config files (path -> parsed dict)
 # This prevents redundant file reads during startup
 _config_cache: dict[Path, dict] = {}
+_config_cache_lock = threading.Lock()
 
 
 def get_default_config_path() -> Path:
@@ -87,7 +89,7 @@ def get_temp_directory() -> Path:
 
     Precedence (highest to lowest):
     1. VPO_TEMP_DIR environment variable
-    2. Config file [behavior] temp_directory
+    2. Config file [jobs] temp_directory
     3. System default (tempfile.gettempdir())
 
     Use /dev/shm on Linux for RAM-backed storage.
@@ -103,11 +105,17 @@ def get_temp_directory() -> Path:
         path = Path(env_path).expanduser().resolve()
         if path.exists() and path.is_dir():
             return path
+        else:
+            logger.warning(
+                "VPO_TEMP_DIR '%s' is not a valid directory, "
+                "falling back to config/default",
+                env_path,
+            )
 
-    # Check config file
+    # Check config file (under [jobs] section)
     config = get_config()
-    if config.behavior.temp_directory is not None:
-        return config.behavior.temp_directory
+    if config.jobs.temp_directory is not None:
+        return config.jobs.temp_directory
 
     # Fall back to system default
     return Path(tempfile.gettempdir())
@@ -119,6 +127,8 @@ def load_config_file(path: Path | None = None) -> dict:
     Results are cached to prevent redundant file reads during startup.
     Use clear_config_cache() to force a reload.
 
+    Thread-safe: uses a lock to protect concurrent access to the cache.
+
     Args:
         path: Path to config file. If None, uses default location.
 
@@ -128,14 +138,15 @@ def load_config_file(path: Path | None = None) -> dict:
     if path is None:
         path = get_default_config_path()
 
-    # Check cache first
-    if path in _config_cache:
-        return _config_cache[path]
+    with _config_cache_lock:
+        # Check cache first
+        if path in _config_cache:
+            return _config_cache[path]
 
-    # Load and cache
-    result = load_toml_file(path)
-    _config_cache[path] = result
-    return result
+        # Load and cache
+        result = load_toml_file(path)
+        _config_cache[path] = result
+        return result
 
 
 def clear_config_cache() -> None:
@@ -143,8 +154,11 @@ def clear_config_cache() -> None:
 
     Call this if the config file may have changed and you need
     a fresh load. Primarily useful for testing.
+
+    Thread-safe: uses a lock to protect concurrent access to the cache.
     """
-    _config_cache.clear()
+    with _config_cache_lock:
+        _config_cache.clear()
 
 
 def get_config(

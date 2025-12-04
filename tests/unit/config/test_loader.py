@@ -356,3 +356,148 @@ class TestLegacyFunctions:
         monkeypatch.setenv("TEST_STR", "hello")
         assert _get_env_str("TEST_STR", "default") == "hello"
         assert _get_env_str("NONEXISTENT", "default") == "default"
+
+
+class TestConfigCache:
+    """Tests for config file caching behavior."""
+
+    def test_clear_config_cache_clears_cache(self, tmp_path: Path) -> None:
+        """clear_config_cache should clear the cache."""
+        from video_policy_orchestrator.config.loader import clear_config_cache
+
+        # Create a config file
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("[server]\nport = 9000")
+
+        # Load it (should cache)
+        result1 = load_config_file(config_file)
+        assert result1["server"]["port"] == 9000
+
+        # Modify the file
+        config_file.write_text("[server]\nport = 8000")
+
+        # Load again (should return cached value)
+        result2 = load_config_file(config_file)
+        assert result2["server"]["port"] == 9000  # Still cached
+
+        # Clear cache
+        clear_config_cache()
+
+        # Load again (should read fresh)
+        result3 = load_config_file(config_file)
+        assert result3["server"]["port"] == 8000  # Fresh value
+
+    def test_load_config_file_caches_result(self, tmp_path: Path) -> None:
+        """load_config_file should cache results and return same dict."""
+        from video_policy_orchestrator.config.loader import clear_config_cache
+
+        # Clear cache first to ensure clean state
+        clear_config_cache()
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("[server]\nport = 9000")
+
+        # Load twice
+        result1 = load_config_file(config_file)
+        result2 = load_config_file(config_file)
+
+        # Should be the exact same dict object (cached)
+        assert result1 is result2
+
+
+class TestGetTempDirectory:
+    """Tests for get_temp_directory function."""
+
+    def test_env_takes_precedence_over_config(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """VPO_TEMP_DIR env var should take precedence over config."""
+        from video_policy_orchestrator.config.loader import (
+            clear_config_cache,
+            get_temp_directory,
+        )
+
+        # Clear cache to ensure clean state
+        clear_config_cache()
+
+        # Create env temp dir
+        env_temp = tmp_path / "env_temp"
+        env_temp.mkdir()
+
+        # Create config temp dir
+        config_temp = tmp_path / "config_temp"
+        config_temp.mkdir()
+
+        # Set up config with temp_directory (under [jobs] section)
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(f'[jobs]\ntemp_directory = "{config_temp}"')
+        monkeypatch.setenv("VPO_CONFIG_PATH", str(config_file))
+
+        # Set env var (should take precedence)
+        monkeypatch.setenv("VPO_TEMP_DIR", str(env_temp))
+
+        result = get_temp_directory()
+        assert result == env_temp
+
+    def test_config_takes_precedence_over_default(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Config temp_directory should take precedence over system default."""
+        from video_policy_orchestrator.config.loader import (
+            clear_config_cache,
+            get_temp_directory,
+        )
+
+        # Clear cache to ensure clean state
+        clear_config_cache()
+
+        # Unset env var
+        monkeypatch.delenv("VPO_TEMP_DIR", raising=False)
+
+        # Create config temp dir
+        config_temp = tmp_path / "config_temp"
+        config_temp.mkdir()
+
+        # Set up config with temp_directory (under [jobs] section)
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(f'[jobs]\ntemp_directory = "{config_temp}"')
+        monkeypatch.setenv("VPO_CONFIG_PATH", str(config_file))
+
+        result = get_temp_directory()
+        assert result == config_temp
+
+    def test_invalid_env_path_logs_warning_and_falls_back(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Invalid VPO_TEMP_DIR should log warning and fall back."""
+        import logging
+
+        from video_policy_orchestrator.config.loader import (
+            clear_config_cache,
+            get_temp_directory,
+        )
+
+        # Clear cache to ensure clean state
+        clear_config_cache()
+
+        # Set invalid env path (doesn't exist)
+        invalid_path = tmp_path / "nonexistent_dir"
+        monkeypatch.setenv("VPO_TEMP_DIR", str(invalid_path))
+
+        # Set up empty config (no temp_directory)
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("")
+        monkeypatch.setenv("VPO_CONFIG_PATH", str(config_file))
+
+        with caplog.at_level(logging.WARNING):
+            result = get_temp_directory()
+
+        # Should fall back to system default (not the invalid path)
+        assert result != invalid_path
+
+        # Should log a warning
+        assert "VPO_TEMP_DIR" in caplog.text
+        assert "not a valid directory" in caplog.text

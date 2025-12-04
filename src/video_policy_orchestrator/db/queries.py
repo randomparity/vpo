@@ -402,9 +402,20 @@ def upsert_tracks_for_file(
 
     # Store original busy_timeout for restoration
     original_busy_timeout: int | None = None
+    attempt_count = 0
 
     def do_upsert() -> None:
-        nonlocal original_busy_timeout
+        nonlocal original_busy_timeout, attempt_count
+        attempt_count += 1
+
+        # On retry, ensure connection is in a clean state.
+        # This handles the case where a previous attempt failed mid-transaction.
+        # Don't do this on first attempt - allow participating in caller's transaction.
+        if attempt_count > 1 and conn.in_transaction:
+            try:
+                conn.execute("ROLLBACK")
+            except sqlite3.Error:
+                pass
 
         # Check if already in a transaction
         manage_transaction = not conn.in_transaction
@@ -1156,10 +1167,22 @@ def upsert_transcription_result(
     # Store original busy_timeout for restoration
     # Default connection timeout is 10000ms, but we want fail-fast for retries
     original_busy_timeout: int | None = None
+    attempt_count = 0
 
     def do_upsert() -> int:
-        nonlocal original_busy_timeout
-        # Check if already in a transaction (implicit or explicit)
+        nonlocal original_busy_timeout, attempt_count
+        attempt_count += 1
+
+        # On retry, ensure connection is in a clean state.
+        # This handles the case where a previous attempt failed mid-transaction.
+        # Don't do this on first attempt - allow participating in caller's transaction.
+        if attempt_count > 1 and conn.in_transaction:
+            try:
+                conn.execute("ROLLBACK")
+            except sqlite3.Error:
+                pass
+
+        # Check if already in a transaction
         # If so, just do the upsert within that transaction
         # If not, use BEGIN IMMEDIATE for fail-fast lock detection
         manage_transaction = not conn.in_transaction
@@ -1361,10 +1384,22 @@ def upsert_language_analysis_result(
     # Store original busy_timeout for restoration
     # Default connection timeout is 10000ms, but we want fail-fast for retries
     original_busy_timeout: int | None = None
+    attempt_count = 0
 
     def do_upsert() -> int:
-        nonlocal original_busy_timeout
-        # Check if already in a transaction (implicit or explicit)
+        nonlocal original_busy_timeout, attempt_count
+        attempt_count += 1
+
+        # On retry, ensure connection is in a clean state.
+        # This handles the case where a previous attempt failed mid-transaction.
+        # Don't do this on first attempt - allow participating in caller's transaction.
+        if attempt_count > 1 and conn.in_transaction:
+            try:
+                conn.execute("ROLLBACK")
+            except sqlite3.Error:
+                pass
+
+        # Check if already in a transaction
         # If so, just do the upsert within that transaction
         # If not, use BEGIN IMMEDIATE for fail-fast lock detection
         manage_transaction = not conn.in_transaction
@@ -1514,10 +1549,22 @@ def upsert_language_segments(
     # Store original busy_timeout for restoration
     # Default connection timeout is 10000ms, but we want fail-fast for retries
     original_busy_timeout: int | None = None
+    attempt_count = 0
 
     def do_upsert() -> list[int]:
-        nonlocal original_busy_timeout
-        # Check if already in a transaction (implicit or explicit)
+        nonlocal original_busy_timeout, attempt_count
+        attempt_count += 1
+
+        # On retry, ensure connection is in a clean state.
+        # This handles the case where a previous attempt failed mid-transaction.
+        # Don't do this on first attempt - allow participating in caller's transaction.
+        if attempt_count > 1 and conn.in_transaction:
+            try:
+                conn.execute("ROLLBACK")
+            except sqlite3.Error:
+                pass
+
+        # Check if already in a transaction
         # If so, just do the upsert within that transaction
         # If not, use BEGIN IMMEDIATE for fail-fast lock detection
         manage_transaction = not conn.in_transaction
