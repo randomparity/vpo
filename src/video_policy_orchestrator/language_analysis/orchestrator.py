@@ -20,6 +20,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from video_policy_orchestrator.db import FileRecord, TrackRecord
     from video_policy_orchestrator.plugin import PluginRegistry
+    from video_policy_orchestrator.transcription.coordinator import (
+        TranscriptionCoordinator,
+    )
 
 from video_policy_orchestrator.language_analysis.models import LanguageAnalysisResult
 from video_policy_orchestrator.language_analysis.service import (
@@ -112,7 +115,7 @@ class LanguageAnalysisOrchestrator:
         self._config = config or MultiLanguageDetectionConfig()
         self._plugin_registry = plugin_registry
         self._transcriber = None
-        self._coordinator = None  # Lazy init for coordinator path
+        self._coordinator: TranscriptionCoordinator | None = None
 
     def analyze_tracks_for_file(
         self,
@@ -148,14 +151,22 @@ class LanguageAnalysisOrchestrator:
         # Determine transcription path: coordinator (new) vs factory (legacy)
         use_coordinator = self._plugin_registry is not None
         transcriber = None  # Used for legacy path only
+        PluginTranscriberAdapter = None  # Set when using coordinator path
+
+        logger.debug(
+            "Using %s transcription path",
+            "coordinator" if use_coordinator else "factory",
+        )
 
         if use_coordinator:
             # Use new plugin-based coordinator
-            if self._coordinator is None:
-                from video_policy_orchestrator.transcription.coordinator import (
-                    TranscriptionCoordinator,
-                )
+            # Import both classes here to avoid duplicate imports in the loop
+            from video_policy_orchestrator.transcription.coordinator import (
+                PluginTranscriberAdapter,
+                TranscriptionCoordinator,
+            )
 
+            if self._coordinator is None:
                 self._coordinator = TranscriptionCoordinator(self._plugin_registry)
 
             if not self._coordinator.is_available():
@@ -203,10 +214,6 @@ class LanguageAnalysisOrchestrator:
             track_duration = track.duration_seconds or 3600.0
             if use_coordinator:
                 # Create adapter per-track for thread safety
-                from video_policy_orchestrator.transcription.coordinator import (
-                    PluginTranscriberAdapter,
-                )
-
                 track_info = track.to_track_info()
                 current_transcriber = PluginTranscriberAdapter(
                     registry=self._plugin_registry,
