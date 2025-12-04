@@ -56,6 +56,21 @@ from video_policy_orchestrator.plugin.version import (
     is_compatible,
 )
 
+
+def get_default_registry() -> PluginRegistry:
+    """Create and initialize a PluginRegistry with built-in plugins.
+
+    This is the standard way to get a registry for CLI commands and
+    workflow processing. Creates a new registry each time (no caching).
+
+    Returns:
+        PluginRegistry with built-in plugins loaded.
+    """
+    registry = PluginRegistry()
+    registry.load_builtin_plugins()
+    return registry
+
+
 __all__ = [
     # Version
     "PLUGIN_API_VERSION",
@@ -96,6 +111,7 @@ __all__ = [
     # Registry
     "LoadedPlugin",
     "PluginRegistry",
+    "get_default_registry",
     # Loader
     "PluginLoader",
     "compute_plugin_hash",

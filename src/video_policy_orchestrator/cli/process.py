@@ -30,6 +30,7 @@ from video_policy_orchestrator.cli.profile_loader import load_profile_or_exit
 from video_policy_orchestrator.config.loader import get_config
 from video_policy_orchestrator.db.connection import get_connection
 from video_policy_orchestrator.logging import worker_context
+from video_policy_orchestrator.plugin import get_default_registry
 from video_policy_orchestrator.policy.loader import PolicyValidationError, load_policy
 from video_policy_orchestrator.policy.models import (
     FileProcessingResult,
@@ -781,13 +782,15 @@ def process_command(
                     # Note: PolicySchema is frozen, so we need to create a new one
                     policy = replace(policy, workflow=effective_config)
 
-                # Create processor
+                # Create processor with plugin registry for transcription
+                registry = get_default_registry()
                 processor = WorkflowProcessor(
                     conn=conn,
                     policy=policy,
                     dry_run=dry_run,
                     verbose=verbose,
                     policy_name=str(policy_path),
+                    plugin_registry=registry,
                 )
 
                 # Calculate file ID width for consistent formatting
