@@ -138,7 +138,7 @@
                 </li>
                 {% endfor %}
             </ul>
-            <a href="/library/{{ file.id }}/plugins" class="plugin-data-link">View All Plugin Data &rarr;</a>
+            <a href="/library/{{ file.id }}/plugins" class="plugin-data-link" aria-label="View all plugin data for {{ file.filename }}">View All Plugin Data <span aria-hidden="true">&rarr;</span></a>
         </div>
     </section>
     {% endif %}
