@@ -55,6 +55,7 @@ from video_policy_orchestrator.policy.models import (
 
 if TYPE_CHECKING:
     from video_policy_orchestrator.db.types import FileInfo
+    from video_policy_orchestrator.plugin import PluginRegistry
 
 
 logger = logging.getLogger(__name__)
@@ -111,6 +112,7 @@ class V11PhaseExecutor:
         dry_run: bool = False,
         verbose: bool = False,
         policy_name: str = "workflow",
+        plugin_registry: "PluginRegistry | None" = None,
     ) -> None:
         """Initialize the phase executor.
 
@@ -120,12 +122,16 @@ class V11PhaseExecutor:
             dry_run: If True, preview without making changes.
             verbose: If True, emit detailed logging.
             policy_name: Name of the policy for audit records.
+            plugin_registry: Optional plugin registry for transcription.
+                If provided, uses TranscriptionCoordinator for transcription
+                operations. If None, transcription operations will be skipped.
         """
         self.conn = conn
         self.policy = policy
         self.dry_run = dry_run
         self.verbose = verbose
         self.policy_name = policy_name
+        self._plugin_registry = plugin_registry
 
         # Cache tool availability
         self._tools: dict[str, bool] | None = None
@@ -1086,16 +1092,16 @@ class V11PhaseExecutor:
     ) -> int:
         """Execute transcription analysis operation.
 
-        Uses TranscriptionService to coordinate:
+        Uses TranscriptionCoordinator to coordinate:
         1. Multi-sample language detection via smart_detect
         2. Track type classification
         3. Database persistence with proper TranscriptionResultRecord
         """
-        from video_policy_orchestrator.transcription.factory import TranscriberFactory
-        from video_policy_orchestrator.transcription.service import (
+        from video_policy_orchestrator.transcription.coordinator import (
             DEFAULT_CONFIDENCE_THRESHOLD,
+            NoTranscriptionPluginError,
+            TranscriptionCoordinator,
             TranscriptionOptions,
-            TranscriptionService,
         )
         from video_policy_orchestrator.workflow.phases.context import (
             FileOperationContext,
@@ -1103,6 +1109,14 @@ class V11PhaseExecutor:
 
         phase = state.phase
         if not phase.transcription or not phase.transcription.enabled:
+            return 0
+
+        # Transcription requires plugin registry
+        if self._plugin_registry is None:
+            logger.warning(
+                "Transcription requested but no plugin registry available. "
+                "Skipping transcription operation."
+            )
             return 0
 
         file_path = state.file_path
@@ -1132,9 +1146,15 @@ class V11PhaseExecutor:
             )
             return len(audio_tracks)
 
-        # Get transcriber and create service
-        transcriber = TranscriberFactory.get_transcriber_or_raise()
-        service = TranscriptionService(transcriber)
+        # Create coordinator from plugin registry
+        coordinator = TranscriptionCoordinator(self._plugin_registry)
+
+        if not coordinator.is_available():
+            logger.warning(
+                "No transcription plugins available. "
+                "Install a transcription plugin (e.g., whisper-local)."
+            )
+            return 0
 
         # Build options from policy config
         confidence_threshold = (
@@ -1150,8 +1170,8 @@ class V11PhaseExecutor:
             try:
                 logger.debug("Analyzing track %d", track.index)
 
-                # Service handles extraction → detection → persistence
-                service.analyze_and_persist(
+                # Coordinator handles extraction → detection → persistence
+                coordinator.analyze_and_persist(
                     file_path=context.file_path,
                     track=track,
                     track_duration=track.duration_seconds,
@@ -1160,6 +1180,9 @@ class V11PhaseExecutor:
                 )
                 changes += 1
 
+            except NoTranscriptionPluginError as e:
+                logger.warning("Transcription plugin not available: %s", e)
+                break  # Stop trying other tracks if no plugin
             except Exception as e:
                 logger.warning(
                     "Transcription failed for track %d: %s",

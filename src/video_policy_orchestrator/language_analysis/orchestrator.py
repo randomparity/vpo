@@ -33,7 +33,6 @@ from video_policy_orchestrator.language_analysis.service import (
     get_cached_analysis,
     persist_analysis_result,
 )
-from video_policy_orchestrator.transcription.factory import TranscriberFactory
 from video_policy_orchestrator.transcription.interface import (
     MultiLanguageDetectionConfig,
 )
@@ -108,13 +107,12 @@ class LanguageAnalysisOrchestrator:
         Args:
             config: Optional detection configuration. If not provided,
                     uses default configuration.
-            plugin_registry: Optional plugin registry for the new coordinator-based
-                    transcription. If provided, uses TranscriptionCoordinator.
-                    If None, falls back to legacy TranscriberFactory.
+            plugin_registry: Plugin registry for transcription. If provided,
+                    uses TranscriptionCoordinator to find transcription plugins.
+                    If None, transcription will not be available.
         """
         self._config = config or MultiLanguageDetectionConfig()
         self._plugin_registry = plugin_registry
-        self._transcriber = None
         self._coordinator: TranscriptionCoordinator | None = None
 
     def analyze_tracks_for_file(
@@ -148,36 +146,27 @@ class LanguageAnalysisOrchestrator:
         """
         result = BatchAnalysisResult()
 
-        # Determine transcription path: coordinator (new) vs factory (legacy)
-        use_coordinator = self._plugin_registry is not None
-        transcriber = None  # Used for legacy path only
-        PluginTranscriberAdapter = None  # Set when using coordinator path
+        # Require plugin registry for transcription
+        if self._plugin_registry is None:
+            logger.warning(
+                "No plugin registry available. "
+                "Transcription requires a plugin registry."
+            )
+            result.transcriber_available = False
+            return result
 
-        logger.debug(
-            "Using %s transcription path",
-            "coordinator" if use_coordinator else "factory",
+        # Use plugin-based coordinator
+        from video_policy_orchestrator.transcription.coordinator import (
+            PluginTranscriberAdapter,
+            TranscriptionCoordinator,
         )
 
-        if use_coordinator:
-            # Use new plugin-based coordinator
-            # Import both classes here to avoid duplicate imports in the loop
-            from video_policy_orchestrator.transcription.coordinator import (
-                PluginTranscriberAdapter,
-                TranscriptionCoordinator,
-            )
+        if self._coordinator is None:
+            self._coordinator = TranscriptionCoordinator(self._plugin_registry)
 
-            if self._coordinator is None:
-                self._coordinator = TranscriptionCoordinator(self._plugin_registry)
-
-            if not self._coordinator.is_available():
-                result.transcriber_available = False
-                return result
-        else:
-            # Legacy fallback: use TranscriberFactory
-            transcriber = self._get_transcriber()
-            if transcriber is None:
-                result.transcriber_available = False
-                return result
+        if not self._coordinator.is_available():
+            result.transcriber_available = False
+            return result
 
         # Filter to audio tracks
         audio_tracks = [t for t in track_records if t.track_type == "audio"]
@@ -212,16 +201,13 @@ class LanguageAnalysisOrchestrator:
 
             # Get transcriber for this track
             track_duration = track.duration_seconds or 3600.0
-            if use_coordinator:
-                # Create adapter per-track for thread safety
-                track_info = track.to_track_info()
-                current_transcriber = PluginTranscriberAdapter(
-                    registry=self._plugin_registry,
-                    file_path=file_path,
-                    track=track_info,
-                )
-            else:
-                current_transcriber = transcriber
+            # Create adapter per-track for thread safety
+            track_info = track.to_track_info()
+            current_transcriber = PluginTranscriberAdapter(
+                registry=self._plugin_registry,
+                file_path=file_path,
+                track=track_info,
+            )
 
             # Run analysis
             try:
@@ -277,14 +263,6 @@ class LanguageAnalysisOrchestrator:
 
         return result
 
-    def _get_transcriber(self):
-        """Get transcriber with caching."""
-        if self._transcriber is None:
-            self._transcriber = TranscriberFactory.get_transcriber(
-                require_multi_language=True
-            )
-        return self._transcriber
-
 
 def analyze_file_audio_tracks(
     conn: sqlite3.Connection,
@@ -309,9 +287,8 @@ def analyze_file_audio_tracks(
         force: If True, re-analyze even if cached.
         verbose: If True, log progress (only used if no progress_callback).
         progress_callback: Optional callback for progress updates.
-        plugin_registry: Optional plugin registry for coordinator-based
-            transcription. If provided, uses TranscriptionCoordinator.
-            If None, falls back to legacy TranscriberFactory.
+        plugin_registry: Plugin registry for transcription. Required for
+            transcription to work. If None, transcription will not be available.
 
     Returns:
         Dict mapping track_id to LanguageAnalysisResult, or None if
