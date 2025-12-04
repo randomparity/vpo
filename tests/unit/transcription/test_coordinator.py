@@ -427,6 +427,28 @@ class TestTranscriptionCoordinatorAnalyzeTrack:
         assert config.sample_duration == 60
         assert config.incumbent_bonus == 0.3
 
+    def test_raises_on_invalid_duration(
+        self, mock_registry, test_file, test_track, mock_transcription_result
+    ):
+        """analyze_track raises ValueError for non-positive duration."""
+        plugin = create_mock_plugin(transcription_result=mock_transcription_result)
+        mock_registry.get_by_event.return_value = [plugin]
+        coordinator = TranscriptionCoordinator(mock_registry)
+
+        with pytest.raises(ValueError, match="track_duration must be positive"):
+            coordinator.analyze_track(
+                file_path=test_file,
+                track=test_track,
+                track_duration=0,
+            )
+
+        with pytest.raises(ValueError, match="track_duration must be positive"):
+            coordinator.analyze_track(
+                file_path=test_file,
+                track=test_track,
+                track_duration=-10.0,
+            )
+
 
 class TestTranscriptionCoordinatorAnalyzeAndPersist:
     """Tests for analyze_and_persist method."""

@@ -16,7 +16,6 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from video_policy_orchestrator.db.queries import upsert_transcription_result
 from video_policy_orchestrator.db.types import (
@@ -25,6 +24,7 @@ from video_policy_orchestrator.db.types import (
     TranscriptionResultRecord,
 )
 from video_policy_orchestrator.plugin.events import (
+    TRANSCRIPTION_COMPLETED,
     TRANSCRIPTION_REQUESTED,
     TranscriptionCompletedEvent,
     TranscriptionRequestedEvent,
@@ -44,9 +44,6 @@ from video_policy_orchestrator.transcription.multi_sample import (
     smart_detect,
 )
 
-if TYPE_CHECKING:
-    pass
-
 logger = logging.getLogger(__name__)
 
 # Default confidence threshold for language detection
@@ -59,7 +56,7 @@ class NoTranscriptionPluginError(Exception):
     pass
 
 
-@dataclass
+@dataclass(frozen=True)
 class TranscriptionOptions:
     """Options for transcription analysis."""
 
@@ -90,6 +87,9 @@ class PluginTranscriberAdapter:
 
     The adapter creates TranscriptionRequestedEvent and dispatches it to all
     plugins subscribed to the transcription.requested event.
+
+    NOTE: This adapter is NOT thread-safe. Create a new instance for each
+    analyze_track() call. Do not reuse instances across concurrent operations.
     """
 
     # Default sample rate for audio extraction (Whisper-compatible)
@@ -357,13 +357,17 @@ class TranscriptionCoordinator:
 
         Raises:
             NoTranscriptionPluginError: If no transcription plugin is available.
+            ValueError: If track_duration is not positive.
             TranscriptionError: If analysis fails.
         """
         if not self.is_available():
             raise NoTranscriptionPluginError(
                 "No transcription plugins available. "
-                "Install a transcription plugin (e.g., openai-whisper)."
+                "Install a transcription plugin (e.g., whisper-local)."
             )
+
+        if track_duration <= 0:
+            raise ValueError(f"track_duration must be positive, got {track_duration}")
 
         if options is None:
             options = TranscriptionOptions()
@@ -539,8 +543,6 @@ class TranscriptionCoordinator:
         )
 
         # Dispatch to plugins subscribed to transcription.completed
-        from video_policy_orchestrator.plugin.events import TRANSCRIPTION_COMPLETED
-
         plugins = self._registry.get_by_event(TRANSCRIPTION_COMPLETED)
         for loaded_plugin in plugins:
             try:
