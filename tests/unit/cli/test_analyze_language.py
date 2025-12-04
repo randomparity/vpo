@@ -60,7 +60,7 @@ def mock_track_record():
         file_id=1,
         track_index=0,
         track_type="audio",
-        codec_name="aac",
+        codec="aac",
         language="eng",
         title="English",
         is_default=True,
@@ -341,22 +341,35 @@ class TestHelperFunctions:
     def test_check_plugin_available_no_plugins(self):
         """Test plugin check when no plugins available."""
         mock_registry = MagicMock()
-        mock_registry.get_by_event.return_value = []
-        with patch(
-            "video_policy_orchestrator.cli.analyze_language.get_default_registry"
-        ) as mock_get_registry:
+        mock_coordinator = MagicMock()
+        mock_coordinator.is_available.return_value = False
+        with (
+            patch(
+                "video_policy_orchestrator.cli.analyze_language.get_default_registry"
+            ) as mock_get_registry,
+            patch(
+                "video_policy_orchestrator.transcription.coordinator.TranscriptionCoordinator"
+            ) as mock_coord_class,
+        ):
             mock_get_registry.return_value = mock_registry
+            mock_coord_class.return_value = mock_coordinator
             assert _check_plugin_available() is False
 
     def test_check_plugin_available_success(self):
         """Test plugin check when plugin is available."""
-        mock_plugin = MagicMock()
         mock_registry = MagicMock()
-        mock_registry.get_by_event.return_value = [mock_plugin]
-        with patch(
-            "video_policy_orchestrator.cli.analyze_language.get_default_registry"
-        ) as mock_get_registry:
+        mock_coordinator = MagicMock()
+        mock_coordinator.is_available.return_value = True
+        with (
+            patch(
+                "video_policy_orchestrator.cli.analyze_language.get_default_registry"
+            ) as mock_get_registry,
+            patch(
+                "video_policy_orchestrator.transcription.coordinator.TranscriptionCoordinator"
+            ) as mock_coord_class,
+        ):
             mock_get_registry.return_value = mock_registry
+            mock_coord_class.return_value = mock_coordinator
             assert _check_plugin_available() is True
 
     def test_resolve_files_single_file(self, mock_conn, mock_file_record, tmp_path):

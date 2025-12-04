@@ -31,6 +31,29 @@ from .types import (
 )
 
 # ==========================================================================
+# SQL Utility Helpers
+# ==========================================================================
+
+
+def _escape_like_pattern(value: str) -> str:
+    """Escape special characters in SQL LIKE patterns.
+
+    SQLite LIKE patterns treat %, _, and [ as special characters.
+    This function escapes them so they match literally.
+
+    Args:
+        value: The string to escape for use in a LIKE pattern.
+
+    Returns:
+        Escaped string safe for LIKE pattern matching.
+
+    Note:
+        Queries using this must include ESCAPE '\\' clause.
+    """
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+# ==========================================================================
 # Row Mapping Helpers
 # ==========================================================================
 
@@ -1751,16 +1774,17 @@ def delete_analysis_by_path_prefix(
     Returns:
         Count of deleted records.
     """
+    escaped_prefix = _escape_like_pattern(path_prefix)
     cursor = conn.execute(
         """
         DELETE FROM language_analysis_results
         WHERE track_id IN (
             SELECT t.id FROM tracks t
             JOIN files f ON t.file_id = f.id
-            WHERE f.path LIKE ? || '%'
+            WHERE f.path LIKE ? || '%' ESCAPE '\\'
         )
         """,
-        (path_prefix,),
+        (escaped_prefix,),
     )
     conn.commit()
     return cursor.rowcount
@@ -1797,23 +1821,24 @@ def get_file_ids_by_path_prefix(
     Returns:
         List of file IDs matching the path prefix.
     """
+    escaped_prefix = _escape_like_pattern(path_prefix)
     if include_subdirs:
-        pattern = path_prefix + "%"
+        pattern = escaped_prefix + "%"
         cursor = conn.execute(
-            "SELECT id FROM files WHERE path LIKE ?",
+            "SELECT id FROM files WHERE path LIKE ? ESCAPE '\\'",
             (pattern,),
         )
     else:
         # Non-recursive: only direct children
-        pattern = path_prefix
-        if not pattern.endswith("/"):
+        pattern = escaped_prefix
+        if not path_prefix.endswith("/"):
             pattern += "/"
         # Match files in directory but not in subdirs
         cursor = conn.execute(
             """
             SELECT id FROM files
-            WHERE path LIKE ? || '%'
-            AND path NOT LIKE ? || '%/%'
+            WHERE path LIKE ? || '%' ESCAPE '\\'
+            AND path NOT LIKE ? || '%/%' ESCAPE '\\'
             """,
             (pattern, pattern),
         )

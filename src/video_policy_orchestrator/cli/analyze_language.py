@@ -14,9 +14,11 @@ import click
 
 from video_policy_orchestrator.db import (
     FileRecord,
+    get_file_by_id,
     get_file_by_path,
     get_tracks_for_file,
 )
+from video_policy_orchestrator.db.queries import _escape_like_pattern
 from video_policy_orchestrator.plugin import get_default_registry
 
 logger = logging.getLogger(__name__)
@@ -111,8 +113,6 @@ def _resolve_files_from_paths(
                 conn, str(path), include_subdirs=recursive
             )
             for file_id in file_ids:
-                from video_policy_orchestrator.db import get_file_by_id
-
                 record = get_file_by_id(conn, file_id)
                 if record:
                     files.append(record)
@@ -328,10 +328,10 @@ def _run_analysis_for_file(
         if track.id is None:
             continue
 
-        file_hash = file_record.content_hash or ""
+        file_hash = file_record.content_hash
 
-        # Check cache unless force is set
-        if not force:
+        # Check cache unless force is set or hash is unavailable
+        if not force and file_hash is not None:
             cached_result = get_cached_analysis(conn, track.id, file_hash)
             if cached_result is not None:
                 cached_count += 1
@@ -348,7 +348,7 @@ def _run_analysis_for_file(
                 track_index=track.track_index,
                 track_id=track.id,
                 track_duration=track.duration_seconds,
-                file_hash=file_hash,
+                file_hash=file_hash or "",
                 transcriber=transcriber,
             )
             persist_analysis_result(conn, result)
@@ -761,65 +761,38 @@ def _count_affected_results(
     Returns:
         Tuple of (files_affected, tracks_affected).
     """
+    base_query = """
+        SELECT
+            COUNT(DISTINCT f.id) as files,
+            COUNT(DISTINCT lar.id) as tracks
+        FROM files f
+        JOIN tracks t ON f.id = t.file_id
+        JOIN language_analysis_results lar ON t.id = lar.track_id
+    """
+
     if path is None:
         # Count all
-        cursor = conn.execute("""
-            SELECT
-                COUNT(DISTINCT f.id) as files,
-                COUNT(DISTINCT lar.id) as tracks
-            FROM files f
-            JOIN tracks t ON f.id = t.file_id
-            JOIN language_analysis_results lar ON t.id = lar.track_id
-        """)
+        cursor = conn.execute(base_query)
     elif Path(path).is_file():
         # Single file
+        cursor = conn.execute(base_query + " WHERE f.path = ?", (path,))
+    elif recursive:
+        # Directory recursive
+        escaped_path = _escape_like_pattern(path)
+        pattern = escaped_path + "%"
         cursor = conn.execute(
-            """
-            SELECT
-                COUNT(DISTINCT f.id) as files,
-                COUNT(DISTINCT lar.id) as tracks
-            FROM files f
-            JOIN tracks t ON f.id = t.file_id
-            JOIN language_analysis_results lar ON t.id = lar.track_id
-            WHERE f.path = ?
-        """,
-            (path,),
+            base_query + " WHERE f.path LIKE ? ESCAPE '\\'", (pattern,)
         )
     else:
-        # Directory prefix
-        if recursive:
-            pattern = path + "%"
-        else:
-            # Non-recursive: match files directly in directory
-            pattern = path + "/%"
-            # Exclude subdirectories by checking for additional path separators
-            cursor = conn.execute(
-                """
-                SELECT
-                    COUNT(DISTINCT f.id) as files,
-                    COUNT(DISTINCT lar.id) as tracks
-                FROM files f
-                JOIN tracks t ON f.id = t.file_id
-                JOIN language_analysis_results lar ON t.id = lar.track_id
-                WHERE f.path LIKE ?
-                AND f.path NOT LIKE ?
-            """,
-                (pattern, pattern + "/%"),
-            )
-            row = cursor.fetchone()
-            return row[0] or 0, row[1] or 0
-
+        # Directory non-recursive: exclude subdirectories
+        escaped_path = _escape_like_pattern(path)
+        pattern = escaped_path + "/%"
+        where_clause = (
+            " WHERE f.path LIKE ? ESCAPE '\\' AND f.path NOT LIKE ? ESCAPE '\\'"
+        )
         cursor = conn.execute(
-            """
-            SELECT
-                COUNT(DISTINCT f.id) as files,
-                COUNT(DISTINCT lar.id) as tracks
-            FROM files f
-            JOIN tracks t ON f.id = t.file_id
-            JOIN language_analysis_results lar ON t.id = lar.track_id
-            WHERE f.path LIKE ?
-        """,
-            (pattern,),
+            base_query + where_clause,
+            (pattern, pattern + "/%"),
         )
 
     row = cursor.fetchone()
