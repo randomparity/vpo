@@ -15,6 +15,7 @@ from video_policy_orchestrator.scanner.orchestrator import (
     ScannerOrchestrator,
     ScanProgressCallback,
     ScanResult,
+    detect_missing_files,
 )
 
 if TYPE_CHECKING:
@@ -74,6 +75,58 @@ class TestScanResult:
         result = ScanResult()
         result.errors.append(("/test", "error"))
         assert len(result.errors) == 1
+
+    def test_errors_list_is_not_shared_between_instances(self) -> None:
+        """Each ScanResult gets its own errors list."""
+        result1 = ScanResult()
+        result2 = ScanResult()
+        result1.errors.append(("/test", "error"))
+        assert len(result2.errors) == 0
+
+
+class TestDetectMissingFiles:
+    """Tests for detect_missing_files helper function."""
+
+    def test_empty_list_returns_empty(self) -> None:
+        """Empty input returns empty list."""
+        assert detect_missing_files([]) == []
+
+    def test_all_files_exist(self, tmp_path: Path) -> None:
+        """Returns empty when all files exist."""
+        f1 = tmp_path / "file1.mkv"
+        f2 = tmp_path / "file2.mkv"
+        f1.touch()
+        f2.touch()
+        result = detect_missing_files([str(f1), str(f2)])
+        assert result == []
+
+    def test_all_files_missing(self) -> None:
+        """Returns all paths when none exist."""
+        paths = ["/nonexistent/a.mkv", "/nonexistent/b.mkv"]
+        result = detect_missing_files(paths)
+        assert result == paths
+
+    def test_mixed_existing_and_missing(self, tmp_path: Path) -> None:
+        """Returns only missing paths."""
+        existing = tmp_path / "exists.mkv"
+        existing.touch()
+        missing = "/nonexistent/missing.mkv"
+        result = detect_missing_files([str(existing), missing])
+        assert result == [missing]
+
+    def test_directory_is_considered_missing(self, tmp_path: Path) -> None:
+        """Directories are not valid files."""
+        subdir = tmp_path / "subdir"
+        subdir.mkdir()
+        result = detect_missing_files([str(subdir)])
+        assert result == [str(subdir)]
+
+    def test_broken_symlink_is_missing(self, tmp_path: Path) -> None:
+        """Broken symlinks are considered missing."""
+        link = tmp_path / "broken_link"
+        link.symlink_to("/nonexistent/target")
+        result = detect_missing_files([str(link)])
+        assert result == [str(link)]
 
 
 class TestScannedFile:

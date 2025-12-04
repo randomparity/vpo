@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -32,7 +33,7 @@ def scanner_custom_extensions() -> ScannerOrchestrator:
 
 
 @pytest.fixture
-def mock_discovered_files():
+def mock_discovered_files() -> Callable[..., list[dict[str, Any]]]:
     """Factory for creating mock discover_videos results."""
 
     def _create(
@@ -51,7 +52,7 @@ def mock_discovered_files():
 
 
 @pytest.fixture
-def mock_hash_results():
+def mock_hash_results() -> Callable[..., list[dict[str, Any]]]:
     """Factory for creating mock hash_files results."""
 
     def _create(

@@ -224,6 +224,17 @@ class TestNormalizePathForMatching:
         result = normalize_path_for_matching(str(tmp_path))
         assert isinstance(result, str)
 
+    def test_handles_oserror_gracefully(self, tmp_path: Path) -> None:
+        """Falls back to absolute() when resolve() raises OSError."""
+        test_path = tmp_path / "test.txt"
+        test_path.touch()
+
+        with patch.object(Path, "resolve", side_effect=OSError("Permission denied")):
+            result = normalize_path_for_matching(test_path)
+            # Should fall back to absolute() without raising
+            assert isinstance(result, str)
+            assert "test.txt" in result
+
 
 class TestIsSupportedContainer:
     """Tests for is_supported_container function."""
