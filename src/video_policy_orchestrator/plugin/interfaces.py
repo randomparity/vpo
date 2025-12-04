@@ -85,6 +85,31 @@ class AnalyzerPlugin(Protocol):
     # This is NOT part of the protocol to maintain backward compatibility.
     # The registry's shutdown_all() method will call close() if it exists.
 
+    # Note: Plugins may optionally implement on_transcription_requested()
+    # to handle transcription requests. This is NOT part of the protocol
+    # to maintain backward compatibility with existing plugins.
+    # See BaseAnalyzerPlugin for default implementation.
+    #
+    # def on_transcription_requested(
+    #     self, event: TranscriptionRequestedEvent
+    # ) -> Any | None:
+    #     """Handle a transcription request.
+    #
+    #     Args:
+    #         event: TranscriptionRequestedEvent with audio data and options.
+    #
+    #     Returns:
+    #         TranscriptionResult if transcription succeeded, None otherwise.
+    #     """
+    #
+    # Similarly, plugins may implement on_transcription_completed() to observe
+    # transcription results:
+    #
+    # def on_transcription_completed(
+    #     self, event: TranscriptionCompletedEvent
+    # ) -> None:
+    #     """Called after transcription completes."""
+
 
 @runtime_checkable
 class MutatorPlugin(Protocol):

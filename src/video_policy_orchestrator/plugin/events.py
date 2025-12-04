@@ -19,6 +19,8 @@ POLICY_AFTER_EVALUATE = "policy.after_evaluate"
 PLAN_BEFORE_EXECUTE = "plan.before_execute"
 PLAN_AFTER_EXECUTE = "plan.after_execute"
 PLAN_EXECUTION_FAILED = "plan.execution_failed"
+TRANSCRIPTION_REQUESTED = "transcription.requested"
+TRANSCRIPTION_COMPLETED = "transcription.completed"
 
 # All valid event names
 VALID_EVENTS = frozenset(
@@ -31,6 +33,8 @@ VALID_EVENTS = frozenset(
         PLAN_BEFORE_EXECUTE,
         PLAN_AFTER_EXECUTE,
         PLAN_EXECUTION_FAILED,
+        TRANSCRIPTION_REQUESTED,
+        TRANSCRIPTION_COMPLETED,
     ]
 )
 
@@ -44,6 +48,8 @@ ANALYZER_EVENTS = frozenset(
         POLICY_AFTER_EVALUATE,
         PLAN_AFTER_EXECUTE,
         PLAN_EXECUTION_FAILED,
+        TRANSCRIPTION_REQUESTED,
+        TRANSCRIPTION_COMPLETED,
     ]
 )
 
@@ -119,6 +125,35 @@ class MetadataExtractedEvent:
     file_path: Path
     parsed_metadata: Any  # ParsedMetadata from metadata.parser
     metadata_dict: dict[str, str]  # Rendered metadata dictionary
+
+
+@dataclass
+class TranscriptionRequestedEvent:
+    """Event requesting transcription of an audio track.
+
+    Fired when VPO needs to transcribe an audio track for language
+    detection or track classification. Plugins can handle this event
+    to provide transcription services.
+    """
+
+    file_path: Path
+    track: Any  # TrackInfo from db.types
+    audio_data: bytes
+    sample_rate: int
+    options: dict[str, Any]
+
+
+@dataclass
+class TranscriptionCompletedEvent:
+    """Event after transcription completes.
+
+    Fired after a transcription plugin has processed an audio track.
+    Provides the transcription result for storage or further processing.
+    """
+
+    file_path: Path
+    track_id: int
+    result: Any  # TranscriptionResult from transcription.models
 
 
 def is_valid_event(event_name: str) -> bool:

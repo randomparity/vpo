@@ -8,6 +8,8 @@ from video_policy_orchestrator.plugin.events import (
     FileScannedEvent,
     PlanExecuteEvent,
     PolicyEvaluateEvent,
+    TranscriptionCompletedEvent,
+    TranscriptionRequestedEvent,
 )
 from video_policy_orchestrator.plugin.interfaces import AnalyzerPlugin, MutatorPlugin
 from video_policy_orchestrator.plugin_sdk import (
@@ -18,6 +20,8 @@ from video_policy_orchestrator.plugin_sdk import (
     create_file_scanned_event,
     create_plan_execute_event,
     create_policy_evaluate_event,
+    create_transcription_completed_event,
+    create_transcription_requested_event,
     get_logger,
     is_mkv_container,
     is_supported_container,
@@ -63,6 +67,22 @@ class TestBaseAnalyzerPlugin:
 
         # on_plan_complete doesn't raise
         plugin.on_plan_complete(None)
+
+    def test_default_transcription_methods(self):
+        """Default transcription method implementations work correctly."""
+
+        class MyPlugin(BaseAnalyzerPlugin):
+            name = "test-plugin"
+            version = "1.0.0"
+            events = ["transcription.requested"]
+
+        plugin = MyPlugin()
+
+        # on_transcription_requested returns None by default
+        assert plugin.on_transcription_requested(None) is None
+
+        # on_transcription_completed doesn't raise
+        plugin.on_transcription_completed(None)
 
     def test_logger_available(self):
         """Plugin has a logger available."""
@@ -271,6 +291,21 @@ class TestEventFactories:
         assert isinstance(event, PlanExecuteEvent)
         assert event.plan is not None
 
+    def test_create_transcription_requested_event(self):
+        """create_transcription_requested_event creates valid event."""
+        event = create_transcription_requested_event()
+        assert isinstance(event, TranscriptionRequestedEvent)
+        assert event.track is not None
+        assert event.audio_data is not None
+        assert event.sample_rate == 16000
+
+    def test_create_transcription_completed_event(self):
+        """create_transcription_completed_event creates valid event."""
+        event = create_transcription_completed_event()
+        assert isinstance(event, TranscriptionCompletedEvent)
+        assert event.result is not None
+        assert event.track_id == 1
+
 
 class TestPluginTestCase:
     """Tests for PluginTestCase."""
@@ -287,6 +322,16 @@ class TestPluginTestCase:
 
         event3 = test_case.create_plan_execute_event()
         assert isinstance(event3, PlanExecuteEvent)
+
+    def test_create_transcription_events(self):
+        """PluginTestCase provides transcription event creation methods."""
+        test_case = PluginTestCase()
+
+        event1 = test_case.create_transcription_requested_event()
+        assert isinstance(event1, TranscriptionRequestedEvent)
+
+        event2 = test_case.create_transcription_completed_event()
+        assert isinstance(event2, TranscriptionCompletedEvent)
 
 
 class TestSDKModuleExports:
@@ -331,6 +376,8 @@ class TestSDKModuleExports:
             create_file_scanned_event,
             create_plan_execute_event,
             create_policy_evaluate_event,
+            create_transcription_completed_event,
+            create_transcription_requested_event,
             mock_executor_result,
             mock_file_info,
             mock_plan,
@@ -347,3 +394,5 @@ class TestSDKModuleExports:
         assert callable(create_file_scanned_event)
         assert callable(create_policy_evaluate_event)
         assert callable(create_plan_execute_event)
+        assert callable(create_transcription_requested_event)
+        assert callable(create_transcription_completed_event)

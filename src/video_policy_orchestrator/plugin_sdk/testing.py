@@ -18,6 +18,8 @@ from video_policy_orchestrator.plugin.events import (
     FileScannedEvent,
     PlanExecuteEvent,
     PolicyEvaluateEvent,
+    TranscriptionCompletedEvent,
+    TranscriptionRequestedEvent,
 )
 from video_policy_orchestrator.policy.models import Plan
 
@@ -310,6 +312,68 @@ def create_plan_execute_event(
     )
 
 
+def create_transcription_requested_event(
+    file_path: str | Path = "/test/video.mkv",
+    track: TrackInfo | None = None,
+    audio_data: bytes = b"\x00" * 1000,
+    sample_rate: int = 16000,
+    options: dict[str, Any] | None = None,
+) -> TranscriptionRequestedEvent:
+    """Create a TranscriptionRequestedEvent for testing.
+
+    Args:
+        file_path: Path to file.
+        track: TrackInfo or None to auto-create.
+        audio_data: Raw audio bytes.
+        sample_rate: Audio sample rate in Hz.
+        options: Transcription options dict.
+
+    Returns:
+        TranscriptionRequestedEvent instance.
+
+    """
+    if track is None:
+        track = mock_track_info(index=1, track_type="audio", codec="aac")
+    if options is None:
+        options = {}
+
+    return TranscriptionRequestedEvent(
+        file_path=Path(file_path),
+        track=track,
+        audio_data=audio_data,
+        sample_rate=sample_rate,
+        options=options,
+    )
+
+
+def create_transcription_completed_event(
+    file_path: str | Path = "/test/video.mkv",
+    track_id: int = 1,
+    result: Any | None = None,
+) -> TranscriptionCompletedEvent:
+    """Create a TranscriptionCompletedEvent for testing.
+
+    Args:
+        file_path: Path to file.
+        track_id: Database track ID.
+        result: TranscriptionResult or None for mock.
+
+    Returns:
+        TranscriptionCompletedEvent instance.
+
+    """
+    if result is None:
+        result = MagicMock()
+        result.detected_language = "eng"
+        result.confidence_score = 0.95
+
+    return TranscriptionCompletedEvent(
+        file_path=Path(file_path),
+        track_id=track_id,
+        result=result,
+    )
+
+
 # ==============================================================================
 # Test Base Class
 # ==============================================================================
@@ -369,6 +433,36 @@ class PluginTestCase:
             plan=plan,
             result=result,
             error=error,
+        )
+
+    def create_transcription_requested_event(
+        self,
+        file_path: str | Path = "/test/video.mkv",
+        track: TrackInfo | None = None,
+        audio_data: bytes = b"\x00" * 1000,
+        sample_rate: int = 16000,
+        options: dict[str, Any] | None = None,
+    ) -> TranscriptionRequestedEvent:
+        """Create a TranscriptionRequestedEvent for testing."""
+        return create_transcription_requested_event(
+            file_path=file_path,
+            track=track,
+            audio_data=audio_data,
+            sample_rate=sample_rate,
+            options=options,
+        )
+
+    def create_transcription_completed_event(
+        self,
+        file_path: str | Path = "/test/video.mkv",
+        track_id: int = 1,
+        result: Any | None = None,
+    ) -> TranscriptionCompletedEvent:
+        """Create a TranscriptionCompletedEvent for testing."""
+        return create_transcription_completed_event(
+            file_path=file_path,
+            track_id=track_id,
+            result=result,
         )
 
 
