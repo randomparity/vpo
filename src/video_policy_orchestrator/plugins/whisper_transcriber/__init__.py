@@ -3,6 +3,7 @@
 from video_policy_orchestrator.plugins.whisper_transcriber.plugin import (
     PluginDependencyError,
     WhisperTranscriptionPlugin,
+    plugin_instance,
 )
 
-__all__ = ["PluginDependencyError", "WhisperTranscriptionPlugin"]
+__all__ = ["PluginDependencyError", "WhisperTranscriptionPlugin", "plugin_instance"]

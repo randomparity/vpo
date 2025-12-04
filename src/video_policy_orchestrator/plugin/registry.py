@@ -295,7 +295,7 @@ class PluginRegistry:
 
         loaded = []
 
-        # Policy Engine is the only built-in plugin for now
+        # Load policy engine (required)
         try:
             from video_policy_orchestrator.plugins.policy_engine import plugin_instance
 
@@ -311,6 +311,25 @@ class PluginRegistry:
             logger.error("Failed to load built-in policy engine: %s", e)
         except Exception as e:
             logger.error("Error loading built-in plugin: %s", e)
+
+        # Load whisper transcriber if dependencies available (optional)
+        try:
+            from video_policy_orchestrator.plugins.whisper_transcriber import (
+                plugin_instance as whisper_instance,
+            )
+
+            whisper_plugin = create_loaded_plugin(
+                whisper_instance,
+                source=PluginSource.BUILTIN,
+                source_path=None,
+            )
+            self.register(whisper_plugin)
+            loaded.append(whisper_plugin)
+            logger.info("Loaded built-in plugin: %s", whisper_plugin.name)
+        except ImportError:
+            logger.debug("Whisper plugin not available (openai-whisper not installed)")
+        except Exception as e:
+            logger.warning("Failed to load whisper plugin: %s", e)
 
         return loaded
 

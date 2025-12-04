@@ -93,7 +93,20 @@ class WhisperTranscriptionPlugin:
 
     Provides local, offline transcription and language detection
     using OpenAI's Whisper models.
+
+    As a built-in plugin, it is automatically loaded when whisper
+    dependencies are available. It can be disabled via the plugins CLI.
     """
+
+    # Plugin metadata
+    name = "whisper-local"
+    version = "1.0.0"
+    description = "Audio transcription and language detection using OpenAI Whisper"
+    author = "VPO Team"
+
+    # API compatibility
+    min_api_version = "1.0.0"
+    max_api_version = "1.99.99"
 
     # Plugin system event subscription
     events: list[str] = ["transcription.requested"]
@@ -107,18 +120,6 @@ class WhisperTranscriptionPlugin:
         self._config = config or TranscriptionConfig()
         self._model = None
         self._device = "cpu"  # Will be set properly in _load_model()
-        self._name = "whisper-local"
-        self._version = "1.0.0"
-
-    @property
-    def name(self) -> str:
-        """Plugin identifier."""
-        return self._name
-
-    @property
-    def version(self) -> str:
-        """Plugin version string."""
-        return self._version
 
     def _load_model(self):
         """Load the Whisper model lazily.
@@ -407,3 +408,9 @@ class WhisperTranscriptionPlugin:
         except TranscriptionError:
             # Return None to let coordinator try other plugins
             return None
+
+
+# Plugin instance for discovery
+# Named 'plugin_instance' to avoid shadowing the 'plugin' module name
+# when accessed via package imports (e.g., 'from ... import plugin')
+plugin_instance = WhisperTranscriptionPlugin()
