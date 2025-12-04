@@ -11,6 +11,7 @@ from video_policy_orchestrator.cli.profile_loader import load_profile_or_exit
 from video_policy_orchestrator.language_analysis.orchestrator import (
     LanguageAnalysisOrchestrator,
 )
+from video_policy_orchestrator.plugin import get_default_registry
 from video_policy_orchestrator.scanner.orchestrator import (
     DEFAULT_EXTENSIONS,
     ScannerOrchestrator,
@@ -133,8 +134,9 @@ def _run_language_analysis(
 
     stats = {"analyzed": 0, "skipped": 0, "errors": 0}
 
-    # Create orchestrator (it handles transcriber initialization internally)
-    orchestrator = LanguageAnalysisOrchestrator()
+    # Create orchestrator with plugin registry for transcription
+    registry = get_default_registry()
+    orchestrator = LanguageAnalysisOrchestrator(plugin_registry=registry)
 
     # Track progress across all files
     total_files = len(files)

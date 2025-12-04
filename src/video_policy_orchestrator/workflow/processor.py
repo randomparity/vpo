@@ -20,6 +20,7 @@ from video_policy_orchestrator.policy.models import (
 )
 
 if TYPE_CHECKING:
+    from video_policy_orchestrator.plugin import PluginRegistry
     from video_policy_orchestrator.policy.models import Plan
 
 logger = logging.getLogger(__name__)
@@ -129,6 +130,7 @@ class WorkflowProcessor:
         verbose: bool = False,
         progress_callback: ProgressCallback | None = None,
         policy_name: str = "workflow",
+        plugin_registry: "PluginRegistry | None" = None,
     ) -> None:
         """Initialize the workflow processor.
 
@@ -139,6 +141,10 @@ class WorkflowProcessor:
             verbose: If True, emit detailed logging.
             progress_callback: Optional callback for progress updates.
             policy_name: Name of the policy for audit records.
+            plugin_registry: Optional plugin registry for coordinator-based
+                transcription in the ANALYZE phase. If provided, uses
+                TranscriptionCoordinator. If None, falls back to legacy
+                TranscriberFactory.
         """
         self.conn = conn
         self.policy = policy
@@ -146,6 +152,7 @@ class WorkflowProcessor:
         self.verbose = verbose
         self.progress_callback = progress_callback
         self.policy_name = policy_name
+        self._plugin_registry = plugin_registry
 
         # Get workflow config, defaulting to just APPLY if not specified
         self.config: WorkflowConfig = policy.workflow or WorkflowConfig(
@@ -167,6 +174,7 @@ class WorkflowProcessor:
                 policy=self.policy,
                 dry_run=self.dry_run,
                 verbose=self.verbose,
+                plugin_registry=self._plugin_registry,
             ),
             ProcessingPhase.APPLY: ApplyPhase(
                 conn=self.conn,

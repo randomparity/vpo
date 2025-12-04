@@ -4,13 +4,19 @@ This phase runs automatic language analysis on audio tracks using the
 transcription plugin to detect spoken languages.
 """
 
+from __future__ import annotations
+
 import logging
 from pathlib import Path
 from sqlite3 import Connection
+from typing import TYPE_CHECKING
 
 from video_policy_orchestrator.db.queries import get_file_by_path, get_tracks_for_file
 from video_policy_orchestrator.policy.models import PolicySchema
 from video_policy_orchestrator.workflow.processor import PhaseError
+
+if TYPE_CHECKING:
+    from video_policy_orchestrator.plugin import PluginRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +30,7 @@ class AnalyzePhase:
         policy: PolicySchema,
         dry_run: bool = False,
         verbose: bool = False,
+        plugin_registry: PluginRegistry | None = None,
     ) -> None:
         """Initialize the analyze phase.
 
@@ -32,11 +39,15 @@ class AnalyzePhase:
             policy: PolicySchema configuration.
             dry_run: If True, preview without making changes.
             verbose: If True, emit detailed logging.
+            plugin_registry: Optional plugin registry for coordinator-based
+                transcription. If provided, uses TranscriptionCoordinator.
+                If None, falls back to legacy TranscriberFactory.
         """
         self.conn = conn
         self.policy = policy
         self.dry_run = dry_run
         self.verbose = verbose
+        self._plugin_registry = plugin_registry
 
     def run(self, file_path: Path) -> int:
         """Run language analysis on the file's audio tracks.
@@ -73,7 +84,9 @@ class AnalyzePhase:
             LanguageAnalysisOrchestrator,
         )
 
-        orchestrator = LanguageAnalysisOrchestrator()
+        orchestrator = LanguageAnalysisOrchestrator(
+            plugin_registry=self._plugin_registry,
+        )
 
         if self.dry_run:
             logger.info(

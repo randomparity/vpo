@@ -26,6 +26,7 @@ from video_policy_orchestrator.language_analysis.service import (
     get_cached_analysis,
     invalidate_analysis_cache,
 )
+from video_policy_orchestrator.plugin import get_default_registry
 
 logger = logging.getLogger(__name__)
 
@@ -223,8 +224,9 @@ def run_command(
             if not json_output:
                 click.echo(f"Analyzing {len(audio_tracks)} audio track(s)...")
 
-            # Use orchestrator for analysis
-            orchestrator = LanguageAnalysisOrchestrator()
+            # Use orchestrator for analysis with plugin registry
+            registry = get_default_registry()
+            orchestrator = LanguageAnalysisOrchestrator(plugin_registry=registry)
             batch_result = orchestrator.analyze_tracks_for_file(
                 conn=conn,
                 file_record=file_record,

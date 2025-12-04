@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from video_policy_orchestrator.db import FileRecord, TrackRecord
+    from video_policy_orchestrator.plugin import PluginRegistry
 
 from video_policy_orchestrator.language_analysis.models import LanguageAnalysisResult
 from video_policy_orchestrator.language_analysis.service import (
@@ -97,15 +98,21 @@ class LanguageAnalysisOrchestrator:
     def __init__(
         self,
         config: MultiLanguageDetectionConfig | None = None,
+        plugin_registry: PluginRegistry | None = None,
     ) -> None:
         """Initialize orchestrator.
 
         Args:
             config: Optional detection configuration. If not provided,
                     uses default configuration.
+            plugin_registry: Optional plugin registry for the new coordinator-based
+                    transcription. If provided, uses TranscriptionCoordinator.
+                    If None, falls back to legacy TranscriberFactory.
         """
         self._config = config or MultiLanguageDetectionConfig()
+        self._plugin_registry = plugin_registry
         self._transcriber = None
+        self._coordinator = None  # Lazy init for coordinator path
 
     def analyze_tracks_for_file(
         self,
@@ -138,11 +145,28 @@ class LanguageAnalysisOrchestrator:
         """
         result = BatchAnalysisResult()
 
-        # Get transcriber
-        transcriber = self._get_transcriber()
-        if transcriber is None:
-            result.transcriber_available = False
-            return result
+        # Determine transcription path: coordinator (new) vs factory (legacy)
+        use_coordinator = self._plugin_registry is not None
+        transcriber = None  # Used for legacy path only
+
+        if use_coordinator:
+            # Use new plugin-based coordinator
+            if self._coordinator is None:
+                from video_policy_orchestrator.transcription.coordinator import (
+                    TranscriptionCoordinator,
+                )
+
+                self._coordinator = TranscriptionCoordinator(self._plugin_registry)
+
+            if not self._coordinator.is_available():
+                result.transcriber_available = False
+                return result
+        else:
+            # Legacy fallback: use TranscriberFactory
+            transcriber = self._get_transcriber()
+            if transcriber is None:
+                result.transcriber_available = False
+                return result
 
         # Filter to audio tracks
         audio_tracks = [t for t in track_records if t.track_type == "audio"]
@@ -175,8 +199,24 @@ class LanguageAnalysisOrchestrator:
                         progress_callback(progress)
                     continue
 
-            # Run analysis
+            # Get transcriber for this track
             track_duration = track.duration_seconds or 3600.0
+            if use_coordinator:
+                # Create adapter per-track for thread safety
+                from video_policy_orchestrator.transcription.coordinator import (
+                    PluginTranscriberAdapter,
+                )
+
+                track_info = track.to_track_info()
+                current_transcriber = PluginTranscriberAdapter(
+                    registry=self._plugin_registry,
+                    file_path=file_path,
+                    track=track_info,
+                )
+            else:
+                current_transcriber = transcriber
+
+            # Run analysis
             try:
                 analysis_result = analyze_track_languages(
                     file_path=file_path,
@@ -184,7 +224,7 @@ class LanguageAnalysisOrchestrator:
                     track_id=track.id,
                     track_duration=track_duration,
                     file_hash=file_hash,
-                    transcriber=transcriber,
+                    transcriber=current_transcriber,
                     config=self._config,
                 )
                 persist_analysis_result(conn, analysis_result)
@@ -247,6 +287,7 @@ def analyze_file_audio_tracks(
     force: bool = False,
     verbose: bool = False,
     progress_callback: ProgressCallback | None = None,
+    plugin_registry: PluginRegistry | None = None,
 ) -> dict[int, LanguageAnalysisResult] | None:
     """Convenience function to analyze audio tracks for a file.
 
@@ -261,12 +302,15 @@ def analyze_file_audio_tracks(
         force: If True, re-analyze even if cached.
         verbose: If True, log progress (only used if no progress_callback).
         progress_callback: Optional callback for progress updates.
+        plugin_registry: Optional plugin registry for coordinator-based
+            transcription. If provided, uses TranscriptionCoordinator.
+            If None, falls back to legacy TranscriberFactory.
 
     Returns:
         Dict mapping track_id to LanguageAnalysisResult, or None if
         no transcriber available or no results.
     """
-    orchestrator = LanguageAnalysisOrchestrator()
+    orchestrator = LanguageAnalysisOrchestrator(plugin_registry=plugin_registry)
 
     # Create a verbose callback if requested and no callback provided
     if verbose and progress_callback is None:
