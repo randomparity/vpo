@@ -56,8 +56,8 @@
 
 ### Unit Tests for Foundational Queries
 
-- [ ] T013 [P] Add tests for get_analysis_status_summary() in tests/unit/db/test_views.py
-- [ ] T014 [P] Add tests for delete_analysis_for_file() in tests/unit/db/test_queries.py
+- [X] T013 [P] Add tests for get_analysis_status_summary() in tests/unit/db/test_views.py
+- [X] T014 [P] Add tests for delete_analysis_for_file() in tests/unit/db/test_queries.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -147,12 +147,12 @@
 
 ### Integration Tests
 
-- [ ] T042 [P] Create integration test file at tests/integration/test_analyze_language_cli.py
-- [ ] T043 [P] Add integration test for full run→status→clear workflow in tests/integration/test_analyze_language_cli.py
+- [X] T042 [P] Create integration test file at tests/integration/test_analyze_language_cli.py
+- [X] T043 [P] Add integration test for full run→status→clear workflow in tests/integration/test_analyze_language_cli.py
 
 ### Documentation
 
-- [ ] T044 Update docs/usage/multi-language-detection.md with analyze-language CLI commands
+- [X] T044 Update docs/usage/multi-language-detection.md with analyze-language CLI commands
 
 ### Edge Case Handling
 

@@ -1221,9 +1221,9 @@ def get_analysis_status_summary(
             COUNT(DISTINCT f.id) as total_files,
             COUNT(DISTINCT t.id) as total_tracks,
             COUNT(DISTINCT lar.id) as analyzed_tracks,
-            SUM(CASE WHEN lar.classification = 'multi_language' THEN 1 ELSE 0 END)
+            SUM(CASE WHEN lar.classification = 'MULTI_LANGUAGE' THEN 1 ELSE 0 END)
                 as multi_language,
-            SUM(CASE WHEN lar.classification = 'single_language' THEN 1 ELSE 0 END)
+            SUM(CASE WHEN lar.classification = 'SINGLE_LANGUAGE' THEN 1 ELSE 0 END)
                 as single_language
         FROM files f
         JOIN tracks t ON f.id = t.file_id AND t.track_type = 'audio'
@@ -1274,7 +1274,7 @@ def get_files_analysis_status(
             FROM files f
             JOIN tracks t ON f.id = t.file_id AND t.track_type = 'audio'
             JOIN language_analysis_results lar ON t.id = lar.track_id
-            WHERE lar.classification = 'multi_language'
+            WHERE lar.classification = 'MULTI_LANGUAGE'
             GROUP BY f.id
             ORDER BY f.path
             LIMIT ?
@@ -1287,7 +1287,7 @@ def get_files_analysis_status(
             FROM files f
             JOIN tracks t ON f.id = t.file_id AND t.track_type = 'audio'
             JOIN language_analysis_results lar ON t.id = lar.track_id
-            WHERE lar.classification = 'single_language'
+            WHERE lar.classification = 'SINGLE_LANGUAGE'
             GROUP BY f.id
             HAVING COUNT(DISTINCT t.id) = COUNT(DISTINCT lar.id)
             ORDER BY f.path
@@ -1360,7 +1360,7 @@ def get_file_analysis_detail(
             lar.classification,
             lar.primary_language,
             lar.primary_percentage,
-            lar.secondary_languages,
+            lar.analysis_metadata,
             lar.updated_at
         FROM files f
         JOIN tracks t ON f.id = t.file_id AND t.track_type = 'audio'
@@ -1373,15 +1373,24 @@ def get_file_analysis_detail(
 
     results = []
     for row in cursor.fetchall():
+        # Extract secondary_languages from analysis_metadata JSON if present
+        secondary_langs = None
+        if row[6]:  # analysis_metadata
+            try:
+                metadata = json.loads(row[6])
+                secondary_langs = metadata.get("secondary_languages")
+            except (json.JSONDecodeError, TypeError):
+                pass
+
         results.append(
             TrackAnalysisDetail(
                 track_id=row[0],
                 track_index=row[1],
                 language=row[2],
-                classification=row[3] or "pending",
-                primary_language=row[4] or "unknown",
+                classification=row[3],
+                primary_language=row[4],
                 primary_percentage=row[5] or 0.0,
-                secondary_languages=row[6],
+                secondary_languages=secondary_langs,
                 analyzed_at=row[7] or "",
             )
         )
