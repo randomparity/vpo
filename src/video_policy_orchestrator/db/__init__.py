@@ -116,13 +116,16 @@ from .types import (
 # Views: Transcription view queries
 # Views: Scan errors view queries
 # Views: Processing statistics view queries
+# Views: Plugin data view queries
 from .views import (
     get_distinct_audio_languages,
     get_distinct_audio_languages_typed,
     get_files_filtered,
     get_files_filtered_typed,
+    get_files_with_plugin_data,
     get_files_with_transcriptions,
     get_files_with_transcriptions_typed,
+    get_plugin_data_for_file,
     get_policy_stats,
     get_policy_stats_by_name,
     get_recent_stats,
@@ -245,4 +248,7 @@ __all__ = [
     "get_stats_detail",
     "get_stats_for_file",
     "get_stats_summary",
+    # Plugin data view queries
+    "get_files_with_plugin_data",
+    "get_plugin_data_for_file",
 ]

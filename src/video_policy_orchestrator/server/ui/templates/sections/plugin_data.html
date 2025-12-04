@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="plugin-data">
+    <!-- Back navigation -->
+    <a href="{{ back_url }}" class="plugin-data-back">&larr; Back to File Details</a>
+
+    <!-- Header -->
+    <header class="plugin-data-header">
+        <h1 class="plugin-data-title">Plugin Data</h1>
+        <p class="plugin-data-filename" title="{{ plugin_context.file_path }}">{{ plugin_context.filename }}</p>
+    </header>
+
+    <!-- No plugin data state -->
+    {% if plugin_context.plugin_count == 0 %}
+    <section class="plugin-data-empty">
+        <div class="plugin-data-empty-icon" aria-hidden="true">&#128268;</div>
+        <p>No plugin data available for this file.</p>
+        <p class="plugin-data-empty-hint">
+            Plugin data is generated when plugins analyze files during scanning.
+        </p>
+    </section>
+    {% else %}
+
+    <!-- Plugin data sections -->
+    {% for plugin_name, data in plugin_context.plugin_data.items() %}
+    <section class="plugin-data-section">
+        <h2 class="plugin-data-section-title">
+            <span class="plugin-name">{{ plugin_name }}</span>
+            <span class="plugin-field-count">{{ data | length }} field{% if data | length != 1 %}s{% endif %}</span>
+        </h2>
+
+        {% if data %}
+        <div class="plugin-data-table-container">
+            <table class="plugin-data-table" aria-label="Plugin data fields for {{ plugin_name }}">
+                <thead>
+                    <tr>
+                        <th scope="col">Field</th>
+                        <th scope="col">Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for key, value in data.items() %}
+                    <tr>
+                        <td class="plugin-data-key">{{ key }}</td>
+                        <td class="plugin-data-value">
+                            {% if value is mapping %}
+                            <pre class="plugin-data-json">{{ value | tojson(indent=2) }}</pre>
+                            {% elif value is iterable and value is not string %}
+                            <pre class="plugin-data-json">{{ value | tojson(indent=2) }}</pre>
+                            {% elif value is none %}
+                            <span class="plugin-data-null">null</span>
+                            {% elif value is sameas true %}
+                            <span class="plugin-data-bool plugin-data-bool--true">true</span>
+                            {% elif value is sameas false %}
+                            <span class="plugin-data-bool plugin-data-bool--false">false</span>
+                            {% elif value is number %}
+                            <span class="plugin-data-number">{{ value }}</span>
+                            {% else %}
+                            {{ value }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="plugin-data-empty-section">No data fields.</p>
+        {% endif %}
+    </section>
+    {% endfor %}
+
+    {% endif %}
+</div>
+{% endblock %}

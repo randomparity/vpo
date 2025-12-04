@@ -5430,3 +5430,257 @@ input.valid:focus {
     font-size: var(--font-size-xs);
     margin-top: var(--spacing-xxs);
 }
+
+/* ==========================================================================
+   Plugin Data View Styles (236-generic-plugin-data-browser)
+   ========================================================================== */
+
+/* Plugin data container */
+.plugin-data {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: var(--spacing-md);
+}
+
+/* Back navigation link */
+.plugin-data-back {
+    display: inline-block;
+    margin-bottom: var(--spacing-md);
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: var(--font-size-sm);
+    transition: color var(--transition-fast);
+}
+
+.plugin-data-back:hover {
+    color: var(--color-primary-dark);
+    text-decoration: underline;
+}
+
+.plugin-data-back:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* Header */
+.plugin-data-header {
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.plugin-data-title {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: 1.5rem;
+    color: var(--color-text);
+}
+
+.plugin-data-filename {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-family: monospace;
+    font-size: var(--font-size-sm);
+    word-break: break-all;
+}
+
+/* Empty state */
+.plugin-data-empty {
+    text-align: center;
+    padding: var(--spacing-xl) var(--spacing-md);
+    background-color: var(--color-body-bg);
+    border-radius: 8px;
+    margin: var(--spacing-lg) 0;
+}
+
+.plugin-data-empty-icon {
+    font-size: 3rem;
+    margin-bottom: var(--spacing-md);
+    opacity: 0.5;
+}
+
+.plugin-data-empty-hint {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
+/* Plugin data sections */
+.plugin-data-section {
+    margin-bottom: var(--spacing-lg);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.plugin-data-section-title {
+    margin: 0;
+    padding: 0.75rem var(--spacing-md);
+    background-color: var(--color-body-bg);
+    font-size: var(--font-size-lg);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.plugin-name {
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.plugin-field-count {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    font-weight: normal;
+}
+
+/* Data table */
+.plugin-data-table-container {
+    overflow-x: auto;
+}
+
+.plugin-data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.plugin-data-table th,
+.plugin-data-table td {
+    padding: 0.75rem var(--spacing-md);
+    text-align: left;
+    border-top: 1px solid var(--color-border);
+}
+
+.plugin-data-table th {
+    background-color: var(--color-body-bg);
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+}
+
+.plugin-data-key {
+    font-family: monospace;
+    font-weight: 500;
+    width: 30%;
+    vertical-align: top;
+    color: var(--color-text);
+}
+
+.plugin-data-value {
+    word-break: break-word;
+    color: var(--color-text);
+}
+
+/* JSON/array value display */
+.plugin-data-json {
+    margin: 0;
+    padding: var(--spacing-sm);
+    background-color: var(--color-body-bg);
+    border-radius: 4px;
+    font-size: var(--font-size-sm);
+    overflow-x: auto;
+    max-height: 200px;
+    overflow-y: auto;
+    color: var(--color-text);
+}
+
+/* Value type styling */
+.plugin-data-null {
+    color: var(--color-text-muted);
+    font-style: italic;
+}
+
+.plugin-data-bool {
+    font-weight: 600;
+}
+
+.plugin-data-bool--true {
+    color: #28a745;
+}
+
+.plugin-data-bool--false {
+    color: #dc3545;
+}
+
+@media (prefers-color-scheme: dark) {
+    .plugin-data-bool--true {
+        color: #6fbf73;
+    }
+
+    .plugin-data-bool--false {
+        color: #ff6b6b;
+    }
+}
+
+.plugin-data-number {
+    font-family: monospace;
+}
+
+.plugin-data-empty-section {
+    padding: var(--spacing-md);
+    color: var(--color-text-muted);
+    font-style: italic;
+}
+
+/* ==========================================================================
+   Plugin Data Summary on File Detail (236-generic-plugin-data-browser)
+   ========================================================================== */
+
+.file-detail-plugins {
+    margin-bottom: var(--spacing-lg);
+}
+
+.file-detail-plugins h2 {
+    margin: 0 0 var(--spacing-md) 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.plugin-data-summary {
+    padding: var(--spacing-md);
+    background-color: var(--color-body-bg);
+    border-radius: 8px;
+    border: 1px solid var(--color-border);
+}
+
+.plugin-data-summary p {
+    margin: 0 0 var(--spacing-sm) 0;
+    color: var(--color-text);
+}
+
+.plugin-list {
+    list-style: none;
+    margin: 0 0 var(--spacing-md) 0;
+    padding: 0;
+}
+
+.plugin-list-item {
+    padding: var(--spacing-xs) 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+.plugin-list-item strong {
+    color: var(--color-text);
+    font-weight: 500;
+}
+
+.plugin-data-link {
+    display: inline-block;
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    transition: color var(--transition-fast);
+}
+
+.plugin-data-link:hover {
+    color: var(--color-primary-dark);
+    text-decoration: underline;
+}
+
+.plugin-data-link:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}

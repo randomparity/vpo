@@ -26,7 +26,12 @@ CREATE TABLE IF NOT EXISTS files (
     scan_status TEXT NOT NULL DEFAULT 'pending',
     scan_error TEXT,
     job_id TEXT,  -- Links file to scan job that discovered/updated it
-    plugin_metadata TEXT  -- JSON: plugin-provided enrichment data keyed by plugin name
+    -- JSON: plugin-provided enrichment data keyed by plugin name.
+    -- NOTE: SQLite cannot index json_extract() predicates directly, so
+    -- queries filtering by plugin name require full table scan. For large
+    -- libraries (100K+ files), consider: (1) generated column for common
+    -- plugin names, or (2) application-level caching. Current scale acceptable.
+    plugin_metadata TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_files_directory ON files(directory);
