@@ -407,6 +407,11 @@ class TestCalculateSamplePositions:
         # max_start = 0, so only start position
         assert positions == [0.0]
 
+    def test_negative_sample_duration_raises(self) -> None:
+        """Test negative sample_duration raises ValueError."""
+        with pytest.raises(ValueError, match="sample_duration must be non-negative"):
+            calculate_sample_positions(7200.0, 3, -10)
+
 
 class TestAggregateResults:
     """Tests for aggregate_results function."""

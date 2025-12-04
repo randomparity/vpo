@@ -54,6 +54,7 @@ from video_policy_orchestrator.transcription.multi_sample import (
     SampleResult,
     aggregate_results,
     calculate_sample_positions,
+    smart_detect,
 )
 
 
@@ -215,4 +216,5 @@ __all__ = [
     "SampleResult",
     "aggregate_results",
     "calculate_sample_positions",
+    "smart_detect",
 ]

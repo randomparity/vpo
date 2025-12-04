@@ -18,6 +18,20 @@ Helper Functions:
     is_mkv_container: Check if MKV format
     get_host_identifier: Get host identifier for tracking
 
+Audio Utilities:
+    extract_audio_stream: Extract audio from video files
+    get_file_duration: Get duration of media files
+    is_ffmpeg_available: Check ffmpeg availability
+    AudioExtractionError: Exception for extraction failures
+
+Multi-Sample Detection:
+    SampleResult: Result from a single audio sample
+    MultiSampleConfig: Configuration for multi-sample detection
+    AggregatedResult: Aggregated result from multiple samples
+    calculate_sample_positions: Calculate sample positions
+    aggregate_results: Aggregate samples using weighted voting
+    smart_detect: High-level multi-sample detection function
+
 Testing Utilities:
     PluginTestCase: Base class for plugin tests
     mock_file_info: Create mock FileInfo
@@ -48,7 +62,6 @@ Example:
 
 """
 
-# Base classes
 # Audio utilities
 from video_policy_orchestrator.plugin_sdk.audio import (
     AudioExtractionError,
@@ -56,6 +69,8 @@ from video_policy_orchestrator.plugin_sdk.audio import (
     get_file_duration,
     is_ffmpeg_available,
 )
+
+# Base classes
 from video_policy_orchestrator.plugin_sdk.base import (
     BaseAnalyzerPlugin,
     BaseDualPlugin,
@@ -96,6 +111,7 @@ from video_policy_orchestrator.plugin_sdk.transcription import (
     SampleResult,
     aggregate_results,
     calculate_sample_positions,
+    smart_detect,
 )
 
 __all__ = [
@@ -123,6 +139,7 @@ __all__ = [
     "SampleResult",
     "aggregate_results",
     "calculate_sample_positions",
+    "smart_detect",
     # Testing
     "PluginTestCase",
     "mock_file_info",

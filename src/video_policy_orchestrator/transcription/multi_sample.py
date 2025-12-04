@@ -21,6 +21,11 @@ from video_policy_orchestrator.transcription.interface import (
 logger = logging.getLogger(__name__)
 
 
+def _position_exists(pos: float, positions: list[float], tol: float = 0.001) -> bool:
+    """Check if position already exists within tolerance."""
+    return any(abs(p - pos) < tol for p in positions)
+
+
 @dataclass
 class SampleResult:
     """Result from a single audio sample."""
@@ -81,7 +86,13 @@ def calculate_sample_positions(
 
     Returns:
         List of start positions in seconds, ordered for progressive sampling.
+
+    Raises:
+        ValueError: If sample_duration is negative.
     """
+    if sample_duration < 0:
+        raise ValueError("sample_duration must be non-negative")
+
     if num_samples < 1:
         return []
 
@@ -118,7 +129,7 @@ def calculate_sample_positions(
         # Distribute remaining positions evenly
         fraction = i / num_samples
         pos = max_start * fraction
-        if pos not in positions:
+        if not _position_exists(pos, positions):
             positions.append(pos)
 
     return positions[:num_samples]
