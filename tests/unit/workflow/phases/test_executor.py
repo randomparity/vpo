@@ -521,6 +521,8 @@ class TestDryRunMode:
 
     def test_dry_run_transcription_logs_only(self, db_conn, v11_policy, test_file):
         """Dry-run for transcription logs without executing."""
+        from unittest.mock import MagicMock
+
         # Insert file and tracks into database (required for context lookup)
         # Transcription requires tracks with duration_seconds set
         file_id = insert_test_file(db_conn, test_file)
@@ -544,7 +546,14 @@ class TestDryRunMode:
         )
         db_conn.commit()
 
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        # Create mock plugin registry for transcription to work
+        mock_registry = MagicMock()
+        executor = V11PhaseExecutor(
+            conn=db_conn,
+            policy=v11_policy,
+            dry_run=True,
+            plugin_registry=mock_registry,
+        )
 
         phase = PhaseDefinition(
             name="test",
@@ -557,6 +566,39 @@ class TestDryRunMode:
 
         # Returns audio track count (2 audio tracks with duration)
         assert result == 2
+
+    def test_transcription_skipped_without_plugin_registry(
+        self, db_conn, v11_policy, test_file
+    ):
+        """Transcription is skipped when no plugin registry is provided."""
+        # Insert file and tracks into database
+        file_id = insert_test_file(db_conn, test_file)
+        insert_test_track(db_conn, file_id, 0, "video")
+        db_conn.execute(
+            """
+            INSERT INTO tracks (
+                file_id, track_index, track_type, codec, language, duration_seconds
+            ) VALUES (?, 1, 'audio', 'aac', 'eng', 120.0)
+            """,
+            (file_id,),
+        )
+        db_conn.commit()
+
+        # No plugin_registry provided
+        executor = V11PhaseExecutor(
+            conn=db_conn, policy=v11_policy, dry_run=True, plugin_registry=None
+        )
+
+        phase = PhaseDefinition(
+            name="test",
+            transcription=TranscriptionPolicyOptions(enabled=True),
+        )
+        state = PhaseExecutionState(file_path=test_file, phase=phase)
+
+        result = executor._execute_transcription(state, None)
+
+        # Returns 0 because transcription was skipped (no plugin registry)
+        assert result == 0
 
 
 class TestPhaseExecution:

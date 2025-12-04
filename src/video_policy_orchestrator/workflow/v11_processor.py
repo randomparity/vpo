@@ -11,6 +11,10 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from sqlite3 import Connection
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from video_policy_orchestrator.plugin import PluginRegistry
 
 from video_policy_orchestrator.db.queries import (
     get_file_by_path,
@@ -78,6 +82,7 @@ class V11WorkflowProcessor:
         progress_callback: V11ProgressCallback | None = None,
         policy_name: str = "workflow",
         selected_phases: list[str] | None = None,
+        plugin_registry: "PluginRegistry | None" = None,
     ) -> None:
         """Initialize the V11 workflow processor.
 
@@ -90,6 +95,9 @@ class V11WorkflowProcessor:
             policy_name: Name of the policy for audit records.
             selected_phases: Optional list of phase names to execute.
                 If None, all phases are executed.
+            plugin_registry: Optional plugin registry for transcription.
+                If provided, uses TranscriptionCoordinator for transcription
+                operations. If None, transcription operations will be skipped.
         """
         self.conn = conn
         self.policy = policy
@@ -97,6 +105,7 @@ class V11WorkflowProcessor:
         self.verbose = verbose
         self.progress_callback = progress_callback
         self.policy_name = policy_name
+        self._plugin_registry = plugin_registry
 
         # Determine which phases to execute
         if selected_phases:
@@ -121,6 +130,7 @@ class V11WorkflowProcessor:
             dry_run=dry_run,
             verbose=verbose,
             policy_name=policy_name,
+            plugin_registry=plugin_registry,
         )
 
     def process_file(self, file_path: Path) -> FileProcessingResult:

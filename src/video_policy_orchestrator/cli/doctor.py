@@ -251,31 +251,42 @@ def _output_json(registry) -> None:
 
 def _show_transcription_plugins(verbose: bool) -> None:
     """Show available transcription plugins."""
-    from video_policy_orchestrator.transcription.registry import get_registry
+    from video_policy_orchestrator.plugin.events import TRANSCRIPTION_REQUESTED
+    from video_policy_orchestrator.plugin.registry import PluginRegistry
 
     try:
-        transcription_registry = get_registry()
-        plugins = transcription_registry.list_plugins()
+        # Load plugin registry
+        registry = PluginRegistry()
+        registry.discover()
+
+        # Get plugins that handle transcription.requested events
+        plugins = registry.get_by_event(TRANSCRIPTION_REQUESTED)
 
         if not plugins:
             click.echo("  ✗ No transcription plugins available")
-            click.echo("    └─ Install openai-whisper: pip install openai-whisper")
+            click.echo("    └─ Install a transcription plugin (e.g., whisper-local).")
             return
 
-        for name in plugins:
-            plugin = transcription_registry.get(name)
-            click.echo(f"  ✓ {plugin.name} (v{plugin.version})")
+        for loaded_plugin in plugins:
+            version = getattr(loaded_plugin.instance, "version", "unknown")
+            click.echo(f"  ✓ {loaded_plugin.name} (v{version})")
 
             if verbose:
                 features = []
-                if plugin.supports_feature("language_detection"):
-                    features.append("language detection")
-                if plugin.supports_feature("transcription"):
-                    features.append("transcription")
-                if plugin.supports_feature("gpu"):
-                    features.append("GPU")
+                supports_fn = getattr(loaded_plugin.instance, "supports_feature", None)
+                if supports_fn:
+                    if supports_fn("language_detection"):
+                        features.append("language detection")
+                    if supports_fn("transcription"):
+                        features.append("transcription")
+                    if supports_fn("gpu"):
+                        features.append("GPU")
                 if features:
                     click.echo(f"    └─ Features: {', '.join(features)}")
 
     except Exception as e:
         click.echo(f"  ✗ Error loading transcription plugins: {e}")
+        if verbose:
+            import traceback
+
+            click.echo(traceback.format_exc(), err=True)

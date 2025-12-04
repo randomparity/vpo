@@ -26,7 +26,6 @@ from video_policy_orchestrator.language_analysis import (
 from video_policy_orchestrator.language_analysis import (
     format_json as format_language_analysis_json,
 )
-from video_policy_orchestrator.transcription.factory import get_transcriber
 from video_policy_orchestrator.transcription.interface import (
     MultiLanguageDetectionConfig,
 )
@@ -41,22 +40,28 @@ EXIT_PARSE_ERROR = INSPECT_EXIT_CODES["EXIT_PARSE_ERROR"]
 EXIT_ANALYSIS_ERROR = INSPECT_EXIT_CODES["EXIT_ANALYSIS_ERROR"]
 
 
-def _get_transcriber_or_error():
-    """Get a transcription plugin for language analysis.
+def _get_plugin_registry_or_error():
+    """Get a plugin registry with transcription plugins.
 
     Returns:
-        TranscriptionPlugin instance or None if unavailable.
+        PluginRegistry instance.
 
     Raises:
         click.ClickException: If no transcription plugin is available.
     """
-    transcriber = get_transcriber(require_multi_language=True)
-    if transcriber is None:
+    from video_policy_orchestrator.plugin.events import TRANSCRIPTION_REQUESTED
+    from video_policy_orchestrator.plugin.registry import PluginRegistry
+
+    registry = PluginRegistry()
+    registry.discover()
+
+    plugins = registry.get_by_event(TRANSCRIPTION_REQUESTED)
+    if not plugins:
         raise click.ClickException(
-            "Could not initialize transcription plugin.\n"
-            "Make sure openai-whisper is installed: pip install openai-whisper"
+            "No transcription plugins available.\n"
+            "Install a transcription plugin (e.g., whisper-local)."
         )
-    return transcriber
+    return registry
 
 
 @click.command("inspect")
@@ -151,12 +156,17 @@ def inspect_command(
             click.echo("No audio tracks to analyze.", err=True)
             sys.exit(EXIT_SUCCESS)
 
-        # Get transcriber plugin
+        # Get plugin registry with transcription plugins
         try:
-            transcriber = _get_transcriber_or_error()
+            plugin_registry = _get_plugin_registry_or_error()
         except click.ClickException as e:
             click.echo(f"Error: {e.message}", err=True)
             sys.exit(EXIT_ANALYSIS_ERROR)
+
+        # Import adapter for creating per-track transcribers
+        from video_policy_orchestrator.transcription.coordinator import (
+            PluginTranscriberAdapter,
+        )
 
         # Analyze each track
         config = MultiLanguageDetectionConfig(num_samples=5, sample_duration=30.0)
@@ -166,6 +176,13 @@ def inspect_command(
             # Use actual track duration if available, else default to 1 hour
             track_duration = audio_track.duration_seconds or 3600.0
             try:
+                # Create adapter per-track for thread safety
+                transcriber = PluginTranscriberAdapter(
+                    registry=plugin_registry,
+                    file_path=file_path,
+                    track=audio_track,
+                )
+
                 # Use a dummy track_id since we're not using the database here
                 analysis = analyze_track_languages(
                     file_path=file_path,
