@@ -1045,3 +1045,71 @@ class StatsDetailView:
     error_message: str | None
 
     actions: list[ActionSummary] = field(default_factory=list)
+
+
+# ==========================================================================
+# Language Analysis View Types
+# ==========================================================================
+
+
+@dataclass
+class AnalysisStatusSummary:
+    """Summary of language analysis status across the library.
+
+    Attributes:
+        total_files: Total files with audio tracks.
+        total_tracks: Total audio tracks in library.
+        analyzed_tracks: Number of tracks with analysis results.
+        pending_tracks: Number of tracks awaiting analysis.
+        multi_language_count: Number of tracks classified as multi-language.
+        single_language_count: Number of tracks classified as single-language.
+    """
+
+    total_files: int
+    total_tracks: int
+    analyzed_tracks: int
+    pending_tracks: int
+    multi_language_count: int
+    single_language_count: int
+
+
+@dataclass
+class FileAnalysisStatus:
+    """Analysis status for a single file.
+
+    Attributes:
+        file_id: File primary key.
+        file_path: Full file path.
+        track_count: Number of audio tracks.
+        analyzed_count: Number of tracks with analysis.
+    """
+
+    file_id: int
+    file_path: str
+    track_count: int
+    analyzed_count: int
+
+
+@dataclass
+class TrackAnalysisDetail:
+    """Detailed analysis result for a single track.
+
+    Attributes:
+        track_id: Track primary key.
+        track_index: Track index within file.
+        language: Original language tag from file metadata.
+        classification: Classification (single_language, multi_language).
+        primary_language: Primary detected language.
+        primary_percentage: Percentage of primary language (0.0-1.0).
+        secondary_languages: Comma-separated secondary languages.
+        analyzed_at: ISO-8601 timestamp of analysis.
+    """
+
+    track_id: int
+    track_index: int
+    language: str | None
+    classification: str
+    primary_language: str
+    primary_percentage: float
+    secondary_languages: str | None
+    analyzed_at: str

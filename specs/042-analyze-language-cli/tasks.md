@@ -24,8 +24,8 @@
 
 **Purpose**: Project initialization and module structure
 
-- [ ] T001 Create CLI module file at src/video_policy_orchestrator/cli/analyze_language.py with Click group skeleton
-- [ ] T002 [P] Create test file at tests/unit/cli/test_analyze_language.py with test class structure
+- [X] T001 Create CLI module file at src/video_policy_orchestrator/cli/analyze_language.py with Click group skeleton
+- [X] T002 [P] Create test file at tests/unit/cli/test_analyze_language.py with test class structure
 
 ---
 
@@ -37,22 +37,22 @@
 
 ### Database Status Queries (db/views.py)
 
-- [ ] T003 Add AnalysisStatusSummary dataclass to src/video_policy_orchestrator/db/types.py
-- [ ] T004 Add FileAnalysisStatus dataclass to src/video_policy_orchestrator/db/types.py
-- [ ] T005 [P] Implement get_analysis_status_summary() in src/video_policy_orchestrator/db/views.py
-- [ ] T006 [P] Implement get_files_analysis_status() with filter support in src/video_policy_orchestrator/db/views.py
-- [ ] T007 [P] Implement get_file_analysis_detail() in src/video_policy_orchestrator/db/views.py
+- [X] T003 Add AnalysisStatusSummary dataclass to src/video_policy_orchestrator/db/types.py
+- [X] T004 Add FileAnalysisStatus dataclass to src/video_policy_orchestrator/db/types.py
+- [X] T005 [P] Implement get_analysis_status_summary() in src/video_policy_orchestrator/db/views.py
+- [X] T006 [P] Implement get_files_analysis_status() with filter support in src/video_policy_orchestrator/db/views.py
+- [X] T007 [P] Implement get_file_analysis_detail() in src/video_policy_orchestrator/db/views.py
 
 ### Database Deletion Queries (db/queries.py)
 
-- [ ] T008 [P] Implement delete_analysis_for_file() in src/video_policy_orchestrator/db/queries.py
-- [ ] T009 [P] Implement delete_analysis_by_path_prefix() in src/video_policy_orchestrator/db/queries.py
-- [ ] T010 [P] Implement delete_all_analysis() in src/video_policy_orchestrator/db/queries.py
-- [ ] T011 [P] Implement get_file_ids_by_path_prefix() in src/video_policy_orchestrator/db/queries.py
+- [X] T008 [P] Implement delete_analysis_for_file() in src/video_policy_orchestrator/db/queries.py
+- [X] T009 [P] Implement delete_analysis_by_path_prefix() in src/video_policy_orchestrator/db/queries.py
+- [X] T010 [P] Implement delete_all_analysis() in src/video_policy_orchestrator/db/queries.py
+- [X] T011 [P] Implement get_file_ids_by_path_prefix() in src/video_policy_orchestrator/db/queries.py
 
 ### Export Public API
 
-- [ ] T012 Export new types and functions in src/video_policy_orchestrator/db/__init__.py
+- [X] T012 Export new types and functions in src/video_policy_orchestrator/db/__init__.py
 
 ### Unit Tests for Foundational Queries
 
@@ -71,19 +71,19 @@
 
 ### Tests for User Story 1
 
-- [ ] T015 [P] [US1] Add test for run_command argument validation in tests/unit/cli/test_analyze_language.py
-- [ ] T016 [P] [US1] Add test for run_command with file not in database in tests/unit/cli/test_analyze_language.py
-- [ ] T017 [P] [US1] Add test for run_command with --force flag in tests/unit/cli/test_analyze_language.py
+- [X] T015 [P] [US1] Add test for run_command argument validation in tests/unit/cli/test_analyze_language.py
+- [X] T016 [P] [US1] Add test for run_command with file not in database in tests/unit/cli/test_analyze_language.py
+- [X] T017 [P] [US1] Add test for run_command with --force flag in tests/unit/cli/test_analyze_language.py
 
 ### Implementation for User Story 1
 
-- [ ] T018 [US1] Add AnalysisRunResult dataclass for batch results in src/video_policy_orchestrator/cli/analyze_language.py
-- [ ] T019 [US1] Implement _check_plugin_available() helper in src/video_policy_orchestrator/cli/analyze_language.py
-- [ ] T020 [US1] Implement _resolve_files_from_paths() helper with --recursive support in src/video_policy_orchestrator/cli/analyze_language.py (resolve paths to FileRecords, warn and skip paths not in database, error if no valid files found)
-- [ ] T021 [US1] Implement run_command() with --force, --recursive, --json options (FR-002, FR-003, FR-004) in src/video_policy_orchestrator/cli/analyze_language.py
-- [ ] T022 [US1] Add progress bar for multi-file analysis in src/video_policy_orchestrator/cli/analyze_language.py
-- [ ] T023 [US1] Add human-readable output formatting for run results in src/video_policy_orchestrator/cli/analyze_language.py
-- [ ] T024 [US1] Add JSON output formatting for run results in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T018 [US1] Add AnalysisRunResult dataclass for batch results in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T019 [US1] Implement _check_plugin_available() helper in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T020 [US1] Implement _resolve_files_from_paths() helper with --recursive support in src/video_policy_orchestrator/cli/analyze_language.py (resolve paths to FileRecords, warn and skip paths not in database, error if no valid files found)
+- [X] T021 [US1] Implement run_command() with --force, --recursive, --json options (FR-002, FR-003, FR-004) in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T022 [US1] Add progress bar for multi-file analysis in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T023 [US1] Add human-readable output formatting for run results in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T024 [US1] Add JSON output formatting for run results in src/video_policy_orchestrator/cli/analyze_language.py
 
 **Checkpoint**: `vpo analyze-language run` should be fully functional
 
@@ -97,17 +97,17 @@
 
 ### Tests for User Story 2
 
-- [ ] T025 [P] [US2] Add test for status_command summary output in tests/unit/cli/test_analyze_language.py
-- [ ] T026 [P] [US2] Add test for status_command with file path in tests/unit/cli/test_analyze_language.py
-- [ ] T027 [P] [US2] Add test for status_command --filter option in tests/unit/cli/test_analyze_language.py
+- [X] T025 [P] [US2] Add test for status_command summary output in tests/unit/cli/test_analyze_language.py
+- [X] T026 [P] [US2] Add test for status_command with file path in tests/unit/cli/test_analyze_language.py
+- [X] T027 [P] [US2] Add test for status_command --filter option in tests/unit/cli/test_analyze_language.py
 
 ### Implementation for User Story 2
 
-- [ ] T028 [US2] Implement status_command() with --filter, --json, --limit options in src/video_policy_orchestrator/cli/analyze_language.py
-- [ ] T029 [US2] Add _format_status_summary() helper for library-wide summary in src/video_policy_orchestrator/cli/analyze_language.py
-- [ ] T030 [US2] Add _format_file_detail() helper for single-file detail in src/video_policy_orchestrator/cli/analyze_language.py
-- [ ] T031 [US2] Add _format_file_list() helper for filtered file list in src/video_policy_orchestrator/cli/analyze_language.py
-- [ ] T032 [US2] Add JSON output formatting for status results in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T028 [US2] Implement status_command() with --filter, --json, --limit options in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T029 [US2] Add _format_status_summary() helper for library-wide summary in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T030 [US2] Add _format_file_detail() helper for single-file detail in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T031 [US2] Add _format_file_list() helper for filtered file list in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T032 [US2] Add JSON output formatting for status results in src/video_policy_orchestrator/cli/analyze_language.py
 
 **Checkpoint**: `vpo analyze-language status` should be fully functional
 
@@ -121,17 +121,17 @@
 
 ### Tests for User Story 3
 
-- [ ] T033 [P] [US3] Add test for clear_command requires path or --all in tests/unit/cli/test_analyze_language.py
-- [ ] T034 [P] [US3] Add test for clear_command --dry-run output in tests/unit/cli/test_analyze_language.py
-- [ ] T035 [P] [US3] Add test for clear_command confirmation prompt in tests/unit/cli/test_analyze_language.py
+- [X] T033 [P] [US3] Add test for clear_command requires path or --all in tests/unit/cli/test_analyze_language.py
+- [X] T034 [P] [US3] Add test for clear_command --dry-run output in tests/unit/cli/test_analyze_language.py
+- [X] T035 [P] [US3] Add test for clear_command confirmation prompt in tests/unit/cli/test_analyze_language.py
 
 ### Implementation for User Story 3
 
-- [ ] T036 [US3] Implement clear_command() with --all, --yes, --dry-run, --recursive, --json options in src/video_policy_orchestrator/cli/analyze_language.py
-- [ ] T037 [US3] Add _count_affected_results() helper for preview in src/video_policy_orchestrator/cli/analyze_language.py
-- [ ] T038 [US3] Add confirmation prompt logic with click.confirm() in src/video_policy_orchestrator/cli/analyze_language.py
-- [ ] T039 [US3] Add human-readable output formatting for clear results in src/video_policy_orchestrator/cli/analyze_language.py
-- [ ] T040 [US3] Add JSON output formatting for clear results in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T036 [US3] Implement clear_command() with --all, --yes, --dry-run, --recursive, --json options in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T037 [US3] Add _count_affected_results() helper for preview in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T038 [US3] Add confirmation prompt logic with click.confirm() in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T039 [US3] Add human-readable output formatting for clear results in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T040 [US3] Add JSON output formatting for clear results in src/video_policy_orchestrator/cli/analyze_language.py
 
 **Checkpoint**: `vpo analyze-language clear` should be fully functional
 
@@ -143,7 +143,7 @@
 
 ### Command Registration
 
-- [ ] T041 Register analyze_language_group in src/video_policy_orchestrator/cli/__init__.py
+- [X] T041 Register analyze_language_group in src/video_policy_orchestrator/cli/__init__.py
 
 ### Integration Tests
 
@@ -156,8 +156,8 @@
 
 ### Edge Case Handling
 
-- [ ] T045 [P] Add plugin unavailable error handling across all commands in src/video_policy_orchestrator/cli/analyze_language.py
-- [ ] T046 [P] Add no audio tracks warning handling in run_command in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T045 [P] Add plugin unavailable error handling across all commands in src/video_policy_orchestrator/cli/analyze_language.py
+- [X] T046 [P] Add no audio tracks warning handling in run_command in src/video_policy_orchestrator/cli/analyze_language.py
 
 ---
 
