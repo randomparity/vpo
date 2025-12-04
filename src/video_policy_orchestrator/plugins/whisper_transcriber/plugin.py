@@ -7,6 +7,7 @@ offline transcription and language detection.
 from datetime import datetime, timezone
 
 from video_policy_orchestrator.language import normalize_language
+from video_policy_orchestrator.plugin.events import TranscriptionRequestedEvent
 from video_policy_orchestrator.transcription.interface import (
     MultiLanguageDetectionResult,
     TranscriptionError,
@@ -93,6 +94,9 @@ class WhisperTranscriptionPlugin:
     Provides local, offline transcription and language detection
     using OpenAI's Whisper models.
     """
+
+    # Plugin system event subscription
+    events: list[str] = ["transcription.requested"]
 
     def __init__(self, config: TranscriptionConfig | None = None) -> None:
         """Initialize the plugin.
@@ -378,3 +382,28 @@ class WhisperTranscriptionPlugin:
                 has_speech=False,
                 errors=[str(e)],
             )
+
+    def on_transcription_requested(
+        self,
+        event: TranscriptionRequestedEvent,
+    ) -> TranscriptionResult | None:
+        """Handle transcription request event from the plugin system.
+
+        This method is called by TranscriptionCoordinator when transcription
+        is requested through the plugin event system.
+
+        Args:
+            event: TranscriptionRequestedEvent with audio data and options.
+
+        Returns:
+            TranscriptionResult if successful, None if cannot handle.
+        """
+        try:
+            return self.transcribe(
+                audio_data=event.audio_data,
+                sample_rate=event.sample_rate,
+                language=event.options.get("language"),
+            )
+        except TranscriptionError:
+            # Return None to let coordinator try other plugins
+            return None
