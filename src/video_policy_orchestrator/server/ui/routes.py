@@ -164,6 +164,33 @@ def _get_polling_config() -> dict:
     }
 
 
+def _make_file_plugin_query(connection_pool: DaemonConnectionPool, file_id: int):
+    """Create a callable that queries file record and plugin data.
+
+    Returns a function suitable for asyncio.to_thread() that returns
+    (FileRecord | None, dict) tuple.
+
+    Args:
+        connection_pool: Database connection pool.
+        file_id: ID of file to query.
+
+    Returns:
+        Callable that returns (file_record, plugin_data) tuple.
+    """
+    from video_policy_orchestrator.db import get_file_by_id
+    from video_policy_orchestrator.db.views import get_plugin_data_for_file
+
+    def _query():
+        with connection_pool.transaction() as conn:
+            file_record = get_file_by_id(conn, file_id)
+            if file_record is None:
+                return None, {}
+            plugin_data = get_plugin_data_for_file(conn, file_id)
+            return file_record, plugin_data
+
+    return _query
+
+
 # NOTE: parse_iso_timestamp moved to video_policy_orchestrator.core.datetime_utils
 # Import parse_iso_timestamp at module level for use throughout this file
 
@@ -2724,8 +2751,6 @@ async def api_file_plugin_data_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with FilePluginDataResponse payload.
     """
-    from video_policy_orchestrator.db import get_file_by_id
-    from video_policy_orchestrator.db.views import get_plugin_data_for_file
     from video_policy_orchestrator.server.ui.models import FilePluginDataResponse
 
     file_id_str = request.match_info["file_id"]
@@ -2745,15 +2770,8 @@ async def api_file_plugin_data_handler(request: web.Request) -> web.Response:
     connection_pool = request["connection_pool"]
 
     # Query file and plugin data
-    def _query_data():
-        with connection_pool.transaction() as conn:
-            file_record = get_file_by_id(conn, file_id)
-            if file_record is None:
-                return None, {}
-            plugin_data = get_plugin_data_for_file(conn, file_id)
-            return file_record, plugin_data
-
-    file_record, plugin_data = await asyncio.to_thread(_query_data)
+    query_fn = _make_file_plugin_query(connection_pool, file_id)
+    file_record, plugin_data = await asyncio.to_thread(query_fn)
 
     if file_record is None:
         return web.json_response(
@@ -2782,9 +2800,6 @@ async def api_file_plugin_data_single_handler(request: web.Request) -> web.Respo
     Returns:
         JSON response with plugin-specific data.
     """
-    from video_policy_orchestrator.db import get_file_by_id
-    from video_policy_orchestrator.db.views import get_plugin_data_for_file
-
     file_id_str = request.match_info["file_id"]
     plugin_name = request.match_info["plugin"]
 
@@ -2810,15 +2825,8 @@ async def api_file_plugin_data_single_handler(request: web.Request) -> web.Respo
     connection_pool = request["connection_pool"]
 
     # Query file and plugin data
-    def _query_data():
-        with connection_pool.transaction() as conn:
-            file_record = get_file_by_id(conn, file_id)
-            if file_record is None:
-                return None, {}
-            plugin_data = get_plugin_data_for_file(conn, file_id)
-            return file_record, plugin_data
-
-    file_record, plugin_data = await asyncio.to_thread(_query_data)
+    query_fn = _make_file_plugin_query(connection_pool, file_id)
+    file_record, plugin_data = await asyncio.to_thread(query_fn)
 
     if file_record is None:
         return web.json_response(

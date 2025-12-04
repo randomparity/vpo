@@ -277,3 +277,80 @@ class TestPluginDataExports:
 
         assert callable(get_files_with_plugin_data)
         assert callable(get_plugin_data_for_file)
+
+
+class TestWindowFunctionOptimization:
+    """Tests for window function optimization in pagination queries.
+
+    These tests verify that the COUNT(*) OVER() window function returns
+    correct totals across different pagination scenarios.
+    """
+
+    def test_total_count_consistent_across_pages(self, db_conn):
+        """Total count remains consistent when paginating through results."""
+        # Create test data
+        for i in range(20):
+            create_file_with_plugin_metadata(
+                db_conn,
+                i + 1,
+                f"file{i:02d}.mkv",
+                plugin_metadata={"test-plugin": {"index": i}},
+            )
+
+        # Query different pages and verify total is consistent
+        totals = []
+        for offset in [0, 5, 10, 15]:
+            _, total = get_files_with_plugin_data(
+                db_conn,
+                "test-plugin",
+                limit=5,
+                offset=offset,
+                return_total=True,
+            )
+            totals.append(total)
+
+        assert all(t == 20 for t in totals), f"Inconsistent totals: {totals}"
+
+    def test_total_correct_when_limit_exceeds_results(self, db_conn):
+        """Total reflects actual count even when limit is larger."""
+        # Create only 3 files
+        for i in range(3):
+            create_file_with_plugin_metadata(
+                db_conn,
+                i + 1,
+                f"file{i}.mkv",
+                plugin_metadata={"test-plugin": {"index": i}},
+            )
+
+        # Query with limit larger than data
+        result, total = get_files_with_plugin_data(
+            db_conn,
+            "test-plugin",
+            limit=100,
+            offset=0,
+            return_total=True,
+        )
+
+        assert len(result) == 3
+        assert total == 3
+
+    def test_total_zero_when_no_matches(self, db_conn):
+        """Total is zero when no files match the plugin filter."""
+        # Create files with different plugin
+        for i in range(5):
+            create_file_with_plugin_metadata(
+                db_conn,
+                i + 1,
+                f"file{i}.mkv",
+                plugin_metadata={"other-plugin": {"index": i}},
+            )
+
+        result, total = get_files_with_plugin_data(
+            db_conn,
+            "nonexistent-plugin",
+            limit=10,
+            return_total=True,
+        )
+
+        assert result == []
+        assert total == 0

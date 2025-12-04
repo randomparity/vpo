@@ -1108,27 +1108,27 @@ def get_files_with_plugin_data(
     if not re.match(r"^[a-zA-Z0-9_-]+$", plugin_name):
         raise ValueError(f"Invalid plugin name format: {plugin_name}")
 
-    # Count query
-    total = 0
+    # Build query - use window function for total count when needed
+    # This avoids a separate COUNT query (single query optimization)
     if return_total:
-        count_query = """
-            SELECT COUNT(*)
+        query = """
+            SELECT
+                id, filename, path, scan_status, plugin_metadata,
+                COUNT(*) OVER() as total_count
             FROM files
             WHERE plugin_metadata IS NOT NULL
             AND json_extract(plugin_metadata, ?) IS NOT NULL
+            ORDER BY filename
         """
-        cursor = conn.execute(count_query, (f"$.{plugin_name}",))
-        total = cursor.fetchone()[0]
-
-    # Main query
-    query = """
-        SELECT
-            id, filename, path, scan_status, plugin_metadata
-        FROM files
-        WHERE plugin_metadata IS NOT NULL
-        AND json_extract(plugin_metadata, ?) IS NOT NULL
-        ORDER BY filename
-    """
+    else:
+        query = """
+            SELECT
+                id, filename, path, scan_status, plugin_metadata
+            FROM files
+            WHERE plugin_metadata IS NOT NULL
+            AND json_extract(plugin_metadata, ?) IS NOT NULL
+            ORDER BY filename
+        """
 
     # Add pagination
     params: list[str | int] = [f"$.{plugin_name}"]
@@ -1140,9 +1140,13 @@ def get_files_with_plugin_data(
             params.append(offset)
 
     cursor = conn.execute(query, params)
+    rows = cursor.fetchall()
+
+    # Extract total from first row if using window function (or 0 if empty)
+    total = rows[0][5] if return_total and rows else 0
 
     files = []
-    for row in cursor.fetchall():
+    for row in rows:
         plugin_metadata = json.loads(row[4]) if row[4] else {}
         files.append(
             {
