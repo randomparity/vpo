@@ -788,10 +788,20 @@ def _build_file_detail_item(file_record, tracks, transcriptions) -> FileDetailIt
     Returns:
         FileDetailItem ready for API/template use.
     """
+    import json
+
     # Group tracks by type
     video_tracks, audio_tracks, subtitle_tracks, other_tracks = group_tracks_by_type(
         tracks, transcriptions
     )
+
+    # Parse plugin_metadata JSON (236-generic-plugin-data-browser)
+    plugin_metadata = None
+    if file_record.plugin_metadata:
+        try:
+            plugin_metadata = json.loads(file_record.plugin_metadata)
+        except (json.JSONDecodeError, TypeError):
+            pass
 
     return FileDetailItem(
         id=file_record.id,
@@ -811,6 +821,7 @@ def _build_file_detail_item(file_record, tracks, transcriptions) -> FileDetailIt
         audio_tracks=audio_tracks,
         subtitle_tracks=subtitle_tracks,
         other_tracks=other_tracks,
+        plugin_metadata=plugin_metadata,
     )
 
 
@@ -2567,6 +2578,329 @@ async def api_stats_policy_handler(request: web.Request) -> web.Response:
     return web.json_response(asdict(policy))
 
 
+# ==========================================================================
+# Plugin Data Browser View Handlers (236-generic-plugin-data-browser)
+# ==========================================================================
+
+
+@shutdown_check_middleware
+async def api_plugins_list_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/plugins - JSON API for registered plugins list.
+
+    Returns:
+        JSON response with PluginListResponse payload.
+    """
+    from video_policy_orchestrator.plugin.manifest import PluginSource
+    from video_policy_orchestrator.server.ui.models import (
+        PluginInfo,
+        PluginListResponse,
+    )
+
+    # Get plugin registry from app context
+    registry = request.app.get("plugin_registry")
+    if registry is None:
+        # No registry configured - return empty list
+        response = PluginListResponse(plugins=[], total=0)
+        return web.json_response(response.to_dict())
+
+    # Get all loaded plugins
+    loaded_plugins = registry.get_all()
+
+    plugins = [
+        PluginInfo(
+            name=p.name,
+            version=p.version,
+            enabled=p.enabled,
+            is_builtin=p.source == PluginSource.BUILTIN,
+            events=p.events,
+        )
+        for p in loaded_plugins
+    ]
+
+    response = PluginListResponse(plugins=plugins, total=len(plugins))
+    return web.json_response(response.to_dict())
+
+
+@shutdown_check_middleware
+@database_required_middleware
+async def api_plugin_files_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/plugins/{name}/files - Files with data from plugin.
+
+    Path parameters:
+        name: Plugin identifier (e.g., "whisper-transcriber").
+
+    Query parameters:
+        limit: Page size (1-100, default 50).
+        offset: Pagination offset (default 0).
+
+    Returns:
+        JSON response with PluginFilesResponse payload.
+    """
+    from video_policy_orchestrator.db.views import get_files_with_plugin_data
+    from video_policy_orchestrator.server.ui.models import (
+        PluginFileItem,
+        PluginFilesResponse,
+    )
+
+    plugin_name = request.match_info["name"]
+
+    # Validate plugin name (alphanumeric, dash, underscore only)
+    if not re.match(r"^[a-zA-Z0-9_-]+$", plugin_name):
+        return web.json_response(
+            {"error": "Invalid plugin name format"},
+            status=400,
+        )
+
+    # Parse pagination parameters
+    try:
+        limit = int(request.query.get("limit", 50))
+        limit = max(1, min(100, limit))
+    except (ValueError, TypeError):
+        limit = 50
+
+    try:
+        offset = int(request.query.get("offset", 0))
+        offset = max(0, offset)
+    except (ValueError, TypeError):
+        offset = 0
+
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
+
+    # Query files from database
+    def _query_files() -> tuple[list[dict], int]:
+        with connection_pool.transaction() as conn:
+            result = get_files_with_plugin_data(
+                conn,
+                plugin_name,
+                limit=limit,
+                offset=offset,
+                return_total=True,
+            )
+            return result  # type: ignore[return-value]
+
+    files_data, total = await asyncio.to_thread(_query_files)
+
+    # Convert to PluginFileItem
+    files = [
+        PluginFileItem(
+            id=f["id"],
+            filename=f["filename"],
+            path=f["path"],
+            scan_status=f["scan_status"],
+            plugin_data=f["plugin_data"],
+        )
+        for f in files_data
+    ]
+
+    response = PluginFilesResponse(
+        plugin_name=plugin_name,
+        files=files,
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+    return web.json_response(response.to_dict())
+
+
+@shutdown_check_middleware
+@database_required_middleware
+async def api_file_plugin_data_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/files/{file_id}/plugin-data - All plugin data for file.
+
+    Path parameters:
+        file_id: ID of file to get plugin data for.
+
+    Returns:
+        JSON response with FilePluginDataResponse payload.
+    """
+    from video_policy_orchestrator.db.models import get_file_by_id
+    from video_policy_orchestrator.db.views import get_plugin_data_for_file
+    from video_policy_orchestrator.server.ui.models import FilePluginDataResponse
+
+    file_id_str = request.match_info["file_id"]
+
+    # Validate ID format (integer)
+    try:
+        file_id = int(file_id_str)
+        if file_id < 1:
+            raise ValueError("Invalid ID")
+    except ValueError:
+        return web.json_response(
+            {"error": "Invalid file ID format"},
+            status=400,
+        )
+
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
+
+    # Query file and plugin data
+    def _query_data():
+        with connection_pool.transaction() as conn:
+            file_record = get_file_by_id(conn, file_id)
+            if file_record is None:
+                return None, {}
+            plugin_data = get_plugin_data_for_file(conn, file_id)
+            return file_record, plugin_data
+
+    file_record, plugin_data = await asyncio.to_thread(_query_data)
+
+    if file_record is None:
+        return web.json_response(
+            {"error": "File not found"},
+            status=404,
+        )
+
+    response = FilePluginDataResponse(
+        file_id=file_id,
+        filename=file_record.filename,
+        plugin_data=plugin_data,
+    )
+
+    return web.json_response(response.to_dict())
+
+
+@shutdown_check_middleware
+@database_required_middleware
+async def api_file_plugin_data_single_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/files/{file_id}/plugin-data/{plugin} - Single plugin's data.
+
+    Path parameters:
+        file_id: ID of file to get plugin data for.
+        plugin: Plugin identifier.
+
+    Returns:
+        JSON response with plugin-specific data.
+    """
+    from video_policy_orchestrator.db.models import get_file_by_id
+    from video_policy_orchestrator.db.views import get_plugin_data_for_file
+
+    file_id_str = request.match_info["file_id"]
+    plugin_name = request.match_info["plugin"]
+
+    # Validate ID format (integer)
+    try:
+        file_id = int(file_id_str)
+        if file_id < 1:
+            raise ValueError("Invalid ID")
+    except ValueError:
+        return web.json_response(
+            {"error": "Invalid file ID format"},
+            status=400,
+        )
+
+    # Validate plugin name
+    if not re.match(r"^[a-zA-Z0-9_-]+$", plugin_name):
+        return web.json_response(
+            {"error": "Invalid plugin name format"},
+            status=400,
+        )
+
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
+
+    # Query file and plugin data
+    def _query_data():
+        with connection_pool.transaction() as conn:
+            file_record = get_file_by_id(conn, file_id)
+            if file_record is None:
+                return None, {}
+            plugin_data = get_plugin_data_for_file(conn, file_id)
+            return file_record, plugin_data
+
+    file_record, plugin_data = await asyncio.to_thread(_query_data)
+
+    if file_record is None:
+        return web.json_response(
+            {"error": "File not found"},
+            status=404,
+        )
+
+    # Get specific plugin's data
+    specific_data = plugin_data.get(plugin_name)
+    if specific_data is None:
+        return web.json_response(
+            {"error": f"No data from plugin '{plugin_name}' for this file"},
+            status=404,
+        )
+
+    return web.json_response(
+        {
+            "file_id": file_id,
+            "filename": file_record.filename,
+            "plugin_name": plugin_name,
+            "data": specific_data,
+        }
+    )
+
+
+async def file_plugin_data_handler(request: web.Request) -> dict:
+    """Handle GET /library/{file_id}/plugins - Plugin data page for file.
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        Template context dict for rendering.
+
+    Raises:
+        HTTPNotFound: If file not found.
+        HTTPBadRequest: If file ID format is invalid.
+        HTTPServiceUnavailable: If database not available.
+    """
+    from video_policy_orchestrator.db.models import get_file_by_id
+    from video_policy_orchestrator.db.views import get_plugin_data_for_file
+    from video_policy_orchestrator.server.ui.models import PluginDataContext
+
+    file_id_str = request.match_info["file_id"]
+
+    # Validate ID format (integer)
+    try:
+        file_id = int(file_id_str)
+        if file_id < 1:
+            raise ValueError("Invalid ID")
+    except ValueError:
+        raise web.HTTPBadRequest(reason="Invalid file ID format")
+
+    # Get connection pool
+    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
+    if connection_pool is None:
+        raise web.HTTPServiceUnavailable(reason="Database not available")
+
+    # Query file and plugin data
+    def _query_data():
+        with connection_pool.transaction() as conn:
+            file_record = get_file_by_id(conn, file_id)
+            if file_record is None:
+                return None, {}
+            plugin_data = get_plugin_data_for_file(conn, file_id)
+            return file_record, plugin_data
+
+    file_record, plugin_data = await asyncio.to_thread(_query_data)
+
+    if file_record is None:
+        raise web.HTTPNotFound(reason="File not found")
+
+    # Build context
+    plugin_context = PluginDataContext(
+        file_id=file_id,
+        filename=file_record.filename,
+        file_path=file_record.path,
+        plugin_data=plugin_data,
+        plugin_count=len(plugin_data),
+    )
+
+    context = _create_template_context(
+        active_id="library",
+        section_title=f"Plugin Data: {file_record.filename}",
+    )
+    context["plugin_context"] = plugin_context
+    context["back_url"] = f"/library/{file_id}"
+
+    return context
+
+
 # Documentation URL constant
 DOCS_URL = "https://github.com/randomparity/vpo/tree/main/docs"
 
@@ -2749,28 +3083,19 @@ def setup_ui_routes(app: web.Application) -> None:
     # Library API routes (018-library-list-view, 019-library-filters-search)
     app.router.add_get("/api/library", library_api_handler)
     app.router.add_get("/api/library/languages", api_library_languages_handler)
+    # Plugin data route (register before /library/{file_id} for correct matching)
+    app.router.add_get(
+        "/library/{file_id}/plugins",
+        aiohttp_jinja2.template("sections/plugin_data.html")(file_plugin_data_handler),
+    )
     # File detail routes (020-file-detail-view)
     app.router.add_get(
         "/library/{file_id}",
         aiohttp_jinja2.template("sections/file_detail.html")(file_detail_handler),
     )
     app.router.add_get("/api/library/{file_id}", api_file_detail_handler)
-    app.router.add_get(
-        "/transcriptions",
-        aiohttp_jinja2.template("sections/transcriptions.html")(transcriptions_handler),
-    )
-    # Transcriptions API route (021-transcriptions-list)
-    app.router.add_get("/api/transcriptions", api_transcriptions_handler)
-    # Transcription detail routes (022-transcription-detail)
-    app.router.add_get(
-        "/transcriptions/{transcription_id}",
-        aiohttp_jinja2.template("sections/transcription_detail.html")(
-            transcription_detail_handler
-        ),
-    )
-    app.router.add_get(
-        "/api/transcriptions/{transcription_id}", api_transcription_detail_handler
-    )
+    # NOTE: Transcription routes removed in 236-generic-plugin-data-browser
+    # Transcription data is now accessed via generic plugin data browser
     app.router.add_get(
         "/policies",
         aiohttp_jinja2.template("sections/policies.html")(policies_handler),
@@ -2812,6 +3137,13 @@ def setup_ui_routes(app: web.Application) -> None:
     app.router.add_get("/api/stats/files/{file_id}", api_stats_file_handler)
     app.router.add_get("/api/stats/{stats_id}", api_stats_detail_handler)
     app.router.add_delete("/api/stats/purge", api_stats_purge_handler)
+    # Plugin data browser API routes (236-generic-plugin-data-browser)
+    app.router.add_get("/api/plugins", api_plugins_list_handler)
+    app.router.add_get("/api/plugins/{name}/files", api_plugin_files_handler)
+    app.router.add_get("/api/files/{file_id}/plugin-data", api_file_plugin_data_handler)
+    app.router.add_get(
+        "/api/files/{file_id}/plugin-data/{plugin}", api_file_plugin_data_single_handler
+    )
     app.router.add_get(
         "/about",
         aiohttp_jinja2.template("sections/about.html")(about_handler),

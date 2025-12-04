@@ -125,6 +125,24 @@
     </section>
     {% endif %}
 
+    <!-- Plugin metadata section (236-generic-plugin-data-browser) -->
+    {% if file.has_plugin_data %}
+    <section class="file-detail-plugins">
+        <h2>Plugin Data</h2>
+        <div class="plugin-data-summary">
+            <p>{{ file.plugin_count }} plugin{% if file.plugin_count != 1 %}s{% endif %} have provided data for this file.</p>
+            <ul class="plugin-list">
+                {% for plugin_name, data in file.plugin_metadata.items() %}
+                <li class="plugin-list-item">
+                    <strong>{{ plugin_name }}</strong>: {{ data | length }} field{% if data | length != 1 %}s{% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            <a href="/library/{{ file.id }}/plugins" class="plugin-data-link">View All Plugin Data &rarr;</a>
+        </div>
+    </section>
+    {% endif %}
+
     <!-- Video tracks section (US2) -->
     {% if file.video_tracks %}
     <section class="file-detail-tracks {% if file.has_many_tracks %}collapsible{% endif %}" data-track-type="video">
