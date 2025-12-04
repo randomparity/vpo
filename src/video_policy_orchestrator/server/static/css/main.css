@@ -1891,6 +1891,21 @@ html, body {
     background-color: rgba(52, 152, 219, 0.08);
 }
 
+/* Focus styles for keyboard accessibility */
+.library-table tbody tr[data-file-id]:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.library-table tbody tr[data-file-id]:focus:not(:focus-visible) {
+    outline: none;
+}
+
+.library-table tbody tr[data-file-id]:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
 /* ==========================================================================
    Transcriptions Dashboard Styles (021-transcriptions-list)
    ========================================================================== */

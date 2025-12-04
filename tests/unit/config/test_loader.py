@@ -404,6 +404,33 @@ class TestConfigCache:
         # Should be the exact same dict object (cached)
         assert result1 is result2
 
+    def test_config_cache_thread_safety(self, tmp_path: Path) -> None:
+        """Config cache should be thread-safe for concurrent access."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        from video_policy_orchestrator.config.loader import clear_config_cache
+
+        # Clear cache first to ensure clean state
+        clear_config_cache()
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("[server]\nport = 9000")
+
+        results: list[dict] = []
+
+        def load_config() -> dict:
+            return load_config_file(config_file)
+
+        # Spawn many threads to hit the cache concurrently
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(load_config) for _ in range(100)]
+            for f in futures:
+                results.append(f.result())
+
+        # All results should be the exact same cached dict object
+        first = results[0]
+        assert all(r is first for r in results)
+
 
 class TestGetTempDirectory:
     """Tests for get_temp_directory function."""

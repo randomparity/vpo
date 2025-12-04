@@ -220,13 +220,15 @@
     }
 
     /**
-     * Setup click handlers on table rows for navigation to file detail.
+     * Setup click and keyboard handlers on table rows for navigation to file detail.
      * (020-file-detail-view)
      */
     function setupRowClickHandlers() {
         const rows = tableBodyEl.querySelectorAll('tr[data-file-id]')
         rows.forEach(function (row) {
             row.style.cursor = 'pointer'
+            row.setAttribute('tabindex', '0')
+            row.setAttribute('role', 'link')
             row.addEventListener('click', function (e) {
                 // Don't navigate if clicking on a link or button
                 if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') {
@@ -235,6 +237,16 @@
                 const fileId = row.getAttribute('data-file-id')
                 if (fileId) {
                     window.location.href = '/library/' + fileId
+                }
+            })
+            row.addEventListener('keydown', function (e) {
+                // Allow Enter and Space to activate the row
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    const fileId = row.getAttribute('data-file-id')
+                    if (fileId) {
+                        window.location.href = '/library/' + fileId
+                    }
                 }
             })
         })
