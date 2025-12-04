@@ -53,6 +53,7 @@ dev = [
     "ruff>=0.14.5",
     "pytest>=9.0.1",
     "pytest-aiohttp>=1.0.5",
+    "pytest-cov>=6.0",
     "maturin>=1.7",
     "pre-commit>=4.0",
     "bandit[toml]>=1.8.0",
@@ -95,6 +96,36 @@ markers = [
     "integration: marks tests as integration tests (require external tools)",
     "slow: marks tests as slow (may take longer than usual)",
 ]
+
+[tool.coverage.run]
+source = ["src/video_policy_orchestrator"]
+branch = true
+parallel = true
+omit = [
+    "*/tests/*",
+    "*/__init__.py",
+    "*/conftest.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "@abstractmethod",
+    "@overload",
+]
+fail_under = 60
+show_missing = true
+precision = 1
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.xml]
+output = "coverage.xml"
 
 [tool.bandit]
 exclude_dirs = ["tests", ".venv", "build", "dist"]

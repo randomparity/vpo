@@ -47,7 +47,7 @@ def get_config() -> dict[str, Any]:
 
     """
     try:
-        from video_policy_orchestrator.config.loader import load_config
+        from video_policy_orchestrator.config.loader import get_config as load_config
 
         config = load_config()
         return {
@@ -77,7 +77,7 @@ def get_data_dir() -> Path:
 
     """
     try:
-        from video_policy_orchestrator.config.loader import load_config
+        from video_policy_orchestrator.config.loader import get_config as load_config
 
         config = load_config()
         if config.data_dir:
