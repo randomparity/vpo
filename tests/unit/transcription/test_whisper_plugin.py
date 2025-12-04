@@ -18,10 +18,37 @@ class TestWhisperTranscriptionPlugin:
     """Tests for WhisperTranscriptionPlugin class."""
 
     def test_name_and_version(self):
-        """Test plugin name and version properties."""
+        """Test plugin name and version attributes."""
         plugin = WhisperTranscriptionPlugin()
         assert plugin.name == "whisper-local"
         assert plugin.version == "1.0.0"
+
+    def test_plugin_metadata_class_attributes(self):
+        """Test that plugin metadata are class attributes for plugin system."""
+        # These must be class attributes, not instance properties
+        assert hasattr(WhisperTranscriptionPlugin, "name")
+        assert hasattr(WhisperTranscriptionPlugin, "version")
+        assert hasattr(WhisperTranscriptionPlugin, "description")
+        assert hasattr(WhisperTranscriptionPlugin, "author")
+        assert hasattr(WhisperTranscriptionPlugin, "min_api_version")
+        assert hasattr(WhisperTranscriptionPlugin, "max_api_version")
+        assert hasattr(WhisperTranscriptionPlugin, "events")
+
+        # Verify values
+        assert WhisperTranscriptionPlugin.name == "whisper-local"
+        assert WhisperTranscriptionPlugin.version == "1.0.0"
+        assert WhisperTranscriptionPlugin.description == (
+            "Audio transcription and language detection using OpenAI Whisper"
+        )
+        assert WhisperTranscriptionPlugin.author == "VPO Team"
+        assert WhisperTranscriptionPlugin.min_api_version == "1.0.0"
+        assert WhisperTranscriptionPlugin.max_api_version == "1.99.99"
+        assert WhisperTranscriptionPlugin.events == ["transcription.requested"]
+
+    def test_events_attribute(self):
+        """Test plugin events subscription."""
+        plugin = WhisperTranscriptionPlugin()
+        assert plugin.events == ["transcription.requested"]
 
     def test_default_config(self):
         """Test plugin with default configuration."""
@@ -164,3 +191,110 @@ class TestWhisperPluginModelLoading:
 
         # Should fall back to CPU
         mock_whisper.load_model.assert_called_with("base", device="cpu")
+
+
+class TestWhisperPluginInstance:
+    """Tests for plugin_instance module-level export."""
+
+    def test_plugin_instance_exported(self):
+        """Test that plugin_instance is exported from package."""
+        from video_policy_orchestrator.plugins.whisper_transcriber import (
+            plugin_instance,
+        )
+
+        assert plugin_instance is not None
+        assert isinstance(plugin_instance, WhisperTranscriptionPlugin)
+
+    def test_plugin_instance_has_required_attributes(self):
+        """Test that plugin_instance has all required plugin attributes."""
+        from video_policy_orchestrator.plugins.whisper_transcriber import (
+            plugin_instance,
+        )
+
+        # Required for plugin system
+        assert hasattr(plugin_instance, "name")
+        assert hasattr(plugin_instance, "version")
+        assert hasattr(plugin_instance, "events")
+        assert hasattr(plugin_instance, "on_transcription_requested")
+
+    def test_plugin_instance_is_same_object(self):
+        """Verify plugin_instance is consistent across imports."""
+        from video_policy_orchestrator.plugins.whisper_transcriber import (
+            plugin_instance as p1,
+        )
+        from video_policy_orchestrator.plugins.whisper_transcriber import (
+            plugin_instance as p2,
+        )
+
+        assert p1 is p2
+
+
+class TestWhisperPluginRegistration:
+    """Tests for whisper plugin registration in PluginRegistry."""
+
+    def test_load_builtin_plugins_includes_whisper(self):
+        """Test that load_builtin_plugins loads whisper when available."""
+        from video_policy_orchestrator.plugin.registry import PluginRegistry
+
+        registry = PluginRegistry()
+        loaded = registry.load_builtin_plugins()
+
+        # Should load at least policy-engine, and whisper if available
+        plugin_names = [p.name for p in loaded]
+        assert "policy-engine" in plugin_names
+
+        # Whisper should be loaded since we can import it
+        assert "whisper-local" in plugin_names
+
+    def test_whisper_plugin_is_builtin(self):
+        """Test that whisper plugin is marked as built-in."""
+        from video_policy_orchestrator.plugin.manifest import PluginSource
+        from video_policy_orchestrator.plugin.registry import PluginRegistry
+
+        registry = PluginRegistry()
+        registry.load_builtin_plugins()
+
+        whisper = registry.get("whisper-local")
+        assert whisper is not None
+        assert whisper.source == PluginSource.BUILTIN
+
+    def test_whisper_plugin_events_registered(self):
+        """Test that whisper plugin events are properly registered."""
+        from video_policy_orchestrator.plugin.registry import PluginRegistry
+
+        registry = PluginRegistry()
+        registry.load_builtin_plugins()
+
+        # Should be findable by event
+        transcription_plugins = registry.get_by_event("transcription.requested")
+        plugin_names = [p.name for p in transcription_plugins]
+        assert "whisper-local" in plugin_names
+
+    def test_load_builtin_plugins_graceful_fallback_on_import_error(self, monkeypatch):
+        """Test that whisper plugin is gracefully skipped when import fails."""
+        import builtins
+        import sys
+
+        from video_policy_orchestrator.plugin.registry import PluginRegistry
+
+        # Clear any cached imports of whisper_transcriber
+        modules_to_remove = [key for key in sys.modules if "whisper_transcriber" in key]
+        for mod in modules_to_remove:
+            del sys.modules[mod]
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if "whisper_transcriber" in name:
+                raise ImportError("Mocked: whisper_transcriber not available")
+            return original_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", mock_import)
+
+        registry = PluginRegistry()
+        loaded = registry.load_builtin_plugins()
+
+        # Should still load policy-engine
+        plugin_names = [p.name for p in loaded]
+        assert "policy-engine" in plugin_names
+        assert "whisper-local" not in plugin_names

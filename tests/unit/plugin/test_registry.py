@@ -295,9 +295,12 @@ class TestBuiltinPlugins:
 
         loaded = registry.load_builtin_plugins()
 
-        assert len(loaded) == 1
-        assert loaded[0].name == "policy-engine"
-        assert loaded[0].source == PluginSource.BUILTIN
+        # policy-engine is always loaded; whisper-local is loaded when available
+        plugin_names = [p.name for p in loaded]
+        assert "policy-engine" in plugin_names
+        # All loaded plugins should be marked as builtin
+        for plugin in loaded:
+            assert plugin.source == PluginSource.BUILTIN
 
     def test_get_builtin(self):
         """Get built-in plugins from registry."""
@@ -309,9 +312,12 @@ class TestBuiltinPlugins:
         )
 
         builtins = registry.get_builtin()
+        builtin_names = [p.name for p in builtins]
 
-        assert len(builtins) == 1
-        assert builtins[0].name == "policy-engine"
+        # policy-engine is always built-in
+        assert "policy-engine" in builtin_names
+        # external should not be in builtins
+        assert "external" not in builtin_names
 
     def test_is_builtin(self):
         """Check if plugin is built-in."""
