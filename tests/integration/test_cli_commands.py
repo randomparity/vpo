@@ -30,7 +30,9 @@ class TestDoctorCommand:
         """Doctor command includes transcription plugins section."""
         runner = CliRunner()
         result = runner.invoke(main, ["doctor"])
-        assert result.exit_code == 0
+        # Exit code depends on tool availability (0=ok, 60=warnings, 61=critical)
+        # In CI environments, external tools may not be installed
+        assert result.exit_code in (0, 60, 61)
         # The output should mention transcription plugins (available or not)
         assert "Transcription" in result.output or "transcription" in result.output
 
