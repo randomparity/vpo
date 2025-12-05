@@ -20,6 +20,7 @@ from video_policy_orchestrator.db.types import (
     FileRecord,
     OriginalDubbedStatus,
     TrackClassificationRecord,
+    TrackInfo,
     TrackRecord,
 )
 
@@ -346,19 +347,19 @@ def _persist_classification(
     upsert_track_classification(conn, record)
 
 
-def _is_commentary_by_metadata(track: TrackRecord) -> bool:
+def _is_commentary_by_title(title: str | None) -> bool:
     """Check if track title indicates commentary.
 
     Args:
-        track: Track record to check.
+        title: Track title to check.
 
     Returns:
         True if title contains commentary keywords.
     """
-    if not track.title:
+    if not title:
         return False
 
-    title_lower = track.title.lower()
+    title_lower = title.lower()
     commentary_keywords = [
         "commentary",
         "director's commentary",
@@ -369,6 +370,18 @@ def _is_commentary_by_metadata(track: TrackRecord) -> bool:
     ]
 
     return any(keyword in title_lower for keyword in commentary_keywords)
+
+
+def _is_commentary_by_metadata(track: TrackRecord) -> bool:
+    """Check if track title indicates commentary.
+
+    Args:
+        track: Track record to check.
+
+    Returns:
+        True if title contains commentary keywords.
+    """
+    return _is_commentary_by_title(track.title)
 
 
 def _is_commentary_by_acoustic(profile: AcousticProfile) -> bool:
@@ -411,3 +424,34 @@ def _is_commentary_by_acoustic(profile: AcousticProfile) -> bool:
 
     # Threshold for commentary determination
     return score >= 0.5
+
+
+def _detect_commentary(
+    track: TrackRecord | TrackInfo,
+    acoustic_profile: AcousticProfile | None = None,
+) -> tuple[bool, str]:
+    """Detect if a track is commentary and return the detection source.
+
+    This is a convenience function for CLI use that wraps the metadata and
+    acoustic detection functions.
+
+    Args:
+        track: Track record or TrackInfo to check (must have .title attribute).
+        acoustic_profile: Optional acoustic analysis results.
+
+    Returns:
+        Tuple of (is_commentary, source) where source is one of:
+        - "metadata" if detected via title keywords
+        - "acoustic" if detected via acoustic analysis
+        - "none" if not detected as commentary
+    """
+    # Check metadata first (title keywords)
+    # Works with both TrackRecord and TrackInfo since both have .title
+    if _is_commentary_by_title(track.title):
+        return True, "metadata"
+
+    # Check acoustic profile if available
+    if acoustic_profile is not None and _is_commentary_by_acoustic(acoustic_profile):
+        return True, "acoustic"
+
+    return False, "none"

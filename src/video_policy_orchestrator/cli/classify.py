@@ -133,7 +133,7 @@ def classify_run(
     conn = _get_db_conn(ctx)
 
     # Look up file in database
-    file_record = get_file_by_path(conn, path)
+    file_record = get_file_by_path(conn, str(path))
     if file_record is None:
         click.echo(f"Error: File not found in database: {path}", err=True)
         click.echo("Run 'vpo scan' first to add the file to the library.", err=True)
@@ -207,24 +207,25 @@ def classify_run(
                 od_color = _color_for_status(original_dubbed)
                 cm_color = _color_for_status(commentary)
 
+                conf_str = f"{result.confidence:.0%}"
                 click.echo(
                     f"{track_idx:<6} "
                     f"{result.language or 'und':<6} "
                     f"{click.style(original_dubbed, fg=od_color):<10} "
                     f"{click.style(commentary, fg=cm_color):<12} "
-                    f"{result.confidence:.0%:<6} "
+                    f"{conf_str:<6} "
                     f"{result.detection_method.value}"
                 )
 
             click.echo("")
             click.echo(f"Classified {len(results)} audio track(s)")
 
-        ctx.exit(EXIT_SUCCESS)
-
     except Exception as e:
         logger.exception("Classification failed")
         click.echo(f"Error: Classification failed: {e}", err=True)
         ctx.exit(EXIT_CLASSIFICATION_FAILED)
+
+    ctx.exit(EXIT_SUCCESS)
 
 
 @classify_group.command(name="status")
@@ -252,7 +253,7 @@ def classify_status(
     conn = _get_db_conn(ctx)
 
     # Look up file in database
-    file_record = get_file_by_path(conn, path)
+    file_record = get_file_by_path(conn, str(path))
     if file_record is None:
         click.echo(f"Error: File not found in database: {path}", err=True)
         ctx.exit(EXIT_FILE_NOT_FOUND)
@@ -297,12 +298,13 @@ def classify_status(
         for c in classifications:
             od_color = _color_for_status(c.original_dubbed_status)
             cm_color = _color_for_status(c.commentary_status)
+            conf_str = f"{c.confidence:.0%}"
 
             click.echo(
                 f"{c.track_id:<10} "
                 f"{click.style(c.original_dubbed_status, fg=od_color):<10} "
                 f"{click.style(c.commentary_status, fg=cm_color):<12} "
-                f"{c.confidence:.0%:<12} "
+                f"{conf_str:<12} "
                 f"{c.detection_method}"
             )
 
@@ -338,7 +340,7 @@ def classify_clear(
     conn = _get_db_conn(ctx)
 
     # Look up file in database
-    file_record = get_file_by_path(conn, path)
+    file_record = get_file_by_path(conn, str(path))
     if file_record is None:
         click.echo(f"Error: File not found in database: {path}", err=True)
         ctx.exit(EXIT_FILE_NOT_FOUND)

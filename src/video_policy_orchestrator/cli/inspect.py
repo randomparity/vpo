@@ -309,12 +309,13 @@ def inspect_command(
                     od_color = "green" if od_type == "original" else "yellow"
                     cm_color = "cyan" if tc["is_commentary"] else "white"
 
+                    conf_str = f"{tc['original_confidence']:.0%}"
                     click.echo(
                         f"{tc['index']:<6} "
                         f"{tc['language']:<6} "
                         f"{click.style(od_type, fg=od_color):<10} "
                         f"{click.style(commentary, fg=cm_color):<12} "
-                        f"{tc['original_confidence']:.0%:<6} "
+                        f"{conf_str:<6} "
                         f"{tc['detection_method']}"
                     )
 
