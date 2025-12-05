@@ -41,7 +41,7 @@ uv run vpo serve --port 8080          # Start daemon with web UI
 
 - **Python 3.10+** with click (CLI), pydantic, PyYAML, aiohttp (daemon), Jinja2 (templates)
 - **Rust** (PyO3/maturin) for parallel file discovery and hashing in `crates/vpo-core/`
-- **SQLite** database at `~/.vpo/library.db` (schema version 17)
+- **SQLite** database at `~/.vpo/library.db` (schema version 18)
 - **Web UI**: Vanilla JavaScript (ES6+), no frameworks - uses polling for live updates
 - **External tools:** ffprobe (introspection), mkvpropedit/mkvmerge (MKV editing), ffmpeg (metadata editing)
 
@@ -337,10 +337,3 @@ vpo stats purge --all --yes              # Delete all
 - `GET /api/stats/files/{file_id}` - File processing history
 - `GET /api/stats/{stats_id}` - Single record detail
 - `DELETE /api/stats/purge?before=30d&dry_run=true` - Delete statistics
-
-## Active Technologies
-- Python 3.10+ + click (CLI), existing `language_analysis` module, existing `db` module (042-analyze-language-cli)
-- SQLite at `~/.vpo/library.db` - uses existing `language_analysis_results` and `language_segments` tables (042-analyze-language-cli)
-
-## Recent Changes
-- 042-analyze-language-cli: Added Python 3.10+ + click (CLI), existing `language_analysis` module, existing `db` module
