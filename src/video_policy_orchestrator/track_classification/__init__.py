@@ -4,6 +4,12 @@ Provides functionality to classify audio tracks as original/dubbed and detect
 commentary tracks via acoustic analysis.
 """
 
+from .acoustic import (
+    AcousticAnalyzer,
+    extract_acoustic_profile,
+    get_commentary_confidence,
+    is_commentary_by_acoustic,
+)
 from .metadata import (
     determine_original_track,
     get_original_language_from_metadata,
@@ -26,6 +32,11 @@ __all__ = [
     # Metadata functions
     "get_original_language_from_metadata",
     "determine_original_track",
+    # Acoustic functions
+    "extract_acoustic_profile",
+    "is_commentary_by_acoustic",
+    "get_commentary_confidence",
+    "AcousticAnalyzer",
     # Models
     "AcousticProfile",
     "TrackClassificationResult",

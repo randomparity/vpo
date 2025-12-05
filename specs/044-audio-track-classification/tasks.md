@@ -80,17 +80,17 @@
 
 ### Implementation for User Story 2
 
-- [ ] T029 [US2] Create extract_acoustic_profile() analyzing speech density and dynamic range in src/video_policy_orchestrator/track_classification/acoustic.py
-- [ ] T030 [US2] Create is_commentary_by_acoustic() evaluating profile for commentary indicators in src/video_policy_orchestrator/track_classification/acoustic.py
-- [ ] T031 [US2] Add get_acoustic_profile() method signature to TranscriptionPlugin protocol in src/video_policy_orchestrator/transcription/interface.py
-- [ ] T032 [US2] Add "acoustic_analysis" feature flag to TranscriptionPlugin in src/video_policy_orchestrator/transcription/interface.py
+- [X] T029 [US2] Create extract_acoustic_profile() analyzing speech density and dynamic range in src/video_policy_orchestrator/track_classification/acoustic.py
+- [X] T030 [US2] Create is_commentary_by_acoustic() evaluating profile for commentary indicators in src/video_policy_orchestrator/track_classification/acoustic.py
+- [X] T031 [US2] Add get_acoustic_profile() method signature to TranscriptionPlugin protocol in src/video_policy_orchestrator/transcription/interface.py
+- [X] T032 [US2] Add "acoustic_analysis" feature flag to TranscriptionPlugin in src/video_policy_orchestrator/transcription/interface.py
 - [ ] T033 [US2] Implement get_acoustic_profile() in Whisper plugin in src/video_policy_orchestrator/plugins/whisper_transcriber/plugin.py
-- [ ] T034 [US2] Integrate acoustic analysis into classify_track() for commentary detection in src/video_policy_orchestrator/track_classification/service.py
-- [ ] T035 [US2] Handle edge case: acoustic analysis fallback when metadata absent in src/video_policy_orchestrator/track_classification/service.py
-- [ ] T036 [US2] Handle edge case: mixed content (commentary over movie audio) in src/video_policy_orchestrator/track_classification/service.py
-- [ ] T037 [US2] Handle edge case: analysis failure fallback to metadata-only in src/video_policy_orchestrator/track_classification/service.py
+- [X] T034 [US2] Integrate acoustic analysis into classify_track() for commentary detection in src/video_policy_orchestrator/track_classification/service.py
+- [X] T035 [US2] Handle edge case: acoustic analysis fallback when metadata absent in src/video_policy_orchestrator/track_classification/service.py
+- [X] T036 [US2] Handle edge case: mixed content (commentary over movie audio) in src/video_policy_orchestrator/track_classification/service.py
+- [X] T037 [US2] Handle edge case: analysis failure fallback to metadata-only in src/video_policy_orchestrator/track_classification/service.py
 - [ ] T038 [US2] Add --show-acoustic option to display acoustic profile details in src/video_policy_orchestrator/cli/inspect.py
-- [ ] T039 [US2] Create test fixture for commentary acoustic profile at tests/fixtures/classification/commentary-profile.json
+- [X] T039 [US2] Create test fixture for commentary acoustic profile at tests/fixtures/classification/commentary-profile.json
 
 **Checkpoint**: User Story 2 complete - commentary detection via acoustics works independently
 
