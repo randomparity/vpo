@@ -75,6 +75,12 @@ from video_policy_orchestrator.policy.models import (
     WorkflowConfig,
     parse_bitrate,
 )
+from video_policy_orchestrator.policy.parsing import (
+    parse_duration as _parse_duration,
+)
+from video_policy_orchestrator.policy.parsing import (
+    parse_file_size as _parse_file_size,
+)
 
 # Current supported schema version (only V12 is supported)
 SCHEMA_VERSION = 12
@@ -1422,51 +1428,6 @@ class GlobalConfigModel(BaseModel):
 # =============================================================================
 # Conditional Phase Pydantic Models
 # =============================================================================
-
-
-def _parse_file_size(value: str) -> int | None:
-    """Parse file size string (e.g., '5GB', '500MB') to bytes.
-
-    Returns None if the format is invalid.
-    """
-    import re
-
-    match = re.match(
-        r"^(\d+(?:\.\d+)?)\s*(B|KB|MB|GB|TB)$", value.strip(), re.IGNORECASE
-    )
-    if not match:
-        return None
-    num = float(match.group(1))
-    unit = match.group(2).upper()
-    multipliers = {"B": 1, "KB": 1024, "MB": 1024**2, "GB": 1024**3, "TB": 1024**4}
-    return int(num * multipliers[unit])
-
-
-def _parse_duration(value: str) -> float | None:
-    """Parse duration string (e.g., '30m', '2h', '1h30m') to seconds.
-
-    Returns None if the format is invalid.
-    """
-    import re
-
-    # Try simple formats first: '30m', '2h', '90s'
-    simple_match = re.match(
-        r"^(\d+(?:\.\d+)?)\s*(s|m|h)$", value.strip(), re.IGNORECASE
-    )
-    if simple_match:
-        num = float(simple_match.group(1))
-        unit = simple_match.group(2).lower()
-        multipliers = {"s": 1, "m": 60, "h": 3600}
-        return num * multipliers[unit]
-
-    # Try compound format: '1h30m'
-    compound_match = re.match(r"^(\d+)h(?:(\d+)m)?$", value.strip(), re.IGNORECASE)
-    if compound_match:
-        hours = int(compound_match.group(1))
-        minutes = int(compound_match.group(2)) if compound_match.group(2) else 0
-        return hours * 3600 + minutes * 60
-
-    return None
 
 
 class PhaseSkipConditionModel(BaseModel):

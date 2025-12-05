@@ -244,6 +244,37 @@ class TestEvaluateSkipWhenContainer:
         assert result.reason_type == SkipReasonType.CONDITION
         assert result.condition_name == "container"
 
+    def test_skip_when_container_matches_alias(
+        self, sample_file_info: FileInfo
+    ) -> None:
+        """Skip when container format matches via alias (mkv -> matroska)."""
+        # sample_file_info has container_format="matroska", user specifies "mkv"
+        condition = PhaseSkipCondition(container=("mkv",))
+        result = evaluate_skip_when(condition, sample_file_info, sample_file_info.path)
+
+        assert result is not None
+        assert result.reason_type == SkipReasonType.CONDITION
+        assert result.condition_name == "container"
+
+    def test_skip_when_mp4_alias(self) -> None:
+        """Skip when container matches mp4 alias from ffprobe format string."""
+        # ffprobe returns "mov,mp4,m4a,3gp,3g2,mj2" for mp4 files
+        file_info = FileInfo(
+            path=Path("/test/video.mp4"),
+            filename="video.mp4",
+            directory=Path("/test"),
+            extension=".mp4",
+            size_bytes=1_000_000_000,
+            modified_at=datetime.now(),
+            container_format="mov,mp4,m4a,3gp,3g2,mj2",
+            tracks=(),
+        )
+        condition = PhaseSkipCondition(container=("mp4",))
+        result = evaluate_skip_when(condition, file_info, file_info.path)
+
+        assert result is not None
+        assert result.condition_name == "container"
+
     def test_no_skip_when_container_differs(self, sample_file_info: FileInfo) -> None:
         """Don't skip when container doesn't match."""
         condition = PhaseSkipCondition(container=("mp4", "avi"))

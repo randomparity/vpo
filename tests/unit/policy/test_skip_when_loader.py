@@ -372,6 +372,84 @@ class TestRunIfValidation:
             load_policy_from_dict(policy_dict)
         assert "exactly one" in str(exc_info.value).lower()
 
+    def test_run_if_phase_completed_valid(self) -> None:
+        """run_if phase_completed can reference earlier phases."""
+        policy_dict = {
+            "schema_version": 12,
+            "phases": [
+                {
+                    "name": "transcode",
+                    "transcode": {"video": {"target_codec": "hevc"}},
+                },
+                {
+                    "name": "verify",
+                    "run_if": {"phase_completed": "transcode"},
+                    "conditional": [
+                        {
+                            "name": "check",
+                            "when": {"exists": {"track_type": "video"}},
+                            "then": [{"warn": "test"}],
+                        }
+                    ],
+                },
+            ],
+        }
+        policy = load_policy_from_dict(policy_dict)
+        assert isinstance(policy, PhasedPolicySchema)
+        assert policy.phases[1].run_if is not None
+        assert policy.phases[1].run_if.phase_completed == "transcode"
+
+    def test_run_if_phase_completed_unknown_raises_error(self) -> None:
+        """run_if phase_completed referencing unknown phase raises error."""
+        policy_dict = {
+            "schema_version": 12,
+            "phases": [
+                {
+                    "name": "verify",
+                    "run_if": {"phase_completed": "nonexistent"},
+                    "conditional": [
+                        {
+                            "name": "check",
+                            "when": {"exists": {"track_type": "video"}},
+                            "then": [{"warn": "test"}],
+                        }
+                    ],
+                },
+            ],
+        }
+        with pytest.raises(PolicyValidationError) as exc_info:
+            load_policy_from_dict(policy_dict)
+        assert "unknown phase" in str(exc_info.value).lower()
+
+    def test_run_if_both_fields_raises_error(self) -> None:
+        """run_if with both phase_modified and phase_completed raises error."""
+        policy_dict = {
+            "schema_version": 12,
+            "phases": [
+                {
+                    "name": "transcode",
+                    "transcode": {"video": {"target_codec": "hevc"}},
+                },
+                {
+                    "name": "verify",
+                    "run_if": {
+                        "phase_modified": "transcode",
+                        "phase_completed": "transcode",
+                    },
+                    "conditional": [
+                        {
+                            "name": "check",
+                            "when": {"exists": {"track_type": "video"}},
+                            "then": [{"warn": "test"}],
+                        }
+                    ],
+                },
+            ],
+        }
+        with pytest.raises(PolicyValidationError) as exc_info:
+            load_policy_from_dict(policy_dict)
+        assert "exactly one" in str(exc_info.value).lower()
+
 
 class TestOnErrorOverrideLoading:
     """Tests for per-phase on_error loading."""

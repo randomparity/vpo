@@ -152,7 +152,14 @@ class V11WorkflowProcessor:
 
         Returns SkipReason if phase should be skipped, None otherwise.
         """
-        if phase.skip_when is None or file_info is None:
+        if phase.skip_when is None:
+            return None
+
+        if file_info is None:
+            logger.warning(
+                "Cannot evaluate skip_when for phase '%s': file info unavailable",
+                phase.name,
+            )
             return None
 
         skip_reason = evaluate_skip_when(phase.skip_when, file_info, file_path)

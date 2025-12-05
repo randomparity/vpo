@@ -5,20 +5,23 @@ file information and track data to determine if a phase should be skipped.
 """
 
 import logging
-import re
 from pathlib import Path
 
 from video_policy_orchestrator.db.types import FileInfo, TrackInfo
+from video_policy_orchestrator.policy.evaluator import normalize_container_format
 from video_policy_orchestrator.policy.models import (
     PhaseSkipCondition,
     SkipReason,
     SkipReasonType,
 )
+from video_policy_orchestrator.policy.parsing import parse_duration, parse_file_size
 
 logger = logging.getLogger(__name__)
 
 
 # Resolution to height mapping (standard definitions)
+# Note: Kept separate from RESOLUTION_MAP in models.py which includes
+# width/height tuples for scaling. This map is for height-only comparisons.
 RESOLUTION_HEIGHT_MAP: dict[str, int] = {
     "480p": 480,
     "720p": 720,
@@ -26,48 +29,8 @@ RESOLUTION_HEIGHT_MAP: dict[str, int] = {
     "1440p": 1440,
     "2160p": 2160,
     "4k": 2160,
+    "8k": 4320,
 }
-
-
-def parse_file_size(value: str) -> int | None:
-    """Parse file size string (e.g., '5GB', '500MB') to bytes.
-
-    Returns None if the format is invalid.
-    """
-    match = re.match(
-        r"^(\d+(?:\.\d+)?)\s*(B|KB|MB|GB|TB)$", value.strip(), re.IGNORECASE
-    )
-    if not match:
-        return None
-    num = float(match.group(1))
-    unit = match.group(2).upper()
-    multipliers = {"B": 1, "KB": 1024, "MB": 1024**2, "GB": 1024**3, "TB": 1024**4}
-    return int(num * multipliers[unit])
-
-
-def parse_duration(value: str) -> float | None:
-    """Parse duration string (e.g., '30m', '2h', '1h30m') to seconds.
-
-    Returns None if the format is invalid.
-    """
-    # Try simple formats first: '30m', '2h', '90s'
-    simple_match = re.match(
-        r"^(\d+(?:\.\d+)?)\s*(s|m|h)$", value.strip(), re.IGNORECASE
-    )
-    if simple_match:
-        num = float(simple_match.group(1))
-        unit = simple_match.group(2).lower()
-        multipliers = {"s": 1, "m": 60, "h": 3600}
-        return num * multipliers[unit]
-
-    # Try compound format: '1h30m'
-    compound_match = re.match(r"^(\d+)h(?:(\d+)m)?$", value.strip(), re.IGNORECASE)
-    if compound_match:
-        hours = int(compound_match.group(1))
-        minutes = int(compound_match.group(2)) if compound_match.group(2) else 0
-        return hours * 3600 + minutes * 60
-
-    return None
 
 
 def get_video_track(file_info: FileInfo) -> TrackInfo | None:
@@ -112,7 +75,11 @@ def evaluate_skip_when(
     # Check video_codec condition
     if condition.video_codec:
         video_track = get_video_track(file_info)
-        if video_track and video_track.codec:
+        if video_track is None:
+            logger.debug("Cannot evaluate video_codec condition: no video track found")
+        elif not video_track.codec:
+            logger.debug("Cannot evaluate video_codec condition: video codec unknown")
+        elif video_track.codec:
             video_codec_lower = video_track.codec.lower()
             # Check against common codec aliases
             codec_aliases = {
@@ -164,9 +131,12 @@ def evaluate_skip_when(
 
     # Check container condition
     if condition.container and file_info.container_format:
-        container_lower = file_info.container_format.lower()
+        # Normalize container format to handle aliases (e.g., matroska -> mkv)
+        normalized_container = normalize_container_format(file_info.container_format)
         for target in condition.container:
-            if target.lower() == container_lower:
+            # Normalize target as well to ensure consistent matching
+            normalized_target = normalize_container_format(target)
+            if normalized_target == normalized_container:
                 return SkipReason(
                     reason_type=SkipReasonType.CONDITION,
                     message=f"container matches [{', '.join(condition.container)}]",
@@ -177,7 +147,11 @@ def evaluate_skip_when(
     # Check resolution condition (exact match)
     if condition.resolution:
         video_track = get_video_track(file_info)
-        if video_track and video_track.height:
+        if video_track is None:
+            logger.debug("Cannot evaluate resolution condition: no video track found")
+        elif not video_track.height:
+            logger.debug("Cannot evaluate resolution condition: video height unknown")
+        elif video_track.height:
             actual_label = get_video_resolution_label(video_track.height)
             # Normalize '4k' to '2160p' for comparison
             target = condition.resolution.lower()
@@ -194,7 +168,15 @@ def evaluate_skip_when(
     # Check resolution_under condition
     if condition.resolution_under:
         video_track = get_video_track(file_info)
-        if video_track and video_track.height:
+        if video_track is None:
+            logger.debug(
+                "Cannot evaluate resolution_under condition: no video track found"
+            )
+        elif not video_track.height:
+            logger.debug(
+                "Cannot evaluate resolution_under condition: video height unknown"
+            )
+        elif video_track.height:
             target = condition.resolution_under.lower()
             if target == "4k":
                 target = "2160p"
@@ -249,7 +231,11 @@ def evaluate_skip_when(
             # Find video track duration
             video_track = get_video_track(file_info)
             duration = video_track.duration_seconds if video_track else None
-            if duration is not None and duration < threshold_seconds:
+            if duration is None:
+                logger.debug(
+                    "Cannot evaluate duration_under condition: duration unknown"
+                )
+            elif duration < threshold_seconds:
                 msg = f"duration ({duration:.1f}s) under {condition.duration_under}"
                 return SkipReason(
                     reason_type=SkipReasonType.CONDITION,
@@ -264,7 +250,11 @@ def evaluate_skip_when(
         if threshold_seconds:
             video_track = get_video_track(file_info)
             duration = video_track.duration_seconds if video_track else None
-            if duration is not None and duration > threshold_seconds:
+            if duration is None:
+                logger.debug(
+                    "Cannot evaluate duration_over condition: duration unknown"
+                )
+            elif duration > threshold_seconds:
                 msg = f"duration ({duration:.1f}s) over {condition.duration_over}"
                 return SkipReason(
                     reason_type=SkipReasonType.CONDITION,
