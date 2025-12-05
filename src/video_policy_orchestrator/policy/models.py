@@ -104,6 +104,57 @@ class OnErrorMode(Enum):
     FAIL = "fail"  # Stop entire batch processing
 
 
+class PhaseOutcome(Enum):
+    """Outcome of a phase after execution or skip evaluation.
+
+    Used for dependency resolution and workflow tracking.
+    """
+
+    PENDING = "pending"  # Not yet evaluated (initial state)
+    COMPLETED = "completed"  # Phase executed successfully
+    FAILED = "failed"  # Phase executed but encountered an error
+    SKIPPED = "skipped"  # Phase was skipped (condition, dependency, or error mode)
+
+
+class SkipReasonType(Enum):
+    """Types of reasons a phase can be skipped.
+
+    Used in SkipReason to categorize why a phase was skipped.
+    """
+
+    CONDITION = "condition"  # skip_when condition matched
+    DEPENDENCY = "dependency"  # Dependency phase did not complete
+    ERROR_MODE = "error_mode"  # Skipped due to on_error: skip after failure
+    RUN_IF = "run_if"  # run_if condition not satisfied
+
+
+@dataclass(frozen=True)
+class SkipReason:
+    """Captures why a phase was skipped for logging and JSON output.
+
+    Provides detailed information about the skip reason including
+    which condition or dependency triggered the skip.
+    """
+
+    reason_type: SkipReasonType
+    """The type of skip reason."""
+
+    message: str
+    """Human-readable explanation of the skip."""
+
+    condition_name: str | None = None
+    """Which condition matched (for CONDITION type)."""
+
+    condition_value: str | None = None
+    """What value triggered the skip (for CONDITION type)."""
+
+    dependency_name: str | None = None
+    """Which dependency failed (for DEPENDENCY type)."""
+
+    dependency_outcome: str | None = None
+    """The outcome of the failed dependency (for DEPENDENCY type)."""
+
+
 # Valid video codecs for transcoding
 VALID_VIDEO_CODECS = frozenset({"h264", "hevc", "vp9", "av1"})
 
@@ -2044,6 +2095,16 @@ class PhaseResult:
     # Transcode tracking for stats
     transcode_skip_reason: str | None = None
     """If transcode was skipped, the reason (e.g., 'codec_matches')."""
+
+    # Phase outcome tracking (for conditional phases feature)
+    outcome: "PhaseOutcome" = PhaseOutcome.PENDING
+    """Explicit outcome enum for dependency resolution."""
+
+    skip_reason: "SkipReason | None" = None
+    """Why the phase was skipped (if outcome is SKIPPED)."""
+
+    file_modified: bool = False
+    """True if this phase modified the file (for run_if evaluation)."""
 
 
 @dataclass(frozen=True)
