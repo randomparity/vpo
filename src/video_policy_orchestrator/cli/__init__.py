@@ -316,6 +316,7 @@ def main(
 def _register_commands():
     from video_policy_orchestrator.cli import scan  # noqa: F401
     from video_policy_orchestrator.cli.analyze_language import analyze_language_group
+    from video_policy_orchestrator.cli.classify import classify_group
     from video_policy_orchestrator.cli.doctor import doctor_command
     from video_policy_orchestrator.cli.init import init_command
     from video_policy_orchestrator.cli.inspect import inspect_command
@@ -329,6 +330,7 @@ def _register_commands():
     from video_policy_orchestrator.cli.stats import stats_group
 
     main.add_command(analyze_language_group)
+    main.add_command(classify_group)
     main.add_command(init_command)
     main.add_command(inspect_command)
     main.add_command(doctor_command)

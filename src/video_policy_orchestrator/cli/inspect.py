@@ -93,12 +93,25 @@ def _get_plugin_registry_or_error():
     default=None,
     help="Analyze only the specified audio track index",
 )
+@click.option(
+    "--classify-tracks",
+    "-c",
+    is_flag=True,
+    help="Classify audio tracks as original/dubbed/commentary",
+)
+@click.option(
+    "--show-acoustic",
+    is_flag=True,
+    help="Show acoustic profile details (requires --classify-tracks)",
+)
 def inspect_command(
     file: str,
     output_format: str,
     analyze_languages: bool,
     show_segments: bool,
     track: int | None,
+    classify_tracks: bool,
+    show_acoustic: bool,
 ) -> None:
     """Inspect a media file and display track information.
 
@@ -107,6 +120,9 @@ def inspect_command(
     Use --analyze-languages to detect multiple languages in audio tracks.
     This uses speech recognition to sample the audio at multiple positions
     and determine if multiple languages are present.
+
+    Use --classify-tracks to classify audio tracks as original/dubbed or
+    commentary based on metadata and acoustic analysis.
     """
     file_path = Path(file)
 
@@ -211,6 +227,103 @@ def inspect_command(
             for track_idx, analysis in language_results:
                 click.echo(f"\nTrack {track_idx}:")
                 click.echo(format_language_analysis_human(analysis, show_segments))
+
+    # Track classification (if requested)
+    classification_results: list[dict[str, Any]] = []
+    if classify_tracks:
+        from video_policy_orchestrator.track_classification.metadata import (
+            determine_original_track,
+        )
+        from video_policy_orchestrator.track_classification.service import (
+            _detect_commentary,
+        )
+
+        # Get audio tracks to classify
+        audio_tracks = [t for t in result.tracks if t.track_type == "audio"]
+
+        if not audio_tracks:
+            click.echo("No audio tracks to classify.", err=True)
+        else:
+            # Try to determine original language from metadata
+            original_language = None
+
+            # Build language analysis dict for determine_original_track
+            lang_analysis_dict = None
+            if language_results:
+                lang_analysis_dict = {
+                    idx: analysis for idx, analysis in language_results
+                }
+
+            # Determine which track is likely the original
+            original_track_id, detection_method, confidence = determine_original_track(
+                audio_tracks=audio_tracks,
+                original_language=original_language,
+                language_analysis=lang_analysis_dict,
+            )
+
+            for audio_track in audio_tracks:
+                track_result: dict[str, Any] = {
+                    "index": audio_track.index,
+                    "language": audio_track.language or "und",
+                    "title": audio_track.title,
+                }
+
+                # Classify original/dubbed
+                is_original = original_track_id == audio_track.index
+                track_result["original_dubbed"] = (
+                    "original" if is_original else "dubbed"
+                )
+                track_result["original_confidence"] = (
+                    confidence if is_original else 1.0 - confidence
+                )
+
+                # Classify commentary
+                is_commentary, commentary_source = _detect_commentary(
+                    track=audio_track,
+                    acoustic_profile=None,  # Would need acoustic analyzer
+                )
+                track_result["is_commentary"] = is_commentary
+                track_result["commentary_source"] = commentary_source
+
+                track_result["detection_method"] = detection_method.value
+
+                classification_results.append(track_result)
+
+            # Output classification results
+            if output_format == "json" and output_data is not None:
+                output_data["track_classification"] = classification_results
+            else:
+                click.echo("\nTrack Classification:")
+                click.echo("=" * 60)
+                click.echo(
+                    f"{'Track':<6} {'Lang':<6} {'Type':<10} {'Commentary':<12} "
+                    f"{'Conf':<6} {'Method'}"
+                )
+                click.echo("-" * 60)
+
+                for tc in classification_results:
+                    od_type = tc["original_dubbed"]
+                    commentary = "yes" if tc["is_commentary"] else "no"
+
+                    # Color coding
+                    od_color = "green" if od_type == "original" else "yellow"
+                    cm_color = "cyan" if tc["is_commentary"] else "white"
+
+                    click.echo(
+                        f"{tc['index']:<6} "
+                        f"{tc['language']:<6} "
+                        f"{click.style(od_type, fg=od_color):<10} "
+                        f"{click.style(commentary, fg=cm_color):<12} "
+                        f"{tc['original_confidence']:.0%:<6} "
+                        f"{tc['detection_method']}"
+                    )
+
+                # Show acoustic profile if requested
+                if show_acoustic:
+                    click.echo("\nNote: Acoustic profile analysis not available")
+                    click.echo(
+                        "(requires transcription plugin with acoustic_analysis feature)"
+                    )
 
     # Output JSON at the end (consolidates all JSON output in one place)
     if output_format == "json" and output_data is not None:

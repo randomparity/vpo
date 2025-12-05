@@ -63,8 +63,8 @@
 - [X] T022 [US1] Add result persistence to database in src/video_policy_orchestrator/track_classification/service.py
 - [X] T023 [US1] Handle edge case: single audio track defaults to "original" with low confidence in src/video_policy_orchestrator/track_classification/service.py
 - [X] T024 [US1] Handle edge case: identical tracks (theatrical vs extended) both marked "original" in src/video_policy_orchestrator/track_classification/service.py
-- [ ] T025 [US1] Add --classify-tracks option to inspect command in src/video_policy_orchestrator/cli/inspect.py
-- [ ] T026 [US1] Add classification output formatting showing original/dubbed status in src/video_policy_orchestrator/cli/inspect.py
+- [X] T025 [US1] Add --classify-tracks option to inspect command in src/video_policy_orchestrator/cli/inspect.py
+- [X] T026 [US1] Add classification output formatting showing original/dubbed status in src/video_policy_orchestrator/cli/inspect.py
 - [X] T027 [US1] Create test fixture for Japanese anime with original/dubbed tracks at tests/fixtures/classification/original-japanese.json
 - [X] T028 [US1] Create test fixture for English original with dubbed tracks at tests/fixtures/classification/dubbed-english.json
 
@@ -89,7 +89,7 @@
 - [X] T035 [US2] Handle edge case: acoustic analysis fallback when metadata absent in src/video_policy_orchestrator/track_classification/service.py
 - [X] T036 [US2] Handle edge case: mixed content (commentary over movie audio) in src/video_policy_orchestrator/track_classification/service.py
 - [X] T037 [US2] Handle edge case: analysis failure fallback to metadata-only in src/video_policy_orchestrator/track_classification/service.py
-- [ ] T038 [US2] Add --show-acoustic option to display acoustic profile details in src/video_policy_orchestrator/cli/inspect.py
+- [X] T038 [US2] Add --show-acoustic option to display acoustic profile details in src/video_policy_orchestrator/cli/inspect.py
 - [X] T039 [US2] Create test fixture for commentary acoustic profile at tests/fixtures/classification/commentary-profile.json
 
 **Checkpoint**: User Story 2 complete - commentary detection via acoustics works independently
@@ -130,13 +130,13 @@
 
 **Purpose**: Dedicated classify command and scan integration
 
-- [ ] T055 Create classify command group skeleton in src/video_policy_orchestrator/cli/classify.py
-- [ ] T056 Implement `vpo classify run` subcommand in src/video_policy_orchestrator/cli/classify.py
-- [ ] T057 Implement `vpo classify status` subcommand in src/video_policy_orchestrator/cli/classify.py
-- [ ] T058 Implement `vpo classify clear` subcommand in src/video_policy_orchestrator/cli/classify.py
+- [X] T055 Create classify command group skeleton in src/video_policy_orchestrator/cli/classify.py
+- [X] T056 Implement `vpo classify run` subcommand in src/video_policy_orchestrator/cli/classify.py
+- [X] T057 Implement `vpo classify status` subcommand in src/video_policy_orchestrator/cli/classify.py
+- [X] T058 Implement `vpo classify clear` subcommand in src/video_policy_orchestrator/cli/classify.py
 - [ ] T059 Add --classify-tracks option to scan command in src/video_policy_orchestrator/cli/scan.py
-- [ ] T060 Register classify command group in src/video_policy_orchestrator/cli/__init__.py
-- [ ] T061 Add exit codes (0=success, 2=not found, 3=no tracks, 4=failed) in src/video_policy_orchestrator/cli/classify.py
+- [X] T060 Register classify command group in src/video_policy_orchestrator/cli/__init__.py
+- [X] T061 Add exit codes (0=success, 2=not found, 3=no tracks, 4=failed) in src/video_policy_orchestrator/cli/classify.py
 
 **Checkpoint**: Full CLI support available
 
