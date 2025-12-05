@@ -106,21 +106,21 @@
 
 ### Implementation for User Story 3
 
-- [ ] T040 [US3] Add IsOriginalCondition dataclass to src/video_policy_orchestrator/policy/models.py
-- [ ] T041 [P] [US3] Add IsDubbedCondition dataclass to src/video_policy_orchestrator/policy/models.py
-- [ ] T042 [US3] Update Condition union type to include new conditions in src/video_policy_orchestrator/policy/models.py
-- [ ] T043 [US3] Add IsOriginalModel Pydantic validation model in src/video_policy_orchestrator/policy/loader.py
-- [ ] T044 [P] [US3] Add IsDubbedModel Pydantic validation model in src/video_policy_orchestrator/policy/loader.py
-- [ ] T045 [US3] Update ConditionModel to include is_original and is_dubbed in src/video_policy_orchestrator/policy/loader.py
-- [ ] T046 [US3] Add _convert_is_original() conversion function in src/video_policy_orchestrator/policy/loader.py
-- [ ] T047 [P] [US3] Add _convert_is_dubbed() conversion function in src/video_policy_orchestrator/policy/loader.py
-- [ ] T048 [US3] Add evaluate_is_original() function in src/video_policy_orchestrator/policy/conditions.py
-- [ ] T049 [P] [US3] Add evaluate_is_dubbed() function in src/video_policy_orchestrator/policy/conditions.py
-- [ ] T050 [US3] Update evaluate_condition() to handle IsOriginalCondition and IsDubbedCondition in src/video_policy_orchestrator/policy/conditions.py
-- [ ] T051 [US3] Update policy evaluator to fetch classification results when needed in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T052 [US3] Pass classification_results to condition evaluation chain in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T053 [US3] Implement 70% default confidence threshold per clarification in src/video_policy_orchestrator/policy/conditions.py
-- [ ] T054 [US3] Add is_original/is_dubbed to audio order and default filter support in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T040 [US3] Add IsOriginalCondition dataclass to src/video_policy_orchestrator/policy/models.py
+- [X] T041 [P] [US3] Add IsDubbedCondition dataclass to src/video_policy_orchestrator/policy/models.py
+- [X] T042 [US3] Update Condition union type to include new conditions in src/video_policy_orchestrator/policy/models.py
+- [X] T043 [US3] Add IsOriginalModel Pydantic validation model in src/video_policy_orchestrator/policy/loader.py
+- [X] T044 [P] [US3] Add IsDubbedModel Pydantic validation model in src/video_policy_orchestrator/policy/loader.py
+- [X] T045 [US3] Update ConditionModel to include is_original and is_dubbed in src/video_policy_orchestrator/policy/loader.py
+- [X] T046 [US3] Add _convert_is_original() conversion function in src/video_policy_orchestrator/policy/loader.py
+- [X] T047 [P] [US3] Add _convert_is_dubbed() conversion function in src/video_policy_orchestrator/policy/loader.py
+- [X] T048 [US3] Add evaluate_is_original() function in src/video_policy_orchestrator/policy/conditions.py
+- [X] T049 [P] [US3] Add evaluate_is_dubbed() function in src/video_policy_orchestrator/policy/conditions.py
+- [X] T050 [US3] Update evaluate_condition() to handle IsOriginalCondition and IsDubbedCondition in src/video_policy_orchestrator/policy/conditions.py
+- [X] T051 [US3] Update policy evaluator to fetch classification results when needed in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T052 [US3] Pass classification_results to condition evaluation chain in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T053 [US3] Implement 70% default confidence threshold per clarification in src/video_policy_orchestrator/policy/conditions.py
+- [X] T054 [US3] Add is_original/is_dubbed to audio order and default filter support in src/video_policy_orchestrator/policy/evaluator.py
 
 **Checkpoint**: User Story 3 complete - policy conditions evaluate correctly
 

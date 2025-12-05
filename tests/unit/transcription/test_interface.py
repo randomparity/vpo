@@ -10,6 +10,7 @@ from video_policy_orchestrator.transcription.interface import (
     TranscriptionPlugin,
 )
 from video_policy_orchestrator.transcription.models import (
+    AcousticAnalysisResult,
     TrackClassification,
     TranscriptionResult,
 )
@@ -98,6 +99,12 @@ class MockTranscriptionPlugin:
             confidence=0.9,
             has_speech=True,
         )
+
+    def get_acoustic_profile(
+        self, audio_data: bytes, sample_rate: int = 16000
+    ) -> AcousticAnalysisResult | None:
+        """Return None - acoustic analysis not supported by this mock."""
+        return None
 
 
 class TestTranscriptionPluginProtocol:
