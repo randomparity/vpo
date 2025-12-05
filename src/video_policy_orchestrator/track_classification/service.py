@@ -94,11 +94,23 @@ def classify_track(
         original_dubbed_status = OriginalDubbedStatus.ORIGINAL
         detection_method = method
         confidence = orig_confidence
+        logger.debug(
+            "Track %d classified as ORIGINAL (method=%s, confidence=%.2f)",
+            track.id,
+            method.value,
+            orig_confidence,
+        )
     elif original_track_id is not None:
         # If we know which track is original, others are dubbed
         original_dubbed_status = OriginalDubbedStatus.DUBBED
         detection_method = method
         confidence = orig_confidence * 0.9  # Slightly lower for inferred
+        logger.debug(
+            "Track %d classified as DUBBED (method=%s, confidence=%.2f)",
+            track.id,
+            method.value,
+            confidence,
+        )
 
     # Check for commentary based on metadata keywords in title
     if _is_commentary_by_metadata(track):
@@ -108,12 +120,24 @@ def classify_track(
         else:
             detection_method = DetectionMethod.METADATA
         confidence = max(confidence, 0.85)
+        logger.debug(
+            "Track %d detected as COMMENTARY via metadata (title=%r)",
+            track.id,
+            track.title,
+        )
     elif acoustic_profile is not None:
         # Use acoustic analysis for commentary detection
         if _is_commentary_by_acoustic(acoustic_profile):
             commentary_status = CommentaryStatus.COMMENTARY
             detection_method = DetectionMethod.ACOUSTIC
             confidence = max(confidence, 0.7)
+            logger.debug(
+                "Track %d detected as COMMENTARY via acoustic analysis "
+                "(speech_density=%.2f, dynamic_range=%.1f)",
+                track.id,
+                acoustic_profile.speech_density,
+                acoustic_profile.dynamic_range_db,
+            )
         else:
             commentary_status = CommentaryStatus.MAIN
 

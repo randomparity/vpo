@@ -146,12 +146,12 @@
 
 **Purpose**: Documentation, validation, and refinements
 
-- [ ] T062 [P] Add structured logging for classification decisions in src/video_policy_orchestrator/track_classification/service.py
-- [ ] T063 [P] Add ClassificationError and InsufficientDataError exceptions in src/video_policy_orchestrator/track_classification/models.py
-- [ ] T064 Update db/__init__.py to export new types in src/video_policy_orchestrator/db/__init__.py
-- [ ] T065 Update track_classification/__init__.py with public API exports in src/video_policy_orchestrator/track_classification/__init__.py
-- [ ] T066 [P] Run quickstart.md validation (manual verification of documented commands)
-- [ ] T067 Verify schema migration works on existing databases
+- [X] T062 [P] Add structured logging for classification decisions in src/video_policy_orchestrator/track_classification/service.py
+- [X] T063 [P] Add ClassificationError and InsufficientDataError exceptions in src/video_policy_orchestrator/track_classification/models.py
+- [X] T064 Update db/__init__.py to export new types in src/video_policy_orchestrator/db/__init__.py
+- [X] T065 Update track_classification/__init__.py with public API exports in src/video_policy_orchestrator/track_classification/__init__.py
+- [X] T066 [P] Run quickstart.md validation (manual verification of documented commands)
+- [X] T067 Verify schema migration works on existing databases
 
 ---
 
