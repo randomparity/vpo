@@ -55,18 +55,18 @@
 
 ### Implementation for User Story 1
 
-- [ ] T017 [US1] Create get_original_language_from_metadata() in src/video_policy_orchestrator/track_classification/metadata.py
-- [ ] T018 [US1] Create determine_original_track() applying detection priority (metadata > position > acoustic) in src/video_policy_orchestrator/track_classification/metadata.py
-- [ ] T019 [US1] Create classify_track() main classification function (integrating with language_analysis results per FR-008) in src/video_policy_orchestrator/track_classification/service.py
-- [ ] T020 [US1] Create classify_file_tracks() for batch classification in src/video_policy_orchestrator/track_classification/service.py
-- [ ] T021 [US1] Add cache checking logic (file hash validation) in src/video_policy_orchestrator/track_classification/service.py
-- [ ] T022 [US1] Add result persistence to database in src/video_policy_orchestrator/track_classification/service.py
-- [ ] T023 [US1] Handle edge case: single audio track defaults to "original" with low confidence in src/video_policy_orchestrator/track_classification/service.py
-- [ ] T024 [US1] Handle edge case: identical tracks (theatrical vs extended) both marked "original" in src/video_policy_orchestrator/track_classification/service.py
+- [X] T017 [US1] Create get_original_language_from_metadata() in src/video_policy_orchestrator/track_classification/metadata.py
+- [X] T018 [US1] Create determine_original_track() applying detection priority (metadata > position > acoustic) in src/video_policy_orchestrator/track_classification/metadata.py
+- [X] T019 [US1] Create classify_track() main classification function (integrating with language_analysis results per FR-008) in src/video_policy_orchestrator/track_classification/service.py
+- [X] T020 [US1] Create classify_file_tracks() for batch classification in src/video_policy_orchestrator/track_classification/service.py
+- [X] T021 [US1] Add cache checking logic (file hash validation) in src/video_policy_orchestrator/track_classification/service.py
+- [X] T022 [US1] Add result persistence to database in src/video_policy_orchestrator/track_classification/service.py
+- [X] T023 [US1] Handle edge case: single audio track defaults to "original" with low confidence in src/video_policy_orchestrator/track_classification/service.py
+- [X] T024 [US1] Handle edge case: identical tracks (theatrical vs extended) both marked "original" in src/video_policy_orchestrator/track_classification/service.py
 - [ ] T025 [US1] Add --classify-tracks option to inspect command in src/video_policy_orchestrator/cli/inspect.py
 - [ ] T026 [US1] Add classification output formatting showing original/dubbed status in src/video_policy_orchestrator/cli/inspect.py
-- [ ] T027 [US1] Create test fixture for Japanese anime with original/dubbed tracks at tests/fixtures/classification/original-japanese.json
-- [ ] T028 [US1] Create test fixture for English original with dubbed tracks at tests/fixtures/classification/dubbed-english.json
+- [X] T027 [US1] Create test fixture for Japanese anime with original/dubbed tracks at tests/fixtures/classification/original-japanese.json
+- [X] T028 [US1] Create test fixture for English original with dubbed tracks at tests/fixtures/classification/dubbed-english.json
 
 **Checkpoint**: User Story 1 complete - original/dubbed detection works independently
 
