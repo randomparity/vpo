@@ -1,5 +1,11 @@
 # Media Normalization Policy (V12)
 # Production-ready policy for standardizing media files
+#
+# This policy demonstrates conditional phase execution features:
+# - skip_when: Skip phases based on file characteristics
+# - on_error: Per-phase error handling (skip, continue, fail)
+# - run_if: Run phase only if previous phase modified file
+# - depends_on: Skip phase if dependencies didn't complete
 schema_version: 12
 
 config:
@@ -10,14 +16,21 @@ config:
 
 phases:
   # Migrate all container types to MKV
+  # Skip if already in MKV format
   - name: prepare
+    skip_when:
+      container: [mkv]
     container:
       target: mkv
       on_incompatible_codec: transcode
 
   # Analyze audio tracks to detect actual language content
   # and purpose (main audio vs. commentary audio)
+  # Skip for short clips (under 5 minutes) - not worth analyzing
   - name: analyze
+    skip_when:
+      duration_under: 5m
+    on_error: continue  # Don't fail entire file if transcription fails
     transcription:
       enabled: true
       update_language_from_transcription: true
@@ -117,13 +130,16 @@ phases:
           language: inherit
           position: 1
 
-  # Convert video to a more modern, space saving format, keep higher fidelity audio
+  # Convert video to a more modern, space saving format
+  # Skip if already HEVC or file is small (under 500MB)
   - name: compress
+    skip_when:
+      video_codec: [hevc, h265, x265]
+      file_size_under: 500MB
+    on_error: skip  # Don't process remaining phases if transcode fails
     transcode:
       video:
         target_codec: hevc
-        skip_if:
-          codec_matches: [hevc, h265, x265]
         quality:
           mode: crf
           crf: 20
@@ -135,3 +151,16 @@ phases:
         preserve_codecs: [truehd, "dts-hd ma", flac, pcm_s24le, eac3]
         transcode_to: aac
         transcode_bitrate: 192k
+
+  # Verify transcode completed - only runs if compress phase modified the file
+  - name: verify
+    run_if:
+      phase_modified: compress
+    depends_on: [compress]
+    conditional:
+      - name: transcode_complete
+        when:
+          exists:
+            track_type: video
+        then:
+          - warn: "Video transcode completed successfully"

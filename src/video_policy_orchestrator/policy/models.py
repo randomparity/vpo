@@ -104,6 +104,113 @@ class OnErrorMode(Enum):
     FAIL = "fail"  # Stop entire batch processing
 
 
+class PhaseOutcome(Enum):
+    """Outcome of a phase after execution or skip evaluation.
+
+    Used for dependency resolution and workflow tracking.
+    """
+
+    PENDING = "pending"  # Not yet evaluated (initial state)
+    COMPLETED = "completed"  # Phase executed successfully
+    FAILED = "failed"  # Phase executed but encountered an error
+    SKIPPED = "skipped"  # Phase was skipped (condition, dependency, or error mode)
+
+
+class SkipReasonType(Enum):
+    """Types of reasons a phase can be skipped.
+
+    Used in SkipReason to categorize why a phase was skipped.
+    """
+
+    CONDITION = "condition"  # skip_when condition matched
+    DEPENDENCY = "dependency"  # Dependency phase did not complete
+    ERROR_MODE = "error_mode"  # Skipped due to on_error: skip after failure
+    RUN_IF = "run_if"  # run_if condition not satisfied
+
+
+@dataclass(frozen=True)
+class SkipReason:
+    """Captures why a phase was skipped for logging and JSON output.
+
+    Provides detailed information about the skip reason including
+    which condition or dependency triggered the skip.
+    """
+
+    reason_type: SkipReasonType
+    """The type of skip reason."""
+
+    message: str
+    """Human-readable explanation of the skip."""
+
+    condition_name: str | None = None
+    """Which condition matched (for CONDITION type)."""
+
+    condition_value: str | None = None
+    """What value triggered the skip (for CONDITION type)."""
+
+    dependency_name: str | None = None
+    """Which dependency failed (for DEPENDENCY type)."""
+
+    dependency_outcome: str | None = None
+    """The outcome of the failed dependency (for DEPENDENCY type)."""
+
+
+@dataclass(frozen=True)
+class PhaseSkipCondition:
+    """Conditions for skipping a phase based on file characteristics.
+
+    All specified conditions use OR logic - if ANY condition matches,
+    the phase is skipped. Unspecified conditions (None) are not evaluated.
+
+    This is different from SkipCondition which is for transcode operations.
+    """
+
+    video_codec: tuple[str, ...] | None = None
+    """Skip if video codec matches any in this list (case-insensitive)."""
+
+    audio_codec_exists: str | None = None
+    """Skip if an audio track with this codec exists."""
+
+    subtitle_language_exists: str | None = None
+    """Skip if a subtitle track with this language exists."""
+
+    container: tuple[str, ...] | None = None
+    """Skip if container format matches any in this list."""
+
+    resolution: str | None = None
+    """Skip if video resolution matches exactly (e.g., '1080p')."""
+
+    resolution_under: str | None = None
+    """Skip if video resolution is under this threshold."""
+
+    file_size_under: str | None = None
+    """Skip if file size is under this value (e.g., '5GB')."""
+
+    file_size_over: str | None = None
+    """Skip if file size is over this value."""
+
+    duration_under: str | None = None
+    """Skip if duration is under this value (e.g., '30m')."""
+
+    duration_over: str | None = None
+    """Skip if duration is over this value."""
+
+
+@dataclass(frozen=True)
+class RunIfCondition:
+    """Conditions for running a phase based on previous phase outcomes.
+
+    Exactly one field must be set. The referenced phase must exist
+    and appear earlier in the policy.
+    """
+
+    phase_modified: str | None = None
+    """Run only if the named phase modified the file."""
+
+    phase_completed: str | None = None
+    """Run only if the named phase completed successfully (future)."""
+
+
 # Valid video codecs for transcoding
 VALID_VIDEO_CODECS = frozenset({"h264", "hevc", "vp9", "av1"})
 
@@ -1848,6 +1955,25 @@ class PhaseDefinition:
     transcription: TranscriptionPolicyOptions | None = None
     """Transcription analysis configuration."""
 
+    audio_actions: AudioActionsConfig | None = None
+    """Pre-processing actions for audio tracks."""
+
+    subtitle_actions: SubtitleActionsConfig | None = None
+    """Pre-processing actions for subtitle tracks."""
+
+    # Conditional phase execution fields
+    skip_when: "PhaseSkipCondition | None" = None
+    """Conditions that cause this phase to be skipped."""
+
+    depends_on: tuple[str, ...] | None = None
+    """Phase names this phase depends on (must complete successfully)."""
+
+    run_if: "RunIfCondition | None" = None
+    """Positive run condition (e.g., run only if previous phase modified file)."""
+
+    on_error: OnErrorMode | None = None
+    """Override global on_error setting for this phase."""
+
     def get_operations(self) -> list[OperationType]:
         """Return list of operations defined in this phase.
 
@@ -2044,6 +2170,16 @@ class PhaseResult:
     # Transcode tracking for stats
     transcode_skip_reason: str | None = None
     """If transcode was skipped, the reason (e.g., 'codec_matches')."""
+
+    # Phase outcome tracking (for conditional phases feature)
+    outcome: "PhaseOutcome" = PhaseOutcome.PENDING
+    """Explicit outcome enum for dependency resolution."""
+
+    skip_reason: "SkipReason | None" = None
+    """Why the phase was skipped (if outcome is SKIPPED)."""
+
+    file_modified: bool = False
+    """True if this phase modified the file (for run_if evaluation)."""
 
 
 @dataclass(frozen=True)

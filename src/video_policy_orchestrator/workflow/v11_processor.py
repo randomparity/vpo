@@ -29,11 +29,16 @@ from video_policy_orchestrator.introspector.ffprobe import (
 from video_policy_orchestrator.policy.models import (
     FileProcessingResult,
     OnErrorMode,
+    PhaseDefinition,
     PhaseExecutionError,
+    PhaseOutcome,
     PhaseResult,
+    SkipReason,
+    SkipReasonType,
     V11PolicySchema,
 )
 from video_policy_orchestrator.workflow.phases.executor import V11PhaseExecutor
+from video_policy_orchestrator.workflow.skip_conditions import evaluate_skip_when
 from video_policy_orchestrator.workflow.stats_capture import (
     PhaseMetrics,
     StatsCollector,
@@ -133,6 +138,127 @@ class V11WorkflowProcessor:
             plugin_registry=plugin_registry,
         )
 
+        # Track phase outcomes for dependency resolution
+        self._phase_outcomes: dict[str, PhaseOutcome] = {}
+        self._phase_modified: dict[str, bool] = {}
+
+    def _check_skip_condition(
+        self,
+        phase: PhaseDefinition,
+        file_info: "FileInfo | None",
+        file_path: Path,
+    ) -> SkipReason | None:
+        """Check if phase should be skipped based on skip_when condition.
+
+        Returns SkipReason if phase should be skipped, None otherwise.
+        """
+        if phase.skip_when is None:
+            return None
+
+        if file_info is None:
+            logger.warning(
+                "Cannot evaluate skip_when for phase '%s': file info unavailable",
+                phase.name,
+            )
+            return None
+
+        skip_reason = evaluate_skip_when(phase.skip_when, file_info, file_path)
+        if skip_reason:
+            logger.info(
+                "Phase '%s' skipped: %s",
+                phase.name,
+                skip_reason.message,
+            )
+        return skip_reason
+
+    def _check_dependency_condition(
+        self,
+        phase: PhaseDefinition,
+    ) -> SkipReason | None:
+        """Check if phase should be skipped due to dependency not completing.
+
+        Returns SkipReason if phase should be skipped, None otherwise.
+        """
+        if phase.depends_on is None:
+            return None
+
+        for dep_name in phase.depends_on:
+            outcome = self._phase_outcomes.get(dep_name, PhaseOutcome.PENDING)
+            if outcome != PhaseOutcome.COMPLETED:
+                reason = SkipReason(
+                    reason_type=SkipReasonType.DEPENDENCY,
+                    message=(
+                        f"dependency '{dep_name}' did not complete "
+                        f"(outcome: {outcome.value})"
+                    ),
+                    dependency_name=dep_name,
+                    dependency_outcome=outcome.value,
+                )
+                logger.info(
+                    "Phase '%s' skipped: %s",
+                    phase.name,
+                    reason.message,
+                )
+                return reason
+
+        return None
+
+    def _check_run_if_condition(
+        self,
+        phase: PhaseDefinition,
+    ) -> SkipReason | None:
+        """Check if phase should be skipped based on run_if condition.
+
+        Returns SkipReason if phase should be skipped, None otherwise.
+        """
+        if phase.run_if is None:
+            return None
+
+        # Check phase_modified condition
+        if phase.run_if.phase_modified:
+            ref_name = phase.run_if.phase_modified
+            modified = self._phase_modified.get(ref_name, False)
+            if not modified:
+                reason = SkipReason(
+                    reason_type=SkipReasonType.RUN_IF,
+                    message=f"'{ref_name}' made no modifications",
+                    dependency_name=ref_name,
+                )
+                logger.info(
+                    "Phase '%s' skipped: %s",
+                    phase.name,
+                    reason.message,
+                )
+                return reason
+
+        # Future: Check phase_completed condition
+        if phase.run_if.phase_completed:
+            ref_name = phase.run_if.phase_completed
+            outcome = self._phase_outcomes.get(ref_name, PhaseOutcome.PENDING)
+            if outcome != PhaseOutcome.COMPLETED:
+                reason = SkipReason(
+                    reason_type=SkipReasonType.RUN_IF,
+                    message=f"'{ref_name}' did not complete (outcome: {outcome.value})",
+                    dependency_name=ref_name,
+                )
+                logger.info(
+                    "Phase '%s' skipped: %s",
+                    phase.name,
+                    reason.message,
+                )
+                return reason
+
+        return None
+
+    def _get_effective_on_error(self, phase: PhaseDefinition) -> OnErrorMode:
+        """Get effective on_error mode for a phase.
+
+        Uses per-phase override if set, otherwise falls back to global config.
+        """
+        if phase.on_error is not None:
+            return phase.on_error
+        return self.policy.config.on_error
+
     def process_file(self, file_path: Path) -> FileProcessingResult:
         """Process a single file through all enabled phases.
 
@@ -176,6 +302,10 @@ class V11WorkflowProcessor:
                 stats_collector.phases_total = len(self.phases_to_execute)
                 stats_collector.capture_before_state(file_info, file_path)
 
+        # Reset phase outcome tracking for this file
+        self._phase_outcomes = {}
+        self._phase_modified = {}
+
         for idx, phase in enumerate(self.phases_to_execute):
             # Report progress
             if self.progress_callback:
@@ -187,6 +317,49 @@ class V11WorkflowProcessor:
                     phase_progress=0.0,
                 )
                 self.progress_callback(progress)
+
+            # Check all skip conditions before executing
+            skip_reason: SkipReason | None = None
+
+            # 1. Check dependency conditions first (highest priority)
+            skip_reason = self._check_dependency_condition(phase)
+
+            # 2. Check skip_when conditions
+            if skip_reason is None:
+                skip_reason = self._check_skip_condition(phase, file_info, file_path)
+
+            # 3. Check run_if conditions
+            if skip_reason is None:
+                skip_reason = self._check_run_if_condition(phase)
+
+            # If any skip condition matched, create skipped result
+            if skip_reason is not None:
+                phase_result = PhaseResult(
+                    phase_name=phase.name,
+                    success=True,  # Skipped phases are considered successful
+                    duration_seconds=0.0,
+                    operations_executed=(),
+                    changes_made=0,
+                    message=f"Skipped: {skip_reason.message}",
+                    outcome=PhaseOutcome.SKIPPED,
+                    skip_reason=skip_reason,
+                    file_modified=False,
+                )
+                phase_results.append(phase_result)
+                phases_skipped.append(phase.name)
+
+                # Track outcome for dependency resolution
+                self._phase_outcomes[phase.name] = PhaseOutcome.SKIPPED
+                self._phase_modified[phase.name] = False
+
+                logger.info(
+                    "Phase %d/%d [%s]: Skipped - %s",
+                    idx + 1,
+                    len(self.phases_to_execute),
+                    phase.name,
+                    skip_reason.message,
+                )
+                continue  # Move to next phase
 
             # Log phase start
             logger.info(
@@ -204,7 +377,32 @@ class V11WorkflowProcessor:
                     file_path=file_path,
                     file_info=file_info,
                 )
+
+                # Determine if file was modified
+                file_was_modified = phase_result.changes_made > 0
+
+                # Create updated result with outcome tracking
+                phase_result = PhaseResult(
+                    phase_name=phase_result.phase_name,
+                    success=phase_result.success,
+                    duration_seconds=phase_result.duration_seconds,
+                    operations_executed=phase_result.operations_executed,
+                    changes_made=phase_result.changes_made,
+                    message=phase_result.message,
+                    error=phase_result.error,
+                    planned_actions=phase_result.planned_actions,
+                    transcode_skip_reason=phase_result.transcode_skip_reason,
+                    outcome=PhaseOutcome.COMPLETED
+                    if phase_result.success
+                    else PhaseOutcome.FAILED,
+                    skip_reason=None,
+                    file_modified=file_was_modified,
+                )
                 phase_results.append(phase_result)
+
+                # Track outcome for dependency resolution
+                self._phase_outcomes[phase.name] = phase_result.outcome
+                self._phase_modified[phase.name] = file_was_modified
 
                 # Capture phase metrics for stats
                 if stats_collector:
@@ -235,7 +433,7 @@ class V11WorkflowProcessor:
                     )
 
                     # Re-introspect if file was modified
-                    if phase_result.changes_made > 0 and not self.dry_run:
+                    if file_was_modified and not self.dry_run:
                         file_info = self._re_introspect(file_path)
                 else:
                     # Phase returned success=False (should not happen normally)
@@ -259,28 +457,43 @@ class V11WorkflowProcessor:
                 )
 
                 # Create a failure result
-                phase_results.append(
-                    PhaseResult(
-                        phase_name=phase.name,
-                        success=False,
-                        duration_seconds=0.0,
-                        operations_executed=(),
-                        changes_made=0,
-                        error=e.message,
-                    )
+                phase_result = PhaseResult(
+                    phase_name=phase.name,
+                    success=False,
+                    duration_seconds=0.0,
+                    operations_executed=(),
+                    changes_made=0,
+                    error=e.message,
+                    outcome=PhaseOutcome.FAILED,
+                    file_modified=False,
                 )
+                phase_results.append(phase_result)
 
-                # Handle error according to on_error policy
-                on_error = self.policy.config.on_error
+                # Track outcome for dependency resolution
+                self._phase_outcomes[phase.name] = PhaseOutcome.FAILED
+                self._phase_modified[phase.name] = False
+
+                # Handle error according to effective on_error policy
+                on_error = self._get_effective_on_error(phase)
                 if on_error == OnErrorMode.FAIL:
                     # Stop batch processing
                     remaining = self.phases_to_execute[idx + 1 :]
                     phases_skipped.extend(p.name for p in remaining)
+                    # Mark remaining phases as PENDING in outcome tracking
+                    for remaining_phase in remaining:
+                        self._phase_outcomes[remaining_phase.name] = (
+                            PhaseOutcome.PENDING
+                        )
                     break
                 elif on_error == OnErrorMode.SKIP:
                     # Skip remaining phases for this file
                     remaining = self.phases_to_execute[idx + 1 :]
                     phases_skipped.extend(p.name for p in remaining)
+                    # Mark remaining phases as PENDING in outcome tracking
+                    for remaining_phase in remaining:
+                        self._phase_outcomes[remaining_phase.name] = (
+                            PhaseOutcome.PENDING
+                        )
                     break
                 # OnErrorMode.CONTINUE - proceed to next phase
 

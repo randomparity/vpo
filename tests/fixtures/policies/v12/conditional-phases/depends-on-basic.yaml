@@ -1,0 +1,42 @@
+# Test policy for depends_on dependency validation
+# T003: Dependency test policy
+schema_version: 12
+
+config:
+  audio_language_preference: [eng, und]
+  subtitle_language_preference: [eng, und]
+  on_error: continue
+
+phases:
+  - name: normalize
+    container:
+      target: mkv
+    audio_filter:
+      languages: [eng, und]
+
+  - name: transcode
+    skip_when:
+      video_codec: [hevc, h265]
+    transcode:
+      video:
+        target_codec: hevc
+        quality:
+          mode: crf
+          crf: 20
+    depends_on: [normalize]
+
+  - name: verify
+    conditional:
+      - name: size_check
+        when:
+          exists:
+            track_type: video
+            height: {gte: 1080}
+        then:
+          - warn: "HD content detected"
+    depends_on: [transcode]
+
+  - name: cleanup
+    attachment_filter:
+      remove_all: true
+    depends_on: [normalize]

@@ -41,7 +41,7 @@ uv run vpo serve --port 8080          # Start daemon with web UI
 
 - **Python 3.10+** with click (CLI), pydantic, PyYAML, aiohttp (daemon), Jinja2 (templates)
 - **Rust** (PyO3/maturin) for parallel file discovery and hashing in `crates/vpo-core/`
-- **SQLite** database at `~/.vpo/library.db` (schema version 17)
+- **SQLite** database at `~/.vpo/library.db` (schema version 18)
 - **Web UI**: Vanilla JavaScript (ES6+), no frameworks - uses polling for live updates
 - **External tools:** ffprobe (introspection), mkvpropedit/mkvmerge (MKV editing), ffmpeg (metadata editing)
 
@@ -201,6 +201,7 @@ Key V12 features:
 - Music/sfx/non_speech track type support
 - Enhanced conditional rule operators (EXISTS operator)
 - Plugin metadata conditions (access plugin-provided metadata in policy conditions)
+- **Conditional phases**: skip_when, depends_on, run_if, per-phase on_error override
 
 **Two policy formats:**
 - **Flat format** (`PolicySchema`): Traditional single-section policy
@@ -233,10 +234,60 @@ transcode:
 ```
 
 **Key modules:**
-- `policy/models.py`: All schema dataclasses (PolicySchema, PhasedPolicySchema, SkipCondition, QualitySettings, ConditionalRule, etc.)
+- `policy/models.py`: All schema dataclasses (PolicySchema, PhasedPolicySchema, SkipCondition, QualitySettings, ConditionalRule, PhaseSkipCondition, etc.)
 - `policy/loader.py`: PolicyModel validation, schema loading, SCHEMA_VERSION constant
 - `executor/transcode.py`: TranscodeExecutor, FFmpeg command building, edge case detection
 - `policy/transcode.py`: Audio plan creation for audio config
+- `workflow/skip_conditions.py`: Phase skip condition evaluation (evaluate_skip_when)
+
+**Conditional Phase Execution:**
+
+Phased policies support conditional execution through four mechanisms:
+
+1. **skip_when**: Skip phase based on file characteristics (OR logic - any match skips)
+   - `video_codec: [hevc, h265]` - skip if video codec matches
+   - `file_size_under: 1GB` - skip if file under threshold
+   - `resolution_under: 1080p` - skip if resolution below
+   - `duration_under: 30m` - skip if duration under
+   - `audio_codec_exists: truehd` - skip if audio codec present
+   - `container: [mkv]` - skip if container matches
+
+2. **depends_on**: Skip phase if dependencies didn't complete
+   - List of phase names that must COMPLETE before this phase runs
+   - If any dependency failed or was skipped, this phase is skipped
+
+3. **run_if**: Run phase only if condition met
+   - `phase_modified: transcode` - run only if named phase modified file
+
+4. **on_error**: Per-phase error handling override
+   - `skip` - skip remaining phases for this file
+   - `continue` - log and continue to next phase
+   - `fail` - stop batch processing
+
+**Example phased policy with conditionals:**
+```yaml
+schema_version: 12
+phases:
+  - name: normalize
+    container:
+      target: mkv
+
+  - name: transcode
+    skip_when:
+      video_codec: [hevc, h265]
+    transcode:
+      video:
+        target_codec: hevc
+
+  - name: verify
+    run_if:
+      phase_modified: transcode
+    depends_on: [transcode]
+    conditional:
+      - name: check
+        when: { exists: { track_type: video } }
+        then: [{ warn: "Transcode complete" }]
+```
 
 **Transcode edge cases:**
 - VFR detection: warns about variable frame rate content
@@ -337,10 +388,3 @@ vpo stats purge --all --yes              # Delete all
 - `GET /api/stats/files/{file_id}` - File processing history
 - `GET /api/stats/{stats_id}` - Single record detail
 - `DELETE /api/stats/purge?before=30d&dry_run=true` - Delete statistics
-
-## Active Technologies
-- Python 3.10+ + click (CLI), existing `language_analysis` module, existing `db` module (042-analyze-language-cli)
-- SQLite at `~/.vpo/library.db` - uses existing `language_analysis_results` and `language_segments` tables (042-analyze-language-cli)
-
-## Recent Changes
-- 042-analyze-language-cli: Added Python 3.10+ + click (CLI), existing `language_analysis` module, existing `db` module

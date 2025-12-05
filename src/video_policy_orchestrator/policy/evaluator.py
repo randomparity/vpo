@@ -901,8 +901,11 @@ _MP4_COMPATIBLE_SUBTITLE_CODECS = frozenset(
 )
 
 
-def _normalize_container_format(container: str) -> str:
+def normalize_container_format(container: str) -> str:
     """Normalize container format names.
+
+    Handles common aliases from ffprobe output (e.g., 'matroska' -> 'mkv',
+    'mov,mp4,m4a,3gp,3g2,mj2' -> 'mp4').
 
     Args:
         container: Container format string (from ffprobe or file extension).
@@ -979,7 +982,7 @@ def _evaluate_container_change(
         return None
 
     target = policy.container.target.lower()
-    source = _normalize_container_format(source_format)
+    source = normalize_container_format(source_format)
 
     # Skip if already in target format
     if source == target:
