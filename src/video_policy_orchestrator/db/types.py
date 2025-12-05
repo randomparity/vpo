@@ -67,6 +67,45 @@ class TrackClassification(Enum):
     NON_SPEECH = "non_speech"  # Unlabeled track detected as no speech
 
 
+class OriginalDubbedStatus(Enum):
+    """Classification of audio track as original or dubbed.
+
+    Determined by detection priority:
+    1. External metadata (Radarr/Sonarr production country, TMDB)
+    2. Track position heuristic (first audio track often original)
+    3. Acoustic analysis (quality comparison)
+    """
+
+    ORIGINAL = "original"  # Track is the original theatrical audio
+    DUBBED = "dubbed"  # Track is a dubbed version
+    UNKNOWN = "unknown"  # Cannot determine original/dubbed status
+
+
+class CommentaryStatus(Enum):
+    """Classification of audio track as commentary or main content.
+
+    Determined by:
+    1. Metadata keywords (title contains "commentary")
+    2. Acoustic analysis (speech density, dynamic range, voice count)
+    """
+
+    COMMENTARY = "commentary"  # Track contains commentary
+    MAIN = "main"  # Track contains main audio content
+    UNKNOWN = "unknown"  # Cannot determine commentary status
+
+
+class DetectionMethod(Enum):
+    """Method used to determine track classification.
+
+    Indicates the signal source that determined the classification result.
+    """
+
+    METADATA = "metadata"  # Determined from external metadata (Radarr/Sonarr/TMDB)
+    ACOUSTIC = "acoustic"  # Determined from acoustic analysis
+    COMBINED = "combined"  # Multiple signals combined
+    POSITION = "position"  # Determined from track position heuristic
+
+
 class PlanStatus(Enum):
     """Status of a plan in the approval workflow.
 
@@ -507,6 +546,38 @@ class LanguageSegmentRecord:
     start_time: float
     end_time: float
     confidence: float
+
+
+@dataclass
+class TrackClassificationRecord:
+    """Database record for track_classification_results table.
+
+    Stores classification results for audio tracks, including original/dubbed
+    status, commentary detection, and acoustic analysis profile.
+
+    Attributes:
+        id: Primary key (None for new records).
+        track_id: Foreign key to tracks.id (unique constraint).
+        file_hash: Content hash for cache validation.
+        original_dubbed_status: Classification as original, dubbed, or unknown.
+        commentary_status: Classification as commentary, main, or unknown.
+        confidence: Classification confidence (0.0-1.0).
+        detection_method: How classification was determined.
+        acoustic_profile_json: JSON-serialized AcousticProfile (optional).
+        created_at: ISO-8601 UTC creation timestamp.
+        updated_at: ISO-8601 UTC last update timestamp.
+    """
+
+    id: int | None
+    track_id: int
+    file_hash: str
+    original_dubbed_status: str  # OriginalDubbedStatus value
+    commentary_status: str  # CommentaryStatus value
+    confidence: float  # 0.0 - 1.0
+    detection_method: str  # DetectionMethod value
+    acoustic_profile_json: str | None  # JSON serialized AcousticProfile
+    created_at: str  # ISO-8601 UTC
+    updated_at: str  # ISO-8601 UTC
 
 
 @dataclass

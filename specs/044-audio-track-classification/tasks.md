@@ -30,18 +30,18 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Add OriginalDubbedStatus enum to src/video_policy_orchestrator/db/types.py
-- [ ] T006 [P] Add CommentaryStatus enum to src/video_policy_orchestrator/db/types.py
-- [ ] T007 [P] Add DetectionMethod enum to src/video_policy_orchestrator/db/types.py
-- [ ] T008 Add TrackClassificationRecord dataclass to src/video_policy_orchestrator/db/types.py
-- [ ] T009 Create AcousticProfile dataclass in src/video_policy_orchestrator/track_classification/models.py
-- [ ] T010 [P] Create TrackClassificationResult dataclass in src/video_policy_orchestrator/track_classification/models.py
-- [ ] T011 Bump SCHEMA_VERSION to 19 and add track_classification_results table in src/video_policy_orchestrator/db/schema.py
-- [ ] T012 Add migration logic for version 18→19 in src/video_policy_orchestrator/db/schema.py
-- [ ] T013 Add upsert_track_classification() function in src/video_policy_orchestrator/db/queries.py
-- [ ] T014 [P] Add get_track_classification() function in src/video_policy_orchestrator/db/queries.py
-- [ ] T015 [P] Add delete_track_classification() function in src/video_policy_orchestrator/db/queries.py
-- [ ] T016 [P] Add get_classifications_for_file() function in src/video_policy_orchestrator/db/queries.py
+- [X] T005 Add OriginalDubbedStatus enum to src/video_policy_orchestrator/db/types.py
+- [X] T006 [P] Add CommentaryStatus enum to src/video_policy_orchestrator/db/types.py
+- [X] T007 [P] Add DetectionMethod enum to src/video_policy_orchestrator/db/types.py
+- [X] T008 Add TrackClassificationRecord dataclass to src/video_policy_orchestrator/db/types.py
+- [X] T009 Create AcousticProfile dataclass in src/video_policy_orchestrator/track_classification/models.py
+- [X] T010 [P] Create TrackClassificationResult dataclass in src/video_policy_orchestrator/track_classification/models.py
+- [X] T011 Bump SCHEMA_VERSION to 19 and add track_classification_results table in src/video_policy_orchestrator/db/schema.py
+- [X] T012 Add migration logic for version 18→19 in src/video_policy_orchestrator/db/schema.py
+- [X] T013 Add upsert_track_classification() function in src/video_policy_orchestrator/db/queries.py
+- [X] T014 [P] Add get_track_classification() function in src/video_policy_orchestrator/db/queries.py
+- [X] T015 [P] Add delete_track_classification() function in src/video_policy_orchestrator/db/queries.py
+- [X] T016 [P] Add get_classifications_for_file() function in src/video_policy_orchestrator/db/queries.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
