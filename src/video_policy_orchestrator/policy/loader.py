@@ -44,6 +44,7 @@ from video_policy_orchestrator.policy.models import (
     OrCondition,
     PhaseDefinition,
     PhasedPolicySchema,
+    PhaseSkipCondition,
     PluginMetadataCondition,
     PluginMetadataOperator,
     PluginMetadataReference,
@@ -51,6 +52,7 @@ from video_policy_orchestrator.policy.models import (
     ProcessingPhase,
     QualityMode,
     QualitySettings,
+    RunIfCondition,
     ScaleAlgorithm,
     ScalingSettings,
     SetDefaultAction,
@@ -1417,6 +1419,209 @@ class GlobalConfigModel(BaseModel):
         return v
 
 
+# =============================================================================
+# Conditional Phase Pydantic Models
+# =============================================================================
+
+
+def _parse_file_size(value: str) -> int | None:
+    """Parse file size string (e.g., '5GB', '500MB') to bytes.
+
+    Returns None if the format is invalid.
+    """
+    import re
+
+    match = re.match(
+        r"^(\d+(?:\.\d+)?)\s*(B|KB|MB|GB|TB)$", value.strip(), re.IGNORECASE
+    )
+    if not match:
+        return None
+    num = float(match.group(1))
+    unit = match.group(2).upper()
+    multipliers = {"B": 1, "KB": 1024, "MB": 1024**2, "GB": 1024**3, "TB": 1024**4}
+    return int(num * multipliers[unit])
+
+
+def _parse_duration(value: str) -> float | None:
+    """Parse duration string (e.g., '30m', '2h', '1h30m') to seconds.
+
+    Returns None if the format is invalid.
+    """
+    import re
+
+    # Try simple formats first: '30m', '2h', '90s'
+    simple_match = re.match(
+        r"^(\d+(?:\.\d+)?)\s*(s|m|h)$", value.strip(), re.IGNORECASE
+    )
+    if simple_match:
+        num = float(simple_match.group(1))
+        unit = simple_match.group(2).lower()
+        multipliers = {"s": 1, "m": 60, "h": 3600}
+        return num * multipliers[unit]
+
+    # Try compound format: '1h30m'
+    compound_match = re.match(r"^(\d+)h(?:(\d+)m)?$", value.strip(), re.IGNORECASE)
+    if compound_match:
+        hours = int(compound_match.group(1))
+        minutes = int(compound_match.group(2)) if compound_match.group(2) else 0
+        return hours * 3600 + minutes * 60
+
+    return None
+
+
+class PhaseSkipConditionModel(BaseModel):
+    """Pydantic model for phase skip conditions.
+
+    Multiple conditions use OR logic - phase is skipped if ANY matches.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    video_codec: list[str] | None = None
+    """Skip if video codec matches any in this list."""
+
+    audio_codec_exists: str | None = None
+    """Skip if an audio track with this codec exists."""
+
+    subtitle_language_exists: str | None = None
+    """Skip if a subtitle track with this language exists."""
+
+    container: list[str] | None = None
+    """Skip if container format matches any in this list."""
+
+    resolution: str | None = None
+    """Skip if video resolution matches exactly."""
+
+    resolution_under: str | None = None
+    """Skip if video resolution is under this threshold."""
+
+    file_size_under: str | None = None
+    """Skip if file size is under this value."""
+
+    file_size_over: str | None = None
+    """Skip if file size is over this value."""
+
+    duration_under: str | None = None
+    """Skip if duration is under this value."""
+
+    duration_over: str | None = None
+    """Skip if duration is over this value."""
+
+    @field_validator("video_codec")
+    @classmethod
+    def normalize_video_codecs(cls, v: list[str] | None) -> list[str] | None:
+        """Normalize video codec names to lowercase."""
+        if v is None:
+            return None
+        return [c.lower() for c in v]
+
+    @field_validator("audio_codec_exists")
+    @classmethod
+    def normalize_audio_codec(cls, v: str | None) -> str | None:
+        """Normalize audio codec to lowercase."""
+        return v.lower() if v else None
+
+    @field_validator("subtitle_language_exists")
+    @classmethod
+    def normalize_subtitle_language(cls, v: str | None) -> str | None:
+        """Normalize language code to lowercase."""
+        return v.lower() if v else None
+
+    @field_validator("container")
+    @classmethod
+    def normalize_containers(cls, v: list[str] | None) -> list[str] | None:
+        """Normalize container formats to lowercase."""
+        if v is None:
+            return None
+        return [c.lower() for c in v]
+
+    @field_validator("resolution", "resolution_under")
+    @classmethod
+    def validate_resolution(cls, v: str | None) -> str | None:
+        """Validate resolution format."""
+        if v is None:
+            return None
+        valid_resolutions = {"480p", "720p", "1080p", "1440p", "2160p", "4k"}
+        if v.lower() not in valid_resolutions:
+            raise ValueError(
+                f"Invalid resolution '{v}'. "
+                f"Valid values: {', '.join(sorted(valid_resolutions))}"
+            )
+        return v.lower()
+
+    @field_validator("file_size_under", "file_size_over")
+    @classmethod
+    def validate_file_size(cls, v: str | None) -> str | None:
+        """Validate file size format."""
+        if v is None:
+            return None
+        if _parse_file_size(v) is None:
+            raise ValueError(
+                f"Invalid file size '{v}'. Use format like '500MB', '5GB', '1TB'."
+            )
+        return v
+
+    @field_validator("duration_under", "duration_over")
+    @classmethod
+    def validate_duration(cls, v: str | None) -> str | None:
+        """Validate duration format."""
+        if v is None:
+            return None
+        if _parse_duration(v) is None:
+            raise ValueError(
+                f"Invalid duration '{v}'. Use format like '30m', '2h', '1h30m'."
+            )
+        return v
+
+    @model_validator(mode="after")
+    def validate_at_least_one_condition(self) -> "PhaseSkipConditionModel":
+        """Validate that at least one condition is specified."""
+        conditions = [
+            self.video_codec,
+            self.audio_codec_exists,
+            self.subtitle_language_exists,
+            self.container,
+            self.resolution,
+            self.resolution_under,
+            self.file_size_under,
+            self.file_size_over,
+            self.duration_under,
+            self.duration_over,
+        ]
+        if not any(c is not None for c in conditions):
+            raise ValueError(
+                "skip_when must specify at least one condition "
+                "(video_codec, audio_codec_exists, file_size_under, etc.)"
+            )
+        return self
+
+
+class RunIfConditionModel(BaseModel):
+    """Pydantic model for run_if conditions.
+
+    Exactly one condition must be specified.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    phase_modified: str | None = None
+    """Run only if the named phase modified the file."""
+
+    phase_completed: str | None = None
+    """Run only if the named phase completed (future extension)."""
+
+    @model_validator(mode="after")
+    def validate_exactly_one_condition(self) -> "RunIfConditionModel":
+        """Validate that exactly one condition is specified."""
+        conditions = [self.phase_modified, self.phase_completed]
+        set_count = sum(1 for c in conditions if c is not None)
+        if set_count != 1:
+            raise ValueError(
+                "run_if must specify exactly one condition (phase_modified)"
+            )
+        return self
+
+
 class PhaseModel(BaseModel):
     """Pydantic model for a V11 phase definition."""
 
@@ -1436,6 +1641,19 @@ class PhaseModel(BaseModel):
     audio_synthesis: AudioSynthesisModel | None = None
     transcode: TranscodeV6Model | None = None
     transcription: TranscriptionPolicyModel | None = None
+
+    # Conditional phase execution
+    skip_when: PhaseSkipConditionModel | None = None
+    """Conditions that cause this phase to be skipped."""
+
+    depends_on: list[str] | None = None
+    """Phase names this phase depends on."""
+
+    run_if: RunIfConditionModel | None = None
+    """Positive run condition."""
+
+    on_error: Literal["skip", "continue", "fail"] | None = Field(None, alias="on_error")
+    """Per-phase error handling override."""
 
     @field_validator("name")
     @classmethod
@@ -1501,6 +1719,48 @@ class PhasedPolicyModel(BaseModel):
                 )
             seen[lower] = name
         return v
+
+    @model_validator(mode="after")
+    def validate_phase_references(self) -> "PhasedPolicyModel":
+        """Validate that depends_on and run_if reference valid, earlier phases."""
+        phase_names = [p.name for p in self.phases]
+        phase_index_map = {name: idx for idx, name in enumerate(phase_names)}
+
+        for idx, phase in enumerate(self.phases):
+            # Validate depends_on references
+            if phase.depends_on:
+                for dep_name in phase.depends_on:
+                    if dep_name not in phase_index_map:
+                        raise ValueError(
+                            f"Phase '{phase.name}' depends on unknown phase "
+                            f"'{dep_name}'. Valid phases: {', '.join(phase_names)}"
+                        )
+                    dep_idx = phase_index_map[dep_name]
+                    if dep_idx >= idx:
+                        raise ValueError(
+                            f"Phase '{phase.name}' depends on '{dep_name}', but "
+                            f"'{dep_name}' appears later or is the same phase. "
+                            f"Dependencies must reference earlier phases."
+                        )
+
+            # Validate run_if references
+            if phase.run_if:
+                ref_name = phase.run_if.phase_modified or phase.run_if.phase_completed
+                if ref_name and ref_name not in phase_index_map:
+                    raise ValueError(
+                        f"Phase '{phase.name}' run_if references unknown phase "
+                        f"'{ref_name}'. Valid phases: {', '.join(phase_names)}"
+                    )
+                if ref_name:
+                    ref_idx = phase_index_map[ref_name]
+                    if ref_idx >= idx:
+                        raise ValueError(
+                            f"Phase '{phase.name}' run_if references '{ref_name}', "
+                            f"but '{ref_name}' appears later or is the same phase. "
+                            f"run_if must reference earlier phases."
+                        )
+
+        return self
 
 
 # Backward compatibility alias (deprecated)
@@ -2312,6 +2572,51 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
             reorder_commentary=phase.transcription.reorder_commentary,
         )
 
+    # Convert skip_when condition
+    skip_when: PhaseSkipCondition | None = None
+    if phase.skip_when is not None:
+        skip_when = PhaseSkipCondition(
+            video_codec=(
+                tuple(phase.skip_when.video_codec)
+                if phase.skip_when.video_codec
+                else None
+            ),
+            audio_codec_exists=phase.skip_when.audio_codec_exists,
+            subtitle_language_exists=phase.skip_when.subtitle_language_exists,
+            container=(
+                tuple(phase.skip_when.container) if phase.skip_when.container else None
+            ),
+            resolution=phase.skip_when.resolution,
+            resolution_under=phase.skip_when.resolution_under,
+            file_size_under=phase.skip_when.file_size_under,
+            file_size_over=phase.skip_when.file_size_over,
+            duration_under=phase.skip_when.duration_under,
+            duration_over=phase.skip_when.duration_over,
+        )
+
+    # Convert depends_on
+    depends_on: tuple[str, ...] | None = None
+    if phase.depends_on is not None:
+        depends_on = tuple(phase.depends_on)
+
+    # Convert run_if condition
+    run_if: RunIfCondition | None = None
+    if phase.run_if is not None:
+        run_if = RunIfCondition(
+            phase_modified=phase.run_if.phase_modified,
+            phase_completed=phase.run_if.phase_completed,
+        )
+
+    # Convert on_error override
+    on_error_map = {
+        "skip": OnErrorMode.SKIP,
+        "continue": OnErrorMode.CONTINUE,
+        "fail": OnErrorMode.FAIL,
+    }
+    on_error: OnErrorMode | None = None
+    if phase.on_error is not None:
+        on_error = on_error_map[phase.on_error]
+
     return PhaseDefinition(
         name=phase.name,
         container=container,
@@ -2325,6 +2630,10 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
         transcode=transcode,
         audio_transcode=audio_transcode,
         transcription=transcription,
+        skip_when=skip_when,
+        depends_on=depends_on,
+        run_if=run_if,
+        on_error=on_error,
     )
 
 
