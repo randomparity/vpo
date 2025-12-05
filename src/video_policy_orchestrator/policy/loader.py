@@ -1602,6 +1602,8 @@ class PhaseModel(BaseModel):
     audio_synthesis: AudioSynthesisModel | None = None
     transcode: TranscodeV6Model | None = None
     transcription: TranscriptionPolicyModel | None = None
+    audio_actions: AudioActionsModel | None = None
+    subtitle_actions: SubtitleActionsModel | None = None
 
     # Conditional phase execution
     skip_when: PhaseSkipConditionModel | None = None
@@ -2533,6 +2535,24 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
             reorder_commentary=phase.transcription.reorder_commentary,
         )
 
+    # Convert audio_actions
+    audio_actions: AudioActionsConfig | None = None
+    if phase.audio_actions is not None:
+        audio_actions = AudioActionsConfig(
+            clear_all_forced=phase.audio_actions.clear_all_forced,
+            clear_all_default=phase.audio_actions.clear_all_default,
+            clear_all_titles=phase.audio_actions.clear_all_titles,
+        )
+
+    # Convert subtitle_actions
+    subtitle_actions: SubtitleActionsConfig | None = None
+    if phase.subtitle_actions is not None:
+        subtitle_actions = SubtitleActionsConfig(
+            clear_all_forced=phase.subtitle_actions.clear_all_forced,
+            clear_all_default=phase.subtitle_actions.clear_all_default,
+            clear_all_titles=phase.subtitle_actions.clear_all_titles,
+        )
+
     # Convert skip_when condition
     skip_when: PhaseSkipCondition | None = None
     if phase.skip_when is not None:
@@ -2591,6 +2611,8 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
         transcode=transcode,
         audio_transcode=audio_transcode,
         transcription=transcription,
+        audio_actions=audio_actions,
+        subtitle_actions=subtitle_actions,
         skip_when=skip_when,
         depends_on=depends_on,
         run_if=run_if,

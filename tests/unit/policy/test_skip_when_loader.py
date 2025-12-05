@@ -522,3 +522,90 @@ class TestOnErrorOverrideLoading:
         policy = load_policy_from_dict(policy_dict)
         assert isinstance(policy, PhasedPolicySchema)
         assert policy.phases[0].on_error is None
+
+
+class TestAudioSubtitleActionsInPhases:
+    """Tests for audio_actions and subtitle_actions in phases."""
+
+    def test_load_audio_actions_in_phase(self) -> None:
+        """Load phase with audio_actions."""
+        policy_dict = {
+            "schema_version": 12,
+            "phases": [
+                {
+                    "name": "cleanup",
+                    "audio_actions": {
+                        "clear_all_forced": True,
+                        "clear_all_default": True,
+                        "clear_all_titles": False,
+                    },
+                }
+            ],
+        }
+        policy = load_policy_from_dict(policy_dict)
+        assert isinstance(policy, PhasedPolicySchema)
+        assert policy.phases[0].audio_actions is not None
+        assert policy.phases[0].audio_actions.clear_all_forced is True
+        assert policy.phases[0].audio_actions.clear_all_default is True
+        assert policy.phases[0].audio_actions.clear_all_titles is False
+
+    def test_load_subtitle_actions_in_phase(self) -> None:
+        """Load phase with subtitle_actions."""
+        policy_dict = {
+            "schema_version": 12,
+            "phases": [
+                {
+                    "name": "cleanup",
+                    "subtitle_actions": {
+                        "clear_all_forced": True,
+                        "clear_all_default": False,
+                        "clear_all_titles": True,
+                    },
+                }
+            ],
+        }
+        policy = load_policy_from_dict(policy_dict)
+        assert isinstance(policy, PhasedPolicySchema)
+        assert policy.phases[0].subtitle_actions is not None
+        assert policy.phases[0].subtitle_actions.clear_all_forced is True
+        assert policy.phases[0].subtitle_actions.clear_all_default is False
+        assert policy.phases[0].subtitle_actions.clear_all_titles is True
+
+    def test_load_both_actions_in_phase(self) -> None:
+        """Load phase with both audio_actions and subtitle_actions."""
+        policy_dict = {
+            "schema_version": 12,
+            "phases": [
+                {
+                    "name": "cleanup",
+                    "audio_actions": {
+                        "clear_all_forced": True,
+                        "clear_all_default": True,
+                    },
+                    "subtitle_actions": {
+                        "clear_all_forced": True,
+                        "clear_all_default": True,
+                    },
+                }
+            ],
+        }
+        policy = load_policy_from_dict(policy_dict)
+        assert isinstance(policy, PhasedPolicySchema)
+        assert policy.phases[0].audio_actions is not None
+        assert policy.phases[0].subtitle_actions is not None
+
+    def test_actions_none_when_not_specified(self) -> None:
+        """audio_actions and subtitle_actions are None when not specified."""
+        policy_dict = {
+            "schema_version": 12,
+            "phases": [
+                {
+                    "name": "transcode",
+                    "transcode": {"video": {"target_codec": "hevc"}},
+                }
+            ],
+        }
+        policy = load_policy_from_dict(policy_dict)
+        assert isinstance(policy, PhasedPolicySchema)
+        assert policy.phases[0].audio_actions is None
+        assert policy.phases[0].subtitle_actions is None

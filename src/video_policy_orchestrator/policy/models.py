@@ -1955,6 +1955,12 @@ class PhaseDefinition:
     transcription: TranscriptionPolicyOptions | None = None
     """Transcription analysis configuration."""
 
+    audio_actions: AudioActionsConfig | None = None
+    """Pre-processing actions for audio tracks."""
+
+    subtitle_actions: SubtitleActionsConfig | None = None
+    """Pre-processing actions for subtitle tracks."""
+
     # Conditional phase execution fields
     skip_when: "PhaseSkipCondition | None" = None
     """Conditions that cause this phase to be skipped."""
