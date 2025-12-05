@@ -15,6 +15,24 @@ from video_policy_orchestrator.db.types import (
 
 logger = logging.getLogger(__name__)
 
+# -----------------------------------------------------------------------------
+# Confidence Score Constants for Original/Dubbed Detection
+# -----------------------------------------------------------------------------
+# These values represent the confidence level assigned to different detection
+# scenarios. Higher values indicate more reliable classification.
+
+# Single track matches original language from external metadata (Radarr/Sonarr/TMDB)
+CONFIDENCE_METADATA_SINGLE = 0.9
+
+# Multiple tracks match original language (ambiguous - could be theatrical vs extended)
+CONFIDENCE_METADATA_MULTIPLE = 0.75
+
+# Position heuristic with multiple tracks (first audio track assumed original)
+CONFIDENCE_POSITION_MULTI = 0.6
+
+# Single audio track defaults to original (no other signal available)
+CONFIDENCE_POSITION_SINGLE = 0.5
+
 
 def get_original_language_from_metadata(
     file_record: FileRecord | None = None,
@@ -133,7 +151,7 @@ def determine_original_track(
         logger.debug(
             "Single audio track detected - defaulting to original with low confidence"
         )
-        return audio_tracks[0].id, DetectionMethod.POSITION, 0.5
+        return audio_tracks[0].id, DetectionMethod.POSITION, CONFIDENCE_POSITION_SINGLE
 
     # Priority 1: Match track language against original language from metadata
     if original_language:
@@ -149,7 +167,11 @@ def determine_original_track(
                 original_language,
                 matching_tracks[0].id,
             )
-            return matching_tracks[0].id, DetectionMethod.METADATA, 0.9
+            return (
+                matching_tracks[0].id,
+                DetectionMethod.METADATA,
+                CONFIDENCE_METADATA_SINGLE,
+            )
 
         if len(matching_tracks) > 1:
             # Multiple tracks match - could be theatrical vs extended
@@ -158,7 +180,11 @@ def determine_original_track(
                 "Multiple tracks match original language %s - selecting first",
                 original_language,
             )
-            return matching_tracks[0].id, DetectionMethod.METADATA, 0.75
+            return (
+                matching_tracks[0].id,
+                DetectionMethod.METADATA,
+                CONFIDENCE_METADATA_MULTIPLE,
+            )
 
     # Priority 2: Position heuristic (first audio track)
     # Sort by track_index to ensure consistent ordering
@@ -169,7 +195,7 @@ def determine_original_track(
         "Using position heuristic - first audio track %d assumed original",
         first_track.id,
     )
-    return first_track.id, DetectionMethod.POSITION, 0.6
+    return first_track.id, DetectionMethod.POSITION, CONFIDENCE_POSITION_MULTI
 
 
 def _get_track_language(

@@ -32,6 +32,21 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
+# -----------------------------------------------------------------------------
+# Confidence Score Constants for Classification
+# -----------------------------------------------------------------------------
+# These values represent the confidence level assigned to different detection
+# scenarios. Higher values indicate more reliable classification.
+
+# Multiplier applied to inferred dubbed track confidence (relative to original)
+CONFIDENCE_DUBBED_FACTOR = 0.9
+
+# Commentary detected via title keywords (e.g., "director's commentary")
+CONFIDENCE_COMMENTARY_TITLE = 0.85
+
+# Commentary detected via acoustic analysis (speech density, dynamic range, etc.)
+CONFIDENCE_COMMENTARY_ACOUSTIC = 0.7
+
 
 def classify_track(
     conn: sqlite3.Connection,
@@ -104,7 +119,8 @@ def classify_track(
         # If we know which track is original, others are dubbed
         original_dubbed_status = OriginalDubbedStatus.DUBBED
         detection_method = method
-        confidence = orig_confidence * 0.9  # Slightly lower for inferred
+        # Slightly lower confidence for inferred dubbed tracks
+        confidence = orig_confidence * CONFIDENCE_DUBBED_FACTOR
         logger.debug(
             "Track %d classified as DUBBED (method=%s, confidence=%.2f)",
             track.id,
@@ -119,7 +135,7 @@ def classify_track(
             detection_method = DetectionMethod.COMBINED
         else:
             detection_method = DetectionMethod.METADATA
-        confidence = max(confidence, 0.85)
+        confidence = max(confidence, CONFIDENCE_COMMENTARY_TITLE)
         logger.debug(
             "Track %d detected as COMMENTARY via metadata (title=%r)",
             track.id,
@@ -130,7 +146,7 @@ def classify_track(
         if _is_commentary_by_acoustic(acoustic_profile):
             commentary_status = CommentaryStatus.COMMENTARY
             detection_method = DetectionMethod.ACOUSTIC
-            confidence = max(confidence, 0.7)
+            confidence = max(confidence, CONFIDENCE_COMMENTARY_ACOUSTIC)
             logger.debug(
                 "Track %d detected as COMMENTARY via acoustic analysis "
                 "(speech_density=%.2f, dynamic_range=%.1f)",

@@ -27,6 +27,7 @@ from .queries import (
     delete_all_analysis,
     delete_analysis_by_path_prefix,
     delete_analysis_for_file,
+    delete_classifications_for_file,
     delete_file,
     delete_job,
     delete_language_analysis_for_file,
@@ -261,6 +262,7 @@ __all__ = [
     "insert_performance_metric",
     "insert_processing_stats",
     # Track classification operations
+    "delete_classifications_for_file",
     "delete_track_classification",
     "get_classifications_for_file",
     "get_classifications_for_tracks",
