@@ -38,6 +38,8 @@ from video_policy_orchestrator.policy.models import (
     GlobalConfig,
     HardwareAccelConfig,
     HardwareAccelMode,
+    IsDubbedCondition,
+    IsOriginalCondition,
     LanguageFallbackConfig,
     NotCondition,
     OnErrorMode,
@@ -1086,6 +1088,60 @@ class PluginMetadataConditionModel(BaseModel):
         return self
 
 
+class IsOriginalConditionModel(BaseModel):
+    """Pydantic model for is_original condition.
+
+    Checks if audio track is classified as original theatrical audio.
+    Requires track classification to have been performed on the file.
+
+    Supports two forms:
+    1. Simple boolean: is_original: true
+    2. Full object: is_original: { value: true, min_confidence: 0.8, language: jpn }
+
+    Example YAML:
+        when:
+          is_original: true
+
+        when:
+          is_original:
+            value: true
+            min_confidence: 0.8
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: bool = True
+    min_confidence: float = Field(default=0.7, ge=0.0, le=1.0)
+    language: str | None = None
+
+
+class IsDubbedConditionModel(BaseModel):
+    """Pydantic model for is_dubbed condition.
+
+    Checks if audio track is classified as a dubbed version.
+    Requires track classification to have been performed on the file.
+
+    Supports two forms:
+    1. Simple boolean: is_dubbed: true
+    2. Full object: is_dubbed: { value: true, min_confidence: 0.8, language: eng }
+
+    Example YAML:
+        when:
+          is_dubbed: true
+
+        when:
+          is_dubbed:
+            value: true
+            language: eng
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: bool = True
+    min_confidence: float = Field(default=0.7, ge=0.0, le=1.0)
+    language: str | None = None
+
+
 class ConditionModel(BaseModel):
     """Pydantic model for condition (union of condition types)."""
 
@@ -1096,6 +1152,8 @@ class ConditionModel(BaseModel):
     count: CountConditionModel | None = None
     audio_is_multi_language: AudioIsMultiLanguageModel | None = None
     plugin_metadata: PluginMetadataConditionModel | None = None  # V12+
+    is_original: IsOriginalConditionModel | bool | None = None  # V12+, 044 feature
+    is_dubbed: IsDubbedConditionModel | bool | None = None  # V12+, 044 feature
 
     # Boolean operators
     all_of: list["ConditionModel"] | None = Field(None, alias="and")
@@ -1110,6 +1168,8 @@ class ConditionModel(BaseModel):
             ("count", self.count),
             ("audio_is_multi_language", self.audio_is_multi_language),
             ("plugin_metadata", self.plugin_metadata),
+            ("is_original", self.is_original),
+            ("is_dubbed", self.is_dubbed),
             ("and", self.all_of),
             ("or", self.any_of),
             ("not", self.not_),
@@ -1120,7 +1180,8 @@ class ConditionModel(BaseModel):
             if len(set_conditions) == 0:
                 raise ValueError(
                     "Condition must specify exactly one type "
-                    "(exists/count/audio_is_multi_language/plugin_metadata/and/or/not)"
+                    "(exists/count/audio_is_multi_language/plugin_metadata/"
+                    "is_original/is_dubbed/and/or/not)"
                 )
             names = [name for name, _ in set_conditions]
             raise ValueError(
@@ -1915,6 +1976,44 @@ def _convert_plugin_metadata_condition(
     )
 
 
+def _convert_is_original_condition(
+    model: IsOriginalConditionModel | bool,
+) -> IsOriginalCondition:
+    """Convert is_original Pydantic model to domain condition.
+
+    Handles two forms:
+    1. Simple boolean: is_original: true
+    2. Full object: is_original: { value: true, min_confidence: 0.8 }
+    """
+    if isinstance(model, bool):
+        return IsOriginalCondition(value=model)
+
+    return IsOriginalCondition(
+        value=model.value,
+        min_confidence=model.min_confidence,
+        language=model.language,
+    )
+
+
+def _convert_is_dubbed_condition(
+    model: IsDubbedConditionModel | bool,
+) -> IsDubbedCondition:
+    """Convert is_dubbed Pydantic model to domain condition.
+
+    Handles two forms:
+    1. Simple boolean: is_dubbed: true
+    2. Full object: is_dubbed: { value: true, min_confidence: 0.8, language: eng }
+    """
+    if isinstance(model, bool):
+        return IsDubbedCondition(value=model)
+
+    return IsDubbedCondition(
+        value=model.value,
+        min_confidence=model.min_confidence,
+        language=model.language,
+    )
+
+
 def _convert_condition(model: ConditionModel) -> Condition:
     """Convert ConditionModel to Condition type."""
     if model.exists is not None:
@@ -1928,6 +2027,12 @@ def _convert_condition(model: ConditionModel) -> Condition:
 
     if model.plugin_metadata is not None:
         return _convert_plugin_metadata_condition(model.plugin_metadata)
+
+    if model.is_original is not None:
+        return _convert_is_original_condition(model.is_original)
+
+    if model.is_dubbed is not None:
+        return _convert_is_dubbed_condition(model.is_dubbed)
 
     if model.all_of is not None:
         return AndCondition(

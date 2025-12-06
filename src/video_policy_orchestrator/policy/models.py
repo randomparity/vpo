@@ -1233,6 +1233,75 @@ class PluginMetadataCondition:
     operator: PluginMetadataOperator = PluginMetadataOperator.EQ
 
 
+@dataclass(frozen=True)
+class IsOriginalCondition:
+    """Check if audio track is classified as original theatrical audio.
+
+    Evaluates track classification results to determine if a track is the
+    original language/theatrical audio track. Requires track classification
+    to have been run on the file.
+
+    Attributes:
+        value: Expected classification (True for original, False for dubbed).
+        min_confidence: Minimum confidence threshold for classification (0.0-1.0).
+            Default is 0.7 (70%) per specification.
+        language: Optional language filter (ISO 639-2/B code). If set, only
+            matches tracks with this detected language.
+
+    Example YAML:
+        when:
+          is_original: true
+
+        # With confidence threshold:
+        when:
+          is_original:
+            value: true
+            min_confidence: 0.8
+
+        # With language filter:
+        when:
+          is_original:
+            value: true
+            language: jpn
+    """
+
+    value: bool = True
+    min_confidence: float = 0.7
+    language: str | None = None
+
+
+@dataclass(frozen=True)
+class IsDubbedCondition:
+    """Check if audio track is classified as a dubbed version.
+
+    Evaluates track classification results to determine if a track is a
+    dubbed version of the original audio. Requires track classification
+    to have been run on the file.
+
+    Attributes:
+        value: Expected classification (True for dubbed, False for original).
+        min_confidence: Minimum confidence threshold for classification (0.0-1.0).
+            Default is 0.7 (70%) per specification.
+        language: Optional language filter (ISO 639-2/B code). If set, only
+            matches tracks with this detected language.
+
+    Example YAML:
+        when:
+          is_dubbed: true
+
+        # With confidence threshold and language:
+        when:
+          is_dubbed:
+            value: true
+            min_confidence: 0.8
+            language: eng
+    """
+
+    value: bool = True
+    min_confidence: float = 0.7
+    language: str | None = None
+
+
 # Type alias for union of all condition types
 Condition = (
     ExistsCondition
@@ -1242,6 +1311,8 @@ Condition = (
     | NotCondition
     | AudioIsMultiLanguageCondition
     | PluginMetadataCondition
+    | IsOriginalCondition
+    | IsDubbedCondition
 )
 
 

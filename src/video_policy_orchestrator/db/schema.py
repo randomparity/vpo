@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 18
+SCHEMA_VERSION = 19
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -382,6 +382,40 @@ CREATE TABLE IF NOT EXISTS performance_metrics (
 
 CREATE INDEX IF NOT EXISTS idx_perf_stats_id ON performance_metrics(stats_id);
 CREATE INDEX IF NOT EXISTS idx_perf_phase ON performance_metrics(phase_name);
+
+-- Track classification results table (044-audio-track-classification)
+CREATE TABLE IF NOT EXISTS track_classification_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    track_id INTEGER NOT NULL UNIQUE,
+    file_hash TEXT NOT NULL,
+    original_dubbed_status TEXT NOT NULL,
+    commentary_status TEXT NOT NULL,
+    confidence REAL NOT NULL,
+    detection_method TEXT NOT NULL,
+    acoustic_profile_json TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+    CONSTRAINT valid_confidence CHECK (
+        confidence >= 0.0 AND confidence <= 1.0
+    ),
+    CONSTRAINT valid_od_status CHECK (
+        original_dubbed_status IN ('original', 'dubbed', 'unknown')
+    ),
+    CONSTRAINT valid_commentary_status CHECK (
+        commentary_status IN ('commentary', 'main', 'unknown')
+    ),
+    CONSTRAINT valid_method CHECK (
+        detection_method IN ('metadata', 'acoustic', 'combined', 'position')
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_classification_track
+    ON track_classification_results(track_id);
+CREATE INDEX IF NOT EXISTS idx_classification_hash
+    ON track_classification_results(file_hash);
+CREATE INDEX IF NOT EXISTS idx_classification_od_status
+    ON track_classification_results(original_dubbed_status);
 """
 
 
@@ -1470,6 +1504,68 @@ def migrate_v17_to_v18(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def migrate_v18_to_v19(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 18 to version 19.
+
+    Adds track_classification_results table for audio track classification
+    (044-audio-track-classification):
+    - Stores original/dubbed and commentary status for audio tracks
+    - Includes confidence score and detection method
+    - Optional acoustic profile JSON for detailed analysis data
+
+    This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Check if track_classification_results table already exists
+    cursor = conn.execute(
+        "SELECT name FROM sqlite_master "
+        "WHERE type='table' AND name='track_classification_results'"
+    )
+    if cursor.fetchone() is None:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS track_classification_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                track_id INTEGER NOT NULL UNIQUE,
+                file_hash TEXT NOT NULL,
+                original_dubbed_status TEXT NOT NULL,
+                commentary_status TEXT NOT NULL,
+                confidence REAL NOT NULL,
+                detection_method TEXT NOT NULL,
+                acoustic_profile_json TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+                CONSTRAINT valid_confidence CHECK (
+                    confidence >= 0.0 AND confidence <= 1.0
+                ),
+                CONSTRAINT valid_od_status CHECK (
+                    original_dubbed_status IN ('original', 'dubbed', 'unknown')
+                ),
+                CONSTRAINT valid_commentary_status CHECK (
+                    commentary_status IN ('commentary', 'main', 'unknown')
+                ),
+                CONSTRAINT valid_method CHECK (
+                    detection_method IN ('metadata', 'acoustic', 'combined', 'position')
+                )
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_classification_track
+                ON track_classification_results(track_id);
+            CREATE INDEX IF NOT EXISTS idx_classification_hash
+                ON track_classification_results(file_hash);
+            CREATE INDEX IF NOT EXISTS idx_classification_od_status
+                ON track_classification_results(original_dubbed_status);
+        """)
+
+    # Update schema version to 19
+    conn.execute(
+        "UPDATE _meta SET value = '19' WHERE key = 'schema_version'",
+    )
+    conn.commit()
+
+
 def initialize_database(conn: sqlite3.Connection) -> None:
     """Initialize the database with schema, creating tables if needed.
 
@@ -1532,3 +1628,6 @@ def initialize_database(conn: sqlite3.Connection) -> None:
             current_version = 17
         if current_version == 17:
             migrate_v17_to_v18(conn)
+            current_version = 18
+        if current_version == 18:
+            migrate_v18_to_v19(conn)

@@ -1,0 +1,79 @@
+{
+  "description": "English original film with Spanish and French dubbed tracks",
+  "file": {
+    "id": 2,
+    "path": "/media/movies/inception/Inception.2010.mkv",
+    "content_hash": "def456",
+    "plugin_metadata": {
+      "radarr": {
+        "original_language": "en",
+        "title": "Inception",
+        "production_countries": ["US", "GB"]
+      }
+    }
+  },
+  "tracks": [
+    {
+      "id": 10,
+      "track_index": 0,
+      "track_type": "video",
+      "codec": "h264"
+    },
+    {
+      "id": 11,
+      "track_index": 1,
+      "track_type": "audio",
+      "codec": "truehd",
+      "language": "eng",
+      "title": "English TrueHD 7.1",
+      "expected_classification": {
+        "original_dubbed_status": "original",
+        "commentary_status": "unknown",
+        "confidence": 0.9,
+        "detection_method": "metadata"
+      }
+    },
+    {
+      "id": 12,
+      "track_index": 2,
+      "track_type": "audio",
+      "codec": "ac3",
+      "language": "spa",
+      "title": "Spanish 5.1",
+      "expected_classification": {
+        "original_dubbed_status": "dubbed",
+        "commentary_status": "unknown",
+        "confidence": 0.81,
+        "detection_method": "metadata"
+      }
+    },
+    {
+      "id": 13,
+      "track_index": 3,
+      "track_type": "audio",
+      "codec": "ac3",
+      "language": "fra",
+      "title": "French 5.1",
+      "expected_classification": {
+        "original_dubbed_status": "dubbed",
+        "commentary_status": "unknown",
+        "confidence": 0.81,
+        "detection_method": "metadata"
+      }
+    },
+    {
+      "id": 14,
+      "track_index": 4,
+      "track_type": "audio",
+      "codec": "aac",
+      "language": "eng",
+      "title": "Director's Commentary",
+      "expected_classification": {
+        "original_dubbed_status": "dubbed",
+        "commentary_status": "commentary",
+        "confidence": 0.85,
+        "detection_method": "combined"
+      }
+    }
+  ]
+}

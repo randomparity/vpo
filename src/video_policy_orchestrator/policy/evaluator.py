@@ -14,6 +14,9 @@ if TYPE_CHECKING:
     from video_policy_orchestrator.language_analysis.models import (
         LanguageAnalysisResult,
     )
+    from video_policy_orchestrator.track_classification.models import (
+        TrackClassificationResult,
+    )
 
 from video_policy_orchestrator.db.models import (
     TrackInfo,
@@ -1025,6 +1028,7 @@ def evaluate_conditional_rules(
     file_path: Path,
     language_results: dict[int, LanguageAnalysisResult] | None = None,
     plugin_metadata: PluginMetadataDict | None = None,
+    classification_results: dict[int, TrackClassificationResult] | None = None,
 ) -> ConditionalResult:
     """Evaluate conditional rules and execute matching actions.
 
@@ -1041,6 +1045,8 @@ def evaluate_conditional_rules(
             (required for audio_is_multi_language conditions).
         plugin_metadata: Optional dict of plugin metadata keyed by plugin name
             (required for plugin_metadata conditions).
+        classification_results: Optional dict mapping track_id to
+            TrackClassificationResult (required for is_original/is_dubbed conditions).
 
     Returns:
         ConditionalResult with matched rule, skip flags, warnings, and trace.
@@ -1071,7 +1077,12 @@ def evaluate_conditional_rules(
     for i, rule in enumerate(rules):
         # Evaluate the condition, passing all context for condition types
         result, reason = evaluate_condition(
-            rule.when, tracks, language_results, None, plugin_metadata
+            rule.when,
+            tracks,
+            language_results,
+            None,
+            plugin_metadata,
+            classification_results,
         )
 
         if result:
@@ -1200,6 +1211,7 @@ def evaluate_policy(
     transcription_results: dict[int, TranscriptionResultRecord] | None = None,
     language_results: dict[int, LanguageAnalysisResult] | None = None,
     plugin_metadata: PluginMetadataDict | None = None,
+    classification_results: dict[int, TrackClassificationResult] | None = None,
 ) -> Plan:
     """Evaluate a policy against file tracks to produce an execution plan.
 
@@ -1218,6 +1230,8 @@ def evaluate_policy(
             Required for audio_is_multi_language conditions.
         plugin_metadata: Optional dict of plugin metadata keyed by plugin name.
             Required for plugin_metadata conditions.
+        classification_results: Optional dict mapping track_id to
+            TrackClassificationResult. Required for is_original/is_dubbed conditions.
 
     Returns:
         Plan describing all changes needed to make tracks conform to policy.
@@ -1249,6 +1263,7 @@ def evaluate_policy(
             file_path=file_path,
             language_results=language_results,
             plugin_metadata=plugin_metadata,
+            classification_results=classification_results,
         )
         skip_flags = conditional_result.skip_flags
 

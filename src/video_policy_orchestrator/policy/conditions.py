@@ -23,7 +23,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from video_policy_orchestrator.db.types import PluginMetadataDict
+from video_policy_orchestrator.db.types import OriginalDubbedStatus, PluginMetadataDict
 from video_policy_orchestrator.language import languages_match
 from video_policy_orchestrator.language_analysis.models import (
     LanguageAnalysisResult,
@@ -37,12 +37,17 @@ from video_policy_orchestrator.policy.models import (
     Condition,
     CountCondition,
     ExistsCondition,
+    IsDubbedCondition,
+    IsOriginalCondition,
     NotCondition,
     OrCondition,
     PluginMetadataCondition,
     PluginMetadataOperator,
     TitleMatch,
     TrackFilters,
+)
+from video_policy_orchestrator.track_classification.models import (
+    TrackClassificationResult,
 )
 
 if TYPE_CHECKING:
@@ -422,6 +427,130 @@ def evaluate_audio_is_multi_language(
     return (False, reason)
 
 
+def evaluate_is_original(
+    condition: IsOriginalCondition,
+    tracks: list[TrackInfo],
+    classification_results: dict[int, TrackClassificationResult] | None = None,
+) -> tuple[bool, str]:
+    """Evaluate an is_original condition.
+
+    Args:
+        condition: The is_original condition to evaluate.
+        tracks: List of tracks to check.
+        classification_results: Dict mapping track_id to TrackClassificationResult.
+
+    Returns:
+        Tuple of (result, reason) where result is True if any track matches
+        the original/dubbed status with sufficient confidence.
+    """
+    if classification_results is None:
+        return (
+            False,
+            "is_original → False (no classification results available)",
+        )
+
+    # Filter to audio tracks
+    audio_tracks = [t for t in tracks if t.track_type.lower() == "audio"]
+
+    for track in audio_tracks:
+        if track.id is None:
+            continue
+
+        classification = classification_results.get(track.id)
+        if classification is None:
+            continue
+
+        # Check confidence threshold
+        if classification.confidence < condition.min_confidence:
+            continue
+
+        # Check language filter if specified
+        if condition.language is not None:
+            if classification.language is None:
+                continue
+            if not languages_match(classification.language, condition.language):
+                continue
+
+        # Check original status
+        is_original = (
+            classification.original_dubbed_status == OriginalDubbedStatus.ORIGINAL
+        )
+
+        if condition.value == is_original:
+            status_str = "original" if is_original else "dubbed"
+            reason = (
+                f"is_original → True "
+                f"(track[{track.index}] is {status_str}, "
+                f"confidence={classification.confidence:.0%})"
+            )
+            return (True, reason)
+
+    # No matching track found
+    expected = "original" if condition.value else "not original"
+    return (False, f"is_original → False (no {expected} tracks found)")
+
+
+def evaluate_is_dubbed(
+    condition: IsDubbedCondition,
+    tracks: list[TrackInfo],
+    classification_results: dict[int, TrackClassificationResult] | None = None,
+) -> tuple[bool, str]:
+    """Evaluate an is_dubbed condition.
+
+    Args:
+        condition: The is_dubbed condition to evaluate.
+        tracks: List of tracks to check.
+        classification_results: Dict mapping track_id to TrackClassificationResult.
+
+    Returns:
+        Tuple of (result, reason) where result is True if any track matches
+        the dubbed status with sufficient confidence.
+    """
+    if classification_results is None:
+        return (
+            False,
+            "is_dubbed → False (no classification results available)",
+        )
+
+    # Filter to audio tracks
+    audio_tracks = [t for t in tracks if t.track_type.lower() == "audio"]
+
+    for track in audio_tracks:
+        if track.id is None:
+            continue
+
+        classification = classification_results.get(track.id)
+        if classification is None:
+            continue
+
+        # Check confidence threshold
+        if classification.confidence < condition.min_confidence:
+            continue
+
+        # Check language filter if specified
+        if condition.language is not None:
+            if classification.language is None:
+                continue
+            if not languages_match(classification.language, condition.language):
+                continue
+
+        # Check dubbed status
+        is_dubbed = classification.original_dubbed_status == OriginalDubbedStatus.DUBBED
+
+        if condition.value == is_dubbed:
+            status_str = "dubbed" if is_dubbed else "original"
+            reason = (
+                f"is_dubbed → True "
+                f"(track[{track.index}] is {status_str}, "
+                f"confidence={classification.confidence:.0%})"
+            )
+            return (True, reason)
+
+    # No matching track found
+    expected = "dubbed" if condition.value else "not dubbed"
+    return (False, f"is_dubbed → False (no {expected} tracks found)")
+
+
 def evaluate_plugin_metadata(
     condition: PluginMetadataCondition,
     plugin_metadata: PluginMetadataDict | None,
@@ -568,12 +697,13 @@ def evaluate_condition(
     language_results: dict[int, LanguageAnalysisResult] | None = None,
     commentary_patterns: tuple[str, ...] | None = None,
     plugin_metadata: PluginMetadataDict | None = None,
+    classification_results: dict[int, TrackClassificationResult] | None = None,
 ) -> tuple[bool, str]:
     """Evaluate a condition against track metadata.
 
     This is the main entry point for condition evaluation. It handles
     all condition types: exists, count, audio_is_multi_language,
-    plugin_metadata, and, or, not.
+    plugin_metadata, is_original, is_dubbed, and, or, not.
 
     Args:
         condition: The condition to evaluate.
@@ -584,6 +714,8 @@ def evaluate_condition(
             (for not_commentary filter).
         plugin_metadata: Optional dict of plugin metadata keyed by plugin name
             (required for plugin_metadata conditions).
+        classification_results: Optional dict mapping track_id to
+            TrackClassificationResult (required for is_original/is_dubbed conditions).
 
     Returns:
         Tuple of (result, reason) where result is the boolean outcome
@@ -601,10 +733,21 @@ def evaluate_condition(
     if isinstance(condition, PluginMetadataCondition):
         return evaluate_plugin_metadata(condition, plugin_metadata)
 
+    if isinstance(condition, IsOriginalCondition):
+        return evaluate_is_original(condition, tracks, classification_results)
+
+    if isinstance(condition, IsDubbedCondition):
+        return evaluate_is_dubbed(condition, tracks, classification_results)
+
     if isinstance(condition, AndCondition):
         for sub in condition.conditions:
             result, reason = evaluate_condition(
-                sub, tracks, language_results, commentary_patterns, plugin_metadata
+                sub,
+                tracks,
+                language_results,
+                commentary_patterns,
+                plugin_metadata,
+                classification_results,
             )
             if not result:
                 return (False, f"and → False ({reason})")
@@ -613,7 +756,12 @@ def evaluate_condition(
     if isinstance(condition, OrCondition):
         for sub in condition.conditions:
             result, reason = evaluate_condition(
-                sub, tracks, language_results, commentary_patterns, plugin_metadata
+                sub,
+                tracks,
+                language_results,
+                commentary_patterns,
+                plugin_metadata,
+                classification_results,
             )
             if result:
                 return (True, f"or → True ({reason})")
@@ -626,6 +774,7 @@ def evaluate_condition(
             language_results,
             commentary_patterns,
             plugin_metadata,
+            classification_results,
         )
         return (not result, f"not({reason}) → {not result}")
 

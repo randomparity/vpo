@@ -1,13 +1,78 @@
 """Data models for transcription module."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from video_policy_orchestrator.track_classification.models import AcousticProfile
 
 # Import TrackClassification from canonical location in db.types
 from video_policy_orchestrator.db.types import TrackClassification
 
 # Re-export for backward compatibility
-__all__ = ["TrackClassification", "TranscriptionResult", "TranscriptionConfig"]
+__all__ = [
+    "AcousticAnalysisResult",
+    "TrackClassification",
+    "TranscriptionConfig",
+    "TranscriptionResult",
+]
+
+
+@dataclass
+class AcousticAnalysisResult:
+    """Result of acoustic profile analysis for track classification.
+
+    Contains audio characteristics used to classify tracks, particularly
+    for detecting commentary tracks vs main audio.
+    """
+
+    speech_density: float  # Ratio of speech frames (0.0-1.0)
+    avg_pause_duration: float  # Average silence duration in seconds
+    voice_count_estimate: int  # Estimated distinct speakers
+    dynamic_range_db: float  # Peak-to-average ratio in dB
+    has_background_audio: bool  # Film audio detected underneath
+
+    def __post_init__(self) -> None:
+        """Validate fields after initialization."""
+        if not 0.0 <= self.speech_density <= 1.0:
+            raise ValueError(
+                f"speech_density must be between 0.0 and 1.0, got {self.speech_density}"
+            )
+        if self.avg_pause_duration < 0.0:
+            raise ValueError(
+                f"avg_pause_duration must be non-negative, "
+                f"got {self.avg_pause_duration}"
+            )
+        if self.voice_count_estimate < 0:
+            raise ValueError(
+                f"voice_count_estimate must be non-negative, "
+                f"got {self.voice_count_estimate}"
+            )
+        if self.dynamic_range_db < 0.0:
+            raise ValueError(
+                f"dynamic_range_db must be non-negative, got {self.dynamic_range_db}"
+            )
+
+    def to_acoustic_profile(self) -> AcousticProfile:
+        """Convert to track_classification.AcousticProfile.
+
+        Returns:
+            AcousticProfile instance for use in classification.
+        """
+        from video_policy_orchestrator.track_classification.models import (
+            AcousticProfile,
+        )
+
+        return AcousticProfile(
+            speech_density=self.speech_density,
+            avg_pause_duration=self.avg_pause_duration,
+            voice_count_estimate=self.voice_count_estimate,
+            dynamic_range_db=self.dynamic_range_db,
+            has_background_audio=self.has_background_audio,
+        )
 
 
 @dataclass
@@ -34,7 +99,7 @@ class TranscriptionResult:
             raise ValueError("plugin_name must be non-empty")
 
     @classmethod
-    def from_record(cls, record: "TranscriptionResultRecord") -> "TranscriptionResult":
+    def from_record(cls, record: TranscriptionResultRecord) -> TranscriptionResult:
         """Create domain model from database record.
 
         Args:

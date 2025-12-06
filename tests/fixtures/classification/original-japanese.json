@@ -1,0 +1,58 @@
+{
+  "description": "Japanese anime with original Japanese and English dubbed tracks",
+  "file": {
+    "id": 1,
+    "path": "/media/anime/akira/Akira.1988.mkv",
+    "content_hash": "abc123",
+    "plugin_metadata": {
+      "tmdb": {
+        "original_language": "ja",
+        "title": "Akira",
+        "production_countries": ["JP"]
+      }
+    }
+  },
+  "tracks": [
+    {
+      "id": 1,
+      "track_index": 0,
+      "track_type": "video",
+      "codec": "hevc"
+    },
+    {
+      "id": 2,
+      "track_index": 1,
+      "track_type": "audio",
+      "codec": "flac",
+      "language": "jpn",
+      "title": "Japanese 5.1",
+      "expected_classification": {
+        "original_dubbed_status": "original",
+        "commentary_status": "unknown",
+        "confidence": 0.9,
+        "detection_method": "metadata"
+      }
+    },
+    {
+      "id": 3,
+      "track_index": 2,
+      "track_type": "audio",
+      "codec": "aac",
+      "language": "eng",
+      "title": "English 5.1",
+      "expected_classification": {
+        "original_dubbed_status": "dubbed",
+        "commentary_status": "unknown",
+        "confidence": 0.81,
+        "detection_method": "metadata"
+      }
+    },
+    {
+      "id": 4,
+      "track_index": 3,
+      "track_type": "subtitle",
+      "language": "eng",
+      "title": "English"
+    }
+  ]
+}

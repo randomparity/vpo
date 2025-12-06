@@ -133,6 +133,7 @@ class TranscriptionPlugin(Protocol):
                 - "transcription": Full transcription support
                 - "gpu": GPU acceleration support
                 - "multi_language_detection": Multi-language detection support
+                - "acoustic_analysis": Acoustic profile extraction support
 
         Returns:
             True if feature is supported.
@@ -163,13 +164,44 @@ class TranscriptionPlugin(Protocol):
         """
         ...
 
+    def get_acoustic_profile(
+        self,
+        audio_data: bytes,
+        sample_rate: int = 16000,
+    ) -> "AcousticAnalysisResult | None":
+        """Extract acoustic profile for track classification.
+
+        Optional method for plugins that support acoustic analysis.
+        Use supports_feature("acoustic_analysis") to check availability.
+
+        Extracts:
+        - Speech density (ratio of speech frames to total)
+        - Dynamic range (peak-to-average ratio in dB)
+        - Voice count estimate (number of distinct speakers)
+        - Background audio detection (film audio underneath commentary)
+        - Average pause duration
+
+        Args:
+            audio_data: Raw audio bytes (WAV format, mono, 16kHz).
+            sample_rate: Sample rate of audio data.
+
+        Returns:
+            AcousticAnalysisResult with profile data, or None if not supported.
+
+        Raises:
+            TranscriptionError: If analysis fails.
+        """
+        ...
+
 
 # Import here to avoid circular import at module level
 from video_policy_orchestrator.transcription.models import (  # noqa: E402
+    AcousticAnalysisResult,
     TranscriptionResult,
 )
 
 __all__ = [
+    "AcousticAnalysisResult",
     "MultiLanguageDetectionConfig",
     "MultiLanguageDetectionResult",
     "TranscriptionError",
