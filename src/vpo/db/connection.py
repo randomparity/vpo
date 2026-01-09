@@ -215,12 +215,16 @@ def check_database_connectivity(db_path: Path | None = None) -> bool:
 class DaemonConnectionPool:
     """Thread-safe connection pool for daemon mode.
 
-    Maintains a single connection that's safely shared across threads
-    using a lock. This is appropriate for SQLite with WAL mode where
-    readers don't block each other.
+    Uses separate connection strategies for reads and writes to maximize
+    concurrency with SQLite WAL mode:
+
+    - Read operations: Create a new connection per operation (no locking),
+      allowing concurrent reads without blocking.
+    - Write operations: Use a shared connection with locking to ensure
+      only one write at a time.
 
     The pool applies standard PRAGMAs (WAL, foreign keys, busy_timeout)
-    and uses check_same_thread=False with explicit locking for safety.
+    to all connections.
     """
 
     def __init__(self, db_path: Path, timeout: float = 30.0) -> None:
@@ -232,34 +236,51 @@ class DaemonConnectionPool:
         """
         self.db_path = db_path
         self.timeout = timeout
-        self._conn: sqlite3.Connection | None = None
-        self._lock = threading.Lock()
+        self._write_conn: sqlite3.Connection | None = None
+        self._write_lock = threading.Lock()
         self._closed = False
+        self._closed_lock = threading.Lock()
 
-    def _get_connection_unlocked(self) -> sqlite3.Connection:
-        """Get the shared connection. Must be called with lock held."""
-        if self._closed:
-            raise RuntimeError("Connection pool is closed")
+    def _create_connection(self) -> sqlite3.Connection:
+        """Create a new connection with standard PRAGMAs.
 
-        if self._conn is None:
-            self._conn = sqlite3.connect(
-                str(self.db_path),
-                timeout=self.timeout,
-                check_same_thread=False,  # Safe with our locking
-            )
+        Returns:
+            A configured SQLite connection.
+        """
+        conn = sqlite3.connect(
+            str(self.db_path),
+            timeout=self.timeout,
+            check_same_thread=False,
+        )
 
-            # Apply standard PRAGMAs
-            self._conn.execute("PRAGMA foreign_keys = ON")
-            self._conn.execute("PRAGMA journal_mode = WAL")
-            self._conn.execute("PRAGMA synchronous = NORMAL")
-            self._conn.execute("PRAGMA busy_timeout = 10000")
-            self._conn.execute("PRAGMA temp_store = MEMORY")
-            self._conn.row_factory = sqlite3.Row
+        # Apply standard PRAGMAs
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA synchronous = NORMAL")
+        conn.execute("PRAGMA busy_timeout = 10000")
+        conn.execute("PRAGMA temp_store = MEMORY")
+        conn.row_factory = sqlite3.Row
 
-        return self._conn
+        return conn
+
+    def _get_write_connection_unlocked(self) -> sqlite3.Connection:
+        """Get the shared write connection. Must be called with write lock held."""
+        with self._closed_lock:
+            if self._closed:
+                raise RuntimeError("Connection pool is closed")
+
+        if self._write_conn is None:
+            self._write_conn = self._create_connection()
+
+        return self._write_conn
+
+    # Legacy alias for backward compatibility
+    _get_connection_unlocked = _get_write_connection_unlocked
+    _conn = property(lambda self: self._write_conn)
+    _lock = property(lambda self: self._write_lock)
 
     def get_connection(self) -> sqlite3.Connection:
-        """Get the shared connection, creating if needed.
+        """Get the shared write connection, creating if needed.
 
         Returns:
             The shared SQLite connection.
@@ -267,14 +288,37 @@ class DaemonConnectionPool:
         Raises:
             RuntimeError: If the pool has been closed.
         """
-        with self._lock:
-            return self._get_connection_unlocked()
+        with self._write_lock:
+            return self._get_write_connection_unlocked()
+
+    @contextmanager
+    def read_connection(self) -> Iterator[sqlite3.Connection]:
+        """Get a read-only connection (new connection per call).
+
+        Creates a new connection for each read operation, allowing concurrent
+        reads without lock contention. The connection is closed when the
+        context manager exits.
+
+        Yields:
+            A fresh SQLite connection for reading.
+
+        Raises:
+            RuntimeError: If the pool has been closed.
+        """
+        with self._closed_lock:
+            if self._closed:
+                raise RuntimeError("Connection pool is closed")
+        conn = self._create_connection()
+        try:
+            yield conn
+        finally:
+            conn.close()
 
     def execute_read(self, query: str, params: tuple = ()) -> list[sqlite3.Row]:
-        """Execute a read-only query safely.
+        """Execute a read-only query with its own connection.
 
-        This method acquires the lock to ensure thread-safe access
-        to the shared connection.
+        Uses a fresh connection per read to avoid blocking on the write lock.
+        This allows concurrent reads in WAL mode without serialization.
 
         Args:
             query: SQL query to execute.
@@ -283,15 +327,14 @@ class DaemonConnectionPool:
         Returns:
             List of result rows.
         """
-        with self._lock:
-            conn = self._get_connection_unlocked()
+        with self.read_connection() as conn:
             cursor = conn.execute(query, params)
             return cursor.fetchall()
 
     def execute_write(self, query: str, params: tuple = ()) -> int:
         """Execute a write query safely (INSERT/UPDATE/DELETE).
 
-        This method acquires the lock to ensure thread-safe access
+        This method acquires the write lock to ensure thread-safe access
         to the shared connection and commits the transaction.
 
         Args:
@@ -301,22 +344,30 @@ class DaemonConnectionPool:
         Returns:
             Number of affected rows.
         """
-        with self._lock:
-            conn = self._get_connection_unlocked()
+        with self._write_lock:
+            conn = self._get_write_connection_unlocked()
             cursor = conn.execute(query, params)
             conn.commit()
             return cursor.rowcount
 
     @contextmanager
-    def transaction(self) -> Iterator[sqlite3.Connection]:
+    def transaction(self, timeout: float | None = None) -> Iterator[sqlite3.Connection]:
         """Context manager for atomic database transactions.
 
         Automatically commits on success, rolls back on exception.
         Uses BEGIN IMMEDIATE for write-intent transactions.
 
+        Includes timing instrumentation to log warnings for slow transactions
+        (>80% of timeout). This helps identify performance issues before
+        they cause actual timeouts.
+
         The connection is yielded to allow direct execution of multiple
         statements within the transaction. Do NOT use execute_write()
         inside a transaction as it will commit automatically.
+
+        Args:
+            timeout: Optional timeout threshold for slow transaction warnings.
+                If not specified, uses the pool's configured timeout.
 
         Example:
             with pool.transaction() as conn:
@@ -329,8 +380,11 @@ class DaemonConnectionPool:
         Raises:
             Exception: Re-raises any exception after rollback.
         """
-        with self._lock:
-            conn = self._get_connection_unlocked()
+        effective_timeout = timeout if timeout is not None else self.timeout
+        start_time = time.monotonic()
+
+        with self._write_lock:
+            conn = self._get_write_connection_unlocked()
             conn.execute("BEGIN IMMEDIATE")
             try:
                 yield conn
@@ -338,24 +392,56 @@ class DaemonConnectionPool:
             except Exception:
                 conn.execute("ROLLBACK")
                 raise
+            finally:
+                elapsed = time.monotonic() - start_time
+                # Warn if transaction took >80% of timeout threshold
+                if elapsed > effective_timeout * 0.8:
+                    logger.warning(
+                        "Slow transaction: %.2fs (threshold: %.1fs)",
+                        elapsed,
+                        effective_timeout,
+                    )
 
     def close(self) -> None:
         """Close the connection pool.
 
         After closing, the pool cannot be reused. Any attempts to
         get a connection will raise RuntimeError.
+
+        Raises:
+            Exception: Re-raises any exception from closing the connection
+                (after logging and marking the pool as closed).
         """
-        with self._lock:
-            if self._conn is not None:
+        with self._write_lock:
+            if self._write_conn is not None:
                 try:
-                    self._conn.close()
+                    self._write_conn.close()
                 except Exception as e:
-                    logger.warning("Error closing connection pool: %s", e)
-                self._conn = None
-            self._closed = True
+                    logger.error("Error closing connection pool: %s", e)
+                    self._write_conn = None
+                    with self._closed_lock:
+                        self._closed = True
+                    raise
+                self._write_conn = None
+            with self._closed_lock:
+                self._closed = True
+
+    def __del__(self) -> None:
+        """Ensure connection is closed on garbage collection.
+
+        This is a safety net for cases where close() was not called explicitly.
+        Logs a warning if the pool was not properly closed.
+        """
+        # Use getattr with defaults to handle partially initialized objects
+        if not getattr(self, "_closed", True) and getattr(self, "_write_conn", None):
+            logger.warning("DaemonConnectionPool was not properly closed")
+            try:
+                self._write_conn.close()
+            except Exception:  # nosec B110 - Best effort cleanup in destructor
+                pass
 
     @property
     def is_closed(self) -> bool:
         """Check if the pool has been closed."""
-        with self._lock:
+        with self._closed_lock:
             return self._closed

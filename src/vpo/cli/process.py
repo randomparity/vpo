@@ -131,19 +131,29 @@ class ProgressTracker:
         """Mark a file as starting processing."""
         with self._lock:
             self.active += 1
-            self._update()
+            completed, total, active = self.completed, self.total, self.active
+        # I/O outside lock to avoid blocking workers if stderr is slow
+        self._update_display(completed, total, active)
 
     def complete_file(self) -> None:
         """Mark a file as completed processing."""
         with self._lock:
             self.active -= 1
             self.completed += 1
-            self._update()
+            completed, total, active = self.completed, self.total, self.active
+        # I/O outside lock to avoid blocking workers if stderr is slow
+        self._update_display(completed, total, active)
 
-    def _update(self) -> None:
-        """Update progress display on stderr."""
+    def _update_display(self, completed: int, total: int, active: int) -> None:
+        """Update progress display on stderr.
+
+        Args:
+            completed: Number of completed files.
+            total: Total number of files.
+            active: Number of currently active workers.
+        """
         if self.enabled:
-            msg = f"\rProcessing: {self.completed}/{self.total} [{self.active} active]"
+            msg = f"\rProcessing: {completed}/{total} [{active} active]"
             sys.stderr.write(msg)
             sys.stderr.flush()
 
@@ -753,12 +763,17 @@ def process_command(
                     stop_event.set()
                     stopped_early = True
                     if not json_output:
-                        click.echo("\nInterrupted - cancelling remaining files...")
-                    # Cancel pending futures
+                        click.echo(
+                            "\nInterrupted - waiting for active workers to complete..."
+                        )
+                    # Cancel pending futures (not yet running)
                     for f in futures:
                         f.cancel()
-                    # Shutdown executor without waiting for running tasks
-                    executor.shutdown(wait=False, cancel_futures=True)
+                    # Wait for running tasks to complete gracefully
+                    # cancel_futures=True cancels pending immediately, but running
+                    # tasks continue until their current operation completes.
+                    # The stop_event signals workers to exit quickly.
+                    executor.shutdown(wait=True, cancel_futures=True)
 
             # Finish progress display
             progress.finish()

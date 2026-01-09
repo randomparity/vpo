@@ -138,8 +138,13 @@ def load_config_file(path: Path | None = None) -> dict:
     if path is None:
         path = get_default_config_path()
 
+    # Fast path: check cache without lock (dict reads are atomic in CPython)
+    if path in _config_cache:
+        return _config_cache[path]
+
+    # Slow path: acquire lock, double-check, then load
     with _config_cache_lock:
-        # Check cache first
+        # Double-check after acquiring lock (another thread may have loaded it)
         if path in _config_cache:
             return _config_cache[path]
 

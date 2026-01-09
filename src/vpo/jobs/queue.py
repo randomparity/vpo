@@ -85,15 +85,29 @@ def claim_next_job(
         return get_job(conn, job_id)
 
     except sqlite3.OperationalError as e:
-        conn.execute("ROLLBACK")
+        try:
+            conn.execute("ROLLBACK")
+        except sqlite3.Error:
+            pass  # Best effort rollback
+        error_msg = str(e).casefold()
+        # Distinguish lock contention from other errors
+        if "locked" in error_msg or "busy" in error_msg:
+            logger.warning("Lock contention while claiming job: %s", e)
+            return None  # Caller can retry
         logger.error("Database operational error while claiming job: %s", e)
         raise
     except sqlite3.IntegrityError as e:
-        conn.execute("ROLLBACK")
+        try:
+            conn.execute("ROLLBACK")
+        except sqlite3.Error:
+            pass
         logger.error("Database integrity error while claiming job: %s", e)
         raise
     except sqlite3.DatabaseError as e:
-        conn.execute("ROLLBACK")
+        try:
+            conn.execute("ROLLBACK")
+        except sqlite3.Error:
+            pass
         logger.error("Database error while claiming job: %s", e)
         raise
 

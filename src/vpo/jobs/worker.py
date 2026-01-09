@@ -15,7 +15,9 @@ import sqlite3
 import threading
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
+from vpo.db.connection import get_connection
 from vpo.db.models import (
     Job,
     JobStatus,
@@ -79,6 +81,12 @@ class JobWorker:
         self.cpu_cores = cpu_cores
         self.auto_purge = auto_purge
         self.retention_days = retention_days
+
+        # Extract db_path from connection for heartbeat thread
+        # PRAGMA database_list returns (seq, name, file) tuples
+        cursor = conn.execute("PRAGMA database_list")
+        row = cursor.fetchone()
+        self._db_path = Path(row[2]) if row and row[2] else None
 
         # Cache services for reuse across jobs
         self._transcode_service = TranscodeJobService(cpu_cores=cpu_cores)
@@ -157,15 +165,26 @@ class JobWorker:
         return True
 
     def _start_heartbeat(self, job_id: str) -> None:
-        """Start heartbeat thread for a job."""
+        """Start heartbeat thread for a job.
+
+        Uses a separate database connection to avoid interfering with
+        transactions on the main connection. This prevents the heartbeat
+        commit() from accidentally committing a partial transaction.
+        """
         self._heartbeat_stop.clear()
 
-        def heartbeat_loop():
-            while not self._heartbeat_stop.wait(HEARTBEAT_INTERVAL):
-                try:
-                    update_heartbeat(self.conn, job_id, os.getpid())
-                except Exception as e:
-                    logger.error("Heartbeat failed: %s", e)
+        def heartbeat_loop() -> None:
+            # Use separate connection for heartbeat to avoid transaction interference
+            if self._db_path is None:
+                logger.warning("Cannot start heartbeat: db_path not available")
+                return
+
+            with get_connection(self._db_path) as heartbeat_conn:
+                while not self._heartbeat_stop.wait(HEARTBEAT_INTERVAL):
+                    try:
+                        update_heartbeat(heartbeat_conn, job_id, os.getpid())
+                    except Exception as e:
+                        logger.error("Heartbeat failed: %s", e)
 
         self._heartbeat_thread = threading.Thread(target=heartbeat_loop, daemon=True)
         self._heartbeat_thread.start()

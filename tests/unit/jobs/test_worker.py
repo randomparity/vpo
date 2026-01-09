@@ -242,13 +242,32 @@ class TestSignalHandler:
 
 
 class TestHeartbeatManagement:
-    """Tests for heartbeat thread management."""
+    """Tests for heartbeat thread management.
 
-    def test_start_heartbeat_creates_thread(self, db_conn: sqlite3.Connection) -> None:
+    These tests require a file-backed database because the heartbeat thread
+    uses a separate database connection to avoid transaction interference.
+    In-memory databases cannot be shared across connections.
+    """
+
+    @pytest.fixture
+    def file_backed_db(self, tmp_path):
+        """Create a file-backed database for heartbeat tests."""
+        from vpo.db.schema import create_schema
+
+        db_path = tmp_path / "test_worker.db"
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        create_schema(conn)
+        yield conn
+        conn.close()
+
+    def test_start_heartbeat_creates_thread(
+        self, file_backed_db: sqlite3.Connection
+    ) -> None:
         """Starting heartbeat creates a daemon thread."""
-        worker = JobWorker(conn=db_conn)
+        worker = JobWorker(conn=file_backed_db)
         job = make_test_job()
-        insert_job(db_conn, job)
+        insert_job(file_backed_db, job)
 
         try:
             worker._start_heartbeat(job.id)
@@ -260,12 +279,12 @@ class TestHeartbeatManagement:
             worker._stop_heartbeat()
 
     def test_stop_heartbeat_terminates_thread(
-        self, db_conn: sqlite3.Connection
+        self, file_backed_db: sqlite3.Connection
     ) -> None:
         """Stopping heartbeat terminates the thread."""
-        worker = JobWorker(conn=db_conn)
+        worker = JobWorker(conn=file_backed_db)
         job = make_test_job()
-        insert_job(db_conn, job)
+        insert_job(file_backed_db, job)
 
         worker._start_heartbeat(job.id)
         assert worker._heartbeat_thread is not None
@@ -282,12 +301,12 @@ class TestHeartbeatManagement:
         )
 
     def test_heartbeat_stop_event_cleared_on_start(
-        self, db_conn: sqlite3.Connection
+        self, file_backed_db: sqlite3.Connection
     ) -> None:
         """Heartbeat stop event is cleared when starting."""
-        worker = JobWorker(conn=db_conn)
+        worker = JobWorker(conn=file_backed_db)
         job = make_test_job()
-        insert_job(db_conn, job)
+        insert_job(file_backed_db, job)
 
         # Set the stop event
         worker._heartbeat_stop.set()
@@ -299,6 +318,22 @@ class TestHeartbeatManagement:
             assert not worker._heartbeat_stop.is_set()
         finally:
             worker._stop_heartbeat()
+
+    def test_heartbeat_skipped_for_memory_db(self, db_conn: sqlite3.Connection) -> None:
+        """Heartbeat is skipped when using in-memory database."""
+        worker = JobWorker(conn=db_conn)
+        job = make_test_job()
+        insert_job(db_conn, job)
+
+        # db_conn is in-memory, so db_path will be None
+        assert worker._db_path is None
+
+        worker._start_heartbeat(job.id)
+
+        # Thread should have exited immediately after logging warning
+        if worker._heartbeat_thread is not None:
+            worker._heartbeat_thread.join(timeout=1.0)
+            assert not worker._heartbeat_thread.is_alive()
 
 
 # =============================================================================
