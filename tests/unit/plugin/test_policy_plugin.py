@@ -19,7 +19,7 @@ from vpo.plugin.events import (
 from vpo.plugin.interfaces import AnalyzerPlugin, MutatorPlugin
 from vpo.plugin.manifest import PluginSource
 from vpo.plugins.policy_engine.plugin import PolicyEnginePlugin
-from vpo.policy.models import (
+from vpo.policy.types import (
     ActionType,
     Plan,
     PlannedAction,

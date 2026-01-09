@@ -5,7 +5,7 @@ T010: Tests for phase outcome tracking types introduced in conditional phases fe
 
 import pytest
 
-from vpo.policy.models import (
+from vpo.policy.types import (
     PhaseOutcome,
     PhaseResult,
     SkipReason,

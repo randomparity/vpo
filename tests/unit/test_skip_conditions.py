@@ -10,16 +10,16 @@ import pytest
 
 # Import codec matching from unified codecs module
 from vpo.policy.codecs import video_codec_matches_any
-from vpo.policy.models import (
-    SkipCondition,
-    parse_bitrate,
-)
 
 # Import skip evaluation from policy layer (new location)
 from vpo.policy.transcode import (
     _bitrate_under_threshold,
     _resolution_within_threshold,
     evaluate_skip_condition,
+)
+from vpo.policy.types import (
+    SkipCondition,
+    parse_bitrate,
 )
 
 

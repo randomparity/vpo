@@ -11,7 +11,7 @@ from vpo.policy.codecs import (
     audio_codec_matches_any,
     normalize_audio_codec,
 )
-from vpo.policy.models import (
+from vpo.policy.types import (
     AudioTranscodeConfig,
 )
 

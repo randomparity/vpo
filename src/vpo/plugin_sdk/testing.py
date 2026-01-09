@@ -21,7 +21,7 @@ from vpo.plugin.events import (
     TranscriptionCompletedEvent,
     TranscriptionRequestedEvent,
 )
-from vpo.policy.models import Plan
+from vpo.policy.types import Plan
 
 # ==============================================================================
 # Mock Factories

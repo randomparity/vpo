@@ -32,7 +32,7 @@ from vpo.plugin_sdk import (
     mock_tracks,
     normalize_path,
 )
-from vpo.policy.models import Plan
+from vpo.policy.types import Plan
 
 
 class TestBaseAnalyzerPlugin:

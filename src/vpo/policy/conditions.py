@@ -12,7 +12,7 @@ Key Functions:
 
 Usage:
     from vpo.policy.conditions import evaluate_condition
-    from vpo.policy.models import ExistsCondition, TrackFilters
+    from vpo.policy.types import ExistsCondition, TrackFilters
 
     condition = ExistsCondition(track_type="video", filters=TrackFilters())
     result = evaluate_condition(condition, tracks)
@@ -29,7 +29,7 @@ from vpo.language_analysis.models import (
     LanguageAnalysisResult,
     LanguageClassification,
 )
-from vpo.policy.models import (
+from vpo.policy.types import (
     AndCondition,
     AudioIsMultiLanguageCondition,
     Comparison,

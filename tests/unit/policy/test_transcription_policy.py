@@ -8,7 +8,7 @@ from vpo.policy.loader import (
     PolicyValidationError,
     load_policy_from_dict,
 )
-from vpo.policy.models import (
+from vpo.policy.types import (
     TranscriptionPolicyOptions,
 )
 

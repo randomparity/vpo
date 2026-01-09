@@ -15,7 +15,7 @@ from vpo.db.operations import (
     update_operation_status,
 )
 from vpo.db.schema import create_schema
-from vpo.policy.models import ActionType, Plan, PlannedAction
+from vpo.policy.types import ActionType, Plan, PlannedAction
 
 # =============================================================================
 # Test Fixtures

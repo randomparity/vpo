@@ -16,11 +16,11 @@ import pytest
 from vpo.executor.transcode import (
     TranscodeExecutor,
 )
-from vpo.policy.models import (
+from vpo.policy.transcode import evaluate_skip_condition
+from vpo.policy.types import (
     SkipCondition,
     TranscodePolicyConfig,
 )
-from vpo.policy.transcode import evaluate_skip_condition
 
 if TYPE_CHECKING:
     from vpo.introspector.ffprobe import FFprobeIntrospector

@@ -22,7 +22,7 @@ from vpo.introspector import (
 from vpo.jobs.logs import JobLogWriter
 from vpo.metadata.parser import parse_filename
 from vpo.metadata.templates import parse_template
-from vpo.policy.models import TranscodePolicyConfig
+from vpo.policy.types import TranscodePolicyConfig
 from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 logger = logging.getLogger(__name__)

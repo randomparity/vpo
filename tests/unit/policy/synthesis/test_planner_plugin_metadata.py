@@ -6,10 +6,6 @@ import pytest
 
 from vpo.db.models import TrackInfo
 from vpo.db.types import PluginMetadataDict
-from vpo.policy.models import (
-    PluginMetadataCondition,
-    PluginMetadataOperator,
-)
 from vpo.policy.synthesis.models import (
     SkippedSynthesis,
     SkipReason,
@@ -17,6 +13,10 @@ from vpo.policy.synthesis.models import (
 from vpo.policy.synthesis.planner import (
     _evaluate_create_condition,
     resolve_synthesis_operation,
+)
+from vpo.policy.types import (
+    PluginMetadataCondition,
+    PluginMetadataOperator,
 )
 
 

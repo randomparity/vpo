@@ -8,7 +8,7 @@ import pytest
 
 from vpo.db.schema import create_schema
 from vpo.executor.transcode import TranscodeResult
-from vpo.policy.models import (
+from vpo.policy.types import (
     PolicySchema,
     ProcessingPhase,
     TranscodePolicyConfig,

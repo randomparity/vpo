@@ -11,7 +11,7 @@ from sqlite3 import Connection
 from vpo.config.loader import get_temp_directory
 from vpo.db.queries import get_file_by_path, get_tracks_for_file
 from vpo.db.types import TrackInfo, tracks_to_track_info
-from vpo.policy.models import PolicySchema
+from vpo.policy.types import PolicySchema
 from vpo.workflow.processor import PhaseError
 
 logger = logging.getLogger(__name__)
@@ -52,7 +52,7 @@ class TranscodePhase:
         Raises:
             PhaseError: If transcoding fails.
         """
-        from vpo.policy.models import ProcessingPhase
+        from vpo.policy.types import ProcessingPhase
 
         # Check if policy has transcode config
         if not self._has_transcode_config():
@@ -156,7 +156,7 @@ class TranscodePhase:
 
     def _get_transcode_config(self):
         """Get the TranscodePolicyConfig from policy."""
-        from vpo.policy.models import TranscodePolicyConfig
+        from vpo.policy.types import TranscodePolicyConfig
 
         if self.policy.transcode is not None:
             return self.policy.transcode

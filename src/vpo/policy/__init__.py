@@ -1,8 +1,10 @@
 """Policy engine module for Video Policy Orchestrator.
 
 This module provides policy loading, validation, and evaluation functionality:
-- loader: Load and validate YAML policy files
-- models: Policy, Plan, and PlannedAction dataclasses
+- loader: High-level policy loading from YAML files
+- pydantic_models: Pydantic models for YAML parsing/validation
+- conversion: Functions to convert Pydantic models to dataclasses
+- types: Policy, Plan, and PlannedAction dataclasses
 - evaluator: Pure-function policy evaluation
 - matchers: Commentary pattern matching utilities
 - discovery: Policy file discovery and metadata extraction
@@ -39,20 +41,20 @@ from vpo.policy.loader import (
     load_policy_from_dict,
 )
 from vpo.policy.matchers import CommentaryMatcher
-from vpo.policy.models import (
-    ActionType,
-    DefaultFlagsConfig,
-    Plan,
-    PlannedAction,
-    PolicySchema,
-    TrackType,
-)
 
 # Skip condition evaluation
 from vpo.policy.transcode import (
     SkipEvaluationResult,
     evaluate_skip_condition,
     should_skip_transcode,
+)
+from vpo.policy.types import (
+    ActionType,
+    DefaultFlagsConfig,
+    Plan,
+    PlannedAction,
+    PolicySchema,
+    TrackType,
 )
 from vpo.policy.validation import (
     DiffSummary,

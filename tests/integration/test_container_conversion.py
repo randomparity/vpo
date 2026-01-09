@@ -11,7 +11,7 @@ import pytest
 from vpo.db.models import TrackInfo
 from vpo.policy.evaluator import evaluate_policy
 from vpo.policy.exceptions import IncompatibleCodecError
-from vpo.policy.models import (
+from vpo.policy.types import (
     ContainerConfig,
     PolicySchema,
 )
@@ -371,7 +371,7 @@ class TestCombinedFilteringAndConversion:
 
     def test_audio_filter_with_mkv_conversion(self) -> None:
         """Audio filtering should work together with MKV conversion."""
-        from vpo.policy.models import AudioFilterConfig
+        from vpo.policy.types import AudioFilterConfig
 
         tracks = [
             TrackInfo(

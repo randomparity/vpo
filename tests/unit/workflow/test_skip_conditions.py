@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from vpo.db.types import FileInfo, TrackInfo
-from vpo.policy.models import (
+from vpo.policy.types import (
     PhaseSkipCondition,
     SkipReasonType,
 )

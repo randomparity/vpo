@@ -13,7 +13,7 @@ from vpo.db.models import TrackInfo
 from vpo.db.schema import create_schema
 from vpo.policy.evaluator import compute_track_dispositions
 from vpo.policy.exceptions import InsufficientTracksError
-from vpo.policy.models import (
+from vpo.policy.types import (
     AudioFilterConfig,
     LanguageFallbackConfig,
     Plan,
@@ -536,7 +536,7 @@ class TestSubtitleFilteringIntegration:
 
     def test_subtitle_filtering_with_forced_preservation(self) -> None:
         """Test subtitle filtering preserves forced subtitles."""
-        from vpo.policy.models import SubtitleFilterConfig
+        from vpo.policy.types import SubtitleFilterConfig
 
         tracks = [
             TrackInfo(
@@ -604,7 +604,7 @@ class TestSubtitleFilteringIntegration:
 
     def test_subtitle_remove_all_integration(self) -> None:
         """Test remove_all removes all subtitle tracks."""
-        from vpo.policy.models import SubtitleFilterConfig
+        from vpo.policy.types import SubtitleFilterConfig
 
         tracks = [
             TrackInfo(
@@ -652,7 +652,7 @@ class TestSubtitleFilteringIntegration:
 
     def test_combined_audio_and_subtitle_filtering(self) -> None:
         """Test that audio and subtitle filtering work together."""
-        from vpo.policy.models import SubtitleFilterConfig
+        from vpo.policy.types import SubtitleFilterConfig
 
         tracks = [
             TrackInfo(
@@ -727,7 +727,7 @@ class TestAttachmentFilteringIntegration:
 
     def test_attachment_removal_with_font_warning(self) -> None:
         """Test attachment removal generates warning for fonts with styled subs."""
-        from vpo.policy.models import AttachmentFilterConfig
+        from vpo.policy.types import AttachmentFilterConfig
 
         tracks = [
             TrackInfo(
@@ -785,7 +785,7 @@ class TestAttachmentFilteringIntegration:
 
     def test_attachment_removal_combined_with_subtitle_filter(self) -> None:
         """Test attachment removal works with subtitle filtering."""
-        from vpo.policy.models import (
+        from vpo.policy.types import (
             AttachmentFilterConfig,
             SubtitleFilterConfig,
         )
@@ -1109,7 +1109,7 @@ class TestFallbackModeIntegration:
             ),
         ]
 
-        from vpo.policy.models import (
+        from vpo.policy.types import (
             AttachmentFilterConfig,
             SubtitleFilterConfig,
         )

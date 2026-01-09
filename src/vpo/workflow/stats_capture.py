@@ -25,7 +25,7 @@ from vpo.db.types import (
     ProcessingStatsRecord,
     TrackInfo,
 )
-from vpo.policy.models import FileProcessingResult
+from vpo.policy.types import FileProcessingResult
 
 logger = logging.getLogger(__name__)
 

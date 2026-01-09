@@ -27,7 +27,7 @@ from vpo.introspector.ffprobe import (
     FFprobeIntrospector,
     MediaIntrospectionError,
 )
-from vpo.policy.models import (
+from vpo.policy.types import (
     FileProcessingResult,
     OnErrorMode,
     PhaseDefinition,

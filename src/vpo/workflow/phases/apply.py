@@ -21,7 +21,7 @@ from vpo.db.queries import (
 )
 from vpo.db.types import tracks_to_track_info
 from vpo.executor.backup import FileLockError, file_lock
-from vpo.policy.models import Plan, PolicySchema
+from vpo.policy.types import Plan, PolicySchema
 from vpo.workflow.processor import PhaseError
 
 logger = logging.getLogger(__name__)
@@ -77,7 +77,7 @@ class ApplyPhase:
         Raises:
             PhaseError: If application fails.
         """
-        from vpo.policy.models import ProcessingPhase
+        from vpo.policy.types import ProcessingPhase
 
         # Get file record from database
         file_record = get_file_by_path(self.conn, str(file_path))

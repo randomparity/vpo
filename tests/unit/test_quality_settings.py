@@ -2,7 +2,7 @@
 
 import pytest
 
-from vpo.policy.models import (
+from vpo.policy.types import (
     QualityMode,
     QualitySettings,
     get_default_crf,

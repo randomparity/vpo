@@ -18,7 +18,7 @@ from vpo.db.types import Job
 from vpo.jobs.logs import JobLogWriter
 from vpo.logging import worker_context
 from vpo.policy.loader import load_policy
-from vpo.policy.models import PolicySchema
+from vpo.policy.types import PolicySchema
 from vpo.workflow import WorkflowProcessor
 
 logger = logging.getLogger(__name__)

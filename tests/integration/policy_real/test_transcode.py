@@ -17,7 +17,7 @@ from vpo.executor.transcode import (
     TranscodeExecutor,
     build_ffmpeg_command,
 )
-from vpo.policy.models import (
+from vpo.policy.types import (
     TranscodePolicyConfig,
 )
 

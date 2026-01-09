@@ -10,7 +10,7 @@ from vpo.executor.transcode import (
     build_ffmpeg_command,
     should_transcode_video,
 )
-from vpo.policy.models import TranscodePolicyConfig
+from vpo.policy.types import TranscodePolicyConfig
 
 
 @pytest.fixture

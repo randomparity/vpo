@@ -10,7 +10,7 @@ from vpo.policy.loader import (
     load_policy,
     load_policy_from_dict,
 )
-from vpo.policy.models import TrackType
+from vpo.policy.types import TrackType
 
 # =============================================================================
 # Test Fixtures

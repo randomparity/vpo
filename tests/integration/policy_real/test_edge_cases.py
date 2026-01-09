@@ -16,7 +16,7 @@ from unittest.mock import patch
 import pytest
 
 from vpo.executor.mkvpropedit import MkvpropeditExecutor
-from vpo.policy.models import (
+from vpo.policy.types import (
     ActionType,
     Plan,
     PlannedAction,

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from vpo.executor.ffmpeg_metadata import FfmpegMetadataExecutor
-from vpo.policy.models import ActionType, Plan, PlannedAction
+from vpo.policy.types import ActionType, Plan, PlannedAction
 
 # =============================================================================
 # Test Fixtures

@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from vpo.db.types import FileInfo, TrackInfo
     from vpo.executor.interface import ExecutorResult
     from vpo.metadata.parser import ParsedMetadata
-    from vpo.policy.models import Plan, PolicySchema
+    from vpo.policy.types import Plan, PolicySchema
     from vpo.transcription.models import TranscriptionResult
 
 # Event name constants

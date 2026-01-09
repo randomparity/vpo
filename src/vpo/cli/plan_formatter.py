@@ -10,7 +10,7 @@ from typing import Any
 
 from wcwidth import wcswidth
 
-from vpo.policy.models import (
+from vpo.policy.types import (
     Plan,
     PlannedAction,
     TrackDisposition,

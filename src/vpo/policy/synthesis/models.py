@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from vpo.db.models import TrackInfo
-    from vpo.policy.models import Condition
+    from vpo.policy.types import Condition
 
 
 class AudioCodec(str, Enum):

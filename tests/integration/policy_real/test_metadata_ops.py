@@ -19,7 +19,7 @@ from vpo.policy.evaluator import (
     compute_desired_order,
 )
 from vpo.policy.matchers import CommentaryMatcher
-from vpo.policy.models import (
+from vpo.policy.types import (
     ActionType,
     DefaultFlagsConfig,
     Plan,

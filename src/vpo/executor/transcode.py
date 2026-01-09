@@ -24,15 +24,6 @@ from pathlib import Path
 
 from vpo.db.models import TrackInfo
 from vpo.executor.interface import require_tool
-from vpo.policy.models import (
-    AudioTranscodeConfig,
-    QualityMode,
-    QualitySettings,
-    SkipCondition,
-    TranscodePolicyConfig,
-    get_default_crf,
-    parse_bitrate,
-)
 from vpo.policy.transcode import (
     AudioAction,
     AudioPlan,
@@ -42,6 +33,15 @@ from vpo.policy.transcode import (
     create_audio_plan_v6,
     describe_audio_plan,
     evaluate_skip_condition,
+)
+from vpo.policy.types import (
+    AudioTranscodeConfig,
+    QualityMode,
+    QualitySettings,
+    SkipCondition,
+    TranscodePolicyConfig,
+    get_default_crf,
+    parse_bitrate,
 )
 
 # Import from refactored modules

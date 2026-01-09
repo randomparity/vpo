@@ -7,7 +7,7 @@ and output integrity verification.
 from pathlib import Path
 
 from vpo.executor.transcode import TranscodeExecutor
-from vpo.policy.models import TranscodePolicyConfig
+from vpo.policy.types import TranscodePolicyConfig
 
 
 class TestTempFilePathGeneration:

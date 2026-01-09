@@ -18,7 +18,7 @@ import pytest
 from vpo.db.schema import create_schema
 from vpo.db.types import TrackInfo
 from vpo.executor.transcode import TranscodeResult
-from vpo.policy.models import (
+from vpo.policy.types import (
     AndCondition,
     AudioFilterConfig,
     AudioIsMultiLanguageCondition,

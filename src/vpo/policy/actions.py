@@ -18,7 +18,7 @@ Placeholder Substitution:
 
 Usage:
     from vpo.policy.actions import execute_actions
-    from vpo.policy.models import SkipAction, SkipType
+    from vpo.policy.types import SkipAction, SkipType
 
     action = SkipAction(skip_type=SkipType.VIDEO_TRANSCODE)
     result = execute_actions([action], context)
@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING
 
 from vpo.language import languages_match
 from vpo.policy.exceptions import ConditionalFailError
-from vpo.policy.models import (
+from vpo.policy.types import (
     ConditionalAction,
     FailAction,
     SetDefaultAction,

@@ -32,7 +32,7 @@ from vpo.db.connection import get_connection
 from vpo.logging import worker_context
 from vpo.plugin import get_default_registry
 from vpo.policy.loader import PolicyValidationError, load_policy
-from vpo.policy.models import (
+from vpo.policy.types import (
     FileProcessingResult,
     OnErrorMode,
     ProcessingPhase,

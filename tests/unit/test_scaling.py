@@ -6,7 +6,7 @@ and upscale=false behavior.
 
 import pytest
 
-from vpo.policy.models import (
+from vpo.policy.types import (
     RESOLUTION_MAP,
     ScaleAlgorithm,
     ScalingSettings,

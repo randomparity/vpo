@@ -11,7 +11,7 @@ from vpo.cli.plan_formatter import (
     _truncate,
     format_plan_json,
 )
-from vpo.policy.models import Plan, TrackDisposition
+from vpo.policy.types import Plan, TrackDisposition
 
 # =============================================================================
 # Test Fixtures

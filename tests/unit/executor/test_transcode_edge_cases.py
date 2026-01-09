@@ -23,15 +23,15 @@ from vpo.executor.transcode import (
     _needs_explicit_mapping,
     build_ffmpeg_command_pass1,
 )
-from vpo.policy.models import (
-    QualityMode,
-    QualitySettings,
-    TranscodePolicyConfig,
-)
 from vpo.policy.transcode import (
     AudioAction,
     AudioPlan,
     AudioTrackPlan,
+)
+from vpo.policy.types import (
+    QualityMode,
+    QualitySettings,
+    TranscodePolicyConfig,
 )
 
 # =============================================================================

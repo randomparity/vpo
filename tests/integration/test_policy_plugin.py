@@ -25,7 +25,7 @@ from vpo.plugins.policy_engine import (
     PolicyEnginePlugin,
     plugin_instance,
 )
-from vpo.policy.models import (
+from vpo.policy.types import (
     ActionType,
     DefaultFlagsConfig,
     PolicySchema,

@@ -8,7 +8,7 @@ from vpo.policy.conditions import (
     PluginMetadataDict,
     evaluate_plugin_metadata,
 )
-from vpo.policy.models import (
+from vpo.policy.types import (
     PluginMetadataCondition,
     PluginMetadataOperator,
 )
@@ -494,7 +494,7 @@ class TestNotConditionWithPluginMetadata:
     def test_not_wrapping_plugin_metadata_true_becomes_false(self) -> None:
         """Test NOT condition inverts a True plugin_metadata result."""
         from vpo.policy.conditions import evaluate_condition
-        from vpo.policy.models import NotCondition
+        from vpo.policy.types import NotCondition
 
         inner_condition = PluginMetadataCondition(
             plugin="radarr",
@@ -513,7 +513,7 @@ class TestNotConditionWithPluginMetadata:
     def test_not_wrapping_plugin_metadata_false_becomes_true(self) -> None:
         """Test NOT condition inverts a False plugin_metadata result."""
         from vpo.policy.conditions import evaluate_condition
-        from vpo.policy.models import NotCondition
+        from vpo.policy.types import NotCondition
 
         inner_condition = PluginMetadataCondition(
             plugin="radarr",
@@ -532,7 +532,7 @@ class TestNotConditionWithPluginMetadata:
     def test_not_wrapping_plugin_metadata_no_metadata(self) -> None:
         """Test NOT condition when plugin_metadata is None (inverts False to True)."""
         from vpo.policy.conditions import evaluate_condition
-        from vpo.policy.models import NotCondition
+        from vpo.policy.types import NotCondition
 
         inner_condition = PluginMetadataCondition(
             plugin="radarr",

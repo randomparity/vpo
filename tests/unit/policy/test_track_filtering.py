@@ -8,7 +8,7 @@ import pytest
 
 from vpo.db.models import TrackInfo
 from vpo.policy.exceptions import InsufficientTracksError
-from vpo.policy.models import (
+from vpo.policy.types import (
     AudioFilterConfig,
     LanguageFallbackConfig,
     PolicySchema,
@@ -477,7 +477,7 @@ def make_policy_with_subtitle_filter(
     remove_all: bool = False,
 ) -> PolicySchema:
     """Create a test policy with subtitle filter configuration."""
-    from vpo.policy.models import SubtitleFilterConfig
+    from vpo.policy.types import SubtitleFilterConfig
 
     return PolicySchema(
         schema_version=12,
@@ -768,7 +768,7 @@ def make_policy_with_attachment_filter(
     remove_all: bool = True,
 ) -> PolicySchema:
     """Create a test policy with attachment filter configuration."""
-    from vpo.policy.models import AttachmentFilterConfig
+    from vpo.policy.types import AttachmentFilterConfig
 
     return PolicySchema(
         schema_version=12,

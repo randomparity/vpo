@@ -46,7 +46,7 @@ from vpo.policy.synthesis.source_selector import (
 
 if TYPE_CHECKING:
     from vpo.db.models import TrackInfo
-    from vpo.policy.models import (
+    from vpo.policy.types import (
         AudioSynthesisConfig,
         Comparison,
         Condition,
@@ -70,7 +70,7 @@ def _compare_channels(
     Returns:
         True if the comparison passes.
     """
-    from vpo.policy.models import (
+    from vpo.policy.types import (
         ComparisonOperator,
     )
 

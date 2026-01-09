@@ -23,7 +23,7 @@ from vpo.plugin_sdk.testing import (
     mock_track_info,
     mock_tracks,
 )
-from vpo.policy.models import Plan
+from vpo.policy.types import Plan
 
 
 class TestMockFileInfo:

@@ -12,7 +12,7 @@ from sqlite3 import Connection
 from typing import TYPE_CHECKING
 
 from vpo.db.queries import get_file_by_path, get_tracks_for_file
-from vpo.policy.models import PolicySchema
+from vpo.policy.types import PolicySchema
 from vpo.workflow.processor import PhaseError
 
 if TYPE_CHECKING:
@@ -61,7 +61,7 @@ class AnalyzePhase:
         Raises:
             PhaseError: If analysis fails.
         """
-        from vpo.policy.models import ProcessingPhase
+        from vpo.policy.types import ProcessingPhase
 
         # Get file record from database
         file_record = get_file_by_path(self.conn, str(file_path))

@@ -390,7 +390,7 @@ class TestProcessCommandOnErrorBehavior:
     ):
         """Test that on_error=skip allows batch to continue."""
         # Create mock results - first file fails, second succeeds
-        from vpo.policy.models import ProcessingPhase
+        from vpo.policy.types import ProcessingPhase
         from vpo.workflow.processor import FileProcessingResult
 
         mock_processor = MagicMock()
@@ -440,7 +440,7 @@ class TestProcessCommandOnErrorBehavior:
         self, mock_processor_cls, temp_video_dir: Path, policy_file: Path
     ):
         """Test that on_error=fail stops batch processing."""
-        from vpo.policy.models import ProcessingPhase
+        from vpo.policy.types import ProcessingPhase
         from vpo.workflow.processor import FileProcessingResult
 
         mock_processor = MagicMock()
@@ -484,7 +484,7 @@ class TestProcessCommandWorkflow:
         self, mock_processor_cls, temp_video_dir: Path, policy_file: Path
     ):
         """Test that --phases overrides policy phases."""
-        from vpo.policy.models import ProcessingPhase
+        from vpo.policy.types import ProcessingPhase
         from vpo.workflow.processor import FileProcessingResult
 
         mock_processor = MagicMock()
@@ -530,7 +530,7 @@ class TestProcessCommandSummary:
         self, mock_processor_cls, temp_video_dir: Path, policy_file: Path
     ):
         """Test that summary shows correct counts."""
-        from vpo.policy.models import ProcessingPhase
+        from vpo.policy.types import ProcessingPhase
         from vpo.workflow.processor import FileProcessingResult
 
         mock_processor = MagicMock()

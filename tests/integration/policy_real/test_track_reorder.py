@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from vpo.executor.mkvmerge import MkvmergeExecutor
-from vpo.policy.models import (
+from vpo.policy.types import (
     ActionType,
     Plan,
     PlannedAction,

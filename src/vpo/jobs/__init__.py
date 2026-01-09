@@ -3,10 +3,11 @@
 This module provides the job queue system for long-running operations:
 - queue: Job queue operations (enqueue, claim, release)
 - worker: Job worker for processing queued jobs
-- progress: FFmpeg progress parsing utilities
 - maintenance: Job maintenance operations (purge)
 - services: Job processing services
 - summary: Job summary text generation
+
+Note: FFmpeg progress parsing is in vpo.tools.ffmpeg_progress
 """
 
 from vpo.jobs.maintenance import purge_old_jobs

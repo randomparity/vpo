@@ -9,12 +9,12 @@ from pathlib import Path
 
 from vpo.db.types import FileInfo, TrackInfo
 from vpo.policy.evaluator import normalize_container_format
-from vpo.policy.models import (
+from vpo.policy.parsing import parse_duration, parse_file_size
+from vpo.policy.types import (
     PhaseSkipCondition,
     SkipReason,
     SkipReasonType,
 )
-from vpo.policy.parsing import parse_duration, parse_file_size
 
 logger = logging.getLogger(__name__)
 

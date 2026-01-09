@@ -5,7 +5,7 @@ Tests HardwareAccelConfig dataclass, encoder detection, and fallback behavior.
 
 import pytest
 
-from vpo.policy.models import (
+from vpo.policy.types import (
     HardwareAccelConfig,
     HardwareAccelMode,
 )

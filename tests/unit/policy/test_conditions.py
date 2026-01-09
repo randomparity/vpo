@@ -30,7 +30,7 @@ from vpo.policy.conditions import (
     evaluate_exists,
     matches_track,
 )
-from vpo.policy.models import (
+from vpo.policy.types import (
     AndCondition,
     Comparison,
     ComparisonOperator,
@@ -1037,7 +1037,7 @@ class TestAudioIsMultiLanguageCondition:
         from vpo.policy.conditions import (
             evaluate_audio_is_multi_language,
         )
-        from vpo.policy.models import (
+        from vpo.policy.types import (
             AudioIsMultiLanguageCondition,
         )
 
@@ -1060,7 +1060,7 @@ class TestAudioIsMultiLanguageCondition:
         from vpo.policy.conditions import (
             evaluate_audio_is_multi_language,
         )
-        from vpo.policy.models import (
+        from vpo.policy.types import (
             AudioIsMultiLanguageCondition,
         )
 
@@ -1085,7 +1085,7 @@ class TestAudioIsMultiLanguageCondition:
         from vpo.policy.conditions import (
             evaluate_audio_is_multi_language,
         )
-        from vpo.policy.models import (
+        from vpo.policy.types import (
             AudioIsMultiLanguageCondition,
         )
 
@@ -1117,7 +1117,7 @@ class TestAudioIsMultiLanguageCondition:
         from vpo.policy.conditions import (
             evaluate_audio_is_multi_language,
         )
-        from vpo.policy.models import (
+        from vpo.policy.types import (
             AudioIsMultiLanguageCondition,
         )
 
@@ -1166,7 +1166,7 @@ class TestAudioIsMultiLanguageCondition:
         from vpo.policy.conditions import (
             evaluate_audio_is_multi_language,
         )
-        from vpo.policy.models import (
+        from vpo.policy.types import (
             AudioIsMultiLanguageCondition,
         )
 
@@ -1189,7 +1189,7 @@ class TestAudioIsMultiLanguageCondition:
         from vpo.policy.conditions import (
             evaluate_audio_is_multi_language,
         )
-        from vpo.policy.models import (
+        from vpo.policy.types import (
             AudioIsMultiLanguageCondition,
         )
 
@@ -1212,7 +1212,7 @@ class TestAudioIsMultiLanguageCondition:
         from vpo.policy.conditions import (
             evaluate_audio_is_multi_language,
         )
-        from vpo.policy.models import (
+        from vpo.policy.types import (
             AudioIsMultiLanguageCondition,
         )
 
@@ -1236,7 +1236,7 @@ class TestAudioIsMultiLanguageCondition:
         from vpo.policy.conditions import (
             evaluate_audio_is_multi_language,
         )
-        from vpo.policy.models import (
+        from vpo.policy.types import (
             AudioIsMultiLanguageCondition,
         )
 
@@ -1258,7 +1258,7 @@ class TestAudioIsMultiLanguageCondition:
     ) -> None:
         """Condition works through main evaluate_condition()."""
         from vpo.policy.conditions import evaluate_condition
-        from vpo.policy.models import (
+        from vpo.policy.types import (
             AudioIsMultiLanguageCondition,
         )
 
@@ -1278,7 +1278,7 @@ class TestAudioIsMultiLanguageCondition:
     ) -> None:
         """Multi-language condition works in AND with other conditions."""
         from vpo.policy.conditions import evaluate_condition
-        from vpo.policy.models import (
+        from vpo.policy.types import (
             AudioIsMultiLanguageCondition,
         )
 

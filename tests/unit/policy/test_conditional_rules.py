@@ -12,7 +12,7 @@ from vpo.db.models import TrackInfo
 from vpo.policy.evaluator import (
     evaluate_conditional_rules,
 )
-from vpo.policy.models import (
+from vpo.policy.types import (
     ConditionalRule,
     ExistsCondition,
     SkipAction,
@@ -500,7 +500,7 @@ class TestSetForcedActionPropagation:
         self, foreign_audio_tracks: list[TrackInfo]
     ) -> None:
         """When set_forced action executes, track_flag_changes should be populated."""
-        from vpo.policy.models import (
+        from vpo.policy.types import (
             NotCondition,
             SetForcedAction,
         )
@@ -532,7 +532,7 @@ class TestSetForcedActionPropagation:
 
     def test_set_forced_from_else_branch(self, basic_tracks: list[TrackInfo]) -> None:
         """set_forced in else branch should also populate track_flag_changes."""
-        from vpo.policy.models import SetForcedAction
+        from vpo.policy.types import SetForcedAction
 
         # Rule: if attachment exists (false), else set forced on subtitles
         rule = ConditionalRule(
@@ -563,7 +563,7 @@ class TestSetForcedActionPropagation:
         self, subtitle_track_eng: TrackInfo, video_track_1080p: TrackInfo
     ) -> None:
         """set_forced with value=False should create CLEAR_FORCED change."""
-        from vpo.policy.models import SetForcedAction
+        from vpo.policy.types import SetForcedAction
 
         # Create a subtitle track that is already forced
         forced_subtitle = TrackInfo(
@@ -606,7 +606,7 @@ class TestSetForcedActionPropagation:
         self, basic_tracks: list[TrackInfo]
     ) -> None:
         """No matching tracks means track_flag_changes should be empty."""
-        from vpo.policy.models import SetForcedAction
+        from vpo.policy.types import SetForcedAction
 
         # Try to set forced on Japanese subtitles (none exist)
         rule = ConditionalRule(
@@ -635,7 +635,7 @@ class TestSetDefaultActionPropagation:
         self, basic_tracks: list[TrackInfo]
     ) -> None:
         """When set_default action executes, track_flag_changes should be populated."""
-        from vpo.policy.models import SetDefaultAction
+        from vpo.policy.types import SetDefaultAction
 
         rule = ConditionalRule(
             name="set_subtitle_default",
@@ -673,7 +673,7 @@ class TestTrackFlagChangesToPlannedAction:
         """set_forced action should create SET_FORCED PlannedAction in plan."""
         from vpo.policy.evaluator import evaluate_policy
         from vpo.policy.loader import load_policy
-        from vpo.policy.models import ActionType
+        from vpo.policy.types import ActionType
 
         # Create a policy with conditional set_forced
         policy_path = tmp_path / "policy.yaml"
@@ -720,7 +720,7 @@ conditional:
         """set_forced(value=False) should create CLEAR_FORCED PlannedAction."""
         from vpo.policy.evaluator import evaluate_policy
         from vpo.policy.loader import load_policy
-        from vpo.policy.models import ActionType
+        from vpo.policy.types import ActionType
 
         # Create a subtitle track that is already forced
         forced_subtitle = TrackInfo(
@@ -781,7 +781,7 @@ conditional:
         """No PlannedAction when track already has the requested flag value."""
         from vpo.policy.evaluator import evaluate_policy
         from vpo.policy.loader import load_policy
-        from vpo.policy.models import ActionType
+        from vpo.policy.types import ActionType
 
         # Create a subtitle that is already forced
         already_forced = TrackInfo(

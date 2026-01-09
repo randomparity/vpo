@@ -9,7 +9,7 @@ import pytest
 from vpo.db.schema import create_schema
 from vpo.db.types import OperationStatus
 from vpo.executor.backup import FileLockError
-from vpo.policy.models import (
+from vpo.policy.types import (
     PolicySchema,
     ProcessingPhase,
 )

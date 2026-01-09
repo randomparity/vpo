@@ -32,7 +32,7 @@ from vpo.policy.exceptions import (
 from vpo.policy.matchers import (
     CommentaryMatcher,
 )
-from vpo.policy.models import (
+from vpo.policy.types import (
     ActionType,
     AttachmentFilterConfig,
     AudioFilterConfig,

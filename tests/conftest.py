@@ -192,7 +192,7 @@ def make_transcode_plan():
             assert plan.needs_any_transcode is True
     """
     from vpo.executor.transcode import TranscodePlan
-    from vpo.policy.models import TranscodePolicyConfig
+    from vpo.policy.types import TranscodePolicyConfig
 
     def _make_plan(
         input_path: Path | str = Path("/input.mkv"),

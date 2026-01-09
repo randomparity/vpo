@@ -16,7 +16,7 @@ import pytest
 
 from vpo.policy.evaluator import evaluate_policy
 from vpo.policy.loader import load_policy
-from vpo.policy.models import ActionType
+from vpo.policy.types import ActionType
 
 if TYPE_CHECKING:
     from vpo.introspector.ffprobe import FFprobeIntrospector

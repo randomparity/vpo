@@ -13,7 +13,7 @@ from pathlib import Path
 from sqlite3 import Connection
 from typing import TYPE_CHECKING
 
-from vpo.policy.models import (
+from vpo.policy.types import (
     PolicySchema,
     ProcessingPhase,
     WorkflowConfig,
@@ -21,7 +21,7 @@ from vpo.policy.models import (
 
 if TYPE_CHECKING:
     from vpo.plugin import PluginRegistry
-    from vpo.policy.models import Plan
+    from vpo.policy.types import Plan
 
 logger = logging.getLogger(__name__)
 

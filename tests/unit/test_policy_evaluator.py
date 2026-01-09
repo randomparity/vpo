@@ -14,7 +14,7 @@ from vpo.policy.evaluator import (
     evaluate_policy,
 )
 from vpo.policy.matchers import CommentaryMatcher
-from vpo.policy.models import (
+from vpo.policy.types import (
     ActionType,
     DefaultFlagsConfig,
     PolicySchema,
@@ -763,7 +763,7 @@ class TestTrackDispositionTranscriptionStatus:
         from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
-        from vpo.policy.models import AudioFilterConfig
+        from vpo.policy.types import AudioFilterConfig
 
         tracks = [
             TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="eng"),
@@ -796,7 +796,7 @@ class TestTrackDispositionTranscriptionStatus:
         from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
-        from vpo.policy.models import AudioFilterConfig
+        from vpo.policy.types import AudioFilterConfig
 
         tracks = [
             TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="eng"),
@@ -817,7 +817,7 @@ class TestTrackDispositionTranscriptionStatus:
         from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
-        from vpo.policy.models import AudioFilterConfig
+        from vpo.policy.types import AudioFilterConfig
 
         tracks = [
             TrackInfo(index=0, track_type="video", codec="hevc"),
@@ -837,7 +837,7 @@ class TestTrackDispositionTranscriptionStatus:
         from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
-        from vpo.policy.models import SubtitleFilterConfig
+        from vpo.policy.types import SubtitleFilterConfig
 
         tracks = [
             TrackInfo(index=0, track_type="subtitle", codec="subrip", language="eng"),
@@ -858,7 +858,7 @@ class TestTrackDispositionTranscriptionStatus:
         from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
-        from vpo.policy.models import AudioFilterConfig
+        from vpo.policy.types import AudioFilterConfig
 
         tracks = [
             TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="eng"),
@@ -914,7 +914,7 @@ class TestTrackDispositionTranscriptionStatus:
         from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
-        from vpo.policy.models import (
+        from vpo.policy.types import (
             AudioFilterConfig,
             LanguageFallbackConfig,
         )

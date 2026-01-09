@@ -16,7 +16,7 @@ from vpo.db.models import (
 )
 
 if TYPE_CHECKING:
-    from vpo.policy.models import Plan, PlannedAction
+    from vpo.policy.types import Plan, PlannedAction
 
 
 def create_operation(

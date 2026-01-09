@@ -2,7 +2,7 @@
 
 import pytest
 
-from vpo.policy.models import TranscodePolicyConfig
+from vpo.policy.types import TranscodePolicyConfig
 
 
 class TestTranscodePolicyConfigFromDict:

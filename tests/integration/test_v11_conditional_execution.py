@@ -24,7 +24,7 @@ import pytest
 from vpo.db.queries import upsert_file
 from vpo.db.schema import create_schema
 from vpo.db.types import FileRecord
-from vpo.policy.models import (
+from vpo.policy.types import (
     ConditionalRule,
     ExistsCondition,
     GlobalConfig,

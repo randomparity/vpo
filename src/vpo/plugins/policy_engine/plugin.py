@@ -29,7 +29,7 @@ from vpo.plugin.events import (
 )
 from vpo.plugin.manifest import PluginSource
 from vpo.policy.evaluator import evaluate_policy
-from vpo.policy.models import ActionType, Plan, PolicySchema
+from vpo.policy.types import ActionType, Plan, PolicySchema
 
 logger = logging.getLogger(__name__)
 

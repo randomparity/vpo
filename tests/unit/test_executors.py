@@ -9,7 +9,7 @@ import pytest
 from vpo.executor.ffmpeg_remux import FFmpegRemuxExecutor
 from vpo.executor.mkvmerge import MkvmergeExecutor
 from vpo.executor.mkvpropedit import MkvpropeditExecutor
-from vpo.policy.models import (
+from vpo.policy.types import (
     ActionType,
     ContainerChange,
     Plan,
@@ -677,7 +677,7 @@ class TestMkvmergeContainerConversion:
 
     def test_can_handle_avi_to_mkv_conversion(self) -> None:
         """Should handle AVI to MKV container conversion."""
-        from vpo.policy.models import ContainerChange
+        from vpo.policy.types import ContainerChange
 
         plan = Plan(
             file_id="test-id",
@@ -699,7 +699,7 @@ class TestMkvmergeContainerConversion:
 
     def test_can_handle_mov_to_mkv_conversion(self) -> None:
         """Should handle MOV to MKV container conversion."""
-        from vpo.policy.models import ContainerChange
+        from vpo.policy.types import ContainerChange
 
         plan = Plan(
             file_id="test-id",
@@ -721,7 +721,7 @@ class TestMkvmergeContainerConversion:
 
     def test_can_handle_mp4_to_mkv_conversion(self) -> None:
         """Should handle MP4 to MKV container conversion."""
-        from vpo.policy.models import ContainerChange
+        from vpo.policy.types import ContainerChange
 
         plan = Plan(
             file_id="test-id",
@@ -743,7 +743,7 @@ class TestMkvmergeContainerConversion:
 
     def test_cannot_handle_mp4_target(self) -> None:
         """Should not handle conversion to MP4 (handled by FFmpegRemuxExecutor)."""
-        from vpo.policy.models import ContainerChange
+        from vpo.policy.types import ContainerChange
 
         plan = Plan(
             file_id="test-id",

@@ -18,7 +18,7 @@ from vpo.executor.transcode import (
     TranscodePlan,
     build_ffmpeg_command,
 )
-from vpo.policy.models import (
+from vpo.policy.types import (
     AudioTranscodeConfig,
     QualityMode,
     QualitySettings,

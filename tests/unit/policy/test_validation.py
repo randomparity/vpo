@@ -6,7 +6,7 @@ Feature: 025-policy-validation
 import pytest
 from pydantic import ValidationError as PydanticValidationError
 
-from vpo.policy.loader import PolicyModel
+from vpo.policy.pydantic_models import PolicyModel
 from vpo.policy.validation import (
     DiffSummary,
     FieldChange,

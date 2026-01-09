@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from vpo.policy.models import Plan
+from vpo.policy.types import Plan
 
 
 @dataclass(frozen=True)

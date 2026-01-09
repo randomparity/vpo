@@ -40,7 +40,12 @@ from vpo.executor.interface import require_tool
 from vpo.policy.evaluator import Plan, evaluate_policy
 from vpo.policy.exceptions import PolicyError
 from vpo.policy.loader import load_policy_from_dict
-from vpo.policy.models import (
+from vpo.policy.transcode import (
+    AudioAction,
+    AudioPlan,
+    create_audio_plan_v6,
+)
+from vpo.policy.types import (
     AndCondition,
     AudioIsMultiLanguageCondition,
     Comparison,
@@ -63,11 +68,6 @@ from vpo.policy.models import (
     TitleMatch,
     V11PolicySchema,
     WarnAction,
-)
-from vpo.policy.transcode import (
-    AudioAction,
-    AudioPlan,
-    create_audio_plan_v6,
 )
 
 if TYPE_CHECKING:
@@ -944,7 +944,7 @@ class V11PhaseExecutor:
     ) -> int:
         """Execute video/audio transcode operation."""
         from vpo.executor.transcode import TranscodeExecutor
-        from vpo.policy.models import TranscodePolicyConfig
+        from vpo.policy.types import TranscodePolicyConfig
 
         phase = state.phase
         if not phase.transcode and not phase.audio_transcode:

@@ -16,7 +16,7 @@ from vpo.policy.codecs import (
     audio_codec_matches_any,
     video_codec_matches_any,
 )
-from vpo.policy.models import (
+from vpo.policy.types import (
     RESOLUTION_MAP,
     AudioTranscodeConfig,
     SkipCondition,

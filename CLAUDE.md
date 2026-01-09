@@ -255,8 +255,9 @@ transcode:
 
 **Key modules:**
 - `policy/types.py`: All schema dataclasses and enums (PolicySchema, PhasedPolicySchema, TrackType, etc.)
-- `policy/models.py`: Backward-compat shim (re-exports from types.py)
-- `policy/loader.py`: PolicyModel validation, schema loading, SCHEMA_VERSION constant
+- `policy/pydantic_models.py`: Pydantic models for YAML parsing and validation
+- `policy/conversion.py`: Functions to convert Pydantic models to frozen dataclasses
+- `policy/loader.py`: High-level loading functions (load_policy, load_policy_from_dict)
 - `executor/transcode.py`: TranscodeExecutor, FFmpeg command building, edge case detection
 - `policy/transcode.py`: Audio plan creation for audio config
 - `workflow/skip_conditions.py`: Phase skip condition evaluation (evaluate_skip_when)
@@ -355,9 +356,9 @@ class MyPlugin:
 ## Condition Evaluation Pattern
 
 When adding new condition types to the policy system:
-1. Create condition dataclass in `policy/models.py` (add to `Condition` union type)
-2. Add Pydantic model in `policy/loader.py` for YAML parsing
-3. Add parsing case to `convert_condition()` in `policy/loader.py`
+1. Create condition dataclass in `policy/types.py` (add to `Condition` union type)
+2. Add Pydantic model in `policy/pydantic_models.py` for YAML parsing
+3. Add parsing case to `_convert_condition()` in `policy/conversion.py`
 4. Add evaluation function in `policy/conditions.py`
 5. Thread any new context through `policy/evaluator.py`
 

@@ -16,7 +16,7 @@ from vpo.executor.backup import (
     restore_from_backup,
 )
 from vpo.executor.interface import ExecutorResult, require_tool
-from vpo.policy.models import Plan
+from vpo.policy.types import Plan
 
 logger = logging.getLogger(__name__)
 

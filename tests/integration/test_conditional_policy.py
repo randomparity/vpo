@@ -15,7 +15,7 @@ from vpo.policy.evaluator import (
 )
 from vpo.policy.exceptions import ConditionalFailError
 from vpo.policy.loader import load_policy
-from vpo.policy.models import (
+from vpo.policy.types import (
     SkipFlags,
 )
 

@@ -12,7 +12,7 @@ from vpo.policy.conditions import (
     evaluate_is_dubbed,
     evaluate_is_original,
 )
-from vpo.policy.models import (
+from vpo.policy.types import (
     IsDubbedCondition,
     IsOriginalCondition,
 )
@@ -228,7 +228,7 @@ class TestClassificationConditionsInCompound:
 
     def test_in_and_condition(self, sample_audio_tracks, classification_results):
         """Should work in AND conditions."""
-        from vpo.policy.models import (
+        from vpo.policy.types import (
             AndCondition,
             ExistsCondition,
             TrackFilters,
@@ -251,7 +251,7 @@ class TestClassificationConditionsInCompound:
 
     def test_in_or_condition(self, sample_audio_tracks, classification_results):
         """Should work in OR conditions."""
-        from vpo.policy.models import OrCondition
+        from vpo.policy.types import OrCondition
 
         # OR: has original OR has dubbed
         condition = OrCondition(
@@ -270,7 +270,7 @@ class TestClassificationConditionsInCompound:
 
     def test_in_not_condition(self, sample_audio_tracks, classification_results):
         """Should work in NOT conditions."""
-        from vpo.policy.models import NotCondition
+        from vpo.policy.types import NotCondition
 
         # NOT: has no dubbed Spanish audio
         condition = NotCondition(inner=IsDubbedCondition(value=True, language="spa"))
