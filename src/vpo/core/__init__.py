@@ -16,6 +16,12 @@ from vpo.core.formatting import (
     format_file_size,
     get_resolution_label,
 )
+from vpo.core.json_utils import (
+    JsonParseResult,
+    parse_json_safe,
+    parse_json_with_schema,
+    serialize_json_safe,
+)
 from vpo.core.string_utils import (
     compare_strings_ci,
     contains_ci,
@@ -33,6 +39,11 @@ __all__ = [
     "format_file_size",
     "get_resolution_label",
     "format_audio_languages",
+    # json_utils
+    "JsonParseResult",
+    "parse_json_safe",
+    "parse_json_with_schema",
+    "serialize_json_safe",
     # string_utils
     "normalize_string",
     "compare_strings_ci",

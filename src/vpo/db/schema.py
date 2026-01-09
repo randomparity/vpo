@@ -2,7 +2,7 @@
 
 import sqlite3
 
-SCHEMA_VERSION = 19
+SCHEMA_VERSION = 20
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -166,6 +166,9 @@ CREATE TABLE IF NOT EXISTS jobs (
     ),
     CONSTRAINT valid_progress CHECK (
         progress_percent >= 0.0 AND progress_percent <= 100.0
+    ),
+    CONSTRAINT valid_priority CHECK (
+        priority >= 0 AND priority <= 1000
     )
 );
 
@@ -1566,6 +1569,129 @@ def migrate_v18_to_v19(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def migrate_v19_to_v20(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 19 to version 20.
+
+    Adds CHECK constraints for numeric fields to improve data integrity:
+    - jobs.priority: 0-1000 range (addresses potential invalid priority values)
+
+    SQLite doesn't allow altering CHECK constraints, so we must recreate the
+    jobs table. This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Check if jobs table already has the valid_priority constraint
+    cursor = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='jobs'"
+    )
+    row = cursor.fetchone()
+    if row and "valid_priority" in row[0]:
+        # Constraint already exists, just update version
+        conn.execute(
+            "UPDATE _meta SET value = '20' WHERE key = 'schema_version'",
+        )
+        conn.commit()
+        return
+
+    # Recreate jobs table with valid_priority constraint
+    conn.executescript("""
+        -- Create new table with valid_priority constraint
+        CREATE TABLE IF NOT EXISTS jobs_new (
+            id TEXT PRIMARY KEY,
+            file_id INTEGER,
+            file_path TEXT NOT NULL,
+            job_type TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'queued',
+            priority INTEGER NOT NULL DEFAULT 100,
+
+            -- Policy
+            policy_name TEXT,
+            policy_json TEXT,
+
+            -- Progress
+            progress_percent REAL NOT NULL DEFAULT 0.0,
+            progress_json TEXT,
+
+            -- Timing
+            created_at TEXT NOT NULL,
+            started_at TEXT,
+            completed_at TEXT,
+
+            -- Worker
+            worker_pid INTEGER,
+            worker_heartbeat TEXT,
+
+            -- Results
+            output_path TEXT,
+            backup_path TEXT,
+            error_message TEXT,
+
+            -- Extended fields (008-operational-ux)
+            files_affected_json TEXT,
+            summary_json TEXT,
+
+            -- Log file reference (016-job-detail-view)
+            log_path TEXT,
+
+            FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
+            CONSTRAINT valid_status CHECK (
+                status IN ('queued', 'running', 'completed', 'failed', 'cancelled')
+            ),
+            CONSTRAINT valid_job_type CHECK (
+                job_type IN ('transcode', 'move', 'scan', 'apply')
+            ),
+            CONSTRAINT valid_progress CHECK (
+                progress_percent >= 0.0 AND progress_percent <= 100.0
+            ),
+            CONSTRAINT valid_priority CHECK (
+                priority >= 0 AND priority <= 1000
+            )
+        );
+
+        -- Copy data from old table, clamping any out-of-range priority values
+        INSERT INTO jobs_new (
+            id, file_id, file_path, job_type, status, priority,
+            policy_name, policy_json, progress_percent, progress_json,
+            created_at, started_at, completed_at,
+            worker_pid, worker_heartbeat, output_path, backup_path, error_message,
+            files_affected_json, summary_json, log_path
+        )
+        SELECT
+            id, file_id, file_path, job_type, status,
+            CASE
+                WHEN priority < 0 THEN 0
+                WHEN priority > 1000 THEN 1000
+                ELSE priority
+            END,
+            policy_name, policy_json, progress_percent, progress_json,
+            created_at, started_at, completed_at,
+            worker_pid, worker_heartbeat, output_path, backup_path, error_message,
+            files_affected_json, summary_json, log_path
+        FROM jobs;
+
+        -- Drop old table
+        DROP TABLE jobs;
+
+        -- Rename new table
+        ALTER TABLE jobs_new RENAME TO jobs;
+
+        -- Recreate indexes
+        CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+        CREATE INDEX IF NOT EXISTS idx_jobs_file_id ON jobs(file_id);
+        CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at);
+        CREATE INDEX IF NOT EXISTS idx_jobs_priority_created
+            ON jobs(priority, created_at);
+        CREATE INDEX IF NOT EXISTS idx_jobs_job_type ON jobs(job_type);
+    """)
+
+    # Update schema version to 20
+    conn.execute(
+        "UPDATE _meta SET value = '20' WHERE key = 'schema_version'",
+    )
+    conn.commit()
+
+
 def initialize_database(conn: sqlite3.Connection) -> None:
     """Initialize the database with schema, creating tables if needed.
 
@@ -1631,3 +1757,6 @@ def initialize_database(conn: sqlite3.Connection) -> None:
             current_version = 18
         if current_version == 18:
             migrate_v18_to_v19(conn)
+            current_version = 19
+        if current_version == 19:
+            migrate_v19_to_v20(conn)

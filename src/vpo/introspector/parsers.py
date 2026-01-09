@@ -4,6 +4,7 @@ These functions transform ffprobe JSON data into VPO domain objects.
 All functions are pure (no I/O, no side effects) for easy testing.
 """
 
+import logging
 from pathlib import Path
 
 from vpo.db.types import IntrospectionResult, TrackInfo
@@ -12,6 +13,8 @@ from vpo.introspector.mappings import (
     map_track_type,
 )
 from vpo.language import normalize_language
+
+logger = logging.getLogger(__name__)
 
 
 def sanitize_string(value: str | None) -> str | None:
@@ -27,6 +30,82 @@ def sanitize_string(value: str | None) -> str | None:
         return None
     # Replace any remaining problematic characters
     return value.encode("utf-8", errors="replace").decode("utf-8")
+
+
+def validate_positive_int(
+    value: int | None,
+    field_name: str,
+    file_path: str | None = None,
+) -> int | None:
+    """Validate that a value is a positive integer or None.
+
+    Args:
+        value: Value to validate.
+        field_name: Field name for warning messages.
+        file_path: File path context for warnings.
+
+    Returns:
+        Validated value or None if invalid.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, int):
+        context = f" in {file_path}" if file_path else ""
+        logger.warning(
+            "Expected int for %s, got %s%s",
+            field_name,
+            type(value).__name__,
+            context,
+        )
+        return None
+    if value < 0:
+        context = f" in {file_path}" if file_path else ""
+        logger.warning(
+            "Invalid negative %s: %d%s",
+            field_name,
+            value,
+            context,
+        )
+        return None
+    return value
+
+
+def validate_positive_float(
+    value: float | None,
+    field_name: str,
+    file_path: str | None = None,
+) -> float | None:
+    """Validate that a value is a positive float or None.
+
+    Args:
+        value: Value to validate.
+        field_name: Field name for warning messages.
+        file_path: File path context for warnings.
+
+    Returns:
+        Validated value or None if invalid.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, (int, float)):
+        context = f" in {file_path}" if file_path else ""
+        logger.warning(
+            "Expected float for %s, got %s%s",
+            field_name,
+            type(value).__name__,
+            context,
+        )
+        return None
+    if value < 0:
+        context = f" in {file_path}" if file_path else ""
+        logger.warning(
+            "Invalid negative %s: %s%s",
+            field_name,
+            value,
+            context,
+        )
+        return None
+    return float(value)
 
 
 def parse_duration(value: str | None) -> float | None:
@@ -90,22 +169,25 @@ def parse_stream(
 
     # Extract stream duration (fall back to container duration)
     stream_duration = parse_duration(stream.get("duration"))
-    if stream_duration is not None:
-        track.duration_seconds = stream_duration
+    validated_duration = validate_positive_float(
+        stream_duration, "duration_seconds", file_path
+    )
+    if validated_duration is not None:
+        track.duration_seconds = validated_duration
     elif container_duration is not None:
         track.duration_seconds = container_duration
 
     # Add audio-specific fields
     if track_type == "audio":
-        channels = stream.get("channels")
+        channels = validate_positive_int(stream.get("channels"), "channels", file_path)
         if channels is not None:
             track.channels = channels
             track.channel_layout = map_channel_layout(channels)
 
     # Add video-specific fields
     if track_type == "video":
-        width = stream.get("width")
-        height = stream.get("height")
+        width = validate_positive_int(stream.get("width"), "width", file_path)
+        height = validate_positive_int(stream.get("height"), "height", file_path)
         if width is not None:
             track.width = width
         if height is not None:

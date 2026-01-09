@@ -10,10 +10,10 @@ The dict-returning versions are kept for backward compatibility.
 New code should use the _typed variants that return dataclasses.
 """
 
-import json
-import logging
 import re
 import sqlite3
+
+from vpo.core.json_utils import parse_json_safe
 
 from .types import (
     ActionSummary,
@@ -1150,7 +1150,8 @@ def get_files_with_plugin_data(
 
     files = []
     for row in rows:
-        plugin_metadata = json.loads(row[4]) if row[4] else {}
+        result = parse_json_safe(row[4], default={}, context="plugin_metadata")
+        plugin_metadata = result.value or {}
         files.append(
             {
                 "id": row[0],
@@ -1180,8 +1181,6 @@ def get_plugin_data_for_file(
         Dictionary keyed by plugin name with each plugin's data.
         Empty dict if file not found, no plugin metadata, or malformed JSON.
     """
-    logger = logging.getLogger(__name__)
-
     cursor = conn.execute(
         "SELECT plugin_metadata FROM files WHERE id = ?",
         (file_id,),
@@ -1191,11 +1190,10 @@ def get_plugin_data_for_file(
     if row is None or row[0] is None:
         return {}
 
-    try:
-        return json.loads(row[0])
-    except (json.JSONDecodeError, TypeError) as e:
-        logger.warning("Failed to parse plugin_metadata for file_id=%d: %s", file_id, e)
-        return {}
+    result = parse_json_safe(
+        row[0], default={}, context=f"plugin_metadata for file_id={file_id}"
+    )
+    return result.value or {}
 
 
 # ==========================================================================
@@ -1376,11 +1374,9 @@ def get_file_analysis_detail(
         # Extract secondary_languages from analysis_metadata JSON if present
         secondary_langs = None
         if row[6]:  # analysis_metadata
-            try:
-                metadata = json.loads(row[6])
-                secondary_langs = metadata.get("secondary_languages")
-            except (json.JSONDecodeError, TypeError):
-                pass
+            result = parse_json_safe(row[6], context="analysis_metadata")
+            if result.success and result.value:
+                secondary_langs = result.value.get("secondary_languages")
 
         results.append(
             TrackAnalysisDetail(

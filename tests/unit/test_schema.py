@@ -775,3 +775,192 @@ class TestMigrationV16ToV17:
 
         cursor = db_v16.execute("SELECT plugin_metadata FROM files WHERE id = 1")
         assert cursor.fetchone()[0] is None
+
+
+class TestMigrationV19ToV20:
+    """Tests for v19 to v20 migration (valid_priority constraint)."""
+
+    @pytest.fixture
+    def db_v19(self, tmp_path: Path) -> sqlite3.Connection:
+        """Create a database at version 19 with test data."""
+        db_path = tmp_path / "test.db"
+        conn = sqlite3.connect(str(db_path))
+
+        # Create minimal schema at v19 without valid_priority constraint
+        conn.executescript(
+            """
+            CREATE TABLE _meta (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            INSERT INTO _meta (key, value) VALUES ('schema_version', '19');
+
+            CREATE TABLE files (
+                id INTEGER PRIMARY KEY,
+                path TEXT UNIQUE NOT NULL
+            );
+            INSERT INTO files (id, path) VALUES (1, '/test.mkv');
+
+            CREATE TABLE jobs (
+                id TEXT PRIMARY KEY,
+                file_id INTEGER,
+                file_path TEXT NOT NULL,
+                job_type TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'queued',
+                priority INTEGER NOT NULL DEFAULT 100,
+                policy_name TEXT,
+                policy_json TEXT,
+                progress_percent REAL NOT NULL DEFAULT 0.0,
+                progress_json TEXT,
+                created_at TEXT NOT NULL,
+                started_at TEXT,
+                completed_at TEXT,
+                worker_pid INTEGER,
+                worker_heartbeat TEXT,
+                output_path TEXT,
+                backup_path TEXT,
+                error_message TEXT,
+                files_affected_json TEXT,
+                summary_json TEXT,
+                log_path TEXT,
+                FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
+                CONSTRAINT valid_status CHECK (
+                    status IN ('queued', 'running', 'completed', 'failed', 'cancelled')
+                ),
+                CONSTRAINT valid_job_type CHECK (
+                    job_type IN ('transcode', 'move', 'scan', 'apply')
+                ),
+                CONSTRAINT valid_progress CHECK (
+                    progress_percent >= 0.0 AND progress_percent <= 100.0
+                )
+            );
+
+            -- Insert jobs with various priorities (including out-of-range)
+            INSERT INTO jobs (
+                id, file_id, file_path, job_type, status, priority, created_at
+            ) VALUES
+                ('job-1', 1, '/t.mkv', 'scan', 'completed', 50, '2024-01-01'),
+                ('job-2', 1, '/t.mkv', 'scan', 'completed', 100, '2024-01-01'),
+                ('job-3', 1, '/t.mkv', 'scan', 'completed', -10, '2024-01-01'),
+                ('job-4', 1, '/t.mkv', 'scan', 'completed', 2000, '2024-01-01');
+            """
+        )
+
+        conn.commit()
+        return conn
+
+    def test_migration_adds_valid_priority_constraint(self, db_v19: sqlite3.Connection):
+        """Test that migration adds the valid_priority constraint."""
+        from vpo.db.schema import migrate_v19_to_v20
+
+        # Run migration
+        migrate_v19_to_v20(db_v19)
+
+        # Check that constraint was added
+        cursor = db_v19.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='jobs'"
+        )
+        schema = cursor.fetchone()[0]
+        assert "valid_priority" in schema
+
+        # Check schema version updated
+        cursor = db_v19.execute("SELECT value FROM _meta WHERE key = 'schema_version'")
+        assert cursor.fetchone()[0] == "20"
+
+    def test_migration_clamps_out_of_range_priorities(self, db_v19: sqlite3.Connection):
+        """Test that migration clamps priority values to 0-1000 range."""
+        from vpo.db.schema import migrate_v19_to_v20
+
+        # Run migration
+        migrate_v19_to_v20(db_v19)
+
+        # Check priorities were clamped
+        cursor = db_v19.execute("SELECT id, priority FROM jobs ORDER BY id")
+        jobs = cursor.fetchall()
+
+        assert jobs[0][1] == 50  # Normal value - unchanged
+        assert jobs[1][1] == 100  # Normal value - unchanged
+        assert jobs[2][1] == 0  # -10 -> 0 (clamped)
+        assert jobs[3][1] == 1000  # 2000 -> 1000 (clamped)
+
+    def test_migration_is_idempotent(self, db_v19: sqlite3.Connection):
+        """Test that running migration twice doesn't error."""
+        from vpo.db.schema import migrate_v19_to_v20
+
+        # Run migration twice
+        migrate_v19_to_v20(db_v19)
+        migrate_v19_to_v20(db_v19)
+
+        # Verify schema version is still 20
+        cursor = db_v19.execute("SELECT value FROM _meta WHERE key = 'schema_version'")
+        assert cursor.fetchone()[0] == "20"
+
+    def test_migration_preserves_job_data(self, db_v19: sqlite3.Connection):
+        """Test that migration preserves all job data."""
+        from vpo.db.schema import migrate_v19_to_v20
+
+        # Run migration
+        migrate_v19_to_v20(db_v19)
+
+        # Verify all jobs still exist
+        cursor = db_v19.execute("SELECT COUNT(*) FROM jobs")
+        assert cursor.fetchone()[0] == 4
+
+        # Verify job data preserved
+        cursor = db_v19.execute(
+            "SELECT job_type, status, file_path FROM jobs WHERE id = 'job-1'"
+        )
+        row = cursor.fetchone()
+        assert row[0] == "scan"
+        assert row[1] == "completed"
+        assert row[2] == "/test.mkv"
+
+    def test_constraint_rejects_invalid_priority(self, db_v19: sqlite3.Connection):
+        """Test that constraint rejects new jobs with invalid priority."""
+        from vpo.db.schema import migrate_v19_to_v20
+
+        # Run migration
+        migrate_v19_to_v20(db_v19)
+
+        # Try to insert job with out-of-range priority
+        with pytest.raises(sqlite3.IntegrityError):
+            db_v19.execute(
+                """
+                INSERT INTO jobs (id, file_path, job_type, priority, created_at)
+                VALUES ('job-bad', '/test.mkv', 'scan', 1001, '2024-01-01T00:00:00Z')
+                """
+            )
+
+        with pytest.raises(sqlite3.IntegrityError):
+            db_v19.execute(
+                """
+                INSERT INTO jobs (id, file_path, job_type, priority, created_at)
+                VALUES ('job-bad', '/test.mkv', 'scan', -1, '2024-01-01T00:00:00Z')
+                """
+            )
+
+    def test_constraint_accepts_valid_priority(self, db_v19: sqlite3.Connection):
+        """Test that constraint accepts jobs with valid priority."""
+        from vpo.db.schema import migrate_v19_to_v20
+
+        # Run migration
+        migrate_v19_to_v20(db_v19)
+
+        # Insert job with valid priority values
+        db_v19.execute(
+            """
+            INSERT INTO jobs (id, file_path, job_type, priority, created_at)
+            VALUES ('job-low', '/test.mkv', 'scan', 0, '2024-01-01T00:00:00Z')
+            """
+        )
+        db_v19.execute(
+            """
+            INSERT INTO jobs (id, file_path, job_type, priority, created_at)
+            VALUES ('job-high', '/test.mkv', 'scan', 1000, '2024-01-01T00:00:00Z')
+            """
+        )
+        db_v19.commit()
+
+        # Verify jobs were inserted
+        cursor = db_v19.execute("SELECT COUNT(*) FROM jobs")
+        assert cursor.fetchone()[0] == 6  # 4 original + 2 new

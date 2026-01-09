@@ -23,6 +23,7 @@ from vpo.core.datetime_utils import (
     parse_iso_timestamp,
     parse_time_filter,
 )
+from vpo.core.json_utils import parse_json_safe
 from vpo.core.validation import is_valid_uuid
 from vpo.db.connection import DaemonConnectionPool
 from vpo.db.views import (
@@ -33,6 +34,14 @@ from vpo.db.views import (
     get_stats_detail,
     get_stats_for_file,
     get_stats_summary,
+)
+from vpo.server.middleware import (
+    JOBS_ALLOWED_PARAMS,
+    PLANS_ALLOWED_PARAMS,
+    STATS_ALLOWED_PARAMS,
+    STATS_PURGE_ALLOWED_PARAMS,
+    TRANSCRIPTIONS_ALLOWED_PARAMS,
+    validate_query_params,
 )
 from vpo.server.ui.models import (
     DEFAULT_SECTION,
@@ -276,6 +285,7 @@ async def jobs_handler(request: web.Request) -> dict:
 
 @shutdown_check_middleware
 @database_required_middleware
+@validate_query_params(JOBS_ALLOWED_PARAMS)
 async def api_jobs_handler(request: web.Request) -> web.Response:
     """Handle GET /api/jobs - JSON API for jobs listing.
 
@@ -401,7 +411,6 @@ def _job_to_detail_item(job, has_logs: bool) -> JobDetailItem:
     Returns:
         JobDetailItem for API/template use.
     """
-    import json
 
     # Calculate duration if completed
     duration_seconds = None
@@ -414,12 +423,8 @@ def _job_to_detail_item(job, has_logs: bool) -> JobDetailItem:
             pass
 
     # Parse summary_json if present
-    summary_raw = None
-    if job.summary_json:
-        try:
-            summary_raw = json.loads(job.summary_json)
-        except (json.JSONDecodeError, TypeError):
-            pass
+    summary_result = parse_json_safe(job.summary_json, context="summary_json")
+    summary_raw = summary_result.value
 
     # Generate human-readable summary from summary_raw
     summary_text = generate_summary_text(job.job_type.value, summary_raw)
@@ -815,7 +820,6 @@ def _build_file_detail_item(file_record, tracks, transcriptions) -> FileDetailIt
     Returns:
         FileDetailItem ready for API/template use.
     """
-    import json
 
     # Group tracks by type
     video_tracks, audio_tracks, subtitle_tracks, other_tracks = group_tracks_by_type(
@@ -823,16 +827,11 @@ def _build_file_detail_item(file_record, tracks, transcriptions) -> FileDetailIt
     )
 
     # Parse plugin_metadata JSON (236-generic-plugin-data-browser)
-    plugin_metadata = None
-    if file_record.plugin_metadata:
-        try:
-            plugin_metadata = json.loads(file_record.plugin_metadata)
-        except (json.JSONDecodeError, TypeError) as e:
-            logger.warning(
-                "Failed to parse plugin_metadata for file %d: %s",
-                file_record.id,
-                e,
-            )
+    plugin_result = parse_json_safe(
+        file_record.plugin_metadata,
+        context=f"plugin_metadata for file {file_record.id}",
+    )
+    plugin_metadata = plugin_result.value
 
     return FileDetailItem(
         id=file_record.id,
@@ -999,6 +998,7 @@ async def transcriptions_handler(request: web.Request) -> dict:
 
 @shutdown_check_middleware
 @database_required_middleware
+@validate_query_params(TRANSCRIPTIONS_ALLOWED_PARAMS)
 async def api_transcriptions_handler(request: web.Request) -> web.Response:
     """Handle GET /api/transcriptions - JSON API for transcriptions listing.
 
@@ -2010,6 +2010,7 @@ async def plans_handler(request: web.Request) -> dict:
 
 @shutdown_check_middleware
 @database_required_middleware
+@validate_query_params(PLANS_ALLOWED_PARAMS)
 async def api_plans_handler(request: web.Request) -> web.Response:
     """Handle GET /api/plans - JSON API for plans listing.
 
@@ -2216,6 +2217,7 @@ async def stats_handler(request: web.Request) -> dict:
 
 @shutdown_check_middleware
 @database_required_middleware
+@validate_query_params(STATS_ALLOWED_PARAMS)
 async def api_stats_summary_handler(request: web.Request) -> web.Response:
     """Handle GET /api/stats/summary - JSON API for statistics summary.
 
@@ -2443,6 +2445,7 @@ async def api_stats_file_handler(request: web.Request) -> web.Response:
 
 @shutdown_check_middleware
 @database_required_middleware
+@validate_query_params(STATS_PURGE_ALLOWED_PARAMS)
 async def api_stats_purge_handler(request: web.Request) -> web.Response:
     """Handle DELETE /api/stats/purge - Delete processing statistics.
 
