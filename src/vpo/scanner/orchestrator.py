@@ -138,11 +138,23 @@ class ScannerOrchestrator:
         self.extensions = extensions or DEFAULT_EXTENSIONS
         self.follow_symlinks = follow_symlinks
         self._interrupt_event = threading.Event()
+        self._current_conn: sqlite3.Connection | None = None
 
     def _create_signal_handler(self) -> Callable[[int, object], None]:
-        """Create a signal handler that sets the interrupt event."""
+        """Create a signal handler that commits pending changes and sets interrupt.
+
+        The handler attempts to commit any pending database changes before
+        setting the interrupt flag, preventing data loss on Ctrl+C.
+        """
 
         def handler(signum: int, frame: object) -> None:
+            logger.info("Interrupt received, flushing pending changes...")
+            # Commit pending changes before interrupting to prevent data loss
+            if self._current_conn is not None:
+                try:
+                    self._current_conn.commit()
+                except Exception as e:
+                    logger.error("Failed to commit during interrupt: %s", e)
             self._interrupt_event.set()
 
         return handler
@@ -285,6 +297,9 @@ class ScannerOrchestrator:
         old_handler = signal.signal(signal.SIGINT, self._create_signal_handler())
 
         try:
+            # Store connection reference for signal handler to commit on interrupt
+            self._current_conn = conn
+
             # Use FFprobeIntrospector if available, otherwise fall back to stub
             if introspector is None:
                 if FFprobeIntrospector.is_available():
@@ -547,5 +562,6 @@ class ScannerOrchestrator:
             return all_files, result
 
         finally:
-            # Restore original signal handler
+            # Clear connection reference and restore original signal handler
+            self._current_conn = None
             signal.signal(signal.SIGINT, old_handler)

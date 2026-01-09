@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 
 # Heartbeat interval (seconds)
 HEARTBEAT_INTERVAL = 30
+MAX_HEARTBEAT_FAILURES = 3  # Abort job after this many consecutive heartbeat failures
 
 
 class WorkerShutdownRequested(Exception):
@@ -101,6 +102,7 @@ class JobWorker:
         # Heartbeat thread
         self._heartbeat_thread: threading.Thread | None = None
         self._heartbeat_stop = threading.Event()
+        self._consecutive_heartbeat_failures = 0
 
         # Setup signal handlers
         self._setup_signal_handlers()
@@ -170,8 +172,12 @@ class JobWorker:
         Uses a separate database connection to avoid interfering with
         transactions on the main connection. This prevents the heartbeat
         commit() from accidentally committing a partial transaction.
+
+        Tracks consecutive heartbeat failures and requests shutdown if
+        MAX_HEARTBEAT_FAILURES is reached, preventing duplicate job execution.
         """
         self._heartbeat_stop.clear()
+        self._consecutive_heartbeat_failures = 0
 
         def heartbeat_loop() -> None:
             # Use separate connection for heartbeat to avoid transaction interference
@@ -183,8 +189,22 @@ class JobWorker:
                 while not self._heartbeat_stop.wait(HEARTBEAT_INTERVAL):
                     try:
                         update_heartbeat(heartbeat_conn, job_id, os.getpid())
+                        self._consecutive_heartbeat_failures = 0  # Reset on success
                     except Exception as e:
-                        logger.error("Heartbeat failed: %s", e)
+                        self._consecutive_heartbeat_failures += 1
+                        logger.error(
+                            "Heartbeat failed (%d/%d): %s",
+                            self._consecutive_heartbeat_failures,
+                            MAX_HEARTBEAT_FAILURES,
+                            e,
+                        )
+                        max_failures = MAX_HEARTBEAT_FAILURES
+                        if self._consecutive_heartbeat_failures >= max_failures:
+                            logger.critical(
+                                "Max heartbeat failures reached, requesting shutdown"
+                            )
+                            self._shutdown_requested = True
+                            break
 
         self._heartbeat_thread = threading.Thread(target=heartbeat_loop, daemon=True)
         self._heartbeat_thread.start()
