@@ -133,9 +133,7 @@ class TestInitializationCheckEdgeCases:
         """Test that --version works without initialization."""
         result = runner.invoke(main, ["--version"])
         assert result.exit_code == 0
-        assert "video-policy-orchestrator" in result.output.lower() or "version" in (
-            result.output.lower()
-        )
+        assert "vpo" in result.output.lower() or "version" in result.output.lower()
 
     def test_help_flag_works_without_init(self, runner):
         """Test that --help works without initialization."""

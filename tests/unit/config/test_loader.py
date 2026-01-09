@@ -363,6 +363,8 @@ class TestConfigCache:
 
     def test_cache_automatically_reloads_on_file_change(self, tmp_path: Path) -> None:
         """Cache should automatically reload when file mtime changes."""
+        import os
+
         from vpo.config.loader import clear_config_cache
 
         # Clear cache first to ensure clean state
@@ -376,8 +378,12 @@ class TestConfigCache:
         result1 = load_config_file(config_file)
         assert result1["server"]["port"] == 9000
 
-        # Modify the file (changes mtime)
+        # Modify the file and explicitly bump mtime (filesystem mtime may have
+        # 1-second granularity, so writes within the same second won't trigger
+        # cache invalidation without this)
         config_file.write_text("[server]\nport = 8000")
+        current_mtime = config_file.stat().st_mtime
+        os.utime(config_file, (current_mtime + 1, current_mtime + 1))
 
         # Load again (should detect mtime change and reload)
         result2 = load_config_file(config_file)

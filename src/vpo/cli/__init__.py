@@ -261,7 +261,7 @@ def _check_initialization(ctx: click.Context) -> None:
 
 
 @click.group()
-@click.version_option(package_name="video-policy-orchestrator")
+@click.version_option(package_name="vpo")
 @click.option(
     "--force-load-plugins",
     is_flag=True,

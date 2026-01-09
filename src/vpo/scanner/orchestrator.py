@@ -478,6 +478,10 @@ class ScannerOrchestrator:
             in_transaction = False
 
             if batch_commit_size > 0 and files_to_process:
+                # Commit any implicit transaction from read operations before
+                # starting explicit transaction (Python sqlite3 starts implicit
+                # transactions on any statement unless isolation_level=None)
+                conn.commit()
                 conn.execute("BEGIN IMMEDIATE")
                 in_transaction = True
 
