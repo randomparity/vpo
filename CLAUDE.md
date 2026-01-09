@@ -40,7 +40,7 @@ uv run vpo serve --port 8080          # Start daemon with web UI
 
 - **Python 3.10-3.13** with click (CLI), pydantic, PyYAML, aiohttp (daemon), Jinja2 (templates)
 - **Rust** (PyO3/maturin) for parallel file discovery and hashing in `crates/vpo-core/`
-- **SQLite** database at `~/.vpo/library.db` (schema version 18)
+- **SQLite** database at `~/.vpo/library.db` (schema version 20)
 - **Web UI**: Vanilla JavaScript (ES6+), no frameworks - uses polling for live updates
 - **External tools:** ffprobe (introspection), mkvpropedit/mkvmerge (MKV editing), ffmpeg (metadata editing)
 
