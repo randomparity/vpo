@@ -43,9 +43,9 @@ DEFAULT_CONFIG_DIR = Path.home() / ".vpo"
 DEFAULT_CONFIG_FILE = DEFAULT_CONFIG_DIR / "config.toml"
 DEFAULT_PLUGINS_DIR = DEFAULT_CONFIG_DIR / "plugins"
 
-# Cache for loaded config files (path -> parsed dict)
-# This prevents redundant file reads during startup
-_config_cache: dict[Path, dict] = {}
+# Cache for loaded config files (path -> (parsed dict, mtime))
+# This prevents redundant file reads and automatically reloads on file change
+_config_cache: dict[Path, tuple[dict, float]] = {}
 _config_cache_lock = threading.Lock()
 
 
@@ -124,8 +124,9 @@ def get_temp_directory() -> Path:
 def load_config_file(path: Path | None = None) -> dict:
     """Load configuration from TOML file.
 
-    Results are cached to prevent redundant file reads during startup.
-    Use clear_config_cache() to force a reload.
+    Results are cached with mtime-based invalidation. The cache automatically
+    reloads the file if it has been modified since the last read.
+    Use clear_config_cache() to force a reload regardless of mtime.
 
     Thread-safe: uses a lock to protect concurrent access to the cache.
 
@@ -138,19 +139,29 @@ def load_config_file(path: Path | None = None) -> dict:
     if path is None:
         path = get_default_config_path()
 
+    # Get current mtime (or 0.0 if file doesn't exist)
+    try:
+        current_mtime = path.stat().st_mtime
+    except FileNotFoundError:
+        current_mtime = 0.0
+
     # Fast path: check cache without lock (dict reads are atomic in CPython)
     if path in _config_cache:
-        return _config_cache[path]
+        cached_config, cached_mtime = _config_cache[path]
+        if current_mtime == cached_mtime:
+            return cached_config
 
     # Slow path: acquire lock, double-check, then load
     with _config_cache_lock:
         # Double-check after acquiring lock (another thread may have loaded it)
         if path in _config_cache:
-            return _config_cache[path]
+            cached_config, cached_mtime = _config_cache[path]
+            if current_mtime == cached_mtime:
+                return cached_config
 
-        # Load and cache
+        # Load and cache with mtime
         result = load_toml_file(path)
-        _config_cache[path] = result
+        _config_cache[path] = (result, current_mtime)
         return result
 
 

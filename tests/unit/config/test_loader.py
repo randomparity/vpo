@@ -361,9 +361,12 @@ class TestLegacyFunctions:
 class TestConfigCache:
     """Tests for config file caching behavior."""
 
-    def test_clear_config_cache_clears_cache(self, tmp_path: Path) -> None:
-        """clear_config_cache should clear the cache."""
+    def test_cache_automatically_reloads_on_file_change(self, tmp_path: Path) -> None:
+        """Cache should automatically reload when file mtime changes."""
         from vpo.config.loader import clear_config_cache
+
+        # Clear cache first to ensure clean state
+        clear_config_cache()
 
         # Create a config file
         config_file = tmp_path / "config.toml"
@@ -373,19 +376,34 @@ class TestConfigCache:
         result1 = load_config_file(config_file)
         assert result1["server"]["port"] == 9000
 
-        # Modify the file
+        # Modify the file (changes mtime)
         config_file.write_text("[server]\nport = 8000")
 
-        # Load again (should return cached value)
+        # Load again (should detect mtime change and reload)
         result2 = load_config_file(config_file)
-        assert result2["server"]["port"] == 9000  # Still cached
+        assert result2["server"]["port"] == 8000  # Auto-reloaded
 
-        # Clear cache
+    def test_clear_config_cache_clears_cache(self, tmp_path: Path) -> None:
+        """clear_config_cache should explicitly clear the cache."""
+        from vpo.config.loader import clear_config_cache
+
+        # Clear cache first to ensure clean state
         clear_config_cache()
 
-        # Load again (should read fresh)
-        result3 = load_config_file(config_file)
-        assert result3["server"]["port"] == 8000  # Fresh value
+        # Create a config file
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("[server]\nport = 9000")
+
+        # Load it (should cache)
+        result1 = load_config_file(config_file)
+        assert result1["server"]["port"] == 9000
+
+        # Clear cache explicitly
+        clear_config_cache()
+
+        # Load again (should reload since cache was cleared)
+        result2 = load_config_file(config_file)
+        assert result2["server"]["port"] == 9000  # Same value, but reloaded
 
     def test_load_config_file_caches_result(self, tmp_path: Path) -> None:
         """load_config_file should cache results and return same dict."""

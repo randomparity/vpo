@@ -54,11 +54,15 @@ class HealthStatus:
         return asdict(self)
 
 
+HEALTH_CHECK_TIMEOUT = 5.0  # seconds
+
+
 async def check_database_health(connection_pool: DaemonConnectionPool | None) -> bool:
     """Check database connectivity using connection pool.
 
     Runs SELECT 1 query in a thread pool to avoid blocking the event loop.
     Uses the daemon's connection pool for thread-safe access.
+    Times out after HEALTH_CHECK_TIMEOUT seconds to prevent hanging.
 
     Args:
         connection_pool: DaemonConnectionPool instance or None.
@@ -85,7 +89,14 @@ async def check_database_health(connection_pool: DaemonConnectionPool | None) ->
             return False
 
     try:
-        return await asyncio.to_thread(_sync_check)
+        return await asyncio.wait_for(
+            asyncio.to_thread(_sync_check),
+            timeout=HEALTH_CHECK_TIMEOUT,
+        )
+    except asyncio.TimeoutError:
+        timeout = HEALTH_CHECK_TIMEOUT
+        logger.warning("Database health check timed out after %.1fs", timeout)
+        return False
     except Exception as e:
         logger.error("Failed to run health check: %s", e)
         return False
