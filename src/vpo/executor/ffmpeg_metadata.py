@@ -13,7 +13,7 @@ from vpo.executor.backup import (
     InsufficientDiskSpaceError,
     check_disk_space,
     create_backup,
-    restore_from_backup,
+    safe_restore_from_backup,
 )
 from vpo.executor.interface import ExecutorResult, require_tool
 from vpo.policy.types import ActionType, Plan, PlannedAction
@@ -134,7 +134,7 @@ class FfmpegMetadataExecutor:
             )
         except subprocess.TimeoutExpired:
             temp_path.unlink(missing_ok=True)
-            restore_from_backup(backup_path)
+            safe_restore_from_backup(backup_path)
             timeout_mins = self._timeout // 60 if self._timeout else 0
             return ExecutorResult(
                 success=False,
@@ -142,7 +142,7 @@ class FfmpegMetadataExecutor:
             )
         except (subprocess.SubprocessError, OSError) as e:
             temp_path.unlink(missing_ok=True)
-            restore_from_backup(backup_path)
+            safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
                 message=f"ffmpeg execution failed: {e}",
@@ -150,7 +150,7 @@ class FfmpegMetadataExecutor:
         except Exception as e:
             logger.exception("Unexpected error during ffmpeg execution")
             temp_path.unlink(missing_ok=True)
-            restore_from_backup(backup_path)
+            safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
                 message=f"Unexpected error during ffmpeg execution: {e}",
@@ -158,7 +158,7 @@ class FfmpegMetadataExecutor:
 
         if result.returncode != 0:
             temp_path.unlink(missing_ok=True)
-            restore_from_backup(backup_path)
+            safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
                 message=f"ffmpeg failed: {result.stderr}",
@@ -169,7 +169,7 @@ class FfmpegMetadataExecutor:
             temp_path.replace(plan.file_path)
         except Exception as e:
             temp_path.unlink(missing_ok=True)
-            restore_from_backup(backup_path)
+            safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
                 message=f"Failed to replace original file: {e}",

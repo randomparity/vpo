@@ -14,7 +14,7 @@ from vpo.executor.backup import (
     InsufficientDiskSpaceError,
     check_disk_space,
     create_backup,
-    restore_from_backup,
+    safe_restore_from_backup,
 )
 from vpo.executor.interface import ExecutorResult, require_tool
 from vpo.policy.types import ActionType, Plan, TrackDisposition
@@ -151,7 +151,7 @@ class MkvmergeExecutor:
             )
         except subprocess.TimeoutExpired:
             temp_path.unlink(missing_ok=True)
-            restore_from_backup(backup_path)
+            safe_restore_from_backup(backup_path)
             timeout_mins = self._timeout // 60 if self._timeout else 0
             return ExecutorResult(
                 success=False,
@@ -159,7 +159,7 @@ class MkvmergeExecutor:
             )
         except (subprocess.SubprocessError, OSError) as e:
             temp_path.unlink(missing_ok=True)
-            restore_from_backup(backup_path)
+            safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
                 message=f"mkvmerge execution failed: {e}",
@@ -167,7 +167,7 @@ class MkvmergeExecutor:
         except Exception as e:
             logger.exception("Unexpected error during mkvmerge execution")
             temp_path.unlink(missing_ok=True)
-            restore_from_backup(backup_path)
+            safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
                 message=f"Unexpected error during mkvmerge execution: {e}",
@@ -176,7 +176,7 @@ class MkvmergeExecutor:
         # mkvmerge returns 0 for success, 1 for warnings, 2 for errors
         if result.returncode == 2:
             temp_path.unlink(missing_ok=True)
-            restore_from_backup(backup_path)
+            safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
                 message=f"mkvmerge failed: {result.stderr or result.stdout}",
@@ -187,7 +187,7 @@ class MkvmergeExecutor:
             temp_path.replace(output_path)
         except Exception as e:
             temp_path.unlink(missing_ok=True)
-            restore_from_backup(backup_path)
+            safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
                 message=f"Failed to move output file: {e}",

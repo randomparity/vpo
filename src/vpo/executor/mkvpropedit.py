@@ -8,7 +8,7 @@ import logging
 import subprocess  # nosec B404 - subprocess is required for mkvpropedit execution
 from pathlib import Path
 
-from vpo.executor.backup import create_backup, restore_from_backup
+from vpo.executor.backup import create_backup, safe_restore_from_backup
 from vpo.executor.interface import ExecutorResult, require_tool
 from vpo.policy.types import ActionType, Plan, PlannedAction
 
@@ -106,7 +106,7 @@ class MkvpropeditExecutor:
             )
         except subprocess.TimeoutExpired:
             # Restore backup on timeout
-            restore_from_backup(backup_path)
+            safe_restore_from_backup(backup_path)
             timeout_mins = self._timeout // 60 if self._timeout else 0
             return ExecutorResult(
                 success=False,
@@ -114,7 +114,7 @@ class MkvpropeditExecutor:
             )
         except (subprocess.SubprocessError, OSError) as e:
             # Restore backup on subprocess error
-            restore_from_backup(backup_path)
+            safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
                 message=f"mkvpropedit execution failed: {e}",
@@ -122,7 +122,7 @@ class MkvpropeditExecutor:
         except Exception as e:
             # Restore backup on unexpected error
             logger.exception("Unexpected error during mkvpropedit execution")
-            restore_from_backup(backup_path)
+            safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
                 message=f"Unexpected error during mkvpropedit execution: {e}",
@@ -130,7 +130,7 @@ class MkvpropeditExecutor:
 
         if result.returncode != 0:
             # Restore backup on failure
-            restore_from_backup(backup_path)
+            safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
                 message=f"mkvpropedit failed: {result.stderr or result.stdout}",

@@ -42,7 +42,9 @@ def run_command(
         Tuple of (stdout, stderr, returncode).
 
     Raises:
-        subprocess.TimeoutExpired: If command times out.
+        subprocess.TimeoutExpired: If command times out. Note: subprocess.run()
+            automatically kills the child process before raising this exception
+            (Python 3.7+ behavior), so no zombie processes are left behind.
 
     Example:
         >>> stdout, stderr, rc = run_command(["ffprobe", "-version"])

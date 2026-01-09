@@ -4,10 +4,13 @@ This module provides file backup functionality for safe media file modifications
 """
 
 import fcntl
+import logging
 import shutil
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # Backup file suffix
 BACKUP_SUFFIX = ".vpo-backup"
@@ -99,6 +102,12 @@ def create_backup(file_path: Path) -> Path:
     return backup_path
 
 
+class BackupRestorationError(Exception):
+    """Raised when backup restoration fails verification."""
+
+    pass
+
+
 def restore_from_backup(backup_path: Path, original_path: Path | None = None) -> Path:
     """Restore a file from its backup.
 
@@ -112,6 +121,8 @@ def restore_from_backup(backup_path: Path, original_path: Path | None = None) ->
     Raises:
         FileNotFoundError: If the backup file does not exist.
         PermissionError: If restoration cannot be performed due to permissions.
+        BackupRestorationError: If restoration fails verification (file missing
+            or empty after move).
     """
     if not backup_path.exists():
         raise FileNotFoundError(f"Backup file not found: {backup_path}")
@@ -129,7 +140,47 @@ def restore_from_backup(backup_path: Path, original_path: Path | None = None) ->
         original_path.unlink()
 
     shutil.move(str(backup_path), str(original_path))
+
+    # Verify restoration succeeded
+    if not original_path.exists():
+        raise BackupRestorationError(
+            f"Restoration failed: {original_path} does not exist after move"
+        )
+    if original_path.stat().st_size == 0:
+        raise BackupRestorationError(
+            f"Restoration failed: {original_path} is empty after move"
+        )
+
     return original_path
+
+
+def safe_restore_from_backup(
+    backup_path: Path, original_path: Path | None = None
+) -> bool:
+    """Safely restore a file from backup, logging any errors.
+
+    This is a wrapper around restore_from_backup() that catches and logs
+    any restoration errors instead of propagating them. Use this in error
+    handlers where restoration failure shouldn't mask the original error.
+
+    Args:
+        backup_path: Path to the backup file.
+        original_path: Path to restore to. If None, inferred from backup path.
+
+    Returns:
+        True if restoration succeeded, False otherwise.
+    """
+    try:
+        restore_from_backup(backup_path, original_path)
+        return True
+    except Exception as e:
+        logger.error(
+            "Failed to restore backup %s: %s. "
+            "Original file may be corrupted or missing.",
+            backup_path,
+            e,
+        )
+        return False
 
 
 def cleanup_backup(backup_path: Path) -> None:
