@@ -53,7 +53,14 @@ def load_policy(policy_path: Path) -> PolicySchema | PhasedPolicySchema:
         with open(policy_path) as f:
             data = yaml.safe_load(f)
     except yaml.YAMLError as e:
-        raise PolicyValidationError(f"Invalid YAML syntax: {e}") from e
+        # Extract line number from YAML error if available
+        line_info = ""
+        if hasattr(e, "problem_mark") and e.problem_mark is not None:
+            mark = e.problem_mark
+            line_info = f" at line {mark.line + 1}, column {mark.column + 1}"
+        raise PolicyValidationError(
+            f"Invalid YAML syntax in {policy_path}{line_info}: {e}"
+        ) from e
 
     if data is None:
         raise PolicyValidationError("Policy file is empty")

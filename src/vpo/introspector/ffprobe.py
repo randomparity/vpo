@@ -104,6 +104,7 @@ class FFprobeIntrospector:
         Raises:
             subprocess.CalledProcessError: If ffprobe returns non-zero.
             json.JSONDecodeError: If output is not valid JSON.
+            MediaIntrospectionError: If output is missing required keys.
         """
         result = subprocess.run(  # nosec B603 - ffprobe path is validated
             [
@@ -122,4 +123,18 @@ class FFprobeIntrospector:
             check=True,
             timeout=60,  # Prevent hangs on corrupted files
         )
-        return json.loads(result.stdout)
+        data = json.loads(result.stdout)
+
+        # Validate required keys are present
+        if "streams" not in data:
+            raise MediaIntrospectionError(
+                f"Missing 'streams' in ffprobe output for {path}. "
+                "File may be corrupted or not a valid media file."
+            )
+        if "format" not in data:
+            raise MediaIntrospectionError(
+                f"Missing 'format' in ffprobe output for {path}. "
+                "File may be corrupted or not a valid media file."
+            )
+
+        return data

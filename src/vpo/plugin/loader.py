@@ -22,6 +22,8 @@ import importlib
 import importlib.util
 import logging
 import sys
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -44,6 +46,9 @@ if TYPE_CHECKING:
     import sqlite3
 
 logger = logging.getLogger(__name__)
+
+# Default timeout for plugin instantiation (seconds)
+PLUGIN_INSTANTIATION_TIMEOUT = 30
 
 
 def compute_plugin_hash(path: Path) -> str:
@@ -198,24 +203,41 @@ def load_plugin_from_path(path: Path, module_name: str) -> Any:
         raise PluginLoadError(module_name, str(e)) from e
 
 
-def get_plugin_instance(plugin_obj: Any) -> Any:
+def get_plugin_instance(
+    plugin_obj: Any, timeout: int = PLUGIN_INSTANTIATION_TIMEOUT
+) -> Any:
     """Get a plugin instance from a class or return the instance directly.
 
     This helper centralizes the logic for getting an instance from a plugin
     object, which may be either a class or an already-instantiated object.
 
+    Plugin instantiation is performed with a timeout to prevent hanging
+    plugins from blocking the entire application startup.
+
     Args:
         plugin_obj: Plugin class or instance.
+        timeout: Maximum time in seconds to wait for instantiation.
 
     Returns:
         The plugin instance.
 
     Raises:
+        TimeoutError: If instantiation takes longer than timeout.
         Exception: If instantiation fails.
 
     """
     if isinstance(plugin_obj, type):
-        return plugin_obj()
+        # Use thread pool to enforce timeout on plugin instantiation
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(plugin_obj)
+            try:
+                return future.result(timeout=timeout)
+            except FuturesTimeoutError as e:
+                raise TimeoutError(
+                    f"Plugin instantiation timed out after {timeout}s. "
+                    "The plugin's __init__ may be hanging or performing "
+                    "long-running operations."
+                ) from e
     return plugin_obj
 
 
