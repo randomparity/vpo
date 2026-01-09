@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import signal
 import sqlite3
 import threading
@@ -15,6 +16,8 @@ from typing import TYPE_CHECKING, Protocol
 from vpo._core import discover_videos, hash_files
 from vpo.core import parse_iso_timestamp
 from vpo.db.models import FileRecord
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from vpo.introspector.interface import MediaIntrospector
@@ -520,16 +523,21 @@ class ScannerOrchestrator:
                 if batch_commit_size > 0 and (i + 1) % batch_commit_size == 0:
                     conn.commit()
 
-                # Report progress
+                # Report progress (isolated from main scan logic)
                 processed = i + 1
-                # Use new scan_progress callback if available
-                if scan_progress is not None:
-                    elapsed = time.time() - scan_start_time
-                    rate = int(processed / elapsed) if elapsed > 0 else 0
-                    scan_progress.on_scan_progress(processed, total_to_process, rate)
-                # Fall back to legacy progress_callback (every 100 files)
-                elif progress_callback and processed % 100 == 0:
-                    progress_callback(processed, total_to_process)
+                try:
+                    # Use new scan_progress callback if available
+                    if scan_progress is not None:
+                        elapsed = time.time() - scan_start_time
+                        rate = int(processed / elapsed) if elapsed > 0 else 0
+                        scan_progress.on_scan_progress(
+                            processed, total_to_process, rate
+                        )
+                    # Fall back to legacy progress_callback (every 100 files)
+                    elif progress_callback and processed % 100 == 0:
+                        progress_callback(processed, total_to_process)
+                except Exception as e:
+                    logger.warning("Progress callback raised exception: %s", e)
 
             # Final commit for any remaining changes
             if files_to_process and not self._is_interrupted():

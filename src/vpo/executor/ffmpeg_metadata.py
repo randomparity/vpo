@@ -106,7 +106,9 @@ class FfmpegMetadataExecutor:
         try:
             backup_path = create_backup(plan.file_path)
         except (FileNotFoundError, PermissionError) as e:
-            return ExecutorResult(success=False, message=f"Backup failed: {e}")
+            return ExecutorResult(
+                success=False, message=f"Backup failed for {plan.file_path}: {e}"
+            )
 
         # Create temp output file
         suffix = plan.file_path.suffix
@@ -120,7 +122,9 @@ class FfmpegMetadataExecutor:
             cmd = self._build_command(plan, temp_path)
         except ValueError as e:
             temp_path.unlink(missing_ok=True)
-            return ExecutorResult(success=False, message=str(e))
+            return ExecutorResult(
+                success=False, message=f"Command build failed for {plan.file_path}: {e}"
+            )
 
         # Execute command
         try:
@@ -138,22 +142,25 @@ class FfmpegMetadataExecutor:
             timeout_mins = self._timeout // 60 if self._timeout else 0
             return ExecutorResult(
                 success=False,
-                message=f"ffmpeg timed out after {timeout_mins} minutes",
+                message=f"ffmpeg timed out after {timeout_mins} min for "
+                f"{plan.file_path}",
             )
         except (subprocess.SubprocessError, OSError) as e:
             temp_path.unlink(missing_ok=True)
             safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
-                message=f"ffmpeg execution failed: {e}",
+                message=f"ffmpeg failed for {plan.file_path}: {e}",
             )
         except Exception as e:
-            logger.exception("Unexpected error during ffmpeg execution")
+            logger.exception(
+                "Unexpected error during ffmpeg execution for %s", plan.file_path
+            )
             temp_path.unlink(missing_ok=True)
             safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
-                message=f"Unexpected error during ffmpeg execution: {e}",
+                message=f"Unexpected error for {plan.file_path}: {e}",
             )
 
         if result.returncode != 0:
@@ -161,7 +168,7 @@ class FfmpegMetadataExecutor:
             safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
-                message=f"ffmpeg failed: {result.stderr}",
+                message=f"ffmpeg failed for {plan.file_path}: {result.stderr}",
             )
 
         # Atomic replace: move temp to original
@@ -172,7 +179,7 @@ class FfmpegMetadataExecutor:
             safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
-                message=f"Failed to replace original file: {e}",
+                message=f"Failed to replace {plan.file_path}: {e}",
             )
 
         # Success - optionally keep backup

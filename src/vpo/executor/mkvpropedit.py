@@ -86,13 +86,17 @@ class MkvpropeditExecutor:
         try:
             backup_path = create_backup(plan.file_path)
         except (FileNotFoundError, PermissionError) as e:
-            return ExecutorResult(success=False, message=f"Backup failed: {e}")
+            return ExecutorResult(
+                success=False, message=f"Backup failed for {plan.file_path}: {e}"
+            )
 
         # Build mkvpropedit command
         try:
             cmd = self._build_command(plan)
         except ValueError as e:
-            return ExecutorResult(success=False, message=str(e))
+            return ExecutorResult(
+                success=False, message=f"Command build failed for {plan.file_path}: {e}"
+            )
 
         # Execute command
         try:
@@ -110,22 +114,25 @@ class MkvpropeditExecutor:
             timeout_mins = self._timeout // 60 if self._timeout else 0
             return ExecutorResult(
                 success=False,
-                message=f"mkvpropedit timed out after {timeout_mins} minutes",
+                message=f"mkvpropedit timed out after {timeout_mins} min for "
+                f"{plan.file_path}",
             )
         except (subprocess.SubprocessError, OSError) as e:
             # Restore backup on subprocess error
             safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
-                message=f"mkvpropedit execution failed: {e}",
+                message=f"mkvpropedit failed for {plan.file_path}: {e}",
             )
         except Exception as e:
             # Restore backup on unexpected error
-            logger.exception("Unexpected error during mkvpropedit execution")
+            logger.exception(
+                "Unexpected error during mkvpropedit execution for %s", plan.file_path
+            )
             safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
-                message=f"Unexpected error during mkvpropedit execution: {e}",
+                message=f"Unexpected error for {plan.file_path}: {e}",
             )
 
         if result.returncode != 0:
@@ -133,7 +140,8 @@ class MkvpropeditExecutor:
             safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
-                message=f"mkvpropedit failed: {result.stderr or result.stdout}",
+                message=f"mkvpropedit failed for {plan.file_path}: "
+                f"{result.stderr or result.stdout}",
             )
 
         # Success - optionally keep backup

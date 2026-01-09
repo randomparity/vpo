@@ -101,7 +101,9 @@ class FFmpegRemuxExecutor:
         try:
             backup_path = create_backup(plan.file_path)
         except (FileNotFoundError, PermissionError) as e:
-            return ExecutorResult(success=False, message=f"Backup failed: {e}")
+            return ExecutorResult(
+                success=False, message=f"Backup failed for {plan.file_path}: {e}"
+            )
 
         # Create temp output file
         with tempfile.NamedTemporaryFile(
@@ -128,22 +130,25 @@ class FFmpegRemuxExecutor:
             timeout_mins = self._timeout // 60 if self._timeout else 0
             return ExecutorResult(
                 success=False,
-                message=f"ffmpeg timed out after {timeout_mins} minutes",
+                message=f"ffmpeg timed out after {timeout_mins} min for "
+                f"{plan.file_path}",
             )
         except (subprocess.SubprocessError, OSError) as e:
             temp_path.unlink(missing_ok=True)
             safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
-                message=f"ffmpeg execution failed: {e}",
+                message=f"ffmpeg failed for {plan.file_path}: {e}",
             )
         except Exception as e:
-            logger.exception("Unexpected error during ffmpeg execution")
+            logger.exception(
+                "Unexpected error during ffmpeg execution for %s", plan.file_path
+            )
             temp_path.unlink(missing_ok=True)
             safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
-                message=f"Unexpected error during ffmpeg execution: {e}",
+                message=f"Unexpected error for {plan.file_path}: {e}",
             )
 
         if result.returncode != 0:
@@ -151,7 +156,7 @@ class FFmpegRemuxExecutor:
             safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
-                message=f"ffmpeg failed: {result.stderr}",
+                message=f"ffmpeg failed for {plan.file_path}: {result.stderr}",
             )
 
         # Atomic move: move temp to output path
@@ -162,7 +167,7 @@ class FFmpegRemuxExecutor:
             safe_restore_from_backup(backup_path)
             return ExecutorResult(
                 success=False,
-                message=f"Failed to move output file: {e}",
+                message=f"Failed to move output for {plan.file_path}: {e}",
             )
 
         # Delete original file if extension changed (container conversion)
