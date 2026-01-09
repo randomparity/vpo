@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import subprocess  # nosec B404 - subprocess is required for FFmpeg invocation
+import time
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +53,16 @@ def run_command(
         ...     print(f"FFprobe version: {stdout}")
     """
     str_args = [str(arg) for arg in args]
+    command_name = str_args[0].split("/")[-1] if str_args else "unknown"
+
+    # Pre-execution logging
+    logger.debug(
+        "Executing command: %s",
+        " ".join(str_args),
+        extra={"command": command_name, "arg_count": len(str_args)},
+    )
+
+    start_time = time.monotonic()
 
     try:
         result = subprocess.run(  # nosec B603 - caller validates args
@@ -62,11 +73,29 @@ def run_command(
             timeout=timeout,
             **kwargs,
         )
+
+        # Post-execution logging
+        elapsed = time.monotonic() - start_time
+        logger.debug(
+            "Command completed",
+            extra={
+                "command": command_name,
+                "elapsed_seconds": round(elapsed, 3),
+                "returncode": result.returncode,
+            },
+        )
+
         return result.stdout or "", result.stderr or "", result.returncode
     except subprocess.TimeoutExpired:
+        elapsed = time.monotonic() - start_time
         logger.warning(
             "Command timed out after %ds: %s",
             timeout,
             " ".join(str_args[:3]) + ("..." if len(str_args) > 3 else ""),
+            extra={
+                "command": command_name,
+                "timeout_seconds": timeout,
+                "elapsed_seconds": round(elapsed, 3),
+            },
         )
         raise

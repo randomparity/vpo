@@ -1332,6 +1332,30 @@ class TranscodeExecutor:
             logger.error("Disk space check failed: %s", space_error)
             return TranscodeResult(success=False, error_message=space_error)
 
+        # Start timing for elapsed calculation
+        start_time = time.monotonic()
+
+        # Pre-execution summary with structured context
+        effective_codec = target_codec or self.policy.target_video_codec or "hevc"
+        logger.info(
+            "Starting transcode: %s",
+            plan.input_path.name,
+            extra={
+                "input_path": str(plan.input_path),
+                "output_path": str(plan.output_path),
+                "input_codec": plan.video_codec,
+                "target_codec": effective_codec,
+                "input_resolution": (
+                    f"{plan.video_width}x{plan.video_height}"
+                    if plan.video_width
+                    else None
+                ),
+                "needs_scale": plan.needs_video_scale,
+                "duration_seconds": plan.duration_seconds,
+                "is_hdr": plan.is_hdr,
+            },
+        )
+
         # Determine temp path (write to temp, then move to final)
         if self.temp_directory:
             temp_output = self.temp_directory / f".vpo_temp_{plan.output_path.name}"
@@ -1377,7 +1401,15 @@ class TranscodeExecutor:
                     if not success:
                         logger.warning("Could not backup original: %s", backup_error)
 
-                logger.info("Two-pass transcode completed: %s", plan.output_path)
+                elapsed = time.monotonic() - start_time
+                logger.info(
+                    "Two-pass transcode completed: %s",
+                    plan.output_path.name,
+                    extra={
+                        "output_path": str(plan.output_path),
+                        "elapsed_seconds": round(elapsed, 3),
+                    },
+                )
                 return TranscodeResult(
                     success=True,
                     output_path=plan.output_path,
@@ -1414,7 +1446,6 @@ class TranscodeExecutor:
         )
 
         cmd = build_ffmpeg_command(temp_plan, self.cpu_cores)
-        logger.info("Executing transcode: %s -> %s", plan.input_path, plan.output_path)
         logger.debug("FFmpeg command: %s", " ".join(cmd))
 
         try:
@@ -1467,7 +1498,15 @@ class TranscodeExecutor:
                     logger.warning("Could not backup original: %s", backup_error)
                     # Not a fatal error - transcode succeeded
 
-            logger.info("Transcode completed: %s", plan.output_path)
+            elapsed = time.monotonic() - start_time
+            logger.info(
+                "Transcode completed: %s",
+                plan.output_path.name,
+                extra={
+                    "output_path": str(plan.output_path),
+                    "elapsed_seconds": round(elapsed, 3),
+                },
+            )
             return TranscodeResult(
                 success=True,
                 output_path=plan.output_path,

@@ -8,6 +8,7 @@ This requires a remux (no re-encoding).
 import logging
 import subprocess  # nosec B404 - subprocess is required for mkvmerge execution
 import tempfile
+import time
 from pathlib import Path
 
 from vpo.executor.backup import (
@@ -101,17 +102,40 @@ class MkvmergeExecutor:
         if plan.is_empty:
             return ExecutorResult(success=True, message="No changes to apply")
 
+        # Determine if this is a container conversion (needed for logging)
+        is_container_conversion = (
+            plan.container_change is not None
+            and plan.container_change.target_format == "mkv"
+        )
+
+        # Pre-execution logging
+        if is_container_conversion:
+            logger.info(
+                "Converting container to MKV with mkvmerge",
+                extra={
+                    "file_path": str(plan.file_path),
+                    "source_container": plan.container_change.source_format,
+                    "action_count": len(plan.actions),
+                },
+            )
+        else:
+            logger.info(
+                "Remuxing with mkvmerge",
+                extra={
+                    "file_path": str(plan.file_path),
+                    "action_count": len(plan.actions),
+                    "tracks_removed": plan.tracks_removed,
+                },
+            )
+
+        # Start timing
+        start_time = time.monotonic()
+
         # Pre-flight disk space check
         try:
             check_disk_space(plan.file_path)
         except InsufficientDiskSpaceError as e:
             return ExecutorResult(success=False, message=str(e))
-
-        # Determine if this is a container conversion
-        is_container_conversion = (
-            plan.container_change is not None
-            and plan.container_change.target_format == "mkv"
-        )
 
         # Compute output path - may be different if container is changing
         if is_container_conversion:
@@ -137,6 +161,7 @@ class MkvmergeExecutor:
         # Build mkvmerge command
         try:
             cmd = self._build_command(plan, temp_path)
+            logger.debug("mkvmerge command: %s", " ".join(cmd))
         except ValueError as e:
             temp_path.unlink(missing_ok=True)
             return ExecutorResult(
@@ -154,24 +179,48 @@ class MkvmergeExecutor:
                 errors="replace",
             )
         except subprocess.TimeoutExpired:
+            elapsed = time.monotonic() - start_time
             temp_path.unlink(missing_ok=True)
             safe_restore_from_backup(backup_path)
             timeout_mins = self._timeout // 60 if self._timeout else 0
+            logger.warning(
+                "mkvmerge timed out",
+                extra={
+                    "file_path": str(plan.file_path),
+                    "timeout_minutes": timeout_mins,
+                    "elapsed_seconds": round(elapsed, 3),
+                },
+            )
             return ExecutorResult(
                 success=False,
                 message=f"mkvmerge timed out after {timeout_mins} min for "
                 f"{plan.file_path}",
             )
         except (subprocess.SubprocessError, OSError) as e:
+            elapsed = time.monotonic() - start_time
             temp_path.unlink(missing_ok=True)
             safe_restore_from_backup(backup_path)
+            logger.error(
+                "mkvmerge execution failed",
+                extra={
+                    "file_path": str(plan.file_path),
+                    "error": str(e),
+                    "elapsed_seconds": round(elapsed, 3),
+                },
+            )
             return ExecutorResult(
                 success=False,
                 message=f"mkvmerge failed for {plan.file_path}: {e}",
             )
         except Exception as e:
+            elapsed = time.monotonic() - start_time
             logger.exception(
-                "Unexpected error during mkvmerge execution for %s", plan.file_path
+                "Unexpected error during mkvmerge execution for %s",
+                plan.file_path,
+                extra={
+                    "file_path": str(plan.file_path),
+                    "elapsed_seconds": round(elapsed, 3),
+                },
             )
             temp_path.unlink(missing_ok=True)
             safe_restore_from_backup(backup_path)
@@ -182,8 +231,17 @@ class MkvmergeExecutor:
 
         # mkvmerge returns 0 for success, 1 for warnings, 2 for errors
         if result.returncode == 2:
+            elapsed = time.monotonic() - start_time
             temp_path.unlink(missing_ok=True)
             safe_restore_from_backup(backup_path)
+            logger.error(
+                "mkvmerge returned error code",
+                extra={
+                    "file_path": str(plan.file_path),
+                    "returncode": result.returncode,
+                    "elapsed_seconds": round(elapsed, 3),
+                },
+            )
             return ExecutorResult(
                 success=False,
                 message=f"mkvmerge failed for {plan.file_path}: "
@@ -194,8 +252,17 @@ class MkvmergeExecutor:
         try:
             temp_path.replace(output_path)
         except Exception as e:
+            elapsed = time.monotonic() - start_time
             temp_path.unlink(missing_ok=True)
             safe_restore_from_backup(backup_path)
+            logger.error(
+                "Failed to move output file",
+                extra={
+                    "file_path": str(plan.file_path),
+                    "error": str(e),
+                    "elapsed_seconds": round(elapsed, 3),
+                },
+            )
             return ExecutorResult(
                 success=False,
                 message=f"Failed to move output for {plan.file_path}: {e}",
@@ -207,6 +274,7 @@ class MkvmergeExecutor:
             plan.file_path.unlink(missing_ok=True)
 
         # Success - optionally keep backup
+        elapsed = time.monotonic() - start_time
         result_backup_path = backup_path if keep_backup else None
         if not keep_backup:
             backup_path.unlink(missing_ok=True)
@@ -220,6 +288,18 @@ class MkvmergeExecutor:
                 message += f" with {action_count} additional changes"
         else:
             message = f"Applied {action_count} changes via remux"
+
+        logger.info(
+            "Remux completed successfully",
+            extra={
+                "file_path": str(plan.file_path),
+                "output_path": str(output_path)
+                if output_path != plan.file_path
+                else None,
+                "elapsed_seconds": round(elapsed, 3),
+                "action_count": action_count,
+            },
+        )
 
         return ExecutorResult(
             success=True,

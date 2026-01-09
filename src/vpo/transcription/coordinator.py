@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,6 +24,7 @@ from vpo.db.types import (
     TrackInfo,
     TranscriptionResultRecord,
 )
+from vpo.metrics import get_metrics_store, increment_counter
 from vpo.plugin.events import (
     TRANSCRIPTION_COMPLETED,
     TRANSCRIPTION_REQUESTED,
@@ -191,12 +193,34 @@ class PluginTranscriberAdapter:
                     )
                     continue
 
+                # Time the handler call
+                start_time = time.monotonic()
                 result = handler(event)
+                duration = time.monotonic() - start_time
+
+                # Record metrics
+                increment_counter("plugin.invocations", plugin_name=loaded_plugin.name)
+                get_metrics_store().record_duration(
+                    "plugin.duration",
+                    duration,
+                    plugin_name=loaded_plugin.name,
+                    event="transcription.requested",
+                )
+
+                # Warn on slow plugins
+                if duration > 1.0:
+                    logger.warning(
+                        "Slow plugin: %s took %.2fs for transcription.requested",
+                        loaded_plugin.name,
+                        duration,
+                    )
+
                 if result is not None:
                     self._last_plugin_name = loaded_plugin.name
                     logger.debug(
-                        "Plugin %s handled transcription request",
+                        "Plugin %s handled transcription request in %.2fs",
                         loaded_plugin.name,
+                        duration,
                     )
                     return result
             except Exception as e:
@@ -566,7 +590,29 @@ class TranscriptionCoordinator:
                     loaded_plugin.instance, "on_transcription_completed", None
                 )
                 if handler:
+                    # Time the handler call
+                    start_time = time.monotonic()
                     handler(event)
+                    duration = time.monotonic() - start_time
+
+                    # Record metrics
+                    increment_counter(
+                        "plugin.invocations", plugin_name=loaded_plugin.name
+                    )
+                    get_metrics_store().record_duration(
+                        "plugin.duration",
+                        duration,
+                        plugin_name=loaded_plugin.name,
+                        event="transcription.completed",
+                    )
+
+                    # Warn on slow plugins
+                    if duration > 1.0:
+                        logger.warning(
+                            "Slow plugin: %s took %.2fs for transcription.completed",
+                            loaded_plugin.name,
+                            duration,
+                        )
             except Exception as e:
                 logger.warning(
                     "Plugin %s failed to handle completion event: %s",

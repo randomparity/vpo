@@ -6,6 +6,7 @@ language) using mkvpropedit. This is fast and in-place (no remux needed).
 
 import logging
 import subprocess  # nosec B404 - subprocess is required for mkvpropedit execution
+import time
 from pathlib import Path
 
 from vpo.executor.backup import create_backup, safe_restore_from_backup
@@ -82,6 +83,20 @@ class MkvpropeditExecutor:
         if plan.is_empty:
             return ExecutorResult(success=True, message="No changes to apply")
 
+        # Pre-execution logging
+        action_types = [a.action_type.value for a in plan.actions]
+        logger.info(
+            "Applying metadata changes with mkvpropedit",
+            extra={
+                "file_path": str(plan.file_path),
+                "action_count": len(plan.actions),
+                "action_types": action_types,
+            },
+        )
+
+        # Start timing
+        start_time = time.monotonic()
+
         # Create backup
         try:
             backup_path = create_backup(plan.file_path)
@@ -93,6 +108,7 @@ class MkvpropeditExecutor:
         # Build mkvpropedit command
         try:
             cmd = self._build_command(plan)
+            logger.debug("mkvpropedit command: %s", " ".join(cmd))
         except ValueError as e:
             return ExecutorResult(
                 success=False, message=f"Command build failed for {plan.file_path}: {e}"
@@ -110,8 +126,17 @@ class MkvpropeditExecutor:
             )
         except subprocess.TimeoutExpired:
             # Restore backup on timeout
+            elapsed = time.monotonic() - start_time
             safe_restore_from_backup(backup_path)
             timeout_mins = self._timeout // 60 if self._timeout else 0
+            logger.warning(
+                "mkvpropedit timed out",
+                extra={
+                    "file_path": str(plan.file_path),
+                    "timeout_minutes": timeout_mins,
+                    "elapsed_seconds": round(elapsed, 3),
+                },
+            )
             return ExecutorResult(
                 success=False,
                 message=f"mkvpropedit timed out after {timeout_mins} min for "
@@ -119,15 +144,30 @@ class MkvpropeditExecutor:
             )
         except (subprocess.SubprocessError, OSError) as e:
             # Restore backup on subprocess error
+            elapsed = time.monotonic() - start_time
             safe_restore_from_backup(backup_path)
+            logger.error(
+                "mkvpropedit execution failed",
+                extra={
+                    "file_path": str(plan.file_path),
+                    "error": str(e),
+                    "elapsed_seconds": round(elapsed, 3),
+                },
+            )
             return ExecutorResult(
                 success=False,
                 message=f"mkvpropedit failed for {plan.file_path}: {e}",
             )
         except Exception as e:
             # Restore backup on unexpected error
+            elapsed = time.monotonic() - start_time
             logger.exception(
-                "Unexpected error during mkvpropedit execution for %s", plan.file_path
+                "Unexpected error during mkvpropedit execution for %s",
+                plan.file_path,
+                extra={
+                    "file_path": str(plan.file_path),
+                    "elapsed_seconds": round(elapsed, 3),
+                },
             )
             safe_restore_from_backup(backup_path)
             return ExecutorResult(
@@ -137,7 +177,16 @@ class MkvpropeditExecutor:
 
         if result.returncode != 0:
             # Restore backup on failure
+            elapsed = time.monotonic() - start_time
             safe_restore_from_backup(backup_path)
+            logger.error(
+                "mkvpropedit returned non-zero exit code",
+                extra={
+                    "file_path": str(plan.file_path),
+                    "returncode": result.returncode,
+                    "elapsed_seconds": round(elapsed, 3),
+                },
+            )
             return ExecutorResult(
                 success=False,
                 message=f"mkvpropedit failed for {plan.file_path}: "
@@ -145,9 +194,19 @@ class MkvpropeditExecutor:
             )
 
         # Success - optionally keep backup
+        elapsed = time.monotonic() - start_time
         result_backup_path = backup_path if keep_backup else None
         if not keep_backup:
             backup_path.unlink(missing_ok=True)
+
+        logger.info(
+            "Metadata changes applied successfully",
+            extra={
+                "file_path": str(plan.file_path),
+                "changes_applied": len(plan.actions),
+                "elapsed_seconds": round(elapsed, 3),
+            },
+        )
 
         return ExecutorResult(
             success=True,

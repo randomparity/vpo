@@ -49,6 +49,19 @@ class HealthStatus:
     shutting_down: bool = False
     """True if graceful shutdown is in progress."""
 
+    # Job queue metrics
+    jobs_queued: int = 0
+    """Number of jobs waiting in queue."""
+
+    jobs_running: int = 0
+    """Number of jobs currently being processed."""
+
+    active_workers: int = 0
+    """Number of distinct workers processing jobs."""
+
+    recent_errors: int = 0
+    """Number of failed jobs in last 24 hours."""
+
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return asdict(self)
@@ -283,6 +296,7 @@ async def health_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with HealthStatus payload.
     """
+    from vpo.jobs.queue import get_job_health_metrics
     from vpo.server.lifecycle import DaemonLifecycle
 
     lifecycle: DaemonLifecycle | None = request.app.get("lifecycle")
@@ -294,6 +308,24 @@ async def health_handler(request: web.Request) -> web.Response:
     # Determine shutdown state
     shutting_down = lifecycle.is_shutting_down if lifecycle else False
     uptime = lifecycle.uptime_seconds if lifecycle else 0.0
+
+    # Get job metrics from database
+    job_metrics = {
+        "jobs_queued": 0,
+        "jobs_running": 0,
+        "active_workers": 0,
+        "recent_errors": 0,
+    }
+    if db_connected and connection_pool is not None:
+        try:
+
+            def _get_metrics() -> dict[str, int]:
+                conn = connection_pool.get_connection()
+                return get_job_health_metrics(conn)
+
+            job_metrics = await asyncio.to_thread(_get_metrics)
+        except Exception as e:
+            logger.warning("Failed to get job metrics for health check: %s", e)
 
     # Determine overall status
     if shutting_down:
@@ -309,6 +341,11 @@ async def health_handler(request: web.Request) -> web.Response:
         uptime_seconds=round(uptime, 1),
         version=__version__,
         shutting_down=shutting_down,
+        # Job metrics
+        jobs_queued=job_metrics["jobs_queued"],
+        jobs_running=job_metrics["jobs_running"],
+        active_workers=job_metrics["active_workers"],
+        recent_errors=job_metrics["recent_errors"],
     )
 
     # Return 503 for degraded/unhealthy, 200 for healthy

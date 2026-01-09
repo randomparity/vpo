@@ -146,7 +146,14 @@ def execute_with_retry(
 
     for attempt in range(max_retries + 1):
         try:
-            return func()
+            result = func()
+            # Log success after retry recovery
+            if attempt > 0:
+                logger.info(
+                    "Database operation succeeded after %d retry attempt(s)",
+                    attempt,
+                )
+            return result
         except sqlite3.OperationalError as e:
             error_msg = str(e).casefold()
             if "locked" not in error_msg and "busy" not in error_msg:
@@ -165,7 +172,7 @@ def execute_with_retry(
 
             # Add jitter to avoid thundering herd
             jittered_delay = delay * (1 + random.uniform(-jitter, jitter))  # nosec B311
-            logger.debug(
+            logger.info(
                 "Database locked (attempt %d/%d), retrying in %.2fs: %s",
                 attempt + 1,
                 max_retries + 1,

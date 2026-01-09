@@ -7,6 +7,7 @@ This module provides an executor for changing metadata in non-MKV containers
 import logging
 import subprocess  # nosec B404 - subprocess is required for ffmpeg execution
 import tempfile
+import time
 from pathlib import Path
 
 from vpo.executor.backup import (
@@ -96,6 +97,22 @@ class FfmpegMetadataExecutor:
         if plan.is_empty:
             return ExecutorResult(success=True, message="No changes to apply")
 
+        # Pre-execution logging
+        action_types = [a.action_type.value for a in plan.actions]
+        container = plan.file_path.suffix.lstrip(".")
+        logger.info(
+            "Applying metadata changes with ffmpeg",
+            extra={
+                "file_path": str(plan.file_path),
+                "container": container,
+                "action_count": len(plan.actions),
+                "action_types": action_types,
+            },
+        )
+
+        # Start timing
+        start_time = time.monotonic()
+
         # Pre-flight disk space check (needs ~2x file size for backup + temp)
         try:
             check_disk_space(plan.file_path, multiplier=2.0)
@@ -120,6 +137,7 @@ class FfmpegMetadataExecutor:
         # Build ffmpeg command
         try:
             cmd = self._build_command(plan, temp_path)
+            logger.debug("ffmpeg metadata command: %s", " ".join(cmd))
         except ValueError as e:
             temp_path.unlink(missing_ok=True)
             return ExecutorResult(
@@ -137,24 +155,48 @@ class FfmpegMetadataExecutor:
                 errors="replace",
             )
         except subprocess.TimeoutExpired:
+            elapsed = time.monotonic() - start_time
             temp_path.unlink(missing_ok=True)
             safe_restore_from_backup(backup_path)
             timeout_mins = self._timeout // 60 if self._timeout else 0
+            logger.warning(
+                "ffmpeg timed out",
+                extra={
+                    "file_path": str(plan.file_path),
+                    "timeout_minutes": timeout_mins,
+                    "elapsed_seconds": round(elapsed, 3),
+                },
+            )
             return ExecutorResult(
                 success=False,
                 message=f"ffmpeg timed out after {timeout_mins} min for "
                 f"{plan.file_path}",
             )
         except (subprocess.SubprocessError, OSError) as e:
+            elapsed = time.monotonic() - start_time
             temp_path.unlink(missing_ok=True)
             safe_restore_from_backup(backup_path)
+            logger.error(
+                "ffmpeg execution failed",
+                extra={
+                    "file_path": str(plan.file_path),
+                    "error": str(e),
+                    "elapsed_seconds": round(elapsed, 3),
+                },
+            )
             return ExecutorResult(
                 success=False,
                 message=f"ffmpeg failed for {plan.file_path}: {e}",
             )
         except Exception as e:
+            elapsed = time.monotonic() - start_time
             logger.exception(
-                "Unexpected error during ffmpeg execution for %s", plan.file_path
+                "Unexpected error during ffmpeg execution for %s",
+                plan.file_path,
+                extra={
+                    "file_path": str(plan.file_path),
+                    "elapsed_seconds": round(elapsed, 3),
+                },
             )
             temp_path.unlink(missing_ok=True)
             safe_restore_from_backup(backup_path)
@@ -164,8 +206,17 @@ class FfmpegMetadataExecutor:
             )
 
         if result.returncode != 0:
+            elapsed = time.monotonic() - start_time
             temp_path.unlink(missing_ok=True)
             safe_restore_from_backup(backup_path)
+            logger.error(
+                "ffmpeg returned non-zero exit code",
+                extra={
+                    "file_path": str(plan.file_path),
+                    "returncode": result.returncode,
+                    "elapsed_seconds": round(elapsed, 3),
+                },
+            )
             return ExecutorResult(
                 success=False,
                 message=f"ffmpeg failed for {plan.file_path}: {result.stderr}",
@@ -175,17 +226,36 @@ class FfmpegMetadataExecutor:
         try:
             temp_path.replace(plan.file_path)
         except Exception as e:
+            elapsed = time.monotonic() - start_time
             temp_path.unlink(missing_ok=True)
             safe_restore_from_backup(backup_path)
+            logger.error(
+                "Failed to replace original file",
+                extra={
+                    "file_path": str(plan.file_path),
+                    "error": str(e),
+                    "elapsed_seconds": round(elapsed, 3),
+                },
+            )
             return ExecutorResult(
                 success=False,
                 message=f"Failed to replace {plan.file_path}: {e}",
             )
 
         # Success - optionally keep backup
+        elapsed = time.monotonic() - start_time
         result_backup_path = backup_path if keep_backup else None
         if not keep_backup:
             backup_path.unlink(missing_ok=True)
+
+        logger.info(
+            "Metadata changes applied successfully",
+            extra={
+                "file_path": str(plan.file_path),
+                "changes_applied": len(plan.actions),
+                "elapsed_seconds": round(elapsed, 3),
+            },
+        )
 
         return ExecutorResult(
             success=True,

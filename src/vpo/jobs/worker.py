@@ -206,14 +206,31 @@ class JobWorker:
                             self._shutdown_requested = True
                             break
 
-        self._heartbeat_thread = threading.Thread(target=heartbeat_loop, daemon=True)
+        self._heartbeat_thread = threading.Thread(
+            target=heartbeat_loop,
+            daemon=True,
+            name=f"heartbeat-{job_id[:8]}",
+        )
         self._heartbeat_thread.start()
+        logger.debug(
+            "Heartbeat thread started for job %s (interval=%ds)",
+            job_id[:8],
+            HEARTBEAT_INTERVAL,
+        )
 
     def _stop_heartbeat(self) -> None:
         """Stop heartbeat thread."""
         self._heartbeat_stop.set()
         if self._heartbeat_thread is not None:
+            thread_name = self._heartbeat_thread.name
             self._heartbeat_thread.join(timeout=1.0)
+            if self._heartbeat_thread.is_alive():
+                logger.warning(
+                    "Heartbeat thread %s did not stop within timeout",
+                    thread_name,
+                )
+            else:
+                logger.debug("Heartbeat thread %s stopped", thread_name)
             self._heartbeat_thread = None
 
     def _purge_old_jobs(self) -> None:
@@ -414,7 +431,19 @@ class JobWorker:
         self._start_time = time.time()
         self._files_processed = 0
 
-        logger.info("Starting job worker (PID: %d)", os.getpid())
+        # Build config summary for logging
+        config_parts = [f"PID={os.getpid()}"]
+        if self.max_files is not None:
+            config_parts.append(f"max_files={self.max_files}")
+        if self.max_duration is not None:
+            config_parts.append(f"max_duration={self.max_duration}s")
+        if self.end_by is not None:
+            config_parts.append(f"end_by={self.end_by.strftime('%H:%M')}")
+        if self.cpu_cores is not None:
+            config_parts.append(f"cpu_cores={self.cpu_cores}")
+        config_parts.append(f"auto_purge={self.auto_purge}")
+
+        logger.info("Starting job worker: %s", ", ".join(config_parts))
 
         # Purge old jobs
         self._purge_old_jobs()

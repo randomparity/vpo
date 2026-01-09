@@ -97,8 +97,27 @@ def create_backup(file_path: Path) -> Path:
     # If a backup already exists, remove it first
     if backup_path.exists():
         backup_path.unlink()
+        logger.debug(
+            "Removed existing backup",
+            extra={"backup_path": str(backup_path)},
+        )
+
+    file_size = file_path.stat().st_size
+    logger.debug(
+        "Creating backup",
+        extra={
+            "source_path": str(file_path),
+            "backup_path": str(backup_path),
+            "file_size_bytes": file_size,
+        },
+    )
 
     shutil.copy2(file_path, backup_path)
+
+    logger.debug(
+        "Backup created successfully",
+        extra={"backup_path": str(backup_path)},
+    )
     return backup_path
 
 
@@ -135,6 +154,14 @@ def restore_from_backup(backup_path: Path, original_path: Path | None = None) ->
         else:
             raise ValueError(f"Cannot infer original path from backup: {backup_path}")
 
+    logger.info(
+        "Restoring from backup",
+        extra={
+            "backup_path": str(backup_path),
+            "target_path": str(original_path),
+        },
+    )
+
     # If original exists, remove it first
     if original_path.exists():
         original_path.unlink()
@@ -151,6 +178,10 @@ def restore_from_backup(backup_path: Path, original_path: Path | None = None) ->
             f"Restoration failed: {original_path} is empty after move"
         )
 
+    logger.info(
+        "Backup restored successfully",
+        extra={"restored_path": str(original_path)},
+    )
     return original_path
 
 
@@ -193,6 +224,10 @@ def cleanup_backup(backup_path: Path) -> None:
         This is a no-op if the backup file does not exist.
     """
     if backup_path.exists():
+        logger.debug(
+            "Cleaning up backup",
+            extra={"backup_path": str(backup_path)},
+        )
         backup_path.unlink()
 
 

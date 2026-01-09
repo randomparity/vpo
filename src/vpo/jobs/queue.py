@@ -267,6 +267,47 @@ def get_queue_stats(conn: sqlite3.Connection) -> dict[str, int]:
     return stats
 
 
+def get_job_health_metrics(conn: sqlite3.Connection) -> dict[str, int]:
+    """Get job metrics for health endpoint.
+
+    Args:
+        conn: Database connection.
+
+    Returns:
+        Dict with jobs_queued, jobs_running, active_workers, recent_errors.
+    """
+    # Get queue stats (reuse existing function logic)
+    queue_stats = get_queue_stats(conn)
+
+    # Get count of distinct workers currently processing jobs
+    cursor = conn.execute(
+        """
+        SELECT COUNT(DISTINCT worker_pid)
+        FROM jobs
+        WHERE status = 'running' AND worker_pid IS NOT NULL
+        """
+    )
+    active_workers = cursor.fetchone()[0] or 0
+
+    # Get count of failed jobs in last 24 hours
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    cursor = conn.execute(
+        """
+        SELECT COUNT(*) FROM jobs
+        WHERE status = 'failed' AND completed_at > ?
+        """,
+        (cutoff,),
+    )
+    recent_errors = cursor.fetchone()[0] or 0
+
+    return {
+        "jobs_queued": queue_stats.get("queued", 0),
+        "jobs_running": queue_stats.get("running", 0),
+        "active_workers": active_workers,
+        "recent_errors": recent_errors,
+    }
+
+
 def cancel_job(conn: sqlite3.Connection, job_id: str) -> bool:
     """Cancel a job.
 
