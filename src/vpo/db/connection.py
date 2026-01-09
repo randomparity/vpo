@@ -264,13 +264,24 @@ class DaemonConnectionPool:
         return conn
 
     def _get_write_connection_unlocked(self) -> sqlite3.Connection:
-        """Get the shared write connection. Must be called with write lock held."""
+        """Get the shared write connection. Must be called with write lock held.
+
+        Includes a health check to verify the cached connection is still valid.
+        If the connection was closed externally, a new connection is created.
+        """
         with self._closed_lock:
             if self._closed:
                 raise RuntimeError("Connection pool is closed")
 
         if self._write_conn is None:
             self._write_conn = self._create_connection()
+        else:
+            # Verify cached connection is still valid
+            try:
+                self._write_conn.execute("SELECT 1")
+            except sqlite3.ProgrammingError:
+                logger.warning("Cached connection was closed, creating new")
+                self._write_conn = self._create_connection()
 
         return self._write_conn
 
