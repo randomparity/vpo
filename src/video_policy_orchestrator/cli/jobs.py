@@ -47,7 +47,7 @@ def _parse_relative_date(relative: str) -> datetime:
     Raises:
         ValueError: If format is invalid.
     """
-    match = re.match(r"^(\d+)([dwh])$", relative.lower())
+    match = re.match(r"^(\d+)([dwh])$", relative.casefold())
     if not match:
         raise ValueError(
             f"Invalid relative date '{relative}'. Use format: Nd, Nw, or Nh "

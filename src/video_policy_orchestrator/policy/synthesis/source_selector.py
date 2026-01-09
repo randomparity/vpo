@@ -100,7 +100,7 @@ def score_track(
             else (criterion.codec,)
         )
         if track.codec and any(
-            track.codec.lower() == codec.lower() for codec in codecs
+            track.codec.casefold() == codec.casefold() for codec in codecs
         ):
             score += CODEC_MATCH_SCORE
             reasons.append(f"codec={track.codec}")
@@ -143,7 +143,7 @@ def _is_commentary_track(
         return False
 
     patterns = commentary_patterns or ("commentary", "director", "cast")
-    title_lower = track.title.lower()
+    title_lower = track.title.casefold()
 
     for pattern in patterns:
         compiled = _compile_pattern(pattern)
@@ -152,7 +152,7 @@ def _is_commentary_track(
                 return True
         else:
             # Invalid regex, fall back to substring match
-            if pattern.lower() in title_lower:
+            if pattern.casefold() in title_lower:
                 return True
 
     return False
@@ -231,4 +231,4 @@ def filter_audio_tracks(tracks: list[TrackInfo]) -> list[TrackInfo]:
     Returns:
         List containing only audio tracks.
     """
-    return [t for t in tracks if t.track_type.lower() == "audio"]
+    return [t for t in tracks if t.track_type.casefold() == "audio"]

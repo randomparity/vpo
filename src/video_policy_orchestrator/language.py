@@ -372,7 +372,7 @@ def language_name_to_code(name: str | None) -> str | None:
     """
     if not name:
         return None
-    return _LANGUAGE_NAME_TO_639_2B.get(name.lower().strip())
+    return _LANGUAGE_NAME_TO_639_2B.get(name.casefold().strip())
 
 
 def normalize_language(
@@ -412,7 +412,7 @@ def normalize_language(
     if not code:
         return "und"
 
-    code = code.lower().strip()
+    code = code.casefold().strip()
 
     # Handle special codes that are the same across standards
     if code in ("und", "mis", "mul", "zxx"):
@@ -657,7 +657,7 @@ def is_valid_language_code(code: str | None) -> bool:
     if not code:
         return False
 
-    code = code.lower().strip()
+    code = code.casefold().strip()
 
     # Check 639-1
     if len(code) == 2 and code in _ISO_639_1_TO_639_2B:

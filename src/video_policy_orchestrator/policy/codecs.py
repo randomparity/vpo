@@ -44,7 +44,7 @@ def normalize_video_codec(codec: str | None) -> str:
     """
     if codec is None:
         return ""
-    return codec.lower().strip()
+    return codec.casefold().strip()
 
 
 def normalize_audio_codec(codec: str | None) -> str:
@@ -60,7 +60,7 @@ def normalize_audio_codec(codec: str | None) -> str:
     """
     if codec is None:
         return ""
-    normalized = codec.lower().strip()
+    normalized = codec.casefold().strip()
 
     # Handle dts variants
     if "dts-hd" in normalized or "dtshd" in normalized:
@@ -84,8 +84,8 @@ def video_codec_matches(current_codec: str | None, target: str) -> bool:
     if current_codec is None:
         return False
 
-    current_lower = current_codec.lower()
-    target_lower = target.lower()
+    current_lower = current_codec.casefold()
+    target_lower = target.casefold()
 
     # Direct match
     if current_lower == target_lower:
@@ -147,7 +147,7 @@ def audio_codec_matches(codec: str | None, pattern: str) -> bool:
         return False
 
     normalized_codec = normalize_audio_codec(codec)
-    normalized_pattern = pattern.lower().strip()
+    normalized_pattern = pattern.casefold().strip()
 
     # Direct match
     if normalized_codec == normalized_pattern:

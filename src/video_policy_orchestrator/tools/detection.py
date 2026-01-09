@@ -465,7 +465,7 @@ def _parse_codec_list(output: str) -> set[str]:
         # Skip header lines (look for lines starting with space + flags)
         match = re.match(r"\s+[VASFXBDI.]{6}\s+(\S+)", line)
         if match:
-            codecs.add(match.group(1).lower())
+            codecs.add(match.group(1).casefold())
     return codecs
 
 
@@ -486,7 +486,7 @@ def _parse_format_list(output: str) -> set[str]:
         # Skip header lines
         match = re.match(r"\s+[DE .]{2}\s+(\S+)", line)
         if match:
-            formats.add(match.group(1).lower())
+            formats.add(match.group(1).casefold())
     return formats
 
 
@@ -506,7 +506,7 @@ def _parse_filter_list(output: str) -> set[str]:
         # Skip header lines
         match = re.match(r"\s+[TSC.]{3}\s+(\S+)", line)
         if match:
-            filters.add(match.group(1).lower())
+            filters.add(match.group(1).casefold())
     return filters
 
 

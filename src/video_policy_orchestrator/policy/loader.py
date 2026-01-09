@@ -167,7 +167,7 @@ class TranscodePolicyModel(BaseModel):
     @classmethod
     def validate_video_codec(cls, v: str | None) -> str | None:
         """Validate video codec."""
-        if v is not None and v.lower() not in VALID_VIDEO_CODECS:
+        if v is not None and v.casefold() not in VALID_VIDEO_CODECS:
             raise ValueError(
                 f"Invalid video codec '{v}'. "
                 f"Must be one of: {', '.join(sorted(VALID_VIDEO_CODECS))}"
@@ -178,7 +178,7 @@ class TranscodePolicyModel(BaseModel):
     @classmethod
     def validate_resolution(cls, v: str | None) -> str | None:
         """Validate resolution preset."""
-        if v is not None and v.lower() not in VALID_RESOLUTIONS:
+        if v is not None and v.casefold() not in VALID_RESOLUTIONS:
             raise ValueError(
                 f"Invalid resolution '{v}'. "
                 f"Must be one of: {', '.join(sorted(VALID_RESOLUTIONS))}"
@@ -189,7 +189,7 @@ class TranscodePolicyModel(BaseModel):
     @classmethod
     def validate_audio_codec(cls, v: str) -> str:
         """Validate audio codec."""
-        if v.lower() not in VALID_AUDIO_CODECS:
+        if v.casefold() not in VALID_AUDIO_CODECS:
             raise ValueError(
                 f"Invalid audio codec '{v}'. "
                 f"Must be one of: {', '.join(sorted(VALID_AUDIO_CODECS))}"
@@ -223,7 +223,7 @@ class SkipConditionModel(BaseModel):
     @classmethod
     def validate_resolution(cls, v: str | None) -> str | None:
         """Validate resolution preset."""
-        if v is not None and v.lower() not in VALID_RESOLUTIONS:
+        if v is not None and v.casefold() not in VALID_RESOLUTIONS:
             raise ValueError(
                 f"Invalid resolution_within '{v}'. "
                 f"Must be one of: {', '.join(sorted(VALID_RESOLUTIONS))}"
@@ -328,7 +328,7 @@ class ScalingSettingsModel(BaseModel):
     @classmethod
     def validate_resolution(cls, v: str | None) -> str | None:
         """Validate resolution preset."""
-        if v is not None and v.lower() not in VALID_RESOLUTIONS:
+        if v is not None and v.casefold() not in VALID_RESOLUTIONS:
             raise ValueError(
                 f"Invalid max_resolution '{v}'. "
                 f"Must be one of: {', '.join(sorted(VALID_RESOLUTIONS))}"
@@ -361,7 +361,7 @@ class VideoTranscodeConfigModel(BaseModel):
     @classmethod
     def validate_video_codec(cls, v: str) -> str:
         """Validate video codec."""
-        if v.lower() not in VALID_VIDEO_CODECS:
+        if v.casefold() not in VALID_VIDEO_CODECS:
             raise ValueError(
                 f"Invalid target_codec '{v}'. "
                 f"Must be one of: {', '.join(sorted(VALID_VIDEO_CODECS))}"
@@ -384,7 +384,7 @@ class AudioTranscodeConfigModel(BaseModel):
     @classmethod
     def validate_audio_codec(cls, v: str) -> str:
         """Validate audio codec."""
-        if v.lower() not in VALID_AUDIO_CODECS:
+        if v.casefold() not in VALID_AUDIO_CODECS:
             raise ValueError(
                 f"Invalid transcode_to '{v}'. "
                 f"Must be one of: {', '.join(sorted(VALID_AUDIO_CODECS))}"
@@ -597,8 +597,8 @@ class PreferenceCriterionModel(BaseModel):
         if v is None:
             return None
         if isinstance(v, str):
-            return v.lower()
-        return [lang.lower() for lang in v]
+            return v.casefold()
+        return [lang.casefold() for lang in v]
 
     @field_validator("codec", mode="before")
     @classmethod
@@ -607,8 +607,8 @@ class PreferenceCriterionModel(BaseModel):
         if v is None:
             return None
         if isinstance(v, str):
-            return v.lower()
-        return [codec.lower() for codec in v]
+            return v.casefold()
+        return [codec.casefold() for codec in v]
 
 
 class SourcePreferencesModel(BaseModel):
@@ -650,8 +650,8 @@ class SkipIfExistsModel(BaseModel):
         if v is None:
             return None
         if isinstance(v, str):
-            return v.lower()
-        return [codec.lower() for codec in v]
+            return v.casefold()
+        return [codec.casefold() for codec in v]
 
     @field_validator("language", mode="before")
     @classmethod
@@ -660,8 +660,8 @@ class SkipIfExistsModel(BaseModel):
         if v is None:
             return None
         if isinstance(v, str):
-            return v.lower()
-        return [lang.lower() for lang in v]
+            return v.casefold()
+        return [lang.casefold() for lang in v]
 
 
 class SynthesisTrackDefinitionModel(BaseModel):
@@ -706,7 +706,7 @@ class SynthesisTrackDefinitionModel(BaseModel):
     @classmethod
     def validate_codec(cls, v: str) -> str:
         """Validate that codec is supported."""
-        v_lower = v.lower()
+        v_lower = v.casefold()
         if v_lower not in VALID_SYNTHESIS_CODECS:
             raise ValueError(
                 f"Invalid synthesis codec '{v}'. "
@@ -722,7 +722,7 @@ class SynthesisTrackDefinitionModel(BaseModel):
             if v < 1 or v > 8:
                 raise ValueError(f"Channel count must be 1-8, got {v}")
             return v
-        v_lower = v.lower()
+        v_lower = v.casefold()
         if v_lower not in VALID_CHANNEL_CONFIGS:
             raise ValueError(
                 f"Invalid channel config '{v}'. "
@@ -742,7 +742,7 @@ class SynthesisTrackDefinitionModel(BaseModel):
             raise ValueError(
                 f"Invalid bitrate format '{v}'. Use format like '640k' or '1.5M'"
             )
-        return v.lower()
+        return v.casefold()
 
     @field_validator("position")
     @classmethod
@@ -760,12 +760,12 @@ class SynthesisTrackDefinitionModel(BaseModel):
             return v
         import re
 
-        if not re.match(r"^[a-z]{2,3}$", v.lower()):
+        if not re.match(r"^[a-z]{2,3}$", v.casefold()):
             raise ValueError(
                 f"Invalid language code '{v}'. "
                 "Use ISO 639-2 codes (e.g., 'eng', 'jpn') or 'inherit'"
             )
-        return v.lower()
+        return v.casefold()
 
 
 class AudioSynthesisModel(BaseModel):
@@ -1043,7 +1043,7 @@ class PluginMetadataConditionModel(BaseModel):
         """Validate plugin name is non-empty and valid."""
         if not v or not v.strip():
             raise ValueError("plugin name cannot be empty")
-        v = v.strip().lower()
+        v = v.strip().casefold()
         # Plugin names should be kebab-case identifiers
         import re
 
@@ -1061,7 +1061,7 @@ class PluginMetadataConditionModel(BaseModel):
         """Validate field name is non-empty and normalize to lowercase."""
         if not v or not v.strip():
             raise ValueError("field name cannot be empty")
-        return v.strip().lower()
+        return v.strip().casefold()
 
     @model_validator(mode="after")
     def validate_operator_value_compatibility(self) -> "PluginMetadataConditionModel":
@@ -1242,7 +1242,7 @@ class PluginMetadataReferenceModel(BaseModel):
         """Validate and normalize plugin name to lowercase."""
         if not v or not v.strip():
             raise ValueError("plugin name cannot be empty")
-        return v.strip().lower()
+        return v.strip().casefold()
 
     @field_validator("field")
     @classmethod
@@ -1250,7 +1250,7 @@ class PluginMetadataReferenceModel(BaseModel):
         """Validate and normalize field name to lowercase."""
         if not v or not v.strip():
             raise ValueError("field name cannot be empty")
-        return v.strip().lower()
+        return v.strip().casefold()
 
 
 class SetLanguageActionModel(BaseModel):
@@ -1535,19 +1535,19 @@ class PhaseSkipConditionModel(BaseModel):
         """Normalize video codec names to lowercase."""
         if v is None:
             return None
-        return [c.lower() for c in v]
+        return [c.casefold() for c in v]
 
     @field_validator("audio_codec_exists")
     @classmethod
     def normalize_audio_codec(cls, v: str | None) -> str | None:
         """Normalize audio codec to lowercase."""
-        return v.lower() if v else None
+        return v.casefold() if v else None
 
     @field_validator("subtitle_language_exists")
     @classmethod
     def normalize_subtitle_language(cls, v: str | None) -> str | None:
         """Normalize language code to lowercase."""
-        return v.lower() if v else None
+        return v.casefold() if v else None
 
     @field_validator("container")
     @classmethod
@@ -1555,7 +1555,7 @@ class PhaseSkipConditionModel(BaseModel):
         """Normalize container formats to lowercase."""
         if v is None:
             return None
-        return [c.lower() for c in v]
+        return [c.casefold() for c in v]
 
     @field_validator("resolution", "resolution_under")
     @classmethod
@@ -1564,12 +1564,12 @@ class PhaseSkipConditionModel(BaseModel):
         if v is None:
             return None
         valid_resolutions = {"480p", "720p", "1080p", "1440p", "2160p", "4k"}
-        if v.lower() not in valid_resolutions:
+        if v.casefold() not in valid_resolutions:
             raise ValueError(
                 f"Invalid resolution '{v}'. "
                 f"Valid values: {', '.join(sorted(valid_resolutions))}"
             )
-        return v.lower()
+        return v.casefold()
 
     @field_validator("file_size_under", "file_size_over")
     @classmethod
@@ -1683,7 +1683,7 @@ class PhaseModel(BaseModel):
     @classmethod
     def validate_not_reserved(cls, v: str) -> str:
         """Validate that phase name is not a reserved word."""
-        if v.lower() in RESERVED_PHASE_NAMES:
+        if v.casefold() in RESERVED_PHASE_NAMES:
             raise ValueError(
                 f"Phase name '{v}' is reserved. "
                 f"Reserved names: {', '.join(sorted(RESERVED_PHASE_NAMES))}"
@@ -1735,7 +1735,7 @@ class PhasedPolicyModel(BaseModel):
         # Check for case-insensitive collisions
         seen: dict[str, str] = {}
         for name in names:
-            lower = name.lower()
+            lower = name.casefold()
             if lower in seen:
                 raise ValueError(
                     f"Phase names must be unique (case-insensitive): "

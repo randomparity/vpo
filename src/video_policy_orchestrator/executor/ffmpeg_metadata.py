@@ -65,7 +65,7 @@ class FfmpegMetadataExecutor:
         - File is NOT MKV format
         - Plan contains only metadata changes (no REORDER)
         """
-        suffix = plan.file_path.suffix.lower()
+        suffix = plan.file_path.suffix.casefold()
         if suffix in (".mkv", ".mka", ".mks"):
             return False
 

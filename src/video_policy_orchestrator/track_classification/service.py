@@ -359,7 +359,7 @@ def _is_commentary_by_title(title: str | None) -> bool:
     if not title:
         return False
 
-    title_lower = title.lower()
+    title_lower = title.casefold()
     commentary_keywords = [
         "commentary",
         "director's commentary",

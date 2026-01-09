@@ -80,7 +80,7 @@ def evaluate_skip_when(
         elif not video_track.codec:
             logger.debug("Cannot evaluate video_codec condition: video codec unknown")
         elif video_track.codec:
-            video_codec_lower = video_track.codec.lower()
+            video_codec_lower = video_track.codec.casefold()
             # Check against common codec aliases
             codec_aliases = {
                 video_codec_lower,
@@ -93,7 +93,7 @@ def evaluate_skip_when(
                 codec_aliases.update({"h264", "h.264", "avc"})
 
             for target_codec in condition.video_codec:
-                if target_codec.lower() in codec_aliases:
+                if target_codec.casefold() in codec_aliases:
                     return SkipReason(
                         reason_type=SkipReasonType.CONDITION,
                         message=(
@@ -105,10 +105,10 @@ def evaluate_skip_when(
 
     # Check audio_codec_exists condition
     if condition.audio_codec_exists:
-        target_codec = condition.audio_codec_exists.lower()
+        target_codec = condition.audio_codec_exists.casefold()
         for track in file_info.tracks:
             if track.track_type == "audio" and track.codec:
-                if track.codec.lower() == target_codec:
+                if track.codec.casefold() == target_codec:
                     return SkipReason(
                         reason_type=SkipReasonType.CONDITION,
                         message=f"audio_codec_exists: {target_codec}",
@@ -118,10 +118,10 @@ def evaluate_skip_when(
 
     # Check subtitle_language_exists condition
     if condition.subtitle_language_exists:
-        target_lang = condition.subtitle_language_exists.lower()
+        target_lang = condition.subtitle_language_exists.casefold()
         for track in file_info.tracks:
             if track.track_type == "subtitle" and track.language:
-                if track.language.lower() == target_lang:
+                if track.language.casefold() == target_lang:
                     return SkipReason(
                         reason_type=SkipReasonType.CONDITION,
                         message=f"subtitle_language_exists: {target_lang}",
@@ -154,7 +154,7 @@ def evaluate_skip_when(
         elif video_track.height:
             actual_label = get_video_resolution_label(video_track.height)
             # Normalize '4k' to '2160p' for comparison
-            target = condition.resolution.lower()
+            target = condition.resolution.casefold()
             if target == "4k":
                 target = "2160p"
             if actual_label == target:
@@ -177,7 +177,7 @@ def evaluate_skip_when(
                 "Cannot evaluate resolution_under condition: video height unknown"
             )
         elif video_track.height:
-            target = condition.resolution_under.lower()
+            target = condition.resolution_under.casefold()
             if target == "4k":
                 target = "2160p"
             threshold_height = RESOLUTION_HEIGHT_MAP.get(target)

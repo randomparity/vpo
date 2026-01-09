@@ -45,7 +45,7 @@ def file_lock(file_path: Path) -> Iterator[None]:
 
     try:
         # Create lock file
-        lock_file = open(lock_path, "w")
+        lock_file = open(lock_path, "w", encoding="utf-8")
 
         try:
             # Try to acquire exclusive lock (non-blocking)

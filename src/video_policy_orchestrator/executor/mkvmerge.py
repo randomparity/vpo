@@ -67,7 +67,7 @@ class MkvmergeExecutor:
                 return True
 
         # For non-conversion operations, only handle MKV files
-        if not str(plan.file_path).lower().endswith((".mkv", ".mka", ".mks")):
+        if not str(plan.file_path).casefold().endswith((".mkv", ".mka", ".mks")):
             return False
 
         # We handle plans that need remuxing (have REORDER action)

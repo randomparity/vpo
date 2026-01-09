@@ -113,7 +113,7 @@ class PolicyRoundTripEditor:
             PolicyValidationError: If the YAML syntax is invalid.
         """
         try:
-            with open(self.policy_path) as f:
+            with open(self.policy_path, encoding="utf-8") as f:
                 data = self.yaml.load(f)
         except Exception as e:
             raise PolicyValidationError(
@@ -159,7 +159,7 @@ class PolicyRoundTripEditor:
         _ = load_policy_from_dict(validation_data)
 
         # Load current file with round-trip preservation
-        with open(self.policy_path) as f:
+        with open(self.policy_path, encoding="utf-8") as f:
             current_data = self.yaml.load(f)
 
         if current_data is None:
@@ -174,7 +174,7 @@ class PolicyRoundTripEditor:
                 current_data[key] = value
 
         # Write back with preservation
-        with open(self.policy_path, "w") as f:
+        with open(self.policy_path, "w", encoding="utf-8") as f:
             self.yaml.dump(current_data, f)
 
         logger.info(

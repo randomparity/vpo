@@ -183,7 +183,7 @@ class PolicyEnginePlugin:
             )
 
         # Determine container format
-        container = plan.file_path.suffix.lstrip(".").lower()
+        container = plan.file_path.suffix.lstrip(".").casefold()
         if container == "matroska":
             container = "mkv"
 

@@ -92,7 +92,7 @@ def handle_database_locked(func):
         try:
             return func(*args, **kwargs)
         except sqlite3.OperationalError as e:
-            if "locked" in str(e).lower():
+            if "locked" in str(e).casefold():
                 raise DatabaseLockedError(
                     "Database is locked. Another process may be using it."
                 ) from e
@@ -148,7 +148,7 @@ def execute_with_retry(
         try:
             return func()
         except sqlite3.OperationalError as e:
-            error_msg = str(e).lower()
+            error_msg = str(e).casefold()
             if "locked" not in error_msg and "busy" not in error_msg:
                 # Not a lock error, don't retry
                 raise

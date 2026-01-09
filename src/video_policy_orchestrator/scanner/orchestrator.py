@@ -493,7 +493,7 @@ class ScannerOrchestrator:
                     path=scanned.path,
                     filename=path.name,
                     directory=str(path.parent),
-                    extension=path.suffix.lstrip(".").lower(),
+                    extension=path.suffix.lstrip(".").casefold(),
                     size_bytes=scanned.size,
                     modified_at=scanned.modified_at.isoformat(),
                     content_hash=scanned.content_hash,

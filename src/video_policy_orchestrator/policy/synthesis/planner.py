@@ -125,7 +125,7 @@ def _evaluate_skip_if_exists(
                 else (criteria.codec,)
             )
             if not track.codec or not any(
-                track.codec.lower() == c.lower() for c in codecs
+                track.codec.casefold() == c.casefold() for c in codecs
             ):
                 continue  # Codec doesn't match, try next track
 
@@ -204,7 +204,7 @@ def _convert_ref_to_definition(
             "5.1": ChannelConfig.SURROUND_51,
             "7.1": ChannelConfig.SURROUND_71,
         }
-        channels = channel_map.get(ref.channels.lower(), ChannelConfig.STEREO)
+        channels = channel_map.get(ref.channels.casefold(), ChannelConfig.STEREO)
 
     # Parse source preferences
     prefer_list: list[PreferenceCriterion] = []

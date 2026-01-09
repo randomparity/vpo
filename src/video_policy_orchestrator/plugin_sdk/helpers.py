@@ -160,7 +160,7 @@ def is_supported_container(container: str) -> bool:
 
     """
     supported = {"mkv", "matroska", "mp4", "m4v", "avi", "mov"}
-    return container.lower() in supported
+    return container.casefold() in supported
 
 
 def is_mkv_container(container: str) -> bool:
@@ -175,7 +175,7 @@ def is_mkv_container(container: str) -> bool:
         True if MKV/Matroska.
 
     """
-    return container.lower() in {"mkv", "matroska"}
+    return container.casefold() in {"mkv", "matroska"}
 
 
 def get_host_identifier() -> str:

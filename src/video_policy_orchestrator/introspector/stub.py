@@ -53,7 +53,7 @@ class StubIntrospector:
         if not path.exists():
             raise MediaIntrospectionError(f"File not found: {path}")
 
-        extension = path.suffix.lstrip(".").lower()
+        extension = path.suffix.lstrip(".").casefold()
 
         # Infer container format from extension
         container_format = CONTAINER_FORMAT_MAP.get(extension)

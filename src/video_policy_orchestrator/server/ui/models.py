@@ -545,7 +545,7 @@ class LibraryFilterParams:
             # Handle both single value and list (from getall())
             if isinstance(audio_lang_raw, list):
                 audio_lang = [
-                    lang.lower().strip()
+                    lang.casefold().strip()
                     for lang in audio_lang_raw
                     if lang and len(lang.strip()) in (2, 3)
                 ]
@@ -553,7 +553,7 @@ class LibraryFilterParams:
                 2,
                 3,
             ):
-                audio_lang = [audio_lang_raw.lower().strip()]
+                audio_lang = [audio_lang_raw.casefold().strip()]
             if not audio_lang:
                 audio_lang = None
 
@@ -1054,7 +1054,7 @@ class TranscriptionFilterParams:
         Returns:
             Validated TranscriptionFilterParams instance.
         """
-        show_all = query.get("show_all", "").lower() == "true"
+        show_all = query.get("show_all", "").casefold() == "true"
         try:
             limit = max(1, min(100, int(query.get("limit", 50))))
         except (ValueError, TypeError):
@@ -1180,7 +1180,7 @@ def get_classification_reasoning(
 
     # Check metadata first
     if track_title and is_commentary_by_metadata(track_title):
-        title_lower = track_title.lower()
+        title_lower = track_title.casefold()
         for keyword in COMMENTARY_KEYWORDS:
             if keyword in title_lower:
                 matched.append(f"Title contains: '{keyword}'")
@@ -1188,7 +1188,7 @@ def get_classification_reasoning(
 
     # Check transcript patterns
     if transcript_sample:
-        sample_lower = transcript_sample.lower()
+        sample_lower = transcript_sample.casefold()
         for pattern in COMMENTARY_TRANSCRIPT_PATTERNS:
             if re.search(pattern, sample_lower, re.IGNORECASE):
                 # Convert regex to readable form

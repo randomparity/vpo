@@ -70,7 +70,7 @@ def parse_relative_date(value: str) -> datetime:
         ValueError: If format is invalid.
     """
     # Try relative format first
-    match = re.match(r"^(\d+)([dwh])$", value.lower())
+    match = re.match(r"^(\d+)([dwh])$", value.casefold())
     if match:
         amount = int(match.group(1))
         unit = match.group(2)

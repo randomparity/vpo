@@ -156,7 +156,8 @@ def _display_error(result: InitResult) -> None:
     click.echo(f"Error: {result.error}", err=True)
 
     # Show existing files if this is an already-initialized error
-    if result.skipped_files and "already initialized" in (result.error or "").lower():
+    error_msg = (result.error or "").casefold()
+    if result.skipped_files and "already initialized" in error_msg:
         click.echo("")
         click.echo("Existing files:")
         for path in result.skipped_files:

@@ -229,10 +229,10 @@ class LoggingConfig:
     def __post_init__(self) -> None:
         """Validate configuration."""
         valid_levels = {"debug", "info", "warning", "error"}
-        if self.level.lower() not in valid_levels:
+        if self.level.casefold() not in valid_levels:
             raise ValueError(f"level must be one of {valid_levels}, got {self.level}")
         valid_formats = {"text", "json"}
-        if self.format.lower() not in valid_formats:
+        if self.format.casefold() not in valid_formats:
             raise ValueError(
                 f"format must be one of {valid_formats}, got {self.format}"
             )
@@ -371,4 +371,4 @@ class VPOConfig:
         Returns:
             Configured path or None if not configured.
         """
-        return getattr(self.tools, tool_name.lower(), None)
+        return getattr(self.tools, tool_name.casefold(), None)

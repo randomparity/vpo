@@ -177,7 +177,7 @@ def parse_bitrate(bitrate_str: str) -> int:
     Raises:
         ValueError: If the format is invalid.
     """
-    bitrate_str = bitrate_str.strip().lower()
+    bitrate_str = bitrate_str.strip().casefold()
 
     try:
         if bitrate_str.endswith("k"):

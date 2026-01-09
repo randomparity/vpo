@@ -75,7 +75,7 @@ def _is_commentary_track(
         return False
 
     patterns = commentary_patterns or DEFAULT_COMMENTARY_PATTERNS
-    title_lower = track.title.lower()
+    title_lower = track.title.casefold()
 
     for pattern in patterns:
         try:
@@ -84,7 +84,7 @@ def _is_commentary_track(
                 return True
         except re.error:
             # Invalid regex, fall back to substring match
-            if pattern.lower() in title_lower:
+            if pattern.casefold() in title_lower:
                 return True
 
     return False
@@ -146,7 +146,7 @@ def _matches_string_or_list(
             if languages_match(actual, p):
                 return True
         else:
-            if actual.lower() == p.lower():
+            if actual.casefold() == p.casefold():
                 return True
 
     return False
@@ -167,11 +167,11 @@ def _matches_title(actual: str | None, pattern: str | TitleMatch) -> bool:
 
     if isinstance(pattern, str):
         # Simple substring match (case-insensitive)
-        return pattern.lower() in actual.lower()
+        return pattern.casefold() in actual.casefold()
 
     # TitleMatch object
     if pattern.contains is not None:
-        return pattern.contains.lower() in actual.lower()
+        return pattern.contains.casefold() in actual.casefold()
 
     if pattern.regex is not None:
         try:
@@ -282,12 +282,12 @@ def evaluate_exists(
         Tuple of (result, reason) where result is True if at least one
         track matches and reason is a human-readable explanation.
     """
-    track_type = condition.track_type.lower()
+    track_type = condition.track_type.casefold()
     filters = condition.filters
 
     matching_tracks = []
     for track in tracks:
-        if track.track_type.lower() != track_type:
+        if track.track_type.casefold() != track_type:
             continue
         if matches_track(track, filters, commentary_patterns):
             matching_tracks.append(track)
@@ -323,12 +323,12 @@ def evaluate_count(
         Tuple of (result, reason) where result is True if count
         comparison passes and reason is a human-readable explanation.
     """
-    track_type = condition.track_type.lower()
+    track_type = condition.track_type.casefold()
     filters = condition.filters
 
     count = 0
     for track in tracks:
-        if track.track_type.lower() != track_type:
+        if track.track_type.casefold() != track_type:
             continue
         if matches_track(track, filters, commentary_patterns):
             count += 1
@@ -366,7 +366,7 @@ def evaluate_audio_is_multi_language(
         )
 
     # Filter to audio tracks
-    audio_tracks = [t for t in tracks if t.track_type.lower() == "audio"]
+    audio_tracks = [t for t in tracks if t.track_type.casefold() == "audio"]
 
     # If specific track_index, filter to that track
     if condition.track_index is not None:
@@ -450,7 +450,7 @@ def evaluate_is_original(
         )
 
     # Filter to audio tracks
-    audio_tracks = [t for t in tracks if t.track_type.lower() == "audio"]
+    audio_tracks = [t for t in tracks if t.track_type.casefold() == "audio"]
 
     for track in audio_tracks:
         if track.id is None:
@@ -513,7 +513,7 @@ def evaluate_is_dubbed(
         )
 
     # Filter to audio tracks
-    audio_tracks = [t for t in tracks if t.track_type.lower() == "audio"]
+    audio_tracks = [t for t in tracks if t.track_type.casefold() == "audio"]
 
     for track in audio_tracks:
         if track.id is None:
@@ -566,8 +566,8 @@ def evaluate_plugin_metadata(
         Tuple of (result, reason) where result is True if the condition
         matches and reason is a human-readable explanation.
     """
-    plugin_name = condition.plugin.lower()
-    field_name = condition.field.lower()
+    plugin_name = condition.plugin.casefold()
+    field_name = condition.field.casefold()
     expected_value = condition.value
     op = condition.operator
 
@@ -582,7 +582,7 @@ def evaluate_plugin_metadata(
     # Check if plugin exists in metadata (case-insensitive lookup)
     plugin_data = None
     for key, value in plugin_metadata.items():
-        if key.lower() == plugin_name:
+        if key.casefold() == plugin_name:
             plugin_data = value
             break
     if plugin_data is None:
@@ -596,7 +596,7 @@ def evaluate_plugin_metadata(
     actual_value = None
     field_found = False
     for key, value in plugin_data.items():
-        if key.lower() == field_name:
+        if key.casefold() == field_name:
             actual_value = value
             field_found = True
             break
@@ -658,21 +658,21 @@ def _evaluate_plugin_metadata_op(
     if op == PluginMetadataOperator.EQ:
         # String comparison is case-insensitive
         if isinstance(actual, str) and isinstance(expected, str):
-            return actual.lower() == expected.lower()
+            return actual.casefold() == expected.casefold()
         return actual == expected
 
     if op == PluginMetadataOperator.NEQ:
         # String comparison is case-insensitive
         if isinstance(actual, str) and isinstance(expected, str):
-            return actual.lower() != expected.lower()
+            return actual.casefold() != expected.casefold()
         return actual != expected
 
     if op == PluginMetadataOperator.CONTAINS:
         # Substring match (strings only)
         if isinstance(actual, str) and isinstance(expected, str):
-            return expected.lower() in actual.lower()
+            return expected.casefold() in actual.casefold()
         # Non-string types: convert to string and match
-        return str(expected).lower() in str(actual).lower()
+        return str(expected).casefold() in str(actual).casefold()
 
     # Numeric comparisons (integers/floats only)
     if not isinstance(actual, (int, float)) or not isinstance(expected, (int, float)):

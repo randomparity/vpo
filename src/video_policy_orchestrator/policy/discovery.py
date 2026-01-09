@@ -228,7 +228,7 @@ def discover_policies(
         policies.append(summary)
 
     # Sort: default first, then alphabetically by name
-    policies.sort(key=lambda p: (not p.is_default, p.name.lower()))
+    policies.sort(key=lambda p: (not p.is_default, p.name.casefold()))
 
     # Check if default policy is missing
     default_missing = default_policy_path is not None and not default_found

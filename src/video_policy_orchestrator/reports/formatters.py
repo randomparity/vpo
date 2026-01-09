@@ -186,7 +186,7 @@ def render_csv(
             if value is None:
                 clean_row[col] = ""
             elif isinstance(value, bool):
-                clean_row[col] = str(value).lower()
+                clean_row[col] = str(value).casefold()
             else:
                 clean_row[col] = str(value)
         writer.writerow(clean_row)

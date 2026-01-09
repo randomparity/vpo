@@ -235,7 +235,7 @@ def is_commentary_by_metadata(title: str | None) -> bool:
     if not title:
         return False
 
-    title_lower = title.lower()
+    title_lower = title.casefold()
     return any(keyword in title_lower for keyword in COMMENTARY_KEYWORDS)
 
 
@@ -251,7 +251,7 @@ def is_music_by_metadata(title: str | None) -> bool:
     if not title:
         return False
 
-    title_lower = title.lower()
+    title_lower = title.casefold()
     return any(keyword in title_lower for keyword in MUSIC_KEYWORDS)
 
 
@@ -267,7 +267,7 @@ def is_sfx_by_metadata(title: str | None) -> bool:
     if not title:
         return False
 
-    title_lower = title.lower()
+    title_lower = title.casefold()
     # Check for SFX keywords, but avoid false positives
     # "effects" alone is too broad - require "sound effects" or "effects only"
     for keyword in SFX_KEYWORDS:
@@ -301,7 +301,7 @@ def is_hallucination(transcript_sample: str | None) -> bool:
     if len(transcript_sample.strip()) < TRANSCRIPT_MIN_LENGTH:
         return True
 
-    sample_lower = transcript_sample.lower().strip()
+    sample_lower = transcript_sample.casefold().strip()
 
     for pattern in HALLUCINATION_PATTERNS:
         if re.search(pattern, sample_lower, re.IGNORECASE):
@@ -385,7 +385,7 @@ def detect_track_classification(
 
     # Stage 3: Transcript-based commentary detection
     if transcript_sample:
-        sample_lower = transcript_sample.lower()
+        sample_lower = transcript_sample.casefold()
 
         # Count matches against commentary patterns
         match_count = 0

@@ -98,7 +98,7 @@ def get_software_encoder(codec: str) -> str:
     Returns:
         FFmpeg software encoder name.
     """
-    return SOFTWARE_ENCODERS.get(codec.lower(), "libx265")
+    return SOFTWARE_ENCODERS.get(codec.casefold(), "libx265")
 
 
 def check_encoder_available(encoder: str) -> bool:
@@ -154,7 +154,7 @@ def select_encoder(
         RuntimeError: If requested hardware encoder not available and
             fallback_to_cpu is False.
     """
-    codec_lower = codec.lower()
+    codec_lower = codec.casefold()
 
     # If explicitly set to none, use software encoder
     if hw_mode == "none":
@@ -227,7 +227,7 @@ def detect_hw_encoder_error(stderr_output: str) -> bool:
     Returns:
         True if output suggests a hardware encoder failure.
     """
-    stderr_lower = stderr_output.lower()
+    stderr_lower = stderr_output.casefold()
     return any(pattern in stderr_lower for pattern in HW_ENCODER_ERROR_PATTERNS)
 
 

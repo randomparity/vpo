@@ -100,7 +100,7 @@ def output_report(
         click.echo(msg)
         return
 
-    fmt = ReportFormat(output_format.lower())
+    fmt = ReportFormat(output_format.casefold())
     column_keys = [col[1] for col in columns]
 
     if fmt == ReportFormat.TEXT:

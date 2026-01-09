@@ -68,7 +68,7 @@ def parse_duration(value: str) -> float | None:
     )
     if simple_match:
         num = float(simple_match.group(1))
-        unit = simple_match.group(2).lower()
+        unit = simple_match.group(2).casefold()
         multipliers = {"s": 1, "m": 60, "h": 3600}
         return num * multipliers[unit]
 

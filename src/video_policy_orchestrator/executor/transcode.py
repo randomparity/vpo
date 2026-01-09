@@ -226,7 +226,7 @@ def should_transcode_video(
 
     # Check codec compliance
     if policy.target_video_codec:
-        target_codec = policy.target_video_codec.lower()
+        target_codec = policy.target_video_codec.casefold()
         # Normalize codec names for comparison
         codec_aliases = {
             "hevc": ("hevc", "h265", "x265"),
@@ -237,7 +237,7 @@ def should_transcode_video(
         target_variants = codec_aliases.get(target_codec, (target_codec,))
 
         if current_codec:
-            current_normalized = current_codec.lower()
+            current_normalized = current_codec.casefold()
             if not any(variant in current_normalized for variant in target_variants):
                 needs_transcode = True
                 logger.debug(
@@ -651,7 +651,7 @@ def _get_audio_encoder(codec: str) -> str:
         "pcm_s16le": "pcm_s16le",
         "pcm_s24le": "pcm_s24le",
     }
-    return encoders.get(codec.lower(), "aac")
+    return encoders.get(codec.casefold(), "aac")
 
 
 def _build_downmix_filter(downmix_track: AudioTrackPlan) -> str | None:

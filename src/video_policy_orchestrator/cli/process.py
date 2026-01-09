@@ -170,7 +170,7 @@ def _discover_files(paths: list[Path], recursive: bool) -> list[Path]:
     for path in paths:
         path = path.expanduser().resolve()
         if path.is_file():
-            if path.suffix.lower() in video_extensions:
+            if path.suffix.casefold() in video_extensions:
                 files.append(path)
         elif path.is_dir():
             if recursive:
@@ -197,7 +197,7 @@ def _parse_phases(phases_str: str | None) -> tuple[ProcessingPhase, ...] | None:
 
     phases = []
     for name in phases_str.split(","):
-        name = name.strip().lower()
+        name = name.strip().casefold()
         try:
             phases.append(ProcessingPhase(name))
         except ValueError:

@@ -149,11 +149,11 @@ class BasicTomlParser:
             return value[1:-1]
 
         # Boolean true
-        if value.lower() == "true":
+        if value.casefold() == "true":
             return True
 
         # Boolean false
-        if value.lower() == "false":
+        if value.casefold() == "false":
             return False
 
         # Integer (including negative)
@@ -235,7 +235,7 @@ def load_toml_file(path: Path, *, strict: bool = False) -> dict[str, Any]:
         return {}
 
     try:
-        content = path.read_text()
+        content = path.read_text(encoding="utf-8")
         config = parse_toml(content)
         logger.debug("Loaded TOML config from %s", path)
         return config

@@ -1915,7 +1915,7 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
             yaml.default_flow_style = False
             yaml.indent(mapping=2, sequence=4, offset=2)
 
-            with open(policy_path, "w") as f:
+            with open(policy_path, "w", encoding="utf-8") as f:
                 yaml.dump(policy_data, f)
 
             # Get file timestamp
@@ -2464,8 +2464,8 @@ async def api_stats_purge_handler(request: web.Request) -> web.Response:
     # Parse query parameters
     before_str = request.query.get("before")
     policy_name = request.query.get("policy")
-    delete_all = request.query.get("all", "").lower() in ("true", "1", "yes")
-    dry_run = request.query.get("dry_run", "").lower() in ("true", "1", "yes")
+    delete_all = request.query.get("all", "").casefold() in ("true", "1", "yes")
+    dry_run = request.query.get("dry_run", "").casefold() in ("true", "1", "yes")
 
     # Validate options
     if not before_str and not policy_name and not delete_all:

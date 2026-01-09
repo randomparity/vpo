@@ -1249,7 +1249,7 @@ class V11PhaseExecutor:
             "pcm_s16le": "pcm_s16le",
             "pcm_s24le": "pcm_s24le",
         }
-        return encoders.get(codec.lower(), "aac")
+        return encoders.get(codec.casefold(), "aac")
 
     def _execute_audio_synthesis(
         self,

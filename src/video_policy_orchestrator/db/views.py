@@ -111,7 +111,7 @@ def get_files_filtered(
             f"AND t_audio.track_type = 'audio' "
             f"AND LOWER(t_audio.language) IN ({placeholders}))"
         )
-        params.extend([lang.lower() for lang in audio_lang])
+        params.extend([lang.casefold() for lang in audio_lang])
 
     # Subtitle presence filter (019-library-filters-search)
     if subtitles == "yes":

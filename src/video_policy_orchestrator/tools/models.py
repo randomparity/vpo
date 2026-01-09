@@ -98,23 +98,23 @@ class FFmpegCapabilities:
     # Common codec checks (convenience methods)
     def has_encoder(self, name: str) -> bool:
         """Check if encoder is available."""
-        return name.lower() in self.encoders
+        return name.casefold() in self.encoders
 
     def has_decoder(self, name: str) -> bool:
         """Check if decoder is available."""
-        return name.lower() in self.decoders
+        return name.casefold() in self.decoders
 
     def has_muxer(self, name: str) -> bool:
         """Check if muxer (output format) is available."""
-        return name.lower() in self.muxers
+        return name.casefold() in self.muxers
 
     def has_demuxer(self, name: str) -> bool:
         """Check if demuxer (input format) is available."""
-        return name.lower() in self.demuxers
+        return name.casefold() in self.demuxers
 
     def has_filter(self, name: str) -> bool:
         """Check if filter is available."""
-        return name.lower() in self.filters
+        return name.casefold() in self.filters
 
     # VPO-specific capability checks
     def can_remux_to_mkv(self) -> bool:
@@ -217,7 +217,7 @@ class ToolRegistry:
             "mkvmerge": self.mkvmerge,
             "mkvpropedit": self.mkvpropedit,
         }
-        return tools.get(name.lower())
+        return tools.get(name.casefold())
 
     def is_available(self, name: str) -> bool:
         """Check if a tool is available.

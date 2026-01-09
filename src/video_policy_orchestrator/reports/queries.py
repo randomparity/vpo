@@ -551,7 +551,7 @@ def get_transcodes_report(
                 pass
 
         # Filter by codec if specified
-        if codec and codec.lower() != target_codec.lower():
+        if codec and codec.casefold() != target_codec.casefold():
             continue
 
         duration_seconds = calculate_duration_seconds(row[2], row[3])

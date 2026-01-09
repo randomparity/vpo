@@ -35,7 +35,7 @@ def configure_logging(config: LoggingConfig) -> None:
     Args:
         config: Logging configuration.
     """
-    level = _LEVEL_MAP.get(config.level.lower(), logging.INFO)
+    level = _LEVEL_MAP.get(config.level.casefold(), logging.INFO)
 
     # Get root logger
     root_logger = logging.getLogger()
@@ -45,7 +45,7 @@ def configure_logging(config: LoggingConfig) -> None:
     root_logger.handlers.clear()
 
     # Create formatter based on format
-    if config.format.lower() == "json":
+    if config.format.casefold() == "json":
         formatter: logging.Formatter = JSONFormatter()
     else:
         # Text format includes worker_tag for parallel processing context

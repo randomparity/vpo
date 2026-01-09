@@ -178,7 +178,7 @@ def _extract_additional_metadata(
     if not metadata.resolution:
         match = RESOLUTION_PATTERN.search(filename)
         if match:
-            metadata.resolution = match.group(1).lower()
+            metadata.resolution = match.group(1).casefold()
             if metadata.resolution in ("4k", "8k"):
                 metadata.resolution = metadata.resolution.upper()
 
@@ -192,7 +192,7 @@ def _extract_additional_metadata(
     if not metadata.codec:
         match = CODEC_PATTERN.search(filename)
         if match:
-            codec = match.group(1).lower()
+            codec = match.group(1).casefold()
             # Normalize codec names
             if codec in ("h264", "h.264"):
                 metadata.codec = "h264"
@@ -222,7 +222,7 @@ def parse_movie_filename(filename: str) -> ParsedMetadata | None:
                 original_filename=filename,
                 title=_clean_title(groups.get("title", "")),
                 year=int(groups["year"]) if groups.get("year") else None,
-                resolution=res.lower() if res else None,
+                resolution=res.casefold() if res else None,
                 source=groups.get("source"),
                 codec=groups.get("codec"),
                 pattern_matched=pattern_name,
@@ -255,7 +255,7 @@ def parse_tv_filename(filename: str) -> ParsedMetadata | None:
                 season=int(groups["season"]) if groups.get("season") else None,
                 episode=int(groups["episode"]) if groups.get("episode") else None,
                 title=title or None,
-                resolution=res.lower() if res else None,
+                resolution=res.casefold() if res else None,
                 source=groups.get("source"),
                 codec=groups.get("codec"),
                 pattern_matched=pattern_name,

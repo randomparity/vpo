@@ -82,7 +82,7 @@ def _color_for_status(status: str) -> str:
         "main": "white",
         "unknown": "bright_black",
     }
-    return colors.get(status.lower(), "white")
+    return colors.get(status.casefold(), "white")
 
 
 @click.group(name="classify")
@@ -143,7 +143,7 @@ def classify_run(
     from video_policy_orchestrator.db.models import get_tracks_for_file
 
     tracks = get_tracks_for_file(conn, file_record.id)
-    audio_tracks = [t for t in tracks if t.track_type.lower() == "audio"]
+    audio_tracks = [t for t in tracks if t.track_type.casefold() == "audio"]
 
     if not audio_tracks:
         click.echo(f"Error: No audio tracks found in file: {path}", err=True)

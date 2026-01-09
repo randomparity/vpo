@@ -118,7 +118,7 @@ class EnvReader:
         value = self._env.get(var)
         if value is None:
             return default
-        return value.lower() in ("true", "1", "yes", "on")
+        return value.casefold() in ("true", "1", "yes", "on")
 
     def get_path(
         self, var: str, must_exist: bool = True, default: Path | None = None

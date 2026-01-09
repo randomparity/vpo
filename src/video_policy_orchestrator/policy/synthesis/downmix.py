@@ -54,7 +54,7 @@ def normalize_channel_layout(layout: str | None) -> str | None:
     if layout is None:
         return None
 
-    layout_lower = layout.lower().strip()
+    layout_lower = layout.casefold().strip()
     return LAYOUT_NORMALIZATION.get(layout_lower, layout_lower)
 
 

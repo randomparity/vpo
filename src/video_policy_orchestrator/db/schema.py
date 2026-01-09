@@ -977,7 +977,7 @@ def migrate_v10_to_v11(conn: sqlite3.Connection) -> None:
             normalized = normalize_language(lang, warn_on_conversion=False)
             if normalized != lang:
                 # Skip unrecognized codes that would become "und"
-                if normalized == "und" and lang.lower().strip() not in ("", "und"):
+                if normalized == "und" and lang.casefold().strip() not in ("", "und"):
                     logger.warning(
                         "Migration v10→v11: Skipping unrecognized language code '%s' "
                         "(would become 'und')",
@@ -1007,7 +1007,7 @@ def migrate_v10_to_v11(conn: sqlite3.Connection) -> None:
             normalized = normalize_language(lang, warn_on_conversion=False)
             if normalized != lang:
                 # Skip unrecognized codes that would become "und"
-                if normalized == "und" and lang.lower().strip() not in ("", "und"):
+                if normalized == "und" and lang.casefold().strip() not in ("", "und"):
                     logger.warning(
                         "Migration v10→v11: Skipping unrecognized language code '%s' "
                         "(would become 'und')",

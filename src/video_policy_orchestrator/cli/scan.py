@@ -317,7 +317,7 @@ def scan(
     # Parse extensions
     ext_list = None
     if extensions:
-        ext_list = [e.strip().lower().lstrip(".") for e in extensions.split(",")]
+        ext_list = [e.strip().casefold().lstrip(".") for e in extensions.split(",")]
 
     # Create scanner
     scanner = ScannerOrchestrator(extensions=ext_list)

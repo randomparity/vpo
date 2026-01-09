@@ -52,7 +52,7 @@ class MkvpropeditExecutor:
         - File is MKV format
         - Plan contains only metadata changes (no REORDER)
         """
-        if not str(plan.file_path).lower().endswith((".mkv", ".mka", ".mks")):
+        if not str(plan.file_path).casefold().endswith((".mkv", ".mka", ".mks")):
             return False
 
         # Check that no actions require remux

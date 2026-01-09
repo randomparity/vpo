@@ -194,7 +194,9 @@ def execute_set_forced_action(
 
     # Find matching tracks
     matching_tracks = [
-        t for t in context.tracks if t.track_type.lower() == action.track_type.lower()
+        t
+        for t in context.tracks
+        if t.track_type.casefold() == action.track_type.casefold()
     ]
 
     # Apply language filter if specified
@@ -254,7 +256,9 @@ def execute_set_default_action(
 
     # Find matching tracks
     matching_tracks = [
-        t for t in context.tracks if t.track_type.lower() == action.track_type.lower()
+        t
+        for t in context.tracks
+        if t.track_type.casefold() == action.track_type.casefold()
     ]
 
     # Apply language filter if specified
@@ -313,8 +317,8 @@ def _resolve_language_from_action(
 
     if action.from_plugin_metadata is not None:
         ref = action.from_plugin_metadata
-        plugin_name = ref.plugin.lower()
-        field_name = ref.field.lower()
+        plugin_name = ref.plugin.casefold()
+        field_name = ref.field.casefold()
 
         if context.plugin_metadata is None:
             logger.warning(
@@ -325,7 +329,7 @@ def _resolve_language_from_action(
         # Case-insensitive plugin lookup
         plugin_data = None
         for key, value in context.plugin_metadata.items():
-            if key.lower() == plugin_name:
+            if key.casefold() == plugin_name:
                 plugin_data = value
                 break
         if plugin_data is None:
@@ -338,7 +342,7 @@ def _resolve_language_from_action(
         # Case-insensitive field lookup
         field_value = None
         for key, value in plugin_data.items():
-            if key.lower() == field_name:
+            if key.casefold() == field_name:
                 field_value = value
                 break
         if field_value is None:
@@ -385,7 +389,9 @@ def execute_set_language_action(
 
     # Find matching tracks by type
     matching_tracks = [
-        t for t in context.tracks if t.track_type.lower() == action.track_type.lower()
+        t
+        for t in context.tracks
+        if t.track_type.casefold() == action.track_type.casefold()
     ]
 
     # Apply match_language filter if specified

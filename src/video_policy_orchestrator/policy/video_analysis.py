@@ -273,7 +273,7 @@ def detect_hdr_type(tracks: list[TrackInfo]) -> tuple[HDRType, str | None]:
     for track in video_tracks:
         # Primary detection: color_transfer field
         if track.color_transfer:
-            transfer = track.color_transfer.lower()
+            transfer = track.color_transfer.casefold()
             if transfer == "smpte2084":
                 return HDRType.HDR10, "HDR10 (PQ transfer function)"
             if transfer == "arib-std-b67":
@@ -281,7 +281,7 @@ def detect_hdr_type(tracks: list[TrackInfo]) -> tuple[HDRType, str | None]:
 
         # Secondary detection: title metadata (for Dolby Vision and other formats)
         if track.title:
-            title_lower = track.title.lower()
+            title_lower = track.title.casefold()
             if "dolby vision" in title_lower or "dovi" in title_lower:
                 return HDRType.DOLBY_VISION, "Dolby Vision (from title)"
             # Generic HDR indicators in title

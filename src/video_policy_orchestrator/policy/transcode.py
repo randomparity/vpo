@@ -337,7 +337,7 @@ def _resolution_within_threshold(
     if width is None or height is None:
         return True  # Unknown resolution = can't evaluate, pass
 
-    max_dims = RESOLUTION_MAP.get(resolution_within.lower())
+    max_dims = RESOLUTION_MAP.get(resolution_within.casefold())
     if max_dims is None:
         return True  # Invalid preset = pass (validation should catch this earlier)
 

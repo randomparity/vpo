@@ -99,7 +99,7 @@ def format_track_line(track: TrackInfo) -> str:
         # HDR indicator based on color transfer function
         if track.color_transfer:
             hdr_transfers = {"smpte2084", "arib-std-b67"}  # PQ and HLG
-            if track.color_transfer.lower() in hdr_transfers:
+            if track.color_transfer.casefold() in hdr_transfers:
                 parts.append("[HDR]")
 
     # Audio-specific: channel layout and language

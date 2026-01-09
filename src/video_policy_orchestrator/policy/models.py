@@ -361,7 +361,7 @@ class TranscodePolicyConfig:
     def __post_init__(self) -> None:
         """Validate transcode policy configuration."""
         if self.target_video_codec is not None:
-            codec = self.target_video_codec.lower()
+            codec = self.target_video_codec.casefold()
             if codec not in VALID_VIDEO_CODECS:
                 raise ValueError(
                     f"Invalid target_video_codec: {self.target_video_codec}. "
@@ -375,13 +375,13 @@ class TranscodePolicyConfig:
                 )
 
         if self.max_resolution is not None:
-            if self.max_resolution.lower() not in VALID_RESOLUTIONS:
+            if self.max_resolution.casefold() not in VALID_RESOLUTIONS:
                 raise ValueError(
                     f"Invalid max_resolution: {self.max_resolution}. "
                     f"Must be one of: {', '.join(sorted(VALID_RESOLUTIONS))}"
                 )
 
-        if self.audio_transcode_to.lower() not in VALID_AUDIO_CODECS:
+        if self.audio_transcode_to.casefold() not in VALID_AUDIO_CODECS:
             raise ValueError(
                 f"Invalid audio_transcode_to: {self.audio_transcode_to}. "
                 f"Must be one of: {', '.join(sorted(VALID_AUDIO_CODECS))}"
@@ -420,7 +420,7 @@ class TranscodePolicyConfig:
             (max_width, max_height) tuple or None if no limit.
         """
         if self.max_resolution:
-            return RESOLUTION_MAP.get(self.max_resolution.lower())
+            return RESOLUTION_MAP.get(self.max_resolution.casefold())
         if self.max_width or self.max_height:
             return (self.max_width or 99999, self.max_height or 99999)
         return None
@@ -1606,9 +1606,9 @@ def parse_bitrate(bitrate_str: str) -> int | None:
 
     bitrate_str = bitrate_str.strip()
     try:
-        if bitrate_str[-1].lower() == "m":
+        if bitrate_str[-1].casefold() == "m":
             return int(float(bitrate_str[:-1]) * 1_000_000)
-        elif bitrate_str[-1].lower() == "k":
+        elif bitrate_str[-1].casefold() == "k":
             return int(float(bitrate_str[:-1]) * 1_000)
         else:
             # Assume bits per second
@@ -1626,7 +1626,7 @@ def get_default_crf(codec: str) -> int:
     Returns:
         Default CRF value for the codec.
     """
-    return DEFAULT_CRF_VALUES.get(codec.lower(), 23)
+    return DEFAULT_CRF_VALUES.get(codec.casefold(), 23)
 
 
 @dataclass(frozen=True)
@@ -1660,7 +1660,7 @@ class SkipCondition:
                 "Specify codec_matches, resolution_within, or bitrate_under."
             )
         if self.resolution_within is not None:
-            if self.resolution_within.lower() not in VALID_RESOLUTIONS:
+            if self.resolution_within.casefold() not in VALID_RESOLUTIONS:
                 raise ValueError(
                     f"Invalid resolution_within: {self.resolution_within}. "
                     f"Must be one of: {', '.join(sorted(VALID_RESOLUTIONS))}"
@@ -1760,7 +1760,7 @@ class ScalingSettings:
     def __post_init__(self) -> None:
         """Validate scaling settings."""
         if self.max_resolution is not None:
-            if self.max_resolution.lower() not in VALID_RESOLUTIONS:
+            if self.max_resolution.casefold() not in VALID_RESOLUTIONS:
                 raise ValueError(
                     f"Invalid max_resolution: {self.max_resolution}. "
                     f"Must be one of: {', '.join(sorted(VALID_RESOLUTIONS))}"
@@ -1779,7 +1779,7 @@ class ScalingSettings:
             (max_width, max_height) tuple or None if no limit.
         """
         if self.max_resolution:
-            return RESOLUTION_MAP.get(self.max_resolution.lower())
+            return RESOLUTION_MAP.get(self.max_resolution.casefold())
         if self.max_width or self.max_height:
             return (self.max_width or 99999, self.max_height or 99999)
         return None
@@ -1815,7 +1815,7 @@ class AudioTranscodeConfig:
 
     def __post_init__(self) -> None:
         """Validate audio transcode configuration."""
-        if self.transcode_to.lower() not in VALID_AUDIO_CODECS:
+        if self.transcode_to.casefold() not in VALID_AUDIO_CODECS:
             raise ValueError(
                 f"Invalid transcode_to: {self.transcode_to}. "
                 f"Must be one of: {', '.join(sorted(VALID_AUDIO_CODECS))}"
@@ -1852,7 +1852,7 @@ class VideoTranscodeConfig:
 
     def __post_init__(self) -> None:
         """Validate video transcode configuration."""
-        if self.target_codec.lower() not in VALID_VIDEO_CODECS:
+        if self.target_codec.casefold() not in VALID_VIDEO_CODECS:
             raise ValueError(
                 f"Invalid target_codec: {self.target_codec}. "
                 f"Must be one of: {', '.join(sorted(VALID_VIDEO_CODECS))}"
@@ -2134,7 +2134,7 @@ class PhasedPolicySchema:
         # Check for case-insensitive collisions
         seen: dict[str, str] = {}
         for name in names:
-            lower = name.lower()
+            lower = name.casefold()
             if lower in seen:
                 raise ValueError(
                     f"Phase names must be unique (case-insensitive): "

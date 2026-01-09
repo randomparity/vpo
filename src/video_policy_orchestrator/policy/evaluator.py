@@ -128,7 +128,7 @@ def classify_track(
     Returns:
         TrackType enum value for sorting.
     """
-    track_type = track.track_type.lower()
+    track_type = track.track_type.casefold()
 
     if track_type == "video":
         return TrackType.VIDEO
@@ -271,9 +271,9 @@ def compute_default_flags(
     result: dict[int, bool] = {}
 
     # Group tracks by type
-    video_tracks = [t for t in tracks if t.track_type.lower() == "video"]
-    audio_tracks = [t for t in tracks if t.track_type.lower() == "audio"]
-    subtitle_tracks = [t for t in tracks if t.track_type.lower() == "subtitle"]
+    video_tracks = [t for t in tracks if t.track_type.casefold() == "video"]
+    audio_tracks = [t for t in tracks if t.track_type.casefold() == "audio"]
+    subtitle_tracks = [t for t in tracks if t.track_type.casefold() == "subtitle"]
 
     # Process video tracks
     if flags.set_first_video_default and video_tracks:
@@ -435,7 +435,7 @@ def compute_language_updates(
 
     for track in tracks:
         # Only process audio tracks
-        if track.track_type.lower() != "audio":
+        if track.track_type.casefold() != "audio":
             continue
 
         # Get track ID for lookup - TrackRecord has 'id', TrackInfo doesn't
@@ -586,7 +586,7 @@ def _detect_content_language(tracks: list[TrackInfo]) -> str | None:
         Language code of first audio track, or None if no audio tracks.
     """
     for track in tracks:
-        if track.track_type.lower() == "audio":
+        if track.track_type.casefold() == "audio":
             return track.language or "und"
     return None
 
@@ -602,8 +602,8 @@ def _has_styled_subtitles(tracks: list[TrackInfo]) -> bool:
     """
     styled_codecs = {"ass", "ssa", "ass_subtitle", "ssa_subtitle"}
     for track in tracks:
-        if track.track_type.lower() == "subtitle":
-            codec = (track.codec or "").lower()
+        if track.track_type.casefold() == "subtitle":
+            codec = (track.codec or "").casefold()
             if codec in styled_codecs:
                 return True
     return False
@@ -618,7 +618,7 @@ def _is_font_attachment(track: TrackInfo) -> bool:
     Returns:
         True if track is a font attachment.
     """
-    codec = (track.codec or "").lower()
+    codec = (track.codec or "").casefold()
     font_extensions = {"ttf", "otf", "ttc", "woff", "woff2"}
     if codec in font_extensions:
         return True
@@ -758,7 +758,7 @@ def compute_track_dispositions(
             audio tracks and no fallback is configured.
     """
     dispositions: list[TrackDisposition] = []
-    audio_tracks = [t for t in tracks if t.track_type.lower() == "audio"]
+    audio_tracks = [t for t in tracks if t.track_type.casefold() == "audio"]
 
     # Pre-compute whether we have styled subtitles (for font warning)
     has_styled_subs = _has_styled_subtitles(tracks)
@@ -770,7 +770,7 @@ def compute_track_dispositions(
     audio_actions: dict[int, tuple[Literal["KEEP", "REMOVE"], str]] = {}
 
     for track in tracks:
-        track_type = track.track_type.lower()
+        track_type = track.track_type.casefold()
         action: Literal["KEEP", "REMOVE"] = "KEEP"
         reason = "no filter applied"
 
@@ -916,7 +916,7 @@ def normalize_container_format(container: str) -> str:
     Returns:
         Normalized format name (lowercase, standardized).
     """
-    container = container.lower().strip()
+    container = container.casefold().strip()
 
     # First try exact match for common names
     format_aliases = {
@@ -953,7 +953,7 @@ def _is_codec_mp4_compatible(codec: str, track_type: str) -> bool:
     Returns:
         True if codec is compatible with MP4.
     """
-    codec = codec.lower().strip()
+    codec = codec.casefold().strip()
 
     if track_type == "video":
         return codec in _MP4_COMPATIBLE_VIDEO_CODECS
@@ -984,7 +984,7 @@ def _evaluate_container_change(
     if policy.container is None:
         return None
 
-    target = policy.container.target.lower()
+    target = policy.container.target.casefold()
     source = normalize_container_format(source_format)
 
     # Skip if already in target format
@@ -997,8 +997,8 @@ def _evaluate_container_change(
     # Check codec compatibility for MP4 target
     if target == "mp4":
         for track in tracks:
-            codec = (track.codec or "").lower()
-            track_type = track.track_type.lower()
+            codec = (track.codec or "").casefold()
+            track_type = track.track_type.casefold()
 
             if not _is_codec_mp4_compatible(codec, track_type):
                 incompatible_tracks.append(track.index)
@@ -1275,7 +1275,7 @@ def evaluate_policy(
     # These generate CLEAR_FORCED/CLEAR_DEFAULT/SET_TITLE actions to normalize metadata
     if policy.audio_actions is not None:
         for track in tracks:
-            if track.track_type.lower() != "audio":
+            if track.track_type.casefold() != "audio":
                 continue
             if policy.audio_actions.clear_all_forced and track.is_forced:
                 actions.append(
@@ -1311,7 +1311,7 @@ def evaluate_policy(
     # so that preserve_forced correctly ignores tracks that will have forced cleared.
     if policy.subtitle_actions is not None:
         for track in tracks:
-            if track.track_type.lower() != "subtitle":
+            if track.track_type.casefold() != "subtitle":
                 continue
             if policy.subtitle_actions.clear_all_forced and track.is_forced:
                 actions.append(
@@ -1409,7 +1409,7 @@ def evaluate_policy(
     # Check if reordering is needed
     if current_order != desired_order:
         # Only MKV supports track reordering
-        if container.lower() in ("mkv", "matroska"):
+        if container.casefold() in ("mkv", "matroska"):
             actions.append(
                 PlannedAction(
                     action_type=ActionType.REORDER,
@@ -1445,8 +1445,8 @@ def evaluate_policy(
 
     # Set subtitle forced flag when audio language differs from preference
     if policy.default_flags.set_subtitle_forced_when_audio_differs:
-        audio_tracks = [t for t in tracks if t.track_type.lower() == "audio"]
-        subtitle_tracks = [t for t in tracks if t.track_type.lower() == "subtitle"]
+        audio_tracks = [t for t in tracks if t.track_type.casefold() == "audio"]
+        subtitle_tracks = [t for t in tracks if t.track_type.casefold() == "subtitle"]
 
         if subtitle_tracks and not _audio_matches_language_preference(
             audio_tracks, policy.audio_language_preference, matcher
