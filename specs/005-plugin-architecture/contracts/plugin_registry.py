@@ -7,7 +7,7 @@ API Version: 1.0.0
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Protocol
@@ -49,7 +49,7 @@ class LoadedPlugin:
     state: PluginState = PluginState.LOADED
     enabled: bool = True
     load_error: str | None = None
-    loaded_at: datetime = field(default_factory=datetime.utcnow)
+    loaded_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
     def name(self) -> str:

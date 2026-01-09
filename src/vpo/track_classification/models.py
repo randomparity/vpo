@@ -7,13 +7,18 @@ This module contains domain models for audio track classification:
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 
 from vpo.db.types import (
     CommentaryStatus,
     DetectionMethod,
     OriginalDubbedStatus,
 )
+
+
+def _utc_now() -> datetime:
+    """Return current UTC time as timezone-aware datetime."""
+    return datetime.now(timezone.utc)
 
 
 @dataclass(frozen=True)
@@ -113,8 +118,8 @@ class TrackClassificationResult:
     detection_method: DetectionMethod
     acoustic_profile: AcousticProfile | None = None
     language: str | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=_utc_now)
+    updated_at: datetime = field(default_factory=_utc_now)
 
     def __post_init__(self) -> None:
         """Validate field constraints."""

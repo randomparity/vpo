@@ -97,6 +97,10 @@ markers = [
     "integration: marks tests as integration tests (require external tools)",
     "slow: marks tests as slow (may take longer than usual)",
 ]
+filterwarnings = [
+    "error::DeprecationWarning",
+    "error::PendingDeprecationWarning",
+]
 
 [tool.coverage.run]
 source = ["src/vpo"]
