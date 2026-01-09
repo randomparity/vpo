@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 from vpo._core import discover_videos, hash_files
+from vpo.core import parse_iso_timestamp
 from vpo.db.models import FileRecord
 
 if TYPE_CHECKING:
@@ -89,7 +90,7 @@ def file_needs_rescan(
         return True
 
     # Compare mtime (stored as ISO-8601 string)
-    stored_mtime = datetime.fromisoformat(existing_record.modified_at)
+    stored_mtime = parse_iso_timestamp(existing_record.modified_at)
     if stored_mtime != current_mtime:
         return True
 

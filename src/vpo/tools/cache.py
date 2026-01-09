@@ -11,6 +11,7 @@ import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from vpo.core import parse_iso_timestamp
 from vpo.tools.models import (
     FFmpegCapabilities,
     FFmpegInfo,
@@ -44,7 +45,7 @@ def _iso_to_datetime(s: str | None) -> datetime | None:
     if s is None:
         return None
     try:
-        return datetime.fromisoformat(s)
+        return parse_iso_timestamp(s)
     except (ValueError, TypeError):
         return None
 

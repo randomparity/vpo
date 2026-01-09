@@ -90,7 +90,7 @@ class TestParseEndBy:
     def test_adds_day_when_time_in_past(self, db_conn: sqlite3.Connection) -> None:
         """Adds a day when end time is in the past."""
         # Use a time that's definitely in the past (2 hours ago)
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         past_hour = (now.hour - 2) % 24
         past_time = f"{past_hour:02d}:00"
 
@@ -109,6 +109,17 @@ class TestParseEndBy:
         """Returns None for malformed strings."""
         worker = JobWorker(conn=db_conn, end_by="12")  # Missing minutes
         assert worker.end_by is None
+
+    def test_returns_timezone_aware_datetime(self, db_conn: sqlite3.Connection) -> None:
+        """Returns UTC-aware datetime for valid input."""
+        # Use a future time to ensure we don't hit the "add a day" logic
+        future_hour = (datetime.now(timezone.utc).hour + 2) % 24
+        future_time = f"{future_hour:02d}:30"
+
+        worker = JobWorker(conn=db_conn, end_by=future_time)
+
+        assert worker.end_by is not None
+        assert worker.end_by.tzinfo == timezone.utc
 
 
 # =============================================================================
@@ -180,8 +191,8 @@ class TestShouldContinue:
         """Returns False when end_by time is reached."""
         worker = JobWorker(conn=db_conn)
         worker._start_time = time.time()
-        # Set end_by to a past time
-        worker.end_by = datetime.now() - timedelta(minutes=1)
+        # Set end_by to a past time (must be UTC-aware to match worker comparison)
+        worker.end_by = datetime.now(timezone.utc) - timedelta(minutes=1)
 
         assert worker._should_continue() is False
 
@@ -192,8 +203,8 @@ class TestShouldContinue:
         worker = JobWorker(conn=db_conn)
         worker._start_time = time.time()
         worker._files_processed = 0
-        # Set end_by to a future time
-        worker.end_by = datetime.now() + timedelta(hours=1)
+        # Set end_by to a future time (must be UTC-aware to match worker comparison)
+        worker.end_by = datetime.now(timezone.utc) + timedelta(hours=1)
 
         assert worker._should_continue() is True
 

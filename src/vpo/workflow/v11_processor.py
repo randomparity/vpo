@@ -8,10 +8,11 @@ import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import datetime
 from pathlib import Path
 from sqlite3 import Connection
 from typing import TYPE_CHECKING
+
+from vpo.core import parse_iso_timestamp
 
 if TYPE_CHECKING:
     from vpo.plugin import PluginRegistry
@@ -566,7 +567,7 @@ class V11WorkflowProcessor:
         tracks = tracks_to_track_info(track_records)
 
         # Parse ISO 8601 timestamp from database
-        modified_at = datetime.fromisoformat(file_record.modified_at)
+        modified_at = parse_iso_timestamp(file_record.modified_at)
 
         return FileInfo(
             path=file_path,
@@ -611,7 +612,7 @@ class V11WorkflowProcessor:
             )
 
             # Parse ISO 8601 timestamp from database
-            modified_at = datetime.fromisoformat(file_record.modified_at)
+            modified_at = parse_iso_timestamp(file_record.modified_at)
 
             # Return fresh FileInfo with updated tracks
             return FileInfo(

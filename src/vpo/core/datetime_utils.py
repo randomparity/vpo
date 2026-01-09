@@ -21,14 +21,19 @@ def parse_iso_timestamp(timestamp: str) -> datetime:
         timestamp: ISO-8601 timestamp string (e.g., "2024-01-15T10:30:00Z").
 
     Returns:
-        Timezone-aware datetime object.
+        Timezone-aware datetime object (always UTC if no offset specified).
 
     Note:
         Python 3.10 requires explicit +00:00 offset for fromisoformat(),
         so this function normalizes Z suffix to +00:00.
+        Naive datetime strings (no timezone) are assumed to be UTC.
     """
     normalized = timestamp.replace("Z", "+00:00")
-    return datetime.fromisoformat(normalized)
+    dt = datetime.fromisoformat(normalized)
+    # Ensure timezone awareness - assume UTC for naive timestamps
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 def calculate_duration_seconds(created_at: str, completed_at: str) -> int | None:

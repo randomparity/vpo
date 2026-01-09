@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from vpo.core import parse_iso_timestamp
+
 if TYPE_CHECKING:
     from vpo.track_classification.models import AcousticProfile
 
@@ -115,8 +117,8 @@ class TranscriptionResult:
             track_type=TrackClassification(record.track_type),
             transcript_sample=record.transcript_sample,
             plugin_name=record.plugin_name,
-            created_at=datetime.fromisoformat(record.created_at),
-            updated_at=datetime.fromisoformat(record.updated_at),
+            created_at=parse_iso_timestamp(record.created_at),
+            updated_at=parse_iso_timestamp(record.updated_at),
         )
 
 

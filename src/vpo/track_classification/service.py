@@ -9,6 +9,7 @@ import logging
 import sqlite3
 from datetime import datetime, timezone
 
+from vpo.core import parse_iso_timestamp
 from vpo.db.queries import (
     get_classifications_for_file,
     get_tracks_for_file,
@@ -309,8 +310,8 @@ def _get_cached_classifications(
                 confidence=record.confidence,
                 detection_method=DetectionMethod(record.detection_method),
                 acoustic_profile=acoustic_profile,
-                created_at=datetime.fromisoformat(record.created_at),
-                updated_at=datetime.fromisoformat(record.updated_at),
+                created_at=parse_iso_timestamp(record.created_at),
+                updated_at=parse_iso_timestamp(record.updated_at),
             )
         )
 

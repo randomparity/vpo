@@ -14,7 +14,7 @@ import signal
 import sqlite3
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 from vpo.db.models import (
     Job,
@@ -104,7 +104,7 @@ class JobWorker:
 
         try:
             hour, minute = map(int, end_by.split(":"))
-            now = datetime.now()
+            now = datetime.now(timezone.utc)
             end_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
             # If end time is in the past, assume it's tomorrow
@@ -150,7 +150,7 @@ class JobWorker:
 
         # Check end time
         if self.end_by is not None:
-            if datetime.now() >= self.end_by:
+            if datetime.now(timezone.utc) >= self.end_by:
                 logger.info("Reached end time (%s)", self.end_by.strftime("%H:%M"))
                 return False
 

@@ -12,6 +12,8 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from vpo.core import parse_iso_timestamp
+
 if TYPE_CHECKING:
     from vpo.db.types import (
         LanguageAnalysisResultRecord,
@@ -397,8 +399,8 @@ class LanguageAnalysisResult:
             classification=LanguageClassification(record.classification),
             segments=segments,
             metadata=metadata,
-            created_at=datetime.fromisoformat(record.created_at),
-            updated_at=datetime.fromisoformat(record.updated_at),
+            created_at=parse_iso_timestamp(record.created_at),
+            updated_at=parse_iso_timestamp(record.updated_at),
         )
 
     @staticmethod
