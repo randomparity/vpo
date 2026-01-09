@@ -211,7 +211,7 @@ class TestFfmpegExecute:
 
     @patch("vpo.executor.ffmpeg_metadata.check_disk_space")
     @patch("vpo.executor.ffmpeg_metadata.create_backup")
-    @patch("vpo.executor.ffmpeg_metadata.restore_from_backup")
+    @patch("vpo.executor.ffmpeg_metadata.safe_restore_from_backup")
     @patch("vpo.executor.ffmpeg_metadata.require_tool")
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
@@ -250,7 +250,7 @@ class TestFfmpegExecute:
 
     @patch("vpo.executor.ffmpeg_metadata.check_disk_space")
     @patch("vpo.executor.ffmpeg_metadata.create_backup")
-    @patch("vpo.executor.ffmpeg_metadata.restore_from_backup")
+    @patch("vpo.executor.ffmpeg_metadata.safe_restore_from_backup")
     @patch("vpo.executor.ffmpeg_metadata.require_tool")
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")

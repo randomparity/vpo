@@ -326,7 +326,7 @@ class TestBackupHandling:
         assert result.success is True
 
     @patch("vpo.executor.mkvpropedit.create_backup")
-    @patch("vpo.executor.mkvpropedit.restore_from_backup")
+    @patch("vpo.executor.mkvpropedit.safe_restore_from_backup")
     @patch("vpo.executor.mkvpropedit.require_tool")
     @patch("subprocess.run")
     def test_mkvpropedit_restores_on_failure(
@@ -404,7 +404,7 @@ class TestMkvpropeditErrorScenarios:
     """Tests for error handling in MkvpropeditExecutor."""
 
     @patch("vpo.executor.mkvpropedit.create_backup")
-    @patch("vpo.executor.mkvpropedit.restore_from_backup")
+    @patch("vpo.executor.mkvpropedit.safe_restore_from_backup")
     @patch("vpo.executor.mkvpropedit.require_tool")
     @patch("subprocess.run")
     def test_mkvpropedit_timeout_handling(
@@ -448,7 +448,7 @@ class TestMkvpropeditErrorScenarios:
         assert "Backup failed" in result.message
 
     @patch("vpo.executor.mkvpropedit.create_backup")
-    @patch("vpo.executor.mkvpropedit.restore_from_backup")
+    @patch("vpo.executor.mkvpropedit.safe_restore_from_backup")
     @patch("vpo.executor.mkvpropedit.require_tool")
     @patch("subprocess.run")
     def test_mkvpropedit_returncode_error(
@@ -482,7 +482,7 @@ class TestMkvmergeErrorScenarios:
 
     @patch("vpo.executor.mkvmerge.check_disk_space")
     @patch("vpo.executor.mkvmerge.create_backup")
-    @patch("vpo.executor.mkvmerge.restore_from_backup")
+    @patch("vpo.executor.mkvmerge.safe_restore_from_backup")
     @patch("vpo.executor.mkvmerge.require_tool")
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
@@ -541,7 +541,7 @@ class TestMkvmergeErrorScenarios:
 
     @patch("vpo.executor.mkvmerge.check_disk_space")
     @patch("vpo.executor.mkvmerge.create_backup")
-    @patch("vpo.executor.mkvmerge.restore_from_backup")
+    @patch("vpo.executor.mkvmerge.safe_restore_from_backup")
     @patch("vpo.executor.mkvmerge.require_tool")
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
@@ -582,7 +582,7 @@ class TestMkvmergeErrorScenarios:
 
     @patch("vpo.executor.mkvmerge.check_disk_space")
     @patch("vpo.executor.mkvmerge.create_backup")
-    @patch("vpo.executor.mkvmerge.restore_from_backup")
+    @patch("vpo.executor.mkvmerge.safe_restore_from_backup")
     @patch("vpo.executor.mkvmerge.require_tool")
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
@@ -1003,7 +1003,7 @@ class TestFFmpegRemuxExecutorBackup:
 
     @patch("vpo.executor.ffmpeg_remux.check_disk_space")
     @patch("vpo.executor.ffmpeg_remux.create_backup")
-    @patch("vpo.executor.ffmpeg_remux.restore_from_backup")
+    @patch("vpo.executor.ffmpeg_remux.safe_restore_from_backup")
     @patch("vpo.executor.ffmpeg_remux.require_tool")
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")

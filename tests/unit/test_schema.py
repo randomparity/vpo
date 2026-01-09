@@ -839,10 +839,10 @@ class TestMigrationV19ToV20:
             INSERT INTO jobs (
                 id, file_id, file_path, job_type, status, priority, created_at
             ) VALUES
-                ('job-1', 1, '/t.mkv', 'scan', 'completed', 50, '2024-01-01'),
-                ('job-2', 1, '/t.mkv', 'scan', 'completed', 100, '2024-01-01'),
-                ('job-3', 1, '/t.mkv', 'scan', 'completed', -10, '2024-01-01'),
-                ('job-4', 1, '/t.mkv', 'scan', 'completed', 2000, '2024-01-01');
+                ('job-1', 1, '/test.mkv', 'scan', 'completed', 50, '2024-01-01'),
+                ('job-2', 1, '/test.mkv', 'scan', 'completed', 100, '2024-01-01'),
+                ('job-3', 1, '/test.mkv', 'scan', 'completed', -10, '2024-01-01'),
+                ('job-4', 1, '/test.mkv', 'scan', 'completed', 2000, '2024-01-01');
             """
         )
 
