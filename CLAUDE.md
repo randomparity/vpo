@@ -9,11 +9,9 @@ Video Policy Orchestrator (VPO) is a spec-driven tool for scanning, organizing, 
 ## Build & Test Commands
 
 ```bash
-# Install dependencies (use uv, not pip)
-uv pip install -e ".[dev]"
-
-# Build Rust extension (required after pulling or modifying Rust code)
-uv run maturin develop
+# First-time setup (creates venv, installs deps, builds Rust, installs hooks)
+make setup                              # Requires uv or pyenv
+source .venv/bin/activate               # Activate the virtual environment
 
 # Run tests
 uv run pytest                           # All tests
@@ -22,10 +20,11 @@ uv run pytest -k test_name              # Single test by name
 uv run pytest tests/path/to_file.py    # Single test file
 
 # Linting & formatting
-uv run ruff check .                     # Python lint
-uv run ruff format .                    # Python format
-cargo clippy --manifest-path crates/vpo-core/Cargo.toml  # Rust lint
-cargo fmt --manifest-path crates/vpo-core/Cargo.toml     # Rust format
+make lint                               # Python + Rust lint
+make format                             # Python + Rust format
+
+# Rebuild Rust extension (after modifying Rust code)
+uv run maturin develop
 
 # Run CLI
 uv run vpo --help
@@ -39,7 +38,7 @@ uv run vpo serve --port 8080          # Start daemon with web UI
 
 ## Tech Stack
 
-- **Python 3.10+** with click (CLI), pydantic, PyYAML, aiohttp (daemon), Jinja2 (templates)
+- **Python 3.10-3.13** with click (CLI), pydantic, PyYAML, aiohttp (daemon), Jinja2 (templates)
 - **Rust** (PyO3/maturin) for parallel file discovery and hashing in `crates/vpo-core/`
 - **SQLite** database at `~/.vpo/library.db` (schema version 18)
 - **Web UI**: Vanilla JavaScript (ES6+), no frameworks - uses polling for live updates
