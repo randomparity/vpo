@@ -16,7 +16,7 @@
 ## Path Conventions
 
 - **Rust crate**: `crates/vpo-core/`
-- **Python package**: `src/video_policy_orchestrator/`
+- **Python package**: `src/vpo/`
 - **Tests**: `tests/`
 
 ---
@@ -28,7 +28,7 @@
 - [X] T001 Update pyproject.toml with maturin build system and click dependency in pyproject.toml
 - [X] T002 [P] Create Rust crate structure with Cargo.toml in crates/vpo-core/Cargo.toml
 - [X] T003 [P] Create Rust lib.rs with PyO3 module skeleton in crates/vpo-core/src/lib.rs
-- [X] T004 [P] Create Python type stubs for Rust extension in src/video_policy_orchestrator/_core.pyi
+- [X] T004 [P] Create Python type stubs for Rust extension in src/vpo/_core.pyi
 - [X] T005 [P] Create test fixtures directory structure in tests/fixtures/sample_videos/
 - [X] T006 [P] Create shared test fixtures in tests/conftest.py
 - [X] T007 Verify maturin build works with `maturin develop`
@@ -46,10 +46,10 @@
 - [X] T009 [P] Implement hash_files function in crates/vpo-core/src/hasher.rs
 - [X] T010 Export Rust functions via PyO3 in crates/vpo-core/src/lib.rs
 - [X] T011 Verify Rust extension imports in Python with basic smoke test
-- [X] T012 Create FileInfo and TrackInfo dataclasses in src/video_policy_orchestrator/db/models.py
-- [X] T013 Create FileRecord and TrackRecord dataclasses in src/video_policy_orchestrator/db/models.py
-- [X] T014 Implement database connection manager in src/video_policy_orchestrator/db/connection.py
-- [X] T015 Implement schema creation with all tables in src/video_policy_orchestrator/db/schema.py
+- [X] T012 Create FileInfo and TrackInfo dataclasses in src/vpo/db/models.py
+- [X] T013 Create FileRecord and TrackRecord dataclasses in src/vpo/db/models.py
+- [X] T014 Implement database connection manager in src/vpo/db/connection.py
+- [X] T015 Implement schema creation with all tables in src/vpo/db/schema.py
 
 **Checkpoint**: Foundation ready - Rust core works, database initializes, models defined
 
@@ -70,17 +70,17 @@
 
 ### Implementation for User Story 1
 
-- [X] T019 [US1] Create CLI entry point with click group in src/video_policy_orchestrator/cli/__init__.py
-- [X] T020 [US1] Implement scan command skeleton with arguments in src/video_policy_orchestrator/cli/scan.py
-- [X] T021 [US1] Add --extensions option parsing in src/video_policy_orchestrator/cli/scan.py
-- [X] T022 [US1] Add --db option for database path in src/video_policy_orchestrator/cli/scan.py
-- [X] T023 [US1] Add --dry-run flag implementation in src/video_policy_orchestrator/cli/scan.py
-- [X] T024 [US1] Add --verbose and --json output flags in src/video_policy_orchestrator/cli/scan.py
-- [X] T025 [US1] Create scanner orchestrator that coordinates Rust core in src/video_policy_orchestrator/scanner/orchestrator.py
-- [X] T026 [US1] Implement scan summary output (human-readable format) in src/video_policy_orchestrator/cli/scan.py
-- [X] T027 [US1] Implement scan summary output (JSON format) in src/video_policy_orchestrator/cli/scan.py
+- [X] T019 [US1] Create CLI entry point with click group in src/vpo/cli/__init__.py
+- [X] T020 [US1] Implement scan command skeleton with arguments in src/vpo/cli/scan.py
+- [X] T021 [US1] Add --extensions option parsing in src/vpo/cli/scan.py
+- [X] T022 [US1] Add --db option for database path in src/vpo/cli/scan.py
+- [X] T023 [US1] Add --dry-run flag implementation in src/vpo/cli/scan.py
+- [X] T024 [US1] Add --verbose and --json output flags in src/vpo/cli/scan.py
+- [X] T025 [US1] Create scanner orchestrator that coordinates Rust core in src/vpo/scanner/orchestrator.py
+- [X] T026 [US1] Implement scan summary output (human-readable format) in src/vpo/cli/scan.py
+- [X] T027 [US1] Implement scan summary output (JSON format) in src/vpo/cli/scan.py
 - [X] T028 [US1] Add CLI entry point to pyproject.toml [project.scripts]
-- [X] T029 [US1] Handle directory validation and error messages in src/video_policy_orchestrator/cli/scan.py
+- [X] T029 [US1] Handle directory validation and error messages in src/vpo/cli/scan.py
 
 **Checkpoint**: `vpo scan /path` works, discovers files, shows summary. Database connection is wired but data is not yet persisted (added in US2).
 
@@ -101,13 +101,13 @@
 
 ### Implementation for User Story 2
 
-- [X] T033 [US2] Implement file insert/update (upsert) operations in src/video_policy_orchestrator/db/models.py
-- [X] T034 [US2] Implement track insert with cascade delete (type, codec, language, title, default, forced, ordering per FR-010) in src/video_policy_orchestrator/db/models.py
-- [X] T035 [US2] Implement file lookup by path in src/video_policy_orchestrator/db/models.py
-- [X] T036 [US2] Implement modified_at change detection for skip logic in src/video_policy_orchestrator/scanner/orchestrator.py
-- [X] T037 [US2] Integrate database writes into scanner orchestrator in src/video_policy_orchestrator/scanner/orchestrator.py
-- [X] T038 [US2] Update scan summary to show new/updated/skipped counts in src/video_policy_orchestrator/cli/scan.py
-- [X] T039 [US2] Ensure database directory (~/.vpo/) is created if missing in src/video_policy_orchestrator/db/connection.py
+- [X] T033 [US2] Implement file insert/update (upsert) operations in src/vpo/db/models.py
+- [X] T034 [US2] Implement track insert with cascade delete (type, codec, language, title, default, forced, ordering per FR-010) in src/vpo/db/models.py
+- [X] T035 [US2] Implement file lookup by path in src/vpo/db/models.py
+- [X] T036 [US2] Implement modified_at change detection for skip logic in src/vpo/scanner/orchestrator.py
+- [X] T037 [US2] Integrate database writes into scanner orchestrator in src/vpo/scanner/orchestrator.py
+- [X] T038 [US2] Update scan summary to show new/updated/skipped counts in src/vpo/cli/scan.py
+- [X] T039 [US2] Ensure database directory (~/.vpo/) is created if missing in src/vpo/db/connection.py
 
 **Checkpoint**: Scan results persist to `~/.vpo/library.db`; re-scanning updates rather than duplicates
 
@@ -126,12 +126,12 @@
 
 ### Implementation for User Story 3
 
-- [X] T042 [US3] Define MediaIntrospector Protocol in src/video_policy_orchestrator/introspector/interface.py
-- [X] T043 [US3] Define MediaIntrospectionError exception in src/video_policy_orchestrator/introspector/interface.py
-- [X] T044 [US3] Implement StubIntrospector with extension-based format detection in src/video_policy_orchestrator/introspector/stub.py
-- [X] T045 [US3] Implement container format mapping (mkv->matroska, mp4->mp4, etc.) in src/video_policy_orchestrator/introspector/stub.py
-- [X] T046 [US3] Integrate MediaIntrospector into scanner orchestrator in src/video_policy_orchestrator/scanner/orchestrator.py
-- [X] T047 [US3] Store container_format in database records in src/video_policy_orchestrator/scanner/orchestrator.py
+- [X] T042 [US3] Define MediaIntrospector Protocol in src/vpo/introspector/interface.py
+- [X] T043 [US3] Define MediaIntrospectionError exception in src/vpo/introspector/interface.py
+- [X] T044 [US3] Implement StubIntrospector with extension-based format detection in src/vpo/introspector/stub.py
+- [X] T045 [US3] Implement container format mapping (mkv->matroska, mp4->mp4, etc.) in src/vpo/introspector/stub.py
+- [X] T046 [US3] Integrate MediaIntrospector into scanner orchestrator in src/vpo/scanner/orchestrator.py
+- [X] T047 [US3] Store container_format in database records in src/vpo/scanner/orchestrator.py
 
 **Checkpoint**: Scanner uses MediaIntrospector interface; stub returns container format; ready for future ffprobe integration
 
@@ -157,10 +157,10 @@
 
 **Purpose**: Error handling, edge cases, and quality improvements across all user stories
 
-- [X] T051 [P] Implement graceful Ctrl+C handling with partial commit in src/video_policy_orchestrator/scanner/orchestrator.py
-- [X] T052 [P] Add progress output for long scans (every 100 files) in src/video_policy_orchestrator/scanner/orchestrator.py
-- [X] T053 [P] Implement verbose error output with full error list in src/video_policy_orchestrator/cli/scan.py
-- [X] T054 [P] Add database locked error handling in src/video_policy_orchestrator/db/connection.py
+- [X] T051 [P] Implement graceful Ctrl+C handling with partial commit in src/vpo/scanner/orchestrator.py
+- [X] T052 [P] Add progress output for long scans (every 100 files) in src/vpo/scanner/orchestrator.py
+- [X] T053 [P] Implement verbose error output with full error list in src/vpo/cli/scan.py
+- [X] T054 [P] Add database locked error handling in src/vpo/db/connection.py
 - [X] T056 Run full test suite and fix any failures
 - [X] T057 Run ruff linting and formatting checks
 - [X] T058 Run cargo clippy and cargo fmt for Rust code

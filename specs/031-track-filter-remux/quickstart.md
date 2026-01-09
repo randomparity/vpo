@@ -262,7 +262,7 @@ def test_apply_removes_audio_tracks(tmp_path, sample_multilang_mkv):
 Use existing `languages_match()` function for cross-standard comparison:
 
 ```python
-from video_policy_orchestrator.policy.matchers import languages_match
+from vpo.policy.matchers import languages_match
 
 # These all match:
 languages_match("eng", "en")   # True

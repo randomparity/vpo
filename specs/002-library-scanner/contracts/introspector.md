@@ -137,7 +137,7 @@ Wraps `mkvmerge --identify` for MKV-specific metadata.
 
 ```python
 from pathlib import Path
-from video_policy_orchestrator.introspector import StubIntrospector, MediaIntrospectionError
+from vpo.introspector import StubIntrospector, MediaIntrospectionError
 
 introspector = StubIntrospector()
 

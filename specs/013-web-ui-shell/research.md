@@ -112,7 +112,7 @@
 
 **Implementation**:
 - `app.router.add_static('/static', static_path)` in app setup
-- Static files at `src/video_policy_orchestrator/server/static/`
+- Static files at `src/vpo/server/static/`
 - Templates reference `/static/css/main.css`, `/static/js/nav.js`
 
 ---

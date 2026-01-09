@@ -52,12 +52,12 @@ backup_count = 5         # Number of rotated files to keep
 ### Text Format
 
 ```
-2025-12-02T10:15:32-0500 - video_policy_orchestrator.workflow - INFO - Processing with 3 phase(s)
+2025-12-02T10:15:32-0500 - vpo.workflow - INFO - Processing with 3 phase(s)
 ```
 
 With worker context (parallel processing):
 ```
-2025-12-02T10:15:32-0500 - [W01:F001] video_policy_orchestrator.workflow - INFO - Processing with 3 phase(s)
+2025-12-02T10:15:32-0500 - [W01:F001] vpo.workflow - INFO - Processing with 3 phase(s)
 ```
 
 ### JSON Format
@@ -67,7 +67,7 @@ With worker context (parallel processing):
   "timestamp": "2025-12-02T15:15:32+00:00",
   "level": "INFO",
   "message": "Processing with 3 phase(s)",
-  "logger": "video_policy_orchestrator.workflow",
+  "logger": "vpo.workflow",
   "context": {
     "worker_id": "01",
     "file_id": "F001",
@@ -97,7 +97,7 @@ When processing multiple files with `--workers`, each log line includes a worker
 
 The first log line for each file is a mapping line showing the full path:
 ```
-2025-12-02T10:15:32-0500 - [W01:F042] video_policy_orchestrator.cli.process - INFO - === FILE F042: /full/path/to/movie.mkv
+2025-12-02T10:15:32-0500 - [W01:F042] vpo.cli.process - INFO - === FILE F042: /full/path/to/movie.mkv
 ```
 
 ### Finding the Full Path for a File ID
@@ -165,9 +165,9 @@ This keeps log lines compact while ensuring consistent grep patterns within a ba
 Worker context is implemented using Python's `contextvars` module, which provides thread-safe context propagation. The `WorkerContextFilter` logging filter automatically injects context into all log records.
 
 Key modules:
-- `video_policy_orchestrator.logging.context` - Context management
-- `video_policy_orchestrator.logging.config` - Logging configuration
-- `video_policy_orchestrator.logging.handlers` - JSON formatter
+- `vpo.logging.context` - Context management
+- `vpo.logging.config` - Logging configuration
+- `vpo.logging.handlers` - JSON formatter
 
 ---
 

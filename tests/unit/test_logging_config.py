@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.config.models import LoggingConfig
-from video_policy_orchestrator.logging.config import configure_logging
-from video_policy_orchestrator.logging.handlers import JSONFormatter
+from vpo.config.models import LoggingConfig
+from vpo.logging.config import configure_logging
+from vpo.logging.handlers import JSONFormatter
 
 
 @pytest.fixture(autouse=True)

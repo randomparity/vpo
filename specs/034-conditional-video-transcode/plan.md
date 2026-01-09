@@ -65,7 +65,7 @@ specs/034-conditional-video-transcode/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── executor/
 │   └── transcode.py          # MODIFY: Add skip evaluation, quality modes, HW accel
 ├── policy/

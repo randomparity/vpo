@@ -64,7 +64,7 @@ specs/018-library-list-view/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── db/
 │   └── models.py              # Add get_files_filtered() query function
 ├── server/

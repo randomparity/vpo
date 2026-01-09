@@ -141,8 +141,8 @@ This guide provides a quick reference for implementing the processing statistics
 7. **Create CLI Module** (`cli/stats.py`)
    ```python
    import click
-   from video_policy_orchestrator.db import get_connection
-   from video_policy_orchestrator.db.views import get_stats_summary
+   from vpo.db import get_connection
+   from vpo.db.views import get_stats_summary
 
    @click.group()
    def stats():
@@ -170,7 +170,7 @@ This guide provides a quick reference for implementing the processing statistics
 
 8. **Register Command** (`cli/__init__.py`)
    ```python
-   from video_policy_orchestrator.cli.stats import stats
+   from vpo.cli.stats import stats
    cli.add_command(stats)
    ```
 

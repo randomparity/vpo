@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from aiohttp import web
 
-from video_policy_orchestrator.server.ui.routes import (
+from vpo.server.ui.routes import (
     database_required_middleware,
     shutdown_check_middleware,
 )

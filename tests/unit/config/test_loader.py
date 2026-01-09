@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.config.env import EnvReader
-from video_policy_orchestrator.config.loader import (
+from vpo.config.env import EnvReader
+from vpo.config.loader import (
     get_config,
     get_data_dir,
     get_default_config_path,
@@ -313,21 +313,21 @@ class TestLegacyFunctions:
 
     def test_parse_toml_works(self) -> None:
         """Legacy _parse_toml should still work."""
-        from video_policy_orchestrator.config.loader import _parse_toml
+        from vpo.config.loader import _parse_toml
 
         result = _parse_toml("[server]\nport = 8080")
         assert result["server"]["port"] == 8080
 
     def test_simple_toml_parse_works(self) -> None:
         """Legacy _simple_toml_parse should still work."""
-        from video_policy_orchestrator.config.loader import _simple_toml_parse
+        from vpo.config.loader import _simple_toml_parse
 
         result = _simple_toml_parse("[server]\nport = 8080")
         assert result["server"]["port"] == 8080
 
     def test_get_env_bool_works(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Legacy _get_env_bool should still work."""
-        from video_policy_orchestrator.config.loader import _get_env_bool
+        from vpo.config.loader import _get_env_bool
 
         monkeypatch.setenv("TEST_BOOL", "true")
         assert _get_env_bool("TEST_BOOL", False) is True
@@ -335,7 +335,7 @@ class TestLegacyFunctions:
 
     def test_get_env_int_works(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Legacy _get_env_int should still work."""
-        from video_policy_orchestrator.config.loader import _get_env_int
+        from vpo.config.loader import _get_env_int
 
         monkeypatch.setenv("TEST_INT", "42")
         assert _get_env_int("TEST_INT", 0) == 42
@@ -343,7 +343,7 @@ class TestLegacyFunctions:
 
     def test_get_env_float_works(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Legacy _get_env_float should still work."""
-        from video_policy_orchestrator.config.loader import _get_env_float
+        from vpo.config.loader import _get_env_float
 
         monkeypatch.setenv("TEST_FLOAT", "3.14")
         assert _get_env_float("TEST_FLOAT", 0.0) == pytest.approx(3.14)
@@ -351,7 +351,7 @@ class TestLegacyFunctions:
 
     def test_get_env_str_works(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Legacy _get_env_str should still work."""
-        from video_policy_orchestrator.config.loader import _get_env_str
+        from vpo.config.loader import _get_env_str
 
         monkeypatch.setenv("TEST_STR", "hello")
         assert _get_env_str("TEST_STR", "default") == "hello"
@@ -363,7 +363,7 @@ class TestConfigCache:
 
     def test_clear_config_cache_clears_cache(self, tmp_path: Path) -> None:
         """clear_config_cache should clear the cache."""
-        from video_policy_orchestrator.config.loader import clear_config_cache
+        from vpo.config.loader import clear_config_cache
 
         # Create a config file
         config_file = tmp_path / "config.toml"
@@ -389,7 +389,7 @@ class TestConfigCache:
 
     def test_load_config_file_caches_result(self, tmp_path: Path) -> None:
         """load_config_file should cache results and return same dict."""
-        from video_policy_orchestrator.config.loader import clear_config_cache
+        from vpo.config.loader import clear_config_cache
 
         # Clear cache first to ensure clean state
         clear_config_cache()
@@ -408,7 +408,7 @@ class TestConfigCache:
         """Config cache should be thread-safe for concurrent access."""
         from concurrent.futures import ThreadPoolExecutor
 
-        from video_policy_orchestrator.config.loader import clear_config_cache
+        from vpo.config.loader import clear_config_cache
 
         # Clear cache first to ensure clean state
         clear_config_cache()
@@ -439,7 +439,7 @@ class TestGetTempDirectory:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """VPO_TEMP_DIR env var should take precedence over config."""
-        from video_policy_orchestrator.config.loader import (
+        from vpo.config.loader import (
             clear_config_cache,
             get_temp_directory,
         )
@@ -470,7 +470,7 @@ class TestGetTempDirectory:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Config temp_directory should take precedence over system default."""
-        from video_policy_orchestrator.config.loader import (
+        from vpo.config.loader import (
             clear_config_cache,
             get_temp_directory,
         )
@@ -502,7 +502,7 @@ class TestGetTempDirectory:
         """Invalid VPO_TEMP_DIR should log warning and fall back."""
         import logging
 
-        from video_policy_orchestrator.config.loader import (
+        from vpo.config.loader import (
             clear_config_cache,
             get_temp_directory,
         )

@@ -17,7 +17,7 @@
 
 **Purpose**: Project initialization - no new files needed, extending existing modules
 
-- [x] T001 Bump SCHEMA_VERSION from 17 to 18 in src/video_policy_orchestrator/db/schema.py
+- [x] T001 Bump SCHEMA_VERSION from 17 to 18 in src/vpo/db/schema.py
 
 ---
 
@@ -27,25 +27,25 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [x] T002 [P] Add processing_stats table SQL to SCHEMA_SQL in src/video_policy_orchestrator/db/schema.py
-- [x] T003 [P] Add action_results table SQL to SCHEMA_SQL in src/video_policy_orchestrator/db/schema.py
-- [x] T004 [P] Add performance_metrics table SQL to SCHEMA_SQL in src/video_policy_orchestrator/db/schema.py
-- [x] T005 Add migrate_v17_to_v18() function in src/video_policy_orchestrator/db/schema.py
-- [x] T006 Update initialize_database() to call migrate_v17_to_v18() in src/video_policy_orchestrator/db/schema.py
-- [x] T007 [P] Add ProcessingStatsRecord dataclass in src/video_policy_orchestrator/db/types.py
-- [x] T008 [P] Add ActionResultRecord dataclass in src/video_policy_orchestrator/db/types.py
-- [x] T009 [P] Add PerformanceMetricsRecord dataclass in src/video_policy_orchestrator/db/types.py
-- [x] T010 [P] Add StatsSummary view model dataclass in src/video_policy_orchestrator/db/types.py
-- [x] T011 [P] Add PolicyStats view model dataclass in src/video_policy_orchestrator/db/types.py
-- [x] T012 [P] Add FileProcessingHistory view model dataclass in src/video_policy_orchestrator/db/types.py
-- [x] T013 Add insert_processing_stats() CRUD function in src/video_policy_orchestrator/db/queries.py
-- [x] T014 [P] Add insert_action_result() CRUD function in src/video_policy_orchestrator/db/queries.py
-- [x] T015 [P] Add insert_performance_metric() CRUD function in src/video_policy_orchestrator/db/queries.py
-- [x] T016 Add get_processing_stats_by_id() query function in src/video_policy_orchestrator/db/queries.py
-- [x] T017 Add get_processing_stats_for_file() query function in src/video_policy_orchestrator/db/queries.py
-- [x] T018 Add compute_partial_hash() helper function in src/video_policy_orchestrator/workflow/stats_capture.py
-- [x] T019 Add count_tracks_by_type() helper function in src/video_policy_orchestrator/workflow/stats_capture.py
-- [x] T020 Integrate statistics capture into V11WorkflowProcessor.process_file() in src/video_policy_orchestrator/workflow/v11_processor.py
+- [x] T002 [P] Add processing_stats table SQL to SCHEMA_SQL in src/vpo/db/schema.py
+- [x] T003 [P] Add action_results table SQL to SCHEMA_SQL in src/vpo/db/schema.py
+- [x] T004 [P] Add performance_metrics table SQL to SCHEMA_SQL in src/vpo/db/schema.py
+- [x] T005 Add migrate_v17_to_v18() function in src/vpo/db/schema.py
+- [x] T006 Update initialize_database() to call migrate_v17_to_v18() in src/vpo/db/schema.py
+- [x] T007 [P] Add ProcessingStatsRecord dataclass in src/vpo/db/types.py
+- [x] T008 [P] Add ActionResultRecord dataclass in src/vpo/db/types.py
+- [x] T009 [P] Add PerformanceMetricsRecord dataclass in src/vpo/db/types.py
+- [x] T010 [P] Add StatsSummary view model dataclass in src/vpo/db/types.py
+- [x] T011 [P] Add PolicyStats view model dataclass in src/vpo/db/types.py
+- [x] T012 [P] Add FileProcessingHistory view model dataclass in src/vpo/db/types.py
+- [x] T013 Add insert_processing_stats() CRUD function in src/vpo/db/queries.py
+- [x] T014 [P] Add insert_action_result() CRUD function in src/vpo/db/queries.py
+- [x] T015 [P] Add insert_performance_metric() CRUD function in src/vpo/db/queries.py
+- [x] T016 Add get_processing_stats_by_id() query function in src/vpo/db/queries.py
+- [x] T017 Add get_processing_stats_for_file() query function in src/vpo/db/queries.py
+- [x] T018 Add compute_partial_hash() helper function in src/vpo/workflow/stats_capture.py
+- [x] T019 Add count_tracks_by_type() helper function in src/vpo/workflow/stats_capture.py
+- [x] T020 Integrate statistics capture into V11WorkflowProcessor.process_file() in src/vpo/workflow/v11_processor.py
 
 **Checkpoint**: Foundation ready - statistics are now captured during processing
 
@@ -59,16 +59,16 @@
 
 ### Implementation for User Story 1
 
-- [x] T021 [US1] Add get_stats_summary() aggregate query function in src/video_policy_orchestrator/db/views.py
-- [x] T022 [US1] Add get_recent_stats() query function in src/video_policy_orchestrator/db/views.py
-- [x] T023 [US1] Create CLI stats command group in src/video_policy_orchestrator/cli/stats.py
-- [x] T024 [US1] Implement `vpo stats summary` subcommand with --since/--until date filtering in src/video_policy_orchestrator/cli/stats.py
-- [x] T025 [US1] Add table/json/csv output formatters for summary in src/video_policy_orchestrator/cli/stats.py
-- [x] T026 [US1] Register stats command in src/video_policy_orchestrator/cli/__init__.py
-- [x] T027 [US1] Add GET /api/stats/summary route handler in src/video_policy_orchestrator/server/ui/routes.py
-- [x] T028 [US1] Add GET /api/stats/recent route handler in src/video_policy_orchestrator/server/ui/routes.py
-- [x] T029 [US1] Create statistics dashboard template in src/video_policy_orchestrator/server/ui/templates/sections/stats.html
-- [x] T030 [US1] Add stats dashboard route (GET /stats) in src/video_policy_orchestrator/server/ui/routes.py
+- [x] T021 [US1] Add get_stats_summary() aggregate query function in src/vpo/db/views.py
+- [x] T022 [US1] Add get_recent_stats() query function in src/vpo/db/views.py
+- [x] T023 [US1] Create CLI stats command group in src/vpo/cli/stats.py
+- [x] T024 [US1] Implement `vpo stats summary` subcommand with --since/--until date filtering in src/vpo/cli/stats.py
+- [x] T025 [US1] Add table/json/csv output formatters for summary in src/vpo/cli/stats.py
+- [x] T026 [US1] Register stats command in src/vpo/cli/__init__.py
+- [x] T027 [US1] Add GET /api/stats/summary route handler in src/vpo/server/ui/routes.py
+- [x] T028 [US1] Add GET /api/stats/recent route handler in src/vpo/server/ui/routes.py
+- [x] T029 [US1] Create statistics dashboard template in src/vpo/server/ui/templates/sections/stats.html
+- [x] T030 [US1] Add stats dashboard route (GET /stats) in src/vpo/server/ui/routes.py
 
 **Checkpoint**: User Story 1 complete - users can view disk space savings via CLI and Web UI
 
@@ -82,13 +82,13 @@
 
 ### Implementation for User Story 2
 
-- [x] T031 [US2] Add get_stats_detail() query with action_results join in src/video_policy_orchestrator/db/views.py
-- [x] T032 [US2] Implement `vpo stats file <path>` subcommand in src/video_policy_orchestrator/cli/stats.py
-- [x] T033 [US2] Implement `vpo stats detail <id>` subcommand in src/video_policy_orchestrator/cli/stats.py
-- [x] T034 [US2] Add table formatter for track removal display in src/video_policy_orchestrator/cli/stats.py
-- [x] T035 [US2] Add GET /api/stats/files/{file_id} route handler in src/video_policy_orchestrator/server/ui/routes.py
-- [x] T036 [US2] Add GET /api/stats/{stats_id} route handler in src/video_policy_orchestrator/server/ui/routes.py
-- [x] T037 [US2] Update stats dashboard template with track removal section in src/video_policy_orchestrator/server/ui/templates/sections/stats.html
+- [x] T031 [US2] Add get_stats_detail() query with action_results join in src/vpo/db/views.py
+- [x] T032 [US2] Implement `vpo stats file <path>` subcommand in src/vpo/cli/stats.py
+- [x] T033 [US2] Implement `vpo stats detail <id>` subcommand in src/vpo/cli/stats.py
+- [x] T034 [US2] Add table formatter for track removal display in src/vpo/cli/stats.py
+- [x] T035 [US2] Add GET /api/stats/files/{file_id} route handler in src/vpo/server/ui/routes.py
+- [x] T036 [US2] Add GET /api/stats/{stats_id} route handler in src/vpo/server/ui/routes.py
+- [x] T037 [US2] Update stats dashboard template with track removal section in src/vpo/server/ui/templates/sections/stats.html
 
 **Checkpoint**: User Story 2 complete - users can view track removal details
 
@@ -102,14 +102,14 @@
 
 ### Implementation for User Story 3
 
-- [x] T038 [US3] Add get_policy_stats() aggregate query function in src/video_policy_orchestrator/db/views.py
-- [x] T039 [US3] Add get_policy_stats_by_name() query function in src/video_policy_orchestrator/db/views.py
-- [x] T040 [US3] Implement `vpo stats policies` subcommand (list all) with --since/--until date filtering in src/video_policy_orchestrator/cli/stats.py
-- [x] T041 [US3] Implement `vpo stats policy <name>` subcommand (single policy) in src/video_policy_orchestrator/cli/stats.py
-- [x] T042 [US3] Add table formatter for policy comparison in src/video_policy_orchestrator/cli/stats.py
-- [x] T043 [US3] Add GET /api/stats/policies route handler in src/video_policy_orchestrator/server/ui/routes.py
-- [x] T044 [US3] Add GET /api/stats/policies/{name} route handler in src/video_policy_orchestrator/server/ui/routes.py
-- [x] T045 [US3] Update stats dashboard template with policy comparison table in src/video_policy_orchestrator/server/ui/templates/sections/stats.html
+- [x] T038 [US3] Add get_policy_stats() aggregate query function in src/vpo/db/views.py
+- [x] T039 [US3] Add get_policy_stats_by_name() query function in src/vpo/db/views.py
+- [x] T040 [US3] Implement `vpo stats policies` subcommand (list all) with --since/--until date filtering in src/vpo/cli/stats.py
+- [x] T041 [US3] Implement `vpo stats policy <name>` subcommand (single policy) in src/vpo/cli/stats.py
+- [x] T042 [US3] Add table formatter for policy comparison in src/vpo/cli/stats.py
+- [x] T043 [US3] Add GET /api/stats/policies route handler in src/vpo/server/ui/routes.py
+- [x] T044 [US3] Add GET /api/stats/policies/{name} route handler in src/vpo/server/ui/routes.py
+- [x] T045 [US3] Update stats dashboard template with policy comparison table in src/vpo/server/ui/templates/sections/stats.html
 
 **Checkpoint**: User Story 3 complete - users can compare policy effectiveness
 
@@ -123,10 +123,10 @@
 
 ### Implementation for User Story 4
 
-- [ ] T046 [US4] Capture video transcode info (source_codec, target_codec, skipped, skip_reason) in src/video_policy_orchestrator/workflow/v11_processor.py (DEFERRED - requires deeper phase executor integration)
-- [ ] T047 [US4] Capture audio transcode summary (transcoded vs preserved counts) in src/video_policy_orchestrator/workflow/v11_processor.py (DEFERRED - requires deeper phase executor integration)
-- [x] T048 [US4] Update stats detail formatter to display transcode info in src/video_policy_orchestrator/cli/stats.py
-- [x] T049 [US4] Update stats dashboard template with transcode section in src/video_policy_orchestrator/server/static/js/stats.js
+- [ ] T046 [US4] Capture video transcode info (source_codec, target_codec, skipped, skip_reason) in src/vpo/workflow/v11_processor.py (DEFERRED - requires deeper phase executor integration)
+- [ ] T047 [US4] Capture audio transcode summary (transcoded vs preserved counts) in src/vpo/workflow/v11_processor.py (DEFERRED - requires deeper phase executor integration)
+- [x] T048 [US4] Update stats detail formatter to display transcode info in src/vpo/cli/stats.py
+- [x] T049 [US4] Update stats dashboard template with transcode section in src/vpo/server/static/js/stats.js
 
 **Checkpoint**: User Story 4 partial - display scaffolding complete, capture integration deferred
 
@@ -140,13 +140,13 @@
 
 ### Implementation for User Story 5
 
-- [x] T050 [US5] Capture per-phase wall_time_seconds in V11PhaseExecutor in src/video_policy_orchestrator/workflow/v11_processor.py (already implemented via PhaseMetrics)
-- [x] T051 [US5] Insert performance_metrics records after each phase in src/video_policy_orchestrator/workflow/v11_processor.py (already implemented in stats_capture.py)
-- [x] T052 [US5] Add get_performance_metrics_for_stats() query function in src/video_policy_orchestrator/db/queries.py
-- [ ] T053 [US5] Parse FFmpeg encoding metrics (fps, bitrate) in transcode executor in src/video_policy_orchestrator/executor/transcode.py (DEFERRED - enhancement)
-- [x] T054 [US5] Processing duration shown in `vpo stats detail` in src/video_policy_orchestrator/cli/stats.py
-- [x] T055 [US5] Performance metrics display (duration, phases) in src/video_policy_orchestrator/cli/stats.py
-- [x] T056 [US5] Performance section in stats dashboard modal in src/video_policy_orchestrator/server/static/js/stats.js
+- [x] T050 [US5] Capture per-phase wall_time_seconds in V11PhaseExecutor in src/vpo/workflow/v11_processor.py (already implemented via PhaseMetrics)
+- [x] T051 [US5] Insert performance_metrics records after each phase in src/vpo/workflow/v11_processor.py (already implemented in stats_capture.py)
+- [x] T052 [US5] Add get_performance_metrics_for_stats() query function in src/vpo/db/queries.py
+- [ ] T053 [US5] Parse FFmpeg encoding metrics (fps, bitrate) in transcode executor in src/vpo/executor/transcode.py (DEFERRED - enhancement)
+- [x] T054 [US5] Processing duration shown in `vpo stats detail` in src/vpo/cli/stats.py
+- [x] T055 [US5] Performance metrics display (duration, phases) in src/vpo/cli/stats.py
+- [x] T056 [US5] Performance section in stats dashboard modal in src/vpo/server/static/js/stats.js
 
 **Checkpoint**: User Story 5 mostly complete - basic timing captured, FFmpeg metrics deferred
 
@@ -156,14 +156,14 @@
 
 **Purpose**: Purge capability, edge cases, documentation
 
-- [x] T057 [P] Add delete_processing_stats_before() purge function in src/video_policy_orchestrator/db/queries.py
-- [x] T058 [P] Add delete_processing_stats_by_policy() purge function in src/video_policy_orchestrator/db/queries.py (also added delete_all_processing_stats)
-- [x] T059 Implement `vpo stats purge` subcommand with --before, --policy, --all, --dry-run flags in src/video_policy_orchestrator/cli/stats.py
-- [x] T060 Add DELETE /api/stats/purge route handler in src/video_policy_orchestrator/server/ui/routes.py
-- [x] T061 Handle edge case: partial stats on processing failure in src/video_policy_orchestrator/workflow/v11_processor.py (handled - stats persisted even on failure)
-- [x] T062 Handle edge case: negative size_change (file size increase) display in src/video_policy_orchestrator/cli/stats.py
-- [x] T063 Handle edge case: zero-change processing display in src/video_policy_orchestrator/cli/stats.py
-- [x] T064 Add file integrity hash verification display (hash_before, hash_after) in src/video_policy_orchestrator/cli/stats.py
+- [x] T057 [P] Add delete_processing_stats_before() purge function in src/vpo/db/queries.py
+- [x] T058 [P] Add delete_processing_stats_by_policy() purge function in src/vpo/db/queries.py (also added delete_all_processing_stats)
+- [x] T059 Implement `vpo stats purge` subcommand with --before, --policy, --all, --dry-run flags in src/vpo/cli/stats.py
+- [x] T060 Add DELETE /api/stats/purge route handler in src/vpo/server/ui/routes.py
+- [x] T061 Handle edge case: partial stats on processing failure in src/vpo/workflow/v11_processor.py (handled - stats persisted even on failure)
+- [x] T062 Handle edge case: negative size_change (file size increase) display in src/vpo/cli/stats.py
+- [x] T063 Handle edge case: zero-change processing display in src/vpo/cli/stats.py
+- [x] T064 Add file integrity hash verification display (hash_before, hash_after) in src/vpo/cli/stats.py
 - [x] T065 Update CLAUDE.md with stats module documentation
 
 **Checkpoint**: Phase 8 complete - all purge functionality implemented, edge cases handled, documentation updated
@@ -213,17 +213,17 @@ Within User Story phases:
 
 ```bash
 # Launch all table definitions in parallel:
-Task: "Add processing_stats table SQL to SCHEMA_SQL in src/video_policy_orchestrator/db/schema.py"
-Task: "Add action_results table SQL to SCHEMA_SQL in src/video_policy_orchestrator/db/schema.py"
-Task: "Add performance_metrics table SQL to SCHEMA_SQL in src/video_policy_orchestrator/db/schema.py"
+Task: "Add processing_stats table SQL to SCHEMA_SQL in src/vpo/db/schema.py"
+Task: "Add action_results table SQL to SCHEMA_SQL in src/vpo/db/schema.py"
+Task: "Add performance_metrics table SQL to SCHEMA_SQL in src/vpo/db/schema.py"
 
 # Launch all dataclasses in parallel:
-Task: "Add ProcessingStatsRecord dataclass in src/video_policy_orchestrator/db/types.py"
-Task: "Add ActionResultRecord dataclass in src/video_policy_orchestrator/db/types.py"
-Task: "Add PerformanceMetricsRecord dataclass in src/video_policy_orchestrator/db/types.py"
-Task: "Add StatsSummary view model dataclass in src/video_policy_orchestrator/db/types.py"
-Task: "Add PolicyStats view model dataclass in src/video_policy_orchestrator/db/types.py"
-Task: "Add FileProcessingHistory view model dataclass in src/video_policy_orchestrator/db/types.py"
+Task: "Add ProcessingStatsRecord dataclass in src/vpo/db/types.py"
+Task: "Add ActionResultRecord dataclass in src/vpo/db/types.py"
+Task: "Add PerformanceMetricsRecord dataclass in src/vpo/db/types.py"
+Task: "Add StatsSummary view model dataclass in src/vpo/db/types.py"
+Task: "Add PolicyStats view model dataclass in src/vpo/db/types.py"
+Task: "Add FileProcessingHistory view model dataclass in src/vpo/db/types.py"
 ```
 
 ---

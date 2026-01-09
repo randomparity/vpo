@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.db.models import FileRecord
+from vpo.db.models import FileRecord
 
 
 class TestFileNeedsRescan:
@@ -13,7 +13,7 @@ class TestFileNeedsRescan:
 
     def test_new_file_needs_rescan(self) -> None:
         """New file (no existing record) should need rescan."""
-        from video_policy_orchestrator.scanner.orchestrator import file_needs_rescan
+        from vpo.scanner.orchestrator import file_needs_rescan
 
         # No existing record means new file
         result = file_needs_rescan(
@@ -25,7 +25,7 @@ class TestFileNeedsRescan:
 
     def test_unchanged_file_skipped(self) -> None:
         """File with same mtime and size should be skipped."""
-        from video_policy_orchestrator.scanner.orchestrator import file_needs_rescan
+        from vpo.scanner.orchestrator import file_needs_rescan
 
         mtime = datetime(2025, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
         size = 1000
@@ -54,7 +54,7 @@ class TestFileNeedsRescan:
 
     def test_modified_mtime_needs_rescan(self) -> None:
         """File with changed mtime should need rescan."""
-        from video_policy_orchestrator.scanner.orchestrator import file_needs_rescan
+        from vpo.scanner.orchestrator import file_needs_rescan
 
         old_mtime = datetime(2025, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
         new_mtime = datetime(2025, 1, 16, 10, 30, 0, tzinfo=timezone.utc)
@@ -84,7 +84,7 @@ class TestFileNeedsRescan:
 
     def test_modified_size_needs_rescan(self) -> None:
         """File with changed size should need rescan."""
-        from video_policy_orchestrator.scanner.orchestrator import file_needs_rescan
+        from vpo.scanner.orchestrator import file_needs_rescan
 
         mtime = datetime(2025, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
         old_size = 1000
@@ -114,7 +114,7 @@ class TestFileNeedsRescan:
 
     def test_both_mtime_and_size_changed(self) -> None:
         """File with both mtime and size changed should need rescan."""
-        from video_policy_orchestrator.scanner.orchestrator import file_needs_rescan
+        from vpo.scanner.orchestrator import file_needs_rescan
 
         old_mtime = datetime(2025, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
         new_mtime = datetime(2025, 1, 16, 10, 30, 0, tzinfo=timezone.utc)
@@ -145,7 +145,7 @@ class TestFileNeedsRescan:
 
     def test_microsecond_precision_mtime(self) -> None:
         """Mtime comparison should work with microsecond precision."""
-        from video_policy_orchestrator.scanner.orchestrator import file_needs_rescan
+        from vpo.scanner.orchestrator import file_needs_rescan
 
         mtime_with_micro = datetime(2025, 1, 15, 10, 30, 0, 123456, tzinfo=timezone.utc)
         size = 1000
@@ -188,7 +188,7 @@ class TestDetectMissingFiles:
 
     def test_no_missing_files(self, tmp_path: Path) -> None:
         """When all DB files exist on disk, return empty list."""
-        from video_policy_orchestrator.scanner.orchestrator import detect_missing_files
+        from vpo.scanner.orchestrator import detect_missing_files
 
         # Create test files
         file1 = tmp_path / "video1.mkv"
@@ -202,7 +202,7 @@ class TestDetectMissingFiles:
 
     def test_all_files_missing(self, tmp_path: Path) -> None:
         """When no DB files exist on disk, return all paths."""
-        from video_policy_orchestrator.scanner.orchestrator import detect_missing_files
+        from vpo.scanner.orchestrator import detect_missing_files
 
         # Paths that don't exist
         db_paths = [
@@ -214,7 +214,7 @@ class TestDetectMissingFiles:
 
     def test_some_files_missing(self, tmp_path: Path) -> None:
         """When some DB files are missing, return only missing paths."""
-        from video_policy_orchestrator.scanner.orchestrator import detect_missing_files
+        from vpo.scanner.orchestrator import detect_missing_files
 
         # Create one file, leave one missing
         existing_file = tmp_path / "exists.mkv"
@@ -227,14 +227,14 @@ class TestDetectMissingFiles:
 
     def test_empty_db_paths(self) -> None:
         """Empty input should return empty list."""
-        from video_policy_orchestrator.scanner.orchestrator import detect_missing_files
+        from vpo.scanner.orchestrator import detect_missing_files
 
         missing = detect_missing_files([])
         assert missing == []
 
     def test_directory_counts_as_missing(self, tmp_path: Path) -> None:
         """A path that is a directory (not file) should count as missing."""
-        from video_policy_orchestrator.scanner.orchestrator import detect_missing_files
+        from vpo.scanner.orchestrator import detect_missing_files
 
         subdir = tmp_path / "subdir"
         subdir.mkdir()
@@ -254,8 +254,8 @@ class TestIncrementalScanIntegration:
         import sqlite3
         from datetime import datetime, timezone
 
-        from video_policy_orchestrator.db.models import FileRecord, upsert_file
-        from video_policy_orchestrator.db.schema import initialize_database
+        from vpo.db.models import FileRecord, upsert_file
+        from vpo.db.schema import initialize_database
 
         # Create in-memory database
         conn = sqlite3.connect(":memory:")
@@ -286,8 +286,8 @@ class TestIncrementalScanIntegration:
         upsert_file(conn, existing)
 
         # Import after DB setup
-        from video_policy_orchestrator.db.models import get_file_by_path
-        from video_policy_orchestrator.scanner.orchestrator import file_needs_rescan
+        from vpo.db.models import get_file_by_path
+        from vpo.scanner.orchestrator import file_needs_rescan
 
         # Check if file needs rescan
         record = get_file_by_path(conn, str(test_file))
@@ -305,8 +305,8 @@ class TestIncrementalScanIntegration:
         import sqlite3
         from datetime import datetime, timedelta, timezone
 
-        from video_policy_orchestrator.db.models import FileRecord, upsert_file
-        from video_policy_orchestrator.db.schema import initialize_database
+        from vpo.db.models import FileRecord, upsert_file
+        from vpo.db.schema import initialize_database
 
         # Create in-memory database
         conn = sqlite3.connect(":memory:")
@@ -338,8 +338,8 @@ class TestIncrementalScanIntegration:
         upsert_file(conn, existing)
 
         # Import after DB setup
-        from video_policy_orchestrator.db.models import get_file_by_path
-        from video_policy_orchestrator.scanner.orchestrator import file_needs_rescan
+        from vpo.db.models import get_file_by_path
+        from vpo.scanner.orchestrator import file_needs_rescan
 
         # Check if file needs rescan
         record = get_file_by_path(conn, str(test_file))

@@ -68,7 +68,7 @@ specs/006-transcode-pipelines/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── cli/
 │   ├── __init__.py          # Add jobs subgroup
 │   ├── jobs.py              # NEW: vpo jobs list/status/start/cancel/cleanup

@@ -16,7 +16,7 @@ Create `~/.vpo/plugins/my_analyzer.py`:
 ```python
 """My first VPO analyzer plugin."""
 
-from video_policy_orchestrator.plugin_sdk import BaseAnalyzerPlugin
+from vpo.plugin_sdk import BaseAnalyzerPlugin
 
 class MyAnalyzerPlugin(BaseAnalyzerPlugin):
     """Logs file scan events."""
@@ -89,7 +89,7 @@ my-plugin = "my_vpo_plugin:plugin"
 
 `src/my_vpo_plugin/__init__.py`:
 ```python
-from video_policy_orchestrator.plugin_sdk import BaseAnalyzerPlugin
+from vpo.plugin_sdk import BaseAnalyzerPlugin
 
 class MyPlugin(BaseAnalyzerPlugin):
     name = "my-plugin"
@@ -119,8 +119,8 @@ Installed Plugins:
 Mutator plugins can modify files during plan execution:
 
 ```python
-from video_policy_orchestrator.plugin_sdk import BaseMutatorPlugin
-from video_policy_orchestrator.executor.interface import ExecutorResult
+from vpo.plugin_sdk import BaseMutatorPlugin
+from vpo.executor.interface import ExecutorResult
 
 class MyMutatorPlugin(BaseMutatorPlugin):
     name = "my-mutator"
@@ -189,7 +189,7 @@ If the core API version is outside this range, the plugin won't load by default.
 Use the SDK test utilities:
 
 ```python
-from video_policy_orchestrator.plugin_sdk.testing import (
+from vpo.plugin_sdk.testing import (
     PluginTestCase,
     mock_file_info,
     mock_tracks,

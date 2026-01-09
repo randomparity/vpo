@@ -6,14 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.tools.cache import (
+from vpo.tools.cache import (
     ToolCapabilityCache,
     _datetime_to_iso,
     _iso_to_datetime,
     deserialize_registry,
     serialize_registry,
 )
-from video_policy_orchestrator.tools.models import (
+from vpo.tools.models import (
     FFmpegCapabilities,
     FFmpegInfo,
     FFprobeInfo,

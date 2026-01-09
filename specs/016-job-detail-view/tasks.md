@@ -15,7 +15,7 @@
 
 ## Path Conventions
 
-- **Single project**: `src/video_policy_orchestrator/`, `tests/` at repository root
+- **Single project**: `src/vpo/`, `tests/` at repository root
 - Paths follow existing VPO project structure per plan.md
 
 ---
@@ -24,7 +24,7 @@
 
 **Purpose**: Project initialization and basic structure for job detail feature
 
-- [ ] T001 Create logs directory structure in src/video_policy_orchestrator/jobs/ (create __init__.py if needed)
+- [ ] T001 Create logs directory structure in src/vpo/jobs/ (create __init__.py if needed)
 
 ---
 
@@ -34,18 +34,18 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T002 Add log_path field to Job dataclass in src/video_policy_orchestrator/db/models.py
-- [ ] T003 Update _row_to_job() to handle log_path field in src/video_policy_orchestrator/db/models.py
-- [ ] T004 Update insert_job() to include log_path field in src/video_policy_orchestrator/db/models.py
-- [ ] T005 Update get_job() query to select log_path field in src/video_policy_orchestrator/db/models.py
-- [ ] T006 Update get_jobs_filtered() query to select log_path field in src/video_policy_orchestrator/db/models.py
-- [ ] T007 Implement migrate_v7_to_v8() for log_path column in src/video_policy_orchestrator/db/schema.py
-- [ ] T008 Update initialize_database() to call migrate_v7_to_v8() in src/video_policy_orchestrator/db/schema.py
-- [ ] T009 Update SCHEMA_VERSION to 8 and SCHEMA_SQL to include log_path in src/video_policy_orchestrator/db/schema.py
-- [ ] T010 [P] Create log file utilities module in src/video_policy_orchestrator/jobs/logs.py (get_log_directory, get_log_path, read_log_tail with DEFAULT_LOG_LINES=500, count_log_lines)
-- [ ] T011 [P] Add JobDetailItem dataclass to src/video_policy_orchestrator/server/ui/models.py
-- [ ] T012 [P] Add JobLogsResponse dataclass to src/video_policy_orchestrator/server/ui/models.py
-- [ ] T013 [P] Add JobDetailContext dataclass to src/video_policy_orchestrator/server/ui/models.py
+- [ ] T002 Add log_path field to Job dataclass in src/vpo/db/models.py
+- [ ] T003 Update _row_to_job() to handle log_path field in src/vpo/db/models.py
+- [ ] T004 Update insert_job() to include log_path field in src/vpo/db/models.py
+- [ ] T005 Update get_job() query to select log_path field in src/vpo/db/models.py
+- [ ] T006 Update get_jobs_filtered() query to select log_path field in src/vpo/db/models.py
+- [ ] T007 Implement migrate_v7_to_v8() for log_path column in src/vpo/db/schema.py
+- [ ] T008 Update initialize_database() to call migrate_v7_to_v8() in src/vpo/db/schema.py
+- [ ] T009 Update SCHEMA_VERSION to 8 and SCHEMA_SQL to include log_path in src/vpo/db/schema.py
+- [ ] T010 [P] Create log file utilities module in src/vpo/jobs/logs.py (get_log_directory, get_log_path, read_log_tail with DEFAULT_LOG_LINES=500, count_log_lines)
+- [ ] T011 [P] Add JobDetailItem dataclass to src/vpo/server/ui/models.py
+- [ ] T012 [P] Add JobLogsResponse dataclass to src/vpo/server/ui/models.py
+- [ ] T013 [P] Add JobDetailContext dataclass to src/vpo/server/ui/models.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -59,13 +59,13 @@
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] Add api_job_detail_handler() route handler in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T015 [US1] Add job_detail_handler() HTML page handler in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T016 [US1] Register /jobs/{job_id} and /api/jobs/{job_id} routes in setup_ui_routes() in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T017 [US1] Create job_detail.html template with status badge (FR-012) in src/video_policy_orchestrator/server/ui/templates/sections/job_detail.html
-- [ ] T018 [US1] Add CSS styles for job detail view including status badge colors (FR-012) in src/video_policy_orchestrator/server/ui/static/css/styles.css
-- [ ] T019 [US1] Update jobs.html to make job rows clickable (link to detail) in src/video_policy_orchestrator/server/ui/templates/sections/jobs.html
-- [ ] T020 [US1] Create job_detail.js for relative timestamps and client-side enhancements in src/video_policy_orchestrator/server/ui/static/js/job_detail.js
+- [ ] T014 [US1] Add api_job_detail_handler() route handler in src/vpo/server/ui/routes.py
+- [ ] T015 [US1] Add job_detail_handler() HTML page handler in src/vpo/server/ui/routes.py
+- [ ] T016 [US1] Register /jobs/{job_id} and /api/jobs/{job_id} routes in setup_ui_routes() in src/vpo/server/ui/routes.py
+- [ ] T017 [US1] Create job_detail.html template with status badge (FR-012) in src/vpo/server/ui/templates/sections/job_detail.html
+- [ ] T018 [US1] Add CSS styles for job detail view including status badge colors (FR-012) in src/vpo/server/ui/static/css/styles.css
+- [ ] T019 [US1] Update jobs.html to make job rows clickable (link to detail) in src/vpo/server/ui/templates/sections/jobs.html
+- [ ] T020 [US1] Create job_detail.js for relative timestamps and client-side enhancements in src/vpo/server/ui/static/js/job_detail.js
 
 **Checkpoint**: User Story 1 complete - can view full job details with metadata, timestamps, and status badge
 
@@ -79,13 +79,13 @@
 
 ### Implementation for User Story 2
 
-- [ ] T021 [US2] Add generate_summary_text() function for human-readable summaries in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T022 [US2] Implement scan job summary formatting in generate_summary_text() in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T023 [US2] Implement apply job summary formatting in generate_summary_text() in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T024 [US2] Implement transcode job summary formatting in generate_summary_text() in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T025 [US2] Implement move job summary formatting in generate_summary_text() in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T026 [US2] Add summary section to job_detail.html template in src/video_policy_orchestrator/server/ui/templates/sections/job_detail.html
-- [ ] T027 [US2] Handle missing summary_json gracefully (show "No summary available") in src/video_policy_orchestrator/server/ui/models.py
+- [ ] T021 [US2] Add generate_summary_text() function for human-readable summaries in src/vpo/server/ui/models.py
+- [ ] T022 [US2] Implement scan job summary formatting in generate_summary_text() in src/vpo/server/ui/models.py
+- [ ] T023 [US2] Implement apply job summary formatting in generate_summary_text() in src/vpo/server/ui/models.py
+- [ ] T024 [US2] Implement transcode job summary formatting in generate_summary_text() in src/vpo/server/ui/models.py
+- [ ] T025 [US2] Implement move job summary formatting in generate_summary_text() in src/vpo/server/ui/models.py
+- [ ] T026 [US2] Add summary section to job_detail.html template in src/vpo/server/ui/templates/sections/job_detail.html
+- [ ] T027 [US2] Handle missing summary_json gracefully (show "No summary available") in src/vpo/server/ui/models.py
 
 **Checkpoint**: User Story 2 complete - job summaries display human-readable outcome text based on job type
 
@@ -99,13 +99,13 @@
 
 ### Implementation for User Story 3
 
-- [ ] T028 [US3] Add api_job_logs_handler() route handler in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T029 [US3] Register /api/jobs/{job_id}/logs route in setup_ui_routes() in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T030 [US3] Add logs section with scrollable container to job_detail.html in src/video_policy_orchestrator/server/ui/templates/sections/job_detail.html
-- [ ] T031 [US3] Add CSS styles for logs container (monospace, scrollable, max-height) in src/video_policy_orchestrator/server/ui/static/css/styles.css
-- [ ] T032 [US3] Implement logs fetching and display in job_detail.js in src/video_policy_orchestrator/server/ui/static/js/job_detail.js
-- [ ] T033 [US3] Implement "Load More" pagination for large logs in job_detail.js in src/video_policy_orchestrator/server/ui/static/js/job_detail.js
-- [ ] T034 [US3] Handle missing logs gracefully (show "No logs available") in job_detail.js in src/video_policy_orchestrator/server/ui/static/js/job_detail.js
+- [ ] T028 [US3] Add api_job_logs_handler() route handler in src/vpo/server/ui/routes.py
+- [ ] T029 [US3] Register /api/jobs/{job_id}/logs route in setup_ui_routes() in src/vpo/server/ui/routes.py
+- [ ] T030 [US3] Add logs section with scrollable container to job_detail.html in src/vpo/server/ui/templates/sections/job_detail.html
+- [ ] T031 [US3] Add CSS styles for logs container (monospace, scrollable, max-height) in src/vpo/server/ui/static/css/styles.css
+- [ ] T032 [US3] Implement logs fetching and display in job_detail.js in src/vpo/server/ui/static/js/job_detail.js
+- [ ] T033 [US3] Implement "Load More" pagination for large logs in job_detail.js in src/vpo/server/ui/static/js/job_detail.js
+- [ ] T034 [US3] Handle missing logs gracefully (show "No logs available") in job_detail.js in src/vpo/server/ui/static/js/job_detail.js
 
 **Checkpoint**: User Story 3 complete - logs display with lazy loading support
 
@@ -119,9 +119,9 @@
 
 ### Implementation for User Story 4
 
-- [ ] T035 [US4] Add back navigation link to job_detail.html template in src/video_policy_orchestrator/server/ui/templates/sections/job_detail.html
-- [ ] T036 [US4] Implement filter state preservation (read referer or URL params) in job_detail_handler() in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T037 [US4] Style back navigation button/link in src/video_policy_orchestrator/server/ui/static/css/styles.css
+- [ ] T035 [US4] Add back navigation link to job_detail.html template in src/vpo/server/ui/templates/sections/job_detail.html
+- [ ] T036 [US4] Implement filter state preservation (read referer or URL params) in job_detail_handler() in src/vpo/server/ui/routes.py
+- [ ] T037 [US4] Style back navigation button/link in src/vpo/server/ui/static/css/styles.css
 
 **Checkpoint**: User Story 4 complete - navigation back to list preserves filter state
 
@@ -131,8 +131,8 @@
 
 **Purpose**: Error handling, edge cases, and final polish
 
-- [ ] T038 [P] Add 404 error page for job not found in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T039 [P] Add UUID format validation for job_id parameter in src/video_policy_orchestrator/server/ui/routes.py
+- [ ] T038 [P] Add 404 error page for job not found in src/vpo/server/ui/routes.py
+- [ ] T039 [P] Add UUID format validation for job_id parameter in src/vpo/server/ui/routes.py
 - [ ] T040 [P] Handle long file paths (truncation with tooltip) in job_detail.html and CSS
 - [ ] T041 [P] Handle null/empty fields (display "—" placeholder) in job_detail.html template
 - [ ] T042 [P] Handle long error messages (word-wrap, scrollable) in CSS styles
@@ -177,10 +177,10 @@
 
 ```bash
 # Launch all parallel foundational tasks together:
-Task: "Create log file utilities module in src/video_policy_orchestrator/jobs/logs.py"
-Task: "Add JobDetailItem dataclass to src/video_policy_orchestrator/server/ui/models.py"
-Task: "Add JobLogsResponse dataclass to src/video_policy_orchestrator/server/ui/models.py"
-Task: "Add JobDetailContext dataclass to src/video_policy_orchestrator/server/ui/models.py"
+Task: "Create log file utilities module in src/vpo/jobs/logs.py"
+Task: "Add JobDetailItem dataclass to src/vpo/server/ui/models.py"
+Task: "Add JobLogsResponse dataclass to src/vpo/server/ui/models.py"
+Task: "Add JobDetailContext dataclass to src/vpo/server/ui/models.py"
 ```
 
 ---

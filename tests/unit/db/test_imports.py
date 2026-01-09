@@ -8,11 +8,11 @@ Verifies that all imports work from:
 
 
 class TestPackageImports:
-    """Test imports from video_policy_orchestrator.db package."""
+    """Test imports from vpo.db package."""
 
     def test_enum_imports(self):
         """Test enum imports from package."""
-        from video_policy_orchestrator.db import (
+        from vpo.db import (
             JobStatus,
             JobType,
             OperationStatus,
@@ -28,7 +28,7 @@ class TestPackageImports:
 
     def test_domain_model_imports(self):
         """Test domain model imports from package."""
-        from video_policy_orchestrator.db import (
+        from vpo.db import (
             FileInfo,
             IntrospectionResult,
             TrackInfo,
@@ -41,7 +41,7 @@ class TestPackageImports:
 
     def test_record_imports(self):
         """Test database record imports from package."""
-        from video_policy_orchestrator.db import (
+        from vpo.db import (
             FileRecord,
             Job,
             LanguageAnalysisResultRecord,
@@ -66,7 +66,7 @@ class TestPackageImports:
 
     def test_view_model_imports(self):
         """Test view model imports from package."""
-        from video_policy_orchestrator.db import (
+        from vpo.db import (
             FileListViewItem,
             LanguageOption,
             TranscriptionDetailView,
@@ -81,7 +81,7 @@ class TestPackageImports:
 
     def test_file_operation_imports(self):
         """Test file operation imports from package."""
-        from video_policy_orchestrator.db import (
+        from vpo.db import (
             delete_file,
             get_file_by_id,
             get_file_by_path,
@@ -98,7 +98,7 @@ class TestPackageImports:
 
     def test_track_operation_imports(self):
         """Test track operation imports from package."""
-        from video_policy_orchestrator.db import (
+        from vpo.db import (
             delete_tracks_for_file,
             get_tracks_for_file,
             insert_track,
@@ -113,7 +113,7 @@ class TestPackageImports:
 
     def test_job_operation_imports(self):
         """Test job operation imports from package."""
-        from video_policy_orchestrator.db import (
+        from vpo.db import (
             delete_job,
             delete_old_jobs,
             get_all_jobs,
@@ -146,7 +146,7 @@ class TestPackageImports:
 
     def test_view_query_imports(self):
         """Test view query function imports from package."""
-        from video_policy_orchestrator.db import (
+        from vpo.db import (
             get_distinct_audio_languages,
             get_distinct_audio_languages_typed,
             get_files_filtered,
@@ -173,7 +173,7 @@ class TestModelsShimImports:
 
     def test_enum_imports_from_models(self):
         """Test enum imports from models module."""
-        from video_policy_orchestrator.db.models import (
+        from vpo.db.models import (
             JobStatus,
             JobType,
             OperationStatus,
@@ -189,7 +189,7 @@ class TestModelsShimImports:
 
     def test_record_imports_from_models(self):
         """Test database record imports from models module."""
-        from video_policy_orchestrator.db.models import (
+        from vpo.db.models import (
             FileRecord,
             Job,
             TrackRecord,
@@ -201,7 +201,7 @@ class TestModelsShimImports:
 
     def test_function_imports_from_models(self):
         """Test function imports from models module."""
-        from video_policy_orchestrator.db.models import (
+        from vpo.db.models import (
             get_file_by_path,
             get_files_filtered,
             get_tracks_for_file,
@@ -221,7 +221,7 @@ class TestSubmoduleImports:
 
     def test_types_module_imports(self):
         """Test imports from types.py submodule."""
-        from video_policy_orchestrator.db.types import (
+        from vpo.db.types import (
             FileListViewItem,
             FileRecord,
             JobStatus,
@@ -239,7 +239,7 @@ class TestSubmoduleImports:
 
     def test_queries_module_imports(self):
         """Test imports from queries.py submodule."""
-        from video_policy_orchestrator.db.queries import (
+        from vpo.db.queries import (
             get_file_by_id,
             get_file_by_path,
             get_job,
@@ -259,7 +259,7 @@ class TestSubmoduleImports:
 
     def test_views_module_imports(self):
         """Test imports from views.py submodule."""
-        from video_policy_orchestrator.db.views import (
+        from vpo.db.views import (
             get_distinct_audio_languages,
             get_distinct_audio_languages_typed,
             get_files_filtered,
@@ -285,29 +285,29 @@ class TestImportEquivalence:
 
     def test_filerecord_is_same_class(self):
         """FileRecord should be the same class from all import paths."""
-        from video_policy_orchestrator.db import FileRecord as FR1
-        from video_policy_orchestrator.db.models import FileRecord as FR2
-        from video_policy_orchestrator.db.types import FileRecord as FR3
+        from vpo.db import FileRecord as FR1
+        from vpo.db.models import FileRecord as FR2
+        from vpo.db.types import FileRecord as FR3
 
         assert FR1 is FR2
         assert FR2 is FR3
 
     def test_get_file_by_path_is_same_function(self):
         """get_file_by_path should be the same function from all import paths."""
-        from video_policy_orchestrator.db import get_file_by_path as gfbp1
-        from video_policy_orchestrator.db.models import get_file_by_path as gfbp2
-        from video_policy_orchestrator.db.queries import get_file_by_path as gfbp3
+        from vpo.db import get_file_by_path as gfbp1
+        from vpo.db.models import get_file_by_path as gfbp2
+        from vpo.db.queries import get_file_by_path as gfbp3
 
         assert gfbp1 is gfbp2
         assert gfbp2 is gfbp3
 
     def test_get_files_filtered_typed_is_same_function(self):
         """get_files_filtered_typed should be the same from all import paths."""
-        from video_policy_orchestrator.db import get_files_filtered_typed as gfft1
-        from video_policy_orchestrator.db.models import (
+        from vpo.db import get_files_filtered_typed as gfft1
+        from vpo.db.models import (
             get_files_filtered_typed as gfft2,
         )
-        from video_policy_orchestrator.db.views import get_files_filtered_typed as gfft3
+        from vpo.db.views import get_files_filtered_typed as gfft3
 
         assert gfft1 is gfft2
         assert gfft2 is gfft3

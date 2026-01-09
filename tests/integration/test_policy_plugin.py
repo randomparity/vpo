@@ -10,9 +10,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from video_policy_orchestrator.db.models import TrackInfo
-from video_policy_orchestrator.executor.interface import ExecutorResult
-from video_policy_orchestrator.plugin.events import (
+from vpo.db.models import TrackInfo
+from vpo.executor.interface import ExecutorResult
+from vpo.plugin.events import (
     PLAN_AFTER_EXECUTE,
     PLAN_BEFORE_EXECUTE,
     POLICY_AFTER_EVALUATE,
@@ -20,12 +20,12 @@ from video_policy_orchestrator.plugin.events import (
     PlanExecuteEvent,
     PolicyEvaluateEvent,
 )
-from video_policy_orchestrator.plugin.registry import PluginRegistry
-from video_policy_orchestrator.plugins.policy_engine import (
+from vpo.plugin.registry import PluginRegistry
+from vpo.plugins.policy_engine import (
     PolicyEnginePlugin,
     plugin_instance,
 )
-from video_policy_orchestrator.policy.models import (
+from vpo.policy.models import (
     ActionType,
     DefaultFlagsConfig,
     PolicySchema,
@@ -315,10 +315,8 @@ class TestPolicyEngineExecutionIntegration:
         assert result.success is True
         assert "No changes" in result.message
 
-    @patch(
-        "video_policy_orchestrator.plugins.policy_engine.plugin.check_tool_availability"
-    )
-    @patch("video_policy_orchestrator.plugins.policy_engine.plugin.MkvpropeditExecutor")
+    @patch("vpo.plugins.policy_engine.plugin.check_tool_availability")
+    @patch("vpo.plugins.policy_engine.plugin.MkvpropeditExecutor")
     def test_execute_mkv_plan_uses_mkvpropedit(
         self,
         mock_executor_class: MagicMock,
@@ -354,9 +352,7 @@ class TestPolicyEngineExecutionIntegration:
         mock_executor_class.assert_called_once()
         mock_executor.execute.assert_called_once()
 
-    @patch(
-        "video_policy_orchestrator.plugins.policy_engine.plugin.check_tool_availability"
-    )
+    @patch("vpo.plugins.policy_engine.plugin.check_tool_availability")
     def test_execute_missing_tool_fails_gracefully(
         self,
         mock_tools: MagicMock,
@@ -541,7 +537,7 @@ class TestPolicyEngineBackwardsCompatibility:
         tmp_path: Path,
     ):
         """Plugin evaluate should produce same results as direct evaluator."""
-        from video_policy_orchestrator.policy.evaluator import evaluate_policy
+        from vpo.policy.evaluator import evaluate_policy
 
         file_path = tmp_path / "test.mkv"
 

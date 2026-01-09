@@ -1,6 +1,6 @@
 # CLI Contract: vpo jobs
 
-**Module**: `video_policy_orchestrator.cli.jobs`
+**Module**: `vpo.cli.jobs`
 **Parent Command**: `vpo`
 
 ## Command Group: jobs

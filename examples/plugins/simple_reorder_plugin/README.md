@@ -74,7 +74,7 @@ Use this plugin as a template:
 This plugin implements the `AnalyzerPlugin` protocol:
 
 ```python
-from video_policy_orchestrator.plugin_sdk import BaseAnalyzerPlugin
+from vpo.plugin_sdk import BaseAnalyzerPlugin
 
 class SimpleReorderPlugin(BaseAnalyzerPlugin):
     name = "simple-reorder"
@@ -94,7 +94,7 @@ class SimpleReorderPlugin(BaseAnalyzerPlugin):
 pytest tests/
 
 # Or use the VPO SDK test utilities
-from video_policy_orchestrator.plugin_sdk.testing import PluginTestCase
+from vpo.plugin_sdk.testing import PluginTestCase
 ```
 
 ## License

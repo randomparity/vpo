@@ -149,7 +149,7 @@ This guide covers implementation of parallel file processing for the `vpo proces
 
 2. **Switch to DaemonConnectionPool**
    ```python
-   from video_policy_orchestrator.db.connection import DaemonConnectionPool
+   from vpo.db.connection import DaemonConnectionPool
 
    pool = DaemonConnectionPool(db_path)
    try:

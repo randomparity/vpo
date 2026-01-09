@@ -64,7 +64,7 @@ specs/017-live-job-polling/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── server/
 │   ├── static/
 │   │   └── js/

@@ -18,8 +18,8 @@
 **Purpose**: Add new dependencies and create module structure
 
 - [X] T001 Add PyYAML and pydantic dependencies to pyproject.toml
-- [X] T002 [P] Create policy module structure: `src/video_policy_orchestrator/policy/__init__.py`
-- [X] T003 [P] Create executor module structure: `src/video_policy_orchestrator/executor/__init__.py`
+- [X] T002 [P] Create policy module structure: `src/vpo/policy/__init__.py`
+- [X] T003 [P] Create executor module structure: `src/vpo/executor/__init__.py`
 - [X] T004 [P] Create policy test fixtures directory: `tests/fixtures/policies/`
 
 ---

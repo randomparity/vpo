@@ -13,14 +13,14 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from video_policy_orchestrator.executor.mkvmerge import MkvmergeExecutor
-from video_policy_orchestrator.policy.models import (
+from vpo.executor.mkvmerge import MkvmergeExecutor
+from vpo.policy.models import (
     Plan,
     TrackDisposition,
 )
 
 if TYPE_CHECKING:
-    from video_policy_orchestrator.introspector.ffprobe import FFprobeIntrospector
+    from vpo.introspector.ffprobe import FFprobeIntrospector
 
 from .conftest import get_audio_tracks, get_subtitle_tracks
 

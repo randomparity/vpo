@@ -9,8 +9,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
-from video_policy_orchestrator.cli import main
-from video_policy_orchestrator.cli.analyze_language import (
+from vpo.cli import main
+from vpo.cli.analyze_language import (
     AnalysisRunResult,
     _check_plugin_available,
     _resolve_files_from_paths,
@@ -32,7 +32,7 @@ def mock_conn():
 @pytest.fixture
 def mock_file_record():
     """Create a mock FileRecord for testing."""
-    from video_policy_orchestrator.db import FileRecord
+    from vpo.db import FileRecord
 
     return FileRecord(
         id=1,
@@ -53,7 +53,7 @@ def mock_file_record():
 @pytest.fixture
 def mock_track_record():
     """Create a mock TrackRecord for testing."""
-    from video_policy_orchestrator.db import TrackRecord
+    from vpo.db import TrackRecord
 
     return TrackRecord(
         id=1,
@@ -96,7 +96,7 @@ class TestRunCommand:
         assert "--recursive" in result.output
         assert "--json" in result.output
 
-    @patch("video_policy_orchestrator.cli.analyze_language._check_plugin_available")
+    @patch("vpo.cli.analyze_language._check_plugin_available")
     def test_run_no_plugin(self, mock_plugin, runner, mock_conn, tmp_path):
         """Test error when transcription plugin not available."""
         mock_plugin.return_value = False
@@ -112,8 +112,8 @@ class TestRunCommand:
         assert result.exit_code == 1
         assert "Whisper transcription plugin not installed" in result.output
 
-    @patch("video_policy_orchestrator.cli.analyze_language._check_plugin_available")
-    @patch("video_policy_orchestrator.cli.analyze_language._resolve_files_from_paths")
+    @patch("vpo.cli.analyze_language._check_plugin_available")
+    @patch("vpo.cli.analyze_language._resolve_files_from_paths")
     def test_run_no_files_found(
         self, mock_resolve, mock_plugin, runner, mock_conn, tmp_path
     ):
@@ -132,9 +132,9 @@ class TestRunCommand:
         assert result.exit_code == 2
         assert "No valid files found" in result.output
 
-    @patch("video_policy_orchestrator.cli.analyze_language._check_plugin_available")
-    @patch("video_policy_orchestrator.cli.analyze_language._resolve_files_from_paths")
-    @patch("video_policy_orchestrator.cli.analyze_language._run_analysis_for_file")
+    @patch("vpo.cli.analyze_language._check_plugin_available")
+    @patch("vpo.cli.analyze_language._resolve_files_from_paths")
+    @patch("vpo.cli.analyze_language._run_analysis_for_file")
     def test_run_success_json(
         self,
         mock_run,
@@ -185,10 +185,10 @@ class TestStatusCommand:
         assert "--json" in result.output
         assert "--limit" in result.output
 
-    @patch("video_policy_orchestrator.db.views.get_analysis_status_summary")
+    @patch("vpo.db.views.get_analysis_status_summary")
     def test_status_summary_json(self, mock_summary, runner, mock_conn):
         """Test status summary with JSON output."""
-        from video_policy_orchestrator.db.types import AnalysisStatusSummary
+        from vpo.db.types import AnalysisStatusSummary
 
         mock_summary.return_value = AnalysisStatusSummary(
             total_files=100,
@@ -211,10 +211,10 @@ class TestStatusCommand:
         assert data["analyzed_tracks"] == 150
         assert data["multi_language_count"] == 10
 
-    @patch("video_policy_orchestrator.db.views.get_analysis_status_summary")
+    @patch("vpo.db.views.get_analysis_status_summary")
     def test_status_summary_table(self, mock_summary, runner, mock_conn):
         """Test status summary with table output."""
-        from video_policy_orchestrator.db.types import AnalysisStatusSummary
+        from vpo.db.types import AnalysisStatusSummary
 
         mock_summary.return_value = AnalysisStatusSummary(
             total_files=100,
@@ -262,7 +262,7 @@ class TestClearCommand:
         assert result.exit_code == 2
         assert "Specify a PATH or use --all" in result.output
 
-    @patch("video_policy_orchestrator.cli.analyze_language._count_affected_results")
+    @patch("vpo.cli.analyze_language._count_affected_results")
     def test_clear_dry_run(self, mock_count, runner, mock_conn):
         """Test dry-run output."""
         mock_count.return_value = (10, 25)
@@ -278,7 +278,7 @@ class TestClearCommand:
         assert "10" in result.output
         assert "25" in result.output
 
-    @patch("video_policy_orchestrator.cli.analyze_language._count_affected_results")
+    @patch("vpo.cli.analyze_language._count_affected_results")
     def test_clear_dry_run_json(self, mock_count, runner, mock_conn):
         """Test dry-run with JSON output."""
         mock_count.return_value = (10, 25)
@@ -295,7 +295,7 @@ class TestClearCommand:
         assert data["files_affected"] == 10
         assert data["tracks_cleared"] == 25
 
-    @patch("video_policy_orchestrator.cli.analyze_language._count_affected_results")
+    @patch("vpo.cli.analyze_language._count_affected_results")
     def test_clear_nothing_to_clear(self, mock_count, runner, mock_conn):
         """Test when there's nothing to clear."""
         mock_count.return_value = (0, 0)
@@ -309,8 +309,8 @@ class TestClearCommand:
         assert result.exit_code == 0
         assert "No analysis results to clear" in result.output
 
-    @patch("video_policy_orchestrator.cli.analyze_language._count_affected_results")
-    @patch("video_policy_orchestrator.db.queries.delete_all_analysis")
+    @patch("vpo.cli.analyze_language._count_affected_results")
+    @patch("vpo.db.queries.delete_all_analysis")
     def test_clear_all_confirmed(self, mock_delete, mock_count, runner, mock_conn):
         """Test clear all with confirmation."""
         mock_count.return_value = (10, 25)
@@ -333,7 +333,7 @@ class TestHelperFunctions:
     def test_check_plugin_available_no_registry(self):
         """Test plugin check when registry not available."""
         with patch(
-            "video_policy_orchestrator.cli.analyze_language.get_default_registry",
+            "vpo.cli.analyze_language.get_default_registry",
             side_effect=ImportError,
         ):
             assert _check_plugin_available() is False
@@ -344,11 +344,9 @@ class TestHelperFunctions:
         mock_coordinator = MagicMock()
         mock_coordinator.is_available.return_value = False
         with (
+            patch("vpo.cli.analyze_language.get_default_registry") as mock_get_registry,
             patch(
-                "video_policy_orchestrator.cli.analyze_language.get_default_registry"
-            ) as mock_get_registry,
-            patch(
-                "video_policy_orchestrator.transcription.coordinator.TranscriptionCoordinator"
+                "vpo.transcription.coordinator.TranscriptionCoordinator"
             ) as mock_coord_class,
         ):
             mock_get_registry.return_value = mock_registry
@@ -361,11 +359,9 @@ class TestHelperFunctions:
         mock_coordinator = MagicMock()
         mock_coordinator.is_available.return_value = True
         with (
+            patch("vpo.cli.analyze_language.get_default_registry") as mock_get_registry,
             patch(
-                "video_policy_orchestrator.cli.analyze_language.get_default_registry"
-            ) as mock_get_registry,
-            patch(
-                "video_policy_orchestrator.transcription.coordinator.TranscriptionCoordinator"
+                "vpo.transcription.coordinator.TranscriptionCoordinator"
             ) as mock_coord_class,
         ):
             mock_get_registry.return_value = mock_registry
@@ -377,9 +373,7 @@ class TestHelperFunctions:
         test_file = tmp_path / "test.mkv"
         test_file.touch()
 
-        with patch(
-            "video_policy_orchestrator.cli.analyze_language.get_file_by_path"
-        ) as mock_get:
+        with patch("vpo.cli.analyze_language.get_file_by_path") as mock_get:
             mock_get.return_value = mock_file_record
             files, not_found = _resolve_files_from_paths(
                 mock_conn, (str(test_file),), recursive=False
@@ -394,9 +388,7 @@ class TestHelperFunctions:
         test_file = tmp_path / "test.mkv"
         test_file.touch()
 
-        with patch(
-            "video_policy_orchestrator.cli.analyze_language.get_file_by_path"
-        ) as mock_get:
+        with patch("vpo.cli.analyze_language.get_file_by_path") as mock_get:
             mock_get.return_value = None
             files, not_found = _resolve_files_from_paths(
                 mock_conn, (str(test_file),), recursive=False

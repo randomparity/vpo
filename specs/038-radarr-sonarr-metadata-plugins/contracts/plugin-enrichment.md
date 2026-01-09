@@ -109,7 +109,7 @@ The plugin MUST normalize language names to ISO 639-2/B codes:
 | "Russian" | "rus" |
 | (unknown) | null |
 
-Use `video_policy_orchestrator.language.normalize_language()` for conversion.
+Use `vpo.language.normalize_language()` for conversion.
 
 ## Error Handling Contract
 

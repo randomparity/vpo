@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from video_policy_orchestrator.tools.ffmpeg_adapter import (
+from vpo.tools.ffmpeg_adapter import (
     FFmpegAdapter,
     FFmpegCapabilityError,
     FFmpegError,
@@ -14,7 +14,7 @@ from video_policy_orchestrator.tools.ffmpeg_adapter import (
     get_ffmpeg_adapter,
     reset_ffmpeg_adapter,
 )
-from video_policy_orchestrator.tools.models import (
+from vpo.tools.models import (
     FFmpegCapabilities,
     FFmpegInfo,
     FFprobeInfo,
@@ -270,9 +270,7 @@ class TestModuleFunctions:
         """get_ffmpeg_adapter returns cached instance."""
         reset_ffmpeg_adapter()
 
-        with patch(
-            "video_policy_orchestrator.tools.cache.get_tool_registry"
-        ) as mock_get:
+        with patch("vpo.tools.cache.get_tool_registry") as mock_get:
             ffmpeg = FFmpegInfo()
             ffmpeg.status = ToolStatus.AVAILABLE
             ffmpeg.path = Path("/usr/bin/ffmpeg")
@@ -292,9 +290,7 @@ class TestModuleFunctions:
         """reset_ffmpeg_adapter clears the cache."""
         reset_ffmpeg_adapter()
 
-        with patch(
-            "video_policy_orchestrator.tools.cache.get_tool_registry"
-        ) as mock_get:
+        with patch("vpo.tools.cache.get_tool_registry") as mock_get:
             ffmpeg = FFmpegInfo()
             ffmpeg.status = ToolStatus.AVAILABLE
             ffmpeg.path = Path("/usr/bin/ffmpeg")

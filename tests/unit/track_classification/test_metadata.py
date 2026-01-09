@@ -2,8 +2,8 @@
 
 import pytest
 
-from video_policy_orchestrator.db.types import DetectionMethod, FileRecord, TrackRecord
-from video_policy_orchestrator.track_classification.metadata import (
+from vpo.db.types import DetectionMethod, FileRecord, TrackRecord
+from vpo.track_classification.metadata import (
     determine_original_track,
     get_original_language_from_metadata,
 )

@@ -16,9 +16,9 @@
 ## Path Conventions
 
 Based on plan.md structure:
-- **Source**: `src/video_policy_orchestrator/`
+- **Source**: `src/vpo/`
 - **Tests**: `tests/`
-- **Templates**: `src/video_policy_orchestrator/server/ui/templates/`
+- **Templates**: `src/vpo/server/ui/templates/`
 
 ---
 
@@ -36,15 +36,15 @@ Based on plan.md structure:
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T001 Add `get_file_by_id()` function in src/video_policy_orchestrator/db/models.py
-- [X] T002 Add `get_transcriptions_for_tracks()` function in src/video_policy_orchestrator/db/models.py
-- [X] T003 [P] Add `TrackDetailItem` dataclass in src/video_policy_orchestrator/server/ui/models.py
-- [X] T004 [P] Add `TrackTranscriptionInfo` dataclass in src/video_policy_orchestrator/server/ui/models.py
-- [X] T005 [P] Add `FileDetailItem` dataclass in src/video_policy_orchestrator/server/ui/models.py
-- [X] T006 [P] Add `FileDetailResponse` dataclass in src/video_policy_orchestrator/server/ui/models.py
-- [X] T007 [P] Add `FileDetailContext` dataclass in src/video_policy_orchestrator/server/ui/models.py
-- [X] T008 [P] Add `format_file_size()` helper function in src/video_policy_orchestrator/server/ui/models.py
-- [X] T009 Add `group_tracks_by_type()` helper function in src/video_policy_orchestrator/server/ui/models.py
+- [X] T001 Add `get_file_by_id()` function in src/vpo/db/models.py
+- [X] T002 Add `get_transcriptions_for_tracks()` function in src/vpo/db/models.py
+- [X] T003 [P] Add `TrackDetailItem` dataclass in src/vpo/server/ui/models.py
+- [X] T004 [P] Add `TrackTranscriptionInfo` dataclass in src/vpo/server/ui/models.py
+- [X] T005 [P] Add `FileDetailItem` dataclass in src/vpo/server/ui/models.py
+- [X] T006 [P] Add `FileDetailResponse` dataclass in src/vpo/server/ui/models.py
+- [X] T007 [P] Add `FileDetailContext` dataclass in src/vpo/server/ui/models.py
+- [X] T008 [P] Add `format_file_size()` helper function in src/vpo/server/ui/models.py
+- [X] T009 Add `group_tracks_by_type()` helper function in src/vpo/server/ui/models.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -58,12 +58,12 @@ Based on plan.md structure:
 
 ### Implementation for User Story 1
 
-- [X] T010 [US1] Create `file_detail.html` template in src/video_policy_orchestrator/server/ui/templates/sections/file_detail.html
-- [X] T011 [US1] Implement `file_detail_handler()` HTML route handler in src/video_policy_orchestrator/server/ui/routes.py
-- [X] T012 [US1] Implement `api_file_detail_handler()` JSON API handler in src/video_policy_orchestrator/server/ui/routes.py
-- [X] T013 [US1] Register `/library/{file_id}` and `/api/library/{file_id}` routes in `setup_ui_routes()` in src/video_policy_orchestrator/server/ui/routes.py
-- [X] T014 [US1] Update library.html template to make file rows clickable in src/video_policy_orchestrator/server/ui/templates/sections/library.html
-- [X] T015 [US1] Add JavaScript row click handler in src/video_policy_orchestrator/server/static/js/library.js
+- [X] T010 [US1] Create `file_detail.html` template in src/vpo/server/ui/templates/sections/file_detail.html
+- [X] T011 [US1] Implement `file_detail_handler()` HTML route handler in src/vpo/server/ui/routes.py
+- [X] T012 [US1] Implement `api_file_detail_handler()` JSON API handler in src/vpo/server/ui/routes.py
+- [X] T013 [US1] Register `/library/{file_id}` and `/api/library/{file_id}` routes in `setup_ui_routes()` in src/vpo/server/ui/routes.py
+- [X] T014 [US1] Update library.html template to make file rows clickable in src/vpo/server/ui/templates/sections/library.html
+- [X] T015 [US1] Add JavaScript row click handler in src/vpo/server/static/js/library.js
 
 **Checkpoint**: User Story 1 complete - can navigate from Library to file detail and back
 
@@ -77,11 +77,11 @@ Based on plan.md structure:
 
 ### Implementation for User Story 2
 
-- [X] T016 [US2] Add video track section to file_detail.html template showing codec, resolution, frame rate in src/video_policy_orchestrator/server/ui/templates/sections/file_detail.html
-- [X] T017 [US2] Add audio track section to file_detail.html template showing codec, language, channels, channel_layout, title, flags in src/video_policy_orchestrator/server/ui/templates/sections/file_detail.html
-- [X] T018 [US2] Add subtitle track section to file_detail.html template showing codec, language, title, flags in src/video_policy_orchestrator/server/ui/templates/sections/file_detail.html
-- [X] T019 [US2] Add collapsible section CSS and JavaScript (threshold: 5+ total tracks per FR-013) in src/video_policy_orchestrator/server/static/css/styles.css and src/video_policy_orchestrator/server/static/js/file-detail.js
-- [X] T020 [US2] Add flag badges (default, forced) styling in src/video_policy_orchestrator/server/static/css/styles.css
+- [X] T016 [US2] Add video track section to file_detail.html template showing codec, resolution, frame rate in src/vpo/server/ui/templates/sections/file_detail.html
+- [X] T017 [US2] Add audio track section to file_detail.html template showing codec, language, channels, channel_layout, title, flags in src/vpo/server/ui/templates/sections/file_detail.html
+- [X] T018 [US2] Add subtitle track section to file_detail.html template showing codec, language, title, flags in src/vpo/server/ui/templates/sections/file_detail.html
+- [X] T019 [US2] Add collapsible section CSS and JavaScript (threshold: 5+ total tracks per FR-013) in src/vpo/server/static/css/styles.css and src/vpo/server/static/js/file-detail.js
+- [X] T020 [US2] Add flag badges (default, forced) styling in src/vpo/server/static/css/styles.css
 
 **Checkpoint**: User Story 2 complete - track metadata fully displayed with collapsible sections
 
@@ -95,8 +95,8 @@ Based on plan.md structure:
 
 ### Implementation for User Story 3
 
-- [X] T021 [US3] Add file information section to file_detail.html showing path, filename, container format, size_human, modified_at, scanned_at in src/video_policy_orchestrator/server/ui/templates/sections/file_detail.html
-- [X] T022 [US3] Add scan error display when scan_status is "error" in src/video_policy_orchestrator/server/ui/templates/sections/file_detail.html
+- [X] T021 [US3] Add file information section to file_detail.html showing path, filename, container format, size_human, modified_at, scanned_at in src/vpo/server/ui/templates/sections/file_detail.html
+- [X] T022 [US3] Add scan error display when scan_status is "error" in src/vpo/server/ui/templates/sections/file_detail.html
 
 **Checkpoint**: User Story 3 complete - file metadata fully displayed
 
@@ -110,8 +110,8 @@ Based on plan.md structure:
 
 ### Implementation for User Story 4
 
-- [X] T023 [US4] Add scan job link section to file_detail.html with link to /jobs/{scan_job_id} in src/video_policy_orchestrator/server/ui/templates/sections/file_detail.html
-- [X] T024 [US4] Handle graceful empty state when no job_id exists in src/video_policy_orchestrator/server/ui/templates/sections/file_detail.html
+- [X] T023 [US4] Add scan job link section to file_detail.html with link to /jobs/{scan_job_id} in src/vpo/server/ui/templates/sections/file_detail.html
+- [X] T024 [US4] Handle graceful empty state when no job_id exists in src/vpo/server/ui/templates/sections/file_detail.html
 
 **Checkpoint**: User Story 4 complete - job links functional
 
@@ -125,8 +125,8 @@ Based on plan.md structure:
 
 ### Implementation for User Story 5
 
-- [X] T025 [US5] Add transcription info display to audio track items in file_detail.html showing detected_language, confidence (as percentage), track_type in src/video_policy_orchestrator/server/ui/templates/sections/file_detail.html
-- [X] T026 [US5] Handle empty state when no transcription data exists (hide or show "No transcription data") in src/video_policy_orchestrator/server/ui/templates/sections/file_detail.html
+- [X] T025 [US5] Add transcription info display to audio track items in file_detail.html showing detected_language, confidence (as percentage), track_type in src/vpo/server/ui/templates/sections/file_detail.html
+- [X] T026 [US5] Handle empty state when no transcription data exists (hide or show "No transcription data") in src/vpo/server/ui/templates/sections/file_detail.html
 
 **Checkpoint**: User Story 5 complete - transcription data displayed
 
@@ -136,9 +136,9 @@ Based on plan.md structure:
 
 **Purpose**: Error handling, edge cases, and refinements
 
-- [X] T027 [P] Add 404 error handling for non-existent file IDs in src/video_policy_orchestrator/server/ui/routes.py
-- [X] T028 [P] Add 400 error handling for invalid file ID format in src/video_policy_orchestrator/server/ui/routes.py
-- [X] T029 [P] Add 503 error handling for database unavailability in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T027 [P] Add 404 error handling for non-existent file IDs in src/vpo/server/ui/routes.py
+- [X] T028 [P] Add 400 error handling for invalid file ID format in src/vpo/server/ui/routes.py
+- [X] T029 [P] Add 503 error handling for database unavailability in src/vpo/server/ui/routes.py
 - [ ] T030 Run quickstart.md manual verification steps
 - [X] T031 Run linting and formatting (uv run ruff check . && uv run ruff format .)
 
@@ -186,12 +186,12 @@ Based on plan.md structure:
 
 ```bash
 # Launch all model dataclasses together:
-Task: "Add TrackDetailItem dataclass in src/video_policy_orchestrator/server/ui/models.py"
-Task: "Add TrackTranscriptionInfo dataclass in src/video_policy_orchestrator/server/ui/models.py"
-Task: "Add FileDetailItem dataclass in src/video_policy_orchestrator/server/ui/models.py"
-Task: "Add FileDetailResponse dataclass in src/video_policy_orchestrator/server/ui/models.py"
-Task: "Add FileDetailContext dataclass in src/video_policy_orchestrator/server/ui/models.py"
-Task: "Add format_file_size() helper function in src/video_policy_orchestrator/server/ui/models.py"
+Task: "Add TrackDetailItem dataclass in src/vpo/server/ui/models.py"
+Task: "Add TrackTranscriptionInfo dataclass in src/vpo/server/ui/models.py"
+Task: "Add FileDetailItem dataclass in src/vpo/server/ui/models.py"
+Task: "Add FileDetailResponse dataclass in src/vpo/server/ui/models.py"
+Task: "Add FileDetailContext dataclass in src/vpo/server/ui/models.py"
+Task: "Add format_file_size() helper function in src/vpo/server/ui/models.py"
 ```
 
 ---

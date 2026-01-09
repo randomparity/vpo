@@ -21,10 +21,10 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from video_policy_orchestrator.db.queries import upsert_file
-from video_policy_orchestrator.db.schema import create_schema
-from video_policy_orchestrator.db.types import FileRecord
-from video_policy_orchestrator.policy.models import (
+from vpo.db.queries import upsert_file
+from vpo.db.schema import create_schema
+from vpo.db.types import FileRecord
+from vpo.policy.models import (
     ConditionalRule,
     ExistsCondition,
     GlobalConfig,
@@ -38,10 +38,10 @@ from video_policy_orchestrator.policy.models import (
     TrackFilters,
     WarnAction,
 )
-from video_policy_orchestrator.workflow.phases.executor import V11PhaseExecutor
+from vpo.workflow.phases.executor import V11PhaseExecutor
 
 if TYPE_CHECKING:
-    from video_policy_orchestrator.introspector.ffprobe import FFprobeIntrospector
+    from vpo.introspector.ffprobe import FFprobeIntrospector
 
 
 # Skip entire module if required tools not available
@@ -57,7 +57,7 @@ def introspector(ffprobe_available: bool) -> FFprobeIntrospector:
     if not ffprobe_available:
         pytest.skip("ffprobe not available")
 
-    from video_policy_orchestrator.introspector.ffprobe import FFprobeIntrospector
+    from vpo.introspector.ffprobe import FFprobeIntrospector
 
     return FFprobeIntrospector()
 
@@ -89,7 +89,7 @@ def insert_file_and_tracks(conn, file_path: Path, introspection_result) -> int:
     """
     from datetime import datetime, timezone
 
-    from video_policy_orchestrator.db.queries import upsert_tracks_for_file
+    from vpo.db.queries import upsert_tracks_for_file
 
     now = datetime.now(timezone.utc).isoformat()
 

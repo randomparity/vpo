@@ -123,17 +123,17 @@ This guide provides step-by-step instructions for implementing multi-language au
 
 | Component | File Path |
 |-----------|-----------|
-| Domain models | `src/video_policy_orchestrator/language_analysis/models.py` |
-| Database schema | `src/video_policy_orchestrator/db/schema.py` |
-| Database operations | `src/video_policy_orchestrator/db/models.py` |
-| Plugin protocol | `src/video_policy_orchestrator/transcription/interface.py` |
-| Whisper plugin | `src/video_policy_orchestrator/plugins/whisper_transcriber/plugin.py` |
-| Language service | `src/video_policy_orchestrator/language_analysis/service.py` |
-| Policy models | `src/video_policy_orchestrator/policy/models.py` |
-| Policy loader | `src/video_policy_orchestrator/policy/loader.py` |
-| Condition evaluation | `src/video_policy_orchestrator/policy/conditions.py` |
-| Action execution | `src/video_policy_orchestrator/policy/actions.py` |
-| CLI commands | `src/video_policy_orchestrator/cli/*.py` |
+| Domain models | `src/vpo/language_analysis/models.py` |
+| Database schema | `src/vpo/db/schema.py` |
+| Database operations | `src/vpo/db/models.py` |
+| Plugin protocol | `src/vpo/transcription/interface.py` |
+| Whisper plugin | `src/vpo/plugins/whisper_transcriber/plugin.py` |
+| Language service | `src/vpo/language_analysis/service.py` |
+| Policy models | `src/vpo/policy/models.py` |
+| Policy loader | `src/vpo/policy/loader.py` |
+| Condition evaluation | `src/vpo/policy/conditions.py` |
+| Action execution | `src/vpo/policy/actions.py` |
+| CLI commands | `src/vpo/cli/*.py` |
 
 ---
 

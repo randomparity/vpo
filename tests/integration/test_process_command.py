@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
-from video_policy_orchestrator.cli import main
+from vpo.cli import main
 
 
 @pytest.fixture
@@ -384,14 +384,14 @@ class TestProcessCommandDryRun:
 class TestProcessCommandOnErrorBehavior:
     """Tests for on_error behavior differentiation."""
 
-    @patch("video_policy_orchestrator.cli.process.WorkflowProcessor")
+    @patch("vpo.cli.process.WorkflowProcessor")
     def test_on_error_skip_continues_batch(
         self, mock_processor_cls, temp_video_dir: Path, policy_file_with_fail: Path
     ):
         """Test that on_error=skip allows batch to continue."""
         # Create mock results - first file fails, second succeeds
-        from video_policy_orchestrator.policy.models import ProcessingPhase
-        from video_policy_orchestrator.workflow.processor import FileProcessingResult
+        from vpo.policy.models import ProcessingPhase
+        from vpo.workflow.processor import FileProcessingResult
 
         mock_processor = MagicMock()
         fail_result = MagicMock(spec=FileProcessingResult)
@@ -435,13 +435,13 @@ class TestProcessCommandOnErrorBehavior:
         # Both files should be processed
         assert mock_processor.process_file.call_count == 2
 
-    @patch("video_policy_orchestrator.cli.process.WorkflowProcessor")
+    @patch("vpo.cli.process.WorkflowProcessor")
     def test_on_error_fail_stops_batch(
         self, mock_processor_cls, temp_video_dir: Path, policy_file: Path
     ):
         """Test that on_error=fail stops batch processing."""
-        from video_policy_orchestrator.policy.models import ProcessingPhase
-        from video_policy_orchestrator.workflow.processor import FileProcessingResult
+        from vpo.policy.models import ProcessingPhase
+        from vpo.workflow.processor import FileProcessingResult
 
         mock_processor = MagicMock()
         fail_result = MagicMock(spec=FileProcessingResult)
@@ -479,13 +479,13 @@ class TestProcessCommandOnErrorBehavior:
 class TestProcessCommandWorkflow:
     """Tests for workflow execution."""
 
-    @patch("video_policy_orchestrator.cli.process.WorkflowProcessor")
+    @patch("vpo.cli.process.WorkflowProcessor")
     def test_phases_override(
         self, mock_processor_cls, temp_video_dir: Path, policy_file: Path
     ):
         """Test that --phases overrides policy phases."""
-        from video_policy_orchestrator.policy.models import ProcessingPhase
-        from video_policy_orchestrator.workflow.processor import FileProcessingResult
+        from vpo.policy.models import ProcessingPhase
+        from vpo.workflow.processor import FileProcessingResult
 
         mock_processor = MagicMock()
         mock_result = MagicMock(spec=FileProcessingResult)
@@ -525,13 +525,13 @@ class TestProcessCommandWorkflow:
 class TestProcessCommandSummary:
     """Tests for summary output."""
 
-    @patch("video_policy_orchestrator.cli.process.WorkflowProcessor")
+    @patch("vpo.cli.process.WorkflowProcessor")
     def test_summary_counts(
         self, mock_processor_cls, temp_video_dir: Path, policy_file: Path
     ):
         """Test that summary shows correct counts."""
-        from video_policy_orchestrator.policy.models import ProcessingPhase
-        from video_policy_orchestrator.workflow.processor import FileProcessingResult
+        from vpo.policy.models import ProcessingPhase
+        from vpo.workflow.processor import FileProcessingResult
 
         mock_processor = MagicMock()
 

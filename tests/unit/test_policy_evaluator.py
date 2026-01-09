@@ -5,16 +5,16 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.db.models import TrackInfo
-from video_policy_orchestrator.policy.evaluator import (
+from vpo.db.models import TrackInfo
+from vpo.policy.evaluator import (
     NoTracksError,
     classify_track,
     compute_default_flags,
     compute_desired_order,
     evaluate_policy,
 )
-from video_policy_orchestrator.policy.matchers import CommentaryMatcher
-from video_policy_orchestrator.policy.models import (
+from vpo.policy.matchers import CommentaryMatcher
+from vpo.policy.models import (
     ActionType,
     DefaultFlagsConfig,
     PolicySchema,
@@ -759,11 +759,11 @@ class TestTrackDispositionTranscriptionStatus:
 
     def test_audio_track_with_transcription_shows_status(self):
         """Audio tracks with transcription show type and confidence."""
-        from video_policy_orchestrator.db.types import TranscriptionResultRecord
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.db.types import TranscriptionResultRecord
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
-        from video_policy_orchestrator.policy.models import AudioFilterConfig
+        from vpo.policy.models import AudioFilterConfig
 
         tracks = [
             TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="eng"),
@@ -793,10 +793,10 @@ class TestTrackDispositionTranscriptionStatus:
 
     def test_audio_track_without_transcription_shows_tbd(self):
         """Audio tracks without transcription show 'TBD'."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
-        from video_policy_orchestrator.policy.models import AudioFilterConfig
+        from vpo.policy.models import AudioFilterConfig
 
         tracks = [
             TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="eng"),
@@ -814,10 +814,10 @@ class TestTrackDispositionTranscriptionStatus:
 
     def test_video_track_has_no_transcription_status(self):
         """Video tracks have None for transcription_status."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
-        from video_policy_orchestrator.policy.models import AudioFilterConfig
+        from vpo.policy.models import AudioFilterConfig
 
         tracks = [
             TrackInfo(index=0, track_type="video", codec="hevc"),
@@ -834,10 +834,10 @@ class TestTrackDispositionTranscriptionStatus:
 
     def test_subtitle_track_has_no_transcription_status(self):
         """Subtitle tracks have None for transcription_status."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
-        from video_policy_orchestrator.policy.models import SubtitleFilterConfig
+        from vpo.policy.models import SubtitleFilterConfig
 
         tracks = [
             TrackInfo(index=0, track_type="subtitle", codec="subrip", language="eng"),
@@ -854,11 +854,11 @@ class TestTrackDispositionTranscriptionStatus:
 
     def test_commentary_transcription_status(self):
         """Commentary audio tracks show commentary status."""
-        from video_policy_orchestrator.db.types import TranscriptionResultRecord
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.db.types import TranscriptionResultRecord
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
-        from video_policy_orchestrator.policy.models import AudioFilterConfig
+        from vpo.policy.models import AudioFilterConfig
 
         tracks = [
             TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="eng"),
@@ -910,11 +910,11 @@ class TestTrackDispositionTranscriptionStatus:
 
     def test_transcription_status_preserved_on_fallback(self):
         """Transcription status is preserved when fallback is applied."""
-        from video_policy_orchestrator.db.types import TranscriptionResultRecord
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.db.types import TranscriptionResultRecord
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.models import (
             AudioFilterConfig,
             LanguageFallbackConfig,
         )

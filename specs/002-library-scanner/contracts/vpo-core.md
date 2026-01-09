@@ -5,12 +5,12 @@
 
 ## Overview
 
-The `vpo-core` Rust library provides performance-critical functionality exposed to Python via PyO3 bindings. It is compiled as a native extension and imported as `video_policy_orchestrator._core`.
+The `vpo-core` Rust library provides performance-critical functionality exposed to Python via PyO3 bindings. It is compiled as a native extension and imported as `vpo._core`.
 
 ## Module Structure
 
 ```python
-# video_policy_orchestrator/_core.pyi (type stubs)
+# vpo/_core.pyi (type stubs)
 
 from typing import NamedTuple
 
@@ -200,7 +200,7 @@ Python tests for the Rust extension:
 
 ```python
 import pytest
-from video_policy_orchestrator._core import discover_videos, hash_files, FileHash
+from vpo._core import discover_videos, hash_files, FileHash
 
 class TestDiscoverVideos:
     def test_finds_mkv_files(self, tmp_path):
@@ -292,7 +292,7 @@ class TestHashFiles:
 ## Usage Example
 
 ```python
-from video_policy_orchestrator._core import discover_videos, hash_files
+from vpo._core import discover_videos, hash_files
 
 # Discover all video files
 files = discover_videos(

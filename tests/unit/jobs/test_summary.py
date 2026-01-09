@@ -1,6 +1,6 @@
 """Tests for job summary text generation."""
 
-from video_policy_orchestrator.jobs.summary import generate_summary_text
+from vpo.jobs.summary import generate_summary_text
 
 
 class TestGenerateSummaryText:
@@ -198,14 +198,14 @@ class TestBackwardCompatibility:
     """Test backward compatibility with imports from server.ui.models."""
 
     def test_import_from_jobs_module(self):
-        """Can import from video_policy_orchestrator.jobs."""
-        from video_policy_orchestrator.jobs import generate_summary_text as func
+        """Can import from vpo.jobs."""
+        from vpo.jobs import generate_summary_text as func
 
         assert func is generate_summary_text
 
     def test_import_from_models_module(self):
         """Can import from server.ui.models for backward compatibility."""
-        from video_policy_orchestrator.server.ui.models import (
+        from vpo.server.ui.models import (
             generate_summary_text as func,
         )
 

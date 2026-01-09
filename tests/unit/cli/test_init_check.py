@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 from click.testing import CliRunner
 
-from video_policy_orchestrator.cli import main
+from vpo.cli import main
 
 
 class TestInitializationCheck:
@@ -66,7 +66,7 @@ class TestInitializationCheck:
         # Mock _is_interactive to return True for interactive mode
         with (
             patch.dict(os.environ, {"VPO_DATA_DIR": str(temp_data_dir)}),
-            patch("video_policy_orchestrator.cli._is_interactive", return_value=True),
+            patch("vpo.cli._is_interactive", return_value=True),
         ):
             # Simulate user typing 'n' to decline
             result = runner.invoke(main, ["doctor"], input="n\n")
@@ -79,7 +79,7 @@ class TestInitializationCheck:
         # Mock _is_interactive to return True for interactive mode
         with (
             patch.dict(os.environ, {"VPO_DATA_DIR": str(temp_data_dir)}),
-            patch("video_policy_orchestrator.cli._is_interactive", return_value=True),
+            patch("vpo.cli._is_interactive", return_value=True),
         ):
             # Simulate user typing 'y' to accept
             result = runner.invoke(main, ["doctor"], input="y\n")
@@ -111,9 +111,9 @@ class TestInitializationCheckEdgeCases:
         """Test that tool detection failures during interactive init don't crash."""
         with (
             patch.dict(os.environ, {"VPO_DATA_DIR": str(temp_data_dir)}),
-            patch("video_policy_orchestrator.cli._is_interactive", return_value=True),
+            patch("vpo.cli._is_interactive", return_value=True),
             patch(
-                "video_policy_orchestrator.cli.init.get_tool_registry",
+                "vpo.cli.init.get_tool_registry",
                 side_effect=OSError("Mock cache error"),
             ),
         ):

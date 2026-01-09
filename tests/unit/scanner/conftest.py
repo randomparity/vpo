@@ -10,9 +10,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from video_policy_orchestrator.db.models import FileRecord, upsert_file
-from video_policy_orchestrator.db.types import IntrospectionResult, TrackInfo
-from video_policy_orchestrator.scanner.orchestrator import (
+from vpo.db.models import FileRecord, upsert_file
+from vpo.db.types import IntrospectionResult, TrackInfo
+from vpo.scanner.orchestrator import (
     ScannerOrchestrator,
 )
 
@@ -99,7 +99,7 @@ def seeded_db(db_conn: sqlite3.Connection) -> sqlite3.Connection:
 @pytest.fixture
 def mock_introspector():
     """Create a mock introspector that returns configurable results."""
-    from video_policy_orchestrator.introspector.interface import MediaIntrospector
+    from vpo.introspector.interface import MediaIntrospector
 
     introspector = MagicMock(spec=MediaIntrospector)
     introspector.get_file_info.return_value = IntrospectionResult(
@@ -117,7 +117,7 @@ def mock_introspector():
 @pytest.fixture
 def mock_introspector_error():
     """Create a mock introspector that raises MediaIntrospectionError."""
-    from video_policy_orchestrator.introspector.interface import (
+    from vpo.introspector.interface import (
         MediaIntrospectionError,
         MediaIntrospector,
     )

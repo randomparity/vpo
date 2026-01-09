@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta, timezone
 
-from video_policy_orchestrator.core.datetime_utils import (
+from vpo.core.datetime_utils import (
     TIME_FILTER_DELTAS,
     parse_time_filter,
 )

@@ -5,16 +5,16 @@ from datetime import datetime, timezone
 
 import pytest
 
-from video_policy_orchestrator.db.queries import insert_file, insert_track
-from video_policy_orchestrator.db.schema import create_schema
-from video_policy_orchestrator.db.types import (
+from vpo.db.queries import insert_file, insert_track
+from vpo.db.schema import create_schema
+from vpo.db.types import (
     AnalysisStatusSummary,
     FileAnalysisStatus,
     FileRecord,
     TrackAnalysisDetail,
     TrackRecord,
 )
-from video_policy_orchestrator.db.views import (
+from vpo.db.views import (
     get_analysis_status_summary,
     get_file_analysis_detail,
     get_files_analysis_status,

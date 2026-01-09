@@ -16,9 +16,9 @@
 ## Path Conventions
 
 This feature follows the existing VPO structure:
-- **Source**: `src/video_policy_orchestrator/`
+- **Source**: `src/vpo/`
 - **Tests**: `tests/unit/`, `tests/integration/`
-- **Templates**: `src/video_policy_orchestrator/server/ui/templates/sections/`
+- **Templates**: `src/vpo/server/ui/templates/sections/`
 
 ---
 
@@ -36,10 +36,10 @@ This feature follows the existing VPO structure:
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T001 Add `get_transcription_detail()` query function in `src/video_policy_orchestrator/db/models.py`
-- [X] T002 [P] Add `get_classification_reasoning()` helper function in `src/video_policy_orchestrator/server/ui/models.py`
-- [X] T003 [P] Add `highlight_keywords_in_transcript()` helper function in `src/video_policy_orchestrator/server/ui/models.py`
-- [X] T004 [P] Add `TRANSCRIPT_DISPLAY_LIMIT` constant (10000) in `src/video_policy_orchestrator/server/ui/models.py`
+- [X] T001 Add `get_transcription_detail()` query function in `src/vpo/db/models.py`
+- [X] T002 [P] Add `get_classification_reasoning()` helper function in `src/vpo/server/ui/models.py`
+- [X] T003 [P] Add `highlight_keywords_in_transcript()` helper function in `src/vpo/server/ui/models.py`
+- [X] T004 [P] Add `TRANSCRIPT_DISPLAY_LIMIT` constant (10000) in `src/vpo/server/ui/models.py`
 
 **Checkpoint**: Foundation ready - all helper functions and DB query available for user stories
 
@@ -53,17 +53,17 @@ This feature follows the existing VPO structure:
 
 ### Implementation for User Story 1
 
-- [X] T005 [P] [US1] Add `TranscriptionDetailItem` dataclass in `src/video_policy_orchestrator/server/ui/models.py`
-- [X] T006 [P] [US1] Add `TranscriptionDetailResponse` dataclass in `src/video_policy_orchestrator/server/ui/models.py`
-- [X] T007 [P] [US1] Add `TranscriptionDetailContext` dataclass with `from_transcription_and_request()` in `src/video_policy_orchestrator/server/ui/models.py`
-- [X] T008 [US1] Add `_build_transcription_detail_item()` builder function in `src/video_policy_orchestrator/server/ui/routes.py`
-- [X] T009 [US1] Add `transcription_detail_handler()` HTML route handler in `src/video_policy_orchestrator/server/ui/routes.py`
-- [X] T010 [US1] Add `api_transcription_detail_handler()` JSON API handler in `src/video_policy_orchestrator/server/ui/routes.py`
-- [X] T011 [US1] Register routes `/transcriptions/{transcription_id}` and `/api/transcriptions/{transcription_id}` in `setup_ui_routes()` in `src/video_policy_orchestrator/server/ui/routes.py`
-- [X] T012 [US1] Create `transcription_detail.html` template in `src/video_policy_orchestrator/server/ui/templates/sections/transcription_detail.html`
+- [X] T005 [P] [US1] Add `TranscriptionDetailItem` dataclass in `src/vpo/server/ui/models.py`
+- [X] T006 [P] [US1] Add `TranscriptionDetailResponse` dataclass in `src/vpo/server/ui/models.py`
+- [X] T007 [P] [US1] Add `TranscriptionDetailContext` dataclass with `from_transcription_and_request()` in `src/vpo/server/ui/models.py`
+- [X] T008 [US1] Add `_build_transcription_detail_item()` builder function in `src/vpo/server/ui/routes.py`
+- [X] T009 [US1] Add `transcription_detail_handler()` HTML route handler in `src/vpo/server/ui/routes.py`
+- [X] T010 [US1] Add `api_transcription_detail_handler()` JSON API handler in `src/vpo/server/ui/routes.py`
+- [X] T011 [US1] Register routes `/transcriptions/{transcription_id}` and `/api/transcriptions/{transcription_id}` in `setup_ui_routes()` in `src/vpo/server/ui/routes.py`
+- [X] T012 [US1] Create `transcription_detail.html` template in `src/vpo/server/ui/templates/sections/transcription_detail.html`
 - [X] T013 [US1] Add 404 error handling for invalid transcription IDs in handlers
 - [X] T014 [US1] Add 400 error handling for malformed transcription IDs in handlers
-- [X] T015 [US1] Add low-confidence warning indicator CSS (`.confidence-low` with warning styling) in `src/video_policy_orchestrator/server/static/css/main.css`
+- [X] T015 [US1] Add low-confidence warning indicator CSS (`.confidence-low` with warning styling) in `src/vpo/server/static/css/main.css`
 
 **Checkpoint**: User Story 1 complete - basic detail page displays all transcription data with navigation and low-confidence indicators
 
@@ -77,11 +77,11 @@ This feature follows the existing VPO structure:
 
 ### Implementation for User Story 2
 
-- [X] T016 [US2] Add CSS styles for transcript text display in `src/video_policy_orchestrator/server/static/css/main.css`
-- [X] T017 [US2] Add `.transcript-content` class with `word-break: break-word` and `overflow-wrap: break-word` in `src/video_policy_orchestrator/server/static/css/main.css`
-- [X] T018 [US2] Add `.truncation-notice` class for truncation indicator styling in `src/video_policy_orchestrator/server/static/css/main.css`
-- [X] T019 [US2] Update template to show truncation notice when `transcript_truncated` is true in `src/video_policy_orchestrator/server/ui/templates/sections/transcription_detail.html`
-- [X] T020 [US2] Add empty state message "No transcription text available" in template for null transcript in `src/video_policy_orchestrator/server/ui/templates/sections/transcription_detail.html`
+- [X] T016 [US2] Add CSS styles for transcript text display in `src/vpo/server/static/css/main.css`
+- [X] T017 [US2] Add `.transcript-content` class with `word-break: break-word` and `overflow-wrap: break-word` in `src/vpo/server/static/css/main.css`
+- [X] T018 [US2] Add `.truncation-notice` class for truncation indicator styling in `src/vpo/server/static/css/main.css`
+- [X] T019 [US2] Update template to show truncation notice when `transcript_truncated` is true in `src/vpo/server/ui/templates/sections/transcription_detail.html`
+- [X] T020 [US2] Add empty state message "No transcription text available" in template for null transcript in `src/vpo/server/ui/templates/sections/transcription_detail.html`
 
 **Checkpoint**: User Story 2 complete - long text displays properly with truncation handling
 
@@ -95,10 +95,10 @@ This feature follows the existing VPO structure:
 
 ### Implementation for User Story 3
 
-- [X] T021 [US3] Add `.commentary-match` CSS class for highlighted keywords in `src/video_policy_orchestrator/server/static/css/main.css`
-- [X] T022 [US3] Add commentary reasoning section to template showing `classification_source` and `matched_keywords` in `src/video_policy_orchestrator/server/ui/templates/sections/transcription_detail.html`
-- [X] T023 [US3] Add conditional display for commentary badge in template header in `src/video_policy_orchestrator/server/ui/templates/sections/transcription_detail.html`
-- [X] T024 [US3] Display `transcript_html` with `| safe` filter to render highlighted keywords in `src/video_policy_orchestrator/server/ui/templates/sections/transcription_detail.html`
+- [X] T021 [US3] Add `.commentary-match` CSS class for highlighted keywords in `src/vpo/server/static/css/main.css`
+- [X] T022 [US3] Add commentary reasoning section to template showing `classification_source` and `matched_keywords` in `src/vpo/server/ui/templates/sections/transcription_detail.html`
+- [X] T023 [US3] Add conditional display for commentary badge in template header in `src/vpo/server/ui/templates/sections/transcription_detail.html`
+- [X] T024 [US3] Display `transcript_html` with `| safe` filter to render highlighted keywords in `src/vpo/server/ui/templates/sections/transcription_detail.html`
 
 **Checkpoint**: User Story 3 complete - commentary detection reasoning and highlighting visible
 
@@ -108,9 +108,9 @@ This feature follows the existing VPO structure:
 
 **Purpose**: Integration with existing views and final polish
 
-- [X] T025 [P] Add link from File Detail audio track transcription info to `/transcriptions/{id}` in `src/video_policy_orchestrator/server/ui/templates/sections/file_detail.html`
-- [X] T026 [P] Add link from Transcriptions List to individual transcription detail pages in `src/video_policy_orchestrator/server/ui/templates/sections/transcriptions.html`
-- [X] T027 Update imports in `src/video_policy_orchestrator/server/ui/models.py` exports if needed
+- [X] T025 [P] Add link from File Detail audio track transcription info to `/transcriptions/{id}` in `src/vpo/server/ui/templates/sections/file_detail.html`
+- [X] T026 [P] Add link from Transcriptions List to individual transcription detail pages in `src/vpo/server/ui/templates/sections/transcriptions.html`
+- [X] T027 Update imports in `src/vpo/server/ui/models.py` exports if needed
 - [X] T028 Run linting and formatting (`uv run ruff check . && uv run ruff format .`)
 - [X] T029 Validate feature against quickstart.md test scenarios
 

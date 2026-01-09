@@ -83,19 +83,19 @@ uv run pytest tests/unit/server/ui/test_jobs_routes.py
 uv run pytest tests/integration/server/test_jobs_api.py
 
 # Run with coverage
-uv run pytest --cov=video_policy_orchestrator.server.ui tests/
+uv run pytest --cov=vpo.server.ui tests/
 ```
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `src/video_policy_orchestrator/server/app.py` | Route registration |
-| `src/video_policy_orchestrator/server/ui/routes.py` | Handler implementations |
-| `src/video_policy_orchestrator/server/ui/models.py` | Data models |
-| `src/video_policy_orchestrator/server/ui/templates/sections/jobs.html` | HTML template |
-| `src/video_policy_orchestrator/server/static/js/jobs.js` | Client-side logic |
-| `src/video_policy_orchestrator/server/static/css/main.css` | Styles |
+| `src/vpo/server/app.py` | Route registration |
+| `src/vpo/server/ui/routes.py` | Handler implementations |
+| `src/vpo/server/ui/models.py` | Data models |
+| `src/vpo/server/ui/templates/sections/jobs.html` | HTML template |
+| `src/vpo/server/static/js/jobs.js` | Client-side logic |
+| `src/vpo/server/static/css/main.css` | Styles |
 
 ## Troubleshooting
 

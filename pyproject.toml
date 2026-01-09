@@ -1,5 +1,5 @@
 [project]
-name = "video-policy-orchestrator"
+name = "vpo"
 version = "0.1.0"
 description = "A spec-driven tool for scanning, organizing, and transforming video libraries using user-defined policies and an extensible plugin architecture"
 requires-python = ">=3.10,<3.14"
@@ -62,11 +62,11 @@ dev = [
 ]
 
 [project.scripts]
-vpo = "video_policy_orchestrator.cli:main"
+vpo = "vpo.cli:main"
 
 [project.entry-points."vpo.plugins"]
-radarr-metadata = "video_policy_orchestrator.plugins.radarr_metadata:RadarrMetadataPlugin"
-sonarr-metadata = "video_policy_orchestrator.plugins.sonarr_metadata:SonarrMetadataPlugin"
+radarr-metadata = "vpo.plugins.radarr_metadata:RadarrMetadataPlugin"
+sonarr-metadata = "vpo.plugins.sonarr_metadata:SonarrMetadataPlugin"
 
 [build-system]
 requires = ["maturin>=1.7"]
@@ -74,7 +74,7 @@ build-backend = "maturin"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
-module-name = "video_policy_orchestrator._core"
+module-name = "vpo._core"
 python-source = "src"
 manifest-path = "crates/vpo-core/Cargo.toml"
 
@@ -99,7 +99,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["src/video_policy_orchestrator"]
+source = ["src/vpo"]
 branch = true
 parallel = true
 omit = [
@@ -142,4 +142,4 @@ skips = [
     "B608",
 ]
 # Target only Python files in src/
-targets = ["src/video_policy_orchestrator"]
+targets = ["src/vpo"]

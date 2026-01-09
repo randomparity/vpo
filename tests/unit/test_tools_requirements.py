@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 
-from video_policy_orchestrator.tools.models import (
+from vpo.tools.models import (
     FFmpegCapabilities,
     FFmpegInfo,
     FFprobeInfo,
@@ -11,7 +11,7 @@ from video_policy_orchestrator.tools.models import (
     ToolRegistry,
     ToolStatus,
 )
-from video_policy_orchestrator.tools.requirements import (
+from vpo.tools.requirements import (
     ALL_REQUIREMENTS,
     CAPABILITY_REQUIREMENTS,
     CORE_REQUIREMENTS,

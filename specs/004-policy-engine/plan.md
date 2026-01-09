@@ -63,7 +63,7 @@ specs/004-policy-engine/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── policy/                      # NEW: Policy engine module
 │   ├── __init__.py
 │   ├── loader.py                # Policy file loading and validation

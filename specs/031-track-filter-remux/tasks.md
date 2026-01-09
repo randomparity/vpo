@@ -16,7 +16,7 @@
 ## Path Conventions
 
 Based on plan.md structure:
-- Source: `src/video_policy_orchestrator/`
+- Source: `src/vpo/`
 - Tests: `tests/unit/`, `tests/integration/`
 
 ---
@@ -25,9 +25,9 @@ Based on plan.md structure:
 
 **Purpose**: Project initialization and foundational model additions
 
-- [X] T001 Add custom exceptions InsufficientTracksError and IncompatibleCodecError in src/video_policy_orchestrator/policy/exceptions.py
-- [X] T002 [P] Add MP4_INCOMPATIBLE_CODECS constant set in src/video_policy_orchestrator/policy/models.py
-- [X] T003 [P] Update MAX_SCHEMA_VERSION to 3 in src/video_policy_orchestrator/policy/loader.py
+- [X] T001 Add custom exceptions InsufficientTracksError and IncompatibleCodecError in src/vpo/policy/exceptions.py
+- [X] T002 [P] Add MP4_INCOMPATIBLE_CODECS constant set in src/vpo/policy/models.py
+- [X] T003 [P] Update MAX_SCHEMA_VERSION to 3 in src/vpo/policy/loader.py
 
 ---
 
@@ -37,18 +37,18 @@ Based on plan.md structure:
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T004 Add LanguageFallbackConfig frozen dataclass in src/video_policy_orchestrator/policy/models.py
-- [X] T005 [P] Add AudioFilterConfig frozen dataclass in src/video_policy_orchestrator/policy/models.py
-- [X] T006 [P] Add SubtitleFilterConfig frozen dataclass in src/video_policy_orchestrator/policy/models.py
-- [X] T007 [P] Add AttachmentFilterConfig frozen dataclass in src/video_policy_orchestrator/policy/models.py
-- [X] T008 [P] Add ContainerConfig frozen dataclass in src/video_policy_orchestrator/policy/models.py
-- [X] T009 Add TrackDisposition frozen dataclass in src/video_policy_orchestrator/policy/models.py
-- [X] T010 [P] Add ContainerChange frozen dataclass in src/video_policy_orchestrator/policy/models.py
-- [X] T011 Extend PolicySchema dataclass with v3 fields (audio_filter, subtitle_filter, attachment_filter, container) in src/video_policy_orchestrator/policy/models.py
-- [X] T012 Extend Plan dataclass with track_dispositions, container_change, tracks_removed, tracks_kept fields in src/video_policy_orchestrator/policy/models.py
-- [X] T013 Add Pydantic validation models for v3 fields (AudioFilterModel, SubtitleFilterModel, etc.) in src/video_policy_orchestrator/policy/loader.py
-- [X] T014 Update policy loading to parse v3 fields in _parse_policy_dict() in src/video_policy_orchestrator/policy/loader.py
-- [X] T015 Add v3 field validation (reject v3 fields if schema_version < 3) in src/video_policy_orchestrator/policy/loader.py
+- [X] T004 Add LanguageFallbackConfig frozen dataclass in src/vpo/policy/models.py
+- [X] T005 [P] Add AudioFilterConfig frozen dataclass in src/vpo/policy/models.py
+- [X] T006 [P] Add SubtitleFilterConfig frozen dataclass in src/vpo/policy/models.py
+- [X] T007 [P] Add AttachmentFilterConfig frozen dataclass in src/vpo/policy/models.py
+- [X] T008 [P] Add ContainerConfig frozen dataclass in src/vpo/policy/models.py
+- [X] T009 Add TrackDisposition frozen dataclass in src/vpo/policy/models.py
+- [X] T010 [P] Add ContainerChange frozen dataclass in src/vpo/policy/models.py
+- [X] T011 Extend PolicySchema dataclass with v3 fields (audio_filter, subtitle_filter, attachment_filter, container) in src/vpo/policy/models.py
+- [X] T012 Extend Plan dataclass with track_dispositions, container_change, tracks_removed, tracks_kept fields in src/vpo/policy/models.py
+- [X] T013 Add Pydantic validation models for v3 fields (AudioFilterModel, SubtitleFilterModel, etc.) in src/vpo/policy/loader.py
+- [X] T014 Update policy loading to parse v3 fields in _parse_policy_dict() in src/vpo/policy/loader.py
+- [X] T015 Add v3 field validation (reject v3 fields if schema_version < 3) in src/vpo/policy/loader.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -68,12 +68,12 @@ Based on plan.md structure:
 
 ### Implementation for User Story 1
 
-- [X] T019 [US1] Implement _evaluate_audio_track() helper function in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T020 [US1] Implement compute_track_dispositions() for audio tracks in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T021 [US1] Add audio track minimum validation with InsufficientTracksError in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T022 [US1] Update evaluate_policy() to call compute_track_dispositions() when audio_filter present in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T023 [US1] Extend MkvmergeExecutor with --audio-tracks selection in src/video_policy_orchestrator/executor/mkvmerge.py
-- [X] T024 [US1] Add _build_track_selection_args() method to MkvmergeExecutor in src/video_policy_orchestrator/executor/mkvmerge.py
+- [X] T019 [US1] Implement _evaluate_audio_track() helper function in src/vpo/policy/evaluator.py
+- [X] T020 [US1] Implement compute_track_dispositions() for audio tracks in src/vpo/policy/evaluator.py
+- [X] T021 [US1] Add audio track minimum validation with InsufficientTracksError in src/vpo/policy/evaluator.py
+- [X] T022 [US1] Update evaluate_policy() to call compute_track_dispositions() when audio_filter present in src/vpo/policy/evaluator.py
+- [X] T023 [US1] Extend MkvmergeExecutor with --audio-tracks selection in src/vpo/executor/mkvmerge.py
+- [X] T024 [US1] Add _build_track_selection_args() method to MkvmergeExecutor in src/vpo/executor/mkvmerge.py
 - [X] T025 [US1] Integration test for audio filtering end-to-end in tests/integration/test_track_filtering.py
 
 **Checkpoint**: Audio track filtering fully functional and testable independently
@@ -93,11 +93,11 @@ Based on plan.md structure:
 
 ### Implementation for User Story 2
 
-- [X] T028 [US2] Implement _format_track_dispositions() helper function in src/video_policy_orchestrator/cli/apply.py
-- [X] T029 [US2] Implement _format_container_change() helper function in src/video_policy_orchestrator/cli/apply.py
-- [X] T030 [US2] Update _format_dry_run_output() to include track dispositions in src/video_policy_orchestrator/cli/apply.py
-- [X] T031 [US2] Add summary line with tracks kept/removed count in src/video_policy_orchestrator/cli/apply.py
-- [X] T032 [US2] Implement JSON dry-run output format for --json flag in src/video_policy_orchestrator/cli/apply.py
+- [X] T028 [US2] Implement _format_track_dispositions() helper function in src/vpo/cli/apply.py
+- [X] T029 [US2] Implement _format_container_change() helper function in src/vpo/cli/apply.py
+- [X] T030 [US2] Update _format_dry_run_output() to include track dispositions in src/vpo/cli/apply.py
+- [X] T031 [US2] Add summary line with tracks kept/removed count in src/vpo/cli/apply.py
+- [X] T032 [US2] Implement JSON dry-run output format for --json flag in src/vpo/cli/apply.py
 - [X] T033 [US2] Integration test for dry-run output with track filtering in tests/integration/test_apply_command.py
 
 **Checkpoint**: Dry-run preview fully functional with track disposition details
@@ -117,10 +117,10 @@ Based on plan.md structure:
 
 ### Implementation for User Story 3
 
-- [X] T036 [US3] Implement _evaluate_container_change() function in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T037 [US3] Update evaluate_policy() to compute container_change when container config present in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T038 [US3] Add skip-if-same-format logic (no remux if already MKV) in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T039 [US3] Extend MkvmergeExecutor to handle input files of any format in src/video_policy_orchestrator/executor/mkvmerge.py
+- [X] T036 [US3] Implement _evaluate_container_change() function in src/vpo/policy/evaluator.py
+- [X] T037 [US3] Update evaluate_policy() to compute container_change when container config present in src/vpo/policy/evaluator.py
+- [X] T038 [US3] Add skip-if-same-format logic (no remux if already MKV) in src/vpo/policy/evaluator.py
+- [X] T039 [US3] Extend MkvmergeExecutor to handle input files of any format in src/vpo/executor/mkvmerge.py
 - [X] T040 [US3] Integration test for AVI to MKV conversion in tests/integration/test_container_conversion.py
 
 **Checkpoint**: MKV container conversion fully functional
@@ -141,14 +141,14 @@ Based on plan.md structure:
 
 ### Implementation for User Story 4
 
-- [X] T044 [US4] Implement is_mp4_compatible() function in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T045 [US4] Add MP4 codec compatibility checking to _evaluate_container_change() in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T046 [US4] Implement on_incompatible_codec error mode with IncompatibleCodecError in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T047 [US4] Implement on_incompatible_codec skip mode in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T048 [US4] Create FFmpegRemuxExecutor class in src/video_policy_orchestrator/executor/ffmpeg_remux.py
-- [X] T049 [US4] Implement can_handle() method checking for MP4 target in src/video_policy_orchestrator/executor/ffmpeg_remux.py
-- [X] T050 [US4] Implement execute() method with -c copy and -movflags +faststart in src/video_policy_orchestrator/executor/ffmpeg_remux.py
-- [X] T051 [US4] Add FFmpegRemuxExecutor to executor registry in src/video_policy_orchestrator/executor/__init__.py
+- [X] T044 [US4] Implement is_mp4_compatible() function in src/vpo/policy/evaluator.py
+- [X] T045 [US4] Add MP4 codec compatibility checking to _evaluate_container_change() in src/vpo/policy/evaluator.py
+- [X] T046 [US4] Implement on_incompatible_codec error mode with IncompatibleCodecError in src/vpo/policy/evaluator.py
+- [X] T047 [US4] Implement on_incompatible_codec skip mode in src/vpo/policy/evaluator.py
+- [X] T048 [US4] Create FFmpegRemuxExecutor class in src/vpo/executor/ffmpeg_remux.py
+- [X] T049 [US4] Implement can_handle() method checking for MP4 target in src/vpo/executor/ffmpeg_remux.py
+- [X] T050 [US4] Implement execute() method with -c copy and -movflags +faststart in src/vpo/executor/ffmpeg_remux.py
+- [X] T051 [US4] Add FFmpegRemuxExecutor to executor registry in src/vpo/executor/__init__.py
 - [X] T052 [US4] Integration test for MKV to MP4 conversion in tests/integration/test_container_conversion.py
 - [X] T053 [US4] Integration test for incompatible codec error handling in tests/integration/test_container_conversion.py
 
@@ -172,10 +172,10 @@ Based on plan.md structure:
 
 ### Implementation for User Story 5
 
-- [X] T057 [US5] Implement _evaluate_subtitle_track() helper function in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T058 [US5] Add preserve_forced logic to subtitle evaluation (second pass re-add) in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T059 [US5] Update compute_track_dispositions() to handle subtitle filtering in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T060 [US5] Extend MkvmergeExecutor with --subtitle-tracks selection in src/video_policy_orchestrator/executor/mkvmerge.py
+- [X] T057 [US5] Implement _evaluate_subtitle_track() helper function in src/vpo/policy/evaluator.py
+- [X] T058 [US5] Add preserve_forced logic to subtitle evaluation (second pass re-add) in src/vpo/policy/evaluator.py
+- [X] T059 [US5] Update compute_track_dispositions() to handle subtitle filtering in src/vpo/policy/evaluator.py
+- [X] T060 [US5] Extend MkvmergeExecutor with --subtitle-tracks selection in src/vpo/executor/mkvmerge.py
 - [X] T061 [US5] Integration test for subtitle filtering with forced preservation in tests/integration/test_track_filtering.py
 
 **Checkpoint**: Subtitle track filtering fully functional
@@ -195,11 +195,11 @@ Based on plan.md structure:
 
 ### Implementation for User Story 6
 
-- [X] T064 [US6] Implement _evaluate_attachment_track() helper function in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T065 [US6] Implement _detect_styled_subtitles() helper to find ASS/SSA tracks in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T066 [US6] Add font removal warning when styled subtitles detected in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T067 [US6] Update compute_track_dispositions() to handle attachment filtering in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T068 [US6] Extend MkvmergeExecutor with --no-attachments flag in src/video_policy_orchestrator/executor/mkvmerge.py
+- [X] T064 [US6] Implement _evaluate_attachment_track() helper function in src/vpo/policy/evaluator.py
+- [X] T065 [US6] Implement _detect_styled_subtitles() helper to find ASS/SSA tracks in src/vpo/policy/evaluator.py
+- [X] T066 [US6] Add font removal warning when styled subtitles detected in src/vpo/policy/evaluator.py
+- [X] T067 [US6] Update compute_track_dispositions() to handle attachment filtering in src/vpo/policy/evaluator.py
+- [X] T068 [US6] Extend MkvmergeExecutor with --no-attachments flag in src/vpo/executor/mkvmerge.py
 - [X] T069 [US6] Integration test for attachment removal with warning in tests/integration/test_track_filtering.py
 
 **Checkpoint**: Attachment track removal fully functional with font warnings
@@ -222,10 +222,10 @@ Based on plan.md structure:
 
 ### Implementation for User Story 7
 
-- [X] T075 [US7] Implement _detect_content_language() helper function in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T076 [US7] Implement _apply_fallback() function for all modes in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T077 [US7] Integrate fallback logic into audio track filtering in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T078 [US7] Add minimum track count validation with fallback trigger in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T075 [US7] Implement _detect_content_language() helper function in src/vpo/policy/evaluator.py
+- [X] T076 [US7] Implement _apply_fallback() function for all modes in src/vpo/policy/evaluator.py
+- [X] T077 [US7] Integrate fallback logic into audio track filtering in src/vpo/policy/evaluator.py
+- [X] T078 [US7] Add minimum track count validation with fallback trigger in src/vpo/policy/evaluator.py
 - [X] T079 [US7] Integration test for fallback modes end-to-end in tests/integration/test_track_filtering.py
 
 **Checkpoint**: Language fallback logic fully functional
@@ -237,11 +237,11 @@ Based on plan.md structure:
 **Purpose**: Improvements that affect multiple user stories
 
 - [X] T080 [P] Add v2 backward compatibility tests in tests/unit/policy/test_loader.py
-- [X] T081 [P] Add CLI error handling for InsufficientTracksError with suggestions in src/video_policy_orchestrator/cli/apply.py
-- [X] T082 [P] Add CLI error handling for IncompatibleCodecError with suggestions in src/video_policy_orchestrator/cli/apply.py
-- [X] T083 [P] Add disk space pre-flight check before remux operations in src/video_policy_orchestrator/executor/mkvmerge.py
-- [X] T083a [P] Verify backup creation in MkvmergeExecutor.execute() follows existing pattern in src/video_policy_orchestrator/executor/mkvmerge.py
-- [X] T083b [P] Add backup creation to FFmpegRemuxExecutor.execute() in src/video_policy_orchestrator/executor/ffmpeg_remux.py
+- [X] T081 [P] Add CLI error handling for InsufficientTracksError with suggestions in src/vpo/cli/apply.py
+- [X] T082 [P] Add CLI error handling for IncompatibleCodecError with suggestions in src/vpo/cli/apply.py
+- [X] T083 [P] Add disk space pre-flight check before remux operations in src/vpo/executor/mkvmerge.py
+- [X] T083a [P] Verify backup creation in MkvmergeExecutor.execute() follows existing pattern in src/vpo/executor/mkvmerge.py
+- [X] T083b [P] Add backup creation to FFmpegRemuxExecutor.execute() in src/vpo/executor/ffmpeg_remux.py
 - [X] T084 Update policy documentation with v3 schema fields in docs/usage/policies.md
 - [X] T085 [P] Add example v3 policy files in docs/examples/
 - [X] T086 Run full test suite and verify all tests pass
@@ -306,11 +306,11 @@ Task: "Unit test for InsufficientTracksError scenarios in tests/unit/policy/test
 
 ```bash
 # Launch all config models in parallel:
-Task: "Add AudioFilterConfig frozen dataclass in src/video_policy_orchestrator/policy/models.py"
-Task: "Add SubtitleFilterConfig frozen dataclass in src/video_policy_orchestrator/policy/models.py"
-Task: "Add AttachmentFilterConfig frozen dataclass in src/video_policy_orchestrator/policy/models.py"
-Task: "Add ContainerConfig frozen dataclass in src/video_policy_orchestrator/policy/models.py"
-Task: "Add ContainerChange frozen dataclass in src/video_policy_orchestrator/policy/models.py"
+Task: "Add AudioFilterConfig frozen dataclass in src/vpo/policy/models.py"
+Task: "Add SubtitleFilterConfig frozen dataclass in src/vpo/policy/models.py"
+Task: "Add AttachmentFilterConfig frozen dataclass in src/vpo/policy/models.py"
+Task: "Add ContainerConfig frozen dataclass in src/vpo/policy/models.py"
+Task: "Add ContainerChange frozen dataclass in src/vpo/policy/models.py"
 ```
 
 ---

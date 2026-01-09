@@ -12,16 +12,16 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from video_policy_orchestrator.cli import main
-from video_policy_orchestrator.db.queries import (
+from vpo.cli import main
+from vpo.db.queries import (
     delete_all_analysis,
     delete_analysis_by_path_prefix,
     insert_file,
     insert_track,
 )
-from video_policy_orchestrator.db.schema import create_schema
-from video_policy_orchestrator.db.types import FileRecord, TrackRecord
-from video_policy_orchestrator.db.views import (
+from vpo.db.schema import create_schema
+from vpo.db.types import FileRecord, TrackRecord
+from vpo.db.views import (
     get_analysis_status_summary,
     get_file_analysis_detail,
     get_files_analysis_status,

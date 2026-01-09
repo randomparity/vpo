@@ -18,7 +18,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "video-policy-orchestrator>=0.1.0",
+    "vpo>=0.1.0",
 ]
 
 [project.entry-points."vpo.plugins"]

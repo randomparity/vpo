@@ -12,7 +12,7 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import make_mocked_request
 
-from video_policy_orchestrator.server.auth import (
+from vpo.server.auth import (
     create_auth_middleware,
     is_auth_enabled,
     parse_basic_auth,

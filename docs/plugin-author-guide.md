@@ -79,7 +79,7 @@ Most plugins are analyzers that observe VPO operations:
 ```python
 """My VPO Plugin."""
 
-from video_policy_orchestrator.plugin_sdk import (
+from vpo.plugin_sdk import (
     BaseAnalyzerPlugin,
     get_logger,
 )
@@ -116,8 +116,8 @@ plugin = MyPlugin()
 Mutator plugins can modify files during plan execution:
 
 ```python
-from video_policy_orchestrator.plugin_sdk import BaseMutatorPlugin
-from video_policy_orchestrator.executor.interface import ExecutorResult
+from vpo.plugin_sdk import BaseMutatorPlugin
+from vpo.executor.interface import ExecutorResult
 
 
 class MyMutator(BaseMutatorPlugin):
@@ -176,7 +176,7 @@ def on_file_scanned(self, event):
 The SDK provides useful helpers:
 
 ```python
-from video_policy_orchestrator.plugin_sdk import (
+from vpo.plugin_sdk import (
     get_logger,          # Configured logger
     get_config,          # VPO configuration
     get_data_dir,        # ~/.vpo/
@@ -220,7 +220,7 @@ class TestMyPlugin:
     def test_on_file_scanned(self):
         """Test event handler."""
         try:
-            from video_policy_orchestrator.plugin_sdk.testing import (
+            from vpo.plugin_sdk.testing import (
                 create_file_scanned_event,
                 mock_file_info,
                 mock_tracks,

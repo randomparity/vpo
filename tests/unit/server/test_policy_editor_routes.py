@@ -13,7 +13,7 @@ import pytest
 import pytest_asyncio
 from aiohttp import web
 
-from video_policy_orchestrator.server.ui.routes import setup_ui_routes
+from vpo.server.ui.routes import setup_ui_routes
 
 # Skip these tests until they're refactored to properly configure policy directory
 pytestmark = pytest.mark.skip(

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from video_policy_orchestrator.policy.synthesis.encoders import (
+from vpo.policy.synthesis.encoders import (
     CODEC_TO_ENCODER,
     CODEC_TO_FORMAT,
     check_all_encoders,
@@ -16,10 +16,10 @@ from video_policy_orchestrator.policy.synthesis.encoders import (
     parse_bitrate,
     require_encoder,
 )
-from video_policy_orchestrator.policy.synthesis.exceptions import (
+from vpo.policy.synthesis.exceptions import (
     EncoderUnavailableError,
 )
-from video_policy_orchestrator.policy.synthesis.models import AudioCodec
+from vpo.policy.synthesis.models import AudioCodec
 
 
 class TestGetAvailableEncoders:
@@ -45,9 +45,7 @@ Encoders:
  A..... libopus              libopus Opus
  V..... libx264              libx264 H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10
 """
-        with patch(
-            "video_policy_orchestrator.policy.synthesis.encoders.subprocess.run"
-        ) as mock_run:
+        with patch("vpo.policy.synthesis.encoders.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
                 returncode=0, stdout=mock_output, stderr=""
             )
@@ -66,9 +64,7 @@ Encoders:
 
     def test_returns_empty_on_failure(self):
         """Test that empty set is returned when FFmpeg fails."""
-        with patch(
-            "video_policy_orchestrator.policy.synthesis.encoders.subprocess.run"
-        ) as mock_run:
+        with patch("vpo.policy.synthesis.encoders.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error")
             get_available_encoders.cache_clear()
 
@@ -80,9 +76,7 @@ Encoders:
         """Test that empty set is returned on timeout."""
         import subprocess
 
-        with patch(
-            "video_policy_orchestrator.policy.synthesis.encoders.subprocess.run"
-        ) as mock_run:
+        with patch("vpo.policy.synthesis.encoders.subprocess.run") as mock_run:
             mock_run.side_effect = subprocess.TimeoutExpired("ffmpeg", 10)
             get_available_encoders.cache_clear()
 
@@ -97,7 +91,7 @@ class TestIsEncoderAvailable:
     def test_eac3_available(self):
         """Test EAC3 encoder availability check."""
         with patch(
-            "video_policy_orchestrator.policy.synthesis.encoders.get_available_encoders"
+            "vpo.policy.synthesis.encoders.get_available_encoders"
         ) as mock_encoders:
             mock_encoders.return_value = frozenset(["eac3", "aac", "ac3"])
 
@@ -106,7 +100,7 @@ class TestIsEncoderAvailable:
     def test_eac3_unavailable(self):
         """Test EAC3 encoder unavailability check."""
         with patch(
-            "video_policy_orchestrator.policy.synthesis.encoders.get_available_encoders"
+            "vpo.policy.synthesis.encoders.get_available_encoders"
         ) as mock_encoders:
             mock_encoders.return_value = frozenset(["aac", "ac3"])
 
@@ -115,7 +109,7 @@ class TestIsEncoderAvailable:
     def test_libopus_mapped_correctly(self):
         """Test that OPUS codec maps to libopus encoder."""
         with patch(
-            "video_policy_orchestrator.policy.synthesis.encoders.get_available_encoders"
+            "vpo.policy.synthesis.encoders.get_available_encoders"
         ) as mock_encoders:
             mock_encoders.return_value = frozenset(["libopus"])
 
@@ -128,7 +122,7 @@ class TestRequireEncoder:
     def test_returns_encoder_name_when_available(self):
         """Test that encoder name is returned when available."""
         with patch(
-            "video_policy_orchestrator.policy.synthesis.encoders.is_encoder_available"
+            "vpo.policy.synthesis.encoders.is_encoder_available"
         ) as mock_available:
             mock_available.return_value = True
 
@@ -139,7 +133,7 @@ class TestRequireEncoder:
     def test_raises_when_unavailable(self):
         """Test that EncoderUnavailableError is raised when encoder missing."""
         with patch(
-            "video_policy_orchestrator.policy.synthesis.encoders.is_encoder_available"
+            "vpo.policy.synthesis.encoders.is_encoder_available"
         ) as mock_available:
             mock_available.return_value = False
 
@@ -230,7 +224,7 @@ class TestCheckAllEncoders:
     def test_returns_dict_for_all_codecs(self):
         """Test that all codec availability is checked."""
         with patch(
-            "video_policy_orchestrator.policy.synthesis.encoders.is_encoder_available"
+            "vpo.policy.synthesis.encoders.is_encoder_available"
         ) as mock_available:
             mock_available.return_value = True
 

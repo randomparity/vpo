@@ -8,7 +8,7 @@ Tests the V11 policy support in PolicyEditorRequest:
 
 import pytest
 
-from video_policy_orchestrator.server.ui.models import PolicyEditorRequest
+from vpo.server.ui.models import PolicyEditorRequest
 
 
 class TestPolicyEditorRequestV11:

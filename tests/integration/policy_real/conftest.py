@@ -15,8 +15,8 @@ from typing import TYPE_CHECKING
 import pytest
 
 if TYPE_CHECKING:
-    from video_policy_orchestrator.db.types import IntrospectionResult
-    from video_policy_orchestrator.introspector.ffprobe import FFprobeIntrospector
+    from vpo.db.types import IntrospectionResult
+    from vpo.introspector.ffprobe import FFprobeIntrospector
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def introspector(
     if not ffprobe_available:
         pytest.skip("ffprobe not available")
 
-    from video_policy_orchestrator.introspector.ffprobe import FFprobeIntrospector
+    from vpo.introspector.ffprobe import FFprobeIntrospector
 
     return FFprobeIntrospector()
 

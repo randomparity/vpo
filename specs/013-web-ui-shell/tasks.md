@@ -18,10 +18,10 @@
 ## Path Conventions
 
 - **Project type**: Web application extending existing daemon server
-- **Server code**: `src/video_policy_orchestrator/server/`
-- **UI module**: `src/video_policy_orchestrator/server/ui/`
-- **Static files**: `src/video_policy_orchestrator/server/static/`
-- **Templates**: `src/video_policy_orchestrator/server/ui/templates/`
+- **Server code**: `src/vpo/server/`
+- **UI module**: `src/vpo/server/ui/`
+- **Static files**: `src/vpo/server/static/`
+- **Templates**: `src/vpo/server/ui/templates/`
 
 ---
 
@@ -30,10 +30,10 @@
 **Purpose**: Project initialization, dependencies, and directory structure
 
 - [x] T001 Add aiohttp-jinja2 and jinja2 dependencies to pyproject.toml
-- [x] T002 [P] Create UI module directory structure at src/video_policy_orchestrator/server/ui/
-- [x] T003 [P] Create static files directory structure at src/video_policy_orchestrator/server/static/
-- [x] T004 [P] Create templates directory structure at src/video_policy_orchestrator/server/ui/templates/
-- [x] T005 Create UI module __init__.py at src/video_policy_orchestrator/server/ui/__init__.py
+- [x] T002 [P] Create UI module directory structure at src/vpo/server/ui/
+- [x] T003 [P] Create static files directory structure at src/vpo/server/static/
+- [x] T004 [P] Create templates directory structure at src/vpo/server/ui/templates/
+- [x] T005 Create UI module __init__.py at src/vpo/server/ui/__init__.py
 
 **Checkpoint**: Directory structure ready, dependencies declared
 
@@ -47,12 +47,12 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [x] T006 Define NavigationItem, NavigationState, and TemplateContext dataclasses in src/video_policy_orchestrator/server/ui/models.py
-- [x] T007 Define NAVIGATION_ITEMS configuration constant in src/video_policy_orchestrator/server/ui/models.py
-- [x] T008 Create base.html template with shell layout (nav placeholder, content area) in src/video_policy_orchestrator/server/ui/templates/base.html
-- [x] T009 Setup Jinja2 environment and template loader in src/video_policy_orchestrator/server/ui/routes.py
-- [x] T010 Register UI routes with existing app in src/video_policy_orchestrator/server/app.py
-- [x] T011 Configure static file serving for /static/ path in src/video_policy_orchestrator/server/app.py
+- [x] T006 Define NavigationItem, NavigationState, and TemplateContext dataclasses in src/vpo/server/ui/models.py
+- [x] T007 Define NAVIGATION_ITEMS configuration constant in src/vpo/server/ui/models.py
+- [x] T008 Create base.html template with shell layout (nav placeholder, content area) in src/vpo/server/ui/templates/base.html
+- [x] T009 Setup Jinja2 environment and template loader in src/vpo/server/ui/routes.py
+- [x] T010 Register UI routes with existing app in src/vpo/server/app.py
+- [x] T011 Configure static file serving for /static/ path in src/vpo/server/app.py
 
 **Checkpoint**: Foundation ready - base template renders, static files serve, Jinja2 configured
 
@@ -68,16 +68,16 @@
 
 ### Implementation for User Story 1
 
-- [x] T012 [US1] Create navigation component in base.html template with sidebar containing all 5 section links in src/video_policy_orchestrator/server/ui/templates/base.html
-- [x] T013 [P] [US1] Create jobs.html section template with placeholder content in src/video_policy_orchestrator/server/ui/templates/sections/jobs.html
-- [x] T014 [P] [US1] Create library.html section template with placeholder content in src/video_policy_orchestrator/server/ui/templates/sections/library.html
-- [x] T015 [P] [US1] Create transcriptions.html section template with placeholder content in src/video_policy_orchestrator/server/ui/templates/sections/transcriptions.html
-- [x] T016 [P] [US1] Create policies.html section template with placeholder content in src/video_policy_orchestrator/server/ui/templates/sections/policies.html
-- [x] T017 [P] [US1] Create approvals.html section template with placeholder content in src/video_policy_orchestrator/server/ui/templates/sections/approvals.html
-- [x] T018 [US1] Implement section route handlers for all 5 sections in src/video_policy_orchestrator/server/ui/routes.py
-- [x] T019 [US1] Implement root redirect handler (/ -> /jobs) in src/video_policy_orchestrator/server/ui/routes.py
-- [x] T020 [US1] Create 404.html error template in src/video_policy_orchestrator/server/ui/templates/errors/404.html
-- [x] T021 [US1] Implement 404 error handler middleware in src/video_policy_orchestrator/server/ui/routes.py
+- [x] T012 [US1] Create navigation component in base.html template with sidebar containing all 5 section links in src/vpo/server/ui/templates/base.html
+- [x] T013 [P] [US1] Create jobs.html section template with placeholder content in src/vpo/server/ui/templates/sections/jobs.html
+- [x] T014 [P] [US1] Create library.html section template with placeholder content in src/vpo/server/ui/templates/sections/library.html
+- [x] T015 [P] [US1] Create transcriptions.html section template with placeholder content in src/vpo/server/ui/templates/sections/transcriptions.html
+- [x] T016 [P] [US1] Create policies.html section template with placeholder content in src/vpo/server/ui/templates/sections/policies.html
+- [x] T017 [P] [US1] Create approvals.html section template with placeholder content in src/vpo/server/ui/templates/sections/approvals.html
+- [x] T018 [US1] Implement section route handlers for all 5 sections in src/vpo/server/ui/routes.py
+- [x] T019 [US1] Implement root redirect handler (/ -> /jobs) in src/vpo/server/ui/routes.py
+- [x] T020 [US1] Create 404.html error template in src/vpo/server/ui/templates/errors/404.html
+- [x] T021 [US1] Implement 404 error handler middleware in src/vpo/server/ui/routes.py
 
 **Checkpoint**: User Story 1 complete - all 5 sections accessible via navigation, root redirects to /jobs, 404 shows friendly error
 
@@ -93,10 +93,10 @@
 
 ### Implementation for User Story 2
 
-- [x] T022 [US2] Add CSS styles for active navigation state (.nav-link.active) in src/video_policy_orchestrator/server/static/css/main.css
-- [x] T023 [US2] Update base.html template to apply active class based on current section in src/video_policy_orchestrator/server/ui/templates/base.html
-- [x] T024 [US2] Create nav.js with client-side active state detection as fallback in src/video_policy_orchestrator/server/static/js/nav.js
-- [x] T025 [US2] Ensure template context passes active_id to navigation rendering in src/video_policy_orchestrator/server/ui/routes.py
+- [x] T022 [US2] Add CSS styles for active navigation state (.nav-link.active) in src/vpo/server/static/css/main.css
+- [x] T023 [US2] Update base.html template to apply active class based on current section in src/vpo/server/ui/templates/base.html
+- [x] T024 [US2] Create nav.js with client-side active state detection as fallback in src/vpo/server/static/js/nav.js
+- [x] T025 [US2] Ensure template context passes active_id to navigation rendering in src/vpo/server/ui/routes.py
 
 **Checkpoint**: User Story 2 complete - active section is visually distinct in navigation
 
@@ -112,11 +112,11 @@
 
 ### Implementation for User Story 3
 
-- [x] T026 [US3] Implement CSS Grid layout for app shell (sidebar + content) in src/video_policy_orchestrator/server/static/css/main.css
-- [x] T027 [US3] Add media queries for tablet breakpoint (768px-1023px) with narrower sidebar in src/video_policy_orchestrator/server/static/css/main.css
-- [x] T028 [US3] Add media queries for desktop breakpoint (1024px+) with full sidebar in src/video_policy_orchestrator/server/static/css/main.css
-- [x] T029 [US3] Add graceful degradation styles for below 768px viewport in src/video_policy_orchestrator/server/static/css/main.css
-- [x] T030 [US3] Add viewport meta tag to base.html for proper mobile rendering in src/video_policy_orchestrator/server/ui/templates/base.html
+- [x] T026 [US3] Implement CSS Grid layout for app shell (sidebar + content) in src/vpo/server/static/css/main.css
+- [x] T027 [US3] Add media queries for tablet breakpoint (768px-1023px) with narrower sidebar in src/vpo/server/static/css/main.css
+- [x] T028 [US3] Add media queries for desktop breakpoint (1024px+) with full sidebar in src/vpo/server/static/css/main.css
+- [x] T029 [US3] Add graceful degradation styles for below 768px viewport in src/vpo/server/static/css/main.css
+- [x] T030 [US3] Add viewport meta tag to base.html for proper mobile rendering in src/vpo/server/ui/templates/base.html
 
 **Checkpoint**: User Story 3 complete - layout adapts smoothly across supported viewport widths
 
@@ -128,10 +128,10 @@
 
 **Purpose**: Final improvements affecting all user stories
 
-- [x] T031 [P] Add HTTP security headers (X-Content-Type-Options, X-Frame-Options) to responses in src/video_policy_orchestrator/server/ui/routes.py
-- [x] T032 [P] Add Cache-Control headers for static files in src/video_policy_orchestrator/server/app.py
-- [x] T033 [P] Add CSS custom properties for theming (colors, spacing) in src/video_policy_orchestrator/server/static/css/main.css
-- [x] T034 Add structured request logging (path, method, status code, duration) for UI routes in src/video_policy_orchestrator/server/ui/routes.py
+- [x] T031 [P] Add HTTP security headers (X-Content-Type-Options, X-Frame-Options) to responses in src/vpo/server/ui/routes.py
+- [x] T032 [P] Add Cache-Control headers for static files in src/vpo/server/app.py
+- [x] T033 [P] Add CSS custom properties for theming (colors, spacing) in src/vpo/server/static/css/main.css
+- [x] T034 Add structured request logging (path, method, status code, duration) for UI routes in src/vpo/server/ui/routes.py
 - [x] T035 Run and validate quickstart.md manual test scenarios
 - [x] T036 Update documentation with Web UI usage instructions in docs/
 

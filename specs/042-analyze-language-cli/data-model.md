@@ -25,7 +25,7 @@ Stores aggregated analysis results per audio track.
 | analysis_duration_ms | int | Time to analyze |
 | sample_count | int | Number of samples analyzed |
 
-**Location**: `src/video_policy_orchestrator/language_analysis/models.py`
+**Location**: `src/vpo/language_analysis/models.py`
 
 ### LanguageSegment
 
@@ -39,7 +39,7 @@ Stores per-segment detection results.
 | language | str | ISO 639-2 code |
 | confidence | float | Detection confidence (0-1) |
 
-**Location**: `src/video_policy_orchestrator/language_analysis/models.py`
+**Location**: `src/vpo/language_analysis/models.py`
 
 ## New Query Interfaces
 

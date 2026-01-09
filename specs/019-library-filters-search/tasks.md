@@ -15,8 +15,8 @@
 
 ## Path Conventions
 
-- **Backend**: `src/video_policy_orchestrator/` (existing structure)
-- **Frontend**: `src/video_policy_orchestrator/server/static/` and `server/ui/templates/`
+- **Backend**: `src/vpo/` (existing structure)
+- **Frontend**: `src/vpo/server/static/` and `server/ui/templates/`
 
 ---
 
@@ -24,12 +24,12 @@
 
 **Purpose**: Extend existing models with new filter parameters - shared by all user stories
 
-- [ ] T001 Extend LibraryFilterParams with search field in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T002 Extend LibraryFilterParams with resolution field in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T003 Extend LibraryFilterParams with audio_lang field (list) in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T004 Extend LibraryFilterParams with subtitles field in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T005 Add resolution_options and subtitles_options to LibraryContext.default() in src/video_policy_orchestrator/server/ui/models.py
-- [ ] T006 Update has_filters logic in api_library_handler to include all new filter params in src/video_policy_orchestrator/server/ui/routes.py
+- [ ] T001 Extend LibraryFilterParams with search field in src/vpo/server/ui/models.py
+- [ ] T002 Extend LibraryFilterParams with resolution field in src/vpo/server/ui/models.py
+- [ ] T003 Extend LibraryFilterParams with audio_lang field (list) in src/vpo/server/ui/models.py
+- [ ] T004 Extend LibraryFilterParams with subtitles field in src/vpo/server/ui/models.py
+- [ ] T005 Add resolution_options and subtitles_options to LibraryContext.default() in src/vpo/server/ui/models.py
+- [ ] T006 Update has_filters logic in api_library_handler to include all new filter params in src/vpo/server/ui/routes.py
 
 ---
 
@@ -39,14 +39,14 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T007 Add search parameter (filename/title LIKE) to get_files_filtered() in src/video_policy_orchestrator/db/models.py
-- [ ] T008 Add resolution parameter (height range) to get_files_filtered() in src/video_policy_orchestrator/db/models.py
-- [ ] T009 Add audio_lang parameter (IN clause with OR logic) to get_files_filtered() in src/video_policy_orchestrator/db/models.py
-- [ ] T010 Add subtitles parameter (EXISTS/NOT EXISTS subquery) to get_files_filtered() in src/video_policy_orchestrator/db/models.py
-- [ ] T011 Wire new filter params from api_library_handler to get_files_filtered() in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T012 Add get_distinct_audio_languages() function in src/video_policy_orchestrator/db/models.py
-- [ ] T013 Add /api/library/languages endpoint handler in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T014 Register /api/library/languages route in src/video_policy_orchestrator/server/ui/routes.py
+- [ ] T007 Add search parameter (filename/title LIKE) to get_files_filtered() in src/vpo/db/models.py
+- [ ] T008 Add resolution parameter (height range) to get_files_filtered() in src/vpo/db/models.py
+- [ ] T009 Add audio_lang parameter (IN clause with OR logic) to get_files_filtered() in src/vpo/db/models.py
+- [ ] T010 Add subtitles parameter (EXISTS/NOT EXISTS subquery) to get_files_filtered() in src/vpo/db/models.py
+- [ ] T011 Wire new filter params from api_library_handler to get_files_filtered() in src/vpo/server/ui/routes.py
+- [ ] T012 Add get_distinct_audio_languages() function in src/vpo/db/models.py
+- [ ] T013 Add /api/library/languages endpoint handler in src/vpo/server/ui/routes.py
+- [ ] T014 Register /api/library/languages route in src/vpo/server/ui/routes.py
 
 **Checkpoint**: Backend API fully supports all filter parameters
 
@@ -60,13 +60,13 @@
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Add search input HTML element to filter bar in src/video_policy_orchestrator/server/ui/templates/sections/library.html
-- [ ] T016 [US1] Implement debounce utility function (300ms) in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T017 [US1] Add search input event handler with debounce in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T018 [US1] Update buildQueryString() to include search param in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T019 [US1] Update currentFilters state object with search field in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T020 [US1] Initialize search input from URL params on page load in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T021 [US1] Update empty state message for filtered results in src/video_policy_orchestrator/server/static/js/library.js
+- [ ] T015 [US1] Add search input HTML element to filter bar in src/vpo/server/ui/templates/sections/library.html
+- [ ] T016 [US1] Implement debounce utility function (300ms) in src/vpo/server/static/js/library.js
+- [ ] T017 [US1] Add search input event handler with debounce in src/vpo/server/static/js/library.js
+- [ ] T018 [US1] Update buildQueryString() to include search param in src/vpo/server/static/js/library.js
+- [ ] T019 [US1] Update currentFilters state object with search field in src/vpo/server/static/js/library.js
+- [ ] T020 [US1] Initialize search input from URL params on page load in src/vpo/server/static/js/library.js
+- [ ] T021 [US1] Update empty state message for filtered results in src/vpo/server/static/js/library.js
 
 **Checkpoint**: Text search fully functional - US1 complete
 
@@ -80,11 +80,11 @@
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Add resolution dropdown HTML element to filter bar in src/video_policy_orchestrator/server/ui/templates/sections/library.html
-- [ ] T023 [US2] Add resolution filter event handler in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T024 [US2] Update buildQueryString() to include resolution param in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T025 [US2] Update currentFilters state object with resolution field in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T026 [US2] Initialize resolution dropdown from URL params on page load in src/video_policy_orchestrator/server/static/js/library.js
+- [ ] T022 [US2] Add resolution dropdown HTML element to filter bar in src/vpo/server/ui/templates/sections/library.html
+- [ ] T023 [US2] Add resolution filter event handler in src/vpo/server/static/js/library.js
+- [ ] T024 [US2] Update buildQueryString() to include resolution param in src/vpo/server/static/js/library.js
+- [ ] T025 [US2] Update currentFilters state object with resolution field in src/vpo/server/static/js/library.js
+- [ ] T026 [US2] Initialize resolution dropdown from URL params on page load in src/vpo/server/static/js/library.js
 
 **Checkpoint**: Resolution filter functional - US2 complete
 
@@ -98,12 +98,12 @@
 
 ### Implementation for User Story 3
 
-- [ ] T027 [US3] Add audio language multi-select dropdown HTML element to filter bar in src/video_policy_orchestrator/server/ui/templates/sections/library.html
-- [ ] T028 [US3] Fetch /api/library/languages on page load and populate dropdown in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T029 [US3] Add audio language filter event handler (multi-select) in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T030 [US3] Update buildQueryString() to include audio_lang params (multiple values) in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T031 [US3] Update currentFilters state object with audio_lang array in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T032 [US3] Initialize audio language selection from URL params on page load in src/video_policy_orchestrator/server/static/js/library.js
+- [ ] T027 [US3] Add audio language multi-select dropdown HTML element to filter bar in src/vpo/server/ui/templates/sections/library.html
+- [ ] T028 [US3] Fetch /api/library/languages on page load and populate dropdown in src/vpo/server/static/js/library.js
+- [ ] T029 [US3] Add audio language filter event handler (multi-select) in src/vpo/server/static/js/library.js
+- [ ] T030 [US3] Update buildQueryString() to include audio_lang params (multiple values) in src/vpo/server/static/js/library.js
+- [ ] T031 [US3] Update currentFilters state object with audio_lang array in src/vpo/server/static/js/library.js
+- [ ] T032 [US3] Initialize audio language selection from URL params on page load in src/vpo/server/static/js/library.js
 
 **Checkpoint**: Audio language filter functional - US3 complete
 
@@ -117,11 +117,11 @@
 
 ### Implementation for User Story 4
 
-- [ ] T033 [US4] Add subtitles dropdown HTML element to filter bar in src/video_policy_orchestrator/server/ui/templates/sections/library.html
-- [ ] T034 [US4] Add subtitles filter event handler in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T035 [US4] Update buildQueryString() to include subtitles param in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T036 [US4] Update currentFilters state object with subtitles field in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T037 [US4] Initialize subtitles dropdown from URL params on page load in src/video_policy_orchestrator/server/static/js/library.js
+- [ ] T033 [US4] Add subtitles dropdown HTML element to filter bar in src/vpo/server/ui/templates/sections/library.html
+- [ ] T034 [US4] Add subtitles filter event handler in src/vpo/server/static/js/library.js
+- [ ] T035 [US4] Update buildQueryString() to include subtitles param in src/vpo/server/static/js/library.js
+- [ ] T036 [US4] Update currentFilters state object with subtitles field in src/vpo/server/static/js/library.js
+- [ ] T037 [US4] Initialize subtitles dropdown from URL params on page load in src/vpo/server/static/js/library.js
 
 **Checkpoint**: Subtitle presence filter functional - US4 complete
 
@@ -135,11 +135,11 @@
 
 ### Implementation for User Story 5
 
-- [ ] T038 [US5] Add "Clear filters" button HTML element to filter bar in src/video_policy_orchestrator/server/ui/templates/sections/library.html
-- [ ] T039 [US5] Implement clearAllFilters() function in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T040 [US5] Add click handler for Clear filters button in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T041 [US5] Show/hide Clear filters button based on hasActiveFilters() in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T042 [US5] Implement hasActiveFilters() helper function in src/video_policy_orchestrator/server/static/js/library.js
+- [ ] T038 [US5] Add "Clear filters" button HTML element to filter bar in src/vpo/server/ui/templates/sections/library.html
+- [ ] T039 [US5] Implement clearAllFilters() function in src/vpo/server/static/js/library.js
+- [ ] T040 [US5] Add click handler for Clear filters button in src/vpo/server/static/js/library.js
+- [ ] T041 [US5] Show/hide Clear filters button based on hasActiveFilters() in src/vpo/server/static/js/library.js
+- [ ] T042 [US5] Implement hasActiveFilters() helper function in src/vpo/server/static/js/library.js
 
 **Checkpoint**: Clear filters button functional - US5 complete
 
@@ -153,10 +153,10 @@
 
 ### Implementation for User Story 6
 
-- [ ] T043 [US6] Add CSS class for active filter state in src/video_policy_orchestrator/server/static/css/library.css
-- [ ] T044 [US6] Update filter dropdowns to show active state visually in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T045 [US6] Update search input to show active state when has text in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T046 [US6] Implement updateFilterVisuals() function called after any filter change in src/video_policy_orchestrator/server/static/js/library.js
+- [ ] T043 [US6] Add CSS class for active filter state in src/vpo/server/static/css/library.css
+- [ ] T044 [US6] Update filter dropdowns to show active state visually in src/vpo/server/static/js/library.js
+- [ ] T045 [US6] Update search input to show active state when has text in src/vpo/server/static/js/library.js
+- [ ] T046 [US6] Implement updateFilterVisuals() function called after any filter change in src/vpo/server/static/js/library.js
 
 **Checkpoint**: Active filter indicators working - US6 complete
 
@@ -166,10 +166,10 @@
 
 **Purpose**: URL sync, pagination reset, and integration testing
 
-- [ ] T047 Implement updateUrl() using history.replaceState in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T048 Call updateUrl() after every filter change in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T049 Ensure pagination resets to offset=0 on any filter change in src/video_policy_orchestrator/server/static/js/library.js
-- [ ] T050 Add structured logging for filter API requests in src/video_policy_orchestrator/server/ui/routes.py
+- [ ] T047 Implement updateUrl() using history.replaceState in src/vpo/server/static/js/library.js
+- [ ] T048 Call updateUrl() after every filter change in src/vpo/server/static/js/library.js
+- [ ] T049 Ensure pagination resets to offset=0 on any filter change in src/vpo/server/static/js/library.js
+- [ ] T050 Add structured logging for filter API requests in src/vpo/server/ui/routes.py
 - [ ] T051 Run quickstart.md validation checklist manually
 - [ ] T052 Verify combined filters work correctly (search + resolution + audio + subtitles)
 

@@ -38,28 +38,28 @@ Access the web UI at: http://localhost:8080/jobs
 
 ### Client-Side (JavaScript)
 
-1. **`src/video_policy_orchestrator/server/static/js/polling.js`** (NEW)
+1. **`src/vpo/server/static/js/polling.js`** (NEW)
    - Core polling utilities
    - Page Visibility API integration
    - Exponential backoff logic
 
-2. **`src/video_policy_orchestrator/server/static/js/jobs.js`** (MODIFY)
+2. **`src/vpo/server/static/js/jobs.js`** (MODIFY)
    - Integrate polling into dashboard
    - Add connection status indicator
    - Update job rows without full re-render
 
-3. **`src/video_policy_orchestrator/server/static/js/job_detail.js`** (MODIFY)
+3. **`src/vpo/server/static/js/job_detail.js`** (MODIFY)
    - Add polling for job status updates
    - Add log polling for running jobs
    - Handle terminal state detection
 
 ### Server-Side (Python)
 
-4. **`src/video_policy_orchestrator/server/ui/routes.py`** (MODIFY)
+4. **`src/vpo/server/ui/routes.py`** (MODIFY)
    - Add polling config to template context
    - No new endpoints needed initially
 
-5. **`src/video_policy_orchestrator/server/ui/templates/base.html`** (MODIFY)
+5. **`src/vpo/server/ui/templates/base.html`** (MODIFY)
    - Add polling config data attributes
    - Add connection status indicator element
 
@@ -68,7 +68,7 @@ Access the web UI at: http://localhost:8080/jobs
 ### Step 1: Create polling.js Module
 
 ```javascript
-// src/video_policy_orchestrator/server/static/js/polling.js
+// src/vpo/server/static/js/polling.js
 (function() {
     'use strict';
 

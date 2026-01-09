@@ -20,7 +20,7 @@ Create a file in `~/.vpo/plugins/my_plugin.py`:
 ```python
 """My VPO analyzer plugin."""
 
-from video_policy_orchestrator.plugin_sdk import BaseAnalyzerPlugin
+from vpo.plugin_sdk import BaseAnalyzerPlugin
 
 class MyPlugin(BaseAnalyzerPlugin):
     name = "my-plugin"
@@ -50,7 +50,7 @@ The first time you use a directory plugin, VPO will ask for acknowledgment.
 Analyzer plugins observe VPO operations and can enrich file metadata. They cannot modify files.
 
 ```python
-from video_policy_orchestrator.plugin_sdk import BaseAnalyzerPlugin
+from vpo.plugin_sdk import BaseAnalyzerPlugin
 
 class MyAnalyzer(BaseAnalyzerPlugin):
     name = "my-analyzer"
@@ -76,8 +76,8 @@ class MyAnalyzer(BaseAnalyzerPlugin):
 Mutator plugins can modify media files during plan execution.
 
 ```python
-from video_policy_orchestrator.plugin_sdk import BaseMutatorPlugin
-from video_policy_orchestrator.executor.interface import ExecutorResult
+from vpo.plugin_sdk import BaseMutatorPlugin
+from vpo.executor.interface import ExecutorResult
 
 class MyMutator(BaseMutatorPlugin):
     name = "my-mutator"
@@ -213,7 +213,7 @@ Every plugin must have these attributes:
 The SDK provides base classes and utilities:
 
 ```python
-from video_policy_orchestrator.plugin_sdk import (
+from vpo.plugin_sdk import (
     BaseAnalyzerPlugin,  # Base class for analyzers
     BaseMutatorPlugin,   # Base class for mutators
     get_logger,          # Get configured logger
@@ -224,7 +224,7 @@ from video_policy_orchestrator.plugin_sdk import (
 ### Testing Utilities
 
 ```python
-from video_policy_orchestrator.plugin_sdk.testing import (
+from vpo.plugin_sdk.testing import (
     PluginTestCase,
     mock_file_info,
     mock_tracks,

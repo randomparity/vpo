@@ -12,26 +12,26 @@ from unittest.mock import patch
 
 import pytest
 
-from video_policy_orchestrator.db.models import TrackInfo
-from video_policy_orchestrator.executor.transcode import (
+from vpo.db.models import TrackInfo
+from vpo.executor.transcode import (
     TranscodeExecutor,
     TranscodePlan,
     build_ffmpeg_command,
 )
-from video_policy_orchestrator.policy.models import (
+from vpo.policy.models import (
     AudioTranscodeConfig,
     QualityMode,
     QualitySettings,
     SkipCondition,
     TranscodePolicyConfig,
 )
-from video_policy_orchestrator.policy.video_analysis import (
+from vpo.policy.video_analysis import (
     detect_hdr_content,
     detect_missing_bitrate,
     detect_vfr_content,
     select_primary_video_stream,
 )
-from video_policy_orchestrator.tools.encoders import select_encoder_with_fallback
+from vpo.tools.encoders import select_encoder_with_fallback
 
 # =============================================================================
 # Fixtures
@@ -41,9 +41,7 @@ from video_policy_orchestrator.tools.encoders import select_encoder_with_fallbac
 @pytest.fixture
 def mock_ffmpeg():
     """Mock require_tool to return a fake ffmpeg path."""
-    with patch(
-        "video_policy_orchestrator.executor.transcode.require_tool"
-    ) as mock_require:
+    with patch("vpo.executor.transcode.require_tool") as mock_require:
         mock_require.return_value = Path("/usr/bin/ffmpeg")
         yield mock_require
 
@@ -390,9 +388,7 @@ class TestScalingWithHardwareAcceleration:
     def test_hw_encoder_selection_with_fallback(self) -> None:
         """Hardware encoder selection should fall back to software."""
         # Mock check_encoder_available to return False
-        with patch(
-            "video_policy_orchestrator.tools.encoders.check_encoder_available"
-        ) as mock_check:
+        with patch("vpo.tools.encoders.check_encoder_available") as mock_check:
             mock_check.return_value = False
 
             encoder, encoder_type = select_encoder_with_fallback(
@@ -406,9 +402,7 @@ class TestScalingWithHardwareAcceleration:
 
     def test_hw_encoder_selection_nvenc_available(self) -> None:
         """Should select NVENC when available in auto mode."""
-        with patch(
-            "video_policy_orchestrator.tools.encoders.check_encoder_available"
-        ) as mock_check:
+        with patch("vpo.tools.encoders.check_encoder_available") as mock_check:
             # Only NVENC is available
             mock_check.side_effect = lambda enc: enc == "hevc_nvenc"
 
@@ -423,9 +417,7 @@ class TestScalingWithHardwareAcceleration:
 
     def test_hw_encoder_selection_explicit_mode(self) -> None:
         """Explicit hardware mode should select that encoder."""
-        with patch(
-            "video_policy_orchestrator.tools.encoders.check_encoder_available"
-        ) as mock_check:
+        with patch("vpo.tools.encoders.check_encoder_available") as mock_check:
             mock_check.return_value = True
 
             encoder, encoder_type = select_encoder_with_fallback(

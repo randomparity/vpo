@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from video_policy_orchestrator.plugin_sdk.models import (
+from vpo.plugin_sdk.models import (
     MatchResult,
     MatchStatus,
     MetadataEnrichment,

@@ -116,7 +116,7 @@ As a maintainer, I want plugin API versioning documented so that breaking change
 - **FR-008**: System MUST log plugin discovery, loading, and errors for debugging.
 - **FR-008a**: System MUST warn and require user acknowledgment on first load of directory-based plugins; acknowledged plugins are recorded to avoid repeated prompts.
 - **FR-009**: System MUST implement the core policy engine as a built-in plugin that can be enabled/disabled.
-- **FR-010**: System MUST provide a video_policy_orchestrator.plugin_sdk package with base classes and utilities.
+- **FR-010**: System MUST provide a vpo.plugin_sdk package with base classes and utilities.
 - **FR-011**: System MUST provide an example plugin project at examples/plugins/simple_reorder_plugin.
 - **FR-012**: System MUST document the plugin API version and maintain version compatibility information.
 - **FR-013**: System MUST check plugin API version compatibility at load time.

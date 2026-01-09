@@ -19,7 +19,7 @@ This guide provides a quick reference for implementing the Library list view fea
 
 ## 1. Database Query Function
 
-**File**: `src/video_policy_orchestrator/db/models.py`
+**File**: `src/vpo/db/models.py`
 
 Add after `get_jobs_filtered()`:
 
@@ -103,7 +103,7 @@ def get_files_filtered(
 
 ## 2. View Models
 
-**File**: `src/video_policy_orchestrator/server/ui/models.py`
+**File**: `src/vpo/server/ui/models.py`
 
 Add these classes and helper functions:
 
@@ -199,7 +199,7 @@ class LibraryContext:
 
 ## 3. Route Handlers
 
-**File**: `src/video_policy_orchestrator/server/ui/routes.py`
+**File**: `src/vpo/server/ui/routes.py`
 
 Add handlers:
 
@@ -266,7 +266,7 @@ app.router.add_get("/api/library", library_api_handler)
 
 ## 4. HTML Template
 
-**File**: `src/video_policy_orchestrator/server/ui/templates/sections/library.html`
+**File**: `src/vpo/server/ui/templates/sections/library.html`
 
 Replace placeholder content. Use `jobs.html` as reference for structure.
 
@@ -278,7 +278,7 @@ Key elements:
 
 ## 5. JavaScript
 
-**File**: `src/video_policy_orchestrator/server/static/js/library.js`
+**File**: `src/vpo/server/static/js/library.js`
 
 Follow `jobs.js` patterns:
 - `fetchLibrary()` - Initial load
@@ -288,7 +288,7 @@ Follow `jobs.js` patterns:
 
 ## 6. CSS
 
-**File**: `src/video_policy_orchestrator/server/static/css/main.css`
+**File**: `src/vpo/server/static/css/main.css`
 
 Add library-specific classes (mostly mirrors jobs styles):
 

@@ -245,7 +245,7 @@ build-backend = "maturin"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
-module-name = "video_policy_orchestrator._core"
+module-name = "vpo._core"
 ```
 
 ### Development Dependencies

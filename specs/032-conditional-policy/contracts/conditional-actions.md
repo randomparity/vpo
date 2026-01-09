@@ -1,6 +1,6 @@
 # Contract: Conditional Actions
 
-**Module**: `src/video_policy_orchestrator/policy/actions.py`
+**Module**: `src/vpo/policy/actions.py`
 **Version**: 1.0.0
 
 ## Purpose

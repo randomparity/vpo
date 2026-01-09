@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.metadata.templates import (
+from vpo.metadata.templates import (
     MOVIE_TEMPLATE,
     SIMPLE_TEMPLATE,
     TV_TEMPLATE,

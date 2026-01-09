@@ -5,13 +5,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from video_policy_orchestrator.db.types import (
+from vpo.db.types import (
     Job,
     JobStatus,
     JobType,
     TrackInfo,
 )
-from video_policy_orchestrator.jobs.services.transcode import (
+from vpo.jobs.services.transcode import (
     TranscodeJobResult,
     TranscodeJobService,
 )
@@ -341,9 +341,7 @@ class TestTranscodeJobServiceProcess:
 
         with (
             patch("pathlib.Path.exists", return_value=True),
-            patch(
-                "video_policy_orchestrator.jobs.services.transcode.TranscodeExecutor"
-            ) as mock_executor_cls,
+            patch("vpo.jobs.services.transcode.TranscodeExecutor") as mock_executor_cls,
         ):
             mock_executor = MagicMock()
             mock_executor_cls.return_value = mock_executor
@@ -366,9 +364,7 @@ class TestTranscodeJobServiceProcess:
 
         with (
             patch("pathlib.Path.exists", return_value=True),
-            patch(
-                "video_policy_orchestrator.jobs.services.transcode.TranscodeExecutor"
-            ) as mock_executor_cls,
+            patch("vpo.jobs.services.transcode.TranscodeExecutor") as mock_executor_cls,
         ):
             mock_executor = MagicMock()
             mock_executor_cls.return_value = mock_executor
@@ -393,9 +389,7 @@ class TestTranscodeJobServiceProcess:
 
         with (
             patch("pathlib.Path.exists", return_value=True),
-            patch(
-                "video_policy_orchestrator.jobs.services.transcode.TranscodeExecutor"
-            ) as mock_executor_cls,
+            patch("vpo.jobs.services.transcode.TranscodeExecutor") as mock_executor_cls,
         ):
             mock_executor = MagicMock()
             mock_executor_cls.return_value = mock_executor

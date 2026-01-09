@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.policy.loader import (
+from vpo.policy.loader import (
     PolicyValidationError,
     load_policy,
     load_policy_from_dict,
 )
-from video_policy_orchestrator.policy.models import PhasedPolicySchema
+from vpo.policy.models import PhasedPolicySchema
 
 
 class TestSkipWhenYamlLoading:
@@ -468,7 +468,7 @@ class TestOnErrorOverrideLoading:
         }
         policy = load_policy_from_dict(policy_dict)
         assert isinstance(policy, PhasedPolicySchema)
-        from video_policy_orchestrator.policy.models import OnErrorMode
+        from vpo.policy.models import OnErrorMode
 
         assert policy.phases[0].on_error == OnErrorMode.SKIP
 
@@ -486,7 +486,7 @@ class TestOnErrorOverrideLoading:
         }
         policy = load_policy_from_dict(policy_dict)
         assert isinstance(policy, PhasedPolicySchema)
-        from video_policy_orchestrator.policy.models import OnErrorMode
+        from vpo.policy.models import OnErrorMode
 
         assert policy.phases[0].on_error == OnErrorMode.CONTINUE
 
@@ -504,7 +504,7 @@ class TestOnErrorOverrideLoading:
         }
         policy = load_policy_from_dict(policy_dict)
         assert isinstance(policy, PhasedPolicySchema)
-        from video_policy_orchestrator.policy.models import OnErrorMode
+        from vpo.policy.models import OnErrorMode
 
         assert policy.phases[0].on_error == OnErrorMode.FAIL
 

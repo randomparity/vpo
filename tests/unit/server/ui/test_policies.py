@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from video_policy_orchestrator.server.ui.models import (
+from vpo.server.ui.models import (
     PoliciesContext,
     PolicyListItem,
     PolicyListResponse,

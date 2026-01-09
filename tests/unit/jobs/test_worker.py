@@ -13,9 +13,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from video_policy_orchestrator.db.queries import get_job, insert_job
-from video_policy_orchestrator.db.types import Job, JobStatus, JobType
-from video_policy_orchestrator.jobs.worker import (
+from vpo.db.queries import get_job, insert_job
+from vpo.db.types import Job, JobStatus, JobType
+from vpo.jobs.worker import (
     JobWorker,
 )
 
@@ -28,9 +28,7 @@ def mock_transcode_service():
     creates an FFprobeIntrospector that requires ffprobe to be installed.
     This fixture mocks the service to avoid that dependency.
     """
-    with patch(
-        "video_policy_orchestrator.jobs.worker.TranscodeJobService"
-    ) as mock_service:
+    with patch("vpo.jobs.worker.TranscodeJobService") as mock_service:
         mock_service.return_value = MagicMock()
         yield mock_service
 
@@ -79,7 +77,7 @@ class TestParseEndBy:
     def test_parses_valid_time(self, db_conn: sqlite3.Connection) -> None:
         """Parses valid HH:MM time string."""
         # Freeze time to avoid flakiness near midnight boundaries
-        with patch("video_policy_orchestrator.jobs.worker.datetime") as mock_dt:
+        with patch("vpo.jobs.worker.datetime") as mock_dt:
             # Set current time to 10:00 AM
             mock_dt.now.return_value = datetime(2024, 1, 15, 10, 0, 0)
 
@@ -553,9 +551,7 @@ class TestRun:
         """Recovers stale jobs at startup."""
         worker = JobWorker(conn=db_conn)
 
-        with patch(
-            "video_policy_orchestrator.jobs.worker.recover_stale_jobs"
-        ) as mock_recover:
+        with patch("vpo.jobs.worker.recover_stale_jobs") as mock_recover:
             worker.run()
             mock_recover.assert_called_once_with(db_conn)
 
@@ -563,9 +559,7 @@ class TestRun:
         """Purges old jobs when auto_purge is True."""
         worker = JobWorker(conn=db_conn, auto_purge=True)
 
-        with patch(
-            "video_policy_orchestrator.jobs.worker.purge_old_jobs"
-        ) as mock_purge:
+        with patch("vpo.jobs.worker.purge_old_jobs") as mock_purge:
             mock_purge.return_value = 0
             worker.run()
             mock_purge.assert_called_once()

@@ -61,7 +61,7 @@ specs/007-audio-transcription/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── transcription/                    # NEW: Core transcription module
 │   ├── __init__.py
 │   ├── interface.py                  # TranscriptionPlugin Protocol

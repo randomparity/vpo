@@ -9,7 +9,7 @@ class TestFileListViewItem:
 
     def test_construction_from_dict(self):
         """Test FileListViewItem can be constructed from dict."""
-        from video_policy_orchestrator.db.models import FileListViewItem
+        from vpo.db.models import FileListViewItem
 
         data = {
             "id": 1,
@@ -33,7 +33,7 @@ class TestFileListViewItem:
 
     def test_optional_fields_can_be_none(self):
         """Test FileListViewItem handles None optional fields."""
-        from video_policy_orchestrator.db.models import FileListViewItem
+        from vpo.db.models import FileListViewItem
 
         data = {
             "id": 1,
@@ -59,7 +59,7 @@ class TestLanguageOption:
 
     def test_construction_from_dict(self):
         """Test LanguageOption can be constructed from dict."""
-        from video_policy_orchestrator.db.models import LanguageOption
+        from vpo.db.models import LanguageOption
 
         data = {"code": "eng", "label": "eng"}
         option = LanguageOption(**data)
@@ -73,7 +73,7 @@ class TestTranscriptionListViewItem:
 
     def test_construction_from_dict(self):
         """Test TranscriptionListViewItem can be constructed from dict."""
-        from video_policy_orchestrator.db.models import TranscriptionListViewItem
+        from vpo.db.models import TranscriptionListViewItem
 
         data = {
             "id": 1,
@@ -96,7 +96,7 @@ class TestTranscriptionDetailView:
 
     def test_construction_from_dict(self):
         """Test TranscriptionDetailView can be constructed from dict."""
-        from video_policy_orchestrator.db.models import TranscriptionDetailView
+        from vpo.db.models import TranscriptionDetailView
 
         data = {
             "id": 1,
@@ -133,14 +133,14 @@ class TestUpsertTracksHDR:
 
     def test_upsert_tracks_updates_hdr_metadata(self, temp_db: Path):
         """Test that upsert_tracks_for_file updates HDR color metadata on re-scan."""
-        from video_policy_orchestrator.db.models import (
+        from vpo.db.models import (
             FileRecord,
             TrackInfo,
             get_tracks_for_file,
             insert_file,
             upsert_tracks_for_file,
         )
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.row_factory = sqlite3.Row
@@ -207,14 +207,14 @@ class TestUpsertTracksHDR:
 
     def test_insert_track_with_hdr_metadata(self, temp_db: Path):
         """Test that new tracks are inserted with HDR color metadata."""
-        from video_policy_orchestrator.db.models import (
+        from vpo.db.models import (
             FileRecord,
             TrackInfo,
             get_tracks_for_file,
             insert_file,
             upsert_tracks_for_file,
         )
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.row_factory = sqlite3.Row
@@ -269,7 +269,7 @@ class TestTypedFunctions:
 
     def test_get_files_filtered_typed_returns_dataclass(self, temp_db: Path):
         """Test get_files_filtered_typed returns FileListViewItem objects."""
-        from video_policy_orchestrator.db.models import (
+        from vpo.db.models import (
             FileListViewItem,
             FileRecord,
             TrackRecord,
@@ -277,7 +277,7 @@ class TestTypedFunctions:
             insert_file,
             insert_track,
         )
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.row_factory = sqlite3.Row
@@ -338,13 +338,13 @@ class TestTypedFunctions:
 
     def test_get_files_filtered_typed_with_total(self, temp_db: Path):
         """Test get_files_filtered_typed returns tuple with total."""
-        from video_policy_orchestrator.db.models import (
+        from vpo.db.models import (
             FileListViewItem,
             FileRecord,
             get_files_filtered_typed,
             insert_file,
         )
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.row_factory = sqlite3.Row
@@ -381,7 +381,7 @@ class TestTypedFunctions:
 
     def test_get_distinct_audio_languages_typed(self, temp_db: Path):
         """Test get_distinct_audio_languages_typed returns LanguageOption objects."""
-        from video_policy_orchestrator.db.models import (
+        from vpo.db.models import (
             FileRecord,
             LanguageOption,
             TrackRecord,
@@ -389,7 +389,7 @@ class TestTypedFunctions:
             insert_file,
             insert_track,
         )
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.row_factory = sqlite3.Row

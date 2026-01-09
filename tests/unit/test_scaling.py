@@ -6,7 +6,7 @@ and upscale=false behavior.
 
 import pytest
 
-from video_policy_orchestrator.policy.models import (
+from vpo.policy.models import (
     RESOLUTION_MAP,
     ScaleAlgorithm,
     ScalingSettings,

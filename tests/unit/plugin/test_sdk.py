@@ -2,17 +2,17 @@
 
 from pathlib import Path
 
-from video_policy_orchestrator.db.models import FileInfo, TrackInfo
-from video_policy_orchestrator.executor.interface import ExecutorResult
-from video_policy_orchestrator.plugin.events import (
+from vpo.db.models import FileInfo, TrackInfo
+from vpo.executor.interface import ExecutorResult
+from vpo.plugin.events import (
     FileScannedEvent,
     PlanExecuteEvent,
     PolicyEvaluateEvent,
     TranscriptionCompletedEvent,
     TranscriptionRequestedEvent,
 )
-from video_policy_orchestrator.plugin.interfaces import AnalyzerPlugin, MutatorPlugin
-from video_policy_orchestrator.plugin_sdk import (
+from vpo.plugin.interfaces import AnalyzerPlugin, MutatorPlugin
+from vpo.plugin_sdk import (
     BaseAnalyzerPlugin,
     BaseDualPlugin,
     BaseMutatorPlugin,
@@ -32,7 +32,7 @@ from video_policy_orchestrator.plugin_sdk import (
     mock_tracks,
     normalize_path,
 )
-from video_policy_orchestrator.policy.models import Plan
+from vpo.policy.models import Plan
 
 
 class TestBaseAnalyzerPlugin:
@@ -339,7 +339,7 @@ class TestSDKModuleExports:
 
     def test_base_classes_exported(self):
         """Base classes are exported from SDK."""
-        from video_policy_orchestrator.plugin_sdk import (
+        from vpo.plugin_sdk import (
             BaseAnalyzerPlugin,
             BaseDualPlugin,
             BaseMutatorPlugin,
@@ -351,7 +351,7 @@ class TestSDKModuleExports:
 
     def test_helpers_exported(self):
         """Helper functions are exported from SDK."""
-        from video_policy_orchestrator.plugin_sdk import (
+        from vpo.plugin_sdk import (
             get_config,
             get_data_dir,
             get_logger,
@@ -371,7 +371,7 @@ class TestSDKModuleExports:
 
     def test_testing_utilities_exported(self):
         """Testing utilities are exported from SDK."""
-        from video_policy_orchestrator.plugin_sdk import (
+        from vpo.plugin_sdk import (
             PluginTestCase,
             create_file_scanned_event,
             create_plan_execute_event,

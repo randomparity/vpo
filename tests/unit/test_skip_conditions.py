@@ -9,14 +9,14 @@ import from the new locations.
 import pytest
 
 # Import codec matching from unified codecs module
-from video_policy_orchestrator.policy.codecs import video_codec_matches_any
-from video_policy_orchestrator.policy.models import (
+from vpo.policy.codecs import video_codec_matches_any
+from vpo.policy.models import (
     SkipCondition,
     parse_bitrate,
 )
 
 # Import skip evaluation from policy layer (new location)
-from video_policy_orchestrator.policy.transcode import (
+from vpo.policy.transcode import (
     _bitrate_under_threshold,
     _resolution_within_threshold,
     evaluate_skip_condition,

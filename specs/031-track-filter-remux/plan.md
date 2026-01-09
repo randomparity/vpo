@@ -68,7 +68,7 @@ specs/031-track-filter-remux/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── policy/
 │   ├── models.py        # Add V3 config models, TrackDisposition
 │   ├── loader.py        # Update MAX_SCHEMA_VERSION, add V3 validation

@@ -14,8 +14,8 @@
 ## Path Conventions
 
 - **Documentation**: `docs/` at repository root
-- **Existing code**: `src/video_policy_orchestrator/server/ui/routes.py`
-- **Existing models**: `src/video_policy_orchestrator/server/ui/models.py`
+- **Existing code**: `src/vpo/server/ui/routes.py`
+- **Existing models**: `src/vpo/server/ui/models.py`
 
 ---
 

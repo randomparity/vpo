@@ -6,13 +6,13 @@ from unittest import mock
 
 from click.testing import CliRunner
 
-from video_policy_orchestrator.cli.init import (
+from vpo.cli.init import (
     _display_error,
     _display_result,
     _get_data_dir,
     init_command,
 )
-from video_policy_orchestrator.config.templates import InitResult
+from vpo.config.templates import InitResult
 
 
 class TestGetDataDir:

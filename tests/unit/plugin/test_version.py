@@ -2,7 +2,7 @@
 
 import pytest
 
-from video_policy_orchestrator.plugin.version import (
+from vpo.plugin.version import (
     PLUGIN_API_VERSION,
     APIVersion,
     is_compatible,

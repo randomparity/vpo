@@ -9,13 +9,13 @@ import sqlite3
 import threading
 from pathlib import Path
 
-from video_policy_orchestrator.db.queries import (
+from vpo.db.queries import (
     insert_file,
     insert_track,
     upsert_transcription_result,
 )
-from video_policy_orchestrator.db.schema import create_schema
-from video_policy_orchestrator.db.types import (
+from vpo.db.schema import create_schema
+from vpo.db.types import (
     FileRecord,
     TrackRecord,
     TranscriptionResultRecord,

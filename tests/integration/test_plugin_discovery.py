@@ -15,14 +15,14 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.db.schema import create_schema
-from video_policy_orchestrator.plugin.loader import (
+from vpo.db.schema import create_schema
+from vpo.plugin.loader import (
     PluginLoader,
     discover_directory_plugins,
     load_plugin_from_path,
 )
-from video_policy_orchestrator.plugin.manifest import PluginSource
-from video_policy_orchestrator.plugin.registry import PluginRegistry
+from vpo.plugin.manifest import PluginSource
+from vpo.plugin.registry import PluginRegistry
 
 # Sample valid plugin code for testing
 VALID_ANALYZER_PLUGIN = '''

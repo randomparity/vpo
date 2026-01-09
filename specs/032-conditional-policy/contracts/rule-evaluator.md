@@ -1,6 +1,6 @@
 # Contract: Rule Evaluator
 
-**Module**: `src/video_policy_orchestrator/policy/evaluator.py` (extended)
+**Module**: `src/vpo/policy/evaluator.py` (extended)
 **Version**: 1.0.0
 
 ## Purpose

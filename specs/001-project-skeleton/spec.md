@@ -3,7 +3,7 @@
 **Feature Branch**: `001-project-skeleton`
 **Created**: 2025-11-21
 **Status**: Draft
-**Input**: User description: "Sprint 0 - Project Inception & Spec-Driven Skeleton: Setup GitHub repo with README, CONTRIBUTING, docs (PRD, ARCHITECTURE), spec files, Python package skeleton (src/video_policy_orchestrator), and basic CI (lint + tests)"
+**Input**: User description: "Sprint 0 - Project Inception & Spec-Driven Skeleton: Setup GitHub repo with README, CONTRIBUTING, docs (PRD, ARCHITECTURE), spec files, Python package skeleton (src/vpo), and basic CI (lint + tests)"
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -20,7 +20,7 @@ As a developer, I want a properly configured Python package skeleton with toolin
 1. **Given** a fresh clone of the repository, **When** a developer runs `pip install -e ".[dev]"`, **Then** the package installs without errors
 2. **Given** the package is installed, **When** a developer runs `pytest`, **Then** at least one test passes with a green result
 3. **Given** the package is installed, **When** a developer runs `ruff check .`, **Then** no linting errors are reported
-4. **Given** the repository structure, **When** a developer inspects the project, **Then** they find `src/video_policy_orchestrator/` with an `__init__.py` file
+4. **Given** the repository structure, **When** a developer inspects the project, **Then** they find `src/vpo/` with an `__init__.py` file
 
 ---
 
@@ -84,7 +84,7 @@ As a contributor, I want a CONTRIBUTING.md file so that I understand how to part
 ### Functional Requirements
 
 - **FR-001**: Repository MUST contain a valid pyproject.toml that allows installation via `pip install -e .`
-- **FR-002**: Repository MUST contain a src/video_policy_orchestrator/ directory with an `__init__.py` file
+- **FR-002**: Repository MUST contain a src/vpo/ directory with an `__init__.py` file
 - **FR-003**: Repository MUST contain a tests/ directory with at least one passing test
 - **FR-004**: Repository MUST have ruff configured for linting with all existing code passing lint checks
 - **FR-005**: Repository MUST have pytest configured as the test runner

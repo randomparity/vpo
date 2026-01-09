@@ -12,7 +12,7 @@ class TestSchemaCreation:
 
     def test_create_schema_creates_tables(self, temp_db: Path):
         """Test that create_schema creates all required tables."""
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         create_schema(conn)
@@ -33,7 +33,7 @@ class TestSchemaCreation:
 
     def test_create_schema_sets_version(self, temp_db: Path):
         """Test that schema version is set correctly."""
-        from video_policy_orchestrator.db.schema import (
+        from vpo.db.schema import (
             SCHEMA_VERSION,
             create_schema,
             get_schema_version,
@@ -49,7 +49,7 @@ class TestSchemaCreation:
 
     def test_create_schema_is_idempotent(self, temp_db: Path):
         """Test that calling create_schema twice doesn't error."""
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         create_schema(conn)
@@ -59,7 +59,7 @@ class TestSchemaCreation:
 
     def test_initialize_database(self, temp_db: Path):
         """Test database initialization."""
-        from video_policy_orchestrator.db.schema import initialize_database
+        from vpo.db.schema import initialize_database
 
         conn = sqlite3.connect(str(temp_db))
         initialize_database(conn)
@@ -73,7 +73,7 @@ class TestSchemaCreation:
 
     def test_files_table_has_correct_columns(self, temp_db: Path):
         """Test that files table has all required columns."""
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         create_schema(conn)
@@ -101,7 +101,7 @@ class TestSchemaCreation:
 
     def test_tracks_table_has_correct_columns(self, temp_db: Path):
         """Test that tracks table has all required columns."""
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         create_schema(conn)
@@ -126,7 +126,7 @@ class TestSchemaCreation:
 
     def test_foreign_key_constraint(self, temp_db: Path):
         """Test that foreign key constraints are enforced."""
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.execute("PRAGMA foreign_keys = ON")
@@ -204,7 +204,7 @@ class TestMigrationV10ToV11:
 
     def test_migration_normalizes_languages(self, db_v10: sqlite3.Connection):
         """Test that migration correctly normalizes language codes."""
-        from video_policy_orchestrator.db.schema import migrate_v10_to_v11
+        from vpo.db.schema import migrate_v10_to_v11
 
         # Run migration
         migrate_v10_to_v11(db_v10)
@@ -236,7 +236,7 @@ class TestMigrationV10ToV11:
 
     def test_migration_is_idempotent(self, db_v10: sqlite3.Connection):
         """Test that running migration twice doesn't error."""
-        from video_policy_orchestrator.db.schema import migrate_v10_to_v11
+        from vpo.db.schema import migrate_v10_to_v11
 
         # Run migration twice
         migrate_v10_to_v11(db_v10)
@@ -248,7 +248,7 @@ class TestMigrationV10ToV11:
 
     def test_migration_preserves_null_values(self, db_v10: sqlite3.Connection):
         """Test that NULL languages remain NULL."""
-        from video_policy_orchestrator.db.schema import migrate_v10_to_v11
+        from vpo.db.schema import migrate_v10_to_v11
 
         # Run migration
         migrate_v10_to_v11(db_v10)
@@ -280,7 +280,7 @@ class TestMigrationV10ToV11:
         )
         conn.commit()
 
-        from video_policy_orchestrator.db.schema import migrate_v10_to_v11
+        from vpo.db.schema import migrate_v10_to_v11
 
         # Run migration - should handle unknown code gracefully
         migrate_v10_to_v11(conn)
@@ -319,7 +319,7 @@ class TestMigrationV10ToV11:
         )
         conn.commit()
 
-        from video_policy_orchestrator.db.schema import migrate_v10_to_v11
+        from vpo.db.schema import migrate_v10_to_v11
 
         # Mock normalize_language to raise an error after processing first language
         # Patch at the source module since it's imported inside the function
@@ -332,9 +332,7 @@ class TestMigrationV10ToV11:
                 raise RuntimeError("Simulated error during migration")
             return "ger"  # Return normalized value for first call
 
-        with patch(
-            "video_policy_orchestrator.language.normalize_language", mock_normalize
-        ):
+        with patch("vpo.language.normalize_language", mock_normalize):
             with pytest.raises(RuntimeError, match="Simulated error"):
                 migrate_v10_to_v11(conn)
 
@@ -426,7 +424,7 @@ class TestMigrationV15ToV16:
 
     def test_migration_allows_new_track_types(self, db_v15: sqlite3.Connection):
         """Test that migration allows 'music', 'sfx', 'non_speech' track_types."""
-        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+        from vpo.db.schema import migrate_v15_to_v16
 
         # Run migration
         migrate_v15_to_v16(db_v15)
@@ -495,7 +493,7 @@ class TestMigrationV15ToV16:
 
     def test_migration_preserves_existing_data(self, db_v15: sqlite3.Connection):
         """Test that existing main/commentary/alternate records are preserved."""
-        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+        from vpo.db.schema import migrate_v15_to_v16
 
         # Run migration
         migrate_v15_to_v16(db_v15)
@@ -529,7 +527,7 @@ class TestMigrationV15ToV16:
 
     def test_migration_updates_schema_version(self, db_v15: sqlite3.Connection):
         """Test that schema version is updated to 16."""
-        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+        from vpo.db.schema import migrate_v15_to_v16
 
         # Run migration
         migrate_v15_to_v16(db_v15)
@@ -540,7 +538,7 @@ class TestMigrationV15ToV16:
 
     def test_migration_is_idempotent(self, db_v15: sqlite3.Connection):
         """Test that running migration twice doesn't error."""
-        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+        from vpo.db.schema import migrate_v15_to_v16
 
         # Run migration twice
         migrate_v15_to_v16(db_v15)
@@ -556,7 +554,7 @@ class TestMigrationV15ToV16:
 
     def test_migration_recreates_indexes(self, db_v15: sqlite3.Connection):
         """Test that indexes are recreated after migration."""
-        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+        from vpo.db.schema import migrate_v15_to_v16
 
         # Run migration
         migrate_v15_to_v16(db_v15)
@@ -577,7 +575,7 @@ class TestMigrationV15ToV16:
         self, db_v15: sqlite3.Connection
     ):
         """Test that invalid track_type values are still rejected after migration."""
-        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+        from vpo.db.schema import migrate_v15_to_v16
 
         # Run migration
         migrate_v15_to_v16(db_v15)
@@ -636,7 +634,7 @@ class TestMigrationV15ToV16:
         )
         conn.commit()
 
-        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+        from vpo.db.schema import migrate_v15_to_v16
 
         # Run migration on empty table
         migrate_v15_to_v16(conn)
@@ -711,7 +709,7 @@ class TestMigrationV16ToV17:
 
     def test_migration_adds_plugin_metadata_column(self, db_v16: sqlite3.Connection):
         """Test that migration adds plugin_metadata column."""
-        from video_policy_orchestrator.db.schema import migrate_v16_to_v17
+        from vpo.db.schema import migrate_v16_to_v17
 
         migrate_v16_to_v17(db_v16)
 
@@ -721,7 +719,7 @@ class TestMigrationV16ToV17:
 
     def test_migration_updates_schema_version(self, db_v16: sqlite3.Connection):
         """Test that schema version is updated to 17."""
-        from video_policy_orchestrator.db.schema import migrate_v16_to_v17
+        from vpo.db.schema import migrate_v16_to_v17
 
         migrate_v16_to_v17(db_v16)
 
@@ -730,7 +728,7 @@ class TestMigrationV16ToV17:
 
     def test_migration_is_idempotent(self, db_v16: sqlite3.Connection):
         """Test that running migration twice doesn't error."""
-        from video_policy_orchestrator.db.schema import migrate_v16_to_v17
+        from vpo.db.schema import migrate_v16_to_v17
 
         migrate_v16_to_v17(db_v16)
         migrate_v16_to_v17(db_v16)  # Should not raise
@@ -740,7 +738,7 @@ class TestMigrationV16ToV17:
 
     def test_migration_preserves_existing_data(self, db_v16: sqlite3.Connection):
         """Test that existing file records are preserved."""
-        from video_policy_orchestrator.db.schema import migrate_v16_to_v17
+        from vpo.db.schema import migrate_v16_to_v17
 
         migrate_v16_to_v17(db_v16)
 
@@ -754,7 +752,7 @@ class TestMigrationV16ToV17:
 
     def test_plugin_metadata_accepts_json(self, db_v16: sqlite3.Connection):
         """Test that plugin_metadata column accepts JSON strings."""
-        from video_policy_orchestrator.db.schema import migrate_v16_to_v17
+        from vpo.db.schema import migrate_v16_to_v17
 
         migrate_v16_to_v17(db_v16)
 
@@ -771,7 +769,7 @@ class TestMigrationV16ToV17:
 
     def test_plugin_metadata_null_by_default(self, db_v16: sqlite3.Connection):
         """Test that plugin_metadata is NULL for existing records after migration."""
-        from video_policy_orchestrator.db.schema import migrate_v16_to_v17
+        from vpo.db.schema import migrate_v16_to_v17
 
         migrate_v16_to_v17(db_v16)
 

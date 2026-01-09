@@ -4,11 +4,11 @@ from datetime import datetime, timezone
 
 import pytest
 
-from video_policy_orchestrator.db.types import (
+from vpo.db.types import (
     LanguageAnalysisResultRecord,
     LanguageSegmentRecord,
 )
-from video_policy_orchestrator.language_analysis.models import (
+from vpo.language_analysis.models import (
     AnalysisMetadata,
     LanguageAnalysisResult,
     LanguageClassification,
@@ -459,7 +459,7 @@ class TestLanguageSegmentSerialization:
 
     def test_from_detection_result_with_speech(self) -> None:
         """Test creating LanguageSegment from detection result with speech."""
-        from video_policy_orchestrator.transcription.interface import (
+        from vpo.transcription.interface import (
             MultiLanguageDetectionResult,
         )
 
@@ -479,7 +479,7 @@ class TestLanguageSegmentSerialization:
 
     def test_from_detection_result_no_speech(self) -> None:
         """Test that detection with no speech returns None."""
-        from video_policy_orchestrator.transcription.interface import (
+        from vpo.transcription.interface import (
             MultiLanguageDetectionResult,
         )
 

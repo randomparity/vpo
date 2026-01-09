@@ -8,10 +8,10 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.db.models import TrackInfo
-from video_policy_orchestrator.policy.evaluator import evaluate_policy
-from video_policy_orchestrator.policy.exceptions import IncompatibleCodecError
-from video_policy_orchestrator.policy.models import (
+from vpo.db.models import TrackInfo
+from vpo.policy.evaluator import evaluate_policy
+from vpo.policy.exceptions import IncompatibleCodecError
+from vpo.policy.models import (
     ContainerConfig,
     PolicySchema,
 )
@@ -371,7 +371,7 @@ class TestCombinedFilteringAndConversion:
 
     def test_audio_filter_with_mkv_conversion(self) -> None:
         """Audio filtering should work together with MKV conversion."""
-        from video_policy_orchestrator.policy.models import AudioFilterConfig
+        from vpo.policy.models import AudioFilterConfig
 
         tracks = [
             TrackInfo(

@@ -6,16 +6,16 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.db.models import OperationStatus
-from video_policy_orchestrator.db.operations import (
+from vpo.db.models import OperationStatus
+from vpo.db.operations import (
     create_operation,
     get_operation,
     get_operations_for_file,
     get_pending_operations,
     update_operation_status,
 )
-from video_policy_orchestrator.db.schema import create_schema
-from video_policy_orchestrator.policy.models import ActionType, Plan, PlannedAction
+from vpo.db.schema import create_schema
+from vpo.policy.models import ActionType, Plan, PlannedAction
 
 # =============================================================================
 # Test Fixtures
@@ -473,7 +473,7 @@ class TestDatabaseConfiguration:
 
     def test_wal_mode_enabled(self, temp_db: Path) -> None:
         """Should enable WAL journal mode for better concurrency."""
-        from video_policy_orchestrator.db.connection import get_connection
+        from vpo.db.connection import get_connection
 
         with get_connection(temp_db) as conn:
             cursor = conn.execute("PRAGMA journal_mode")
@@ -482,7 +482,7 @@ class TestDatabaseConfiguration:
 
     def test_foreign_keys_enabled(self, temp_db: Path) -> None:
         """Should enable foreign key enforcement."""
-        from video_policy_orchestrator.db.connection import get_connection
+        from vpo.db.connection import get_connection
 
         with get_connection(temp_db) as conn:
             cursor = conn.execute("PRAGMA foreign_keys")
@@ -491,7 +491,7 @@ class TestDatabaseConfiguration:
 
     def test_synchronous_normal(self, temp_db: Path) -> None:
         """Should set synchronous to NORMAL for safety with WAL."""
-        from video_policy_orchestrator.db.connection import get_connection
+        from vpo.db.connection import get_connection
 
         with get_connection(temp_db) as conn:
             cursor = conn.execute("PRAGMA synchronous")
@@ -501,7 +501,7 @@ class TestDatabaseConfiguration:
 
     def test_busy_timeout_configured(self, temp_db: Path) -> None:
         """Should set busy_timeout for lock contention handling."""
-        from video_policy_orchestrator.db.connection import get_connection
+        from vpo.db.connection import get_connection
 
         with get_connection(temp_db) as conn:
             cursor = conn.execute("PRAGMA busy_timeout")
@@ -536,7 +536,7 @@ class TestLimitParameterValidation:
         self, db_conn: sqlite3.Connection
     ) -> None:
         """Should reject negative limit values."""
-        from video_policy_orchestrator.db.models import get_queued_jobs
+        from vpo.db.models import get_queued_jobs
 
         with pytest.raises(ValueError, match="Invalid limit value"):
             get_queued_jobs(db_conn, limit=-1)
@@ -545,7 +545,7 @@ class TestLimitParameterValidation:
         self, db_conn: sqlite3.Connection
     ) -> None:
         """Should reject zero limit value."""
-        from video_policy_orchestrator.db.models import get_queued_jobs
+        from vpo.db.models import get_queued_jobs
 
         with pytest.raises(ValueError, match="Invalid limit value"):
             get_queued_jobs(db_conn, limit=0)
@@ -554,7 +554,7 @@ class TestLimitParameterValidation:
         self, db_conn: sqlite3.Connection
     ) -> None:
         """Should reject limit values over 10000."""
-        from video_policy_orchestrator.db.models import get_queued_jobs
+        from vpo.db.models import get_queued_jobs
 
         with pytest.raises(ValueError, match="Invalid limit value"):
             get_queued_jobs(db_conn, limit=10001)
@@ -563,7 +563,7 @@ class TestLimitParameterValidation:
         self, db_conn: sqlite3.Connection
     ) -> None:
         """Should reject invalid limit in get_jobs_by_status."""
-        from video_policy_orchestrator.db.models import JobStatus, get_jobs_by_status
+        from vpo.db.models import JobStatus, get_jobs_by_status
 
         with pytest.raises(ValueError, match="Invalid limit value"):
             get_jobs_by_status(db_conn, JobStatus.QUEUED, limit=-5)
@@ -572,14 +572,14 @@ class TestLimitParameterValidation:
         self, db_conn: sqlite3.Connection
     ) -> None:
         """Should reject invalid limit in get_all_jobs."""
-        from video_policy_orchestrator.db.models import get_all_jobs
+        from vpo.db.models import get_all_jobs
 
         with pytest.raises(ValueError, match="Invalid limit value"):
             get_all_jobs(db_conn, limit=0)
 
     def test_valid_limit_accepted(self, db_conn: sqlite3.Connection) -> None:
         """Should accept valid limit values."""
-        from video_policy_orchestrator.db.models import get_queued_jobs
+        from vpo.db.models import get_queued_jobs
 
         # Should not raise
         result = get_queued_jobs(db_conn, limit=100)
@@ -587,7 +587,7 @@ class TestLimitParameterValidation:
 
     def test_none_limit_returns_all(self, db_conn: sqlite3.Connection) -> None:
         """Should return all results when limit is None."""
-        from video_policy_orchestrator.db.models import get_queued_jobs
+        from vpo.db.models import get_queued_jobs
 
         # Should not raise
         result = get_queued_jobs(db_conn, limit=None)
@@ -633,7 +633,7 @@ class TestUpdatePlanStatus:
         self, db_conn: sqlite3.Connection, sample_plan: Plan, plan_file_id: int
     ):
         """Create a plan in PENDING status."""
-        from video_policy_orchestrator.db.operations import create_plan
+        from vpo.db.operations import create_plan
 
         return create_plan(db_conn, sample_plan, plan_file_id, "test-policy.yaml")
 
@@ -641,8 +641,8 @@ class TestUpdatePlanStatus:
         self, db_conn: sqlite3.Connection, pending_plan
     ) -> None:
         """Should transition from PENDING to APPROVED."""
-        from video_policy_orchestrator.db.models import PlanStatus
-        from video_policy_orchestrator.db.operations import update_plan_status
+        from vpo.db.models import PlanStatus
+        from vpo.db.operations import update_plan_status
 
         result = update_plan_status(db_conn, pending_plan.id, PlanStatus.APPROVED)
 
@@ -653,8 +653,8 @@ class TestUpdatePlanStatus:
         self, db_conn: sqlite3.Connection, pending_plan
     ) -> None:
         """Should transition from PENDING to REJECTED."""
-        from video_policy_orchestrator.db.models import PlanStatus
-        from video_policy_orchestrator.db.operations import update_plan_status
+        from vpo.db.models import PlanStatus
+        from vpo.db.operations import update_plan_status
 
         result = update_plan_status(db_conn, pending_plan.id, PlanStatus.REJECTED)
 
@@ -665,8 +665,8 @@ class TestUpdatePlanStatus:
         self, db_conn: sqlite3.Connection, pending_plan
     ) -> None:
         """Should raise InvalidPlanTransitionError for invalid transitions."""
-        from video_policy_orchestrator.db.models import PlanStatus
-        from video_policy_orchestrator.db.operations import (
+        from vpo.db.models import PlanStatus
+        from vpo.db.operations import (
             InvalidPlanTransitionError,
             update_plan_status,
         )
@@ -683,8 +683,8 @@ class TestUpdatePlanStatus:
 
     def test_update_plan_status_not_found(self, db_conn: sqlite3.Connection) -> None:
         """Should return None for non-existent plan."""
-        from video_policy_orchestrator.db.models import PlanStatus
-        from video_policy_orchestrator.db.operations import update_plan_status
+        from vpo.db.models import PlanStatus
+        from vpo.db.operations import update_plan_status
 
         result = update_plan_status(db_conn, "nonexistent-uuid", PlanStatus.APPROVED)
         assert result is None
@@ -700,14 +700,14 @@ class TestUpdatePlanStatus:
         """
         import threading
 
-        from video_policy_orchestrator.db.connection import get_connection
-        from video_policy_orchestrator.db.models import PlanStatus
-        from video_policy_orchestrator.db.operations import (
+        from vpo.db.connection import get_connection
+        from vpo.db.models import PlanStatus
+        from vpo.db.operations import (
             InvalidPlanTransitionError,
             create_plan,
             update_plan_status,
         )
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         # Setup: create database and plan
         with get_connection(temp_db) as conn:
@@ -782,7 +782,7 @@ class TestUpdatePlanStatus:
 
         # Verify final state is consistent
         with get_connection(temp_db) as conn:
-            from video_policy_orchestrator.db.operations import get_plan_by_id
+            from vpo.db.operations import get_plan_by_id
 
             final_plan = get_plan_by_id(conn, plan_id)
             assert final_plan is not None

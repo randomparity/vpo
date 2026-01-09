@@ -14,7 +14,7 @@ from aiohttp_session import setup as setup_session
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
 from cryptography import fernet
 
-from video_policy_orchestrator.server.csrf import (
+from vpo.server.csrf import (
     CSRF_HEADER,
     csrf_middleware,
     generate_csrf_token,

@@ -5,13 +5,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from video_policy_orchestrator.db.schema import create_schema
-from video_policy_orchestrator.policy.models import (
+from vpo.db.schema import create_schema
+from vpo.policy.models import (
     PolicySchema,
     ProcessingPhase,
     WorkflowConfig,
 )
-from video_policy_orchestrator.workflow.processor import (
+from vpo.workflow.processor import (
     FileProcessingResult,
     PhaseError,
     PhaseResult,
@@ -103,8 +103,8 @@ class TestWorkflowProcessorInit:
 class TestWorkflowProcessorPhaseExecution:
     """Tests for phase execution logic."""
 
-    @patch("video_policy_orchestrator.workflow.phases.analyze.AnalyzePhase")
-    @patch("video_policy_orchestrator.workflow.phases.apply.ApplyPhase")
+    @patch("vpo.workflow.phases.analyze.AnalyzePhase")
+    @patch("vpo.workflow.phases.apply.ApplyPhase")
     def test_process_file_runs_phases_in_order(
         self, mock_apply_cls, mock_analyze_cls, db_conn, test_file
     ):
@@ -132,7 +132,7 @@ class TestWorkflowProcessorPhaseExecution:
         assert ProcessingPhase.APPLY in result.phases_completed
         assert len(result.phases_failed) == 0
 
-    @patch("video_policy_orchestrator.workflow.phases.apply.ApplyPhase")
+    @patch("vpo.workflow.phases.apply.ApplyPhase")
     def test_process_file_handles_phase_failure(
         self, mock_apply_cls, db_conn, test_file
     ):
@@ -156,7 +156,7 @@ class TestWorkflowProcessorPhaseExecution:
         assert ProcessingPhase.APPLY in result.phases_failed
         assert ProcessingPhase.TRANSCODE in result.phases_skipped
 
-    @patch("video_policy_orchestrator.workflow.phases.apply.ApplyPhase")
+    @patch("vpo.workflow.phases.apply.ApplyPhase")
     def test_process_file_on_error_continue(self, mock_apply_cls, db_conn, test_file):
         """on_error=continue proceeds to next phase despite failure."""
         mock_apply = MagicMock()
@@ -182,7 +182,7 @@ class TestWorkflowProcessorPhaseExecution:
 class TestWorkflowProcessorDatabaseHandling:
     """Tests for database transaction handling."""
 
-    @patch("video_policy_orchestrator.workflow.phases.apply.ApplyPhase")
+    @patch("vpo.workflow.phases.apply.ApplyPhase")
     def test_rollback_on_sqlite_error(self, mock_apply_cls, db_conn, test_file):
         """Database errors trigger rollback and are handled properly."""
         mock_apply = MagicMock()
@@ -209,7 +209,7 @@ class TestWorkflowProcessorDatabaseHandling:
 class TestWorkflowProcessorProgress:
     """Tests for progress callback handling."""
 
-    @patch("video_policy_orchestrator.workflow.phases.apply.ApplyPhase")
+    @patch("vpo.workflow.phases.apply.ApplyPhase")
     def test_progress_callback_called(self, mock_apply_cls, db_conn, test_file):
         """Progress callback is called for each phase."""
         mock_apply = MagicMock()

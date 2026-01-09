@@ -5,10 +5,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from video_policy_orchestrator.db.queries import get_all_jobs, insert_job
-from video_policy_orchestrator.db.schema import create_schema
-from video_policy_orchestrator.db.types import Job, JobStatus, JobType
-from video_policy_orchestrator.jobs.maintenance import purge_old_jobs
+from vpo.db.queries import get_all_jobs, insert_job
+from vpo.db.schema import create_schema
+from vpo.db.types import Job, JobStatus, JobType
+from vpo.jobs.maintenance import purge_old_jobs
 
 
 @pytest.fixture

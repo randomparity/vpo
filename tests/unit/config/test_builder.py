@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.config.builder import (
+from vpo.config.builder import (
     ConfigBuilder,
     ConfigSource,
     source_from_env,
     source_from_file,
 )
-from video_policy_orchestrator.config.env import EnvReader
+from vpo.config.env import EnvReader
 
 
 class TestConfigSource:

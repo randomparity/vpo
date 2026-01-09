@@ -1,6 +1,6 @@
 """Tests for cli/exit_codes.py module."""
 
-from video_policy_orchestrator.cli.exit_codes import (
+from vpo.cli.exit_codes import (
     APPLY_EXIT_CODES,
     DOCTOR_EXIT_CODES,
     INSPECT_EXIT_CODES,

@@ -64,7 +64,7 @@ specs/025-policy-validation/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── policy/
 │   ├── loader.py           # PolicyModel, PolicyValidationError (existing)
 │   ├── editor.py           # PolicyRoundTripEditor (existing)

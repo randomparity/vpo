@@ -17,7 +17,7 @@
 
 **Purpose**: Schema versioning and configuration updates
 
-- [ ] T001 Update MAX_SCHEMA_VERSION to 12 in src/video_policy_orchestrator/policy/loader.py
+- [ ] T001 Update MAX_SCHEMA_VERSION to 12 in src/vpo/policy/loader.py
 - [ ] T002 [P] Update CLAUDE.md with feature context in section markers
 
 ---
@@ -28,14 +28,14 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T003 Add `plugin_metadata TEXT` column migration (v16→v17) in src/video_policy_orchestrator/db/schema.py
-- [ ] T004 [P] Add `plugin_metadata` field to FileRecord dataclass in src/video_policy_orchestrator/db/types.py
-- [ ] T005 [P] Add `plugin_metadata` field to FileInfo dataclass in src/video_policy_orchestrator/db/types.py
-- [ ] T006 Update upsert_file() to include plugin_metadata in src/video_policy_orchestrator/db/queries.py
-- [ ] T007 Update get_file_by_* queries to include plugin_metadata in src/video_policy_orchestrator/db/queries.py
-- [ ] T008 Create PluginMetadataOperator enum in src/video_policy_orchestrator/policy/plugin_metadata.py
-- [ ] T009 Create PluginMetadataCondition dataclass in src/video_policy_orchestrator/policy/plugin_metadata.py
-- [ ] T010 Add PluginMetadataCondition to Condition type union in src/video_policy_orchestrator/policy/models.py
+- [ ] T003 Add `plugin_metadata TEXT` column migration (v16→v17) in src/vpo/db/schema.py
+- [ ] T004 [P] Add `plugin_metadata` field to FileRecord dataclass in src/vpo/db/types.py
+- [ ] T005 [P] Add `plugin_metadata` field to FileInfo dataclass in src/vpo/db/types.py
+- [ ] T006 Update upsert_file() to include plugin_metadata in src/vpo/db/queries.py
+- [ ] T007 Update get_file_by_* queries to include plugin_metadata in src/vpo/db/queries.py
+- [ ] T008 Create PluginMetadataOperator enum in src/vpo/policy/plugin_metadata.py
+- [ ] T009 Create PluginMetadataCondition dataclass in src/vpo/policy/plugin_metadata.py
+- [ ] T010 Add PluginMetadataCondition to Condition type union in src/vpo/policy/models.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -49,12 +49,12 @@
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Implement evaluate_plugin_metadata_condition() in src/video_policy_orchestrator/policy/plugin_metadata.py
-- [ ] T012 [US1] Create PluginMetadataConditionModel Pydantic model in src/video_policy_orchestrator/policy/loader.py
-- [ ] T013 [US1] Add plugin_metadata condition parsing to convert_condition() in src/video_policy_orchestrator/policy/loader.py
-- [ ] T014 [US1] Update evaluate_condition() to handle PluginMetadataCondition in src/video_policy_orchestrator/policy/conditions.py
-- [ ] T015 [US1] Thread plugin_metadata through evaluate_conditions() signature in src/video_policy_orchestrator/policy/evaluator.py
-- [ ] T016 [US1] Update Plan.evaluate() to pass plugin_metadata from FileInfo in src/video_policy_orchestrator/policy/evaluator.py
+- [ ] T011 [US1] Implement evaluate_plugin_metadata_condition() in src/vpo/policy/plugin_metadata.py
+- [ ] T012 [US1] Create PluginMetadataConditionModel Pydantic model in src/vpo/policy/loader.py
+- [ ] T013 [US1] Add plugin_metadata condition parsing to convert_condition() in src/vpo/policy/loader.py
+- [ ] T014 [US1] Update evaluate_condition() to handle PluginMetadataCondition in src/vpo/policy/conditions.py
+- [ ] T015 [US1] Thread plugin_metadata through evaluate_conditions() signature in src/vpo/policy/evaluator.py
+- [ ] T016 [US1] Update Plan.evaluate() to pass plugin_metadata from FileInfo in src/vpo/policy/evaluator.py
 
 **Checkpoint**: User Story 1 complete - plugin metadata conditions evaluate correctly
 
@@ -68,8 +68,8 @@
 
 ### Implementation for User Story 2
 
-- [ ] T017 [US2] Update scanner orchestrator to collect and store plugin enrichment in src/video_policy_orchestrator/scanner/orchestrator.py
-- [ ] T018 [US2] Verify conditional rule evaluation passes plugin_metadata in src/video_policy_orchestrator/policy/evaluator.py
+- [ ] T017 [US2] Update scanner orchestrator to collect and store plugin enrichment in src/vpo/scanner/orchestrator.py
+- [ ] T018 [US2] Verify conditional rule evaluation passes plugin_metadata in src/vpo/policy/evaluator.py
 - [ ] T019 [US2] Add unit test for track filtering with plugin metadata condition in tests/unit/policy/test_plugin_metadata.py
 
 **Checkpoint**: User Story 2 complete - track filtering works with plugin metadata
@@ -84,8 +84,8 @@
 
 ### Implementation for User Story 3
 
-- [ ] T020 [US3] Add integer and NEQ comparison support to evaluate_plugin_metadata_condition() in src/video_policy_orchestrator/policy/plugin_metadata.py
-- [ ] T021 [US3] Add CONTAINS operator evaluation for string substring matching in src/video_policy_orchestrator/policy/plugin_metadata.py
+- [ ] T020 [US3] Add integer and NEQ comparison support to evaluate_plugin_metadata_condition() in src/vpo/policy/plugin_metadata.py
+- [ ] T021 [US3] Add CONTAINS operator evaluation for string substring matching in src/vpo/policy/plugin_metadata.py
 - [ ] T022 [US3] Add unit tests for integer, NEQ, and CONTAINS operators in tests/unit/policy/test_plugin_metadata.py
 
 **Checkpoint**: User Story 3 complete - all operator types work correctly
@@ -100,9 +100,9 @@
 
 ### Implementation for User Story 4
 
-- [ ] T023 [US4] Create KNOWN_PLUGIN_FIELDS registry in src/video_policy_orchestrator/policy/plugin_metadata.py
-- [ ] T024 [US4] Implement validate_plugin_reference() in src/video_policy_orchestrator/policy/plugin_metadata.py
-- [ ] T025 [US4] Add validation call to PluginMetadataConditionModel in src/video_policy_orchestrator/policy/loader.py
+- [ ] T023 [US4] Create KNOWN_PLUGIN_FIELDS registry in src/vpo/policy/plugin_metadata.py
+- [ ] T024 [US4] Implement validate_plugin_reference() in src/vpo/policy/plugin_metadata.py
+- [ ] T025 [US4] Add validation call to PluginMetadataConditionModel in src/vpo/policy/loader.py
 - [ ] T026 [US4] Add validation warning tests in tests/unit/policy/test_plugin_metadata.py
 
 **Checkpoint**: User Story 4 complete - validation warnings work for unknown plugins/fields

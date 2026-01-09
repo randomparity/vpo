@@ -20,7 +20,7 @@ Note: No JavaScript file needed - server-rendered page with no dynamic updates.
 
 ## 1. Policy Discovery Module
 
-**File**: `src/video_policy_orchestrator/policy/discovery.py` (NEW FILE)
+**File**: `src/vpo/policy/discovery.py` (NEW FILE)
 
 ```python
 """Policy file discovery and metadata extraction."""
@@ -193,7 +193,7 @@ def discover_policies(
 
 ## 2. View Models
 
-**File**: `src/video_policy_orchestrator/server/ui/models.py`
+**File**: `src/vpo/server/ui/models.py`
 
 Add these classes and helper functions:
 
@@ -279,12 +279,12 @@ class PoliciesContext:
 
 ## 3. Route Handlers
 
-**File**: `src/video_policy_orchestrator/server/ui/routes.py`
+**File**: `src/vpo/server/ui/routes.py`
 
 Add handlers:
 
 ```python
-from video_policy_orchestrator.policy.discovery import (
+from vpo.policy.discovery import (
     DEFAULT_POLICIES_DIR,
     discover_policies,
 )
@@ -296,7 +296,7 @@ async def policies_handler(request: web.Request) -> dict:
     # Get default policy from active profile
     default_policy_path = None
     try:
-        from video_policy_orchestrator.config.profiles import get_active_profile
+        from vpo.config.profiles import get_active_profile
         profile = get_active_profile()
         if profile and profile.default_policy:
             default_policy_path = profile.default_policy
@@ -350,7 +350,7 @@ async def policies_api_handler(request: web.Request) -> web.Response:
     """GET /api/policies - List policy files."""
     default_policy_path = None
     try:
-        from video_policy_orchestrator.config.profiles import get_active_profile
+        from vpo.config.profiles import get_active_profile
         profile = get_active_profile()
         if profile and profile.default_policy:
             default_policy_path = profile.default_policy
@@ -402,7 +402,7 @@ app.router.add_get("/api/policies", policies_api_handler)
 
 ## 4. HTML Template
 
-**File**: `src/video_policy_orchestrator/server/ui/templates/sections/policies.html`
+**File**: `src/vpo/server/ui/templates/sections/policies.html`
 
 Replace placeholder content. Key elements:
 - Info banner showing policies directory path
@@ -415,7 +415,7 @@ Replace placeholder content. Key elements:
 
 ## 5. CSS
 
-**File**: `src/video_policy_orchestrator/server/static/css/main.css`
+**File**: `src/vpo/server/static/css/main.css`
 
 Add policy-specific styles:
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.plugin.loader import (
+from vpo.plugin.loader import (
     compute_plugin_hash,
     discover_directory_plugins,
     load_plugin_from_path,
@@ -150,7 +150,7 @@ plugin = MyPlugin()
 
     def test_raises_if_no_plugin_variable(self, tmp_path: Path):
         """Raises error if module has no 'plugin' variable."""
-        from video_policy_orchestrator.plugin.exceptions import PluginLoadError
+        from vpo.plugin.exceptions import PluginLoadError
 
         plugin_file = tmp_path / "bad_plugin.py"
         plugin_file.write_text("x = 1")

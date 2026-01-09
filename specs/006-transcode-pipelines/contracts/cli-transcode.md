@@ -1,6 +1,6 @@
 # CLI Contract: vpo transcode
 
-**Module**: `video_policy_orchestrator.cli.transcode`
+**Module**: `vpo.cli.transcode`
 **Parent Command**: `vpo`
 
 ## Command: transcode

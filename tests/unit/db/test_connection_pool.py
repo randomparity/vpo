@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
-from video_policy_orchestrator.db.connection import (
+from vpo.db.connection import (
     DaemonConnectionPool,
     execute_with_retry,
 )

@@ -61,7 +61,7 @@ specs/036-v9-policy-editor/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── server/
 │   ├── ui/
 │   │   ├── routes.py           # Extend policy_editor_handler, api_policy_* handlers

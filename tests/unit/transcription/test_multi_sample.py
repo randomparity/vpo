@@ -6,12 +6,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from video_policy_orchestrator.transcription.interface import TranscriptionError
-from video_policy_orchestrator.transcription.models import (
+from vpo.transcription.interface import TranscriptionError
+from vpo.transcription.models import (
     TrackClassification,
     TranscriptionResult,
 )
-from video_policy_orchestrator.transcription.multi_sample import (
+from vpo.transcription.multi_sample import (
     MultiSampleConfig,
     SampleResult,
     aggregate_results,
@@ -331,7 +331,7 @@ class TestSmartDetect:
         mock.transcribe.side_effect = transcribe_side_effect
         return mock
 
-    @patch("video_policy_orchestrator.transcription.multi_sample.extract_audio_stream")
+    @patch("vpo.transcription.multi_sample.extract_audio_stream")
     def test_early_exit_high_confidence(self, mock_extract):
         """Test early exit when first sample has high confidence."""
         mock_extract.return_value = b"fake audio data"
@@ -356,7 +356,7 @@ class TestSmartDetect:
         # Should only call transcribe once due to early exit
         assert transcriber.transcribe.call_count == 1
 
-    @patch("video_policy_orchestrator.transcription.multi_sample.extract_audio_stream")
+    @patch("vpo.transcription.multi_sample.extract_audio_stream")
     def test_multiple_samples_low_confidence(self, mock_extract):
         """Test taking multiple samples when confidence is low."""
         mock_extract.return_value = b"fake audio data"
@@ -386,7 +386,7 @@ class TestSmartDetect:
         assert result.samples_taken == 3
         assert transcriber.transcribe.call_count == 3
 
-    @patch("video_policy_orchestrator.transcription.multi_sample.extract_audio_stream")
+    @patch("vpo.transcription.multi_sample.extract_audio_stream")
     def test_incumbent_language_passed(self, mock_extract):
         """Test incumbent language is passed to aggregation."""
         mock_extract.return_value = b"fake audio data"
@@ -418,10 +418,10 @@ class TestSmartDetect:
         # Language is normalized to ISO 639-2/B
         assert result.language == "eng"
 
-    @patch("video_policy_orchestrator.transcription.multi_sample.extract_audio_stream")
+    @patch("vpo.transcription.multi_sample.extract_audio_stream")
     def test_extraction_failure_continues(self, mock_extract):
         """Test that extraction failures don't stop processing."""
-        from video_policy_orchestrator.transcription.audio_extractor import (
+        from vpo.transcription.audio_extractor import (
             AudioExtractionError,
         )
 
@@ -449,10 +449,10 @@ class TestSmartDetect:
         assert result.language == "eng"
         assert result.samples_taken == 1
 
-    @patch("video_policy_orchestrator.transcription.multi_sample.extract_audio_stream")
+    @patch("vpo.transcription.multi_sample.extract_audio_stream")
     def test_all_extractions_fail(self, mock_extract):
         """Test that all extraction failures raises error."""
-        from video_policy_orchestrator.transcription.audio_extractor import (
+        from vpo.transcription.audio_extractor import (
             AudioExtractionError,
         )
 
@@ -470,7 +470,7 @@ class TestSmartDetect:
                 config=config,
             )
 
-    @patch("video_policy_orchestrator.transcription.multi_sample.extract_audio_stream")
+    @patch("vpo.transcription.multi_sample.extract_audio_stream")
     def test_default_config(self, mock_extract):
         """Test using default config when none provided."""
         mock_extract.return_value = b"fake audio data"
@@ -487,7 +487,7 @@ class TestSmartDetect:
         # Language is normalized to ISO 639-2/B
         assert result.language == "eng"
 
-    @patch("video_policy_orchestrator.transcription.multi_sample.extract_audio_stream")
+    @patch("vpo.transcription.multi_sample.extract_audio_stream")
     def test_sample_positions_used(self, mock_extract):
         """Test that calculated sample positions are passed to extract."""
         mock_extract.return_value = b"fake audio data"

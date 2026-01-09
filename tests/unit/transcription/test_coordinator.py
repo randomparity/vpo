@@ -11,11 +11,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from video_policy_orchestrator.db.schema import create_schema
-from video_policy_orchestrator.db.types import TrackClassification, TrackInfo
-from video_policy_orchestrator.plugin.events import TranscriptionRequestedEvent
-from video_policy_orchestrator.plugin.registry import LoadedPlugin, PluginManifest
-from video_policy_orchestrator.transcription.coordinator import (
+from vpo.db.schema import create_schema
+from vpo.db.types import TrackClassification, TrackInfo
+from vpo.plugin.events import TranscriptionRequestedEvent
+from vpo.plugin.registry import LoadedPlugin, PluginManifest
+from vpo.transcription.coordinator import (
     DEFAULT_CONFIDENCE_THRESHOLD,
     NoTranscriptionPluginError,
     PluginTranscriberAdapter,
@@ -23,14 +23,14 @@ from video_policy_orchestrator.transcription.coordinator import (
     TranscriptionCoordinatorResult,
     TranscriptionOptions,
 )
-from video_policy_orchestrator.transcription.interface import TranscriptionError
-from video_policy_orchestrator.transcription.models import (
+from vpo.transcription.interface import TranscriptionError
+from vpo.transcription.models import (
     TrackClassification as ModelTrackClassification,
 )
-from video_policy_orchestrator.transcription.models import (
+from vpo.transcription.models import (
     TranscriptionResult,
 )
-from video_policy_orchestrator.transcription.multi_sample import AggregatedResult
+from vpo.transcription.multi_sample import AggregatedResult
 
 
 @pytest.fixture
@@ -333,9 +333,7 @@ class TestTranscriptionCoordinatorAnalyzeTrack:
         mock_registry.get_by_event.return_value = [plugin]
         coordinator = TranscriptionCoordinator(mock_registry)
 
-        with patch(
-            "video_policy_orchestrator.transcription.coordinator.smart_detect"
-        ) as mock_detect:
+        with patch("vpo.transcription.coordinator.smart_detect") as mock_detect:
             mock_detect.return_value = AggregatedResult(
                 language="eng",
                 confidence=0.95,
@@ -367,9 +365,7 @@ class TestTranscriptionCoordinatorAnalyzeTrack:
         mock_registry.get_by_event.return_value = [plugin]
         coordinator = TranscriptionCoordinator(mock_registry)
 
-        with patch(
-            "video_policy_orchestrator.transcription.coordinator.smart_detect"
-        ) as mock_detect:
+        with patch("vpo.transcription.coordinator.smart_detect") as mock_detect:
             mock_detect.return_value = AggregatedResult(
                 language="fra",
                 confidence=0.88,
@@ -404,9 +400,7 @@ class TestTranscriptionCoordinatorAnalyzeTrack:
             incumbent_bonus=0.3,
         )
 
-        with patch(
-            "video_policy_orchestrator.transcription.coordinator.smart_detect"
-        ) as mock_detect:
+        with patch("vpo.transcription.coordinator.smart_detect") as mock_detect:
             mock_detect.return_value = AggregatedResult(
                 language="eng",
                 confidence=0.95,
@@ -474,9 +468,7 @@ class TestTranscriptionCoordinatorAnalyzeAndPersist:
             language="eng",
         )
 
-        with patch(
-            "video_policy_orchestrator.transcription.coordinator.smart_detect"
-        ) as mock_detect:
+        with patch("vpo.transcription.coordinator.smart_detect") as mock_detect:
             mock_detect.return_value = AggregatedResult(
                 language="fra",
                 confidence=0.88,
@@ -548,9 +540,7 @@ class TestTranscriptionCoordinatorAnalyzeAndPersist:
             track_type="audio",
         )
 
-        with patch(
-            "video_policy_orchestrator.transcription.coordinator.smart_detect"
-        ) as mock_detect:
+        with patch("vpo.transcription.coordinator.smart_detect") as mock_detect:
             mock_detect.return_value = AggregatedResult(
                 language="eng",
                 confidence=0.9,
@@ -819,9 +809,7 @@ class TestTranscriptionCoordinatorClassification:
             title="Director's Commentary",
         )
 
-        with patch(
-            "video_policy_orchestrator.transcription.coordinator.smart_detect"
-        ) as mock_detect:
+        with patch("vpo.transcription.coordinator.smart_detect") as mock_detect:
             mock_detect.return_value = AggregatedResult(
                 language="eng",
                 confidence=0.9,
@@ -852,9 +840,7 @@ class TestTranscriptionCoordinatorClassification:
             title="Isolated Score",
         )
 
-        with patch(
-            "video_policy_orchestrator.transcription.coordinator.smart_detect"
-        ) as mock_detect:
+        with patch("vpo.transcription.coordinator.smart_detect") as mock_detect:
             mock_detect.return_value = AggregatedResult(
                 language=None,
                 confidence=0.3,
@@ -884,9 +870,7 @@ class TestTranscriptionCoordinatorClassification:
             language="eng",
         )
 
-        with patch(
-            "video_policy_orchestrator.transcription.coordinator.smart_detect"
-        ) as mock_detect:
+        with patch("vpo.transcription.coordinator.smart_detect") as mock_detect:
             mock_detect.return_value = AggregatedResult(
                 language="eng",
                 confidence=0.95,

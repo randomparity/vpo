@@ -5,20 +5,18 @@ from unittest.mock import patch
 
 import pytest
 
-from video_policy_orchestrator.executor.transcode import (
+from vpo.executor.transcode import (
     TranscodePlan,
     build_ffmpeg_command,
     should_transcode_video,
 )
-from video_policy_orchestrator.policy.models import TranscodePolicyConfig
+from vpo.policy.models import TranscodePolicyConfig
 
 
 @pytest.fixture
 def mock_ffmpeg():
     """Mock require_tool to return a fake ffmpeg path."""
-    with patch(
-        "video_policy_orchestrator.executor.transcode.require_tool"
-    ) as mock_require:
+    with patch("vpo.executor.transcode.require_tool") as mock_require:
         mock_require.return_value = Path("/usr/bin/ffmpeg")
         yield mock_require
 

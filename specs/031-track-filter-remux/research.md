@@ -11,7 +11,7 @@
 **Question**: How does the current policy schema (v2) work and what needs to change for v3?
 
 **Findings**:
-- Current schema version: **2** (defined in `src/video_policy_orchestrator/policy/loader.py:27`)
+- Current schema version: **2** (defined in `src/vpo/policy/loader.py:27`)
 - `PolicySchema` is a frozen dataclass in `policy/models.py:235-270`
 - Currently supports:
   - `track_order`: Controls track sequence (reordering)

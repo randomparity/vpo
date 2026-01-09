@@ -16,9 +16,9 @@
 ## Path Conventions
 
 - **Project type**: Web application (server + client-side JavaScript)
-- **Server code**: `src/video_policy_orchestrator/server/`
-- **JavaScript**: `src/video_policy_orchestrator/server/static/js/`
-- **Templates**: `src/video_policy_orchestrator/server/ui/templates/`
+- **Server code**: `src/vpo/server/`
+- **JavaScript**: `src/vpo/server/static/js/`
+- **Templates**: `src/vpo/server/ui/templates/`
 
 ---
 
@@ -26,9 +26,9 @@
 
 **Purpose**: Project initialization and shared polling infrastructure
 
-- [X] T001 Create polling.js module with core utilities in src/video_policy_orchestrator/server/static/js/polling.js
-- [X] T002 Add polling configuration constants (interval, backoff params) in src/video_policy_orchestrator/server/static/js/polling.js
-- [X] T003 [P] Add connection status CSS styles in src/video_policy_orchestrator/server/static/css/main.css
+- [X] T001 Create polling.js module with core utilities in src/vpo/server/static/js/polling.js
+- [X] T002 Add polling configuration constants (interval, backoff params) in src/vpo/server/static/js/polling.js
+- [X] T003 [P] Add connection status CSS styles in src/vpo/server/static/css/main.css
 
 ---
 
@@ -38,13 +38,13 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T004 Implement PollingState class with start/stop/cleanup methods in src/video_policy_orchestrator/server/static/js/polling.js
-- [X] T005 Implement BackoffState with exponential backoff logic (10s initial, 2min max, 3 failures trigger) in src/video_policy_orchestrator/server/static/js/polling.js
-- [X] T006 [P] Add Page Visibility API integration (visibilitychange event handler) in src/video_policy_orchestrator/server/static/js/polling.js
-- [X] T007 [P] Add connection status indicator element to base template in src/video_policy_orchestrator/server/ui/templates/base.html
-- [X] T008 Add polling config data attributes to body element in src/video_policy_orchestrator/server/ui/templates/base.html
-- [X] T009 Add polling config to template context in src/video_policy_orchestrator/server/ui/routes.py
-- [X] T010 [P] Export VPOPolling namespace for use by page-specific scripts in src/video_policy_orchestrator/server/static/js/polling.js
+- [X] T004 Implement PollingState class with start/stop/cleanup methods in src/vpo/server/static/js/polling.js
+- [X] T005 Implement BackoffState with exponential backoff logic (10s initial, 2min max, 3 failures trigger) in src/vpo/server/static/js/polling.js
+- [X] T006 [P] Add Page Visibility API integration (visibilitychange event handler) in src/vpo/server/static/js/polling.js
+- [X] T007 [P] Add connection status indicator element to base template in src/vpo/server/ui/templates/base.html
+- [X] T008 Add polling config data attributes to body element in src/vpo/server/ui/templates/base.html
+- [X] T009 Add polling config to template context in src/vpo/server/ui/routes.py
+- [X] T010 [P] Export VPOPolling namespace for use by page-specific scripts in src/vpo/server/static/js/polling.js
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -58,13 +58,13 @@
 
 ### Implementation for User Story 1
 
-- [X] T011 [US1] Create fetchJobsForPolling() function that preserves filter state in src/video_policy_orchestrator/server/static/js/jobs.js
-- [X] T012 [US1] Implement updateJobsTable() for targeted DOM updates (update changed rows only) in src/video_policy_orchestrator/server/static/js/jobs.js
-- [X] T013 [US1] Add job data comparison logic to detect changes in src/video_policy_orchestrator/server/static/js/jobs.js
-- [X] T014 [US1] Integrate VPOPolling.start() on page load in src/video_policy_orchestrator/server/static/js/jobs.js
-- [X] T015 [US1] Add updateJobRow() function to update individual job cells without re-rendering in src/video_policy_orchestrator/server/static/js/jobs.js
-- [X] T016 [US1] Add appendJobRow() function to add new jobs to table in src/video_policy_orchestrator/server/static/js/jobs.js
-- [X] T017 [US1] Wire up polling start/stop with visibility change events (pause/resume) in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T011 [US1] Create fetchJobsForPolling() function that preserves filter state in src/vpo/server/static/js/jobs.js
+- [X] T012 [US1] Implement updateJobsTable() for targeted DOM updates (update changed rows only) in src/vpo/server/static/js/jobs.js
+- [X] T013 [US1] Add job data comparison logic to detect changes in src/vpo/server/static/js/jobs.js
+- [X] T014 [US1] Integrate VPOPolling.start() on page load in src/vpo/server/static/js/jobs.js
+- [X] T015 [US1] Add updateJobRow() function to update individual job cells without re-rendering in src/vpo/server/static/js/jobs.js
+- [X] T016 [US1] Add appendJobRow() function to add new jobs to table in src/vpo/server/static/js/jobs.js
+- [X] T017 [US1] Wire up polling start/stop with visibility change events (pause/resume) in src/vpo/server/static/js/jobs.js
 
 **Checkpoint**: User Story 1 complete - Jobs dashboard updates automatically
 
@@ -78,13 +78,13 @@
 
 ### Implementation for User Story 2
 
-- [X] T018 [US2] Create fetchJobDetailForPolling() function in src/video_policy_orchestrator/server/static/js/job_detail.js
-- [X] T019 [US2] Implement updateJobDetailFields() for targeted field updates in src/video_policy_orchestrator/server/static/js/job_detail.js
-- [X] T020 [US2] Add terminal state detection (completed/failed/cancelled) to stop polling in src/video_policy_orchestrator/server/static/js/job_detail.js
-- [X] T021 [US2] Integrate VPOPolling.start() on page load in src/video_policy_orchestrator/server/static/js/job_detail.js
-- [X] T022 [US2] Implement log polling with 15s interval (separate from job status polling) in src/video_policy_orchestrator/server/static/js/job_detail.js
-- [X] T023 [US2] Add appendNewLogLines() function for incremental log updates in src/video_policy_orchestrator/server/static/js/job_detail.js
-- [X] T024 [US2] Handle 404 response gracefully (job deleted while viewing) in src/video_policy_orchestrator/server/static/js/job_detail.js
+- [X] T018 [US2] Create fetchJobDetailForPolling() function in src/vpo/server/static/js/job_detail.js
+- [X] T019 [US2] Implement updateJobDetailFields() for targeted field updates in src/vpo/server/static/js/job_detail.js
+- [X] T020 [US2] Add terminal state detection (completed/failed/cancelled) to stop polling in src/vpo/server/static/js/job_detail.js
+- [X] T021 [US2] Integrate VPOPolling.start() on page load in src/vpo/server/static/js/job_detail.js
+- [X] T022 [US2] Implement log polling with 15s interval (separate from job status polling) in src/vpo/server/static/js/job_detail.js
+- [X] T023 [US2] Add appendNewLogLines() function for incremental log updates in src/vpo/server/static/js/job_detail.js
+- [X] T024 [US2] Handle 404 response gracefully (job deleted while viewing) in src/vpo/server/static/js/job_detail.js
 
 **Checkpoint**: User Story 2 complete - Job detail view updates automatically
 
@@ -98,12 +98,12 @@
 
 ### Implementation for User Story 3
 
-- [X] T025 [US3] Add progress bar/percentage display element to jobs table rows in src/video_policy_orchestrator/server/static/js/jobs.js
-- [X] T026 [US3] Update renderJobRow() to include progress percentage for running jobs in src/video_policy_orchestrator/server/static/js/jobs.js
-- [X] T027 [P] [US3] Add progress bar CSS styles in src/video_policy_orchestrator/server/static/css/main.css
-- [X] T028 [US3] Add indeterminate progress indicator for jobs without progress data in src/video_policy_orchestrator/server/static/js/jobs.js
-- [X] T029 [US3] Display processed file count (e.g., "25 of 100 files") in job detail view in src/video_policy_orchestrator/server/static/js/job_detail.js
-- [X] T030 [US3] Parse summary_raw for file count information in src/video_policy_orchestrator/server/static/js/job_detail.js
+- [X] T025 [US3] Add progress bar/percentage display element to jobs table rows in src/vpo/server/static/js/jobs.js
+- [X] T026 [US3] Update renderJobRow() to include progress percentage for running jobs in src/vpo/server/static/js/jobs.js
+- [X] T027 [P] [US3] Add progress bar CSS styles in src/vpo/server/static/css/main.css
+- [X] T028 [US3] Add indeterminate progress indicator for jobs without progress data in src/vpo/server/static/js/jobs.js
+- [X] T029 [US3] Display processed file count (e.g., "25 of 100 files") in job detail view in src/vpo/server/static/js/job_detail.js
+- [X] T030 [US3] Parse summary_raw for file count information in src/vpo/server/static/js/job_detail.js
 
 **Checkpoint**: User Story 3 complete - Progress information displays correctly
 
@@ -117,10 +117,10 @@
 
 ### Implementation for User Story 4
 
-- [X] T031 [US4] Implement pausePolling() function in src/video_policy_orchestrator/server/static/js/polling.js
-- [X] T032 [US4] Implement resumePolling() with immediate data fetch in src/video_policy_orchestrator/server/static/js/polling.js
-- [X] T033 [US4] Add beforeunload handler to cleanup timers in src/video_policy_orchestrator/server/static/js/polling.js
-- [X] T034 [US4] Wire visibility change to pause/resume in job_detail.js in src/video_policy_orchestrator/server/static/js/job_detail.js
+- [X] T031 [US4] Implement pausePolling() function in src/vpo/server/static/js/polling.js
+- [X] T032 [US4] Implement resumePolling() with immediate data fetch in src/vpo/server/static/js/polling.js
+- [X] T033 [US4] Add beforeunload handler to cleanup timers in src/vpo/server/static/js/polling.js
+- [X] T034 [US4] Wire visibility change to pause/resume in job_detail.js in src/vpo/server/static/js/job_detail.js
 
 **Checkpoint**: User Story 4 complete - Polling is visibility-aware
 
@@ -134,9 +134,9 @@
 
 ### Implementation for User Story 5
 
-- [X] T035 [US5] Add polling_interval_ms config option to server configuration in src/video_policy_orchestrator/server/ui/routes.py
-- [X] T036 [US5] Read polling config from data attributes in polling.js init in src/video_policy_orchestrator/server/static/js/polling.js
-- [X] T037 [US5] Validate polling interval range (2000-60000ms) with fallback to default in src/video_policy_orchestrator/server/static/js/polling.js
+- [X] T035 [US5] Add polling_interval_ms config option to server configuration in src/vpo/server/ui/routes.py
+- [X] T036 [US5] Read polling config from data attributes in polling.js init in src/vpo/server/static/js/polling.js
+- [X] T037 [US5] Validate polling interval range (2000-60000ms) with fallback to default in src/vpo/server/static/js/polling.js
 
 **Checkpoint**: User Story 5 complete - Polling interval is configurable
 
@@ -146,10 +146,10 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [X] T038 [P] Add subtle loading indicator during polling refresh in src/video_policy_orchestrator/server/static/js/polling.js
-- [X] T039 [P] Add console logging for polling debug (with DEBUG flag) in src/video_policy_orchestrator/server/static/js/polling.js
-- [X] T040 Verify all polling timers cleaned up on page unload (memory leak prevention) in src/video_policy_orchestrator/server/static/js/polling.js
-- [X] T041 [P] Update connection status indicator UI state on error/reconnect in src/video_policy_orchestrator/server/static/js/polling.js
+- [X] T038 [P] Add subtle loading indicator during polling refresh in src/vpo/server/static/js/polling.js
+- [X] T039 [P] Add console logging for polling debug (with DEBUG flag) in src/vpo/server/static/js/polling.js
+- [X] T040 Verify all polling timers cleaned up on page unload (memory leak prevention) in src/vpo/server/static/js/polling.js
+- [X] T041 [P] Update connection status indicator UI state on error/reconnect in src/vpo/server/static/js/polling.js
 - [ ] T042 Run quickstart.md manual validation checklist
 - [ ] T043 Browser testing: Chrome, Firefox, Safari, Edge
 

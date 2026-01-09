@@ -9,7 +9,7 @@
 
 The jobs dashboard reads from the existing `jobs` table. No schema modifications required.
 
-**Source**: `src/video_policy_orchestrator/db/schema.py` (schema v7)
+**Source**: `src/vpo/db/schema.py` (schema v7)
 
 | Field | Type | Nullable | Description |
 |-------|------|----------|-------------|
@@ -31,7 +31,7 @@ The jobs dashboard reads from the existing `jobs` table. No schema modifications
 
 ### JobType (Enum - Existing)
 
-**Source**: `src/video_policy_orchestrator/db/models.py`
+**Source**: `src/vpo/db/models.py`
 
 ```python
 class JobType(Enum):
@@ -43,7 +43,7 @@ class JobType(Enum):
 
 ### JobStatus (Enum - Existing)
 
-**Source**: `src/video_policy_orchestrator/db/models.py`
+**Source**: `src/vpo/db/models.py`
 
 ```python
 class JobStatus(Enum):
@@ -60,7 +60,7 @@ class JobStatus(Enum):
 
 **Purpose**: Validate and parse query parameters for /api/jobs
 
-**Location**: `src/video_policy_orchestrator/server/ui/models.py`
+**Location**: `src/vpo/server/ui/models.py`
 
 | Field | Type | Default | Validation |
 |-------|------|---------|------------|
@@ -74,7 +74,7 @@ class JobStatus(Enum):
 
 **Purpose**: Job data for API response and template rendering
 
-**Location**: `src/video_policy_orchestrator/server/ui/models.py`
+**Location**: `src/vpo/server/ui/models.py`
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -91,7 +91,7 @@ class JobStatus(Enum):
 
 **Purpose**: API response wrapper with pagination metadata
 
-**Location**: `src/video_policy_orchestrator/server/ui/models.py`
+**Location**: `src/vpo/server/ui/models.py`
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -105,7 +105,7 @@ class JobStatus(Enum):
 
 **Purpose**: Template context for jobs.html
 
-**Location**: `src/video_policy_orchestrator/server/ui/models.py`
+**Location**: `src/vpo/server/ui/models.py`
 
 | Field | Type | Description |
 |-------|------|-------------|

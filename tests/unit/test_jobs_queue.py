@@ -6,15 +6,15 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from video_policy_orchestrator.db.models import (
+from vpo.db.models import (
     Job,
     JobStatus,
     JobType,
     get_job,
     insert_job,
 )
-from video_policy_orchestrator.db.schema import initialize_database
-from video_policy_orchestrator.jobs.queue import (
+from vpo.db.schema import initialize_database
+from vpo.jobs.queue import (
     DEFAULT_HEARTBEAT_TIMEOUT,
     cancel_job,
     claim_next_job,

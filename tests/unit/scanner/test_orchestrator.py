@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, call, patch
 
-from video_policy_orchestrator.scanner.orchestrator import (
+from vpo.scanner.orchestrator import (
     DEFAULT_EXTENSIONS,
     ScannedFile,
     ScannerOrchestrator,
@@ -217,7 +217,7 @@ class TestScannerOrchestratorSignalHandling:
 class TestScanDirectories:
     """Tests for scan_directories() method."""
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_empty_directory(
         self,
         mock_discover: MagicMockType,
@@ -233,7 +233,7 @@ class TestScanDirectories:
         assert result.files_found == 0
         mock_discover.assert_called_once()
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_single_file(
         self,
         mock_discover: MagicMockType,
@@ -251,7 +251,7 @@ class TestScanDirectories:
         assert files[0].path == "/media/video0.mkv"
         assert files[0].size == 1000
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_multiple_files(
         self,
         mock_discover: MagicMockType,
@@ -267,7 +267,7 @@ class TestScanDirectories:
         assert len(files) == 5
         assert result.files_found == 5
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_multiple_directories(
         self,
         mock_discover: MagicMockType,
@@ -291,7 +291,7 @@ class TestScanDirectories:
         assert result.files_found == 5
         assert mock_discover.call_count == 2
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_nonexistent_directory_error(
         self,
         mock_discover: MagicMockType,
@@ -309,7 +309,7 @@ class TestScanDirectories:
         assert len(result.errors) == 1
         assert "not found" in result.errors[0][1].lower()
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_not_a_directory_error(
         self,
         mock_discover: MagicMockType,
@@ -325,8 +325,8 @@ class TestScanDirectories:
         assert result.files_errored == 1
         assert len(result.errors) == 1
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.hash_files")
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.hash_files")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_compute_hashes_true(
         self,
         mock_discover: MagicMockType,
@@ -346,8 +346,8 @@ class TestScanDirectories:
         mock_hash.assert_called_once()
         assert files[0].content_hash is not None
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.hash_files")
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.hash_files")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_compute_hashes_false(
         self,
         mock_discover: MagicMockType,
@@ -364,8 +364,8 @@ class TestScanDirectories:
         mock_hash.assert_not_called()
         assert files[0].content_hash is None
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.hash_files")
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.hash_files")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_hash_error_recorded(
         self,
         mock_discover: MagicMockType,
@@ -390,7 +390,7 @@ class TestScanDirectories:
         assert len(result.errors) == 1
         assert result.errors[0][0] == error_path
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_discover_progress_callback(
         self,
         mock_discover: MagicMockType,
@@ -407,7 +407,7 @@ class TestScanDirectories:
         call_args = mock_discover.call_args
         assert call_args.kwargs["progress_callback"] == progress.on_discover_progress
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_directories_scanned_populated(
         self,
         mock_discover: MagicMockType,
@@ -421,7 +421,7 @@ class TestScanDirectories:
 
         assert str(tmp_path) in result.directories_scanned
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_modified_at_is_utc(
         self,
         mock_discover: MagicMockType,
@@ -440,7 +440,7 @@ class TestScanDirectories:
 class TestScanAndPersist:
     """Tests for scan_and_persist() method."""
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_empty_directory(
         self,
         mock_discover: MagicMockType,
@@ -463,7 +463,7 @@ class TestScanAndPersist:
         assert result.files_found == 0
         assert result.files_new == 0
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_single_new_file(
         self,
         mock_discover: MagicMockType,
@@ -488,13 +488,13 @@ class TestScanAndPersist:
         assert result.files_updated == 0
 
         # Verify file was persisted to database
-        from video_policy_orchestrator.db.models import get_file_by_path
+        from vpo.db.models import get_file_by_path
 
         record = get_file_by_path(db_conn, "/media/video0.mkv")
         assert record is not None
         assert record.filename == "video0.mkv"
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_files_updated_count(
         self,
         mock_discover: MagicMockType,
@@ -524,7 +524,7 @@ class TestScanAndPersist:
         assert result.files_updated == 1
         assert result.files_new == 0
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_incremental_skips_unchanged(
         self,
         mock_discover: MagicMockType,
@@ -556,7 +556,7 @@ class TestScanAndPersist:
         # Introspector should not be called for skipped files
         mock_introspector.get_file_info.assert_not_called()
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_full_scan_processes_all(
         self,
         mock_discover: MagicMockType,
@@ -587,7 +587,7 @@ class TestScanAndPersist:
         assert result.files_updated == 1  # Processed despite same mtime/size
         assert result.incremental is False
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_prune_deletes_missing_files(
         self,
         mock_discover: MagicMockType,
@@ -600,7 +600,7 @@ class TestScanAndPersist:
         # Return empty - the seeded file is now "missing"
         mock_discover.return_value = []
 
-        from video_policy_orchestrator.db.models import get_file_by_path
+        from vpo.db.models import get_file_by_path
 
         # Verify file exists before
         record = get_file_by_path(seeded_db, "/media/existing.mkv")
@@ -620,7 +620,7 @@ class TestScanAndPersist:
         record = get_file_by_path(seeded_db, "/media/existing.mkv")
         assert record is None
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_no_prune_marks_missing(
         self,
         mock_discover: MagicMockType,
@@ -652,7 +652,7 @@ class TestScanAndPersist:
         assert row is not None
         assert row[0] == "missing"
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_introspection_error_sets_scan_status(
         self,
         mock_discover: MagicMockType,
@@ -675,7 +675,7 @@ class TestScanAndPersist:
         assert result.files_errored == 1
 
         # Verify scan_status is 'error' in database
-        from video_policy_orchestrator.db.models import get_file_by_path
+        from vpo.db.models import get_file_by_path
 
         record = get_file_by_path(db_conn, "/media/video0.mkv")
         assert record is not None
@@ -683,7 +683,7 @@ class TestScanAndPersist:
         assert record.scan_error is not None
         assert "ffprobe failed" in record.scan_error
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_unexpected_error_captured(
         self,
         mock_discover: MagicMockType,
@@ -706,13 +706,13 @@ class TestScanAndPersist:
 
         assert result.files_errored == 1
 
-        from video_policy_orchestrator.db.models import get_file_by_path
+        from vpo.db.models import get_file_by_path
 
         record = get_file_by_path(db_conn, "/media/video0.mkv")
         assert record.scan_status == "error"
         assert "Unexpected" in record.scan_error
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_tracks_persisted(
         self,
         mock_discover: MagicMockType,
@@ -742,7 +742,7 @@ class TestScanAndPersist:
         assert "video" in track_types
         assert "audio" in track_types
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_job_id_stored(
         self,
         mock_discover: MagicMockType,
@@ -773,7 +773,7 @@ class TestScanAndPersist:
         row = cursor.fetchone()
         assert row[0] == test_job_id
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_interrupt_during_processing(
         self,
         mock_discover: MagicMockType,
@@ -809,8 +809,8 @@ class TestScanAndPersist:
         # Should have processed fewer than all 10 files
         assert result.files_new < 10
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.signal")
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.signal")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_signal_handler_restored(
         self,
         mock_discover: MagicMockType,
@@ -839,8 +839,8 @@ class TestScanAndPersist:
         last_call = mock_signal.signal.call_args_list[-1]
         assert last_call == call(signal.SIGINT, original_handler)
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.signal")
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.signal")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_signal_handler_restored_on_exception(
         self,
         mock_discover: MagicMockType,
@@ -872,7 +872,7 @@ class TestScanAndPersist:
         last_call = mock_signal.signal.call_args_list[-1]
         assert last_call == call(signal.SIGINT, original_handler)
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_scan_progress_callback_called(
         self,
         mock_discover: MagicMockType,
@@ -897,7 +897,7 @@ class TestScanAndPersist:
         # on_scan_progress should be called for each file
         assert progress.on_scan_progress.call_count == 3
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_batch_commit_size_processes_all_files(
         self,
         mock_discover: MagicMockType,
@@ -930,8 +930,8 @@ class TestScanAndPersist:
 class TestScanAndPersistHashVerification:
     """Tests for verify_hash mode in scan_and_persist."""
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.hash_files")
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.hash_files")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_verify_hash_detects_content_change(
         self,
         mock_discover: MagicMockType,
@@ -967,8 +967,8 @@ class TestScanAndPersistHashVerification:
         assert result.files_skipped == 0
         assert result.files_updated == 1
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.hash_files")
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.hash_files")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_hash_error_sets_scan_status(
         self,
         mock_discover: MagicMockType,
@@ -992,7 +992,7 @@ class TestScanAndPersistHashVerification:
             compute_hashes=True,
         )
 
-        from video_policy_orchestrator.db.models import get_file_by_path
+        from vpo.db.models import get_file_by_path
 
         record = get_file_by_path(db_conn, "/media/video0.mkv")
         assert record.scan_status == "error"
@@ -1002,7 +1002,7 @@ class TestScanAndPersistHashVerification:
 class TestScanAndPersistFallbackIntrospector:
     """Tests for introspector fallback behavior."""
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_uses_ffprobe_when_available(
         self,
         mock_discover: MagicMockType,
@@ -1013,9 +1013,7 @@ class TestScanAndPersistFallbackIntrospector:
         """Verify FFprobeIntrospector used when available."""
         mock_discover.return_value = []
 
-        with patch(
-            "video_policy_orchestrator.introspector.ffprobe.FFprobeIntrospector"
-        ) as MockFFprobe:
+        with patch("vpo.introspector.ffprobe.FFprobeIntrospector") as MockFFprobe:
             MockFFprobe.is_available.return_value = True
 
             scanner.scan_and_persist([tmp_path], db_conn, compute_hashes=False)
@@ -1023,7 +1021,7 @@ class TestScanAndPersistFallbackIntrospector:
             MockFFprobe.is_available.assert_called_once()
             MockFFprobe.assert_called_once()
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_falls_back_to_stub(
         self,
         mock_discover: MagicMockType,
@@ -1035,12 +1033,8 @@ class TestScanAndPersistFallbackIntrospector:
         mock_discover.return_value = []
 
         with (
-            patch(
-                "video_policy_orchestrator.introspector.ffprobe.FFprobeIntrospector"
-            ) as MockFFprobe,
-            patch(
-                "video_policy_orchestrator.introspector.stub.StubIntrospector"
-            ) as MockStub,
+            patch("vpo.introspector.ffprobe.FFprobeIntrospector") as MockFFprobe,
+            patch("vpo.introspector.stub.StubIntrospector") as MockStub,
         ):
             MockFFprobe.is_available.return_value = False
 
@@ -1048,7 +1042,7 @@ class TestScanAndPersistFallbackIntrospector:
 
             MockStub.assert_called_once()
 
-    @patch("video_policy_orchestrator.scanner.orchestrator.discover_videos")
+    @patch("vpo.scanner.orchestrator.discover_videos")
     def test_uses_provided_introspector(
         self,
         mock_discover: MagicMockType,
@@ -1061,9 +1055,7 @@ class TestScanAndPersistFallbackIntrospector:
         """Verify custom introspector is used."""
         mock_discover.return_value = mock_discovered_files(1)
 
-        with patch(
-            "video_policy_orchestrator.introspector.ffprobe.FFprobeIntrospector"
-        ) as MockFFprobe:
+        with patch("vpo.introspector.ffprobe.FFprobeIntrospector") as MockFFprobe:
             scanner.scan_and_persist(
                 [tmp_path],
                 db_conn,

@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from video_policy_orchestrator.cli.process import (
+from vpo.cli.process import (
     ProgressTracker,
     get_max_workers,
     resolve_worker_count,

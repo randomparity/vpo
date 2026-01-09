@@ -3,7 +3,7 @@
 from pathlib import Path
 from unittest.mock import patch
 
-from video_policy_orchestrator.tools.detection import (
+from vpo.tools.detection import (
     _parse_codec_list,
     _parse_filter_list,
     _parse_format_list,
@@ -13,7 +13,7 @@ from video_policy_orchestrator.tools.detection import (
     detect_mkvpropedit,
     parse_version_string,
 )
-from video_policy_orchestrator.tools.models import ToolStatus
+from vpo.tools.models import ToolStatus
 
 # =============================================================================
 # Version Parsing Tests
@@ -174,7 +174,7 @@ Filters:
 class TestDetectFFprobe:
     """Tests for ffprobe detection."""
 
-    @patch("video_policy_orchestrator.tools.detection._find_tool")
+    @patch("vpo.tools.detection._find_tool")
     def test_missing_ffprobe(self, mock_find: patch):
         """Missing ffprobe should return MISSING status."""
         mock_find.return_value = None
@@ -185,8 +185,8 @@ class TestDetectFFprobe:
         assert info.path is None
         assert "not found" in info.status_message.lower()
 
-    @patch("video_policy_orchestrator.tools.detection._run_command")
-    @patch("video_policy_orchestrator.tools.detection._find_tool")
+    @patch("vpo.tools.detection._run_command")
+    @patch("vpo.tools.detection._find_tool")
     def test_detect_ffprobe_version(self, mock_find: patch, mock_run: patch):
         """FFprobe version should be detected correctly."""
         mock_find.return_value = Path("/usr/bin/ffprobe")
@@ -208,7 +208,7 @@ class TestDetectFFprobe:
 class TestDetectFFmpeg:
     """Tests for ffmpeg detection."""
 
-    @patch("video_policy_orchestrator.tools.detection._find_tool")
+    @patch("vpo.tools.detection._find_tool")
     def test_missing_ffmpeg(self, mock_find: patch):
         """Missing ffmpeg should return MISSING status."""
         mock_find.return_value = None
@@ -217,8 +217,8 @@ class TestDetectFFmpeg:
 
         assert info.status == ToolStatus.MISSING
 
-    @patch("video_policy_orchestrator.tools.detection._run_command")
-    @patch("video_policy_orchestrator.tools.detection._find_tool")
+    @patch("vpo.tools.detection._run_command")
+    @patch("vpo.tools.detection._find_tool")
     def test_detect_ffmpeg_version(self, mock_find: patch, mock_run: patch):
         """FFmpeg version should be detected correctly."""
         mock_find.return_value = Path("/usr/bin/ffmpeg")
@@ -247,7 +247,7 @@ class TestDetectFFmpeg:
 class TestDetectMkvmerge:
     """Tests for mkvmerge detection."""
 
-    @patch("video_policy_orchestrator.tools.detection._find_tool")
+    @patch("vpo.tools.detection._find_tool")
     def test_missing_mkvmerge(self, mock_find: patch):
         """Missing mkvmerge should return MISSING status."""
         mock_find.return_value = None
@@ -256,8 +256,8 @@ class TestDetectMkvmerge:
 
         assert info.status == ToolStatus.MISSING
 
-    @patch("video_policy_orchestrator.tools.detection._run_command")
-    @patch("video_policy_orchestrator.tools.detection._find_tool")
+    @patch("vpo.tools.detection._run_command")
+    @patch("vpo.tools.detection._find_tool")
     def test_detect_mkvmerge_version(self, mock_find: patch, mock_run: patch):
         """MKVmerge version should be detected correctly."""
         mock_find.return_value = Path("/usr/bin/mkvmerge")
@@ -279,7 +279,7 @@ class TestDetectMkvmerge:
 class TestDetectMkvpropedit:
     """Tests for mkvpropedit detection."""
 
-    @patch("video_policy_orchestrator.tools.detection._find_tool")
+    @patch("vpo.tools.detection._find_tool")
     def test_missing_mkvpropedit(self, mock_find: patch):
         """Missing mkvpropedit should return MISSING status."""
         mock_find.return_value = None
@@ -288,8 +288,8 @@ class TestDetectMkvpropedit:
 
         assert info.status == ToolStatus.MISSING
 
-    @patch("video_policy_orchestrator.tools.detection._run_command")
-    @patch("video_policy_orchestrator.tools.detection._find_tool")
+    @patch("vpo.tools.detection._run_command")
+    @patch("vpo.tools.detection._find_tool")
     def test_detect_mkvpropedit_version(self, mock_find: patch, mock_run: patch):
         """MKVpropedit version should be detected correctly."""
         mock_find.return_value = Path("/usr/bin/mkvpropedit")

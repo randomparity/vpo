@@ -6,10 +6,10 @@ from datetime import datetime, timezone
 
 import pytest
 
-from video_policy_orchestrator.db.queries import insert_file
-from video_policy_orchestrator.db.schema import create_schema
-from video_policy_orchestrator.db.types import FileRecord
-from video_policy_orchestrator.db.views import (
+from vpo.db.queries import insert_file
+from vpo.db.schema import create_schema
+from vpo.db.types import FileRecord
+from vpo.db.views import (
     get_files_with_plugin_data,
     get_plugin_data_for_file,
 )
@@ -270,7 +270,7 @@ class TestPluginDataExports:
 
     def test_import_from_db_package(self):
         """Functions can be imported from db package."""
-        from video_policy_orchestrator.db import (
+        from vpo.db import (
             get_files_with_plugin_data,
             get_plugin_data_for_file,
         )

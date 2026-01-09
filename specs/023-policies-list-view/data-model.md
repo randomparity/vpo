@@ -283,7 +283,7 @@ The default policy is read from the active profile configuration:
 
 ```python
 # In routes.py
-from video_policy_orchestrator.config.profiles import get_active_profile
+from vpo.config.profiles import get_active_profile
 
 profile = get_active_profile()
 default_policy_path = profile.default_policy if profile else None

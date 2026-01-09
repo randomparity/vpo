@@ -65,7 +65,7 @@ specs/035-multi-language-audio-detection/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── language_analysis/           # NEW: Language analysis module
 │   ├── __init__.py
 │   ├── models.py               # LanguageSegment, LanguageAnalysisResult

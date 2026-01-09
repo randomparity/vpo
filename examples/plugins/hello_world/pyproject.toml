@@ -12,7 +12,7 @@ requires-python = ">=3.10"
 authors = [
     { name = "Your Name", email = "your.email@example.com" }
 ]
-keywords = ["vpo", "plugin", "video-policy-orchestrator"]
+keywords = ["vpo", "plugin", "vpo"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -23,7 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "video-policy-orchestrator>=0.1.0",
+    "vpo>=0.1.0",
 ]
 
 [project.optional-dependencies]

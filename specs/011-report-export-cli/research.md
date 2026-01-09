@@ -24,7 +24,7 @@ This feature adds read-only reporting capabilities to VPO. Research confirms the
 - Single command with `--type` flag: Rejected; subcommands provide better discoverability and help text
 - Separate CLI entry point: Rejected; VPO already has established `vpo` entry point
 
-**Reference**: `src/video_policy_orchestrator/cli/jobs.py:108-112` shows group pattern
+**Reference**: `src/vpo/cli/jobs.py:108-112` shows group pattern
 
 ### 2. Time Filter Parsing
 
@@ -42,7 +42,7 @@ This feature adds read-only reporting capabilities to VPO. Research confirms the
 
 **Action**: Extract `_parse_relative_date()` to shared location (`reports/filters.py`) for reuse
 
-**Reference**: `src/video_policy_orchestrator/cli/jobs.py:33-66`
+**Reference**: `src/vpo/cli/jobs.py:33-66`
 
 ### 3. Database Query Patterns
 
@@ -62,7 +62,7 @@ This feature adds read-only reporting capabilities to VPO. Research confirms the
 - Add aggregation for scan summary (new/changed counts from summary_json)
 - Reuse existing model classes (Job, FileRecord, etc.)
 
-**Reference**: `src/video_policy_orchestrator/db/models.py:1107-1165` for filter pattern
+**Reference**: `src/vpo/db/models.py:1107-1165` for filter pattern
 
 ### 4. Output Formatting Patterns
 

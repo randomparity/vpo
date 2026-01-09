@@ -64,7 +64,7 @@ specs/020-file-detail-view/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── db/
 │   └── models.py              # Add: get_file_by_id(), get_transcriptions_for_tracks()
 └── server/

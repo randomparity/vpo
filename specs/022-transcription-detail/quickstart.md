@@ -17,10 +17,10 @@ This guide helps developers quickly understand and implement the transcription d
 
 | File | Changes |
 |------|---------|
-| `src/video_policy_orchestrator/db/models.py` | Add `get_transcription_detail()` query |
-| `src/video_policy_orchestrator/server/ui/models.py` | Add `TranscriptionDetailItem`, `TranscriptionDetailContext`, helper functions |
-| `src/video_policy_orchestrator/server/ui/routes.py` | Add `transcription_detail_handler`, `api_transcription_detail_handler`, route registration |
-| `src/video_policy_orchestrator/server/ui/templates/sections/transcription_detail.html` | New template |
+| `src/vpo/db/models.py` | Add `get_transcription_detail()` query |
+| `src/vpo/server/ui/models.py` | Add `TranscriptionDetailItem`, `TranscriptionDetailContext`, helper functions |
+| `src/vpo/server/ui/routes.py` | Add `transcription_detail_handler`, `api_transcription_detail_handler`, route registration |
+| `src/vpo/server/ui/templates/sections/transcription_detail.html` | New template |
 
 ## Implementation Steps
 

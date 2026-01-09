@@ -42,7 +42,7 @@ uv pip install -e ".[dev]"
 maturin develop
 
 # Verify installation
-uv run python -c "from video_policy_orchestrator._core import version; print(f'vpo-core: {version()}')"
+uv run python -c "from vpo._core import version; print(f'vpo-core: {version()}')"
 ```
 
 ## Project Structure After Implementation
@@ -57,7 +57,7 @@ crates/vpo-core/
     └── hasher.rs            # Parallel file hashing
 
 # Python package
-src/video_policy_orchestrator/
+src/vpo/
 ├── __init__.py
 ├── _core.pyi                # Type stubs for Rust extension
 ├── cli/
@@ -84,7 +84,7 @@ src/video_policy_orchestrator/
 uv run pytest
 
 # Run with coverage
-uv run pytest --cov=video_policy_orchestrator
+uv run pytest --cov=vpo
 
 # Run only unit tests
 uv run pytest tests/unit/

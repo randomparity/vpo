@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from video_policy_orchestrator.transcription.audio_extractor import (
+from vpo.transcription.audio_extractor import (
     AudioExtractionError,
     extract_audio_stream,
     get_file_duration,
@@ -21,7 +21,7 @@ from video_policy_orchestrator.transcription.audio_extractor import (
 class TestExtractAudioStream:
     """Tests for extract_audio_stream function."""
 
-    @patch("video_policy_orchestrator.tools.ffmpeg_adapter.get_ffmpeg_adapter")
+    @patch("vpo.tools.ffmpeg_adapter.get_ffmpeg_adapter")
     def test_successful_extraction(self, mock_get_adapter: MagicMock) -> None:
         """Test successful audio extraction."""
         mock_adapter = MagicMock()
@@ -42,7 +42,7 @@ class TestExtractAudioStream:
             start_offset=0.0,
         )
 
-    @patch("video_policy_orchestrator.tools.ffmpeg_adapter.get_ffmpeg_adapter")
+    @patch("vpo.tools.ffmpeg_adapter.get_ffmpeg_adapter")
     def test_custom_sample_duration(self, mock_get_adapter: MagicMock) -> None:
         """Test extraction with custom sample duration."""
         mock_adapter = MagicMock()
@@ -59,7 +59,7 @@ class TestExtractAudioStream:
         call_kwargs = mock_adapter.extract_audio_stream.call_args[1]
         assert call_kwargs["sample_duration"] == 30
 
-    @patch("video_policy_orchestrator.tools.ffmpeg_adapter.get_ffmpeg_adapter")
+    @patch("vpo.tools.ffmpeg_adapter.get_ffmpeg_adapter")
     def test_full_track_extraction(self, mock_get_adapter: MagicMock) -> None:
         """Test extraction of full track (sample_duration=0)."""
         mock_adapter = MagicMock()
@@ -76,10 +76,10 @@ class TestExtractAudioStream:
         # sample_duration=0 means full track, passed as None to adapter
         assert call_kwargs["sample_duration"] is None
 
-    @patch("video_policy_orchestrator.tools.ffmpeg_adapter.get_ffmpeg_adapter")
+    @patch("vpo.tools.ffmpeg_adapter.get_ffmpeg_adapter")
     def test_ffmpeg_error_wrapped(self, mock_get_adapter: MagicMock) -> None:
         """Test that FFmpegError is wrapped in AudioExtractionError."""
-        from video_policy_orchestrator.tools.ffmpeg_adapter import FFmpegError
+        from vpo.tools.ffmpeg_adapter import FFmpegError
 
         mock_adapter = MagicMock()
         mock_adapter.extract_audio_stream.side_effect = FFmpegError("Test error")
@@ -88,10 +88,10 @@ class TestExtractAudioStream:
         with pytest.raises(AudioExtractionError, match="Test error"):
             extract_audio_stream(Path("/test/movie.mkv"), track_index=0)
 
-    @patch("video_policy_orchestrator.tools.ffmpeg_adapter.get_ffmpeg_adapter")
+    @patch("vpo.tools.ffmpeg_adapter.get_ffmpeg_adapter")
     def test_file_not_found(self, mock_get_adapter: MagicMock) -> None:
         """Test error when file doesn't exist."""
-        from video_policy_orchestrator.tools.ffmpeg_adapter import FFmpegError
+        from vpo.tools.ffmpeg_adapter import FFmpegError
 
         mock_adapter = MagicMock()
         mock_adapter.extract_audio_stream.side_effect = FFmpegError(
@@ -102,10 +102,10 @@ class TestExtractAudioStream:
         with pytest.raises(AudioExtractionError, match="File not found"):
             extract_audio_stream(Path("/nonexistent/file.mkv"), track_index=0)
 
-    @patch("video_policy_orchestrator.tools.ffmpeg_adapter.get_ffmpeg_adapter")
+    @patch("vpo.tools.ffmpeg_adapter.get_ffmpeg_adapter")
     def test_ffmpeg_timeout(self, mock_get_adapter: MagicMock) -> None:
         """Test handling of ffmpeg timeout."""
-        from video_policy_orchestrator.tools.ffmpeg_adapter import FFmpegError
+        from vpo.tools.ffmpeg_adapter import FFmpegError
 
         mock_adapter = MagicMock()
         mock_adapter.extract_audio_stream.side_effect = FFmpegError(
@@ -116,10 +116,10 @@ class TestExtractAudioStream:
         with pytest.raises(AudioExtractionError, match="timed out"):
             extract_audio_stream(Path("/test/movie.mkv"), track_index=0)
 
-    @patch("video_policy_orchestrator.tools.ffmpeg_adapter.get_ffmpeg_adapter")
+    @patch("vpo.tools.ffmpeg_adapter.get_ffmpeg_adapter")
     def test_ffmpeg_not_found(self, mock_get_adapter: MagicMock) -> None:
         """Test handling of ffmpeg not being installed."""
-        from video_policy_orchestrator.tools.ffmpeg_adapter import FFmpegError
+        from vpo.tools.ffmpeg_adapter import FFmpegError
 
         mock_adapter = MagicMock()
         mock_adapter.extract_audio_stream.side_effect = FFmpegError("FFmpeg not found")
@@ -132,7 +132,7 @@ class TestExtractAudioStream:
 class TestIsFfmpegAvailable:
     """Tests for is_ffmpeg_available function."""
 
-    @patch("video_policy_orchestrator.tools.cache.get_tool_registry")
+    @patch("vpo.tools.cache.get_tool_registry")
     def test_ffmpeg_available(self, mock_get_registry: MagicMock) -> None:
         """Test detection of available ffmpeg."""
         mock_registry = MagicMock()
@@ -143,7 +143,7 @@ class TestIsFfmpegAvailable:
 
         assert result is True
 
-    @patch("video_policy_orchestrator.tools.cache.get_tool_registry")
+    @patch("vpo.tools.cache.get_tool_registry")
     def test_ffmpeg_not_available(self, mock_get_registry: MagicMock) -> None:
         """Test detection when ffmpeg is not available."""
         mock_registry = MagicMock()
@@ -154,7 +154,7 @@ class TestIsFfmpegAvailable:
 
         assert result is False
 
-    @patch("video_policy_orchestrator.tools.cache.get_tool_registry")
+    @patch("vpo.tools.cache.get_tool_registry")
     def test_exception_returns_false(self, mock_get_registry: MagicMock) -> None:
         """Test that exceptions result in False."""
         mock_get_registry.side_effect = Exception("Registry error")
@@ -167,7 +167,7 @@ class TestIsFfmpegAvailable:
 class TestExtractAudioStreamOffset:
     """Tests for extract_audio_stream start_offset parameter."""
 
-    @patch("video_policy_orchestrator.tools.ffmpeg_adapter.get_ffmpeg_adapter")
+    @patch("vpo.tools.ffmpeg_adapter.get_ffmpeg_adapter")
     def test_with_start_offset(self, mock_get_adapter: MagicMock) -> None:
         """Test extraction with start_offset."""
         mock_adapter = MagicMock()
@@ -183,7 +183,7 @@ class TestExtractAudioStreamOffset:
         call_kwargs = mock_adapter.extract_audio_stream.call_args[1]
         assert call_kwargs["start_offset"] == 300.0
 
-    @patch("video_policy_orchestrator.tools.ffmpeg_adapter.get_ffmpeg_adapter")
+    @patch("vpo.tools.ffmpeg_adapter.get_ffmpeg_adapter")
     def test_without_start_offset(self, mock_get_adapter: MagicMock) -> None:
         """Test extraction without start_offset."""
         mock_adapter = MagicMock()
@@ -199,7 +199,7 @@ class TestExtractAudioStreamOffset:
         call_kwargs = mock_adapter.extract_audio_stream.call_args[1]
         assert call_kwargs["start_offset"] == 0.0
 
-    @patch("video_policy_orchestrator.tools.ffmpeg_adapter.get_ffmpeg_adapter")
+    @patch("vpo.tools.ffmpeg_adapter.get_ffmpeg_adapter")
     def test_start_offset_with_duration(self, mock_get_adapter: MagicMock) -> None:
         """Test extraction with both start_offset and sample_duration."""
         mock_adapter = MagicMock()
@@ -221,7 +221,7 @@ class TestExtractAudioStreamOffset:
 class TestGetFileDuration:
     """Tests for get_file_duration function."""
 
-    @patch("video_policy_orchestrator.tools.ffmpeg_adapter.get_ffmpeg_adapter")
+    @patch("vpo.tools.ffmpeg_adapter.get_ffmpeg_adapter")
     def test_successful_duration_extraction(self, mock_get_adapter: MagicMock) -> None:
         """Test successful duration extraction."""
         mock_adapter = MagicMock()
@@ -233,10 +233,10 @@ class TestGetFileDuration:
         assert duration == 7200.5
         mock_adapter.get_file_duration.assert_called_once_with(Path("/test/movie.mkv"))
 
-    @patch("video_policy_orchestrator.tools.ffmpeg_adapter.get_ffmpeg_adapter")
+    @patch("vpo.tools.ffmpeg_adapter.get_ffmpeg_adapter")
     def test_file_not_found(self, mock_get_adapter: MagicMock) -> None:
         """Test error when file doesn't exist."""
-        from video_policy_orchestrator.tools.ffmpeg_adapter import FFmpegError
+        from vpo.tools.ffmpeg_adapter import FFmpegError
 
         mock_adapter = MagicMock()
         mock_adapter.get_file_duration.side_effect = FFmpegError(
@@ -247,10 +247,10 @@ class TestGetFileDuration:
         with pytest.raises(AudioExtractionError, match="File not found"):
             get_file_duration(Path("/nonexistent/file.mkv"))
 
-    @patch("video_policy_orchestrator.tools.ffmpeg_adapter.get_ffmpeg_adapter")
+    @patch("vpo.tools.ffmpeg_adapter.get_ffmpeg_adapter")
     def test_no_duration_in_output(self, mock_get_adapter: MagicMock) -> None:
         """Test error when duration is missing from output."""
-        from video_policy_orchestrator.tools.ffmpeg_adapter import FFmpegError
+        from vpo.tools.ffmpeg_adapter import FFmpegError
 
         mock_adapter = MagicMock()
         mock_adapter.get_file_duration.side_effect = FFmpegError(
@@ -261,10 +261,10 @@ class TestGetFileDuration:
         with pytest.raises(AudioExtractionError, match="Could not determine"):
             get_file_duration(Path("/test/movie.mkv"))
 
-    @patch("video_policy_orchestrator.tools.ffmpeg_adapter.get_ffmpeg_adapter")
+    @patch("vpo.tools.ffmpeg_adapter.get_ffmpeg_adapter")
     def test_ffprobe_error(self, mock_get_adapter: MagicMock) -> None:
         """Test handling of ffprobe errors."""
-        from video_policy_orchestrator.tools.ffmpeg_adapter import FFmpegError
+        from vpo.tools.ffmpeg_adapter import FFmpegError
 
         mock_adapter = MagicMock()
         mock_adapter.get_file_duration.side_effect = FFmpegError(
@@ -275,10 +275,10 @@ class TestGetFileDuration:
         with pytest.raises(AudioExtractionError, match="ffprobe failed"):
             get_file_duration(Path("/test/movie.mkv"))
 
-    @patch("video_policy_orchestrator.tools.ffmpeg_adapter.get_ffmpeg_adapter")
+    @patch("vpo.tools.ffmpeg_adapter.get_ffmpeg_adapter")
     def test_ffprobe_timeout(self, mock_get_adapter: MagicMock) -> None:
         """Test handling of ffprobe timeout."""
-        from video_policy_orchestrator.tools.ffmpeg_adapter import FFmpegError
+        from vpo.tools.ffmpeg_adapter import FFmpegError
 
         mock_adapter = MagicMock()
         mock_adapter.get_file_duration.side_effect = FFmpegError("ffprobe timed out")
@@ -287,10 +287,10 @@ class TestGetFileDuration:
         with pytest.raises(AudioExtractionError, match="timed out"):
             get_file_duration(Path("/test/movie.mkv"))
 
-    @patch("video_policy_orchestrator.tools.ffmpeg_adapter.get_ffmpeg_adapter")
+    @patch("vpo.tools.ffmpeg_adapter.get_ffmpeg_adapter")
     def test_ffprobe_not_found(self, mock_get_adapter: MagicMock) -> None:
         """Test handling of ffprobe not being installed."""
-        from video_policy_orchestrator.tools.ffmpeg_adapter import FFmpegError
+        from vpo.tools.ffmpeg_adapter import FFmpegError
 
         mock_adapter = MagicMock()
         mock_adapter.get_file_duration.side_effect = FFmpegError("ffprobe not found")

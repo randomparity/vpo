@@ -62,7 +62,7 @@ N/A - No mutable state. All data is read-only at display time.
 
 | Field | Source | Access Method |
 |-------|--------|---------------|
-| `version` | Package metadata | `from video_policy_orchestrator import __version__` |
+| `version` | Package metadata | `from vpo import __version__` |
 | `git_hash` | Environment variable | `os.environ.get("VPO_GIT_HASH")` |
 | `profile_name` | App context | `request.app.get("profile_name", "Default")` |
 | `api_url` | Request URL | `str(request.url.origin())` |

@@ -11,7 +11,7 @@
 
 - **[P]**: Can run in parallel (different files, no dependencies)
 - **[Story]**: Which user story (US1, US2, US3, US4)
-- Paths relative to `src/video_policy_orchestrator/`
+- Paths relative to `src/vpo/`
 
 ---
 

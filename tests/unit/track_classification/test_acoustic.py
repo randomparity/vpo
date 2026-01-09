@@ -1,11 +1,11 @@
 """Unit tests for acoustic analysis functions."""
 
-from video_policy_orchestrator.track_classification.acoustic import (
+from vpo.track_classification.acoustic import (
     extract_acoustic_profile,
     get_commentary_confidence,
     is_commentary_by_acoustic,
 )
-from video_policy_orchestrator.track_classification.models import AcousticProfile
+from vpo.track_classification.models import AcousticProfile
 
 
 class TestIsCommentaryByAcoustic:

@@ -5,13 +5,13 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from video_policy_orchestrator.config.models import PluginConnectionConfig
-from video_policy_orchestrator.plugins.sonarr_metadata.client import (
+from vpo.config.models import PluginConnectionConfig
+from vpo.plugins.sonarr_metadata.client import (
     SonarrAuthError,
     SonarrClient,
     SonarrConnectionError,
 )
-from video_policy_orchestrator.plugins.sonarr_metadata.models import (
+from vpo.plugins.sonarr_metadata.models import (
     SonarrLanguage,
 )
 
@@ -71,7 +71,7 @@ class TestSonarrClientHeaders:
 class TestSonarrClientGetClient:
     """Tests for lazy HTTP client creation."""
 
-    @patch("video_policy_orchestrator.plugins.sonarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
     def test_creates_client_on_first_call(
         self, mock_client_class: MagicMock, client: SonarrClient
     ):
@@ -88,7 +88,7 @@ class TestSonarrClientGetClient:
             headers={"X-Api-Key": "test-api-key-12345"},
         )
 
-    @patch("video_policy_orchestrator.plugins.sonarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
     def test_reuses_existing_client(
         self, mock_client_class: MagicMock, client: SonarrClient
     ):
@@ -106,7 +106,7 @@ class TestSonarrClientGetClient:
 class TestSonarrClientGetStatus:
     """Tests for get_status method."""
 
-    @patch("video_policy_orchestrator.plugins.sonarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
     def test_get_status_success(
         self, mock_client_class: MagicMock, client: SonarrClient
     ):
@@ -123,7 +123,7 @@ class TestSonarrClientGetStatus:
         assert result == {"appName": "Sonarr", "version": "3.0.0"}
         mock_http_client.get.assert_called_once_with("/api/v3/system/status")
 
-    @patch("video_policy_orchestrator.plugins.sonarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
     def test_get_status_auth_error(
         self, mock_client_class: MagicMock, client: SonarrClient
     ):
@@ -137,7 +137,7 @@ class TestSonarrClientGetStatus:
         with pytest.raises(SonarrAuthError, match="Invalid API key"):
             client.get_status()
 
-    @patch("video_policy_orchestrator.plugins.sonarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
     def test_get_status_connect_error(
         self, mock_client_class: MagicMock, client: SonarrClient
     ):
@@ -149,7 +149,7 @@ class TestSonarrClientGetStatus:
         with pytest.raises(SonarrConnectionError, match="Cannot connect to Sonarr"):
             client.get_status()
 
-    @patch("video_policy_orchestrator.plugins.sonarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
     def test_get_status_timeout_error(
         self, mock_client_class: MagicMock, client: SonarrClient
     ):
@@ -161,7 +161,7 @@ class TestSonarrClientGetStatus:
         with pytest.raises(SonarrConnectionError, match="Connection timeout"):
             client.get_status()
 
-    @patch("video_policy_orchestrator.plugins.sonarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
     def test_get_status_http_error(
         self, mock_client_class: MagicMock, client: SonarrClient
     ):
@@ -182,7 +182,7 @@ class TestSonarrClientGetStatus:
 class TestSonarrClientValidateConnection:
     """Tests for validate_connection method."""
 
-    @patch("video_policy_orchestrator.plugins.sonarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
     def test_validate_connection_success(
         self, mock_client_class: MagicMock, client: SonarrClient
     ):
@@ -198,7 +198,7 @@ class TestSonarrClientValidateConnection:
 
         assert result is True
 
-    @patch("video_policy_orchestrator.plugins.sonarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
     def test_validate_connection_wrong_app(
         self, mock_client_class: MagicMock, client: SonarrClient
     ):
@@ -217,7 +217,7 @@ class TestSonarrClientValidateConnection:
 class TestSonarrClientParse:
     """Tests for parse method."""
 
-    @patch("video_policy_orchestrator.plugins.sonarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
     def test_parse_success_with_match(
         self, mock_client_class: MagicMock, client: SonarrClient
     ):
@@ -258,7 +258,7 @@ class TestSonarrClientParse:
         assert result.episodes[0].season_number == 1
         assert result.episodes[0].episode_number == 5
 
-    @patch("video_policy_orchestrator.plugins.sonarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
     def test_parse_success_no_match(
         self, mock_client_class: MagicMock, client: SonarrClient
     ):
@@ -277,7 +277,7 @@ class TestSonarrClientParse:
         assert result.series is None
         assert result.episodes == ()
 
-    @patch("video_policy_orchestrator.plugins.sonarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
     def test_parse_url_encodes_path(
         self, mock_client_class: MagicMock, client: SonarrClient
     ):
@@ -296,7 +296,7 @@ class TestSonarrClientParse:
         # Spaces should be encoded as %20
         assert "%20" in call_args or "+" in call_args
 
-    @patch("video_policy_orchestrator.plugins.sonarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
     def test_parse_http_error(self, mock_client_class: MagicMock, client: SonarrClient):
         """Test HTTP error during parse."""
         mock_http_client = MagicMock()
@@ -310,7 +310,7 @@ class TestSonarrClientParse:
 class TestSonarrClientParseResponses:
     """Tests for response parsing methods."""
 
-    @patch("video_policy_orchestrator.plugins.sonarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
     def test_parse_series_response_full(
         self, mock_client_class: MagicMock, client: SonarrClient
     ):
@@ -340,7 +340,7 @@ class TestSonarrClientParseResponses:
         assert result.series.original_language is not None
         assert result.series.original_language.name == "Japanese"
 
-    @patch("video_policy_orchestrator.plugins.sonarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
     def test_parse_series_response_minimal(
         self, mock_client_class: MagicMock, client: SonarrClient
     ):
@@ -365,7 +365,7 @@ class TestSonarrClientParseResponses:
         assert result.series.year == 0
         assert result.series.original_language is None
 
-    @patch("video_policy_orchestrator.plugins.sonarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
     def test_parse_series_missing_id_raises(
         self, mock_client_class: MagicMock, client: SonarrClient
     ):
@@ -385,7 +385,7 @@ class TestSonarrClientParseResponses:
         with pytest.raises(SonarrConnectionError, match="missing required 'id' field"):
             client.parse("/tv/Test/test.mkv")
 
-    @patch("video_policy_orchestrator.plugins.sonarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
     def test_parse_episode_response(
         self, mock_client_class: MagicMock, client: SonarrClient
     ):
@@ -419,7 +419,7 @@ class TestSonarrClientParseResponses:
         assert ep.title == "Episode Title"
         assert ep.has_file is True
 
-    @patch("video_policy_orchestrator.plugins.sonarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
     def test_parse_multi_episode_response(
         self, mock_client_class: MagicMock, client: SonarrClient
     ):
@@ -460,7 +460,7 @@ class TestSonarrClientParseResponses:
 class TestSonarrClientClose:
     """Tests for close method."""
 
-    @patch("video_policy_orchestrator.plugins.sonarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
     def test_close_with_client(
         self, mock_client_class: MagicMock, client: SonarrClient
     ):
@@ -483,7 +483,7 @@ class TestSonarrClientClose:
         client.close()
         assert client._client is None
 
-    @patch("video_policy_orchestrator.plugins.sonarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
     def test_close_allows_new_client(
         self, mock_client_class: MagicMock, client: SonarrClient
     ):

@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 import pytest
 from aiohttp.test_utils import AioHTTPTestCase
 
-from video_policy_orchestrator.server.app import create_app
+from vpo.server.app import create_app
 
 if TYPE_CHECKING:
     from aiohttp import web

@@ -5,14 +5,14 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-from video_policy_orchestrator.db.models import FileInfo, TrackInfo
-from video_policy_orchestrator.executor.interface import ExecutorResult
-from video_policy_orchestrator.plugin.events import (
+from vpo.db.models import FileInfo, TrackInfo
+from vpo.executor.interface import ExecutorResult
+from vpo.plugin.events import (
     FileScannedEvent,
     PlanExecuteEvent,
     PolicyEvaluateEvent,
 )
-from video_policy_orchestrator.plugin_sdk.testing import (
+from vpo.plugin_sdk.testing import (
     PluginTestCase,
     create_file_scanned_event,
     create_plan_execute_event,
@@ -23,7 +23,7 @@ from video_policy_orchestrator.plugin_sdk.testing import (
     mock_track_info,
     mock_tracks,
 )
-from video_policy_orchestrator.policy.models import Plan
+from vpo.policy.models import Plan
 
 
 class TestMockFileInfo:

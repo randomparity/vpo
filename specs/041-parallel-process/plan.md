@@ -63,7 +63,7 @@ specs/041-parallel-process/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── cli/
 │   └── process.py           # MODIFY: Add --workers, parallel execution
 ├── config/

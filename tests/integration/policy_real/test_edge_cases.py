@@ -15,8 +15,8 @@ from unittest.mock import patch
 
 import pytest
 
-from video_policy_orchestrator.executor.mkvpropedit import MkvpropeditExecutor
-from video_policy_orchestrator.policy.models import (
+from vpo.executor.mkvpropedit import MkvpropeditExecutor
+from vpo.policy.models import (
     ActionType,
     Plan,
     PlannedAction,
@@ -24,7 +24,7 @@ from video_policy_orchestrator.policy.models import (
 )
 
 if TYPE_CHECKING:
-    from video_policy_orchestrator.introspector.ffprobe import FFprobeIntrospector
+    from vpo.introspector.ffprobe import FFprobeIntrospector
 
 from .conftest import get_audio_tracks
 
@@ -62,9 +62,7 @@ class TestToolAvailability:
             pytest.skip("Test video not available")
 
         # Mock require_tool to simulate missing mkvpropedit
-        with patch(
-            "video_policy_orchestrator.executor.mkvpropedit.require_tool"
-        ) as mock_require:
+        with patch("vpo.executor.mkvpropedit.require_tool") as mock_require:
             mock_require.side_effect = FileNotFoundError("mkvpropedit not found")
 
             plan = Plan(
@@ -97,7 +95,7 @@ class TestFileNotFound:
         introspector: FFprobeIntrospector,
     ) -> None:
         """Introspection should raise error for missing file."""
-        from video_policy_orchestrator.introspector.interface import (
+        from vpo.introspector.interface import (
             MediaIntrospectionError,
         )
 

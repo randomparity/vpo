@@ -17,8 +17,8 @@
 
 **Purpose**: Create module structure and package initialization
 
-- [X] T001 Create track_classification module directory at src/video_policy_orchestrator/track_classification/
-- [X] T002 [P] Create __init__.py skeleton (empty or minimal) in src/video_policy_orchestrator/track_classification/__init__.py
+- [X] T001 Create track_classification module directory at src/vpo/track_classification/
+- [X] T002 [P] Create __init__.py skeleton (empty or minimal) in src/vpo/track_classification/__init__.py
 - [X] T003 [P] Create test directory at tests/unit/track_classification/
 - [X] T004 [P] Create test fixtures directory at tests/fixtures/classification/
 
@@ -30,18 +30,18 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T005 Add OriginalDubbedStatus enum to src/video_policy_orchestrator/db/types.py
-- [X] T006 [P] Add CommentaryStatus enum to src/video_policy_orchestrator/db/types.py
-- [X] T007 [P] Add DetectionMethod enum to src/video_policy_orchestrator/db/types.py
-- [X] T008 Add TrackClassificationRecord dataclass to src/video_policy_orchestrator/db/types.py
-- [X] T009 Create AcousticProfile dataclass in src/video_policy_orchestrator/track_classification/models.py
-- [X] T010 [P] Create TrackClassificationResult dataclass in src/video_policy_orchestrator/track_classification/models.py
-- [X] T011 Bump SCHEMA_VERSION to 19 and add track_classification_results table in src/video_policy_orchestrator/db/schema.py
-- [X] T012 Add migration logic for version 18→19 in src/video_policy_orchestrator/db/schema.py
-- [X] T013 Add upsert_track_classification() function in src/video_policy_orchestrator/db/queries.py
-- [X] T014 [P] Add get_track_classification() function in src/video_policy_orchestrator/db/queries.py
-- [X] T015 [P] Add delete_track_classification() function in src/video_policy_orchestrator/db/queries.py
-- [X] T016 [P] Add get_classifications_for_file() function in src/video_policy_orchestrator/db/queries.py
+- [X] T005 Add OriginalDubbedStatus enum to src/vpo/db/types.py
+- [X] T006 [P] Add CommentaryStatus enum to src/vpo/db/types.py
+- [X] T007 [P] Add DetectionMethod enum to src/vpo/db/types.py
+- [X] T008 Add TrackClassificationRecord dataclass to src/vpo/db/types.py
+- [X] T009 Create AcousticProfile dataclass in src/vpo/track_classification/models.py
+- [X] T010 [P] Create TrackClassificationResult dataclass in src/vpo/track_classification/models.py
+- [X] T011 Bump SCHEMA_VERSION to 19 and add track_classification_results table in src/vpo/db/schema.py
+- [X] T012 Add migration logic for version 18→19 in src/vpo/db/schema.py
+- [X] T013 Add upsert_track_classification() function in src/vpo/db/queries.py
+- [X] T014 [P] Add get_track_classification() function in src/vpo/db/queries.py
+- [X] T015 [P] Add delete_track_classification() function in src/vpo/db/queries.py
+- [X] T016 [P] Add get_classifications_for_file() function in src/vpo/db/queries.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -55,16 +55,16 @@
 
 ### Implementation for User Story 1
 
-- [X] T017 [US1] Create get_original_language_from_metadata() in src/video_policy_orchestrator/track_classification/metadata.py
-- [X] T018 [US1] Create determine_original_track() applying detection priority (metadata > position > acoustic) in src/video_policy_orchestrator/track_classification/metadata.py
-- [X] T019 [US1] Create classify_track() main classification function (integrating with language_analysis results per FR-008) in src/video_policy_orchestrator/track_classification/service.py
-- [X] T020 [US1] Create classify_file_tracks() for batch classification in src/video_policy_orchestrator/track_classification/service.py
-- [X] T021 [US1] Add cache checking logic (file hash validation) in src/video_policy_orchestrator/track_classification/service.py
-- [X] T022 [US1] Add result persistence to database in src/video_policy_orchestrator/track_classification/service.py
-- [X] T023 [US1] Handle edge case: single audio track defaults to "original" with low confidence in src/video_policy_orchestrator/track_classification/service.py
-- [X] T024 [US1] Handle edge case: identical tracks (theatrical vs extended) both marked "original" in src/video_policy_orchestrator/track_classification/service.py
-- [X] T025 [US1] Add --classify-tracks option to inspect command in src/video_policy_orchestrator/cli/inspect.py
-- [X] T026 [US1] Add classification output formatting showing original/dubbed status in src/video_policy_orchestrator/cli/inspect.py
+- [X] T017 [US1] Create get_original_language_from_metadata() in src/vpo/track_classification/metadata.py
+- [X] T018 [US1] Create determine_original_track() applying detection priority (metadata > position > acoustic) in src/vpo/track_classification/metadata.py
+- [X] T019 [US1] Create classify_track() main classification function (integrating with language_analysis results per FR-008) in src/vpo/track_classification/service.py
+- [X] T020 [US1] Create classify_file_tracks() for batch classification in src/vpo/track_classification/service.py
+- [X] T021 [US1] Add cache checking logic (file hash validation) in src/vpo/track_classification/service.py
+- [X] T022 [US1] Add result persistence to database in src/vpo/track_classification/service.py
+- [X] T023 [US1] Handle edge case: single audio track defaults to "original" with low confidence in src/vpo/track_classification/service.py
+- [X] T024 [US1] Handle edge case: identical tracks (theatrical vs extended) both marked "original" in src/vpo/track_classification/service.py
+- [X] T025 [US1] Add --classify-tracks option to inspect command in src/vpo/cli/inspect.py
+- [X] T026 [US1] Add classification output formatting showing original/dubbed status in src/vpo/cli/inspect.py
 - [X] T027 [US1] Create test fixture for Japanese anime with original/dubbed tracks at tests/fixtures/classification/original-japanese.json
 - [X] T028 [US1] Create test fixture for English original with dubbed tracks at tests/fixtures/classification/dubbed-english.json
 
@@ -80,16 +80,16 @@
 
 ### Implementation for User Story 2
 
-- [X] T029 [US2] Create extract_acoustic_profile() analyzing speech density and dynamic range in src/video_policy_orchestrator/track_classification/acoustic.py
-- [X] T030 [US2] Create is_commentary_by_acoustic() evaluating profile for commentary indicators in src/video_policy_orchestrator/track_classification/acoustic.py
-- [X] T031 [US2] Add get_acoustic_profile() method signature to TranscriptionPlugin protocol in src/video_policy_orchestrator/transcription/interface.py
-- [X] T032 [US2] Add "acoustic_analysis" feature flag to TranscriptionPlugin in src/video_policy_orchestrator/transcription/interface.py
-- [ ] T033 [US2] Implement get_acoustic_profile() in Whisper plugin in src/video_policy_orchestrator/plugins/whisper_transcriber/plugin.py
-- [X] T034 [US2] Integrate acoustic analysis into classify_track() for commentary detection in src/video_policy_orchestrator/track_classification/service.py
-- [X] T035 [US2] Handle edge case: acoustic analysis fallback when metadata absent in src/video_policy_orchestrator/track_classification/service.py
-- [X] T036 [US2] Handle edge case: mixed content (commentary over movie audio) in src/video_policy_orchestrator/track_classification/service.py
-- [X] T037 [US2] Handle edge case: analysis failure fallback to metadata-only in src/video_policy_orchestrator/track_classification/service.py
-- [X] T038 [US2] Add --show-acoustic option to display acoustic profile details in src/video_policy_orchestrator/cli/inspect.py
+- [X] T029 [US2] Create extract_acoustic_profile() analyzing speech density and dynamic range in src/vpo/track_classification/acoustic.py
+- [X] T030 [US2] Create is_commentary_by_acoustic() evaluating profile for commentary indicators in src/vpo/track_classification/acoustic.py
+- [X] T031 [US2] Add get_acoustic_profile() method signature to TranscriptionPlugin protocol in src/vpo/transcription/interface.py
+- [X] T032 [US2] Add "acoustic_analysis" feature flag to TranscriptionPlugin in src/vpo/transcription/interface.py
+- [ ] T033 [US2] Implement get_acoustic_profile() in Whisper plugin in src/vpo/plugins/whisper_transcriber/plugin.py
+- [X] T034 [US2] Integrate acoustic analysis into classify_track() for commentary detection in src/vpo/track_classification/service.py
+- [X] T035 [US2] Handle edge case: acoustic analysis fallback when metadata absent in src/vpo/track_classification/service.py
+- [X] T036 [US2] Handle edge case: mixed content (commentary over movie audio) in src/vpo/track_classification/service.py
+- [X] T037 [US2] Handle edge case: analysis failure fallback to metadata-only in src/vpo/track_classification/service.py
+- [X] T038 [US2] Add --show-acoustic option to display acoustic profile details in src/vpo/cli/inspect.py
 - [X] T039 [US2] Create test fixture for commentary acoustic profile at tests/fixtures/classification/commentary-profile.json
 
 **Checkpoint**: User Story 2 complete - commentary detection via acoustics works independently
@@ -106,21 +106,21 @@
 
 ### Implementation for User Story 3
 
-- [X] T040 [US3] Add IsOriginalCondition dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T041 [P] [US3] Add IsDubbedCondition dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T042 [US3] Update Condition union type to include new conditions in src/video_policy_orchestrator/policy/models.py
-- [X] T043 [US3] Add IsOriginalModel Pydantic validation model in src/video_policy_orchestrator/policy/loader.py
-- [X] T044 [P] [US3] Add IsDubbedModel Pydantic validation model in src/video_policy_orchestrator/policy/loader.py
-- [X] T045 [US3] Update ConditionModel to include is_original and is_dubbed in src/video_policy_orchestrator/policy/loader.py
-- [X] T046 [US3] Add _convert_is_original() conversion function in src/video_policy_orchestrator/policy/loader.py
-- [X] T047 [P] [US3] Add _convert_is_dubbed() conversion function in src/video_policy_orchestrator/policy/loader.py
-- [X] T048 [US3] Add evaluate_is_original() function in src/video_policy_orchestrator/policy/conditions.py
-- [X] T049 [P] [US3] Add evaluate_is_dubbed() function in src/video_policy_orchestrator/policy/conditions.py
-- [X] T050 [US3] Update evaluate_condition() to handle IsOriginalCondition and IsDubbedCondition in src/video_policy_orchestrator/policy/conditions.py
-- [X] T051 [US3] Update policy evaluator to fetch classification results when needed in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T052 [US3] Pass classification_results to condition evaluation chain in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T053 [US3] Implement 70% default confidence threshold per clarification in src/video_policy_orchestrator/policy/conditions.py
-- [X] T054 [US3] Add is_original/is_dubbed to audio order and default filter support in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T040 [US3] Add IsOriginalCondition dataclass to src/vpo/policy/models.py
+- [X] T041 [P] [US3] Add IsDubbedCondition dataclass to src/vpo/policy/models.py
+- [X] T042 [US3] Update Condition union type to include new conditions in src/vpo/policy/models.py
+- [X] T043 [US3] Add IsOriginalModel Pydantic validation model in src/vpo/policy/loader.py
+- [X] T044 [P] [US3] Add IsDubbedModel Pydantic validation model in src/vpo/policy/loader.py
+- [X] T045 [US3] Update ConditionModel to include is_original and is_dubbed in src/vpo/policy/loader.py
+- [X] T046 [US3] Add _convert_is_original() conversion function in src/vpo/policy/loader.py
+- [X] T047 [P] [US3] Add _convert_is_dubbed() conversion function in src/vpo/policy/loader.py
+- [X] T048 [US3] Add evaluate_is_original() function in src/vpo/policy/conditions.py
+- [X] T049 [P] [US3] Add evaluate_is_dubbed() function in src/vpo/policy/conditions.py
+- [X] T050 [US3] Update evaluate_condition() to handle IsOriginalCondition and IsDubbedCondition in src/vpo/policy/conditions.py
+- [X] T051 [US3] Update policy evaluator to fetch classification results when needed in src/vpo/policy/evaluator.py
+- [X] T052 [US3] Pass classification_results to condition evaluation chain in src/vpo/policy/evaluator.py
+- [X] T053 [US3] Implement 70% default confidence threshold per clarification in src/vpo/policy/conditions.py
+- [X] T054 [US3] Add is_original/is_dubbed to audio order and default filter support in src/vpo/policy/evaluator.py
 
 **Checkpoint**: User Story 3 complete - policy conditions evaluate correctly
 
@@ -130,13 +130,13 @@
 
 **Purpose**: Dedicated classify command and scan integration
 
-- [X] T055 Create classify command group skeleton in src/video_policy_orchestrator/cli/classify.py
-- [X] T056 Implement `vpo classify run` subcommand in src/video_policy_orchestrator/cli/classify.py
-- [X] T057 Implement `vpo classify status` subcommand in src/video_policy_orchestrator/cli/classify.py
-- [X] T058 Implement `vpo classify clear` subcommand in src/video_policy_orchestrator/cli/classify.py
-- [ ] T059 Add --classify-tracks option to scan command in src/video_policy_orchestrator/cli/scan.py
-- [X] T060 Register classify command group in src/video_policy_orchestrator/cli/__init__.py
-- [X] T061 Add exit codes (0=success, 2=not found, 3=no tracks, 4=failed) in src/video_policy_orchestrator/cli/classify.py
+- [X] T055 Create classify command group skeleton in src/vpo/cli/classify.py
+- [X] T056 Implement `vpo classify run` subcommand in src/vpo/cli/classify.py
+- [X] T057 Implement `vpo classify status` subcommand in src/vpo/cli/classify.py
+- [X] T058 Implement `vpo classify clear` subcommand in src/vpo/cli/classify.py
+- [ ] T059 Add --classify-tracks option to scan command in src/vpo/cli/scan.py
+- [X] T060 Register classify command group in src/vpo/cli/__init__.py
+- [X] T061 Add exit codes (0=success, 2=not found, 3=no tracks, 4=failed) in src/vpo/cli/classify.py
 
 **Checkpoint**: Full CLI support available
 
@@ -146,10 +146,10 @@
 
 **Purpose**: Documentation, validation, and refinements
 
-- [X] T062 [P] Add structured logging for classification decisions in src/video_policy_orchestrator/track_classification/service.py
-- [X] T063 [P] Add ClassificationError and InsufficientDataError exceptions in src/video_policy_orchestrator/track_classification/models.py
-- [X] T064 Update db/__init__.py to export new types in src/video_policy_orchestrator/db/__init__.py
-- [X] T065 Update track_classification/__init__.py with public API exports in src/video_policy_orchestrator/track_classification/__init__.py
+- [X] T062 [P] Add structured logging for classification decisions in src/vpo/track_classification/service.py
+- [X] T063 [P] Add ClassificationError and InsufficientDataError exceptions in src/vpo/track_classification/models.py
+- [X] T064 Update db/__init__.py to export new types in src/vpo/db/__init__.py
+- [X] T065 Update track_classification/__init__.py with public API exports in src/vpo/track_classification/__init__.py
 - [X] T066 [P] Run quickstart.md validation (manual verification of documented commands)
 - [X] T067 Verify schema migration works on existing databases
 
@@ -201,13 +201,13 @@
 
 ```bash
 # Launch enum definitions together:
-Task: "Add OriginalDubbedStatus enum to src/video_policy_orchestrator/db/types.py"
-Task: "Add CommentaryStatus enum to src/video_policy_orchestrator/db/types.py"
-Task: "Add DetectionMethod enum to src/video_policy_orchestrator/db/types.py"
+Task: "Add OriginalDubbedStatus enum to src/vpo/db/types.py"
+Task: "Add CommentaryStatus enum to src/vpo/db/types.py"
+Task: "Add DetectionMethod enum to src/vpo/db/types.py"
 
 # After enums, launch models together:
-Task: "Create AcousticProfile dataclass in src/video_policy_orchestrator/track_classification/models.py"
-Task: "Create TrackClassificationResult dataclass in src/video_policy_orchestrator/track_classification/models.py"
+Task: "Create AcousticProfile dataclass in src/vpo/track_classification/models.py"
+Task: "Create TrackClassificationResult dataclass in src/vpo/track_classification/models.py"
 ```
 
 ---
@@ -216,16 +216,16 @@ Task: "Create TrackClassificationResult dataclass in src/video_policy_orchestrat
 
 ```bash
 # Launch condition dataclasses together:
-Task: "Add IsOriginalCondition dataclass to src/video_policy_orchestrator/policy/models.py"
-Task: "Add IsDubbedCondition dataclass to src/video_policy_orchestrator/policy/models.py"
+Task: "Add IsOriginalCondition dataclass to src/vpo/policy/models.py"
+Task: "Add IsDubbedCondition dataclass to src/vpo/policy/models.py"
 
 # Launch Pydantic models together:
-Task: "Add IsOriginalModel Pydantic validation model in src/video_policy_orchestrator/policy/loader.py"
-Task: "Add IsDubbedModel Pydantic validation model in src/video_policy_orchestrator/policy/loader.py"
+Task: "Add IsOriginalModel Pydantic validation model in src/vpo/policy/loader.py"
+Task: "Add IsDubbedModel Pydantic validation model in src/vpo/policy/loader.py"
 
 # Launch evaluation functions together:
-Task: "Add evaluate_is_original() function in src/video_policy_orchestrator/policy/conditions.py"
-Task: "Add evaluate_is_dubbed() function in src/video_policy_orchestrator/policy/conditions.py"
+Task: "Add evaluate_is_original() function in src/vpo/policy/conditions.py"
+Task: "Add evaluate_is_dubbed() function in src/vpo/policy/conditions.py"
 ```
 
 ---

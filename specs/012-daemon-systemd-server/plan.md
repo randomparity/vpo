@@ -63,7 +63,7 @@ specs/012-daemon-systemd-server/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── cli/
 │   ├── __init__.py      # Add serve command registration
 │   └── serve.py         # NEW: vpo serve command implementation

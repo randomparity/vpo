@@ -19,9 +19,9 @@
 
 **Purpose**: Project initialization and package structure for plugin system
 
-- [X] T001 Create plugin package directory structure at src/video_policy_orchestrator/plugin/
-- [X] T002 [P] Create plugin_sdk package directory at src/video_policy_orchestrator/plugin_sdk/
-- [X] T003 [P] Create plugins package directory at src/video_policy_orchestrator/plugins/
+- [X] T001 Create plugin package directory structure at src/vpo/plugin/
+- [X] T002 [P] Create plugin_sdk package directory at src/vpo/plugin_sdk/
+- [X] T003 [P] Create plugins package directory at src/vpo/plugins/
 - [X] T004 [P] Create test directories at tests/unit/plugin/, tests/integration/, tests/contract/
 - [X] T005 [P] Create examples directory at examples/plugins/simple_reorder_plugin/
 
@@ -33,11 +33,11 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T006 Extend database schema with plugin_acknowledgments table in src/video_policy_orchestrator/db/schema.py
-- [X] T007 [P] Add PluginAcknowledgment model to src/video_policy_orchestrator/db/models.py
-- [X] T008 [P] Add DB operations for plugin acknowledgments in src/video_policy_orchestrator/db/models.py
-- [X] T009 [P] Extend config models with plugin_dirs setting in src/video_policy_orchestrator/config/models.py
-- [X] T010 Add plugin directory configuration loading in src/video_policy_orchestrator/config/loader.py
+- [X] T006 Extend database schema with plugin_acknowledgments table in src/vpo/db/schema.py
+- [X] T007 [P] Add PluginAcknowledgment model to src/vpo/db/models.py
+- [X] T008 [P] Add DB operations for plugin acknowledgments in src/vpo/db/models.py
+- [X] T009 [P] Extend config models with plugin_dirs setting in src/vpo/config/models.py
+- [X] T010 Add plugin directory configuration loading in src/vpo/config/loader.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -57,14 +57,14 @@
 
 ### Implementation for User Story 1
 
-- [X] T014 [P] [US1] Implement PluginType and PluginSource enums in src/video_policy_orchestrator/plugin/manifest.py
-- [X] T015 [P] [US1] Implement PluginManifest dataclass in src/video_policy_orchestrator/plugin/manifest.py
-- [X] T016 [P] [US1] Implement APIVersion class with semver parsing in src/video_policy_orchestrator/plugin/version.py
-- [X] T017 [US1] Define AnalyzerPlugin protocol in src/video_policy_orchestrator/plugin/interfaces.py
-- [X] T018 [US1] Define MutatorPlugin protocol in src/video_policy_orchestrator/plugin/interfaces.py
-- [X] T019 [US1] Implement plugin event types (FileScannedEvent, etc.) in src/video_policy_orchestrator/plugin/events.py
-- [X] T020 [US1] Add PLUGIN_API_VERSION constant and version compatibility check in src/video_policy_orchestrator/plugin/version.py
-- [X] T021 [US1] Create public exports in src/video_policy_orchestrator/plugin/__init__.py
+- [X] T014 [P] [US1] Implement PluginType and PluginSource enums in src/vpo/plugin/manifest.py
+- [X] T015 [P] [US1] Implement PluginManifest dataclass in src/vpo/plugin/manifest.py
+- [X] T016 [P] [US1] Implement APIVersion class with semver parsing in src/vpo/plugin/version.py
+- [X] T017 [US1] Define AnalyzerPlugin protocol in src/vpo/plugin/interfaces.py
+- [X] T018 [US1] Define MutatorPlugin protocol in src/vpo/plugin/interfaces.py
+- [X] T019 [US1] Implement plugin event types (FileScannedEvent, etc.) in src/vpo/plugin/events.py
+- [X] T020 [US1] Add PLUGIN_API_VERSION constant and version compatibility check in src/vpo/plugin/version.py
+- [X] T021 [US1] Create public exports in src/vpo/plugin/__init__.py
 
 **Checkpoint**: Plugin interfaces defined and testable - developers can implement plugins against the protocol
 
@@ -85,18 +85,18 @@
 
 ### Implementation for User Story 2
 
-- [X] T026 [US2] Implement directory plugin scanner in src/video_policy_orchestrator/plugin/loader.py
-- [X] T027 [US2] Implement entry point plugin scanner in src/video_policy_orchestrator/plugin/loader.py
-- [X] T028 [US2] Implement plugin validation (interface checking) in src/video_policy_orchestrator/plugin/loader.py
-- [X] T029 [US2] Implement PluginRegistry class in src/video_policy_orchestrator/plugin/registry.py
-- [X] T030 [US2] Add plugin acknowledgment flow for directory plugins in src/video_policy_orchestrator/plugin/loader.py (includes: warning message, y/N prompt with N default, non-interactive mode rejection, store acknowledgment in DB)
-- [X] T031 [US2] Implement plugin hash calculation for acknowledgment in src/video_policy_orchestrator/plugin/loader.py
-- [X] T032 [US2] Add plugin conflict detection and warning in src/video_policy_orchestrator/plugin/registry.py
-- [X] T033 [US2] Implement graceful error handling for plugin load failures in src/video_policy_orchestrator/plugin/loader.py
-- [X] T034 [US2] Add structured logging for discovery/loading in src/video_policy_orchestrator/plugin/loader.py
-- [X] T035 [US2] Implement `vpo plugins` command group (list, enable, disable subcommands) in src/video_policy_orchestrator/cli/plugins.py
-- [X] T036 [US2] Add --force-load-plugins CLI flag to root command in src/video_policy_orchestrator/cli/__init__.py
-- [X] T037 [US2] Wire plugins CLI command into main CLI group in src/video_policy_orchestrator/cli/__init__.py
+- [X] T026 [US2] Implement directory plugin scanner in src/vpo/plugin/loader.py
+- [X] T027 [US2] Implement entry point plugin scanner in src/vpo/plugin/loader.py
+- [X] T028 [US2] Implement plugin validation (interface checking) in src/vpo/plugin/loader.py
+- [X] T029 [US2] Implement PluginRegistry class in src/vpo/plugin/registry.py
+- [X] T030 [US2] Add plugin acknowledgment flow for directory plugins in src/vpo/plugin/loader.py (includes: warning message, y/N prompt with N default, non-interactive mode rejection, store acknowledgment in DB)
+- [X] T031 [US2] Implement plugin hash calculation for acknowledgment in src/vpo/plugin/loader.py
+- [X] T032 [US2] Add plugin conflict detection and warning in src/vpo/plugin/registry.py
+- [X] T033 [US2] Implement graceful error handling for plugin load failures in src/vpo/plugin/loader.py
+- [X] T034 [US2] Add structured logging for discovery/loading in src/vpo/plugin/loader.py
+- [X] T035 [US2] Implement `vpo plugins` command group (list, enable, disable subcommands) in src/vpo/cli/plugins.py
+- [X] T036 [US2] Add --force-load-plugins CLI flag to root command in src/vpo/cli/__init__.py
+- [X] T037 [US2] Wire plugins CLI command into main CLI group in src/vpo/cli/__init__.py
 
 **Checkpoint**: Plugin discovery works E2E - users can install plugins and see them in `vpo plugins list`
 
@@ -115,13 +115,13 @@
 
 ### Implementation for User Story 3
 
-- [X] T040 [US3] Create PolicyEnginePlugin class in src/video_policy_orchestrator/plugins/policy_engine/plugin.py
-- [X] T041 [US3] Implement AnalyzerPlugin methods for policy evaluation in src/video_policy_orchestrator/plugins/policy_engine/plugin.py
-- [X] T042 [US3] Implement MutatorPlugin methods for plan execution in src/video_policy_orchestrator/plugins/policy_engine/plugin.py
-- [X] T043 [US3] Wire existing policy/evaluator.py logic into plugin in src/video_policy_orchestrator/plugins/policy_engine/plugin.py
-- [X] T044 [US3] Register policy engine as built-in plugin in src/video_policy_orchestrator/plugins/policy_engine/__init__.py
-- [X] T045 [US3] Update `vpo apply` to use plugin system in src/video_policy_orchestrator/cli/apply.py
-- [X] T046 [US3] Add enable/disable support for built-in plugin in src/video_policy_orchestrator/plugin/registry.py
+- [X] T040 [US3] Create PolicyEnginePlugin class in src/vpo/plugins/policy_engine/plugin.py
+- [X] T041 [US3] Implement AnalyzerPlugin methods for policy evaluation in src/vpo/plugins/policy_engine/plugin.py
+- [X] T042 [US3] Implement MutatorPlugin methods for plan execution in src/vpo/plugins/policy_engine/plugin.py
+- [X] T043 [US3] Wire existing policy/evaluator.py logic into plugin in src/vpo/plugins/policy_engine/plugin.py
+- [X] T044 [US3] Register policy engine as built-in plugin in src/vpo/plugins/policy_engine/__init__.py
+- [X] T045 [US3] Update `vpo apply` to use plugin system in src/vpo/cli/apply.py
+- [X] T046 [US3] Add enable/disable support for built-in plugin in src/vpo/plugin/registry.py
 
 **Checkpoint**: Policy engine works as a plugin - validates architecture, provides reference implementation
 
@@ -141,11 +141,11 @@
 
 ### Implementation for User Story 4
 
-- [X] T050 [P] [US4] Implement BaseAnalyzerPlugin class in src/video_policy_orchestrator/plugin_sdk/base.py
-- [X] T051 [P] [US4] Implement BaseMutatorPlugin class in src/video_policy_orchestrator/plugin_sdk/base.py
-- [X] T052 [US4] Implement SDK helper functions (get_logger, get_config) in src/video_policy_orchestrator/plugin_sdk/helpers.py
-- [X] T053 [US4] Implement test utilities (PluginTestCase, mock helpers) in src/video_policy_orchestrator/plugin_sdk/testing.py
-- [X] T054 [US4] Create public exports in src/video_policy_orchestrator/plugin_sdk/__init__.py
+- [X] T050 [P] [US4] Implement BaseAnalyzerPlugin class in src/vpo/plugin_sdk/base.py
+- [X] T051 [P] [US4] Implement BaseMutatorPlugin class in src/vpo/plugin_sdk/base.py
+- [X] T052 [US4] Implement SDK helper functions (get_logger, get_config) in src/vpo/plugin_sdk/helpers.py
+- [X] T053 [US4] Implement test utilities (PluginTestCase, mock helpers) in src/vpo/plugin_sdk/testing.py
+- [X] T054 [US4] Create public exports in src/vpo/plugin_sdk/__init__.py
 - [X] T055 [US4] Create example plugin pyproject.toml in examples/plugins/simple_reorder_plugin/pyproject.toml
 - [X] T056 [US4] Create example plugin README.md in examples/plugins/simple_reorder_plugin/README.md
 - [X] T057 [US4] Implement example plugin in examples/plugins/simple_reorder_plugin/src/simple_reorder/__init__.py
@@ -167,9 +167,9 @@
 
 ### Implementation for User Story 5
 
-- [X] T060 [US5] Implement version range validation in plugin loader in src/video_policy_orchestrator/plugin/loader.py
-- [X] T061 [US5] Add version mismatch error messages in src/video_policy_orchestrator/plugin/loader.py
-- [X] T062 [US5] Implement --force-load-plugins override behavior in src/video_policy_orchestrator/plugin/registry.py
+- [X] T060 [US5] Implement version range validation in plugin loader in src/vpo/plugin/loader.py
+- [X] T061 [US5] Add version mismatch error messages in src/vpo/plugin/loader.py
+- [X] T062 [US5] Implement --force-load-plugins override behavior in src/vpo/plugin/registry.py
 - [X] T063 [US5] Create plugin development documentation in docs/plugins.md
 
 **Checkpoint**: Version contracts enforced - ecosystem stability ensured
@@ -255,9 +255,9 @@ Task: "Contract test for MutatorPlugin protocol in tests/contract/test_plugin_co
 Task: "Unit test for APIVersion parsing in tests/unit/plugin/test_version.py"
 
 # Launch parallel model tasks:
-Task: "Implement PluginType and PluginSource enums in src/video_policy_orchestrator/plugin/manifest.py"
-Task: "Implement PluginManifest dataclass in src/video_policy_orchestrator/plugin/manifest.py"
-Task: "Implement APIVersion class in src/video_policy_orchestrator/plugin/version.py"
+Task: "Implement PluginType and PluginSource enums in src/vpo/plugin/manifest.py"
+Task: "Implement PluginManifest dataclass in src/vpo/plugin/manifest.py"
+Task: "Implement APIVersion class in src/vpo/plugin/version.py"
 ```
 
 ---

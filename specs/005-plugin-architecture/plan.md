@@ -63,7 +63,7 @@ specs/005-plugin-architecture/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── plugin/                      # NEW: Plugin system core
 │   ├── __init__.py             # Public exports
 │   ├── interfaces.py           # AnalyzerPlugin, MutatorPlugin protocols

@@ -59,7 +59,7 @@ specs/019-library-filters-search/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── db/
 │   └── models.py              # Extend get_files_filtered() with new params
 ├── server/

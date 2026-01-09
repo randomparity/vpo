@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from video_policy_orchestrator.config.templates import (
+from vpo.config.templates import (
     DEFAULT_POLICY_TEMPLATE,
     InitializationState,
     InitResult,
@@ -468,9 +468,7 @@ class TestRunInit:
         data_dir = temp_dir / "vpo"
 
         # Mock create_plugins_directory to fail
-        with patch(
-            "video_policy_orchestrator.config.templates.create_plugins_directory"
-        ) as mock_create:
+        with patch("vpo.config.templates.create_plugins_directory") as mock_create:
             mock_create.return_value = (False, "Simulated failure")
 
             result = run_init(data_dir)

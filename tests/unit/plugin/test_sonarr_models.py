@@ -2,7 +2,7 @@
 
 import pytest
 
-from video_policy_orchestrator.plugins.sonarr_metadata.models import (
+from vpo.plugins.sonarr_metadata.models import (
     SonarrCache,
     SonarrEpisode,
     SonarrLanguage,

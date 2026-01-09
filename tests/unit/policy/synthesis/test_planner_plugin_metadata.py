@@ -4,17 +4,17 @@ from __future__ import annotations
 
 import pytest
 
-from video_policy_orchestrator.db.models import TrackInfo
-from video_policy_orchestrator.db.types import PluginMetadataDict
-from video_policy_orchestrator.policy.models import (
+from vpo.db.models import TrackInfo
+from vpo.db.types import PluginMetadataDict
+from vpo.policy.models import (
     PluginMetadataCondition,
     PluginMetadataOperator,
 )
-from video_policy_orchestrator.policy.synthesis.models import (
+from vpo.policy.synthesis.models import (
     SkippedSynthesis,
     SkipReason,
 )
-from video_policy_orchestrator.policy.synthesis.planner import (
+from vpo.policy.synthesis.planner import (
     _evaluate_create_condition,
     resolve_synthesis_operation,
 )
@@ -42,7 +42,7 @@ def make_audio_track(
 
 def make_synthesis_definition():
     """Create a minimal synthesis definition for testing."""
-    from video_policy_orchestrator.policy.synthesis.models import (
+    from vpo.policy.synthesis.models import (
         AudioCodec,
         Position,
         SourcePreferences,
@@ -153,7 +153,7 @@ class TestResolveSynthesisOperationWithPluginMetadata:
     @pytest.fixture
     def definition_with_plugin_condition(self):
         """Create a synthesis definition with a plugin_metadata create_if condition."""
-        from video_policy_orchestrator.policy.synthesis.models import (
+        from vpo.policy.synthesis.models import (
             AudioCodec,
             Position,
             PreferenceCriterion,

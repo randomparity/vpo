@@ -6,15 +6,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from video_policy_orchestrator.db.schema import create_schema
-from video_policy_orchestrator.db.types import OperationStatus
-from video_policy_orchestrator.executor.backup import FileLockError
-from video_policy_orchestrator.policy.models import (
+from vpo.db.schema import create_schema
+from vpo.db.types import OperationStatus
+from vpo.executor.backup import FileLockError
+from vpo.policy.models import (
     PolicySchema,
     ProcessingPhase,
 )
-from video_policy_orchestrator.workflow.phases.apply import ApplyPhase
-from video_policy_orchestrator.workflow.processor import PhaseError
+from vpo.workflow.phases.apply import ApplyPhase
+from vpo.workflow.processor import PhaseError
 
 
 @pytest.fixture
@@ -126,10 +126,10 @@ class TestApplyPhaseRun:
 
         assert "No tracks found" in str(exc_info.value)
 
-    @patch("video_policy_orchestrator.workflow.phases.apply.file_lock")
-    @patch("video_policy_orchestrator.workflow.phases.apply.create_operation")
-    @patch("video_policy_orchestrator.workflow.phases.apply.update_operation_status")
-    @patch("video_policy_orchestrator.plugins.policy_engine.plugin.PolicyEnginePlugin")
+    @patch("vpo.workflow.phases.apply.file_lock")
+    @patch("vpo.workflow.phases.apply.create_operation")
+    @patch("vpo.workflow.phases.apply.update_operation_status")
+    @patch("vpo.plugins.policy_engine.plugin.PolicyEnginePlugin")
     def test_run_acquires_file_lock(
         self,
         mock_engine_cls,
@@ -176,9 +176,9 @@ class TestApplyPhaseRun:
 class TestApplyPhaseFileLocking:
     """Tests for file locking behavior."""
 
-    @patch("video_policy_orchestrator.workflow.phases.apply.file_lock")
-    @patch("video_policy_orchestrator.workflow.phases.apply.create_operation")
-    @patch("video_policy_orchestrator.plugins.policy_engine.plugin.PolicyEnginePlugin")
+    @patch("vpo.workflow.phases.apply.file_lock")
+    @patch("vpo.workflow.phases.apply.create_operation")
+    @patch("vpo.plugins.policy_engine.plugin.PolicyEnginePlugin")
     def test_file_lock_error_raises_phase_error(
         self,
         mock_engine_cls,
@@ -219,7 +219,7 @@ class TestApplyPhaseFileLocking:
 class TestApplyPhaseDryRun:
     """Tests for dry-run mode."""
 
-    @patch("video_policy_orchestrator.plugins.policy_engine.plugin.PolicyEnginePlugin")
+    @patch("vpo.plugins.policy_engine.plugin.PolicyEnginePlugin")
     def test_dry_run_does_not_execute(
         self, mock_engine_cls, db_conn, base_policy, test_file
     ):
@@ -244,7 +244,7 @@ class TestApplyPhaseDryRun:
         assert changes == 3  # 2 actions + 1 track removed
         mock_engine.execute.assert_not_called()
 
-    @patch("video_policy_orchestrator.plugins.policy_engine.plugin.PolicyEnginePlugin")
+    @patch("vpo.plugins.policy_engine.plugin.PolicyEnginePlugin")
     def test_no_changes_returns_zero(
         self, mock_engine_cls, db_conn, base_policy, test_file
     ):
@@ -270,10 +270,10 @@ class TestApplyPhaseDryRun:
 class TestApplyPhaseOperationTracking:
     """Tests for operation record creation."""
 
-    @patch("video_policy_orchestrator.workflow.phases.apply.file_lock")
-    @patch("video_policy_orchestrator.workflow.phases.apply.create_operation")
-    @patch("video_policy_orchestrator.workflow.phases.apply.update_operation_status")
-    @patch("video_policy_orchestrator.plugins.policy_engine.plugin.PolicyEnginePlugin")
+    @patch("vpo.workflow.phases.apply.file_lock")
+    @patch("vpo.workflow.phases.apply.create_operation")
+    @patch("vpo.workflow.phases.apply.update_operation_status")
+    @patch("vpo.plugins.policy_engine.plugin.PolicyEnginePlugin")
     def test_operation_created_and_completed(
         self,
         mock_engine_cls,
@@ -322,10 +322,10 @@ class TestApplyPhaseOperationTracking:
         assert call_args[0][1] == "test-op-id"
         assert call_args[0][2] == OperationStatus.COMPLETED
 
-    @patch("video_policy_orchestrator.workflow.phases.apply.file_lock")
-    @patch("video_policy_orchestrator.workflow.phases.apply.create_operation")
-    @patch("video_policy_orchestrator.workflow.phases.apply.update_operation_status")
-    @patch("video_policy_orchestrator.plugins.policy_engine.plugin.PolicyEnginePlugin")
+    @patch("vpo.workflow.phases.apply.file_lock")
+    @patch("vpo.workflow.phases.apply.create_operation")
+    @patch("vpo.workflow.phases.apply.update_operation_status")
+    @patch("vpo.plugins.policy_engine.plugin.PolicyEnginePlugin")
     def test_operation_marked_failed_on_error(
         self,
         mock_engine_cls,

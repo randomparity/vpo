@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from video_policy_orchestrator.plugin_sdk.helpers import (
+from vpo.plugin_sdk.helpers import (
     get_config,
     get_data_dir,
     get_host_identifier,
@@ -51,7 +51,7 @@ class TestGetConfig:
         mock_config.data_dir = Path("/data")
 
         with patch(
-            "video_policy_orchestrator.config.loader.get_config",
+            "vpo.config.loader.get_config",
             return_value=mock_config,
         ):
             result = get_config()
@@ -64,7 +64,7 @@ class TestGetConfig:
         mock_config.data_dir = Path("/my/data")
 
         with patch(
-            "video_policy_orchestrator.config.loader.get_config",
+            "vpo.config.loader.get_config",
             return_value=mock_config,
         ):
             result = get_config()
@@ -73,7 +73,7 @@ class TestGetConfig:
     def test_returns_fallback_on_config_load_error(self) -> None:
         """get_config returns empty dict on load error."""
         with patch(
-            "video_policy_orchestrator.config.loader.get_config",
+            "vpo.config.loader.get_config",
             side_effect=Exception("Config error"),
         ):
             result = get_config()
@@ -87,7 +87,7 @@ class TestGetConfig:
         mock_config.data_dir = None
 
         with patch(
-            "video_policy_orchestrator.config.loader.get_config",
+            "vpo.config.loader.get_config",
             return_value=mock_config,
         ):
             result = get_config()
@@ -103,7 +103,7 @@ class TestGetDataDir:
         mock_config.data_dir = Path("/custom/data")
 
         with patch(
-            "video_policy_orchestrator.config.loader.get_config",
+            "vpo.config.loader.get_config",
             return_value=mock_config,
         ):
             result = get_data_dir()
@@ -115,7 +115,7 @@ class TestGetDataDir:
         mock_config.data_dir = None
 
         with patch(
-            "video_policy_orchestrator.config.loader.get_config",
+            "vpo.config.loader.get_config",
             return_value=mock_config,
         ):
             result = get_data_dir()
@@ -124,7 +124,7 @@ class TestGetDataDir:
     def test_returns_default_on_config_error(self) -> None:
         """Returns ~/.vpo/ when config loading fails."""
         with patch(
-            "video_policy_orchestrator.config.loader.get_config",
+            "vpo.config.loader.get_config",
             side_effect=Exception("Error"),
         ):
             result = get_data_dir()
@@ -137,7 +137,7 @@ class TestGetPluginStorageDir:
     def test_returns_plugin_specific_subdir(self, tmp_path: Path) -> None:
         """Returns {data_dir}/plugins/{plugin_name}."""
         with patch(
-            "video_policy_orchestrator.plugin_sdk.helpers.get_data_dir",
+            "vpo.plugin_sdk.helpers.get_data_dir",
             return_value=tmp_path,
         ):
             result = get_plugin_storage_dir("my-plugin")
@@ -146,7 +146,7 @@ class TestGetPluginStorageDir:
     def test_creates_directory_if_not_exists(self, tmp_path: Path) -> None:
         """Creates storage directory and parents if needed."""
         with patch(
-            "video_policy_orchestrator.plugin_sdk.helpers.get_data_dir",
+            "vpo.plugin_sdk.helpers.get_data_dir",
             return_value=tmp_path,
         ):
             result = get_plugin_storage_dir("new-plugin")
@@ -156,7 +156,7 @@ class TestGetPluginStorageDir:
     def test_handles_nested_plugin_names(self, tmp_path: Path) -> None:
         """Handles plugin names with hyphens."""
         with patch(
-            "video_policy_orchestrator.plugin_sdk.helpers.get_data_dir",
+            "vpo.plugin_sdk.helpers.get_data_dir",
             return_value=tmp_path,
         ):
             result = get_plugin_storage_dir("my-awesome-plugin")

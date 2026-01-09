@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from video_policy_orchestrator.introspector.parsers import (
+from vpo.introspector.parsers import (
     parse_duration,
     parse_ffprobe_output,
     parse_stream,

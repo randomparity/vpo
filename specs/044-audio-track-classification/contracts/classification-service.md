@@ -154,11 +154,11 @@ class InsufficientDataError(ClassificationError):
 ## Usage Example
 
 ```python
-from video_policy_orchestrator.track_classification.service import (
+from vpo.track_classification.service import (
     classify_file_tracks,
     get_track_classification,
 )
-from video_policy_orchestrator.db import get_db_connection
+from vpo.db import get_db_connection
 
 # Classify all tracks
 with get_db_connection() as conn:

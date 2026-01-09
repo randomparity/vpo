@@ -1,6 +1,6 @@
 """Unit tests for FFmpeg progress parsing."""
 
-from video_policy_orchestrator.jobs.progress import (
+from vpo.jobs.progress import (
     FFmpegProgress,
     parse_progress_block,
     parse_progress_line,

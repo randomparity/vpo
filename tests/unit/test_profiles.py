@@ -8,14 +8,14 @@ from unittest.mock import patch
 
 import pytest
 
-from video_policy_orchestrator.config.models import (
+from vpo.config.models import (
     BehaviorConfig,
     JobsConfig,
     LoggingConfig,
     Profile,
     VPOConfig,
 )
-from video_policy_orchestrator.config.profiles import (
+from vpo.config.profiles import (
     ProfileError,
     ProfileNotFoundError,
     get_profiles_directory,
@@ -44,9 +44,7 @@ class TestListProfiles:
 
     def test_returns_empty_when_dir_not_exists(self, tmp_path: Path) -> None:
         """Should return empty list when profiles directory doesn't exist."""
-        with patch(
-            "video_policy_orchestrator.config.profiles.get_profiles_directory"
-        ) as mock:
+        with patch("vpo.config.profiles.get_profiles_directory") as mock:
             mock.return_value = tmp_path / "nonexistent"
             result = list_profiles()
             assert result == []
@@ -59,9 +57,7 @@ class TestListProfiles:
         (profiles_dir / "tv.yaml").write_text("name: tv")
         (profiles_dir / ".hidden.yaml").write_text("name: hidden")  # Should be ignored
 
-        with patch(
-            "video_policy_orchestrator.config.profiles.get_profiles_directory"
-        ) as mock:
+        with patch("vpo.config.profiles.get_profiles_directory") as mock:
             mock.return_value = profiles_dir
             result = list_profiles()
             assert sorted(result) == ["movies", "tv"]
@@ -74,9 +70,7 @@ class TestListProfiles:
         (profiles_dir / "readme.txt").write_text("readme")
         (profiles_dir / "data.json").write_text("{}")
 
-        with patch(
-            "video_policy_orchestrator.config.profiles.get_profiles_directory"
-        ) as mock:
+        with patch("vpo.config.profiles.get_profiles_directory") as mock:
             mock.return_value = profiles_dir
             result = list_profiles()
             assert result == ["movies"]
@@ -91,9 +85,7 @@ class TestLoadProfile:
         profiles_dir.mkdir()
         (profiles_dir / "minimal.yaml").write_text("name: minimal")
 
-        with patch(
-            "video_policy_orchestrator.config.profiles.get_profiles_directory"
-        ) as mock:
+        with patch("vpo.config.profiles.get_profiles_directory") as mock:
             mock.return_value = profiles_dir
             profile = load_profile("minimal")
 
@@ -125,9 +117,7 @@ jobs:
 """
         (profiles_dir / "movies.yaml").write_text(profile_yaml)
 
-        with patch(
-            "video_policy_orchestrator.config.profiles.get_profiles_directory"
-        ) as mock:
+        with patch("vpo.config.profiles.get_profiles_directory") as mock:
             mock.return_value = profiles_dir
             profile = load_profile("movies")
 
@@ -153,9 +143,7 @@ jobs:
         profiles_dir = tmp_path / "profiles"
         profiles_dir.mkdir()
 
-        with patch(
-            "video_policy_orchestrator.config.profiles.get_profiles_directory"
-        ) as mock:
+        with patch("vpo.config.profiles.get_profiles_directory") as mock:
             mock.return_value = profiles_dir
             with pytest.raises(ProfileNotFoundError) as exc_info:
                 load_profile("nonexistent")
@@ -177,9 +165,7 @@ jobs:
         profiles_dir.mkdir()
         (profiles_dir / "bad.yaml").write_text("invalid: yaml: content:")
 
-        with patch(
-            "video_policy_orchestrator.config.profiles.get_profiles_directory"
-        ) as mock:
+        with patch("vpo.config.profiles.get_profiles_directory") as mock:
             mock.return_value = profiles_dir
             with pytest.raises(ProfileError) as exc_info:
                 load_profile("bad")
@@ -191,9 +177,7 @@ jobs:
         profiles_dir.mkdir()
         (profiles_dir / "myprofile.yaml").write_text("description: A profile")
 
-        with patch(
-            "video_policy_orchestrator.config.profiles.get_profiles_directory"
-        ) as mock:
+        with patch("vpo.config.profiles.get_profiles_directory") as mock:
             mock.return_value = profiles_dir
             profile = load_profile("myprofile")
             assert profile.name == "myprofile"

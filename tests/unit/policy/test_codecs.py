@@ -1,6 +1,6 @@
 """Tests for policy/codecs.py - unified codec matching."""
 
-from video_policy_orchestrator.policy.codecs import (
+from vpo.policy.codecs import (
     AUDIO_CODEC_ALIASES,
     VIDEO_CODEC_ALIASES,
     audio_codec_matches,

@@ -10,9 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.db.schema import create_schema
-from video_policy_orchestrator.db.types import FileInfo, TrackInfo
-from video_policy_orchestrator.workflow.phases.context import (
+from vpo.db.schema import create_schema
+from vpo.db.types import FileInfo, TrackInfo
+from vpo.workflow.phases.context import (
     FileOperationContext,
     OperationContext,
 )

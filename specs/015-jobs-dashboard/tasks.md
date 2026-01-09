@@ -17,9 +17,9 @@
 
 ## Path Conventions
 
-- **Project structure**: `src/video_policy_orchestrator/` at repository root
-- **Templates**: `src/video_policy_orchestrator/server/ui/templates/`
-- **Static files**: `src/video_policy_orchestrator/server/static/`
+- **Project structure**: `src/vpo/` at repository root
+- **Templates**: `src/vpo/server/ui/templates/`
+- **Static files**: `src/vpo/server/static/`
 
 ---
 
@@ -28,7 +28,7 @@
 **Purpose**: Project verification and baseline validation
 
 - [X] T001 Verify existing project structure matches plan.md expectations
-- [X] T002 Verify jobs table schema exists in src/video_policy_orchestrator/db/schema.py
+- [X] T002 Verify jobs table schema exists in src/vpo/db/schema.py
 - [X] T003 Verify existing daemon server runs: `uv run vpo serve --help`
 
 **Commit after Phase 1**: N/A (no code changes - verification only)
@@ -41,13 +41,13 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T004 [P] Add JobFilterParams dataclass in src/video_policy_orchestrator/server/ui/models.py
-- [X] T005 [P] Add JobListItem dataclass in src/video_policy_orchestrator/server/ui/models.py
-- [X] T006 [P] Add JobListResponse dataclass in src/video_policy_orchestrator/server/ui/models.py
-- [X] T007 [P] Add JobListContext dataclass in src/video_policy_orchestrator/server/ui/models.py
-- [X] T008 Implement api_jobs_handler function in src/video_policy_orchestrator/server/ui/routes.py
-- [X] T009 Register /api/jobs route in src/video_policy_orchestrator/server/app.py
-- [X] T010 Add jobs table CSS styles in src/video_policy_orchestrator/server/static/css/main.css
+- [X] T004 [P] Add JobFilterParams dataclass in src/vpo/server/ui/models.py
+- [X] T005 [P] Add JobListItem dataclass in src/vpo/server/ui/models.py
+- [X] T006 [P] Add JobListResponse dataclass in src/vpo/server/ui/models.py
+- [X] T007 [P] Add JobListContext dataclass in src/vpo/server/ui/models.py
+- [X] T008 Implement api_jobs_handler function in src/vpo/server/ui/routes.py
+- [X] T009 Register /api/jobs route in src/vpo/server/app.py
+- [X] T010 Add jobs table CSS styles in src/vpo/server/static/css/main.css
 
 **Checkpoint**: API endpoint `/api/jobs` returns JSON data. Foundation ready for UI implementation.
 
@@ -63,12 +63,12 @@
 
 ### Implementation for User Story 1
 
-- [X] T011 [US1] Replace placeholder in src/video_policy_orchestrator/server/ui/templates/sections/jobs.html with jobs table structure
-- [X] T012 [US1] Create src/video_policy_orchestrator/server/static/js/jobs.js with fetchJobs() function
-- [X] T013 [US1] Implement renderJobsTable() in src/video_policy_orchestrator/server/static/js/jobs.js
-- [X] T014 [US1] Implement formatDuration() helper for elapsed time display in src/video_policy_orchestrator/server/static/js/jobs.js
-- [X] T015 [US1] Update jobs_handler in src/video_policy_orchestrator/server/ui/routes.py to pass JobListContext
-- [X] T016 [US1] Add script tag for jobs.js in src/video_policy_orchestrator/server/ui/templates/sections/jobs.html
+- [X] T011 [US1] Replace placeholder in src/vpo/server/ui/templates/sections/jobs.html with jobs table structure
+- [X] T012 [US1] Create src/vpo/server/static/js/jobs.js with fetchJobs() function
+- [X] T013 [US1] Implement renderJobsTable() in src/vpo/server/static/js/jobs.js
+- [X] T014 [US1] Implement formatDuration() helper for elapsed time display in src/vpo/server/static/js/jobs.js
+- [X] T015 [US1] Update jobs_handler in src/vpo/server/ui/routes.py to pass JobListContext
+- [X] T016 [US1] Add script tag for jobs.js in src/vpo/server/ui/templates/sections/jobs.html
 
 **Checkpoint**: Jobs page displays all jobs in a table with correct columns and sorting.
 
@@ -84,10 +84,10 @@
 
 ### Implementation for User Story 2
 
-- [X] T017 [US2] Add status filter dropdown to src/video_policy_orchestrator/server/ui/templates/sections/jobs.html
-- [X] T018 [US2] Implement handleStatusFilter() in src/video_policy_orchestrator/server/static/js/jobs.js
-- [X] T019 [US2] Update fetchJobs() to include status query parameter in src/video_policy_orchestrator/server/static/js/jobs.js
-- [X] T020 [US2] Add status filter styles in src/video_policy_orchestrator/server/static/css/main.css
+- [X] T017 [US2] Add status filter dropdown to src/vpo/server/ui/templates/sections/jobs.html
+- [X] T018 [US2] Implement handleStatusFilter() in src/vpo/server/static/js/jobs.js
+- [X] T019 [US2] Update fetchJobs() to include status query parameter in src/vpo/server/static/js/jobs.js
+- [X] T020 [US2] Add status filter styles in src/vpo/server/static/css/main.css
 
 **Checkpoint**: Status filter dropdown works, filters jobs correctly, clear filter restores all jobs.
 
@@ -103,9 +103,9 @@
 
 ### Implementation for User Story 3
 
-- [X] T021 [US3] Add type filter dropdown to src/video_policy_orchestrator/server/ui/templates/sections/jobs.html
-- [X] T022 [US3] Implement handleTypeFilter() in src/video_policy_orchestrator/server/static/js/jobs.js
-- [X] T023 [US3] Update fetchJobs() to include type query parameter in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T021 [US3] Add type filter dropdown to src/vpo/server/ui/templates/sections/jobs.html
+- [X] T022 [US3] Implement handleTypeFilter() in src/vpo/server/static/js/jobs.js
+- [X] T023 [US3] Update fetchJobs() to include type query parameter in src/vpo/server/static/js/jobs.js
 
 **Checkpoint**: Type filter dropdown works, combines correctly with status filter (verifies FR-009 AND logic).
 
@@ -121,9 +121,9 @@
 
 ### Implementation for User Story 4
 
-- [X] T024 [US4] Add time range filter dropdown to src/video_policy_orchestrator/server/ui/templates/sections/jobs.html
-- [X] T025 [US4] Implement handleTimeFilter() in src/video_policy_orchestrator/server/static/js/jobs.js
-- [X] T026 [US4] Update fetchJobs() to include since query parameter in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T024 [US4] Add time range filter dropdown to src/vpo/server/ui/templates/sections/jobs.html
+- [X] T025 [US4] Implement handleTimeFilter() in src/vpo/server/static/js/jobs.js
+- [X] T026 [US4] Update fetchJobs() to include since query parameter in src/vpo/server/static/js/jobs.js
 
 **Checkpoint**: Time range filter works, combines correctly with status and type filters.
 
@@ -139,10 +139,10 @@
 
 ### Implementation for User Story 5
 
-- [X] T027 [US5] Add empty state HTML structure in src/video_policy_orchestrator/server/ui/templates/sections/jobs.html
-- [X] T028 [US5] Implement renderEmptyState() in src/video_policy_orchestrator/server/static/js/jobs.js
-- [X] T029 [US5] Add empty state styles in src/video_policy_orchestrator/server/static/css/main.css
-- [X] T030 [US5] Update renderJobsTable() to handle has_filters flag in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T027 [US5] Add empty state HTML structure in src/vpo/server/ui/templates/sections/jobs.html
+- [X] T028 [US5] Implement renderEmptyState() in src/vpo/server/static/js/jobs.js
+- [X] T029 [US5] Add empty state styles in src/vpo/server/static/css/main.css
+- [X] T030 [US5] Update renderJobsTable() to handle has_filters flag in src/vpo/server/static/js/jobs.js
 
 **Checkpoint**: Empty states display appropriate messages for no jobs and no matching jobs scenarios.
 
@@ -154,12 +154,12 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [X] T031 [P] Add pagination controls to src/video_policy_orchestrator/server/ui/templates/sections/jobs.html
-- [X] T032 [P] Implement pagination handling in src/video_policy_orchestrator/server/static/js/jobs.js
-- [X] T033 [P] Add path truncation with tooltip for long file paths in src/video_policy_orchestrator/server/static/js/jobs.js
-- [X] T034 [P] Add status color indicators (visual badges) in src/video_policy_orchestrator/server/static/css/main.css
-- [X] T035 [P] Add loading state while fetching jobs in src/video_policy_orchestrator/server/static/js/jobs.js
-- [X] T036 [P] Handle unknown/invalid job status gracefully in src/video_policy_orchestrator/server/static/js/jobs.js
+- [X] T031 [P] Add pagination controls to src/vpo/server/ui/templates/sections/jobs.html
+- [X] T032 [P] Implement pagination handling in src/vpo/server/static/js/jobs.js
+- [X] T033 [P] Add path truncation with tooltip for long file paths in src/vpo/server/static/js/jobs.js
+- [X] T034 [P] Add status color indicators (visual badges) in src/vpo/server/static/css/main.css
+- [X] T035 [P] Add loading state while fetching jobs in src/vpo/server/static/js/jobs.js
+- [X] T036 [P] Handle unknown/invalid job status gracefully in src/vpo/server/static/js/jobs.js
 - [X] T037 Run quickstart.md validation: verify all API endpoints and UI interactions work
 
 **Commit after Phase 8**: `git commit -m "feat(015): Add pagination, polish, and visual improvements"`
@@ -203,17 +203,17 @@
 
 ```bash
 # Launch all dataclass tasks together:
-Task: "Add JobFilterParams dataclass in src/video_policy_orchestrator/server/ui/models.py"
-Task: "Add JobListItem dataclass in src/video_policy_orchestrator/server/ui/models.py"
-Task: "Add JobListResponse dataclass in src/video_policy_orchestrator/server/ui/models.py"
-Task: "Add JobListContext dataclass in src/video_policy_orchestrator/server/ui/models.py"
+Task: "Add JobFilterParams dataclass in src/vpo/server/ui/models.py"
+Task: "Add JobListItem dataclass in src/vpo/server/ui/models.py"
+Task: "Add JobListResponse dataclass in src/vpo/server/ui/models.py"
+Task: "Add JobListContext dataclass in src/vpo/server/ui/models.py"
 
 # Then handler and route (sequential):
-Task: "Implement api_jobs_handler function in src/video_policy_orchestrator/server/ui/routes.py"
-Task: "Register /api/jobs route in src/video_policy_orchestrator/server/app.py"
+Task: "Implement api_jobs_handler function in src/vpo/server/ui/routes.py"
+Task: "Register /api/jobs route in src/vpo/server/app.py"
 
 # CSS can run in parallel with handler:
-Task: "Add jobs table CSS styles in src/video_policy_orchestrator/server/static/css/main.css"
+Task: "Add jobs table CSS styles in src/vpo/server/static/css/main.css"
 ```
 
 ---

@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from video_policy_orchestrator.plugin_sdk import BaseAnalyzerPlugin
+from vpo.plugin_sdk import BaseAnalyzerPlugin
 
 logger = logging.getLogger(__name__)
 

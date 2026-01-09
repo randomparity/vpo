@@ -53,8 +53,8 @@ uv run pytest tests/integration/server/test_library_api.py -v
 uv run vpo serve --port 8080 --reload
 
 # Lint
-uv run ruff check src/video_policy_orchestrator/server/
-uv run ruff format src/video_policy_orchestrator/server/
+uv run ruff check src/vpo/server/
+uv run ruff format src/vpo/server/
 ```
 
 ## Key Files

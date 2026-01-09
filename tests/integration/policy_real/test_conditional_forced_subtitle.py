@@ -14,12 +14,12 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from video_policy_orchestrator.policy.evaluator import evaluate_policy
-from video_policy_orchestrator.policy.loader import load_policy
-from video_policy_orchestrator.policy.models import ActionType
+from vpo.policy.evaluator import evaluate_policy
+from vpo.policy.loader import load_policy
+from vpo.policy.models import ActionType
 
 if TYPE_CHECKING:
-    from video_policy_orchestrator.introspector.ffprobe import FFprobeIntrospector
+    from vpo.introspector.ffprobe import FFprobeIntrospector
 
 
 class TestConditionalForcedSubtitle:

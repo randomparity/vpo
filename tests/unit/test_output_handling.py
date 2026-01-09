@@ -6,8 +6,8 @@ and output integrity verification.
 
 from pathlib import Path
 
-from video_policy_orchestrator.executor.transcode import TranscodeExecutor
-from video_policy_orchestrator.policy.models import TranscodePolicyConfig
+from vpo.executor.transcode import TranscodeExecutor
+from vpo.policy.models import TranscodePolicyConfig
 
 
 class TestTempFilePathGeneration:

@@ -47,7 +47,7 @@ uv run vpo serve --port 8080          # Start daemon with web UI
 ## Architecture
 
 ```
-src/video_policy_orchestrator/
+src/vpo/
 ├── cli/           # Click commands: scan, inspect, apply, doctor, serve, process
 ├── config/        # Configuration loading and models
 ├── db/            # SQLite schema, models, and query functions (see below)
@@ -132,14 +132,14 @@ db/
 **Import patterns** (all equivalent):
 ```python
 # Preferred: import from package
-from video_policy_orchestrator.db import FileRecord, get_file_by_path
+from vpo.db import FileRecord, get_file_by_path
 
 # Or from specific submodule
-from video_policy_orchestrator.db.types import FileRecord
-from video_policy_orchestrator.db.queries import get_file_by_path
+from vpo.db.types import FileRecord
+from vpo.db.queries import get_file_by_path
 
 # Legacy (still works, but deprecated)
-from video_policy_orchestrator.db.models import FileRecord, get_file_by_path
+from vpo.db.models import FileRecord, get_file_by_path
 ```
 
 **Key types:**
@@ -181,7 +181,7 @@ The web UI uses server-rendered HTML with JavaScript enhancements:
 The visual policy editor (`/policies/{name}/edit`) provides form-based editing of YAML policy files:
 - **Round-trip preservation**: Uses `ruamel.yaml` to preserve unknown fields and comments
 - **Concurrency**: Detects concurrent modifications via last_modified timestamps
-- **Editor module**: `src/video_policy_orchestrator/policy/editor.py` (PolicyRoundTripEditor class)
+- **Editor module**: `src/vpo/policy/editor.py` (PolicyRoundTripEditor class)
 - **Routes**: GET/PUT `/api/policies/{name}` for load/save, POST `/api/policies/{name}/validate` for dry-run validation
 - **Usage docs**: See `/docs/usage/policy-editor.md` for user guide
 

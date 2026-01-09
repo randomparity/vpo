@@ -6,15 +6,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from video_policy_orchestrator.db.schema import create_schema
-from video_policy_orchestrator.executor.transcode import TranscodeResult
-from video_policy_orchestrator.policy.models import (
+from vpo.db.schema import create_schema
+from vpo.executor.transcode import TranscodeResult
+from vpo.policy.models import (
     PolicySchema,
     ProcessingPhase,
     TranscodePolicyConfig,
 )
-from video_policy_orchestrator.workflow.phases.transcode import TranscodePhase
-from video_policy_orchestrator.workflow.processor import PhaseError
+from vpo.workflow.phases.transcode import TranscodePhase
+from vpo.workflow.processor import PhaseError
 
 
 @pytest.fixture
@@ -146,7 +146,7 @@ class TestTranscodePhaseRun:
 
         assert changes == 0
 
-    @patch("video_policy_orchestrator.executor.transcode.TranscodeExecutor")
+    @patch("vpo.executor.transcode.TranscodeExecutor")
     def test_run_skips_when_plan_says_skip(
         self, mock_executor_cls, db_conn, policy_with_transcode, test_file
     ):
@@ -171,7 +171,7 @@ class TestTranscodePhaseRun:
 class TestTranscodePhaseDryRun:
     """Tests for dry-run mode."""
 
-    @patch("video_policy_orchestrator.executor.transcode.TranscodeExecutor")
+    @patch("vpo.executor.transcode.TranscodeExecutor")
     def test_dry_run_does_not_execute(
         self, mock_executor_cls, db_conn, policy_with_transcode, test_file
     ):
@@ -196,7 +196,7 @@ class TestTranscodePhaseDryRun:
 class TestTranscodePhaseExecution:
     """Tests for transcode execution."""
 
-    @patch("video_policy_orchestrator.executor.transcode.TranscodeExecutor")
+    @patch("vpo.executor.transcode.TranscodeExecutor")
     def test_execute_success(
         self, mock_executor_cls, db_conn, policy_with_transcode, test_file
     ):
@@ -221,7 +221,7 @@ class TestTranscodePhaseExecution:
         assert changes == 1
         mock_executor.execute.assert_called_once_with(mock_plan)
 
-    @patch("video_policy_orchestrator.executor.transcode.TranscodeExecutor")
+    @patch("vpo.executor.transcode.TranscodeExecutor")
     def test_execute_failure_raises_phase_error(
         self, mock_executor_cls, db_conn, policy_with_transcode, test_file
     ):
@@ -249,7 +249,7 @@ class TestTranscodePhaseExecution:
         assert "FFmpeg error" in str(exc_info.value)
         assert exc_info.value.phase == ProcessingPhase.TRANSCODE
 
-    @patch("video_policy_orchestrator.executor.transcode.TranscodeExecutor")
+    @patch("vpo.executor.transcode.TranscodeExecutor")
     def test_execute_exception_wrapped_in_phase_error(
         self, mock_executor_cls, db_conn, policy_with_transcode, test_file
     ):

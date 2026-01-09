@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from video_policy_orchestrator.reports.filters import (
+from vpo.reports.filters import (
     TimeFilter,
     parse_relative_date,
 )
@@ -17,7 +17,7 @@ class TestParseRelativeDate:
     def test_parse_days(self):
         """Parse relative days correctly."""
         fixed_now = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
-        with patch("video_policy_orchestrator.reports.filters.datetime") as mock_dt:
+        with patch("vpo.reports.filters.datetime") as mock_dt:
             mock_dt.now.return_value = fixed_now
             mock_dt.fromisoformat = datetime.fromisoformat
             mock_dt.strptime = datetime.strptime
@@ -28,7 +28,7 @@ class TestParseRelativeDate:
     def test_parse_weeks(self):
         """Parse relative weeks correctly."""
         fixed_now = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
-        with patch("video_policy_orchestrator.reports.filters.datetime") as mock_dt:
+        with patch("vpo.reports.filters.datetime") as mock_dt:
             mock_dt.now.return_value = fixed_now
             mock_dt.fromisoformat = datetime.fromisoformat
             mock_dt.strptime = datetime.strptime
@@ -39,7 +39,7 @@ class TestParseRelativeDate:
     def test_parse_hours(self):
         """Parse relative hours correctly."""
         fixed_now = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
-        with patch("video_policy_orchestrator.reports.filters.datetime") as mock_dt:
+        with patch("vpo.reports.filters.datetime") as mock_dt:
             mock_dt.now.return_value = fixed_now
             mock_dt.fromisoformat = datetime.fromisoformat
             mock_dt.strptime = datetime.strptime
@@ -84,7 +84,7 @@ class TestParseRelativeDate:
     def test_parse_case_insensitive(self):
         """Relative formats are case insensitive."""
         fixed_now = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
-        with patch("video_policy_orchestrator.reports.filters.datetime") as mock_dt:
+        with patch("vpo.reports.filters.datetime") as mock_dt:
             mock_dt.now.return_value = fixed_now
             mock_dt.fromisoformat = datetime.fromisoformat
             mock_dt.strptime = datetime.strptime
@@ -99,7 +99,7 @@ class TestTimeFilter:
     def test_from_strings_since_only(self):
         """Create TimeFilter with since only."""
         fixed_now = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
-        with patch("video_policy_orchestrator.reports.filters.datetime") as mock_dt:
+        with patch("vpo.reports.filters.datetime") as mock_dt:
             mock_dt.now.return_value = fixed_now
             mock_dt.fromisoformat = datetime.fromisoformat
             mock_dt.strptime = datetime.strptime
@@ -112,7 +112,7 @@ class TestTimeFilter:
     def test_from_strings_until_only(self):
         """Create TimeFilter with until only."""
         fixed_now = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
-        with patch("video_policy_orchestrator.reports.filters.datetime") as mock_dt:
+        with patch("vpo.reports.filters.datetime") as mock_dt:
             mock_dt.now.return_value = fixed_now
             mock_dt.fromisoformat = datetime.fromisoformat
             mock_dt.strptime = datetime.strptime
@@ -123,7 +123,7 @@ class TestTimeFilter:
     def test_from_strings_both(self):
         """Create TimeFilter with both since and until."""
         fixed_now = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
-        with patch("video_policy_orchestrator.reports.filters.datetime") as mock_dt:
+        with patch("vpo.reports.filters.datetime") as mock_dt:
             mock_dt.now.return_value = fixed_now
             mock_dt.fromisoformat = datetime.fromisoformat
             mock_dt.strptime = datetime.strptime

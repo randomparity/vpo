@@ -63,7 +63,7 @@ specs/042-analyze-language-cli/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── language_analysis/           # EXISTING - service layer
 │   ├── __init__.py              # EXISTING - public API
 │   ├── models.py                # EXISTING - domain models

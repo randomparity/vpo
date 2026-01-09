@@ -63,7 +63,7 @@ specs/008-operational-ux/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── cli/
 │   ├── __init__.py
 │   ├── scan.py          # MODIFY: add --full flag, incremental summary

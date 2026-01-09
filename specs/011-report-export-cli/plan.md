@@ -59,7 +59,7 @@ specs/011-report-export-cli/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── cli/
 │   ├── __init__.py          # Existing - add report group registration
 │   └── report.py            # NEW - report command group and subcommands

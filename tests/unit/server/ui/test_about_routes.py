@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 
 from aiohttp import web
 
-from video_policy_orchestrator.server.ui.models import AboutInfo
-from video_policy_orchestrator.server.ui.routes import (
+from vpo.server.ui.models import AboutInfo
+from vpo.server.ui.routes import (
     DOCS_URL,
     get_about_info,
 )
@@ -136,7 +136,7 @@ class TestGetAboutInfo:
 
         assert info.docs_url == DOCS_URL
 
-    @patch.dict(os.environ, {"VPO_GIT_HASH": "abc123def456"})
+    @patch.dict(os.environ, {"VPO_GIT_HASH": "abc123de"})
     def test_get_about_info_reads_git_hash_from_env(self) -> None:
         """Test that get_about_info reads git hash from environment."""
         mock_app = {}
@@ -149,7 +149,7 @@ class TestGetAboutInfo:
 
         info = get_about_info(mock_request)
 
-        assert info.git_hash == "abc123def456"
+        assert info.git_hash == "abc123de"
 
     @patch.dict(os.environ, {}, clear=True)
     def test_get_about_info_handles_missing_git_hash(self) -> None:
@@ -220,7 +220,7 @@ class TestApiAboutHandler:
         """Test that api_about_handler returns a JSON response."""
         import asyncio
 
-        from video_policy_orchestrator.server.app import api_about_handler
+        from vpo.server.app import api_about_handler
 
         mock_app = {"profile_name": "test-profile"}
         mock_url = MagicMock()
@@ -240,7 +240,7 @@ class TestApiAboutHandler:
         import asyncio
         import json
 
-        from video_policy_orchestrator.server.app import api_about_handler
+        from vpo.server.app import api_about_handler
 
         mock_app = {"profile_name": "my-profile"}
         mock_url = MagicMock()

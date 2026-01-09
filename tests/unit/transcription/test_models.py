@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from video_policy_orchestrator.transcription.models import (
+from vpo.transcription.models import (
     COMMENTARY_KEYWORDS,
     MUSIC_KEYWORDS,
     SFX_KEYWORDS,
@@ -155,7 +155,7 @@ class TestTranscriptionResult:
 
     def test_from_record(self):
         """Test creating domain model from database record."""
-        from video_policy_orchestrator.db.models import TranscriptionResultRecord
+        from vpo.db.models import TranscriptionResultRecord
 
         record = TranscriptionResultRecord(
             id=1,

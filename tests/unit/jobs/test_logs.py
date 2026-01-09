@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
-from video_policy_orchestrator.jobs.logs import (
+from vpo.jobs.logs import (
     DEFAULT_LOG_LINES,
     MAX_LOG_SIZE_BYTES,
     _validate_job_id,
@@ -90,7 +90,7 @@ class TestGetLogPath:
         job_id = "12345678-1234-1234-1234-123456789abc"
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             result = get_log_path(job_id)
@@ -101,7 +101,7 @@ class TestGetLogPath:
     def test_invalid_uuid_raises_valueerror(self, tmp_path: Path):
         """Invalid UUID should raise ValueError."""
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             with pytest.raises(ValueError, match="Invalid job ID format"):
@@ -113,7 +113,7 @@ class TestGetLogPath:
         job_id = "12345678-1234-1234-1234-123456789abc"
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             result = get_log_path(job_id)
@@ -129,7 +129,7 @@ class TestCountLogLines:
         job_id = "12345678-1234-1234-1234-123456789abc"
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             result = count_log_lines(job_id)
@@ -143,7 +143,7 @@ class TestCountLogLines:
         log_file.write_text("")
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             result = count_log_lines(job_id)
@@ -157,7 +157,7 @@ class TestCountLogLines:
         log_file.write_text("Single line\n")
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             result = count_log_lines(job_id)
@@ -171,7 +171,7 @@ class TestCountLogLines:
         log_file.write_text("Line 1\nLine 2\nLine 3\n")
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             result = count_log_lines(job_id)
@@ -181,7 +181,7 @@ class TestCountLogLines:
     def test_invalid_job_id_returns_zero(self, tmp_path: Path):
         """Invalid job ID should return 0 (not raise)."""
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             result = count_log_lines("../invalid")
@@ -197,7 +197,7 @@ class TestReadLogTail:
         job_id = "12345678-1234-1234-1234-123456789abc"
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             lines, total, has_more = read_log_tail(job_id)
@@ -213,7 +213,7 @@ class TestReadLogTail:
         log_file.write_text("Line 1\nLine 2\nLine 3\n")
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             lines, total, has_more = read_log_tail(job_id)
@@ -229,7 +229,7 @@ class TestReadLogTail:
         log_file.write_text("Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n")
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             lines, total, has_more = read_log_tail(job_id, lines=2, offset=2)
@@ -245,7 +245,7 @@ class TestReadLogTail:
         log_file.write_text("Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n")
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             lines, total, has_more = read_log_tail(job_id, lines=2, offset=0)
@@ -261,7 +261,7 @@ class TestReadLogTail:
         log_file.write_text("Line 1\nLine 2\nLine 3\n")
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             lines, total, has_more = read_log_tail(job_id, lines=10, offset=0)
@@ -277,7 +277,7 @@ class TestReadLogTail:
         log_file.write_text("Line 1\nLine 2\n")
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             lines, total, has_more = read_log_tail(job_id, lines=10, offset=100)
@@ -289,7 +289,7 @@ class TestReadLogTail:
     def test_invalid_job_id_returns_empty(self, tmp_path: Path):
         """Invalid job ID should return empty results (not raise)."""
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             lines, total, has_more = read_log_tail("../invalid")
@@ -306,7 +306,7 @@ class TestReadLogTail:
         log_file.write_text("Line 1\r\nLine 2\nLine 3")
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             lines, total, has_more = read_log_tail(job_id)
@@ -326,7 +326,7 @@ class TestReadLogTail:
         log_file.write_text(log_content, encoding="utf-8")
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             lines, total, has_more = read_log_tail(job_id)
@@ -345,7 +345,7 @@ class TestLogFileExists:
         log_file.write_text("content")
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             result = log_file_exists(job_id)
@@ -357,7 +357,7 @@ class TestLogFileExists:
         job_id = "12345678-1234-1234-1234-123456789abc"
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             result = log_file_exists(job_id)
@@ -367,7 +367,7 @@ class TestLogFileExists:
     def test_invalid_job_id_returns_false(self, tmp_path: Path):
         """Invalid job ID should return False (not raise)."""
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             result = log_file_exists("../invalid")
@@ -397,12 +397,12 @@ class TestJobLogWriter:
 
     def test_writer_creates_log_file(self, tmp_path: Path):
         """Writer should create log file on enter."""
-        from video_policy_orchestrator.jobs.logs import JobLogWriter
+        from vpo.jobs.logs import JobLogWriter
 
         job_id = "12345678-1234-1234-1234-123456789abc"
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             with JobLogWriter(job_id) as writer:
@@ -415,12 +415,12 @@ class TestJobLogWriter:
 
     def test_writer_adds_timestamp(self, tmp_path: Path):
         """Each line should have a timestamp prefix."""
-        from video_policy_orchestrator.jobs.logs import JobLogWriter
+        from vpo.jobs.logs import JobLogWriter
 
         job_id = "12345678-1234-1234-1234-123456789abc"
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             with JobLogWriter(job_id) as writer:
@@ -434,12 +434,12 @@ class TestJobLogWriter:
 
     def test_writer_header_footer(self, tmp_path: Path):
         """Header and footer methods should write structured output."""
-        from video_policy_orchestrator.jobs.logs import JobLogWriter
+        from vpo.jobs.logs import JobLogWriter
 
         job_id = "12345678-1234-1234-1234-123456789abc"
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             with JobLogWriter(job_id) as writer:
@@ -455,12 +455,12 @@ class TestJobLogWriter:
 
     def test_writer_subprocess_output(self, tmp_path: Path):
         """Subprocess output should be logged with command info."""
-        from video_policy_orchestrator.jobs.logs import JobLogWriter
+        from vpo.jobs.logs import JobLogWriter
 
         job_id = "12345678-1234-1234-1234-123456789abc"
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             with JobLogWriter(job_id) as writer:
@@ -480,12 +480,12 @@ class TestJobLogWriter:
 
     def test_writer_relative_path(self, tmp_path: Path):
         """relative_path property should return path for database."""
-        from video_policy_orchestrator.jobs.logs import JobLogWriter
+        from vpo.jobs.logs import JobLogWriter
 
         job_id = "12345678-1234-1234-1234-123456789abc"
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             with JobLogWriter(job_id) as writer:
@@ -493,7 +493,7 @@ class TestJobLogWriter:
 
     def test_invalid_job_id_raises(self, tmp_path: Path):
         """Invalid job ID should raise ValueError."""
-        from video_policy_orchestrator.jobs.logs import JobLogWriter
+        from vpo.jobs.logs import JobLogWriter
 
         with pytest.raises(ValueError, match="Invalid job ID format"):
             JobLogWriter("../invalid")
@@ -507,7 +507,7 @@ class TestLogCompression:
         import os
         import time
 
-        from video_policy_orchestrator.jobs.logs import compress_old_logs
+        from vpo.jobs.logs import compress_old_logs
 
         job_id = "12345678-1234-1234-1234-123456789abc"
         log_file = tmp_path / f"{job_id}.log"
@@ -518,7 +518,7 @@ class TestLogCompression:
         os.utime(log_file, (old_time, old_time))
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             stats = compress_old_logs(older_than_days=7)
@@ -529,14 +529,14 @@ class TestLogCompression:
 
     def test_compress_skips_recent_logs(self, tmp_path: Path):
         """Should not compress recent logs."""
-        from video_policy_orchestrator.jobs.logs import compress_old_logs
+        from vpo.jobs.logs import compress_old_logs
 
         job_id = "12345678-1234-1234-1234-123456789abc"
         log_file = tmp_path / f"{job_id}.log"
         log_file.write_text("Test content")
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             stats = compress_old_logs(older_than_days=7)
@@ -549,7 +549,7 @@ class TestLogCompression:
         import os
         import time
 
-        from video_policy_orchestrator.jobs.logs import compress_old_logs
+        from vpo.jobs.logs import compress_old_logs
 
         job_id = "12345678-1234-1234-1234-123456789abc"
         log_file = tmp_path / f"{job_id}.log"
@@ -559,7 +559,7 @@ class TestLogCompression:
         os.utime(log_file, (old_time, old_time))
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             stats = compress_old_logs(older_than_days=7, dry_run=True)
@@ -577,7 +577,7 @@ class TestLogDeletion:
         import os
         import time
 
-        from video_policy_orchestrator.jobs.logs import delete_old_logs
+        from vpo.jobs.logs import delete_old_logs
 
         job_id = "12345678-1234-1234-1234-123456789abc"
         log_file = tmp_path / f"{job_id}.log"
@@ -587,7 +587,7 @@ class TestLogDeletion:
         os.utime(log_file, (old_time, old_time))
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             stats = delete_old_logs(older_than_days=90)
@@ -597,14 +597,14 @@ class TestLogDeletion:
 
     def test_delete_skips_recent_logs(self, tmp_path: Path):
         """Should not delete recent logs."""
-        from video_policy_orchestrator.jobs.logs import delete_old_logs
+        from vpo.jobs.logs import delete_old_logs
 
         job_id = "12345678-1234-1234-1234-123456789abc"
         log_file = tmp_path / f"{job_id}.log"
         log_file.write_text("Test content")
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             stats = delete_old_logs(older_than_days=90)
@@ -617,7 +617,7 @@ class TestLogDeletion:
         import os
         import time
 
-        from video_policy_orchestrator.jobs.logs import delete_old_logs
+        from vpo.jobs.logs import delete_old_logs
 
         job_id = "12345678-1234-1234-1234-123456789abc"
         log_file = tmp_path / f"{job_id}.log"
@@ -627,7 +627,7 @@ class TestLogDeletion:
         os.utime(log_file, (old_time, old_time))
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             stats = delete_old_logs(older_than_days=90, dry_run=True)
@@ -641,10 +641,10 @@ class TestLogStats:
 
     def test_empty_directory(self, tmp_path: Path):
         """Empty directory should return zero counts."""
-        from video_policy_orchestrator.jobs.logs import get_log_stats
+        from vpo.jobs.logs import get_log_stats
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             stats = get_log_stats()
@@ -654,14 +654,14 @@ class TestLogStats:
 
     def test_counts_log_files(self, tmp_path: Path):
         """Should count both compressed and uncompressed logs."""
-        from video_policy_orchestrator.jobs.logs import get_log_stats
+        from vpo.jobs.logs import get_log_stats
 
         (tmp_path / "test1.log").write_text("content1")
         (tmp_path / "test2.log").write_text("content2")
         (tmp_path / "test3.log.gz").write_bytes(b"compressed")
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             stats = get_log_stats()
@@ -686,7 +686,7 @@ class TestCompressedLogReading:
             f.write(content)
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             lines, total, has_more = read_log_tail(job_id)
@@ -705,7 +705,7 @@ class TestCompressedLogReading:
             f.write("content")
 
         with patch(
-            "video_policy_orchestrator.jobs.logs.get_log_directory",
+            "vpo.jobs.logs.get_log_directory",
             return_value=tmp_path,
         ):
             result = log_file_exists(job_id)

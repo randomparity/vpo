@@ -5,13 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.cli.plan_formatter import (
+from vpo.cli.plan_formatter import (
     _build_after_rows,
     _build_before_rows,
     _truncate,
     format_plan_json,
 )
-from video_policy_orchestrator.policy.models import Plan, TrackDisposition
+from vpo.policy.models import Plan, TrackDisposition
 
 # =============================================================================
 # Test Fixtures
@@ -149,7 +149,7 @@ class TestPlanFormatterTranscriptionStatus:
 
         # Title should be truncated to 17 chars max
         title = rows[0][5]
-        from video_policy_orchestrator.cli.plan_formatter import _display_width
+        from vpo.cli.plan_formatter import _display_width
 
         assert _display_width(title) <= 17
         # Status should be in ANALYSIS column, not title
@@ -220,7 +220,7 @@ class TestTruncation:
         """Long strings are truncated with ellipsis."""
         result = _truncate("This is a very long title", 15)
         assert result.endswith("...")
-        from video_policy_orchestrator.cli.plan_formatter import _display_width
+        from vpo.cli.plan_formatter import _display_width
 
         assert _display_width(result) <= 15
 

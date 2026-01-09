@@ -70,7 +70,7 @@ specs/024-policy-editor/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── policy/
 │   ├── loader.py          # [EXISTING] Policy loading/validation
 │   ├── discovery.py       # [EXISTING] Policy file discovery
@@ -109,7 +109,7 @@ tests/
     └── test_policy_editor_flow.py        # [NEW] E2E editor tests
 ```
 
-**Structure Decision**: Web application structure. Backend logic in src/video_policy_orchestrator/server/ui/, frontend assets in server/static/. Follows existing VPO web UI pattern (023-policies-list-view).
+**Structure Decision**: Web application structure. Backend logic in src/vpo/server/ui/, frontend assets in server/static/. Follows existing VPO web UI pattern (023-policies-list-view).
 
 ## Complexity Tracking
 

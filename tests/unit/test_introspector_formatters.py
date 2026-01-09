@@ -3,8 +3,8 @@
 import json
 from pathlib import Path
 
-from video_policy_orchestrator.db.types import IntrospectionResult, TrackInfo
-from video_policy_orchestrator.introspector.formatters import (
+from vpo.db.types import IntrospectionResult, TrackInfo
+from vpo.introspector.formatters import (
     format_human,
     format_json,
     format_track_line,

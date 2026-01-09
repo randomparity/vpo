@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.executor.move import (
+from vpo.executor.move import (
     MAX_UNIQUE_PATH_ATTEMPTS,
     ensure_unique_path,
 )
@@ -41,7 +41,7 @@ class TestEnsureUniquePath:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Should raise RuntimeError after max attempts exceeded."""
-        import video_policy_orchestrator.executor.move as move_module
+        import vpo.executor.move as move_module
 
         # Temporarily set a very low max attempts
         monkeypatch.setattr(move_module, "MAX_UNIQUE_PATH_ATTEMPTS", 3)

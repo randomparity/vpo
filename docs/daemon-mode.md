@@ -155,7 +155,7 @@ vpo serve --log-format json
 
 Output:
 ```json
-{"timestamp":"2024-01-15T10:30:00.000Z","level":"INFO","message":"VPO daemon started on http://127.0.0.1:8321 (PID 12345)","logger":"video_policy_orchestrator.cli.serve"}
+{"timestamp":"2024-01-15T10:30:00.000Z","level":"INFO","message":"VPO daemon started on http://127.0.0.1:8321 (PID 12345)","logger":"vpo.cli.serve"}
 ```
 
 JSON format is recommended for:

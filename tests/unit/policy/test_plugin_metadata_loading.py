@@ -5,11 +5,11 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from video_policy_orchestrator.policy.loader import (
+from vpo.policy.loader import (
     PluginMetadataConditionModel,
     load_policy_from_dict,
 )
-from video_policy_orchestrator.policy.models import (
+from vpo.policy.models import (
     PluginMetadataCondition,
     PluginMetadataOperator,
 )
@@ -275,7 +275,7 @@ class TestPluginMetadataPolicyLoading:
 
         rule = policy.conditional_rules[0]
         # Should be an AND condition containing both sub-conditions
-        from video_policy_orchestrator.policy.models import AndCondition
+        from vpo.policy.models import AndCondition
 
         assert isinstance(rule.when, AndCondition)
         assert len(rule.when.conditions) == 2
@@ -313,7 +313,7 @@ class TestPluginMetadataPolicyLoading:
         policy = load_policy_from_dict(policy_data)
 
         rule = policy.conditional_rules[0]
-        from video_policy_orchestrator.policy.models import OrCondition
+        from vpo.policy.models import OrCondition
 
         assert isinstance(rule.when, OrCondition)
         assert len(rule.when.conditions) == 2

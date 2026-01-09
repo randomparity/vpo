@@ -6,10 +6,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from video_policy_orchestrator.executor.ffmpeg_remux import FFmpegRemuxExecutor
-from video_policy_orchestrator.executor.mkvmerge import MkvmergeExecutor
-from video_policy_orchestrator.executor.mkvpropedit import MkvpropeditExecutor
-from video_policy_orchestrator.policy.models import (
+from vpo.executor.ffmpeg_remux import FFmpegRemuxExecutor
+from vpo.executor.mkvmerge import MkvmergeExecutor
+from vpo.executor.mkvpropedit import MkvpropeditExecutor
+from vpo.policy.models import (
     ActionType,
     ContainerChange,
     Plan,
@@ -304,8 +304,8 @@ class TestMkvmergeExecutor:
 class TestBackupHandling:
     """Tests for backup/restore behavior in executors."""
 
-    @patch("video_policy_orchestrator.executor.mkvpropedit.create_backup")
-    @patch("video_policy_orchestrator.executor.mkvpropedit.require_tool")
+    @patch("vpo.executor.mkvpropedit.create_backup")
+    @patch("vpo.executor.mkvpropedit.require_tool")
     @patch("subprocess.run")
     def test_mkvpropedit_creates_backup(
         self,
@@ -325,9 +325,9 @@ class TestBackupHandling:
         mock_backup.assert_called_once_with(mkv_plan.file_path)
         assert result.success is True
 
-    @patch("video_policy_orchestrator.executor.mkvpropedit.create_backup")
-    @patch("video_policy_orchestrator.executor.mkvpropedit.restore_from_backup")
-    @patch("video_policy_orchestrator.executor.mkvpropedit.require_tool")
+    @patch("vpo.executor.mkvpropedit.create_backup")
+    @patch("vpo.executor.mkvpropedit.restore_from_backup")
+    @patch("vpo.executor.mkvpropedit.require_tool")
     @patch("subprocess.run")
     def test_mkvpropedit_restores_on_failure(
         self,
@@ -349,8 +349,8 @@ class TestBackupHandling:
         mock_restore.assert_called_once_with(backup_path)
         assert result.success is False
 
-    @patch("video_policy_orchestrator.executor.mkvpropedit.create_backup")
-    @patch("video_policy_orchestrator.executor.mkvpropedit.require_tool")
+    @patch("vpo.executor.mkvpropedit.create_backup")
+    @patch("vpo.executor.mkvpropedit.require_tool")
     @patch("subprocess.run")
     def test_mkvpropedit_keeps_backup_when_requested(
         self,
@@ -371,8 +371,8 @@ class TestBackupHandling:
         assert result.success is True
         assert result.backup_path == backup_path
 
-    @patch("video_policy_orchestrator.executor.mkvpropedit.create_backup")
-    @patch("video_policy_orchestrator.executor.mkvpropedit.require_tool")
+    @patch("vpo.executor.mkvpropedit.create_backup")
+    @patch("vpo.executor.mkvpropedit.require_tool")
     @patch("subprocess.run")
     def test_mkvpropedit_removes_backup_when_not_requested(
         self,
@@ -403,9 +403,9 @@ class TestBackupHandling:
 class TestMkvpropeditErrorScenarios:
     """Tests for error handling in MkvpropeditExecutor."""
 
-    @patch("video_policy_orchestrator.executor.mkvpropedit.create_backup")
-    @patch("video_policy_orchestrator.executor.mkvpropedit.restore_from_backup")
-    @patch("video_policy_orchestrator.executor.mkvpropedit.require_tool")
+    @patch("vpo.executor.mkvpropedit.create_backup")
+    @patch("vpo.executor.mkvpropedit.restore_from_backup")
+    @patch("vpo.executor.mkvpropedit.require_tool")
     @patch("subprocess.run")
     def test_mkvpropedit_timeout_handling(
         self,
@@ -432,7 +432,7 @@ class TestMkvpropeditErrorScenarios:
         )
         mock_restore.assert_called_once_with(backup_path)
 
-    @patch("video_policy_orchestrator.executor.mkvpropedit.create_backup")
+    @patch("vpo.executor.mkvpropedit.create_backup")
     def test_mkvpropedit_backup_failure(
         self,
         mock_backup: MagicMock,
@@ -447,9 +447,9 @@ class TestMkvpropeditErrorScenarios:
         assert result.success is False
         assert "Backup failed" in result.message
 
-    @patch("video_policy_orchestrator.executor.mkvpropedit.create_backup")
-    @patch("video_policy_orchestrator.executor.mkvpropedit.restore_from_backup")
-    @patch("video_policy_orchestrator.executor.mkvpropedit.require_tool")
+    @patch("vpo.executor.mkvpropedit.create_backup")
+    @patch("vpo.executor.mkvpropedit.restore_from_backup")
+    @patch("vpo.executor.mkvpropedit.require_tool")
     @patch("subprocess.run")
     def test_mkvpropedit_returncode_error(
         self,
@@ -480,10 +480,10 @@ class TestMkvpropeditErrorScenarios:
 class TestMkvmergeErrorScenarios:
     """Tests for error handling in MkvmergeExecutor."""
 
-    @patch("video_policy_orchestrator.executor.mkvmerge.check_disk_space")
-    @patch("video_policy_orchestrator.executor.mkvmerge.create_backup")
-    @patch("video_policy_orchestrator.executor.mkvmerge.restore_from_backup")
-    @patch("video_policy_orchestrator.executor.mkvmerge.require_tool")
+    @patch("vpo.executor.mkvmerge.check_disk_space")
+    @patch("vpo.executor.mkvmerge.create_backup")
+    @patch("vpo.executor.mkvmerge.restore_from_backup")
+    @patch("vpo.executor.mkvmerge.require_tool")
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
     def test_mkvmerge_timeout_handling(
@@ -522,8 +522,8 @@ class TestMkvmergeErrorScenarios:
             "timeout" in result.message.lower() or "timed out" in result.message.lower()
         )
 
-    @patch("video_policy_orchestrator.executor.mkvmerge.check_disk_space")
-    @patch("video_policy_orchestrator.executor.mkvmerge.create_backup")
+    @patch("vpo.executor.mkvmerge.check_disk_space")
+    @patch("vpo.executor.mkvmerge.create_backup")
     def test_mkvmerge_backup_failure(
         self,
         mock_backup: MagicMock,
@@ -539,10 +539,10 @@ class TestMkvmergeErrorScenarios:
         assert result.success is False
         assert "Backup failed" in result.message
 
-    @patch("video_policy_orchestrator.executor.mkvmerge.check_disk_space")
-    @patch("video_policy_orchestrator.executor.mkvmerge.create_backup")
-    @patch("video_policy_orchestrator.executor.mkvmerge.restore_from_backup")
-    @patch("video_policy_orchestrator.executor.mkvmerge.require_tool")
+    @patch("vpo.executor.mkvmerge.check_disk_space")
+    @patch("vpo.executor.mkvmerge.create_backup")
+    @patch("vpo.executor.mkvmerge.restore_from_backup")
+    @patch("vpo.executor.mkvmerge.require_tool")
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
     def test_mkvmerge_warning_returncode(
@@ -580,10 +580,10 @@ class TestMkvmergeErrorScenarios:
         # Returncode 1 should still be treated as success (warnings only)
         assert result.success is True
 
-    @patch("video_policy_orchestrator.executor.mkvmerge.check_disk_space")
-    @patch("video_policy_orchestrator.executor.mkvmerge.create_backup")
-    @patch("video_policy_orchestrator.executor.mkvmerge.restore_from_backup")
-    @patch("video_policy_orchestrator.executor.mkvmerge.require_tool")
+    @patch("vpo.executor.mkvmerge.check_disk_space")
+    @patch("vpo.executor.mkvmerge.create_backup")
+    @patch("vpo.executor.mkvmerge.restore_from_backup")
+    @patch("vpo.executor.mkvmerge.require_tool")
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
     def test_mkvmerge_error_returncode(
@@ -677,7 +677,7 @@ class TestMkvmergeContainerConversion:
 
     def test_can_handle_avi_to_mkv_conversion(self) -> None:
         """Should handle AVI to MKV container conversion."""
-        from video_policy_orchestrator.policy.models import ContainerChange
+        from vpo.policy.models import ContainerChange
 
         plan = Plan(
             file_id="test-id",
@@ -699,7 +699,7 @@ class TestMkvmergeContainerConversion:
 
     def test_can_handle_mov_to_mkv_conversion(self) -> None:
         """Should handle MOV to MKV container conversion."""
-        from video_policy_orchestrator.policy.models import ContainerChange
+        from vpo.policy.models import ContainerChange
 
         plan = Plan(
             file_id="test-id",
@@ -721,7 +721,7 @@ class TestMkvmergeContainerConversion:
 
     def test_can_handle_mp4_to_mkv_conversion(self) -> None:
         """Should handle MP4 to MKV container conversion."""
-        from video_policy_orchestrator.policy.models import ContainerChange
+        from vpo.policy.models import ContainerChange
 
         plan = Plan(
             file_id="test-id",
@@ -743,7 +743,7 @@ class TestMkvmergeContainerConversion:
 
     def test_cannot_handle_mp4_target(self) -> None:
         """Should not handle conversion to MP4 (handled by FFmpegRemuxExecutor)."""
-        from video_policy_orchestrator.policy.models import ContainerChange
+        from vpo.policy.models import ContainerChange
 
         plan = Plan(
             file_id="test-id",
@@ -955,9 +955,9 @@ class TestFFmpegRemuxExecutor:
 class TestFFmpegRemuxExecutorBackup:
     """Tests for FFmpegRemuxExecutor backup handling."""
 
-    @patch("video_policy_orchestrator.executor.ffmpeg_remux.check_disk_space")
-    @patch("video_policy_orchestrator.executor.ffmpeg_remux.create_backup")
-    @patch("video_policy_orchestrator.executor.ffmpeg_remux.require_tool")
+    @patch("vpo.executor.ffmpeg_remux.check_disk_space")
+    @patch("vpo.executor.ffmpeg_remux.create_backup")
+    @patch("vpo.executor.ffmpeg_remux.require_tool")
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
     def test_creates_backup(
@@ -1001,10 +1001,10 @@ class TestFFmpegRemuxExecutorBackup:
         mock_backup.assert_called_once_with(plan.file_path)
         assert result.success is True
 
-    @patch("video_policy_orchestrator.executor.ffmpeg_remux.check_disk_space")
-    @patch("video_policy_orchestrator.executor.ffmpeg_remux.create_backup")
-    @patch("video_policy_orchestrator.executor.ffmpeg_remux.restore_from_backup")
-    @patch("video_policy_orchestrator.executor.ffmpeg_remux.require_tool")
+    @patch("vpo.executor.ffmpeg_remux.check_disk_space")
+    @patch("vpo.executor.ffmpeg_remux.create_backup")
+    @patch("vpo.executor.ffmpeg_remux.restore_from_backup")
+    @patch("vpo.executor.ffmpeg_remux.require_tool")
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
     def test_restores_on_failure(

@@ -2,7 +2,7 @@
 
 import pytest
 
-from video_policy_orchestrator.plugins.radarr_metadata.models import (
+from vpo.plugins.radarr_metadata.models import (
     RadarrCache,
     RadarrLanguage,
     RadarrMovie,

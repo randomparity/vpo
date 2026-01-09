@@ -6,9 +6,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from video_policy_orchestrator.db.schema import initialize_database
-from video_policy_orchestrator.db.types import FileRecord, TrackRecord
-from video_policy_orchestrator.language_analysis.orchestrator import (
+from vpo.db.schema import initialize_database
+from vpo.db.types import FileRecord, TrackRecord
+from vpo.language_analysis.orchestrator import (
     BatchAnalysisResult,
     LanguageAnalysisOrchestrator,
 )
@@ -128,7 +128,7 @@ class TestLanguageAnalysisOrchestratorPluginRegistry:
 
         # Mock the coordinator import and instantiation
         with patch(
-            "video_policy_orchestrator.transcription.coordinator.TranscriptionCoordinator"
+            "vpo.transcription.coordinator.TranscriptionCoordinator"
         ) as mock_coordinator_class:
             mock_coordinator = MagicMock()
             mock_coordinator.is_available.return_value = False
@@ -157,7 +157,7 @@ class TestLanguageAnalysisOrchestratorPluginRegistry:
         orchestrator = LanguageAnalysisOrchestrator(plugin_registry=mock_registry)
 
         with patch(
-            "video_policy_orchestrator.transcription.coordinator.TranscriptionCoordinator"
+            "vpo.transcription.coordinator.TranscriptionCoordinator"
         ) as mock_coordinator_class:
             mock_coordinator = MagicMock()
             mock_coordinator.is_available.return_value = False
@@ -190,7 +190,7 @@ class TestLanguageAnalysisOrchestratorPluginRegistry:
         assert orchestrator._coordinator is None
 
         with patch(
-            "video_policy_orchestrator.transcription.coordinator.TranscriptionCoordinator"
+            "vpo.transcription.coordinator.TranscriptionCoordinator"
         ) as mock_coordinator_class:
             mock_coordinator = MagicMock()
             mock_coordinator.is_available.return_value = False

@@ -8,11 +8,11 @@ from unittest.mock import patch
 
 import pytest
 
-from video_policy_orchestrator.config.logging_factory import (
+from vpo.config.logging_factory import (
     build_logging_config,
     configure_logging_from_cli,
 )
-from video_policy_orchestrator.config.models import LoggingConfig, VPOConfig
+from vpo.config.models import LoggingConfig, VPOConfig
 
 
 class TestBuildLoggingConfig:
@@ -206,7 +206,7 @@ class TestConfigureLoggingFromCli:
         mock_config = VPOConfig(logging=LoggingConfig(level="info", format="text"))
 
         with patch(
-            "video_policy_orchestrator.config.get_config",
+            "vpo.config.get_config",
             return_value=mock_config,
         ):
             configure_logging_from_cli()
@@ -219,7 +219,7 @@ class TestConfigureLoggingFromCli:
         mock_config = VPOConfig(logging=LoggingConfig(level="info", format="text"))
 
         with patch(
-            "video_policy_orchestrator.config.get_config",
+            "vpo.config.get_config",
             return_value=mock_config,
         ):
             configure_logging_from_cli(level="debug")
@@ -229,12 +229,12 @@ class TestConfigureLoggingFromCli:
 
     def test_configures_logging_with_format_override(self) -> None:
         """Should apply format override."""
-        from video_policy_orchestrator.logging.handlers import JSONFormatter
+        from vpo.logging.handlers import JSONFormatter
 
         mock_config = VPOConfig(logging=LoggingConfig(level="info", format="text"))
 
         with patch(
-            "video_policy_orchestrator.config.get_config",
+            "vpo.config.get_config",
             return_value=mock_config,
         ):
             configure_logging_from_cli(format="json")
@@ -250,7 +250,7 @@ class TestConfigureLoggingFromCli:
         )
 
         with patch(
-            "video_policy_orchestrator.config.get_config",
+            "vpo.config.get_config",
             return_value=mock_config,
         ):
             configure_logging_from_cli(include_stderr=True)
@@ -266,7 +266,7 @@ class TestConfigureLoggingFromCli:
         config_path = Path("/custom/config.toml")
 
         with patch(
-            "video_policy_orchestrator.config.get_config",
+            "vpo.config.get_config",
             return_value=mock_config,
         ) as mock_get_config:
             configure_logging_from_cli(config_path=config_path)

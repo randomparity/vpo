@@ -65,7 +65,7 @@ specs/026-plans-list-view/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── db/
 │   ├── models.py        # Add PlanRecord dataclass
 │   ├── operations.py    # Add plan CRUD operations

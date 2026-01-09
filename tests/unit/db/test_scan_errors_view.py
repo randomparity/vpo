@@ -5,10 +5,10 @@ from datetime import datetime, timezone
 
 import pytest
 
-from video_policy_orchestrator.db.queries import insert_file, insert_job
-from video_policy_orchestrator.db.schema import create_schema
-from video_policy_orchestrator.db.types import FileRecord, Job, JobStatus, JobType
-from video_policy_orchestrator.db.views import ScanErrorView, get_scan_errors_for_job
+from vpo.db.queries import insert_file, insert_job
+from vpo.db.schema import create_schema
+from vpo.db.types import FileRecord, Job, JobStatus, JobType
+from vpo.db.views import ScanErrorView, get_scan_errors_for_job
 
 
 @pytest.fixture

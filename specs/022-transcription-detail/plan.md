@@ -62,7 +62,7 @@ specs/022-transcription-detail/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── server/
 │   ├── ui/
 │   │   ├── models.py           # + TranscriptionDetailItem, TranscriptionDetailContext

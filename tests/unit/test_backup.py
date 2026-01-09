@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.executor.backup import (
+from vpo.executor.backup import (
     BACKUP_SUFFIX,
     FileLockError,
     cleanup_backup,

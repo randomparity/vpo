@@ -341,7 +341,7 @@ def get_classification_reasoning(
         - classification_source: "metadata", "transcript", or None
         - matched_keywords: List of matched keywords/patterns
     """
-    from video_policy_orchestrator.transcription.models import (
+    from vpo.transcription.models import (
         COMMENTARY_KEYWORDS,
         COMMENTARY_TRANSCRIPT_PATTERNS,
         is_commentary_by_metadata,
@@ -404,7 +404,7 @@ def highlight_keywords_in_transcript(
     if not transcript:
         return None, False
 
-    from video_policy_orchestrator.transcription.models import (
+    from vpo.transcription.models import (
         COMMENTARY_TRANSCRIPT_PATTERNS,
     )
 

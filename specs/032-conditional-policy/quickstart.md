@@ -58,9 +58,9 @@ Create `tests/unit/policy/test_conditions.py`:
 
 ```python
 import pytest
-from video_policy_orchestrator.db.models import TrackInfo
-from video_policy_orchestrator.policy.conditions import evaluate_condition
-from video_policy_orchestrator.policy.models import (
+from vpo.db.models import TrackInfo
+from vpo.policy.conditions import evaluate_condition
+from vpo.policy.models import (
     ExistsCondition,
     TrackFilters,
     Comparison,
@@ -126,8 +126,8 @@ Create `policy/conditions.py`:
 ```python
 """Condition evaluation for conditional policy rules."""
 
-from video_policy_orchestrator.db.models import TrackInfo
-from video_policy_orchestrator.policy.models import (
+from vpo.db.models import TrackInfo
+from vpo.policy.models import (
     Condition,
     ExistsCondition,
     CountCondition,
@@ -138,7 +138,7 @@ from video_policy_orchestrator.policy.models import (
     Comparison,
     ComparisonOperator,
 )
-from video_policy_orchestrator.policy.exceptions import PolicyValidationError
+from vpo.policy.exceptions import PolicyValidationError
 
 MAX_NESTING_DEPTH = 3
 
@@ -293,7 +293,7 @@ subtitle_language_preference: [eng]
 
 ### Import Error
 ```
-ModuleNotFoundError: No module named 'video_policy_orchestrator.policy.conditions'
+ModuleNotFoundError: No module named 'vpo.policy.conditions'
 ```
 → Create `policy/conditions.py` file
 

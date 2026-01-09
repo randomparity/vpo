@@ -15,10 +15,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from video_policy_orchestrator.db.schema import create_schema
-from video_policy_orchestrator.db.types import TrackInfo
-from video_policy_orchestrator.executor.transcode import TranscodeResult
-from video_policy_orchestrator.policy.models import (
+from vpo.db.schema import create_schema
+from vpo.db.types import TrackInfo
+from vpo.executor.transcode import TranscodeResult
+from vpo.policy.models import (
     AndCondition,
     AudioFilterConfig,
     AudioIsMultiLanguageCondition,
@@ -51,7 +51,7 @@ from video_policy_orchestrator.policy.models import (
     VideoTranscodeConfig,
     WarnAction,
 )
-from video_policy_orchestrator.workflow.phases.executor import (
+from vpo.workflow.phases.executor import (
     PhaseExecutionState,
     V11PhaseExecutor,
 )
@@ -392,7 +392,7 @@ class TestExecutorSelection:
         with patch.object(executor, "_get_tools", return_value={"ffmpeg": True}):
             selected = executor._select_executor(mock_plan, "mkv")
 
-        from video_policy_orchestrator.executor import FFmpegRemuxExecutor
+        from vpo.executor import FFmpegRemuxExecutor
 
         assert isinstance(selected, FFmpegRemuxExecutor)
 
@@ -409,7 +409,7 @@ class TestExecutorSelection:
         with patch.object(executor, "_get_tools", return_value={"mkvmerge": True}):
             selected = executor._select_executor(mock_plan, "mp4")
 
-        from video_policy_orchestrator.executor import MkvmergeExecutor
+        from vpo.executor import MkvmergeExecutor
 
         assert isinstance(selected, MkvmergeExecutor)
 
@@ -425,7 +425,7 @@ class TestExecutorSelection:
         with patch.object(executor, "_get_tools", return_value={"mkvmerge": True}):
             selected = executor._select_executor(mock_plan, "mkv")
 
-        from video_policy_orchestrator.executor import MkvmergeExecutor
+        from vpo.executor import MkvmergeExecutor
 
         assert isinstance(selected, MkvmergeExecutor)
 
@@ -441,7 +441,7 @@ class TestExecutorSelection:
         with patch.object(executor, "_get_tools", return_value={"mkvpropedit": True}):
             selected = executor._select_executor(mock_plan, "mkv")
 
-        from video_policy_orchestrator.executor import MkvpropeditExecutor
+        from vpo.executor import MkvpropeditExecutor
 
         assert isinstance(selected, MkvpropeditExecutor)
 
@@ -463,7 +463,7 @@ class TestExecutorSelection:
 class TestDryRunMode:
     """Tests for dry-run mode behavior."""
 
-    @patch("video_policy_orchestrator.workflow.phases.executor.evaluate_policy")
+    @patch("vpo.workflow.phases.executor.evaluate_policy")
     def test_dry_run_logs_without_executing(
         self, mock_evaluate, db_conn, v11_policy, mock_file_info
     ):
@@ -507,9 +507,7 @@ class TestDryRunMode:
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
 
         # plan_synthesis is imported inside the function, so patch at the module level
-        with patch(
-            "video_policy_orchestrator.policy.synthesis.plan_synthesis"
-        ) as mock_plan:
+        with patch("vpo.policy.synthesis.plan_synthesis") as mock_plan:
             mock_synthesis_plan = MagicMock()
             mock_synthesis_plan.operations = [MagicMock(), MagicMock()]
             mock_plan.return_value = mock_synthesis_plan
@@ -615,7 +613,7 @@ class TestPhaseExecution:
         assert result.changes_made == 0
         assert "no operations" in result.message.lower()
 
-    @patch("video_policy_orchestrator.workflow.phases.executor.evaluate_policy")
+    @patch("vpo.workflow.phases.executor.evaluate_policy")
     def test_execute_phase_accumulates_changes(
         self, mock_evaluate, db_conn, v11_policy, mock_file_info
     ):
@@ -883,8 +881,8 @@ class TestOperationHandlerNoConfig:
 class TestExecuteTranscode:
     """Tests for _execute_transcode method."""
 
-    @patch("video_policy_orchestrator.executor.transcode.TranscodeExecutor")
-    @patch("video_policy_orchestrator.db.queries.get_file_by_path")
+    @patch("vpo.executor.transcode.TranscodeExecutor")
+    @patch("vpo.db.queries.get_file_by_path")
     def test_transcode_success(
         self, mock_get_file, mock_executor_cls, db_conn, v11_policy, mock_file_info
     ):
@@ -914,8 +912,8 @@ class TestExecuteTranscode:
         assert result == 1
         mock_executor.execute.assert_called_once_with(mock_plan)
 
-    @patch("video_policy_orchestrator.executor.transcode.TranscodeExecutor")
-    @patch("video_policy_orchestrator.db.queries.get_file_by_path")
+    @patch("vpo.executor.transcode.TranscodeExecutor")
+    @patch("vpo.db.queries.get_file_by_path")
     def test_transcode_failure_raises_runtime_error(
         self, mock_get_file, mock_executor_cls, db_conn, v11_policy, mock_file_info
     ):
@@ -947,8 +945,8 @@ class TestExecuteTranscode:
         assert "Video transcode failed" in str(exc_info.value)
         assert "FFmpeg exited with code 1" in str(exc_info.value)
 
-    @patch("video_policy_orchestrator.executor.transcode.TranscodeExecutor")
-    @patch("video_policy_orchestrator.db.queries.get_file_by_path")
+    @patch("vpo.executor.transcode.TranscodeExecutor")
+    @patch("vpo.db.queries.get_file_by_path")
     def test_transcode_dry_run_does_not_execute(
         self, mock_get_file, mock_executor_cls, db_conn, v11_policy, mock_file_info
     ):
@@ -979,12 +977,8 @@ class TestExecuteTranscode:
     ):
         """Transcode is skipped when plan has a skip_reason."""
         with (
-            patch(
-                "video_policy_orchestrator.executor.transcode.TranscodeExecutor"
-            ) as mock_executor_cls,
-            patch(
-                "video_policy_orchestrator.db.queries.get_file_by_path"
-            ) as mock_get_file,
+            patch("vpo.executor.transcode.TranscodeExecutor") as mock_executor_cls,
+            patch("vpo.db.queries.get_file_by_path") as mock_get_file,
         ):
             mock_get_file.return_value = MagicMock(size_bytes=1000000)
 
@@ -1069,7 +1063,7 @@ class TestToolAvailabilityCaching:
         executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
 
         with patch(
-            "video_policy_orchestrator.workflow.phases.executor.check_tool_availability"
+            "vpo.workflow.phases.executor.check_tool_availability"
         ) as mock_check:
             mock_check.return_value = {"ffmpeg": True, "mkvmerge": True}
 

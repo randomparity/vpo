@@ -40,7 +40,7 @@ class FFprobeIntrospector:
 
 ## Protocol Compliance
 
-Implements `MediaIntrospector` protocol from `video_policy_orchestrator.introspector.interface`.
+Implements `MediaIntrospector` protocol from `vpo.introspector.interface`.
 
 ## ffprobe Invocation
 

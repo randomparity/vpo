@@ -58,7 +58,7 @@ specs/027-plan-approve-reject/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── db/
 │   ├── models.py        # Existing Job, PlanRecord, insert_job
 │   └── operations.py    # Existing update_plan_status, create_plan

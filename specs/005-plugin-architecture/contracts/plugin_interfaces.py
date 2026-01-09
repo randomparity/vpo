@@ -11,9 +11,9 @@ from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 # These would be actual imports in implementation
-# from video_policy_orchestrator.db.models import FileInfo, TrackInfo
-# from video_policy_orchestrator.policy.models import PolicySchema, Plan
-# from video_policy_orchestrator.executor.interface import ExecutorResult
+# from vpo.db.models import FileInfo, TrackInfo
+# from vpo.policy.models import PolicySchema, Plan
+# from vpo.executor.interface import ExecutorResult
 
 
 # =============================================================================

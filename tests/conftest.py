@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from video_policy_orchestrator.db.schema import create_schema
+from vpo.db.schema import create_schema
 
 
 @pytest.fixture
@@ -170,9 +170,7 @@ def mock_ffmpeg():
     Yields:
         MagicMock: The patched require_tool function.
     """
-    with patch(
-        "video_policy_orchestrator.executor.transcode.require_tool"
-    ) as mock_require:
+    with patch("vpo.executor.transcode.require_tool") as mock_require:
         mock_require.return_value = Path("/usr/bin/ffmpeg")
         yield mock_require
 
@@ -193,8 +191,8 @@ def make_transcode_plan():
             plan = make_transcode_plan(needs_video_transcode=True)
             assert plan.needs_any_transcode is True
     """
-    from video_policy_orchestrator.executor.transcode import TranscodePlan
-    from video_policy_orchestrator.policy.models import TranscodePolicyConfig
+    from vpo.executor.transcode import TranscodePlan
+    from vpo.policy.models import TranscodePolicyConfig
 
     def _make_plan(
         input_path: Path | str = Path("/input.mkv"),
@@ -240,7 +238,7 @@ def make_transcode_result():
             result = make_transcode_result(success=False, error_message="FFmpeg error")
             assert result.error_message == "FFmpeg error"
     """
-    from video_policy_orchestrator.executor.transcode import TranscodeResult
+    from vpo.executor.transcode import TranscodeResult
 
     def _make_result(
         success: bool = True,

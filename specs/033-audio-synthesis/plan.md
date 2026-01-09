@@ -14,7 +14,7 @@ Enable creation of new audio tracks by transcoding from existing sources. Users 
 **Storage**: SQLite via existing `db/` module (track metadata storage)
 **Testing**: pytest (unit + integration), test fixtures with audio tracks
 **Target Platform**: Linux, macOS (consistent with VPO)
-**Project Type**: Single project - extends existing `src/video_policy_orchestrator/`
+**Project Type**: Single project - extends existing `src/vpo/`
 **Performance Goals**: Transcoding speed limited by FFmpeg; no additional overhead
 **Constraints**: User-cancellable (Ctrl+C), no automatic timeouts, clean partial file handling
 **Scale/Scope**: Batch processing of media libraries (thousands of files)
@@ -63,7 +63,7 @@ specs/033-audio-synthesis/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── policy/
 │   ├── models.py           # Extend: SynthesisTrackDef, SynthesisPlan
 │   ├── schema.py           # Extend: audio_synthesis section

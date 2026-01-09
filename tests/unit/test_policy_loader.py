@@ -5,12 +5,12 @@ from textwrap import dedent
 
 import pytest
 
-from video_policy_orchestrator.policy.loader import (
+from vpo.policy.loader import (
     PolicyValidationError,
     load_policy,
     load_policy_from_dict,
 )
-from video_policy_orchestrator.policy.models import TrackType
+from vpo.policy.models import TrackType
 
 # =============================================================================
 # Test Fixtures

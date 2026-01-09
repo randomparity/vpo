@@ -15,7 +15,7 @@
 
 ## Path Conventions
 
-- **Single project**: `src/video_policy_orchestrator/`, `tests/` at repository root
+- **Single project**: `src/vpo/`, `tests/` at repository root
 - Paths follow existing VPO structure per plan.md
 
 ---
@@ -24,7 +24,7 @@
 
 **Purpose**: Project initialization and module structure
 
-- [X] T001 Create language_analysis module directory at src/video_policy_orchestrator/language_analysis/__init__.py
+- [X] T001 Create language_analysis module directory at src/vpo/language_analysis/__init__.py
 - [X] T002 [P] Create test directory structure at tests/unit/language_analysis/__init__.py
 - [X] T003 [P] Create test fixtures directory at tests/fixtures/audio/ (empty, for test audio files)
 - [X] T003a [P] Create single-language English test audio file (5-10 seconds of clear speech) at tests/fixtures/audio/single-language-en.wav
@@ -41,26 +41,26 @@
 
 ### Database Schema & Models
 
-- [X] T004 Add language_analysis_results table to src/video_policy_orchestrator/db/schema.py
-- [X] T005 Add language_segments table to src/video_policy_orchestrator/db/schema.py
-- [X] T006 Add LanguageAnalysisResultRecord dataclass to src/video_policy_orchestrator/db/models.py
-- [X] T007 [P] Add LanguageSegmentRecord dataclass to src/video_policy_orchestrator/db/models.py
+- [X] T004 Add language_analysis_results table to src/vpo/db/schema.py
+- [X] T005 Add language_segments table to src/vpo/db/schema.py
+- [X] T006 Add LanguageAnalysisResultRecord dataclass to src/vpo/db/models.py
+- [X] T007 [P] Add LanguageSegmentRecord dataclass to src/vpo/db/models.py
 
 ### Domain Models
 
-- [X] T008 [P] Create LanguageClassification enum in src/video_policy_orchestrator/language_analysis/models.py
-- [X] T009 [P] Create LanguageSegment dataclass with validation in src/video_policy_orchestrator/language_analysis/models.py
-- [X] T010 [P] Create LanguagePercentage dataclass in src/video_policy_orchestrator/language_analysis/models.py
-- [X] T011 [P] Create AnalysisMetadata dataclass in src/video_policy_orchestrator/language_analysis/models.py
-- [X] T012 Create LanguageAnalysisResult dataclass with from_segments() method in src/video_policy_orchestrator/language_analysis/models.py
+- [X] T008 [P] Create LanguageClassification enum in src/vpo/language_analysis/models.py
+- [X] T009 [P] Create LanguageSegment dataclass with validation in src/vpo/language_analysis/models.py
+- [X] T010 [P] Create LanguagePercentage dataclass in src/vpo/language_analysis/models.py
+- [X] T011 [P] Create AnalysisMetadata dataclass in src/vpo/language_analysis/models.py
+- [X] T012 Create LanguageAnalysisResult dataclass with from_segments() method in src/vpo/language_analysis/models.py
 
 ### Database Operations
 
-- [X] T013 Add upsert_language_analysis_result() function to src/video_policy_orchestrator/db/models.py
-- [X] T014 [P] Add get_language_analysis_result() function to src/video_policy_orchestrator/db/models.py
-- [X] T015 [P] Add delete_language_analysis_result() function to src/video_policy_orchestrator/db/models.py
-- [X] T016 Add upsert_language_segments() function to src/video_policy_orchestrator/db/models.py
-- [X] T017 [P] Add get_language_segments() function to src/video_policy_orchestrator/db/models.py
+- [X] T013 Add upsert_language_analysis_result() function to src/vpo/db/models.py
+- [X] T014 [P] Add get_language_analysis_result() function to src/vpo/db/models.py
+- [X] T015 [P] Add delete_language_analysis_result() function to src/vpo/db/models.py
+- [X] T016 Add upsert_language_segments() function to src/vpo/db/models.py
+- [X] T017 [P] Add get_language_segments() function to src/vpo/db/models.py
 
 ### Unit Tests for Foundational Models
 
@@ -79,34 +79,34 @@
 
 ### Plugin Protocol Extension
 
-- [X] T020 [US1] Add detect_multi_language() method signature to TranscriptionPlugin protocol in src/video_policy_orchestrator/transcription/interface.py
-- [X] T021 [US1] Add MultiLanguageDetectionResult dataclass to src/video_policy_orchestrator/transcription/interface.py
-- [X] T022 [US1] Add "multi_language_detection" feature flag support in src/video_policy_orchestrator/transcription/interface.py
+- [X] T020 [US1] Add detect_multi_language() method signature to TranscriptionPlugin protocol in src/vpo/transcription/interface.py
+- [X] T021 [US1] Add MultiLanguageDetectionResult dataclass to src/vpo/transcription/interface.py
+- [X] T022 [US1] Add "multi_language_detection" feature flag support in src/vpo/transcription/interface.py
 
 ### Whisper Plugin Implementation
 
-- [X] T023 [US1] Add calculate_sample_positions() helper function in src/video_policy_orchestrator/plugins/whisper_transcriber/plugin.py
-- [X] T024 [US1] Implement detect_multi_language() in WhisperTranscriptionPlugin in src/video_policy_orchestrator/plugins/whisper_transcriber/plugin.py
-- [X] T025 [US1] Add _extract_sample() helper for extracting audio at positions in src/video_policy_orchestrator/plugins/whisper_transcriber/plugin.py
-- [X] T026 [US1] Add _aggregate_segments() to convert samples to LanguageAnalysisResult in src/video_policy_orchestrator/plugins/whisper_transcriber/plugin.py
+- [X] T023 [US1] Add calculate_sample_positions() helper function in src/vpo/plugins/whisper_transcriber/plugin.py
+- [X] T024 [US1] Implement detect_multi_language() in WhisperTranscriptionPlugin in src/vpo/plugins/whisper_transcriber/plugin.py
+- [X] T025 [US1] Add _extract_sample() helper for extracting audio at positions in src/vpo/plugins/whisper_transcriber/plugin.py
+- [X] T026 [US1] Add _aggregate_segments() to convert samples to LanguageAnalysisResult in src/vpo/plugins/whisper_transcriber/plugin.py
 
 ### Service Layer
 
-- [X] T027 [US1] Create analyze_track_languages() function in src/video_policy_orchestrator/language_analysis/service.py
-- [X] T028 [US1] Add caching logic (check file hash before analysis) in src/video_policy_orchestrator/language_analysis/service.py
-- [X] T029 [US1] Add result persistence (store to database) in src/video_policy_orchestrator/language_analysis/service.py
+- [X] T027 [US1] Create analyze_track_languages() function in src/vpo/language_analysis/service.py
+- [X] T028 [US1] Add caching logic (check file hash before analysis) in src/vpo/language_analysis/service.py
+- [X] T029 [US1] Add result persistence (store to database) in src/vpo/language_analysis/service.py
 
 ### CLI: Inspect Command
 
-- [X] T030 [US1] Add --analyze-languages option to inspect command in src/video_policy_orchestrator/cli/inspect.py
-- [X] T031 [US1] Add --show-segments option to display detailed segments in src/video_policy_orchestrator/cli/inspect.py
-- [X] T032 [US1] Add language analysis output formatting in src/video_policy_orchestrator/cli/inspect.py
+- [X] T030 [US1] Add --analyze-languages option to inspect command in src/vpo/cli/inspect.py
+- [X] T031 [US1] Add --show-segments option to display detailed segments in src/vpo/cli/inspect.py
+- [X] T032 [US1] Add language analysis output formatting in src/vpo/cli/inspect.py
 
 ### CLI: Scan Command
 
-- [X] T033 [US1] Add --analyze-languages option to scan command in src/video_policy_orchestrator/cli/scan.py
-- [X] T034 [US1] Integrate language analysis service with scan workflow in src/video_policy_orchestrator/cli/scan.py
-- [X] T035 [US1] Add progress reporting for language analysis during scan in src/video_policy_orchestrator/cli/scan.py
+- [X] T033 [US1] Add --analyze-languages option to scan command in src/vpo/cli/scan.py
+- [X] T034 [US1] Integrate language analysis service with scan workflow in src/vpo/cli/scan.py
+- [X] T035 [US1] Add progress reporting for language analysis during scan in src/vpo/cli/scan.py
 
 ### Unit Tests for User Story 1
 
@@ -126,26 +126,26 @@
 
 ### Policy Condition Dataclass
 
-- [X] T039 [US2] Add AudioIsMultiLanguageCondition dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T040 [US2] Update Condition union type to include AudioIsMultiLanguageCondition in src/video_policy_orchestrator/policy/models.py
+- [X] T039 [US2] Add AudioIsMultiLanguageCondition dataclass to src/vpo/policy/models.py
+- [X] T040 [US2] Update Condition union type to include AudioIsMultiLanguageCondition in src/vpo/policy/models.py
 
 ### Policy Loader (Pydantic Validation)
 
-- [X] T041 [US2] Add AudioIsMultiLanguageModel Pydantic class in src/video_policy_orchestrator/policy/loader.py
-- [X] T042 [US2] Update ConditionModel to include audio_is_multi_language field in src/video_policy_orchestrator/policy/loader.py
-- [X] T043 [US2] Add _convert_audio_is_multi_language() conversion function in src/video_policy_orchestrator/policy/loader.py
-- [X] T044 [US2] Update _convert_condition() to handle audio_is_multi_language in src/video_policy_orchestrator/policy/loader.py
+- [X] T041 [US2] Add AudioIsMultiLanguageModel Pydantic class in src/vpo/policy/loader.py
+- [X] T042 [US2] Update ConditionModel to include audio_is_multi_language field in src/vpo/policy/loader.py
+- [X] T043 [US2] Add _convert_audio_is_multi_language() conversion function in src/vpo/policy/loader.py
+- [X] T044 [US2] Update _convert_condition() to handle audio_is_multi_language in src/vpo/policy/loader.py
 
 ### Condition Evaluation
 
-- [X] T045 [US2] Add evaluate_audio_is_multi_language() function in src/video_policy_orchestrator/policy/conditions.py
-- [X] T046 [US2] Update evaluate_condition() to call evaluate_audio_is_multi_language() in src/video_policy_orchestrator/policy/conditions.py
-- [X] T047 [US2] Update condition evaluation to pass language_results parameter in src/video_policy_orchestrator/policy/conditions.py
+- [X] T045 [US2] Add evaluate_audio_is_multi_language() function in src/vpo/policy/conditions.py
+- [X] T046 [US2] Update evaluate_condition() to call evaluate_audio_is_multi_language() in src/vpo/policy/conditions.py
+- [X] T047 [US2] Update condition evaluation to pass language_results parameter in src/vpo/policy/conditions.py
 
 ### Policy Evaluator Integration
 
-- [X] T048 [US2] Update evaluate_conditional_rules() to fetch language analysis results in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T049 [US2] Pass language_results to condition evaluation chain in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T048 [US2] Update evaluate_conditional_rules() to fetch language analysis results in src/vpo/policy/evaluator.py
+- [X] T049 [US2] Pass language_results to condition evaluation chain in src/vpo/policy/evaluator.py
 
 ### Unit Tests for User Story 2
 
@@ -166,31 +166,31 @@
 
 ### Policy Action Dataclasses
 
-- [X] T054 [US3] Add SetForcedAction dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T055 [US3] Add SetDefaultAction dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T056 [US3] Update Action union type to include SetForcedAction and SetDefaultAction in src/video_policy_orchestrator/policy/models.py
+- [X] T054 [US3] Add SetForcedAction dataclass to src/vpo/policy/models.py
+- [X] T055 [US3] Add SetDefaultAction dataclass to src/vpo/policy/models.py
+- [X] T056 [US3] Update Action union type to include SetForcedAction and SetDefaultAction in src/vpo/policy/models.py
 
 ### Policy Loader (Action Parsing)
 
-- [X] T057 [US3] Add SetForcedActionModel Pydantic class in src/video_policy_orchestrator/policy/loader.py
-- [X] T058 [US3] Add SetDefaultActionModel Pydantic class in src/video_policy_orchestrator/policy/loader.py
-- [X] T059 [US3] Update ActionModel to include set_forced and set_default fields in src/video_policy_orchestrator/policy/loader.py
-- [X] T060 [US3] Add _convert_set_forced_action() conversion function in src/video_policy_orchestrator/policy/loader.py
-- [X] T061 [US3] Add _convert_set_default_action() conversion function in src/video_policy_orchestrator/policy/loader.py
-- [X] T062 [US3] Update _convert_action() to handle set_forced and set_default in src/video_policy_orchestrator/policy/loader.py
+- [X] T057 [US3] Add SetForcedActionModel Pydantic class in src/vpo/policy/loader.py
+- [X] T058 [US3] Add SetDefaultActionModel Pydantic class in src/vpo/policy/loader.py
+- [X] T059 [US3] Update ActionModel to include set_forced and set_default fields in src/vpo/policy/loader.py
+- [X] T060 [US3] Add _convert_set_forced_action() conversion function in src/vpo/policy/loader.py
+- [X] T061 [US3] Add _convert_set_default_action() conversion function in src/vpo/policy/loader.py
+- [X] T062 [US3] Update _convert_action() to handle set_forced and set_default in src/vpo/policy/loader.py
 
 ### Action Execution
 
-- [X] T063 [US3] Add execute_set_forced_action() function in src/video_policy_orchestrator/policy/actions.py
-- [X] T064 [US3] Add execute_set_default_action() function in src/video_policy_orchestrator/policy/actions.py
-- [X] T065 [US3] Update execute_actions() dispatcher to handle set_forced and set_default in src/video_policy_orchestrator/policy/actions.py
-- [X] T066 [US3] Add warning when no matching track found for set_forced/set_default in src/video_policy_orchestrator/policy/actions.py
+- [X] T063 [US3] Add execute_set_forced_action() function in src/vpo/policy/actions.py
+- [X] T064 [US3] Add execute_set_default_action() function in src/vpo/policy/actions.py
+- [X] T065 [US3] Update execute_actions() dispatcher to handle set_forced and set_default in src/vpo/policy/actions.py
+- [X] T066 [US3] Add warning when no matching track found for set_forced/set_default in src/vpo/policy/actions.py
 
 ### CLI: Apply Command
 
-- [X] T067 [US3] Add --auto-analyze option to apply command in src/video_policy_orchestrator/cli/apply.py
-- [X] T068 [US3] Integrate auto-analysis with policy application in src/video_policy_orchestrator/cli/apply.py
-- [X] T069 [US3] Update dry-run output to show set_forced/set_default actions in src/video_policy_orchestrator/cli/apply.py
+- [X] T067 [US3] Add --auto-analyze option to apply command in src/vpo/cli/apply.py
+- [X] T068 [US3] Integrate auto-analysis with policy application in src/vpo/cli/apply.py
+- [X] T069 [US3] Update dry-run output to show set_forced/set_default actions in src/vpo/cli/apply.py
 
 ### Unit Tests for User Story 3
 
@@ -212,22 +212,22 @@
 
 ### Transcription Integration
 
-- [X] T075 [US4] Add check for existing transcription results in analyze_track_languages() in src/video_policy_orchestrator/language_analysis/service.py
-- [X] T076 [US4] Extract language from transcription_results when available in src/video_policy_orchestrator/language_analysis/service.py
-- [X] T077 [US4] Add logic to upgrade single-sample transcription to full analysis when needed in src/video_policy_orchestrator/language_analysis/service.py
+- [X] T075 [US4] Add check for existing transcription results in analyze_track_languages() in src/vpo/language_analysis/service.py
+- [X] T076 [US4] Extract language from transcription_results when available in src/vpo/language_analysis/service.py
+- [X] T077 [US4] Add logic to upgrade single-sample transcription to full analysis when needed in src/vpo/language_analysis/service.py
 
 ### Cache Validation
 
-- [X] T078 [US4] Add file hash comparison for cache validation in src/video_policy_orchestrator/language_analysis/service.py
-- [X] T079 [US4] Add stale result detection and re-analysis trigger in src/video_policy_orchestrator/language_analysis/service.py
+- [X] T078 [US4] Add file hash comparison for cache validation in src/vpo/language_analysis/service.py
+- [X] T079 [US4] Add stale result detection and re-analysis trigger in src/vpo/language_analysis/service.py
 
 ### CLI: Dedicated Analyze-Language Command
 
-- [X] T080 [US4] Create analyze_language.py CLI module in src/video_policy_orchestrator/cli/analyze_language.py
-- [X] T081 [US4] Add `run` subcommand for running language analysis in src/video_policy_orchestrator/cli/analyze_language.py
-- [X] T082 [US4] Add `status` subcommand for showing analysis status in src/video_policy_orchestrator/cli/analyze_language.py
-- [X] T083 [US4] Add `clear` subcommand for clearing cached results in src/video_policy_orchestrator/cli/analyze_language.py
-- [X] T084 [US4] Register analyze-language command group in src/video_policy_orchestrator/cli/__init__.py
+- [X] T080 [US4] Create analyze_language.py CLI module in src/vpo/cli/analyze_language.py
+- [X] T081 [US4] Add `run` subcommand for running language analysis in src/vpo/cli/analyze_language.py
+- [X] T082 [US4] Add `status` subcommand for showing analysis status in src/vpo/cli/analyze_language.py
+- [X] T083 [US4] Add `clear` subcommand for clearing cached results in src/vpo/cli/analyze_language.py
+- [X] T084 [US4] Register analyze-language command group in src/vpo/cli/__init__.py
 
 ### Unit Tests for User Story 4
 
@@ -245,9 +245,9 @@
 
 ### Schema Version
 
-- [X] T088 Update CURRENT_SCHEMA_VERSION to 7 in src/video_policy_orchestrator/policy/loader.py
-- [X] T089 Add V7 schema version validation for new features in src/video_policy_orchestrator/policy/loader.py
-- [X] T090 Ensure V6 policies continue to work (backward compatibility) in src/video_policy_orchestrator/policy/loader.py
+- [X] T088 Update CURRENT_SCHEMA_VERSION to 7 in src/vpo/policy/loader.py
+- [X] T089 Add V7 schema version validation for new features in src/vpo/policy/loader.py
+- [X] T090 Ensure V6 policies continue to work (backward compatibility) in src/vpo/policy/loader.py
 
 ### Integration Tests
 
@@ -258,15 +258,15 @@
 ### Documentation
 
 - [X] T094 [P] Create example policy file at policies/examples/multi-language.yaml
-- [X] T095 [P] Update CLI help text for all new options in src/video_policy_orchestrator/cli/*.py
+- [X] T095 [P] Update CLI help text for all new options in src/vpo/cli/*.py
 - [X] T096 Add user documentation for multi-language detection in docs/usage/multi-language-detection.md
 
 ### Edge Case Handling
 
-- [X] T097 Add handling for audio with no speech (InsufficientSpeechError) in src/video_policy_orchestrator/language_analysis/service.py
-- [X] T098 Add handling for very short audio tracks (<30s) in src/video_policy_orchestrator/language_analysis/service.py
-- [X] T099 Add handling for Whisper model unavailable in src/video_policy_orchestrator/language_analysis/service.py
-- [X] T100 Add handling for multiple audio tracks (analyze each separately) in src/video_policy_orchestrator/language_analysis/service.py
+- [X] T097 Add handling for audio with no speech (InsufficientSpeechError) in src/vpo/language_analysis/service.py
+- [X] T098 Add handling for very short audio tracks (<30s) in src/vpo/language_analysis/service.py
+- [X] T099 Add handling for Whisper model unavailable in src/vpo/language_analysis/service.py
+- [X] T100 Add handling for multiple audio tracks (analyze each separately) in src/vpo/language_analysis/service.py
 
 **Edge Case Coverage Note**: The edge case "code-switching within sentences" (spec.md:89) is handled by T026 (`_aggregate_segments()`) which uses per-sample dominant language detection. Whisper naturally handles mixed-language samples by returning the dominant language for each 5-second sample.
 

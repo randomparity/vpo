@@ -16,7 +16,7 @@
 ## Path Conventions
 
 Based on plan.md, this is a single project extending existing VPO structure:
-- Source: `src/video_policy_orchestrator/`
+- Source: `src/vpo/`
 - Tests: `tests/`
 
 ---
@@ -25,9 +25,9 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 **Purpose**: Prepare project for conditional transcoding implementation
 
-- [x] T001 Review existing TranscodeExecutor in src/video_policy_orchestrator/executor/transcode.py
-- [x] T002 [P] Review existing policy models in src/video_policy_orchestrator/policy/models.py
-- [x] T003 [P] Review existing ffmpeg tool detection in src/video_policy_orchestrator/tools/
+- [x] T001 Review existing TranscodeExecutor in src/vpo/executor/transcode.py
+- [x] T002 [P] Review existing policy models in src/vpo/policy/models.py
+- [x] T003 [P] Review existing ffmpeg tool detection in src/vpo/tools/
 
 ---
 
@@ -37,14 +37,14 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [x] T004 Add QualityMode enum (crf, bitrate, constrained_quality) in src/video_policy_orchestrator/policy/models.py
-- [x] T005 [P] Add ScaleAlgorithm enum (lanczos, bicubic, bilinear) in src/video_policy_orchestrator/policy/models.py
-- [x] T006 [P] Add HardwareAccelMode enum (auto, nvenc, qsv, vaapi, none) in src/video_policy_orchestrator/policy/models.py
-- [x] T007 Add VideoTranscodeConfig dataclass (target_codec, skip_if, quality, scaling, hw_accel) in src/video_policy_orchestrator/policy/models.py
-- [x] T008 [P] Add TranscodeResult dataclass (skipped, skip_reason, video_action, audio_actions, encoder) in src/video_policy_orchestrator/policy/models.py
-- [x] T009 [P] Add VideoTranscodeAction dataclass in src/video_policy_orchestrator/policy/models.py
-- [x] T010 Update policy schema parsing to handle new transcode.video section in src/video_policy_orchestrator/policy/loader.py
-- [x] T011 Add bitrate parsing utility function (parse "10M", "5000k" to int) in src/video_policy_orchestrator/policy/models.py
+- [x] T004 Add QualityMode enum (crf, bitrate, constrained_quality) in src/vpo/policy/models.py
+- [x] T005 [P] Add ScaleAlgorithm enum (lanczos, bicubic, bilinear) in src/vpo/policy/models.py
+- [x] T006 [P] Add HardwareAccelMode enum (auto, nvenc, qsv, vaapi, none) in src/vpo/policy/models.py
+- [x] T007 Add VideoTranscodeConfig dataclass (target_codec, skip_if, quality, scaling, hw_accel) in src/vpo/policy/models.py
+- [x] T008 [P] Add TranscodeResult dataclass (skipped, skip_reason, video_action, audio_actions, encoder) in src/vpo/policy/models.py
+- [x] T009 [P] Add VideoTranscodeAction dataclass in src/vpo/policy/models.py
+- [x] T010 Update policy schema parsing to handle new transcode.video section in src/vpo/policy/loader.py
+- [x] T011 Add bitrate parsing utility function (parse "10M", "5000k" to int) in src/vpo/policy/models.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -67,12 +67,12 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Implementation for User Story 1
 
-- [x] T018 [US1] Add SkipCondition dataclass (codec_matches, resolution_within, bitrate_under) in src/video_policy_orchestrator/policy/models.py
-- [x] T019 [US1] Add resolution_within_threshold() helper function in src/video_policy_orchestrator/executor/transcode.py
-- [x] T020 [US1] Implement should_skip_transcode(file_info, skip_if) function in src/video_policy_orchestrator/executor/transcode.py
-- [x] T021 [US1] Integrate skip evaluation in TranscodeExecutor.execute() in src/video_policy_orchestrator/executor/transcode.py
-- [x] T022 [US1] Add dry-run skip message "Skipping video transcode - already compliant" in src/video_policy_orchestrator/executor/transcode.py
-- [x] T023 [US1] Parse skip_if section from YAML policy in src/video_policy_orchestrator/policy/loader.py
+- [x] T018 [US1] Add SkipCondition dataclass (codec_matches, resolution_within, bitrate_under) in src/vpo/policy/models.py
+- [x] T019 [US1] Add resolution_within_threshold() helper function in src/vpo/executor/transcode.py
+- [x] T020 [US1] Implement should_skip_transcode(file_info, skip_if) function in src/vpo/executor/transcode.py
+- [x] T021 [US1] Integrate skip evaluation in TranscodeExecutor.execute() in src/vpo/executor/transcode.py
+- [x] T022 [US1] Add dry-run skip message "Skipping video transcode - already compliant" in src/vpo/executor/transcode.py
+- [x] T023 [US1] Parse skip_if section from YAML policy in src/vpo/policy/loader.py
 
 **Checkpoint**: Skip conditions fully functional - files meeting criteria are not re-encoded
 
@@ -92,11 +92,11 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Implementation for User Story 2
 
-- [x] T027 [US2] Add QualitySettings dataclass (mode, crf, preset, tune, bitrate fields) in src/video_policy_orchestrator/policy/models.py
-- [x] T028 [US2] Add get_default_crf(codec) function returning codec-appropriate defaults in src/video_policy_orchestrator/policy/models.py
-- [x] T029 [US2] Add CRF validation (0-51 range) in QualitySettings in src/video_policy_orchestrator/policy/models.py
-- [x] T030 [US2] Update build_ffmpeg_command() to use quality.crf in src/video_policy_orchestrator/executor/transcode.py
-- [x] T031 [US2] Parse quality section from YAML policy in src/video_policy_orchestrator/policy/loader.py
+- [x] T027 [US2] Add QualitySettings dataclass (mode, crf, preset, tune, bitrate fields) in src/vpo/policy/models.py
+- [x] T028 [US2] Add get_default_crf(codec) function returning codec-appropriate defaults in src/vpo/policy/models.py
+- [x] T029 [US2] Add CRF validation (0-51 range) in QualitySettings in src/vpo/policy/models.py
+- [x] T030 [US2] Update build_ffmpeg_command() to use quality.crf in src/vpo/executor/transcode.py
+- [x] T031 [US2] Parse quality section from YAML policy in src/vpo/policy/loader.py
 
 **Checkpoint**: CRF quality mode functional with validation and defaults
 
@@ -116,11 +116,11 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Implementation for User Story 8
 
-- [x] T035 [US8] Add AudioTranscodeConfig dataclass (preserve_codecs, transcode_to, transcode_bitrate) in src/video_policy_orchestrator/policy/models.py
-- [x] T036 [US8] Enhance plan_audio_track() with preserve_codecs logic in src/video_policy_orchestrator/policy/transcode.py
-- [x] T037 [US8] Update build_ffmpeg_command() to stream-copy preserved codecs in src/video_policy_orchestrator/executor/transcode.py
-- [x] T038 [US8] Ensure subtitle tracks always use -c:s copy in src/video_policy_orchestrator/executor/transcode.py
-- [x] T039 [US8] Parse audio section from YAML policy in src/video_policy_orchestrator/policy/loader.py
+- [x] T035 [US8] Add AudioTranscodeConfig dataclass (preserve_codecs, transcode_to, transcode_bitrate) in src/vpo/policy/models.py
+- [x] T036 [US8] Enhance plan_audio_track() with preserve_codecs logic in src/vpo/policy/transcode.py
+- [x] T037 [US8] Update build_ffmpeg_command() to stream-copy preserved codecs in src/vpo/executor/transcode.py
+- [x] T038 [US8] Ensure subtitle tracks always use -c:s copy in src/vpo/executor/transcode.py
+- [x] T039 [US8] Parse audio section from YAML policy in src/vpo/policy/loader.py
 
 **Checkpoint**: Audio preservation functional - lossless codecs stream-copied, lossy transcoded
 
@@ -139,9 +139,9 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Implementation for User Story 3
 
-- [x] T042 [US3] Add VALID_PRESETS constant with all 9 preset names in src/video_policy_orchestrator/policy/models.py
-- [x] T043 [US3] Add preset validation in QualitySettings in src/video_policy_orchestrator/policy/models.py
-- [x] T044 [US3] Update build_ffmpeg_command() to use quality.preset in src/video_policy_orchestrator/executor/transcode.py
+- [x] T042 [US3] Add VALID_PRESETS constant with all 9 preset names in src/vpo/policy/models.py
+- [x] T043 [US3] Add preset validation in QualitySettings in src/vpo/policy/models.py
+- [x] T044 [US3] Update build_ffmpeg_command() to use quality.preset in src/vpo/executor/transcode.py
 
 **Checkpoint**: Preset selection functional with validation
 
@@ -162,11 +162,11 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Implementation for User Story 5
 
-- [x] T049 [US5] Add ScalingSettings dataclass (max_resolution, max_width, max_height, algorithm, upscale) in src/video_policy_orchestrator/policy/models.py
-- [x] T050 [US5] Add RESOLUTION_MAP constant (480p-8k dimensions) in src/video_policy_orchestrator/policy/models.py
-- [x] T051 [US5] Add calculate_scaled_dimensions() function preserving aspect ratio in src/video_policy_orchestrator/executor/transcode.py
-- [x] T052 [US5] Update build_ffmpeg_command() to add -vf scale filter in src/video_policy_orchestrator/executor/transcode.py
-- [x] T053 [US5] Parse scaling section from YAML policy in src/video_policy_orchestrator/policy/loader.py
+- [x] T049 [US5] Add ScalingSettings dataclass (max_resolution, max_width, max_height, algorithm, upscale) in src/vpo/policy/models.py
+- [x] T050 [US5] Add RESOLUTION_MAP constant (480p-8k dimensions) in src/vpo/policy/models.py
+- [x] T051 [US5] Add calculate_scaled_dimensions() function preserving aspect ratio in src/vpo/executor/transcode.py
+- [x] T052 [US5] Update build_ffmpeg_command() to add -vf scale filter in src/vpo/executor/transcode.py
+- [x] T053 [US5] Parse scaling section from YAML policy in src/vpo/policy/loader.py
 
 **Checkpoint**: Resolution scaling functional with aspect ratio preservation
 
@@ -186,12 +186,12 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Implementation for User Story 7
 
-- [x] T057 [US7] Add HardwareAccelConfig dataclass (enabled, fallback_to_cpu) in src/video_policy_orchestrator/policy/models.py
-- [x] T058 [US7] Add detect_available_encoders() with LRU cache in src/video_policy_orchestrator/tools/detection.py
-- [x] T059 [US7] Add select_encoder(target_codec, hw_config) function in src/video_policy_orchestrator/executor/transcode.py
-- [x] T060 [US7] Update build_ffmpeg_command() to use selected encoder in src/video_policy_orchestrator/executor/transcode.py
-- [x] T061 [US7] Add encoder selection to dry-run output in src/video_policy_orchestrator/executor/transcode.py
-- [x] T062 [US7] Parse hardware_acceleration section from YAML policy in src/video_policy_orchestrator/policy/loader.py
+- [x] T057 [US7] Add HardwareAccelConfig dataclass (enabled, fallback_to_cpu) in src/vpo/policy/models.py
+- [x] T058 [US7] Add detect_available_encoders() with LRU cache in src/vpo/tools/detection.py
+- [x] T059 [US7] Add select_encoder(target_codec, hw_config) function in src/vpo/executor/transcode.py
+- [x] T060 [US7] Update build_ffmpeg_command() to use selected encoder in src/vpo/executor/transcode.py
+- [x] T061 [US7] Add encoder selection to dry-run output in src/vpo/executor/transcode.py
+- [x] T062 [US7] Parse hardware_acceleration section from YAML policy in src/vpo/policy/loader.py
 
 **Checkpoint**: Hardware acceleration functional with auto-detection and fallback
 
@@ -210,9 +210,9 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Implementation for User Story 4
 
-- [x] T065 [US4] Add VALID_TUNES constant per encoder type in src/video_policy_orchestrator/policy/models.py
-- [x] T066 [US4] Add tune validation in QualitySettings in src/video_policy_orchestrator/policy/models.py
-- [x] T067 [US4] Update build_ffmpeg_command() to use quality.tune in src/video_policy_orchestrator/executor/transcode.py
+- [x] T065 [US4] Add VALID_TUNES constant per encoder type in src/vpo/policy/models.py
+- [x] T066 [US4] Add tune validation in QualitySettings in src/vpo/policy/models.py
+- [x] T067 [US4] Update build_ffmpeg_command() to use quality.tune in src/vpo/executor/transcode.py
 
 **Checkpoint**: Tune options functional with per-encoder validation
 
@@ -231,9 +231,9 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Implementation for User Story 6
 
-- [x] T070 [US6] Add bitrate validation in QualitySettings in src/video_policy_orchestrator/policy/models.py
-- [x] T071 [US6] Update build_ffmpeg_command() for bitrate mode (-b:v flag) in src/video_policy_orchestrator/executor/transcode.py
-- [x] T072 [US6] Update build_ffmpeg_command() for constrained_quality mode (-crf + -maxrate) in src/video_policy_orchestrator/executor/transcode.py
+- [x] T070 [US6] Add bitrate validation in QualitySettings in src/vpo/policy/models.py
+- [x] T071 [US6] Update build_ffmpeg_command() for bitrate mode (-b:v flag) in src/vpo/executor/transcode.py
+- [x] T072 [US6] Update build_ffmpeg_command() for constrained_quality mode (-crf + -maxrate) in src/vpo/executor/transcode.py
 
 **Checkpoint**: Bitrate targeting functional with constrained quality support
 
@@ -252,9 +252,9 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Implementation for User Story 9
 
-- [x] T075 [US9] Verify FFmpegProgress parsing includes frame, fps, speed fields in src/video_policy_orchestrator/jobs/progress.py
-- [x] T076 [US9] Add get_percent() method to FFmpegProgress in src/video_policy_orchestrator/jobs/progress.py
-- [x] T077 [US9] Wire progress_callback in TranscodeExecutor to job system in src/video_policy_orchestrator/executor/transcode.py
+- [x] T075 [US9] Verify FFmpegProgress parsing includes frame, fps, speed fields in src/vpo/jobs/progress.py
+- [x] T076 [US9] Add get_percent() method to FFmpegProgress in src/vpo/jobs/progress.py
+- [x] T077 [US9] Wire progress_callback in TranscodeExecutor to job system in src/vpo/executor/transcode.py
 - [x] T078 [US9] Add progress display in CLI output (implemented via vpo jobs list/show with progress_percent)
 - [x] T079 [US9] Add progress endpoint/display in web UI (implemented via /api/jobs with progress_percent field)
 
@@ -277,11 +277,11 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Implementation for Output Handling
 
-- [x] T084 Add _get_temp_output_path() function in src/video_policy_orchestrator/executor/transcode.py
-- [x] T085 Add _verify_output_integrity(output_path) function (size > 0) in src/video_policy_orchestrator/executor/transcode.py
-- [x] T086 Add _atomic_replace(temp_path, output_path) function in src/video_policy_orchestrator/executor/transcode.py
-- [x] T087 Add _cleanup_partial(temp_path) in TranscodeExecutor in src/video_policy_orchestrator/executor/transcode.py
-- [x] T088 Wire temp→verify→replace→cleanup flow in TranscodeExecutor.execute() in src/video_policy_orchestrator/executor/transcode.py
+- [x] T084 Add _get_temp_output_path() function in src/vpo/executor/transcode.py
+- [x] T085 Add _verify_output_integrity(output_path) function (size > 0) in src/vpo/executor/transcode.py
+- [x] T086 Add _atomic_replace(temp_path, output_path) function in src/vpo/executor/transcode.py
+- [x] T087 Add _cleanup_partial(temp_path) in TranscodeExecutor in src/vpo/executor/transcode.py
+- [x] T088 Wire temp→verify→replace→cleanup flow in TranscodeExecutor.execute() in src/vpo/executor/transcode.py
 
 **Checkpoint**: Output handling complete - temp file workflow safe and atomic
 
@@ -300,13 +300,13 @@ Based on plan.md, this is a single project extending existing VPO structure:
 
 ### Edge Case Handling
 
-- [x] T095 Edge case: Handle VFR input gracefully (detect via ffprobe, warn user) in src/video_policy_orchestrator/executor/transcode.py
-- [x] T096 Edge case: Handle missing bitrate metadata with warning in src/video_policy_orchestrator/executor/transcode.py
-- [x] T097 Edge case: Handle corrupted source files (catch ffmpeg errors, report clearly) in src/video_policy_orchestrator/executor/transcode.py
-- [x] T098 Edge case: Detect insufficient disk space before transcode (estimate output size) in src/video_policy_orchestrator/executor/transcode.py
-- [x] T099 Edge case: Handle multiple video streams (select primary, warn about others) in src/video_policy_orchestrator/executor/transcode.py
-- [x] T100 Edge case: Handle HW encoder memory errors with CPU fallback in src/video_policy_orchestrator/executor/transcode.py
-- [x] T101 Edge case: Preserve HDR metadata during downscaling, warn about compatibility in src/video_policy_orchestrator/executor/transcode.py
+- [x] T095 Edge case: Handle VFR input gracefully (detect via ffprobe, warn user) in src/vpo/executor/transcode.py
+- [x] T096 Edge case: Handle missing bitrate metadata with warning in src/vpo/executor/transcode.py
+- [x] T097 Edge case: Handle corrupted source files (catch ffmpeg errors, report clearly) in src/vpo/executor/transcode.py
+- [x] T098 Edge case: Detect insufficient disk space before transcode (estimate output size) in src/vpo/executor/transcode.py
+- [x] T099 Edge case: Handle multiple video streams (select primary, warn about others) in src/vpo/executor/transcode.py
+- [x] T100 Edge case: Handle HW encoder memory errors with CPU fallback in src/vpo/executor/transcode.py
+- [x] T101 Edge case: Preserve HDR metadata during downscaling, warn about compatibility in src/vpo/executor/transcode.py
 
 ---
 

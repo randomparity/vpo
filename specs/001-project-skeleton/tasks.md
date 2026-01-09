@@ -23,7 +23,7 @@
 
 **Purpose**: Create directory structure and basic project skeleton
 
-- [X] T001 Create src/video_policy_orchestrator/ directory structure
+- [X] T001 Create src/vpo/ directory structure
 - [X] T002 Create tests/ directory at repository root
 - [X] T003 [P] Create docs/ directory at repository root
 - [X] T004 [P] Create .github/workflows/ directory structure
@@ -55,7 +55,7 @@
 - [X] T007 [US1] Add [tool.ruff] configuration section in pyproject.toml (target-version: py310, line-length: 88)
 - [X] T008 [US1] Add [tool.pytest.ini_options] configuration section in pyproject.toml (testpaths: ["tests"])
 - [X] T009 [US1] Add [build-system] section in pyproject.toml (requires: setuptools, build-backend: setuptools.build_meta)
-- [X] T010 [US1] Create src/video_policy_orchestrator/__init__.py with __version__ = "0.1.0"
+- [X] T010 [US1] Create src/vpo/__init__.py with __version__ = "0.1.0"
 - [X] T011 [US1] Create tests/test_package.py with minimal import test (assert package imports successfully)
 - [X] T012 [US1] Create Makefile with targets: help, test, lint, format, clean at repository root
 - [X] T013 [US1] Verify: run `pip install -e ".[dev]"` succeeds
