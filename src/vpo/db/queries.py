@@ -282,6 +282,50 @@ def get_file_by_path(conn: sqlite3.Connection, path: str) -> FileRecord | None:
     return _row_to_file_record(row)
 
 
+def get_files_by_paths(
+    conn: sqlite3.Connection,
+    paths: list[str],
+    chunk_size: int = 900,
+) -> dict[str, FileRecord]:
+    """Get multiple file records by path in a single query.
+
+    Uses chunked queries to handle lists larger than SQLite's 999 parameter
+    limit. Each chunk executes as a separate query with a WHERE path IN (...)
+    clause.
+
+    Args:
+        conn: Database connection.
+        paths: List of file paths to look up.
+        chunk_size: Maximum paths per query (default 900, max 999 for SQLite).
+
+    Returns:
+        Dictionary mapping path to FileRecord for all found records.
+        Missing paths are not included in the result.
+    """
+    if not paths:
+        return {}
+
+    result: dict[str, FileRecord] = {}
+
+    for i in range(0, len(paths), chunk_size):
+        chunk = paths[i : i + chunk_size]
+        placeholders = ",".join("?" * len(chunk))
+        cursor = conn.execute(
+            f"""
+            SELECT id, path, filename, directory, extension, size_bytes,
+                   modified_at, content_hash, container_format,
+                   scanned_at, scan_status, scan_error, job_id, plugin_metadata
+            FROM files WHERE path IN ({placeholders})
+            """,
+            tuple(chunk),
+        )
+        for row in cursor.fetchall():
+            record = _row_to_file_record(row)
+            result[record.path] = record
+
+    return result
+
+
 def get_file_by_id(conn: sqlite3.Connection, file_id: int) -> FileRecord | None:
     """Get a file record by ID.
 

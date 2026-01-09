@@ -59,6 +59,7 @@ from .queries import (
     get_file_by_id,
     get_file_by_path,
     get_file_ids_by_path_prefix,
+    get_files_by_paths,
     get_job,
     get_jobs_by_id_prefix,
     get_jobs_by_status,
@@ -149,7 +150,10 @@ from .types import (
 # Views: Processing statistics view queries
 # Views: Plugin data view queries
 # Views: Language analysis view queries
+# Views: Pagination constants
 from .views import (
+    DEFAULT_PAGE_SIZE,
+    MAX_PAGE_SIZE,
     get_analysis_status_summary,
     get_distinct_audio_languages,
     get_distinct_audio_languages_typed,
@@ -223,6 +227,7 @@ __all__ = [
     "delete_file",
     "get_file_by_id",
     "get_file_by_path",
+    "get_files_by_paths",
     "insert_file",
     "upsert_file",
     # Track operations
@@ -321,4 +326,7 @@ __all__ = [
     "get_analysis_status_summary",
     "get_file_analysis_detail",
     "get_files_analysis_status",
+    # Pagination constants
+    "DEFAULT_PAGE_SIZE",
+    "MAX_PAGE_SIZE",
 ]

@@ -32,6 +32,32 @@ from .types import (
 )
 
 # ==========================================================================
+# Pagination Constants
+# ==========================================================================
+
+# Default page size for view queries when no limit is specified
+DEFAULT_PAGE_SIZE = 50
+
+# Maximum allowed page size to prevent memory exhaustion
+MAX_PAGE_SIZE = 1000
+
+
+def _clamp_limit(limit: int | None, max_limit: int = MAX_PAGE_SIZE) -> int:
+    """Clamp limit to valid range [1, max_limit], defaulting to DEFAULT_PAGE_SIZE.
+
+    Args:
+        limit: Requested limit, or None for default.
+        max_limit: Maximum allowed limit (default MAX_PAGE_SIZE).
+
+    Returns:
+        Clamped limit value.
+    """
+    if limit is None:
+        return DEFAULT_PAGE_SIZE
+    return max(1, min(max_limit, limit))
+
+
+# ==========================================================================
 # Library List View Query Functions (018-library-list-view)
 # ==========================================================================
 
@@ -67,6 +93,9 @@ def get_files_filtered(
     Returns:
         List of file dicts with track data, or tuple with total count.
     """
+    # Enforce pagination limits to prevent memory exhaustion
+    limit = _clamp_limit(limit)
+
     # Build WHERE clause conditions
     conditions: list[str] = []
     params: list[str | int] = []
@@ -239,24 +268,33 @@ def get_files_filtered_typed(
     return [FileListViewItem(**f) for f in result]
 
 
-def get_distinct_audio_languages(conn: sqlite3.Connection) -> list[dict]:
+def get_distinct_audio_languages(
+    conn: sqlite3.Connection,
+    *,
+    limit: int | None = None,
+) -> list[dict]:
     """Get distinct audio language codes present in the library.
 
     Returns list of language options for the filter dropdown.
 
     Args:
         conn: Database connection.
+        limit: Maximum languages to return.
 
     Returns:
         List of dicts with 'code' and 'label' keys, sorted by code.
     """
+    # Enforce pagination limits to prevent memory exhaustion
+    limit = _clamp_limit(limit)
+
     query = """
         SELECT DISTINCT language
         FROM tracks
         WHERE track_type = 'audio' AND language IS NOT NULL AND language != ''
         ORDER BY language
+        LIMIT ?
     """
-    cursor = conn.execute(query)
+    cursor = conn.execute(query, (limit,))
     languages = []
     for (code,) in cursor.fetchall():
         # Use code as label for now (could map to full names later)
@@ -315,6 +353,9 @@ def get_files_with_transcriptions(
             "avg_confidence": float | None,
         }
     """
+    # Enforce pagination limits to prevent memory exhaustion
+    limit = _clamp_limit(limit)
+
     # Build HAVING clause for filtering
     having_clause = ""
     if not show_all:
@@ -517,6 +558,8 @@ def get_transcription_detail_typed(
 def get_scan_errors_for_job(
     conn: sqlite3.Connection,
     job_id: str,
+    *,
+    limit: int | None = None,
 ) -> list[ScanErrorView] | None:
     """Get files with scan errors for a specific job.
 
@@ -526,11 +569,15 @@ def get_scan_errors_for_job(
     Args:
         conn: Database connection.
         job_id: UUID of the scan job.
+        limit: Maximum errors to return.
 
     Returns:
         List of ScanErrorView objects if job exists and is a scan job,
         or None if job not found or is not a scan job.
     """
+    # Enforce pagination limits to prevent memory exhaustion
+    limit = _clamp_limit(limit)
+
     # First verify job exists and is a scan job
     cursor = conn.execute(
         "SELECT job_type FROM jobs WHERE id = ?",
@@ -551,8 +598,9 @@ def get_scan_errors_for_job(
           AND scan_status = 'error'
           AND scan_error IS NOT NULL
         ORDER BY filename
+        LIMIT ?
         """,
-        (job_id,),
+        (job_id, limit),
     )
     return [
         ScanErrorView(
@@ -667,7 +715,7 @@ def get_stats_summary(
 def get_recent_stats(
     conn: sqlite3.Connection,
     *,
-    limit: int = 10,
+    limit: int | None = None,
     policy_name: str | None = None,
 ) -> list[FileProcessingHistory]:
     """Get recent processing history entries.
@@ -680,6 +728,9 @@ def get_recent_stats(
     Returns:
         List of FileProcessingHistory objects ordered by processed_at DESC.
     """
+    # Enforce pagination limits to prevent memory exhaustion
+    limit = _clamp_limit(limit)
+
     conditions: list[str] = []
     params: list[str | int] = []
 
@@ -729,6 +780,7 @@ def get_policy_stats(
     *,
     since: str | None = None,
     until: str | None = None,
+    limit: int | None = None,
 ) -> list[PolicyStats]:
     """Get statistics grouped by policy.
 
@@ -736,10 +788,14 @@ def get_policy_stats(
         conn: Database connection.
         since: ISO-8601 timestamp for start of date range (inclusive).
         until: ISO-8601 timestamp for end of date range (inclusive).
+        limit: Maximum policies to return.
 
     Returns:
         List of PolicyStats objects, one per policy used.
     """
+    # Enforce pagination limits to prevent memory exhaustion
+    limit = _clamp_limit(limit)
+
     conditions: list[str] = []
     params: list[str] = []
 
@@ -774,9 +830,10 @@ def get_policy_stats(
         {where_clause}
         GROUP BY policy_name
         ORDER BY files_processed DESC
+        LIMIT ?
     """
 
-    cursor = conn.execute(query, params)
+    cursor = conn.execute(query, [*params, limit])
     results = []
     for row in cursor.fetchall():
         files_processed = row[1] or 0
@@ -1011,6 +1068,8 @@ def get_stats_for_file(
     conn: sqlite3.Connection,
     file_id: int | None = None,
     file_path: str | None = None,
+    *,
+    limit: int | None = None,
 ) -> list[FileProcessingHistory]:
     """Get processing history for a specific file.
 
@@ -1020,12 +1079,16 @@ def get_stats_for_file(
         conn: Database connection.
         file_id: ID of file to look up.
         file_path: Path of file to look up (used if file_id not provided).
+        limit: Maximum history entries to return.
 
     Returns:
         List of FileProcessingHistory entries for the file, ordered by
         processed_at DESC (most recent first). Empty list if file not found
         or no processing history.
     """
+    # Enforce pagination limits to prevent memory exhaustion
+    limit = _clamp_limit(limit)
+
     # Resolve file_id from path if needed
     if file_id is None and file_path is not None:
         cursor = conn.execute("SELECT id FROM files WHERE path = ?", (file_path,))
@@ -1047,8 +1110,9 @@ def get_stats_for_file(
         FROM processing_stats
         WHERE file_id = ?
         ORDER BY processed_at DESC
+        LIMIT ?
         """,
-        (file_id,),
+        (file_id, limit),
     )
     return [
         FileProcessingHistory(
@@ -1110,6 +1174,9 @@ def get_files_with_plugin_data(
     # Validate plugin name for defense in depth (routes also validate)
     if not re.match(r"^[a-zA-Z0-9_-]+$", plugin_name):
         raise ValueError(f"Invalid plugin name format: {plugin_name}")
+
+    # Enforce pagination limits to prevent memory exhaustion
+    limit = _clamp_limit(limit)
 
     # Build query - use window function for total count when needed
     # This avoids a separate COUNT query (single query optimization)
@@ -1246,7 +1313,7 @@ def get_files_analysis_status(
     conn: sqlite3.Connection,
     *,
     filter_classification: str | None = None,
-    limit: int = 50,
+    limit: int | None = None,
 ) -> list[FileAnalysisStatus]:
     """Get analysis status for files, optionally filtered.
 
@@ -1262,6 +1329,8 @@ def get_files_analysis_status(
     Returns:
         List of FileAnalysisStatus objects.
     """
+    # Enforce pagination limits to prevent memory exhaustion
+    limit = _clamp_limit(limit)
 
     # Build query based on filter
     if filter_classification == "multi-language":

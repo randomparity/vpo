@@ -284,6 +284,7 @@ class ScannerOrchestrator:
             FileRecord,
             delete_file,
             get_file_by_path,
+            get_files_by_paths,
             upsert_file,
             upsert_tracks_for_file,
         )
@@ -349,16 +350,16 @@ class ScannerOrchestrator:
             result.files_found = len(all_files)
 
             # Check which files need processing (new or modified)
-            # Cache existing records to avoid duplicate lookups during persist phase
+            # Batch lookup for O(1) vs O(n) individual queries
             files_to_process: list[ScannedFile] = []
-            existing_records: dict[str, FileRecord | None] = {}
             discovered_paths = {f.path for f in all_files}
+            all_paths = [f.path for f in all_files]
+            existing_records = get_files_by_paths(conn, all_paths)
 
             for scanned in all_files:
                 if self._is_interrupted():
                     break
-                existing = get_file_by_path(conn, scanned.path)
-                existing_records[scanned.path] = existing
+                existing = existing_records.get(scanned.path)
 
                 if full:
                     # Full scan: process all files
@@ -471,8 +472,21 @@ class ScannerOrchestrator:
             now = datetime.now(timezone.utc)
             total_to_process = len(files_to_process)
             scan_start_time = time.time()
+
+            # Use explicit transactions for effective batching
+            files_in_batch = 0
+            in_transaction = False
+
+            if batch_commit_size > 0 and files_to_process:
+                conn.execute("BEGIN IMMEDIATE")
+                in_transaction = True
+
             for i, scanned in enumerate(files_to_process):
                 if self._is_interrupted():
+                    # Commit any pending work before interrupt
+                    if in_transaction and files_in_batch > 0:
+                        conn.execute("COMMIT")
+                        in_transaction = False
                     result.interrupted = True
                     break
 
@@ -534,9 +548,17 @@ class ScannerOrchestrator:
                 else:
                     result.files_updated += 1
 
+                files_in_batch += 1
+
                 # Batch commit to reduce lock contention in daemon mode
-                if batch_commit_size > 0 and (i + 1) % batch_commit_size == 0:
-                    conn.commit()
+                if batch_commit_size > 0 and files_in_batch >= batch_commit_size:
+                    conn.execute("COMMIT")
+                    files_in_batch = 0
+                    # Start new transaction for next batch (unless interrupted)
+                    if not self._is_interrupted():
+                        conn.execute("BEGIN IMMEDIATE")
+                    else:
+                        in_transaction = False
 
                 # Report progress (isolated from main scan logic)
                 processed = i + 1
@@ -554,9 +576,10 @@ class ScannerOrchestrator:
                 except Exception as e:
                     logger.warning("Progress callback raised exception: %s", e)
 
-            # Final commit for any remaining changes
-            if files_to_process and not self._is_interrupted():
-                conn.commit()
+            # Final commit for any remaining changes in the transaction
+            if in_transaction and files_in_batch > 0:
+                conn.execute("COMMIT")
+                in_transaction = False
 
             result.elapsed_seconds = time.time() - start_time
             return all_files, result

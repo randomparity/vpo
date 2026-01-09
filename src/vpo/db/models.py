@@ -35,6 +35,7 @@ from .queries import (
     get_all_jobs,
     get_file_by_id,
     get_file_by_path,
+    get_files_by_paths,
     get_job,
     get_jobs_by_id_prefix,
     get_jobs_by_status,
@@ -139,6 +140,7 @@ __all__ = [
     "delete_file",
     "get_file_by_id",
     "get_file_by_path",
+    "get_files_by_paths",
     "insert_file",
     "upsert_file",
     # Track operations
