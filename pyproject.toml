@@ -2,7 +2,7 @@
 name = "video-policy-orchestrator"
 version = "0.1.0"
 description = "A spec-driven tool for scanning, organizing, and transforming video libraries using user-defined policies and an extensible plugin architecture"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 authors = [
     {name = "VPO Contributors"}
 ]
@@ -21,6 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Rust",
     "Topic :: Multimedia :: Video",
     "Topic :: System :: Systems Administration",

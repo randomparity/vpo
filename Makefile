@@ -1,4 +1,4 @@
-.PHONY: help test lint format clean install hooks hooks-run hooks-update \
+.PHONY: help test lint format clean setup hooks-run hooks-update \
         docker-ffmpeg-build docker-ffmpeg-shell docker-ffmpeg-version
 
 help:  ## Show this help message
@@ -26,13 +26,39 @@ clean:  ## Remove build artifacts
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
 
-install:  ## Install package in development mode
-	pip install -e ".[dev]"
+PYTHON_VERSION := 3.13
 
-hooks:  ## Install pre-commit hooks
-	pre-commit install
-	pre-commit install --hook-type pre-push
-	@echo "Git hooks installed successfully!"
+setup:  ## Setup complete dev environment (venv, install, hooks)
+	@if command -v uv >/dev/null 2>&1; then \
+		echo "==> Creating virtual environment with Python $(PYTHON_VERSION) (uv)..."; \
+		uv venv --python $(PYTHON_VERSION); \
+		echo "==> Installing package in development mode..."; \
+		uv pip install -e ".[dev]"; \
+		echo "==> Building Rust extension..."; \
+		uv run maturin develop; \
+		echo "==> Installing pre-commit hooks..."; \
+		uv run pre-commit install; \
+		uv run pre-commit install --hook-type pre-push; \
+	elif command -v pyenv >/dev/null 2>&1; then \
+		echo "==> Creating virtual environment with Python $(PYTHON_VERSION) (pyenv)..."; \
+		pyenv install -s $(PYTHON_VERSION); \
+		pyenv local $(PYTHON_VERSION); \
+		pyenv exec python -m venv .venv; \
+		echo "==> Installing package in development mode..."; \
+		.venv/bin/pip install -e ".[dev]"; \
+		echo "==> Building Rust extension..."; \
+		.venv/bin/maturin develop; \
+		echo "==> Installing pre-commit hooks..."; \
+		.venv/bin/pre-commit install; \
+		.venv/bin/pre-commit install --hook-type pre-push; \
+	else \
+		echo "Error: uv or pyenv required (system Python may be incompatible)"; \
+		echo "Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh"; \
+		echo "Install pyenv: https://github.com/pyenv/pyenv#installation"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "Setup complete! Run 'source .venv/bin/activate' to activate the environment."
 
 hooks-run:  ## Run all pre-commit hooks manually
 	pre-commit run --all-files
