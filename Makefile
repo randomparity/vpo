@@ -1,5 +1,5 @@
 .PHONY: help test lint format clean setup hooks-run hooks-update \
-        docker-ffmpeg-build docker-ffmpeg-shell docker-ffmpeg-version
+        docker-ffmpeg-build docker-ffmpeg-shell docker-ffmpeg-version check-deps
 
 help:  ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -65,6 +65,53 @@ hooks-run:  ## Run all pre-commit hooks manually
 
 hooks-update:  ## Update pre-commit hook versions
 	pre-commit autoupdate
+
+# =============================================================================
+# Dependency checking
+# =============================================================================
+
+check-deps:  ## Check for required external tools and show install instructions
+	@echo "Checking for required external tools..."
+	@echo ""
+	@missing=""; \
+	check_tool() { \
+		tool=$$1; flag=$$2; \
+		if command -v $$tool >/dev/null 2>&1; then \
+			version=$$($$tool $$flag 2>&1 | head -1); \
+			printf "  \033[32m✓\033[0m %-15s %s\n" "$$tool" "$$version"; \
+		else \
+			printf "  \033[31m✗\033[0m %-15s \033[31mnot found\033[0m\n" "$$tool"; \
+			missing="$$missing $$tool"; \
+		fi; \
+	}; \
+	check_tool ffmpeg -version; \
+	check_tool ffprobe -version; \
+	check_tool mkvmerge --version; \
+	check_tool mkvpropedit --version; \
+	echo ""; \
+	if [ -n "$$missing" ]; then \
+		printf "\033[33mMissing tools:$$missing\033[0m\n"; \
+		echo ""; \
+		echo "Install instructions:"; \
+		echo ""; \
+		printf "  \033[36mDebian/Ubuntu (apt):\033[0m\n"; \
+		echo "    sudo apt update && sudo apt install ffmpeg mkvtoolnix"; \
+		echo ""; \
+		printf "  \033[36mFedora (dnf):\033[0m\n"; \
+		echo "    sudo dnf install ffmpeg mkvtoolnix"; \
+		echo "    # Note: ffmpeg may require RPM Fusion repository"; \
+		echo "    # sudo dnf install https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-\$$(rpm -E %fedora).noarch.rpm"; \
+		echo ""; \
+		printf "  \033[36mmacOS (Homebrew):\033[0m\n"; \
+		echo "    brew install ffmpeg mkvtoolnix"; \
+		echo ""; \
+		printf "  \033[36mArch Linux (pacman):\033[0m\n"; \
+		echo "    sudo pacman -S ffmpeg mkvtoolnix-cli"; \
+		echo ""; \
+		exit 1; \
+	else \
+		printf "\033[32mAll required tools are installed.\033[0m\n"; \
+	fi
 
 # =============================================================================
 # Docker/Container targets for ffmpeg
