@@ -166,6 +166,9 @@ def insert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
 
     Returns:
         The ID of the inserted record.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     cursor = conn.execute(
         """
@@ -191,7 +194,6 @@ def insert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
             record.plugin_metadata,
         ),
     )
-    conn.commit()
     return cursor.lastrowid
 
 
@@ -204,6 +206,9 @@ def upsert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
 
     Returns:
         The ID of the inserted/updated record.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     cursor = conn.execute(
         """
@@ -244,7 +249,6 @@ def upsert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
         ),
     )
     result = cursor.fetchone()
-    conn.commit()
     if result is None:
         raise sqlite3.IntegrityError(
             f"RETURNING clause failed to return file ID for path: {record.path}"
@@ -310,9 +314,11 @@ def delete_file(conn: sqlite3.Connection, file_id: int) -> None:
     Args:
         conn: Database connection.
         file_id: ID of the file to delete.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     conn.execute("DELETE FROM files WHERE id = ?", (file_id,))
-    conn.commit()
 
 
 # ==========================================================================
@@ -329,6 +335,9 @@ def insert_track(conn: sqlite3.Connection, record: TrackRecord) -> int:
 
     Returns:
         The ID of the inserted record.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     cursor = conn.execute(
         """
@@ -361,7 +370,6 @@ def insert_track(conn: sqlite3.Connection, record: TrackRecord) -> int:
             record.duration_seconds,
         ),
     )
-    conn.commit()
     return cursor.lastrowid
 
 
@@ -396,9 +404,11 @@ def delete_tracks_for_file(conn: sqlite3.Connection, file_id: int) -> None:
     Args:
         conn: Database connection.
         file_id: ID of the file.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     conn.execute("DELETE FROM tracks WHERE file_id = ?", (file_id,))
-    conn.commit()
 
 
 def upsert_tracks_for_file(
@@ -629,6 +639,9 @@ def insert_plugin_acknowledgment(
 
     Returns:
         The ID of the inserted record.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     cursor = conn.execute(
         """
@@ -643,7 +656,6 @@ def insert_plugin_acknowledgment(
             record.acknowledged_by,
         ),
     )
-    conn.commit()
     return cursor.lastrowid
 
 
@@ -692,6 +704,9 @@ def delete_plugin_acknowledgment(
 
     Returns:
         True if a record was deleted, False otherwise.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     cursor = conn.execute(
         """
@@ -700,7 +715,6 @@ def delete_plugin_acknowledgment(
         """,
         (plugin_name, plugin_hash),
     )
-    conn.commit()
     return cursor.rowcount > 0
 
 
@@ -718,6 +732,9 @@ def insert_job(conn: sqlite3.Connection, job: Job) -> str:
 
     Returns:
         The ID of the inserted job.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     conn.execute(
         """
@@ -754,7 +771,6 @@ def insert_job(conn: sqlite3.Connection, job: Job) -> str:
             job.log_path,
         ),
     )
-    conn.commit()
     return job.id
 
 
@@ -804,6 +820,9 @@ def update_job_status(
 
     Returns:
         True if job was updated, False if job not found.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     cursor = conn.execute(
         """
@@ -812,7 +831,6 @@ def update_job_status(
         """,
         (status.value, error_message, completed_at, job_id),
     )
-    conn.commit()
     return cursor.rowcount > 0
 
 
@@ -832,6 +850,9 @@ def update_job_progress(
 
     Returns:
         True if job was updated, False if job not found.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     cursor = conn.execute(
         """
@@ -840,7 +861,6 @@ def update_job_progress(
         """,
         (progress_percent, progress_json, job_id),
     )
-    conn.commit()
     return cursor.rowcount > 0
 
 
@@ -862,6 +882,9 @@ def update_job_worker(
 
     Returns:
         True if job was updated, False if job not found.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     if started_at:
         cursor = conn.execute(
@@ -879,7 +902,6 @@ def update_job_worker(
             """,
             (worker_pid, worker_heartbeat, job_id),
         )
-    conn.commit()
     return cursor.rowcount > 0
 
 
@@ -899,6 +921,9 @@ def update_job_output(
 
     Returns:
         True if job was updated, False if job not found.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     cursor = conn.execute(
         """
@@ -907,7 +932,6 @@ def update_job_output(
         """,
         (output_path, backup_path, job_id),
     )
-    conn.commit()
     return cursor.rowcount > 0
 
 
@@ -1128,9 +1152,11 @@ def delete_job(conn: sqlite3.Connection, job_id: str) -> bool:
 
     Returns:
         True if job was deleted, False if job not found.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     cursor = conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
-    conn.commit()
     return cursor.rowcount > 0
 
 
@@ -1147,6 +1173,9 @@ def delete_old_jobs(
 
     Returns:
         Number of jobs deleted.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     if statuses is None:
         statuses = [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED]
@@ -1159,7 +1188,6 @@ def delete_old_jobs(
         """,
         (older_than, *[s.value for s in statuses]),
     )
-    conn.commit()
     return cursor.rowcount
 
 
@@ -1324,6 +1352,9 @@ def delete_transcription_results_for_file(
 
     Returns:
         Count of deleted records.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     cursor = conn.execute(
         """
@@ -1332,7 +1363,6 @@ def delete_transcription_results_for_file(
         """,
         (file_id,),
     )
-    conn.commit()
     return cursor.rowcount
 
 
@@ -1539,12 +1569,14 @@ def delete_language_analysis_result(conn: sqlite3.Connection, track_id: int) -> 
 
     Returns:
         True if a record was deleted, False otherwise.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     cursor = conn.execute(
         "DELETE FROM language_analysis_results WHERE track_id = ?",
         (track_id,),
     )
-    conn.commit()
     return cursor.rowcount > 0
 
 
@@ -1736,6 +1768,9 @@ def delete_language_analysis_for_file(conn: sqlite3.Connection, file_id: int) ->
 
     Returns:
         Count of deleted records.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     cursor = conn.execute(
         """
@@ -1744,7 +1779,6 @@ def delete_language_analysis_for_file(conn: sqlite3.Connection, file_id: int) ->
         """,
         (file_id,),
     )
-    conn.commit()
     return cursor.rowcount
 
 
@@ -1774,6 +1808,9 @@ def delete_analysis_by_path_prefix(
 
     Returns:
         Count of deleted records.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     escaped_prefix = _escape_like_pattern(path_prefix)
     cursor = conn.execute(
@@ -1787,7 +1824,6 @@ def delete_analysis_by_path_prefix(
         """,
         (escaped_prefix,),
     )
-    conn.commit()
     return cursor.rowcount
 
 
@@ -2418,12 +2454,14 @@ def delete_track_classification(conn: sqlite3.Connection, track_id: int) -> bool
 
     Returns:
         True if a record was deleted, False if not found.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     cursor = conn.execute(
         "DELETE FROM track_classification_results WHERE track_id = ?",
         (track_id,),
     )
-    conn.commit()
     return cursor.rowcount > 0
 
 

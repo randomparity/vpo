@@ -739,6 +739,7 @@ class TestUpdatePlanStatus:
 
             # Create a plan in PENDING status
             plan_record = create_plan(conn, sample_plan, file_id, "test-policy.yaml")
+            conn.commit()
             plan_id = plan_record.id
 
         # Track results from each thread
@@ -752,6 +753,7 @@ class TestUpdatePlanStatus:
                 barrier.wait()  # Synchronize threads
                 try:
                     update_plan_status(thread_conn, plan_id, PlanStatus.APPROVED)
+                    thread_conn.commit()
                     results.append("approved")
                 except InvalidPlanTransitionError as e:
                     errors.append(e)
@@ -762,6 +764,7 @@ class TestUpdatePlanStatus:
                 barrier.wait()  # Synchronize threads
                 try:
                     update_plan_status(thread_conn, plan_id, PlanStatus.REJECTED)
+                    thread_conn.commit()
                     results.append("rejected")
                 except InvalidPlanTransitionError as e:
                     errors.append(e)

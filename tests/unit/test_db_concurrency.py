@@ -55,6 +55,7 @@ class TestWALModeConcurrency:
             scan_error=None,
         )
         upsert_file(conn, record)
+        conn.commit()
         conn.close()
 
         # Run concurrent reads

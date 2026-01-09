@@ -34,4 +34,6 @@ def purge_old_jobs(
 
     cutoff = (datetime.now(timezone.utc) - timedelta(days=retention_days)).isoformat()
 
-    return delete_old_jobs(conn, cutoff)
+    count = delete_old_jobs(conn, cutoff)
+    conn.commit()
+    return count

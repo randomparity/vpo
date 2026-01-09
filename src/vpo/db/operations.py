@@ -35,6 +35,9 @@ def create_operation(
 
     Returns:
         The created OperationRecord.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     operation_id = str(uuid.uuid4())
     started_at = datetime.now(timezone.utc).isoformat()
@@ -71,7 +74,6 @@ def create_operation(
             record.started_at,
         ),
     )
-    conn.commit()
 
     return record
 
@@ -91,6 +93,9 @@ def update_operation_status(
         status: New status.
         error_message: Error message if status is FAILED.
         backup_path: Path to backup file if retained.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     completed_at = None
     if status in (
@@ -111,7 +116,6 @@ def update_operation_status(
         """,
         (status.value, error_message, backup_path, completed_at, operation_id),
     )
-    conn.commit()
 
 
 def get_operation(
@@ -295,6 +299,9 @@ def create_plan(
 
     Returns:
         The created PlanRecord.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     plan_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
@@ -340,7 +347,6 @@ def create_plan(
             record.updated_at,
         ),
     )
-    conn.commit()
 
     return record
 
@@ -495,6 +501,9 @@ def update_plan_status(
 
     Raises:
         InvalidPlanTransitionError: If the transition is not allowed.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
     """
     # Build list of valid source states for the target status
     valid_source_states = [
@@ -520,7 +529,6 @@ def update_plan_status(
         """,
         (new_status.value, now, plan_id, *[s.value for s in valid_source_states]),
     )
-    conn.commit()
 
     if cursor.rowcount == 0:
         # Either plan doesn't exist or transition invalid
