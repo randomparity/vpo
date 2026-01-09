@@ -238,6 +238,15 @@ def serve_command(
         logger.error("Run 'vpo scan' first to initialize the database")
         sys.exit(1)
 
+    # Clean up orphaned temp files from previous runs
+    from vpo.server.cleanup import cleanup_orphaned_temp_files
+
+    cleaned_count = cleanup_orphaned_temp_files()
+    if cleaned_count > 0:
+        logger.info(
+            "Cleaned %d orphaned temp file(s) from previous runs", cleaned_count
+        )
+
     # Validate port range
     if not 1 <= server_port <= 65535:
         logger.error("Port must be 1-65535, got %d", server_port)

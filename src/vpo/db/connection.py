@@ -286,8 +286,15 @@ class DaemonConnectionPool:
             # Verify cached connection is still valid
             try:
                 self._write_conn.execute("SELECT 1")
-            except sqlite3.ProgrammingError:
-                logger.warning("Cached connection was closed, creating new")
+            except (sqlite3.ProgrammingError, sqlite3.OperationalError) as e:
+                logger.warning("Cached connection is invalid (%s), creating new", e)
+                # Close old connection to prevent resource leak
+                old_conn = self._write_conn
+                self._write_conn = None
+                try:
+                    old_conn.close()
+                except Exception:  # nosec B110 - best-effort cleanup
+                    pass  # Connection may already be in bad state
                 self._write_conn = self._create_connection()
 
         return self._write_conn

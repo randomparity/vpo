@@ -735,9 +735,10 @@ def process_command(
                                             "Stopping batch due to error "
                                             f"(on_error='fail'): {result.error_message}"
                                         )
-                                    # Cancel pending futures
+                                    # Cancel pending futures and shutdown executor
                                     for f in futures:
                                         f.cancel()
+                                    executor.shutdown(wait=True, cancel_futures=True)
                                     break
                         except Exception as e:
                             logger.exception(
