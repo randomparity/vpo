@@ -24,10 +24,6 @@ from pathlib import Path
 
 from vpo.db.models import TrackInfo
 from vpo.executor.interface import require_tool
-from vpo.jobs.progress import (
-    FFmpegProgress,
-    parse_stderr_progress,
-)
 from vpo.policy.models import (
     AudioTranscodeConfig,
     QualityMode,
@@ -59,6 +55,10 @@ from vpo.policy.video_analysis import (
 )
 from vpo.tools.encoders import (
     get_software_encoder,
+)
+from vpo.tools.ffmpeg_progress import (
+    FFmpegProgress,
+    parse_stderr_progress,
 )
 
 logger = logging.getLogger(__name__)

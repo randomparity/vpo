@@ -26,7 +26,6 @@ from vpo.db.models import (
 )
 from vpo.jobs.logs import JobLogWriter
 from vpo.jobs.maintenance import purge_old_jobs
-from vpo.jobs.progress import FFmpegProgress
 from vpo.jobs.queue import (
     claim_next_job,
     recover_stale_jobs,
@@ -37,6 +36,7 @@ from vpo.jobs.services import (
     ProcessJobService,
     TranscodeJobService,
 )
+from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 logger = logging.getLogger(__name__)
 

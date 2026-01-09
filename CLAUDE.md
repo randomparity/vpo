@@ -57,12 +57,12 @@ src/vpo/
 ├── plugin/        # Plugin system: registry, loader, interfaces, events
 ├── plugin_sdk/    # SDK helpers for plugin authors
 ├── plugins/       # Built-in reference plugins
-├── policy/        # PolicySchema loading, Plan evaluation, track matchers
+├── policy/        # PolicySchema loading, Plan evaluation, track matchers (see types.py)
 ├── scanner/       # Orchestrates discovery and introspection
 ├── server/        # aiohttp daemon: app, routes, lifecycle, signals
 │   ├── ui/        # Web UI: Jinja2 templates, routes, models
 │   └── static/    # CSS, JavaScript (vanilla JS, no frameworks)
-├── tools/         # External tool detection and capability caching
+├── tools/         # External tool detection, FFmpeg progress parsing, capability caching
 └── workflow/      # V11WorkflowProcessor: multi-phase policy execution pipeline
 
 crates/vpo-core/   # Rust extension for parallel discovery/hashing
@@ -115,15 +115,35 @@ This project has a formal constitution at `.specify/memory/constitution.md` with
 - **IO Separation**: Core logic in pure functions; external tools behind adapters
 - **Concurrency**: Use `DaemonConnectionPool` for thread-safe DB access; `ThreadPoolExecutor` for parallel CLI operations
 
+## Core Utilities
+
+The `core/` module provides pure utility functions with no external dependencies:
+
+```
+core/
+├── __init__.py         # Public API exports
+├── datetime_utils.py   # UTC datetime parsing, duration calculation
+├── formatting.py       # File size, resolution labels, language formatting
+├── string_utils.py     # Case-insensitive string operations using casefold()
+├── subprocess_utils.py # Unified subprocess wrapper with timeout/encoding
+└── validation.py       # UUID validation
+```
+
+**Key utilities:**
+- `normalize_string(s)`: Casefold + strip for Unicode-safe normalization
+- `compare_strings_ci(a, b)`: Case-insensitive comparison
+- `run_command(args, timeout)`: Subprocess wrapper with standard error handling
+
 ## Database Module Structure
 
-The `db/` module is organized into separate files for types, queries, and views:
+The `db/` module is organized into separate files for types, queries, operations, and views:
 
 ```
 db/
 ├── __init__.py   # Public API - re-exports all types and functions
 ├── types.py      # Enums, dataclasses (records, domain models, view models)
 ├── queries.py    # CRUD operations (insert, upsert, get, delete)
+├── operations.py # Plan CRUD and operation audit logging
 ├── views.py      # Aggregated view queries for UI (library list, transcriptions)
 ├── schema.py     # Schema creation and migrations
 └── models.py     # Backward-compat shim (deprecated, re-exports from above)
@@ -132,11 +152,12 @@ db/
 **Import patterns** (all equivalent):
 ```python
 # Preferred: import from package
-from vpo.db import FileRecord, get_file_by_path
+from vpo.db import FileRecord, get_file_by_path, create_plan
 
 # Or from specific submodule
 from vpo.db.types import FileRecord
 from vpo.db.queries import get_file_by_path
+from vpo.db.operations import create_plan
 
 # Legacy (still works, but deprecated)
 from vpo.db.models import FileRecord, get_file_by_path
@@ -233,7 +254,8 @@ transcode:
 ```
 
 **Key modules:**
-- `policy/models.py`: All schema dataclasses (PolicySchema, PhasedPolicySchema, SkipCondition, QualitySettings, ConditionalRule, PhaseSkipCondition, etc.)
+- `policy/types.py`: All schema dataclasses and enums (PolicySchema, PhasedPolicySchema, TrackType, etc.)
+- `policy/models.py`: Backward-compat shim (re-exports from types.py)
 - `policy/loader.py`: PolicyModel validation, schema loading, SCHEMA_VERSION constant
 - `executor/transcode.py`: TranscodeExecutor, FFmpeg command building, edge case detection
 - `policy/transcode.py`: Audio plan creation for audio config

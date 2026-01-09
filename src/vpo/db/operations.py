@@ -1,9 +1,12 @@
 """Operations repository for policy operation audit logging."""
 
+from __future__ import annotations
+
 import json
 import sqlite3
 import uuid
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from vpo.db.models import (
     OperationRecord,
@@ -11,7 +14,9 @@ from vpo.db.models import (
     PlanRecord,
     PlanStatus,
 )
-from vpo.policy.models import Plan, PlannedAction
+
+if TYPE_CHECKING:
+    from vpo.policy.models import Plan, PlannedAction
 
 
 def create_operation(

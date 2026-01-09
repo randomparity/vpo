@@ -23,6 +23,20 @@ Usage:
 # Queries: Transcription result operations
 # Queries: Language analysis operations
 # Queries: Processing statistics operations
+# Operations: Operation audit logging and plan CRUD
+from .operations import (
+    PLAN_STATUS_TRANSITIONS,
+    InvalidPlanTransitionError,
+    create_operation,
+    create_plan,
+    get_operation,
+    get_operations_for_file,
+    get_pending_operations,
+    get_plan_by_id,
+    get_plans_filtered,
+    update_operation_status,
+    update_plan_status,
+)
 from .queries import (
     delete_all_analysis,
     delete_analysis_by_path_prefix,
@@ -268,6 +282,19 @@ __all__ = [
     "get_classifications_for_tracks",
     "get_track_classification",
     "upsert_track_classification",
+    # Operation audit logging
+    "create_operation",
+    "get_operation",
+    "get_operations_for_file",
+    "get_pending_operations",
+    "update_operation_status",
+    # Plan CRUD operations
+    "create_plan",
+    "get_plan_by_id",
+    "get_plans_filtered",
+    "update_plan_status",
+    "InvalidPlanTransitionError",
+    "PLAN_STATUS_TRANSITIONS",
     # Library list view queries
     "get_distinct_audio_languages",
     "get_distinct_audio_languages_typed",

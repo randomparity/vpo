@@ -20,10 +20,10 @@ from vpo.introspector import (
     MediaIntrospector,
 )
 from vpo.jobs.logs import JobLogWriter
-from vpo.jobs.progress import FFmpegProgress
 from vpo.metadata.parser import parse_filename
 from vpo.metadata.templates import parse_template
 from vpo.policy.models import TranscodePolicyConfig
+from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 logger = logging.getLogger(__name__)
 

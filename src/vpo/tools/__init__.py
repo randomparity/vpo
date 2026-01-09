@@ -29,6 +29,15 @@ from vpo.tools.encoders import (
     select_encoder,
     select_encoder_with_fallback,
 )
+
+# FFmpeg progress parsing
+from vpo.tools.ffmpeg_progress import (
+    PROGRESS_PATTERNS,
+    FFmpegProgress,
+    parse_progress_block,
+    parse_progress_line,
+    parse_stderr_progress,
+)
 from vpo.tools.models import (
     FFmpegCapabilities,
     FFmpegInfo,
@@ -52,6 +61,12 @@ from vpo.tools.requirements import (
 )
 
 __all__ = [
+    # FFmpeg progress parsing
+    "FFmpegProgress",
+    "PROGRESS_PATTERNS",
+    "parse_progress_line",
+    "parse_progress_block",
+    "parse_stderr_progress",
     # Models
     "FFmpegCapabilities",
     "FFmpegInfo",
