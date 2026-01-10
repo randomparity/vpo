@@ -244,9 +244,9 @@ class TestSignalHandler:
 class TestHeartbeatManagement:
     """Tests for heartbeat thread management.
 
-    These tests require a file-backed database because the heartbeat thread
-    uses a separate database connection to avoid transaction interference.
-    In-memory databases cannot be shared across connections.
+    These tests use mocked connections to avoid real database access in the
+    heartbeat thread. This prevents lock contention warnings during test
+    teardown while still testing thread lifecycle behavior.
     """
 
     @pytest.fixture
@@ -260,6 +260,23 @@ class TestHeartbeatManagement:
         create_schema(conn)
         yield conn
         conn.close()
+
+    @pytest.fixture(autouse=True)
+    def mock_heartbeat_connection(self):
+        """Mock get_connection in heartbeat thread to avoid DB lock contention.
+
+        The heartbeat thread opens its own connection which can cause lock
+        warnings during test teardown. This fixture mocks the connection
+        to avoid real database access while still testing thread lifecycle.
+        """
+        mock_conn = MagicMock()
+        mock_conn.execute = MagicMock()
+        mock_context = MagicMock()
+        mock_context.__enter__ = MagicMock(return_value=mock_conn)
+        mock_context.__exit__ = MagicMock(return_value=False)
+
+        with patch("vpo.jobs.worker.get_connection", return_value=mock_context):
+            yield
 
     def test_start_heartbeat_creates_thread(
         self, file_backed_db: sqlite3.Connection

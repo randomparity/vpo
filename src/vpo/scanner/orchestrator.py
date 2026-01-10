@@ -141,21 +141,17 @@ class ScannerOrchestrator:
         self._current_conn: sqlite3.Connection | None = None
 
     def _create_signal_handler(self) -> Callable[[int, object], None]:
-        """Create a signal handler that commits pending changes and sets interrupt.
+        """Create a signal handler that sets the interrupt flag.
 
-        The handler attempts to commit any pending database changes before
-        setting the interrupt flag, preventing data loss on Ctrl+C.
+        Signal handlers should be minimal to avoid blocking. The handler only
+        sets the interrupt flag; the main loop commits pending changes when
+        it detects the interrupt via _is_interrupted().
         """
 
         def handler(signum: int, frame: object) -> None:
-            logger.info("Interrupt received, flushing pending changes...")
-            # Commit pending changes before interrupting to prevent data loss
-            if self._current_conn is not None:
-                try:
-                    self._current_conn.commit()
-                except Exception as e:
-                    logger.error("Failed to commit during interrupt: %s", e)
+            logger.info("Interrupt received, will flush pending changes...")
             self._interrupt_event.set()
+            # Commit happens in main loop when checking _is_interrupted()
 
         return handler
 

@@ -270,8 +270,11 @@ class DaemonConnectionPool:
 
         return conn
 
-    def _get_write_connection_unlocked(self) -> sqlite3.Connection:
-        """Get the shared write connection. Must be called with write lock held.
+    def _get_or_create_write_connection(self) -> sqlite3.Connection:
+        """Get the shared write connection, creating if needed.
+
+        IMPORTANT: Must be called with _write_lock held. This method
+        additionally acquires _closed_lock briefly to check pool state.
 
         Includes a health check to verify the cached connection is still valid.
         If the connection was closed externally, a new connection is created.
@@ -299,8 +302,9 @@ class DaemonConnectionPool:
 
         return self._write_conn
 
-    # Legacy alias for backward compatibility
-    _get_connection_unlocked = _get_write_connection_unlocked
+    # Legacy aliases for backward compatibility
+    _get_connection_unlocked = _get_or_create_write_connection
+    _get_write_connection_unlocked = _get_or_create_write_connection
     _conn = property(lambda self: self._write_conn)
     _lock = property(lambda self: self._write_lock)
 
@@ -314,7 +318,7 @@ class DaemonConnectionPool:
             RuntimeError: If the pool has been closed.
         """
         with self._write_lock:
-            return self._get_write_connection_unlocked()
+            return self._get_or_create_write_connection()
 
     @contextmanager
     def read_connection(self) -> Iterator[sqlite3.Connection]:
@@ -370,7 +374,7 @@ class DaemonConnectionPool:
             Number of affected rows.
         """
         with self._write_lock:
-            conn = self._get_write_connection_unlocked()
+            conn = self._get_or_create_write_connection()
             cursor = conn.execute(query, params)
             conn.commit()
             return cursor.rowcount
@@ -409,7 +413,7 @@ class DaemonConnectionPool:
         start_time = time.monotonic()
 
         with self._write_lock:
-            conn = self._get_write_connection_unlocked()
+            conn = self._get_or_create_write_connection()
             conn.execute("BEGIN IMMEDIATE")
             try:
                 yield conn

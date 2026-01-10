@@ -32,6 +32,9 @@ T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
+# Sentinel value for unset default parameter
+_UNSET: object = object()
+
 
 @dataclass(frozen=True)
 class JsonParseResult(Generic[T]):
@@ -51,14 +54,16 @@ class JsonParseResult(Generic[T]):
 def parse_json_safe(
     raw: str | None,
     *,
-    default: dict | list | None = None,
+    default: dict | list | None | object = _UNSET,
     context: str = "",
 ) -> JsonParseResult[dict | list]:
     """Parse JSON string with error handling.
 
     Args:
         raw: JSON string to parse. None or empty string returns default.
-        default: Default value to return if parsing fails.
+        default: Default value to return if raw is empty or parsing fails.
+            Can be None to explicitly return None as the default value.
+            If not provided, returns None on empty input but fails on parse errors.
         context: Context string for error messages (e.g., field name).
 
     Returns:
@@ -71,7 +76,7 @@ def parse_json_safe(
             summary = result.value
     """
     if raw is None or raw == "":
-        if default is not None:
+        if default is not _UNSET:
             return JsonParseResult(success=True, value=default, error=None)
         return JsonParseResult(success=True, value=None, error=None)
 
@@ -82,14 +87,14 @@ def parse_json_safe(
         context_prefix = f"{context}: " if context else ""
         error_msg = f"{context_prefix}Invalid JSON at position {e.pos}: {e.msg}"
         logger.warning(error_msg)
-        if default is not None:
+        if default is not _UNSET:
             return JsonParseResult(success=True, value=default, error=error_msg)
         return JsonParseResult(success=False, value=None, error=error_msg)
     except TypeError as e:
         context_prefix = f"{context}: " if context else ""
         error_msg = f"{context_prefix}TypeError during JSON parsing: {e}"
         logger.warning(error_msg)
-        if default is not None:
+        if default is not _UNSET:
             return JsonParseResult(success=True, value=default, error=error_msg)
         return JsonParseResult(success=False, value=None, error=error_msg)
 
@@ -99,7 +104,7 @@ def parse_json_with_schema(
     schema: type[BaseModel],
     *,
     context: str = "",
-) -> JsonParseResult:
+) -> JsonParseResult[BaseModel]:
     """Parse JSON and validate against a Pydantic schema.
 
     Args:
