@@ -70,7 +70,7 @@ specs/032-conditional-policy/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── policy/
 │   ├── models.py           # MODIFY: Add ConditionalRule, Condition types
 │   ├── loader.py           # MODIFY: Update MAX_SCHEMA_VERSION to 4

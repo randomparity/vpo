@@ -162,7 +162,7 @@ events:
 
 ### 8. Plugin SDK Design
 
-**Decision**: Provide `video_policy_orchestrator.plugin_sdk` with base classes and helpers
+**Decision**: Provide `vpo.plugin_sdk` with base classes and helpers
 
 **SDK Components**:
 | Component | Purpose |

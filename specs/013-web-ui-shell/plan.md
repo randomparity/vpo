@@ -63,7 +63,7 @@ specs/013-web-ui-shell/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── server/
 │   ├── app.py           # [MODIFY] Add UI routes
 │   ├── ui/              # [NEW] UI module

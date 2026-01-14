@@ -63,7 +63,7 @@ specs/030-init-command/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── cli/
 │   ├── __init__.py      # Register init_command
 │   └── init.py          # NEW: Init command implementation

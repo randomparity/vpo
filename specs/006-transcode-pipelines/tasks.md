@@ -29,8 +29,8 @@
 
 **Purpose**: Project initialization and module structure
 
-- [x] T001 Create jobs module directory structure in `src/video_policy_orchestrator/jobs/__init__.py`
-- [x] T002 [P] Create metadata module directory structure in `src/video_policy_orchestrator/metadata/__init__.py`
+- [x] T001 Create jobs module directory structure in `src/vpo/jobs/__init__.py`
+- [x] T002 [P] Create metadata module directory structure in `src/vpo/metadata/__init__.py`
 - [x] T003 [P] Create test fixtures directory in `tests/fixtures/transcode/`
 
 **Commit Checkpoint**: Commit all Phase 1 changes with message "feat(transcode): add module structure for jobs and metadata"
@@ -43,16 +43,16 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [x] T004 Add JobType and JobStatus enums in `src/video_policy_orchestrator/db/models.py`
-- [x] T005 [P] Add Job dataclass with all fields in `src/video_policy_orchestrator/db/models.py`
-- [x] T006 [P] Add JobProgress dataclass in `src/video_policy_orchestrator/db/models.py`
-- [x] T007 Create jobs table SQL schema (v5) in `src/video_policy_orchestrator/db/schema.py`
-- [x] T008 Implement migrate_v4_to_v5() migration in `src/video_policy_orchestrator/db/schema.py`
-- [x] T009 Update initialize_database() to call v4→v5 migration in `src/video_policy_orchestrator/db/schema.py`
-- [x] T010 [P] Add job CRUD operations (insert_job, get_job, update_job_status) in `src/video_policy_orchestrator/db/models.py`
-- [x] T011 [P] Add job query operations (get_queued_jobs, get_jobs_by_status) in `src/video_policy_orchestrator/db/models.py`
-- [x] T012 Extend config models with jobs/worker settings in `src/video_policy_orchestrator/config/models.py`
-- [x] T013 Update config loader to parse jobs/worker settings in `src/video_policy_orchestrator/config/loader.py`
+- [x] T004 Add JobType and JobStatus enums in `src/vpo/db/models.py`
+- [x] T005 [P] Add Job dataclass with all fields in `src/vpo/db/models.py`
+- [x] T006 [P] Add JobProgress dataclass in `src/vpo/db/models.py`
+- [x] T007 Create jobs table SQL schema (v5) in `src/vpo/db/schema.py`
+- [x] T008 Implement migrate_v4_to_v5() migration in `src/vpo/db/schema.py`
+- [x] T009 Update initialize_database() to call v4→v5 migration in `src/vpo/db/schema.py`
+- [x] T010 [P] Add job CRUD operations (insert_job, get_job, update_job_status) in `src/vpo/db/models.py`
+- [x] T011 [P] Add job query operations (get_queued_jobs, get_jobs_by_status) in `src/vpo/db/models.py`
+- [x] T012 Extend config models with jobs/worker settings in `src/vpo/config/models.py`
+- [x] T013 Update config loader to parse jobs/worker settings in `src/vpo/config/loader.py`
 
 **Commit Checkpoint**: Commit all Phase 2 changes with message "feat(transcode): add Job model, schema v5, and config extensions"
 
@@ -68,19 +68,19 @@
 
 ### Implementation for User Story 1
 
-- [x] T014 [P] [US1] Add TranscodePolicyConfig dataclass in `src/video_policy_orchestrator/policy/models.py`
-- [x] T015 [P] [US1] Add validation for TranscodePolicyConfig (CRF 0-51, valid codecs) in `src/video_policy_orchestrator/policy/models.py`
-- [x] T016 [US1] Extend PolicySchema to include optional transcode field in `src/video_policy_orchestrator/policy/models.py`
-- [x] T017 [US1] Update policy loader to parse transcode section in `src/video_policy_orchestrator/policy/loader.py`
-- [x] T018 [P] [US1] Create FFmpeg progress parser in `src/video_policy_orchestrator/jobs/progress.py`
-- [x] T019 [US1] Create TranscodeExecutor with FFmpeg subprocess in `src/video_policy_orchestrator/executor/transcode.py`
-- [x] T020 [US1] Implement codec compliance check (skip if already compliant) in `src/video_policy_orchestrator/executor/transcode.py`
-- [x] T021 [US1] Implement resolution scaling logic in TranscodeExecutor in `src/video_policy_orchestrator/executor/transcode.py`
-- [x] T022 [US1] Implement dry-run mode for TranscodeExecutor in `src/video_policy_orchestrator/executor/transcode.py`
-- [x] T023 [US1] Create transcode CLI command in `src/video_policy_orchestrator/cli/transcode.py`
-- [x] T024 [US1] Implement --policy, --codec, --crf, --max-resolution options in `src/video_policy_orchestrator/cli/transcode.py`
-- [x] T025 [US1] Implement --dry-run and --recursive options in `src/video_policy_orchestrator/cli/transcode.py`
-- [x] T026 [US1] Register transcode command in CLI main in `src/video_policy_orchestrator/cli/__init__.py`
+- [x] T014 [P] [US1] Add TranscodePolicyConfig dataclass in `src/vpo/policy/models.py`
+- [x] T015 [P] [US1] Add validation for TranscodePolicyConfig (CRF 0-51, valid codecs) in `src/vpo/policy/models.py`
+- [x] T016 [US1] Extend PolicySchema to include optional transcode field in `src/vpo/policy/models.py`
+- [x] T017 [US1] Update policy loader to parse transcode section in `src/vpo/policy/loader.py`
+- [x] T018 [P] [US1] Create FFmpeg progress parser in `src/vpo/jobs/progress.py`
+- [x] T019 [US1] Create TranscodeExecutor with FFmpeg subprocess in `src/vpo/executor/transcode.py`
+- [x] T020 [US1] Implement codec compliance check (skip if already compliant) in `src/vpo/executor/transcode.py`
+- [x] T021 [US1] Implement resolution scaling logic in TranscodeExecutor in `src/vpo/executor/transcode.py`
+- [x] T022 [US1] Implement dry-run mode for TranscodeExecutor in `src/vpo/executor/transcode.py`
+- [x] T023 [US1] Create transcode CLI command in `src/vpo/cli/transcode.py`
+- [x] T024 [US1] Implement --policy, --codec, --crf, --max-resolution options in `src/vpo/cli/transcode.py`
+- [x] T025 [US1] Implement --dry-run and --recursive options in `src/vpo/cli/transcode.py`
+- [x] T026 [US1] Register transcode command in CLI main in `src/vpo/cli/__init__.py`
 
 **Commit Checkpoint**: Commit all US1 changes with message "feat(transcode): implement video transcoding with quality policy (US1)"
 
@@ -96,22 +96,22 @@
 
 ### Implementation for User Story 2
 
-- [x] T027 [P] [US2] Implement job queue operations (enqueue, claim_next, release) in `src/video_policy_orchestrator/jobs/queue.py`
-- [x] T028 [P] [US2] Implement atomic job claim with BEGIN IMMEDIATE in `src/video_policy_orchestrator/jobs/queue.py`
-- [x] T029 [US2] Implement stale job recovery (reset orphaned RUNNING to QUEUED) in `src/video_policy_orchestrator/jobs/queue.py`
-- [x] T030 [US2] Create JobWorker class in `src/video_policy_orchestrator/jobs/worker.py`
-- [x] T031 [US2] Implement worker limit checks (max_files, max_duration, end_by) in `src/video_policy_orchestrator/jobs/worker.py`
-- [x] T032 [US2] Implement worker heartbeat updates in `src/video_policy_orchestrator/jobs/worker.py`
-- [x] T033 [US2] Implement graceful shutdown on SIGTERM/SIGINT in `src/video_policy_orchestrator/jobs/worker.py`
-- [x] T034 [US2] Implement job progress updates during transcoding in `src/video_policy_orchestrator/jobs/worker.py`
-- [x] T035 [US2] Implement auto-purge of old jobs on worker startup in `src/video_policy_orchestrator/jobs/worker.py`
-- [x] T036 [US2] Create jobs CLI command group in `src/video_policy_orchestrator/cli/jobs.py`
-- [x] T037 [US2] Implement `vpo jobs list` command in `src/video_policy_orchestrator/cli/jobs.py`
-- [x] T038 [US2] Implement `vpo jobs status <job-id>` command in `src/video_policy_orchestrator/cli/jobs.py`
-- [x] T039 [US2] Implement `vpo jobs start` command with limit options in `src/video_policy_orchestrator/cli/jobs.py`
-- [x] T040 [US2] Implement `vpo jobs cancel <job-id>` command in `src/video_policy_orchestrator/cli/jobs.py`
-- [x] T041 [US2] Register jobs command group in CLI main in `src/video_policy_orchestrator/cli/__init__.py`
-- [x] T042 [US2] Update transcode CLI to queue jobs instead of executing directly in `src/video_policy_orchestrator/cli/transcode.py`
+- [x] T027 [P] [US2] Implement job queue operations (enqueue, claim_next, release) in `src/vpo/jobs/queue.py`
+- [x] T028 [P] [US2] Implement atomic job claim with BEGIN IMMEDIATE in `src/vpo/jobs/queue.py`
+- [x] T029 [US2] Implement stale job recovery (reset orphaned RUNNING to QUEUED) in `src/vpo/jobs/queue.py`
+- [x] T030 [US2] Create JobWorker class in `src/vpo/jobs/worker.py`
+- [x] T031 [US2] Implement worker limit checks (max_files, max_duration, end_by) in `src/vpo/jobs/worker.py`
+- [x] T032 [US2] Implement worker heartbeat updates in `src/vpo/jobs/worker.py`
+- [x] T033 [US2] Implement graceful shutdown on SIGTERM/SIGINT in `src/vpo/jobs/worker.py`
+- [x] T034 [US2] Implement job progress updates during transcoding in `src/vpo/jobs/worker.py`
+- [x] T035 [US2] Implement auto-purge of old jobs on worker startup in `src/vpo/jobs/worker.py`
+- [x] T036 [US2] Create jobs CLI command group in `src/vpo/cli/jobs.py`
+- [x] T037 [US2] Implement `vpo jobs list` command in `src/vpo/cli/jobs.py`
+- [x] T038 [US2] Implement `vpo jobs status <job-id>` command in `src/vpo/cli/jobs.py`
+- [x] T039 [US2] Implement `vpo jobs start` command with limit options in `src/vpo/cli/jobs.py`
+- [x] T040 [US2] Implement `vpo jobs cancel <job-id>` command in `src/vpo/cli/jobs.py`
+- [x] T041 [US2] Register jobs command group in CLI main in `src/vpo/cli/__init__.py`
+- [x] T042 [US2] Update transcode CLI to queue jobs instead of executing directly in `src/vpo/cli/transcode.py`
 
 **Commit Checkpoint**: Commit all US2 changes with message "feat(transcode): implement job queue and worker system (US2)"
 
@@ -127,14 +127,14 @@
 
 ### Implementation for User Story 3
 
-- [x] T043 [P] [US3] Add AudioPreservationRule dataclass in `src/video_policy_orchestrator/policy/models.py`
-- [x] T044 [US3] Add audio preservation fields to TranscodePolicyConfig in `src/video_policy_orchestrator/policy/models.py`
-- [x] T045 [US3] Implement audio codec matching logic in `src/video_policy_orchestrator/policy/transcode.py`
-- [x] T046 [US3] Implement per-track audio handling in TranscodeExecutor in `src/video_policy_orchestrator/executor/transcode.py`
-- [x] T047 [US3] Implement audio stream copy for preserved codecs in `src/video_policy_orchestrator/executor/transcode.py`
-- [x] T048 [US3] Implement audio transcoding to target codec in `src/video_policy_orchestrator/executor/transcode.py`
-- [x] T049 [US3] Implement audio downmix option (stereo track creation) in `src/video_policy_orchestrator/executor/transcode.py`
-- [x] T050 [US3] Update dry-run to show audio handling plan in `src/video_policy_orchestrator/executor/transcode.py`
+- [x] T043 [P] [US3] Add AudioPreservationRule dataclass in `src/vpo/policy/models.py`
+- [x] T044 [US3] Add audio preservation fields to TranscodePolicyConfig in `src/vpo/policy/models.py`
+- [x] T045 [US3] Implement audio codec matching logic in `src/vpo/policy/transcode.py`
+- [x] T046 [US3] Implement per-track audio handling in TranscodeExecutor in `src/vpo/executor/transcode.py`
+- [x] T047 [US3] Implement audio stream copy for preserved codecs in `src/vpo/executor/transcode.py`
+- [x] T048 [US3] Implement audio transcoding to target codec in `src/vpo/executor/transcode.py`
+- [x] T049 [US3] Implement audio downmix option (stereo track creation) in `src/vpo/executor/transcode.py`
+- [x] T050 [US3] Update dry-run to show audio handling plan in `src/vpo/executor/transcode.py`
 
 **Commit Checkpoint**: Commit all US3 changes with message "feat(transcode): implement audio track preservation rules (US3)"
 
@@ -150,18 +150,18 @@
 
 ### Implementation for User Story 4
 
-- [x] T051 [P] [US4] Add ParsedMetadata dataclass in `src/video_policy_orchestrator/metadata/parser.py`
-- [x] T052 [P] [US4] Add DestinationTemplate dataclass in `src/video_policy_orchestrator/metadata/templates.py`
-- [x] T053 [US4] Implement filename parsing regex patterns (movie, TV) in `src/video_policy_orchestrator/metadata/parser.py`
-- [x] T054 [US4] Implement parse_filename() function in `src/video_policy_orchestrator/metadata/parser.py`
-- [x] T055 [US4] Implement template placeholder extraction in `src/video_policy_orchestrator/metadata/templates.py`
-- [x] T056 [US4] Implement template render() with fallback values in `src/video_policy_orchestrator/metadata/templates.py`
-- [x] T057 [US4] Create MoveExecutor for file movement in `src/video_policy_orchestrator/executor/move.py`
-- [x] T058 [US4] Implement directory creation in MoveExecutor in `src/video_policy_orchestrator/executor/move.py`
-- [x] T059 [US4] Add destination field handling to TranscodePolicyConfig in `src/video_policy_orchestrator/policy/models.py`
-- [x] T060 [US4] Integrate file movement after transcode completion in `src/video_policy_orchestrator/jobs/worker.py`
-- [x] T061 [US4] Update dry-run to show destination path in `src/video_policy_orchestrator/cli/transcode.py`
-- [x] T062 [P] [US4] Add MetadataExtractedEvent for plugin hook in `src/video_policy_orchestrator/plugin/events.py`
+- [x] T051 [P] [US4] Add ParsedMetadata dataclass in `src/vpo/metadata/parser.py`
+- [x] T052 [P] [US4] Add DestinationTemplate dataclass in `src/vpo/metadata/templates.py`
+- [x] T053 [US4] Implement filename parsing regex patterns (movie, TV) in `src/vpo/metadata/parser.py`
+- [x] T054 [US4] Implement parse_filename() function in `src/vpo/metadata/parser.py`
+- [x] T055 [US4] Implement template placeholder extraction in `src/vpo/metadata/templates.py`
+- [x] T056 [US4] Implement template render() with fallback values in `src/vpo/metadata/templates.py`
+- [x] T057 [US4] Create MoveExecutor for file movement in `src/vpo/executor/move.py`
+- [x] T058 [US4] Implement directory creation in MoveExecutor in `src/vpo/executor/move.py`
+- [x] T059 [US4] Add destination field handling to TranscodePolicyConfig in `src/vpo/policy/models.py`
+- [x] T060 [US4] Integrate file movement after transcode completion in `src/vpo/jobs/worker.py`
+- [x] T061 [US4] Update dry-run to show destination path in `src/vpo/cli/transcode.py`
+- [x] T062 [P] [US4] Add MetadataExtractedEvent for plugin hook in `src/vpo/plugin/events.py`
 
 **Commit Checkpoint**: Commit all US4 changes with message "feat(transcode): implement directory organization policies (US4)"
 
@@ -177,15 +177,15 @@
 
 ### Implementation for User Story 5
 
-- [x] T063 [P] [US5] Add backup_original and temp_directory to config models in `src/video_policy_orchestrator/config/models.py`
-- [x] T064 [US5] Implement write-to-temp-then-move pattern in TranscodeExecutor in `src/video_policy_orchestrator/executor/transcode.py`
-- [x] T065 [US5] Implement original file backup on success in `src/video_policy_orchestrator/executor/transcode.py`
-- [x] T066 [US5] Implement partial output cleanup on failure in `src/video_policy_orchestrator/executor/transcode.py`
-- [x] T067 [US5] Implement disk space pre-check before transcoding in `src/video_policy_orchestrator/executor/transcode.py`
-- [x] T068 [US5] Add detailed operation logging for rollback info in `src/video_policy_orchestrator/jobs/worker.py`
-- [x] T069 [US5] Implement `vpo jobs cleanup` command in `src/video_policy_orchestrator/cli/jobs.py`
-- [x] T070 [US5] Implement --older-than and --include-backups options for cleanup in `src/video_policy_orchestrator/cli/jobs.py`
-- [x] T071 [US5] Implement orphaned temp file cleanup in `src/video_policy_orchestrator/cli/jobs.py`
+- [x] T063 [P] [US5] Add backup_original and temp_directory to config models in `src/vpo/config/models.py`
+- [x] T064 [US5] Implement write-to-temp-then-move pattern in TranscodeExecutor in `src/vpo/executor/transcode.py`
+- [x] T065 [US5] Implement original file backup on success in `src/vpo/executor/transcode.py`
+- [x] T066 [US5] Implement partial output cleanup on failure in `src/vpo/executor/transcode.py`
+- [x] T067 [US5] Implement disk space pre-check before transcoding in `src/vpo/executor/transcode.py`
+- [x] T068 [US5] Add detailed operation logging for rollback info in `src/vpo/jobs/worker.py`
+- [x] T069 [US5] Implement `vpo jobs cleanup` command in `src/vpo/cli/jobs.py`
+- [x] T070 [US5] Implement --older-than and --include-backups options for cleanup in `src/vpo/cli/jobs.py`
+- [x] T071 [US5] Implement orphaned temp file cleanup in `src/vpo/cli/jobs.py`
 
 **Commit Checkpoint**: Commit all US5 changes with message "feat(transcode): implement safety and rollback options (US5)"
 
@@ -199,7 +199,7 @@
 
 - [x] T072 [P] Add transcode policy documentation in `docs/usage/transcode-policy.md`
 - [x] T073 [P] Add job system documentation in `docs/usage/jobs.md`
-- [x] T074 Update CLI help text for all new commands in `src/video_policy_orchestrator/cli/`
+- [x] T074 Update CLI help text for all new commands in `src/vpo/cli/`
 - [x] T075 Add example transcode policy to `examples/policies/transcode-hevc.yaml`
 - [x] T076 Validate quickstart.md scenarios work end-to-end
 - [x] T077 Update README.md with transcode feature overview

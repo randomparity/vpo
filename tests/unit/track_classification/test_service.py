@@ -2,15 +2,15 @@
 
 import pytest
 
-from video_policy_orchestrator.db.types import (
+from vpo.db.types import (
     CommentaryStatus,
     DetectionMethod,
     FileRecord,
     OriginalDubbedStatus,
     TrackRecord,
 )
-from video_policy_orchestrator.track_classification.models import AcousticProfile
-from video_policy_orchestrator.track_classification.service import (
+from vpo.track_classification.models import AcousticProfile
+from vpo.track_classification.service import (
     _is_commentary_by_acoustic,
     _is_commentary_by_metadata,
     classify_track,
@@ -151,7 +151,7 @@ class TestClassifyTrack:
         """Create an in-memory database with schema."""
         import sqlite3
 
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         db_path = tmp_path / "test.db"
         conn = sqlite3.connect(str(db_path))
@@ -263,7 +263,7 @@ class TestClassifyTrack:
 
     def test_raises_for_non_audio_track(self, db_conn, file_record):
         """Should raise error for non-audio tracks."""
-        from video_policy_orchestrator.track_classification import ClassificationError
+        from vpo.track_classification import ClassificationError
 
         video_track = TrackRecord(
             id=1,

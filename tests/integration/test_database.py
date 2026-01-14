@@ -5,7 +5,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from video_policy_orchestrator.cli import main
+from vpo.cli import main
 
 
 class TestDatabasePersistence:

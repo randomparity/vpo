@@ -22,7 +22,7 @@ brew install ffmpeg
 
 ```bash
 # Install from PyPI (recommended)
-pip install video-policy-orchestrator
+pip install vpo
 
 # Verify installation
 vpo --version

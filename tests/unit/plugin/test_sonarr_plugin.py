@@ -5,20 +5,20 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from video_policy_orchestrator.config.models import PluginConnectionConfig
-from video_policy_orchestrator.plugin.events import FileScannedEvent
-from video_policy_orchestrator.plugin.interfaces import AnalyzerPlugin
-from video_policy_orchestrator.plugins.sonarr_metadata.client import (
+from vpo.config.models import PluginConnectionConfig
+from vpo.plugin.events import FileScannedEvent
+from vpo.plugin.interfaces import AnalyzerPlugin
+from vpo.plugins.sonarr_metadata.client import (
     SonarrAuthError,
     SonarrConnectionError,
 )
-from video_policy_orchestrator.plugins.sonarr_metadata.models import (
+from vpo.plugins.sonarr_metadata.models import (
     SonarrEpisode,
     SonarrLanguage,
     SonarrParseResult,
     SonarrSeries,
 )
-from video_policy_orchestrator.plugins.sonarr_metadata.plugin import (
+from vpo.plugins.sonarr_metadata.plugin import (
     SonarrMetadataPlugin,
 )
 
@@ -37,9 +37,7 @@ def config() -> PluginConnectionConfig:
 @pytest.fixture
 def mock_client():
     """Create a mock SonarrClient."""
-    with patch(
-        "video_policy_orchestrator.plugins.sonarr_metadata.plugin.SonarrClient"
-    ) as mock_class:
+    with patch("vpo.plugins.sonarr_metadata.plugin.SonarrClient") as mock_class:
         mock_instance = MagicMock()
         mock_class.return_value = mock_instance
         yield mock_instance
@@ -128,9 +126,7 @@ class TestSonarrMetadataPluginInit:
 
     def test_init_validates_connection(self, config: PluginConnectionConfig):
         """Test that init validates connection."""
-        with patch(
-            "video_policy_orchestrator.plugins.sonarr_metadata.plugin.SonarrClient"
-        ) as mock_class:
+        with patch("vpo.plugins.sonarr_metadata.plugin.SonarrClient") as mock_class:
             mock_client = MagicMock()
             mock_class.return_value = mock_client
 
@@ -140,9 +136,7 @@ class TestSonarrMetadataPluginInit:
 
     def test_init_auth_error_disables_plugin(self, config: PluginConnectionConfig):
         """Test that auth error disables plugin and re-raises."""
-        with patch(
-            "video_policy_orchestrator.plugins.sonarr_metadata.plugin.SonarrClient"
-        ) as mock_class:
+        with patch("vpo.plugins.sonarr_metadata.plugin.SonarrClient") as mock_class:
             mock_client = MagicMock()
             mock_client.validate_connection.side_effect = SonarrAuthError("Invalid key")
             mock_class.return_value = mock_client
@@ -152,9 +146,7 @@ class TestSonarrMetadataPluginInit:
 
     def test_init_connection_error_raises(self, config: PluginConnectionConfig):
         """Test that connection error is re-raised."""
-        with patch(
-            "video_policy_orchestrator.plugins.sonarr_metadata.plugin.SonarrClient"
-        ) as mock_class:
+        with patch("vpo.plugins.sonarr_metadata.plugin.SonarrClient") as mock_class:
             mock_client = MagicMock()
             mock_client.validate_connection.side_effect = SonarrConnectionError(
                 "Connection refused"
@@ -174,9 +166,7 @@ class TestSonarrMetadataPluginOnFileScanned:
         tmp_path: Path,
     ):
         """Test that disabled plugin returns None."""
-        with patch(
-            "video_policy_orchestrator.plugins.sonarr_metadata.plugin.SonarrClient"
-        ) as mock_class:
+        with patch("vpo.plugins.sonarr_metadata.plugin.SonarrClient") as mock_class:
             mock_client = MagicMock()
             mock_class.return_value = mock_client
 

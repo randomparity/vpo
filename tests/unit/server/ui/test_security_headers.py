@@ -1,6 +1,6 @@
 """Unit tests for security headers configuration."""
 
-from video_policy_orchestrator.server.ui.routes import SECURITY_HEADERS
+from vpo.server.ui.routes import SECURITY_HEADERS
 
 
 class TestSecurityHeaders:

@@ -6,7 +6,7 @@ implementations can be validated at runtime.
 
 from pathlib import Path
 
-from video_policy_orchestrator.plugin import (
+from vpo.plugin import (
     AnalyzerPlugin,
     FileScannedEvent,
     MutatorPlugin,

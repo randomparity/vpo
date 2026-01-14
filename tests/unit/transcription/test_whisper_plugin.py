@@ -4,12 +4,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from video_policy_orchestrator.plugins.whisper_transcriber import (
+from vpo.plugins.whisper_transcriber import (
     PluginDependencyError,
     WhisperTranscriptionPlugin,
 )
-from video_policy_orchestrator.transcription.interface import TranscriptionError
-from video_policy_orchestrator.transcription.models import (
+from vpo.transcription.interface import TranscriptionError
+from vpo.transcription.models import (
     TranscriptionConfig,
 )
 
@@ -86,7 +86,7 @@ class TestWhisperTranscriptionPlugin:
         plugin = WhisperTranscriptionPlugin()
         assert plugin.supports_feature("unknown") is False
 
-    @patch("video_policy_orchestrator.plugins.whisper_transcriber.plugin._get_whisper")
+    @patch("vpo.plugins.whisper_transcriber.plugin._get_whisper")
     def test_detect_language_whisper_not_installed(self, mock_get_whisper):
         """Test detect_language when whisper is not installed."""
         mock_get_whisper.side_effect = PluginDependencyError("Not installed")
@@ -95,7 +95,7 @@ class TestWhisperTranscriptionPlugin:
         with pytest.raises(PluginDependencyError, match="Not installed"):
             plugin.detect_language(b"fake_audio_data")
 
-    @patch("video_policy_orchestrator.plugins.whisper_transcriber.plugin._get_whisper")
+    @patch("vpo.plugins.whisper_transcriber.plugin._get_whisper")
     def test_transcribe_whisper_not_installed(self, mock_get_whisper):
         """Test transcribe when whisper is not installed."""
         mock_get_whisper.side_effect = PluginDependencyError("Not installed")
@@ -121,7 +121,7 @@ class TestPluginDependencyError:
 class TestWhisperPluginModelLoading:
     """Tests for Whisper plugin model loading behavior."""
 
-    @patch("video_policy_orchestrator.plugins.whisper_transcriber.plugin._get_whisper")
+    @patch("vpo.plugins.whisper_transcriber.plugin._get_whisper")
     def test_model_lazy_loading(self, mock_get_whisper):
         """Test that model is loaded lazily."""
         mock_whisper = MagicMock()
@@ -142,7 +142,7 @@ class TestWhisperPluginModelLoading:
         # Model should now be loaded
         mock_whisper.load_model.assert_called_once()
 
-    @patch("video_policy_orchestrator.plugins.whisper_transcriber.plugin._get_whisper")
+    @patch("vpo.plugins.whisper_transcriber.plugin._get_whisper")
     def test_model_caching(self, mock_get_whisper):
         """Test that model is cached after first load."""
         mock_whisper = MagicMock()
@@ -160,7 +160,7 @@ class TestWhisperPluginModelLoading:
         # Should only call load_model once
         assert mock_whisper.load_model.call_count == 1
 
-    @patch("video_policy_orchestrator.plugins.whisper_transcriber.plugin._get_whisper")
+    @patch("vpo.plugins.whisper_transcriber.plugin._get_whisper")
     def test_model_uses_configured_model_size(self, mock_get_whisper):
         """Test that model loading uses configured model size."""
         mock_whisper = MagicMock()
@@ -175,7 +175,7 @@ class TestWhisperPluginModelLoading:
 
         mock_whisper.load_model.assert_called_once_with("large", device="cpu")
 
-    @patch("video_policy_orchestrator.plugins.whisper_transcriber.plugin._get_whisper")
+    @patch("vpo.plugins.whisper_transcriber.plugin._get_whisper")
     def test_model_cpu_fallback_when_no_torch(self, mock_get_whisper):
         """Test that model falls back to CPU when torch is not available."""
         mock_whisper = MagicMock()
@@ -198,7 +198,7 @@ class TestWhisperPluginInstance:
 
     def test_plugin_instance_exported(self):
         """Test that plugin_instance is exported from package."""
-        from video_policy_orchestrator.plugins.whisper_transcriber import (
+        from vpo.plugins.whisper_transcriber import (
             plugin_instance,
         )
 
@@ -207,7 +207,7 @@ class TestWhisperPluginInstance:
 
     def test_plugin_instance_has_required_attributes(self):
         """Test that plugin_instance has all required plugin attributes."""
-        from video_policy_orchestrator.plugins.whisper_transcriber import (
+        from vpo.plugins.whisper_transcriber import (
             plugin_instance,
         )
 
@@ -219,10 +219,10 @@ class TestWhisperPluginInstance:
 
     def test_plugin_instance_is_same_object(self):
         """Verify plugin_instance is consistent across imports."""
-        from video_policy_orchestrator.plugins.whisper_transcriber import (
+        from vpo.plugins.whisper_transcriber import (
             plugin_instance as p1,
         )
-        from video_policy_orchestrator.plugins.whisper_transcriber import (
+        from vpo.plugins.whisper_transcriber import (
             plugin_instance as p2,
         )
 
@@ -234,7 +234,7 @@ class TestWhisperPluginRegistration:
 
     def test_load_builtin_plugins_includes_whisper(self):
         """Test that load_builtin_plugins loads whisper when available."""
-        from video_policy_orchestrator.plugin.registry import PluginRegistry
+        from vpo.plugin.registry import PluginRegistry
 
         registry = PluginRegistry()
         loaded = registry.load_builtin_plugins()
@@ -248,8 +248,8 @@ class TestWhisperPluginRegistration:
 
     def test_whisper_plugin_is_builtin(self):
         """Test that whisper plugin is marked as built-in."""
-        from video_policy_orchestrator.plugin.manifest import PluginSource
-        from video_policy_orchestrator.plugin.registry import PluginRegistry
+        from vpo.plugin.manifest import PluginSource
+        from vpo.plugin.registry import PluginRegistry
 
         registry = PluginRegistry()
         registry.load_builtin_plugins()
@@ -260,7 +260,7 @@ class TestWhisperPluginRegistration:
 
     def test_whisper_plugin_events_registered(self):
         """Test that whisper plugin events are properly registered."""
-        from video_policy_orchestrator.plugin.registry import PluginRegistry
+        from vpo.plugin.registry import PluginRegistry
 
         registry = PluginRegistry()
         registry.load_builtin_plugins()
@@ -275,7 +275,7 @@ class TestWhisperPluginRegistration:
         import builtins
         import sys
 
-        from video_policy_orchestrator.plugin.registry import PluginRegistry
+        from vpo.plugin.registry import PluginRegistry
 
         # Clear any cached imports of whisper_transcriber
         modules_to_remove = [key for key in sys.modules if "whisper_transcriber" in key]

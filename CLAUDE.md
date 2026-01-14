@@ -9,11 +9,9 @@ Video Policy Orchestrator (VPO) is a spec-driven tool for scanning, organizing, 
 ## Build & Test Commands
 
 ```bash
-# Install dependencies (use uv, not pip)
-uv pip install -e ".[dev]"
-
-# Build Rust extension (required after pulling or modifying Rust code)
-uv run maturin develop
+# First-time setup (creates venv, installs deps, builds Rust, installs hooks)
+make setup                              # Requires uv or pyenv
+source .venv/bin/activate               # Activate the virtual environment
 
 # Run tests
 uv run pytest                           # All tests
@@ -22,10 +20,11 @@ uv run pytest -k test_name              # Single test by name
 uv run pytest tests/path/to_file.py    # Single test file
 
 # Linting & formatting
-uv run ruff check .                     # Python lint
-uv run ruff format .                    # Python format
-cargo clippy --manifest-path crates/vpo-core/Cargo.toml  # Rust lint
-cargo fmt --manifest-path crates/vpo-core/Cargo.toml     # Rust format
+make lint                               # Python + Rust lint
+make format                             # Python + Rust format
+
+# Rebuild Rust extension (after modifying Rust code)
+uv run maturin develop
 
 # Run CLI
 uv run vpo --help
@@ -39,16 +38,16 @@ uv run vpo serve --port 8080          # Start daemon with web UI
 
 ## Tech Stack
 
-- **Python 3.10+** with click (CLI), pydantic, PyYAML, aiohttp (daemon), Jinja2 (templates)
+- **Python 3.10-3.13** with click (CLI), pydantic, PyYAML, aiohttp (daemon), Jinja2 (templates)
 - **Rust** (PyO3/maturin) for parallel file discovery and hashing in `crates/vpo-core/`
-- **SQLite** database at `~/.vpo/library.db` (schema version 18)
+- **SQLite** database at `~/.vpo/library.db` (schema version 20)
 - **Web UI**: Vanilla JavaScript (ES6+), no frameworks - uses polling for live updates
 - **External tools:** ffprobe (introspection), mkvpropedit/mkvmerge (MKV editing), ffmpeg (metadata editing)
 
 ## Architecture
 
 ```
-src/video_policy_orchestrator/
+src/vpo/
 ├── cli/           # Click commands: scan, inspect, apply, doctor, serve, process
 ├── config/        # Configuration loading and models
 ├── db/            # SQLite schema, models, and query functions (see below)
@@ -58,12 +57,12 @@ src/video_policy_orchestrator/
 ├── plugin/        # Plugin system: registry, loader, interfaces, events
 ├── plugin_sdk/    # SDK helpers for plugin authors
 ├── plugins/       # Built-in reference plugins
-├── policy/        # PolicySchema loading, Plan evaluation, track matchers
+├── policy/        # PolicySchema loading, Plan evaluation, track matchers (see types.py)
 ├── scanner/       # Orchestrates discovery and introspection
 ├── server/        # aiohttp daemon: app, routes, lifecycle, signals
 │   ├── ui/        # Web UI: Jinja2 templates, routes, models
 │   └── static/    # CSS, JavaScript (vanilla JS, no frameworks)
-├── tools/         # External tool detection and capability caching
+├── tools/         # External tool detection, FFmpeg progress parsing, capability caching
 └── workflow/      # V11WorkflowProcessor: multi-phase policy execution pipeline
 
 crates/vpo-core/   # Rust extension for parallel discovery/hashing
@@ -116,15 +115,35 @@ This project has a formal constitution at `.specify/memory/constitution.md` with
 - **IO Separation**: Core logic in pure functions; external tools behind adapters
 - **Concurrency**: Use `DaemonConnectionPool` for thread-safe DB access; `ThreadPoolExecutor` for parallel CLI operations
 
+## Core Utilities
+
+The `core/` module provides pure utility functions with no external dependencies:
+
+```
+core/
+├── __init__.py         # Public API exports
+├── datetime_utils.py   # UTC datetime parsing, duration calculation
+├── formatting.py       # File size, resolution labels, language formatting
+├── string_utils.py     # Case-insensitive string operations using casefold()
+├── subprocess_utils.py # Unified subprocess wrapper with timeout/encoding
+└── validation.py       # UUID validation
+```
+
+**Key utilities:**
+- `normalize_string(s)`: Casefold + strip for Unicode-safe normalization
+- `compare_strings_ci(a, b)`: Case-insensitive comparison
+- `run_command(args, timeout)`: Subprocess wrapper with standard error handling
+
 ## Database Module Structure
 
-The `db/` module is organized into separate files for types, queries, and views:
+The `db/` module is organized into separate files for types, queries, operations, and views:
 
 ```
 db/
 ├── __init__.py   # Public API - re-exports all types and functions
 ├── types.py      # Enums, dataclasses (records, domain models, view models)
 ├── queries.py    # CRUD operations (insert, upsert, get, delete)
+├── operations.py # Plan CRUD and operation audit logging
 ├── views.py      # Aggregated view queries for UI (library list, transcriptions)
 ├── schema.py     # Schema creation and migrations
 └── models.py     # Backward-compat shim (deprecated, re-exports from above)
@@ -133,14 +152,15 @@ db/
 **Import patterns** (all equivalent):
 ```python
 # Preferred: import from package
-from video_policy_orchestrator.db import FileRecord, get_file_by_path
+from vpo.db import FileRecord, get_file_by_path, create_plan
 
 # Or from specific submodule
-from video_policy_orchestrator.db.types import FileRecord
-from video_policy_orchestrator.db.queries import get_file_by_path
+from vpo.db.types import FileRecord
+from vpo.db.queries import get_file_by_path
+from vpo.db.operations import create_plan
 
 # Legacy (still works, but deprecated)
-from video_policy_orchestrator.db.models import FileRecord, get_file_by_path
+from vpo.db.models import FileRecord, get_file_by_path
 ```
 
 **Key types:**
@@ -182,7 +202,7 @@ The web UI uses server-rendered HTML with JavaScript enhancements:
 The visual policy editor (`/policies/{name}/edit`) provides form-based editing of YAML policy files:
 - **Round-trip preservation**: Uses `ruamel.yaml` to preserve unknown fields and comments
 - **Concurrency**: Detects concurrent modifications via last_modified timestamps
-- **Editor module**: `src/video_policy_orchestrator/policy/editor.py` (PolicyRoundTripEditor class)
+- **Editor module**: `src/vpo/policy/editor.py` (PolicyRoundTripEditor class)
 - **Routes**: GET/PUT `/api/policies/{name}` for load/save, POST `/api/policies/{name}/validate` for dry-run validation
 - **Usage docs**: See `/docs/usage/policy-editor.md` for user guide
 
@@ -234,8 +254,10 @@ transcode:
 ```
 
 **Key modules:**
-- `policy/models.py`: All schema dataclasses (PolicySchema, PhasedPolicySchema, SkipCondition, QualitySettings, ConditionalRule, PhaseSkipCondition, etc.)
-- `policy/loader.py`: PolicyModel validation, schema loading, SCHEMA_VERSION constant
+- `policy/types.py`: All schema dataclasses and enums (PolicySchema, PhasedPolicySchema, TrackType, etc.)
+- `policy/pydantic_models.py`: Pydantic models for YAML parsing and validation
+- `policy/conversion.py`: Functions to convert Pydantic models to frozen dataclasses
+- `policy/loader.py`: High-level loading functions (load_policy, load_policy_from_dict)
 - `executor/transcode.py`: TranscodeExecutor, FFmpeg command building, edge case detection
 - `policy/transcode.py`: Audio plan creation for audio config
 - `workflow/skip_conditions.py`: Phase skip condition evaluation (evaluate_skip_when)
@@ -334,9 +356,9 @@ class MyPlugin:
 ## Condition Evaluation Pattern
 
 When adding new condition types to the policy system:
-1. Create condition dataclass in `policy/models.py` (add to `Condition` union type)
-2. Add Pydantic model in `policy/loader.py` for YAML parsing
-3. Add parsing case to `convert_condition()` in `policy/loader.py`
+1. Create condition dataclass in `policy/types.py` (add to `Condition` union type)
+2. Add Pydantic model in `policy/pydantic_models.py` for YAML parsing
+3. Add parsing case to `_convert_condition()` in `policy/conversion.py`
 4. Add evaluation function in `policy/conditions.py`
 5. Thread any new context through `policy/evaluator.py`
 

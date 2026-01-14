@@ -63,7 +63,7 @@ specs/014-settings-about-panel/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── server/
 │   ├── app.py           # Add /api/about endpoint
 │   └── ui/

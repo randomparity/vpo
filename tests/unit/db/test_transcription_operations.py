@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from video_policy_orchestrator.db.models import (
+from vpo.db.models import (
     FileRecord,
     TrackRecord,
     TranscriptionResultRecord,
@@ -15,7 +15,7 @@ from video_policy_orchestrator.db.models import (
     insert_track,
     upsert_transcription_result,
 )
-from video_policy_orchestrator.db.schema import create_schema
+from vpo.db.schema import create_schema
 
 
 @pytest.fixture

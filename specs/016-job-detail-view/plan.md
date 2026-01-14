@@ -63,7 +63,7 @@ specs/016-job-detail-view/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── db/
 │   ├── models.py              # Add log_path field to Job dataclass
 │   └── schema.py              # Schema v8 migration for log_path column

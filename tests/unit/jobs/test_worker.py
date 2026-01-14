@@ -13,9 +13,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from video_policy_orchestrator.db.queries import get_job, insert_job
-from video_policy_orchestrator.db.types import Job, JobStatus, JobType
-from video_policy_orchestrator.jobs.worker import (
+from vpo.db.queries import get_job, insert_job
+from vpo.db.types import Job, JobStatus, JobType
+from vpo.jobs.worker import (
     JobWorker,
 )
 
@@ -28,9 +28,7 @@ def mock_transcode_service():
     creates an FFprobeIntrospector that requires ffprobe to be installed.
     This fixture mocks the service to avoid that dependency.
     """
-    with patch(
-        "video_policy_orchestrator.jobs.worker.TranscodeJobService"
-    ) as mock_service:
+    with patch("vpo.jobs.worker.TranscodeJobService") as mock_service:
         mock_service.return_value = MagicMock()
         yield mock_service
 
@@ -79,7 +77,7 @@ class TestParseEndBy:
     def test_parses_valid_time(self, db_conn: sqlite3.Connection) -> None:
         """Parses valid HH:MM time string."""
         # Freeze time to avoid flakiness near midnight boundaries
-        with patch("video_policy_orchestrator.jobs.worker.datetime") as mock_dt:
+        with patch("vpo.jobs.worker.datetime") as mock_dt:
             # Set current time to 10:00 AM
             mock_dt.now.return_value = datetime(2024, 1, 15, 10, 0, 0)
 
@@ -92,7 +90,7 @@ class TestParseEndBy:
     def test_adds_day_when_time_in_past(self, db_conn: sqlite3.Connection) -> None:
         """Adds a day when end time is in the past."""
         # Use a time that's definitely in the past (2 hours ago)
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         past_hour = (now.hour - 2) % 24
         past_time = f"{past_hour:02d}:00"
 
@@ -111,6 +109,17 @@ class TestParseEndBy:
         """Returns None for malformed strings."""
         worker = JobWorker(conn=db_conn, end_by="12")  # Missing minutes
         assert worker.end_by is None
+
+    def test_returns_timezone_aware_datetime(self, db_conn: sqlite3.Connection) -> None:
+        """Returns UTC-aware datetime for valid input."""
+        # Use a future time to ensure we don't hit the "add a day" logic
+        future_hour = (datetime.now(timezone.utc).hour + 2) % 24
+        future_time = f"{future_hour:02d}:30"
+
+        worker = JobWorker(conn=db_conn, end_by=future_time)
+
+        assert worker.end_by is not None
+        assert worker.end_by.tzinfo == timezone.utc
 
 
 # =============================================================================
@@ -182,8 +191,8 @@ class TestShouldContinue:
         """Returns False when end_by time is reached."""
         worker = JobWorker(conn=db_conn)
         worker._start_time = time.time()
-        # Set end_by to a past time
-        worker.end_by = datetime.now() - timedelta(minutes=1)
+        # Set end_by to a past time (must be UTC-aware to match worker comparison)
+        worker.end_by = datetime.now(timezone.utc) - timedelta(minutes=1)
 
         assert worker._should_continue() is False
 
@@ -194,8 +203,8 @@ class TestShouldContinue:
         worker = JobWorker(conn=db_conn)
         worker._start_time = time.time()
         worker._files_processed = 0
-        # Set end_by to a future time
-        worker.end_by = datetime.now() + timedelta(hours=1)
+        # Set end_by to a future time (must be UTC-aware to match worker comparison)
+        worker.end_by = datetime.now(timezone.utc) + timedelta(hours=1)
 
         assert worker._should_continue() is True
 
@@ -233,13 +242,49 @@ class TestSignalHandler:
 
 
 class TestHeartbeatManagement:
-    """Tests for heartbeat thread management."""
+    """Tests for heartbeat thread management.
 
-    def test_start_heartbeat_creates_thread(self, db_conn: sqlite3.Connection) -> None:
+    These tests use mocked connections to avoid real database access in the
+    heartbeat thread. This prevents lock contention warnings during test
+    teardown while still testing thread lifecycle behavior.
+    """
+
+    @pytest.fixture
+    def file_backed_db(self, tmp_path):
+        """Create a file-backed database for heartbeat tests."""
+        from vpo.db.schema import create_schema
+
+        db_path = tmp_path / "test_worker.db"
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        create_schema(conn)
+        yield conn
+        conn.close()
+
+    @pytest.fixture(autouse=True)
+    def mock_heartbeat_connection(self):
+        """Mock get_connection in heartbeat thread to avoid DB lock contention.
+
+        The heartbeat thread opens its own connection which can cause lock
+        warnings during test teardown. This fixture mocks the connection
+        to avoid real database access while still testing thread lifecycle.
+        """
+        mock_conn = MagicMock()
+        mock_conn.execute = MagicMock()
+        mock_context = MagicMock()
+        mock_context.__enter__ = MagicMock(return_value=mock_conn)
+        mock_context.__exit__ = MagicMock(return_value=False)
+
+        with patch("vpo.jobs.worker.get_connection", return_value=mock_context):
+            yield
+
+    def test_start_heartbeat_creates_thread(
+        self, file_backed_db: sqlite3.Connection
+    ) -> None:
         """Starting heartbeat creates a daemon thread."""
-        worker = JobWorker(conn=db_conn)
+        worker = JobWorker(conn=file_backed_db)
         job = make_test_job()
-        insert_job(db_conn, job)
+        insert_job(file_backed_db, job)
 
         try:
             worker._start_heartbeat(job.id)
@@ -251,12 +296,12 @@ class TestHeartbeatManagement:
             worker._stop_heartbeat()
 
     def test_stop_heartbeat_terminates_thread(
-        self, db_conn: sqlite3.Connection
+        self, file_backed_db: sqlite3.Connection
     ) -> None:
         """Stopping heartbeat terminates the thread."""
-        worker = JobWorker(conn=db_conn)
+        worker = JobWorker(conn=file_backed_db)
         job = make_test_job()
-        insert_job(db_conn, job)
+        insert_job(file_backed_db, job)
 
         worker._start_heartbeat(job.id)
         assert worker._heartbeat_thread is not None
@@ -273,12 +318,12 @@ class TestHeartbeatManagement:
         )
 
     def test_heartbeat_stop_event_cleared_on_start(
-        self, db_conn: sqlite3.Connection
+        self, file_backed_db: sqlite3.Connection
     ) -> None:
         """Heartbeat stop event is cleared when starting."""
-        worker = JobWorker(conn=db_conn)
+        worker = JobWorker(conn=file_backed_db)
         job = make_test_job()
-        insert_job(db_conn, job)
+        insert_job(file_backed_db, job)
 
         # Set the stop event
         worker._heartbeat_stop.set()
@@ -290,6 +335,22 @@ class TestHeartbeatManagement:
             assert not worker._heartbeat_stop.is_set()
         finally:
             worker._stop_heartbeat()
+
+    def test_heartbeat_skipped_for_memory_db(self, db_conn: sqlite3.Connection) -> None:
+        """Heartbeat is skipped when using in-memory database."""
+        worker = JobWorker(conn=db_conn)
+        job = make_test_job()
+        insert_job(db_conn, job)
+
+        # db_conn is in-memory, so db_path will be None
+        assert worker._db_path is None
+
+        worker._start_heartbeat(job.id)
+
+        # Thread should have exited immediately after logging warning
+        if worker._heartbeat_thread is not None:
+            worker._heartbeat_thread.join(timeout=1.0)
+            assert not worker._heartbeat_thread.is_alive()
 
 
 # =============================================================================
@@ -553,9 +614,7 @@ class TestRun:
         """Recovers stale jobs at startup."""
         worker = JobWorker(conn=db_conn)
 
-        with patch(
-            "video_policy_orchestrator.jobs.worker.recover_stale_jobs"
-        ) as mock_recover:
+        with patch("vpo.jobs.worker.recover_stale_jobs") as mock_recover:
             worker.run()
             mock_recover.assert_called_once_with(db_conn)
 
@@ -563,9 +622,7 @@ class TestRun:
         """Purges old jobs when auto_purge is True."""
         worker = JobWorker(conn=db_conn, auto_purge=True)
 
-        with patch(
-            "video_policy_orchestrator.jobs.worker.purge_old_jobs"
-        ) as mock_purge:
+        with patch("vpo.jobs.worker.purge_old_jobs") as mock_purge:
             mock_purge.return_value = 0
             worker.run()
             mock_purge.assert_called_once()

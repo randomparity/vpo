@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from video_policy_orchestrator.tools.encoders import (
+from vpo.tools.encoders import (
     HARDWARE_ENCODERS,
     HW_ENCODER_ERROR_PATTERNS,
     SOFTWARE_ENCODERS,
@@ -113,7 +113,7 @@ class TestEncoderSelection:
 class TestSelectEncoder:
     """Tests for select_encoder function."""
 
-    @patch("video_policy_orchestrator.tools.encoders.check_encoder_available")
+    @patch("vpo.tools.encoders.check_encoder_available")
     def test_none_mode_returns_software(self, mock_check: object) -> None:
         """hw_mode='none' returns software encoder without checking."""
         result = select_encoder("hevc", hw_mode="none")
@@ -121,7 +121,7 @@ class TestSelectEncoder:
         assert result.encoder_type == "software"
         assert result.fallback_occurred is False
 
-    @patch("video_policy_orchestrator.tools.encoders.check_encoder_available")
+    @patch("vpo.tools.encoders.check_encoder_available")
     def test_auto_mode_tries_nvenc_first(self, mock_check: object) -> None:
         """auto mode tries NVENC before QSV and VAAPI."""
         # Make NVENC available
@@ -132,7 +132,7 @@ class TestSelectEncoder:
         assert result.encoder_type == "hardware"
         assert result.hw_platform == "nvenc"
 
-    @patch("video_policy_orchestrator.tools.encoders.check_encoder_available")
+    @patch("vpo.tools.encoders.check_encoder_available")
     def test_auto_mode_falls_back_to_qsv(self, mock_check: object) -> None:
         """auto mode falls back to QSV if NVENC unavailable."""
 
@@ -146,7 +146,7 @@ class TestSelectEncoder:
         assert result.encoder == "hevc_qsv"
         assert result.hw_platform == "qsv"
 
-    @patch("video_policy_orchestrator.tools.encoders.check_encoder_available")
+    @patch("vpo.tools.encoders.check_encoder_available")
     def test_auto_mode_falls_back_to_software(self, mock_check: object) -> None:
         """auto mode falls back to software if no HW available."""
         mock_check.return_value = False  # type: ignore[attr-defined]
@@ -156,7 +156,7 @@ class TestSelectEncoder:
         assert result.encoder_type == "software"
         assert result.fallback_occurred is True
 
-    @patch("video_policy_orchestrator.tools.encoders.check_encoder_available")
+    @patch("vpo.tools.encoders.check_encoder_available")
     def test_explicit_hw_mode(self, mock_check: object) -> None:
         """Explicit hw_mode selects specific encoder."""
         mock_check.return_value = True  # type: ignore[attr-defined]
@@ -165,7 +165,7 @@ class TestSelectEncoder:
         assert result.encoder == "hevc_qsv"
         assert result.hw_platform == "qsv"
 
-    @patch("video_policy_orchestrator.tools.encoders.check_encoder_available")
+    @patch("vpo.tools.encoders.check_encoder_available")
     def test_explicit_mode_fallback_disabled_raises(self, mock_check: object) -> None:
         """Raises error when HW unavailable and fallback disabled."""
         mock_check.return_value = False  # type: ignore[attr-defined]
@@ -175,7 +175,7 @@ class TestSelectEncoder:
 
         assert "not available" in str(exc_info.value)
 
-    @patch("video_policy_orchestrator.tools.encoders.check_encoder_available")
+    @patch("vpo.tools.encoders.check_encoder_available")
     def test_explicit_mode_fallback_enabled(self, mock_check: object) -> None:
         """Falls back to software when HW unavailable and fallback enabled."""
         mock_check.return_value = False  # type: ignore[attr-defined]
@@ -188,7 +188,7 @@ class TestSelectEncoder:
 class TestSelectEncoderWithFallback:
     """Tests for legacy select_encoder_with_fallback function."""
 
-    @patch("video_policy_orchestrator.tools.encoders.check_encoder_available")
+    @patch("vpo.tools.encoders.check_encoder_available")
     def test_returns_tuple(self, mock_check: object) -> None:
         """Returns (encoder, encoder_type) tuple."""
         mock_check.return_value = False  # type: ignore[attr-defined]

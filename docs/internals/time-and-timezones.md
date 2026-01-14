@@ -77,7 +77,7 @@ print(f"Scanned at: {local_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
 
 ### Creating Timestamps
 
-From `src/video_policy_orchestrator/db/models.py`:
+From `src/vpo/db/models.py`:
 
 ```python
 from datetime import datetime, timezone

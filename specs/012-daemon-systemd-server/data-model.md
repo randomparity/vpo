@@ -13,7 +13,7 @@ This feature introduces configuration and runtime state models for daemon mode. 
 
 **Purpose**: Configuration for the daemon server component
 
-**Location**: `src/video_policy_orchestrator/config/models.py`
+**Location**: `src/vpo/config/models.py`
 
 ```python
 @dataclass
@@ -75,7 +75,7 @@ class VPOConfig:
 
 **Purpose**: Response payload for health check endpoint
 
-**Location**: `src/video_policy_orchestrator/server/app.py`
+**Location**: `src/vpo/server/app.py`
 
 ```python
 @dataclass
@@ -120,7 +120,7 @@ class HealthStatus:
 
 **Purpose**: Coordinate graceful shutdown across components
 
-**Location**: `src/video_policy_orchestrator/server/lifecycle.py`
+**Location**: `src/vpo/server/lifecycle.py`
 
 ```python
 @dataclass

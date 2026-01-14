@@ -13,7 +13,7 @@ This feature adds configuration and runtime entities for parallel file processin
 
 New configuration dataclass for batch processing settings.
 
-**Location**: `src/video_policy_orchestrator/config/models.py`
+**Location**: `src/vpo/config/models.py`
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -43,7 +43,7 @@ Add `processing` field to main config container.
 
 Aggregated result of parallel batch processing.
 
-**Location**: `src/video_policy_orchestrator/cli/process.py` (inline or new module)
+**Location**: `src/vpo/cli/process.py` (inline or new module)
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -59,7 +59,7 @@ Aggregated result of parallel batch processing.
 
 Thread-safe progress tracking for console output.
 
-**Location**: `src/video_policy_orchestrator/cli/process.py` (inline)
+**Location**: `src/vpo/cli/process.py` (inline)
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -77,7 +77,7 @@ Thread-safe progress tracking for console output.
 
 Coordinates parallel execution with error handling.
 
-**Location**: `src/video_policy_orchestrator/cli/process.py` (inline)
+**Location**: `src/vpo/cli/process.py` (inline)
 
 | Field | Type | Description |
 |-------|------|-------------|

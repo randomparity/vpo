@@ -17,20 +17,20 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from video_policy_orchestrator.db.models import TrackInfo
+from vpo.db.models import TrackInfo
 
 if TYPE_CHECKING:
-    from video_policy_orchestrator.language_analysis.models import (
+    from vpo.language_analysis.models import (
         LanguageAnalysisResult,
     )
 
-from video_policy_orchestrator.policy.conditions import (
+from vpo.policy.conditions import (
     evaluate_condition,
     evaluate_count,
     evaluate_exists,
     matches_track,
 )
-from video_policy_orchestrator.policy.models import (
+from vpo.policy.types import (
     AndCondition,
     Comparison,
     ComparisonOperator,
@@ -963,7 +963,7 @@ class TestAudioIsMultiLanguageCondition:
         """Language analysis result showing multi-language content."""
         from datetime import datetime, timezone
 
-        from video_policy_orchestrator.language_analysis.models import (
+        from vpo.language_analysis.models import (
             AnalysisMetadata,
             LanguageAnalysisResult,
             LanguageClassification,
@@ -1001,7 +1001,7 @@ class TestAudioIsMultiLanguageCondition:
         """Language analysis result showing single language content."""
         from datetime import datetime, timezone
 
-        from video_policy_orchestrator.language_analysis.models import (
+        from vpo.language_analysis.models import (
             AnalysisMetadata,
             LanguageAnalysisResult,
             LanguageClassification,
@@ -1034,10 +1034,10 @@ class TestAudioIsMultiLanguageCondition:
         self, audio_track_with_id: TrackInfo
     ) -> None:
         """Condition returns False when no language analysis available."""
-        from video_policy_orchestrator.policy.conditions import (
+        from vpo.policy.conditions import (
             evaluate_audio_is_multi_language,
         )
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.types import (
             AudioIsMultiLanguageCondition,
         )
 
@@ -1057,10 +1057,10 @@ class TestAudioIsMultiLanguageCondition:
         multi_language_result: "LanguageAnalysisResult",
     ) -> None:
         """Condition returns True when track has multi-language content."""
-        from video_policy_orchestrator.policy.conditions import (
+        from vpo.policy.conditions import (
             evaluate_audio_is_multi_language,
         )
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.types import (
             AudioIsMultiLanguageCondition,
         )
 
@@ -1082,10 +1082,10 @@ class TestAudioIsMultiLanguageCondition:
         single_language_result: "LanguageAnalysisResult",
     ) -> None:
         """Condition returns False when track has single language content."""
-        from video_policy_orchestrator.policy.conditions import (
+        from vpo.policy.conditions import (
             evaluate_audio_is_multi_language,
         )
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.types import (
             AudioIsMultiLanguageCondition,
         )
 
@@ -1107,17 +1107,17 @@ class TestAudioIsMultiLanguageCondition:
         """Condition returns False when secondary language below threshold."""
         from datetime import datetime, timezone
 
-        from video_policy_orchestrator.language_analysis.models import (
+        from vpo.language_analysis.models import (
             AnalysisMetadata,
             LanguageAnalysisResult,
             LanguageClassification,
             LanguagePercentage,
             LanguageSegment,
         )
-        from video_policy_orchestrator.policy.conditions import (
+        from vpo.policy.conditions import (
             evaluate_audio_is_multi_language,
         )
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.types import (
             AudioIsMultiLanguageCondition,
         )
 
@@ -1163,10 +1163,10 @@ class TestAudioIsMultiLanguageCondition:
         multi_language_result: "LanguageAnalysisResult",
     ) -> None:
         """Condition matches when primary language filter matches."""
-        from video_policy_orchestrator.policy.conditions import (
+        from vpo.policy.conditions import (
             evaluate_audio_is_multi_language,
         )
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.types import (
             AudioIsMultiLanguageCondition,
         )
 
@@ -1186,10 +1186,10 @@ class TestAudioIsMultiLanguageCondition:
         multi_language_result: "LanguageAnalysisResult",
     ) -> None:
         """Condition returns False when primary language filter doesn't match."""
-        from video_policy_orchestrator.policy.conditions import (
+        from vpo.policy.conditions import (
             evaluate_audio_is_multi_language,
         )
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.types import (
             AudioIsMultiLanguageCondition,
         )
 
@@ -1209,10 +1209,10 @@ class TestAudioIsMultiLanguageCondition:
         multi_language_result: "LanguageAnalysisResult",
     ) -> None:
         """Condition filters by specific track index."""
-        from video_policy_orchestrator.policy.conditions import (
+        from vpo.policy.conditions import (
             evaluate_audio_is_multi_language,
         )
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.types import (
             AudioIsMultiLanguageCondition,
         )
 
@@ -1233,10 +1233,10 @@ class TestAudioIsMultiLanguageCondition:
         multi_language_result: "LanguageAnalysisResult",
     ) -> None:
         """Condition returns False when specified track index doesn't exist."""
-        from video_policy_orchestrator.policy.conditions import (
+        from vpo.policy.conditions import (
             evaluate_audio_is_multi_language,
         )
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.types import (
             AudioIsMultiLanguageCondition,
         )
 
@@ -1257,8 +1257,8 @@ class TestAudioIsMultiLanguageCondition:
         multi_language_result: "LanguageAnalysisResult",
     ) -> None:
         """Condition works through main evaluate_condition()."""
-        from video_policy_orchestrator.policy.conditions import evaluate_condition
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.conditions import evaluate_condition
+        from vpo.policy.types import (
             AudioIsMultiLanguageCondition,
         )
 
@@ -1277,8 +1277,8 @@ class TestAudioIsMultiLanguageCondition:
         multi_language_result: "LanguageAnalysisResult",
     ) -> None:
         """Multi-language condition works in AND with other conditions."""
-        from video_policy_orchestrator.policy.conditions import evaluate_condition
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.conditions import evaluate_condition
+        from vpo.policy.types import (
             AudioIsMultiLanguageCondition,
         )
 

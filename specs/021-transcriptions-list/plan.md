@@ -64,7 +64,7 @@ specs/021-transcriptions-list/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── db/
 │   └── models.py                    # Add get_files_with_transcriptions() query
 ├── server/

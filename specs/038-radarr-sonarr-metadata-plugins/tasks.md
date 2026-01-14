@@ -30,10 +30,10 @@
 
 **Purpose**: Create plugin package structure and shared configuration models
 
-- [X] T001 [P] Create Radarr plugin package directory at src/video_policy_orchestrator/plugins/radarr_metadata/__init__.py
-- [X] T002 [P] Create Sonarr plugin package directory at src/video_policy_orchestrator/plugins/sonarr_metadata/__init__.py
-- [X] T003 Add PluginConnectionConfig dataclass to src/video_policy_orchestrator/config/models.py
-- [X] T004 Add MetadataPluginSettings dataclass to src/video_policy_orchestrator/config/models.py
+- [X] T001 [P] Create Radarr plugin package directory at src/vpo/plugins/radarr_metadata/__init__.py
+- [X] T002 [P] Create Sonarr plugin package directory at src/vpo/plugins/sonarr_metadata/__init__.py
+- [X] T003 Add PluginConnectionConfig dataclass to src/vpo/config/models.py
+- [X] T004 Add MetadataPluginSettings dataclass to src/vpo/config/models.py
 
 ---
 
@@ -43,18 +43,18 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T005 Create RadarrLanguage dataclass in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
-- [X] T006 Create RadarrMovie dataclass in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
-- [X] T007 Create RadarrMovieFile dataclass in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
-- [X] T008 Create RadarrCache dataclass with lookup_by_path method in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
-- [X] T009 [P] Create SonarrLanguage dataclass in src/video_policy_orchestrator/plugins/sonarr_metadata/models.py
-- [X] T010 [P] Create SonarrSeries dataclass in src/video_policy_orchestrator/plugins/sonarr_metadata/models.py
-- [X] T011 [P] Create SonarrEpisode dataclass in src/video_policy_orchestrator/plugins/sonarr_metadata/models.py
-- [X] T012 [P] Create SonarrParseResult dataclass in src/video_policy_orchestrator/plugins/sonarr_metadata/models.py
-- [X] T013 [P] Create SonarrCache dataclass with lookup_by_path method in src/video_policy_orchestrator/plugins/sonarr_metadata/models.py
-- [X] T014 Create MatchStatus enum in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
-- [X] T015 Create MatchResult dataclass in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
-- [X] T016 Create MetadataEnrichment dataclass with to_dict method in src/video_policy_orchestrator/plugins/radarr_metadata/models.py
+- [X] T005 Create RadarrLanguage dataclass in src/vpo/plugins/radarr_metadata/models.py
+- [X] T006 Create RadarrMovie dataclass in src/vpo/plugins/radarr_metadata/models.py
+- [X] T007 Create RadarrMovieFile dataclass in src/vpo/plugins/radarr_metadata/models.py
+- [X] T008 Create RadarrCache dataclass with lookup_by_path method in src/vpo/plugins/radarr_metadata/models.py
+- [X] T009 [P] Create SonarrLanguage dataclass in src/vpo/plugins/sonarr_metadata/models.py
+- [X] T010 [P] Create SonarrSeries dataclass in src/vpo/plugins/sonarr_metadata/models.py
+- [X] T011 [P] Create SonarrEpisode dataclass in src/vpo/plugins/sonarr_metadata/models.py
+- [X] T012 [P] Create SonarrParseResult dataclass in src/vpo/plugins/sonarr_metadata/models.py
+- [X] T013 [P] Create SonarrCache dataclass with lookup_by_path method in src/vpo/plugins/sonarr_metadata/models.py
+- [X] T014 Create MatchStatus enum in src/vpo/plugins/radarr_metadata/models.py
+- [X] T015 Create MatchResult dataclass in src/vpo/plugins/radarr_metadata/models.py
+- [X] T016 Create MetadataEnrichment dataclass with to_dict method in src/vpo/plugins/radarr_metadata/models.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -68,14 +68,14 @@
 
 ### Implementation for User Story 1
 
-- [X] T017 [US1] Implement RadarrClient class with __init__ accepting PluginConnectionConfig in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [X] T018 [US1] Implement _headers method returning X-Api-Key header in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [X] T019 [US1] Implement get_status method calling GET /api/v3/system/status in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [X] T020 [US1] Implement validate_connection method with timeout and error handling in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [X] T021 [US1] Add connection validation error messages for invalid API key (401) and unreachable URL in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [X] T022 [US1] Create RadarrMetadataPlugin class with name, version, events attributes in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
-- [X] T023 [US1] Implement plugin __init__ that validates connection on startup in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
-- [X] T024 [US1] Add structured logging for connection success/failure in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
+- [X] T017 [US1] Implement RadarrClient class with __init__ accepting PluginConnectionConfig in src/vpo/plugins/radarr_metadata/client.py
+- [X] T018 [US1] Implement _headers method returning X-Api-Key header in src/vpo/plugins/radarr_metadata/client.py
+- [X] T019 [US1] Implement get_status method calling GET /api/v3/system/status in src/vpo/plugins/radarr_metadata/client.py
+- [X] T020 [US1] Implement validate_connection method with timeout and error handling in src/vpo/plugins/radarr_metadata/client.py
+- [X] T021 [US1] Add connection validation error messages for invalid API key (401) and unreachable URL in src/vpo/plugins/radarr_metadata/client.py
+- [X] T022 [US1] Create RadarrMetadataPlugin class with name, version, events attributes in src/vpo/plugins/radarr_metadata/plugin.py
+- [X] T023 [US1] Implement plugin __init__ that validates connection on startup in src/vpo/plugins/radarr_metadata/plugin.py
+- [X] T024 [US1] Add structured logging for connection success/failure in src/vpo/plugins/radarr_metadata/plugin.py
 
 **Checkpoint**: Radarr connection configuration is functional and testable independently
 
@@ -89,14 +89,14 @@
 
 ### Implementation for User Story 2
 
-- [X] T025 [US2] Implement SonarrClient class with __init__ accepting PluginConnectionConfig in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
-- [X] T026 [US2] Implement _headers method returning X-Api-Key header in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
-- [X] T027 [US2] Implement get_status method calling GET /api/v3/system/status in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
-- [X] T028 [US2] Implement validate_connection method with timeout and error handling in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
-- [X] T029 [US2] Add connection validation error messages for invalid API key (401) and unreachable URL in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
-- [X] T030 [US2] Create SonarrMetadataPlugin class with name, version, events attributes in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
-- [X] T031 [US2] Implement plugin __init__ that validates connection on startup in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
-- [X] T032 [US2] Add structured logging for connection success/failure in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
+- [X] T025 [US2] Implement SonarrClient class with __init__ accepting PluginConnectionConfig in src/vpo/plugins/sonarr_metadata/client.py
+- [X] T026 [US2] Implement _headers method returning X-Api-Key header in src/vpo/plugins/sonarr_metadata/client.py
+- [X] T027 [US2] Implement get_status method calling GET /api/v3/system/status in src/vpo/plugins/sonarr_metadata/client.py
+- [X] T028 [US2] Implement validate_connection method with timeout and error handling in src/vpo/plugins/sonarr_metadata/client.py
+- [X] T029 [US2] Add connection validation error messages for invalid API key (401) and unreachable URL in src/vpo/plugins/sonarr_metadata/client.py
+- [X] T030 [US2] Create SonarrMetadataPlugin class with name, version, events attributes in src/vpo/plugins/sonarr_metadata/plugin.py
+- [X] T031 [US2] Implement plugin __init__ that validates connection on startup in src/vpo/plugins/sonarr_metadata/plugin.py
+- [X] T032 [US2] Add structured logging for connection success/failure in src/vpo/plugins/sonarr_metadata/plugin.py
 
 **Checkpoint**: Sonarr connection configuration is functional and testable independently
 
@@ -110,17 +110,17 @@
 
 ### Implementation for User Story 3
 
-- [X] T033 [US3] Implement get_movies method calling GET /api/v3/movie in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [X] T034 [US3] Implement get_movie_files method calling GET /api/v3/moviefile in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [X] T035 [US3] Implement _parse_movie_response to convert JSON to RadarrMovie in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [X] T036 [US3] Implement _parse_movie_file_response to convert JSON to RadarrMovieFile in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [X] T037 [US3] Implement build_cache method that fetches all movies and files and builds path index in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [X] T038 [US3] Add path normalization helper for consistent path matching in src/video_policy_orchestrator/plugins/radarr_metadata/client.py
-- [X] T039 [US3] Implement on_file_scanned event handler in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
-- [X] T040 [US3] Implement cache initialization on first file scanned in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
-- [X] T041 [US3] Implement _create_enrichment method using normalize_language in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
-- [X] T042 [US3] Add error handling for API failures (graceful degradation) in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
-- [X] T043 [US3] Add structured logging for match success, no match, and errors in src/video_policy_orchestrator/plugins/radarr_metadata/plugin.py
+- [X] T033 [US3] Implement get_movies method calling GET /api/v3/movie in src/vpo/plugins/radarr_metadata/client.py
+- [X] T034 [US3] Implement get_movie_files method calling GET /api/v3/moviefile in src/vpo/plugins/radarr_metadata/client.py
+- [X] T035 [US3] Implement _parse_movie_response to convert JSON to RadarrMovie in src/vpo/plugins/radarr_metadata/client.py
+- [X] T036 [US3] Implement _parse_movie_file_response to convert JSON to RadarrMovieFile in src/vpo/plugins/radarr_metadata/client.py
+- [X] T037 [US3] Implement build_cache method that fetches all movies and files and builds path index in src/vpo/plugins/radarr_metadata/client.py
+- [X] T038 [US3] Add path normalization helper for consistent path matching in src/vpo/plugins/radarr_metadata/client.py
+- [X] T039 [US3] Implement on_file_scanned event handler in src/vpo/plugins/radarr_metadata/plugin.py
+- [X] T040 [US3] Implement cache initialization on first file scanned in src/vpo/plugins/radarr_metadata/plugin.py
+- [X] T041 [US3] Implement _create_enrichment method using normalize_language in src/vpo/plugins/radarr_metadata/plugin.py
+- [X] T042 [US3] Add error handling for API failures (graceful degradation) in src/vpo/plugins/radarr_metadata/plugin.py
+- [X] T043 [US3] Add structured logging for match success, no match, and errors in src/vpo/plugins/radarr_metadata/plugin.py
 
 **Checkpoint**: Movie files are enriched with Radarr metadata during scans
 
@@ -134,16 +134,16 @@
 
 ### Implementation for User Story 4
 
-- [X] T044 [US4] Implement parse method calling GET /api/v3/parse?path= in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
-- [X] T045 [US4] Implement _parse_series_response to convert JSON to SonarrSeries in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
-- [X] T046 [US4] Implement _parse_episode_response to convert JSON to SonarrEpisode in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
-- [X] T047 [US4] Implement _parse_parse_result to convert full parse response to SonarrParseResult in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
-- [X] T048 [US4] Add path normalization helper for consistent path matching in src/video_policy_orchestrator/plugins/sonarr_metadata/client.py
-- [X] T049 [US4] Implement on_file_scanned event handler in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
-- [X] T050 [US4] Implement lazy cache population using parse endpoint in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
-- [X] T051 [US4] Implement _create_enrichment method using normalize_language with TV-specific fields in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
-- [X] T052 [US4] Add error handling for API failures (graceful degradation) in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
-- [X] T053 [US4] Add structured logging for match success, no match, and errors in src/video_policy_orchestrator/plugins/sonarr_metadata/plugin.py
+- [X] T044 [US4] Implement parse method calling GET /api/v3/parse?path= in src/vpo/plugins/sonarr_metadata/client.py
+- [X] T045 [US4] Implement _parse_series_response to convert JSON to SonarrSeries in src/vpo/plugins/sonarr_metadata/client.py
+- [X] T046 [US4] Implement _parse_episode_response to convert JSON to SonarrEpisode in src/vpo/plugins/sonarr_metadata/client.py
+- [X] T047 [US4] Implement _parse_parse_result to convert full parse response to SonarrParseResult in src/vpo/plugins/sonarr_metadata/client.py
+- [X] T048 [US4] Add path normalization helper for consistent path matching in src/vpo/plugins/sonarr_metadata/client.py
+- [X] T049 [US4] Implement on_file_scanned event handler in src/vpo/plugins/sonarr_metadata/plugin.py
+- [X] T050 [US4] Implement lazy cache population using parse endpoint in src/vpo/plugins/sonarr_metadata/plugin.py
+- [X] T051 [US4] Implement _create_enrichment method using normalize_language with TV-specific fields in src/vpo/plugins/sonarr_metadata/plugin.py
+- [X] T052 [US4] Add error handling for API failures (graceful degradation) in src/vpo/plugins/sonarr_metadata/plugin.py
+- [X] T053 [US4] Add structured logging for match success, no match, and errors in src/vpo/plugins/sonarr_metadata/plugin.py
 
 **Checkpoint**: TV episode files are enriched with Sonarr metadata during scans
 
@@ -173,7 +173,7 @@
 
 ### Implementation for User Story 6
 
-- [X] T057 [US6] Add enriched metadata section to src/video_policy_orchestrator/server/ui/templates/file_detail.html
+- [X] T057 [US6] Add enriched metadata section to src/vpo/server/ui/templates/file_detail.html
 - [X] T058 [US6] Display external_source (Radarr/Sonarr) badge in file detail template
 - [X] T059 [US6] Display original_language in file detail template
 - [X] T060 [US6] Display external_title and external_year in file detail template

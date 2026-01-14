@@ -9,7 +9,7 @@
 
 **Decision**: Use existing `__version__` from package `__init__.py`
 
-**Rationale**: The codebase already exposes `__version__ = "0.1.0"` in `src/video_policy_orchestrator/__init__.py`. The health endpoint in `server/app.py` already imports and uses this value. For git commit hash, we can optionally read from a generated file or environment variable if available, with fallback to "unavailable".
+**Rationale**: The codebase already exposes `__version__ = "0.1.0"` in `src/vpo/__init__.py`. The health endpoint in `server/app.py` already imports and uses this value. For git commit hash, we can optionally read from a generated file or environment variable if available, with fallback to "unavailable".
 
 **Alternatives considered**:
 - `pkg_resources` / `importlib.metadata`: More complex, not needed since `__version__` is directly accessible
@@ -80,7 +80,7 @@
 
 | Field | Source | Fallback |
 |-------|--------|----------|
-| Version | `video_policy_orchestrator.__version__` | "0.1.0" (always available) |
+| Version | `vpo.__version__` | "0.1.0" (always available) |
 | Git Hash | Environment `VPO_GIT_HASH` or built-in | "unavailable" |
 | Profile | App context `app.get("profile")` | "Default" |
 | API URL | `request.url.origin()` | Current request URL |

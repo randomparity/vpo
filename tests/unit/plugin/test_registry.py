@@ -3,12 +3,12 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
-from video_policy_orchestrator.plugin.manifest import (
+from vpo.plugin.manifest import (
     PluginManifest,
     PluginSource,
     PluginType,
 )
-from video_policy_orchestrator.plugin.registry import LoadedPlugin, PluginRegistry
+from vpo.plugin.registry import LoadedPlugin, PluginRegistry
 
 
 class MockAnalyzerPlugin:

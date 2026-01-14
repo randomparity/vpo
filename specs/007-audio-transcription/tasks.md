@@ -17,7 +17,7 @@
 
 ## Path Conventions
 
-- **Single project**: `src/video_policy_orchestrator/`, `tests/` at repository root
+- **Single project**: `src/vpo/`, `tests/` at repository root
 - Paths follow existing VPO module structure per plan.md
 
 ---
@@ -26,9 +26,9 @@
 
 **Purpose**: Create module structure and foundational files
 
-- [X] T001 Create transcription module directory structure at `src/video_policy_orchestrator/transcription/`
-- [X] T002 [P] Create `src/video_policy_orchestrator/transcription/__init__.py` with module exports
-- [X] T003 [P] Create `src/video_policy_orchestrator/plugins/whisper_transcriber/__init__.py` with plugin exports
+- [X] T001 Create transcription module directory structure at `src/vpo/transcription/`
+- [X] T002 [P] Create `src/vpo/transcription/__init__.py` with module exports
+- [X] T003 [P] Create `src/vpo/plugins/whisper_transcriber/__init__.py` with plugin exports
 - [X] T004 [P] Create `tests/unit/transcription/` directory structure
 - [X] T005 Commit Phase 1 changes: "feat(transcription): create module structure"
 
@@ -40,12 +40,12 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T006 Add TrackClassification enum to `src/video_policy_orchestrator/db/models.py`
-- [X] T007 Add TranscriptionResultRecord dataclass to `src/video_policy_orchestrator/db/models.py`
-- [X] T008 Add TranscriptionResult domain model to `src/video_policy_orchestrator/transcription/models.py`
-- [X] T009 Add TranscriptionConfig dataclass to `src/video_policy_orchestrator/transcription/models.py`
-- [X] T010 Add transcription_results table schema (v5→v6 migration) in `src/video_policy_orchestrator/db/schema.py`
-- [X] T011 Add CRUD operations for transcription_results in `src/video_policy_orchestrator/db/models.py`: upsert_transcription_result, get_transcription_result, delete_transcription_results_for_file
+- [X] T006 Add TrackClassification enum to `src/vpo/db/models.py`
+- [X] T007 Add TranscriptionResultRecord dataclass to `src/vpo/db/models.py`
+- [X] T008 Add TranscriptionResult domain model to `src/vpo/transcription/models.py`
+- [X] T009 Add TranscriptionConfig dataclass to `src/vpo/transcription/models.py`
+- [X] T010 Add transcription_results table schema (v5→v6 migration) in `src/vpo/db/schema.py`
+- [X] T011 Add CRUD operations for transcription_results in `src/vpo/db/models.py`: upsert_transcription_result, get_transcription_result, delete_transcription_results_for_file
 - [X] T012 [P] Add unit tests for TranscriptionResult model in `tests/unit/transcription/test_models.py`
 - [X] T013 [P] Add unit tests for database operations in `tests/unit/db/test_transcription_operations.py`
 - [X] T014 Commit Phase 2 changes: "feat(transcription): add data models and schema migration"
@@ -62,12 +62,12 @@
 
 ### Implementation for User Story 1
 
-- [X] T015 [P] [US1] Create TranscriptionPlugin Protocol in `src/video_policy_orchestrator/transcription/interface.py`
-- [X] T016 [P] [US1] Create TranscriptionError exception class in `src/video_policy_orchestrator/transcription/interface.py`
-- [X] T017 [US1] Implement audio_extractor module with ffmpeg streaming in `src/video_policy_orchestrator/transcription/audio_extractor.py`
-- [X] T018 [US1] Implement plugin registry with discovery/selection in `src/video_policy_orchestrator/transcription/registry.py`
-- [X] T019 [US1] Add `vpo transcribe detect` CLI command with `--force` flag to re-run even if results exist in `src/video_policy_orchestrator/cli/transcribe.py`
-- [X] T020 [US1] Register transcribe command in `src/video_policy_orchestrator/cli/__init__.py`
+- [X] T015 [P] [US1] Create TranscriptionPlugin Protocol in `src/vpo/transcription/interface.py`
+- [X] T016 [P] [US1] Create TranscriptionError exception class in `src/vpo/transcription/interface.py`
+- [X] T017 [US1] Implement audio_extractor module with ffmpeg streaming in `src/vpo/transcription/audio_extractor.py`
+- [X] T018 [US1] Implement plugin registry with discovery/selection in `src/vpo/transcription/registry.py`
+- [X] T019 [US1] Add `vpo transcribe detect` CLI command with `--force` flag to re-run even if results exist in `src/vpo/cli/transcribe.py`
+- [X] T020 [US1] Register transcribe command in `src/vpo/cli/__init__.py`
 - [X] T021 [P] [US1] Add unit tests for audio_extractor in `tests/unit/transcription/test_audio_extractor.py`
 - [X] T022 [P] [US1] Add unit tests for plugin registry in `tests/unit/transcription/test_registry.py`
 - [X] T023 [P] [US1] Add unit tests for interface protocol in `tests/unit/transcription/test_interface.py`
@@ -85,10 +85,10 @@
 
 ### Implementation for User Story 2
 
-- [X] T025 [US2] Add transcription plugin configuration to `src/video_policy_orchestrator/config/models.py`
-- [X] T026 [US2] Implement plugin loading from configuration in `src/video_policy_orchestrator/transcription/registry.py`
-- [X] T027 [US2] Add plugin availability check to `vpo doctor` in `src/video_policy_orchestrator/cli/doctor.py`
-- [X] T028 [US2] Create plugin SDK helpers in `src/video_policy_orchestrator/plugin_sdk/transcription.py`
+- [X] T025 [US2] Add transcription plugin configuration to `src/vpo/config/models.py`
+- [X] T026 [US2] Implement plugin loading from configuration in `src/vpo/transcription/registry.py`
+- [X] T027 [US2] Add plugin availability check to `vpo doctor` in `src/vpo/cli/doctor.py`
+- [X] T028 [US2] Create plugin SDK helpers in `src/vpo/plugin_sdk/transcription.py`
 - [X] T029 [P] [US2] Add unit tests for plugin configuration loading in `tests/unit/config/test_transcription_config.py`
 - [X] T030 Commit Phase 4 changes: "feat(transcription): pluggable engine architecture (US2)"
 
@@ -104,11 +104,11 @@
 
 ### Implementation for User Story 3
 
-- [X] T031 [US3] Implement WhisperTranscriptionPlugin class in `src/video_policy_orchestrator/plugins/whisper_transcriber/plugin.py`
+- [X] T031 [US3] Implement WhisperTranscriptionPlugin class in `src/vpo/plugins/whisper_transcriber/plugin.py`
 - [X] T032 [US3] Add model size configuration (tiny/base/small/medium/large) to Whisper plugin
 - [X] T033 [US3] Add GPU detection and configuration support to Whisper plugin
 - [X] T034 [US3] Implement audio sampling for long tracks (default 60s) in Whisper plugin
-- [X] T035 [US3] Register Whisper plugin in `src/video_policy_orchestrator/plugins/whisper_transcriber/__init__.py`
+- [X] T035 [US3] Register Whisper plugin in `src/vpo/plugins/whisper_transcriber/__init__.py`
 - [X] T036 [P] [US3] Add integration tests for Whisper plugin in `tests/unit/transcription/test_whisper_plugin.py`
 - [X] T037 Commit Phase 5 changes: "feat(transcription): whisper reference plugin (US3)"
 
@@ -124,9 +124,9 @@
 
 ### Implementation for User Story 4
 
-- [X] T038 [US4] Add TranscriptionPolicyOptions to `src/video_policy_orchestrator/policy/models.py`
-- [X] T039 [US4] Extend policy loader to parse transcription options in `src/video_policy_orchestrator/policy/loader.py`
-- [X] T040 [US4] Implement language update logic in policy evaluator `src/video_policy_orchestrator/policy/evaluator.py`
+- [X] T038 [US4] Add TranscriptionPolicyOptions to `src/vpo/policy/models.py`
+- [X] T039 [US4] Extend policy loader to parse transcription options in `src/vpo/policy/loader.py`
+- [X] T040 [US4] Implement language update logic in policy evaluator `src/vpo/policy/evaluator.py`
 - [X] T041 [US4] Add confidence threshold check before language updates
 - [X] T042 [US4] Add `--update` flag to `vpo transcribe detect` to apply updates directly
 - [X] T043 [P] [US4] Add unit tests for policy transcription options in `tests/unit/policy/test_transcription_policy.py`
@@ -144,9 +144,9 @@
 
 ### Implementation for User Story 5
 
-- [X] T045 [US5] Add commentary keyword detection (metadata-based) in `src/video_policy_orchestrator/transcription/models.py`
+- [X] T045 [US5] Add commentary keyword detection (metadata-based) in `src/vpo/transcription/models.py`
 - [X] T046 [US5] Add transcript-based commentary pattern detection in Whisper plugin
-- [X] T047 [US5] Implement track reordering logic for commentary in `src/video_policy_orchestrator/policy/evaluator.py`
+- [X] T047 [US5] Implement track reordering logic for commentary in `src/vpo/policy/evaluator.py`
 - [X] T048 [US5] Add `detect_commentary` and `reorder_commentary` policy options handling
 - [X] T049 [P] [US5] Add unit tests for commentary detection in `tests/unit/transcription/test_commentary_detection.py`
 - [X] T050 Commit Phase 7 changes: "feat(transcription): commentary track detection (US5)"
@@ -159,8 +159,8 @@
 
 **Purpose**: CLI completion, documentation, and final integration
 
-- [X] T051 [P] Implement `vpo transcribe status` subcommand in `src/video_policy_orchestrator/cli/transcribe.py`
-- [X] T052 [P] Implement `vpo transcribe clear` subcommand in `src/video_policy_orchestrator/cli/transcribe.py`
+- [X] T051 [P] Implement `vpo transcribe status` subcommand in `src/vpo/cli/transcribe.py`
+- [X] T052 [P] Implement `vpo transcribe clear` subcommand in `src/vpo/cli/transcribe.py`
 - [X] T053 [P] Add `--json` output format to all transcribe subcommands
 - [X] T054 [P] Add `--dry-run` support to transcribe detect --update
 - [X] T055 Add structured logging for transcription operations (Constitution VIII)

@@ -5,20 +5,20 @@ from datetime import datetime, timezone
 
 import pytest
 
-from video_policy_orchestrator.db.schema import initialize_database
-from video_policy_orchestrator.language_analysis.models import (
+from vpo.db.schema import initialize_database
+from vpo.language_analysis.models import (
     AnalysisMetadata,
     LanguageAnalysisResult,
     LanguageClassification,
     LanguageSegment,
 )
-from video_policy_orchestrator.language_analysis.service import (
+from vpo.language_analysis.service import (
     _create_segments_from_samples,
     get_cached_analysis,
     invalidate_analysis_cache,
     persist_analysis_result,
 )
-from video_policy_orchestrator.transcription.interface import (
+from vpo.transcription.interface import (
     MultiLanguageDetectionResult,
 )
 

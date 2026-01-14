@@ -64,7 +64,7 @@ specs/029-webui-auth/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── config/
 │   ├── models.py        # MODIFY: Add auth_token to ServerConfig
 │   └── loader.py        # MODIFY: Add VPO_AUTH_TOKEN env var handling

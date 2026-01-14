@@ -12,8 +12,8 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from video_policy_orchestrator.cli import main
-from video_policy_orchestrator.db.schema import create_schema
+from vpo.cli import main
+from vpo.db.schema import create_schema
 
 # Sample valid plugin code for testing
 VALID_ANALYZER_PLUGIN = '''
@@ -75,7 +75,7 @@ class TestPluginListCommand:
         """List plugins when no plugins exist."""
         # Patch the plugin dirs to use our empty test dir
         monkeypatch.setattr(
-            "video_policy_orchestrator.config.loader.DEFAULT_PLUGINS_DIR",
+            "vpo.config.loader.DEFAULT_PLUGINS_DIR",
             plugin_dir,
         )
 
@@ -96,13 +96,11 @@ class TestPluginListCommand:
 
         # Patch config to use our test directory
         def mock_get_config():
-            from video_policy_orchestrator.config.models import PluginConfig, VPOConfig
+            from vpo.config.models import PluginConfig, VPOConfig
 
             return VPOConfig(plugins=PluginConfig(plugin_dirs=[plugin_dir]))
 
-        monkeypatch.setattr(
-            "video_policy_orchestrator.cli.plugins.get_config", mock_get_config
-        )
+        monkeypatch.setattr("vpo.cli.plugins.get_config", mock_get_config)
 
         result = runner.invoke(main, ["plugins", "list"])
 
@@ -119,13 +117,11 @@ class TestPluginListCommand:
 
         # Patch config to use our test directory
         def mock_get_config():
-            from video_policy_orchestrator.config.models import PluginConfig, VPOConfig
+            from vpo.config.models import PluginConfig, VPOConfig
 
             return VPOConfig(plugins=PluginConfig(plugin_dirs=[plugin_dir]))
 
-        monkeypatch.setattr(
-            "video_policy_orchestrator.cli.plugins.get_config", mock_get_config
-        )
+        monkeypatch.setattr("vpo.cli.plugins.get_config", mock_get_config)
 
         result = runner.invoke(main, ["plugins", "list", "-v"])
 
@@ -146,13 +142,11 @@ class TestPluginAcknowledgeCommand:
         create_schema(conn)
 
         def mock_get_config():
-            from video_policy_orchestrator.config.models import PluginConfig, VPOConfig
+            from vpo.config.models import PluginConfig, VPOConfig
 
             return VPOConfig(plugins=PluginConfig(plugin_dirs=[]))
 
-        monkeypatch.setattr(
-            "video_policy_orchestrator.cli.plugins.get_config", mock_get_config
-        )
+        monkeypatch.setattr("vpo.cli.plugins.get_config", mock_get_config)
 
         result = runner.invoke(
             main,
@@ -172,13 +166,11 @@ class TestPluginAcknowledgeCommand:
         plugin_file.write_text(VALID_ANALYZER_PLUGIN)
 
         def mock_get_config():
-            from video_policy_orchestrator.config.models import PluginConfig, VPOConfig
+            from vpo.config.models import PluginConfig, VPOConfig
 
             return VPOConfig(plugins=PluginConfig(plugin_dirs=[plugin_dir]))
 
-        monkeypatch.setattr(
-            "video_policy_orchestrator.cli.plugins.get_config", mock_get_config
-        )
+        monkeypatch.setattr("vpo.cli.plugins.get_config", mock_get_config)
 
         # Ensure db_conn is None (simulating missing database)
         result = runner.invoke(main, ["plugins", "acknowledge", "test-analyzer"])
@@ -244,13 +236,11 @@ plugin = BadPlugin()
         valid_plugin.write_text(VALID_ANALYZER_PLUGIN)
 
         def mock_get_config():
-            from video_policy_orchestrator.config.models import PluginConfig, VPOConfig
+            from vpo.config.models import PluginConfig, VPOConfig
 
             return VPOConfig(plugins=PluginConfig(plugin_dirs=[plugin_dir]))
 
-        monkeypatch.setattr(
-            "video_policy_orchestrator.cli.plugins.get_config", mock_get_config
-        )
+        monkeypatch.setattr("vpo.cli.plugins.get_config", mock_get_config)
 
         result = runner.invoke(main, ["plugins", "list"])
 

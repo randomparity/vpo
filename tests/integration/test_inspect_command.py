@@ -6,9 +6,9 @@ from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
 
-from video_policy_orchestrator.cli import main
-from video_policy_orchestrator.cli.exit_codes import ExitCode
-from video_policy_orchestrator.db.models import IntrospectionResult, TrackInfo
+from vpo.cli import main
+from vpo.cli.exit_codes import ExitCode
+from vpo.db.models import IntrospectionResult, TrackInfo
 
 
 class TestInspectCommand:
@@ -32,7 +32,7 @@ class TestInspectCommand:
         assert "File not found" in result.output
 
     @patch(
-        "video_policy_orchestrator.cli.inspect.FFprobeIntrospector.is_available",
+        "vpo.cli.inspect.FFprobeIntrospector.is_available",
         return_value=False,
     )
     def test_inspect_ffprobe_not_installed(
@@ -50,10 +50,10 @@ class TestInspectCommand:
         assert "ffprobe is not installed" in result.output
 
     @patch(
-        "video_policy_orchestrator.cli.inspect.FFprobeIntrospector.is_available",
+        "vpo.cli.inspect.FFprobeIntrospector.is_available",
         return_value=True,
     )
-    @patch("video_policy_orchestrator.cli.inspect.FFprobeIntrospector")
+    @patch("vpo.cli.inspect.FFprobeIntrospector")
     def test_inspect_human_output(
         self,
         mock_introspector_class: MagicMock,
@@ -107,10 +107,10 @@ class TestInspectCommand:
         assert "stereo" in result.output
 
     @patch(
-        "video_policy_orchestrator.cli.inspect.FFprobeIntrospector.is_available",
+        "vpo.cli.inspect.FFprobeIntrospector.is_available",
         return_value=True,
     )
-    @patch("video_policy_orchestrator.cli.inspect.FFprobeIntrospector")
+    @patch("vpo.cli.inspect.FFprobeIntrospector")
     def test_inspect_json_output(
         self,
         mock_introspector_class: MagicMock,
@@ -177,10 +177,10 @@ class TestInspectCommand:
         assert audio["channels"] == 2
 
     @patch(
-        "video_policy_orchestrator.cli.inspect.FFprobeIntrospector.is_available",
+        "vpo.cli.inspect.FFprobeIntrospector.is_available",
         return_value=True,
     )
-    @patch("video_policy_orchestrator.cli.inspect.FFprobeIntrospector")
+    @patch("vpo.cli.inspect.FFprobeIntrospector")
     def test_inspect_with_warnings(
         self,
         mock_introspector_class: MagicMock,
@@ -210,10 +210,10 @@ class TestInspectCommand:
         assert "No streams found" in result.output
 
     @patch(
-        "video_policy_orchestrator.cli.inspect.FFprobeIntrospector.is_available",
+        "vpo.cli.inspect.FFprobeIntrospector.is_available",
         return_value=True,
     )
-    @patch("video_policy_orchestrator.cli.inspect.FFprobeIntrospector")
+    @patch("vpo.cli.inspect.FFprobeIntrospector")
     def test_inspect_parse_error(
         self,
         mock_introspector_class: MagicMock,
@@ -221,7 +221,7 @@ class TestInspectCommand:
         temp_dir: Path,
     ) -> None:
         """Test inspect command handles parse errors with appropriate exit code."""
-        from video_policy_orchestrator.introspector.interface import (
+        from vpo.introspector.interface import (
             MediaIntrospectionError,
         )
 

@@ -64,7 +64,7 @@ specs/037-user-defined-phases/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── policy/
 │   ├── loader.py        # MODIFY: V11 schema validation, phases array
 │   ├── models.py        # MODIFY: Phase, GlobalConfig, V11PolicySchema dataclasses

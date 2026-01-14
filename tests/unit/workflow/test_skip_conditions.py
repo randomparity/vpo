@@ -8,12 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.db.types import FileInfo, TrackInfo
-from video_policy_orchestrator.policy.models import (
+from vpo.db.types import FileInfo, TrackInfo
+from vpo.policy.types import (
     PhaseSkipCondition,
     SkipReasonType,
 )
-from video_policy_orchestrator.workflow.skip_conditions import (
+from vpo.workflow.skip_conditions import (
     evaluate_skip_when,
     get_video_resolution_label,
     parse_duration,

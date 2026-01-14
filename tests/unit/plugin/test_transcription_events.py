@@ -6,7 +6,7 @@ Tests for GitHub Issue #230: Plugin Infrastructure Extension.
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from video_policy_orchestrator.plugin.events import (
+from vpo.plugin.events import (
     ANALYZER_EVENTS,
     TRANSCRIPTION_COMPLETED,
     TRANSCRIPTION_REQUESTED,
@@ -16,7 +16,7 @@ from video_policy_orchestrator.plugin.events import (
     is_analyzer_event,
     is_valid_event,
 )
-from video_policy_orchestrator.plugin_sdk import (
+from vpo.plugin_sdk import (
     create_transcription_completed_event,
     create_transcription_requested_event,
     mock_track_info,

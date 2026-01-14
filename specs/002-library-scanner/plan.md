@@ -62,7 +62,7 @@ crates/
         └── hasher.rs        # Parallel file hashing (xxhash-rust + rayon)
 
 # Python package (CLI, orchestration, database)
-src/video_policy_orchestrator/
+src/vpo/
 ├── __init__.py              # Package init
 ├── _core.pyi                # Type stubs for Rust extension
 ├── cli/
@@ -95,7 +95,7 @@ tests/
     └── sample_videos/       # Test video file stubs
 ```
 
-**Structure Decision**: Hybrid Python/Rust layout. Rust crate in `crates/vpo-core/` compiled via maturin into `video_policy_orchestrator._core`. Python handles CLI, database, and orchestration. Rust handles parallel discovery and hashing.
+**Structure Decision**: Hybrid Python/Rust layout. Rust crate in `crates/vpo-core/` compiled via maturin into `vpo._core`. Python handles CLI, database, and orchestration. Rust handles parallel discovery and hashing.
 
 ## Complexity Tracking
 

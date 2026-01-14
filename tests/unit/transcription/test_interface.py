@@ -4,12 +4,12 @@ from datetime import datetime, timezone
 
 import pytest
 
-from video_policy_orchestrator.transcription.interface import (
+from vpo.transcription.interface import (
     MultiLanguageDetectionResult,
     TranscriptionError,
     TranscriptionPlugin,
 )
-from video_policy_orchestrator.transcription.models import (
+from vpo.transcription.models import (
     AcousticAnalysisResult,
     TrackClassification,
     TranscriptionResult,

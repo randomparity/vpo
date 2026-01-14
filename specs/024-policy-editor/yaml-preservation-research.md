@@ -141,7 +141,7 @@ if 'audio_language_preference' in updates:
 
 # Validate complete policy via existing loader
 # (Ensures edited policy is valid before saving)
-from video_policy_orchestrator.policy.loader import load_policy_from_dict
+from vpo.policy.loader import load_policy_from_dict
 validated_policy = load_policy_from_dict(dict(data))
 
 # Write back to file
@@ -278,7 +278,7 @@ dependencies = [
 ```
 
 #### Phase 2: Create Policy Editor Module
-`src/video_policy_orchestrator/server/ui/policy_editor.py`:
+`src/vpo/server/ui/policy_editor.py`:
 
 ```python
 """Policy editor with YAML round-trip preservation."""
@@ -287,7 +287,7 @@ from pathlib import Path
 from typing import Any
 from ruamel.yaml import YAML
 
-from video_policy_orchestrator.policy.loader import (
+from vpo.policy.loader import (
     PolicyValidationError,
     load_policy_from_dict,
 )
@@ -497,8 +497,8 @@ If ruamel.yaml causes issues:
 
 ### Related VPO Files Analyzed
 
-- `/home/dave/src/vpo/src/video_policy_orchestrator/policy/loader.py` - Current policy loading
-- `/home/dave/src/vpo/src/video_policy_orchestrator/policy/models.py` - PolicySchema definition
+- `/home/dave/src/vpo/src/vpo/policy/loader.py` - Current policy loading
+- `/home/dave/src/vpo/src/vpo/policy/models.py` - PolicySchema definition
 - `/home/dave/src/vpo/tests/unit/test_policy_loader.py` - Validation test patterns
 - `/home/dave/src/vpo/tests/fixtures/policies/valid-full.yaml` - Example policy structure
 - `/home/dave/src/vpo/examples/policies/transcode-hevc.yaml` - Policy with extensive comments

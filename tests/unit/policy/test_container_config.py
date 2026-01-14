@@ -6,9 +6,9 @@ and container change evaluation.
 
 import pytest
 
-from video_policy_orchestrator.db.models import TrackInfo
-from video_policy_orchestrator.policy.exceptions import IncompatibleCodecError
-from video_policy_orchestrator.policy.models import (
+from vpo.db.models import TrackInfo
+from vpo.policy.exceptions import IncompatibleCodecError
+from vpo.policy.types import (
     ContainerConfig,
     PolicySchema,
 )
@@ -108,7 +108,7 @@ class TestContainerConfigValidation:
 
     def test_policy_loading_with_container(self) -> None:
         """Policy with container config should load correctly."""
-        from video_policy_orchestrator.policy.loader import load_policy_from_dict
+        from vpo.policy.loader import load_policy_from_dict
 
         data = {
             "schema_version": 12,
@@ -135,7 +135,7 @@ class TestMkvContainerCompatibility:
 
     def test_mkv_supports_all_video_codecs(self) -> None:
         """MKV should support all common video codecs."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             _evaluate_container_change,
         )
 
@@ -158,7 +158,7 @@ class TestMkvContainerCompatibility:
 
     def test_mkv_supports_all_audio_codecs(self) -> None:
         """MKV should support all common audio codecs."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             _evaluate_container_change,
         )
 
@@ -180,7 +180,7 @@ class TestMkvContainerCompatibility:
 
     def test_mkv_supports_all_subtitle_codecs(self) -> None:
         """MKV should support all common subtitle codecs."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             _evaluate_container_change,
         )
 
@@ -212,7 +212,7 @@ class TestEvaluateContainerChange:
 
     def test_no_change_when_already_mkv(self) -> None:
         """Should return None when file is already MKV and target is MKV."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             _evaluate_container_change,
         )
 
@@ -229,7 +229,7 @@ class TestEvaluateContainerChange:
 
     def test_no_change_when_already_matroska(self) -> None:
         """Should return None when container_format is 'matroska'."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             _evaluate_container_change,
         )
 
@@ -246,7 +246,7 @@ class TestEvaluateContainerChange:
 
     def test_avi_to_mkv_conversion(self) -> None:
         """Should create change for AVI to MKV conversion."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             _evaluate_container_change,
         )
 
@@ -265,7 +265,7 @@ class TestEvaluateContainerChange:
 
     def test_mov_to_mkv_conversion(self) -> None:
         """Should create change for MOV to MKV conversion."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             _evaluate_container_change,
         )
 
@@ -283,7 +283,7 @@ class TestEvaluateContainerChange:
 
     def test_no_change_when_no_container_config(self) -> None:
         """Should return None when policy has no container config."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             _evaluate_container_change,
         )
 
@@ -308,7 +308,7 @@ class TestMp4CodecCompatibility:
 
     def test_mp4_supports_h264_aac(self) -> None:
         """MP4 should support H.264 video and AAC audio."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             _evaluate_container_change,
         )
 
@@ -325,7 +325,7 @@ class TestMp4CodecCompatibility:
 
     def test_mp4_supports_hevc(self) -> None:
         """MP4 should support HEVC (H.265) video."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             _evaluate_container_change,
         )
 
@@ -342,7 +342,7 @@ class TestMp4CodecCompatibility:
 
     def test_mp4_rejects_truehd(self) -> None:
         """MP4 should reject TrueHD audio codec."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             _evaluate_container_change,
         )
 
@@ -360,7 +360,7 @@ class TestMp4CodecCompatibility:
 
     def test_mp4_rejects_dts(self) -> None:
         """MP4 should reject DTS audio codec."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             _evaluate_container_change,
         )
 
@@ -377,7 +377,7 @@ class TestMp4CodecCompatibility:
 
     def test_mp4_rejects_pgs_subtitles(self) -> None:
         """MP4 should reject PGS subtitle codec."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             _evaluate_container_change,
         )
 
@@ -395,7 +395,7 @@ class TestMp4CodecCompatibility:
 
     def test_mp4_accepts_mov_text_subtitles(self) -> None:
         """MP4 should accept mov_text subtitles."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             _evaluate_container_change,
         )
 
@@ -422,7 +422,7 @@ class TestIncompatibleCodecError:
 
     def test_error_raised_with_error_mode(self) -> None:
         """Should raise IncompatibleCodecError when mode is 'error'."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             evaluate_container_change_with_policy,
         )
 
@@ -444,7 +444,7 @@ class TestIncompatibleCodecError:
 
     def test_no_error_with_skip_mode(self) -> None:
         """Should not raise error when mode is 'skip'."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             evaluate_container_change_with_policy,
         )
 
@@ -461,7 +461,7 @@ class TestIncompatibleCodecError:
 
     def test_error_includes_helpful_context(self) -> None:
         """Error message should include helpful context."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             evaluate_container_change_with_policy,
         )
 
@@ -491,7 +491,7 @@ class TestEvaluatePolicyContainerIntegration:
         """evaluate_policy() should include container_change in Plan."""
         from pathlib import Path
 
-        from video_policy_orchestrator.policy.evaluator import evaluate_policy
+        from vpo.policy.evaluator import evaluate_policy
 
         tracks = [
             make_video_track(index=0, codec="h264"),
@@ -516,7 +516,7 @@ class TestEvaluatePolicyContainerIntegration:
         """evaluate_policy() should not include container_change when same format."""
         from pathlib import Path
 
-        from video_policy_orchestrator.policy.evaluator import evaluate_policy
+        from vpo.policy.evaluator import evaluate_policy
 
         tracks = [
             make_video_track(index=0, codec="h264"),
@@ -538,7 +538,7 @@ class TestEvaluatePolicyContainerIntegration:
         """evaluate_policy() should not include container_change without config."""
         from pathlib import Path
 
-        from video_policy_orchestrator.policy.evaluator import evaluate_policy
+        from vpo.policy.evaluator import evaluate_policy
 
         tracks = [
             make_video_track(index=0, codec="h264"),
@@ -560,7 +560,7 @@ class TestEvaluatePolicyContainerIntegration:
         """evaluate_policy() should raise IncompatibleCodecError with error mode."""
         from pathlib import Path
 
-        from video_policy_orchestrator.policy.evaluator import evaluate_policy
+        from vpo.policy.evaluator import evaluate_policy
 
         tracks = [
             make_video_track(index=0, codec="hevc"),
@@ -583,7 +583,7 @@ class TestOnIncompatibleCodecModes:
 
     def test_error_mode_raises_on_incompatible(self) -> None:
         """Error mode should raise exception for incompatible codecs."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             evaluate_container_change_with_policy,
         )
 
@@ -598,7 +598,7 @@ class TestOnIncompatibleCodecModes:
 
     def test_skip_mode_returns_none(self) -> None:
         """Skip mode should return None to skip conversion entirely."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             evaluate_container_change_with_policy,
         )
 
@@ -614,7 +614,7 @@ class TestOnIncompatibleCodecModes:
 
     def test_compatible_codecs_proceed_in_error_mode(self) -> None:
         """Error mode should allow conversion when codecs are compatible."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             evaluate_container_change_with_policy,
         )
 
@@ -631,7 +631,7 @@ class TestOnIncompatibleCodecModes:
 
     def test_compatible_codecs_proceed_in_skip_mode(self) -> None:
         """Skip mode should allow conversion when codecs are compatible."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             evaluate_container_change_with_policy,
         )
 

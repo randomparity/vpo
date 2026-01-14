@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from video_policy_orchestrator.metadata.parser import (
+from vpo.metadata.parser import (
     ParsedMetadata,
     _clean_title,
     parse_filename,

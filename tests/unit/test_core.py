@@ -8,14 +8,14 @@ class TestDiscoverVideos:
 
     def test_discover_empty_directory(self, temp_dir: Path):
         """Test discovering videos in an empty directory."""
-        from video_policy_orchestrator._core import discover_videos
+        from vpo._core import discover_videos
 
         result = discover_videos(str(temp_dir), ["mkv", "mp4"])
         assert result == []
 
     def test_discover_videos_finds_files(self, temp_video_dir: Path):
         """Test that discover_videos finds video files."""
-        from video_policy_orchestrator._core import discover_videos
+        from vpo._core import discover_videos
 
         result = discover_videos(str(temp_video_dir), ["mkv", "mp4"])
 
@@ -31,7 +31,7 @@ class TestDiscoverVideos:
 
     def test_discover_videos_skips_hidden_directories(self, temp_video_dir: Path):
         """Test that hidden directories are skipped."""
-        from video_policy_orchestrator._core import discover_videos
+        from vpo._core import discover_videos
 
         result = discover_videos(str(temp_video_dir), ["mkv"])
         paths = [r["path"] for r in result]
@@ -41,7 +41,7 @@ class TestDiscoverVideos:
 
     def test_discover_videos_returns_metadata(self, temp_video_dir: Path):
         """Test that discovered files include metadata."""
-        from video_policy_orchestrator._core import discover_videos
+        from vpo._core import discover_videos
 
         result = discover_videos(str(temp_video_dir), ["mkv", "mp4"])
 
@@ -55,7 +55,7 @@ class TestDiscoverVideos:
 
     def test_discover_videos_case_insensitive_extensions(self, temp_dir: Path):
         """Test that extension matching is case-insensitive."""
-        from video_policy_orchestrator._core import discover_videos
+        from vpo._core import discover_videos
 
         # Create files with mixed case extensions
         (temp_dir / "video.MKV").touch()
@@ -68,7 +68,7 @@ class TestDiscoverVideos:
         """Test error handling for nonexistent directory."""
         import pytest
 
-        from video_policy_orchestrator._core import discover_videos
+        from vpo._core import discover_videos
 
         with pytest.raises(FileNotFoundError):
             discover_videos("/nonexistent/path", ["mkv"])
@@ -77,7 +77,7 @@ class TestDiscoverVideos:
         """Test error handling for file path instead of directory."""
         import pytest
 
-        from video_policy_orchestrator._core import discover_videos
+        from vpo._core import discover_videos
 
         file_path = temp_dir / "file.txt"
         file_path.touch()
@@ -87,7 +87,7 @@ class TestDiscoverVideos:
 
     def test_discover_videos_with_sample_fixtures(self, sample_videos_dir: Path):
         """Test discovery with sample fixtures."""
-        from video_policy_orchestrator._core import discover_videos
+        from vpo._core import discover_videos
 
         result = discover_videos(str(sample_videos_dir), ["mkv", "mp4"])
 
@@ -101,7 +101,7 @@ class TestHashFiles:
 
     def test_hash_empty_file(self, temp_dir: Path):
         """Test hashing an empty file."""
-        from video_policy_orchestrator._core import hash_files
+        from vpo._core import hash_files
 
         file_path = temp_dir / "empty.bin"
         file_path.touch()
@@ -115,7 +115,7 @@ class TestHashFiles:
 
     def test_hash_small_file(self, temp_dir: Path):
         """Test hashing a small file (under 128KB)."""
-        from video_policy_orchestrator._core import hash_files
+        from vpo._core import hash_files
 
         file_path = temp_dir / "small.bin"
         file_path.write_bytes(b"hello world")
@@ -127,7 +127,7 @@ class TestHashFiles:
 
     def test_hash_large_file(self, temp_dir: Path):
         """Test hashing a large file (over 128KB)."""
-        from video_policy_orchestrator._core import hash_files
+        from vpo._core import hash_files
 
         file_path = temp_dir / "large.bin"
         # Write 200KB of data
@@ -141,7 +141,7 @@ class TestHashFiles:
 
     def test_hash_multiple_files(self, temp_dir: Path):
         """Test hashing multiple files in parallel."""
-        from video_policy_orchestrator._core import hash_files
+        from vpo._core import hash_files
 
         paths = []
         for i in range(5):
@@ -156,7 +156,7 @@ class TestHashFiles:
 
     def test_hash_nonexistent_file(self):
         """Test error handling for nonexistent file."""
-        from video_policy_orchestrator._core import hash_files
+        from vpo._core import hash_files
 
         result = hash_files(["/nonexistent/file.bin"])
         assert len(result) == 1
@@ -165,7 +165,7 @@ class TestHashFiles:
 
     def test_hash_same_content_same_hash(self, temp_dir: Path):
         """Test that identical content produces identical hash."""
-        from video_policy_orchestrator._core import hash_files
+        from vpo._core import hash_files
 
         content = b"identical content"
         file1 = temp_dir / "file1.bin"
@@ -178,7 +178,7 @@ class TestHashFiles:
 
     def test_hash_different_content_different_hash(self, temp_dir: Path):
         """Test that different content produces different hash."""
-        from video_policy_orchestrator._core import hash_files
+        from vpo._core import hash_files
 
         file1 = temp_dir / "file1.bin"
         file2 = temp_dir / "file2.bin"

@@ -5,13 +5,13 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from video_policy_orchestrator.config.models import PluginConnectionConfig
-from video_policy_orchestrator.plugins.radarr_metadata.client import (
+from vpo.config.models import PluginConnectionConfig
+from vpo.plugins.radarr_metadata.client import (
     RadarrAuthError,
     RadarrClient,
     RadarrConnectionError,
 )
-from video_policy_orchestrator.plugins.radarr_metadata.models import (
+from vpo.plugins.radarr_metadata.models import (
     RadarrLanguage,
     RadarrMovie,
     RadarrMovieFile,
@@ -73,7 +73,7 @@ class TestRadarrClientHeaders:
 class TestRadarrClientGetClient:
     """Tests for lazy HTTP client creation."""
 
-    @patch("video_policy_orchestrator.plugins.radarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
     def test_creates_client_on_first_call(
         self, mock_client_class: MagicMock, client: RadarrClient
     ):
@@ -90,7 +90,7 @@ class TestRadarrClientGetClient:
             headers={"X-Api-Key": "test-api-key-12345"},
         )
 
-    @patch("video_policy_orchestrator.plugins.radarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
     def test_reuses_existing_client(
         self, mock_client_class: MagicMock, client: RadarrClient
     ):
@@ -108,7 +108,7 @@ class TestRadarrClientGetClient:
 class TestRadarrClientGetStatus:
     """Tests for get_status method."""
 
-    @patch("video_policy_orchestrator.plugins.radarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
     def test_get_status_success(
         self, mock_client_class: MagicMock, client: RadarrClient
     ):
@@ -125,7 +125,7 @@ class TestRadarrClientGetStatus:
         assert result == {"appName": "Radarr", "version": "4.0.0"}
         mock_http_client.get.assert_called_once_with("/api/v3/system/status")
 
-    @patch("video_policy_orchestrator.plugins.radarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
     def test_get_status_auth_error(
         self, mock_client_class: MagicMock, client: RadarrClient
     ):
@@ -139,7 +139,7 @@ class TestRadarrClientGetStatus:
         with pytest.raises(RadarrAuthError, match="Invalid API key"):
             client.get_status()
 
-    @patch("video_policy_orchestrator.plugins.radarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
     def test_get_status_connect_error(
         self, mock_client_class: MagicMock, client: RadarrClient
     ):
@@ -151,7 +151,7 @@ class TestRadarrClientGetStatus:
         with pytest.raises(RadarrConnectionError, match="Cannot connect to Radarr"):
             client.get_status()
 
-    @patch("video_policy_orchestrator.plugins.radarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
     def test_get_status_timeout_error(
         self, mock_client_class: MagicMock, client: RadarrClient
     ):
@@ -163,7 +163,7 @@ class TestRadarrClientGetStatus:
         with pytest.raises(RadarrConnectionError, match="Connection timeout"):
             client.get_status()
 
-    @patch("video_policy_orchestrator.plugins.radarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
     def test_get_status_http_error(
         self, mock_client_class: MagicMock, client: RadarrClient
     ):
@@ -184,7 +184,7 @@ class TestRadarrClientGetStatus:
 class TestRadarrClientValidateConnection:
     """Tests for validate_connection method."""
 
-    @patch("video_policy_orchestrator.plugins.radarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
     def test_validate_connection_success(
         self, mock_client_class: MagicMock, client: RadarrClient
     ):
@@ -200,7 +200,7 @@ class TestRadarrClientValidateConnection:
 
         assert result is True
 
-    @patch("video_policy_orchestrator.plugins.radarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
     def test_validate_connection_wrong_app(
         self, mock_client_class: MagicMock, client: RadarrClient
     ):
@@ -219,7 +219,7 @@ class TestRadarrClientValidateConnection:
 class TestRadarrClientGetMovies:
     """Tests for get_movies method."""
 
-    @patch("video_policy_orchestrator.plugins.radarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
     def test_get_movies_success(
         self, mock_client_class: MagicMock, client: RadarrClient
     ):
@@ -255,7 +255,7 @@ class TestRadarrClientGetMovies:
         assert result[0].imdb_id == "tt1234567"
         assert result[0].tmdb_id == 456789
 
-    @patch("video_policy_orchestrator.plugins.radarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
     def test_get_movies_empty_list(
         self, mock_client_class: MagicMock, client: RadarrClient
     ):
@@ -270,7 +270,7 @@ class TestRadarrClientGetMovies:
 
         assert result == []
 
-    @patch("video_policy_orchestrator.plugins.radarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
     def test_get_movies_minimal_fields(
         self, mock_client_class: MagicMock, client: RadarrClient
     ):
@@ -293,7 +293,7 @@ class TestRadarrClientGetMovies:
         assert result[0].title == ""
         assert result[0].original_language is None
 
-    @patch("video_policy_orchestrator.plugins.radarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
     def test_get_movies_http_error(
         self, mock_client_class: MagicMock, client: RadarrClient
     ):
@@ -309,7 +309,7 @@ class TestRadarrClientGetMovies:
 class TestRadarrClientGetMovieFiles:
     """Tests for get_movie_files method."""
 
-    @patch("video_policy_orchestrator.plugins.radarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
     def test_get_movie_files_success(
         self, mock_client_class: MagicMock, client: RadarrClient
     ):
@@ -338,7 +338,7 @@ class TestRadarrClientGetMovieFiles:
         assert result[0].relative_path == "Test.Movie.2023.mkv"
         assert result[0].size == 5000000000
 
-    @patch("video_policy_orchestrator.plugins.radarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
     def test_get_movie_files_http_error(
         self, mock_client_class: MagicMock, client: RadarrClient
     ):
@@ -354,7 +354,7 @@ class TestRadarrClientGetMovieFiles:
 class TestRadarrClientBuildCache:
     """Tests for build_cache method."""
 
-    @patch("video_policy_orchestrator.plugins.radarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
     def test_build_cache_success(
         self, mock_client_class: MagicMock, client: RadarrClient
     ):
@@ -396,7 +396,7 @@ class TestRadarrClientBuildCache:
         assert len(cache.path_to_movie) == 1
         assert len(cache.files) == 1
 
-    @patch("video_policy_orchestrator.plugins.radarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
     def test_build_cache_empty(
         self, mock_client_class: MagicMock, client: RadarrClient
     ):
@@ -422,7 +422,7 @@ class TestRadarrClientBuildCache:
 class TestRadarrClientClose:
     """Tests for close method."""
 
-    @patch("video_policy_orchestrator.plugins.radarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
     def test_close_with_client(
         self, mock_client_class: MagicMock, client: RadarrClient
     ):
@@ -445,7 +445,7 @@ class TestRadarrClientClose:
         client.close()
         assert client._client is None
 
-    @patch("video_policy_orchestrator.plugins.radarr_metadata.client.httpx.Client")
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
     def test_close_allows_new_client(
         self, mock_client_class: MagicMock, client: RadarrClient
     ):

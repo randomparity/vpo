@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 from click.testing import CliRunner
 
-from video_policy_orchestrator.cli import main
+from vpo.cli import main
 
 
 @pytest.fixture
@@ -96,7 +96,7 @@ class TestReportJobsWithMock:
         ]
 
         with patch(
-            "video_policy_orchestrator.reports.queries.get_jobs_report",
+            "vpo.reports.queries.get_jobs_report",
             return_value=mock_rows,
         ):
             result = runner.invoke(main, ["report", "jobs"])
@@ -121,7 +121,7 @@ class TestReportJobsWithMock:
         ]
 
         with patch(
-            "video_policy_orchestrator.reports.queries.get_jobs_report",
+            "vpo.reports.queries.get_jobs_report",
             return_value=mock_rows,
         ) as mock_query:
             result = runner.invoke(main, ["report", "jobs", "--type", "scan"])
@@ -147,7 +147,7 @@ class TestReportJobsWithMock:
         ]
 
         with patch(
-            "video_policy_orchestrator.reports.queries.get_jobs_report",
+            "vpo.reports.queries.get_jobs_report",
             return_value=mock_rows,
         ):
             result = runner.invoke(main, ["report", "jobs", "--format", "json"])
@@ -173,7 +173,7 @@ class TestReportJobsWithMock:
         ]
 
         with patch(
-            "video_policy_orchestrator.reports.queries.get_jobs_report",
+            "vpo.reports.queries.get_jobs_report",
             return_value=mock_rows,
         ):
             result = runner.invoke(main, ["report", "jobs", "--format", "csv"])
@@ -185,9 +185,7 @@ class TestReportJobsWithMock:
 
     def test_empty_results(self, runner):
         """Handle empty results."""
-        with patch(
-            "video_policy_orchestrator.reports.queries.get_jobs_report", return_value=[]
-        ):
+        with patch("vpo.reports.queries.get_jobs_report", return_value=[]):
             result = runner.invoke(main, ["report", "jobs"])
             assert result.exit_code == 0
             assert "No records found" in result.output
@@ -211,7 +209,7 @@ class TestReportLibraryWithMock:
         ]
 
         with patch(
-            "video_policy_orchestrator.reports.queries.get_library_report",
+            "vpo.reports.queries.get_library_report",
             return_value=mock_rows,
         ):
             result = runner.invoke(main, ["report", "library"])
@@ -234,7 +232,7 @@ class TestReportLibraryWithMock:
         ]
 
         with patch(
-            "video_policy_orchestrator.reports.queries.get_library_report",
+            "vpo.reports.queries.get_library_report",
             return_value=mock_rows,
         ) as mock_query:
             result = runner.invoke(main, ["report", "library", "--resolution", "4K"])
@@ -270,7 +268,7 @@ class TestReportScansWithMock:
         ]
 
         with patch(
-            "video_policy_orchestrator.reports.queries.get_scans_report",
+            "vpo.reports.queries.get_scans_report",
             return_value=mock_rows,
         ):
             result = runner.invoke(main, ["report", "scans"])
@@ -294,7 +292,7 @@ class TestReportScansWithMock:
         ]
 
         with patch(
-            "video_policy_orchestrator.reports.queries.get_scans_report",
+            "vpo.reports.queries.get_scans_report",
             return_value=mock_rows,
         ):
             result = runner.invoke(main, ["report", "scans", "--format", "json"])
@@ -324,7 +322,7 @@ class TestReportTranscodesWithMock:
         ]
 
         with patch(
-            "video_policy_orchestrator.reports.queries.get_transcodes_report",
+            "vpo.reports.queries.get_transcodes_report",
             return_value=mock_rows,
         ):
             result = runner.invoke(main, ["report", "transcodes"])
@@ -336,7 +334,7 @@ class TestReportTranscodesWithMock:
         mock_rows = []
 
         with patch(
-            "video_policy_orchestrator.reports.queries.get_transcodes_report",
+            "vpo.reports.queries.get_transcodes_report",
             return_value=mock_rows,
         ) as mock_query:
             result = runner.invoke(main, ["report", "transcodes", "--codec", "hevc"])
@@ -363,7 +361,7 @@ class TestReportPolicyApplyWithMock:
         ]
 
         with patch(
-            "video_policy_orchestrator.reports.queries.get_policy_apply_report",
+            "vpo.reports.queries.get_policy_apply_report",
             return_value=mock_rows,
         ):
             result = runner.invoke(main, ["report", "policy-apply"])
@@ -380,7 +378,7 @@ class TestReportPolicyApplyWithMock:
         ]
 
         with patch(
-            "video_policy_orchestrator.reports.queries.get_policy_apply_report",
+            "vpo.reports.queries.get_policy_apply_report",
             return_value=mock_rows,
         ) as mock_query:
             result = runner.invoke(main, ["report", "policy-apply", "--verbose"])
@@ -410,7 +408,7 @@ class TestReportFileOutput:
         output_file = tmp_path / "report.csv"
 
         with patch(
-            "video_policy_orchestrator.reports.queries.get_jobs_report",
+            "vpo.reports.queries.get_jobs_report",
             return_value=mock_rows,
         ):
             result = runner.invoke(
@@ -442,7 +440,7 @@ class TestReportFileOutput:
         output_file.write_text("existing content")
 
         with patch(
-            "video_policy_orchestrator.reports.queries.get_jobs_report",
+            "vpo.reports.queries.get_jobs_report",
             return_value=mock_rows,
         ):
             result = runner.invoke(
@@ -473,7 +471,7 @@ class TestReportFileOutput:
         output_file.write_text("existing content")
 
         with patch(
-            "video_policy_orchestrator.reports.queries.get_jobs_report",
+            "vpo.reports.queries.get_jobs_report",
             return_value=mock_rows,
         ):
             result = runner.invoke(
@@ -502,7 +500,7 @@ class TestReportTimeFilters:
         mock_rows = []
 
         with patch(
-            "video_policy_orchestrator.reports.queries.get_jobs_report",
+            "vpo.reports.queries.get_jobs_report",
             return_value=mock_rows,
         ) as mock_query:
             result = runner.invoke(main, ["report", "jobs", "--since", "7d"])
@@ -516,7 +514,7 @@ class TestReportTimeFilters:
         mock_rows = []
 
         with patch(
-            "video_policy_orchestrator.reports.queries.get_jobs_report",
+            "vpo.reports.queries.get_jobs_report",
             return_value=mock_rows,
         ) as mock_query:
             result = runner.invoke(main, ["report", "jobs", "--until", "1d"])
@@ -540,7 +538,7 @@ class TestReportLimitOptions:
         mock_rows = []
 
         with patch(
-            "video_policy_orchestrator.reports.queries.get_jobs_report",
+            "vpo.reports.queries.get_jobs_report",
             return_value=mock_rows,
         ) as mock_query:
             result = runner.invoke(main, ["report", "jobs", "--limit", "50"])
@@ -553,7 +551,7 @@ class TestReportLimitOptions:
         mock_rows = []
 
         with patch(
-            "video_policy_orchestrator.reports.queries.get_jobs_report",
+            "vpo.reports.queries.get_jobs_report",
             return_value=mock_rows,
         ) as mock_query:
             result = runner.invoke(main, ["report", "jobs", "--no-limit"])

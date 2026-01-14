@@ -297,7 +297,7 @@ CREATE INDEX idx_lang_segments_language ON language_segments(language_code);
 ### 5.1 Domain Models
 
 ```python
-# Location: src/video_policy_orchestrator/language_analysis/models.py
+# Location: src/vpo/language_analysis/models.py
 
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -374,7 +374,7 @@ class LanguageAnalysisResult:
 ### 5.2 Policy Condition Model
 
 ```python
-# Location: src/video_policy_orchestrator/policy/models.py
+# Location: src/vpo/policy/models.py
 
 @dataclass(frozen=True)
 class AudioIsMultiLanguageCondition:
@@ -393,7 +393,7 @@ class AudioIsMultiLanguageCondition:
 ### 5.3 Policy Action Models
 
 ```python
-# Location: src/video_policy_orchestrator/policy/models.py
+# Location: src/vpo/policy/models.py
 
 @dataclass(frozen=True)
 class SetForcedAction:
@@ -424,7 +424,7 @@ class SetDefaultAction:
 ### 5.4 Database Record Models
 
 ```python
-# Location: src/video_policy_orchestrator/db/models.py
+# Location: src/vpo/db/models.py
 
 @dataclass
 class LanguageAnalysisResultRecord:

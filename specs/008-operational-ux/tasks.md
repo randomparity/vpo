@@ -15,7 +15,7 @@
 
 ## Path Conventions
 
-- **Project structure**: `src/video_policy_orchestrator/`, `tests/` at repository root
+- **Project structure**: `src/vpo/`, `tests/` at repository root
 - Based on plan.md: Single CLI application extending existing VPO codebase
 
 ---
@@ -24,9 +24,9 @@
 
 **Purpose**: Project initialization and foundational module structure
 
-- [x] T001 Create logging module structure in src/video_policy_orchestrator/logging/__init__.py
-- [x] T002 [P] Create jobs tracking module in src/video_policy_orchestrator/jobs/tracking.py
-- [x] T003 [P] Create config profiles module in src/video_policy_orchestrator/config/profiles.py
+- [x] T001 Create logging module structure in src/vpo/logging/__init__.py
+- [x] T002 [P] Create jobs tracking module in src/vpo/jobs/tracking.py
+- [x] T003 [P] Create config profiles module in src/vpo/config/profiles.py
 
 **Checkpoint**: Commit - "feat(008): Phase 1 - Setup module structure"
 
@@ -38,14 +38,14 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [x] T004 Extend JobType enum with SCAN and APPLY values in src/video_policy_orchestrator/db/models.py
-- [x] T005 Add Job dataclass fields (files_affected_json, summary_json) in src/video_policy_orchestrator/db/models.py
-- [x] T006 Create schema migration v6→v7 in src/video_policy_orchestrator/db/schema.py
-- [x] T007 Update initialize_database to call migrate_v6_to_v7 in src/video_policy_orchestrator/db/schema.py
-- [x] T008 [P] Add LoggingConfig dataclass in src/video_policy_orchestrator/config/models.py
-- [x] T009 [P] Add Profile dataclass in src/video_policy_orchestrator/config/models.py
-- [x] T010 [P] Create ScanResult dataclass in src/video_policy_orchestrator/scanner/models.py
-- [x] T011 Update VPOConfig to include logging field in src/video_policy_orchestrator/config/models.py
+- [x] T004 Extend JobType enum with SCAN and APPLY values in src/vpo/db/models.py
+- [x] T005 Add Job dataclass fields (files_affected_json, summary_json) in src/vpo/db/models.py
+- [x] T006 Create schema migration v6→v7 in src/vpo/db/schema.py
+- [x] T007 Update initialize_database to call migrate_v6_to_v7 in src/vpo/db/schema.py
+- [x] T008 [P] Add LoggingConfig dataclass in src/vpo/config/models.py
+- [x] T009 [P] Add Profile dataclass in src/vpo/config/models.py
+- [x] T010 [P] Create ScanResult dataclass in src/vpo/scanner/models.py
+- [x] T011 Update VPOConfig to include logging field in src/vpo/config/models.py
 
 **Checkpoint**: Foundation ready - Commit "feat(008): Phase 2 - Foundational data models and schema migration"
 
@@ -64,15 +64,15 @@
 
 ### Implementation for User Story 1
 
-- [x] T014 [US1] Implement file_needs_rescan() function in src/video_policy_orchestrator/scanner/orchestrator.py
-- [x] T015 [US1] Implement detect_missing_files() function in src/video_policy_orchestrator/scanner/orchestrator.py
-- [x] T016 [US1] Modify scan_directory() to use incremental detection by default in src/video_policy_orchestrator/scanner/orchestrator.py
-- [x] T017 [US1] Add --full flag to scan command in src/video_policy_orchestrator/cli/scan.py
-- [x] T018 [US1] Add --prune flag to scan command in src/video_policy_orchestrator/cli/scan.py
-- [x] T019 [US1] Add --verify-hash flag to scan command in src/video_policy_orchestrator/cli/scan.py
-- [x] T020 [US1] Implement incremental scan summary output (scanned/skipped/added/removed) in src/video_policy_orchestrator/cli/scan.py
-- [x] T021 [US1] Create scan job record with config (incremental, prune, verify_hash flags serialized to policy_json) in src/video_policy_orchestrator/jobs/tracking.py
-- [x] T022 [US1] Wire scan job tracking into scan_directory() in src/video_policy_orchestrator/scanner/orchestrator.py
+- [x] T014 [US1] Implement file_needs_rescan() function in src/vpo/scanner/orchestrator.py
+- [x] T015 [US1] Implement detect_missing_files() function in src/vpo/scanner/orchestrator.py
+- [x] T016 [US1] Modify scan_directory() to use incremental detection by default in src/vpo/scanner/orchestrator.py
+- [x] T017 [US1] Add --full flag to scan command in src/vpo/cli/scan.py
+- [x] T018 [US1] Add --prune flag to scan command in src/vpo/cli/scan.py
+- [x] T019 [US1] Add --verify-hash flag to scan command in src/vpo/cli/scan.py
+- [x] T020 [US1] Implement incremental scan summary output (scanned/skipped/added/removed) in src/vpo/cli/scan.py
+- [x] T021 [US1] Create scan job record with config (incremental, prune, verify_hash flags serialized to policy_json) in src/vpo/jobs/tracking.py
+- [x] T022 [US1] Wire scan job tracking into scan_directory() in src/vpo/scanner/orchestrator.py
 
 **Checkpoint**: User Story 1 complete - Commit "feat(008): Phase 3 - US1 Incremental directory scanning"
 
@@ -91,18 +91,18 @@
 
 ### Implementation for User Story 2
 
-- [x] T025 [US2] Implement get_jobs_filtered() with status/type/since filters in src/video_policy_orchestrator/db/models.py
-- [x] T026 [US2] Create jobs CLI command group in src/video_policy_orchestrator/cli/jobs.py (already existed)
-- [x] T027 [US2] Implement `vpo jobs list` command with table output in src/video_policy_orchestrator/cli/jobs.py (already existed)
-- [x] T028 [US2] Add --status filter to jobs list in src/video_policy_orchestrator/cli/jobs.py (already existed)
-- [x] T029 [US2] Add --type filter to jobs list in src/video_policy_orchestrator/cli/jobs.py
-- [x] T030 [US2] Add --since filter (relative dates: 1d, 1w) to jobs list in src/video_policy_orchestrator/cli/jobs.py
-- [x] T031 [US2] Add --limit option to jobs list in src/video_policy_orchestrator/cli/jobs.py (already existed)
-- [x] T032 [US2] Add --json output option to jobs list in src/video_policy_orchestrator/cli/jobs.py
-- [x] T033 [US2] Implement `vpo jobs show <id>` command with detailed output in src/video_policy_orchestrator/cli/jobs.py
-- [x] T034 [US2] Add prefix matching for job IDs in jobs show in src/video_policy_orchestrator/cli/jobs.py
-- [x] T035 [US2] Add --json output option to jobs show in src/video_policy_orchestrator/cli/jobs.py
-- [x] T036 [US2] Register jobs command group in CLI main in src/video_policy_orchestrator/cli/__init__.py (already existed)
+- [x] T025 [US2] Implement get_jobs_filtered() with status/type/since filters in src/vpo/db/models.py
+- [x] T026 [US2] Create jobs CLI command group in src/vpo/cli/jobs.py (already existed)
+- [x] T027 [US2] Implement `vpo jobs list` command with table output in src/vpo/cli/jobs.py (already existed)
+- [x] T028 [US2] Add --status filter to jobs list in src/vpo/cli/jobs.py (already existed)
+- [x] T029 [US2] Add --type filter to jobs list in src/vpo/cli/jobs.py
+- [x] T030 [US2] Add --since filter (relative dates: 1d, 1w) to jobs list in src/vpo/cli/jobs.py
+- [x] T031 [US2] Add --limit option to jobs list in src/vpo/cli/jobs.py (already existed)
+- [x] T032 [US2] Add --json output option to jobs list in src/vpo/cli/jobs.py
+- [x] T033 [US2] Implement `vpo jobs show <id>` command with detailed output in src/vpo/cli/jobs.py
+- [x] T034 [US2] Add prefix matching for job IDs in jobs show in src/vpo/cli/jobs.py
+- [x] T035 [US2] Add --json output option to jobs show in src/vpo/cli/jobs.py
+- [x] T036 [US2] Register jobs command group in CLI main in src/vpo/cli/__init__.py (already existed)
 
 **Checkpoint**: User Story 2 complete - Commit "feat(008): Phase 4 - US2 Job history and status commands"
 
@@ -122,18 +122,18 @@
 
 ### Implementation for User Story 3
 
-- [x] T040 [US3] Implement load_profile() in src/video_policy_orchestrator/config/profiles.py
-- [x] T041 [US3] Implement list_profiles() in src/video_policy_orchestrator/config/profiles.py
-- [x] T042 [US3] Implement merge_profile_with_config() for precedence handling in src/video_policy_orchestrator/config/profiles.py
-- [x] T043 [US3] Add profile validation (name, policy file exists) in src/video_policy_orchestrator/config/profiles.py
-- [x] T044 [US3] Create profiles CLI command group in src/video_policy_orchestrator/cli/profiles.py
-- [x] T045 [US3] Implement `vpo profiles list` command in src/video_policy_orchestrator/cli/profiles.py
-- [x] T046 [US3] Implement `vpo profiles show <name>` command in src/video_policy_orchestrator/cli/profiles.py
-- [x] T047 [US3] Add --json output options to profiles commands in src/video_policy_orchestrator/cli/profiles.py
-- [x] T048 [US3] Add global --profile option to CLI main in src/video_policy_orchestrator/cli/__init__.py (added to scan/apply)
-- [x] T049 [US3] Wire --profile into scan command in src/video_policy_orchestrator/cli/scan.py
-- [x] T050 [US3] Wire --profile into apply command (if exists) in src/video_policy_orchestrator/cli/apply.py
-- [x] T051 [US3] Register profiles command group in CLI main in src/video_policy_orchestrator/cli/__init__.py
+- [x] T040 [US3] Implement load_profile() in src/vpo/config/profiles.py
+- [x] T041 [US3] Implement list_profiles() in src/vpo/config/profiles.py
+- [x] T042 [US3] Implement merge_profile_with_config() for precedence handling in src/vpo/config/profiles.py
+- [x] T043 [US3] Add profile validation (name, policy file exists) in src/vpo/config/profiles.py
+- [x] T044 [US3] Create profiles CLI command group in src/vpo/cli/profiles.py
+- [x] T045 [US3] Implement `vpo profiles list` command in src/vpo/cli/profiles.py
+- [x] T046 [US3] Implement `vpo profiles show <name>` command in src/vpo/cli/profiles.py
+- [x] T047 [US3] Add --json output options to profiles commands in src/vpo/cli/profiles.py
+- [x] T048 [US3] Add global --profile option to CLI main in src/vpo/cli/__init__.py (added to scan/apply)
+- [x] T049 [US3] Wire --profile into scan command in src/vpo/cli/scan.py
+- [x] T050 [US3] Wire --profile into apply command (if exists) in src/vpo/cli/apply.py
+- [x] T051 [US3] Register profiles command group in CLI main in src/vpo/cli/__init__.py
 
 **Checkpoint**: User Story 3 complete - Commit "feat(008): Phase 5 - US3 Configuration profiles"
 
@@ -152,16 +152,16 @@
 
 ### Implementation for User Story 4
 
-- [x] T054 [US4] Implement JSONFormatter class in src/video_policy_orchestrator/logging/handlers.py
-- [x] T055 [US4] Implement configure_logging() from LoggingConfig in src/video_policy_orchestrator/logging/config.py
-- [x] T056 [US4] Add RotatingFileHandler setup with max_bytes/backup_count in src/video_policy_orchestrator/logging/config.py
-- [x] T057 [US4] Add stderr fallback when log file unavailable in src/video_policy_orchestrator/logging/config.py
-- [x] T058 [US4] Export configure_logging in src/video_policy_orchestrator/logging/__init__.py
-- [x] T059 [US4] Add global --log-level option to CLI main in src/video_policy_orchestrator/cli/__init__.py
-- [x] T060 [US4] Add global --log-file option to CLI main in src/video_policy_orchestrator/cli/__init__.py
-- [x] T061 [US4] Add global --log-json flag to CLI main in src/video_policy_orchestrator/cli/__init__.py
-- [x] T062 [US4] Wire logging configuration into CLI startup in src/video_policy_orchestrator/cli/__init__.py
-- [x] T063 [US4] Add structured logging calls to scan operations in src/video_policy_orchestrator/scanner/orchestrator.py (logging already in place)
+- [x] T054 [US4] Implement JSONFormatter class in src/vpo/logging/handlers.py
+- [x] T055 [US4] Implement configure_logging() from LoggingConfig in src/vpo/logging/config.py
+- [x] T056 [US4] Add RotatingFileHandler setup with max_bytes/backup_count in src/vpo/logging/config.py
+- [x] T057 [US4] Add stderr fallback when log file unavailable in src/vpo/logging/config.py
+- [x] T058 [US4] Export configure_logging in src/vpo/logging/__init__.py
+- [x] T059 [US4] Add global --log-level option to CLI main in src/vpo/cli/__init__.py
+- [x] T060 [US4] Add global --log-file option to CLI main in src/vpo/cli/__init__.py
+- [x] T061 [US4] Add global --log-json flag to CLI main in src/vpo/cli/__init__.py
+- [x] T062 [US4] Wire logging configuration into CLI startup in src/vpo/cli/__init__.py
+- [x] T063 [US4] Add structured logging calls to scan operations in src/vpo/scanner/orchestrator.py (logging already in place)
 
 **Checkpoint**: User Story 4 complete - Commit "feat(008): Phase 6 - US4 Structured logging and observability"
 
@@ -171,8 +171,8 @@
 
 **Purpose**: Final integration, documentation, and cleanup
 
-- [x] T064 [P] Update CLI help text for all new commands and options in src/video_policy_orchestrator/cli/
-- [x] T065 [P] Add auto job purge at scan/apply start using JobsConfig in src/video_policy_orchestrator/jobs/tracking.py
+- [x] T064 [P] Update CLI help text for all new commands and options in src/vpo/cli/
+- [x] T065 [P] Add auto job purge at scan/apply start using JobsConfig in src/vpo/jobs/tracking.py
 - [x] T066 Verify all commands respect precedence: CLI > profile > config > defaults
 - [x] T067 [P] Run ruff check and fix any linting issues
 - [x] T068 [P] Run pytest and ensure all tests pass

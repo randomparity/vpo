@@ -13,16 +13,16 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from video_policy_orchestrator.executor.transcode import (
+from vpo.executor.transcode import (
     TranscodeExecutor,
     build_ffmpeg_command,
 )
-from video_policy_orchestrator.policy.models import (
+from vpo.policy.types import (
     TranscodePolicyConfig,
 )
 
 if TYPE_CHECKING:
-    from video_policy_orchestrator.introspector.ffprobe import FFprobeIntrospector
+    from vpo.introspector.ffprobe import FFprobeIntrospector
 
 from .conftest import get_video_tracks
 

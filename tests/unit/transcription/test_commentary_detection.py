@@ -2,7 +2,7 @@
 
 import pytest
 
-from video_policy_orchestrator.transcription.models import (
+from vpo.transcription.models import (
     COMMENTARY_KEYWORDS,
     COMMENTARY_TRANSCRIPT_PATTERNS,
     TrackClassification,

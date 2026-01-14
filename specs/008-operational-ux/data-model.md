@@ -13,7 +13,7 @@ This document defines the data model changes for incremental scanning, job histo
 
 ### 1. JobType Enum (Extended)
 
-**Location**: `src/video_policy_orchestrator/db/models.py`
+**Location**: `src/vpo/db/models.py`
 
 ```python
 class JobType(Enum):
@@ -30,7 +30,7 @@ class JobType(Enum):
 
 ### 2. Job Entity (Extended)
 
-**Location**: `src/video_policy_orchestrator/db/models.py`
+**Location**: `src/vpo/db/models.py`
 
 **New Fields**:
 
@@ -68,7 +68,7 @@ ALTER TABLE jobs ADD COLUMN summary_json TEXT;
 
 ### 3. Profile Entity (New)
 
-**Location**: `src/video_policy_orchestrator/config/models.py`
+**Location**: `src/vpo/config/models.py`
 
 ```python
 @dataclass
@@ -109,7 +109,7 @@ logging:
 
 ### 4. LoggingConfig Entity (New)
 
-**Location**: `src/video_policy_orchestrator/config/models.py`
+**Location**: `src/vpo/config/models.py`
 
 ```python
 @dataclass
@@ -137,7 +137,7 @@ class LoggingConfig:
 
 ### 5. ScanResult Entity (New)
 
-**Location**: `src/video_policy_orchestrator/scanner/models.py`
+**Location**: `src/vpo/scanner/models.py`
 
 ```python
 @dataclass
@@ -178,7 +178,7 @@ class ScanResult:
 
 ### Migration v6 → v7
 
-**File**: `src/video_policy_orchestrator/db/schema.py`
+**File**: `src/vpo/db/schema.py`
 
 ```python
 SCHEMA_VERSION = 7

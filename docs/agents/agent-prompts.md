@@ -16,8 +16,8 @@ I need to add a new CLI command to VPO. The command should:
 - [Describe expected output format]
 
 Follow the existing patterns in:
-- src/video_policy_orchestrator/cli/scan.py
-- src/video_policy_orchestrator/cli/inspect.py
+- src/vpo/cli/scan.py
+- src/vpo/cli/inspect.py
 
 Requirements:
 - Use click decorators for arguments and options
@@ -36,8 +36,8 @@ I need to add a new table to the VPO database. The table should store:
 - [Describe relationships to existing tables]
 
 Follow the existing patterns in:
-- src/video_policy_orchestrator/db/schema.py (for CREATE TABLE)
-- src/video_policy_orchestrator/db/models.py (for dataclasses and operations)
+- src/vpo/db/schema.py (for CREATE TABLE)
+- src/vpo/db/models.py (for dataclasses and operations)
 
 Requirements:
 - Add migration logic in schema.py
@@ -54,8 +54,8 @@ Requirements:
 I need to add a new media introspector that wraps [tool name].
 
 Follow the existing pattern in:
-- src/video_policy_orchestrator/introspector/ffprobe.py
-- src/video_policy_orchestrator/introspector/interface.py
+- src/vpo/introspector/ffprobe.py
+- src/vpo/introspector/interface.py
 
 Requirements:
 - Implement the MediaIntrospector protocol

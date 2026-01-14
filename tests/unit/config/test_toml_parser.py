@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.config.toml_parser import (
+from vpo.config.toml_parser import (
     BasicTomlParser,
     load_toml_file,
     parse_toml,

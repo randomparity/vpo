@@ -8,14 +8,14 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.db.models import TrackInfo
-from video_policy_orchestrator.policy.evaluator import (
+from vpo.db.models import TrackInfo
+from vpo.policy.evaluator import (
     evaluate_conditional_rules,
     evaluate_policy,
 )
-from video_policy_orchestrator.policy.exceptions import ConditionalFailError
-from video_policy_orchestrator.policy.loader import load_policy
-from video_policy_orchestrator.policy.models import (
+from vpo.policy.exceptions import ConditionalFailError
+from vpo.policy.loader import load_policy
+from vpo.policy.types import (
     SkipFlags,
 )
 

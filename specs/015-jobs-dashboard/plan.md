@@ -56,7 +56,7 @@ specs/015-jobs-dashboard/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── server/
 │   ├── app.py                    # Add /api/jobs route registration
 │   ├── ui/

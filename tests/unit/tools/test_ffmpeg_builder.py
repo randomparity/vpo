@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.tools.ffmpeg_builder import FFmpegCommandBuilder
-from video_policy_orchestrator.tools.models import FFmpegCapabilities
+from vpo.tools.ffmpeg_builder import FFmpegCommandBuilder
+from vpo.tools.models import FFmpegCapabilities
 
 
 class TestFFmpegCommandBuilder:

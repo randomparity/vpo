@@ -66,7 +66,7 @@ Tracks:
 
 ```python
 from pathlib import Path
-from video_policy_orchestrator.introspector.ffprobe import FFprobeIntrospector
+from vpo.introspector.ffprobe import FFprobeIntrospector
 
 # Create introspector (checks ffprobe availability)
 introspector = FFprobeIntrospector()
@@ -103,8 +103,8 @@ ORDER BY t.track_index;
 ## Error Handling
 
 ```python
-from video_policy_orchestrator.introspector.interface import MediaIntrospectionError
-from video_policy_orchestrator.introspector.ffprobe import FFprobeIntrospector
+from vpo.introspector.interface import MediaIntrospectionError
+from vpo.introspector.ffprobe import FFprobeIntrospector
 
 try:
     introspector = FFprobeIntrospector()

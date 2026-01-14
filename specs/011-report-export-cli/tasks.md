@@ -19,8 +19,8 @@
 
 **Purpose**: Create the reports module structure and shared utilities
 
-- [x] T001 Create reports module directory structure at src/video_policy_orchestrator/reports/
-- [x] T002 [P] Create reports module __init__.py at src/video_policy_orchestrator/reports/__init__.py
+- [x] T001 Create reports module directory structure at src/vpo/reports/
+- [x] T002 [P] Create reports module __init__.py at src/vpo/reports/__init__.py
 - [x] T003 [P] Create test directory structure at tests/unit/reports/
 
 ---
@@ -31,15 +31,15 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [x] T004 Implement TimeFilter dataclass and parse_relative_date() in src/video_policy_orchestrator/reports/filters.py
-- [x] T005 [P] Implement ReportFormat enum in src/video_policy_orchestrator/reports/formatters.py
-- [x] T006 Implement render_text_table() in src/video_policy_orchestrator/reports/formatters.py
-- [x] T007 Implement render_csv() in src/video_policy_orchestrator/reports/formatters.py
-- [x] T008 Implement render_json() in src/video_policy_orchestrator/reports/formatters.py
-- [x] T009 [P] Implement format_timestamp_local() helper in src/video_policy_orchestrator/reports/formatters.py
-- [x] T010 [P] Implement format_duration() helper in src/video_policy_orchestrator/reports/formatters.py
-- [x] T011 Create report command group skeleton in src/video_policy_orchestrator/cli/report.py
-- [x] T012 Register report command group in src/video_policy_orchestrator/cli/__init__.py
+- [x] T004 Implement TimeFilter dataclass and parse_relative_date() in src/vpo/reports/filters.py
+- [x] T005 [P] Implement ReportFormat enum in src/vpo/reports/formatters.py
+- [x] T006 Implement render_text_table() in src/vpo/reports/formatters.py
+- [x] T007 Implement render_csv() in src/vpo/reports/formatters.py
+- [x] T008 Implement render_json() in src/vpo/reports/formatters.py
+- [x] T009 [P] Implement format_timestamp_local() helper in src/vpo/reports/formatters.py
+- [x] T010 [P] Implement format_duration() helper in src/vpo/reports/formatters.py
+- [x] T011 Create report command group skeleton in src/vpo/cli/report.py
+- [x] T012 Register report command group in src/vpo/cli/__init__.py
 - [x] T013 [P] Add unit tests for filters.py in tests/unit/reports/test_filters.py
 - [x] T014 [P] Add unit tests for formatters.py in tests/unit/reports/test_formatters.py
 
@@ -55,14 +55,14 @@
 
 ### Implementation for User Story 1
 
-- [x] T015 [US1] Implement get_jobs_report() query function in src/video_policy_orchestrator/reports/queries.py
-- [x] T016 [US1] Implement JobReportRow dataclass in src/video_policy_orchestrator/reports/queries.py
-- [x] T017 [US1] Implement `vpo report jobs` subcommand in src/video_policy_orchestrator/cli/report.py
-- [x] T018 [US1] Add --type filter option to jobs subcommand in src/video_policy_orchestrator/cli/report.py
-- [x] T019 [US1] Add --status filter option to jobs subcommand in src/video_policy_orchestrator/cli/report.py
-- [x] T020 [US1] Add --since/--until filter options to jobs subcommand in src/video_policy_orchestrator/cli/report.py
-- [x] T021 [US1] Add --format option (text/csv/json) to jobs subcommand in src/video_policy_orchestrator/cli/report.py
-- [x] T022 [US1] Add --limit and --no-limit options to jobs subcommand in src/video_policy_orchestrator/cli/report.py
+- [x] T015 [US1] Implement get_jobs_report() query function in src/vpo/reports/queries.py
+- [x] T016 [US1] Implement JobReportRow dataclass in src/vpo/reports/queries.py
+- [x] T017 [US1] Implement `vpo report jobs` subcommand in src/vpo/cli/report.py
+- [x] T018 [US1] Add --type filter option to jobs subcommand in src/vpo/cli/report.py
+- [x] T019 [US1] Add --status filter option to jobs subcommand in src/vpo/cli/report.py
+- [x] T020 [US1] Add --since/--until filter options to jobs subcommand in src/vpo/cli/report.py
+- [x] T021 [US1] Add --format option (text/csv/json) to jobs subcommand in src/vpo/cli/report.py
+- [x] T022 [US1] Add --limit and --no-limit options to jobs subcommand in src/vpo/cli/report.py
 - [x] T023 [P] [US1] Add unit tests for get_jobs_report() in tests/unit/reports/test_queries.py
 - [x] T024 [P] [US1] Add integration test for `vpo report jobs` in tests/integration/test_report_cli.py
 
@@ -78,13 +78,13 @@
 
 ### Implementation for User Story 2
 
-- [x] T025 [US2] Implement get_library_report() query function in src/video_policy_orchestrator/reports/queries.py
-- [x] T026 [US2] Implement LibraryReportRow dataclass in src/video_policy_orchestrator/reports/queries.py
-- [x] T027 [US2] Implement get_resolution_category() helper in src/video_policy_orchestrator/reports/queries.py
-- [x] T028 [US2] Implement `vpo report library` subcommand in src/video_policy_orchestrator/cli/report.py
-- [x] T029 [US2] Add --resolution filter option to library subcommand in src/video_policy_orchestrator/cli/report.py
-- [x] T030 [US2] Add --language filter option to library subcommand in src/video_policy_orchestrator/cli/report.py
-- [x] T031 [US2] Add --has-subtitles/--no-subtitles options to library subcommand in src/video_policy_orchestrator/cli/report.py
+- [x] T025 [US2] Implement get_library_report() query function in src/vpo/reports/queries.py
+- [x] T026 [US2] Implement LibraryReportRow dataclass in src/vpo/reports/queries.py
+- [x] T027 [US2] Implement get_resolution_category() helper in src/vpo/reports/queries.py
+- [x] T028 [US2] Implement `vpo report library` subcommand in src/vpo/cli/report.py
+- [x] T029 [US2] Add --resolution filter option to library subcommand in src/vpo/cli/report.py
+- [x] T030 [US2] Add --language filter option to library subcommand in src/vpo/cli/report.py
+- [x] T031 [US2] Add --has-subtitles/--no-subtitles options to library subcommand in src/vpo/cli/report.py
 - [x] T032 [P] [US2] Add unit tests for get_library_report() in tests/unit/reports/test_queries.py
 - [x] T033 [P] [US2] Add integration test for `vpo report library` in tests/integration/test_report_cli.py
 
@@ -100,10 +100,10 @@
 
 ### Implementation for User Story 3
 
-- [x] T034 [US3] Add format validation and error handling in src/video_policy_orchestrator/cli/report.py
-- [x] T035 [US3] Ensure CSV output includes headers and proper escaping in src/video_policy_orchestrator/reports/formatters.py
-- [x] T036 [US3] Ensure JSON output has stable key ordering in src/video_policy_orchestrator/reports/formatters.py
-- [x] T037 [US3] Add text table column width calculation for terminal display in src/video_policy_orchestrator/reports/formatters.py
+- [x] T034 [US3] Add format validation and error handling in src/vpo/cli/report.py
+- [x] T035 [US3] Ensure CSV output includes headers and proper escaping in src/vpo/reports/formatters.py
+- [x] T036 [US3] Ensure JSON output has stable key ordering in src/vpo/reports/formatters.py
+- [x] T037 [US3] Add text table column width calculation for terminal display in src/vpo/reports/formatters.py
 - [x] T038 [P] [US3] Add format validation tests in tests/unit/reports/test_formatters.py
 - [x] T039 [P] [US3] Add CSV escaping tests in tests/unit/reports/test_formatters.py
 - [x] T040 [P] [US3] Add JSON validation tests in tests/unit/reports/test_formatters.py
@@ -120,10 +120,10 @@
 
 ### Implementation for User Story 4
 
-- [x] T041 [US4] Implement get_scans_report() query function in src/video_policy_orchestrator/reports/queries.py
-- [x] T042 [US4] Implement ScanReportRow dataclass in src/video_policy_orchestrator/reports/queries.py
-- [x] T043 [US4] Implement extract_scan_summary() helper for parsing summary_json in src/video_policy_orchestrator/reports/queries.py
-- [x] T044 [US4] Implement `vpo report scans` subcommand in src/video_policy_orchestrator/cli/report.py
+- [x] T041 [US4] Implement get_scans_report() query function in src/vpo/reports/queries.py
+- [x] T042 [US4] Implement ScanReportRow dataclass in src/vpo/reports/queries.py
+- [x] T043 [US4] Implement extract_scan_summary() helper for parsing summary_json in src/vpo/reports/queries.py
+- [x] T044 [US4] Implement `vpo report scans` subcommand in src/vpo/cli/report.py
 - [x] T045 [P] [US4] Add unit tests for get_scans_report() in tests/unit/reports/test_queries.py
 - [x] T046 [P] [US4] Add integration test for `vpo report scans` in tests/integration/test_report_cli.py
 
@@ -139,10 +139,10 @@
 
 ### Implementation for User Story 5
 
-- [x] T047 [US5] Implement get_transcodes_report() query function in src/video_policy_orchestrator/reports/queries.py
-- [x] T048 [US5] Implement TranscodeReportRow dataclass in src/video_policy_orchestrator/reports/queries.py
-- [x] T049 [US5] Implement `vpo report transcodes` subcommand in src/video_policy_orchestrator/cli/report.py
-- [x] T050 [US5] Add --codec filter option to transcodes subcommand in src/video_policy_orchestrator/cli/report.py
+- [x] T047 [US5] Implement get_transcodes_report() query function in src/vpo/reports/queries.py
+- [x] T048 [US5] Implement TranscodeReportRow dataclass in src/vpo/reports/queries.py
+- [x] T049 [US5] Implement `vpo report transcodes` subcommand in src/vpo/cli/report.py
+- [x] T050 [US5] Add --codec filter option to transcodes subcommand in src/vpo/cli/report.py
 - [x] T051 [P] [US5] Add unit tests for get_transcodes_report() in tests/unit/reports/test_queries.py
 - [x] T052 [P] [US5] Add integration test for `vpo report transcodes` in tests/integration/test_report_cli.py
 
@@ -158,12 +158,12 @@
 
 ### Implementation for User Story 6
 
-- [x] T053 [US6] Implement get_policy_apply_report() query function in src/video_policy_orchestrator/reports/queries.py
-- [x] T054 [US6] Implement PolicyApplyReportRow dataclass in src/video_policy_orchestrator/reports/queries.py
-- [x] T055 [US6] Implement PolicyApplyDetailRow dataclass for verbose mode in src/video_policy_orchestrator/reports/queries.py
-- [x] T056 [US6] Implement `vpo report policy-apply` subcommand in src/video_policy_orchestrator/cli/report.py
-- [x] T057 [US6] Add --policy filter option to policy-apply subcommand in src/video_policy_orchestrator/cli/report.py
-- [x] T058 [US6] Add --verbose flag for per-file details in src/video_policy_orchestrator/cli/report.py
+- [x] T053 [US6] Implement get_policy_apply_report() query function in src/vpo/reports/queries.py
+- [x] T054 [US6] Implement PolicyApplyReportRow dataclass in src/vpo/reports/queries.py
+- [x] T055 [US6] Implement PolicyApplyDetailRow dataclass for verbose mode in src/vpo/reports/queries.py
+- [x] T056 [US6] Implement `vpo report policy-apply` subcommand in src/vpo/cli/report.py
+- [x] T057 [US6] Add --policy filter option to policy-apply subcommand in src/vpo/cli/report.py
+- [x] T058 [US6] Add --verbose flag for per-file details in src/vpo/cli/report.py
 - [x] T059 [P] [US6] Add unit tests for get_policy_apply_report() in tests/unit/reports/test_queries.py
 - [x] T060 [P] [US6] Add integration test for `vpo report policy-apply` in tests/integration/test_report_cli.py
 
@@ -179,10 +179,10 @@
 
 ### Implementation for User Story 7
 
-- [x] T061 [US7] Implement write_report_to_file() helper in src/video_policy_orchestrator/reports/formatters.py
-- [x] T062 [US7] Add --output option to all report subcommands in src/video_policy_orchestrator/cli/report.py
-- [x] T063 [US7] Add --force flag for overwrite in src/video_policy_orchestrator/cli/report.py
-- [x] T064 [US7] Add file existence check and error handling in src/video_policy_orchestrator/cli/report.py
+- [x] T061 [US7] Implement write_report_to_file() helper in src/vpo/reports/formatters.py
+- [x] T062 [US7] Add --output option to all report subcommands in src/vpo/cli/report.py
+- [x] T063 [US7] Add --force flag for overwrite in src/vpo/cli/report.py
+- [x] T064 [US7] Add file existence check and error handling in src/vpo/cli/report.py
 - [x] T065 [P] [US7] Add unit tests for write_report_to_file() in tests/unit/reports/test_formatters.py
 - [x] T066 [P] [US7] Add integration test for file output in tests/integration/test_report_cli.py
 
@@ -194,7 +194,7 @@
 
 **Purpose**: Documentation, error handling improvements, and final validation
 
-- [x] T067 [P] Add comprehensive help text with examples to all report subcommands in src/video_policy_orchestrator/cli/report.py
+- [x] T067 [P] Add comprehensive help text with examples to all report subcommands in src/vpo/cli/report.py
 - [x] T068 [P] Create documentation page at docs/reports.md
 - [ ] T069 [P] Add "Reporting & Export" section to README.md
 - [x] T070 Handle edge case: empty database displays "No records found" message
@@ -241,9 +241,9 @@ After Phase 2 completes:
 
 ```bash
 # Launch all parallel foundation tasks together:
-Task: "Create reports module __init__.py at src/video_policy_orchestrator/reports/__init__.py"
+Task: "Create reports module __init__.py at src/vpo/reports/__init__.py"
 Task: "Create test directory structure at tests/unit/reports/"
-Task: "Implement ReportFormat enum in src/video_policy_orchestrator/reports/formatters.py"
+Task: "Implement ReportFormat enum in src/vpo/reports/formatters.py"
 ```
 
 ## Parallel Example: User Story 1

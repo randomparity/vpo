@@ -6,8 +6,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from video_policy_orchestrator.reports.filters import TimeFilter
-from video_policy_orchestrator.reports.queries import (
+from vpo.reports.filters import TimeFilter
+from vpo.reports.queries import (
     MAX_LIMIT,
     JobReportRow,
     LibraryReportRow,

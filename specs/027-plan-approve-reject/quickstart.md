@@ -59,7 +59,7 @@ This feature adds approve/reject actions to the plans workflow. When an operator
 ```python
 # In api_plan_approve_handler, after validating plan:
 
-from video_policy_orchestrator.db.models import Job, JobType, JobStatus, insert_job
+from vpo.db.models import Job, JobType, JobStatus, insert_job
 
 # Create execution job
 job = Job(

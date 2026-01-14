@@ -6,9 +6,9 @@ policy configuration.
 
 import pytest
 
-from video_policy_orchestrator.db.models import TrackInfo
-from video_policy_orchestrator.policy.exceptions import InsufficientTracksError
-from video_policy_orchestrator.policy.models import (
+from vpo.db.models import TrackInfo
+from vpo.policy.exceptions import InsufficientTracksError
+from vpo.policy.types import (
     AudioFilterConfig,
     LanguageFallbackConfig,
     PolicySchema,
@@ -72,7 +72,7 @@ class TestAudioTrackFiltering:
 
     def test_keep_tracks_matching_language(self) -> None:
         """Audio tracks with languages in keep list should be kept."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -105,7 +105,7 @@ class TestAudioTrackFiltering:
 
     def test_keep_und_tracks_when_in_list(self) -> None:
         """Undefined language tracks should be kept when 'und' is in keep list."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -124,7 +124,7 @@ class TestAudioTrackFiltering:
 
     def test_remove_und_tracks_when_not_in_list(self) -> None:
         """Undefined language tracks should be removed when 'und' not in keep list."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -145,7 +145,7 @@ class TestAudioTrackFiltering:
 
     def test_cross_standard_language_matching(self) -> None:
         """Should match languages across ISO 639-1/2/3 standards."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -167,7 +167,7 @@ class TestAudioTrackFiltering:
 
     def test_no_filter_when_audio_filter_none(self) -> None:
         """When audio_filter is None, no audio filtering should occur."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -190,7 +190,7 @@ class TestMinimumAudioTrackValidation:
 
     def test_minimum_audio_requirement_met(self) -> None:
         """Should succeed when minimum audio tracks remain after filtering."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -210,7 +210,7 @@ class TestMinimumAudioTrackValidation:
 
     def test_minimum_audio_requirement_higher_value(self) -> None:
         """Should succeed when multiple audio tracks meet minimum requirement."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -234,7 +234,7 @@ class TestInsufficientTracksError:
 
     def test_raises_error_when_no_tracks_match(self) -> None:
         """Should raise InsufficientTracksError when no audio tracks match."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -259,7 +259,7 @@ class TestInsufficientTracksError:
 
     def test_raises_error_when_below_minimum(self) -> None:
         """Should raise InsufficientTracksError when below minimum threshold."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -281,7 +281,7 @@ class TestInsufficientTracksError:
 
     def test_error_includes_helpful_context(self) -> None:
         """Error message should include policy and file language information."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -301,7 +301,7 @@ class TestInsufficientTracksError:
 
     def test_no_error_with_fallback_keep_all(self) -> None:
         """Should not raise error when fallback mode is keep_all."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -321,7 +321,7 @@ class TestInsufficientTracksError:
 
     def test_no_error_with_fallback_keep_first(self) -> None:
         """Should not raise error when fallback mode is keep_first."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -344,7 +344,7 @@ class TestInsufficientTracksError:
 
     def test_no_error_with_fallback_content_language(self) -> None:
         """Should not raise error when fallback mode is content_language."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -367,7 +367,7 @@ class TestInsufficientTracksError:
 
     def test_error_with_fallback_error_mode(self) -> None:
         """Should raise error when fallback mode is explicitly 'error'."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -389,7 +389,7 @@ class TestTrackDispositionModel:
 
     def test_disposition_contains_track_metadata(self) -> None:
         """TrackDisposition should include track metadata for display."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -425,7 +425,7 @@ class TestTrackDispositionModel:
 
     def test_disposition_reason_is_human_readable(self) -> None:
         """Disposition reasons should be human-readable."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -477,7 +477,7 @@ def make_policy_with_subtitle_filter(
     remove_all: bool = False,
 ) -> PolicySchema:
     """Create a test policy with subtitle filter configuration."""
-    from video_policy_orchestrator.policy.models import SubtitleFilterConfig
+    from vpo.policy.types import SubtitleFilterConfig
 
     return PolicySchema(
         schema_version=12,
@@ -499,7 +499,7 @@ class TestSubtitleLanguageFiltering:
 
     def test_keep_subtitles_matching_language(self) -> None:
         """Subtitle tracks with languages in keep list should be kept."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -540,7 +540,7 @@ class TestSubtitleLanguageFiltering:
 
     def test_remove_subtitles_not_in_language_list(self) -> None:
         """Subtitle tracks with languages not in keep list should be removed."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -565,7 +565,7 @@ class TestSubtitleLanguageFiltering:
 
     def test_no_subtitle_filter_keeps_all(self) -> None:
         """Without subtitle filter, all subtitle tracks should be kept."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -594,7 +594,7 @@ class TestForcedSubtitlePreservation:
 
     def test_preserve_forced_subtitle_regardless_of_language(self) -> None:
         """Forced subtitles should be kept even if language not in list."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -639,7 +639,7 @@ class TestForcedSubtitlePreservation:
 
     def test_preserve_forced_false_does_not_keep_forced(self) -> None:
         """With preserve_forced=False, forced subtitles follow normal language rules."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -675,7 +675,7 @@ class TestRemoveAllSubtitles:
 
     def test_remove_all_removes_all_subtitles(self) -> None:
         """remove_all=True should remove all subtitle tracks."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -697,7 +697,7 @@ class TestRemoveAllSubtitles:
 
     def test_remove_all_overrides_languages(self) -> None:
         """remove_all=True should override language settings."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -724,7 +724,7 @@ class TestRemoveAllSubtitles:
 
     def test_remove_all_overrides_preserve_forced(self) -> None:
         """remove_all=True should override preserve_forced."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -768,7 +768,7 @@ def make_policy_with_attachment_filter(
     remove_all: bool = True,
 ) -> PolicySchema:
     """Create a test policy with attachment filter configuration."""
-    from video_policy_orchestrator.policy.models import AttachmentFilterConfig
+    from vpo.policy.types import AttachmentFilterConfig
 
     return PolicySchema(
         schema_version=12,
@@ -788,7 +788,7 @@ class TestAttachmentRemoval:
 
     def test_remove_all_removes_attachments(self) -> None:
         """remove_all=True should remove all attachment tracks."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -810,7 +810,7 @@ class TestAttachmentRemoval:
 
     def test_no_attachment_filter_keeps_all(self) -> None:
         """Without attachment filter, all attachments should be kept."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -829,7 +829,7 @@ class TestAttachmentRemoval:
 
     def test_remove_all_false_keeps_attachments(self) -> None:
         """remove_all=False should keep all attachment tracks."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -857,7 +857,7 @@ class TestFontWarningStyledSubtitles:
 
     def test_warns_when_fonts_removed_with_ass_subtitles(self) -> None:
         """Should generate warning when removing fonts with ASS subtitles."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -882,7 +882,7 @@ class TestFontWarningStyledSubtitles:
 
     def test_warns_when_fonts_removed_with_ssa_subtitles(self) -> None:
         """Should generate warning when removing fonts with SSA subtitles."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -902,7 +902,7 @@ class TestFontWarningStyledSubtitles:
 
     def test_no_warning_without_styled_subtitles(self) -> None:
         """Should not generate warning when no ASS/SSA subtitles."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -924,7 +924,7 @@ class TestFontWarningStyledSubtitles:
 
     def test_cover_art_removal_no_warning(self) -> None:
         """Cover art removal should not generate font warning."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -953,7 +953,7 @@ class TestFallbackContentLanguage:
 
     def test_content_language_uses_first_audio_track(self) -> None:
         """content_language fallback should use language from first audio track."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -985,7 +985,7 @@ class TestFallbackContentLanguage:
 
     def test_content_language_with_video_before_audio(self) -> None:
         """content_language should correctly skip video tracks to find first audio."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -1007,7 +1007,7 @@ class TestFallbackContentLanguage:
 
     def test_content_language_keeps_multiple_matching_tracks(self) -> None:
         """content_language fallback should keep all matching tracks."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -1039,7 +1039,7 @@ class TestFallbackKeepAll:
 
     def test_keep_all_preserves_all_audio_tracks(self) -> None:
         """keep_all fallback should preserve all audio tracks."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -1062,7 +1062,7 @@ class TestFallbackKeepAll:
 
     def test_keep_all_triggered_only_when_below_minimum(self) -> None:
         """keep_all should only trigger when tracks would fall below minimum."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -1100,7 +1100,7 @@ class TestFallbackKeepFirst:
 
     def test_keep_first_preserves_minimum_tracks(self) -> None:
         """keep_first should preserve first N tracks to meet minimum."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -1129,7 +1129,7 @@ class TestFallbackKeepFirst:
 
     def test_keep_first_preserves_exactly_minimum(self) -> None:
         """keep_first should keep exactly minimum tracks, not more."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -1154,7 +1154,7 @@ class TestFallbackKeepFirst:
 
     def test_keep_first_respects_already_kept_tracks(self) -> None:
         """keep_first should count already kept tracks toward minimum."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -1187,7 +1187,7 @@ class TestFallbackErrorMode:
 
     def test_error_mode_raises_exception(self) -> None:
         """error fallback mode should raise InsufficientTracksError."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -1210,7 +1210,7 @@ class TestFallbackErrorMode:
 
     def test_no_fallback_behaves_like_error(self) -> None:
         """No fallback configured should behave like error mode."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -1228,7 +1228,7 @@ class TestFallbackErrorMode:
 
     def test_error_mode_includes_language_info(self) -> None:
         """Error should include policy and file language information."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -1262,7 +1262,7 @@ class TestMinimumTrackCountEnforcement:
 
     def test_fallback_not_triggered_when_minimum_met(self) -> None:
         """Fallback should not trigger when filter results meet minimum."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -1293,7 +1293,7 @@ class TestMinimumTrackCountEnforcement:
 
     def test_fallback_triggered_when_below_minimum(self) -> None:
         """Fallback should trigger when filter results fall below minimum."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -1317,7 +1317,7 @@ class TestMinimumTrackCountEnforcement:
 
     def test_high_minimum_requires_more_fallback_tracks(self) -> None:
         """Higher minimum should require keeping more fallback tracks."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -1378,7 +1378,7 @@ class TestMusicSfxNonSpeechFiltering:
 
     def test_music_track_exempt_from_language_filter(self) -> None:
         """Music tracks are kept despite not matching language filter."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -1406,7 +1406,7 @@ class TestMusicSfxNonSpeechFiltering:
 
     def test_music_track_removed_when_keep_false(self) -> None:
         """Music tracks are removed when keep_music_tracks=False."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -1429,7 +1429,7 @@ class TestMusicSfxNonSpeechFiltering:
 
     def test_sfx_track_exempt_from_language_filter(self) -> None:
         """SFX tracks are kept despite not matching language filter."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -1453,7 +1453,7 @@ class TestMusicSfxNonSpeechFiltering:
 
     def test_sfx_track_removed_when_keep_false(self) -> None:
         """SFX tracks are removed when keep_sfx_tracks=False."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -1476,7 +1476,7 @@ class TestMusicSfxNonSpeechFiltering:
 
     def test_music_subject_to_language_filter_when_exempt_false(self) -> None:
         """Music tracks are subject to language filter when exempt=False."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -1499,7 +1499,7 @@ class TestMusicSfxNonSpeechFiltering:
 
     def test_multiple_special_track_types(self) -> None:
         """Multiple music, sfx tracks are handled correctly."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 
@@ -1528,7 +1528,7 @@ class TestMusicSfxNonSpeechFiltering:
 
     def test_default_behavior_keeps_music_sfx(self) -> None:
         """Default V10 policy keeps music and SFX tracks."""
-        from video_policy_orchestrator.policy.evaluator import (
+        from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
 

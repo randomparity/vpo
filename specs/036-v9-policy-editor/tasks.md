@@ -16,10 +16,10 @@
 ## Path Conventions
 
 Based on plan.md structure:
-- Backend: `src/video_policy_orchestrator/`
-- Frontend JS: `src/video_policy_orchestrator/server/static/js/policy-editor/`
-- Frontend CSS: `src/video_policy_orchestrator/server/static/css/`
-- Templates: `src/video_policy_orchestrator/server/ui/templates/sections/`
+- Backend: `src/vpo/`
+- Frontend JS: `src/vpo/server/static/js/policy-editor/`
+- Frontend CSS: `src/vpo/server/static/css/`
+- Templates: `src/vpo/server/ui/templates/sections/`
 
 ---
 
@@ -27,10 +27,10 @@ Based on plan.md structure:
 
 **Purpose**: Foundation components required by all user stories
 
-- [X] T001 Create accordion.js component in src/video_policy_orchestrator/server/static/js/policy-editor/accordion.js
-- [X] T002 [P] Add accordion CSS styles in src/video_policy_orchestrator/server/static/css/main.css
-- [X] T003 Update policy_editor.html template structure with accordion sections in src/video_policy_orchestrator/server/ui/templates/sections/policy_editor.html
-- [X] T004 Update policy-editor.js main module to import and initialize accordion in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
+- [X] T001 Create accordion.js component in src/vpo/server/static/js/policy-editor/accordion.js
+- [X] T002 [P] Add accordion CSS styles in src/vpo/server/static/css/main.css
+- [X] T003 Update policy_editor.html template structure with accordion sections in src/vpo/server/ui/templates/sections/policy_editor.html
+- [X] T004 Update policy-editor.js main module to import and initialize accordion in src/vpo/server/static/js/policy-editor/policy-editor.js
 
 ---
 
@@ -42,14 +42,14 @@ Based on plan.md structure:
 
 **Note**: T005-T009 all modify editor.py - implement sequentially or as a single combined task to avoid merge conflicts.
 
-- [X] T005 Extend PolicyRoundTripEditor with V3 field accessors (audio_filter, subtitle_filter, attachment_filter, container) in src/video_policy_orchestrator/policy/editor.py
-- [X] T006 Extend PolicyRoundTripEditor with V4 field accessors (conditional) in src/video_policy_orchestrator/policy/editor.py
-- [X] T007 Extend PolicyRoundTripEditor with V5 field accessors (audio_synthesis) in src/video_policy_orchestrator/policy/editor.py
-- [X] T008 Extend PolicyRoundTripEditor with V6 field accessors (transcode.video, transcode.audio) in src/video_policy_orchestrator/policy/editor.py
-- [X] T009 Extend PolicyRoundTripEditor with V9 field accessors (workflow) in src/video_policy_orchestrator/policy/editor.py
-- [X] T010 Extend api_policy_get handler to return all V3-V10 fields in src/video_policy_orchestrator/server/ui/routes.py
-- [X] T011 Extend api_policy_put handler to accept and validate all V3-V10 fields in src/video_policy_orchestrator/server/ui/routes.py
-- [X] T012 Extend api_policy_validate handler for V3-V10 field validation in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T005 Extend PolicyRoundTripEditor with V3 field accessors (audio_filter, subtitle_filter, attachment_filter, container) in src/vpo/policy/editor.py
+- [X] T006 Extend PolicyRoundTripEditor with V4 field accessors (conditional) in src/vpo/policy/editor.py
+- [X] T007 Extend PolicyRoundTripEditor with V5 field accessors (audio_synthesis) in src/vpo/policy/editor.py
+- [X] T008 Extend PolicyRoundTripEditor with V6 field accessors (transcode.video, transcode.audio) in src/vpo/policy/editor.py
+- [X] T009 Extend PolicyRoundTripEditor with V9 field accessors (workflow) in src/vpo/policy/editor.py
+- [X] T010 Extend api_policy_get handler to return all V3-V10 fields in src/vpo/server/ui/routes.py
+- [X] T011 Extend api_policy_put handler to accept and validate all V3-V10 fields in src/vpo/server/ui/routes.py
+- [X] T012 Extend api_policy_validate handler for V3-V10 field validation in src/vpo/server/ui/routes.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -63,8 +63,8 @@ Based on plan.md structure:
 
 ### Implementation for User Story 1
 
-- [X] T013 [US1] Create section-transcode.js module skeleton in src/video_policy_orchestrator/server/static/js/policy-editor/section-transcode.js
-- [X] T014 [US1] Add video transcode HTML section to policy_editor.html template in src/video_policy_orchestrator/server/ui/templates/sections/policy_editor.html
+- [X] T013 [US1] Create section-transcode.js module skeleton in src/vpo/server/static/js/policy-editor/section-transcode.js
+- [X] T014 [US1] Add video transcode HTML section to policy_editor.html template in src/vpo/server/ui/templates/sections/policy_editor.html
 - [X] T015 [US1] Implement target_codec dropdown with validation in section-transcode.js
 - [X] T016 [US1] Implement skip_if subsection (codec_matches list, resolution_within dropdown, bitrate_under input) in section-transcode.js
 - [X] T017 [US1] Implement quality subsection (mode dropdown, crf input, bitrate input, preset dropdown, tune dropdown, two_pass checkbox) in section-transcode.js
@@ -102,7 +102,7 @@ Based on plan.md structure:
 
 ### Implementation for User Story 5
 
-- [ ] T026 [US5] Create section-filters.js module in src/video_policy_orchestrator/server/static/js/policy-editor/section-filters.js
+- [ ] T026 [US5] Create section-filters.js module in src/vpo/server/static/js/policy-editor/section-filters.js
 - [ ] T027 [P] [US5] Add track filters HTML section to policy_editor.html template
 - [ ] T028 [US5] Implement audio_filter subsection (languages list, fallback_mode dropdown, minimum input) in section-filters.js
 - [ ] T029 [US5] Implement V10 audio_filter options (keep_music_tracks, keep_sfx_tracks, keep_non_speech_tracks and exclude_* checkboxes) in section-filters.js
@@ -123,7 +123,7 @@ Based on plan.md structure:
 
 ### Implementation for User Story 4
 
-- [ ] T034 [US4] Create section-conditional.js module in src/video_policy_orchestrator/server/static/js/policy-editor/section-conditional.js
+- [ ] T034 [US4] Create section-conditional.js module in src/vpo/server/static/js/policy-editor/section-conditional.js
 - [ ] T035 [P] [US4] Add conditional rules HTML section to policy_editor.html template
 - [ ] T036 [US4] Implement rule list UI with add/remove rule controls in section-conditional.js
 - [ ] T037 [US4] Implement condition type selector (exists, count, and, or, not, audio_is_multi_language) in section-conditional.js
@@ -150,7 +150,7 @@ Based on plan.md structure:
 
 ### Implementation for User Story 3
 
-- [ ] T048 [US3] Create section-synthesis.js module in src/video_policy_orchestrator/server/static/js/policy-editor/section-synthesis.js
+- [ ] T048 [US3] Create section-synthesis.js module in src/vpo/server/static/js/policy-editor/section-synthesis.js
 - [ ] T049 [P] [US3] Add audio synthesis HTML section to policy_editor.html template
 - [ ] T050 [US3] Implement synthesis track list UI with add/remove track controls in section-synthesis.js
 - [ ] T051 [US3] Implement track basic fields (name input, codec dropdown, channels dropdown/input) in section-synthesis.js
@@ -172,7 +172,7 @@ Based on plan.md structure:
 
 ### Implementation for User Story 6
 
-- [ ] T057 [US6] Create section-container.js module in src/video_policy_orchestrator/server/static/js/policy-editor/section-container.js
+- [ ] T057 [US6] Create section-container.js module in src/vpo/server/static/js/policy-editor/section-container.js
 - [ ] T058 [P] [US6] Add container HTML section to policy_editor.html template
 - [ ] T059 [US6] Implement container target dropdown (mkv, mp4) in section-container.js
 - [ ] T060 [US6] Implement on_incompatible_codec dropdown (error, skip, transcode) in section-container.js
@@ -190,7 +190,7 @@ Based on plan.md structure:
 
 ### Implementation for User Story 7
 
-- [ ] T062 [US7] Create section-workflow.js module in src/video_policy_orchestrator/server/static/js/policy-editor/section-workflow.js
+- [ ] T062 [US7] Create section-workflow.js module in src/vpo/server/static/js/policy-editor/section-workflow.js
 - [ ] T063 [P] [US7] Add workflow HTML section to policy_editor.html template
 - [ ] T064 [US7] Implement phases selector (checkboxes for analyze, apply, transcode with reordering) in section-workflow.js
 - [ ] T065 [US7] Implement auto_process toggle checkbox in section-workflow.js
@@ -209,9 +209,9 @@ Based on plan.md structure:
 
 ### Implementation for User Story 8
 
-- [ ] T068 [US8] Add POST /api/policies endpoint handler for new policy creation in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T069 [US8] Add "Create New Policy" button to policies list page in src/video_policy_orchestrator/server/ui/templates/sections/policies.html
-- [ ] T070 [US8] Implement new policy dialog/form (name input, initial settings) in src/video_policy_orchestrator/server/static/js/policies.js
+- [ ] T068 [US8] Add POST /api/policies endpoint handler for new policy creation in src/vpo/server/ui/routes.py
+- [ ] T069 [US8] Add "Create New Policy" button to policies list page in src/vpo/server/ui/templates/sections/policies.html
+- [ ] T070 [US8] Implement new policy dialog/form (name input, initial settings) in src/vpo/server/static/js/policies.js
 - [ ] T071 [US8] Add duplicate policy name validation (409 Conflict response) in api route handler
 - [ ] T072 [US8] Set default schema_version to MAX_SCHEMA_VERSION (10) for new policies
 

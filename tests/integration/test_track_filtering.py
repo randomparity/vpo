@@ -9,11 +9,11 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.db.models import TrackInfo
-from video_policy_orchestrator.db.schema import create_schema
-from video_policy_orchestrator.policy.evaluator import compute_track_dispositions
-from video_policy_orchestrator.policy.exceptions import InsufficientTracksError
-from video_policy_orchestrator.policy.models import (
+from vpo.db.models import TrackInfo
+from vpo.db.schema import create_schema
+from vpo.policy.evaluator import compute_track_dispositions
+from vpo.policy.exceptions import InsufficientTracksError
+from vpo.policy.types import (
     AudioFilterConfig,
     LanguageFallbackConfig,
     Plan,
@@ -237,7 +237,7 @@ class TestV3PolicyLoading:
         self, v3_audio_filter_policy: Path
     ) -> None:
         """V3 policy with audio_filter should load correctly."""
-        from video_policy_orchestrator.policy.loader import load_policy
+        from vpo.policy.loader import load_policy
 
         policy = load_policy(v3_audio_filter_policy)
 
@@ -413,7 +413,7 @@ class TestMkvmergeExecutorTrackSelection:
 
     def test_build_track_selection_args_audio_only(self) -> None:
         """Should build correct audio track selection args."""
-        from video_policy_orchestrator.executor.mkvmerge import MkvmergeExecutor
+        from vpo.executor.mkvmerge import MkvmergeExecutor
 
         dispositions = (
             TrackDisposition(
@@ -460,7 +460,7 @@ class TestMkvmergeExecutorTrackSelection:
 
     def test_build_track_selection_args_no_filtering(self) -> None:
         """Should return empty args when no tracks are filtered."""
-        from video_policy_orchestrator.executor.mkvmerge import MkvmergeExecutor
+        from vpo.executor.mkvmerge import MkvmergeExecutor
 
         dispositions = (
             TrackDisposition(
@@ -495,7 +495,7 @@ class TestMkvmergeExecutorTrackSelection:
 
     def test_can_handle_plan_with_track_removal(self) -> None:
         """Executor should handle plans with track removal."""
-        from video_policy_orchestrator.executor.mkvmerge import MkvmergeExecutor
+        from vpo.executor.mkvmerge import MkvmergeExecutor
 
         plan = Plan(
             file_id="test",
@@ -511,7 +511,7 @@ class TestMkvmergeExecutorTrackSelection:
 
     def test_cannot_handle_non_mkv_files(self) -> None:
         """Executor should not handle non-MKV files."""
-        from video_policy_orchestrator.executor.mkvmerge import MkvmergeExecutor
+        from vpo.executor.mkvmerge import MkvmergeExecutor
 
         plan = Plan(
             file_id="test",
@@ -536,7 +536,7 @@ class TestSubtitleFilteringIntegration:
 
     def test_subtitle_filtering_with_forced_preservation(self) -> None:
         """Test subtitle filtering preserves forced subtitles."""
-        from video_policy_orchestrator.policy.models import SubtitleFilterConfig
+        from vpo.policy.types import SubtitleFilterConfig
 
         tracks = [
             TrackInfo(
@@ -604,7 +604,7 @@ class TestSubtitleFilteringIntegration:
 
     def test_subtitle_remove_all_integration(self) -> None:
         """Test remove_all removes all subtitle tracks."""
-        from video_policy_orchestrator.policy.models import SubtitleFilterConfig
+        from vpo.policy.types import SubtitleFilterConfig
 
         tracks = [
             TrackInfo(
@@ -652,7 +652,7 @@ class TestSubtitleFilteringIntegration:
 
     def test_combined_audio_and_subtitle_filtering(self) -> None:
         """Test that audio and subtitle filtering work together."""
-        from video_policy_orchestrator.policy.models import SubtitleFilterConfig
+        from vpo.policy.types import SubtitleFilterConfig
 
         tracks = [
             TrackInfo(
@@ -727,7 +727,7 @@ class TestAttachmentFilteringIntegration:
 
     def test_attachment_removal_with_font_warning(self) -> None:
         """Test attachment removal generates warning for fonts with styled subs."""
-        from video_policy_orchestrator.policy.models import AttachmentFilterConfig
+        from vpo.policy.types import AttachmentFilterConfig
 
         tracks = [
             TrackInfo(
@@ -785,7 +785,7 @@ class TestAttachmentFilteringIntegration:
 
     def test_attachment_removal_combined_with_subtitle_filter(self) -> None:
         """Test attachment removal works with subtitle filtering."""
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.types import (
             AttachmentFilterConfig,
             SubtitleFilterConfig,
         )
@@ -1109,7 +1109,7 @@ class TestFallbackModeIntegration:
             ),
         ]
 
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.types import (
             AttachmentFilterConfig,
             SubtitleFilterConfig,
         )

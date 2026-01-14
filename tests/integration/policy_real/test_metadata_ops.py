@@ -13,13 +13,13 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from video_policy_orchestrator.executor.mkvpropedit import MkvpropeditExecutor
-from video_policy_orchestrator.policy.evaluator import (
+from vpo.executor.mkvpropedit import MkvpropeditExecutor
+from vpo.policy.evaluator import (
     compute_default_flags,
     compute_desired_order,
 )
-from video_policy_orchestrator.policy.matchers import CommentaryMatcher
-from video_policy_orchestrator.policy.models import (
+from vpo.policy.matchers import CommentaryMatcher
+from vpo.policy.types import (
     ActionType,
     DefaultFlagsConfig,
     Plan,
@@ -29,7 +29,7 @@ from video_policy_orchestrator.policy.models import (
 )
 
 if TYPE_CHECKING:
-    from video_policy_orchestrator.introspector.ffprobe import FFprobeIntrospector
+    from vpo.introspector.ffprobe import FFprobeIntrospector
 
 from .conftest import get_audio_tracks, get_track_by_type_and_index, get_video_tracks
 

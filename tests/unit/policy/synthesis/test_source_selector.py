@@ -1,12 +1,12 @@
 """Unit tests for source track selection."""
 
-from video_policy_orchestrator.db.models import TrackInfo
-from video_policy_orchestrator.policy.synthesis.models import (
+from vpo.db.models import TrackInfo
+from vpo.policy.synthesis.models import (
     ChannelPreference,
     PreferenceCriterion,
     SourcePreferences,
 )
-from video_policy_orchestrator.policy.synthesis.source_selector import (
+from vpo.policy.synthesis.source_selector import (
     _is_commentary_track,
     filter_audio_tracks,
     score_track,

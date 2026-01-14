@@ -129,16 +129,16 @@ This guide provides step-by-step instructions for implementing audio track class
 
 | Component | File Path |
 |-----------|-----------|
-| Domain models | `src/video_policy_orchestrator/track_classification/models.py` |
-| Acoustic analysis | `src/video_policy_orchestrator/track_classification/acoustic.py` |
-| Metadata integration | `src/video_policy_orchestrator/track_classification/metadata.py` |
-| Service layer | `src/video_policy_orchestrator/track_classification/service.py` |
-| Database schema | `src/video_policy_orchestrator/db/schema.py` |
-| Database types | `src/video_policy_orchestrator/db/types.py` |
-| Policy models | `src/video_policy_orchestrator/policy/models.py` |
-| Policy loader | `src/video_policy_orchestrator/policy/loader.py` |
-| Condition evaluation | `src/video_policy_orchestrator/policy/conditions.py` |
-| CLI commands | `src/video_policy_orchestrator/cli/*.py` |
+| Domain models | `src/vpo/track_classification/models.py` |
+| Acoustic analysis | `src/vpo/track_classification/acoustic.py` |
+| Metadata integration | `src/vpo/track_classification/metadata.py` |
+| Service layer | `src/vpo/track_classification/service.py` |
+| Database schema | `src/vpo/db/schema.py` |
+| Database types | `src/vpo/db/types.py` |
+| Policy models | `src/vpo/policy/models.py` |
+| Policy loader | `src/vpo/policy/loader.py` |
+| Condition evaluation | `src/vpo/policy/conditions.py` |
+| CLI commands | `src/vpo/cli/*.py` |
 
 ---
 

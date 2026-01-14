@@ -87,7 +87,7 @@ EOF
 ### Backend (Python)
 
 ```
-src/video_policy_orchestrator/
+src/vpo/
 ├── policy/
 │   ├── loader.py          # Policy loading/validation (existing)
 │   ├── discovery.py       # Policy file discovery (existing)
@@ -105,7 +105,7 @@ src/video_policy_orchestrator/
 ### Frontend (JavaScript/CSS)
 
 ```
-src/video_policy_orchestrator/server/static/
+src/vpo/server/static/
 ├── css/
 │   └── policy-editor.css  # NEW: Editor styles
 └── js/
@@ -138,7 +138,7 @@ tests/
 #### Step 1: Update Backend Schema (if needed)
 
 ```python
-# src/video_policy_orchestrator/policy/models.py
+# src/vpo/policy/models.py
 @dataclass(frozen=True)
 class PolicySchema:
     schema_version: int
@@ -150,7 +150,7 @@ class PolicySchema:
 #### Step 2: Update Pydantic Validator
 
 ```python
-# src/video_policy_orchestrator/policy/loader.py
+# src/vpo/policy/loader.py
 class PolicyModel(BaseModel):
     schema_version: int = Field(ge=1, le=MAX_SCHEMA_VERSION)
     description: str = Field(default="")  # NEW FIELD
@@ -161,7 +161,7 @@ class PolicyModel(BaseModel):
 #### Step 3: Add to Editor Response Model
 
 ```python
-# src/video_policy_orchestrator/server/ui/models.py
+# src/vpo/server/ui/models.py
 @dataclass
 class PolicyEditorContext:
     name: str
@@ -174,7 +174,7 @@ class PolicyEditorContext:
 #### Step 4: Add Form Input (HTML)
 
 ```html
-<!-- src/video_policy_orchestrator/server/ui/templates/policy_editor.html -->
+<!-- src/vpo/server/ui/templates/policy_editor.html -->
 <section class="editor-section">
   <h2>Description</h2>
   <label for="description">Policy Description</label>
@@ -186,7 +186,7 @@ class PolicyEditorContext:
 #### Step 5: Wire Up JavaScript
 
 ```javascript
-// src/video_policy_orchestrator/server/static/js/policy-editor.js
+// src/vpo/server/static/js/policy-editor.js
 function initializeFormState(policyData) {
   return {
     name: policyData.name,
@@ -206,7 +206,7 @@ function createFormBindings(state) {
 #### Step 6: Add to YAML Preview
 
 ```javascript
-// src/video_policy_orchestrator/server/static/js/yaml-preview.js
+// src/vpo/server/static/js/yaml-preview.js
 function generateYAML(state) {
   return `schema_version: ${state.schema_version}
 description: ${state.description}
@@ -283,7 +283,7 @@ cat ~/.vpo/policies/roundtrip-test.yaml
 # tests/unit/policy/test_policy_roundtrip.py
 import pytest
 from pathlib import Path
-from video_policy_orchestrator.policy.editor import PolicyRoundTripEditor
+from vpo.policy.editor import PolicyRoundTripEditor
 
 def test_unknown_field_preservation(tmp_path):
     """Test that unknown fields are preserved during round-trip."""
@@ -398,7 +398,7 @@ If client-side validation passes but server-side fails:
 curl http://localhost:8080/api/policies/schema | jq
 
 # 2. Compare with client-side validators
-# Open: src/video_policy_orchestrator/server/static/js/policy-editor.js
+# Open: src/vpo/server/static/js/policy-editor.js
 # Look for validators object
 
 # 3. Update client validators to match server schema
@@ -411,7 +411,7 @@ curl http://localhost:8080/api/policies/schema | jq
 ### Task 1: Clear Policy Cache
 
 ```python
-from video_policy_orchestrator.policy.discovery import clear_policy_cache
+from vpo.policy.discovery import clear_policy_cache
 
 clear_policy_cache()
 ```
@@ -428,7 +428,7 @@ uv run vpo serve --port 8080
 # Using Python API
 python -c "
 from pathlib import Path
-from video_policy_orchestrator.policy.loader import load_policy
+from vpo.policy.loader import load_policy
 
 policy = load_policy(Path('~/.vpo/policies/test.yaml').expanduser())
 print(f'Valid policy: schema_version={policy.schema_version}')
@@ -558,8 +558,8 @@ window.policyEditor.initializeFormBindings();
 ## Additional Resources
 
 - **VPO Documentation**: `/docs/`
-- **Existing UI Code**: `src/video_policy_orchestrator/server/static/js/library.js` (similar patterns)
-- **Policy Loader**: `src/video_policy_orchestrator/policy/loader.py` (validation logic)
+- **Existing UI Code**: `src/vpo/server/static/js/library.js` (similar patterns)
+- **Policy Loader**: `src/vpo/policy/loader.py` (validation logic)
 - **ruamel.yaml Docs**: https://yaml.readthedocs.io/en/latest/
 
 ---

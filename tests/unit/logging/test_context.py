@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.logging.context import (
+from vpo.logging.context import (
     WorkerContextFilter,
     clear_worker_context,
     get_worker_context,

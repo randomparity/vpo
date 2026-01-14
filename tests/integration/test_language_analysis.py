@@ -11,16 +11,16 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from video_policy_orchestrator.db.models import TrackInfo
-from video_policy_orchestrator.language_analysis.models import (
+from vpo.db.models import TrackInfo
+from vpo.language_analysis.models import (
     AnalysisMetadata,
     LanguageAnalysisResult,
     LanguageClassification,
     LanguagePercentage,
     LanguageSegment,
 )
-from video_policy_orchestrator.policy.evaluator import evaluate_conditional_rules
-from video_policy_orchestrator.policy.loader import load_policy
+from vpo.policy.evaluator import evaluate_conditional_rules
+from vpo.policy.loader import load_policy
 
 # =============================================================================
 # Fixtures
@@ -259,7 +259,7 @@ class TestScanWithLanguageAnalysis:
         """Verify --analyze-languages option is available on scan command."""
         from click.testing import CliRunner
 
-        from video_policy_orchestrator.cli.scan import scan
+        from vpo.cli.scan import scan
 
         runner = CliRunner()
         result = runner.invoke(scan, ["--help"])
@@ -272,7 +272,7 @@ class TestScanWithLanguageAnalysis:
         mock_audio_track: TrackInfo,
     ):
         """Verify language analysis service can be called with proper arguments."""
-        from video_policy_orchestrator.language_analysis.service import (
+        from vpo.language_analysis.service import (
             LanguageAnalysisError,
             analyze_track_languages,
         )

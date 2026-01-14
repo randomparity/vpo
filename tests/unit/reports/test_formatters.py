@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.reports.formatters import (
+from vpo.reports.formatters import (
     ReportFormat,
     calculate_duration_seconds,
     format_duration,

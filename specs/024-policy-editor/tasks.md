@@ -78,14 +78,14 @@ Phase 4 (US3)   Phase 4 (US4)   Phase 4 (US5)
 
 ### Tasks
 
-- [X] T005 Create PolicyRoundTripEditor class in src/video_policy_orchestrator/policy/editor.py
-- [X] T006 Implement load() method using ruamel.yaml with round-trip mode in src/video_policy_orchestrator/policy/editor.py
-- [X] T007 Implement save() method with selective field updates in src/video_policy_orchestrator/policy/editor.py
-- [X] T008 Add structured logging for policy edits (policy name, fields changed) in src/video_policy_orchestrator/policy/editor.py
+- [X] T005 Create PolicyRoundTripEditor class in src/vpo/policy/editor.py
+- [X] T006 Implement load() method using ruamel.yaml with round-trip mode in src/vpo/policy/editor.py
+- [X] T007 Implement save() method with selective field updates in src/vpo/policy/editor.py
+- [X] T008 Add structured logging for policy edits (policy name, fields changed) in src/vpo/policy/editor.py
 - [X] T009 Create unit tests for unknown field preservation in tests/unit/policy/test_policy_roundtrip.py
 - [X] T010 Create unit tests for comment preservation (best-effort) in tests/unit/policy/test_policy_roundtrip.py
-- [X] T011 Add PolicyEditorContext dataclass in src/video_policy_orchestrator/server/ui/models.py
-- [X] T012 Add PolicyEditorRequest dataclass in src/video_policy_orchestrator/server/ui/models.py
+- [X] T011 Add PolicyEditorContext dataclass in src/vpo/server/ui/models.py
+- [X] T012 Add PolicyEditorRequest dataclass in src/vpo/server/ui/models.py
 
 **Commit Point**: `git commit -m "feat: Implement policy round-trip editor with field preservation"` ✅ **COMPLETED**
 
@@ -101,13 +101,13 @@ Phase 4 (US3)   Phase 4 (US4)   Phase 4 (US5)
 
 #### Tasks
 
-- [X] T013 [P] [US1] Add GET /policies/{name}/edit route in src/video_policy_orchestrator/server/ui/routes.py
-- [X] T014 [P] [US1] Create policy_editor.html template in src/video_policy_orchestrator/server/ui/templates/policy_editor.html
-- [X] T015 [P] [US1] Add track ordering section HTML with reorderable list in src/video_policy_orchestrator/server/ui/templates/policy_editor.html
-- [X] T016 [US1] Create state-manager.js with Proxy-based reactivity in src/video_policy_orchestrator/server/static/js/policy-editor/state-manager.js (integrated into policy-editor.js)
-- [X] T017 [US1] Implement track ordering UI controls (up/down buttons) in src/video_policy_orchestrator/server/static/js/policy-editor/track-ordering.js (integrated into policy-editor.js)
-- [X] T018 [US1] Wire track ordering to form state in src/video_policy_orchestrator/server/static/js/policy-editor/form-bindings.js (integrated into policy-editor.js)
-- [X] T019 [US1] Add track_order validation (non-empty, valid types) in src/video_policy_orchestrator/server/static/js/policy-editor/validators.js (integrated into policy-editor.js)
+- [X] T013 [P] [US1] Add GET /policies/{name}/edit route in src/vpo/server/ui/routes.py
+- [X] T014 [P] [US1] Create policy_editor.html template in src/vpo/server/ui/templates/policy_editor.html
+- [X] T015 [P] [US1] Add track ordering section HTML with reorderable list in src/vpo/server/ui/templates/policy_editor.html
+- [X] T016 [US1] Create state-manager.js with Proxy-based reactivity in src/vpo/server/static/js/policy-editor/state-manager.js (integrated into policy-editor.js)
+- [X] T017 [US1] Implement track ordering UI controls (up/down buttons) in src/vpo/server/static/js/policy-editor/track-ordering.js (integrated into policy-editor.js)
+- [X] T018 [US1] Wire track ordering to form state in src/vpo/server/static/js/policy-editor/form-bindings.js (integrated into policy-editor.js)
+- [X] T019 [US1] Add track_order validation (non-empty, valid types) in src/vpo/server/static/js/policy-editor/validators.js (integrated into policy-editor.js)
 
 **Commit Point**: `git commit -m "feat(US1): Implement track ordering editor with reorderable list controls"`
 
@@ -121,13 +121,13 @@ Phase 4 (US3)   Phase 4 (US4)   Phase 4 (US5)
 
 #### Tasks
 
-- [X] T020 [P] [US2] Add audio preferences section HTML in src/video_policy_orchestrator/server/ui/templates/policy_editor.html
-- [X] T021 [P] [US2] Create language-autocomplete.js component in src/video_policy_orchestrator/server/static/js/policy-editor/language-autocomplete.js (simplified, no autocomplete in MVP)
-- [X] T022 [P] [US2] Load ISO 639-2 language list data in src/video_policy_orchestrator/server/static/data/iso-639-2.json (deferred, manual entry in MVP)
-- [X] T023 [US2] Implement accessible autocomplete with ARIA roles in src/video_policy_orchestrator/server/static/js/policy-editor/language-autocomplete.js (deferred to future phase)
-- [X] T024 [US2] Add audio language list with button-based reordering in src/video_policy_orchestrator/server/static/js/policy-editor/language-list.js (integrated into policy-editor.js)
-- [X] T025 [US2] Wire audio preferences to form state in src/video_policy_orchestrator/server/static/js/policy-editor/form-bindings.js (integrated into policy-editor.js)
-- [X] T026 [US2] Add audio_language_preference validation (non-empty, ISO 639-2 codes) in src/video_policy_orchestrator/server/static/js/policy-editor/validators.js (integrated into policy-editor.js)
+- [X] T020 [P] [US2] Add audio preferences section HTML in src/vpo/server/ui/templates/policy_editor.html
+- [X] T021 [P] [US2] Create language-autocomplete.js component in src/vpo/server/static/js/policy-editor/language-autocomplete.js (simplified, no autocomplete in MVP)
+- [X] T022 [P] [US2] Load ISO 639-2 language list data in src/vpo/server/static/data/iso-639-2.json (deferred, manual entry in MVP)
+- [X] T023 [US2] Implement accessible autocomplete with ARIA roles in src/vpo/server/static/js/policy-editor/language-autocomplete.js (deferred to future phase)
+- [X] T024 [US2] Add audio language list with button-based reordering in src/vpo/server/static/js/policy-editor/language-list.js (integrated into policy-editor.js)
+- [X] T025 [US2] Wire audio preferences to form state in src/vpo/server/static/js/policy-editor/form-bindings.js (integrated into policy-editor.js)
+- [X] T026 [US2] Add audio_language_preference validation (non-empty, ISO 639-2 codes) in src/vpo/server/static/js/policy-editor/validators.js (integrated into policy-editor.js)
 
 **Commit Point**: `git commit -m "feat(US2): Implement audio preferences editor with accessible autocomplete"`
 
@@ -141,16 +141,16 @@ Phase 4 (US3)   Phase 4 (US4)   Phase 4 (US5)
 
 #### Tasks
 
-- [X] T027 [P] [US6] Add GET /api/policies/{name} endpoint in src/video_policy_orchestrator/server/ui/routes.py
-- [X] T028 [P] [US6] Add PUT /api/policies/{name} endpoint in src/video_policy_orchestrator/server/ui/routes.py
-- [ ] T029 [P] [US6] Add GET /api/policies/schema endpoint for JSON Schema in src/video_policy_orchestrator/server/ui/routes.py (deferred - using basic validation)
-- [X] T030 [US6] Implement save button handler with validation in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
-- [X] T031 [US6] Add success/error feedback UI in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
-- [X] T032 [US6] Implement unsaved changes warning (beforeunload) in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
-- [ ] T033 [US6] Add client-side validation using Ajv for JSON Schema in src/video_policy_orchestrator/server/static/js/policy-editor/validators.js (deferred - using basic validation)
+- [X] T027 [P] [US6] Add GET /api/policies/{name} endpoint in src/vpo/server/ui/routes.py
+- [X] T028 [P] [US6] Add PUT /api/policies/{name} endpoint in src/vpo/server/ui/routes.py
+- [ ] T029 [P] [US6] Add GET /api/policies/schema endpoint for JSON Schema in src/vpo/server/ui/routes.py (deferred - using basic validation)
+- [X] T030 [US6] Implement save button handler with validation in src/vpo/server/static/js/policy-editor/policy-editor.js
+- [X] T031 [US6] Add success/error feedback UI in src/vpo/server/static/js/policy-editor/policy-editor.js
+- [X] T032 [US6] Implement unsaved changes warning (beforeunload) in src/vpo/server/static/js/policy-editor/policy-editor.js
+- [ ] T033 [US6] Add client-side validation using Ajv for JSON Schema in src/vpo/server/static/js/policy-editor/validators.js (deferred - using basic validation)
 - [ ] T034 [P] [US7] Add integration test for unknown field preservation in tests/integration/test_policy_editor_flow.py (deferred to future phase)
 - [ ] T035 [P] [US7] Add integration test for comment preservation in tests/integration/test_policy_editor_flow.py (deferred to future phase)
-- [X] T036 [US6] Handle concurrent modification detection (409 errors) in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
+- [X] T036 [US6] Handle concurrent modification detection (409 errors) in src/vpo/server/static/js/policy-editor/policy-editor.js
 
 **Commit Point**: `git commit -m "feat(US6+US7): Implement save functionality with field preservation and validation"`
 
@@ -166,11 +166,11 @@ Phase 4 (US3)   Phase 4 (US4)   Phase 4 (US5)
 
 #### Tasks
 
-- [X] T037 [P] [US3] Add subtitle preferences section HTML in src/video_policy_orchestrator/server/ui/templates/policy_editor.html
-- [X] T038 [P] [US3] Add default flags section HTML with checkboxes in src/video_policy_orchestrator/server/ui/templates/policy_editor.html
-- [X] T039 [US3] Wire subtitle language list to form state (reuse language-list.js) in src/video_policy_orchestrator/server/static/js/policy-editor/form-bindings.js
-- [X] T040 [US3] Wire default flags checkboxes to form state in src/video_policy_orchestrator/server/static/js/policy-editor/form-bindings.js
-- [X] T041 [US3] Add subtitle_language_preference validation in src/video_policy_orchestrator/server/static/js/policy-editor/validators.js
+- [X] T037 [P] [US3] Add subtitle preferences section HTML in src/vpo/server/ui/templates/policy_editor.html
+- [X] T038 [P] [US3] Add default flags section HTML with checkboxes in src/vpo/server/ui/templates/policy_editor.html
+- [X] T039 [US3] Wire subtitle language list to form state (reuse language-list.js) in src/vpo/server/static/js/policy-editor/form-bindings.js
+- [X] T040 [US3] Wire default flags checkboxes to form state in src/vpo/server/static/js/policy-editor/form-bindings.js
+- [X] T041 [US3] Add subtitle_language_preference validation in src/vpo/server/static/js/policy-editor/validators.js
 
 **Commit Point**: `git commit -m "feat(US3): Implement subtitle preferences and default flags editor"`
 
@@ -184,12 +184,12 @@ Phase 4 (US3)   Phase 4 (US4)   Phase 4 (US5)
 
 #### Tasks
 
-- [X] T042 [P] [US4] Add commentary section HTML in src/video_policy_orchestrator/server/ui/templates/policy_editor.html
-- [X] T043 [US4] Implement commentary patterns list with add/remove in src/video_policy_orchestrator/server/static/js/policy-editor/commentary-patterns.js (integrated into policy-editor.js)
-- [X] T044 [US4] Wire commentary patterns to form state in src/video_policy_orchestrator/server/static/js/policy-editor/form-bindings.js (integrated into policy-editor.js)
-- [X] T045 [US4] Add commentary_patterns validation (valid regex) in src/video_policy_orchestrator/server/static/js/policy-editor/validators.js (integrated into policy-editor.js)
-- [X] T046 [US4] Add transcription settings toggles (detect_commentary, reorder_commentary) in src/video_policy_orchestrator/server/ui/templates/policy_editor.html
-- [X] T047 [US4] Add cross-field validation (reorder_commentary requires detect_commentary) in src/video_policy_orchestrator/server/static/js/policy-editor/validators.js (integrated into policy-editor.js)
+- [X] T042 [P] [US4] Add commentary section HTML in src/vpo/server/ui/templates/policy_editor.html
+- [X] T043 [US4] Implement commentary patterns list with add/remove in src/vpo/server/static/js/policy-editor/commentary-patterns.js (integrated into policy-editor.js)
+- [X] T044 [US4] Wire commentary patterns to form state in src/vpo/server/static/js/policy-editor/form-bindings.js (integrated into policy-editor.js)
+- [X] T045 [US4] Add commentary_patterns validation (valid regex) in src/vpo/server/static/js/policy-editor/validators.js (integrated into policy-editor.js)
+- [X] T046 [US4] Add transcription settings toggles (detect_commentary, reorder_commentary) in src/vpo/server/ui/templates/policy_editor.html
+- [X] T047 [US4] Add cross-field validation (reorder_commentary requires detect_commentary) in src/vpo/server/static/js/policy-editor/validators.js (integrated into policy-editor.js)
 
 **Commit Point**: `git commit -m "feat(US4): Implement commentary detection configuration editor"` ✅ **READY TO COMMIT**
 
@@ -203,10 +203,10 @@ Phase 4 (US3)   Phase 4 (US4)   Phase 4 (US5)
 
 #### Tasks
 
-- [X] T048 [P] [US5] Add YAML preview panel HTML (read-only textarea) in src/video_policy_orchestrator/server/ui/templates/policy_editor.html
-- [X] T049 [US5] Create yaml-preview.js with YAML generation from state in src/video_policy_orchestrator/server/static/js/policy-editor/yaml-preview.js (integrated into policy-editor.js)
-- [X] T050 [US5] Wire form state changes to YAML preview with 300ms debounce in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
-- [ ] T051 [US5] Add syntax highlighting for YAML preview (optional) in src/video_policy_orchestrator/server/static/js/policy-editor/yaml-preview.js (deferred - not needed for MVP)
+- [X] T048 [P] [US5] Add YAML preview panel HTML (read-only textarea) in src/vpo/server/ui/templates/policy_editor.html
+- [X] T049 [US5] Create yaml-preview.js with YAML generation from state in src/vpo/server/static/js/policy-editor/yaml-preview.js (integrated into policy-editor.js)
+- [X] T050 [US5] Wire form state changes to YAML preview with 300ms debounce in src/vpo/server/static/js/policy-editor/policy-editor.js
+- [ ] T051 [US5] Add syntax highlighting for YAML preview (optional) in src/vpo/server/static/js/policy-editor/yaml-preview.js (deferred - not needed for MVP)
 
 **Commit Point**: `git commit -m "feat(US5): Add real-time YAML preview panel"` ✅ **READY TO COMMIT**
 
@@ -220,15 +220,15 @@ Phase 4 (US3)   Phase 4 (US4)   Phase 4 (US5)
 
 ### Tasks
 
-- [X] T052 [P] Create policy-editor.css with responsive layout in src/video_policy_orchestrator/server/static/css/policy-editor.css (added to main.css)
-- [X] T053 [P] Add dark mode support to policy-editor.css in src/video_policy_orchestrator/server/static/css/main.css
-- [X] T054 [P] Add high contrast mode support in src/video_policy_orchestrator/server/static/css/main.css
-- [X] T055 Add ARIA live regions for screen reader announcements in src/video_policy_orchestrator/server/ui/templates/policy_editor.html (already present in MVP)
-- [X] T056 Add keyboard navigation support (Tab, Enter, Escape) in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js (Enter key support implemented in MVP)
-- [X] T057 Add loading states and spinners for async operations in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js (save status messages implemented in MVP)
-- [X] T058 Add "Edit" link from policies list view in src/video_policy_orchestrator/server/ui/templates/policies.html (already implemented in 023-policies-list-view)
-- [X] T059 Handle 404 errors (policy not found) gracefully in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js (handled in MVP)
-- [X] T060 Handle 500 errors (server error) gracefully in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js (handled in MVP)
+- [X] T052 [P] Create policy-editor.css with responsive layout in src/vpo/server/static/css/policy-editor.css (added to main.css)
+- [X] T053 [P] Add dark mode support to policy-editor.css in src/vpo/server/static/css/main.css
+- [X] T054 [P] Add high contrast mode support in src/vpo/server/static/css/main.css
+- [X] T055 Add ARIA live regions for screen reader announcements in src/vpo/server/ui/templates/policy_editor.html (already present in MVP)
+- [X] T056 Add keyboard navigation support (Tab, Enter, Escape) in src/vpo/server/static/js/policy-editor/policy-editor.js (Enter key support implemented in MVP)
+- [X] T057 Add loading states and spinners for async operations in src/vpo/server/static/js/policy-editor/policy-editor.js (save status messages implemented in MVP)
+- [X] T058 Add "Edit" link from policies list view in src/vpo/server/ui/templates/policies.html (already implemented in 023-policies-list-view)
+- [X] T059 Handle 404 errors (policy not found) gracefully in src/vpo/server/static/js/policy-editor/policy-editor.js (handled in MVP)
+- [X] T060 Handle 500 errors (server error) gracefully in src/vpo/server/static/js/policy-editor/policy-editor.js (handled in MVP)
 - [X] T061 [P] Add unit tests for API routes in tests/unit/server/test_policy_editor_routes.py
 - [X] T062 [P] Add unit tests for PolicyRoundTripEditor in tests/unit/policy/test_policy_editor.py
 - [X] T063 Add E2E integration test covering full edit flow in tests/integration/test_policy_editor_flow.py

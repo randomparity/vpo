@@ -58,7 +58,7 @@ CREATE TABLE jobs (
 
 ## 2. Job Dataclass (Extended)
 
-**File**: `src/video_policy_orchestrator/db/models.py`
+**File**: `src/vpo/db/models.py`
 
 ```python
 @dataclass
@@ -92,7 +92,7 @@ class Job:
 
 ## 3. JobDetailItem (New Presentation Model)
 
-**File**: `src/video_policy_orchestrator/server/ui/models.py`
+**File**: `src/vpo/server/ui/models.py`
 
 ```python
 @dataclass
@@ -162,7 +162,7 @@ class JobDetailItem:
 
 ## 4. JobLogsResponse (New Presentation Model)
 
-**File**: `src/video_policy_orchestrator/server/ui/models.py`
+**File**: `src/vpo/server/ui/models.py`
 
 ```python
 @dataclass
@@ -193,7 +193,7 @@ class JobLogsResponse:
 
 ## 5. JobDetailContext (Template Context)
 
-**File**: `src/video_policy_orchestrator/server/ui/models.py`
+**File**: `src/vpo/server/ui/models.py`
 
 ```python
 @dataclass

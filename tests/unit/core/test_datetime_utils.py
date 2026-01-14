@@ -2,8 +2,9 @@
 
 from datetime import datetime, timedelta, timezone
 
-from video_policy_orchestrator.core.datetime_utils import (
+from vpo.core.datetime_utils import (
     TIME_FILTER_DELTAS,
+    parse_iso_timestamp,
     parse_time_filter,
 )
 
@@ -112,3 +113,64 @@ class TestTimeFilterDeltas:
     def test_30d_is_30_days(self):
         """30d maps to 30 day timedelta."""
         assert TIME_FILTER_DELTAS["30d"] == timedelta(days=30)
+
+
+class TestParseIsoTimestamp:
+    """Tests for parse_iso_timestamp function."""
+
+    def test_parses_z_suffix(self):
+        """parse_iso_timestamp handles Z suffix (Zulu/UTC)."""
+        result = parse_iso_timestamp("2025-01-15T10:30:00Z")
+
+        assert result.tzinfo == timezone.utc
+        assert result.year == 2025
+        assert result.month == 1
+        assert result.day == 15
+        assert result.hour == 10
+        assert result.minute == 30
+
+    def test_parses_plus_zero_offset(self):
+        """parse_iso_timestamp handles +00:00 offset."""
+        result = parse_iso_timestamp("2025-01-15T10:30:00+00:00")
+
+        assert result.tzinfo == timezone.utc
+        assert result.hour == 10
+
+    def test_handles_naive_datetime_as_utc(self):
+        """Naive datetime strings should be assumed UTC."""
+        result = parse_iso_timestamp("2025-01-15T10:30:00")
+
+        assert result.tzinfo == timezone.utc
+        assert result.hour == 10
+        assert result.minute == 30
+
+    def test_preserves_explicit_non_utc_offset(self):
+        """Explicit timezone offsets should be preserved."""
+        result = parse_iso_timestamp("2025-01-15T10:30:00+05:00")
+
+        assert result.utcoffset() == timedelta(hours=5)
+        assert result.hour == 10
+
+    def test_preserves_negative_offset(self):
+        """Negative timezone offsets should be preserved."""
+        result = parse_iso_timestamp("2025-01-15T10:30:00-05:00")
+
+        assert result.utcoffset() == timedelta(hours=-5)
+        assert result.hour == 10
+
+    def test_parses_with_microseconds(self):
+        """parse_iso_timestamp handles microseconds."""
+        result = parse_iso_timestamp("2025-01-15T10:30:00.123456Z")
+
+        assert result.tzinfo == timezone.utc
+        assert result.microsecond == 123456
+
+    def test_raises_on_invalid_format(self):
+        """parse_iso_timestamp raises ValueError for invalid input."""
+        import pytest
+
+        with pytest.raises(ValueError):
+            parse_iso_timestamp("not-a-timestamp")
+
+        with pytest.raises(ValueError):
+            parse_iso_timestamp("2025/01/15")

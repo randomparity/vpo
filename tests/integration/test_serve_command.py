@@ -36,7 +36,7 @@ def temp_db(tmp_path: Path) -> Path:
     """Create a temporary database for testing."""
     import sqlite3
 
-    from video_policy_orchestrator.db.schema import initialize_database
+    from vpo.db.schema import initialize_database
 
     db_path = tmp_path / "test.db"
     conn = sqlite3.connect(str(db_path))
@@ -65,7 +65,7 @@ class TestServeCommand:
             [
                 sys.executable,
                 "-m",
-                "video_policy_orchestrator.cli",
+                "vpo.cli",
                 "serve",
                 "--port",
                 str(port),
@@ -113,7 +113,7 @@ class TestServeCommand:
             [
                 sys.executable,
                 "-m",
-                "video_policy_orchestrator.cli",
+                "vpo.cli",
                 "serve",
                 "--port",
                 str(port),
@@ -150,7 +150,7 @@ class TestHealthEndpoint:
 
     def test_health_status_dataclass_serialization(self) -> None:
         """Test that HealthStatus serializes correctly."""
-        from video_policy_orchestrator.server.app import HealthStatus
+        from vpo.server.app import HealthStatus
 
         status = HealthStatus(
             status="healthy",
@@ -169,7 +169,7 @@ class TestHealthEndpoint:
 
     def test_health_status_degraded_when_shutting_down(self) -> None:
         """Test that shutting_down flag is reflected."""
-        from video_policy_orchestrator.server.app import HealthStatus
+        from vpo.server.app import HealthStatus
 
         status = HealthStatus(
             status="unhealthy",
@@ -211,7 +211,7 @@ class TestConcurrentHealthRequests:
             [
                 sys.executable,
                 "-m",
-                "video_policy_orchestrator.cli",
+                "vpo.cli",
                 "serve",
                 "--port",
                 str(port),
@@ -274,7 +274,7 @@ class TestConcurrentHealthRequests:
             [
                 sys.executable,
                 "-m",
-                "video_policy_orchestrator.cli",
+                "vpo.cli",
                 "serve",
                 "--port",
                 str(port),
@@ -358,7 +358,7 @@ class TestConcurrentHealthRequests:
             [
                 sys.executable,
                 "-m",
-                "video_policy_orchestrator.cli",
+                "vpo.cli",
                 "serve",
                 "--port",
                 str(port),
@@ -424,7 +424,7 @@ class TestConcurrentHealthRequests:
             [
                 sys.executable,
                 "-m",
-                "video_policy_orchestrator.cli",
+                "vpo.cli",
                 "serve",
                 "--port",
                 str(port),
@@ -491,7 +491,7 @@ class TestConcurrentHealthRequests:
             [
                 sys.executable,
                 "-m",
-                "video_policy_orchestrator.cli",
+                "vpo.cli",
                 "serve",
                 "--port",
                 str(port),
@@ -557,7 +557,7 @@ class TestConcurrentHealthRequests:
             [
                 sys.executable,
                 "-m",
-                "video_policy_orchestrator.cli",
+                "vpo.cli",
                 "serve",
                 "--port",
                 str(port),
@@ -621,7 +621,7 @@ class TestConcurrentHealthRequests:
             [
                 sys.executable,
                 "-m",
-                "video_policy_orchestrator.cli",
+                "vpo.cli",
                 "serve",
                 "--port",
                 str(port),

@@ -1,6 +1,6 @@
 # Evaluator API Contract
 
-**Module**: `video_policy_orchestrator.policy.evaluator`
+**Module**: `vpo.policy.evaluator`
 **Purpose**: Pure-function policy evaluation (no IO, no side effects)
 
 ## Core Function
@@ -228,9 +228,9 @@ class UnsupportedContainerError(EvaluationError):
 ## Usage Example
 
 ```python
-from video_policy_orchestrator.policy.evaluator import evaluate_policy
-from video_policy_orchestrator.policy.loader import load_policy
-from video_policy_orchestrator.introspector import get_tracks
+from vpo.policy.evaluator import evaluate_policy
+from vpo.policy.loader import load_policy
+from vpo.introspector import get_tracks
 
 # Load inputs
 policy = load_policy(Path("~/.vpo/policies/default.yaml"))

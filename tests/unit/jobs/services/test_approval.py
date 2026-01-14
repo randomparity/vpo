@@ -5,10 +5,10 @@ from datetime import datetime, timezone
 
 import pytest
 
-from video_policy_orchestrator.db.models import PlanStatus
-from video_policy_orchestrator.db.schema import create_schema
-from video_policy_orchestrator.db.types import PlanRecord
-from video_policy_orchestrator.jobs.services.approval import (
+from vpo.db.models import PlanStatus
+from vpo.db.schema import create_schema
+from vpo.db.types import PlanRecord
+from vpo.jobs.services.approval import (
     ApprovalResult,
     PlanApprovalService,
     RejectionResult,

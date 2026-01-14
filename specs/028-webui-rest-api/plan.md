@@ -55,7 +55,7 @@ specs/028-webui-rest-api/
 ### Source Code (existing structure)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── server/
 │   ├── app.py           # Application setup, route registration
 │   ├── csrf.py          # CSRF middleware

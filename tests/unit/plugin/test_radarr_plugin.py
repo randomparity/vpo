@@ -5,19 +5,19 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from video_policy_orchestrator.config.models import PluginConnectionConfig
-from video_policy_orchestrator.plugin.events import FileScannedEvent
-from video_policy_orchestrator.plugin.interfaces import AnalyzerPlugin
-from video_policy_orchestrator.plugins.radarr_metadata.client import (
+from vpo.config.models import PluginConnectionConfig
+from vpo.plugin.events import FileScannedEvent
+from vpo.plugin.interfaces import AnalyzerPlugin
+from vpo.plugins.radarr_metadata.client import (
     RadarrAuthError,
     RadarrConnectionError,
 )
-from video_policy_orchestrator.plugins.radarr_metadata.models import (
+from vpo.plugins.radarr_metadata.models import (
     RadarrCache,
     RadarrLanguage,
     RadarrMovie,
 )
-from video_policy_orchestrator.plugins.radarr_metadata.plugin import (
+from vpo.plugins.radarr_metadata.plugin import (
     RadarrMetadataPlugin,
 )
 
@@ -36,9 +36,7 @@ def config() -> PluginConnectionConfig:
 @pytest.fixture
 def mock_client():
     """Create a mock RadarrClient."""
-    with patch(
-        "video_policy_orchestrator.plugins.radarr_metadata.plugin.RadarrClient"
-    ) as mock_class:
+    with patch("vpo.plugins.radarr_metadata.plugin.RadarrClient") as mock_class:
         mock_instance = MagicMock()
         mock_class.return_value = mock_instance
         yield mock_instance
@@ -114,9 +112,7 @@ class TestRadarrMetadataPluginInit:
 
     def test_init_validates_connection(self, config: PluginConnectionConfig):
         """Test that init validates connection."""
-        with patch(
-            "video_policy_orchestrator.plugins.radarr_metadata.plugin.RadarrClient"
-        ) as mock_class:
+        with patch("vpo.plugins.radarr_metadata.plugin.RadarrClient") as mock_class:
             mock_client = MagicMock()
             mock_class.return_value = mock_client
 
@@ -126,9 +122,7 @@ class TestRadarrMetadataPluginInit:
 
     def test_init_auth_error_disables_plugin(self, config: PluginConnectionConfig):
         """Test that auth error disables plugin and re-raises."""
-        with patch(
-            "video_policy_orchestrator.plugins.radarr_metadata.plugin.RadarrClient"
-        ) as mock_class:
+        with patch("vpo.plugins.radarr_metadata.plugin.RadarrClient") as mock_class:
             mock_client = MagicMock()
             mock_client.validate_connection.side_effect = RadarrAuthError("Invalid key")
             mock_class.return_value = mock_client
@@ -138,9 +132,7 @@ class TestRadarrMetadataPluginInit:
 
     def test_init_connection_error_raises(self, config: PluginConnectionConfig):
         """Test that connection error is re-raised."""
-        with patch(
-            "video_policy_orchestrator.plugins.radarr_metadata.plugin.RadarrClient"
-        ) as mock_class:
+        with patch("vpo.plugins.radarr_metadata.plugin.RadarrClient") as mock_class:
             mock_client = MagicMock()
             mock_client.validate_connection.side_effect = RadarrConnectionError(
                 "Connection refused"
@@ -160,9 +152,7 @@ class TestRadarrMetadataPluginOnFileScanned:
         tmp_path: Path,
     ):
         """Test that disabled plugin returns None."""
-        with patch(
-            "video_policy_orchestrator.plugins.radarr_metadata.plugin.RadarrClient"
-        ) as mock_class:
+        with patch("vpo.plugins.radarr_metadata.plugin.RadarrClient") as mock_class:
             mock_client = MagicMock()
             mock_client.validate_connection.side_effect = RadarrAuthError("Invalid key")
             mock_class.return_value = mock_client

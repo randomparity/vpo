@@ -2,13 +2,13 @@
 
 import pytest
 
-from video_policy_orchestrator.db.models import TrackRecord, TranscriptionResultRecord
-from video_policy_orchestrator.policy.evaluator import compute_language_updates
-from video_policy_orchestrator.policy.loader import (
+from vpo.db.models import TrackRecord, TranscriptionResultRecord
+from vpo.policy.evaluator import compute_language_updates
+from vpo.policy.loader import (
     PolicyValidationError,
     load_policy_from_dict,
 )
-from video_policy_orchestrator.policy.models import (
+from vpo.policy.types import (
     TranscriptionPolicyOptions,
 )
 

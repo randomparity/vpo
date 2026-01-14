@@ -21,10 +21,10 @@ VPO follows these principles for error handling:
 
 Raised when ffprobe fails to parse a media file.
 
-**Location:** `src/video_policy_orchestrator/introspector/interface.py`
+**Location:** `src/vpo/introspector/interface.py`
 
 ```python
-from video_policy_orchestrator.introspector.interface import MediaIntrospectionError
+from vpo.introspector.interface import MediaIntrospectionError
 
 try:
     result = introspector.get_file_info(path)
@@ -36,10 +36,10 @@ except MediaIntrospectionError as e:
 
 Raised when the SQLite database is locked by another process.
 
-**Location:** `src/video_policy_orchestrator/db/connection.py`
+**Location:** `src/vpo/db/connection.py`
 
 ```python
-from video_policy_orchestrator.db.connection import DatabaseLockedError
+from vpo.db.connection import DatabaseLockedError
 
 try:
     with get_connection(db_path) as conn:
@@ -89,7 +89,7 @@ except DatabaseLockedError as e:
 
 ### Example: Batch Scan Error Collection
 
-From `src/video_policy_orchestrator/cli/scan.py`:
+From `src/vpo/cli/scan.py`:
 
 ```python
 # Errors are collected during scanning

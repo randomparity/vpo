@@ -15,7 +15,7 @@
 
 ## Path Conventions
 
-- **Single project**: `src/video_policy_orchestrator/`, `tests/` at repository root
+- **Single project**: `src/vpo/`, `tests/` at repository root
 - Paths follow existing VPO structure per plan.md
 
 ---
@@ -34,12 +34,12 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [x] T001 [P] Add ProcessingConfig dataclass with workers field (default=2, validation >=1) in src/video_policy_orchestrator/config/models.py
-- [x] T002 [P] Add processing field to VPOConfig dataclass in src/video_policy_orchestrator/config/models.py
-- [x] T003 Update ConfigBuilder to handle [processing] section from TOML in src/video_policy_orchestrator/config/builder.py
-- [x] T004 Add get_max_workers() utility function (half CPU cores, min 1) in src/video_policy_orchestrator/cli/process.py
-- [x] T005 Add resolve_worker_count() function to apply cap and log warning in src/video_policy_orchestrator/cli/process.py
-- [x] T006 Add ProgressTracker class with thread-safe start_file/complete_file methods in src/video_policy_orchestrator/cli/process.py
+- [x] T001 [P] Add ProcessingConfig dataclass with workers field (default=2, validation >=1) in src/vpo/config/models.py
+- [x] T002 [P] Add processing field to VPOConfig dataclass in src/vpo/config/models.py
+- [x] T003 Update ConfigBuilder to handle [processing] section from TOML in src/vpo/config/builder.py
+- [x] T004 Add get_max_workers() utility function (half CPU cores, min 1) in src/vpo/cli/process.py
+- [x] T005 Add resolve_worker_count() function to apply cap and log warning in src/vpo/cli/process.py
+- [x] T006 Add ProgressTracker class with thread-safe start_file/complete_file methods in src/vpo/cli/process.py
 - [x] T007 Add unit tests for ProcessingConfig validation in tests/unit/config/test_models.py
 - [x] T008 Add unit tests for get_max_workers and resolve_worker_count in tests/unit/cli/test_process.py
 
@@ -55,12 +55,12 @@
 
 ### Implementation for User Story 1
 
-- [x] T009 [US1] Add --workers/-w CLI option to process_command in src/video_policy_orchestrator/cli/process.py
-- [x] T010 [US1] Create DaemonConnectionPool instance at batch start (replacing get_connection) in src/video_policy_orchestrator/cli/process.py
-- [x] T011 [US1] Implement process_files_parallel() function using ThreadPoolExecutor and as_completed (relies on existing fcntl.flock for file safety) in src/video_policy_orchestrator/cli/process.py
-- [x] T012 [US1] Update V11WorkflowProcessor instantiation to accept DaemonConnectionPool in src/video_policy_orchestrator/cli/process.py
-- [x] T013 [US1] Integrate ProgressTracker to display aggregate progress line on stderr in src/video_policy_orchestrator/cli/process.py
-- [x] T014 [US1] Add batch summary output (success/fail counts, total duration) in src/video_policy_orchestrator/cli/process.py
+- [x] T009 [US1] Add --workers/-w CLI option to process_command in src/vpo/cli/process.py
+- [x] T010 [US1] Create DaemonConnectionPool instance at batch start (replacing get_connection) in src/vpo/cli/process.py
+- [x] T011 [US1] Implement process_files_parallel() function using ThreadPoolExecutor and as_completed (relies on existing fcntl.flock for file safety) in src/vpo/cli/process.py
+- [x] T012 [US1] Update V11WorkflowProcessor instantiation to accept DaemonConnectionPool in src/vpo/cli/process.py
+- [x] T013 [US1] Integrate ProgressTracker to display aggregate progress line on stderr in src/vpo/cli/process.py
+- [x] T014 [US1] Add batch summary output (success/fail counts, total duration) in src/vpo/cli/process.py
 - [x] T015 [US1] Add integration test for parallel processing with 2 workers in tests/integration/test_parallel_process.py
 
 **Checkpoint**: User Story 1 complete - parallel processing works with --workers flag, progress displays correctly
@@ -75,10 +75,10 @@
 
 ### Implementation for User Story 4
 
-- [x] T016 [US4] Add stop_event (threading.Event) for coordinating early termination in src/video_policy_orchestrator/cli/process.py
-- [x] T017 [US4] Implement on_error=fail logic: set stop_event, cancel pending futures, let in-progress complete in src/video_policy_orchestrator/cli/process.py
-- [x] T018 [US4] Implement on_error=skip logic: record failure, continue other workers, collect all results in src/video_policy_orchestrator/cli/process.py
-- [x] T019 [US4] Add stopped_early flag to batch result and include in summary output in src/video_policy_orchestrator/cli/process.py
+- [x] T016 [US4] Add stop_event (threading.Event) for coordinating early termination in src/vpo/cli/process.py
+- [x] T017 [US4] Implement on_error=fail logic: set stop_event, cancel pending futures, let in-progress complete in src/vpo/cli/process.py
+- [x] T018 [US4] Implement on_error=skip logic: record failure, continue other workers, collect all results in src/vpo/cli/process.py
+- [x] T019 [US4] Add stopped_early flag to batch result and include in summary output in src/vpo/cli/process.py
 - [ ] T020 [US4] Add integration test for on_error=fail stopping batch in tests/integration/test_parallel_process.py
 - [ ] T021 [US4] Add integration test for on_error=skip continuing batch in tests/integration/test_parallel_process.py
 
@@ -94,8 +94,8 @@
 
 ### Implementation for User Story 2
 
-- [x] T022 [US2] Load processing config from get_config() and use workers value as default in src/video_policy_orchestrator/cli/process.py
-- [x] T023 [US2] Ensure CLI --workers flag overrides config file value in src/video_policy_orchestrator/cli/process.py
+- [x] T022 [US2] Load processing config from get_config() and use workers value as default in src/vpo/cli/process.py
+- [x] T023 [US2] Ensure CLI --workers flag overrides config file value in src/vpo/cli/process.py
 - [x] T024 [US2] Add unit test for config loading with [processing] section in tests/unit/config/test_builder.py
 - [x] T025 [US2] Add integration test for config-based worker count in tests/integration/test_parallel_process.py
 
@@ -111,8 +111,8 @@
 
 ### Implementation for User Story 3
 
-- [x] T026 [US3] Ensure --workers 1 uses sequential execution path (ThreadPoolExecutor with max_workers=1) in src/video_policy_orchestrator/cli/process.py
-- [x] T027 [US3] Verify output order matches input order with --workers 1 in src/video_policy_orchestrator/cli/process.py
+- [x] T026 [US3] Ensure --workers 1 uses sequential execution path (ThreadPoolExecutor with max_workers=1) in src/vpo/cli/process.py
+- [x] T027 [US3] Verify output order matches input order with --workers 1 in src/vpo/cli/process.py
 - [x] T028 [US3] Add integration test for sequential processing with --workers 1 in tests/integration/test_parallel_process.py
 
 **Checkpoint**: User Story 3 complete - sequential mode works correctly
@@ -123,12 +123,12 @@
 
 **Purpose**: Documentation, edge cases, and final validation
 
-- [x] T029 [P] Update CLI help text for --workers option in src/video_policy_orchestrator/cli/process.py
+- [x] T029 [P] Update CLI help text for --workers option in src/vpo/cli/process.py
 - [x] T030 [P] Add [processing] section documentation to example config comments
 - [x] T030a [P] Document disk space requirements (2.5x per file × workers) in CLI help text for --workers option
-- [x] T031 Verify JSON output mode still works correctly with parallel processing in src/video_policy_orchestrator/cli/process.py
-- [x] T032 Test verbose mode (-v) output with parallel processing in src/video_policy_orchestrator/cli/process.py
-- [x] T033 Ensure DaemonConnectionPool is properly closed on batch completion/error in src/video_policy_orchestrator/cli/process.py
+- [x] T031 Verify JSON output mode still works correctly with parallel processing in src/vpo/cli/process.py
+- [x] T032 Test verbose mode (-v) output with parallel processing in src/vpo/cli/process.py
+- [x] T033 Ensure DaemonConnectionPool is properly closed on batch completion/error in src/vpo/cli/process.py
 - [x] T034 Run full test suite to verify no regressions: `uv run pytest`
 
 ---

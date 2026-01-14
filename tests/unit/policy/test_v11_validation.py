@@ -7,11 +7,11 @@ Tests for the user-defined phases feature validation:
 
 import pytest
 
-from video_policy_orchestrator.policy.loader import (
+from vpo.policy.loader import (
     PolicyValidationError,
     load_policy_from_dict,
 )
-from video_policy_orchestrator.policy.models import (
+from vpo.policy.types import (
     GlobalConfig,
     OnErrorMode,
     PhaseDefinition,

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from video_policy_orchestrator.db.queries import (
+from vpo.db.queries import (
     delete_all_processing_stats,
     delete_processing_stats_before,
     delete_processing_stats_by_policy,
@@ -18,8 +18,8 @@ from video_policy_orchestrator.db.queries import (
     insert_performance_metric,
     insert_processing_stats,
 )
-from video_policy_orchestrator.db.schema import create_schema
-from video_policy_orchestrator.db.types import (
+from vpo.db.schema import create_schema
+from vpo.db.types import (
     ActionResultRecord,
     PerformanceMetricsRecord,
     ProcessingStatsRecord,

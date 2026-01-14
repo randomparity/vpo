@@ -64,7 +64,7 @@ specs/023-policies-list-view/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── policy/
 │   └── discovery.py          # NEW: Policy file discovery and summary extraction
 ├── server/

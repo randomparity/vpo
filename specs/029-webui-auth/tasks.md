@@ -15,7 +15,7 @@
 
 ## Path Conventions
 
-- **Single project**: `src/video_policy_orchestrator/`, `tests/` at repository root
+- **Single project**: `src/vpo/`, `tests/` at repository root
 - Paths follow existing VPO structure per plan.md
 
 ---
@@ -24,8 +24,8 @@
 
 **Purpose**: Extend configuration to support auth token
 
-- [X] T001 [P] Add `auth_token: str | None = None` field to ServerConfig dataclass in src/video_policy_orchestrator/config/models.py
-- [X] T002 [P] Add VPO_AUTH_TOKEN environment variable handling in src/video_policy_orchestrator/config/loader.py (env takes precedence over config file)
+- [X] T001 [P] Add `auth_token: str | None = None` field to ServerConfig dataclass in src/vpo/config/models.py
+- [X] T002 [P] Add VPO_AUTH_TOKEN environment variable handling in src/vpo/config/loader.py (env takes precedence over config file)
 
 ---
 
@@ -35,10 +35,10 @@
 
 **⚠️ CRITICAL**: User story implementation depends on this phase
 
-- [X] T003 Create auth module with parse_basic_auth() function in src/video_policy_orchestrator/server/auth.py
-- [X] T004 Add validate_token() function using secrets.compare_digest() in src/video_policy_orchestrator/server/auth.py
-- [X] T005 Add is_auth_enabled() helper function in src/video_policy_orchestrator/server/auth.py
-- [X] T006 Create create_auth_middleware() factory function in src/video_policy_orchestrator/server/auth.py
+- [X] T003 Create auth module with parse_basic_auth() function in src/vpo/server/auth.py
+- [X] T004 Add validate_token() function using secrets.compare_digest() in src/vpo/server/auth.py
+- [X] T005 Add is_auth_enabled() helper function in src/vpo/server/auth.py
+- [X] T006 Create create_auth_middleware() factory function in src/vpo/server/auth.py
 
 **Checkpoint**: Auth module ready - user story implementation can now begin
 
@@ -61,10 +61,10 @@
 
 ### Implementation for User Story 1
 
-- [X] T013 [US1] Implement auth_middleware that checks Authorization header in src/video_policy_orchestrator/server/auth.py
-- [X] T014 [US1] Add 401 response with WWW-Authenticate header for failed auth in src/video_policy_orchestrator/server/auth.py
-- [X] T015 [US1] Add /health path exclusion logic in auth middleware in src/video_policy_orchestrator/server/auth.py
-- [X] T016 [US1] Integrate auth middleware into create_app() in src/video_policy_orchestrator/server/app.py
+- [X] T013 [US1] Implement auth_middleware that checks Authorization header in src/vpo/server/auth.py
+- [X] T014 [US1] Add 401 response with WWW-Authenticate header for failed auth in src/vpo/server/auth.py
+- [X] T015 [US1] Add /health path exclusion logic in auth middleware in src/vpo/server/auth.py
+- [X] T016 [US1] Integrate auth middleware into create_app() in src/vpo/server/app.py
 - [X] T017 [US1] Integration test: protected endpoint rejects unauthenticated request in tests/integration/server/test_auth_integration.py
 - [X] T018 [US1] Integration test: protected endpoint accepts valid Basic Auth in tests/integration/server/test_auth_integration.py
 
@@ -85,8 +85,8 @@
 
 ### Implementation for User Story 2
 
-- [X] T021 [US2] Add conditional middleware registration (skip if auth disabled) in src/video_policy_orchestrator/server/app.py
-- [X] T022 [US2] Add startup warning log when auth is disabled in src/video_policy_orchestrator/server/app.py
+- [X] T021 [US2] Add conditional middleware registration (skip if auth disabled) in src/vpo/server/app.py
+- [X] T022 [US2] Add startup warning log when auth is disabled in src/vpo/server/app.py
 - [X] T023 [US2] Integration test: all endpoints accessible when auth disabled in tests/integration/server/test_auth_integration.py
 - [X] T024 [US2] Integration test: warning logged when auth disabled in tests/integration/server/test_auth_integration.py
 
@@ -106,7 +106,7 @@
 
 ### Implementation for User Story 3
 
-- [X] T026 [US3] Verify 401 response includes correct WWW-Authenticate: Basic realm="VPO" header in src/video_policy_orchestrator/server/auth.py
+- [X] T026 [US3] Verify 401 response includes correct WWW-Authenticate: Basic realm="VPO" header in src/vpo/server/auth.py
 - [X] T027 [US3] Integration test: 401 response triggers browser auth dialog (verify header presence) in tests/integration/server/test_auth_integration.py
 
 **Checkpoint**: Browser authentication flow complete - users can log in via native browser dialog

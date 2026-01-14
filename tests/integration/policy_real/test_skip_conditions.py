@@ -13,17 +13,17 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from video_policy_orchestrator.executor.transcode import (
+from vpo.executor.transcode import (
     TranscodeExecutor,
 )
-from video_policy_orchestrator.policy.models import (
+from vpo.policy.transcode import evaluate_skip_condition
+from vpo.policy.types import (
     SkipCondition,
     TranscodePolicyConfig,
 )
-from video_policy_orchestrator.policy.transcode import evaluate_skip_condition
 
 if TYPE_CHECKING:
-    from video_policy_orchestrator.introspector.ffprobe import FFprobeIntrospector
+    from vpo.introspector.ffprobe import FFprobeIntrospector
 
 from .conftest import get_video_tracks
 

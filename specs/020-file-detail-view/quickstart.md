@@ -17,13 +17,13 @@ This document provides implementation guidance for the file detail view feature,
 
 ### Phase 1: Database Layer
 
-1. Add `get_file_by_id()` to `src/video_policy_orchestrator/db/models.py`
+1. Add `get_file_by_id()` to `src/vpo/db/models.py`
 2. Add `get_transcriptions_for_tracks()` to retrieve transcription data by track IDs
 3. Test with existing database
 
 ### Phase 2: UI Models
 
-1. Add to `src/video_policy_orchestrator/server/ui/models.py`:
+1. Add to `src/vpo/server/ui/models.py`:
    - `TrackDetailItem` dataclass
    - `TrackTranscriptionInfo` dataclass
    - `FileDetailItem` dataclass
@@ -33,14 +33,14 @@ This document provides implementation guidance for the file detail view feature,
 
 ### Phase 3: Route Handlers
 
-1. Add to `src/video_policy_orchestrator/server/ui/routes.py`:
+1. Add to `src/vpo/server/ui/routes.py`:
    - `file_detail_handler()` - HTML page handler
    - `api_file_detail_handler()` - JSON API handler
    - Route registration in `setup_ui_routes()`
 
 ### Phase 4: Template
 
-1. Create `src/video_policy_orchestrator/server/ui/templates/sections/file_detail.html`
+1. Create `src/vpo/server/ui/templates/sections/file_detail.html`
 2. Follow structure of `job_detail.html` as reference
 
 ### Phase 5: Library List Integration
@@ -76,7 +76,7 @@ class FileDetailItem:
 async def file_detail_handler(request: web.Request) -> dict:
     """Handle GET /library/{file_id} - File detail HTML page."""
     import asyncio
-    from video_policy_orchestrator.db.connection import DaemonConnectionPool
+    from vpo.db.connection import DaemonConnectionPool
 
     file_id_str = request.match_info["file_id"]
 

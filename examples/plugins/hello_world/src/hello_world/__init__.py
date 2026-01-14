@@ -15,7 +15,7 @@ Usage:
     3. Run: vpo scan /path/to/videos
 """
 
-from video_policy_orchestrator.plugin_sdk import (
+from vpo.plugin_sdk import (
     BaseAnalyzerPlugin,
     get_logger,
 )

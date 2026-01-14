@@ -47,16 +47,16 @@ This feature enhances the policy editor with:
 
 | File | Purpose |
 |------|---------|
-| `src/video_policy_orchestrator/policy/validation.py` | ValidationResult, DiffSummary helpers (NEW) |
-| `src/video_policy_orchestrator/policy/loader.py` | PolicyModel validation (MODIFY) |
-| `src/video_policy_orchestrator/server/ui/routes.py` | API endpoints (MODIFY) |
-| `src/video_policy_orchestrator/server/ui/models.py` | Response models (MODIFY) |
+| `src/vpo/policy/validation.py` | ValidationResult, DiffSummary helpers (NEW) |
+| `src/vpo/policy/loader.py` | PolicyModel validation (MODIFY) |
+| `src/vpo/server/ui/routes.py` | API endpoints (MODIFY) |
+| `src/vpo/server/ui/models.py` | Response models (MODIFY) |
 
 ### Frontend (JavaScript)
 
 | File | Purpose |
 |------|---------|
-| `src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js` | Form handling, error display (MODIFY) |
+| `src/vpo/server/static/js/policy-editor/policy-editor.js` | Form handling, error display (MODIFY) |
 
 ### Tests
 

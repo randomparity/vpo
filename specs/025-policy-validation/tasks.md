@@ -15,8 +15,8 @@
 
 ## Path Conventions
 
-- **Backend**: `src/video_policy_orchestrator/`
-- **Frontend**: `src/video_policy_orchestrator/server/static/js/`
+- **Backend**: `src/vpo/`
+- **Frontend**: `src/vpo/server/static/js/`
 - **Tests**: `tests/unit/`, `tests/integration/`
 
 ---
@@ -25,11 +25,11 @@
 
 **Purpose**: Project initialization and shared validation infrastructure
 
-- [X] T001 Create validation module file at src/video_policy_orchestrator/policy/validation.py
-- [X] T002 [P] Add ValidationError dataclass to src/video_policy_orchestrator/policy/validation.py with fields: field, message, code
-- [X] T003 [P] Add ValidationResult dataclass to src/video_policy_orchestrator/policy/validation.py with fields: success, errors, policy
-- [X] T004 [P] Add FieldChange dataclass to src/video_policy_orchestrator/policy/validation.py with fields: field, change_type, details
-- [X] T005 Add DiffSummary dataclass to src/video_policy_orchestrator/policy/validation.py with changes list and to_summary_text() method
+- [X] T001 Create validation module file at src/vpo/policy/validation.py
+- [X] T002 [P] Add ValidationError dataclass to src/vpo/policy/validation.py with fields: field, message, code
+- [X] T003 [P] Add ValidationResult dataclass to src/vpo/policy/validation.py with fields: success, errors, policy
+- [X] T004 [P] Add FieldChange dataclass to src/vpo/policy/validation.py with fields: field, change_type, details
+- [X] T005 Add DiffSummary dataclass to src/vpo/policy/validation.py with changes list and to_summary_text() method
 
 ---
 
@@ -39,11 +39,11 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T006 Add format_pydantic_errors() function in src/video_policy_orchestrator/policy/validation.py to convert Pydantic ValidationError.errors() to list of ValidationError dataclasses
-- [X] T007 Add validate_policy_data() function in src/video_policy_orchestrator/policy/validation.py that uses PolicyModel and returns ValidationResult
+- [X] T006 Add format_pydantic_errors() function in src/vpo/policy/validation.py to convert Pydantic ValidationError.errors() to list of ValidationError dataclasses
+- [X] T007 Add validate_policy_data() function in src/vpo/policy/validation.py that uses PolicyModel and returns ValidationResult
 - [X] T008 [P] Add unit tests for format_pydantic_errors() in tests/unit/policy/test_validation.py
 - [X] T009 [P] Add unit tests for validate_policy_data() in tests/unit/policy/test_validation.py
-- [X] T010 Export new validation classes in src/video_policy_orchestrator/policy/__init__.py
+- [X] T010 Export new validation classes in src/vpo/policy/__init__.py
 
 **Checkpoint**: Foundation ready - validation helpers tested and working
 
@@ -66,20 +66,20 @@
 
 ### Backend Implementation for User Stories 1 & 2
 
-- [X] T015 [US1] Modify api_policy_update_handler in src/video_policy_orchestrator/server/ui/routes.py to use validate_policy_data() before saving
-- [X] T016 [US2] Modify api_policy_update_handler in src/video_policy_orchestrator/server/ui/routes.py to return structured errors array on validation failure (HTTP 400)
-- [X] T017 [US1] Modify api_policy_update_handler in src/video_policy_orchestrator/server/ui/routes.py to return success response with changed_fields list (HTTP 200)
-- [X] T018 [US2] Add ValidationErrorResponse model to src/video_policy_orchestrator/server/ui/models.py with error, errors, details fields
-- [X] T019 [US1] Add PolicySaveSuccessResponse model to src/video_policy_orchestrator/server/ui/models.py with success, changed_fields, policy fields
+- [X] T015 [US1] Modify api_policy_update_handler in src/vpo/server/ui/routes.py to use validate_policy_data() before saving
+- [X] T016 [US2] Modify api_policy_update_handler in src/vpo/server/ui/routes.py to return structured errors array on validation failure (HTTP 400)
+- [X] T017 [US1] Modify api_policy_update_handler in src/vpo/server/ui/routes.py to return success response with changed_fields list (HTTP 200)
+- [X] T018 [US2] Add ValidationErrorResponse model to src/vpo/server/ui/models.py with error, errors, details fields
+- [X] T019 [US1] Add PolicySaveSuccessResponse model to src/vpo/server/ui/models.py with success, changed_fields, policy fields
 
 ### Frontend Implementation for User Stories 1 & 2
 
-- [X] T020 [US2] Add showErrors(errors) function in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js to display multiple field-level errors
-- [X] T021 [US2] Update savePolicy() in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js to handle errors array response and call showErrors()
-- [X] T022 [US2] Add field-level error highlighting in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
-- [X] T022a [US2] Implement scroll-to-first-error and focus behavior in showErrors() in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
-- [X] T023 [US1] Update savePolicy() success handler in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js to display changed_fields in success message
-- [X] T024 [P] [US2] Add CSS styles for field-level error display in src/video_policy_orchestrator/server/static/css/main.css
+- [X] T020 [US2] Add showErrors(errors) function in src/vpo/server/static/js/policy-editor/policy-editor.js to display multiple field-level errors
+- [X] T021 [US2] Update savePolicy() in src/vpo/server/static/js/policy-editor/policy-editor.js to handle errors array response and call showErrors()
+- [X] T022 [US2] Add field-level error highlighting in src/vpo/server/static/js/policy-editor/policy-editor.js
+- [X] T022a [US2] Implement scroll-to-first-error and focus behavior in showErrors() in src/vpo/server/static/js/policy-editor/policy-editor.js
+- [X] T023 [US1] Update savePolicy() success handler in src/vpo/server/static/js/policy-editor/policy-editor.js to display changed_fields in success message
+- [X] T024 [P] [US2] Add CSS styles for field-level error display in src/vpo/server/static/css/main.css
 
 **Checkpoint**: Save with validation feedback works. Users see field-level errors or success with changed fields list.
 
@@ -99,15 +99,15 @@
 
 ### Backend Implementation for User Story 3
 
-- [X] T028 [US3] Add api_policy_validate_handler function in src/video_policy_orchestrator/server/ui/routes.py for POST /api/policies/{name}/validate
-- [X] T029 [US3] Register validate endpoint route in src/video_policy_orchestrator/server/ui/routes.py route setup
-- [X] T030 [US3] Add PolicyValidateResponse model to src/video_policy_orchestrator/server/ui/models.py with valid, errors, message fields
+- [X] T028 [US3] Add api_policy_validate_handler function in src/vpo/server/ui/routes.py for POST /api/policies/{name}/validate
+- [X] T029 [US3] Register validate endpoint route in src/vpo/server/ui/routes.py route setup
+- [X] T030 [US3] Add PolicyValidateResponse model to src/vpo/server/ui/models.py with valid, errors, message fields
 
 ### Frontend Implementation for User Story 3
 
-- [X] T031 [US3] Add "Test Policy" button HTML in src/video_policy_orchestrator/server/ui/templates/policy_editor.html next to Save button
-- [X] T032 [US3] Add testPolicy() function in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js calling validate endpoint
-- [X] T033 [US3] Add event listener for Test Policy button in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
+- [X] T031 [US3] Add "Test Policy" button HTML in src/vpo/server/ui/templates/policy_editor.html next to Save button
+- [X] T032 [US3] Add testPolicy() function in src/vpo/server/static/js/policy-editor/policy-editor.js calling validate endpoint
+- [X] T033 [US3] Add event listener for Test Policy button in src/vpo/server/static/js/policy-editor/policy-editor.js
 - [X] T034 [US3] Handle validation response in testPolicy() to show "Policy configuration is valid" or field errors
 
 **Checkpoint**: Test Policy button works. Users can validate without saving.
@@ -124,10 +124,10 @@
 
 ### Frontend Implementation for User Story 4
 
-- [X] T035 [P] [US4] Add validateRegexInput() function in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js for commentary pattern validation
-- [X] T036 [US4] Add input event listener for commentary pattern field to call validateRegexInput() in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
-- [X] T037 [US4] Add input event listener for subtitle language field to call validateLanguageInput() in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js (already present)
-- [X] T038 [P] [US4] Add CSS styles for valid/invalid input states for regex fields in src/video_policy_orchestrator/server/static/css/main.css (already present)
+- [X] T035 [P] [US4] Add validateRegexInput() function in src/vpo/server/static/js/policy-editor/policy-editor.js for commentary pattern validation
+- [X] T036 [US4] Add input event listener for commentary pattern field to call validateRegexInput() in src/vpo/server/static/js/policy-editor/policy-editor.js
+- [X] T037 [US4] Add input event listener for subtitle language field to call validateLanguageInput() in src/vpo/server/static/js/policy-editor/policy-editor.js (already present)
+- [X] T038 [P] [US4] Add CSS styles for valid/invalid input states for regex fields in src/vpo/server/static/css/main.css (already present)
 
 **Checkpoint**: Real-time validation works for all text inputs.
 
@@ -146,14 +146,14 @@
 
 ### Backend Implementation for User Story 5
 
-- [X] T041 [US5] Add compare_policies(old_data, new_data) static method to DiffSummary class in src/video_policy_orchestrator/policy/validation.py
-- [X] T042 [US5] Implement list comparison logic in compare_policies() detecting reorder, items_added, items_removed in src/video_policy_orchestrator/policy/validation.py
-- [X] T043 [US5] Implement dict comparison logic in compare_policies() for default_flags changes in src/video_policy_orchestrator/policy/validation.py
-- [X] T044 [US5] Modify api_policy_update_handler in src/video_policy_orchestrator/server/ui/routes.py to compute and return DiffSummary in success response
+- [X] T041 [US5] Add compare_policies(old_data, new_data) static method to DiffSummary class in src/vpo/policy/validation.py
+- [X] T042 [US5] Implement list comparison logic in compare_policies() detecting reorder, items_added, items_removed in src/vpo/policy/validation.py
+- [X] T043 [US5] Implement dict comparison logic in compare_policies() for default_flags changes in src/vpo/policy/validation.py
+- [X] T044 [US5] Modify api_policy_update_handler in src/vpo/server/ui/routes.py to compute and return DiffSummary in success response
 
 ### Frontend Implementation for User Story 5
 
-- [X] T045 [US5] Update success message display in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js to format and show diff summary from changed_fields
+- [X] T045 [US5] Update success message display in src/vpo/server/static/js/policy-editor/policy-editor.js to format and show diff summary from changed_fields
 
 **Checkpoint**: Diff summary displays on successful save.
 
@@ -164,8 +164,8 @@
 **Purpose**: Documentation, cleanup, and final validation
 
 - [X] T046 [P] Update docs/usage/policy-editor.md with validation error handling documentation
-- [X] T047 [P] Add edge case handling for unexpected error formats in savePolicy() and testPolicy() in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
-- [X] T048 [P] Add network error handling with user-friendly messages in src/video_policy_orchestrator/server/static/js/policy-editor/policy-editor.js
+- [X] T047 [P] Add edge case handling for unexpected error formats in savePolicy() and testPolicy() in src/vpo/server/static/js/policy-editor/policy-editor.js
+- [X] T048 [P] Add network error handling with user-friendly messages in src/vpo/server/static/js/policy-editor/policy-editor.js
 - [X] T049 Run quickstart.md validation scenarios manually
 - [X] T050 Run full test suite: uv run pytest tests/unit/policy/test_validation.py tests/integration/test_policy_editor_flow.py -v
 

@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.policy.editor import PolicyRoundTripEditor
-from video_policy_orchestrator.policy.loader import PolicyValidationError
+from vpo.policy.editor import PolicyRoundTripEditor
+from vpo.policy.loader import PolicyValidationError
 
 
 def create_test_policy(

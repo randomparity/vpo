@@ -182,7 +182,7 @@ async def transcriptions_handler(request: web.Request) -> dict:
 
 async def api_transcriptions_handler(request: web.Request) -> web.Response:
     """Handle GET /api/transcriptions - Transcriptions API endpoint."""
-    from video_policy_orchestrator.db.models import get_files_with_transcriptions
+    from vpo.db.models import get_files_with_transcriptions
 
     params = TranscriptionFilterParams.from_query(dict(request.query))
 

@@ -15,7 +15,7 @@
 
 ## Path Conventions
 
-- **Single project**: `src/video_policy_orchestrator/`, `tests/` at repository root
+- **Single project**: `src/vpo/`, `tests/` at repository root
 - Paths follow existing VPO structure per plan.md
 
 ---
@@ -38,10 +38,10 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T006 Add PhaseOutcome enum (PENDING, COMPLETED, FAILED, SKIPPED) to src/video_policy_orchestrator/policy/models.py
-- [X] T007 Add SkipReasonType enum (CONDITION, DEPENDENCY, ERROR_MODE, RUN_IF) to src/video_policy_orchestrator/policy/models.py
-- [X] T008 Add SkipReason dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T009 Extend PhaseResult dataclass with outcome and skip_reason fields in src/video_policy_orchestrator/policy/models.py
+- [X] T006 Add PhaseOutcome enum (PENDING, COMPLETED, FAILED, SKIPPED) to src/vpo/policy/models.py
+- [X] T007 Add SkipReasonType enum (CONDITION, DEPENDENCY, ERROR_MODE, RUN_IF) to src/vpo/policy/models.py
+- [X] T008 Add SkipReason dataclass to src/vpo/policy/models.py
+- [X] T009 Extend PhaseResult dataclass with outcome and skip_reason fields in src/vpo/policy/models.py
 - [X] T010 Add unit tests for PhaseOutcome and SkipReason in tests/unit/policy/test_phase_outcome.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
@@ -62,22 +62,22 @@
 
 ### Implementation for User Story 1
 
-- [X] T014 [P] [US1] Add PhaseSkipCondition dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T015 [P] [US1] Add PhaseSkipConditionModel Pydantic model to src/video_policy_orchestrator/policy/loader.py
-- [X] T016 [US1] Add skip_when field to PhaseModel in src/video_policy_orchestrator/policy/loader.py
-- [X] T017 [US1] Add skip_when field to PhaseDefinition dataclass in src/video_policy_orchestrator/policy/models.py
-- [X] T018 [US1] Update _convert_phase_model() to parse skip_when in src/video_policy_orchestrator/policy/loader.py
-- [X] T019 [US1] Create skip condition evaluation module at src/video_policy_orchestrator/workflow/skip_conditions.py
-- [X] T020 [US1] Implement evaluate_skip_when() for video_codec check in src/video_policy_orchestrator/workflow/skip_conditions.py
-- [X] T021 [US1] Implement evaluate_skip_when() for audio_codec_exists check in src/video_policy_orchestrator/workflow/skip_conditions.py
-- [X] T022 [US1] Implement evaluate_skip_when() for file_size_under/over checks in src/video_policy_orchestrator/workflow/skip_conditions.py
-- [X] T023 [US1] Implement evaluate_skip_when() for duration_under/over checks in src/video_policy_orchestrator/workflow/skip_conditions.py
-- [X] T024 [US1] Implement evaluate_skip_when() for resolution/resolution_under checks in src/video_policy_orchestrator/workflow/skip_conditions.py
-- [X] T025 [US1] Implement evaluate_skip_when() for container check in src/video_policy_orchestrator/workflow/skip_conditions.py
-- [X] T026 [US1] Implement evaluate_skip_when() for subtitle_language_exists check in src/video_policy_orchestrator/workflow/skip_conditions.py
-- [X] T027 [US1] Integrate skip condition evaluation into V11WorkflowProcessor.process_file() in src/video_policy_orchestrator/workflow/v11_processor.py
-- [X] T028 [US1] Add skip logging with reason in V11WorkflowProcessor in src/video_policy_orchestrator/workflow/v11_processor.py
-- [X] T029 [US1] Update PhaseResult to include skip_reason and outcome fields in src/video_policy_orchestrator/policy/models.py
+- [X] T014 [P] [US1] Add PhaseSkipCondition dataclass to src/vpo/policy/models.py
+- [X] T015 [P] [US1] Add PhaseSkipConditionModel Pydantic model to src/vpo/policy/loader.py
+- [X] T016 [US1] Add skip_when field to PhaseModel in src/vpo/policy/loader.py
+- [X] T017 [US1] Add skip_when field to PhaseDefinition dataclass in src/vpo/policy/models.py
+- [X] T018 [US1] Update _convert_phase_model() to parse skip_when in src/vpo/policy/loader.py
+- [X] T019 [US1] Create skip condition evaluation module at src/vpo/workflow/skip_conditions.py
+- [X] T020 [US1] Implement evaluate_skip_when() for video_codec check in src/vpo/workflow/skip_conditions.py
+- [X] T021 [US1] Implement evaluate_skip_when() for audio_codec_exists check in src/vpo/workflow/skip_conditions.py
+- [X] T022 [US1] Implement evaluate_skip_when() for file_size_under/over checks in src/vpo/workflow/skip_conditions.py
+- [X] T023 [US1] Implement evaluate_skip_when() for duration_under/over checks in src/vpo/workflow/skip_conditions.py
+- [X] T024 [US1] Implement evaluate_skip_when() for resolution/resolution_under checks in src/vpo/workflow/skip_conditions.py
+- [X] T025 [US1] Implement evaluate_skip_when() for container check in src/vpo/workflow/skip_conditions.py
+- [X] T026 [US1] Implement evaluate_skip_when() for subtitle_language_exists check in src/vpo/workflow/skip_conditions.py
+- [X] T027 [US1] Integrate skip condition evaluation into V11WorkflowProcessor.process_file() in src/vpo/workflow/v11_processor.py
+- [X] T028 [US1] Add skip logging with reason in V11WorkflowProcessor in src/vpo/workflow/v11_processor.py
+- [X] T029 [US1] Update PhaseResult to include skip_reason and outcome fields in src/vpo/policy/models.py
 
 **Checkpoint**: User Story 1 complete - phases can be skipped based on file characteristics
 
@@ -96,12 +96,12 @@
 
 ### Implementation for User Story 2
 
-- [X] T032 [P] [US2] Add on_error field to PhaseModel in src/video_policy_orchestrator/policy/loader.py
-- [X] T033 [US2] Add on_error field to PhaseDefinition dataclass in src/video_policy_orchestrator/policy/models.py
-- [X] T034 [US2] Update _convert_phase_model() to parse on_error in src/video_policy_orchestrator/policy/loader.py
-- [X] T035 [US2] Implement _get_effective_on_error() in V11WorkflowProcessor in src/video_policy_orchestrator/workflow/v11_processor.py
-- [X] T036 [US2] Update V11WorkflowProcessor to use phase-level on_error when specified in src/video_policy_orchestrator/workflow/v11_processor.py
-- [X] T037 [US2] Implement on_error: skip/continue/fail behavior in src/video_policy_orchestrator/workflow/v11_processor.py
+- [X] T032 [P] [US2] Add on_error field to PhaseModel in src/vpo/policy/loader.py
+- [X] T033 [US2] Add on_error field to PhaseDefinition dataclass in src/vpo/policy/models.py
+- [X] T034 [US2] Update _convert_phase_model() to parse on_error in src/vpo/policy/loader.py
+- [X] T035 [US2] Implement _get_effective_on_error() in V11WorkflowProcessor in src/vpo/workflow/v11_processor.py
+- [X] T036 [US2] Update V11WorkflowProcessor to use phase-level on_error when specified in src/vpo/workflow/v11_processor.py
+- [X] T037 [US2] Implement on_error: skip/continue/fail behavior in src/vpo/workflow/v11_processor.py
 
 **Checkpoint**: User Story 2 complete - phases can have individual error handling
 
@@ -121,14 +121,14 @@
 
 ### Implementation for User Story 3
 
-- [X] T041 [P] [US3] Add depends_on field to PhaseModel in src/video_policy_orchestrator/policy/loader.py
-- [X] T042 [US3] Add depends_on field to PhaseDefinition dataclass in src/video_policy_orchestrator/policy/models.py
-- [X] T043 [US3] Update _convert_phase_model() to parse depends_on in src/video_policy_orchestrator/policy/loader.py
-- [X] T044 [US3] Add dependency validation to policy loading (forward ref, missing ref) in src/video_policy_orchestrator/policy/loader.py
-- [X] T045 [US3] Track phase outcomes (dict) during processing in V11WorkflowProcessor in src/video_policy_orchestrator/workflow/v11_processor.py
-- [X] T046 [US3] Implement _check_dependency_condition() method in src/video_policy_orchestrator/workflow/v11_processor.py
-- [X] T047 [US3] Integrate dependency check before phase execution in V11WorkflowProcessor.process_file() in src/video_policy_orchestrator/workflow/v11_processor.py
-- [X] T048 [US3] Update PhaseResult to include dependency skip reason in src/video_policy_orchestrator/policy/models.py
+- [X] T041 [P] [US3] Add depends_on field to PhaseModel in src/vpo/policy/loader.py
+- [X] T042 [US3] Add depends_on field to PhaseDefinition dataclass in src/vpo/policy/models.py
+- [X] T043 [US3] Update _convert_phase_model() to parse depends_on in src/vpo/policy/loader.py
+- [X] T044 [US3] Add dependency validation to policy loading (forward ref, missing ref) in src/vpo/policy/loader.py
+- [X] T045 [US3] Track phase outcomes (dict) during processing in V11WorkflowProcessor in src/vpo/workflow/v11_processor.py
+- [X] T046 [US3] Implement _check_dependency_condition() method in src/vpo/workflow/v11_processor.py
+- [X] T047 [US3] Integrate dependency check before phase execution in V11WorkflowProcessor.process_file() in src/vpo/workflow/v11_processor.py
+- [X] T048 [US3] Update PhaseResult to include dependency skip reason in src/vpo/policy/models.py
 
 **Checkpoint**: User Story 3 complete - phases respect dependencies
 
@@ -147,14 +147,14 @@
 
 ### Implementation for User Story 4
 
-- [X] T057 [P] [US4] Add RunIfCondition dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T058 [P] [US4] Add RunIfConditionModel Pydantic model to src/video_policy_orchestrator/policy/loader.py
-- [X] T059 [US4] Add run_if field to PhaseModel in src/video_policy_orchestrator/policy/loader.py
-- [X] T060 [US4] Add run_if field to PhaseDefinition dataclass in src/video_policy_orchestrator/policy/models.py
-- [X] T061 [US4] Update _convert_phase_model() to parse run_if in src/video_policy_orchestrator/policy/loader.py
-- [X] T062 [US4] Add run_if validation (referenced phase must exist and appear earlier) in src/video_policy_orchestrator/policy/loader.py
-- [X] T063 [US4] Implement _check_run_if_condition() method using file_modified tracking in src/video_policy_orchestrator/workflow/v11_processor.py
-- [X] T064 [US4] Integrate run_if check after skip_when in V11WorkflowProcessor.process_file() in src/video_policy_orchestrator/workflow/v11_processor.py
+- [X] T057 [P] [US4] Add RunIfCondition dataclass to src/vpo/policy/models.py
+- [X] T058 [P] [US4] Add RunIfConditionModel Pydantic model to src/vpo/policy/loader.py
+- [X] T059 [US4] Add run_if field to PhaseModel in src/vpo/policy/loader.py
+- [X] T060 [US4] Add run_if field to PhaseDefinition dataclass in src/vpo/policy/models.py
+- [X] T061 [US4] Update _convert_phase_model() to parse run_if in src/vpo/policy/loader.py
+- [X] T062 [US4] Add run_if validation (referenced phase must exist and appear earlier) in src/vpo/policy/loader.py
+- [X] T063 [US4] Implement _check_run_if_condition() method using file_modified tracking in src/vpo/workflow/v11_processor.py
+- [X] T064 [US4] Integrate run_if check after skip_when in V11WorkflowProcessor.process_file() in src/vpo/workflow/v11_processor.py
 
 **Checkpoint**: User Story 4 complete - phases can conditionally run based on previous phase modifications
 

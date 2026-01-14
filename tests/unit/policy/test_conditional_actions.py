@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.db.models import TrackInfo
-from video_policy_orchestrator.policy.actions import (
+from vpo.db.models import TrackInfo
+from vpo.policy.actions import (
     ActionContext,
     execute_actions,
     execute_set_default_action,
@@ -23,8 +23,8 @@ from video_policy_orchestrator.policy.actions import (
     execute_skip_action,
     execute_warn_action,
 )
-from video_policy_orchestrator.policy.exceptions import ConditionalFailError
-from video_policy_orchestrator.policy.models import (
+from vpo.policy.exceptions import ConditionalFailError
+from vpo.policy.types import (
     FailAction,
     SetDefaultAction,
     SetForcedAction,
@@ -689,8 +689,8 @@ class TestSetLanguageAction:
         self, context_with_video_tracks: ActionContext
     ) -> None:
         """Set language action creates language changes for matching tracks."""
-        from video_policy_orchestrator.policy.actions import execute_set_language_action
-        from video_policy_orchestrator.policy.models import SetLanguageAction
+        from vpo.policy.actions import execute_set_language_action
+        from vpo.policy.types import SetLanguageAction
 
         action = SetLanguageAction(track_type="video", new_language="jpn")
 
@@ -704,8 +704,8 @@ class TestSetLanguageAction:
         self, context_with_video_tracks: ActionContext
     ) -> None:
         """Set language action filters tracks by match_language."""
-        from video_policy_orchestrator.policy.actions import execute_set_language_action
-        from video_policy_orchestrator.policy.models import SetLanguageAction
+        from vpo.policy.actions import execute_set_language_action
+        from vpo.policy.types import SetLanguageAction
 
         action = SetLanguageAction(
             track_type="audio", new_language="kor", match_language="jpn"
@@ -720,8 +720,8 @@ class TestSetLanguageAction:
         self, context_with_video_tracks: ActionContext
     ) -> None:
         """Set language action with no matching tracks records nothing."""
-        from video_policy_orchestrator.policy.actions import execute_set_language_action
-        from video_policy_orchestrator.policy.models import SetLanguageAction
+        from vpo.policy.actions import execute_set_language_action
+        from vpo.policy.types import SetLanguageAction
 
         action = SetLanguageAction(
             track_type="audio", new_language="kor", match_language="fre"
@@ -735,8 +735,8 @@ class TestSetLanguageAction:
         self, context_with_video_tracks: ActionContext
     ) -> None:
         """Set language without match_language affects all tracks of type."""
-        from video_policy_orchestrator.policy.actions import execute_set_language_action
-        from video_policy_orchestrator.policy.models import SetLanguageAction
+        from vpo.policy.actions import execute_set_language_action
+        from vpo.policy.types import SetLanguageAction
 
         action = SetLanguageAction(track_type="audio", new_language="kor")
 
@@ -751,7 +751,7 @@ class TestSetLanguageAction:
         self, context_with_video_tracks: ActionContext
     ) -> None:
         """Set language action works through execute_actions."""
-        from video_policy_orchestrator.policy.models import SetLanguageAction
+        from vpo.policy.types import SetLanguageAction
 
         actions = (SetLanguageAction(track_type="video", new_language="jpn"),)
 
@@ -764,7 +764,7 @@ class TestSetLanguageAction:
         self, context_with_video_tracks: ActionContext
     ) -> None:
         """Set language can be combined with other actions."""
-        from video_policy_orchestrator.policy.models import SetLanguageAction
+        from vpo.policy.types import SetLanguageAction
 
         actions = (
             WarnAction(message="Setting language from plugin metadata"),
@@ -780,8 +780,8 @@ class TestSetLanguageAction:
 
     def test_set_language_no_tracks_in_context(self) -> None:
         """Set language action with no tracks in context logs warning."""
-        from video_policy_orchestrator.policy.actions import execute_set_language_action
-        from video_policy_orchestrator.policy.models import SetLanguageAction
+        from vpo.policy.actions import execute_set_language_action
+        from vpo.policy.types import SetLanguageAction
 
         context = ActionContext(
             file_path=Path("/videos/test.mkv"),
@@ -796,8 +796,8 @@ class TestSetLanguageAction:
 
     def test_set_language_warns_on_no_match(self, caplog) -> None:
         """Set language logs warning when no tracks match."""
-        from video_policy_orchestrator.policy.actions import execute_set_language_action
-        from video_policy_orchestrator.policy.models import SetLanguageAction
+        from vpo.policy.actions import execute_set_language_action
+        from vpo.policy.types import SetLanguageAction
 
         context = ActionContext(
             file_path=Path("/test/video.mkv"),
@@ -846,8 +846,8 @@ class TestSetLanguageFromPluginMetadata:
         self, context_with_plugin_metadata: ActionContext
     ) -> None:
         """from_plugin_metadata resolves language from plugin data."""
-        from video_policy_orchestrator.policy.actions import execute_set_language_action
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.actions import execute_set_language_action
+        from vpo.policy.types import (
             PluginMetadataReference,
             SetLanguageAction,
         )
@@ -868,8 +868,8 @@ class TestSetLanguageFromPluginMetadata:
         self, context_with_plugin_metadata: ActionContext
     ) -> None:
         """from_plugin_metadata works with different plugins."""
-        from video_policy_orchestrator.policy.actions import execute_set_language_action
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.actions import execute_set_language_action
+        from vpo.policy.types import (
             PluginMetadataReference,
             SetLanguageAction,
         )
@@ -890,8 +890,8 @@ class TestSetLanguageFromPluginMetadata:
         self, tracks_with_video: list[TrackInfo]
     ) -> None:
         """from_plugin_metadata skips action when plugin not found."""
-        from video_policy_orchestrator.policy.actions import execute_set_language_action
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.actions import execute_set_language_action
+        from vpo.policy.types import (
             PluginMetadataReference,
             SetLanguageAction,
         )
@@ -917,8 +917,8 @@ class TestSetLanguageFromPluginMetadata:
         self, tracks_with_video: list[TrackInfo]
     ) -> None:
         """from_plugin_metadata skips action when field not found."""
-        from video_policy_orchestrator.policy.actions import execute_set_language_action
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.actions import execute_set_language_action
+        from vpo.policy.types import (
             PluginMetadataReference,
             SetLanguageAction,
         )
@@ -944,8 +944,8 @@ class TestSetLanguageFromPluginMetadata:
         self, tracks_with_video: list[TrackInfo]
     ) -> None:
         """from_plugin_metadata skips action when no plugin_metadata in context."""
-        from video_policy_orchestrator.policy.actions import execute_set_language_action
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.actions import execute_set_language_action
+        from vpo.policy.types import (
             PluginMetadataReference,
             SetLanguageAction,
         )
@@ -971,8 +971,8 @@ class TestSetLanguageFromPluginMetadata:
         self, context_with_plugin_metadata: ActionContext
     ) -> None:
         """from_plugin_metadata respects match_language filter."""
-        from video_policy_orchestrator.policy.actions import execute_set_language_action
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.actions import execute_set_language_action
+        from vpo.policy.types import (
             PluginMetadataReference,
             SetLanguageAction,
         )
@@ -995,7 +995,7 @@ class TestSetLanguageFromPluginMetadata:
         self, context_with_plugin_metadata: ActionContext
     ) -> None:
         """from_plugin_metadata works through execute_actions."""
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.types import (
             PluginMetadataReference,
             SetLanguageAction,
         )
@@ -1018,8 +1018,8 @@ class TestSetLanguageFromPluginMetadata:
         self, tracks_with_video: list[TrackInfo]
     ) -> None:
         """from_plugin_metadata looks up fields case-insensitively."""
-        from video_policy_orchestrator.policy.actions import execute_set_language_action
-        from video_policy_orchestrator.policy.models import (
+        from vpo.policy.actions import execute_set_language_action
+        from vpo.policy.types import (
             PluginMetadataReference,
             SetLanguageAction,
         )

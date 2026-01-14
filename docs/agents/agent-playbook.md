@@ -24,9 +24,9 @@ Before writing code:
 ### 3. Find Existing Patterns
 
 Look for patterns in existing code:
-- CLI commands: `src/video_policy_orchestrator/cli/`
-- Database operations: `src/video_policy_orchestrator/db/models.py`
-- Introspection: `src/video_policy_orchestrator/introspector/`
+- CLI commands: `src/vpo/cli/`
+- Database operations: `src/vpo/db/models.py`
+- Introspection: `src/vpo/introspector/`
 
 ---
 

@@ -6,15 +6,15 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from video_policy_orchestrator.db.models import (
+from vpo.db.models import (
     Job,
     JobStatus,
     JobType,
     get_job,
     insert_job,
 )
-from video_policy_orchestrator.db.schema import initialize_database
-from video_policy_orchestrator.jobs.queue import (
+from vpo.db.schema import initialize_database
+from vpo.jobs.queue import (
     DEFAULT_HEARTBEAT_TIMEOUT,
     cancel_job,
     claim_next_job,
@@ -66,6 +66,7 @@ class TestClaimNextJob:
         """Should claim a queued job."""
         job = create_test_job()
         insert_job(db_conn, job)
+        db_conn.commit()
 
         claimed = claim_next_job(db_conn)
 
@@ -86,6 +87,7 @@ class TestClaimNextJob:
 
         insert_job(db_conn, low_priority)
         insert_job(db_conn, high_priority)
+        db_conn.commit()
 
         claimed = claim_next_job(db_conn)
 
@@ -101,6 +103,7 @@ class TestClaimNextJob:
 
         insert_job(db_conn, new_job)
         insert_job(db_conn, old_job)
+        db_conn.commit()
 
         claimed = claim_next_job(db_conn)
 
@@ -113,6 +116,7 @@ class TestClaimNextJob:
 
         insert_job(db_conn, running)
         insert_job(db_conn, queued)
+        db_conn.commit()
 
         claimed = claim_next_job(db_conn)
 
@@ -122,6 +126,7 @@ class TestClaimNextJob:
         """Doesn't claim completed jobs."""
         completed = create_test_job(status=JobStatus.COMPLETED)
         insert_job(db_conn, completed)
+        db_conn.commit()
 
         claimed = claim_next_job(db_conn)
 
@@ -384,6 +389,7 @@ class TestConcurrency:
         job2 = create_test_job()
         insert_job(db_conn, job1)
         insert_job(db_conn, job2)
+        db_conn.commit()
 
         claimed1 = claim_next_job(db_conn)
         claimed2 = claim_next_job(db_conn)
@@ -396,6 +402,7 @@ class TestConcurrency:
         """Claims should exhaust the queue."""
         job = create_test_job()
         insert_job(db_conn, job)
+        db_conn.commit()
 
         claimed1 = claim_next_job(db_conn)
         claimed2 = claim_next_job(db_conn)

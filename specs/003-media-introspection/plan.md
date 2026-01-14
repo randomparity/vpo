@@ -43,7 +43,7 @@ specs/003-media-introspection/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── introspector/
 │   ├── __init__.py          # Existing
 │   ├── interface.py         # Existing MediaIntrospector protocol

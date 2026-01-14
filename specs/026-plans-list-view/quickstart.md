@@ -148,13 +148,13 @@ function fetchPlansForPolling() {
 
 | Component | Path |
 |-----------|------|
-| DB Model | `src/video_policy_orchestrator/db/models.py` |
-| DB Operations | `src/video_policy_orchestrator/db/operations.py` |
-| DB Schema | `src/video_policy_orchestrator/db/schema.py` |
-| API Models | `src/video_policy_orchestrator/server/ui/models.py` |
-| API Routes | `src/video_policy_orchestrator/server/ui/routes.py` |
-| Template | `src/video_policy_orchestrator/server/ui/templates/sections/plans.html` |
-| JavaScript | `src/video_policy_orchestrator/server/static/js/plans.js` |
+| DB Model | `src/vpo/db/models.py` |
+| DB Operations | `src/vpo/db/operations.py` |
+| DB Schema | `src/vpo/db/schema.py` |
+| API Models | `src/vpo/server/ui/models.py` |
+| API Routes | `src/vpo/server/ui/routes.py` |
+| Template | `src/vpo/server/ui/templates/sections/plans.html` |
+| JavaScript | `src/vpo/server/static/js/plans.js` |
 | Unit Tests | `tests/unit/db/test_plan_operations.py` |
 | Integration Tests | `tests/integration/server/test_plans_routes.py` |
 

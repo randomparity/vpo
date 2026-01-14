@@ -17,14 +17,14 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.db.models import (
+from vpo.db.models import (
     FileRecord,
     TrackInfo,
     get_file_by_path,
     upsert_file,
     upsert_tracks_for_file,
 )
-from video_policy_orchestrator.db.schema import initialize_database
+from vpo.db.schema import initialize_database
 
 
 class TestWALModeConcurrency:
@@ -55,6 +55,7 @@ class TestWALModeConcurrency:
             scan_error=None,
         )
         upsert_file(conn, record)
+        conn.commit()
         conn.close()
 
         # Run concurrent reads

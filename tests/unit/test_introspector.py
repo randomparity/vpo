@@ -8,7 +8,7 @@ class TestMediaIntrospectorProtocol:
 
     def test_stub_introspector_implements_protocol(self):
         """Test that StubIntrospector implements MediaIntrospector protocol."""
-        from video_policy_orchestrator.introspector.stub import StubIntrospector
+        from vpo.introspector.stub import StubIntrospector
 
         introspector = StubIntrospector()
 
@@ -19,7 +19,7 @@ class TestMediaIntrospectorProtocol:
 
     def test_media_introspection_error_exists(self):
         """Test that MediaIntrospectionError exception is defined."""
-        from video_policy_orchestrator.introspector.interface import (
+        from vpo.introspector.interface import (
             MediaIntrospectionError,
         )
 
@@ -33,8 +33,8 @@ class TestStubIntrospector:
 
     def test_get_file_info_returns_introspection_result(self, temp_dir: Path):
         """Test that get_file_info returns an IntrospectionResult object."""
-        from video_policy_orchestrator.db.models import IntrospectionResult
-        from video_policy_orchestrator.introspector.stub import StubIntrospector
+        from vpo.db.models import IntrospectionResult
+        from vpo.introspector.stub import StubIntrospector
 
         # Create a test file
         file_path = temp_dir / "test.mkv"
@@ -49,7 +49,7 @@ class TestStubIntrospector:
 
     def test_container_format_mkv(self, temp_dir: Path):
         """Test that .mkv files get matroska container format."""
-        from video_policy_orchestrator.introspector.stub import StubIntrospector
+        from vpo.introspector.stub import StubIntrospector
 
         file_path = temp_dir / "video.mkv"
         file_path.touch()
@@ -61,7 +61,7 @@ class TestStubIntrospector:
 
     def test_container_format_mp4(self, temp_dir: Path):
         """Test that .mp4 files get mp4 container format."""
-        from video_policy_orchestrator.introspector.stub import StubIntrospector
+        from vpo.introspector.stub import StubIntrospector
 
         file_path = temp_dir / "video.mp4"
         file_path.touch()
@@ -73,7 +73,7 @@ class TestStubIntrospector:
 
     def test_container_format_avi(self, temp_dir: Path):
         """Test that .avi files get avi container format."""
-        from video_policy_orchestrator.introspector.stub import StubIntrospector
+        from vpo.introspector.stub import StubIntrospector
 
         file_path = temp_dir / "video.avi"
         file_path.touch()
@@ -85,7 +85,7 @@ class TestStubIntrospector:
 
     def test_container_format_webm(self, temp_dir: Path):
         """Test that .webm files get webm container format."""
-        from video_policy_orchestrator.introspector.stub import StubIntrospector
+        from vpo.introspector.stub import StubIntrospector
 
         file_path = temp_dir / "video.webm"
         file_path.touch()
@@ -97,7 +97,7 @@ class TestStubIntrospector:
 
     def test_container_format_mov(self, temp_dir: Path):
         """Test that .mov files get quicktime container format."""
-        from video_policy_orchestrator.introspector.stub import StubIntrospector
+        from vpo.introspector.stub import StubIntrospector
 
         file_path = temp_dir / "video.mov"
         file_path.touch()
@@ -109,7 +109,7 @@ class TestStubIntrospector:
 
     def test_container_format_m4v(self, temp_dir: Path):
         """Test that .m4v files get mp4 container format."""
-        from video_policy_orchestrator.introspector.stub import StubIntrospector
+        from vpo.introspector.stub import StubIntrospector
 
         file_path = temp_dir / "video.m4v"
         file_path.touch()
@@ -121,7 +121,7 @@ class TestStubIntrospector:
 
     def test_container_format_unknown_extension(self, temp_dir: Path):
         """Test that unknown extensions get None container format."""
-        from video_policy_orchestrator.introspector.stub import StubIntrospector
+        from vpo.introspector.stub import StubIntrospector
 
         file_path = temp_dir / "video.xyz"
         file_path.touch()
@@ -133,7 +133,7 @@ class TestStubIntrospector:
 
     def test_stub_returns_placeholder_tracks(self, temp_dir: Path):
         """Test that stub returns placeholder track information."""
-        from video_policy_orchestrator.introspector.stub import StubIntrospector
+        from vpo.introspector.stub import StubIntrospector
 
         file_path = temp_dir / "video.mkv"
         file_path.touch()
@@ -147,7 +147,7 @@ class TestStubIntrospector:
 
     def test_introspection_result_has_correct_structure(self, temp_dir: Path):
         """Test that IntrospectionResult has correct structure."""
-        from video_policy_orchestrator.introspector.stub import StubIntrospector
+        from vpo.introspector.stub import StubIntrospector
 
         file_path = temp_dir / "test_video.mkv"
         content = b"some fake video content"
@@ -166,10 +166,10 @@ class TestStubIntrospector:
         """Test that nonexistent file raises MediaIntrospectionError."""
         import pytest
 
-        from video_policy_orchestrator.introspector.interface import (
+        from vpo.introspector.interface import (
             MediaIntrospectionError,
         )
-        from video_policy_orchestrator.introspector.stub import StubIntrospector
+        from vpo.introspector.stub import StubIntrospector
 
         file_path = temp_dir / "nonexistent.mkv"
 

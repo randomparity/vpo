@@ -56,7 +56,7 @@ specs/001-project-skeleton/
 ```text
 # Single Python package with src layout
 src/
-└── video_policy_orchestrator/
+└── vpo/
     └── __init__.py      # Package entry point with version
 
 tests/

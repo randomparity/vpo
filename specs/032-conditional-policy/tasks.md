@@ -15,7 +15,7 @@
 
 ## Path Conventions
 
-- **Source**: `src/video_policy_orchestrator/`
+- **Source**: `src/vpo/`
 - **Tests**: `tests/unit/`, `tests/integration/`
 - **Docs**: `docs/`
 
@@ -25,10 +25,10 @@
 
 **Purpose**: Project initialization and schema version bump
 
-- [X] T001 Update MAX_SCHEMA_VERSION from 3 to 4 in src/video_policy_orchestrator/policy/loader.py
-- [X] T002 [P] Add ConditionalFailError exception class to src/video_policy_orchestrator/policy/exceptions.py
-- [X] T003 [P] Create empty src/video_policy_orchestrator/policy/conditions.py module with docstring
-- [X] T004 [P] Create empty src/video_policy_orchestrator/policy/actions.py module with docstring
+- [X] T001 Update MAX_SCHEMA_VERSION from 3 to 4 in src/vpo/policy/loader.py
+- [X] T002 [P] Add ConditionalFailError exception class to src/vpo/policy/exceptions.py
+- [X] T003 [P] Create empty src/vpo/policy/conditions.py module with docstring
+- [X] T004 [P] Create empty src/vpo/policy/actions.py module with docstring
 
 ---
 
@@ -38,26 +38,26 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T005 Add ComparisonOperator enum to src/video_policy_orchestrator/policy/models.py
-- [X] T006 Add Comparison dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T007 Add TrackFilters dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T008 [P] Add ExistsCondition dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T009 [P] Add CountCondition dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T010 [P] Add AndCondition dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T011 [P] Add OrCondition dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T012 [P] Add NotCondition dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T013 Add Condition type alias (union of all condition types) to src/video_policy_orchestrator/policy/models.py
-- [X] T014 Add SkipType enum to src/video_policy_orchestrator/policy/models.py
-- [X] T015 [P] Add SkipAction dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T016 [P] Add WarnAction dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T017 [P] Add FailAction dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T018 Add ConditionalAction type alias to src/video_policy_orchestrator/policy/models.py
-- [X] T019 Add ConditionalRule dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T020 Add SkipFlags dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T021 Add RuleEvaluation dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T022 Add ConditionalResult dataclass to src/video_policy_orchestrator/policy/models.py
-- [X] T023 Extend Plan dataclass with conditional_result and skip_flags fields in src/video_policy_orchestrator/policy/models.py
-- [X] T024 Extend PolicySchema dataclass with conditional_rules field in src/video_policy_orchestrator/policy/models.py
+- [X] T005 Add ComparisonOperator enum to src/vpo/policy/models.py
+- [X] T006 Add Comparison dataclass to src/vpo/policy/models.py
+- [X] T007 Add TrackFilters dataclass to src/vpo/policy/models.py
+- [X] T008 [P] Add ExistsCondition dataclass to src/vpo/policy/models.py
+- [X] T009 [P] Add CountCondition dataclass to src/vpo/policy/models.py
+- [X] T010 [P] Add AndCondition dataclass to src/vpo/policy/models.py
+- [X] T011 [P] Add OrCondition dataclass to src/vpo/policy/models.py
+- [X] T012 [P] Add NotCondition dataclass to src/vpo/policy/models.py
+- [X] T013 Add Condition type alias (union of all condition types) to src/vpo/policy/models.py
+- [X] T014 Add SkipType enum to src/vpo/policy/models.py
+- [X] T015 [P] Add SkipAction dataclass to src/vpo/policy/models.py
+- [X] T016 [P] Add WarnAction dataclass to src/vpo/policy/models.py
+- [X] T017 [P] Add FailAction dataclass to src/vpo/policy/models.py
+- [X] T018 Add ConditionalAction type alias to src/vpo/policy/models.py
+- [X] T019 Add ConditionalRule dataclass to src/vpo/policy/models.py
+- [X] T020 Add SkipFlags dataclass to src/vpo/policy/models.py
+- [X] T021 Add RuleEvaluation dataclass to src/vpo/policy/models.py
+- [X] T022 Add ConditionalResult dataclass to src/vpo/policy/models.py
+- [X] T023 Extend Plan dataclass with conditional_result and skip_flags fields in src/vpo/policy/models.py
+- [X] T024 Extend PolicySchema dataclass with conditional_rules field in src/vpo/policy/models.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -79,15 +79,15 @@
 
 ### Implementation for User Story 1
 
-- [X] T030 [US1] Add Pydantic ConditionModel to src/video_policy_orchestrator/policy/loader.py
-- [X] T031 [US1] Add Pydantic ConditionalActionModel to src/video_policy_orchestrator/policy/loader.py
-- [X] T032 [US1] Add Pydantic ConditionalRuleModel to src/video_policy_orchestrator/policy/loader.py
-- [X] T033 [US1] Extend PolicyModel with conditional field in src/video_policy_orchestrator/policy/loader.py
-- [X] T034 [US1] Add schema version validation for conditional section in src/video_policy_orchestrator/policy/loader.py
-- [X] T035 [US1] Add convert_conditional_rules() function in src/video_policy_orchestrator/policy/loader.py
-- [X] T036 [US1] Implement evaluate_conditional_rules() in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T037 [US1] Integrate conditional evaluation into evaluate_policy() in src/video_policy_orchestrator/policy/evaluator.py
-- [X] T038 [US1] Add conditional result to dry-run output format in src/video_policy_orchestrator/policy/evaluator.py
+- [X] T030 [US1] Add Pydantic ConditionModel to src/vpo/policy/loader.py
+- [X] T031 [US1] Add Pydantic ConditionalActionModel to src/vpo/policy/loader.py
+- [X] T032 [US1] Add Pydantic ConditionalRuleModel to src/vpo/policy/loader.py
+- [X] T033 [US1] Extend PolicyModel with conditional field in src/vpo/policy/loader.py
+- [X] T034 [US1] Add schema version validation for conditional section in src/vpo/policy/loader.py
+- [X] T035 [US1] Add convert_conditional_rules() function in src/vpo/policy/loader.py
+- [X] T036 [US1] Implement evaluate_conditional_rules() in src/vpo/policy/evaluator.py
+- [X] T037 [US1] Integrate conditional evaluation into evaluate_policy() in src/vpo/policy/evaluator.py
+- [X] T038 [US1] Add conditional result to dry-run output format in src/vpo/policy/evaluator.py
 
 **Checkpoint**: Basic conditional rules work - can create policy with when/then/else
 
@@ -110,13 +110,13 @@
 
 ### Implementation for User Story 2
 
-- [X] T043 [US2] Implement matches_track() function in src/video_policy_orchestrator/policy/conditions.py
-- [X] T043a [US2] Implement title_matches() helper for contains/regex title matching in src/video_policy_orchestrator/policy/conditions.py
-- [X] T044 [US2] Implement evaluate_exists() function in src/video_policy_orchestrator/policy/conditions.py
-- [X] T045 [US2] Add codec alias map CODEC_ALIASES in src/video_policy_orchestrator/policy/conditions.py (skipped - case-insensitive match sufficient)
-- [X] T046 [US2] Implement normalize_codec() function in src/video_policy_orchestrator/policy/conditions.py (skipped - case-insensitive match sufficient)
-- [X] T047 [US2] Implement codecs_match() function in src/video_policy_orchestrator/policy/conditions.py (using case-insensitive string match)
-- [X] T048 [US2] Wire exists condition into evaluate_condition() in src/video_policy_orchestrator/policy/conditions.py
+- [X] T043 [US2] Implement matches_track() function in src/vpo/policy/conditions.py
+- [X] T043a [US2] Implement title_matches() helper for contains/regex title matching in src/vpo/policy/conditions.py
+- [X] T044 [US2] Implement evaluate_exists() function in src/vpo/policy/conditions.py
+- [X] T045 [US2] Add codec alias map CODEC_ALIASES in src/vpo/policy/conditions.py (skipped - case-insensitive match sufficient)
+- [X] T046 [US2] Implement normalize_codec() function in src/vpo/policy/conditions.py (skipped - case-insensitive match sufficient)
+- [X] T047 [US2] Implement codecs_match() function in src/vpo/policy/conditions.py (using case-insensitive string match)
+- [X] T048 [US2] Wire exists condition into evaluate_condition() in src/vpo/policy/conditions.py
 
 **Checkpoint**: Track existence conditions work - can check if tracks exist
 
@@ -139,11 +139,11 @@
 
 ### Implementation for User Story 3
 
-- [X] T055 [US3] Implement evaluate_and() function in src/video_policy_orchestrator/policy/conditions.py (inline in evaluate_condition)
-- [X] T056 [US3] Implement evaluate_or() function in src/video_policy_orchestrator/policy/conditions.py (inline in evaluate_condition)
-- [X] T057 [US3] Implement evaluate_not() function in src/video_policy_orchestrator/policy/conditions.py (inline in evaluate_condition)
-- [X] T058 [US3] Implement evaluate_condition() with depth tracking in src/video_policy_orchestrator/policy/conditions.py (recursion used, Python stack handles depth)
-- [X] T059 [US3] Add nesting depth validation error with clear message in src/video_policy_orchestrator/policy/conditions.py (deferred - Pydantic recursion limit handles this)
+- [X] T055 [US3] Implement evaluate_and() function in src/vpo/policy/conditions.py (inline in evaluate_condition)
+- [X] T056 [US3] Implement evaluate_or() function in src/vpo/policy/conditions.py (inline in evaluate_condition)
+- [X] T057 [US3] Implement evaluate_not() function in src/vpo/policy/conditions.py (inline in evaluate_condition)
+- [X] T058 [US3] Implement evaluate_condition() with depth tracking in src/vpo/policy/conditions.py (recursion used, Python stack handles depth)
+- [X] T059 [US3] Add nesting depth validation error with clear message in src/vpo/policy/conditions.py (deferred - Pydantic recursion limit handles this)
 
 **Checkpoint**: Boolean operators work - can combine conditions with and/or/not
 
@@ -164,10 +164,10 @@
 
 ### Implementation for User Story 4
 
-- [X] T064 [US4] Implement compare_value() function in src/video_policy_orchestrator/policy/conditions.py (_compare_value)
-- [X] T065 [US4] Extend matches_track() to handle Comparison objects for channels in src/video_policy_orchestrator/policy/conditions.py
-- [X] T066 [US4] Extend matches_track() to handle Comparison objects for width/height in src/video_policy_orchestrator/policy/conditions.py
-- [X] T067 [US4] Add Pydantic validation for comparison dict syntax in src/video_policy_orchestrator/policy/loader.py (ComparisonModel)
+- [X] T064 [US4] Implement compare_value() function in src/vpo/policy/conditions.py (_compare_value)
+- [X] T065 [US4] Extend matches_track() to handle Comparison objects for channels in src/vpo/policy/conditions.py
+- [X] T066 [US4] Extend matches_track() to handle Comparison objects for width/height in src/vpo/policy/conditions.py
+- [X] T067 [US4] Add Pydantic validation for comparison dict syntax in src/vpo/policy/loader.py (ComparisonModel)
 
 **Checkpoint**: Comparison operators work - can compare numeric properties
 
@@ -188,9 +188,9 @@
 
 ### Implementation for User Story 5
 
-- [X] T072 [US5] Implement evaluate_count() function in src/video_policy_orchestrator/policy/conditions.py
-- [X] T073 [US5] Wire count condition into evaluate_condition() in src/video_policy_orchestrator/policy/conditions.py
-- [X] T074 [US5] Add Pydantic validation for count condition in src/video_policy_orchestrator/policy/loader.py (CountConditionModel)
+- [X] T072 [US5] Implement evaluate_count() function in src/vpo/policy/conditions.py
+- [X] T073 [US5] Wire count condition into evaluate_condition() in src/vpo/policy/conditions.py
+- [X] T074 [US5] Add Pydantic validation for count condition in src/vpo/policy/loader.py (CountConditionModel)
 
 **Checkpoint**: Count conditions work - can check track counts
 
@@ -212,12 +212,12 @@
 
 ### Implementation for User Story 6
 
-- [X] T080 [US6] Implement ActionContext dataclass in src/video_policy_orchestrator/policy/actions.py
-- [X] T081 [US6] Implement ActionResult dataclass in src/video_policy_orchestrator/policy/actions.py (skip flags in context)
-- [X] T082 [US6] Implement handle_skip_action() function in src/video_policy_orchestrator/policy/actions.py (execute_skip_action)
-- [X] T083 [US6] Implement execute_actions() function in src/video_policy_orchestrator/policy/actions.py
-- [X] T084 [US6] Apply skip_video_transcode flag in evaluate_policy() in src/video_policy_orchestrator/policy/evaluator.py (skip_flags in Plan)
-- [X] T085 [US6] Apply skip_track_filter flag in evaluate_policy() in src/video_policy_orchestrator/policy/evaluator.py (skip_flags in Plan)
+- [X] T080 [US6] Implement ActionContext dataclass in src/vpo/policy/actions.py
+- [X] T081 [US6] Implement ActionResult dataclass in src/vpo/policy/actions.py (skip flags in context)
+- [X] T082 [US6] Implement handle_skip_action() function in src/vpo/policy/actions.py (execute_skip_action)
+- [X] T083 [US6] Implement execute_actions() function in src/vpo/policy/actions.py
+- [X] T084 [US6] Apply skip_video_transcode flag in evaluate_policy() in src/vpo/policy/evaluator.py (skip_flags in Plan)
+- [X] T085 [US6] Apply skip_track_filter flag in evaluate_policy() in src/vpo/policy/evaluator.py (skip_flags in Plan)
 
 **Checkpoint**: Skip actions work - can bypass operations based on conditions
 
@@ -238,11 +238,11 @@
 
 ### Implementation for User Story 7
 
-- [X] T090 [US7] Implement substitute_placeholders() function in src/video_policy_orchestrator/policy/actions.py (in ActionContext)
-- [X] T091 [US7] Implement handle_warn_action() function in src/video_policy_orchestrator/policy/actions.py (execute_warn_action)
-- [X] T092 [US7] Implement handle_fail_action() function in src/video_policy_orchestrator/policy/actions.py (execute_fail_action)
-- [X] T093 [US7] Extend execute_actions() to handle warn/fail in src/video_policy_orchestrator/policy/actions.py
-- [X] T094 [US7] Add warnings to Plan output in evaluate_policy() in src/video_policy_orchestrator/policy/evaluator.py (via ConditionalResult)
+- [X] T090 [US7] Implement substitute_placeholders() function in src/vpo/policy/actions.py (in ActionContext)
+- [X] T091 [US7] Implement handle_warn_action() function in src/vpo/policy/actions.py (execute_warn_action)
+- [X] T092 [US7] Implement handle_fail_action() function in src/vpo/policy/actions.py (execute_fail_action)
+- [X] T093 [US7] Extend execute_actions() to handle warn/fail in src/vpo/policy/actions.py
+- [X] T094 [US7] Add warnings to Plan output in evaluate_policy() in src/vpo/policy/evaluator.py (via ConditionalResult)
 
 **Checkpoint**: Warn/fail actions work - can alert on conditions
 

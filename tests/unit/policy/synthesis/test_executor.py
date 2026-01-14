@@ -5,16 +5,16 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from video_policy_orchestrator.db.models import TrackInfo
-from video_policy_orchestrator.policy.synthesis.exceptions import (
+from vpo.db.models import TrackInfo
+from vpo.policy.synthesis.exceptions import (
     SynthesisCancelledError,
 )
-from video_policy_orchestrator.policy.synthesis.executor import (
+from vpo.policy.synthesis.executor import (
     FFmpegSynthesisExecutor,
     SynthesisExecutionResult,
     _sigint_handler,
 )
-from video_policy_orchestrator.policy.synthesis.models import (
+from vpo.policy.synthesis.models import (
     AudioCodec,
     SourceTrackSelection,
     SynthesisOperation,

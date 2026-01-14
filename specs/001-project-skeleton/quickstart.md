@@ -59,7 +59,7 @@ make lint
 pytest
 
 # With coverage (when pytest-cov is added)
-pytest --cov=video_policy_orchestrator
+pytest --cov=vpo
 
 # Specific test file
 pytest tests/test_package.py
@@ -93,7 +93,7 @@ make clean     # Remove build artifacts
 ```text
 vpo/
 ├── src/
-│   └── video_policy_orchestrator/
+│   └── vpo/
 │       └── __init__.py      # Package entry point
 ├── tests/
 │   └── test_package.py      # Package tests
@@ -114,11 +114,11 @@ After setup, verify these work:
 - [ ] `pip install -e ".[dev]"` completes without errors
 - [ ] `pytest` runs and passes
 - [ ] `ruff check .` reports no errors
-- [ ] `python -c "import video_policy_orchestrator"` succeeds
+- [ ] `python -c "import vpo"` succeeds
 
 ## Troubleshooting
 
-### "No module named video_policy_orchestrator"
+### "No module named vpo"
 
 Ensure you installed in editable mode:
 ```bash

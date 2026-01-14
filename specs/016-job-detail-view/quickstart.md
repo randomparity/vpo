@@ -14,7 +14,7 @@ This feature adds a job detail view to the VPO web UI, accessible from the Jobs 
 Add `log_path` column to jobs table:
 
 ```python
-# src/video_policy_orchestrator/db/schema.py
+# src/vpo/db/schema.py
 
 def migrate_v7_to_v8(conn: sqlite3.Connection) -> None:
     """Add log_path column to jobs table."""
@@ -33,13 +33,13 @@ def migrate_v7_to_v8(conn: sqlite3.Connection) -> None:
 New module for log file operations:
 
 ```python
-# src/video_policy_orchestrator/jobs/logs.py
+# src/vpo/jobs/logs.py
 
 from pathlib import Path
 
 def get_log_directory() -> Path:
     """Get the logs directory path."""
-    from video_policy_orchestrator.config.loader import get_data_dir
+    from vpo.config.loader import get_data_dir
     return get_data_dir() / "logs"
 
 def get_log_path(job_id: str) -> Path:
@@ -74,7 +74,7 @@ def read_log_tail(job_id: str, lines: int = 500, offset: int = 0) -> tuple[list[
 Add new route handlers:
 
 ```python
-# src/video_policy_orchestrator/server/ui/routes.py
+# src/vpo/server/ui/routes.py
 
 async def job_detail_handler(request: web.Request) -> dict:
     """Handle GET /jobs/{job_id} - Job detail page."""
@@ -185,16 +185,16 @@ async def test_get_job_not_found(client):
 ## File Checklist
 
 New files to create:
-- [ ] `src/video_policy_orchestrator/jobs/logs.py`
-- [ ] `src/video_policy_orchestrator/server/ui/templates/sections/job_detail.html`
-- [ ] `src/video_policy_orchestrator/server/static/js/job_detail.js`
+- [ ] `src/vpo/jobs/logs.py`
+- [ ] `src/vpo/server/ui/templates/sections/job_detail.html`
+- [ ] `src/vpo/server/static/js/job_detail.js`
 - [ ] `tests/unit/jobs/test_logs.py`
 - [ ] `tests/unit/server/ui/test_job_detail_routes.py`
 - [ ] `tests/integration/test_job_detail_api.py`
 
 Files to modify:
-- [ ] `src/video_policy_orchestrator/db/models.py` - Add log_path to Job
-- [ ] `src/video_policy_orchestrator/db/schema.py` - Add v7→v8 migration
-- [ ] `src/video_policy_orchestrator/server/ui/models.py` - Add JobDetailItem, JobLogsResponse
-- [ ] `src/video_policy_orchestrator/server/ui/routes.py` - Add new handlers
-- [ ] `src/video_policy_orchestrator/server/ui/templates/sections/jobs.html` - Add row click handler
+- [ ] `src/vpo/db/models.py` - Add log_path to Job
+- [ ] `src/vpo/db/schema.py` - Add v7→v8 migration
+- [ ] `src/vpo/server/ui/models.py` - Add JobDetailItem, JobLogsResponse
+- [ ] `src/vpo/server/ui/routes.py` - Add new handlers
+- [ ] `src/vpo/server/ui/templates/sections/jobs.html` - Add row click handler

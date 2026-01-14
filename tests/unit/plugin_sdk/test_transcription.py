@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from video_policy_orchestrator.plugin_sdk.transcription import (
+from vpo.plugin_sdk.transcription import (
     AggregatedResult,
     MultiSampleConfig,
     SampleResult,
@@ -512,7 +512,7 @@ class TestMultiSampleSdkImports:
 
     def test_import_from_plugin_sdk(self) -> None:
         """Verify utilities can be imported from plugin_sdk."""
-        from video_policy_orchestrator.plugin_sdk import (
+        from vpo.plugin_sdk import (
             AggregatedResult,
             MultiSampleConfig,
             SampleResult,
@@ -529,7 +529,7 @@ class TestMultiSampleSdkImports:
 
     def test_import_from_transcription_module(self) -> None:
         """Verify utilities can be imported from transcription submodule."""
-        from video_policy_orchestrator.plugin_sdk.transcription import (
+        from vpo.plugin_sdk.transcription import (
             AggregatedResult,
             MultiSampleConfig,
             SampleResult,

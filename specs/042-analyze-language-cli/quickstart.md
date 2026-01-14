@@ -17,7 +17,7 @@
 ### views.py additions
 
 ```python
-# src/video_policy_orchestrator/db/views.py
+# src/vpo/db/views.py
 
 @dataclass
 class AnalysisStatusSummary:
@@ -54,7 +54,7 @@ def get_analysis_status_summary(conn: sqlite3.Connection) -> AnalysisStatusSumma
 ### queries.py additions
 
 ```python
-# src/video_policy_orchestrator/db/queries.py
+# src/vpo/db/queries.py
 
 def delete_analysis_for_file(conn: sqlite3.Connection, file_id: int) -> int:
     """Delete all analysis results for a file's tracks."""
@@ -78,7 +78,7 @@ def delete_all_analysis(conn: sqlite3.Connection) -> int:
 ## Step 2: Create CLI Module
 
 ```python
-# src/video_policy_orchestrator/cli/analyze_language.py
+# src/vpo/cli/analyze_language.py
 
 """CLI commands for language analysis management."""
 
@@ -87,10 +87,10 @@ from pathlib import Path
 
 import click
 
-from video_policy_orchestrator.db import get_file_by_path
-from video_policy_orchestrator.db.views import get_analysis_status_summary
-from video_policy_orchestrator.db.queries import delete_analysis_for_file, delete_all_analysis
-from video_policy_orchestrator.language_analysis import (
+from vpo.db import get_file_by_path
+from vpo.db.views import get_analysis_status_summary
+from vpo.db.queries import delete_analysis_for_file, delete_all_analysis
+from vpo.language_analysis import (
     analyze_track_languages,
     get_cached_analysis,
     format_human,
@@ -147,7 +147,7 @@ def run_command(
 
     # Check plugin availability
     try:
-        from video_policy_orchestrator.transcription.coordinator import get_transcription_plugin
+        from vpo.transcription.coordinator import get_transcription_plugin
         plugin = get_transcription_plugin()
         if not plugin:
             raise RuntimeError("No plugin")
@@ -222,10 +222,10 @@ def clear_command(
 ## Step 3: Register Command Group
 
 ```python
-# src/video_policy_orchestrator/cli/__init__.py
+# src/vpo/cli/__init__.py
 
 # Add to imports in _register_commands():
-from video_policy_orchestrator.cli.analyze_language import analyze_language_group
+from vpo.cli.analyze_language import analyze_language_group
 
 # Add to command registration:
 main.add_command(analyze_language_group)
@@ -239,7 +239,7 @@ main.add_command(analyze_language_group)
 import pytest
 from click.testing import CliRunner
 
-from video_policy_orchestrator.cli import main
+from vpo.cli import main
 
 
 @pytest.fixture
@@ -287,7 +287,7 @@ class TestAnalyzeLanguageClear:
 import pytest
 from click.testing import CliRunner
 
-from video_policy_orchestrator.cli import main
+from vpo.cli import main
 
 
 @pytest.fixture

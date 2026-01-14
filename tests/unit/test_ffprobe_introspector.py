@@ -1,16 +1,16 @@
 """Unit tests for FFprobeIntrospector.
 
 Note: Stream parsing logic has been extracted to
-video_policy_orchestrator.introspector.parsers and is tested in
+vpo.introspector.parsers and is tested in
 test_introspector_parsers.py. This file tests FFprobeIntrospector-specific
 functionality.
 """
 
-from video_policy_orchestrator.introspector.mappings import (
+from vpo.introspector.mappings import (
     map_channel_layout,
     map_track_type,
 )
-from video_policy_orchestrator.introspector.parsers import (
+from vpo.introspector.parsers import (
     parse_streams,
     sanitize_string,
 )
@@ -264,8 +264,8 @@ class TestFFprobeTimeout:
         import subprocess
         from unittest.mock import MagicMock
 
-        from video_policy_orchestrator.introspector.ffprobe import FFprobeIntrospector
-        from video_policy_orchestrator.introspector.interface import (
+        from vpo.introspector.ffprobe import FFprobeIntrospector
+        from vpo.introspector.interface import (
             MediaIntrospectionError,
         )
 
@@ -274,7 +274,7 @@ class TestFFprobeTimeout:
             side_effect=subprocess.TimeoutExpired(cmd="ffprobe", timeout=60)
         )
         monkeypatch.setattr(
-            "video_policy_orchestrator.introspector.ffprobe.subprocess.run",
+            "vpo.introspector.ffprobe.subprocess.run",
             mock_run,
         )
 

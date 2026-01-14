@@ -15,7 +15,7 @@ from aiohttp import web
 from aiohttp_session import SimpleCookieStorage
 from aiohttp_session import setup as setup_session
 
-from video_policy_orchestrator.server.ui.routes import setup_ui_routes
+from vpo.server.ui.routes import setup_ui_routes
 
 
 async def get_csrf_token(client):
@@ -95,7 +95,7 @@ x_another_field: also_preserved
 @pytest.mark.asyncio
 async def test_full_policy_edit_flow(aiohttp_client, test_app_with_policies):
     """Test complete edit flow: load → edit → save → verify."""
-    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+    from vpo.server.csrf import CSRF_HEADER
 
     app, policy_dir = test_app_with_policies
     client = await aiohttp_client(app)
@@ -161,7 +161,7 @@ async def test_unknown_field_preservation_through_multiple_edits(
     aiohttp_client, test_app_with_policies
 ):
     """Test that unknown fields survive multiple edit cycles."""
-    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+    from vpo.server.csrf import CSRF_HEADER
 
     app, policy_dir = test_app_with_policies
     client = await aiohttp_client(app)
@@ -247,7 +247,7 @@ async def test_unknown_field_preservation_through_multiple_edits(
 @pytest.mark.asyncio
 async def test_comment_preservation(aiohttp_client, test_app_with_policies):
     """Test that comments on unchanged fields are preserved."""
-    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+    from vpo.server.csrf import CSRF_HEADER
 
     app, policy_dir = test_app_with_policies
     client = await aiohttp_client(app)
@@ -291,7 +291,7 @@ async def test_comment_preservation(aiohttp_client, test_app_with_policies):
 @pytest.mark.asyncio
 async def test_validation_prevents_invalid_save(aiohttp_client, test_app_with_policies):
     """Test that validation prevents saving invalid policy data."""
-    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+    from vpo.server.csrf import CSRF_HEADER
 
     app, policy_dir = test_app_with_policies
     client = await aiohttp_client(app)
@@ -336,7 +336,7 @@ async def test_concurrent_modification_detection(
     aiohttp_client, test_app_with_policies
 ):
     """Test that concurrent modifications are detected."""
-    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+    from vpo.server.csrf import CSRF_HEADER
 
     app, policy_dir = test_app_with_policies
     client = await aiohttp_client(app)
@@ -397,7 +397,7 @@ async def test_concurrent_modification_detection(
 @pytest.mark.asyncio
 async def test_policy_with_transcription_section(aiohttp_client, tmp_path):
     """Test editing policy with transcription configuration."""
-    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+    from vpo.server.csrf import CSRF_HEADER
 
     app = web.Application()
 
@@ -496,7 +496,7 @@ async def test_successful_save_returns_changed_fields(
     aiohttp_client, test_app_with_policies
 ):
     """Test that successful save returns changed_fields response (T011 US1)."""
-    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+    from vpo.server.csrf import CSRF_HEADER
 
     app, policy_dir = test_app_with_policies
     client = await aiohttp_client(app)
@@ -553,7 +553,7 @@ async def test_validation_error_returns_errors_array(
     aiohttp_client, test_app_with_policies
 ):
     """Test that validation failure returns structured errors array (T012 US2)."""
-    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+    from vpo.server.csrf import CSRF_HEADER
 
     app, policy_dir = test_app_with_policies
     client = await aiohttp_client(app)
@@ -605,7 +605,7 @@ async def test_invalid_language_code_error_response(
     aiohttp_client, test_app_with_policies
 ):
     """Test that invalid language code returns field-specific error (T013 US2)."""
-    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+    from vpo.server.csrf import CSRF_HEADER
 
     app, policy_dir = test_app_with_policies
     client = await aiohttp_client(app)
@@ -658,7 +658,7 @@ async def test_empty_required_list_error_response(
     aiohttp_client, test_app_with_policies
 ):
     """Test that empty required list returns specific error (T014 US2)."""
-    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+    from vpo.server.csrf import CSRF_HEADER
 
     app, policy_dir = test_app_with_policies
     client = await aiohttp_client(app)
@@ -713,7 +713,7 @@ async def test_empty_required_list_error_response(
 @pytest.mark.asyncio
 async def test_validation_details_count(aiohttp_client, test_app_with_policies):
     """Test that validation error response includes error count in details."""
-    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+    from vpo.server.csrf import CSRF_HEADER
 
     app, policy_dir = test_app_with_policies
     client = await aiohttp_client(app)
@@ -760,7 +760,7 @@ async def test_validate_endpoint_returns_valid_true(
     aiohttp_client, test_app_with_policies
 ):
     """Test that validate endpoint returns valid=true for valid data (T025 US3)."""
-    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+    from vpo.server.csrf import CSRF_HEADER
 
     app, policy_dir = test_app_with_policies
     client = await aiohttp_client(app)
@@ -801,7 +801,7 @@ async def test_validate_endpoint_returns_errors_when_invalid(
     aiohttp_client, test_app_with_policies
 ):
     """Test that validate endpoint returns errors array when invalid (T026 US3)."""
-    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+    from vpo.server.csrf import CSRF_HEADER
 
     app, policy_dir = test_app_with_policies
     client = await aiohttp_client(app)
@@ -843,7 +843,7 @@ async def test_validate_endpoint_does_not_modify_file(
     aiohttp_client, test_app_with_policies
 ):
     """Test that validate endpoint does not modify the policy file (T027 US3)."""
-    from video_policy_orchestrator.server.csrf import CSRF_HEADER
+    from vpo.server.csrf import CSRF_HEADER
 
     app, policy_dir = test_app_with_policies
     client = await aiohttp_client(app)

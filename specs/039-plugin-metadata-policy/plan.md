@@ -63,7 +63,7 @@ specs/039-plugin-metadata-policy/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── policy/
 │   ├── plugin_metadata.py   # NEW: PluginMetadataCondition, evaluation, validation
 │   ├── models.py            # UPDATE: Add PluginMetadataCondition to Condition union

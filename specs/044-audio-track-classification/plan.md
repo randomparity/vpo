@@ -65,7 +65,7 @@ specs/044-audio-track-classification/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── track_classification/        # NEW: Track classification module
 │   ├── __init__.py
 │   ├── models.py               # TrackClassificationResult, AcousticProfile, enums

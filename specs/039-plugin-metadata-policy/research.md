@@ -147,8 +147,8 @@ ALTER TABLE files ADD COLUMN plugin_metadata TEXT;
 
 ## Files to Read Before Implementation
 
-1. `src/video_policy_orchestrator/policy/conditions.py` - Existing condition evaluation patterns
-2. `src/video_policy_orchestrator/policy/loader.py` - Pydantic model and conversion patterns
-3. `src/video_policy_orchestrator/policy/models.py` - Condition type union definition
-4. `src/video_policy_orchestrator/db/schema.py` - Migration function patterns
-5. `src/video_policy_orchestrator/db/queries.py` - upsert/select patterns for files table
+1. `src/vpo/policy/conditions.py` - Existing condition evaluation patterns
+2. `src/vpo/policy/loader.py` - Pydantic model and conversion patterns
+3. `src/vpo/policy/models.py` - Condition type union definition
+4. `src/vpo/db/schema.py` - Migration function patterns
+5. `src/vpo/db/queries.py` - upsert/select patterns for files table

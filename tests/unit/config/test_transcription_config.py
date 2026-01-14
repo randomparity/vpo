@@ -2,7 +2,7 @@
 
 import pytest
 
-from video_policy_orchestrator.config.models import (
+from vpo.config.models import (
     TranscriptionPluginConfig,
     VPOConfig,
 )

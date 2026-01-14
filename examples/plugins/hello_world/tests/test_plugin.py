@@ -29,7 +29,7 @@ class TestHelloWorldPlugin:
         """Test on_file_scanned returns expected metadata."""
         # Create a mock event using the SDK testing utilities
         try:
-            from video_policy_orchestrator.plugin_sdk.testing import (
+            from vpo.plugin_sdk.testing import (
                 create_file_scanned_event,
                 mock_file_info,
                 mock_tracks,
@@ -61,7 +61,7 @@ class TestPluginIntegration:
     def vpo_available(self):
         """Check if VPO is available."""
         try:
-            import video_policy_orchestrator.plugin_sdk  # noqa: F401
+            import vpo.plugin_sdk  # noqa: F401
 
             return True
         except ImportError:
@@ -70,6 +70,6 @@ class TestPluginIntegration:
 
     def test_inherits_base_analyzer(self, vpo_available):
         """Test plugin inherits from BaseAnalyzerPlugin."""
-        from video_policy_orchestrator.plugin_sdk import BaseAnalyzerPlugin
+        from vpo.plugin_sdk import BaseAnalyzerPlugin
 
         assert isinstance(plugin, BaseAnalyzerPlugin)

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from video_policy_orchestrator.db.queries import (
+from vpo.db.queries import (
     delete_all_analysis,
     delete_analysis_by_path_prefix,
     delete_analysis_for_file,
@@ -13,8 +13,8 @@ from video_policy_orchestrator.db.queries import (
     insert_file,
     insert_track,
 )
-from video_policy_orchestrator.db.schema import create_schema
-from video_policy_orchestrator.db.types import FileRecord, TrackRecord
+from vpo.db.schema import create_schema
+from vpo.db.types import FileRecord, TrackRecord
 
 
 @pytest.fixture

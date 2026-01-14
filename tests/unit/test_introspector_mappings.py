@@ -2,7 +2,7 @@
 
 import pytest
 
-from video_policy_orchestrator.introspector.mappings import (
+from vpo.introspector.mappings import (
     map_channel_layout,
     map_track_type,
 )

@@ -64,7 +64,7 @@ specs/043-conditional-phases/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── policy/
 │   ├── loader.py        # MODIFY: Add skip_when, depends_on, run_if, on_error to PhaseModel
 │   ├── models.py        # MODIFY: Add SkipCondition, PhaseOutcome, extend PhaseDefinition

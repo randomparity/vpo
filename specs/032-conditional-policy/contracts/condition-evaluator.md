@@ -1,6 +1,6 @@
 # Contract: Condition Evaluator
 
-**Module**: `src/video_policy_orchestrator/policy/conditions.py`
+**Module**: `src/vpo/policy/conditions.py`
 **Version**: 1.0.0
 
 ## Purpose

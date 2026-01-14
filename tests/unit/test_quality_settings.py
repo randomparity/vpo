@@ -2,7 +2,7 @@
 
 import pytest
 
-from video_policy_orchestrator.policy.models import (
+from vpo.policy.types import (
     QualityMode,
     QualitySettings,
     get_default_crf,

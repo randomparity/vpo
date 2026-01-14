@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
-from video_policy_orchestrator.db.connection import (
+from vpo.db.connection import (
     DaemonConnectionPool,
     execute_with_retry,
 )
@@ -141,6 +141,9 @@ class TestDaemonConnectionPool:
         """Test that concurrent reads from multiple threads are safe."""
         db_path = tmp_path / "test.db"
         conn = sqlite3.connect(str(db_path))
+        # Set WAL mode before creating tables to allow concurrent reads
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA busy_timeout = 10000")
         conn.execute("CREATE TABLE test (id INTEGER)")
         for i in range(100):
             conn.execute("INSERT INTO test VALUES (?)", (i,))
@@ -174,6 +177,8 @@ class TestDaemonConnectionPool:
         """Test that lock prevents concurrent access corruption."""
         db_path = tmp_path / "test.db"
         conn = sqlite3.connect(str(db_path))
+        # Set WAL mode before pool uses it to avoid concurrent WAL mode switching
+        conn.execute("PRAGMA journal_mode = WAL")
         conn.close()
 
         pool = DaemonConnectionPool(db_path)
@@ -319,6 +324,9 @@ class TestDaemonConnectionPool:
         """Test that concurrent read and write operations are thread-safe."""
         db_path = tmp_path / "test.db"
         conn = sqlite3.connect(str(db_path))
+        # Set WAL mode before creating tables to allow concurrent reads
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA busy_timeout = 10000")
         conn.execute("CREATE TABLE counter (id INTEGER PRIMARY KEY, value INTEGER)")
         conn.execute("INSERT INTO counter VALUES (1, 0)")
         conn.commit()

@@ -13,7 +13,7 @@ This document captures research decisions for establishing the VPO project skele
 
 ### 1. Python Package Layout
 
-**Decision**: Use `src/` layout (src/video_policy_orchestrator/)
+**Decision**: Use `src/` layout (src/vpo/)
 
 **Rationale**:
 - Prevents accidental imports of development code before installation

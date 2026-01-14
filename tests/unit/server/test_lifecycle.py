@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta, timezone
 
-from video_policy_orchestrator.server.lifecycle import DaemonLifecycle, ShutdownState
+from vpo.server.lifecycle import DaemonLifecycle, ShutdownState
 
 
 class TestShutdownState:

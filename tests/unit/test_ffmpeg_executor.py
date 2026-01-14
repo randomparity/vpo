@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from video_policy_orchestrator.executor.ffmpeg_metadata import FfmpegMetadataExecutor
-from video_policy_orchestrator.policy.models import ActionType, Plan, PlannedAction
+from vpo.executor.ffmpeg_metadata import FfmpegMetadataExecutor
+from vpo.policy.types import ActionType, Plan, PlannedAction
 
 # =============================================================================
 # Test Fixtures
@@ -171,9 +171,9 @@ class TestFfmpegExecute:
         assert result.success is True
         assert "No changes" in result.message
 
-    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.check_disk_space")
-    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.create_backup")
-    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.require_tool")
+    @patch("vpo.executor.ffmpeg_metadata.check_disk_space")
+    @patch("vpo.executor.ffmpeg_metadata.create_backup")
+    @patch("vpo.executor.ffmpeg_metadata.require_tool")
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
     def test_execute_success(
@@ -209,10 +209,10 @@ class TestFfmpegExecute:
         assert result.success is True
         mock_backup.assert_called_once()
 
-    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.check_disk_space")
-    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.create_backup")
-    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.restore_from_backup")
-    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.require_tool")
+    @patch("vpo.executor.ffmpeg_metadata.check_disk_space")
+    @patch("vpo.executor.ffmpeg_metadata.create_backup")
+    @patch("vpo.executor.ffmpeg_metadata.safe_restore_from_backup")
+    @patch("vpo.executor.ffmpeg_metadata.require_tool")
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
     def test_execute_restores_on_failure(
@@ -248,10 +248,10 @@ class TestFfmpegExecute:
         assert result.success is False
         mock_restore.assert_called_once_with(backup_path)
 
-    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.check_disk_space")
-    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.create_backup")
-    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.restore_from_backup")
-    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.require_tool")
+    @patch("vpo.executor.ffmpeg_metadata.check_disk_space")
+    @patch("vpo.executor.ffmpeg_metadata.create_backup")
+    @patch("vpo.executor.ffmpeg_metadata.safe_restore_from_backup")
+    @patch("vpo.executor.ffmpeg_metadata.require_tool")
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
     def test_execute_timeout_handling(
@@ -290,8 +290,8 @@ class TestFfmpegExecute:
         assert "timed out" in result.message
         mock_restore.assert_called_once()
 
-    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.check_disk_space")
-    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.create_backup")
+    @patch("vpo.executor.ffmpeg_metadata.check_disk_space")
+    @patch("vpo.executor.ffmpeg_metadata.create_backup")
     def test_execute_backup_failure(
         self,
         mock_backup: MagicMock,
@@ -550,14 +550,14 @@ class TestFfmpegActionToArgs:
 class TestFfmpegDiskSpaceCheck:
     """Tests for disk space check in FfmpegMetadataExecutor."""
 
-    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.check_disk_space")
+    @patch("vpo.executor.ffmpeg_metadata.check_disk_space")
     def test_execute_insufficient_disk_space(
         self,
         mock_check: MagicMock,
         mp4_plan: Plan,
     ) -> None:
         """Should return failure when disk space is insufficient."""
-        from video_policy_orchestrator.executor.backup import InsufficientDiskSpaceError
+        from vpo.executor.backup import InsufficientDiskSpaceError
 
         mock_check.side_effect = InsufficientDiskSpaceError(
             "Insufficient disk space for remux operation"
@@ -579,9 +579,9 @@ class TestFfmpegDiskSpaceCheck:
 class TestFfmpegBackupHandling:
     """Tests for backup handling in FfmpegMetadataExecutor."""
 
-    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.check_disk_space")
-    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.create_backup")
-    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.require_tool")
+    @patch("vpo.executor.ffmpeg_metadata.check_disk_space")
+    @patch("vpo.executor.ffmpeg_metadata.create_backup")
+    @patch("vpo.executor.ffmpeg_metadata.require_tool")
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
     def test_keeps_backup_when_requested(
@@ -617,9 +617,9 @@ class TestFfmpegBackupHandling:
         # unlink should NOT be called on backup_path when keeping
         # (it might be called for temp file cleanup)
 
-    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.check_disk_space")
-    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.create_backup")
-    @patch("video_policy_orchestrator.executor.ffmpeg_metadata.require_tool")
+    @patch("vpo.executor.ffmpeg_metadata.check_disk_space")
+    @patch("vpo.executor.ffmpeg_metadata.create_backup")
+    @patch("vpo.executor.ffmpeg_metadata.require_tool")
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
     def test_removes_backup_when_not_requested(

@@ -175,7 +175,7 @@ Or via directory-based plugin loading (existing VPO plugin system).
 ## Usage Example
 
 ```python
-from video_policy_orchestrator.transcription import get_transcription_plugin
+from vpo.transcription import get_transcription_plugin
 
 # Get configured plugin
 plugin = get_transcription_plugin()

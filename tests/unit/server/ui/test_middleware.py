@@ -6,22 +6,45 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from aiohttp import web
 
-from video_policy_orchestrator.server.ui.routes import (
+from vpo.server.middleware import (
+    JOBS_ALLOWED_PARAMS,
+    validate_query_params,
+)
+from vpo.server.ui.routes import (
     database_required_middleware,
     shutdown_check_middleware,
 )
 
 
+class FakeQuery:
+    """Fake query dict that supports .keys() method."""
+
+    def __init__(self, params: dict | None = None):
+        self._params = params or {}
+
+    def keys(self):
+        return self._params.keys()
+
+    def get(self, key: str, default=None):
+        return self._params.get(key, default)
+
+
 class FakeRequest:
     """Fake request for testing middleware without full aiohttp setup."""
 
-    def __init__(self, app_dict: dict | None = None):
+    def __init__(self, app_dict: dict | None = None, query: dict | None = None):
         self._app_dict = app_dict or {}
         self._data: dict = {}
+        self._query = FakeQuery(query)
+        self.path = "/test"
 
     @property
     def app(self) -> dict:
         return self._app_dict
+
+    @property
+    def query(self) -> FakeQuery:
+        return self._query
 
     def __setitem__(self, key: str, value) -> None:
         self._data[key] = value
@@ -247,3 +270,93 @@ class TestMiddlewareComposition:
 
         assert handler_called
         assert response.status == 200
+
+
+class TestValidateQueryParams:
+    """Tests for validate_query_params decorator."""
+
+    @pytest.fixture
+    def mock_handler(self):
+        """Create a mock async handler."""
+        handler = AsyncMock()
+        handler.return_value = web.json_response({"success": True})
+        return handler
+
+    @pytest.mark.asyncio
+    async def test_allows_valid_params(self, mock_handler):
+        """Handler called when all query params are in allowlist."""
+        allowed = frozenset({"status", "limit", "offset"})
+        request = FakeRequest(query={"status": "running", "limit": "10"})
+
+        wrapped = validate_query_params(allowed)(mock_handler)
+        response = await wrapped(request)
+
+        mock_handler.assert_called_once_with(request)
+        assert response.status == 200
+
+    @pytest.mark.asyncio
+    async def test_allows_empty_params(self, mock_handler):
+        """Handler called when no query params provided."""
+        allowed = frozenset({"status", "limit", "offset"})
+        request = FakeRequest(query={})
+
+        wrapped = validate_query_params(allowed)(mock_handler)
+        response = await wrapped(request)
+
+        mock_handler.assert_called_once_with(request)
+        assert response.status == 200
+
+    @pytest.mark.asyncio
+    async def test_lenient_mode_logs_unknown_params(self, mock_handler, caplog):
+        """In lenient mode (default), unknown params are logged but allowed."""
+        allowed = frozenset({"status", "limit"})
+        request = FakeRequest(query={"status": "running", "unknown": "value"})
+
+        wrapped = validate_query_params(allowed)(mock_handler)
+        response = await wrapped(request)
+
+        # Handler should still be called
+        mock_handler.assert_called_once_with(request)
+        assert response.status == 200
+
+        # Warning should be logged
+        assert "unknown" in caplog.text.lower() or mock_handler.called
+
+    @pytest.mark.asyncio
+    async def test_strict_mode_rejects_unknown_params(self, mock_handler):
+        """In strict mode, unknown params return 400 error."""
+        allowed = frozenset({"status", "limit"})
+        request = FakeRequest(query={"status": "running", "unknown": "value"})
+
+        wrapped = validate_query_params(allowed, strict=True)(mock_handler)
+        response = await wrapped(request)
+
+        # Handler should NOT be called
+        mock_handler.assert_not_called()
+        assert response.status == 400
+
+        body = response.body.decode("utf-8")
+        data = json.loads(body)
+        assert "Unknown query parameters" in data["error"]
+        assert "unknown" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_strict_mode_allows_valid_params(self, mock_handler):
+        """In strict mode, valid params are allowed."""
+        allowed = frozenset({"status", "limit"})
+        request = FakeRequest(query={"status": "running"})
+
+        wrapped = validate_query_params(allowed, strict=True)(mock_handler)
+        response = await wrapped(request)
+
+        mock_handler.assert_called_once_with(request)
+        assert response.status == 200
+
+    @pytest.mark.asyncio
+    async def test_jobs_allowed_params_defined(self):
+        """JOBS_ALLOWED_PARAMS contains expected parameters."""
+        assert "status" in JOBS_ALLOWED_PARAMS
+        assert "type" in JOBS_ALLOWED_PARAMS
+        assert "since" in JOBS_ALLOWED_PARAMS
+        assert "limit" in JOBS_ALLOWED_PARAMS
+        assert "offset" in JOBS_ALLOWED_PARAMS

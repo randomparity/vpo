@@ -23,7 +23,7 @@ dependencies = [
 
 ### Step 1: Configuration Extension
 
-**File**: `src/video_policy_orchestrator/config/models.py`
+**File**: `src/vpo/config/models.py`
 
 Add `ServerConfig` dataclass:
 ```python
@@ -39,13 +39,13 @@ Add to `VPOConfig`:
 server: ServerConfig = field(default_factory=ServerConfig)
 ```
 
-**File**: `src/video_policy_orchestrator/config/loader.py`
+**File**: `src/vpo/config/loader.py`
 
 Add environment variable loading for server settings.
 
 ### Step 2: Server Module
 
-**Create**: `src/video_policy_orchestrator/server/`
+**Create**: `src/vpo/server/`
 
 ```
 server/
@@ -62,7 +62,7 @@ server/
 
 ### Step 3: CLI Command
 
-**File**: `src/video_policy_orchestrator/cli/serve.py`
+**File**: `src/vpo/cli/serve.py`
 
 ```python
 @click.command("serve")
@@ -77,7 +77,7 @@ def serve(ctx, bind, port, config):
     # Start server, wait for shutdown
 ```
 
-**Register in**: `src/video_policy_orchestrator/cli/__init__.py`
+**Register in**: `src/vpo/cli/__init__.py`
 
 ### Step 4: Documentation
 

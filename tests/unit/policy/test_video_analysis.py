@@ -1,7 +1,7 @@
 """Tests for policy/video_analysis.py - video stream analysis utilities."""
 
-from video_policy_orchestrator.db.models import TrackInfo
-from video_policy_orchestrator.policy.video_analysis import (
+from vpo.db.models import TrackInfo
+from vpo.policy.video_analysis import (
     HDRType,
     VideoAnalysisResult,
     analyze_video_tracks,

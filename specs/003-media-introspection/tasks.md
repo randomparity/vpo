@@ -15,7 +15,7 @@
 
 ## Path Conventions
 
-- **Single project**: `src/video_policy_orchestrator/`, `tests/` at repository root
+- **Single project**: `src/vpo/`, `tests/` at repository root
 - Paths follow existing 002-library-scanner structure
 
 ---
@@ -25,7 +25,7 @@
 **Purpose**: Extend existing project structure for media introspection
 
 - [x] T001 Create ffprobe fixtures directory at tests/fixtures/ffprobe/
-- [x] T002 [P] Add IntrospectionResult dataclass to src/video_policy_orchestrator/db/models.py
+- [x] T002 [P] Add IntrospectionResult dataclass to src/vpo/db/models.py
 
 ---
 
@@ -35,14 +35,14 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [x] T003 Extend TrackInfo dataclass with audio fields (channels, channel_layout) in src/video_policy_orchestrator/db/models.py
-- [x] T004 Extend TrackInfo dataclass with video fields (width, height, frame_rate) in src/video_policy_orchestrator/db/models.py
-- [x] T005 Extend TrackRecord dataclass with new fields (channels, channel_layout, width, height, frame_rate) in src/video_policy_orchestrator/db/models.py
-- [x] T006 Update tracks table schema with new columns in src/video_policy_orchestrator/db/schema.py
-- [x] T007 Add schema migration function for existing databases in src/video_policy_orchestrator/db/schema.py
-- [x] T008 Update insert_track function to handle new fields in src/video_policy_orchestrator/db/models.py
-- [x] T009 Update get_tracks_for_file function to return new fields in src/video_policy_orchestrator/db/models.py
-- [x] T010 Add TrackRecord.from_track_info conversion for new fields in src/video_policy_orchestrator/db/models.py
+- [x] T003 Extend TrackInfo dataclass with audio fields (channels, channel_layout) in src/vpo/db/models.py
+- [x] T004 Extend TrackInfo dataclass with video fields (width, height, frame_rate) in src/vpo/db/models.py
+- [x] T005 Extend TrackRecord dataclass with new fields (channels, channel_layout, width, height, frame_rate) in src/vpo/db/models.py
+- [x] T006 Update tracks table schema with new columns in src/vpo/db/schema.py
+- [x] T007 Add schema migration function for existing databases in src/vpo/db/schema.py
+- [x] T008 Update insert_track function to handle new fields in src/vpo/db/models.py
+- [x] T009 Update get_tracks_for_file function to return new fields in src/vpo/db/models.py
+- [x] T010 Add TrackRecord.from_track_info conversion for new fields in src/vpo/db/models.py
 
 **Checkpoint**: Data model extensions complete - user story implementation can now begin
 
@@ -56,22 +56,22 @@
 
 ### Implementation for User Story 1
 
-- [x] T011 [US1] Create FFprobeIntrospector class skeleton in src/video_policy_orchestrator/introspector/ffprobe.py
-- [x] T012 [US1] Implement is_available() static method using shutil.which in src/video_policy_orchestrator/introspector/ffprobe.py
-- [x] T013 [US1] Implement _run_ffprobe() subprocess invocation in src/video_policy_orchestrator/introspector/ffprobe.py
-- [x] T014 [US1] Implement _parse_streams() to extract track metadata from JSON in src/video_policy_orchestrator/introspector/ffprobe.py
-- [x] T015 [US1] Implement _map_track_type() for codec_type to track_type conversion in src/video_policy_orchestrator/introspector/ffprobe.py
-- [x] T016 [US1] Implement _map_channel_layout() for channel count to label conversion in src/video_policy_orchestrator/introspector/ffprobe.py
-- [x] T017 [US1] Implement get_file_info() method per MediaIntrospector protocol in src/video_policy_orchestrator/introspector/ffprobe.py
-- [x] T018 [US1] Export FFprobeIntrospector from src/video_policy_orchestrator/introspector/__init__.py
-- [x] T019 [US1] Create inspect command skeleton in src/video_policy_orchestrator/cli/inspect.py
-- [x] T020 [US1] Implement human-readable track output formatter in src/video_policy_orchestrator/cli/inspect.py
-- [x] T021 [US1] Implement JSON output formatter in src/video_policy_orchestrator/cli/inspect.py
-- [x] T022 [US1] Add --format option (human/json) to inspect command in src/video_policy_orchestrator/cli/inspect.py
-- [x] T023 [US1] Handle ffprobe-not-found error with exit code 2 in src/video_policy_orchestrator/cli/inspect.py
-- [x] T024 [US1] Handle file-not-found error with exit code 1 in src/video_policy_orchestrator/cli/inspect.py
-- [x] T025 [US1] Handle parse-error with exit code 3 in src/video_policy_orchestrator/cli/inspect.py
-- [x] T026 [US1] Register inspect command in CLI main group in src/video_policy_orchestrator/cli/__init__.py
+- [x] T011 [US1] Create FFprobeIntrospector class skeleton in src/vpo/introspector/ffprobe.py
+- [x] T012 [US1] Implement is_available() static method using shutil.which in src/vpo/introspector/ffprobe.py
+- [x] T013 [US1] Implement _run_ffprobe() subprocess invocation in src/vpo/introspector/ffprobe.py
+- [x] T014 [US1] Implement _parse_streams() to extract track metadata from JSON in src/vpo/introspector/ffprobe.py
+- [x] T015 [US1] Implement _map_track_type() for codec_type to track_type conversion in src/vpo/introspector/ffprobe.py
+- [x] T016 [US1] Implement _map_channel_layout() for channel count to label conversion in src/vpo/introspector/ffprobe.py
+- [x] T017 [US1] Implement get_file_info() method per MediaIntrospector protocol in src/vpo/introspector/ffprobe.py
+- [x] T018 [US1] Export FFprobeIntrospector from src/vpo/introspector/__init__.py
+- [x] T019 [US1] Create inspect command skeleton in src/vpo/cli/inspect.py
+- [x] T020 [US1] Implement human-readable track output formatter in src/vpo/cli/inspect.py
+- [x] T021 [US1] Implement JSON output formatter in src/vpo/cli/inspect.py
+- [x] T022 [US1] Add --format option (human/json) to inspect command in src/vpo/cli/inspect.py
+- [x] T023 [US1] Handle ffprobe-not-found error with exit code 2 in src/vpo/cli/inspect.py
+- [x] T024 [US1] Handle file-not-found error with exit code 1 in src/vpo/cli/inspect.py
+- [x] T025 [US1] Handle parse-error with exit code 3 in src/vpo/cli/inspect.py
+- [x] T026 [US1] Register inspect command in CLI main group in src/vpo/cli/__init__.py
 
 **Checkpoint**: `vpo inspect <file>` displays track information - MVP complete
 
@@ -85,10 +85,10 @@
 
 ### Implementation for User Story 2
 
-- [x] T027 [US2] Implement upsert_tracks_for_file() with smart merge logic in src/video_policy_orchestrator/db/models.py
-- [x] T028 [US2] Update scan orchestrator to use FFprobeIntrospector instead of stub in src/video_policy_orchestrator/scanner/orchestrator.py
-- [x] T029 [US2] Integrate track persistence into scan workflow in src/video_policy_orchestrator/scanner/orchestrator.py
-- [x] T030 [US2] Handle introspection errors during scan (log warning, continue) in src/video_policy_orchestrator/scanner/orchestrator.py
+- [x] T027 [US2] Implement upsert_tracks_for_file() with smart merge logic in src/vpo/db/models.py
+- [x] T028 [US2] Update scan orchestrator to use FFprobeIntrospector instead of stub in src/vpo/scanner/orchestrator.py
+- [x] T029 [US2] Integrate track persistence into scan workflow in src/vpo/scanner/orchestrator.py
+- [x] T030 [US2] Handle introspection errors during scan (log warning, continue) in src/vpo/scanner/orchestrator.py
 
 **Checkpoint**: `vpo scan` now extracts and persists track data to database
 
@@ -102,15 +102,15 @@
 
 ### Implementation for User Story 3
 
-- [x] T031 [US3] Add default "und" language handling when tags.language missing in src/video_policy_orchestrator/introspector/ffprobe.py
-- [x] T032 [US3] Add graceful handling for missing disposition field in src/video_policy_orchestrator/introspector/ffprobe.py
-- [x] T033 [US3] Add graceful handling for missing video dimensions in src/video_policy_orchestrator/introspector/ffprobe.py
-- [x] T034 [US3] Add graceful handling for missing audio channels in src/video_policy_orchestrator/introspector/ffprobe.py
-- [x] T035 [US3] Add warnings collection to IntrospectionResult for non-fatal issues in src/video_policy_orchestrator/introspector/ffprobe.py
-- [x] T036 [US3] Handle "no streams" case (empty tracks list, warning) in src/video_policy_orchestrator/introspector/ffprobe.py
-- [x] T037 [US3] Handle non-UTF8 characters in metadata by sanitizing in src/video_policy_orchestrator/introspector/ffprobe.py
-- [x] T038 [US3] Preserve uncommon codec identifiers as-is for policy matching in src/video_policy_orchestrator/introspector/ffprobe.py
-- [x] T038a [US3] Log warning and skip if duplicate stream index encountered in src/video_policy_orchestrator/introspector/ffprobe.py
+- [x] T031 [US3] Add default "und" language handling when tags.language missing in src/vpo/introspector/ffprobe.py
+- [x] T032 [US3] Add graceful handling for missing disposition field in src/vpo/introspector/ffprobe.py
+- [x] T033 [US3] Add graceful handling for missing video dimensions in src/vpo/introspector/ffprobe.py
+- [x] T034 [US3] Add graceful handling for missing audio channels in src/vpo/introspector/ffprobe.py
+- [x] T035 [US3] Add warnings collection to IntrospectionResult for non-fatal issues in src/vpo/introspector/ffprobe.py
+- [x] T036 [US3] Handle "no streams" case (empty tracks list, warning) in src/vpo/introspector/ffprobe.py
+- [x] T037 [US3] Handle non-UTF8 characters in metadata by sanitizing in src/vpo/introspector/ffprobe.py
+- [x] T038 [US3] Preserve uncommon codec identifiers as-is for policy matching in src/vpo/introspector/ffprobe.py
+- [x] T038a [US3] Log warning and skip if duplicate stream index encountered in src/vpo/introspector/ffprobe.py
 
 **Checkpoint**: Introspection handles all edge cases gracefully without crashes
 
@@ -143,8 +143,8 @@
 
 **Purpose**: Final quality improvements across all stories
 
-- [x] T049 [P] Update introspector __init__.py docstring to document available implementations in src/video_policy_orchestrator/introspector/__init__.py
-- [x] T050 [P] Add type hints to all new functions in src/video_policy_orchestrator/introspector/ffprobe.py
+- [x] T049 [P] Update introspector __init__.py docstring to document available implementations in src/vpo/introspector/__init__.py
+- [x] T050 [P] Add type hints to all new functions in src/vpo/introspector/ffprobe.py
 - [x] T051 Run ruff check and fix any linting issues
 - [x] T052 Run pytest and ensure all tests pass
 - [x] T053 Verify quickstart.md examples work end-to-end

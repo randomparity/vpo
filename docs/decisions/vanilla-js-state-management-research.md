@@ -170,7 +170,7 @@ function updateYamlPreview() {
 
 ### 5. Analysis of Existing VPO Patterns
 
-From `/home/dave/src/vpo/src/video_policy_orchestrator/server/static/js/library.js`:
+From `/home/dave/src/vpo/src/vpo/server/static/js/library.js`:
 
 **Current Patterns:**
 - IIFE modules for encapsulation

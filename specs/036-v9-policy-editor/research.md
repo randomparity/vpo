@@ -10,7 +10,7 @@
 
 **Findings**:
 
-The current policy editor (`src/video_policy_orchestrator/policy/editor.py`) uses:
+The current policy editor (`src/vpo/policy/editor.py`) uses:
 - **PolicyRoundTripEditor class**: Loads YAML with ruamel.yaml to preserve comments and unknown fields
 - **get_field/set_field methods**: Nested path access like "default_flags.set_first_video_default"
 - **API endpoints**: GET/PUT `/api/policies/{name}` for load/save, POST `/api/policies/{name}/validate` for dry-run

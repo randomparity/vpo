@@ -32,7 +32,7 @@ api_key = "your-sonarr-api-key"  # pragma: allowlist secret
 ## Directory Structure
 
 ```
-src/video_policy_orchestrator/
+src/vpo/
 ├── plugins/
 │   ├── radarr_metadata/
 │   │   ├── __init__.py
@@ -84,8 +84,8 @@ class MetadataPluginSettings:
 Create `plugins/radarr_metadata/plugin.py`:
 
 ```python
-from video_policy_orchestrator.plugin.events import FileScannedEvent
-from video_policy_orchestrator.language import normalize_language
+from vpo.plugin.events import FileScannedEvent
+from vpo.language import normalize_language
 
 class RadarrMetadataPlugin:
     name = "radarr-metadata"
@@ -194,8 +194,8 @@ Update plugin loader or use entry points:
 ```python
 # Entry point in pyproject.toml
 [project.entry-points."vpo.plugins"]
-radarr-metadata = "video_policy_orchestrator.plugins.radarr_metadata:RadarrMetadataPlugin"
-sonarr-metadata = "video_policy_orchestrator.plugins.sonarr_metadata:SonarrMetadataPlugin"
+radarr-metadata = "vpo.plugins.radarr_metadata:RadarrMetadataPlugin"
+sonarr-metadata = "vpo.plugins.sonarr_metadata:SonarrMetadataPlugin"
 ```
 
 ### Step 6: Add Policy Support

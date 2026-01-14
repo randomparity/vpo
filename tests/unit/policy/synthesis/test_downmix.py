@@ -2,7 +2,7 @@
 
 import pytest
 
-from video_policy_orchestrator.policy.synthesis.downmix import (
+from vpo.policy.synthesis.downmix import (
     get_channel_count,
     get_downmix_filter,
     get_output_layout,

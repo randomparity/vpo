@@ -31,9 +31,9 @@
 
 **Purpose**: Create module structure and shared types
 
-- [x] T001 Create synthesis module directory structure at src/video_policy_orchestrator/policy/synthesis/
-- [x] T002 [P] Create synthesis module __init__.py with public exports at src/video_policy_orchestrator/policy/synthesis/__init__.py
-- [x] T003 [P] Create custom exceptions (SynthesisError, EncoderUnavailableError) in src/video_policy_orchestrator/policy/synthesis/exceptions.py
+- [x] T001 Create synthesis module directory structure at src/vpo/policy/synthesis/
+- [x] T002 [P] Create synthesis module __init__.py with public exports at src/vpo/policy/synthesis/__init__.py
+- [x] T003 [P] Create custom exceptions (SynthesisError, EncoderUnavailableError) in src/vpo/policy/synthesis/exceptions.py
 
 ---
 
@@ -43,22 +43,22 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [x] T004 Create AudioCodec enum in src/video_policy_orchestrator/policy/synthesis/models.py
-- [x] T005 [P] Create ChannelConfig enum with channel count mapping in src/video_policy_orchestrator/policy/synthesis/models.py
-- [x] T006 [P] Create Position type (after_source, end, integer) in src/video_policy_orchestrator/policy/synthesis/models.py
-- [x] T007 Create SynthesisTrackDefinition dataclass in src/video_policy_orchestrator/policy/synthesis/models.py
-- [x] T008 [P] Create SourcePreferences and PreferenceCriterion dataclasses in src/video_policy_orchestrator/policy/synthesis/models.py
-- [x] T009 Create SourceTrackSelection dataclass in src/video_policy_orchestrator/policy/synthesis/models.py
-- [x] T010 Create SynthesisOperation dataclass in src/video_policy_orchestrator/policy/synthesis/models.py
-- [x] T011 [P] Create SynthesisPlan and SkippedSynthesis dataclasses in src/video_policy_orchestrator/policy/synthesis/models.py
-- [x] T012 [P] Create SkipReason enum in src/video_policy_orchestrator/policy/synthesis/models.py
-- [x] T013 Implement encoder availability detection in src/video_policy_orchestrator/policy/synthesis/encoders.py
-- [x] T014 Implement codec-to-FFmpeg-encoder mapping in src/video_policy_orchestrator/policy/synthesis/encoders.py
-- [x] T015 [P] Implement default bitrate lookup by codec and channel count in src/video_policy_orchestrator/policy/synthesis/encoders.py
-- [x] T016 Implement channel downmix filter generation (pan filters) in src/video_policy_orchestrator/policy/synthesis/downmix.py
-- [x] T017 [P] Implement channel layout normalization in src/video_policy_orchestrator/policy/synthesis/downmix.py
-- [x] T018 Extend PolicySchema with audio_synthesis section in src/video_policy_orchestrator/policy/schema.py
-- [x] T019 Add audio_synthesis YAML parsing and validation in src/video_policy_orchestrator/policy/schema.py
+- [x] T004 Create AudioCodec enum in src/vpo/policy/synthesis/models.py
+- [x] T005 [P] Create ChannelConfig enum with channel count mapping in src/vpo/policy/synthesis/models.py
+- [x] T006 [P] Create Position type (after_source, end, integer) in src/vpo/policy/synthesis/models.py
+- [x] T007 Create SynthesisTrackDefinition dataclass in src/vpo/policy/synthesis/models.py
+- [x] T008 [P] Create SourcePreferences and PreferenceCriterion dataclasses in src/vpo/policy/synthesis/models.py
+- [x] T009 Create SourceTrackSelection dataclass in src/vpo/policy/synthesis/models.py
+- [x] T010 Create SynthesisOperation dataclass in src/vpo/policy/synthesis/models.py
+- [x] T011 [P] Create SynthesisPlan and SkippedSynthesis dataclasses in src/vpo/policy/synthesis/models.py
+- [x] T012 [P] Create SkipReason enum in src/vpo/policy/synthesis/models.py
+- [x] T013 Implement encoder availability detection in src/vpo/policy/synthesis/encoders.py
+- [x] T014 Implement codec-to-FFmpeg-encoder mapping in src/vpo/policy/synthesis/encoders.py
+- [x] T015 [P] Implement default bitrate lookup by codec and channel count in src/vpo/policy/synthesis/encoders.py
+- [x] T016 Implement channel downmix filter generation (pan filters) in src/vpo/policy/synthesis/downmix.py
+- [x] T017 [P] Implement channel layout normalization in src/vpo/policy/synthesis/downmix.py
+- [x] T018 Extend PolicySchema with audio_synthesis section in src/vpo/policy/schema.py
+- [x] T019 Add audio_synthesis YAML parsing and validation in src/vpo/policy/schema.py
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -79,14 +79,14 @@
 
 ### Implementation for User Story 1
 
-- [x] T022 [US1] Implement FFmpegSynthesisExecutor class skeleton in src/video_policy_orchestrator/policy/synthesis/executor.py
-- [x] T023 [US1] Implement can_handle() for synthesis operations in src/video_policy_orchestrator/policy/synthesis/executor.py
-- [x] T024 [US1] Implement FFmpeg transcoding subprocess call with EAC3 encoding in src/video_policy_orchestrator/policy/synthesis/executor.py
-- [x] T025 [US1] Implement temp file creation and cleanup in src/video_policy_orchestrator/policy/synthesis/executor.py
-- [x] T026 [US1] Implement mkvmerge remux to add synthesized track in src/video_policy_orchestrator/policy/synthesis/executor.py
-- [x] T027 [US1] Implement atomic file swap with backup in src/video_policy_orchestrator/policy/synthesis/executor.py
-- [x] T027a [US1] Implement title inheritance (inherit from source or use custom) in src/video_policy_orchestrator/policy/synthesis/executor.py
-- [x] T027b [US1] Implement language tag inheritance (inherit from source or use custom) in src/video_policy_orchestrator/policy/synthesis/executor.py
+- [x] T022 [US1] Implement FFmpegSynthesisExecutor class skeleton in src/vpo/policy/synthesis/executor.py
+- [x] T023 [US1] Implement can_handle() for synthesis operations in src/vpo/policy/synthesis/executor.py
+- [x] T024 [US1] Implement FFmpeg transcoding subprocess call with EAC3 encoding in src/vpo/policy/synthesis/executor.py
+- [x] T025 [US1] Implement temp file creation and cleanup in src/vpo/policy/synthesis/executor.py
+- [x] T026 [US1] Implement mkvmerge remux to add synthesized track in src/vpo/policy/synthesis/executor.py
+- [x] T027 [US1] Implement atomic file swap with backup in src/vpo/policy/synthesis/executor.py
+- [x] T027a [US1] Implement title inheritance (inherit from source or use custom) in src/vpo/policy/synthesis/executor.py
+- [x] T027b [US1] Implement language tag inheritance (inherit from source or use custom) in src/vpo/policy/synthesis/executor.py
 - [x] T028 [US1] Register FFmpegSynthesisExecutor in executor registry via synthesis module __init__.py
 
 **Checkpoint**: EAC3 5.1 synthesis works end-to-end
@@ -106,9 +106,9 @@
 
 ### Implementation for User Story 2
 
-- [x] T031 [US2] Extend FFmpegSynthesisExecutor to support AAC encoding in src/video_policy_orchestrator/policy/synthesis/executor.py
-- [x] T032 [US2] Implement stereo downmix filter chain application in src/video_policy_orchestrator/policy/synthesis/executor.py
-- [x] T033 [US2] Add bitrate parameter handling for AAC in src/video_policy_orchestrator/policy/synthesis/executor.py
+- [x] T031 [US2] Extend FFmpegSynthesisExecutor to support AAC encoding in src/vpo/policy/synthesis/executor.py
+- [x] T032 [US2] Implement stereo downmix filter chain application in src/vpo/policy/synthesis/executor.py
+- [x] T033 [US2] Add bitrate parameter handling for AAC in src/vpo/policy/synthesis/executor.py
 
 **Checkpoint**: AAC stereo synthesis with downmix works
 
@@ -129,12 +129,12 @@
 
 ### Implementation for User Story 3
 
-- [x] T038 [US3] Implement source track scoring algorithm in src/video_policy_orchestrator/policy/synthesis/source_selector.py
-- [x] T039 [US3] Implement language matching with und fallback in src/video_policy_orchestrator/policy/synthesis/source_selector.py
-- [x] T040 [US3] Implement commentary detection from track title in src/video_policy_orchestrator/policy/synthesis/source_selector.py
-- [x] T041 [US3] Implement channel count preference handling in src/video_policy_orchestrator/policy/synthesis/source_selector.py
-- [x] T042 [US3] Implement fallback behavior with warning logging in src/video_policy_orchestrator/policy/synthesis/source_selector.py
-- [x] T043 [US3] Implement select_source_track() main function in src/video_policy_orchestrator/policy/synthesis/source_selector.py
+- [x] T038 [US3] Implement source track scoring algorithm in src/vpo/policy/synthesis/source_selector.py
+- [x] T039 [US3] Implement language matching with und fallback in src/vpo/policy/synthesis/source_selector.py
+- [x] T040 [US3] Implement commentary detection from track title in src/vpo/policy/synthesis/source_selector.py
+- [x] T041 [US3] Implement channel count preference handling in src/vpo/policy/synthesis/source_selector.py
+- [x] T042 [US3] Implement fallback behavior with warning logging in src/vpo/policy/synthesis/source_selector.py
+- [x] T043 [US3] Implement select_source_track() main function in src/vpo/policy/synthesis/source_selector.py
 
 **Checkpoint**: Source selection algorithm fully functional
 
@@ -153,11 +153,11 @@
 
 ### Implementation for User Story 4
 
-- [x] T046 [US4] Implement SynthesisPlanner class in src/video_policy_orchestrator/policy/synthesis/planner.py
-- [x] T047 [US4] Implement iterate-and-evaluate for multiple track definitions in src/video_policy_orchestrator/policy/synthesis/planner.py
-- [x] T048 [US4] Implement condition evaluation delegation to existing conditions.py in src/video_policy_orchestrator/policy/synthesis/planner.py
-- [x] T049 [US4] Implement SynthesisPlan building with operations and skipped lists in src/video_policy_orchestrator/policy/synthesis/planner.py
-- [x] T050 [US4] Extend FFmpegSynthesisExecutor to process multiple operations sequentially in src/video_policy_orchestrator/policy/synthesis/executor.py
+- [x] T046 [US4] Implement SynthesisPlanner class in src/vpo/policy/synthesis/planner.py
+- [x] T047 [US4] Implement iterate-and-evaluate for multiple track definitions in src/vpo/policy/synthesis/planner.py
+- [x] T048 [US4] Implement condition evaluation delegation to existing conditions.py in src/vpo/policy/synthesis/planner.py
+- [x] T049 [US4] Implement SynthesisPlan building with operations and skipped lists in src/vpo/policy/synthesis/planner.py
+- [x] T050 [US4] Extend FFmpegSynthesisExecutor to process multiple operations sequentially in src/vpo/policy/synthesis/executor.py
 
 **Checkpoint**: Multiple synthesis tracks work in single pass
 
@@ -178,10 +178,10 @@
 
 ### Implementation for User Story 5
 
-- [x] T055 [US5] Implement position resolution algorithm in src/video_policy_orchestrator/policy/synthesis/planner.py
-- [x] T056 [US5] Implement track index adjustment for sequential inserts in src/video_policy_orchestrator/policy/synthesis/planner.py
-- [x] T057 [US5] Implement final_track_order projection in SynthesisPlan in src/video_policy_orchestrator/policy/synthesis/planner.py
-- [x] T058 [US5] Implement mkvmerge track ordering arguments in src/video_policy_orchestrator/policy/synthesis/executor.py
+- [x] T055 [US5] Implement position resolution algorithm in src/vpo/policy/synthesis/planner.py
+- [x] T056 [US5] Implement track index adjustment for sequential inserts in src/vpo/policy/synthesis/planner.py
+- [x] T057 [US5] Implement final_track_order projection in SynthesisPlan in src/vpo/policy/synthesis/planner.py
+- [x] T058 [US5] Implement mkvmerge track ordering arguments in src/vpo/policy/synthesis/executor.py
 
 **Checkpoint**: Track positioning fully functional
 
@@ -200,10 +200,10 @@
 
 ### Implementation for User Story 6
 
-- [x] T061 [US6] Implement format_synthesis_plan() for CLI output in src/video_policy_orchestrator/policy/synthesis/planner.py
-- [x] T062 [US6] Implement format_final_track_order() display in src/video_policy_orchestrator/policy/synthesis/planner.py
-- [x] T063 [US6] Integrate synthesis plan display into apply command dry-run in src/video_policy_orchestrator/cli/apply.py
-- [x] T064 [US6] Ensure executor respects dry_run flag (no execution) in src/video_policy_orchestrator/policy/synthesis/executor.py
+- [x] T061 [US6] Implement format_synthesis_plan() for CLI output in src/vpo/policy/synthesis/planner.py
+- [x] T062 [US6] Implement format_final_track_order() display in src/vpo/policy/synthesis/planner.py
+- [x] T063 [US6] Integrate synthesis plan display into apply command dry-run in src/vpo/cli/apply.py
+- [x] T064 [US6] Ensure executor respects dry_run flag (no execution) in src/vpo/policy/synthesis/executor.py
 
 **Checkpoint**: Dry-run shows complete synthesis plan
 
@@ -222,10 +222,10 @@
 
 ### Implementation for User Story 7
 
-- [x] T067 [US7] Implement backup creation before any file modification in src/video_policy_orchestrator/policy/synthesis/executor.py
-- [x] T068 [US7] Implement SIGINT handler for clean cancellation in src/video_policy_orchestrator/policy/synthesis/executor.py
-- [x] T069 [US7] Implement temp file cleanup on any error in src/video_policy_orchestrator/policy/synthesis/executor.py
-- [x] T070 [US7] Add structured logging for all synthesis operations in src/video_policy_orchestrator/policy/synthesis/executor.py
+- [x] T067 [US7] Implement backup creation before any file modification in src/vpo/policy/synthesis/executor.py
+- [x] T068 [US7] Implement SIGINT handler for clean cancellation in src/vpo/policy/synthesis/executor.py
+- [x] T069 [US7] Implement temp file cleanup on any error in src/vpo/policy/synthesis/executor.py
+- [x] T070 [US7] Add structured logging for all synthesis operations in src/vpo/policy/synthesis/executor.py
 
 **Checkpoint**: Original audio preservation guaranteed
 
@@ -294,10 +294,10 @@ Phase 2 (Foundational)
 
 ```bash
 # Launch all model definitions together:
-Task: "Create AudioCodec enum in src/video_policy_orchestrator/policy/synthesis/models.py"
-Task: "Create ChannelConfig enum in src/video_policy_orchestrator/policy/synthesis/models.py"
-Task: "Create Position type in src/video_policy_orchestrator/policy/synthesis/models.py"
-Task: "Create SkipReason enum in src/video_policy_orchestrator/policy/synthesis/models.py"
+Task: "Create AudioCodec enum in src/vpo/policy/synthesis/models.py"
+Task: "Create ChannelConfig enum in src/vpo/policy/synthesis/models.py"
+Task: "Create Position type in src/vpo/policy/synthesis/models.py"
+Task: "Create SkipReason enum in src/vpo/policy/synthesis/models.py"
 ```
 
 ## Parallel Example: US3 Tests

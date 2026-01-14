@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from video_policy_orchestrator.cli.exit_codes import ExitCode
-from video_policy_orchestrator.cli.output import CLIResult, error_exit, warning_output
+from vpo.cli.exit_codes import ExitCode
+from vpo.cli.output import CLIResult, error_exit, warning_output
 
 
 class TestCLIResult:

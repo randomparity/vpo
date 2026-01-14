@@ -12,7 +12,7 @@ class TestSchemaCreation:
 
     def test_create_schema_creates_tables(self, temp_db: Path):
         """Test that create_schema creates all required tables."""
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         create_schema(conn)
@@ -33,7 +33,7 @@ class TestSchemaCreation:
 
     def test_create_schema_sets_version(self, temp_db: Path):
         """Test that schema version is set correctly."""
-        from video_policy_orchestrator.db.schema import (
+        from vpo.db.schema import (
             SCHEMA_VERSION,
             create_schema,
             get_schema_version,
@@ -49,7 +49,7 @@ class TestSchemaCreation:
 
     def test_create_schema_is_idempotent(self, temp_db: Path):
         """Test that calling create_schema twice doesn't error."""
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         create_schema(conn)
@@ -59,7 +59,7 @@ class TestSchemaCreation:
 
     def test_initialize_database(self, temp_db: Path):
         """Test database initialization."""
-        from video_policy_orchestrator.db.schema import initialize_database
+        from vpo.db.schema import initialize_database
 
         conn = sqlite3.connect(str(temp_db))
         initialize_database(conn)
@@ -73,7 +73,7 @@ class TestSchemaCreation:
 
     def test_files_table_has_correct_columns(self, temp_db: Path):
         """Test that files table has all required columns."""
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         create_schema(conn)
@@ -101,7 +101,7 @@ class TestSchemaCreation:
 
     def test_tracks_table_has_correct_columns(self, temp_db: Path):
         """Test that tracks table has all required columns."""
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         create_schema(conn)
@@ -126,7 +126,7 @@ class TestSchemaCreation:
 
     def test_foreign_key_constraint(self, temp_db: Path):
         """Test that foreign key constraints are enforced."""
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.execute("PRAGMA foreign_keys = ON")
@@ -204,7 +204,7 @@ class TestMigrationV10ToV11:
 
     def test_migration_normalizes_languages(self, db_v10: sqlite3.Connection):
         """Test that migration correctly normalizes language codes."""
-        from video_policy_orchestrator.db.schema import migrate_v10_to_v11
+        from vpo.db.schema import migrate_v10_to_v11
 
         # Run migration
         migrate_v10_to_v11(db_v10)
@@ -236,7 +236,7 @@ class TestMigrationV10ToV11:
 
     def test_migration_is_idempotent(self, db_v10: sqlite3.Connection):
         """Test that running migration twice doesn't error."""
-        from video_policy_orchestrator.db.schema import migrate_v10_to_v11
+        from vpo.db.schema import migrate_v10_to_v11
 
         # Run migration twice
         migrate_v10_to_v11(db_v10)
@@ -248,7 +248,7 @@ class TestMigrationV10ToV11:
 
     def test_migration_preserves_null_values(self, db_v10: sqlite3.Connection):
         """Test that NULL languages remain NULL."""
-        from video_policy_orchestrator.db.schema import migrate_v10_to_v11
+        from vpo.db.schema import migrate_v10_to_v11
 
         # Run migration
         migrate_v10_to_v11(db_v10)
@@ -280,7 +280,7 @@ class TestMigrationV10ToV11:
         )
         conn.commit()
 
-        from video_policy_orchestrator.db.schema import migrate_v10_to_v11
+        from vpo.db.schema import migrate_v10_to_v11
 
         # Run migration - should handle unknown code gracefully
         migrate_v10_to_v11(conn)
@@ -319,7 +319,7 @@ class TestMigrationV10ToV11:
         )
         conn.commit()
 
-        from video_policy_orchestrator.db.schema import migrate_v10_to_v11
+        from vpo.db.schema import migrate_v10_to_v11
 
         # Mock normalize_language to raise an error after processing first language
         # Patch at the source module since it's imported inside the function
@@ -332,9 +332,7 @@ class TestMigrationV10ToV11:
                 raise RuntimeError("Simulated error during migration")
             return "ger"  # Return normalized value for first call
 
-        with patch(
-            "video_policy_orchestrator.language.normalize_language", mock_normalize
-        ):
+        with patch("vpo.language.normalize_language", mock_normalize):
             with pytest.raises(RuntimeError, match="Simulated error"):
                 migrate_v10_to_v11(conn)
 
@@ -426,7 +424,7 @@ class TestMigrationV15ToV16:
 
     def test_migration_allows_new_track_types(self, db_v15: sqlite3.Connection):
         """Test that migration allows 'music', 'sfx', 'non_speech' track_types."""
-        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+        from vpo.db.schema import migrate_v15_to_v16
 
         # Run migration
         migrate_v15_to_v16(db_v15)
@@ -495,7 +493,7 @@ class TestMigrationV15ToV16:
 
     def test_migration_preserves_existing_data(self, db_v15: sqlite3.Connection):
         """Test that existing main/commentary/alternate records are preserved."""
-        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+        from vpo.db.schema import migrate_v15_to_v16
 
         # Run migration
         migrate_v15_to_v16(db_v15)
@@ -529,7 +527,7 @@ class TestMigrationV15ToV16:
 
     def test_migration_updates_schema_version(self, db_v15: sqlite3.Connection):
         """Test that schema version is updated to 16."""
-        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+        from vpo.db.schema import migrate_v15_to_v16
 
         # Run migration
         migrate_v15_to_v16(db_v15)
@@ -540,7 +538,7 @@ class TestMigrationV15ToV16:
 
     def test_migration_is_idempotent(self, db_v15: sqlite3.Connection):
         """Test that running migration twice doesn't error."""
-        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+        from vpo.db.schema import migrate_v15_to_v16
 
         # Run migration twice
         migrate_v15_to_v16(db_v15)
@@ -556,7 +554,7 @@ class TestMigrationV15ToV16:
 
     def test_migration_recreates_indexes(self, db_v15: sqlite3.Connection):
         """Test that indexes are recreated after migration."""
-        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+        from vpo.db.schema import migrate_v15_to_v16
 
         # Run migration
         migrate_v15_to_v16(db_v15)
@@ -577,7 +575,7 @@ class TestMigrationV15ToV16:
         self, db_v15: sqlite3.Connection
     ):
         """Test that invalid track_type values are still rejected after migration."""
-        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+        from vpo.db.schema import migrate_v15_to_v16
 
         # Run migration
         migrate_v15_to_v16(db_v15)
@@ -636,7 +634,7 @@ class TestMigrationV15ToV16:
         )
         conn.commit()
 
-        from video_policy_orchestrator.db.schema import migrate_v15_to_v16
+        from vpo.db.schema import migrate_v15_to_v16
 
         # Run migration on empty table
         migrate_v15_to_v16(conn)
@@ -711,7 +709,7 @@ class TestMigrationV16ToV17:
 
     def test_migration_adds_plugin_metadata_column(self, db_v16: sqlite3.Connection):
         """Test that migration adds plugin_metadata column."""
-        from video_policy_orchestrator.db.schema import migrate_v16_to_v17
+        from vpo.db.schema import migrate_v16_to_v17
 
         migrate_v16_to_v17(db_v16)
 
@@ -721,7 +719,7 @@ class TestMigrationV16ToV17:
 
     def test_migration_updates_schema_version(self, db_v16: sqlite3.Connection):
         """Test that schema version is updated to 17."""
-        from video_policy_orchestrator.db.schema import migrate_v16_to_v17
+        from vpo.db.schema import migrate_v16_to_v17
 
         migrate_v16_to_v17(db_v16)
 
@@ -730,7 +728,7 @@ class TestMigrationV16ToV17:
 
     def test_migration_is_idempotent(self, db_v16: sqlite3.Connection):
         """Test that running migration twice doesn't error."""
-        from video_policy_orchestrator.db.schema import migrate_v16_to_v17
+        from vpo.db.schema import migrate_v16_to_v17
 
         migrate_v16_to_v17(db_v16)
         migrate_v16_to_v17(db_v16)  # Should not raise
@@ -740,7 +738,7 @@ class TestMigrationV16ToV17:
 
     def test_migration_preserves_existing_data(self, db_v16: sqlite3.Connection):
         """Test that existing file records are preserved."""
-        from video_policy_orchestrator.db.schema import migrate_v16_to_v17
+        from vpo.db.schema import migrate_v16_to_v17
 
         migrate_v16_to_v17(db_v16)
 
@@ -754,7 +752,7 @@ class TestMigrationV16ToV17:
 
     def test_plugin_metadata_accepts_json(self, db_v16: sqlite3.Connection):
         """Test that plugin_metadata column accepts JSON strings."""
-        from video_policy_orchestrator.db.schema import migrate_v16_to_v17
+        from vpo.db.schema import migrate_v16_to_v17
 
         migrate_v16_to_v17(db_v16)
 
@@ -771,9 +769,198 @@ class TestMigrationV16ToV17:
 
     def test_plugin_metadata_null_by_default(self, db_v16: sqlite3.Connection):
         """Test that plugin_metadata is NULL for existing records after migration."""
-        from video_policy_orchestrator.db.schema import migrate_v16_to_v17
+        from vpo.db.schema import migrate_v16_to_v17
 
         migrate_v16_to_v17(db_v16)
 
         cursor = db_v16.execute("SELECT plugin_metadata FROM files WHERE id = 1")
         assert cursor.fetchone()[0] is None
+
+
+class TestMigrationV19ToV20:
+    """Tests for v19 to v20 migration (valid_priority constraint)."""
+
+    @pytest.fixture
+    def db_v19(self, tmp_path: Path) -> sqlite3.Connection:
+        """Create a database at version 19 with test data."""
+        db_path = tmp_path / "test.db"
+        conn = sqlite3.connect(str(db_path))
+
+        # Create minimal schema at v19 without valid_priority constraint
+        conn.executescript(
+            """
+            CREATE TABLE _meta (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            INSERT INTO _meta (key, value) VALUES ('schema_version', '19');
+
+            CREATE TABLE files (
+                id INTEGER PRIMARY KEY,
+                path TEXT UNIQUE NOT NULL
+            );
+            INSERT INTO files (id, path) VALUES (1, '/test.mkv');
+
+            CREATE TABLE jobs (
+                id TEXT PRIMARY KEY,
+                file_id INTEGER,
+                file_path TEXT NOT NULL,
+                job_type TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'queued',
+                priority INTEGER NOT NULL DEFAULT 100,
+                policy_name TEXT,
+                policy_json TEXT,
+                progress_percent REAL NOT NULL DEFAULT 0.0,
+                progress_json TEXT,
+                created_at TEXT NOT NULL,
+                started_at TEXT,
+                completed_at TEXT,
+                worker_pid INTEGER,
+                worker_heartbeat TEXT,
+                output_path TEXT,
+                backup_path TEXT,
+                error_message TEXT,
+                files_affected_json TEXT,
+                summary_json TEXT,
+                log_path TEXT,
+                FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
+                CONSTRAINT valid_status CHECK (
+                    status IN ('queued', 'running', 'completed', 'failed', 'cancelled')
+                ),
+                CONSTRAINT valid_job_type CHECK (
+                    job_type IN ('transcode', 'move', 'scan', 'apply')
+                ),
+                CONSTRAINT valid_progress CHECK (
+                    progress_percent >= 0.0 AND progress_percent <= 100.0
+                )
+            );
+
+            -- Insert jobs with various priorities (including out-of-range)
+            INSERT INTO jobs (
+                id, file_id, file_path, job_type, status, priority, created_at
+            ) VALUES
+                ('job-1', 1, '/test.mkv', 'scan', 'completed', 50, '2024-01-01'),
+                ('job-2', 1, '/test.mkv', 'scan', 'completed', 100, '2024-01-01'),
+                ('job-3', 1, '/test.mkv', 'scan', 'completed', -10, '2024-01-01'),
+                ('job-4', 1, '/test.mkv', 'scan', 'completed', 2000, '2024-01-01');
+            """
+        )
+
+        conn.commit()
+        return conn
+
+    def test_migration_adds_valid_priority_constraint(self, db_v19: sqlite3.Connection):
+        """Test that migration adds the valid_priority constraint."""
+        from vpo.db.schema import migrate_v19_to_v20
+
+        # Run migration
+        migrate_v19_to_v20(db_v19)
+
+        # Check that constraint was added
+        cursor = db_v19.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='jobs'"
+        )
+        schema = cursor.fetchone()[0]
+        assert "valid_priority" in schema
+
+        # Check schema version updated
+        cursor = db_v19.execute("SELECT value FROM _meta WHERE key = 'schema_version'")
+        assert cursor.fetchone()[0] == "20"
+
+    def test_migration_clamps_out_of_range_priorities(self, db_v19: sqlite3.Connection):
+        """Test that migration clamps priority values to 0-1000 range."""
+        from vpo.db.schema import migrate_v19_to_v20
+
+        # Run migration
+        migrate_v19_to_v20(db_v19)
+
+        # Check priorities were clamped
+        cursor = db_v19.execute("SELECT id, priority FROM jobs ORDER BY id")
+        jobs = cursor.fetchall()
+
+        assert jobs[0][1] == 50  # Normal value - unchanged
+        assert jobs[1][1] == 100  # Normal value - unchanged
+        assert jobs[2][1] == 0  # -10 -> 0 (clamped)
+        assert jobs[3][1] == 1000  # 2000 -> 1000 (clamped)
+
+    def test_migration_is_idempotent(self, db_v19: sqlite3.Connection):
+        """Test that running migration twice doesn't error."""
+        from vpo.db.schema import migrate_v19_to_v20
+
+        # Run migration twice
+        migrate_v19_to_v20(db_v19)
+        migrate_v19_to_v20(db_v19)
+
+        # Verify schema version is still 20
+        cursor = db_v19.execute("SELECT value FROM _meta WHERE key = 'schema_version'")
+        assert cursor.fetchone()[0] == "20"
+
+    def test_migration_preserves_job_data(self, db_v19: sqlite3.Connection):
+        """Test that migration preserves all job data."""
+        from vpo.db.schema import migrate_v19_to_v20
+
+        # Run migration
+        migrate_v19_to_v20(db_v19)
+
+        # Verify all jobs still exist
+        cursor = db_v19.execute("SELECT COUNT(*) FROM jobs")
+        assert cursor.fetchone()[0] == 4
+
+        # Verify job data preserved
+        cursor = db_v19.execute(
+            "SELECT job_type, status, file_path FROM jobs WHERE id = 'job-1'"
+        )
+        row = cursor.fetchone()
+        assert row[0] == "scan"
+        assert row[1] == "completed"
+        assert row[2] == "/test.mkv"
+
+    def test_constraint_rejects_invalid_priority(self, db_v19: sqlite3.Connection):
+        """Test that constraint rejects new jobs with invalid priority."""
+        from vpo.db.schema import migrate_v19_to_v20
+
+        # Run migration
+        migrate_v19_to_v20(db_v19)
+
+        # Try to insert job with out-of-range priority
+        with pytest.raises(sqlite3.IntegrityError):
+            db_v19.execute(
+                """
+                INSERT INTO jobs (id, file_path, job_type, priority, created_at)
+                VALUES ('job-bad', '/test.mkv', 'scan', 1001, '2024-01-01T00:00:00Z')
+                """
+            )
+
+        with pytest.raises(sqlite3.IntegrityError):
+            db_v19.execute(
+                """
+                INSERT INTO jobs (id, file_path, job_type, priority, created_at)
+                VALUES ('job-bad', '/test.mkv', 'scan', -1, '2024-01-01T00:00:00Z')
+                """
+            )
+
+    def test_constraint_accepts_valid_priority(self, db_v19: sqlite3.Connection):
+        """Test that constraint accepts jobs with valid priority."""
+        from vpo.db.schema import migrate_v19_to_v20
+
+        # Run migration
+        migrate_v19_to_v20(db_v19)
+
+        # Insert job with valid priority values
+        db_v19.execute(
+            """
+            INSERT INTO jobs (id, file_path, job_type, priority, created_at)
+            VALUES ('job-low', '/test.mkv', 'scan', 0, '2024-01-01T00:00:00Z')
+            """
+        )
+        db_v19.execute(
+            """
+            INSERT INTO jobs (id, file_path, job_type, priority, created_at)
+            VALUES ('job-high', '/test.mkv', 'scan', 1000, '2024-01-01T00:00:00Z')
+            """
+        )
+        db_v19.commit()
+
+        # Verify jobs were inserted
+        cursor = db_v19.execute("SELECT COUNT(*) FROM jobs")
+        assert cursor.fetchone()[0] == 6  # 4 original + 2 new

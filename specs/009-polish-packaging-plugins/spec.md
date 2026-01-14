@@ -155,7 +155,7 @@ As a product owner, I want a groomed backlog and roadmap so that future enhancem
 
 - PyPI is the primary distribution channel for the Python package
 - GitHub Container Registry (ghcr.io) will be used for container images
-- The project already has a working plugin system to document (per existing `src/video_policy_orchestrator/plugin/` structure)
+- The project already has a working plugin system to document (per existing `src/vpo/plugin/` structure)
 - Tutorial will direct users to use their own video files, specifying supported format requirements (MKV, MP4 with multiple tracks recommended)
 - Platform wheels will be built using GitHub Actions CI/CD
 - The Rust extension build uses maturin which supports wheel building

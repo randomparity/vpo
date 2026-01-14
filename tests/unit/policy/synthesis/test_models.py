@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from video_policy_orchestrator.policy.synthesis.models import (
+from vpo.policy.synthesis.models import (
     AudioCodec,
     ChannelConfig,
     ChannelPreference,
@@ -249,7 +249,7 @@ class TestSynthesisTrackNameValidation:
 
     def test_valid_names_accepted(self):
         """Test that valid names are accepted."""
-        from video_policy_orchestrator.policy.loader import (
+        from vpo.policy.pydantic_models import (
             SynthesisTrackDefinitionModel,
         )
 
@@ -274,7 +274,7 @@ class TestSynthesisTrackNameValidation:
 
     def test_single_dot_names_accepted(self):
         """Test that names with single dots (not '..') are accepted."""
-        from video_policy_orchestrator.policy.loader import (
+        from vpo.policy.pydantic_models import (
             SynthesisTrackDefinitionModel,
         )
 
@@ -295,7 +295,7 @@ class TestSynthesisTrackNameValidation:
         import pytest
         from pydantic import ValidationError
 
-        from video_policy_orchestrator.policy.loader import (
+        from vpo.policy.pydantic_models import (
             SynthesisTrackDefinitionModel,
         )
 
@@ -314,7 +314,7 @@ class TestSynthesisTrackNameValidation:
         import pytest
         from pydantic import ValidationError
 
-        from video_policy_orchestrator.policy.loader import (
+        from vpo.policy.pydantic_models import (
             SynthesisTrackDefinitionModel,
         )
 
@@ -337,7 +337,7 @@ class TestSynthesisTrackNameValidation:
         import pytest
         from pydantic import ValidationError
 
-        from video_policy_orchestrator.policy.loader import (
+        from vpo.policy.pydantic_models import (
             SynthesisTrackDefinitionModel,
         )
 
@@ -362,7 +362,7 @@ class TestSynthesisTrackNameValidation:
         import pytest
         from pydantic import ValidationError
 
-        from video_policy_orchestrator.policy.loader import (
+        from vpo.policy.pydantic_models import (
             SynthesisTrackDefinitionModel,
         )
 
@@ -379,7 +379,7 @@ class TestSynthesisTrackNameValidation:
         import pytest
         from pydantic import ValidationError
 
-        from video_policy_orchestrator.policy.loader import (
+        from vpo.policy.pydantic_models import (
             SynthesisTrackDefinitionModel,
         )
 
@@ -396,7 +396,7 @@ class TestSynthesisTrackNameValidation:
         import pytest
         from pydantic import ValidationError
 
-        from video_policy_orchestrator.policy.loader import (
+        from vpo.policy.pydantic_models import (
             SynthesisTrackDefinitionModel,
         )
 
@@ -415,7 +415,7 @@ class TestSynthesisTrackNameValidation:
         import pytest
         from pydantic import ValidationError
 
-        from video_policy_orchestrator.policy.loader import (
+        from vpo.policy.pydantic_models import (
             SynthesisTrackDefinitionModel,
         )
 

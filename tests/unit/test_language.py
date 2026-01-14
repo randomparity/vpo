@@ -2,7 +2,7 @@
 
 import pytest
 
-from video_policy_orchestrator.language import (
+from vpo.language import (
     DEFAULT_STANDARD,
     get_language_name,
     is_valid_language_code,

@@ -83,7 +83,7 @@ specs/040-processing-stats/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── db/
 │   ├── schema.py        # Add processing_stats, action_results, performance_metrics tables
 │   ├── types.py         # Add ProcessingStatsRecord, ActionResultRecord, PerformanceMetricsRecord

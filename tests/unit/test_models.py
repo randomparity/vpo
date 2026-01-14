@@ -9,11 +9,11 @@ class TestFileOperations:
 
     def test_insert_file(self, temp_db: Path):
         """Test inserting a new file record."""
-        from video_policy_orchestrator.db.models import (
+        from vpo.db.models import (
             FileRecord,
             insert_file,
         )
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.row_factory = sqlite3.Row
@@ -43,12 +43,12 @@ class TestFileOperations:
 
     def test_upsert_file_updates_existing(self, temp_db: Path):
         """Test that upserting a file with same path updates it."""
-        from video_policy_orchestrator.db.models import (
+        from vpo.db.models import (
             FileRecord,
             get_file_by_path,
             upsert_file,
         )
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.row_factory = sqlite3.Row
@@ -91,12 +91,12 @@ class TestFileOperations:
 
     def test_get_file_by_path(self, temp_db: Path):
         """Test retrieving a file by path."""
-        from video_policy_orchestrator.db.models import (
+        from vpo.db.models import (
             FileRecord,
             get_file_by_path,
             insert_file,
         )
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.row_factory = sqlite3.Row
@@ -129,8 +129,8 @@ class TestFileOperations:
 
     def test_get_file_by_path_not_found(self, temp_db: Path):
         """Test that get_file_by_path returns None for non-existent file."""
-        from video_policy_orchestrator.db.models import get_file_by_path
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.models import get_file_by_path
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.row_factory = sqlite3.Row
@@ -145,12 +145,12 @@ class TestFileOperations:
         """Test FileRecord with plugin_metadata survives insert/get cycle."""
         import json
 
-        from video_policy_orchestrator.db.models import (
+        from vpo.db.models import (
             FileRecord,
             get_file_by_id,
             insert_file,
         )
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.row_factory = sqlite3.Row
@@ -205,12 +205,12 @@ class TestFileOperations:
 
     def test_file_record_plugin_metadata_null(self, temp_db: Path):
         """Test FileRecord with null plugin_metadata."""
-        from video_policy_orchestrator.db.models import (
+        from vpo.db.models import (
             FileRecord,
             get_file_by_id,
             insert_file,
         )
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.row_factory = sqlite3.Row
@@ -247,13 +247,13 @@ class TestTrackOperations:
 
     def test_insert_track(self, temp_db: Path):
         """Test inserting a track record."""
-        from video_policy_orchestrator.db.models import (
+        from vpo.db.models import (
             FileRecord,
             TrackRecord,
             insert_file,
             insert_track,
         )
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.row_factory = sqlite3.Row
@@ -298,14 +298,14 @@ class TestTrackOperations:
 
     def test_insert_multiple_tracks(self, temp_db: Path):
         """Test inserting multiple tracks for a file."""
-        from video_policy_orchestrator.db.models import (
+        from vpo.db.models import (
             FileRecord,
             TrackRecord,
             get_tracks_for_file,
             insert_file,
             insert_track,
         )
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.row_factory = sqlite3.Row
@@ -364,14 +364,14 @@ class TestTrackOperations:
 
     def test_track_fields_per_fr010(self, temp_db: Path):
         """Test that track stores all fields required by FR-010."""
-        from video_policy_orchestrator.db.models import (
+        from vpo.db.models import (
             FileRecord,
             TrackRecord,
             get_tracks_for_file,
             insert_file,
             insert_track,
         )
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.row_factory = sqlite3.Row
@@ -426,14 +426,14 @@ class TestTrackOperations:
 
     def test_cascade_delete_tracks(self, temp_db: Path):
         """Test that tracks are deleted when file is deleted."""
-        from video_policy_orchestrator.db.models import (
+        from vpo.db.models import (
             FileRecord,
             TrackRecord,
             delete_file,
             insert_file,
             insert_track,
         )
-        from video_policy_orchestrator.db.schema import create_schema
+        from vpo.db.schema import create_schema
 
         conn = sqlite3.connect(str(temp_db))
         conn.row_factory = sqlite3.Row
@@ -478,7 +478,7 @@ class TestTrackRecordConversion:
 
     def test_to_track_info_converts_all_fields(self) -> None:
         """Test that to_track_info converts all fields correctly."""
-        from video_policy_orchestrator.db.models import TrackInfo, TrackRecord
+        from vpo.db.models import TrackInfo, TrackRecord
 
         track_record = TrackRecord(
             id=42,
@@ -526,7 +526,7 @@ class TestTrackRecordConversion:
 
     def test_from_track_info_and_back(self) -> None:
         """Test round-trip conversion TrackInfo -> TrackRecord -> TrackInfo."""
-        from video_policy_orchestrator.db.models import TrackInfo, TrackRecord
+        from vpo.db.models import TrackInfo, TrackRecord
 
         original = TrackInfo(
             index=1,
@@ -572,7 +572,7 @@ class TestTrackRecordConversion:
 
     def test_tracks_to_track_info_batch_conversion(self) -> None:
         """Test tracks_to_track_info converts a list of records."""
-        from video_policy_orchestrator.db.models import (
+        from vpo.db.models import (
             TrackRecord,
             tracks_to_track_info,
         )
@@ -595,7 +595,7 @@ class TestTrackRecordConversion:
 
     def test_tracks_to_track_info_empty_list(self) -> None:
         """Test tracks_to_track_info handles empty list."""
-        from video_policy_orchestrator.db.models import tracks_to_track_info
+        from vpo.db.models import tracks_to_track_info
 
         result = tracks_to_track_info([])
         assert result == []

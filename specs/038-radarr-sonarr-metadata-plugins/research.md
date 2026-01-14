@@ -175,7 +175,7 @@ class RadarrPlugin:
 | Russian | rus |
 
 ### Implementation
-- Use VPO's existing `normalize_language()` function from `video_policy_orchestrator.language`
+- Use VPO's existing `normalize_language()` function from `vpo.language`
 - Handle unknown languages gracefully (log warning, return None)
 
 ## 5. Configuration Storage
@@ -296,5 +296,5 @@ None - all critical questions resolved through specification and clarification p
 
 - [Radarr API Documentation](https://radarr.video/docs/api/)
 - [Sonarr API Documentation](https://sonarr.tv/docs/api/)
-- VPO Plugin System: `src/video_policy_orchestrator/plugin/`
-- VPO Language Utilities: `src/video_policy_orchestrator/language.py`
+- VPO Plugin System: `src/vpo/plugin/`
+- VPO Language Utilities: `src/vpo/language.py`

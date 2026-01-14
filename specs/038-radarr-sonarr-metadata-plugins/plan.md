@@ -74,7 +74,7 @@ specs/038-radarr-sonarr-metadata-plugins/
 ### Source Code (repository root)
 
 ```text
-src/video_policy_orchestrator/
+src/vpo/
 ├── plugins/
 │   ├── radarr_metadata/           # NEW: Radarr plugin package
 │   │   ├── __init__.py            # Package exports

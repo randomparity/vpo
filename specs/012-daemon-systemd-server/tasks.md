@@ -20,8 +20,8 @@
 **Purpose**: Add aiohttp dependency and create server module structure
 
 - [X] T001 Add aiohttp>=3.9 dependency to pyproject.toml
-- [X] T002 Create server module directory structure at src/video_policy_orchestrator/server/
-- [X] T003 [P] Create src/video_policy_orchestrator/server/__init__.py with module exports
+- [X] T002 Create server module directory structure at src/vpo/server/
+- [X] T003 [P] Create src/vpo/server/__init__.py with module exports
 - [X] T004 Commit Phase 1 changes with message "feat(012): Setup server module structure and aiohttp dependency"
 
 ---
@@ -32,12 +32,12 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T005 Add ServerConfig dataclass to src/video_policy_orchestrator/config/models.py per data-model.md
-- [X] T006 Add server field to VPOConfig dataclass in src/video_policy_orchestrator/config/models.py
-- [X] T007 Add server config loading (TOML + env vars) to src/video_policy_orchestrator/config/loader.py
-- [X] T008 [P] Create ShutdownState dataclass in src/video_policy_orchestrator/server/lifecycle.py per data-model.md
-- [X] T009 [P] Create HealthStatus dataclass in src/video_policy_orchestrator/server/app.py per data-model.md
-- [X] T010 Add database health check helper function to src/video_policy_orchestrator/db/connection.py
+- [X] T005 Add ServerConfig dataclass to src/vpo/config/models.py per data-model.md
+- [X] T006 Add server field to VPOConfig dataclass in src/vpo/config/models.py
+- [X] T007 Add server config loading (TOML + env vars) to src/vpo/config/loader.py
+- [X] T008 [P] Create ShutdownState dataclass in src/vpo/server/lifecycle.py per data-model.md
+- [X] T009 [P] Create HealthStatus dataclass in src/vpo/server/app.py per data-model.md
+- [X] T010 Add database health check helper function to src/vpo/db/connection.py
 - [X] T011 Commit Phase 2 changes with message "feat(012): Add ServerConfig and foundational data models"
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
@@ -57,11 +57,11 @@
 
 ### Implementation for User Story 1
 
-- [X] T014 [US1] Implement DaemonLifecycle class in src/video_policy_orchestrator/server/lifecycle.py (startup/shutdown coordination)
-- [X] T015 [US1] Implement signal handler setup in src/video_policy_orchestrator/server/signals.py (SIGTERM, SIGINT)
-- [X] T016 [US1] Implement aiohttp Application with basic route structure in src/video_policy_orchestrator/server/app.py
-- [X] T017 [US1] Create src/video_policy_orchestrator/cli/serve.py with `vpo serve` command (--bind, --port flags)
-- [X] T018 [US1] Register serve command in src/video_policy_orchestrator/cli/__init__.py
+- [X] T014 [US1] Implement DaemonLifecycle class in src/vpo/server/lifecycle.py (startup/shutdown coordination)
+- [X] T015 [US1] Implement signal handler setup in src/vpo/server/signals.py (SIGTERM, SIGINT)
+- [X] T016 [US1] Implement aiohttp Application with basic route structure in src/vpo/server/app.py
+- [X] T017 [US1] Create src/vpo/cli/serve.py with `vpo serve` command (--bind, --port flags)
+- [X] T018 [US1] Register serve command in src/vpo/cli/__init__.py
 - [X] T019 [US1] Implement graceful shutdown logic (wait for tasks up to timeout, then cancel) in lifecycle.py
 - [X] T020 [US1] Add startup error handling (DB unreachable, port in use) with non-zero exit codes in serve.py
 - [X] T021 [US1] Run tests and verify `uv run pytest tests/unit/server/` passes
@@ -97,7 +97,7 @@
 
 ### Implementation for User Story 3
 
-- [X] T028 [US3] Add --config flag to serve command in src/video_policy_orchestrator/cli/serve.py
+- [X] T028 [US3] Add --config flag to serve command in src/vpo/cli/serve.py
 - [X] T029 [US3] Add --log-level and --log-format flags to serve command
 - [X] T030 [US3] Implement config precedence (CLI > config file > env > defaults) in serve.py
 - [X] T031 [US3] Add config validation with clear error messages on malformed config
@@ -120,7 +120,7 @@
 
 ### Implementation for User Story 4
 
-- [X] T035 [US4] Implement /health route handler in src/video_policy_orchestrator/server/app.py
+- [X] T035 [US4] Implement /health route handler in src/vpo/server/app.py
 - [X] T036 [US4] Implement database connectivity check (async wrapper around sync SELECT 1) in app.py
 - [X] T037 [US4] Implement HealthStatus JSON serialization per contracts/openapi.yaml
 - [X] T038 [US4] Add uptime tracking to DaemonLifecycle in lifecycle.py
@@ -140,7 +140,7 @@
 
 ### Implementation for User Story 5
 
-- [X] T042 [US5] Verify existing JSONFormatter in src/video_policy_orchestrator/logging/handlers.py includes required fields
+- [X] T042 [US5] Verify existing JSONFormatter in src/vpo/logging/handlers.py includes required fields
 - [X] T043 [US5] Add daemon=True context to log records in daemon mode
 - [X] T044 [US5] Ensure no print() calls in daemon code path - all output via logger
 - [X] T045 [US5] Test JSON log output is valid and parseable
@@ -219,8 +219,8 @@ T048 [P] README update
 
 ```bash
 # Launch in parallel (different files):
-Task: "Create ShutdownState dataclass in src/video_policy_orchestrator/server/lifecycle.py"
-Task: "Create HealthStatus dataclass in src/video_policy_orchestrator/server/app.py"
+Task: "Create ShutdownState dataclass in src/vpo/server/lifecycle.py"
+Task: "Create HealthStatus dataclass in src/vpo/server/app.py"
 ```
 
 ---

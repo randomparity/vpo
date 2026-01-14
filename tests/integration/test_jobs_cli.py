@@ -13,9 +13,9 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from video_policy_orchestrator.cli import main
-from video_policy_orchestrator.cli.jobs import _parse_relative_date
-from video_policy_orchestrator.db.models import (
+from vpo.cli import main
+from vpo.cli.jobs import _parse_relative_date
+from vpo.db.models import (
     Job,
     JobStatus,
     JobType,
@@ -23,7 +23,7 @@ from video_policy_orchestrator.db.models import (
     get_jobs_filtered,
     insert_job,
 )
-from video_policy_orchestrator.db.schema import create_schema
+from vpo.db.schema import create_schema
 
 
 @pytest.fixture

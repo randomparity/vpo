@@ -5,9 +5,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from video_policy_orchestrator.db.models import TrackInfo
-from video_policy_orchestrator.executor.interface import ExecutorResult
-from video_policy_orchestrator.plugin.events import (
+from vpo.db.models import TrackInfo
+from vpo.executor.interface import ExecutorResult
+from vpo.plugin.events import (
     PLAN_AFTER_EXECUTE,
     PLAN_BEFORE_EXECUTE,
     PLAN_EXECUTION_FAILED,
@@ -16,10 +16,10 @@ from video_policy_orchestrator.plugin.events import (
     PlanExecuteEvent,
     PolicyEvaluateEvent,
 )
-from video_policy_orchestrator.plugin.interfaces import AnalyzerPlugin, MutatorPlugin
-from video_policy_orchestrator.plugin.manifest import PluginSource
-from video_policy_orchestrator.plugins.policy_engine.plugin import PolicyEnginePlugin
-from video_policy_orchestrator.policy.models import (
+from vpo.plugin.interfaces import AnalyzerPlugin, MutatorPlugin
+from vpo.plugin.manifest import PluginSource
+from vpo.plugins.policy_engine.plugin import PolicyEnginePlugin
+from vpo.policy.types import (
     ActionType,
     Plan,
     PlannedAction,
@@ -222,10 +222,8 @@ class TestPolicyEnginePluginMutatorMethods:
         assert result.success is True
         assert "No changes" in result.message
 
-    @patch(
-        "video_policy_orchestrator.plugins.policy_engine.plugin.check_tool_availability"
-    )
-    @patch("video_policy_orchestrator.plugins.policy_engine.plugin.MkvpropeditExecutor")
+    @patch("vpo.plugins.policy_engine.plugin.check_tool_availability")
+    @patch("vpo.plugins.policy_engine.plugin.MkvpropeditExecutor")
     def test_execute_mkv_metadata_uses_mkvpropedit(
         self,
         mock_executor_class: MagicMock,
@@ -245,9 +243,7 @@ class TestPolicyEnginePluginMutatorMethods:
         mock_executor_class.assert_called_once()
         mock_executor.execute.assert_called_once()
 
-    @patch(
-        "video_policy_orchestrator.plugins.policy_engine.plugin.check_tool_availability"
-    )
+    @patch("vpo.plugins.policy_engine.plugin.check_tool_availability")
     def test_execute_missing_tool_returns_error(
         self,
         mock_tools: MagicMock,
@@ -337,12 +333,12 @@ class TestPolicyEnginePluginModule:
 
     def test_plugin_instance_exported(self):
         """Module exports plugin instance."""
-        from video_policy_orchestrator.plugins.policy_engine import plugin_instance
+        from vpo.plugins.policy_engine import plugin_instance
 
         assert isinstance(plugin_instance, PolicyEnginePlugin)
 
     def test_plugin_class_exported(self):
         """Module exports PolicyEnginePlugin class."""
-        from video_policy_orchestrator.plugins.policy_engine import PolicyEnginePlugin
+        from vpo.plugins.policy_engine import PolicyEnginePlugin
 
         assert PolicyEnginePlugin is not None

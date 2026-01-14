@@ -16,9 +16,9 @@
 ## Path Conventions
 
 Based on plan.md structure:
-- **Backend**: `src/video_policy_orchestrator/`
-- **Templates**: `src/video_policy_orchestrator/server/ui/templates/sections/`
-- **JavaScript**: `src/video_policy_orchestrator/server/static/js/`
+- **Backend**: `src/vpo/`
+- **Templates**: `src/vpo/server/ui/templates/sections/`
+- **JavaScript**: `src/vpo/server/static/js/`
 
 ---
 
@@ -26,10 +26,10 @@ Based on plan.md structure:
 
 **Purpose**: Database schema and core data model for plans
 
-- [X] T001 Add PlanStatus enum to src/video_policy_orchestrator/db/models.py with values: pending, approved, rejected, applied, canceled
-- [X] T002 Add PlanRecord dataclass to src/video_policy_orchestrator/db/models.py following OperationRecord pattern
-- [X] T003 Add plans table DDL and migration logic to src/video_policy_orchestrator/db/schema.py (schema v11 → v12)
-- [X] T004 Add indexes for plans table (status, created_at DESC, file_id, policy_name) in src/video_policy_orchestrator/db/schema.py
+- [X] T001 Add PlanStatus enum to src/vpo/db/models.py with values: pending, approved, rejected, applied, canceled
+- [X] T002 Add PlanRecord dataclass to src/vpo/db/models.py following OperationRecord pattern
+- [X] T003 Add plans table DDL and migration logic to src/vpo/db/schema.py (schema v11 → v12)
+- [X] T004 Add indexes for plans table (status, created_at DESC, file_id, policy_name) in src/vpo/db/schema.py
 
 ---
 
@@ -39,14 +39,14 @@ Based on plan.md structure:
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [X] T005 Implement create_plan() function in src/video_policy_orchestrator/db/operations.py
-- [X] T006 Implement get_plan_by_id() function in src/video_policy_orchestrator/db/operations.py
-- [X] T007 Implement get_plans_filtered() function with pagination in src/video_policy_orchestrator/db/operations.py
-- [X] T008 Implement update_plan_status() function with state machine validation in src/video_policy_orchestrator/db/operations.py
-- [X] T009 [P] Add PlanFilterParams dataclass to src/video_policy_orchestrator/server/ui/models.py with from_query() method
-- [X] T010 [P] Add PlanListItem dataclass to src/video_policy_orchestrator/server/ui/models.py with to_dict() method
-- [X] T011 [P] Add PlanListResponse dataclass to src/video_policy_orchestrator/server/ui/models.py with to_dict() method
-- [X] T012 [P] Add PlansContext dataclass to src/video_policy_orchestrator/server/ui/models.py for template context
+- [X] T005 Implement create_plan() function in src/vpo/db/operations.py
+- [X] T006 Implement get_plan_by_id() function in src/vpo/db/operations.py
+- [X] T007 Implement get_plans_filtered() function with pagination in src/vpo/db/operations.py
+- [X] T008 Implement update_plan_status() function with state machine validation in src/vpo/db/operations.py
+- [X] T009 [P] Add PlanFilterParams dataclass to src/vpo/server/ui/models.py with from_query() method
+- [X] T010 [P] Add PlanListItem dataclass to src/vpo/server/ui/models.py with to_dict() method
+- [X] T011 [P] Add PlanListResponse dataclass to src/vpo/server/ui/models.py with to_dict() method
+- [X] T012 [P] Add PlansContext dataclass to src/vpo/server/ui/models.py for template context
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -60,17 +60,17 @@ Based on plan.md structure:
 
 ### Implementation for User Story 1
 
-- [X] T013 [US1] Implement plans_handler() HTML route for GET /plans in src/video_policy_orchestrator/server/ui/routes.py
-- [X] T014 [US1] Implement api_plans_handler() JSON route for GET /api/plans in src/video_policy_orchestrator/server/ui/routes.py
-- [X] T015 [US1] Register /plans and /api/plans routes in src/video_policy_orchestrator/server/ui/routes.py setup_ui_routes()
-- [X] T016 [US1] Create plans.html template with table structure in src/video_policy_orchestrator/server/ui/templates/sections/plans.html
+- [X] T013 [US1] Implement plans_handler() HTML route for GET /plans in src/vpo/server/ui/routes.py
+- [X] T014 [US1] Implement api_plans_handler() JSON route for GET /api/plans in src/vpo/server/ui/routes.py
+- [X] T015 [US1] Register /plans and /api/plans routes in src/vpo/server/ui/routes.py setup_ui_routes()
+- [X] T016 [US1] Create plans.html template with table structure in src/vpo/server/ui/templates/sections/plans.html
 - [X] T017 [US1] Add status badge styling (color-coded by status) to plans.html template
 - [X] T018 [US1] Add empty state message display to plans.html template
-- [X] T019 [US1] Create plans.js with initial fetch and table rendering in src/video_policy_orchestrator/server/static/js/plans.js
-- [X] T020 [US1] Implement formatSourceDisplay() helper for "[Deleted]" indicator handling in src/video_policy_orchestrator/server/static/js/plans.js
-- [X] T021 [US1] Implement formatRelativeTime() helper for "2 hours ago" display in src/video_policy_orchestrator/server/static/js/plans.js
+- [X] T019 [US1] Create plans.js with initial fetch and table rendering in src/vpo/server/static/js/plans.js
+- [X] T020 [US1] Implement formatSourceDisplay() helper for "[Deleted]" indicator handling in src/vpo/server/static/js/plans.js
+- [X] T021 [US1] Implement formatRelativeTime() helper for "2 hours ago" display in src/vpo/server/static/js/plans.js
 - [X] T022 [US1] Add pagination controls and logic to plans.js
-- [X] T023 [US1] Add "Plans" link to navigation in src/video_policy_orchestrator/server/ui/models.py NAVIGATION_ITEMS
+- [X] T023 [US1] Add "Plans" link to navigation in src/vpo/server/ui/models.py NAVIGATION_ITEMS
 
 **Checkpoint**: User Story 1 complete - basic list view functional with pagination
 
@@ -87,7 +87,7 @@ Based on plan.md structure:
 - [X] T024 [US2] Add status filter dropdown to plans.html filter bar
 - [X] T025 [US2] Implement status filter state management in plans.js (currentFilters.status)
 - [X] T026 [US2] Wire status dropdown change event to refetch with filter in plans.js
-- [X] T027 [US2] Ensure API handler parses status query parameter in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T027 [US2] Ensure API handler parses status query parameter in src/vpo/server/ui/routes.py
 
 **Checkpoint**: User Story 2 complete - status filtering works independently
 
@@ -104,7 +104,7 @@ Based on plan.md structure:
 - [X] T028 [US3] Add time range filter dropdown to plans.html filter bar (Today, Last 7 days, Last 30 days)
 - [X] T029 [US3] Implement time filter state management in plans.js (currentFilters.since)
 - [X] T030 [US3] Wire time dropdown change event to refetch with filter in plans.js
-- [X] T031 [US3] Ensure API handler parses since query parameter and computes datetime threshold in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T031 [US3] Ensure API handler parses since query parameter and computes datetime threshold in src/vpo/server/ui/routes.py
 
 **Checkpoint**: User Story 3 complete - time filtering works independently
 
@@ -118,9 +118,9 @@ Based on plan.md structure:
 
 ### Implementation for User Story 4
 
-- [X] T032 [US4] Add PlanActionResponse dataclass to src/video_policy_orchestrator/server/ui/models.py
-- [X] T033 [US4] Implement api_plan_approve_handler() for POST /api/plans/{id}/approve in src/video_policy_orchestrator/server/ui/routes.py
-- [X] T034 [US4] Implement api_plan_reject_handler() for POST /api/plans/{id}/reject in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T032 [US4] Add PlanActionResponse dataclass to src/vpo/server/ui/models.py
+- [X] T033 [US4] Implement api_plan_approve_handler() for POST /api/plans/{id}/approve in src/vpo/server/ui/routes.py
+- [X] T034 [US4] Implement api_plan_reject_handler() for POST /api/plans/{id}/reject in src/vpo/server/ui/routes.py
 - [X] T035 [US4] Register /api/plans/{id}/approve and /api/plans/{id}/reject routes in setup_ui_routes()
 - [X] T036 [US4] Add Approve/Reject button column to plans.html table (conditional on pending status)
 - [X] T037 [US4] Implement handleApprove() and handleReject() click handlers in plans.js
@@ -170,7 +170,7 @@ Based on plan.md structure:
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [X] T049 [P] Add structured logging for plan status transitions in src/video_policy_orchestrator/server/ui/routes.py
+- [X] T049 [P] Add structured logging for plan status transitions in src/vpo/server/ui/routes.py
 - [X] T050 [P] Add error handling for API failures with user-friendly messages in plans.js
 - [X] T051 [P] Verify empty filter results show appropriate message in plans.js
 - [ ] T052 Run manual test of all user stories per quickstart.md validation
@@ -240,10 +240,10 @@ US4: T032-T039 → parallel with US2 and US3
 
 ```bash
 # After T005-T008 complete, launch API models in parallel:
-Task: "Add PlanFilterParams dataclass to src/video_policy_orchestrator/server/ui/models.py"
-Task: "Add PlanListItem dataclass to src/video_policy_orchestrator/server/ui/models.py"
-Task: "Add PlanListResponse dataclass to src/video_policy_orchestrator/server/ui/models.py"
-Task: "Add PlansContext dataclass to src/video_policy_orchestrator/server/ui/models.py"
+Task: "Add PlanFilterParams dataclass to src/vpo/server/ui/models.py"
+Task: "Add PlanListItem dataclass to src/vpo/server/ui/models.py"
+Task: "Add PlanListResponse dataclass to src/vpo/server/ui/models.py"
+Task: "Add PlansContext dataclass to src/vpo/server/ui/models.py"
 ```
 
 ## Parallel Example: P2 Stories

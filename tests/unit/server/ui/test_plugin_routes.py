@@ -1,6 +1,6 @@
 """Unit tests for plugin data browser route handlers and models."""
 
-from video_policy_orchestrator.server.ui.models import (
+from vpo.server.ui.models import (
     FilePluginDataResponse,
     PluginDataContext,
     PluginFileItem,
@@ -235,7 +235,7 @@ class TestFileDetailItemPluginMetadata:
 
     def test_file_detail_item_has_plugin_data_true(self) -> None:
         """Test has_plugin_data returns True when metadata present."""
-        from video_policy_orchestrator.server.ui.models import (
+        from vpo.server.ui.models import (
             FileDetailItem,
         )
 
@@ -265,7 +265,7 @@ class TestFileDetailItemPluginMetadata:
 
     def test_file_detail_item_has_plugin_data_false(self) -> None:
         """Test has_plugin_data returns False when no metadata."""
-        from video_policy_orchestrator.server.ui.models import (
+        from vpo.server.ui.models import (
             FileDetailItem,
         )
 
@@ -295,7 +295,7 @@ class TestFileDetailItemPluginMetadata:
 
     def test_file_detail_item_to_dict_includes_plugin_metadata(self) -> None:
         """Test to_dict includes plugin metadata fields."""
-        from video_policy_orchestrator.server.ui.models import (
+        from vpo.server.ui.models import (
             FileDetailItem,
         )
 

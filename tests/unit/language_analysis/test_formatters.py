@@ -2,11 +2,11 @@
 
 import pytest
 
-from video_policy_orchestrator.language_analysis.formatters import (
+from vpo.language_analysis.formatters import (
     format_human,
     format_json,
 )
-from video_policy_orchestrator.language_analysis.models import (
+from vpo.language_analysis.models import (
     AnalysisMetadata,
     LanguageAnalysisResult,
     LanguageSegment,

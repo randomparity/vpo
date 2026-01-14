@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from video_policy_orchestrator.policy.discovery import (
+from vpo.policy.discovery import (
     PolicySummary,
     _is_default_policy,
     _parse_policy_file,
@@ -320,7 +320,7 @@ class TestPolicyCaching:
 
     def test_cache_hit_on_unchanged_file(self, tmp_path: Path) -> None:
         """Cached result returned when file hasn't changed."""
-        from video_policy_orchestrator.policy.discovery import clear_policy_cache
+        from vpo.policy.discovery import clear_policy_cache
 
         # Ensure clean cache
         clear_policy_cache()
@@ -343,7 +343,7 @@ class TestPolicyCaching:
         import os
         import time
 
-        from video_policy_orchestrator.policy.discovery import clear_policy_cache
+        from vpo.policy.discovery import clear_policy_cache
 
         # Ensure clean cache
         clear_policy_cache()
@@ -373,7 +373,7 @@ class TestPolicyCaching:
 
     def test_clear_policy_cache(self, tmp_path: Path) -> None:
         """clear_policy_cache() clears all cached entries."""
-        from video_policy_orchestrator.policy.discovery import (
+        from vpo.policy.discovery import (
             _policy_cache,
             clear_policy_cache,
         )
