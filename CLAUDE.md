@@ -18,6 +18,8 @@ uv run pytest                           # All tests
 uv run pytest tests/unit/               # Unit tests only
 uv run pytest -k test_name              # Single test by name
 uv run pytest tests/path/to_file.py    # Single test file
+uv run pytest -m "not integration"      # Skip integration tests
+uv run pytest --cov=vpo --cov-report=html  # With coverage report
 
 # Linting & formatting
 make lint                               # Python + Rust lint
@@ -34,6 +36,10 @@ uv run vpo apply --policy policy.yaml /path/to/file.mkv --dry-run
 
 # Run web UI daemon
 uv run vpo serve --port 8080          # Start daemon with web UI
+
+# Check external tool availability
+make check-deps                         # Verify ffmpeg, mkvtoolnix installed
+uv run vpo doctor                       # Runtime tool check
 ```
 
 ## Tech Stack
@@ -80,6 +86,10 @@ crates/vpo-core/   # Rust extension for parallel discovery/hashing
 - Preserve existing patterns for time handling (UTC), IDs, logging, and config
 - No local-time datetime storage, hardcoded paths, ad-hoc subprocess calls, or inline SQL in business logic
 - Before finalizing: check idempotence, error handling, logging/auditability, and tests
+
+**Test markers** (defined in pyproject.toml):
+- `@pytest.mark.integration` - Tests requiring external tools (ffprobe, mkvtoolnix)
+- `@pytest.mark.slow` - Tests that take longer than usual
 
 ## Git Commit Guidelines
 
@@ -192,7 +202,7 @@ This project uses **spec-driven development**:
 
 The web UI uses server-rendered HTML with JavaScript enhancements:
 - **Templates**: Jinja2 templates in `server/ui/templates/`
-- **JavaScript**: Vanilla JS modules in `server/static/js/` (no build step)
+- **JavaScript**: Vanilla JS modules in `server/static/js/` (no build step, linted with ESLint)
 - **CSS**: Plain CSS in `server/static/css/`
 - **API**: REST endpoints at `/api/*` return JSON
 - **Security**: CSP headers applied to HTML responses (see `SECURITY_HEADERS` in routes.py)
