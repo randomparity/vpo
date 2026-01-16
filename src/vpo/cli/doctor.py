@@ -251,13 +251,12 @@ def _output_json(registry) -> None:
 
 def _show_transcription_plugins(verbose: bool) -> None:
     """Show available transcription plugins."""
+    from vpo.plugin import get_default_registry
     from vpo.plugin.events import TRANSCRIPTION_REQUESTED
-    from vpo.plugin.registry import PluginRegistry
 
     try:
         # Load plugin registry
-        registry = PluginRegistry()
-        registry.discover()
+        registry = get_default_registry()
 
         # Get plugins that handle transcription.requested events
         plugins = registry.get_by_event(TRANSCRIPTION_REQUESTED)

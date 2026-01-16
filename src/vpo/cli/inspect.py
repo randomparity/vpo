@@ -49,11 +49,10 @@ def _get_plugin_registry_or_error():
     Raises:
         click.ClickException: If no transcription plugin is available.
     """
+    from vpo.plugin import get_default_registry
     from vpo.plugin.events import TRANSCRIPTION_REQUESTED
-    from vpo.plugin.registry import PluginRegistry
 
-    registry = PluginRegistry()
-    registry.discover()
+    registry = get_default_registry()
 
     plugins = registry.get_by_event(TRANSCRIPTION_REQUESTED)
     if not plugins:
