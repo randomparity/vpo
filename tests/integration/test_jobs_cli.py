@@ -15,7 +15,7 @@ from click.testing import CliRunner
 
 from vpo.cli import main
 from vpo.cli.jobs import _parse_relative_date
-from vpo.db.models import (
+from vpo.db import (
     Job,
     JobStatus,
     JobType,

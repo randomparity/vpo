@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Protocol
 
 from vpo._core import discover_videos, hash_files
 from vpo.core import parse_iso_timestamp
-from vpo.db.models import FileRecord
+from vpo.db import FileRecord
 
 logger = logging.getLogger(__name__)
 
@@ -276,7 +276,7 @@ class ScannerOrchestrator:
         # Reset interrupt event for this scan
         self._interrupt_event.clear()
 
-        from vpo.db.models import (
+        from vpo.db import (
             FileRecord,
             delete_file,
             get_file_by_path,

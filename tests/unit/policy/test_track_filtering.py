@@ -6,7 +6,7 @@ policy configuration.
 
 import pytest
 
-from vpo.db.models import TrackInfo
+from vpo.db import TrackInfo
 from vpo.policy.exceptions import InsufficientTracksError
 from vpo.policy.types import (
     AudioFilterConfig,

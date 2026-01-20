@@ -173,7 +173,7 @@ class TestModelsShimImports:
 
     def test_enum_imports_from_models(self):
         """Test enum imports from models module."""
-        from vpo.db.models import (
+        from vpo.db import (
             JobStatus,
             JobType,
             OperationStatus,
@@ -189,7 +189,7 @@ class TestModelsShimImports:
 
     def test_record_imports_from_models(self):
         """Test database record imports from models module."""
-        from vpo.db.models import (
+        from vpo.db import (
             FileRecord,
             Job,
             TrackRecord,
@@ -201,7 +201,7 @@ class TestModelsShimImports:
 
     def test_function_imports_from_models(self):
         """Test function imports from models module."""
-        from vpo.db.models import (
+        from vpo.db import (
             get_file_by_path,
             get_files_filtered,
             get_tracks_for_file,
@@ -286,7 +286,7 @@ class TestImportEquivalence:
     def test_filerecord_is_same_class(self):
         """FileRecord should be the same class from all import paths."""
         from vpo.db import FileRecord as FR1
-        from vpo.db.models import FileRecord as FR2
+        from vpo.db import FileRecord as FR2
         from vpo.db.types import FileRecord as FR3
 
         assert FR1 is FR2
@@ -295,7 +295,7 @@ class TestImportEquivalence:
     def test_get_file_by_path_is_same_function(self):
         """get_file_by_path should be the same function from all import paths."""
         from vpo.db import get_file_by_path as gfbp1
-        from vpo.db.models import get_file_by_path as gfbp2
+        from vpo.db import get_file_by_path as gfbp2
         from vpo.db.queries import get_file_by_path as gfbp3
 
         assert gfbp1 is gfbp2
@@ -304,7 +304,7 @@ class TestImportEquivalence:
     def test_get_files_filtered_typed_is_same_function(self):
         """get_files_filtered_typed should be the same from all import paths."""
         from vpo.db import get_files_filtered_typed as gfft1
-        from vpo.db.models import (
+        from vpo.db import (
             get_files_filtered_typed as gfft2,
         )
         from vpo.db.views import get_files_filtered_typed as gfft3

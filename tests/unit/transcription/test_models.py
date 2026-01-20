@@ -155,7 +155,7 @@ class TestTranscriptionResult:
 
     def test_from_record(self):
         """Test creating domain model from database record."""
-        from vpo.db.models import TranscriptionResultRecord
+        from vpo.db import TranscriptionResultRecord
 
         record = TranscriptionResultRecord(
             id=1,

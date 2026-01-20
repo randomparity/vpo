@@ -6,7 +6,7 @@ and container change evaluation.
 
 import pytest
 
-from vpo.db.models import TrackInfo
+from vpo.db import TrackInfo
 from vpo.policy.exceptions import IncompatibleCodecError
 from vpo.policy.types import (
     ContainerConfig,

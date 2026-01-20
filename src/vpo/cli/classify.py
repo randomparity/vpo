@@ -18,7 +18,7 @@ from pathlib import Path
 
 import click
 
-from vpo.db.models import get_file_by_path
+from vpo.db import get_file_by_path
 from vpo.db.queries import (
     delete_track_classification,
     get_classifications_for_file,
@@ -140,7 +140,7 @@ def classify_run(
         ctx.exit(EXIT_FILE_NOT_FOUND)
 
     # Get audio tracks
-    from vpo.db.models import get_tracks_for_file
+    from vpo.db import get_tracks_for_file
 
     tracks = get_tracks_for_file(conn, file_record.id)
     audio_tracks = [t for t in tracks if t.track_type.casefold() == "audio"]

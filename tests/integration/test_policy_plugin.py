@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from vpo.db.models import TrackInfo
+from vpo.db import TrackInfo
 from vpo.executor.interface import ExecutorResult
 from vpo.plugin.events import (
     PLAN_AFTER_EXECUTE,

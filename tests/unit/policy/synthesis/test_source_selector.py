@@ -1,6 +1,6 @@
 """Unit tests for source track selection."""
 
-from vpo.db.models import TrackInfo
+from vpo.db import TrackInfo
 from vpo.policy.synthesis.models import (
     ChannelPreference,
     PreferenceCriterion,

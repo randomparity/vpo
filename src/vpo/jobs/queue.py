@@ -11,7 +11,7 @@ import os
 import sqlite3
 from datetime import datetime, timedelta, timezone
 
-from vpo.db.models import (
+from vpo.db import (
     Job,
     JobStatus,
     get_job,

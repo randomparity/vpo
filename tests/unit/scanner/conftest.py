@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from vpo.db.models import FileRecord, upsert_file
+from vpo.db import FileRecord, upsert_file
 from vpo.db.types import IntrospectionResult, TrackInfo
 from vpo.scanner.orchestrator import (
     ScannerOrchestrator,

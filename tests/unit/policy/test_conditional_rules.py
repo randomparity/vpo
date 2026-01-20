@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from vpo.db.models import TrackInfo
+from vpo.db import TrackInfo
 from vpo.policy.evaluator import (
     evaluate_conditional_rules,
 )

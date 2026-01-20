@@ -18,7 +18,7 @@ if TYPE_CHECKING:
         TrackClassificationResult,
     )
 
-from vpo.db.models import (
+from vpo.db import (
     TrackInfo,
     TrackRecord,
     TranscriptionResultRecord,

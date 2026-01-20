@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
-from vpo.db.models import TrackInfo
+from vpo.db import TrackInfo
 from vpo.executor.transcode import (
     TranscodeExecutor,
     TranscodePlan,

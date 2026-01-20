@@ -22,7 +22,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from vpo.db.models import TrackInfo
+from vpo.db import TrackInfo
 from vpo.executor.interface import require_tool
 from vpo.policy.transcode import (
     AudioAction,

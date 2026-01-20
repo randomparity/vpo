@@ -24,7 +24,7 @@ from vpo.policy.synthesis.models import (
 )
 
 if TYPE_CHECKING:
-    from vpo.db.models import TrackInfo
+    from vpo.db import TrackInfo
 
 logger = logging.getLogger(__name__)
 

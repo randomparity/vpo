@@ -10,7 +10,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from vpo.db.models import (
+from vpo.db import (
     Job,
     JobStatus,
     JobType,

@@ -465,7 +465,7 @@ class PluginLoader:
 
         plugin_hash = compute_plugin_hash(path)
 
-        from vpo.db.models import is_plugin_acknowledged
+        from vpo.db import is_plugin_acknowledged
 
         return is_plugin_acknowledged(self._db_conn, name, plugin_hash)
 
@@ -486,7 +486,7 @@ class PluginLoader:
 
         plugin_hash = compute_plugin_hash(path)
 
-        from vpo.db.models import (
+        from vpo.db import (
             PluginAcknowledgment,
             insert_plugin_acknowledgment,
         )

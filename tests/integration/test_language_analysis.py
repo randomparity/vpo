@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from vpo.db.models import TrackInfo
+from vpo.db import TrackInfo
 from vpo.language_analysis.models import (
     AnalysisMetadata,
     LanguageAnalysisResult,

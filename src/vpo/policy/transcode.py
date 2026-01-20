@@ -11,7 +11,7 @@ Audio codec matching is delegated to policy/codecs.py.
 from dataclasses import dataclass
 from enum import Enum
 
-from vpo.db.models import TrackInfo
+from vpo.db import TrackInfo
 from vpo.policy.codecs import (
     audio_codec_matches_any,
     video_codec_matches_any,

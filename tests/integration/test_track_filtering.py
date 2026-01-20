@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from vpo.db.models import TrackInfo
+from vpo.db import TrackInfo
 from vpo.db.schema import create_schema
 from vpo.policy.evaluator import compute_track_dispositions
 from vpo.policy.exceptions import InsufficientTracksError

@@ -123,7 +123,7 @@ class TranscriptionResult:
 
 
 # Import at bottom to avoid circular import
-from vpo.db.models import (  # noqa: E402
+from vpo.db import (  # noqa: E402
     TranscriptionResultRecord,
 )
 

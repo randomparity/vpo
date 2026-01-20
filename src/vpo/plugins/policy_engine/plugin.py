@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from vpo.db.models import TrackInfo
+from vpo.db import TrackInfo
 from vpo.executor.ffmpeg_metadata import FfmpegMetadataExecutor
 from vpo.executor.ffmpeg_remux import FFmpegRemuxExecutor
 from vpo.executor.interface import (

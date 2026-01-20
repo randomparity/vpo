@@ -7,8 +7,8 @@ Module organization:
 - types.py: Enums, dataclasses, and type definitions
 - queries.py: CRUD operations for database tables
 - views.py: Aggregated view query functions for UI
+- operations.py: Plan CRUD and operation audit logging
 - schema.py: Schema creation and migrations
-- models.py: Backward-compatibility shim (deprecated)
 
 Usage:
     from vpo.db import FileRecord, get_file_by_path

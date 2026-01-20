@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from vpo.db.models import (
+from vpo.db import (
     FileRecord,
     TrackRecord,
     TranscriptionResultRecord,

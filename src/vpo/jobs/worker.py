@@ -17,13 +17,13 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from vpo.db.connection import get_connection
-from vpo.db.models import (
+from vpo.db import (
     Job,
     JobStatus,
     JobType,
     update_job_progress,
 )
+from vpo.db.connection import get_connection
 from vpo.jobs.logs import JobLogWriter
 from vpo.jobs.maintenance import purge_old_jobs
 from vpo.jobs.queue import (

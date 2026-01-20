@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from vpo.db.models import (
+from vpo.db import (
     Job,
     JobStatus,
     JobType,

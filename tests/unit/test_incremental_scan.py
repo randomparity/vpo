@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from vpo.db.models import FileRecord
+from vpo.db import FileRecord
 
 
 class TestFileNeedsRescan:
@@ -254,7 +254,7 @@ class TestIncrementalScanIntegration:
         import sqlite3
         from datetime import datetime, timezone
 
-        from vpo.db.models import FileRecord, upsert_file
+        from vpo.db import FileRecord, upsert_file
         from vpo.db.schema import initialize_database
 
         # Create in-memory database
@@ -286,7 +286,7 @@ class TestIncrementalScanIntegration:
         upsert_file(conn, existing)
 
         # Import after DB setup
-        from vpo.db.models import get_file_by_path
+        from vpo.db import get_file_by_path
         from vpo.scanner.orchestrator import file_needs_rescan
 
         # Check if file needs rescan
@@ -305,7 +305,7 @@ class TestIncrementalScanIntegration:
         import sqlite3
         from datetime import datetime, timedelta, timezone
 
-        from vpo.db.models import FileRecord, upsert_file
+        from vpo.db import FileRecord, upsert_file
         from vpo.db.schema import initialize_database
 
         # Create in-memory database
@@ -338,7 +338,7 @@ class TestIncrementalScanIntegration:
         upsert_file(conn, existing)
 
         # Import after DB setup
-        from vpo.db.models import get_file_by_path
+        from vpo.db import get_file_by_path
         from vpo.scanner.orchestrator import file_needs_rescan
 
         # Check if file needs rescan

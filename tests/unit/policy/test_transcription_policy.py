@@ -2,7 +2,7 @@
 
 import pytest
 
-from vpo.db.models import TrackRecord, TranscriptionResultRecord
+from vpo.db import TrackRecord, TranscriptionResultRecord
 from vpo.policy.evaluator import compute_language_updates
 from vpo.policy.loader import (
     PolicyValidationError,
