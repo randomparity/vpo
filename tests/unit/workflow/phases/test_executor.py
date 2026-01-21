@@ -361,7 +361,7 @@ class TestExecutorSelection:
 class TestDryRunMode:
     """Tests for dry-run mode behavior."""
 
-    @patch("vpo.workflow.phases.executor.evaluate_policy")
+    @patch("vpo.workflow.phases.executor.plan_operations.evaluate_policy")
     def test_dry_run_logs_without_executing(
         self, mock_evaluate, db_conn, phased_policy, mock_file_info
     ):
@@ -513,7 +513,7 @@ class TestPhaseExecution:
         assert result.changes_made == 0
         assert "no operations" in result.message.lower()
 
-    @patch("vpo.workflow.phases.executor.evaluate_policy")
+    @patch("vpo.workflow.phases.executor.plan_operations.evaluate_policy")
     def test_execute_phase_accumulates_changes(
         self, mock_evaluate, db_conn, phased_policy, mock_file_info
     ):
@@ -967,7 +967,7 @@ class TestToolAvailabilityCaching:
         executor = PhaseExecutor(conn=db_conn, policy=phased_policy)
 
         with patch(
-            "vpo.workflow.phases.executor.check_tool_availability"
+            "vpo.workflow.phases.executor.helpers.check_tool_availability"
         ) as mock_check:
             mock_check.return_value = {"ffmpeg": True, "mkvmerge": True}
 
