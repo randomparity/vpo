@@ -308,56 +308,6 @@ class TestGetConfig:
         assert config.language.warn_on_conversion is False
 
 
-class TestLegacyFunctions:
-    """Tests for deprecated legacy functions."""
-
-    def test_parse_toml_works(self) -> None:
-        """Legacy _parse_toml should still work."""
-        from vpo.config.loader import _parse_toml
-
-        result = _parse_toml("[server]\nport = 8080")
-        assert result["server"]["port"] == 8080
-
-    def test_simple_toml_parse_works(self) -> None:
-        """Legacy _simple_toml_parse should still work."""
-        from vpo.config.loader import _simple_toml_parse
-
-        result = _simple_toml_parse("[server]\nport = 8080")
-        assert result["server"]["port"] == 8080
-
-    def test_get_env_bool_works(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Legacy _get_env_bool should still work."""
-        from vpo.config.loader import _get_env_bool
-
-        monkeypatch.setenv("TEST_BOOL", "true")
-        assert _get_env_bool("TEST_BOOL", False) is True
-        assert _get_env_bool("NONEXISTENT", True) is True
-
-    def test_get_env_int_works(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Legacy _get_env_int should still work."""
-        from vpo.config.loader import _get_env_int
-
-        monkeypatch.setenv("TEST_INT", "42")
-        assert _get_env_int("TEST_INT", 0) == 42
-        assert _get_env_int("NONEXISTENT", 100) == 100
-
-    def test_get_env_float_works(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Legacy _get_env_float should still work."""
-        from vpo.config.loader import _get_env_float
-
-        monkeypatch.setenv("TEST_FLOAT", "3.14")
-        assert _get_env_float("TEST_FLOAT", 0.0) == pytest.approx(3.14)
-        assert _get_env_float("NONEXISTENT", 2.5) == 2.5
-
-    def test_get_env_str_works(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Legacy _get_env_str should still work."""
-        from vpo.config.loader import _get_env_str
-
-        monkeypatch.setenv("TEST_STR", "hello")
-        assert _get_env_str("TEST_STR", "default") == "hello"
-        assert _get_env_str("NONEXISTENT", "default") == "default"
-
-
 class TestConfigCache:
     """Tests for config file caching behavior."""
 
