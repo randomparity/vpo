@@ -2,17 +2,19 @@
 # Used for testing default flag operations via mkvpropedit
 schema_version: 12
 
-audio_language_preference:
-  - eng
-  - jpn
-  - fra
+config:
+  audio_language_preference:
+    - eng
+    - jpn
+    - fra
+  subtitle_language_preference:
+    - eng
+    - jpn
 
-subtitle_language_preference:
-  - eng
-  - jpn
-
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: true
-  clear_other_defaults: true
+phases:
+  - name: apply
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: true
+      clear_other_defaults: true

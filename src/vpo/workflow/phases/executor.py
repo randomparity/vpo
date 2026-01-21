@@ -68,6 +68,8 @@ class OperationResult:
 
     operation: OperationType
     success: bool
+    constraint_skipped: bool = False
+    """True if a policy constraint caused the operation to be skipped (not an error)."""
     changes_made: int = 0
     message: str | None = None
     duration_seconds: float = 0.0
@@ -288,8 +290,14 @@ class PhaseExecutor:
         # Create backup before making changes (unless dry-run)
         if not self.dry_run:
             state.backup_path = self._create_backup(file_path)
-            if state.backup_path:
-                logger.debug("Created backup at %s", state.backup_path)
+            if state.backup_path is None:
+                raise PhaseExecutionError(
+                    phase_name=phase.name,
+                    operation=None,
+                    message="Cannot proceed: backup creation failed "
+                    "(check disk space/permissions)",
+                )
+            logger.debug("Created backup at %s", state.backup_path)
 
         try:
             # Execute operations in canonical order
@@ -465,11 +473,12 @@ class PhaseExecutor:
         except PolicyError as e:
             # Policy constraint violations (e.g., no matching tracks) are
             # informational - the policy is working correctly by not making
-            # changes that would violate constraints
-            logger.info("Operation %s skipped: %s", op_type.value, e)
+            # changes that would violate constraints. This is NOT a failure.
+            logger.info("Operation %s skipped (constraint): %s", op_type.value, e)
             return OperationResult(
                 operation=op_type,
-                success=False,
+                success=True,  # Constraint skip is not a failure
+                constraint_skipped=True,
                 message=str(e),
                 duration_seconds=time.time() - start_time,
             )
@@ -1100,10 +1109,17 @@ class PhaseExecutor:
 
         # Build operation context (handles FileInfo → DB ID mapping)
         # This ensures tracks have their database IDs populated
-        if file_info is not None:
-            context = FileOperationContext.from_file_info(file_info, self.conn)
-        else:
-            context = FileOperationContext.from_file_path(file_path, self.conn)
+        try:
+            if file_info is not None:
+                context = FileOperationContext.from_file_info(file_info, self.conn)
+            else:
+                context = FileOperationContext.from_file_path(file_path, self.conn)
+        except ValueError as e:
+            raise PhaseExecutionError(
+                phase_name=state.phase.name,
+                operation=OperationType.TRANSCRIPTION.value,
+                message=f"File context creation failed: {e}",
+            ) from e
 
         # Filter to audio tracks with duration
         audio_tracks = [

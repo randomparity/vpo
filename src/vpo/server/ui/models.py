@@ -1608,7 +1608,7 @@ class PolicyEditorContext:
     audio_synthesis: list | None = None
     # V9+ fields
     workflow: dict | None = None
-    # V11+ fields (user-defined phases)
+    # Phased policy fields (user-defined phases)
     phases: list | None = None
     config: dict | None = None
     # Unknown fields for warning banner
@@ -1641,14 +1641,14 @@ class PolicyEditorContext:
             "audio_synthesis": self.audio_synthesis,
             # V9+ fields
             "workflow": self.workflow,
-            # V11+ fields
+            # Phased policy fields
             "phases": self.phases,
             "config": self.config,
             # Meta
             "unknown_fields": self.unknown_fields,
             "parse_error": self.parse_error,
         }
-        # Add convenience field for V11 policies
+        # Add convenience field for phased policies
         if self.phases is not None:
             result["phase_names"] = [
                 p.get("name", "") for p in self.phases if isinstance(p, dict)
@@ -1696,7 +1696,7 @@ class PolicyEditorRequest:
     audio_synthesis: list | None
     # V9+ fields
     workflow: dict | None
-    # V11+ fields (user-defined phases)
+    # Phased policy fields (user-defined phases)
     phases: list | None
     config: dict | None
     last_modified_timestamp: str
@@ -1801,7 +1801,7 @@ class PolicyEditorRequest:
             audio_synthesis=data.get("audio_synthesis"),
             # V9+ fields
             workflow=data.get("workflow"),
-            # V11+ fields
+            # Phased policy fields
             phases=phases,
             config=config,
             last_modified_timestamp=data["last_modified_timestamp"],

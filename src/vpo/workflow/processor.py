@@ -629,5 +629,9 @@ class WorkflowProcessor:
 
         except MediaIntrospectionError as e:
             logger.error("Re-introspection failed for %s: %s", file_path, e)
-            # Fall back to existing database info
-            return self._get_file_info(file_path)
+            raise PhaseExecutionError(
+                phase_name="re-introspection",
+                operation=None,
+                message=f"Cannot re-introspect file after modification: {e}. "
+                "File may be corrupted.",
+            ) from e

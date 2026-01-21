@@ -20,7 +20,8 @@ from vpo.policy.types import PolicySchema
 # Current supported schema version (only V12 is supported)
 SCHEMA_VERSION = 12
 
-# Backward compatibility alias (deprecated)
+# Backward compatibility alias - DEPRECATED
+# This will be removed in a future release. Use SCHEMA_VERSION directly.
 MAX_SCHEMA_VERSION = SCHEMA_VERSION
 
 # RESERVED_PHASE_NAMES is imported from pydantic_models
@@ -86,7 +87,16 @@ def load_policy_from_dict(data: dict[str, Any]) -> PolicySchema:
     # Policies must have a 'phases' key
     if "phases" not in data:
         raise PolicyValidationError(
-            "Policy must have a 'phases' key defining at least one phase"
+            "Policy must have a 'phases' key defining at least one phase.\n\n"
+            "If this policy uses the old flat format, convert it by wrapping "
+            "operations in a phase:\n\n"
+            "phases:\n"
+            "  - name: apply\n"
+            "    track_order: [...]  # your existing fields\n"
+            "    audio_filter: {...}\n"
+            "config:\n"
+            "  audio_language_preference: [...]  # move global settings here\n"
+            "  subtitle_language_preference: [...]"
         )
 
     try:
@@ -99,7 +109,8 @@ def load_policy_from_dict(data: dict[str, Any]) -> PolicySchema:
     return _convert_to_policy_schema(model)
 
 
-# Backward compatibility aliases (deprecated)
+# Backward compatibility aliases - DEPRECATED
+# These will be removed in a future release. Use load_policy_from_dict directly.
 load_phased_policy_from_dict = load_policy_from_dict
 load_v11_policy_from_dict = load_policy_from_dict
 

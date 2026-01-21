@@ -1,5 +1,12 @@
 schema_version: 12
-audio_language_preference:
-  - eng
-subtitle_language_preference:
-  - eng
+
+config:
+  audio_language_preference:
+    - eng
+  subtitle_language_preference:
+    - eng
+
+phases:
+  - name: apply
+    default_flags:
+      set_first_video_default: true

@@ -335,19 +335,32 @@ class TestConcurrentHealthRequests:
         policies_dir = tmp_path / ".vpo" / "policies"
         policies_dir.mkdir(parents=True, exist_ok=True)
 
-        # Create a valid basic policy
+        # Create a valid basic policy (phased format required)
         basic_policy = policies_dir / "test-basic.yaml"
         basic_policy.write_text(
-            "schema_version: 12\naudio_language_preference:\n  - eng\n"
+            "schema_version: 12\n"
+            "config:\n"
+            "  audio_language_preference:\n    - eng\n"
+            "phases:\n"
+            "  - name: apply\n"
+            "    default_flags:\n"
+            "      set_first_video_default: true\n"
         )
 
-        # Create a policy with features
+        # Create a policy with features (phased format required)
         full_policy = policies_dir / "test-full.yaml"
         full_policy.write_text(
             "schema_version: 12\n"
-            "audio_language_preference:\n  - eng\n  - jpn\n"
-            "transcode:\n  target_video_codec: hevc\n"
-            "transcription:\n  enabled: true\n"
+            "config:\n"
+            "  audio_language_preference:\n    - eng\n    - jpn\n"
+            "phases:\n"
+            "  - name: transcode\n"
+            "    transcode:\n"
+            "      video:\n"
+            "        target_codec: hevc\n"
+            "  - name: transcribe\n"
+            "    transcription:\n"
+            "      enabled: true\n"
         )
 
         env = os.environ.copy()
@@ -479,9 +492,15 @@ class TestConcurrentHealthRequests:
         malformed_policy = policies_dir / "bad-policy.yaml"
         malformed_policy.write_text("invalid: yaml: content: [unclosed")
 
-        # Create a valid policy for comparison
+        # Create a valid policy for comparison (phased format required)
         valid_policy = policies_dir / "good-policy.yaml"
-        valid_policy.write_text("schema_version: 12\n")
+        valid_policy.write_text(
+            "schema_version: 12\n"
+            "phases:\n"
+            "  - name: apply\n"
+            "    default_flags:\n"
+            "      set_first_video_default: true\n"
+        )
 
         env = os.environ.copy()
         env["VPO_DATABASE_PATH"] = str(temp_db)

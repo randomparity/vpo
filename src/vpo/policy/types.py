@@ -2266,6 +2266,7 @@ class PhaseExecutionError(Exception):
         super().__init__(f"Phase '{phase_name}' failed: {message}")
 
 
-# Backward compatibility aliases (deprecated)
+# Backward compatibility aliases - DEPRECATED
+# These will be removed in a future release. Use PolicySchema directly.
 V11PolicySchema = PolicySchema
 PhasedPolicySchema = PolicySchema

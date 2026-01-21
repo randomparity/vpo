@@ -2,30 +2,30 @@
 # Used for testing track removal/filtering via mkvmerge
 schema_version: 12
 
-audio_language_preference:
-  - eng
-  - jpn
-
-subtitle_language_preference:
-  - eng
-
-audio_filter:
-  languages:
+config:
+  audio_language_preference:
     - eng
     - jpn
-  fallback:
-    mode: keep_all
-  minimum: 1
-
-subtitle_filter:
-  languages:
+  subtitle_language_preference:
     - eng
-  preserve_forced: true
-  fallback:
-    mode: keep_all
 
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: true
-  clear_other_defaults: true
+phases:
+  - name: apply
+    audio_filter:
+      languages:
+        - eng
+        - jpn
+      fallback:
+        mode: keep_all
+      minimum: 1
+    subtitle_filter:
+      languages:
+        - eng
+      preserve_forced: true
+      fallback:
+        mode: keep_all
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: true
+      clear_other_defaults: true

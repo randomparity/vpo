@@ -128,8 +128,7 @@ class DiffSummary:
     ) -> DiffSummary:
         """Compare two policy dictionaries and return a diff summary.
 
-        Supports both flat policies (fields at root level) and phased policies
-        (fields inside config/phases sections).
+        Handles phased policies where fields are in config/phases sections.
 
         Args:
             old_data: Original policy data.
@@ -140,7 +139,7 @@ class DiffSummary:
         """
         changes: list[FieldChange] = []
 
-        # Fields to compare - these may be at root level (flat) or in config (phased)
+        # Fields to compare - typically in config section
         config_fields = [
             "audio_language_preference",
             "subtitle_language_preference",
@@ -153,12 +152,12 @@ class DiffSummary:
             "default_flags",
         ]
 
-        # Helper to get value from flat or phased structure
+        # Helper to get value from policy structure
         def get_value(data: dict, field: str) -> Any:
-            # First check root level (flat policy or explicit override)
+            # First check root level (explicit override)
             if field in data:
                 return data[field]
-            # Then check config section (phased policy)
+            # Then check config section
             if field in config_fields and "config" in data:
                 return data["config"].get(field)
             # Check first phase for phase-specific fields

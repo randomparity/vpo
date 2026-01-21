@@ -1624,7 +1624,8 @@ class PolicyModel(BaseModel):
         return self
 
 
-# Backward compatibility aliases (deprecated)
+# Backward compatibility aliases - DEPRECATED
+# These will be removed in a future release. Use PolicyModel directly.
 V11PolicyModel = PolicyModel
 PhasedPolicyModel = PolicyModel
 

@@ -2,38 +2,40 @@
 # Used for testing video/audio transcoding operations
 schema_version: 12
 
-audio_language_preference:
-  - eng
-  - jpn
+config:
+  audio_language_preference:
+    - eng
+    - jpn
 
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  clear_other_defaults: true
-
-transcode:
-  video:
-    target_codec: hevc
-    skip_if:
-      codec_matches:
-        - hevc
-        - h265
-      resolution_within: 1080p
-      bitrate_under: 15M
-    quality:
-      mode: crf
-      crf: 28
-      preset: ultrafast  # Fast for testing
-    scaling:
-      max_resolution: 1080p
-      algorithm: lanczos
-    hardware_acceleration:
-      enabled: auto
-      fallback_to_cpu: true
-  audio:
-    preserve_codecs:
-      - flac
-      - truehd
-      - dts-hd
-    transcode_to: aac
-    transcode_bitrate: 128k
+phases:
+  - name: apply
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      clear_other_defaults: true
+    transcode:
+      video:
+        target_codec: hevc
+        skip_if:
+          codec_matches:
+            - hevc
+            - h265
+          resolution_within: 1080p
+          bitrate_under: 15M
+        quality:
+          mode: crf
+          crf: 28
+          preset: ultrafast  # Fast for testing
+        scaling:
+          max_resolution: 1080p
+          algorithm: lanczos
+        hardware_acceleration:
+          enabled: auto
+          fallback_to_cpu: true
+      audio:
+        preserve_codecs:
+          - flac
+          - truehd
+          - dts-hd
+        transcode_to: aac
+        transcode_bitrate: 128k
