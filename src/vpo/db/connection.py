@@ -302,12 +302,6 @@ class DaemonConnectionPool:
 
         return self._write_conn
 
-    # Legacy aliases for backward compatibility
-    _get_connection_unlocked = _get_or_create_write_connection
-    _get_write_connection_unlocked = _get_or_create_write_connection
-    _conn = property(lambda self: self._write_conn)
-    _lock = property(lambda self: self._write_lock)
-
     def get_connection(self) -> sqlite3.Connection:
         """Get the shared write connection, creating if needed.
 

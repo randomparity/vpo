@@ -26,11 +26,11 @@ class TestDaemonConnectionPool:
 
         pool = DaemonConnectionPool(db_path)
         # Connection should not exist yet
-        assert pool._conn is None
+        assert pool._write_conn is None
 
         # Access connection
         pool.get_connection()
-        assert pool._conn is not None
+        assert pool._write_conn is not None
 
         pool.close()
 
