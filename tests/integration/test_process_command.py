@@ -17,10 +17,12 @@ def policy_file(temp_dir: Path) -> Path:
     policy_path.write_text(
         """
 schema_version: 12
-workflow:
-  phases:
-    - apply
+config:
   on_error: skip
+phases:
+  - name: apply
+    audio_filter:
+      languages: [eng]
 """
     )
     return policy_path
@@ -33,10 +35,12 @@ def policy_file_with_fail(temp_dir: Path) -> Path:
     policy_path.write_text(
         """
 schema_version: 12
-workflow:
-  phases:
-    - apply
+config:
   on_error: fail
+phases:
+  - name: apply
+    audio_filter:
+      languages: [eng]
 """
     )
     return policy_path
@@ -49,10 +53,12 @@ def policy_file_with_continue(temp_dir: Path) -> Path:
     policy_path.write_text(
         """
 schema_version: 12
-workflow:
-  phases:
-    - apply
+config:
   on_error: continue
+phases:
+  - name: apply
+    audio_filter:
+      languages: [eng]
 """
     )
     return policy_path
@@ -107,7 +113,7 @@ class TestProcessCommandArgumentParsing:
                 "--policy",
                 str(policy_file),
                 "--phases",
-                "analyze,apply,transcode",
+                "apply",  # Only use phases defined in the policy
                 str(temp_video_dir / "movie.mkv"),
             ],
         )
@@ -390,31 +396,32 @@ class TestProcessCommandOnErrorBehavior:
     ):
         """Test that on_error=skip allows batch to continue."""
         # Create mock results - first file fails, second succeeds
-        from vpo.policy.types import ProcessingPhase
-        from vpo.workflow.processor import FileProcessingResult
+        from vpo.policy.types import FileProcessingResult
 
         mock_processor = MagicMock()
         fail_result = MagicMock(spec=FileProcessingResult)
         fail_result.success = False
         fail_result.batch_should_stop = False  # skip mode
-        fail_result.error_message = "Test error"
-        fail_result.phases_completed = []
-        fail_result.phases_failed = [ProcessingPhase.APPLY]
-        fail_result.phases_skipped = []
-        fail_result.phase_results = []
+        fail_result.failed_phase = "apply"
+        fail_result.phases_completed = 0
+        fail_result.phases_failed = 1
+        fail_result.phases_skipped = 0
+        fail_result.phase_results = ()
         fail_result.file_path = temp_video_dir / "movie.mkv"
-        fail_result.duration_seconds = 0.1
+        fail_result.total_duration_seconds = 0.1
+        fail_result.total_changes = 0
 
         success_result = MagicMock(spec=FileProcessingResult)
         success_result.success = True
         success_result.batch_should_stop = False
-        success_result.error_message = None
-        success_result.phases_completed = [ProcessingPhase.APPLY]
-        success_result.phases_failed = []
-        success_result.phases_skipped = []
-        success_result.phase_results = []
+        success_result.failed_phase = None
+        success_result.phases_completed = 1
+        success_result.phases_failed = 0
+        success_result.phases_skipped = 0
+        success_result.phase_results = ()
         success_result.file_path = temp_video_dir / "show.mp4"
-        success_result.duration_seconds = 0.1
+        success_result.total_duration_seconds = 0.1
+        success_result.total_changes = 0
 
         mock_processor.process_file.side_effect = [fail_result, success_result]
         mock_processor_cls.return_value = mock_processor
@@ -440,20 +447,20 @@ class TestProcessCommandOnErrorBehavior:
         self, mock_processor_cls, temp_video_dir: Path, policy_file: Path
     ):
         """Test that on_error=fail stops batch processing."""
-        from vpo.policy.types import ProcessingPhase
-        from vpo.workflow.processor import FileProcessingResult
+        from vpo.policy.types import FileProcessingResult
 
         mock_processor = MagicMock()
         fail_result = MagicMock(spec=FileProcessingResult)
         fail_result.success = False
         fail_result.batch_should_stop = True  # fail mode
-        fail_result.error_message = "Test error"
-        fail_result.phases_completed = []
-        fail_result.phases_failed = [ProcessingPhase.APPLY]
-        fail_result.phases_skipped = []
-        fail_result.phase_results = []
+        fail_result.failed_phase = "apply"
+        fail_result.phases_completed = 0
+        fail_result.phases_failed = 1
+        fail_result.phases_skipped = 0
+        fail_result.phase_results = ()
         fail_result.file_path = temp_video_dir / "movie.mkv"
-        fail_result.duration_seconds = 0.1
+        fail_result.total_duration_seconds = 0.1
+        fail_result.total_changes = 0
 
         mock_processor.process_file.return_value = fail_result
         mock_processor_cls.return_value = mock_processor
@@ -483,21 +490,21 @@ class TestProcessCommandWorkflow:
     def test_phases_override(
         self, mock_processor_cls, temp_video_dir: Path, policy_file: Path
     ):
-        """Test that --phases overrides policy phases."""
-        from vpo.policy.types import ProcessingPhase
-        from vpo.workflow.processor import FileProcessingResult
+        """Test that --phases overrides policy phases via selected_phases parameter."""
+        from vpo.policy.types import FileProcessingResult
 
         mock_processor = MagicMock()
         mock_result = MagicMock(spec=FileProcessingResult)
         mock_result.success = True
         mock_result.batch_should_stop = False
-        mock_result.error_message = None
-        mock_result.phases_completed = [ProcessingPhase.ANALYZE]
-        mock_result.phases_failed = []
-        mock_result.phases_skipped = []
-        mock_result.phase_results = []
+        mock_result.failed_phase = None
+        mock_result.phases_completed = 1
+        mock_result.phases_failed = 0
+        mock_result.phases_skipped = 0
+        mock_result.phase_results = ()
         mock_result.file_path = temp_video_dir / "movie.mkv"
-        mock_result.duration_seconds = 0.1
+        mock_result.total_duration_seconds = 0.1
+        mock_result.total_changes = 0
 
         mock_processor.process_file.return_value = mock_result
         mock_processor_cls.return_value = mock_processor
@@ -510,16 +517,16 @@ class TestProcessCommandWorkflow:
                 "--policy",
                 str(policy_file),
                 "--phases",
-                "analyze",
+                "apply",  # Use "apply" since it's defined in the fixture
                 str(temp_video_dir / "movie.mkv"),
             ],
         )
 
         # WorkflowProcessor should be called
         mock_processor_cls.assert_called_once()
-        # Check that phases were overridden (in the policy passed to processor)
+        # Check that selected_phases parameter was passed
         call_kwargs = mock_processor_cls.call_args.kwargs
-        assert call_kwargs["policy"].workflow.phases == (ProcessingPhase.ANALYZE,)
+        assert call_kwargs["selected_phases"] == ["apply"]
 
 
 class TestProcessCommandSummary:
@@ -530,8 +537,7 @@ class TestProcessCommandSummary:
         self, mock_processor_cls, temp_video_dir: Path, policy_file: Path
     ):
         """Test that summary shows correct counts."""
-        from vpo.policy.types import ProcessingPhase
-        from vpo.workflow.processor import FileProcessingResult
+        from vpo.policy.types import FileProcessingResult
 
         mock_processor = MagicMock()
 
@@ -541,13 +547,14 @@ class TestProcessCommandSummary:
             result = MagicMock(spec=FileProcessingResult)
             result.success = success
             result.batch_should_stop = False
-            result.error_message = None if success else "Failed"
-            result.phases_completed = [ProcessingPhase.APPLY] if success else []
-            result.phases_failed = [] if success else [ProcessingPhase.APPLY]
-            result.phases_skipped = []
-            result.phase_results = []
+            result.failed_phase = None if success else "apply"
+            result.phases_completed = 1 if success else 0
+            result.phases_failed = 0 if success else 1
+            result.phases_skipped = 0
+            result.phase_results = ()
             result.file_path = path
-            result.duration_seconds = 0.1
+            result.total_duration_seconds = 0.1
+            result.total_changes = 0
             return result
 
         mock_processor.process_file.side_effect = [

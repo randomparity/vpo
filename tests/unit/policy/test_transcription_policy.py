@@ -9,6 +9,7 @@ from vpo.policy.loader import (
     load_policy_from_dict,
 )
 from vpo.policy.types import (
+    EvaluationPolicy,
     TranscriptionPolicyOptions,
 )
 
@@ -93,44 +94,61 @@ class TestTranscriptionPolicyLoading:
         policy = load_policy_from_dict(
             {
                 "schema_version": 12,
-                "transcription": {
-                    "enabled": True,
-                    "update_language_from_transcription": True,
-                    "confidence_threshold": 0.85,
-                    "detect_commentary": True,
-                    "reorder_commentary": True,
-                },
+                "phases": [
+                    {
+                        "name": "transcribe",
+                        "transcription": {
+                            "enabled": True,
+                            "update_language_from_transcription": True,
+                            "confidence_threshold": 0.85,
+                            "detect_commentary": True,
+                            "reorder_commentary": True,
+                        },
+                    }
+                ],
             }
         )
-        assert policy.transcription is not None
-        assert policy.transcription.enabled is True
-        assert policy.transcription.update_language_from_transcription is True
-        assert policy.transcription.confidence_threshold == 0.85
-        assert policy.transcription.detect_commentary is True
-        assert policy.transcription.reorder_commentary is True
+        # Transcription is in the phase, not at policy level
+        assert policy.phases[0].transcription is not None
+        assert policy.phases[0].transcription.enabled is True
+        assert policy.phases[0].transcription.update_language_from_transcription is True
+        assert policy.phases[0].transcription.confidence_threshold == 0.85
+        assert policy.phases[0].transcription.detect_commentary is True
+        assert policy.phases[0].transcription.reorder_commentary is True
 
     def test_load_policy_without_transcription(self):
         """Loading policy without transcription options should work."""
-        policy = load_policy_from_dict({"schema_version": 12})
-        assert policy.transcription is None
+        policy = load_policy_from_dict(
+            {
+                "schema_version": 12,
+                "phases": [{"name": "default"}],
+            }
+        )
+        assert policy.phases[0].transcription is None
 
     def test_load_policy_partial_transcription(self):
         """Partial transcription options should use defaults."""
         policy = load_policy_from_dict(
             {
                 "schema_version": 12,
-                "transcription": {
-                    "enabled": True,
-                },
+                "phases": [
+                    {
+                        "name": "transcribe",
+                        "transcription": {
+                            "enabled": True,
+                        },
+                    }
+                ],
             }
         )
-        assert policy.transcription is not None
-        assert policy.transcription.enabled is True
+        transcription = policy.phases[0].transcription
+        assert transcription is not None
+        assert transcription.enabled is True
         # Defaults
-        assert policy.transcription.update_language_from_transcription is False
-        assert policy.transcription.confidence_threshold == 0.8
-        assert policy.transcription.detect_commentary is False
-        assert policy.transcription.reorder_commentary is False
+        assert transcription.update_language_from_transcription is False
+        assert transcription.confidence_threshold == 0.8
+        assert transcription.detect_commentary is False
+        assert transcription.reorder_commentary is False
 
     def test_load_policy_invalid_confidence_threshold(self):
         """Invalid confidence_threshold should raise error."""
@@ -138,9 +156,14 @@ class TestTranscriptionPolicyLoading:
             load_policy_from_dict(
                 {
                     "schema_version": 12,
-                    "transcription": {
-                        "confidence_threshold": 1.5,
-                    },
+                    "phases": [
+                        {
+                            "name": "transcribe",
+                            "transcription": {
+                                "confidence_threshold": 1.5,
+                            },
+                        }
+                    ],
                 }
             )
 
@@ -150,33 +173,59 @@ class TestTranscriptionPolicyLoading:
             load_policy_from_dict(
                 {
                     "schema_version": 12,
-                    "transcription": {
-                        "enabled": True,
-                        "invalid_field": "value",
-                    },
+                    "phases": [
+                        {
+                            "name": "transcribe",
+                            "transcription": {
+                                "enabled": True,
+                                "invalid_field": "value",
+                            },
+                        }
+                    ],
                 }
             )
 
     def test_has_transcription_settings_property(self):
-        """has_transcription_settings should return True when enabled."""
+        """has_transcription_settings indicates if transcription is enabled."""
         policy_disabled = load_policy_from_dict(
             {
                 "schema_version": 12,
-                "transcription": {"enabled": False},
+                "phases": [
+                    {
+                        "name": "transcribe",
+                        "transcription": {"enabled": False},
+                    }
+                ],
             }
         )
-        assert policy_disabled.has_transcription_settings is False
+        # Phase has transcription config but it's disabled
+        phase = policy_disabled.phases[0]
+        assert phase.transcription is not None
+        assert phase.transcription.enabled is False
 
         policy_enabled = load_policy_from_dict(
             {
                 "schema_version": 12,
-                "transcription": {"enabled": True},
+                "phases": [
+                    {
+                        "name": "transcribe",
+                        "transcription": {"enabled": True},
+                    }
+                ],
             }
         )
-        assert policy_enabled.has_transcription_settings is True
+        phase = policy_enabled.phases[0]
+        assert phase.transcription is not None
+        assert phase.transcription.enabled is True
 
-        policy_none = load_policy_from_dict({"schema_version": 12})
-        assert policy_none.has_transcription_settings is False
+        policy_none = load_policy_from_dict(
+            {
+                "schema_version": 12,
+                "phases": [{"name": "default"}],
+            }
+        )
+        phase = policy_none.phases[0]
+        assert phase.transcription is None
 
 
 # =============================================================================
@@ -219,28 +268,22 @@ class TestComputeLanguageUpdates:
 
     @pytest.fixture
     def policy_enabled(self):
-        """Create a policy with transcription enabled."""
-        return load_policy_from_dict(
-            {
-                "schema_version": 12,
-                "transcription": {
-                    "enabled": True,
-                    "update_language_from_transcription": True,
-                    "confidence_threshold": 0.8,
-                },
-            }
+        """Create an evaluation policy with transcription enabled."""
+        return EvaluationPolicy(
+            transcription=TranscriptionPolicyOptions(
+                enabled=True,
+                update_language_from_transcription=True,
+                confidence_threshold=0.8,
+            ),
         )
 
     @pytest.fixture
     def policy_disabled(self):
-        """Create a policy with transcription disabled."""
-        return load_policy_from_dict(
-            {
-                "schema_version": 12,
-                "transcription": {
-                    "enabled": False,
-                },
-            }
+        """Create an evaluation policy with transcription disabled."""
+        return EvaluationPolicy(
+            transcription=TranscriptionPolicyOptions(
+                enabled=False,
+            ),
         )
 
     def test_compute_updates_when_enabled(
@@ -327,14 +370,11 @@ class TestComputeLanguageUpdates:
         self, audio_track, transcription_result
     ):
         """Should not update when update_language_from_transcription is False."""
-        policy = load_policy_from_dict(
-            {
-                "schema_version": 12,
-                "transcription": {
-                    "enabled": True,
-                    "update_language_from_transcription": False,  # Disabled
-                },
-            }
+        policy = EvaluationPolicy(
+            transcription=TranscriptionPolicyOptions(
+                enabled=True,
+                update_language_from_transcription=False,  # Disabled
+            ),
         )
         results = {audio_track.id: transcription_result}
         updates = compute_language_updates([audio_track], results, policy)
@@ -356,37 +396,31 @@ class TestComputeLanguageUpdates:
         )
 
         # With 0.5 threshold, should update
-        policy_low = load_policy_from_dict(
-            {
-                "schema_version": 12,
-                "transcription": {
-                    "enabled": True,
-                    "update_language_from_transcription": True,
-                    "confidence_threshold": 0.5,
-                },
-            }
+        policy_low = EvaluationPolicy(
+            transcription=TranscriptionPolicyOptions(
+                enabled=True,
+                update_language_from_transcription=True,
+                confidence_threshold=0.5,
+            ),
         )
         results = {audio_track.id: result}
         updates = compute_language_updates([audio_track], results, policy_low)
         assert audio_track.track_index in updates
 
         # With 0.8 threshold, should not update
-        policy_high = load_policy_from_dict(
-            {
-                "schema_version": 12,
-                "transcription": {
-                    "enabled": True,
-                    "update_language_from_transcription": True,
-                    "confidence_threshold": 0.8,
-                },
-            }
+        policy_high = EvaluationPolicy(
+            transcription=TranscriptionPolicyOptions(
+                enabled=True,
+                update_language_from_transcription=True,
+                confidence_threshold=0.8,
+            ),
         )
         updates = compute_language_updates([audio_track], results, policy_high)
         assert len(updates) == 0
 
     def test_no_policy_transcription_settings(self, audio_track, transcription_result):
         """Should return empty when policy has no transcription settings."""
-        policy = load_policy_from_dict({"schema_version": 12})
+        policy = EvaluationPolicy()  # No transcription settings
         results = {audio_track.id: transcription_result}
         updates = compute_language_updates([audio_track], results, policy)
 

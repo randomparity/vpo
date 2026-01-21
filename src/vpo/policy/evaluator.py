@@ -39,9 +39,9 @@ from vpo.policy.types import (
     ConditionalResult,
     ConditionalRule,
     ContainerChange,
+    EvaluationPolicy,
     Plan,
     PlannedAction,
-    PolicySchema,
     RuleEvaluation,
     SkipFlags,
     SubtitleFilterConfig,
@@ -104,7 +104,7 @@ def _find_language_preference_index(
 
 def classify_track(
     track: TrackInfo,
-    policy: PolicySchema,
+    policy: EvaluationPolicy,
     matcher: CommentaryMatcher,
     transcription_results: dict[int, TranscriptionResultRecord] | None = None,
 ) -> TrackType:
@@ -196,7 +196,7 @@ def classify_track(
 
 def compute_desired_order(
     tracks: list[TrackInfo],
-    policy: PolicySchema,
+    policy: EvaluationPolicy,
     matcher: CommentaryMatcher,
     transcription_results: dict[int, TranscriptionResultRecord] | None = None,
 ) -> list[int]:
@@ -254,7 +254,7 @@ def compute_desired_order(
 
 def compute_default_flags(
     tracks: list[TrackInfo],
-    policy: PolicySchema,
+    policy: EvaluationPolicy,
     matcher: CommentaryMatcher,
 ) -> dict[int, bool]:
     """Compute desired default flag state for each track.
@@ -408,7 +408,7 @@ def _audio_matches_language_preference(
 def compute_language_updates(
     tracks: list[TrackInfo | TrackRecord],
     transcription_results: dict[int, TranscriptionResultRecord],
-    policy: PolicySchema,
+    policy: EvaluationPolicy,
 ) -> dict[int, str]:
     """Compute desired language updates from transcription results.
 
@@ -731,7 +731,7 @@ def _apply_fallback(
 
 def compute_track_dispositions(
     tracks: list[TrackInfo],
-    policy: PolicySchema,
+    policy: EvaluationPolicy,
     transcription_results: dict[int, TranscriptionResultRecord] | None = None,
     subtitle_forced_will_be_cleared: bool = False,
 ) -> tuple[TrackDisposition, ...]:
@@ -969,7 +969,7 @@ def _is_codec_mp4_compatible(codec: str, track_type: str) -> bool:
 def _evaluate_container_change(
     tracks: list[TrackInfo],
     source_format: str,
-    policy: PolicySchema,
+    policy: EvaluationPolicy,
 ) -> ContainerChange | None:
     """Evaluate if container conversion is needed.
 
@@ -1038,7 +1038,7 @@ def evaluate_conditional_rules(
     else clause is executed.
 
     Args:
-        rules: Tuple of ConditionalRule from PolicySchema.
+        rules: Tuple of ConditionalRule from EvaluationPolicy.
         tracks: List of TrackInfo from the file.
         file_path: Path to the file being processed.
         language_results: Optional dict mapping track_id to LanguageAnalysisResult
@@ -1157,7 +1157,7 @@ def evaluate_conditional_rules(
 def evaluate_container_change_with_policy(
     tracks: list[TrackInfo],
     source_format: str,
-    policy: PolicySchema,
+    policy: EvaluationPolicy,
 ) -> ContainerChange | None:
     """Evaluate container change with policy error handling.
 
@@ -1207,7 +1207,7 @@ def evaluate_policy(
     file_path: Path,
     container: str,
     tracks: list[TrackInfo],
-    policy: PolicySchema,
+    policy: EvaluationPolicy,
     transcription_results: dict[int, TranscriptionResultRecord] | None = None,
     language_results: dict[int, LanguageAnalysisResult] | None = None,
     plugin_metadata: PluginMetadataDict | None = None,

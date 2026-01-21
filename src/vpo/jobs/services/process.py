@@ -1,7 +1,7 @@
 """Process job service for workflow execution.
 
 This module provides the service for processing PROCESS jobs, which
-execute the unified workflow (analyze → apply → transcode) on files.
+execute the workflow on files through user-defined phases.
 """
 
 import json
@@ -37,7 +37,7 @@ class ProcessJobResult:
 class ProcessJobService:
     """Service for processing workflow jobs.
 
-    Executes the unified workflow (analyze → apply → transcode) on files.
+    Executes the workflow on files through user-defined phases.
     """
 
     def __init__(self, conn: sqlite3.Connection) -> None:
@@ -88,22 +88,24 @@ class ProcessJobService:
                 )
 
                 if job_log:
-                    phases_str = ", ".join(
-                        p.value
-                        for p in (policy.workflow.phases if policy.workflow else [])
-                    )
+                    phases_str = ", ".join(policy.phase_names)
                     job_log.write_line(f"Workflow phases: {phases_str}")
 
                 result = processor.process_file(input_path)
 
-                phases_completed = tuple(p.value for p in result.phases_completed)
-                phases_failed = tuple(p.value for p in result.phases_failed)
+                # Collect phase names from results
+                phases_completed = tuple(
+                    pr.phase_name for pr in result.phase_results if pr.success
+                )
+                phases_failed = tuple(
+                    pr.phase_name for pr in result.phase_results if not pr.success
+                )
 
                 if job_log:
                     for pr in result.phase_results:
                         status = "OK" if pr.success else "FAILED"
                         job_log.write_line(
-                            f"Phase {pr.phase.value}: {status} "
+                            f"Phase {pr.phase_name}: {status} "
                             f"({pr.changes_made} changes, {pr.duration_seconds:.1f}s)"
                         )
                         if pr.message:

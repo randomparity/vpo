@@ -10,19 +10,12 @@ from typing import Any
 
 import yaml
 
-from vpo.policy.conversion import (
-    _convert_to_phased_policy_schema,
-    _convert_to_policy_schema,
-)
+from vpo.policy.conversion import _convert_to_policy_schema
 from vpo.policy.pydantic_models import (
-    PhasedPolicyModel,
     PolicyModel,
     PolicyValidationError,
 )
-from vpo.policy.types import (
-    PhasedPolicySchema,
-    PolicySchema,
-)
+from vpo.policy.types import PolicySchema
 
 # Current supported schema version (only V12 is supported)
 SCHEMA_VERSION = 12
@@ -33,14 +26,14 @@ MAX_SCHEMA_VERSION = SCHEMA_VERSION
 # RESERVED_PHASE_NAMES is imported from pydantic_models
 
 
-def load_policy(policy_path: Path) -> PolicySchema | PhasedPolicySchema:
+def load_policy(policy_path: Path) -> PolicySchema:
     """Load and validate a policy from a YAML file.
 
     Args:
         policy_path: Path to the YAML policy file.
 
     Returns:
-        Validated PolicySchema (flat format) or PhasedPolicySchema (phased format).
+        Validated PolicySchema object.
 
     Raises:
         PolicyValidationError: If the policy file is invalid.
@@ -71,14 +64,14 @@ def load_policy(policy_path: Path) -> PolicySchema | PhasedPolicySchema:
     return load_policy_from_dict(data)
 
 
-def load_policy_from_dict(data: dict[str, Any]) -> PolicySchema | PhasedPolicySchema:
+def load_policy_from_dict(data: dict[str, Any]) -> PolicySchema:
     """Load and validate a policy from a dictionary.
 
     Args:
         data: Dictionary containing policy configuration.
 
     Returns:
-        Validated PolicySchema (flat format) or PhasedPolicySchema (phased format).
+        Validated PolicySchema object.
 
     Raises:
         PolicyValidationError: If the policy data is invalid.
@@ -90,10 +83,11 @@ def load_policy_from_dict(data: dict[str, Any]) -> PolicySchema | PhasedPolicySc
             f"Only schema_version 12 is supported, got {schema_version}"
         )
 
-    # Route to phased loader if 'phases' key is present
-    has_phases = "phases" in data
-    if has_phases:
-        return load_phased_policy_from_dict(data)
+    # Policies must have a 'phases' key
+    if "phases" not in data:
+        raise PolicyValidationError(
+            "Policy must have a 'phases' key defining at least one phase"
+        )
 
     try:
         model = PolicyModel.model_validate(data)
@@ -105,30 +99,9 @@ def load_policy_from_dict(data: dict[str, Any]) -> PolicySchema | PhasedPolicySc
     return _convert_to_policy_schema(model)
 
 
-def load_phased_policy_from_dict(data: dict[str, Any]) -> PhasedPolicySchema:
-    """Load and validate a phased policy from a dictionary.
-
-    Args:
-        data: Dictionary containing phased policy configuration.
-
-    Returns:
-        Validated PhasedPolicySchema object.
-
-    Raises:
-        PolicyValidationError: If the policy data is invalid.
-    """
-    try:
-        model = PhasedPolicyModel.model_validate(data)
-    except Exception as e:
-        # Transform Pydantic errors to user-friendly messages
-        error_msg = _format_validation_error(e)
-        raise PolicyValidationError(error_msg) from e
-
-    return _convert_to_phased_policy_schema(model)
-
-
-# Backward compatibility alias (deprecated)
-load_v11_policy_from_dict = load_phased_policy_from_dict
+# Backward compatibility aliases (deprecated)
+load_phased_policy_from_dict = load_policy_from_dict
+load_v11_policy_from_dict = load_policy_from_dict
 
 
 def _format_validation_error(error: Exception) -> str:

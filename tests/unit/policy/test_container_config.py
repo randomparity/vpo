@@ -10,7 +10,7 @@ from vpo.db import TrackInfo
 from vpo.policy.exceptions import IncompatibleCodecError
 from vpo.policy.types import (
     ContainerConfig,
-    PolicySchema,
+    EvaluationPolicy,
 )
 
 # =============================================================================
@@ -67,9 +67,9 @@ def make_subtitle_track(
 def make_policy_with_container(
     target: str,
     on_incompatible_codec: str = "error",
-) -> PolicySchema:
+) -> EvaluationPolicy:
     """Create a test policy with container configuration."""
-    return PolicySchema(
+    return EvaluationPolicy(
         schema_version=12,
         container=ContainerConfig(
             target=target,
@@ -112,17 +112,18 @@ class TestContainerConfigValidation:
 
         data = {
             "schema_version": 12,
-            "track_order": ["video", "audio_main"],
-            "audio_language_preference": ["eng"],
-            "subtitle_language_preference": ["eng"],
-            "container": {
-                "target": "mkv",
-            },
+            "phases": [
+                {
+                    "name": "apply",
+                    "track_order": ["video", "audio_main"],
+                    "container": {"target": "mkv"},
+                }
+            ],
         }
 
         policy = load_policy_from_dict(data)
-        assert policy.container is not None
-        assert policy.container.target == "mkv"
+        assert policy.phases[0].container is not None
+        assert policy.phases[0].container.target == "mkv"
 
 
 # =============================================================================
@@ -291,7 +292,7 @@ class TestEvaluateContainerChange:
             make_video_track(index=0),
             make_audio_track(index=1),
         ]
-        policy = PolicySchema(schema_version=12)  # No container config
+        policy = EvaluationPolicy()  # No container config
 
         change = _evaluate_container_change(tracks, "avi", policy)
 
@@ -544,7 +545,7 @@ class TestEvaluatePolicyContainerIntegration:
             make_video_track(index=0, codec="h264"),
             make_audio_track(index=1, codec="aac"),
         ]
-        policy = PolicySchema(schema_version=12)  # No container config
+        policy = EvaluationPolicy()  # No container config
 
         plan = evaluate_policy(
             file_id="test-id",

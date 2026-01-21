@@ -10,8 +10,8 @@ from vpo.db import TrackInfo
 from vpo.policy.exceptions import InsufficientTracksError
 from vpo.policy.types import (
     AudioFilterConfig,
+    EvaluationPolicy,
     LanguageFallbackConfig,
-    PolicySchema,
 )
 
 
@@ -55,10 +55,9 @@ def make_policy_with_audio_filter(
     languages: tuple[str, ...],
     minimum: int = 1,
     fallback: LanguageFallbackConfig | None = None,
-) -> PolicySchema:
+) -> EvaluationPolicy:
     """Create a test policy with audio filter configuration."""
-    return PolicySchema(
-        schema_version=12,
+    return EvaluationPolicy(
         audio_filter=AudioFilterConfig(
             languages=languages,
             minimum=minimum,
@@ -176,7 +175,7 @@ class TestAudioTrackFiltering:
             make_audio_track(index=1, language="eng"),
             make_audio_track(index=2, language="fra"),
         ]
-        policy = PolicySchema(schema_version=12)  # No audio_filter
+        policy = EvaluationPolicy(schema_version=12)  # No audio_filter
 
         dispositions = compute_track_dispositions(tracks, policy)
 
@@ -475,11 +474,11 @@ def make_policy_with_subtitle_filter(
     languages: tuple[str, ...] | None = None,
     preserve_forced: bool = False,
     remove_all: bool = False,
-) -> PolicySchema:
+) -> EvaluationPolicy:
     """Create a test policy with subtitle filter configuration."""
     from vpo.policy.types import SubtitleFilterConfig
 
-    return PolicySchema(
+    return EvaluationPolicy(
         schema_version=12,
         subtitle_filter=SubtitleFilterConfig(
             languages=languages,
@@ -575,7 +574,7 @@ class TestSubtitleLanguageFiltering:
             make_subtitle_track(index=2, language="eng"),
             make_subtitle_track(index=3, language="fra"),
         ]
-        policy = PolicySchema(schema_version=12)  # No subtitle filter
+        policy = EvaluationPolicy(schema_version=12)  # No subtitle filter
 
         dispositions = compute_track_dispositions(tracks, policy)
 
@@ -766,11 +765,11 @@ def make_attachment_track(
 
 def make_policy_with_attachment_filter(
     remove_all: bool = True,
-) -> PolicySchema:
+) -> EvaluationPolicy:
     """Create a test policy with attachment filter configuration."""
     from vpo.policy.types import AttachmentFilterConfig
 
-    return PolicySchema(
+    return EvaluationPolicy(
         schema_version=12,
         attachment_filter=AttachmentFilterConfig(
             remove_all=remove_all,
@@ -819,7 +818,7 @@ class TestAttachmentRemoval:
             make_audio_track(index=1, language="eng"),
             make_attachment_track(index=2, codec="ttf", title="Font.ttf"),
         ]
-        policy = PolicySchema(schema_version=12)  # No attachment filter
+        policy = EvaluationPolicy(schema_version=12)  # No attachment filter
 
         dispositions = compute_track_dispositions(tracks, policy)
 
@@ -1355,9 +1354,9 @@ def make_v10_policy_with_audio_filter(
     exclude_sfx_from_language_filter: bool = True,
     keep_non_speech_tracks: bool = True,
     exclude_non_speech_from_language_filter: bool = True,
-) -> PolicySchema:
+) -> EvaluationPolicy:
     """Create a test policy with music/sfx/non_speech filter options."""
-    return PolicySchema(
+    return EvaluationPolicy(
         schema_version=12,
         audio_filter=AudioFilterConfig(
             languages=languages,

@@ -28,7 +28,7 @@ from vpo.plugins.policy_engine import (
 from vpo.policy.types import (
     ActionType,
     DefaultFlagsConfig,
-    PolicySchema,
+    EvaluationPolicy,
     TrackType,
 )
 
@@ -46,10 +46,9 @@ def registry() -> PluginRegistry:
 
 
 @pytest.fixture
-def default_policy() -> PolicySchema:
+def default_policy() -> EvaluationPolicy:
     """Create a default policy for testing."""
-    return PolicySchema(
-        schema_version=12,
+    return EvaluationPolicy(
         track_order=(
             TrackType.VIDEO,
             TrackType.AUDIO_MAIN,
@@ -157,7 +156,7 @@ class TestPolicyEngineEvaluationIntegration:
     def test_evaluate_produces_plan(
         self,
         registry: PluginRegistry,
-        default_policy: PolicySchema,
+        default_policy: EvaluationPolicy,
         sample_tracks: list[TrackInfo],
         tmp_path: Path,
     ):
@@ -183,7 +182,7 @@ class TestPolicyEngineEvaluationIntegration:
     def test_evaluate_detects_default_flag_changes(
         self,
         registry: PluginRegistry,
-        default_policy: PolicySchema,
+        default_policy: EvaluationPolicy,
         sample_tracks: list[TrackInfo],
         tmp_path: Path,
     ):
@@ -217,7 +216,7 @@ class TestPolicyEngineEvaluationIntegration:
     def test_evaluate_compliant_file_empty_plan(
         self,
         registry: PluginRegistry,
-        default_policy: PolicySchema,
+        default_policy: EvaluationPolicy,
         compliant_tracks: list[TrackInfo],
         tmp_path: Path,
     ):
@@ -240,7 +239,7 @@ class TestPolicyEngineEvaluationIntegration:
     def test_evaluate_detects_track_reorder(
         self,
         registry: PluginRegistry,
-        default_policy: PolicySchema,
+        default_policy: EvaluationPolicy,
         tmp_path: Path,
     ):
         """Plugin should detect when tracks need reordering."""
@@ -293,7 +292,7 @@ class TestPolicyEngineExecutionIntegration:
     def test_execute_empty_plan_succeeds(
         self,
         registry: PluginRegistry,
-        default_policy: PolicySchema,
+        default_policy: EvaluationPolicy,
         compliant_tracks: list[TrackInfo],
         tmp_path: Path,
     ):
@@ -322,7 +321,7 @@ class TestPolicyEngineExecutionIntegration:
         mock_executor_class: MagicMock,
         mock_tools: MagicMock,
         registry: PluginRegistry,
-        default_policy: PolicySchema,
+        default_policy: EvaluationPolicy,
         sample_tracks: list[TrackInfo],
         tmp_path: Path,
     ):
@@ -357,7 +356,7 @@ class TestPolicyEngineExecutionIntegration:
         self,
         mock_tools: MagicMock,
         registry: PluginRegistry,
-        default_policy: PolicySchema,
+        default_policy: EvaluationPolicy,
         sample_tracks: list[TrackInfo],
         tmp_path: Path,
     ):
@@ -397,7 +396,7 @@ class TestPolicyEngineEventIntegration:
     def test_before_evaluate_event_handled(
         self,
         registry: PluginRegistry,
-        default_policy: PolicySchema,
+        default_policy: EvaluationPolicy,
         tmp_path: Path,
     ):
         """Plugin should handle policy.before_evaluate event."""
@@ -420,7 +419,7 @@ class TestPolicyEngineEventIntegration:
     def test_after_evaluate_event_handled(
         self,
         registry: PluginRegistry,
-        default_policy: PolicySchema,
+        default_policy: EvaluationPolicy,
         sample_tracks: list[TrackInfo],
         tmp_path: Path,
     ):
@@ -457,7 +456,7 @@ class TestPolicyEngineEventIntegration:
     def test_before_execute_event_handled(
         self,
         registry: PluginRegistry,
-        default_policy: PolicySchema,
+        default_policy: EvaluationPolicy,
         sample_tracks: list[TrackInfo],
         tmp_path: Path,
     ):
@@ -489,7 +488,7 @@ class TestPolicyEngineEventIntegration:
     def test_after_execute_event_handled(
         self,
         registry: PluginRegistry,
-        default_policy: PolicySchema,
+        default_policy: EvaluationPolicy,
         sample_tracks: list[TrackInfo],
         tmp_path: Path,
     ):
@@ -532,7 +531,7 @@ class TestPolicyEngineBackwardsCompatibility:
 
     def test_same_results_as_direct_evaluator(
         self,
-        default_policy: PolicySchema,
+        default_policy: EvaluationPolicy,
         sample_tracks: list[TrackInfo],
         tmp_path: Path,
     ):
@@ -582,8 +581,7 @@ class TestPolicyEngineBackwardsCompatibility:
         tmp_path: Path,
     ):
         """Plugin should respect language preference like direct evaluator."""
-        japanese_policy = PolicySchema(
-            schema_version=12,
+        japanese_policy = EvaluationPolicy(
             audio_language_preference=("jpn", "eng", "und"),
             subtitle_language_preference=("eng", "und"),
             default_flags=DefaultFlagsConfig(
@@ -633,7 +631,7 @@ class TestPolicyEngineBackwardsCompatibility:
 
     def test_commentary_detection_works(
         self,
-        default_policy: PolicySchema,
+        default_policy: EvaluationPolicy,
         tmp_path: Path,
     ):
         """Plugin should detect commentary tracks correctly."""

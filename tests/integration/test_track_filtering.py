@@ -15,9 +15,9 @@ from vpo.policy.evaluator import compute_track_dispositions
 from vpo.policy.exceptions import InsufficientTracksError
 from vpo.policy.types import (
     AudioFilterConfig,
+    EvaluationPolicy,
     LanguageFallbackConfig,
     Plan,
-    PolicySchema,
     TrackDisposition,
 )
 
@@ -28,57 +28,63 @@ from vpo.policy.types import (
 
 @pytest.fixture
 def v3_audio_filter_policy(temp_dir: Path) -> Path:
-    """Create a V3 policy file with audio filtering."""
+    """Create a policy file with audio filtering."""
     policy_path = temp_dir / "audio-filter-policy.yaml"
     policy_path.write_text("""
 schema_version: 12
-track_order:
-  - video
-  - audio_main
-  - subtitle_main
-audio_language_preference:
-  - eng
-subtitle_language_preference:
-  - eng
-audio_filter:
-  languages:
+config:
+  audio_language_preference:
     - eng
-    - und
-  minimum: 1
-  fallback:
-    mode: keep_first
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: false
-  clear_other_defaults: true
+  subtitle_language_preference:
+    - eng
+phases:
+  - name: apply
+    track_order:
+      - video
+      - audio_main
+      - subtitle_main
+    audio_filter:
+      languages:
+        - eng
+        - und
+      minimum: 1
+      fallback:
+        mode: keep_first
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: false
+      clear_other_defaults: true
 """)
     return policy_path
 
 
 @pytest.fixture
 def v3_strict_audio_filter_policy(temp_dir: Path) -> Path:
-    """Create a V3 policy file with strict audio filtering (no fallback)."""
+    """Create a policy file with strict audio filtering (no fallback)."""
     policy_path = temp_dir / "strict-audio-filter-policy.yaml"
     policy_path.write_text("""
 schema_version: 12
-track_order:
-  - video
-  - audio_main
-  - subtitle_main
-audio_language_preference:
-  - eng
-subtitle_language_preference:
-  - eng
-audio_filter:
-  languages:
+config:
+  audio_language_preference:
     - eng
-  minimum: 1
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: false
-  clear_other_defaults: true
+  subtitle_language_preference:
+    - eng
+phases:
+  - name: apply
+    track_order:
+      - video
+      - audio_main
+      - subtitle_main
+    audio_filter:
+      languages:
+        - eng
+      minimum: 1
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: false
+      clear_other_defaults: true
 """)
     return policy_path
 
@@ -230,23 +236,24 @@ def db_with_multilang_file(temp_db: Path, temp_dir: Path) -> tuple[Path, Path, i
 # =============================================================================
 
 
-class TestV3PolicyLoading:
-    """Tests for V3 policy loading with track filtering config."""
+class TestPhasedPolicyLoading:
+    """Tests for phased policy loading with track filtering config."""
 
-    def test_load_v3_policy_with_audio_filter(
+    def test_load_phased_policy_with_audio_filter(
         self, v3_audio_filter_policy: Path
     ) -> None:
-        """V3 policy with audio_filter should load correctly."""
+        """Phased policy with audio_filter should load correctly."""
         from vpo.policy.loader import load_policy
 
         policy = load_policy(v3_audio_filter_policy)
 
         assert policy.schema_version == 12
-        assert policy.audio_filter is not None
-        assert policy.audio_filter.languages == ("eng", "und")
-        assert policy.audio_filter.minimum == 1
-        assert policy.audio_filter.fallback is not None
-        assert policy.audio_filter.fallback.mode == "keep_first"
+        assert len(policy.phases) == 1
+        assert policy.phases[0].audio_filter is not None
+        assert policy.phases[0].audio_filter.languages == ("eng", "und")
+        assert policy.phases[0].audio_filter.minimum == 1
+        assert policy.phases[0].audio_filter.fallback is not None
+        assert policy.phases[0].audio_filter.fallback.mode == "keep_first"
 
 
 # =============================================================================
@@ -261,8 +268,7 @@ class TestComputeTrackDispositions:
         self, multilang_tracks: list[TrackInfo]
     ) -> None:
         """Audio tracks matching filter languages should be kept."""
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             audio_filter=AudioFilterConfig(languages=("eng",)),
         )
 
@@ -285,8 +291,7 @@ class TestComputeTrackDispositions:
         self, non_english_tracks: list[TrackInfo]
     ) -> None:
         """InsufficientTracksError should be raised when no audio matches."""
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             audio_filter=AudioFilterConfig(languages=("eng",)),
         )
 
@@ -302,8 +307,7 @@ class TestComputeTrackDispositions:
         self, non_english_tracks: list[TrackInfo]
     ) -> None:
         """Fallback mode keep_first should preserve minimum tracks."""
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             audio_filter=AudioFilterConfig(
                 languages=("eng",),
                 fallback=LanguageFallbackConfig(mode="keep_first"),
@@ -321,8 +325,7 @@ class TestComputeTrackDispositions:
         self, non_english_tracks: list[TrackInfo]
     ) -> None:
         """Fallback mode content_language keeps tracks matching first audio."""
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             audio_filter=AudioFilterConfig(
                 languages=("eng",),
                 fallback=LanguageFallbackConfig(mode="content_language"),
@@ -349,8 +352,7 @@ class TestPlanWithTrackFiltering:
         self, multilang_tracks: list[TrackInfo]
     ) -> None:
         """Plan should include track dispositions when filtering is active."""
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             audio_filter=AudioFilterConfig(languages=("eng",)),
         )
 
@@ -379,8 +381,7 @@ class TestPlanWithTrackFiltering:
         self, multilang_tracks: list[TrackInfo]
     ) -> None:
         """Plan summary should include track removal counts."""
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             audio_filter=AudioFilterConfig(languages=("eng",)),
         )
 
@@ -575,8 +576,7 @@ class TestSubtitleFilteringIntegration:
             ),
         ]
 
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             subtitle_filter=SubtitleFilterConfig(
                 languages=("eng",),
                 preserve_forced=True,
@@ -635,8 +635,7 @@ class TestSubtitleFilteringIntegration:
             ),
         ]
 
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             subtitle_filter=SubtitleFilterConfig(
                 remove_all=True,
                 preserve_forced=True,  # Should be ignored
@@ -688,8 +687,7 @@ class TestSubtitleFilteringIntegration:
             ),
         ]
 
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             audio_filter=AudioFilterConfig(languages=("eng",)),
             subtitle_filter=SubtitleFilterConfig(languages=("eng",)),
         )
@@ -763,8 +761,7 @@ class TestAttachmentFilteringIntegration:
             ),
         ]
 
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             attachment_filter=AttachmentFilterConfig(remove_all=True),
         )
 
@@ -824,8 +821,7 @@ class TestAttachmentFilteringIntegration:
             ),
         ]
 
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             subtitle_filter=SubtitleFilterConfig(languages=("eng",)),
             attachment_filter=AttachmentFilterConfig(remove_all=True),
         )
@@ -893,8 +889,7 @@ class TestFallbackModeIntegration:
             ),
         ]
 
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             audio_filter=AudioFilterConfig(
                 languages=("eng",),  # No English audio in file
                 fallback=LanguageFallbackConfig(mode="content_language"),
@@ -953,8 +948,7 @@ class TestFallbackModeIntegration:
             ),
         ]
 
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             audio_filter=AudioFilterConfig(
                 languages=("eng",),  # No English
                 minimum=2,
@@ -1002,8 +996,7 @@ class TestFallbackModeIntegration:
             ),
         ]
 
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             audio_filter=AudioFilterConfig(
                 languages=("eng", "jpn"),  # Neither present
                 fallback=LanguageFallbackConfig(mode="keep_all"),
@@ -1046,8 +1039,7 @@ class TestFallbackModeIntegration:
             ),
         ]
 
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             audio_filter=AudioFilterConfig(
                 languages=("eng", "fra", "deu"),
                 fallback=LanguageFallbackConfig(mode="error"),
@@ -1114,8 +1106,7 @@ class TestFallbackModeIntegration:
             SubtitleFilterConfig,
         )
 
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             audio_filter=AudioFilterConfig(
                 languages=("eng",),  # No English audio
                 fallback=LanguageFallbackConfig(mode="content_language"),

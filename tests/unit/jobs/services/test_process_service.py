@@ -54,10 +54,17 @@ def test_job_with_json(tmp_path):
 
     policy_data = {
         "schema_version": 12,
-        "workflow": {
-            "phases": ["apply"],
+        "config": {
+            "audio_language_preference": ["eng", "und"],
+            "subtitle_language_preference": ["eng", "und"],
             "on_error": "fail",
         },
+        "phases": [
+            {
+                "name": "apply",
+                "track_order": ["video", "audio_main"],
+            }
+        ],
     }
 
     return Job(
@@ -186,9 +193,14 @@ class TestProcessJobServiceParsing:
 
     def test_parse_policy_from_name(self, db_conn, tmp_path):
         """_parse_policy loads policy from file path."""
-        # Create a real policy file
+        # Create a real policy file with phased format
         policy_file = tmp_path / "test_policy.yaml"
-        policy_file.write_text("schema_version: 12\n")
+        policy_file.write_text("""schema_version: 12
+config:
+  audio_language_preference: [eng]
+phases:
+  - name: apply
+""")
 
         job = Job(
             id="test-job-id",

@@ -15,7 +15,7 @@ from vpo.policy.types import (
     GlobalConfig,
     OnErrorMode,
     PhaseDefinition,
-    PhasedPolicySchema,
+    PolicySchema,
 )
 
 
@@ -95,11 +95,11 @@ class TestPhasedPolicyPhaseNameValidation:
         assert len(policy.phases) == 3
 
 
-class TestPhasedPolicySchemaPostInit:
-    """Tests for PhasedPolicySchema __post_init__ validation."""
+class TestPolicySchemaPostInit:
+    """Tests for PolicySchema __post_init__ validation."""
 
     def test_case_insensitive_collision_in_dataclass(self):
-        """Test that PhasedPolicySchema also checks case-insensitive collisions."""
+        """Test that PolicySchema also checks case-insensitive collisions."""
         config = GlobalConfig(
             audio_language_preference=("eng",),
             subtitle_language_preference=("eng",),
@@ -110,14 +110,14 @@ class TestPhasedPolicySchemaPostInit:
         phase2 = PhaseDefinition(name="TEST", track_order=None)
 
         with pytest.raises(ValueError, match="case-insensitive"):
-            PhasedPolicySchema(
+            PolicySchema(
                 schema_version=12,
                 config=config,
                 phases=(phase1, phase2),
             )
 
     def test_valid_phases_in_dataclass(self):
-        """Test that valid phases pass PhasedPolicySchema validation."""
+        """Test that valid phases pass PolicySchema validation."""
         config = GlobalConfig(
             audio_language_preference=("eng",),
             subtitle_language_preference=("eng",),
@@ -127,7 +127,7 @@ class TestPhasedPolicySchemaPostInit:
         phase1 = PhaseDefinition(name="prepare", track_order=None)
         phase2 = PhaseDefinition(name="finalize", track_order=None)
 
-        policy = PhasedPolicySchema(
+        policy = PolicySchema(
             schema_version=12,
             config=config,
             phases=(phase1, phase2),

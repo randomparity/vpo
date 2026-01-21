@@ -3,8 +3,8 @@
 This module defines dataclasses and enums for policy configuration and execution
 plans. All policy-related types are defined here, including:
 
-- Enums: TrackType, ActionType, ProcessingPhase, OperationType, etc.
-- Configuration classes: PolicySchema, PhasedPolicySchema, etc.
+- Enums: TrackType, ActionType, OperationType, etc.
+- Configuration classes: PolicySchema, GlobalConfig, PhaseDefinition, etc.
 - Condition types: ExistsCondition, CountCondition, etc.
 - Action types: SkipAction, WarnAction, SetForcedAction, etc.
 - Plan types: Plan, PlannedAction, PhaseResult, etc.
@@ -47,20 +47,8 @@ class ActionType(Enum):
     MOVE = "move"  # Move file to new location
 
 
-class ProcessingPhase(Enum):
-    """Workflow processing phases for video file operations.
-
-    Used by flat-format policies. For phase-based policies, phases are
-    user-defined strings. See PhaseDefinition.
-    """
-
-    ANALYZE = "analyze"  # Language detection via transcription
-    APPLY = "apply"  # Track ordering, filtering, metadata, container
-    TRANSCODE = "transcode"  # Video/audio codec conversion
-
-
 # =============================================================================
-# User-Defined Phases (Phased Policies)
+# User-Defined Phases
 # =============================================================================
 
 
@@ -724,167 +712,6 @@ DEFAULT_TRACK_ORDER: tuple[TrackType, ...] = (
     TrackType.SUBTITLE_COMMENTARY,
     TrackType.ATTACHMENT,
 )
-
-
-# =============================================================================
-# V9 Workflow Configuration
-# =============================================================================
-
-
-@dataclass(frozen=True)
-class WorkflowConfig:
-    """Workflow configuration from policy YAML.
-
-    Defines the processing phases to run and their execution behavior.
-    Phases execute in order: ANALYZE → APPLY → TRANSCODE.
-    """
-
-    phases: tuple[ProcessingPhase, ...]
-    """Phases to execute in order."""
-
-    auto_process: bool = False
-    """If True, daemon auto-queues PROCESS jobs when files are scanned."""
-
-    on_error: Literal["skip", "continue", "fail"] = "continue"
-    """Error handling:
-    - skip: Stop processing file, mark as failed
-    - continue: Log error and proceed to next phase
-    - fail: Stop entire batch with error
-    """
-
-    def __post_init__(self) -> None:
-        """Validate workflow configuration."""
-        if not self.phases:
-            raise ValueError("workflow.phases cannot be empty")
-
-        valid_phases = set(ProcessingPhase)
-        for phase in self.phases:
-            if phase not in valid_phases:
-                raise ValueError(f"Invalid phase: {phase}")
-
-        # Check for duplicate phases
-        if len(self.phases) != len(set(self.phases)):
-            raise ValueError("Duplicate phases not allowed")
-
-        valid_on_error = ("skip", "continue", "fail")
-        if self.on_error not in valid_on_error:
-            raise ValueError(
-                f"Invalid on_error: {self.on_error}. "
-                f"Must be one of: {', '.join(valid_on_error)}"
-            )
-
-
-@dataclass(frozen=True)
-class PolicySchema:
-    """Validated policy configuration loaded from YAML.
-
-    This is an immutable representation of a policy file.
-    """
-
-    schema_version: int
-    track_order: tuple[TrackType, ...] = DEFAULT_TRACK_ORDER
-    audio_language_preference: tuple[str, ...] = ("eng", "und")
-    subtitle_language_preference: tuple[str, ...] = ("eng", "und")
-    commentary_patterns: tuple[str, ...] = ("commentary", "director")
-    default_flags: DefaultFlagsConfig = field(default_factory=DefaultFlagsConfig)
-    transcode: TranscodePolicyConfig | None = None
-    transcription: TranscriptionPolicyOptions | None = None
-
-    # Track actions (pre-processing, applied before filters)
-    audio_actions: AudioActionsConfig | None = None
-    """Audio track pre-processing actions (clear flags before filtering)."""
-
-    subtitle_actions: SubtitleActionsConfig | None = None
-    """Subtitle track pre-processing actions (clear flags before filtering)."""
-
-    # Track filtering configuration
-    audio_filter: AudioFilterConfig | None = None
-    """Audio track filtering configuration."""
-
-    subtitle_filter: SubtitleFilterConfig | None = None
-    """Subtitle track filtering configuration."""
-
-    attachment_filter: AttachmentFilterConfig | None = None
-    """Attachment track filtering configuration."""
-
-    container: ContainerConfig | None = None
-    """Container format conversion configuration."""
-
-    # Conditional rules
-    conditional_rules: tuple["ConditionalRule", ...] = ()
-    """Conditional rules evaluated before other policy sections."""
-
-    # Audio synthesis
-    audio_synthesis: "AudioSynthesisConfig | None" = None
-    """Audio synthesis configuration."""
-
-    # Transcode configuration
-    video_transcode: "VideoTranscodeConfig | None" = None
-    """Video transcode configuration."""
-
-    audio_transcode: "AudioTranscodeConfig | None" = None
-    """Audio transcode configuration."""
-
-    # Workflow configuration
-    workflow: WorkflowConfig | None = None
-    """Workflow configuration."""
-
-    def __post_init__(self) -> None:
-        """Validate policy schema after initialization."""
-        if self.schema_version != 12:
-            raise ValueError("Only schema_version 12 is supported")
-        if not self.track_order:
-            raise ValueError("track_order cannot be empty")
-        if not self.audio_language_preference:
-            raise ValueError("audio_language_preference cannot be empty")
-        if not self.subtitle_language_preference:
-            raise ValueError("subtitle_language_preference cannot be empty")
-
-    @property
-    def has_transcode_settings(self) -> bool:
-        """True if transcode settings are specified."""
-        return self.transcode is not None
-
-    @property
-    def has_transcription_settings(self) -> bool:
-        """True if transcription settings are specified and enabled."""
-        return self.transcription is not None and self.transcription.enabled
-
-    @property
-    def has_track_filtering(self) -> bool:
-        """True if any track filtering is configured."""
-        return any(
-            [
-                self.audio_filter is not None,
-                self.subtitle_filter is not None,
-                self.attachment_filter is not None,
-            ]
-        )
-
-    @property
-    def has_track_actions(self) -> bool:
-        """True if any track actions are configured."""
-        return self.audio_actions is not None or self.subtitle_actions is not None
-
-    @property
-    def has_container_config(self) -> bool:
-        """True if container conversion is configured."""
-        return self.container is not None
-
-    @property
-    def has_conditional_rules(self) -> bool:
-        """True if any conditional rules are configured."""
-        return len(self.conditional_rules) > 0
-
-    @property
-    def has_audio_synthesis(self) -> bool:
-        """True if audio synthesis is configured."""
-        return self.audio_synthesis is not None
-
-    @property
-    def has_workflow(self) -> bool:
-        """True if workflow configuration is present."""
-        return self.workflow is not None
 
 
 # =============================================================================
@@ -2106,11 +1933,121 @@ class PhaseDefinition:
 
 
 @dataclass(frozen=True)
-class PhasedPolicySchema:
-    """Phased policy schema with user-defined phases.
+class EvaluationPolicy:
+    """Flat policy structure for the evaluator.
 
-    This is the top-level structure for phase-based policies.
-    It uses a phase-based approach where each phase groups related operations.
+    This combines a PhaseDefinition with GlobalConfig to provide all the
+    attributes the evaluator needs in a flat structure. Created by
+    PhaseExecutor for each phase execution.
+    """
+
+    schema_version: Literal[12] = 12
+    """Schema version."""
+
+    # From GlobalConfig
+    audio_language_preference: tuple[str, ...] = ("eng", "und")
+    """Ordered list of preferred audio languages."""
+
+    subtitle_language_preference: tuple[str, ...] = ("eng", "und")
+    """Ordered list of preferred subtitle languages."""
+
+    commentary_patterns: tuple[str, ...] = ("commentary", "director")
+    """Patterns to match commentary tracks."""
+
+    # From PhaseDefinition (all optional)
+    track_order: tuple[TrackType, ...] = DEFAULT_TRACK_ORDER
+    """Track ordering."""
+
+    default_flags: DefaultFlagsConfig = field(
+        default_factory=lambda: DefaultFlagsConfig()
+    )
+    """Default flag settings."""
+
+    audio_filter: AudioFilterConfig | None = None
+    """Audio filter configuration."""
+
+    subtitle_filter: SubtitleFilterConfig | None = None
+    """Subtitle filter configuration."""
+
+    attachment_filter: AttachmentFilterConfig | None = None
+    """Attachment filter configuration."""
+
+    container: ContainerConfig | None = None
+    """Container configuration."""
+
+    conditional_rules: tuple["ConditionalRule", ...] | None = None
+    """Conditional rules."""
+
+    transcription: TranscriptionPolicyOptions | None = None
+    """Transcription settings."""
+
+    audio_actions: AudioActionsConfig | None = None
+    """Audio preprocessing actions."""
+
+    subtitle_actions: SubtitleActionsConfig | None = None
+    """Subtitle preprocessing actions."""
+
+    @property
+    def has_track_filtering(self) -> bool:
+        """True if any track filtering is configured."""
+        return (
+            self.audio_filter is not None
+            or self.subtitle_filter is not None
+            or self.attachment_filter is not None
+        )
+
+    @property
+    def has_container_config(self) -> bool:
+        """True if container conversion is configured."""
+        return self.container is not None
+
+    @property
+    def has_conditional_rules(self) -> bool:
+        """True if conditional rules are defined."""
+        return self.conditional_rules is not None and len(self.conditional_rules) > 0
+
+    @property
+    def has_transcription_settings(self) -> bool:
+        """True if transcription is configured."""
+        return self.transcription is not None
+
+    @classmethod
+    def from_phase(
+        cls, phase: "PhaseDefinition", config: "GlobalConfig"
+    ) -> "EvaluationPolicy":
+        """Create an EvaluationPolicy from a phase definition and global config.
+
+        Args:
+            phase: The phase definition with operation configs.
+            config: Global configuration (language prefs, etc.).
+
+        Returns:
+            EvaluationPolicy suitable for evaluate_policy().
+        """
+        return cls(
+            schema_version=12,
+            audio_language_preference=config.audio_language_preference,
+            subtitle_language_preference=config.subtitle_language_preference,
+            commentary_patterns=config.commentary_patterns,
+            track_order=phase.track_order or DEFAULT_TRACK_ORDER,
+            default_flags=phase.default_flags or DefaultFlagsConfig(),
+            audio_filter=phase.audio_filter,
+            subtitle_filter=phase.subtitle_filter,
+            attachment_filter=phase.attachment_filter,
+            container=phase.container,
+            conditional_rules=phase.conditional,
+            transcription=phase.transcription,
+            audio_actions=phase.audio_actions,
+            subtitle_actions=phase.subtitle_actions,
+        )
+
+
+@dataclass(frozen=True)
+class PolicySchema:
+    """Policy schema with user-defined phases.
+
+    This is the top-level structure for policies. It uses a phase-based approach
+    where each phase groups related operations.
     """
 
     schema_version: Literal[12]
@@ -2123,11 +2060,10 @@ class PhasedPolicySchema:
     """Ordered list of named phases."""
 
     def __post_init__(self) -> None:
-        """Validate phased policy schema."""
+        """Validate policy schema."""
         if self.schema_version != 12:
             raise ValueError(
-                f"PhasedPolicySchema requires schema_version=12, "
-                f"got {self.schema_version}"
+                f"PolicySchema requires schema_version=12, got {self.schema_version}"
             )
         if not self.phases:
             raise ValueError("phases cannot be empty, at least one phase required")
@@ -2183,7 +2119,7 @@ class PhaseExecutionContext:
     file_info: Any  # FileInfo from db module - avoiding circular import
     """Current introspection data for the file."""
 
-    policy: PhasedPolicySchema
+    policy: PolicySchema
     """The policy being applied."""
 
     current_phase: str
@@ -2330,5 +2266,6 @@ class PhaseExecutionError(Exception):
         super().__init__(f"Phase '{phase_name}' failed: {message}")
 
 
-# Backward compatibility alias (deprecated)
-V11PolicySchema = PhasedPolicySchema
+# Backward compatibility aliases (deprecated)
+V11PolicySchema = PolicySchema
+PhasedPolicySchema = PolicySchema

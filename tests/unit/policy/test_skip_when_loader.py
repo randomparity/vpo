@@ -12,7 +12,7 @@ from vpo.policy.loader import (
     load_policy,
     load_policy_from_dict,
 )
-from vpo.policy.types import PhasedPolicySchema
+from vpo.policy.types import PolicySchema
 
 
 class TestSkipWhenYamlLoading:
@@ -33,7 +33,7 @@ class TestSkipWhenYamlLoading:
             ],
         }
         policy = load_policy_from_dict(policy_dict)
-        assert isinstance(policy, PhasedPolicySchema)
+        assert isinstance(policy, PolicySchema)
         assert policy.phases[0].skip_when is not None
         assert policy.phases[0].skip_when.video_codec == ("hevc", "h265")
 
@@ -52,7 +52,7 @@ class TestSkipWhenYamlLoading:
             ],
         }
         policy = load_policy_from_dict(policy_dict)
-        assert isinstance(policy, PhasedPolicySchema)
+        assert isinstance(policy, PolicySchema)
         assert policy.phases[0].skip_when is not None
         assert policy.phases[0].skip_when.file_size_under == "1GB"
 
@@ -71,7 +71,7 @@ class TestSkipWhenYamlLoading:
             ],
         }
         policy = load_policy_from_dict(policy_dict)
-        assert isinstance(policy, PhasedPolicySchema)
+        assert isinstance(policy, PolicySchema)
         assert policy.phases[0].skip_when is not None
         assert policy.phases[0].skip_when.resolution == "4k"
 
@@ -88,7 +88,7 @@ class TestSkipWhenYamlLoading:
             ],
         }
         policy = load_policy_from_dict(policy_dict)
-        assert isinstance(policy, PhasedPolicySchema)
+        assert isinstance(policy, PolicySchema)
         assert policy.phases[0].skip_when is not None
         assert policy.phases[0].skip_when.duration_under == "30m"
 
@@ -110,7 +110,7 @@ class TestSkipWhenYamlLoading:
             ],
         }
         policy = load_policy_from_dict(policy_dict)
-        assert isinstance(policy, PhasedPolicySchema)
+        assert isinstance(policy, PolicySchema)
         assert policy.phases[0].skip_when is not None
         assert policy.phases[0].skip_when.video_codec == ("hevc", "h265")
         assert policy.phases[0].skip_when.file_size_under == "500MB"
@@ -122,7 +122,7 @@ class TestSkipWhenYamlLoading:
         )
         if fixture_path.exists():
             policy = load_policy(fixture_path)
-            assert isinstance(policy, PhasedPolicySchema)
+            assert isinstance(policy, PolicySchema)
             # Find the transcode phase
             transcode_phase = next(
                 (p for p in policy.phases if p.name == "transcode"), None
@@ -242,7 +242,7 @@ class TestDependsOnValidation:
             ],
         }
         policy = load_policy_from_dict(policy_dict)
-        assert isinstance(policy, PhasedPolicySchema)
+        assert isinstance(policy, PolicySchema)
         assert policy.phases[1].depends_on == ("normalize",)
 
     def test_depends_on_unknown_phase_raises_error(self) -> None:
@@ -324,7 +324,7 @@ class TestRunIfValidation:
             ],
         }
         policy = load_policy_from_dict(policy_dict)
-        assert isinstance(policy, PhasedPolicySchema)
+        assert isinstance(policy, PolicySchema)
         assert policy.phases[1].run_if is not None
         assert policy.phases[1].run_if.phase_modified == "transcode"
 
@@ -395,7 +395,7 @@ class TestRunIfValidation:
             ],
         }
         policy = load_policy_from_dict(policy_dict)
-        assert isinstance(policy, PhasedPolicySchema)
+        assert isinstance(policy, PolicySchema)
         assert policy.phases[1].run_if is not None
         assert policy.phases[1].run_if.phase_completed == "transcode"
 
@@ -467,7 +467,7 @@ class TestOnErrorOverrideLoading:
             ],
         }
         policy = load_policy_from_dict(policy_dict)
-        assert isinstance(policy, PhasedPolicySchema)
+        assert isinstance(policy, PolicySchema)
         from vpo.policy.types import OnErrorMode
 
         assert policy.phases[0].on_error == OnErrorMode.SKIP
@@ -485,7 +485,7 @@ class TestOnErrorOverrideLoading:
             ],
         }
         policy = load_policy_from_dict(policy_dict)
-        assert isinstance(policy, PhasedPolicySchema)
+        assert isinstance(policy, PolicySchema)
         from vpo.policy.types import OnErrorMode
 
         assert policy.phases[0].on_error == OnErrorMode.CONTINUE
@@ -503,7 +503,7 @@ class TestOnErrorOverrideLoading:
             ],
         }
         policy = load_policy_from_dict(policy_dict)
-        assert isinstance(policy, PhasedPolicySchema)
+        assert isinstance(policy, PolicySchema)
         from vpo.policy.types import OnErrorMode
 
         assert policy.phases[0].on_error == OnErrorMode.FAIL
@@ -520,7 +520,7 @@ class TestOnErrorOverrideLoading:
             ],
         }
         policy = load_policy_from_dict(policy_dict)
-        assert isinstance(policy, PhasedPolicySchema)
+        assert isinstance(policy, PolicySchema)
         assert policy.phases[0].on_error is None
 
 
@@ -543,7 +543,7 @@ class TestAudioSubtitleActionsInPhases:
             ],
         }
         policy = load_policy_from_dict(policy_dict)
-        assert isinstance(policy, PhasedPolicySchema)
+        assert isinstance(policy, PolicySchema)
         assert policy.phases[0].audio_actions is not None
         assert policy.phases[0].audio_actions.clear_all_forced is True
         assert policy.phases[0].audio_actions.clear_all_default is True
@@ -565,7 +565,7 @@ class TestAudioSubtitleActionsInPhases:
             ],
         }
         policy = load_policy_from_dict(policy_dict)
-        assert isinstance(policy, PhasedPolicySchema)
+        assert isinstance(policy, PolicySchema)
         assert policy.phases[0].subtitle_actions is not None
         assert policy.phases[0].subtitle_actions.clear_all_forced is True
         assert policy.phases[0].subtitle_actions.clear_all_default is False
@@ -590,7 +590,7 @@ class TestAudioSubtitleActionsInPhases:
             ],
         }
         policy = load_policy_from_dict(policy_dict)
-        assert isinstance(policy, PhasedPolicySchema)
+        assert isinstance(policy, PolicySchema)
         assert policy.phases[0].audio_actions is not None
         assert policy.phases[0].subtitle_actions is not None
 
@@ -606,6 +606,6 @@ class TestAudioSubtitleActionsInPhases:
             ],
         }
         policy = load_policy_from_dict(policy_dict)
-        assert isinstance(policy, PhasedPolicySchema)
+        assert isinstance(policy, PolicySchema)
         assert policy.phases[0].audio_actions is None
         assert policy.phases[0].subtitle_actions is None

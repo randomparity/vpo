@@ -21,9 +21,9 @@ from vpo.plugin.manifest import PluginSource
 from vpo.plugins.policy_engine.plugin import PolicyEnginePlugin
 from vpo.policy.types import (
     ActionType,
+    EvaluationPolicy,
     Plan,
     PlannedAction,
-    PolicySchema,
 )
 
 
@@ -34,9 +34,9 @@ def plugin() -> PolicyEnginePlugin:
 
 
 @pytest.fixture
-def sample_policy() -> PolicySchema:
+def sample_policy() -> EvaluationPolicy:
     """Create a sample policy for testing."""
-    return PolicySchema(schema_version=12)
+    return EvaluationPolicy()
 
 
 @pytest.fixture
@@ -276,7 +276,7 @@ class TestPolicyEnginePluginEvaluation:
     def test_evaluate_returns_plan(
         self,
         plugin: PolicyEnginePlugin,
-        sample_policy: PolicySchema,
+        sample_policy: EvaluationPolicy,
         sample_tracks: list[TrackInfo],
         tmp_path: Path,
     ):
@@ -299,7 +299,7 @@ class TestPolicyEnginePluginEvaluation:
     def test_evaluate_computes_actions(
         self,
         plugin: PolicyEnginePlugin,
-        sample_policy: PolicySchema,
+        sample_policy: EvaluationPolicy,
         sample_tracks: list[TrackInfo],
         tmp_path: Path,
     ):

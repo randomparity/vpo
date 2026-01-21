@@ -21,48 +21,54 @@ def create_test_policy(
 ):
     """Helper to create test policy files."""
     content = """schema_version: 12
-track_order:
-  - video
-  - audio_main
-  - audio_alternate
-audio_language_preference:
-  - eng
-  - und
-subtitle_language_preference:
-  - eng
-  - und
-commentary_patterns:
-  - commentary
-  - director
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: false
-  clear_other_defaults: true
+config:
+  audio_language_preference:
+    - eng
+    - und
+  subtitle_language_preference:
+    - eng
+    - und
+  commentary_patterns:
+    - commentary
+    - director
+phases:
+  - name: organize
+    track_order:
+      - video
+      - audio_main
+      - audio_alternate
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: false
+      clear_other_defaults: true
 """
 
     if with_comments:
         content = """schema_version: 12
-# This is a comment about track order
-track_order:
-  - video
-  - audio_main  # Main audio track
-  - audio_alternate
-# Audio preferences
-audio_language_preference:
-  - eng
-  - und
-subtitle_language_preference:
-  - eng
-  - und
-commentary_patterns:
-  - commentary
-  - director
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: false
-  clear_other_defaults: true
+config:
+  # Audio preferences
+  audio_language_preference:
+    - eng
+    - und
+  subtitle_language_preference:
+    - eng
+    - und
+  commentary_patterns:
+    - commentary
+    - director
+phases:
+  # This is a comment about track order
+  - name: organize
+    track_order:
+      - video
+      - audio_main  # Main audio track
+      - audio_alternate
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: false
+      clear_other_defaults: true
 """
 
     if with_unknown_fields:
@@ -80,10 +86,14 @@ def test_load_valid_policy(tmp_path):
     data = editor.load()
 
     assert data["schema_version"] == 12
-    assert "track_order" in data
-    assert "audio_language_preference" in data
-    assert "subtitle_language_preference" in data
-    assert data["track_order"] == ["video", "audio_main", "audio_alternate"]
+    assert "phases" in data
+    assert "config" in data
+    assert data["config"]["audio_language_preference"] == ["eng", "und"]
+    assert data["phases"][0]["track_order"] == [
+        "video",
+        "audio_main",
+        "audio_alternate",
+    ]
 
 
 def test_load_nonexistent_file(tmp_path):
@@ -115,14 +125,14 @@ def test_save_updates_file(tmp_path):
     data = editor.load()
 
     # Update audio language preference
-    data["audio_language_preference"] = ["jpn", "eng", "und"]
+    data["config"]["audio_language_preference"] = ["jpn", "eng", "und"]
     editor.save(data)
 
     # Reload and verify
     editor2 = PolicyRoundTripEditor(policy_file)
     reloaded = editor2.load()
 
-    assert reloaded["audio_language_preference"] == ["jpn", "eng", "und"]
+    assert reloaded["config"]["audio_language_preference"] == ["jpn", "eng", "und"]
 
 
 def test_save_preserves_unknown_fields(tmp_path):
@@ -137,7 +147,7 @@ def test_save_preserves_unknown_fields(tmp_path):
     assert data["x_custom_field"] == "preserved_value"
 
     # Update a known field
-    data["audio_language_preference"] = ["fra", "eng"]
+    data["config"]["audio_language_preference"] = ["fra", "eng"]
     editor.save(data)
 
     # Reload and verify unknown field still exists
@@ -145,7 +155,7 @@ def test_save_preserves_unknown_fields(tmp_path):
     reloaded = editor2.load()
 
     assert reloaded["x_custom_field"] == "preserved_value"
-    assert reloaded["audio_language_preference"] == ["fra", "eng"]
+    assert reloaded["config"]["audio_language_preference"] == ["fra", "eng"]
 
 
 @pytest.mark.skip(
@@ -180,7 +190,7 @@ def test_save_invalid_data_raises_error(tmp_path):
     data = editor.load()
 
     # Make data invalid (empty track_order)
-    data["track_order"] = []
+    data["phases"][0]["track_order"] = []
 
     with pytest.raises(PolicyValidationError, match="validation failed"):
         editor.save(data)
@@ -195,7 +205,7 @@ def test_save_invalid_language_code(tmp_path):
     data = editor.load()
 
     # Invalid language code format
-    data["audio_language_preference"] = ["invalid123"]
+    data["config"]["audio_language_preference"] = ["invalid123"]
 
     with pytest.raises(PolicyValidationError, match="validation failed"):
         editor.save(data)
@@ -220,138 +230,155 @@ def test_save_multiple_times(tmp_path):
 
     # First save
     data = editor.load()
-    data["audio_language_preference"] = ["jpn"]
+    data["config"]["audio_language_preference"] = ["jpn"]
     editor.save(data)
 
     # Second save
     data = editor.load()
-    data["audio_language_preference"] = ["fra", "eng"]
+    data["config"]["audio_language_preference"] = ["fra", "eng"]
     editor.save(data)
 
     # Third save
     data = editor.load()
-    data["subtitle_language_preference"] = ["deu"]
+    data["config"]["subtitle_language_preference"] = ["deu"]
     editor.save(data)
 
     # Verify final state
     final_editor = PolicyRoundTripEditor(policy_file)
     final_data = final_editor.load()
 
-    assert final_data["audio_language_preference"] == ["fra", "eng"]
-    assert final_data["subtitle_language_preference"] == ["deu"]
+    assert final_data["config"]["audio_language_preference"] == ["fra", "eng"]
+    assert final_data["config"]["subtitle_language_preference"] == ["deu"]
 
 
 def test_load_policy_with_transcode(tmp_path):
     """Test loading policy with transcode section."""
     policy_file = tmp_path / "transcode.yaml"
     policy_file.write_text("""schema_version: 12
-track_order:
-  - video
-  - audio_main
-audio_language_preference:
-  - eng
-subtitle_language_preference:
-  - eng
-commentary_patterns:
-  - commentary
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: false
-  clear_other_defaults: true
-transcode:
-  target_video_codec: hevc
-  target_crf: 23
-  audio_preserve_codecs:
-    - aac
-    - opus
-  audio_transcode_to: aac
-  audio_transcode_bitrate: 192k
+config:
+  audio_language_preference:
+    - eng
+  subtitle_language_preference:
+    - eng
+  commentary_patterns:
+    - commentary
+phases:
+  - name: transcode
+    track_order:
+      - video
+      - audio_main
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: false
+      clear_other_defaults: true
+    transcode:
+      video:
+        target_codec: hevc
+        quality:
+          mode: crf
+          crf: 23
+      audio:
+        preserve_codecs:
+          - aac
+          - opus
+        transcode_to: aac
+        transcode_bitrate: 192k
 """)
 
     editor = PolicyRoundTripEditor(policy_file)
     data = editor.load()
 
-    assert "transcode" in data
-    assert data["transcode"]["target_video_codec"] == "hevc"
-    assert data["transcode"]["target_crf"] == 23
+    assert "transcode" in data["phases"][0]
+    assert data["phases"][0]["transcode"]["video"]["target_codec"] == "hevc"
+    assert data["phases"][0]["transcode"]["video"]["quality"]["crf"] == 23
 
 
 def test_save_preserves_transcode(tmp_path):
     """Test save preserves transcode section."""
     policy_file = tmp_path / "transcode.yaml"
     policy_file.write_text("""schema_version: 12
-track_order:
-  - video
-  - audio_main
-audio_language_preference:
-  - eng
-subtitle_language_preference:
-  - eng
-commentary_patterns:
-  - commentary
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: false
-  clear_other_defaults: true
-transcode:
-  target_video_codec: hevc
-  target_crf: 23
-  audio_preserve_codecs:
-    - aac
-  audio_transcode_to: aac
-  audio_transcode_bitrate: 192k
+config:
+  audio_language_preference:
+    - eng
+  subtitle_language_preference:
+    - eng
+  commentary_patterns:
+    - commentary
+phases:
+  - name: transcode
+    track_order:
+      - video
+      - audio_main
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: false
+      clear_other_defaults: true
+    transcode:
+      video:
+        target_codec: hevc
+        quality:
+          mode: crf
+          crf: 23
+      audio:
+        preserve_codecs:
+          - aac
+        transcode_to: aac
+        transcode_bitrate: 192k
 """)
 
     editor = PolicyRoundTripEditor(policy_file)
     data = editor.load()
 
     # Update audio language preference
-    data["audio_language_preference"] = ["jpn", "eng"]
+    data["config"]["audio_language_preference"] = ["jpn", "eng"]
     editor.save(data)
 
     # Reload and verify transcode preserved
     editor2 = PolicyRoundTripEditor(policy_file)
     reloaded = editor2.load()
 
-    assert reloaded["transcode"]["target_video_codec"] == "hevc"
-    assert reloaded["audio_language_preference"] == ["jpn", "eng"]
+    assert reloaded["phases"][0]["transcode"]["video"]["target_codec"] == "hevc"
+    assert reloaded["config"]["audio_language_preference"] == ["jpn", "eng"]
 
 
 def test_load_policy_with_transcription(tmp_path):
     """Test loading policy with transcription section."""
     policy_file = tmp_path / "transcription.yaml"
     policy_file.write_text("""schema_version: 12
-track_order:
-  - video
-  - audio_main
-audio_language_preference:
-  - eng
-subtitle_language_preference:
-  - eng
-commentary_patterns:
-  - commentary
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: false
-  clear_other_defaults: true
-transcription:
-  enabled: true
-  update_language_from_transcription: true
-  confidence_threshold: 0.8
-  detect_commentary: true
-  reorder_commentary: true
+config:
+  audio_language_preference:
+    - eng
+  subtitle_language_preference:
+    - eng
+  commentary_patterns:
+    - commentary
+phases:
+  - name: transcribe
+    track_order:
+      - video
+      - audio_main
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: false
+      clear_other_defaults: true
+    transcription:
+      enabled: true
+      update_language_from_transcription: true
+      confidence_threshold: 0.8
+      detect_commentary: true
+      reorder_commentary: true
 """)
 
     editor = PolicyRoundTripEditor(policy_file)
     data = editor.load()
 
-    assert "transcription" in data
-    assert data["transcription"]["enabled"] is True
-    assert data["transcription"]["detect_commentary"] is True
-    assert data["transcription"]["reorder_commentary"] is True
+    assert "transcription" in data["phases"][0]
+    assert data["phases"][0]["transcription"]["enabled"] is True
+    assert data["phases"][0]["transcription"]["detect_commentary"] is True
+    assert data["phases"][0]["transcription"]["reorder_commentary"] is True
 
 
 def test_path_traversal_protection(tmp_path):
@@ -406,18 +433,11 @@ def test_yaml_safe_mode_blocks_dangerous_objects(tmp_path):
     # Attempt to create a malicious YAML file with Python object execution
     # This would execute arbitrary code if safe mode is not enabled
     malicious_content = """schema_version: 12
-track_order:
-  - video
-audio_language_preference:
-  - eng
-subtitle_language_preference:
-  - eng
-commentary_patterns: []
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: false
-  clear_other_defaults: true
+config:
+  audio_language_preference:
+    - eng
+phases:
+  - name: test
 # Attempt to inject dangerous object
 !!python/object/apply:os.system
 args: ['echo pwned']

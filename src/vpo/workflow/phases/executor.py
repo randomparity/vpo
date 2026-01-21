@@ -1,7 +1,7 @@
-"""V11 phase executor for user-defined phases.
+"""Phase executor for user-defined phases.
 
 This module provides the PhaseExecutor class that handles execution of
-user-defined phases in V11 policies. It dispatches operations to existing
+user-defined phases in phased policies. It dispatches operations to existing
 executors based on the phase definition.
 """
 
@@ -39,35 +39,19 @@ from vpo.executor.backup import (
 from vpo.executor.interface import require_tool
 from vpo.policy.evaluator import Plan, evaluate_policy
 from vpo.policy.exceptions import PolicyError
-from vpo.policy.loader import load_policy_from_dict
 from vpo.policy.transcode import (
     AudioAction,
     AudioPlan,
     create_audio_plan_v6,
 )
 from vpo.policy.types import (
-    AndCondition,
-    AudioIsMultiLanguageCondition,
-    Comparison,
-    CountCondition,
-    ExistsCondition,
-    FailAction,
-    NotCondition,
+    EvaluationPolicy,
     OnErrorMode,
     OperationType,
-    OrCondition,
     PhaseDefinition,
     PhaseExecutionError,
     PhaseResult,
-    PluginMetadataCondition,
     PolicySchema,
-    SetDefaultAction,
-    SetForcedAction,
-    SetLanguageAction,
-    SkipAction,
-    TitleMatch,
-    V11PolicySchema,
-    WarnAction,
 )
 
 if TYPE_CHECKING:
@@ -115,8 +99,8 @@ class PhaseExecutionState:
     """If transcode was skipped, the reason (for stats tracking)."""
 
 
-class V11PhaseExecutor:
-    """Executor for V11 user-defined phases.
+class PhaseExecutor:
+    """Executor for user-defined phases.
 
     This class handles the execution of a single phase, dispatching
     operations to existing executors in canonical order.
@@ -125,7 +109,7 @@ class V11PhaseExecutor:
     def __init__(
         self,
         conn: Connection,
-        policy: V11PolicySchema,
+        policy: PolicySchema,
         dry_run: bool = False,
         verbose: bool = False,
         policy_name: str = "workflow",
@@ -135,7 +119,7 @@ class V11PhaseExecutor:
 
         Args:
             conn: Database connection.
-            policy: V11PolicySchema configuration.
+            policy: PolicySchema configuration.
             dry_run: If True, preview without making changes.
             verbose: If True, emit detailed logging.
             policy_name: Name of the policy for audit records.
@@ -214,247 +198,6 @@ class V11PhaseExecutor:
                 context,
             )
             return None
-
-    def _build_virtual_policy(self, phase: PhaseDefinition) -> PolicySchema:
-        """Build a V1-V10 compatible policy from phase config for evaluation.
-
-        This creates a "virtual" policy that contains only the configuration
-        relevant to the current phase, allowing reuse of the existing
-        evaluate_policy() function.
-
-        Args:
-            phase: The phase definition to build a policy for.
-
-        Returns:
-            PolicySchema suitable for evaluate_policy().
-        """
-        # Start with base policy structure
-        policy_dict: dict = {
-            "schema_version": 12,
-            "track_order": (
-                [t.value for t in phase.track_order]
-                if phase.track_order
-                else ["video", "audio_main", "audio_alternate", "subtitle_main"]
-            ),
-            "audio_language_preference": list(
-                self.policy.config.audio_language_preference
-            ),
-            "subtitle_language_preference": list(
-                self.policy.config.subtitle_language_preference
-            ),
-            "commentary_patterns": list(self.policy.config.commentary_patterns),
-            "default_flags": {},
-        }
-
-        # Add phase-specific configs
-        if phase.audio_filter:
-            policy_dict["audio_filter"] = {
-                "languages": list(phase.audio_filter.languages),
-            }
-
-        if phase.subtitle_filter:
-            policy_dict["subtitle_filter"] = {
-                "languages": list(phase.subtitle_filter.languages),
-            }
-
-        if phase.attachment_filter:
-            policy_dict["attachment_filter"] = {
-                "remove_all": phase.attachment_filter.remove_all,
-            }
-
-        if phase.container:
-            policy_dict["container"] = {
-                "target": phase.container.target,
-            }
-
-        if phase.default_flags:
-            df = phase.default_flags
-            policy_dict["default_flags"] = {
-                "set_first_video_default": df.set_first_video_default,
-                "set_preferred_audio_default": df.set_preferred_audio_default,
-                "set_preferred_subtitle_default": df.set_preferred_subtitle_default,
-                "clear_other_defaults": df.clear_other_defaults,
-            }
-
-        if phase.conditional:
-            # Convert conditional rules to dict format
-            policy_dict["conditional"] = [
-                self._conditional_rule_to_dict(rule) for rule in phase.conditional
-            ]
-
-        return load_policy_from_dict(policy_dict)
-
-    def _conditional_rule_to_dict(self, rule) -> dict:
-        """Convert a ConditionalRule to dict format for policy loading."""
-        result: dict = {"name": rule.name}
-
-        # Convert 'when' condition
-        if rule.when:
-            result["when"] = self._condition_to_dict(rule.when)
-
-        # Convert 'then' actions
-        if rule.then_actions:
-            result["then"] = [self._action_to_dict(a) for a in rule.then_actions]
-
-        # Convert 'else' actions
-        if rule.else_actions:
-            result["else"] = [self._action_to_dict(a) for a in rule.else_actions]
-
-        return result
-
-    def _condition_to_dict(self, condition) -> dict:
-        """Convert a Condition to dict format for policy loading.
-
-        Handles all condition types in the Condition union:
-        - ExistsCondition -> {"exists": {...}}
-        - CountCondition -> {"count": {...}}
-        - AndCondition -> {"and": [...]}
-        - OrCondition -> {"or": [...]}
-        - NotCondition -> {"not": {...}}
-        - AudioIsMultiLanguageCondition -> {"audio_is_multi_language": {...}}
-        - PluginMetadataCondition -> {"plugin_metadata": {...}}
-        """
-        if isinstance(condition, ExistsCondition):
-            inner: dict = {"track_type": condition.track_type}
-            inner.update(self._filters_to_dict(condition.filters))
-            return {"exists": inner}
-
-        if isinstance(condition, CountCondition):
-            inner = {"track_type": condition.track_type}
-            inner.update(self._filters_to_dict(condition.filters))
-            # Add the count comparison operator
-            inner[condition.operator.value] = condition.value
-            return {"count": inner}
-
-        if isinstance(condition, AndCondition):
-            return {"and": [self._condition_to_dict(c) for c in condition.conditions]}
-
-        if isinstance(condition, OrCondition):
-            return {"or": [self._condition_to_dict(c) for c in condition.conditions]}
-
-        if isinstance(condition, NotCondition):
-            return {"not": self._condition_to_dict(condition.inner)}
-
-        if isinstance(condition, AudioIsMultiLanguageCondition):
-            inner = {}
-            if condition.threshold is not None:
-                inner["threshold"] = condition.threshold
-            return {"audio_is_multi_language": inner}
-
-        if isinstance(condition, PluginMetadataCondition):
-            inner = {
-                "plugin": condition.plugin,
-                "field": condition.field,
-            }
-            if condition.value is not None:
-                inner["value"] = condition.value
-            if condition.operator.value != "eq":  # Only include if not default
-                inner["operator"] = condition.operator.value
-            return {"plugin_metadata": inner}
-
-        # Fallback for unknown condition types
-        raise ValueError(f"Unknown condition type: {type(condition).__name__}")
-
-    def _filters_to_dict(self, filters) -> dict:
-        """Convert TrackFilters to dict format."""
-        result: dict = {}
-        if filters.language is not None:
-            if isinstance(filters.language, tuple):
-                result["language"] = list(filters.language)
-            else:
-                result["language"] = filters.language
-        if filters.codec is not None:
-            if isinstance(filters.codec, tuple):
-                result["codec"] = list(filters.codec)
-            else:
-                result["codec"] = filters.codec
-        if filters.is_default is not None:
-            result["is_default"] = filters.is_default
-        if filters.is_forced is not None:
-            result["is_forced"] = filters.is_forced
-        if filters.channels is not None:
-            result["channels"] = self._comparison_to_dict(filters.channels)
-        if filters.width is not None:
-            result["width"] = self._comparison_to_dict(filters.width)
-        if filters.height is not None:
-            result["height"] = self._comparison_to_dict(filters.height)
-        if filters.title is not None:
-            result["title"] = self._title_match_to_dict(filters.title)
-        if filters.not_commentary is not None:
-            result["not_commentary"] = filters.not_commentary
-        return result
-
-    def _comparison_to_dict(self, comparison: int | Comparison) -> int | dict:
-        """Convert Comparison or int to dict format."""
-        if isinstance(comparison, int):
-            return comparison
-        # Comparison dataclass with operator and value
-        return {comparison.operator.value: comparison.value}
-
-    def _title_match_to_dict(self, title_match: str | TitleMatch) -> str | dict:
-        """Convert TitleMatch or str to dict format."""
-        if isinstance(title_match, str):
-            return title_match
-        # TitleMatch dataclass
-        result: dict = {}
-        if title_match.contains is not None:
-            result["contains"] = title_match.contains
-        if title_match.regex is not None:
-            result["regex"] = title_match.regex
-        return result
-
-    def _action_to_dict(self, action) -> dict:
-        """Convert a ConditionalAction to dict format for policy loading.
-
-        ConditionalAction is a union type of:
-        - SkipAction -> {"skip_video_transcode": True} etc.
-        - WarnAction -> {"warn": "message"}
-        - FailAction -> {"fail": "message"}
-        - SetForcedAction -> {"set_forced": {...}}
-        - SetDefaultAction -> {"set_default": {...}}
-        - SetLanguageAction -> {"set_language": {...}}
-        """
-        if isinstance(action, SkipAction):
-            # Map SkipType enum to dict key
-            return {action.skip_type.value: True}
-
-        if isinstance(action, WarnAction):
-            return {"warn": action.message}
-
-        if isinstance(action, FailAction):
-            return {"fail": action.message}
-
-        if isinstance(action, SetForcedAction):
-            inner: dict = {"track_type": action.track_type}
-            if action.language is not None:
-                inner["language"] = action.language
-            if action.value is not True:  # Only include if not default
-                inner["value"] = action.value
-            return {"set_forced": inner}
-
-        if isinstance(action, SetDefaultAction):
-            inner = {"track_type": action.track_type}
-            if action.language is not None:
-                inner["language"] = action.language
-            if action.value is not True:  # Only include if not default
-                inner["value"] = action.value
-            return {"set_default": inner}
-
-        if isinstance(action, SetLanguageAction):
-            inner = {"track_type": action.track_type}
-            if action.new_language is not None:
-                inner["new_language"] = action.new_language
-            if action.from_plugin_metadata is not None:
-                inner["from_plugin_metadata"] = {
-                    "plugin": action.from_plugin_metadata.plugin,
-                    "field": action.from_plugin_metadata.field,
-                }
-            if action.match_language is not None:
-                inner["match_language"] = action.match_language
-            return {"set_language": inner}
-
-        # Fallback for unknown action types
-        raise ValueError(f"Unknown action type: {type(action).__name__}")
 
     def _select_executor(
         self, plan: Plan, container: str
@@ -819,14 +562,14 @@ class V11PhaseExecutor:
             file_record, file_path, file_id, "policy evaluation"
         )
 
-        # Build virtual policy and evaluate
-        virtual_policy = self._build_virtual_policy(phase)
+        # Create evaluation policy from phase definition
+        eval_policy = EvaluationPolicy.from_phase(phase, self.policy.config)
         plan = evaluate_policy(
             file_id=file_id,
             file_path=file_path,
             container=container,
             tracks=tracks,
-            policy=virtual_policy,
+            policy=eval_policy,
             plugin_metadata=plugin_metadata,
         )
 

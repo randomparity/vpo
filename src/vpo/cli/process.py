@@ -1,9 +1,6 @@
 """CLI command for processing media files through the unified workflow.
 
-This command replaces the separate apply and transcode commands with a
-unified workflow that runs phases in order: analyze → apply → transcode.
-
-For V11 policies, the workflow runs user-defined phases in order.
+This command processes files through user-defined phases in order.
 """
 
 import json
@@ -14,32 +11,23 @@ import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import replace
 from pathlib import Path
 
 import click
 
 from vpo.cli.exit_codes import ExitCode
 from vpo.cli.output import error_exit
-from vpo.cli.plan_formatter import (
-    OutputStyle,
-    format_plan_human,
-    format_plan_json,
-)
 from vpo.cli.profile_loader import load_profile_or_exit
 from vpo.config.loader import get_config
 from vpo.db.connection import get_connection
 from vpo.logging import worker_context
-from vpo.plugin import get_default_registry
 from vpo.policy.loader import PolicyValidationError, load_policy
 from vpo.policy.types import (
     FileProcessingResult,
     OnErrorMode,
-    ProcessingPhase,
-    V11PolicySchema,
-    WorkflowConfig,
+    PolicySchema,
 )
-from vpo.workflow import V11WorkflowProcessor, WorkflowProcessor
+from vpo.workflow import WorkflowProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -193,30 +181,9 @@ def _discover_files(paths: list[Path], recursive: bool) -> list[Path]:
     return sorted(set(files))
 
 
-def _parse_phases(phases_str: str | None) -> tuple[ProcessingPhase, ...] | None:
-    """Parse comma-separated phases string.
-
-    Args:
-        phases_str: Comma-separated phase names (e.g., "analyze,apply,transcode").
-
-    Returns:
-        Tuple of ProcessingPhase enums, or None if not specified.
-    """
-    if not phases_str:
-        return None
-
-    phases = []
-    for name in phases_str.split(","):
-        name = name.strip().casefold()
-        try:
-            phases.append(ProcessingPhase(name))
-        except ValueError:
-            valid = ", ".join(p.value for p in ProcessingPhase)
-            raise click.BadParameter(
-                f"Invalid phase '{name}'. Valid phases: {valid}"
-            ) from None
-
-    return tuple(phases)
+# =============================================================================
+# Result Formatting
+# =============================================================================
 
 
 def _format_result_human(result, file_path: Path, verbose: bool = False) -> str:
@@ -224,85 +191,6 @@ def _format_result_human(result, file_path: Path, verbose: bool = False) -> str:
 
     Args:
         result: FileProcessingResult from workflow processor.
-        file_path: Path to the processed file.
-        verbose: If True, show full BEFORE/AFTER tables for plans.
-
-    Returns:
-        Formatted string for terminal output.
-    """
-    lines = []
-
-    # Always show file path in verbose mode
-    if verbose:
-        lines.append(f"File: {file_path}")
-
-    if result.success:
-        completed = [p.value for p in result.phases_completed]
-        lines.append("Status: Success")
-        lines.append(f"Phases: {', '.join(completed)}")
-    else:
-        lines.append("Status: Failed")
-        lines.append(f"Error: {result.error_message}")
-        if result.phases_completed:
-            completed = [p.value for p in result.phases_completed]
-            lines.append(f"Completed: {', '.join(completed)}")
-        if result.phases_failed:
-            failed = [p.value for p in result.phases_failed]
-            lines.append(f"Failed: {', '.join(failed)}")
-
-    # Add plan details if available (dry-run mode)
-    for pr in result.phase_results:
-        if pr.plan is not None:
-            lines.append("")
-            style = OutputStyle.VERBOSE if verbose else OutputStyle.NORMAL
-            lines.append(format_plan_human(pr.plan, style=style))
-
-    lines.append(f"Duration: {result.duration_seconds:.1f}s")
-    return "\n".join(lines)
-
-
-def _format_result_json(result, file_path: Path) -> dict:
-    """Format processing result for JSON output."""
-    output = {
-        "file": str(file_path),
-        "success": result.success,
-        "phases_completed": [p.value for p in result.phases_completed],
-        "phases_failed": [p.value for p in result.phases_failed],
-        "phases_skipped": [p.value for p in result.phases_skipped],
-        "error_message": result.error_message,
-        "duration_seconds": round(result.duration_seconds, 2),
-        "phase_results": [
-            {
-                "phase": pr.phase.value,
-                "success": pr.success,
-                "message": pr.message,
-                "changes_made": pr.changes_made,
-                "duration_seconds": round(pr.duration_seconds, 2),
-                "plan": format_plan_json(pr.plan) if pr.plan else None,
-            }
-            for pr in result.phase_results
-        ],
-    }
-
-    # Also include plan at top level for convenience (first non-null plan)
-    for pr in result.phase_results:
-        if pr.plan is not None:
-            output["plan"] = format_plan_json(pr.plan)
-            break
-
-    return output
-
-
-# =============================================================================
-# V11 Result Formatting (User-Defined Phases)
-# =============================================================================
-
-
-def _format_v11_result_human(result, file_path: Path, verbose: bool = False) -> str:
-    """Format V11 processing result for human-readable output.
-
-    Args:
-        result: FileProcessingResult from V11 workflow processor.
         file_path: Path to the processed file.
         verbose: If True, show detailed output.
 
@@ -350,11 +238,11 @@ def _format_v11_result_human(result, file_path: Path, verbose: bool = False) -> 
     return "\n".join(lines)
 
 
-def _format_v11_result_json(result, file_path: Path) -> dict:
-    """Format V11 processing result for JSON output.
+def _format_result_json(result, file_path: Path) -> dict:
+    """Format processing result for JSON output.
 
     Args:
-        result: FileProcessingResult from V11 workflow processor.
+        result: FileProcessingResult from workflow processor.
         file_path: Path to the processed file.
 
     Returns:
@@ -395,10 +283,10 @@ def _format_v11_result_json(result, file_path: Path) -> dict:
 _output_lock = threading.Lock()
 
 
-def _process_single_file_v11(
+def _process_single_file(
     file_path: Path,
     db_path: Path,
-    policy: V11PolicySchema,
+    policy: PolicySchema,
     dry_run: bool,
     verbose: bool,
     policy_name: str,
@@ -408,14 +296,14 @@ def _process_single_file_v11(
     worker_id: str,
     file_id: str,
 ) -> tuple[Path, FileProcessingResult | None, bool]:
-    """Process a single file with V11 policy (worker function).
+    """Process a single file (worker function).
 
     Each worker creates its own database connection for thread safety.
 
     Args:
         file_path: Path to the video file.
         db_path: Path to the database file.
-        policy: V11 policy schema.
+        policy: Policy schema.
         dry_run: Whether to preview changes without modifying.
         verbose: Whether to emit verbose logging.
         policy_name: Name of the policy for audit.
@@ -441,7 +329,7 @@ def _process_single_file_v11(
 
             # Each worker gets its own connection for thread safety
             with get_connection(db_path) as conn:
-                processor = V11WorkflowProcessor(
+                processor = WorkflowProcessor(
                     conn=conn,
                     policy=policy,
                     dry_run=dry_run,
@@ -603,9 +491,6 @@ def process_command(
     except PolicyValidationError as e:
         error_exit(str(e), ExitCode.POLICY_VALIDATION_ERROR, json_output)
 
-    # Parse phase override
-    phase_override = _parse_phases(phases_str)
-
     # Discover files
     file_paths = _discover_files(list(paths), recursive)
     if not file_paths:
@@ -630,13 +515,12 @@ def process_command(
     results = []
     success_count = 0
     fail_count = 0
-    is_v11 = isinstance(policy, V11PolicySchema)
     stopped_early = False
     batch_start_time = time.time()
 
-    # Validate phase names for V11 policies before processing
+    # Validate phase names before processing
     selected_phases = None
-    if is_v11 and phases_str:
+    if phases_str:
         selected_phases = [p.strip() for p in phases_str.split(",") if p.strip()]
         # Validate phase names against policy's phases list
         valid_names = set(policy.phase_names)
@@ -659,196 +543,122 @@ def process_command(
     stop_event = threading.Event()
 
     try:
-        if is_v11:
-            # V11 policy - parallel processing with ThreadPoolExecutor
-            # Determine on_error mode from policy config
-            policy_on_error = policy.config.on_error
+        # Parallel processing with ThreadPoolExecutor
+        # Determine on_error mode from policy config
+        policy_on_error = policy.config.on_error
 
-            with ThreadPoolExecutor(max_workers=effective_workers) as executor:
-                # Submit all files as futures
-                futures = {}
+        with ThreadPoolExecutor(max_workers=effective_workers) as executor:
+            # Submit all files as futures
+            futures = {}
 
-                # Calculate file ID width based on batch size for consistent formatting
-                # e.g., 50 files -> F01-F50, 5000 files -> F0001-F5000
-                file_id_width = len(str(len(file_paths)))
+            # Calculate file ID width based on batch size for consistent formatting
+            # e.g., 50 files -> F01-F50, 5000 files -> F0001-F5000
+            file_id_width = len(str(len(file_paths)))
 
-                for file_idx, file_path in enumerate(file_paths, start=1):
-                    if stop_event.is_set():
-                        break
+            for file_idx, file_path in enumerate(file_paths, start=1):
+                if stop_event.is_set():
+                    break
 
-                    # Generate worker and file IDs for logging context.
-                    # Worker ID is a logical slot (1 to effective_workers), not
-                    # the actual thread ID. ThreadPoolExecutor assigns files to
-                    # threads as they become available, so W01 may run on any thread.
-                    worker_id = f"{((file_idx - 1) % effective_workers) + 1:02d}"
-                    file_id = f"F{file_idx:0{file_id_width}d}"
+                # Generate worker and file IDs for logging context.
+                # Worker ID is a logical slot (1 to effective_workers), not
+                # the actual thread ID. ThreadPoolExecutor assigns files to
+                # threads as they become available, so W01 may run on any thread.
+                worker_id = f"{((file_idx - 1) % effective_workers) + 1:02d}"
+                file_id = f"F{file_idx:0{file_id_width}d}"
 
-                    future = executor.submit(
-                        _process_single_file_v11,
-                        file_path,
-                        db_path,
-                        policy,
-                        dry_run,
-                        verbose,
-                        str(policy_path),
-                        selected_phases,
-                        progress,
-                        stop_event,
-                        worker_id,
-                        file_id,
-                    )
-                    futures[future] = file_path
-
-                # Process results as they complete
-                try:
-                    for future in as_completed(futures):
-                        file_path = futures[future]
-                        try:
-                            _, result, success = future.result()
-                            if result is not None:
-                                results.append(result)
-                                if success:
-                                    success_count += 1
-                                else:
-                                    fail_count += 1
-
-                                # Output result if verbose (use lock for thread safety)
-                                if not json_output and verbose:
-                                    formatted = _format_v11_result_human(
-                                        result, file_path, verbose
-                                    )
-                                    with _output_lock:
-                                        click.echo(formatted)
-                                        click.echo("")
-                                elif not json_output and not progress.enabled:
-                                    # Not verbose, not progress mode - show status
-                                    status = "OK" if success else "FAILED"
-                                    with _output_lock:
-                                        click.echo(f"[{status}] {file_path.name}")
-
-                                # Handle on_error=fail mode
-                                if not success and policy_on_error == OnErrorMode.FAIL:
-                                    stop_event.set()
-                                    stopped_early = True
-                                    if not json_output:
-                                        click.echo(
-                                            "Stopping batch due to error "
-                                            f"(on_error='fail'): {result.error_message}"
-                                        )
-                                    # Cancel pending futures and shutdown executor
-                                    for f in futures:
-                                        f.cancel()
-                                    executor.shutdown(wait=True, cancel_futures=True)
-                                    break
-                        except Exception as e:
-                            logger.exception(
-                                "Unexpected error for %s: %s", file_path, e
-                            )
-                            fail_count += 1
-                            # Create minimal result for tracking
-                            error_result = FileProcessingResult(
-                                file_path=file_path,
-                                success=False,
-                                phase_results=(),
-                                total_duration_seconds=0.0,
-                                total_changes=0,
-                                phases_completed=0,
-                                phases_failed=0,
-                                phases_skipped=0,
-                                error_message=str(e),
-                            )
-                            results.append(error_result)
-
-                except KeyboardInterrupt:
-                    # User pressed CTRL-C, cancel remaining work
-                    stop_event.set()
-                    stopped_early = True
-                    if not json_output:
-                        click.echo(
-                            "\nInterrupted - waiting for active workers to complete..."
-                        )
-                    # Cancel pending futures (not yet running)
-                    for f in futures:
-                        f.cancel()
-                    # Wait for running tasks to complete gracefully
-                    # cancel_futures=True cancels pending immediately, but running
-                    # tasks continue until their current operation completes.
-                    # The stop_event signals workers to exit quickly.
-                    executor.shutdown(wait=True, cancel_futures=True)
-
-            # Finish progress display
-            progress.finish()
-
-        else:
-            # Flat policy - sequential workflow processor with worker context
-            with get_connection() as conn:
-                # Create effective workflow config with overrides
-                if phase_override or on_error:
-                    base_config = policy.workflow or WorkflowConfig(
-                        phases=(ProcessingPhase.APPLY,),
-                    )
-                    effective_phases = phase_override or base_config.phases
-                    effective_on_error = on_error or base_config.on_error
-                    effective_config = WorkflowConfig(
-                        phases=effective_phases,
-                        auto_process=base_config.auto_process,
-                        on_error=effective_on_error,
-                    )
-                    # Create modified policy with new workflow
-                    # Note: PolicySchema is frozen, so we need to create a new one
-                    policy = replace(policy, workflow=effective_config)
-
-                # Create processor with plugin registry for transcription
-                registry = get_default_registry()
-                processor = WorkflowProcessor(
-                    conn=conn,
-                    policy=policy,
-                    dry_run=dry_run,
-                    verbose=verbose,
-                    policy_name=str(policy_path),
-                    plugin_registry=registry,
+                future = executor.submit(
+                    _process_single_file,
+                    file_path,
+                    db_path,
+                    policy,
+                    dry_run,
+                    verbose,
+                    str(policy_path),
+                    selected_phases,
+                    progress,
+                    stop_event,
+                    worker_id,
+                    file_id,
                 )
+                futures[future] = file_path
 
-                # Calculate file ID width for consistent formatting
-                file_id_width = len(str(len(file_paths)))
+            # Process results as they complete
+            try:
+                for future in as_completed(futures):
+                    file_path = futures[future]
+                    try:
+                        _, result, success = future.result()
+                        if result is not None:
+                            results.append(result)
+                            if success:
+                                success_count += 1
+                            else:
+                                fail_count += 1
 
-                for file_idx, file_path in enumerate(file_paths, start=1):
-                    if verbose and not json_output:
-                        click.echo(f"Processing: {file_path}")
+                            # Output result if verbose (use lock for thread safety)
+                            if not json_output and verbose:
+                                formatted = _format_result_human(
+                                    result, file_path, verbose
+                                )
+                                with _output_lock:
+                                    click.echo(formatted)
+                                    click.echo("")
+                            elif not json_output and not progress.enabled:
+                                # Not verbose, not progress mode - show status
+                                status = "OK" if success else "FAILED"
+                                with _output_lock:
+                                    click.echo(f"[{status}] {file_path.name}")
 
-                    # Use worker context for log correlation (single worker "01")
-                    file_id = f"F{file_idx:0{file_id_width}d}"
-                    with worker_context("01", file_id, file_path):
-                        logger.info("=== FILE %s: %s", file_id, file_path)
-                        result = processor.process_file(file_path)
-
-                    results.append(result)
-
-                    if result.success:
-                        success_count += 1
-                    else:
+                            # Handle on_error=fail mode
+                            if not success and policy_on_error == OnErrorMode.FAIL:
+                                stop_event.set()
+                                stopped_early = True
+                                if not json_output:
+                                    click.echo(
+                                        "Stopping batch due to error "
+                                        f"(on_error='fail'): {result.error_message}"
+                                    )
+                                # Cancel pending futures and shutdown executor
+                                for f in futures:
+                                    f.cancel()
+                                executor.shutdown(wait=True, cancel_futures=True)
+                                break
+                    except Exception as e:
+                        logger.exception("Unexpected error for %s: %s", file_path, e)
                         fail_count += 1
+                        # Create minimal result for tracking
+                        error_result = FileProcessingResult(
+                            file_path=file_path,
+                            success=False,
+                            phase_results=(),
+                            total_duration_seconds=0.0,
+                            total_changes=0,
+                            phases_completed=0,
+                            phases_failed=0,
+                            phases_skipped=0,
+                            error_message=str(e),
+                        )
+                        results.append(error_result)
 
-                    if not json_output:
-                        # In dry-run mode, always show plan details
-                        # In non-dry-run mode, only show details if verbose
-                        if dry_run or verbose:
-                            formatted = _format_result_human(result, file_path, verbose)
-                            click.echo(formatted)
-                            click.echo("")
-                        else:
-                            status = "OK" if result.success else "FAILED"
-                            click.echo(f"[{status}] {file_path.name}")
+            except KeyboardInterrupt:
+                # User pressed CTRL-C, cancel remaining work
+                stop_event.set()
+                stopped_early = True
+                if not json_output:
+                    click.echo(
+                        "\nInterrupted - waiting for active workers to complete..."
+                    )
+                # Cancel pending futures (not yet running)
+                for f in futures:
+                    f.cancel()
+                # Wait for running tasks to complete gracefully
+                # cancel_futures=True cancels pending immediately, but running
+                # tasks continue until their current operation completes.
+                # The stop_event signals workers to exit quickly.
+                executor.shutdown(wait=True, cancel_futures=True)
 
-                    # Check if batch processing should stop (on_error='fail')
-                    if result.batch_should_stop:
-                        stopped_early = True
-                        if not json_output:
-                            click.echo(
-                                f"Stopping batch due to error (on_error='fail'): "
-                                f"{result.error_message}"
-                            )
-                        break
+        # Finish progress display
+        progress.finish()
 
     except sqlite3.Error as e:
         error_exit(f"Database error: {e}", ExitCode.GENERAL_ERROR, json_output)
@@ -858,45 +668,27 @@ def process_command(
 
     # Output summary
     if json_output:
-        if is_v11:
-            policy_info = {
-                "path": str(policy_path),
-                "version": policy.schema_version,
-                "phases": list(policy.phase_names),
-            }
-            # Add filtered phases if selective execution was used
-            if selected_phases:
-                policy_info["phases_filtered"] = selected_phases
-            output = {
-                "policy": policy_info,
-                "dry_run": dry_run,
-                "workers": effective_workers,
-                "summary": {
-                    "total": len(results),
-                    "success": success_count,
-                    "failed": fail_count,
-                    "duration_seconds": round(batch_duration, 2),
-                    "stopped_early": stopped_early,
-                },
-                "results": [_format_v11_result_json(r, r.file_path) for r in results],
-            }
-        else:
-            output = {
-                "policy": {
-                    "path": str(policy_path),
-                    "version": policy.schema_version,
-                },
-                "dry_run": dry_run,
-                "workers": effective_workers,
-                "summary": {
-                    "total": len(results),
-                    "success": success_count,
-                    "failed": fail_count,
-                    "duration_seconds": round(batch_duration, 2),
-                    "stopped_early": stopped_early,
-                },
-                "results": [_format_result_json(r, r.file_path) for r in results],
-            }
+        policy_info = {
+            "path": str(policy_path),
+            "version": policy.schema_version,
+            "phases": list(policy.phase_names),
+        }
+        # Add filtered phases if selective execution was used
+        if selected_phases:
+            policy_info["phases_filtered"] = selected_phases
+        output = {
+            "policy": policy_info,
+            "dry_run": dry_run,
+            "workers": effective_workers,
+            "summary": {
+                "total": len(results),
+                "success": success_count,
+                "failed": fail_count,
+                "duration_seconds": round(batch_duration, 2),
+                "stopped_early": stopped_early,
+            },
+            "results": [_format_result_json(r, r.file_path) for r in results],
+        }
         click.echo(json.dumps(output, indent=2))
     else:
         click.echo("")

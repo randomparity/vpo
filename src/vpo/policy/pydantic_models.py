@@ -17,13 +17,11 @@ from vpo.policy.parsing import (
     parse_file_size as _parse_file_size,
 )
 from vpo.policy.types import (
-    DEFAULT_TRACK_ORDER,
     VALID_AUDIO_CODECS,
     VALID_PRESETS,
     VALID_RESOLUTIONS,
     VALID_VIDEO_CODECS,
     X264_X265_TUNES,
-    ProcessingPhase,
     TrackType,
     parse_bitrate,
 )
@@ -754,42 +752,6 @@ class AudioSynthesisModel(BaseModel):
         return self
 
 
-class WorkflowConfigModel(BaseModel):
-    """Pydantic model for workflow configuration (V9+)."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    phases: list[str]
-    """Processing phases to run in order."""
-
-    auto_process: bool = False
-    """If True, daemon auto-queues PROCESS jobs when files are scanned."""
-
-    on_error: Literal["skip", "continue", "fail"] = "continue"
-    """Error handling mode."""
-
-    @field_validator("phases")
-    @classmethod
-    def validate_phases(cls, v: list[str]) -> list[str]:
-        """Validate phases list."""
-        if not v:
-            raise ValueError("workflow.phases cannot be empty")
-
-        valid_phases = {p.value for p in ProcessingPhase}
-        for phase in v:
-            if phase not in valid_phases:
-                raise ValueError(
-                    f"Invalid phase '{phase}'. "
-                    f"Valid phases: {', '.join(sorted(valid_phases))}"
-                )
-
-        # Check for duplicates
-        if len(v) != len(set(v)):
-            raise ValueError("Duplicate phases not allowed")
-
-        return v
-
-
 class ComparisonModel(BaseModel):
     """Pydantic model for numeric comparison (e.g., height: {gte: 2160})."""
 
@@ -1306,138 +1268,8 @@ class ConditionalRuleModel(BaseModel):
         return v.strip()
 
 
-class PolicyModel(BaseModel):
-    """Pydantic model for policy YAML validation."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    schema_version: Literal[12] = 12
-    track_order: list[str] = Field(
-        default_factory=lambda: [t.value for t in DEFAULT_TRACK_ORDER]
-    )
-    audio_language_preference: list[str] = Field(default_factory=lambda: ["eng", "und"])
-    subtitle_language_preference: list[str] = Field(
-        default_factory=lambda: ["eng", "und"]
-    )
-    commentary_patterns: list[str] = Field(
-        default_factory=lambda: ["commentary", "director"]
-    )
-    default_flags: DefaultFlagsModel = Field(default_factory=DefaultFlagsModel)
-    transcode: TranscodePolicyModel | TranscodeV6Model | None = None
-    transcription: TranscriptionPolicyModel | None = None
-
-    # Track actions (pre-processing, applied before filters)
-    audio_actions: AudioActionsModel | None = None
-    subtitle_actions: SubtitleActionsModel | None = None
-
-    # Track filtering configuration
-    audio_filter: AudioFilterModel | None = None
-    subtitle_filter: SubtitleFilterModel | None = None
-    attachment_filter: AttachmentFilterModel | None = None
-    container: ContainerModel | None = None
-
-    # Conditional rules
-    conditional: list[ConditionalRuleModel] | None = None
-
-    # Audio synthesis
-    audio_synthesis: AudioSynthesisModel | None = None
-
-    # Workflow configuration
-    workflow: WorkflowConfigModel | None = None
-
-    @field_validator("track_order")
-    @classmethod
-    def validate_track_order(cls, v: list[str]) -> list[str]:
-        """Validate track order contains valid track types."""
-        if not v:
-            raise ValueError("track_order cannot be empty")
-
-        valid_types = {t.value for t in TrackType}
-        for idx, track_type in enumerate(v):
-            if track_type not in valid_types:
-                raise ValueError(
-                    f"Unknown track type '{track_type}' at track_order[{idx}]. "
-                    f"Valid types: {', '.join(sorted(valid_types))}"
-                )
-        return v
-
-    @field_validator("audio_language_preference", "subtitle_language_preference")
-    @classmethod
-    def validate_language_preference(cls, v: list[str]) -> list[str]:
-        """Validate language preference contains valid ISO 639-2 codes."""
-        if not v:
-            raise ValueError("Language preference cannot be empty")
-
-        import re
-
-        pattern = re.compile(r"^[a-z]{2,3}$")
-        for idx, lang in enumerate(v):
-            if not pattern.match(lang):
-                raise ValueError(
-                    f"Invalid language code '{lang}' at index {idx}. "
-                    "Use ISO 639-2 codes (e.g., 'eng', 'jpn')."
-                )
-        return v
-
-    @field_validator("commentary_patterns")
-    @classmethod
-    def validate_commentary_patterns(cls, v: list[str]) -> list[str]:
-        """Validate commentary patterns are valid regex."""
-        errors = validate_regex_patterns(v)
-        if errors:
-            raise ValueError(errors[0])
-        return v
-
-    # Computed properties for backward compatibility with PolicySchema dataclass
-    @property
-    def has_transcode_settings(self) -> bool:
-        """True if transcode settings are specified."""
-        return self.transcode is not None
-
-    @property
-    def has_transcription_settings(self) -> bool:
-        """True if transcription settings are specified and enabled."""
-        return self.transcription is not None and self.transcription.enabled
-
-    @property
-    def has_track_filtering(self) -> bool:
-        """True if any track filtering is configured."""
-        return any(
-            [
-                self.audio_filter is not None,
-                self.subtitle_filter is not None,
-                self.attachment_filter is not None,
-            ]
-        )
-
-    @property
-    def has_track_actions(self) -> bool:
-        """True if any track actions are configured."""
-        return self.audio_actions is not None or self.subtitle_actions is not None
-
-    @property
-    def has_container_config(self) -> bool:
-        """True if container conversion is configured."""
-        return self.container is not None
-
-    @property
-    def has_conditional_rules(self) -> bool:
-        """True if any conditional rules are configured."""
-        return self.conditional is not None and len(self.conditional) > 0
-
-    @property
-    def has_audio_synthesis(self) -> bool:
-        """True if audio synthesis is configured."""
-        return self.audio_synthesis is not None
-
-    @property
-    def has_workflow(self) -> bool:
-        """True if workflow configuration is present."""
-        return self.workflow is not None
-
-
 # =============================================================================
-# V11 Pydantic Models for User-Defined Phases
+# Pydantic Models for User-Defined Phases
 # =============================================================================
 
 
@@ -1714,7 +1546,7 @@ class PhaseModel(BaseModel):
         return v
 
 
-class PhasedPolicyModel(BaseModel):
+class PolicyModel(BaseModel):
     """Pydantic model for phased policy with user-defined phases."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -1750,7 +1582,7 @@ class PhasedPolicyModel(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def validate_phase_references(self) -> "PhasedPolicyModel":
+    def validate_phase_references(self) -> "PolicyModel":
         """Validate that depends_on and run_if reference valid, earlier phases."""
         phase_names = [p.name for p in self.phases]
         phase_index_map = {name: idx for idx, name in enumerate(phase_names)}
@@ -1792,8 +1624,9 @@ class PhasedPolicyModel(BaseModel):
         return self
 
 
-# Backward compatibility alias (deprecated)
-V11PolicyModel = PhasedPolicyModel
+# Backward compatibility aliases (deprecated)
+V11PolicyModel = PolicyModel
+PhasedPolicyModel = PolicyModel
 
 
 # =============================================================================

@@ -29,7 +29,7 @@ from vpo.plugin.events import (
 )
 from vpo.plugin.manifest import PluginSource
 from vpo.policy.evaluator import evaluate_policy
-from vpo.policy.types import ActionType, Plan, PolicySchema
+from vpo.policy.types import ActionType, EvaluationPolicy, Plan
 
 logger = logging.getLogger(__name__)
 
@@ -245,7 +245,7 @@ class PolicyEnginePlugin:
         file_path: Any,
         container: str,
         tracks: list[TrackInfo],
-        policy: PolicySchema,
+        policy: EvaluationPolicy,
         transcription_results: dict | None = None,
         language_results: dict | None = None,
         plugin_metadata: dict | None = None,

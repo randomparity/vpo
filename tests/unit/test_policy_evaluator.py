@@ -17,7 +17,7 @@ from vpo.policy.matchers import CommentaryMatcher
 from vpo.policy.types import (
     ActionType,
     DefaultFlagsConfig,
-    PolicySchema,
+    EvaluationPolicy,
     TrackType,
 )
 
@@ -27,9 +27,9 @@ from vpo.policy.types import (
 
 
 @pytest.fixture
-def default_policy() -> PolicySchema:
+def default_policy() -> EvaluationPolicy:
     """Create a default policy for testing."""
-    return PolicySchema(
+    return EvaluationPolicy(
         schema_version=12,
         track_order=(
             TrackType.VIDEO,
@@ -54,9 +54,9 @@ def default_policy() -> PolicySchema:
 
 
 @pytest.fixture
-def japanese_policy() -> PolicySchema:
+def japanese_policy() -> EvaluationPolicy:
     """Create a Japanese-preferred policy for testing."""
-    return PolicySchema(
+    return EvaluationPolicy(
         schema_version=12,
         audio_language_preference=("jpn", "eng", "und"),
         subtitle_language_preference=("eng", "und"),
@@ -85,7 +85,7 @@ class TestClassifyTrack:
     """Tests for track classification logic."""
 
     def test_video_track(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Video tracks should be classified as VIDEO."""
         track = TrackInfo(index=0, track_type="video", codec="hevc")
@@ -93,7 +93,7 @@ class TestClassifyTrack:
         assert result == TrackType.VIDEO
 
     def test_audio_main_preferred_language(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Audio with preferred language should be AUDIO_MAIN."""
         track = TrackInfo(index=1, track_type="audio", codec="aac", language="eng")
@@ -101,7 +101,7 @@ class TestClassifyTrack:
         assert result == TrackType.AUDIO_MAIN
 
     def test_audio_main_und_language(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Audio with 'und' language should be AUDIO_MAIN if in preference."""
         track = TrackInfo(index=1, track_type="audio", codec="aac", language="und")
@@ -109,7 +109,7 @@ class TestClassifyTrack:
         assert result == TrackType.AUDIO_MAIN
 
     def test_audio_alternate_non_preferred_language(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Audio with non-preferred language should be AUDIO_ALTERNATE."""
         track = TrackInfo(index=1, track_type="audio", codec="aac", language="fra")
@@ -117,7 +117,7 @@ class TestClassifyTrack:
         assert result == TrackType.AUDIO_ALTERNATE
 
     def test_audio_commentary_by_title(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Audio with commentary in title should be AUDIO_COMMENTARY."""
         track = TrackInfo(
@@ -131,7 +131,7 @@ class TestClassifyTrack:
         assert result == TrackType.AUDIO_COMMENTARY
 
     def test_subtitle_main(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Standard subtitle should be SUBTITLE_MAIN."""
         track = TrackInfo(
@@ -141,7 +141,7 @@ class TestClassifyTrack:
         assert result == TrackType.SUBTITLE_MAIN
 
     def test_subtitle_forced(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Forced subtitle should be SUBTITLE_FORCED."""
         track = TrackInfo(
@@ -155,7 +155,7 @@ class TestClassifyTrack:
         assert result == TrackType.SUBTITLE_FORCED
 
     def test_subtitle_commentary(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Subtitle with commentary title should be SUBTITLE_COMMENTARY."""
         track = TrackInfo(
@@ -165,7 +165,7 @@ class TestClassifyTrack:
         assert result == TrackType.SUBTITLE_COMMENTARY
 
     def test_attachment_track(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Attachment tracks should be classified as ATTACHMENT."""
         track = TrackInfo(index=3, track_type="attachment", codec="font/otf")
@@ -173,7 +173,7 @@ class TestClassifyTrack:
         assert result == TrackType.ATTACHMENT
 
     def test_unknown_track_type(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Unknown track types should default to ATTACHMENT."""
         track = TrackInfo(index=3, track_type="unknown", codec="data")
@@ -181,7 +181,7 @@ class TestClassifyTrack:
         assert result == TrackType.ATTACHMENT
 
     def test_audio_missing_language_treated_as_und(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Audio with missing language should be treated as 'und'."""
         track = TrackInfo(index=1, track_type="audio", codec="aac", language=None)
@@ -198,14 +198,14 @@ class TestComputeDesiredOrder:
     """Tests for track ordering computation."""
 
     def test_empty_tracks(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Empty track list should return empty order."""
         result = compute_desired_order([], default_policy, matcher)
         assert result == []
 
     def test_single_video_track(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Single video track should remain at index 0."""
         tracks = [TrackInfo(index=0, track_type="video", codec="hevc")]
@@ -213,7 +213,7 @@ class TestComputeDesiredOrder:
         assert result == [0]
 
     def test_video_audio_subtitle_order(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Tracks should be ordered: video, audio, subtitle."""
         tracks = [
@@ -226,7 +226,7 @@ class TestComputeDesiredOrder:
         assert result == [1, 2, 0]
 
     def test_commentary_at_end(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Commentary tracks should come after main tracks."""
         tracks = [
@@ -245,7 +245,7 @@ class TestComputeDesiredOrder:
         assert result == [0, 2, 1]
 
     def test_language_preference_ordering(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Audio tracks should be sorted by language preference."""
         tracks = [
@@ -258,7 +258,7 @@ class TestComputeDesiredOrder:
         assert result == [0, 2, 1]
 
     def test_forced_subtitles_before_commentary(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Forced subtitles should come before commentary subtitles."""
         tracks = [
@@ -280,7 +280,7 @@ class TestComputeDesiredOrder:
         assert result == [0, 3, 2, 1]
 
     def test_attachments_at_end(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Attachment tracks should always come last."""
         tracks = [
@@ -302,7 +302,7 @@ class TestComputeDefaultFlags:
     """Tests for default flag computation."""
 
     def test_first_video_gets_default(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """First video track should get default flag."""
         tracks = [
@@ -314,7 +314,7 @@ class TestComputeDefaultFlags:
         assert result[1] is False
 
     def test_preferred_audio_gets_default(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Preferred language audio should get default flag."""
         tracks = [
@@ -326,7 +326,7 @@ class TestComputeDefaultFlags:
         assert result[1] is True
 
     def test_commentary_not_default(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Commentary tracks should not get default flag."""
         tracks = [
@@ -345,7 +345,7 @@ class TestComputeDefaultFlags:
         assert result[1] is True
 
     def test_all_commentary_falls_back_to_first(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """If all audio is commentary, fall back to first track."""
         tracks = [
@@ -369,7 +369,7 @@ class TestComputeDefaultFlags:
         assert result[1] is False
 
     def test_subtitle_default_not_set_by_default_policy(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Subtitles should not get default flag with default policy."""
         tracks = [
@@ -380,7 +380,7 @@ class TestComputeDefaultFlags:
         assert result[0] is False
 
     def test_subtitle_default_set_when_enabled(
-        self, japanese_policy: PolicySchema, matcher: CommentaryMatcher
+        self, japanese_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """Subtitles should get default flag when enabled in policy."""
         tracks = [
@@ -392,7 +392,7 @@ class TestComputeDefaultFlags:
         assert result[1] is False
 
     def test_no_audio_tracks_skips_audio_defaults(
-        self, default_policy: PolicySchema, matcher: CommentaryMatcher
+        self, default_policy: EvaluationPolicy, matcher: CommentaryMatcher
     ):
         """No audio tracks should not cause errors."""
         tracks = [
@@ -407,7 +407,7 @@ class TestComputeDefaultFlags:
         self, matcher: CommentaryMatcher
     ):
         """English subtitle gets default when audio is German and English preferred."""
-        policy = PolicySchema(
+        policy = EvaluationPolicy(
             schema_version=12,
             audio_language_preference=("eng", "und"),
             subtitle_language_preference=("eng", "und"),
@@ -434,7 +434,7 @@ class TestComputeDefaultFlags:
 
     def test_subtitle_default_when_audio_matches(self, matcher: CommentaryMatcher):
         """No subtitle default when audio matches preferred language."""
-        policy = PolicySchema(
+        policy = EvaluationPolicy(
             schema_version=12,
             audio_language_preference=("eng", "und"),
             subtitle_language_preference=("eng", "und"),
@@ -459,7 +459,7 @@ class TestComputeDefaultFlags:
 
     def test_subtitle_default_when_audio_undefined(self, matcher: CommentaryMatcher):
         """Subtitle gets default when audio language is undefined."""
-        policy = PolicySchema(
+        policy = EvaluationPolicy(
             schema_version=12,
             audio_language_preference=("eng",),  # Note: 'und' NOT in preference
             subtitle_language_preference=("eng", "und"),
@@ -486,7 +486,7 @@ class TestComputeDefaultFlags:
         self, matcher: CommentaryMatcher
     ):
         """Subtitle gets default when only commentary audio exists."""
-        policy = PolicySchema(
+        policy = EvaluationPolicy(
             schema_version=12,
             audio_language_preference=("eng", "und"),
             subtitle_language_preference=("eng", "und"),
@@ -517,7 +517,7 @@ class TestComputeDefaultFlags:
 
     def test_subtitle_default_when_no_audio(self, matcher: CommentaryMatcher):
         """Subtitle gets default when no audio tracks exist."""
-        policy = PolicySchema(
+        policy = EvaluationPolicy(
             schema_version=12,
             audio_language_preference=("eng", "und"),
             subtitle_language_preference=("eng", "und"),
@@ -540,7 +540,7 @@ class TestComputeDefaultFlags:
 
     def test_subtitle_default_disabled_by_config(self, matcher: CommentaryMatcher):
         """No subtitle default when feature is disabled, regardless of audio."""
-        policy = PolicySchema(
+        policy = EvaluationPolicy(
             schema_version=12,
             audio_language_preference=("eng", "und"),
             subtitle_language_preference=("eng", "und"),
@@ -572,7 +572,7 @@ class TestComputeDefaultFlags:
 class TestEvaluatePolicy:
     """Tests for full policy evaluation."""
 
-    def test_no_tracks_raises_error(self, default_policy: PolicySchema):
+    def test_no_tracks_raises_error(self, default_policy: EvaluationPolicy):
         """Evaluating with no tracks should raise NoTracksError."""
         with pytest.raises(NoTracksError):
             evaluate_policy(
@@ -583,7 +583,9 @@ class TestEvaluatePolicy:
                 policy=default_policy,
             )
 
-    def test_already_compliant_returns_empty_plan(self, default_policy: PolicySchema):
+    def test_already_compliant_returns_empty_plan(
+        self, default_policy: EvaluationPolicy
+    ):
         """File already matching policy should return empty plan."""
         tracks = [
             TrackInfo(index=0, track_type="video", codec="hevc", is_default=True),
@@ -612,7 +614,7 @@ class TestEvaluatePolicy:
         assert plan.is_empty
         assert plan.summary == "No changes required"
 
-    def test_reorder_action_generated(self, default_policy: PolicySchema):
+    def test_reorder_action_generated(self, default_policy: EvaluationPolicy):
         """Reorder action should be generated when tracks are out of order."""
         tracks = [
             TrackInfo(
@@ -645,7 +647,7 @@ class TestEvaluatePolicy:
         assert len(reorder_actions) == 1
         assert reorder_actions[0].desired_value == [1, 2, 0]
 
-    def test_reorder_not_generated_for_non_mkv(self, default_policy: PolicySchema):
+    def test_reorder_not_generated_for_non_mkv(self, default_policy: EvaluationPolicy):
         """Reorder action should NOT be generated for non-MKV containers."""
         tracks = [
             TrackInfo(
@@ -678,7 +680,7 @@ class TestEvaluatePolicy:
         ]
         assert len(reorder_actions) == 0
 
-    def test_set_default_action_generated(self, default_policy: PolicySchema):
+    def test_set_default_action_generated(self, default_policy: EvaluationPolicy):
         """SET_DEFAULT action should be generated when default flag needs changing."""
         tracks = [
             TrackInfo(index=0, track_type="video", codec="hevc", is_default=False),
@@ -702,7 +704,7 @@ class TestEvaluatePolicy:
         ]
         assert len(set_default_actions) == 2  # Video and audio
 
-    def test_clear_default_action_generated(self, default_policy: PolicySchema):
+    def test_clear_default_action_generated(self, default_policy: EvaluationPolicy):
         """CLEAR_DEFAULT action should be generated for non-preferred tracks."""
         tracks = [
             TrackInfo(index=0, track_type="video", codec="hevc", is_default=True),
@@ -733,7 +735,7 @@ class TestEvaluatePolicy:
         ]
         assert len(clear_default_actions) == 1  # French audio should be cleared
 
-    def test_plan_metadata(self, default_policy: PolicySchema):
+    def test_plan_metadata(self, default_policy: EvaluationPolicy):
         """Plan should contain correct metadata."""
         tracks = [TrackInfo(index=0, track_type="video", codec="hevc", is_default=True)]
         plan = evaluate_policy(
@@ -768,7 +770,7 @@ class TestTrackDispositionTranscriptionStatus:
         tracks = [
             TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="eng"),
         ]
-        policy = PolicySchema(
+        policy = EvaluationPolicy(
             schema_version=12,
             audio_filter=AudioFilterConfig(languages=("eng",)),
         )
@@ -801,7 +803,7 @@ class TestTrackDispositionTranscriptionStatus:
         tracks = [
             TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="eng"),
         ]
-        policy = PolicySchema(
+        policy = EvaluationPolicy(
             schema_version=12,
             audio_filter=AudioFilterConfig(languages=("eng",)),
         )
@@ -822,7 +824,7 @@ class TestTrackDispositionTranscriptionStatus:
         tracks = [
             TrackInfo(index=0, track_type="video", codec="hevc"),
         ]
-        policy = PolicySchema(
+        policy = EvaluationPolicy(
             schema_version=12,
             audio_filter=AudioFilterConfig(languages=("eng",)),
         )
@@ -842,7 +844,7 @@ class TestTrackDispositionTranscriptionStatus:
         tracks = [
             TrackInfo(index=0, track_type="subtitle", codec="subrip", language="eng"),
         ]
-        policy = PolicySchema(
+        policy = EvaluationPolicy(
             schema_version=12,
             subtitle_filter=SubtitleFilterConfig(languages=("eng",)),
         )
@@ -871,7 +873,7 @@ class TestTrackDispositionTranscriptionStatus:
                 title="Director Commentary",
             ),
         ]
-        policy = PolicySchema(
+        policy = EvaluationPolicy(
             schema_version=12,
             audio_filter=AudioFilterConfig(languages=("eng",)),
         )
@@ -922,7 +924,7 @@ class TestTrackDispositionTranscriptionStatus:
         tracks = [
             TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="fra"),
         ]
-        policy = PolicySchema(
+        policy = EvaluationPolicy(
             schema_version=12,
             audio_filter=AudioFilterConfig(
                 languages=("eng",),
