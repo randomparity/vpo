@@ -281,7 +281,7 @@ class PolicyEditorRequest:
         """Convert to dictionary for policy validation and saving.
 
         Returns:
-            Dictionary in PolicyModel format or PhasedPolicySchema format.
+            Dictionary in PolicyModel format.
         """
         # Phased policies have a different structure
         if self.phases is not None:
@@ -292,7 +292,7 @@ class PolicyEditorRequest:
         """Convert to phased policy dictionary format.
 
         Returns:
-            Dictionary in PhasedPolicySchema format.
+            Dictionary in PolicySchema format with phases.
         """
         result: dict = {
             "schema_version": 12,

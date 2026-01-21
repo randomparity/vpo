@@ -81,12 +81,10 @@ from vpo.policy.pydantic_models.filters import (
 # =============================================================================
 from vpo.policy.pydantic_models.phases import (
     GlobalConfigModel,
-    PhasedPolicyModel,
     PhaseModel,
     PhaseSkipConditionModel,
     PolicyModel,
     RunIfConditionModel,
-    V11PolicyModel,
 )
 
 # =============================================================================
@@ -173,6 +171,4 @@ __all__ = [
     "RunIfConditionModel",
     "PhaseModel",
     "PolicyModel",
-    "V11PolicyModel",
-    "PhasedPolicyModel",
 ]

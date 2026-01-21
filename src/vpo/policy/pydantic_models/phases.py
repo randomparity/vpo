@@ -6,8 +6,6 @@ This module contains models for phased policy definitions:
 - RunIfConditionModel: Run-if conditions
 - PhaseModel: Phase definition
 - PolicyModel: Full policy definition
-- V11PolicyModel: Backward compatibility alias
-- PhasedPolicyModel: Backward compatibility alias
 """
 
 from typing import Literal
@@ -383,9 +381,3 @@ class PolicyModel(BaseModel):
                         )
 
         return self
-
-
-# Backward compatibility aliases - DEPRECATED
-# These will be removed in a future release. Use PolicyModel directly.
-V11PolicyModel = PolicyModel
-PhasedPolicyModel = PolicyModel

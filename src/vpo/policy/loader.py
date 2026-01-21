@@ -105,12 +105,6 @@ def load_policy_from_dict(data: dict[str, Any]) -> PolicySchema:
     return _convert_to_policy_schema(model)
 
 
-# Backward compatibility aliases - DEPRECATED
-# These will be removed in a future release. Use load_policy_from_dict directly.
-load_phased_policy_from_dict = load_policy_from_dict
-load_v11_policy_from_dict = load_policy_from_dict
-
-
 def _format_validation_error(error: Exception) -> str:
     """Format a Pydantic validation error into a user-friendly message."""
     from pydantic import ValidationError

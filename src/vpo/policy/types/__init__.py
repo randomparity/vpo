@@ -92,12 +92,9 @@ from vpo.policy.types.schema import (
     EvaluationPolicy,
     GlobalConfig,
     PhaseDefinition,
-    PhasedPolicySchema,
     PolicySchema,
     SkipIfExistsCriteria,
     SynthesisTrackDefinitionRef,
-    # Backward compatibility aliases
-    V11PolicySchema,
 )
 
 # Transcode configuration types (extracted)
@@ -227,7 +224,4 @@ __all__ = [
     "PhaseDefinition",
     "EvaluationPolicy",
     "PolicySchema",
-    # Backward compatibility aliases
-    "V11PolicySchema",
-    "PhasedPolicySchema",
 ]

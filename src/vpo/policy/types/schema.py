@@ -435,9 +435,3 @@ class PolicySchema:
             if phase.name == name:
                 return phase
         return None
-
-
-# Backward compatibility aliases - DEPRECATED
-# These will be removed in a future release. Use PolicySchema directly.
-V11PolicySchema = PolicySchema
-PhasedPolicySchema = PolicySchema
