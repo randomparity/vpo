@@ -22,7 +22,6 @@ from cryptography import fernet
 
 from vpo import __version__
 from vpo.server.ui import setup_ui_routes
-from vpo.server.ui.routes import api_jobs_handler
 
 if TYPE_CHECKING:
     from vpo.db.connection import DaemonConnectionPool
@@ -213,9 +212,7 @@ def create_app(
     # Register API routes
     app.router.add_get("/health", health_handler)
     app.router.add_get("/api/about", api_about_handler)
-    app.router.add_get("/api/jobs", api_jobs_handler)
-
-    # Setup UI routes and templates
+    # Setup UI routes and templates (includes API routes via setup_api_routes)
     setup_ui_routes(app)
 
     # Setup static file serving with cache headers
