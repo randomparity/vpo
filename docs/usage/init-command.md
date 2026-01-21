@@ -154,22 +154,27 @@ See [Configuration](configuration.md) for detailed documentation of all settings
 
 ### policies/default.yaml
 
-The default policy demonstrates common track ordering patterns:
+The default policy demonstrates common track ordering patterns using V12 phased format:
 
 ```yaml
-schema_version: 1
+schema_version: 12
 
-track_order:
-  - video
-  - audio_main
-  - subtitle_main
+config:
+  on_error: skip
 
-audio_language_preference:
-  - eng
+phases:
+  - name: organize
+    track_order:
+      - video
+      - audio_main
+      - subtitle_main
 
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
+    audio_filter:
+      languages: [eng]
+
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
 ```
 
 This policy can be used as-is or customized for your library.

@@ -7,12 +7,17 @@ Configure transcoding settings in your policy YAML files to convert video files 
 Create a policy file with transcode settings:
 
 ```yaml
-schema_version: 2
-
-transcode:
-  target_video_codec: hevc
-  target_crf: 20
-  max_resolution: 1080p
+schema_version: 12
+phases:
+  - name: transcode
+    transcode:
+      video:
+        target_codec: hevc
+        quality:
+          mode: crf
+          crf: 20
+        scaling:
+          max_resolution: 1080p
 ```
 
 Queue files for transcoding:
@@ -244,51 +249,56 @@ transcode:
 ### High Quality Archive
 
 ```yaml
-schema_version: 2
-
-transcode:
-  target_video_codec: hevc
-  target_crf: 18
-
-  audio_preserve_codecs:
-    - truehd
-    - dts-hd
-    - flac
-  audio_transcode_to: flac
-  audio_transcode_bitrate: 0  # Lossless
-
-  destination: "Archive/{year}/{title}"
+schema_version: 12
+phases:
+  - name: archive
+    transcode:
+      video:
+        target_codec: hevc
+        quality:
+          mode: crf
+          crf: 18
+      audio:
+        preserve_codecs: [truehd, dts-hd, flac]
+        transcode_to: flac
 ```
 
 ### Space-Efficient Storage
 
 ```yaml
-schema_version: 2
-
-transcode:
-  target_video_codec: hevc
-  target_crf: 24
-  max_resolution: 1080p
-
-  audio_transcode_to: aac
-  audio_transcode_bitrate: 128k
-
-  destination: "Compressed/{title}"
+schema_version: 12
+phases:
+  - name: compress
+    transcode:
+      video:
+        target_codec: hevc
+        quality:
+          mode: crf
+          crf: 24
+        scaling:
+          max_resolution: 1080p
+      audio:
+        transcode_to: aac
+        transcode_bitrate: 128k
 ```
 
 ### Device Compatibility
 
 ```yaml
-schema_version: 2
-
-transcode:
-  target_video_codec: h264
-  target_crf: 20
-  max_resolution: 720p
-
-  audio_transcode_to: aac
-  audio_transcode_bitrate: 192k
-  audio_downmix: stereo
+schema_version: 12
+phases:
+  - name: convert
+    transcode:
+      video:
+        target_codec: h264
+        quality:
+          mode: crf
+          crf: 20
+        scaling:
+          max_resolution: 720p
+      audio:
+        transcode_to: aac
+        transcode_bitrate: 192k
 ```
 
 ## CLI Options
@@ -322,32 +332,33 @@ vpo transcode --dry-run --policy my-policy.yaml /videos/
 #   [SKIP] Already.mkv: Already compliant
 ```
 
-## V6 Schema: Conditional Transcoding
+## Conditional Transcoding
 
-Schema version 6 introduces conditional transcoding with skip conditions, advanced quality controls, and hardware acceleration support.
+VPO supports conditional transcoding with skip conditions, advanced quality controls, and hardware acceleration support.
 
 ### Skip Conditions
 
 Skip transcoding for files that already meet your requirements:
 
 ```yaml
-schema_version: 6
+schema_version: 12
+phases:
+  - name: transcode
+    transcode:
+      video:
+        target_codec: hevc
 
-transcode:
-  video:
-    target_codec: hevc
+        # Skip if ALL conditions are met
+        skip_if:
+          codec_matches:       # Already using target codec
+            - hevc
+            - h265
+          resolution_within: 1080p  # Resolution at or below threshold
+          bitrate_under: 15M   # Bitrate below threshold
 
-    # Skip if ALL conditions are met
-    skip_if:
-      codec_matches:       # Already using target codec
-        - hevc
-        - h265
-      resolution_within: 1080p  # Resolution at or below threshold
-      bitrate_under: 15M   # Bitrate below threshold
-
-    quality:
-      mode: crf
-      crf: 20
+        quality:
+          mode: crf
+          crf: 20
 ```
 
 **Skip condition behavior:**
@@ -442,38 +453,46 @@ transcode:
     transcode_bitrate: 192k
 ```
 
-### Complete V6 Example
+### Complete Transcode Example
 
 ```yaml
-schema_version: 6
+schema_version: 12
+config:
+  on_error: skip
 
-transcode:
-  video:
-    target_codec: hevc
+phases:
+  - name: transcode
+    # Skip if already HEVC under thresholds
+    skip_when:
+      video_codec: [hevc, h265]
+      resolution_under: 1080p
+    transcode:
+      video:
+        target_codec: hevc
 
-    skip_if:
-      codec_matches: [hevc, h265]
-      resolution_within: 1080p
-      bitrate_under: 15M
+        skip_if:
+          codec_matches: [hevc, h265]
+          resolution_within: 1080p
+          bitrate_under: 15M
 
-    quality:
-      mode: crf
-      crf: 20
-      preset: medium
-      tune: film
+        quality:
+          mode: crf
+          crf: 20
+          preset: medium
+          tune: film
 
-    scaling:
-      max_resolution: 1080p
-      algorithm: lanczos
+        scaling:
+          max_resolution: 1080p
+          algorithm: lanczos
 
-    hardware_acceleration:
-      enabled: auto
-      fallback_to_cpu: true
+        hardware_acceleration:
+          enabled: auto
+          fallback_to_cpu: true
 
-  audio:
-    preserve_codecs: [truehd, dts-hd, flac]
-    transcode_to: aac
-    transcode_bitrate: 192k
+      audio:
+        preserve_codecs: [truehd, dts-hd, flac]
+        transcode_to: aac
+        transcode_bitrate: 192k
 ```
 
 ### Edge Case Warnings

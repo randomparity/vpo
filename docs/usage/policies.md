@@ -16,79 +16,80 @@ VPO policies are YAML files that define rules for:
 
 ---
 
-## Policy Schema Versions
+## Policy Schema Version
 
-VPO uses versioned policy schemas. Each version adds new capabilities while maintaining backward compatibility.
+VPO uses the **V12 schema** with phased policy format. All policies must use this format with `phases` and optional `config` sections.
 
-| Version | Features |
-|---------|----------|
-| 1 | Track ordering, language preferences, default flags |
-| 2 | Transcoding configuration, commentary patterns |
-| 3 | Track filtering, container conversion, language fallback |
-| 4 | Conditional rules (if/then/else based on file properties) |
+**Note:** Older flat policy formats are no longer supported. All policies must use the phased format shown below.
 
 ---
 
 ## Basic Policy Structure
 
 ```yaml
-# Minimum required field
-schema_version: 3
+# Required: schema version and phases
+schema_version: 12
 
-# Track ordering (optional, has defaults)
-track_order:
-  - video
-  - audio_main
-  - audio_alternate
-  - subtitle_main
-  - subtitle_forced
-  - audio_commentary
-  - subtitle_commentary
-  - attachment
+# Optional global configuration
+config:
+  on_error: skip  # skip, continue, or fail
 
-# Language preferences for track ordering
-audio_language_preference:
-  - eng
-  - und
+# Required: at least one phase
+phases:
+  - name: organize
+    # Track ordering (optional, has defaults)
+    track_order:
+      - video
+      - audio_main
+      - audio_alternate
+      - subtitle_main
+      - subtitle_forced
+      - audio_commentary
+      - subtitle_commentary
+      - attachment
 
-subtitle_language_preference:
-  - eng
-  - und
+    # Language preferences for track ordering
+    audio_filter:
+      languages: [eng, und]
 
-# Default flag behavior
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: false
-  clear_other_defaults: true
+    subtitle_filter:
+      languages: [eng, und]
+
+    # Default flag behavior
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: false
+      clear_other_defaults: true
 ```
 
 ---
 
-## Track Filtering (V3)
+## Track Filtering
 
-Schema version 3 adds the ability to remove unwanted tracks. Track filtering is applied before track ordering.
+Track filtering removes unwanted tracks. Track filtering is applied before track ordering within each phase.
 
 ### Audio Filtering
 
 Remove audio tracks that don't match preferred languages:
 
 ```yaml
-schema_version: 3
+schema_version: 12
+phases:
+  - name: filter
+    audio_filter:
+      # Languages to keep (ISO 639-2/B codes)
+      languages:
+        - eng    # English
+        - und    # Undefined/unknown
+        - jpn    # Japanese
 
-audio_filter:
-  # Languages to keep (ISO 639-2/B codes)
-  languages:
-    - eng    # English
-    - und    # Undefined/unknown
-    - jpn    # Japanese
+      # Minimum tracks that must remain (default: 1)
+      minimum: 1
 
-  # Minimum tracks that must remain (default: 1)
-  minimum: 1
-
-  # Fallback when no preferred languages found
-  fallback:
-    mode: content_language  # See fallback modes below
+      # Fallback when no preferred languages found
+      fallback:
+        mode: content_language  # See fallback modes below
 ```
 
 **Fallback Modes:**
@@ -105,18 +106,19 @@ audio_filter:
 Remove subtitle tracks with options to preserve forced subtitles:
 
 ```yaml
-schema_version: 3
+schema_version: 12
+phases:
+  - name: filter
+    subtitle_filter:
+      # Languages to keep (omit for no language filtering)
+      languages:
+        - eng
 
-subtitle_filter:
-  # Languages to keep (omit for no language filtering)
-  languages:
-    - eng
+      # Keep forced subtitles regardless of language (default: false)
+      preserve_forced: true
 
-  # Keep forced subtitles regardless of language (default: false)
-  preserve_forced: true
-
-  # Remove ALL subtitles (overrides other settings)
-  # remove_all: true
+      # Remove ALL subtitles (overrides other settings)
+      # remove_all: true
 ```
 
 ### Attachment Filtering
@@ -124,30 +126,32 @@ subtitle_filter:
 Remove attachment tracks (fonts, cover art):
 
 ```yaml
-schema_version: 3
-
-attachment_filter:
-  # Remove all attachments (fonts, images, etc.)
-  remove_all: true
+schema_version: 12
+phases:
+  - name: filter
+    attachment_filter:
+      # Remove all attachments (fonts, images, etc.)
+      remove_all: true
 ```
 
 **Warning:** Removing fonts may affect rendering of styled subtitles (ASS/SSA format). VPO will display a warning when removing fonts from files with styled subtitles.
 
 ---
 
-## Container Conversion (V3)
+## Container Conversion
 
 Convert between container formats (lossless remuxing):
 
 ```yaml
-schema_version: 3
+schema_version: 12
+phases:
+  - name: convert
+    container:
+      # Target format: mkv or mp4
+      target: mkv
 
-container:
-  # Target format: mkv or mp4
-  target: mkv
-
-  # Behavior for incompatible codecs (default: error)
-  on_incompatible_codec: error
+      # Behavior for incompatible codecs (default: error)
+      on_incompatible_codec: error
 ```
 
 **Incompatible Codec Modes:**
@@ -174,67 +178,60 @@ MKV supports virtually all codecs. MP4 has limitations:
 
 ---
 
-## Complete V3 Policy Example
+## Complete Policy Example
 
 ```yaml
 # Full-featured policy for organizing a video library
-schema_version: 3
+schema_version: 12
 
-# Track ordering
-track_order:
-  - video
-  - audio_main
-  - audio_alternate
-  - subtitle_main
-  - subtitle_forced
-  - audio_commentary
-  - subtitle_commentary
-  - attachment
+# Global configuration
+config:
+  on_error: skip
 
-# Language preferences for ordering
-audio_language_preference:
-  - eng
-  - und
+phases:
+  # First phase: filter unwanted tracks
+  - name: filter
+    audio_filter:
+      languages: [eng, und]
+      minimum: 1
+      fallback:
+        mode: content_language
 
-subtitle_language_preference:
-  - eng
-  - und
+    subtitle_filter:
+      languages: [eng]
+      preserve_forced: true
 
-# Commentary track detection
-commentary_patterns:
-  - 'commentary'
-  - 'director'
+    attachment_filter:
+      remove_all: true
 
-# Default flag management
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: false
-  clear_other_defaults: true
+  # Second phase: organize remaining tracks
+  - name: organize
+    track_order:
+      - video
+      - audio_main
+      - audio_alternate
+      - subtitle_main
+      - subtitle_forced
+      - audio_commentary
+      - subtitle_commentary
+      - attachment
 
-# V3: Audio filtering
-audio_filter:
-  languages:
-    - eng
-    - und
-  minimum: 1
-  fallback:
-    mode: content_language
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: false
+      clear_other_defaults: true
 
-# V3: Subtitle filtering
-subtitle_filter:
-  languages:
-    - eng
-  preserve_forced: true
+    # Commentary track detection
+    commentary_patterns:
+      - 'commentary'
+      - 'director'
 
-# V3: Remove attachments
-attachment_filter:
-  remove_all: true
-
-# V3: Convert to MKV
-container:
-  target: mkv
-  on_incompatible_codec: error
+  # Third phase: convert container
+  - name: convert
+    container:
+      target: mkv
+      on_incompatible_codec: error
 ```
 
 ---

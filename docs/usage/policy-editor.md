@@ -6,7 +6,9 @@
 
 ## Overview
 
-The Visual Policy Editor provides a web-based interface for creating and modifying VPO policy files without manually editing YAML. The editor supports policy schema versions V3-V11, including video/audio transcoding, track filtering, conditional rules, audio synthesis, container conversion, workflow configuration, and **V11 user-defined phases**. The editor preserves unknown fields and comments during round-trip operations, ensuring safe editing of complex policies.
+The Visual Policy Editor provides a web-based interface for creating and modifying VPO policy files without manually editing YAML. The editor creates V12 policies using the **phased format** (the only supported format). Features include video/audio transcoding, track filtering, conditional rules, audio synthesis, container conversion, and user-defined phases. The editor preserves unknown fields and comments during round-trip operations, ensuring safe editing of complex policies.
+
+**Note:** All policies must use the V12 phased format with `phases` and optional `config` sections. Flat policy format is no longer supported.
 
 ## Accessing the Editor
 
@@ -486,11 +488,13 @@ The editor preserves elements not exposed in the UI:
 
 **Before editing:**
 ```yaml
-schema_version: 2
+schema_version: 12
 # This comment will be preserved
-track_order:
-  - video
-  - audio_main
+phases:
+  - name: organize
+    track_order:
+      - video
+      - audio_main
 
 # Custom field (preserved)
 x_my_setting: value
@@ -498,15 +502,15 @@ x_my_setting: value
 
 **After editing audio languages:**
 ```yaml
-schema_version: 2
+schema_version: 12
 # This comment will be preserved
-track_order:
-  - video
-  - audio_main
-
-audio_language_preference:
-  - fra  # Changed
-  - eng
+phases:
+  - name: organize
+    track_order:
+      - video
+      - audio_main
+    audio_filter:
+      languages: [fra, eng]  # Changed
 
 # Custom field (preserved)
 x_my_setting: value

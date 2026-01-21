@@ -125,62 +125,78 @@ This shows you:
 Policies are YAML files that describe how you want your video files organized. Create a file called `my-policy.yaml`:
 
 ```yaml
-name: my-first-policy
-version: "1.0"
-description: Organize tracks with English preferred
+schema_version: 12
 
-rules:
-  # Audio track ordering: English first, then others
-  audio:
-    order_by:
-      - language: eng
-      - language: "*"  # Everything else
-    default: first     # First matching track becomes default
+config:
+  on_error: skip
 
-  # Subtitle ordering: English first
-  subtitle:
-    order_by:
-      - language: eng
-      - language: "*"
-    default: first
+phases:
+  - name: organize
+    # Audio tracks: keep English and undefined
+    audio_filter:
+      languages: [eng, und]
+
+    # Subtitles: keep English
+    subtitle_filter:
+      languages: [eng]
+
+    # Track ordering
+    track_order:
+      - video
+      - audio_main
+      - subtitle_main
+
+    # Set default flags
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: true
 ```
 
 ### Policy Structure
 
-- **name**: Unique identifier for your policy
-- **version**: Policy version (for your tracking)
-- **description**: Human-readable description
-- **rules**: Track ordering and default flag rules
+- **schema_version**: Always `12` for current policies
+- **config**: Global settings (error handling)
+- **phases**: List of processing phases, each with a name and operations
 
 ### Common Policy Patterns
 
 **Prefer Japanese audio with English subtitles (anime):**
 
 ```yaml
-rules:
-  audio:
-    order_by:
-      - language: jpn
-      - language: eng
-    default: first
-
-  subtitle:
-    order_by:
-      - language: eng
-      - language: jpn
-    default:
-      language: eng
+schema_version: 12
+phases:
+  - name: anime
+    audio_filter:
+      languages: [jpn, eng]
+    subtitle_filter:
+      languages: [eng, jpn]
+    track_order:
+      - video
+      - audio_main
+      - subtitle_main
+    default_flags:
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: true
 ```
 
-**Prefer highest quality audio (5.1 over stereo):**
+**Filter and transcode:**
 
 ```yaml
-rules:
-  audio:
-    order_by:
-      - channels: ">=6"  # 5.1 and above
-      - channels: "*"
-    default: first
+schema_version: 12
+phases:
+  - name: filter
+    audio_filter:
+      languages: [eng]
+  - name: transcode
+    skip_when:
+      video_codec: [hevc, h265]
+    transcode:
+      video:
+        target_codec: hevc
+        quality:
+          mode: crf
+          crf: 20
 ```
 
 ## Step 5: Preview Changes (Dry Run)
