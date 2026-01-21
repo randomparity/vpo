@@ -15,6 +15,7 @@ from vpo.core.formatting import (
     format_audio_languages,
     format_file_size,
     get_resolution_label,
+    truncate_filename,
 )
 from vpo.core.json_utils import (
     JsonParseResult,
@@ -39,6 +40,7 @@ __all__ = [
     "format_file_size",
     "get_resolution_label",
     "format_audio_languages",
+    "truncate_filename",
     # json_utils
     "JsonParseResult",
     "parse_json_safe",

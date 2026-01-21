@@ -88,28 +88,50 @@
     }
 
     /**
-     * Truncate a path for display, keeping the filename visible.
+     * Extract the filename from a path.
      * @param {string} path - Full file path
-     * @param {number} maxLength - Maximum display length
-     * @returns {string} Truncated path
+     * @returns {string} Filename only
      */
-    function truncatePath(path, maxLength) {
-        if (!path || path.length <= maxLength) {
-            return path || '-'
+    function getFilename(path) {
+        if (!path) return ''
+        var parts = path.split('/')
+        return parts[parts.length - 1] || ''
+    }
+
+    /**
+     * Truncate a filename for display, preserving start and extension.
+     * If truncation is needed, shows: beginning…extension
+     * Uses single ellipsis character (U+2026).
+     * @param {string} filename - Filename to truncate
+     * @param {number} maxLength - Maximum display length
+     * @returns {string} Truncated filename
+     */
+    function truncateFilename(filename, maxLength) {
+        if (!filename || filename.length <= maxLength) {
+            return filename || '-'
         }
 
-        // Keep the last part of the path (filename)
-        const parts = path.split('/')
-        const filename = parts[parts.length - 1]
+        // Find extension (last dot)
+        var dotIndex = filename.lastIndexOf('.')
+        var base, extension
 
-        if (filename.length >= maxLength - 3) {
-            return '...' + filename.substring(filename.length - maxLength + 3)
+        if (dotIndex > 0) {
+            extension = filename.substring(dotIndex)  // includes the dot
+            base = filename.substring(0, dotIndex)
+        } else {
+            extension = ''
+            base = filename
         }
 
-        const remaining = maxLength - filename.length - 4 // 4 for ".../""
-        const prefix = path.substring(0, remaining)
+        // Calculate space for base (1 char for ellipsis)
+        var availableForBase = maxLength - extension.length - 1
 
-        return prefix + '.../' + filename
+        // Edge case: extension too long, just truncate everything
+        if (availableForBase < 1) {
+            return filename.substring(0, maxLength - 1) + '\u2026'
+        }
+
+        return base.substring(0, availableForBase) + '\u2026' + extension
     }
 
     /**
@@ -204,7 +226,8 @@
      */
     function renderJobRow(job) {
         const shortId = job.id.substring(0, 8)
-        const truncatedPath = truncatePath(job.file_path, 50)
+        const filename = getFilename(job.file_path)
+        const truncatedFilename = truncateFilename(filename, 50)
         const hasFullPath = job.file_path && job.file_path.length > 50
 
         // Calculate duration for running jobs
@@ -221,7 +244,7 @@
             '<td class="job-type">' + createTypeBadge(job.job_type) + '</td>' +
             '<td class="job-status">' + createStatusBadge(job.status) + '</td>' +
             '<td class="job-progress-cell">' + createProgressBar(job) + '</td>' +
-            '<td class="job-path"' + (hasFullPath ? ' title="' + escapeHtml(job.file_path) + '"' : '') + '>' + escapeHtml(truncatedPath) + '</td>' +
+            '<td class="job-path"' + (hasFullPath ? ' title="' + escapeHtml(job.file_path) + '"' : '') + '>' + escapeHtml(truncatedFilename) + '</td>' +
             '<td class="job-created">' + formatDateTime(job.created_at) + '</td>' +
             '<td class="job-duration">' + formatDuration(duration) + '</td>' +
             '</tr>'

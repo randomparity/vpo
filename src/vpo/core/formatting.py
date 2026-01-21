@@ -74,3 +74,46 @@ def format_file_size(size_bytes: int) -> str:
         return f"{size_bytes / 1024:.1f} KB"
     else:
         return f"{size_bytes} B"
+
+
+def truncate_filename(filename: str, max_length: int = 40) -> str:
+    """Truncate filename preserving start and extension.
+
+    If truncation is needed, shows: beginning…extension
+    Uses single ellipsis character (U+2026).
+
+    Args:
+        filename: The filename to truncate.
+        max_length: Maximum length of the result (default 40).
+
+    Returns:
+        Truncated filename or original if short enough.
+
+    Examples:
+        >>> truncate_filename("some-very-long-movie-name.mkv", 25)
+        'some-very-long-mov….mkv'
+        >>> truncate_filename("short.mp4", 40)
+        'short.mp4'
+        >>> truncate_filename("no-extension", 10)
+        'no-extens…'
+    """
+    if not filename or len(filename) <= max_length:
+        return filename
+
+    # Find extension (last dot)
+    dot_index = filename.rfind(".")
+    if dot_index > 0:
+        extension = filename[dot_index:]  # includes the dot
+        base = filename[:dot_index]
+    else:
+        extension = ""
+        base = filename
+
+    # Calculate space for base (1 char for ellipsis)
+    available_for_base = max_length - len(extension) - 1
+
+    # Edge case: extension too long, just truncate everything
+    if available_for_base < 1:
+        return filename[: max_length - 1] + "…"
+
+    return base[:available_for_base] + "…" + extension
