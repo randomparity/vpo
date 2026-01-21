@@ -336,7 +336,3 @@ def _build_stream_maps(
     args.extend(["-map", "0:t?"])  # ? makes it optional
 
     return args
-
-
-# Private aliases for backward compatibility
-_build_quality_args = build_quality_args

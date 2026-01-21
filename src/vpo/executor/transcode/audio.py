@@ -104,9 +104,3 @@ def build_downmix_filter(downmix_track: AudioTrackPlan) -> str | None:
             f"BL=0.5*BL+0.5*SL|BR=0.5*BR+0.5*SR[downmix]"
         )
     return None
-
-
-# Private aliases for backward compatibility with internal imports
-_build_audio_args = build_audio_args
-_get_audio_encoder = get_audio_encoder
-_build_downmix_filter = build_downmix_filter

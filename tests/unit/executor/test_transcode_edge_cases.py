@@ -15,13 +15,13 @@ from vpo.executor.transcode import (
     TranscodeExecutor,
     TranscodePlan,
     TwoPassContext,
-    _build_audio_args,
-    _build_downmix_filter,
-    _build_quality_args,
     _build_stream_maps,
-    _get_audio_encoder,
     _needs_explicit_mapping,
+    build_audio_args,
+    build_downmix_filter,
     build_ffmpeg_command_pass1,
+    build_quality_args,
+    get_audio_encoder,
 )
 from vpo.policy.transcode import (
     AudioAction,
@@ -414,14 +414,14 @@ class TestTwoPassContext:
 
 
 class TestBuildQualityArgs:
-    """Tests for _build_quality_args function."""
+    """Tests for build_quality_args function."""
 
     def test_crf_mode(self) -> None:
         """Builds correct args for CRF quality mode."""
         quality = QualitySettings(mode=QualityMode.CRF, crf=20, preset="slow")
         policy = TranscodePolicyConfig()
 
-        args = _build_quality_args(quality, policy, "hevc", "libx265")
+        args = build_quality_args(quality, policy, "hevc", "libx265")
 
         assert "-crf" in args
         assert "20" in args
@@ -435,7 +435,7 @@ class TestBuildQualityArgs:
         )
         policy = TranscodePolicyConfig()
 
-        args = _build_quality_args(quality, policy, "hevc", "libx265")
+        args = build_quality_args(quality, policy, "hevc", "libx265")
 
         assert "-b:v" in args
         assert "5M" in args
@@ -450,7 +450,7 @@ class TestBuildQualityArgs:
         )
         policy = TranscodePolicyConfig()
 
-        args = _build_quality_args(quality, policy, "hevc", "libx265")
+        args = build_quality_args(quality, policy, "hevc", "libx265")
 
         assert "-crf" in args
         assert "-maxrate" in args
@@ -460,7 +460,7 @@ class TestBuildQualityArgs:
         """Falls back to policy CRF when quality is None."""
         policy = TranscodePolicyConfig(target_video_codec="hevc", target_crf=18)
 
-        args = _build_quality_args(None, policy, "hevc", "libx265")
+        args = build_quality_args(None, policy, "hevc", "libx265")
 
         assert "-crf" in args
         assert "18" in args
@@ -469,7 +469,7 @@ class TestBuildQualityArgs:
         """Falls back to policy bitrate when quality is None."""
         policy = TranscodePolicyConfig(target_video_codec="hevc", target_bitrate="8M")
 
-        args = _build_quality_args(None, policy, "hevc", "libx265")
+        args = build_quality_args(None, policy, "hevc", "libx265")
 
         assert "-b:v" in args
         assert "8M" in args
@@ -478,7 +478,7 @@ class TestBuildQualityArgs:
         """Falls back to default CRF when no quality or policy settings."""
         policy = TranscodePolicyConfig(target_video_codec="hevc")
 
-        args = _build_quality_args(None, policy, "hevc", "libx265")
+        args = build_quality_args(None, policy, "hevc", "libx265")
 
         # Should have default CRF
         assert "-crf" in args
@@ -488,7 +488,7 @@ class TestBuildQualityArgs:
         quality = QualitySettings(mode=QualityMode.CRF, crf=20, preset="fast")
         policy = TranscodePolicyConfig()
 
-        args = _build_quality_args(quality, policy, "h264", "libx264")
+        args = build_quality_args(quality, policy, "h264", "libx264")
 
         assert "-preset" in args
         assert "fast" in args
@@ -500,7 +500,7 @@ class TestBuildQualityArgs:
         )
         policy = TranscodePolicyConfig()
 
-        args = _build_quality_args(quality, policy, "hevc", "libx265")
+        args = build_quality_args(quality, policy, "hevc", "libx265")
 
         assert "-tune" in args
         assert "film" in args
@@ -514,7 +514,7 @@ class TestBuildQualityArgs:
         two_pass_ctx = TwoPassContext(passlogfile=tmp_path / "passlog")
         two_pass_ctx.current_pass = 1
 
-        args = _build_quality_args(quality, policy, "h264", "libx264", two_pass_ctx)
+        args = build_quality_args(quality, policy, "h264", "libx264", two_pass_ctx)
 
         assert "-pass" in args
         assert "1" in args
@@ -529,7 +529,7 @@ class TestBuildQualityArgs:
         two_pass_ctx = TwoPassContext(passlogfile=tmp_path / "passlog")
         two_pass_ctx.current_pass = 2
 
-        args = _build_quality_args(quality, policy, "hevc", "libx265", two_pass_ctx)
+        args = build_quality_args(quality, policy, "hevc", "libx265", two_pass_ctx)
 
         assert "-x265-params" in args
         # Check that pass and stats are in the x265-params
@@ -697,7 +697,7 @@ class TestBuildStreamMaps:
 
 
 class TestBuildAudioArgs:
-    """Tests for _build_audio_args function."""
+    """Tests for build_audio_args function."""
 
     def test_copy_action_uses_copy_codec(self) -> None:
         """COPY action uses stream copy."""
@@ -716,7 +716,7 @@ class TestBuildAudioArgs:
         )
         policy = TranscodePolicyConfig()
 
-        args = _build_audio_args(audio_plan, policy)
+        args = build_audio_args(audio_plan, policy)
 
         assert "-c:a:0" in args
         assert "copy" in args
@@ -740,7 +740,7 @@ class TestBuildAudioArgs:
         )
         policy = TranscodePolicyConfig()
 
-        args = _build_audio_args(audio_plan, policy)
+        args = build_audio_args(audio_plan, policy)
 
         assert "-c:a:0" in args
         assert "aac" in args
@@ -773,7 +773,7 @@ class TestBuildAudioArgs:
         )
         policy = TranscodePolicyConfig()
 
-        args = _build_audio_args(audio_plan, policy)
+        args = build_audio_args(audio_plan, policy)
 
         # Should have args for first track only
         assert "-c:a:0" in args
@@ -806,7 +806,7 @@ class TestBuildAudioArgs:
         )
         policy = TranscodePolicyConfig()
 
-        args = _build_audio_args(audio_plan, policy)
+        args = build_audio_args(audio_plan, policy)
 
         # Second track becomes output stream 0 (first was removed)
         assert "-c:a:0" in args
@@ -814,7 +814,7 @@ class TestBuildAudioArgs:
 
 
 class TestBuildDownmixFilter:
-    """Tests for _build_downmix_filter function."""
+    """Tests for build_downmix_filter function."""
 
     def test_stereo_downmix(self) -> None:
         """Builds stereo downmix filter."""
@@ -828,7 +828,7 @@ class TestBuildDownmixFilter:
             action=AudioAction.TRANSCODE,
         )
 
-        result = _build_downmix_filter(track)
+        result = build_downmix_filter(track)
 
         assert result is not None
         assert "pan=stereo" in result
@@ -846,7 +846,7 @@ class TestBuildDownmixFilter:
             action=AudioAction.TRANSCODE,
         )
 
-        result = _build_downmix_filter(track)
+        result = build_downmix_filter(track)
 
         assert result is not None
         assert "[0:a:2]" in result
@@ -863,7 +863,7 @@ class TestBuildDownmixFilter:
             action=AudioAction.TRANSCODE,
         )
 
-        result = _build_downmix_filter(track)
+        result = build_downmix_filter(track)
 
         assert result is not None
         assert "pan=5.1" in result
@@ -881,7 +881,7 @@ class TestBuildDownmixFilter:
             action=AudioAction.TRANSCODE,
         )
 
-        result = _build_downmix_filter(track)
+        result = build_downmix_filter(track)
 
         assert result is None
 
@@ -897,7 +897,7 @@ class TestBuildDownmixFilter:
             action=AudioAction.TRANSCODE,
         )
 
-        result = _build_downmix_filter(track)
+        result = build_downmix_filter(track)
 
         assert result is None
 
@@ -908,7 +908,7 @@ class TestBuildDownmixFilter:
 
 
 class TestGetAudioEncoder:
-    """Tests for _get_audio_encoder function."""
+    """Tests for get_audio_encoder function."""
 
     @pytest.mark.parametrize(
         "codec,expected",
@@ -926,19 +926,19 @@ class TestGetAudioEncoder:
     )
     def test_codec_to_encoder_mapping(self, codec: str, expected: str) -> None:
         """Maps audio codecs to correct FFmpeg encoders."""
-        result = _get_audio_encoder(codec)
+        result = get_audio_encoder(codec)
         assert result == expected
 
     def test_unknown_codec_defaults_to_aac(self) -> None:
         """Unknown codec defaults to AAC encoder."""
-        result = _get_audio_encoder("unknown_codec")
+        result = get_audio_encoder("unknown_codec")
         assert result == "aac"
 
     def test_case_insensitive(self) -> None:
         """Codec lookup is case-insensitive."""
-        assert _get_audio_encoder("AAC") == "aac"
-        assert _get_audio_encoder("FLAC") == "flac"
-        assert _get_audio_encoder("Opus") == "libopus"
+        assert get_audio_encoder("AAC") == "aac"
+        assert get_audio_encoder("FLAC") == "flac"
+        assert get_audio_encoder("Opus") == "libopus"
 
 
 # =============================================================================

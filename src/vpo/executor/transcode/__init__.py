@@ -54,12 +54,6 @@ from .types import (
     TwoPassContext,
 )
 
-# Private aliases for backward compatibility with internal code
-_build_audio_args = build_audio_args
-_get_audio_encoder = get_audio_encoder
-_build_downmix_filter = build_downmix_filter
-_build_quality_args = build_quality_args
-
 __all__ = [
     # Types
     "TranscodePlan",
