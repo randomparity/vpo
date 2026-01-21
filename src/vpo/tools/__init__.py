@@ -27,7 +27,6 @@ from vpo.tools.encoders import (
     detect_hw_encoder_error,
     get_software_encoder,
     select_encoder,
-    select_encoder_with_fallback,
 )
 
 # FFmpeg progress parsing
@@ -105,5 +104,4 @@ __all__ = [
     "detect_hw_encoder_error",
     "get_software_encoder",
     "select_encoder",
-    "select_encoder_with_fallback",
 ]

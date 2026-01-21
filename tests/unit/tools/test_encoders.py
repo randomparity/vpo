@@ -12,7 +12,6 @@ from vpo.tools.encoders import (
     detect_hw_encoder_error,
     get_software_encoder,
     select_encoder,
-    select_encoder_with_fallback,
 )
 
 
@@ -183,19 +182,6 @@ class TestSelectEncoder:
         result = select_encoder("hevc", hw_mode="nvenc", fallback_to_cpu=True)
         assert result.encoder == "libx265"
         assert result.encoder_type == "software"
-
-
-class TestSelectEncoderWithFallback:
-    """Tests for legacy select_encoder_with_fallback function."""
-
-    @patch("vpo.tools.encoders.check_encoder_available")
-    def test_returns_tuple(self, mock_check: object) -> None:
-        """Returns (encoder, encoder_type) tuple."""
-        mock_check.return_value = False  # type: ignore[attr-defined]
-
-        encoder, encoder_type = select_encoder_with_fallback("hevc")
-        assert encoder == "libx265"
-        assert encoder_type == "software"
 
 
 class TestDetectHwEncoderError:

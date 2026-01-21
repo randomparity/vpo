@@ -31,7 +31,7 @@ from vpo.policy.video_analysis import (
     detect_vfr_content,
     select_primary_video_stream,
 )
-from vpo.tools.encoders import select_encoder_with_fallback
+from vpo.tools.encoders import select_encoder
 
 # =============================================================================
 # Fixtures
@@ -391,14 +391,14 @@ class TestScalingWithHardwareAcceleration:
         with patch("vpo.tools.encoders.check_encoder_available") as mock_check:
             mock_check.return_value = False
 
-            encoder, encoder_type = select_encoder_with_fallback(
+            selection = select_encoder(
                 codec="hevc",
                 hw_mode="auto",
                 fallback_to_cpu=True,
             )
 
-            assert encoder_type == "software"
-            assert encoder == "libx265"
+            assert selection.encoder_type == "software"
+            assert selection.encoder == "libx265"
 
     def test_hw_encoder_selection_nvenc_available(self) -> None:
         """Should select NVENC when available in auto mode."""
@@ -406,39 +406,39 @@ class TestScalingWithHardwareAcceleration:
             # Only NVENC is available
             mock_check.side_effect = lambda enc: enc == "hevc_nvenc"
 
-            encoder, encoder_type = select_encoder_with_fallback(
+            selection = select_encoder(
                 codec="hevc",
                 hw_mode="auto",
                 fallback_to_cpu=True,
             )
 
-            assert encoder_type == "hardware"
-            assert encoder == "hevc_nvenc"
+            assert selection.encoder_type == "hardware"
+            assert selection.encoder == "hevc_nvenc"
 
     def test_hw_encoder_selection_explicit_mode(self) -> None:
         """Explicit hardware mode should select that encoder."""
         with patch("vpo.tools.encoders.check_encoder_available") as mock_check:
             mock_check.return_value = True
 
-            encoder, encoder_type = select_encoder_with_fallback(
+            selection = select_encoder(
                 codec="hevc",
                 hw_mode="qsv",
                 fallback_to_cpu=True,
             )
 
-            assert encoder_type == "hardware"
-            assert encoder == "hevc_qsv"
+            assert selection.encoder_type == "hardware"
+            assert selection.encoder == "hevc_qsv"
 
     def test_hw_encoder_selection_none_mode(self) -> None:
         """Mode 'none' should force software encoding."""
-        encoder, encoder_type = select_encoder_with_fallback(
+        selection = select_encoder(
             codec="hevc",
             hw_mode="none",
             fallback_to_cpu=True,
         )
 
-        assert encoder_type == "software"
-        assert encoder == "libx265"
+        assert selection.encoder_type == "software"
+        assert selection.encoder == "libx265"
 
 
 # =============================================================================
