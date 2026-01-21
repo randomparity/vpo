@@ -18,7 +18,6 @@ from vpo.policy.pydantic_models import (
     HardwareAccelConfigModel,
     IsDubbedConditionModel,
     IsOriginalConditionModel,
-    PhasedPolicyModel,
     PhaseModel,
     PluginMetadataConditionModel,
     PolicyModel,
@@ -29,7 +28,6 @@ from vpo.policy.pydantic_models import (
     SkipIfExistsModel,
     SynthesisTrackDefinitionModel,
     TitleMatchModel,
-    TranscodeV6Model,
     VideoTranscodeConfigModel,
 )
 from vpo.policy.types import (
@@ -60,13 +58,11 @@ from vpo.policy.types import (
     OnErrorMode,
     OrCondition,
     PhaseDefinition,
-    PhasedPolicySchema,
     PhaseSkipCondition,
     PluginMetadataCondition,
     PluginMetadataOperator,
     PluginMetadataReference,
     PolicySchema,
-    ProcessingPhase,
     QualityMode,
     QualitySettings,
     RunIfCondition,
@@ -85,11 +81,9 @@ from vpo.policy.types import (
     TitleMatch,
     TrackFilters,
     TrackType,
-    TranscodePolicyConfig,
     TranscriptionPolicyOptions,
     VideoTranscodeConfig,
     WarnAction,
-    WorkflowConfig,
 )
 
 # =============================================================================
@@ -690,162 +684,8 @@ def _convert_audio_transcode_config(
     )
 
 
-def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
-    """Convert validated Pydantic model to PolicySchema dataclass."""
-    # Convert track order strings to TrackType enum
-    track_order = tuple(TrackType(t) for t in model.track_order)
-
-    # Convert default flags
-    default_flags = DefaultFlagsConfig(
-        set_first_video_default=model.default_flags.set_first_video_default,
-        set_preferred_audio_default=model.default_flags.set_preferred_audio_default,
-        set_preferred_subtitle_default=model.default_flags.set_preferred_subtitle_default,
-        clear_other_defaults=model.default_flags.clear_other_defaults,
-        set_subtitle_default_when_audio_differs=model.default_flags.set_subtitle_default_when_audio_differs,
-        set_subtitle_forced_when_audio_differs=model.default_flags.set_subtitle_forced_when_audio_differs,
-    )
-
-    # Convert transcode config (supports both V1-5 flat and V6 nested formats)
-    transcode: TranscodePolicyConfig | None = None
-    video_transcode: VideoTranscodeConfig | None = None
-    audio_transcode: AudioTranscodeConfig | None = None
-
-    if model.transcode is not None:
-        if isinstance(model.transcode, TranscodeV6Model):
-            # V6 nested format with video/audio sections
-            video_transcode = _convert_video_transcode_config(model.transcode.video)
-            audio_transcode = _convert_audio_transcode_config(model.transcode.audio)
-        else:
-            # V1-5 flat format (TranscodePolicyModel)
-            transcode = TranscodePolicyConfig(
-                target_video_codec=model.transcode.target_video_codec,
-                target_crf=model.transcode.target_crf,
-                target_bitrate=model.transcode.target_bitrate,
-                max_resolution=model.transcode.max_resolution,
-                max_width=model.transcode.max_width,
-                max_height=model.transcode.max_height,
-                audio_preserve_codecs=tuple(model.transcode.audio_preserve_codecs),
-                audio_transcode_to=model.transcode.audio_transcode_to,
-                audio_transcode_bitrate=model.transcode.audio_transcode_bitrate,
-                audio_downmix=model.transcode.audio_downmix,
-                destination=model.transcode.destination,
-                destination_fallback=model.transcode.destination_fallback,
-            )
-
-    # Convert transcription config if present
-    transcription: TranscriptionPolicyOptions | None = None
-    if model.transcription is not None:
-        transcription = TranscriptionPolicyOptions(
-            enabled=model.transcription.enabled,
-            update_language_from_transcription=model.transcription.update_language_from_transcription,
-            confidence_threshold=model.transcription.confidence_threshold,
-            detect_commentary=model.transcription.detect_commentary,
-            reorder_commentary=model.transcription.reorder_commentary,
-        )
-
-    # Convert track actions if present (applied before filters)
-    audio_actions: AudioActionsConfig | None = None
-    if model.audio_actions is not None:
-        audio_actions = AudioActionsConfig(
-            clear_all_forced=model.audio_actions.clear_all_forced,
-            clear_all_default=model.audio_actions.clear_all_default,
-            clear_all_titles=model.audio_actions.clear_all_titles,
-        )
-
-    subtitle_actions: SubtitleActionsConfig | None = None
-    if model.subtitle_actions is not None:
-        subtitle_actions = SubtitleActionsConfig(
-            clear_all_forced=model.subtitle_actions.clear_all_forced,
-            clear_all_default=model.subtitle_actions.clear_all_default,
-            clear_all_titles=model.subtitle_actions.clear_all_titles,
-        )
-
-    # Convert V3 audio_filter config if present (V10 adds music/sfx/non_speech options)
-    audio_filter: AudioFilterConfig | None = None
-    if model.audio_filter is not None:
-        fallback: LanguageFallbackConfig | None = None
-        if model.audio_filter.fallback is not None:
-            fallback = LanguageFallbackConfig(mode=model.audio_filter.fallback.mode)
-        audio_filter = AudioFilterConfig(
-            languages=tuple(model.audio_filter.languages),
-            fallback=fallback,
-            minimum=model.audio_filter.minimum,
-            # V10: Music/SFX/Non-speech track handling
-            keep_music_tracks=model.audio_filter.keep_music_tracks,
-            exclude_music_from_language_filter=model.audio_filter.exclude_music_from_language_filter,
-            keep_sfx_tracks=model.audio_filter.keep_sfx_tracks,
-            exclude_sfx_from_language_filter=model.audio_filter.exclude_sfx_from_language_filter,
-            keep_non_speech_tracks=model.audio_filter.keep_non_speech_tracks,
-            exclude_non_speech_from_language_filter=model.audio_filter.exclude_non_speech_from_language_filter,
-        )
-
-    # Convert V3 subtitle_filter config if present
-    subtitle_filter: SubtitleFilterConfig | None = None
-    if model.subtitle_filter is not None:
-        languages = None
-        if model.subtitle_filter.languages is not None:
-            languages = tuple(model.subtitle_filter.languages)
-        subtitle_filter = SubtitleFilterConfig(
-            languages=languages,
-            preserve_forced=model.subtitle_filter.preserve_forced,
-            remove_all=model.subtitle_filter.remove_all,
-        )
-
-    # Convert V3 attachment_filter config if present
-    attachment_filter: AttachmentFilterConfig | None = None
-    if model.attachment_filter is not None:
-        attachment_filter = AttachmentFilterConfig(
-            remove_all=model.attachment_filter.remove_all,
-        )
-
-    # Convert V3 container config if present
-    container: ContainerConfig | None = None
-    if model.container is not None:
-        container = ContainerConfig(
-            target=model.container.target,
-            on_incompatible_codec=model.container.on_incompatible_codec,
-        )
-
-    # Convert V4 conditional rules if present
-    conditional_rules = _convert_conditional_rules(model.conditional)
-
-    # Convert V5 audio synthesis if present
-    audio_synthesis = _convert_audio_synthesis(model.audio_synthesis)
-
-    # Convert V9 workflow config if present
-    workflow: WorkflowConfig | None = None
-    if model.workflow is not None:
-        workflow = WorkflowConfig(
-            phases=tuple(ProcessingPhase(p) for p in model.workflow.phases),
-            auto_process=model.workflow.auto_process,
-            on_error=model.workflow.on_error,
-        )
-
-    return PolicySchema(
-        schema_version=model.schema_version,
-        track_order=track_order,
-        audio_language_preference=tuple(model.audio_language_preference),
-        subtitle_language_preference=tuple(model.subtitle_language_preference),
-        commentary_patterns=tuple(model.commentary_patterns),
-        default_flags=default_flags,
-        transcode=transcode,
-        transcription=transcription,
-        audio_actions=audio_actions,
-        subtitle_actions=subtitle_actions,
-        audio_filter=audio_filter,
-        subtitle_filter=subtitle_filter,
-        attachment_filter=attachment_filter,
-        container=container,
-        conditional_rules=conditional_rules,
-        audio_synthesis=audio_synthesis,
-        video_transcode=video_transcode,
-        audio_transcode=audio_transcode,
-        workflow=workflow,
-    )
-
-
 # =============================================================================
-# V11 Conversion Functions
+# Conversion Functions
 # =============================================================================
 
 
@@ -1026,8 +866,8 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
     )
 
 
-def _convert_to_phased_policy_schema(model: PhasedPolicyModel) -> PhasedPolicySchema:
-    """Convert PhasedPolicyModel to PhasedPolicySchema dataclass."""
+def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
+    """Convert PolicyModel to PolicySchema dataclass."""
     # Convert global config
     on_error_map = {
         "skip": OnErrorMode.SKIP,
@@ -1044,12 +884,14 @@ def _convert_to_phased_policy_schema(model: PhasedPolicyModel) -> PhasedPolicySc
     # Convert phases
     phases = tuple(_convert_phase_model(p) for p in model.phases)
 
-    return PhasedPolicySchema(
+    return PolicySchema(
         schema_version=12,
         config=global_config,
         phases=phases,
     )
 
 
-# Backward compatibility alias (deprecated)
-_convert_to_v11_policy_schema = _convert_to_phased_policy_schema
+# Backward compatibility aliases - DEPRECATED
+# These will be removed in a future release. Use _convert_to_policy_schema directly.
+_convert_to_v11_policy_schema = _convert_to_policy_schema
+_convert_to_phased_policy_schema = _convert_to_policy_schema

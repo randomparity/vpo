@@ -48,7 +48,7 @@ from vpo.policy.types import (
 )
 
 if TYPE_CHECKING:
-    from vpo.db.models import TrackInfo
+    from vpo.db import TrackInfo
 
 logger = logging.getLogger(__name__)
 

@@ -9,7 +9,7 @@ from pathlib import Path
 import click
 
 from vpo.config import get_config
-from vpo.db.models import (
+from vpo.db import (
     Job,
     JobStatus,
     JobType,
@@ -674,7 +674,7 @@ def cleanup_jobs(
     """
     from datetime import datetime, timedelta, timezone
 
-    from vpo.db.models import delete_old_jobs
+    from vpo.db import delete_old_jobs
 
     conn = ctx.obj.get("db_conn")
     if conn is None:

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from vpo.db.models import FileInfo, TrackInfo
+from vpo.db import FileInfo, TrackInfo
 from vpo.executor.interface import ExecutorResult
 from vpo.plugin.events import (
     FileScannedEvent,

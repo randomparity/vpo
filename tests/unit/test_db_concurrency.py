@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from vpo.db.models import (
+from vpo.db import (
     FileRecord,
     TrackInfo,
     get_file_by_path,

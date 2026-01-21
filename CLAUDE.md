@@ -233,34 +233,36 @@ Key V12 features:
 - Plugin metadata conditions (access plugin-provided metadata in policy conditions)
 - **Conditional phases**: skip_when, depends_on, run_if, per-phase on_error override
 
-**Two policy formats:**
-- **Flat format** (`PolicySchema`): Traditional single-section policy
-- **Phased format** (`PhasedPolicySchema`): Multi-phase pipelines with `phases` and `config` sections
+**Phased format only**: Policies use `PhasedPolicySchema` with multi-phase pipelines (`phases` and `config` sections). Flat policy format is no longer supported.
 
 **Example policy with transcoding:**
 ```yaml
 schema_version: 12
-transcode:
-  video:
-    target_codec: hevc
-    skip_if:
-      codec_matches: [hevc, h265]
-      resolution_within: 1080p
-      bitrate_under: 15M
-    quality:
-      mode: crf
-      crf: 20
-      preset: medium
-    scaling:
-      max_resolution: 1080p
-      algorithm: lanczos
-    hardware_acceleration:
-      enabled: auto
-      fallback_to_cpu: true
-  audio:
-    preserve_codecs: [truehd, dts-hd, flac]
-    transcode_to: aac
-    transcode_bitrate: 192k
+config:
+  on_error: skip
+phases:
+  - name: transcode
+    transcode:
+      video:
+        target_codec: hevc
+        skip_if:
+          codec_matches: [hevc, h265]
+          resolution_within: 1080p
+          bitrate_under: 15M
+        quality:
+          mode: crf
+          crf: 20
+          preset: medium
+        scaling:
+          max_resolution: 1080p
+          algorithm: lanczos
+        hardware_acceleration:
+          enabled: auto
+          fallback_to_cpu: true
+      audio:
+        preserve_codecs: [truehd, dts-hd, flac]
+        transcode_to: aac
+        transcode_bitrate: 192k
 ```
 
 **Key modules:**

@@ -124,7 +124,7 @@ def _run_language_analysis(
     Returns:
         Dictionary with 'analyzed', 'skipped', 'errors' counts.
     """
-    from vpo.db.models import (
+    from vpo.db import (
         get_file_by_path,
         get_tracks_for_file,
     )

@@ -92,7 +92,7 @@ def list_plugins(ctx: click.Context, verbose: bool) -> None:
 
                 acknowledged = False
                 if db_conn is not None:
-                    from vpo.db.models import (
+                    from vpo.db import (
                         is_plugin_acknowledged,
                     )
 
@@ -232,7 +232,7 @@ def acknowledge_plugin(ctx: click.Context, name: str, yes: bool) -> None:
                 # Record acknowledgment
                 from datetime import datetime, timezone
 
-                from vpo.db.models import (
+                from vpo.db import (
                     PluginAcknowledgment,
                     insert_plugin_acknowledgment,
                 )

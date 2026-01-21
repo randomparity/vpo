@@ -488,7 +488,7 @@ class TestScanAndPersist:
         assert result.files_updated == 0
 
         # Verify file was persisted to database
-        from vpo.db.models import get_file_by_path
+        from vpo.db import get_file_by_path
 
         record = get_file_by_path(db_conn, "/media/video0.mkv")
         assert record is not None
@@ -600,7 +600,7 @@ class TestScanAndPersist:
         # Return empty - the seeded file is now "missing"
         mock_discover.return_value = []
 
-        from vpo.db.models import get_file_by_path
+        from vpo.db import get_file_by_path
 
         # Verify file exists before
         record = get_file_by_path(seeded_db, "/media/existing.mkv")
@@ -675,7 +675,7 @@ class TestScanAndPersist:
         assert result.files_errored == 1
 
         # Verify scan_status is 'error' in database
-        from vpo.db.models import get_file_by_path
+        from vpo.db import get_file_by_path
 
         record = get_file_by_path(db_conn, "/media/video0.mkv")
         assert record is not None
@@ -706,7 +706,7 @@ class TestScanAndPersist:
 
         assert result.files_errored == 1
 
-        from vpo.db.models import get_file_by_path
+        from vpo.db import get_file_by_path
 
         record = get_file_by_path(db_conn, "/media/video0.mkv")
         assert record.scan_status == "error"
@@ -992,7 +992,7 @@ class TestScanAndPersistHashVerification:
             compute_hashes=True,
         )
 
-        from vpo.db.models import get_file_by_path
+        from vpo.db import get_file_by_path
 
         record = get_file_by_path(db_conn, "/media/video0.mkv")
         assert record.scan_status == "error"

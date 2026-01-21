@@ -8,12 +8,13 @@ from pathlib import Path
 
 import pytest
 
-from vpo.db.models import TrackInfo
+from vpo.db import TrackInfo
 from vpo.policy.evaluator import evaluate_policy
 from vpo.policy.exceptions import IncompatibleCodecError
 from vpo.policy.types import (
+    AudioFilterConfig,
     ContainerConfig,
-    PolicySchema,
+    EvaluationPolicy,
 )
 
 # =============================================================================
@@ -27,21 +28,24 @@ def v3_mkv_target_policy(temp_dir: Path) -> Path:
     policy_path = temp_dir / "mkv-target-policy.yaml"
     policy_path.write_text("""
 schema_version: 12
-track_order:
-  - video
-  - audio_main
-  - subtitle_main
-audio_language_preference:
-  - eng
-subtitle_language_preference:
-  - eng
-container:
-  target: mkv
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: false
-  clear_other_defaults: true
+config:
+  audio_language_preference:
+    - eng
+  subtitle_language_preference:
+    - eng
+phases:
+  - name: apply
+    track_order:
+      - video
+      - audio_main
+      - subtitle_main
+    container:
+      target: mkv
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: false
+      clear_other_defaults: true
 """)
     return policy_path
 
@@ -52,21 +56,24 @@ def v3_mp4_target_policy(temp_dir: Path) -> Path:
     policy_path = temp_dir / "mp4-target-policy.yaml"
     policy_path.write_text("""
 schema_version: 12
-track_order:
-  - video
-  - audio_main
-audio_language_preference:
-  - eng
-subtitle_language_preference:
-  - eng
-container:
-  target: mp4
-  on_incompatible_codec: error
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: false
-  clear_other_defaults: true
+config:
+  audio_language_preference:
+    - eng
+  subtitle_language_preference:
+    - eng
+phases:
+  - name: apply
+    track_order:
+      - video
+      - audio_main
+    container:
+      target: mp4
+      on_incompatible_codec: error
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: false
+      clear_other_defaults: true
 """)
     return policy_path
 
@@ -77,21 +84,24 @@ def v3_mp4_skip_policy(temp_dir: Path) -> Path:
     policy_path = temp_dir / "mp4-skip-policy.yaml"
     policy_path.write_text("""
 schema_version: 12
-track_order:
-  - video
-  - audio_main
-audio_language_preference:
-  - eng
-subtitle_language_preference:
-  - eng
-container:
-  target: mp4
-  on_incompatible_codec: skip
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: false
-  clear_other_defaults: true
+config:
+  audio_language_preference:
+    - eng
+  subtitle_language_preference:
+    - eng
+phases:
+  - name: apply
+    track_order:
+      - video
+      - audio_main
+    container:
+      target: mp4
+      on_incompatible_codec: skip
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: false
+      clear_other_defaults: true
 """)
     return policy_path
 
@@ -178,8 +188,7 @@ class TestAviToMkvConversion:
         avi_compatible_tracks: list[TrackInfo],
     ) -> None:
         """AVI to MKV conversion should create a plan with container_change."""
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             container=ContainerConfig(target="mkv"),
         )
 
@@ -202,8 +211,7 @@ class TestAviToMkvConversion:
         avi_compatible_tracks: list[TrackInfo],
     ) -> None:
         """MOV to MKV conversion should create a plan with container_change."""
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             container=ContainerConfig(target="mkv"),
         )
 
@@ -224,8 +232,7 @@ class TestAviToMkvConversion:
         mkv_mp4_compatible_tracks: list[TrackInfo],
     ) -> None:
         """MKV to MKV should not create a container_change."""
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             container=ContainerConfig(target="mkv"),
         )
 
@@ -244,8 +251,7 @@ class TestAviToMkvConversion:
         mkv_mp4_compatible_tracks: list[TrackInfo],
     ) -> None:
         """'matroska' container format should be normalized to 'mkv'."""
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             container=ContainerConfig(target="mkv"),
         )
 
@@ -274,8 +280,7 @@ class TestMkvToMp4Conversion:
         mkv_mp4_compatible_tracks: list[TrackInfo],
     ) -> None:
         """MKV to MP4 with compatible codecs should create a valid plan."""
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             container=ContainerConfig(target="mp4", on_incompatible_codec="error"),
         )
 
@@ -298,8 +303,7 @@ class TestMkvToMp4Conversion:
         mkv_mp4_incompatible_tracks: list[TrackInfo],
     ) -> None:
         """MKV to MP4 with incompatible codecs should raise error in error mode."""
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             container=ContainerConfig(target="mp4", on_incompatible_codec="error"),
         )
 
@@ -324,8 +328,7 @@ class TestMkvToMp4Conversion:
         mkv_mp4_incompatible_tracks: list[TrackInfo],
     ) -> None:
         """MKV to MP4 with incompatible codecs should skip conversion in skip mode."""
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             container=ContainerConfig(target="mp4", on_incompatible_codec="skip"),
         )
 
@@ -345,8 +348,7 @@ class TestMkvToMp4Conversion:
         mkv_mp4_compatible_tracks: list[TrackInfo],
     ) -> None:
         """MP4 to MP4 should not create a container_change."""
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             container=ContainerConfig(target="mp4"),
         )
 
@@ -371,8 +373,6 @@ class TestCombinedFilteringAndConversion:
 
     def test_audio_filter_with_mkv_conversion(self) -> None:
         """Audio filtering should work together with MKV conversion."""
-        from vpo.policy.types import AudioFilterConfig
-
         tracks = [
             TrackInfo(
                 index=0,
@@ -397,8 +397,7 @@ class TestCombinedFilteringAndConversion:
             ),
         ]
 
-        policy = PolicySchema(
-            schema_version=12,
+        policy = EvaluationPolicy(
             audio_filter=AudioFilterConfig(languages=("eng",)),
             container=ContainerConfig(target="mkv"),
         )

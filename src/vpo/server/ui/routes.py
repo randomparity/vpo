@@ -299,7 +299,7 @@ async def api_jobs_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with JobListResponse payload.
     """
-    from vpo.db.models import JobStatus, JobType
+    from vpo.db import JobStatus, JobType
 
     # Parse query parameters
     params = JobFilterParams.from_query(dict(request.query))
@@ -339,7 +339,7 @@ async def api_jobs_handler(request: web.Request) -> web.Response:
 
     # Query jobs from database using thread-safe connection access
     def _query_jobs() -> tuple[list, int]:
-        from vpo.db.models import get_jobs_filtered
+        from vpo.db import get_jobs_filtered
 
         # Use transaction context manager to hold lock during entire operation
         with connection_pool.transaction() as conn:
@@ -477,7 +477,7 @@ async def api_job_detail_handler(request: web.Request) -> web.Response:
 
     # Query job from database
     def _query_job():
-        from vpo.db.models import get_job
+        from vpo.db import get_job
 
         with connection_pool.transaction() as conn:
             return get_job(conn, job_id)
@@ -533,7 +533,7 @@ async def job_detail_handler(request: web.Request) -> dict:
 
     # Query job from database
     def _query_job():
-        from vpo.db.models import get_job
+        from vpo.db import get_job
 
         with connection_pool.transaction() as conn:
             return get_job(conn, job_id)
@@ -697,7 +697,7 @@ async def library_api_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with FileListResponse payload.
     """
-    from vpo.db.models import get_files_filtered
+    from vpo.db import get_files_filtered
 
     # Parse query parameters
     # Handle audio_lang as a list (can appear multiple times in query)
@@ -789,7 +789,7 @@ async def api_library_languages_handler(request: web.Request) -> web.Response:
     Returns list of distinct audio language codes present in the library
     for populating the language filter dropdown (019-library-filters-search).
     """
-    from vpo.db.models import get_distinct_audio_languages
+    from vpo.db import get_distinct_audio_languages
 
     # Get connection pool from middleware
     connection_pool = request["connection_pool"]
@@ -869,7 +869,7 @@ async def file_detail_handler(request: web.Request) -> dict:
         HTTPBadRequest: If file ID format is invalid.
         HTTPServiceUnavailable: If database not available.
     """
-    from vpo.db.models import (
+    from vpo.db import (
         get_file_by_id,
         get_tracks_for_file,
         get_transcriptions_for_tracks,
@@ -937,7 +937,7 @@ async def api_file_detail_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with FileDetailResponse payload or error.
     """
-    from vpo.db.models import (
+    from vpo.db import (
         get_file_by_id,
         get_tracks_for_file,
         get_transcriptions_for_tracks,
@@ -1010,7 +1010,7 @@ async def api_transcriptions_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with TranscriptionListResponse payload.
     """
-    from vpo.db.models import get_files_with_transcriptions
+    from vpo.db import get_files_with_transcriptions
 
     # Parse query parameters
     params = TranscriptionFilterParams.from_query(dict(request.query))
@@ -1134,7 +1134,7 @@ async def transcription_detail_handler(request: web.Request) -> dict:
         HTTPBadRequest: If ID format is invalid.
         HTTPServiceUnavailable: If database not available.
     """
-    from vpo.db.models import get_transcription_detail
+    from vpo.db import get_transcription_detail
 
     transcription_id_str = request.match_info["transcription_id"]
 
@@ -1194,7 +1194,7 @@ async def api_transcription_detail_handler(request: web.Request) -> web.Response
     Returns:
         JSON response with TranscriptionDetailResponse payload or error.
     """
-    from vpo.db.models import get_transcription_detail
+    from vpo.db import get_transcription_detail
 
     transcription_id_str = request.match_info["transcription_id"]
 
@@ -1390,7 +1390,7 @@ async def policy_editor_handler(request: web.Request) -> dict:
         audio_synthesis=policy_data.get("audio_synthesis"),
         # V9+ fields
         workflow=policy_data.get("workflow"),
-        # V11+ fields (user-defined phases)
+        # Phased policy fields (user-defined phases)
         phases=policy_data.get("phases"),
         config=policy_data.get("config"),
         # Meta
@@ -1514,7 +1514,7 @@ async def api_policy_detail_handler(request: web.Request) -> web.Response:
         audio_synthesis=policy_data.get("audio_synthesis"),
         # V9+ fields
         workflow=policy_data.get("workflow"),
-        # V11+ fields (user-defined phases)
+        # Phased policy fields (user-defined phases)
         phases=policy_data.get("phases"),
         config=policy_data.get("config"),
         # Meta
@@ -1726,7 +1726,7 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
         audio_synthesis=policy_data.get("audio_synthesis"),
         # V9+ fields
         workflow=policy_data.get("workflow"),
-        # V11+ fields (user-defined phases)
+        # Phased policy fields (user-defined phases)
         phases=policy_data.get("phases"),
         config=policy_data.get("config"),
         # Meta
@@ -1962,7 +1962,7 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
         conditional=created_data.get("conditional"),
         audio_synthesis=created_data.get("audio_synthesis"),
         workflow=created_data.get("workflow"),
-        # V11+ fields
+        # Phased policy fields
         phases=created_data.get("phases"),
         config=created_data.get("config"),
         unknown_fields=unknown_fields if unknown_fields else None,
@@ -2024,7 +2024,7 @@ async def api_plans_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with PlanListResponse payload.
     """
-    from vpo.db.models import PlanStatus
+    from vpo.db import PlanStatus
     from vpo.db.operations import get_plans_filtered
 
     # Parse query parameters

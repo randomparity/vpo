@@ -325,9 +325,15 @@ class TestPolicyCaching:
         # Ensure clean cache
         clear_policy_cache()
 
-        # Create a policy file
+        # Create a policy file (phased format required)
         policy_path = tmp_path / "cached.yaml"
-        policy_path.write_text("schema_version: 12\n")
+        policy_path.write_text(
+            "schema_version: 12\n"
+            "phases:\n"
+            "  - name: apply\n"
+            "    default_flags:\n"
+            "      set_first_video_default: true\n"
+        )
 
         # First parse (cache miss)
         result1 = _parse_policy_file(policy_path)
@@ -348,10 +354,17 @@ class TestPolicyCaching:
         # Ensure clean cache
         clear_policy_cache()
 
-        # Create a policy file
+        # Create a policy file (phased format required)
         policy_path = tmp_path / "modified.yaml"
         policy_path.write_text(
-            "schema_version: 12\naudio_language_preference:\n  - eng\n"
+            "schema_version: 12\n"
+            "config:\n"
+            "  audio_language_preference:\n"
+            "    - eng\n"
+            "phases:\n"
+            "  - name: apply\n"
+            "    default_flags:\n"
+            "      set_first_video_default: true\n"
         )
 
         # First parse
@@ -360,9 +373,16 @@ class TestPolicyCaching:
 
         # Ensure mtime changes (some filesystems have 1-second resolution)
         time.sleep(0.1)
-        # Modify the file (add a new language)
+        # Modify the file (change the language)
         policy_path.write_text(
-            "schema_version: 12\naudio_language_preference:\n  - jpn\n"
+            "schema_version: 12\n"
+            "config:\n"
+            "  audio_language_preference:\n"
+            "    - jpn\n"
+            "phases:\n"
+            "  - name: apply\n"
+            "    default_flags:\n"
+            "      set_first_video_default: true\n"
         )
         # Force mtime update
         os.utime(policy_path, None)

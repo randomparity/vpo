@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from vpo.db.models import TrackInfo
+from vpo.db import TrackInfo
 
 if TYPE_CHECKING:
     from vpo.language_analysis.models import (

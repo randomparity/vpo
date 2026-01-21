@@ -45,7 +45,7 @@ from vpo.policy.synthesis.source_selector import (
 )
 
 if TYPE_CHECKING:
-    from vpo.db.models import TrackInfo
+    from vpo.db import TrackInfo
     from vpo.policy.types import (
         AudioSynthesisConfig,
         Comparison,

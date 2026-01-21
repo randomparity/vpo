@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from vpo.db.models import TrackInfo
+from vpo.db import TrackInfo
 from vpo.db.types import PluginMetadataDict
 from vpo.policy.synthesis.models import (
     SkippedSynthesis,

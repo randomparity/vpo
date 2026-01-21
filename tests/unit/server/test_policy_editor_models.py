@@ -1,9 +1,9 @@
-"""Unit tests for PolicyEditorRequest V11 fields.
+"""Unit tests for PolicyEditorRequest V12 fields.
 
-Tests the V11 policy support in PolicyEditorRequest:
+Tests the V12 policy support in PolicyEditorRequest:
 - from_dict() handling of phases and config
-- to_policy_dict() V11 structure generation
-- Backward compatibility with V1-V10 policies
+- to_policy_dict() V12 structure generation
+- Backward compatibility with legacy policies
 """
 
 import pytest
@@ -11,8 +11,8 @@ import pytest
 from vpo.server.ui.models import PolicyEditorRequest
 
 
-class TestPolicyEditorRequestV11:
-    """Tests for PolicyEditorRequest V11 support."""
+class TestPolicyEditorRequestV12:
+    """Tests for PolicyEditorRequest V12 support."""
 
     @pytest.fixture
     def base_fields(self):
@@ -26,8 +26,8 @@ class TestPolicyEditorRequestV11:
             "last_modified_timestamp": "2024-01-01T00:00:00Z",
         }
 
-    def test_from_dict_with_v11_fields(self, base_fields):
-        """Test from_dict correctly parses V11 phases and config."""
+    def test_from_dict_with_v12_fields(self, base_fields):
+        """Test from_dict correctly parses V12 phases and config."""
         data = {
             **base_fields,
             "phases": [
@@ -41,15 +41,15 @@ class TestPolicyEditorRequestV11:
         assert request.phases == data["phases"]
         assert request.config == data["config"]
 
-    def test_from_dict_without_v11_fields(self, base_fields):
-        """Test from_dict handles missing V11 fields as None."""
+    def test_from_dict_without_v12_fields(self, base_fields):
+        """Test from_dict handles missing V12 fields with defaults."""
         request = PolicyEditorRequest.from_dict(base_fields)
 
         assert request.phases is None
-        assert request.config is None
+        assert request.config == {}  # Defaults to empty dict
 
-    def test_to_policy_dict_v11_with_phases(self, base_fields):
-        """Test to_policy_dict produces V11 structure when phases present."""
+    def test_to_policy_dict_v12_with_phases(self, base_fields):
+        """Test to_policy_dict produces V12 structure when phases present."""
         request = PolicyEditorRequest(
             **base_fields,
             transcode=None,
@@ -72,10 +72,10 @@ class TestPolicyEditorRequestV11:
             {"name": "test", "audio_filter": {"languages": ["eng"]}}
         ]
         assert result["config"] == {"on_error": "skip"}
-        # V11 should not include legacy fields at top level
+        # V12 should not include legacy fields at top level
         assert "track_order" not in result
 
-    def test_to_policy_dict_v11_without_explicit_config(self, base_fields):
+    def test_to_policy_dict_v12_without_explicit_config(self, base_fields):
         """Test to_policy_dict builds config from legacy fields if not provided."""
         request = PolicyEditorRequest(
             **base_fields,
@@ -100,7 +100,7 @@ class TestPolicyEditorRequestV11:
         assert result["config"]["on_error"] == "continue"  # Default
 
     def test_to_policy_dict_legacy_without_phases(self, base_fields):
-        """Test to_policy_dict produces V2 structure when no V11 features used."""
+        """Test to_policy_dict produces legacy structure when no V12 features used."""
         request = PolicyEditorRequest(
             **base_fields,
             transcode=None,
@@ -174,8 +174,8 @@ class TestPolicyEditorRequestVersionDetection:
             "last_modified_timestamp": "2024-01-01T00:00:00Z",
         }
 
-    def test_v11_takes_precedence(self, base_request_kwargs):
-        """Test that phases present means V11, even with other features."""
+    def test_v12_takes_precedence(self, base_request_kwargs):
+        """Test that phases present means V12, even with other features."""
         request = PolicyEditorRequest(
             **{
                 **base_request_kwargs,
@@ -189,7 +189,7 @@ class TestPolicyEditorRequestVersionDetection:
         )
         result = request.to_policy_dict()
 
-        # V11 wins because phases is set
+        # V12 wins because phases is set
         assert result["schema_version"] == 12
         assert "phases" in result
         # Legacy fields should not appear at top level

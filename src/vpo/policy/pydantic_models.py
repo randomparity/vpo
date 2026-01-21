@@ -1,8 +1,8 @@
 """Pydantic models for policy YAML parsing and validation.
 
 This module contains all Pydantic BaseModel subclasses used to parse and
-validate YAML policy files. These models are converted to frozen dataclasses
-by the conversion functions in conversion.py.
+validate YAML policy files. All models are frozen (immutable) and can be
+used directly at runtime.
 """
 
 from typing import Literal, Union
@@ -17,13 +17,11 @@ from vpo.policy.parsing import (
     parse_file_size as _parse_file_size,
 )
 from vpo.policy.types import (
-    DEFAULT_TRACK_ORDER,
     VALID_AUDIO_CODECS,
     VALID_PRESETS,
     VALID_RESOLUTIONS,
     VALID_VIDEO_CODECS,
     X264_X265_TUNES,
-    ProcessingPhase,
     TrackType,
     parse_bitrate,
 )
@@ -44,7 +42,7 @@ class PolicyValidationError(Exception):
 class DefaultFlagsModel(BaseModel):
     """Pydantic model for default flags configuration."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     set_first_video_default: bool = True
     set_preferred_audio_default: bool = True
@@ -57,7 +55,7 @@ class DefaultFlagsModel(BaseModel):
 class TranscriptionPolicyModel(BaseModel):
     """Pydantic model for transcription policy options."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     enabled: bool = False
     update_language_from_transcription: bool = False
@@ -81,7 +79,7 @@ class TranscriptionPolicyModel(BaseModel):
 class TranscodePolicyModel(BaseModel):
     """Pydantic model for transcode policy configuration."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     # Video settings
     target_video_codec: str | None = None
@@ -142,6 +140,26 @@ class TranscodePolicyModel(BaseModel):
             raise ValueError(f"Invalid audio_downmix '{v}'. Must be 'stereo' or '5.1'.")
         return v
 
+    # Computed properties for backward compatibility with TranscodePolicyConfig
+    @property
+    def has_video_settings(self) -> bool:
+        """True if any video transcoding settings are specified."""
+        return any(
+            [
+                self.target_video_codec,
+                self.target_crf,
+                self.target_bitrate,
+                self.max_resolution,
+                self.max_width,
+                self.max_height,
+            ]
+        )
+
+    @property
+    def has_audio_settings(self) -> bool:
+        """True if audio processing settings are specified."""
+        return bool(self.audio_preserve_codecs) or self.audio_downmix is not None
+
 
 # =============================================================================
 # V6 Pydantic Models for Conditional Video Transcoding
@@ -151,7 +169,7 @@ class TranscodePolicyModel(BaseModel):
 class SkipConditionModel(BaseModel):
     """Pydantic model for skip condition configuration."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     codec_matches: list[str] | None = None
     resolution_within: str | None = None
@@ -184,7 +202,7 @@ class SkipConditionModel(BaseModel):
 class QualitySettingsModel(BaseModel):
     """Pydantic model for video quality settings."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     mode: Literal["crf", "bitrate", "constrained_quality"] = "crf"
     crf: int | None = Field(default=None, ge=0, le=51)
@@ -254,7 +272,7 @@ class QualitySettingsModel(BaseModel):
 class ScalingSettingsModel(BaseModel):
     """Pydantic model for video scaling settings."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     max_resolution: str | None = None
     max_width: int | None = Field(default=None, ge=1)
@@ -277,7 +295,7 @@ class ScalingSettingsModel(BaseModel):
 class HardwareAccelConfigModel(BaseModel):
     """Pydantic model for hardware acceleration settings."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     enabled: Literal["auto", "nvenc", "qsv", "vaapi", "none"] = "auto"
     fallback_to_cpu: bool = True
@@ -286,7 +304,7 @@ class HardwareAccelConfigModel(BaseModel):
 class VideoTranscodeConfigModel(BaseModel):
     """Pydantic model for V6 video transcode configuration."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     target_codec: str
 
@@ -310,7 +328,7 @@ class VideoTranscodeConfigModel(BaseModel):
 class AudioTranscodeConfigModel(BaseModel):
     """Pydantic model for V6 audio transcode configuration."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     preserve_codecs: list[str] = Field(
         default_factory=lambda: ["truehd", "dts-hd", "flac", "pcm_s24le"]
@@ -344,7 +362,7 @@ class AudioTranscodeConfigModel(BaseModel):
 class TranscodeV6Model(BaseModel):
     """Pydantic model for V6 transcode configuration with video/audio sections."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     video: VideoTranscodeConfigModel | None = None
     audio: AudioTranscodeConfigModel | None = None
@@ -372,7 +390,7 @@ def _validate_language_codes(languages: list[str], field_name: str) -> list[str]
 class LanguageFallbackModel(BaseModel):
     """Pydantic model for language fallback configuration."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     mode: Literal["content_language", "keep_all", "keep_first", "error"]
 
@@ -383,7 +401,7 @@ class AudioFilterModel(BaseModel):
     V10: Added support for music, sfx, and non-speech track handling.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     languages: list[str]
     fallback: LanguageFallbackModel | None = None
@@ -413,7 +431,7 @@ class AudioFilterModel(BaseModel):
 class SubtitleFilterModel(BaseModel):
     """Pydantic model for subtitle filter configuration."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     languages: list[str] | None = None
     preserve_forced: bool = False
@@ -431,7 +449,7 @@ class SubtitleFilterModel(BaseModel):
 class AttachmentFilterModel(BaseModel):
     """Pydantic model for attachment filter configuration."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     remove_all: bool = False
 
@@ -442,7 +460,7 @@ class AudioActionsModel(BaseModel):
     Actions are applied BEFORE filtering to clean up misconfigured metadata.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     clear_all_forced: bool = False
     clear_all_default: bool = False
@@ -455,7 +473,7 @@ class SubtitleActionsModel(BaseModel):
     Actions are applied BEFORE filtering to clean up misconfigured metadata.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     clear_all_forced: bool = False
     clear_all_default: bool = False
@@ -465,7 +483,7 @@ class SubtitleActionsModel(BaseModel):
 class ContainerModel(BaseModel):
     """Pydantic model for container configuration."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     target: Literal["mkv", "mp4"]
     on_incompatible_codec: Literal["error", "skip", "transcode"] = "error"
@@ -490,7 +508,7 @@ VALID_CHANNEL_CONFIGS = frozenset({"mono", "stereo", "5.1", "7.1"})
 class ChannelPreferenceModel(BaseModel):
     """Pydantic model for channel preference in source selection."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     max: bool | None = None
     min: bool | None = None
@@ -510,7 +528,7 @@ class ChannelPreferenceModel(BaseModel):
 class PreferenceCriterionModel(BaseModel):
     """Pydantic model for source selection preference criterion."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     language: str | list[str] | None = None
     not_commentary: bool | None = None
@@ -552,7 +570,7 @@ class PreferenceCriterionModel(BaseModel):
 class SourcePreferencesModel(BaseModel):
     """Pydantic model for source track preferences."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     prefer: list[PreferenceCriterionModel]
 
@@ -574,7 +592,7 @@ class SkipIfExistsModel(BaseModel):
     All specified criteria must match (AND logic).
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     codec: str | list[str] | None = None
     channels: Union[int, "ComparisonModel", None] = None
@@ -605,7 +623,7 @@ class SkipIfExistsModel(BaseModel):
 class SynthesisTrackDefinitionModel(BaseModel):
     """Pydantic model for a synthesis track definition."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str
     codec: str
@@ -709,7 +727,7 @@ class SynthesisTrackDefinitionModel(BaseModel):
 class AudioSynthesisModel(BaseModel):
     """Pydantic model for audio_synthesis configuration."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     tracks: list[SynthesisTrackDefinitionModel]
 
@@ -734,46 +752,10 @@ class AudioSynthesisModel(BaseModel):
         return self
 
 
-class WorkflowConfigModel(BaseModel):
-    """Pydantic model for workflow configuration (V9+)."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    phases: list[str]
-    """Processing phases to run in order."""
-
-    auto_process: bool = False
-    """If True, daemon auto-queues PROCESS jobs when files are scanned."""
-
-    on_error: Literal["skip", "continue", "fail"] = "continue"
-    """Error handling mode."""
-
-    @field_validator("phases")
-    @classmethod
-    def validate_phases(cls, v: list[str]) -> list[str]:
-        """Validate phases list."""
-        if not v:
-            raise ValueError("workflow.phases cannot be empty")
-
-        valid_phases = {p.value for p in ProcessingPhase}
-        for phase in v:
-            if phase not in valid_phases:
-                raise ValueError(
-                    f"Invalid phase '{phase}'. "
-                    f"Valid phases: {', '.join(sorted(valid_phases))}"
-                )
-
-        # Check for duplicates
-        if len(v) != len(set(v)):
-            raise ValueError("Duplicate phases not allowed")
-
-        return v
-
-
 class ComparisonModel(BaseModel):
     """Pydantic model for numeric comparison (e.g., height: {gte: 2160})."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     eq: int | None = None
     lt: int | None = None
@@ -808,7 +790,7 @@ class ComparisonModel(BaseModel):
 class TitleMatchModel(BaseModel):
     """Pydantic model for title matching criteria."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     contains: str | None = None
     regex: str | None = None
@@ -844,7 +826,7 @@ class TitleMatchModel(BaseModel):
 class TrackFiltersModel(BaseModel):
     """Pydantic model for track filter criteria."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     language: str | list[str] | None = None
     codec: str | list[str] | None = None
@@ -860,7 +842,7 @@ class TrackFiltersModel(BaseModel):
 class ExistsConditionModel(BaseModel):
     """Pydantic model for existence condition."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     track_type: Literal["video", "audio", "subtitle", "attachment"]
     language: str | list[str] | None = None
@@ -877,7 +859,7 @@ class ExistsConditionModel(BaseModel):
 class CountConditionModel(BaseModel):
     """Pydantic model for count condition."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     track_type: Literal["video", "audio", "subtitle", "attachment"]
     language: str | list[str] | None = None
@@ -929,7 +911,7 @@ class AudioIsMultiLanguageModel(BaseModel):
     Requires language analysis to have been performed on the track.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     track_index: int | None = None
     threshold: float = Field(default=0.05, ge=0.0, le=1.0)
@@ -959,7 +941,7 @@ class PluginMetadataConditionModel(BaseModel):
             value: jpn
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     plugin: str
     """Name of the plugin that provided the metadata (e.g., 'radarr')."""
@@ -1046,7 +1028,7 @@ class IsOriginalConditionModel(BaseModel):
             min_confidence: 0.8
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     value: bool = True
     min_confidence: float = Field(default=0.7, ge=0.0, le=1.0)
@@ -1073,7 +1055,7 @@ class IsDubbedConditionModel(BaseModel):
             language: eng
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     value: bool = True
     min_confidence: float = Field(default=0.7, ge=0.0, le=1.0)
@@ -1083,7 +1065,7 @@ class IsDubbedConditionModel(BaseModel):
 class ConditionModel(BaseModel):
     """Pydantic model for condition (union of condition types)."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     # Leaf conditions
     exists: ExistsConditionModel | None = None
@@ -1143,7 +1125,7 @@ class SetForcedActionModel(BaseModel):
     Sets the forced flag on matching subtitle tracks.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     track_type: Literal["subtitle"] = "subtitle"
     language: str | None = None
@@ -1156,7 +1138,7 @@ class SetDefaultActionModel(BaseModel):
     Sets the default flag on matching tracks.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     track_type: Literal["video", "audio", "subtitle"]
     language: str | None = None
@@ -1169,7 +1151,7 @@ class PluginMetadataReferenceModel(BaseModel):
     Used to dynamically pull values from plugin metadata at runtime.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     plugin: str
     field: str
@@ -1198,7 +1180,7 @@ class SetLanguageActionModel(BaseModel):
     from_plugin_metadata must be specified, but not both.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     track_type: Literal["video", "audio", "subtitle"]
     new_language: str | None = None
@@ -1227,7 +1209,7 @@ class SetLanguageActionModel(BaseModel):
 class ActionModel(BaseModel):
     """Pydantic model for conditional action."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     # Skip actions
     skip_video_transcode: bool | None = None
@@ -1270,7 +1252,7 @@ class ActionModel(BaseModel):
 class ConditionalRuleModel(BaseModel):
     """Pydantic model for a conditional rule."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str
     when: ConditionModel
@@ -1286,91 +1268,8 @@ class ConditionalRuleModel(BaseModel):
         return v.strip()
 
 
-class PolicyModel(BaseModel):
-    """Pydantic model for policy YAML validation."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    schema_version: Literal[12] = 12
-    track_order: list[str] = Field(
-        default_factory=lambda: [t.value for t in DEFAULT_TRACK_ORDER]
-    )
-    audio_language_preference: list[str] = Field(default_factory=lambda: ["eng", "und"])
-    subtitle_language_preference: list[str] = Field(
-        default_factory=lambda: ["eng", "und"]
-    )
-    commentary_patterns: list[str] = Field(
-        default_factory=lambda: ["commentary", "director"]
-    )
-    default_flags: DefaultFlagsModel = Field(default_factory=DefaultFlagsModel)
-    transcode: TranscodePolicyModel | TranscodeV6Model | None = None
-    transcription: TranscriptionPolicyModel | None = None
-
-    # Track actions (pre-processing, applied before filters)
-    audio_actions: AudioActionsModel | None = None
-    subtitle_actions: SubtitleActionsModel | None = None
-
-    # Track filtering configuration
-    audio_filter: AudioFilterModel | None = None
-    subtitle_filter: SubtitleFilterModel | None = None
-    attachment_filter: AttachmentFilterModel | None = None
-    container: ContainerModel | None = None
-
-    # Conditional rules
-    conditional: list[ConditionalRuleModel] | None = None
-
-    # Audio synthesis
-    audio_synthesis: AudioSynthesisModel | None = None
-
-    # Workflow configuration
-    workflow: WorkflowConfigModel | None = None
-
-    @field_validator("track_order")
-    @classmethod
-    def validate_track_order(cls, v: list[str]) -> list[str]:
-        """Validate track order contains valid track types."""
-        if not v:
-            raise ValueError("track_order cannot be empty")
-
-        valid_types = {t.value for t in TrackType}
-        for idx, track_type in enumerate(v):
-            if track_type not in valid_types:
-                raise ValueError(
-                    f"Unknown track type '{track_type}' at track_order[{idx}]. "
-                    f"Valid types: {', '.join(sorted(valid_types))}"
-                )
-        return v
-
-    @field_validator("audio_language_preference", "subtitle_language_preference")
-    @classmethod
-    def validate_language_preference(cls, v: list[str]) -> list[str]:
-        """Validate language preference contains valid ISO 639-2 codes."""
-        if not v:
-            raise ValueError("Language preference cannot be empty")
-
-        import re
-
-        pattern = re.compile(r"^[a-z]{2,3}$")
-        for idx, lang in enumerate(v):
-            if not pattern.match(lang):
-                raise ValueError(
-                    f"Invalid language code '{lang}' at index {idx}. "
-                    "Use ISO 639-2 codes (e.g., 'eng', 'jpn')."
-                )
-        return v
-
-    @field_validator("commentary_patterns")
-    @classmethod
-    def validate_commentary_patterns(cls, v: list[str]) -> list[str]:
-        """Validate commentary patterns are valid regex."""
-        errors = validate_regex_patterns(v)
-        if errors:
-            raise ValueError(errors[0])
-        return v
-
-
 # =============================================================================
-# V11 Pydantic Models for User-Defined Phases
+# Pydantic Models for User-Defined Phases
 # =============================================================================
 
 
@@ -1381,7 +1280,7 @@ PHASE_NAME_PATTERN = r"^[a-zA-Z][a-zA-Z0-9_-]{0,63}$"
 class GlobalConfigModel(BaseModel):
     """Pydantic model for V11 global configuration."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     audio_language_preference: list[str] = Field(default_factory=lambda: ["eng", "und"])
     """Ordered list of preferred audio languages (ISO 639-2/B codes)."""
@@ -1435,7 +1334,7 @@ class PhaseSkipConditionModel(BaseModel):
     Multiple conditions use OR logic - phase is skipped if ANY matches.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     video_codec: list[str] | None = None
     """Skip if video codec matches any in this list."""
@@ -1562,7 +1461,7 @@ class RunIfConditionModel(BaseModel):
     Exactly one condition must be specified.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     phase_modified: str | None = None
     """Run only if the named phase modified the file."""
@@ -1585,7 +1484,7 @@ class RunIfConditionModel(BaseModel):
 class PhaseModel(BaseModel):
     """Pydantic model for a V11 phase definition."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str = Field(..., pattern=PHASE_NAME_PATTERN)
     """User-defined phase name."""
@@ -1647,10 +1546,10 @@ class PhaseModel(BaseModel):
         return v
 
 
-class PhasedPolicyModel(BaseModel):
+class PolicyModel(BaseModel):
     """Pydantic model for phased policy with user-defined phases."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     schema_version: Literal[12] = 12
     """Schema version, must be exactly 12."""
@@ -1683,7 +1582,7 @@ class PhasedPolicyModel(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def validate_phase_references(self) -> "PhasedPolicyModel":
+    def validate_phase_references(self) -> "PolicyModel":
         """Validate that depends_on and run_if reference valid, earlier phases."""
         phase_names = [p.name for p in self.phases]
         phase_index_map = {name: idx for idx, name in enumerate(phase_names)}
@@ -1725,8 +1624,10 @@ class PhasedPolicyModel(BaseModel):
         return self
 
 
-# Backward compatibility alias (deprecated)
-V11PolicyModel = PhasedPolicyModel
+# Backward compatibility aliases - DEPRECATED
+# These will be removed in a future release. Use PolicyModel directly.
+V11PolicyModel = PolicyModel
+PhasedPolicyModel = PolicyModel
 
 
 # =============================================================================

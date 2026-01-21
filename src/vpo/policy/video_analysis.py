@@ -18,7 +18,7 @@ import logging
 from dataclasses import dataclass
 from enum import Enum
 
-from vpo.db.models import TrackInfo
+from vpo.db import TrackInfo
 
 logger = logging.getLogger(__name__)
 

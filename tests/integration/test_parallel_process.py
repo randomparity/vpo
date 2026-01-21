@@ -16,14 +16,15 @@ def runner() -> CliRunner:
 
 
 @pytest.fixture
-def v11_policy(tmp_path: Path) -> Path:
+def v12_policy(tmp_path: Path) -> Path:
     """Create a V12 policy file (current version) for testing."""
     policy_content = """
 schema_version: 12
-workflow:
-  phases:
-    - apply
+config:
   on_error: skip
+phases:
+  - name: apply
+    track_order: [video, audio_main, subtitle_main]
 """
     policy_file = tmp_path / "test_policy.yaml"
     policy_file.write_text(policy_content)
@@ -58,7 +59,7 @@ class TestParallelProcessingCLI:
         assert "parallel workers" in result.output.lower()
 
     def test_workers_option_accepts_value(
-        self, runner: CliRunner, v11_policy: Path, tmp_path: Path
+        self, runner: CliRunner, v12_policy: Path, tmp_path: Path
     ) -> None:
         """--workers option should accept numeric value."""
         video_file = tmp_path / "test.mkv"
@@ -69,7 +70,7 @@ class TestParallelProcessingCLI:
             [
                 "process",
                 "--policy",
-                str(v11_policy),
+                str(v12_policy),
                 "--workers",
                 "2",
                 "--dry-run",
@@ -84,7 +85,7 @@ class TestParallelProcessingJSON:
     """Tests for parallel processing JSON output."""
 
     def test_json_output_includes_workers(
-        self, runner: CliRunner, v11_policy: Path, tmp_path: Path
+        self, runner: CliRunner, v12_policy: Path, tmp_path: Path
     ) -> None:
         """JSON output should include workers count."""
         video_file = tmp_path / "test.mkv"
@@ -95,7 +96,7 @@ class TestParallelProcessingJSON:
             [
                 "process",
                 "--policy",
-                str(v11_policy),
+                str(v12_policy),
                 "--workers",
                 "2",
                 "--dry-run",
@@ -104,10 +105,10 @@ class TestParallelProcessingJSON:
             ],
         )
 
-        # Parse JSON output (may fail on empty file, but should have valid JSON)
-        if result.exit_code == 0 or "workers" in result.output:
+        # Parse JSON output (use result.stdout to separate from stderr logs)
+        if result.exit_code == 0 or "workers" in result.stdout:
             try:
-                output = json.loads(result.output)
+                output = json.loads(result.stdout)
                 assert "workers" in output
                 assert output["workers"] == 2
             except json.JSONDecodeError:
@@ -115,7 +116,7 @@ class TestParallelProcessingJSON:
                 pass
 
     def test_json_output_includes_duration(
-        self, runner: CliRunner, v11_policy: Path, tmp_path: Path
+        self, runner: CliRunner, v12_policy: Path, tmp_path: Path
     ) -> None:
         """JSON output should include duration_seconds."""
         video_file = tmp_path / "test.mkv"
@@ -126,7 +127,7 @@ class TestParallelProcessingJSON:
             [
                 "process",
                 "--policy",
-                str(v11_policy),
+                str(v12_policy),
                 "--dry-run",
                 "--json",
                 str(video_file),
@@ -134,7 +135,8 @@ class TestParallelProcessingJSON:
         )
 
         if result.exit_code == 0:
-            output = json.loads(result.output)
+            # Use result.stdout to get only stdout (JSON), not stderr (logs)
+            output = json.loads(result.stdout)
             assert "summary" in output
             assert "duration_seconds" in output["summary"]
             assert isinstance(output["summary"]["duration_seconds"], (int, float))
@@ -144,7 +146,7 @@ class TestParallelProcessingBehavior:
     """Tests for parallel processing behavior."""
 
     def test_workers_default_from_config(
-        self, runner: CliRunner, v11_policy: Path, tmp_path: Path
+        self, runner: CliRunner, v12_policy: Path, tmp_path: Path
     ) -> None:
         """Workers should default to config value (2) when not specified."""
         video_file = tmp_path / "test.mkv"
@@ -155,7 +157,7 @@ class TestParallelProcessingBehavior:
             [
                 "process",
                 "--policy",
-                str(v11_policy),
+                str(v12_policy),
                 "--dry-run",
                 "--json",
                 str(video_file),
@@ -163,13 +165,14 @@ class TestParallelProcessingBehavior:
         )
 
         if result.exit_code == 0:
-            output = json.loads(result.output)
+            # Use result.stdout to get only stdout (JSON), not stderr (logs)
+            output = json.loads(result.stdout)
             # Default should be 2 (or less if capped by CPU)
             assert "workers" in output
             assert output["workers"] >= 1
 
     def test_verbose_shows_workers(
-        self, runner: CliRunner, v11_policy: Path, tmp_path: Path
+        self, runner: CliRunner, v12_policy: Path, tmp_path: Path
     ) -> None:
         """Verbose mode should show worker count."""
         video_file = tmp_path / "test.mkv"
@@ -180,7 +183,7 @@ class TestParallelProcessingBehavior:
             [
                 "process",
                 "--policy",
-                str(v11_policy),
+                str(v12_policy),
                 "--workers",
                 "2",
                 "--dry-run",
@@ -196,7 +199,7 @@ class TestSequentialMode:
     """Tests for sequential processing with --workers 1."""
 
     def test_workers_one_runs_sequentially(
-        self, runner: CliRunner, v11_policy: Path, tmp_path: Path
+        self, runner: CliRunner, v12_policy: Path, tmp_path: Path
     ) -> None:
         """--workers 1 should process files sequentially."""
         video_file = tmp_path / "test.mkv"
@@ -207,7 +210,7 @@ class TestSequentialMode:
             [
                 "process",
                 "--policy",
-                str(v11_policy),
+                str(v12_policy),
                 "--workers",
                 "1",
                 "--dry-run",
@@ -217,5 +220,6 @@ class TestSequentialMode:
         )
 
         if result.exit_code == 0:
-            output = json.loads(result.output)
+            # Use result.stdout to get only stdout (JSON), not stderr (logs)
+            output = json.loads(result.stdout)
             assert output["workers"] == 1

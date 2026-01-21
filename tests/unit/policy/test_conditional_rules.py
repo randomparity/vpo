@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from vpo.db.models import TrackInfo
+from vpo.db import TrackInfo
 from vpo.policy.evaluator import (
     evaluate_conditional_rules,
 )
@@ -673,34 +673,36 @@ class TestTrackFlagChangesToPlannedAction:
         """set_forced action should create SET_FORCED PlannedAction in plan."""
         from vpo.policy.evaluator import evaluate_policy
         from vpo.policy.loader import load_policy
-        from vpo.policy.types import ActionType
+        from vpo.policy.types import ActionType, EvaluationPolicy
 
         # Create a policy with conditional set_forced
         policy_path = tmp_path / "policy.yaml"
         policy_path.write_text("""
 schema_version: 12
-
-conditional:
-  - name: force_english_subs_for_foreign_audio
-    when:
-      not:
-        exists:
-          track_type: audio
-          language: eng
-    then:
-      - set_forced:
-          track_type: subtitle
-          language: eng
-          value: true
+phases:
+  - name: apply
+    conditional:
+      - name: force_english_subs_for_foreign_audio
+        when:
+          not:
+            exists:
+              track_type: audio
+              language: eng
+        then:
+          - set_forced:
+              track_type: subtitle
+              language: eng
+              value: true
 """)
         policy = load_policy(policy_path)
+        eval_policy = EvaluationPolicy.from_phase(policy.phases[0], policy.config)
 
         plan = evaluate_policy(
             file_id=None,
             file_path=Path("/test/file.mkv"),
             container="mkv",
             tracks=foreign_audio_tracks,
-            policy=policy,
+            policy=eval_policy,
         )
 
         # Find SET_FORCED action
@@ -720,7 +722,7 @@ conditional:
         """set_forced(value=False) should create CLEAR_FORCED PlannedAction."""
         from vpo.policy.evaluator import evaluate_policy
         from vpo.policy.loader import load_policy
-        from vpo.policy.types import ActionType
+        from vpo.policy.types import ActionType, EvaluationPolicy
 
         # Create a subtitle track that is already forced
         forced_subtitle = TrackInfo(
@@ -742,26 +744,28 @@ conditional:
         policy_path = tmp_path / "policy.yaml"
         policy_path.write_text("""
 schema_version: 12
-
-conditional:
-  - name: clear_forced_subs
-    when:
-      exists:
-        track_type: video
-    then:
-      - set_forced:
-          track_type: subtitle
-          language: eng
-          value: false
+phases:
+  - name: apply
+    conditional:
+      - name: clear_forced_subs
+        when:
+          exists:
+            track_type: video
+        then:
+          - set_forced:
+              track_type: subtitle
+              language: eng
+              value: false
 """)
         policy = load_policy(policy_path)
+        eval_policy = EvaluationPolicy.from_phase(policy.phases[0], policy.config)
 
         plan = evaluate_policy(
             file_id=None,
             file_path=Path("/test/file.mkv"),
             container="mkv",
             tracks=tracks,
-            policy=policy,
+            policy=eval_policy,
         )
 
         # Find CLEAR_FORCED action
@@ -781,7 +785,7 @@ conditional:
         """No PlannedAction when track already has the requested flag value."""
         from vpo.policy.evaluator import evaluate_policy
         from vpo.policy.loader import load_policy
-        from vpo.policy.types import ActionType
+        from vpo.policy.types import ActionType, EvaluationPolicy
 
         # Create a subtitle that is already forced
         already_forced = TrackInfo(
@@ -803,26 +807,28 @@ conditional:
         policy_path = tmp_path / "policy.yaml"
         policy_path.write_text("""
 schema_version: 12
-
-conditional:
-  - name: set_forced_subs
-    when:
-      exists:
-        track_type: video
-    then:
-      - set_forced:
-          track_type: subtitle
-          language: eng
-          value: true
+phases:
+  - name: apply
+    conditional:
+      - name: set_forced_subs
+        when:
+          exists:
+            track_type: video
+        then:
+          - set_forced:
+              track_type: subtitle
+              language: eng
+              value: true
 """)
         policy = load_policy(policy_path)
+        eval_policy = EvaluationPolicy.from_phase(policy.phases[0], policy.config)
 
         plan = evaluate_policy(
             file_id=None,
             file_path=Path("/test/file.mkv"),
             container="mkv",
             tracks=tracks,
-            policy=policy,
+            policy=eval_policy,
         )
 
         # Should NOT have SET_FORCED action (already forced)

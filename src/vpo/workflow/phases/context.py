@@ -1,4 +1,4 @@
-"""Operation context for V11 phase execution.
+"""Operation context for phased policy execution.
 
 This module defines the operational view of a file being processed,
 distinct from the domain model (FileInfo) which represents introspection

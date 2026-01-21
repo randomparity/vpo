@@ -8,7 +8,7 @@ from click.testing import CliRunner
 
 from vpo.cli import main
 from vpo.cli.exit_codes import ExitCode
-from vpo.db.models import IntrospectionResult, TrackInfo
+from vpo.db import IntrospectionResult, TrackInfo
 
 
 class TestInspectCommand:

@@ -1,17 +1,19 @@
 schema_version: 12
 
 # Anime-focused policy: Japanese audio with English subtitles
-audio_language_preference:
-  - jpn
-  - eng
-  - und
+config:
+  audio_language_preference:
+    - jpn
+    - eng
+    - und
+  subtitle_language_preference:
+    - eng
+    - und
 
-subtitle_language_preference:
-  - eng
-  - und
-
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: true
-  clear_other_defaults: true
+phases:
+  - name: apply
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: true
+      clear_other_defaults: true

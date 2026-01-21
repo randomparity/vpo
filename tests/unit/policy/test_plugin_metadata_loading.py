@@ -166,25 +166,31 @@ class TestPluginMetadataPolicyLoading:
         """Test loading a basic plugin_metadata condition."""
         policy_data = {
             "schema_version": 12,
-            "conditional": [
+            "phases": [
                 {
-                    "name": "check-anime",
-                    "when": {
-                        "plugin_metadata": {
-                            "plugin": "radarr",
-                            "field": "original_language",
-                            "value": "jpn",
+                    "name": "check",
+                    "conditional": [
+                        {
+                            "name": "check-anime",
+                            "when": {
+                                "plugin_metadata": {
+                                    "plugin": "radarr",
+                                    "field": "original_language",
+                                    "value": "jpn",
+                                }
+                            },
+                            "then": {"warn": "Japanese anime detected"},
                         }
-                    },
-                    "then": {"warn": "Japanese anime detected"},
+                    ],
                 }
             ],
         }
 
         policy = load_policy_from_dict(policy_data)
 
-        assert len(policy.conditional_rules) == 1
-        rule = policy.conditional_rules[0]
+        # Conditional rules are in the phase
+        assert len(policy.phases[0].conditional) == 1
+        rule = policy.phases[0].conditional[0]
         assert rule.name == "check-anime"
         assert isinstance(rule.when, PluginMetadataCondition)
         assert rule.when.plugin == "radarr"
@@ -196,25 +202,30 @@ class TestPluginMetadataPolicyLoading:
         """Test loading plugin_metadata condition with explicit operator."""
         policy_data = {
             "schema_version": 12,
-            "conditional": [
+            "phases": [
                 {
-                    "name": "check-rating",
-                    "when": {
-                        "plugin_metadata": {
-                            "plugin": "radarr",
-                            "field": "rating",
-                            "value": 7.0,
-                            "operator": "gte",
+                    "name": "check",
+                    "conditional": [
+                        {
+                            "name": "check-rating",
+                            "when": {
+                                "plugin_metadata": {
+                                    "plugin": "radarr",
+                                    "field": "rating",
+                                    "value": 7.0,
+                                    "operator": "gte",
+                                }
+                            },
+                            "then": {"warn": "High-rated movie"},
                         }
-                    },
-                    "then": {"warn": "High-rated movie"},
+                    ],
                 }
             ],
         }
 
         policy = load_policy_from_dict(policy_data)
 
-        rule = policy.conditional_rules[0]
+        rule = policy.phases[0].conditional[0]
         assert isinstance(rule.when, PluginMetadataCondition)
         assert rule.when.operator == PluginMetadataOperator.GTE
         assert rule.when.value == 7.0
@@ -223,25 +234,30 @@ class TestPluginMetadataPolicyLoading:
         """Test loading plugin_metadata condition with contains operator."""
         policy_data = {
             "schema_version": 12,
-            "conditional": [
+            "phases": [
                 {
-                    "name": "check-title",
-                    "when": {
-                        "plugin_metadata": {
-                            "plugin": "radarr",
-                            "field": "title",
-                            "value": "Extended",
-                            "operator": "contains",
+                    "name": "check",
+                    "conditional": [
+                        {
+                            "name": "check-title",
+                            "when": {
+                                "plugin_metadata": {
+                                    "plugin": "radarr",
+                                    "field": "title",
+                                    "value": "Extended",
+                                    "operator": "contains",
+                                }
+                            },
+                            "then": {"warn": "Extended edition"},
                         }
-                    },
-                    "then": {"warn": "Extended edition"},
+                    ],
                 }
             ],
         }
 
         policy = load_policy_from_dict(policy_data)
 
-        rule = policy.conditional_rules[0]
+        rule = policy.phases[0].conditional[0]
         assert isinstance(rule.when, PluginMetadataCondition)
         assert rule.when.operator == PluginMetadataOperator.CONTAINS
 
@@ -249,29 +265,39 @@ class TestPluginMetadataPolicyLoading:
         """Test plugin_metadata in combined AND condition."""
         policy_data = {
             "schema_version": 12,
-            "conditional": [
+            "phases": [
                 {
-                    "name": "check-anime-with-audio",
-                    "when": {
-                        "and": [
-                            {
-                                "plugin_metadata": {
-                                    "plugin": "radarr",
-                                    "field": "original_language",
-                                    "value": "jpn",
-                                }
+                    "name": "check",
+                    "conditional": [
+                        {
+                            "name": "check-anime-with-audio",
+                            "when": {
+                                "and": [
+                                    {
+                                        "plugin_metadata": {
+                                            "plugin": "radarr",
+                                            "field": "original_language",
+                                            "value": "jpn",
+                                        }
+                                    },
+                                    {
+                                        "exists": {
+                                            "track_type": "audio",
+                                            "language": "jpn",
+                                        }
+                                    },
+                                ]
                             },
-                            {"exists": {"track_type": "audio", "language": "jpn"}},
-                        ]
-                    },
-                    "then": {"warn": "Japanese anime with Japanese audio"},
+                            "then": {"warn": "Japanese anime with Japanese audio"},
+                        }
+                    ],
                 }
             ],
         }
 
         policy = load_policy_from_dict(policy_data)
 
-        rule = policy.conditional_rules[0]
+        rule = policy.phases[0].conditional[0]
         # Should be an AND condition containing both sub-conditions
         from vpo.policy.types import AndCondition
 
@@ -282,35 +308,40 @@ class TestPluginMetadataPolicyLoading:
         """Test plugin_metadata in combined OR condition."""
         policy_data = {
             "schema_version": 12,
-            "conditional": [
+            "phases": [
                 {
-                    "name": "check-arr-metadata",
-                    "when": {
-                        "or": [
-                            {
-                                "plugin_metadata": {
-                                    "plugin": "radarr",
-                                    "field": "original_language",
-                                    "value": "jpn",
-                                }
+                    "name": "check",
+                    "conditional": [
+                        {
+                            "name": "check-arr-metadata",
+                            "when": {
+                                "or": [
+                                    {
+                                        "plugin_metadata": {
+                                            "plugin": "radarr",
+                                            "field": "original_language",
+                                            "value": "jpn",
+                                        }
+                                    },
+                                    {
+                                        "plugin_metadata": {
+                                            "plugin": "sonarr",
+                                            "field": "original_language",
+                                            "value": "jpn",
+                                        }
+                                    },
+                                ]
                             },
-                            {
-                                "plugin_metadata": {
-                                    "plugin": "sonarr",
-                                    "field": "original_language",
-                                    "value": "jpn",
-                                }
-                            },
-                        ]
-                    },
-                    "then": {"warn": "Japanese content from arr metadata"},
+                            "then": {"warn": "Japanese content from arr metadata"},
+                        }
+                    ],
                 }
             ],
         }
 
         policy = load_policy_from_dict(policy_data)
 
-        rule = policy.conditional_rules[0]
+        rule = policy.phases[0].conditional[0]
         from vpo.policy.types import OrCondition
 
         assert isinstance(rule.when, OrCondition)

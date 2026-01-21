@@ -291,9 +291,9 @@ phases:
 
 ## Backward Compatibility
 
-- V10 policies continue to work; upgrade is optional
-- The policy editor supports both V10 and V11
-- V11 policies cannot be downgraded to V10
+**Important:** The flat policy format (V10 and earlier) is no longer supported. All policies must use the V12 phased format with `phases` and optional `config` sections.
+
+If you have existing V10 policies, you must migrate them to the phased format using the patterns shown in this guide.
 
 ---
 

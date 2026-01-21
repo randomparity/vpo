@@ -12,112 +12,115 @@
 
 schema_version: 12
 
-track_order:
-  - video
-  - audio_main
-  - audio_alternate
-  - subtitle_main
-  - subtitle_forced
-  - audio_commentary
-  - subtitle_commentary
+config:
+  audio_language_preference: [eng, und]
+  subtitle_language_preference: [eng, und]
+  commentary_patterns:
+    - commentary
+    - director
+    - "audio description"
+    - cast
 
-audio_language_preference: [eng, und]
-subtitle_language_preference: [eng, und]
-commentary_patterns:
-  - commentary
-  - director
-  - "audio description"
-  - cast
+phases:
+  - name: container
+    # Req 1: Convert to MKV container
+    container:
+      target: mkv
+      on_incompatible_codec: transcode
 
-# Req 1: Convert to MKV container
-container:
-  target: mkv
-  on_incompatible_codec: transcode
+  - name: transcode
+    # Req 2: Transcode non-x265 to x265
+    transcode:
+      video:
+        target_codec: hevc
+        skip_if:
+          codec_matches: [hevc, h265, x265]
+        quality:
+          mode: crf
+          crf: 20
+          preset: medium
+        hardware_acceleration:
+          enabled: auto
+          fallback_to_cpu: true
+      audio:
+        # Preserve lossless codecs (Req 4: keep originals)
+        preserve_codecs: [truehd, "dts-hd ma", flac, pcm_s24le, eac3]
+        transcode_to: aac
+        transcode_bitrate: 192k
 
-# Req 2: Transcode non-x265 to x265
-transcode:
-  video:
-    target_codec: hevc
-    skip_if:
-      codec_matches: [hevc, h265, x265]
-    quality:
-      mode: crf
-      crf: 20
-      preset: medium
-    hardware_acceleration:
-      enabled: auto
-      fallback_to_cpu: true
-  audio:
-    # Preserve lossless codecs (Req 4: keep originals)
-    preserve_codecs: [truehd, "dts-hd ma", flac, pcm_s24le, eac3]
-    transcode_to: aac
-    transcode_bitrate: 192k
-
-# Reqs 3 & 4: Create EAC3 5.1 from lossless (or use existing)
-audio_synthesis:
-  tracks:
-    - name: "EAC3 5.1 Compatibility"
-      codec: eac3
-      channels: "5.1"
-      bitrate: "640k"
-      # Skip synthesis if suitable EAC3 already exists
-      skip_if_exists:
-        codec: [eac3]
-        channels: { gte: 6 }
-        language: [eng, und]
-        not_commentary: true
-      source:
-        prefer:
-          - language: [eng, und]
-          - not_commentary: true
-          - codec: [truehd, "dts-hd ma", flac, pcm_s24le]
-          - channels: max
-      # Only create if there's a multi-channel source
-      create_if:
-        exists:
-          track_type: audio
-          channels: { gte: 6 }
-          language: [eng, und]
-      title: "Dolby Digital Plus 5.1"
-      language: inherit
-      position: 1
-
-# Req 6: Remove non-English audio with fallback
-audio_filter:
-  languages: [eng, und]
-  minimum: 1
-  fallback:
-    mode: content_language
-
-# Req 7: Remove non-English subtitles
-subtitle_filter:
-  languages: [eng, und]
-  preserve_forced: true
-
-# Req 9: Remove attachments (cover art, fonts)
-attachment_filter:
-  remove_all: true
-
-# Req 8: Force English subs when audio is multi-language/non-English
-conditional:
-  - name: force_english_subs_for_foreign_audio
-    when:
-      or:
-        - audio_is_multi_language:
-            threshold: 0.05
-        - not:
+  - name: synthesis
+    # Reqs 3 & 4: Create EAC3 5.1 from lossless (or use existing)
+    audio_synthesis:
+      tracks:
+        - name: "EAC3 5.1 Compatibility"
+          codec: eac3
+          channels: "5.1"
+          bitrate: "640k"
+          # Skip synthesis if suitable EAC3 already exists
+          skip_if_exists:
+            codec: [eac3]
+            channels: { gte: 6 }
+            language: [eng, und]
+            not_commentary: true
+          source:
+            prefer:
+              - language: [eng, und]
+              - not_commentary: true
+              - codec: [truehd, "dts-hd ma", flac, pcm_s24le]
+              - channels: max
+          # Only create if there's a multi-channel source
+          create_if:
             exists:
               track_type: audio
-              language: eng
-              is_default: true
-    then:
-      - set_forced:
-          track_type: subtitle
-          language: eng
-          value: true
+              channels: { gte: 6 }
+              language: [eng, und]
+          title: "Dolby Digital Plus 5.1"
+          language: inherit
+          position: 1
 
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: false
-  clear_other_defaults: true
+  - name: filter
+    # Req 6: Remove non-English audio with fallback
+    audio_filter:
+      languages: [eng, und]
+      minimum: 1
+      fallback:
+        mode: content_language
+    # Req 7: Remove non-English subtitles
+    subtitle_filter:
+      languages: [eng, und]
+      preserve_forced: true
+    # Req 9: Remove attachments (cover art, fonts)
+    attachment_filter:
+      remove_all: true
+
+  - name: organize
+    track_order:
+      - video
+      - audio_main
+      - audio_alternate
+      - subtitle_main
+      - subtitle_forced
+      - audio_commentary
+      - subtitle_commentary
+    # Req 8: Force English subs when audio is multi-language/non-English
+    conditional:
+      - name: force_english_subs_for_foreign_audio
+        when:
+          or:
+            - audio_is_multi_language:
+                threshold: 0.05
+            - not:
+                exists:
+                  track_type: audio
+                  language: eng
+                  is_default: true
+        then:
+          - set_forced:
+              track_type: subtitle
+              language: eng
+              value: true
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: false
+      clear_other_defaults: true

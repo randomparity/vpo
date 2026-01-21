@@ -51,7 +51,7 @@ from vpo.track_classification.models import (
 )
 
 if TYPE_CHECKING:
-    from vpo.db.models import TrackInfo
+    from vpo.db import TrackInfo
 
 
 # Default patterns for identifying commentary tracks

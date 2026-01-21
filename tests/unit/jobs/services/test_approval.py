@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from vpo.db.models import PlanStatus
+from vpo.db import PlanStatus
 from vpo.db.schema import create_schema
 from vpo.db.types import PlanRecord
 from vpo.jobs.services.approval import (

@@ -1,28 +1,29 @@
 schema_version: 12
 
 # Advanced commentary detection patterns
-commentary_patterns:
-  - 'commentary'
-  - 'director'
-  - '\bcast\b'
-  - 'behind.+scenes?'
-  - 'making.+of'
-  - 'audio\s*description'
+config:
+  commentary_patterns:
+    - 'commentary'
+    - 'director'
+    - '\bcast\b'
+    - 'behind.+scenes?'
+    - 'making.+of'
+    - 'audio\s*description'
+  audio_language_preference:
+    - eng
+    - und
+  subtitle_language_preference:
+    - eng
+    - und
 
-audio_language_preference:
-  - eng
-  - und
-
-subtitle_language_preference:
-  - eng
-  - und
-
-track_order:
-  - video
-  - audio_main
-  - subtitle_main
-  - subtitle_forced
-  - audio_alternate
-  - audio_commentary
-  - subtitle_commentary
-  - attachment
+phases:
+  - name: apply
+    track_order:
+      - video
+      - audio_main
+      - subtitle_main
+      - subtitle_forced
+      - audio_alternate
+      - audio_commentary
+      - subtitle_commentary
+      - attachment

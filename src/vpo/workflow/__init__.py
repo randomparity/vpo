@@ -1,14 +1,13 @@
 """Workflow orchestration for video file processing.
 
 This module provides a unified workflow system for processing video files
-through multiple phases: analyze → apply → transcode.
-
-V11 adds support for user-defined phases via V11WorkflowProcessor.
+through user-defined phases.
 """
 
 from vpo.workflow.processor import (
-    FileProcessingResult,
+    ProgressCallback,
     WorkflowProcessor,
+    WorkflowProgress,
 )
 from vpo.workflow.stats_capture import (
     ActionCapture,
@@ -17,15 +16,14 @@ from vpo.workflow.stats_capture import (
     compute_partial_hash,
     count_tracks_by_type,
 )
-from vpo.workflow.v11_processor import V11WorkflowProcessor
 
 __all__ = [
     "ActionCapture",
-    "FileProcessingResult",
     "PhaseMetrics",
+    "ProgressCallback",
     "StatsCollector",
-    "V11WorkflowProcessor",
     "WorkflowProcessor",
+    "WorkflowProgress",
     "compute_partial_hash",
     "count_tracks_by_type",
 ]

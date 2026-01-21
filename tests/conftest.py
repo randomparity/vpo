@@ -226,6 +226,203 @@ def make_transcode_plan():
     return _make_plan
 
 
+# =============================================================================
+# Domain Model Factories
+# =============================================================================
+
+
+@pytest.fixture
+def make_track_info():
+    """Factory for creating TrackInfo objects with sensible defaults.
+
+    Returns a callable that creates TrackInfo instances. All parameters
+    have defaults except `index` and `track_type`.
+
+    Returns:
+        Callable: Factory function that creates TrackInfo instances.
+
+    Example:
+        def test_audio_track(make_track_info):
+            track = make_track_info(index=0, track_type="audio", channels=6)
+            assert track.channels == 6
+    """
+    from vpo.db.types import TrackInfo
+
+    def _make_track(
+        index: int = 0,
+        track_type: str = "video",
+        id: int | None = None,
+        codec: str | None = None,
+        language: str | None = None,
+        title: str | None = None,
+        is_default: bool = False,
+        is_forced: bool = False,
+        channels: int | None = None,
+        channel_layout: str | None = None,
+        width: int | None = None,
+        height: int | None = None,
+        frame_rate: str | None = None,
+        color_transfer: str | None = None,
+        color_primaries: str | None = None,
+        color_space: str | None = None,
+        color_range: str | None = None,
+        duration_seconds: float | None = None,
+    ) -> TrackInfo:
+        return TrackInfo(
+            index=index,
+            track_type=track_type,
+            id=id,
+            codec=codec,
+            language=language,
+            title=title,
+            is_default=is_default,
+            is_forced=is_forced,
+            channels=channels,
+            channel_layout=channel_layout,
+            width=width,
+            height=height,
+            frame_rate=frame_rate,
+            color_transfer=color_transfer,
+            color_primaries=color_primaries,
+            color_space=color_space,
+            color_range=color_range,
+            duration_seconds=duration_seconds,
+        )
+
+    return _make_track
+
+
+@pytest.fixture
+def make_file_info(make_track_info):
+    """Factory for creating FileInfo objects with sensible defaults.
+
+    Returns a callable that creates FileInfo instances with optional tracks.
+
+    Returns:
+        Callable: Factory function that creates FileInfo instances.
+
+    Example:
+        def test_file_with_tracks(make_file_info):
+            file_info = make_file_info(
+                path=Path("/videos/movie.mkv"),
+                tracks=[{"track_type": "audio", "codec": "aac"}]
+            )
+            assert len(file_info.tracks) == 1
+    """
+    from datetime import datetime, timezone
+
+    from vpo.db.types import FileInfo
+
+    def _make_file(
+        path: Path | str = Path("/videos/movie.mkv"),
+        filename: str | None = None,
+        directory: Path | str | None = None,
+        extension: str | None = None,
+        size_bytes: int = 1024 * 1024 * 100,  # 100 MB
+        modified_at: datetime | None = None,
+        content_hash: str | None = None,
+        container_format: str | None = "mkv",
+        scanned_at: datetime | None = None,
+        scan_status: str = "ok",
+        scan_error: str | None = None,
+        tracks: list[dict] | None = None,
+    ) -> FileInfo:
+        if isinstance(path, str):
+            path = Path(path)
+
+        # Derive defaults from path if not provided
+        if filename is None:
+            filename = path.name
+        if directory is None:
+            directory = path.parent
+        elif isinstance(directory, str):
+            directory = Path(directory)
+        if extension is None:
+            extension = path.suffix.lstrip(".")
+
+        if modified_at is None:
+            modified_at = datetime.now(timezone.utc)
+        if scanned_at is None:
+            scanned_at = datetime.now(timezone.utc)
+
+        # Build track list from dicts
+        track_list = []
+        if tracks:
+            for i, track_dict in enumerate(tracks):
+                track_dict.setdefault("index", i)
+                track_list.append(make_track_info(**track_dict))
+
+        return FileInfo(
+            path=path,
+            filename=filename,
+            directory=directory,
+            extension=extension,
+            size_bytes=size_bytes,
+            modified_at=modified_at,
+            content_hash=content_hash,
+            container_format=container_format,
+            scanned_at=scanned_at,
+            scan_status=scan_status,
+            scan_error=scan_error,
+            tracks=track_list,
+        )
+
+    return _make_file
+
+
+@pytest.fixture
+def make_policy():
+    """Factory for creating PolicySchema objects with sensible defaults.
+
+    Creates a minimal valid policy with one empty phase. Override
+    specific fields as needed for testing.
+
+    Returns:
+        Callable: Factory function that creates PolicySchema instances.
+
+    Example:
+        def test_policy_config(make_policy):
+            policy = make_policy(config={"on_error": "fail"})
+            assert policy.config.on_error == "fail"
+    """
+    from vpo.policy.types import GlobalConfig, PhaseDefinition, PolicySchema
+
+    def _make_policy(
+        schema_version: int = 12,
+        config: dict | GlobalConfig | None = None,
+        phases: list[dict | PhaseDefinition] | None = None,
+    ) -> PolicySchema:
+        # Build config
+        if config is None:
+            final_config = GlobalConfig()
+        elif isinstance(config, dict):
+            final_config = GlobalConfig(**config)
+        else:
+            final_config = config
+
+        # Build phases - at least one phase required
+        if phases is None:
+            final_phases = (PhaseDefinition(name="default", conditional=()),)
+        else:
+            phase_list = []
+            for p in phases:
+                if isinstance(p, dict):
+                    p.setdefault("name", f"phase_{len(phase_list)}")
+                    p.setdefault("conditional", ())
+                    phase_list.append(PhaseDefinition(**p))
+                else:
+                    phase_list.append(p)
+            final_phases = tuple(phase_list)
+
+        return PolicySchema(
+            schema_version=schema_version,
+            config=final_config,
+            phases=final_phases,
+        )
+
+    return _make_policy
+
+
 @pytest.fixture
 def make_transcode_result():
     """Factory for creating TranscodeResult objects with sensible defaults.

@@ -105,19 +105,20 @@ vpo analyze-language clear --all --yes --json
 
 ### The `audio_is_multi_language` Condition
 
-Schema version 7 introduces the `audio_is_multi_language` condition for conditional policies:
+Use the `audio_is_multi_language` condition in V12 phased policies:
 
 ```yaml
-schema_version: 7
-
-conditional:
-  - name: "Handle multi-language audio"
-    when:
-      audio_is_multi_language:
-        primary_language: eng
-        threshold: 0.05
-    then:
-      - warn: "Multi-language content detected"
+schema_version: 12
+phases:
+  - name: analyze
+    conditional:
+      - name: "Handle multi-language audio"
+        when:
+          audio_is_multi_language:
+            primary_language: eng
+            threshold: 0.05
+        then:
+          - warn: "Multi-language content detected"
 ```
 
 #### Condition Parameters
@@ -133,35 +134,37 @@ conditional:
 Enable forced subtitles automatically for multi-language content:
 
 ```yaml
-schema_version: 7
-
-conditional:
-  - name: "Enable forced subs for multi-language"
-    when:
-      and:
-        - audio_is_multi_language:
-            primary_language: eng
-            threshold: 0.05
-        - exists:
-            track_type: subtitle
-            language: eng
-            is_forced: true
-    then:
-      - set_default:
-          track_type: subtitle
-          language: eng
-      - warn: "Enabled forced subtitles for multi-language content"
+schema_version: 12
+phases:
+  - name: analyze
+    conditional:
+      - name: "Enable forced subs for multi-language"
+        when:
+          and:
+            - audio_is_multi_language:
+                primary_language: eng
+                threshold: 0.05
+            - exists:
+                track_type: subtitle
+                language: eng
+                is_forced: true
+        then:
+          - set_default:
+              track_type: subtitle
+              language: eng
+          - warn: "Enabled forced subtitles for multi-language content"
 ```
 
-### New Actions: `set_forced` and `set_default`
+### Actions: `set_forced` and `set_default`
 
-Schema version 7 adds two new actions for track flag manipulation:
+VPO provides actions for track flag manipulation within conditional rules:
 
 #### `set_forced`
 
 Sets the forced flag on subtitle tracks:
 
 ```yaml
+# Within a phase's conditional rules
 then:
   - set_forced:
       track_type: subtitle
@@ -174,6 +177,7 @@ then:
 Sets the default flag on any track type:
 
 ```yaml
+# Within a phase's conditional rules
 then:
   - set_default:
       track_type: subtitle

@@ -5,7 +5,7 @@ Tests the AudioTranscodeConfig dataclass and preserve_codecs matching logic.
 
 import pytest
 
-from vpo.db.models import TrackInfo
+from vpo.db import TrackInfo
 from vpo.policy.codecs import (
     audio_codec_matches,
     audio_codec_matches_any,

@@ -131,11 +131,57 @@ def _parse_policy_file(path: Path) -> PolicySummary:
             _policy_cache[cache_key] = _CacheEntry(mtime, summary)
             return summary
 
-        # Extract transcription enabled status
-        transcription = data.get("transcription")
-        has_transcription = isinstance(transcription, dict) and transcription.get(
-            "enabled", False
+        # Validate policy has required 'phases' key (flat format no longer supported)
+        if "phases" not in data:
+            summary = PolicySummary(
+                name=path.stem,
+                filename=path.name,
+                file_path=cache_key,
+                last_modified=last_modified,
+                parse_error="Invalid policy: missing 'phases' key "
+                "(flat format no longer supported)",
+            )
+            _policy_cache[cache_key] = _CacheEntry(mtime, summary)
+            return summary
+
+        # Extract config section (phased policies store preferences here)
+        config = data.get("config", {})
+        if not isinstance(config, dict):
+            config = {}
+
+        # Extract language preferences (check config first, then root level)
+        audio_languages = config.get(
+            "audio_language_preference", data.get("audio_language_preference", [])
         )
+        subtitle_languages = config.get(
+            "subtitle_language_preference", data.get("subtitle_language_preference", [])
+        )
+
+        # Extract transcription enabled status (check phases for phased policies)
+        has_transcription = False
+        transcription = data.get("transcription")
+        if isinstance(transcription, dict) and transcription.get("enabled", False):
+            has_transcription = True
+        else:
+            # Check phases for transcription config
+            phases = data.get("phases", [])
+            for phase in phases:
+                if isinstance(phase, dict):
+                    phase_transcription = phase.get("transcription")
+                    if isinstance(
+                        phase_transcription, dict
+                    ) and phase_transcription.get("enabled", False):
+                        has_transcription = True
+                        break
+
+        # Extract transcode status (check phases for phased policies)
+        has_transcode = data.get("transcode") is not None
+        if not has_transcode:
+            phases = data.get("phases", [])
+            for phase in phases:
+                if isinstance(phase, dict) and phase.get("transcode") is not None:
+                    has_transcode = True
+                    break
 
         summary = PolicySummary(
             name=path.stem,
@@ -143,9 +189,9 @@ def _parse_policy_file(path: Path) -> PolicySummary:
             file_path=cache_key,
             last_modified=last_modified,
             schema_version=data.get("schema_version"),
-            audio_languages=list(data.get("audio_language_preference", [])),
-            subtitle_languages=list(data.get("subtitle_language_preference", [])),
-            has_transcode=data.get("transcode") is not None,
+            audio_languages=list(audio_languages),
+            subtitle_languages=list(subtitle_languages),
+            has_transcode=has_transcode,
             has_transcription=has_transcription,
         )
         _policy_cache[cache_key] = _CacheEntry(mtime, summary)

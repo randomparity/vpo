@@ -21,19 +21,20 @@ Schema version 4 introduces conditional rules that let you apply different actio
 
 ## Policy Schema Version
 
-Conditional rules require schema version 4 or higher:
+VPO uses V12 phased policy format. Conditional rules are placed within phases:
 
 ```yaml
-schema_version: 4
-
-conditional:
-  - name: "My Rule"
-    when:
-      exists:
-        track_type: audio
-        language: eng
-    then:
-      - warn: "English audio found"
+schema_version: 12
+phases:
+  - name: check
+    conditional:
+      - name: "My Rule"
+        when:
+          exists:
+            track_type: audio
+            language: eng
+        then:
+          - warn: "English audio found"
 ```
 
 ---
@@ -357,103 +358,103 @@ When no rules match (and no else clause on the last rule), processing continues 
 ### Example 1: Resolution-Based Transcoding
 
 ```yaml
-schema_version: 4
+schema_version: 12
+phases:
+  - name: check
+    conditional:
+      - name: "4K HEVC passthrough"
+        when:
+          and:
+            - exists:
+                track_type: video
+                height: { gte: 2160 }
+            - exists:
+                track_type: video
+                codec: hevc
+        then:
+          - skip_video_transcode: true
+          - warn: "4K HEVC - no transcode needed"
 
-conditional:
-  - name: "4K HEVC passthrough"
-    when:
-      and:
-        - exists:
+      - name: "HD content"
+        when:
+          exists:
             track_type: video
-            height: { gte: 2160 }
-        - exists:
-            track_type: video
-            codec: hevc
-    then:
-      - skip_video_transcode: true
-      - warn: "4K HEVC - no transcode needed"
+            height: { lt: 2160 }
+        then:
+          - warn: "HD content will be transcoded"
 
-  - name: "HD content"
-    when:
-      exists:
-        track_type: video
-        height: { lt: 2160 }
-    then:
-      - warn: "HD content will be transcoded"
-
-# Non-conditional sections still apply
-audio_language_preference:
-  - eng
-  - und
+  - name: filter
+    audio_filter:
+      languages: [eng, und]
 ```
 
 ### Example 2: Japanese Anime Policy
 
 ```yaml
-schema_version: 4
+schema_version: 12
+phases:
+  - name: validate
+    conditional:
+      - name: "Japanese with English subs"
+        when:
+          and:
+            - exists:
+                track_type: audio
+                language: jpn
+            - exists:
+                track_type: subtitle
+                language: eng
+        then:
+          - warn: "Proper anime setup detected"
 
-conditional:
-  - name: "Japanese with English subs"
-    when:
-      and:
-        - exists:
-            track_type: audio
-            language: jpn
-        - exists:
-            track_type: subtitle
-            language: eng
-    then:
-      - warn: "Proper anime setup detected"
+      - name: "Missing English subs"
+        when:
+          and:
+            - exists:
+                track_type: audio
+                language: jpn
+            - not:
+                exists:
+                  track_type: subtitle
+                  language: eng
+        then:
+          - fail: "{filename} missing English subtitles"
 
-  - name: "Missing English subs"
-    when:
-      and:
-        - exists:
-            track_type: audio
-            language: jpn
-        - not:
-            exists:
-              track_type: subtitle
-              language: eng
-    then:
-      - fail: "{filename} missing English subtitles"
-
-audio_language_preference:
-  - jpn
-  - eng
-
-subtitle_language_preference:
-  - eng
+  - name: organize
+    audio_filter:
+      languages: [jpn, eng]
+    subtitle_filter:
+      languages: [eng]
 ```
 
 ### Example 3: Multi-Audio Detection
 
 ```yaml
-schema_version: 4
+schema_version: 12
+phases:
+  - name: analyze
+    conditional:
+      - name: "Single audio track"
+        when:
+          count:
+            track_type: audio
+            eq: 1
+        then:
+          - warn: "Single audio - no filtering needed"
+          - skip_track_filter: true
 
-conditional:
-  - name: "Single audio track"
-    when:
-      count:
-        track_type: audio
-        eq: 1
-    then:
-      - warn: "Single audio - no filtering needed"
-      - skip_track_filter: true
+      - name: "Multiple audio tracks"
+        when:
+          count:
+            track_type: audio
+            gt: 1
+        then:
+          - warn: "{filename} has multiple audio tracks"
 
-  - name: "Multiple audio tracks"
-    when:
-      count:
-        track_type: audio
-        gt: 1
-    then:
-      - warn: "{filename} has multiple audio tracks"
-
-audio_filter:
-  languages:
-    - eng
-    - und
-  minimum: 1
+  - name: filter
+    audio_filter:
+      languages: [eng, und]
+      minimum: 1
 ```
 
 ---

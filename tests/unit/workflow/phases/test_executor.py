@@ -19,47 +19,27 @@ from vpo.db.schema import create_schema
 from vpo.db.types import TrackInfo
 from vpo.executor.transcode import TranscodeResult
 from vpo.policy.types import (
-    AndCondition,
     AudioFilterConfig,
-    AudioIsMultiLanguageCondition,
-    Comparison,
-    ComparisonOperator,
-    ConditionalRule,
     ContainerConfig,
-    CountCondition,
-    DefaultFlagsConfig,
-    ExistsCondition,
     GlobalConfig,
-    NotCondition,
     OnErrorMode,
     OperationType,
-    OrCondition,
     PhaseDefinition,
-    PhasedPolicySchema,
     PhaseExecutionError,
-    PluginMetadataCondition,
-    PluginMetadataOperator,
-    SetDefaultAction,
-    SetForcedAction,
-    SkipAction,
-    SkipType,
+    PolicySchema,
     SubtitleFilterConfig,
-    TitleMatch,
-    TrackFilters,
-    TrackType,
     TranscriptionPolicyOptions,
     VideoTranscodeConfig,
-    WarnAction,
 )
 from vpo.workflow.phases.executor import (
     PhaseExecutionState,
-    V11PhaseExecutor,
+    PhaseExecutor,
 )
 
 
 @dataclass
 class MockFileInfo:
-    """Mock FileInfo for testing V11 executor.
+    """Mock FileInfo for testing PhaseExecutor.
 
     This matches the actual FileInfo class in db.types with
     container_format (not container) and no file_id attribute.
@@ -91,9 +71,9 @@ def global_config():
 
 
 @pytest.fixture
-def v11_policy(global_config):
+def phased_policy(global_config):
     """Create a phased policy for testing."""
-    return PhasedPolicySchema(
+    return PolicySchema(
         schema_version=12,
         config=global_config,
         phases=(PhaseDefinition(name="cleanup"),),
@@ -192,34 +172,34 @@ def insert_test_track(
     return cursor.lastrowid
 
 
-class TestV11PhaseExecutorInit:
-    """Tests for V11PhaseExecutor initialization."""
+class TestPhaseExecutorInit:
+    """Tests for PhaseExecutor initialization."""
 
-    def test_init_with_defaults(self, db_conn, v11_policy):
-        """V11PhaseExecutor initializes with default values."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+    def test_init_with_defaults(self, db_conn, phased_policy):
+        """PhaseExecutor initializes with default values."""
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy)
 
         assert executor.conn is db_conn
-        assert executor.policy is v11_policy
+        assert executor.policy is phased_policy
         assert executor.dry_run is False
         assert executor.verbose is False
         assert executor.policy_name == "workflow"
 
-    def test_init_with_dry_run(self, db_conn, v11_policy):
-        """V11PhaseExecutor accepts dry_run parameter."""
-        executor = V11PhaseExecutor(
+    def test_init_with_dry_run(self, db_conn, phased_policy):
+        """PhaseExecutor accepts dry_run parameter."""
+        executor = PhaseExecutor(
             conn=db_conn,
-            policy=v11_policy,
+            policy=phased_policy,
             dry_run=True,
         )
 
         assert executor.dry_run is True
 
-    def test_init_with_policy_name(self, db_conn, v11_policy):
-        """V11PhaseExecutor accepts custom policy_name."""
-        executor = V11PhaseExecutor(
+    def test_init_with_policy_name(self, db_conn, phased_policy):
+        """PhaseExecutor accepts custom policy_name."""
+        executor = PhaseExecutor(
             conn=db_conn,
-            policy=v11_policy,
+            policy=phased_policy,
             policy_name="custom.yaml",
         )
 
@@ -230,10 +210,10 @@ class TestOperationDispatch:
     """Tests for _dispatch_operation handler routing."""
 
     def test_dispatch_routes_to_container_handler(
-        self, db_conn, v11_policy, mock_file_info
+        self, db_conn, phased_policy, mock_file_info
     ):
         """Container operation routes to _execute_container."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         phase = PhaseDefinition(
             name="test",
@@ -252,10 +232,10 @@ class TestOperationDispatch:
         assert result == 1
 
     def test_dispatch_routes_to_audio_filter_handler(
-        self, db_conn, v11_policy, mock_file_info
+        self, db_conn, phased_policy, mock_file_info
     ):
         """Audio filter operation routes to _execute_audio_filter."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         phase = PhaseDefinition(
             name="test",
@@ -274,10 +254,10 @@ class TestOperationDispatch:
         assert result == 2
 
     def test_dispatch_unknown_operation_returns_zero(
-        self, db_conn, v11_policy, mock_file_info
+        self, db_conn, phased_policy, mock_file_info
     ):
         """Unknown operation type returns 0 and logs warning."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         phase = PhaseDefinition(name="test")
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
@@ -294,94 +274,12 @@ class TestOperationDispatch:
         assert result == 0
 
 
-class TestVirtualPolicyBuilding:
-    """Tests for _build_virtual_policy."""
-
-    def test_build_virtual_policy_basic(self, db_conn, v11_policy):
-        """Virtual policy includes base config from V11 policy."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-
-        phase = PhaseDefinition(name="test")
-        policy = executor._build_virtual_policy(phase)
-
-        assert policy.schema_version == 12
-        assert list(policy.audio_language_preference) == ["eng", "und"]
-        assert list(policy.subtitle_language_preference) == ["eng"]
-        assert list(policy.commentary_patterns) == ["commentary", "director"]
-
-    def test_build_virtual_policy_with_audio_filter(self, db_conn, v11_policy):
-        """Virtual policy includes audio filter config."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-
-        phase = PhaseDefinition(
-            name="test",
-            audio_filter=AudioFilterConfig(languages=("eng", "jpn")),
-        )
-        policy = executor._build_virtual_policy(phase)
-
-        assert policy.audio_filter is not None
-        assert list(policy.audio_filter.languages) == ["eng", "jpn"]
-
-    def test_build_virtual_policy_with_subtitle_filter(self, db_conn, v11_policy):
-        """Virtual policy includes subtitle filter config."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-
-        phase = PhaseDefinition(
-            name="test",
-            subtitle_filter=SubtitleFilterConfig(languages=("eng", "spa")),
-        )
-        policy = executor._build_virtual_policy(phase)
-
-        assert policy.subtitle_filter is not None
-        assert list(policy.subtitle_filter.languages) == ["eng", "spa"]
-
-    def test_build_virtual_policy_with_default_flags(self, db_conn, v11_policy):
-        """Virtual policy includes default flags config."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-
-        phase = PhaseDefinition(
-            name="test",
-            default_flags=DefaultFlagsConfig(
-                set_first_video_default=True,
-                set_preferred_audio_default=True,
-                set_preferred_subtitle_default=False,
-                clear_other_defaults=True,
-            ),
-        )
-        policy = executor._build_virtual_policy(phase)
-
-        assert policy.default_flags is not None
-        assert policy.default_flags.set_first_video_default is True
-        assert policy.default_flags.set_preferred_audio_default is True
-        assert policy.default_flags.set_preferred_subtitle_default is False
-
-    def test_build_virtual_policy_with_track_order(self, db_conn, v11_policy):
-        """Virtual policy includes track order from phase."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-
-        phase = PhaseDefinition(
-            name="test",
-            track_order=(
-                TrackType.VIDEO,
-                TrackType.SUBTITLE_MAIN,
-                TrackType.AUDIO_MAIN,
-            ),
-        )
-        policy = executor._build_virtual_policy(phase)
-
-        # track_order may return enum values or strings depending on the policy schema
-        track_order_values = [
-            t.value if hasattr(t, "value") else t for t in policy.track_order
-        ]
-        assert track_order_values == ["video", "subtitle_main", "audio_main"]
-
-
 class TestExecutorSelection:
     """Tests for _select_executor."""
 
-    def test_select_executor_for_container_change_mp4(self, db_conn, v11_policy):
+    def test_select_executor_for_container_change_mp4(self, db_conn, phased_policy):
         """FFmpegRemuxExecutor selected for MP4 container change."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy)
 
         mock_plan = MagicMock()
         mock_plan.container_change = MagicMock()
@@ -396,9 +294,9 @@ class TestExecutorSelection:
 
         assert isinstance(selected, FFmpegRemuxExecutor)
 
-    def test_select_executor_for_container_change_mkv(self, db_conn, v11_policy):
+    def test_select_executor_for_container_change_mkv(self, db_conn, phased_policy):
         """MkvmergeExecutor selected for MKV container change."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy)
 
         mock_plan = MagicMock()
         mock_plan.container_change = MagicMock()
@@ -413,9 +311,9 @@ class TestExecutorSelection:
 
         assert isinstance(selected, MkvmergeExecutor)
 
-    def test_select_executor_for_track_removal_mkv(self, db_conn, v11_policy):
+    def test_select_executor_for_track_removal_mkv(self, db_conn, phased_policy):
         """MkvmergeExecutor selected for track removal in MKV."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy)
 
         mock_plan = MagicMock()
         mock_plan.container_change = None
@@ -429,9 +327,9 @@ class TestExecutorSelection:
 
         assert isinstance(selected, MkvmergeExecutor)
 
-    def test_select_executor_for_metadata_only_mkv(self, db_conn, v11_policy):
+    def test_select_executor_for_metadata_only_mkv(self, db_conn, phased_policy):
         """MkvpropeditExecutor selected for metadata-only changes in MKV."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy)
 
         mock_plan = MagicMock()
         mock_plan.container_change = None
@@ -445,9 +343,9 @@ class TestExecutorSelection:
 
         assert isinstance(selected, MkvpropeditExecutor)
 
-    def test_select_executor_returns_none_when_no_tools(self, db_conn, v11_policy):
+    def test_select_executor_returns_none_when_no_tools(self, db_conn, phased_policy):
         """Returns None when no suitable tool is available."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy)
 
         mock_plan = MagicMock()
         mock_plan.container_change = None
@@ -465,7 +363,7 @@ class TestDryRunMode:
 
     @patch("vpo.workflow.phases.executor.evaluate_policy")
     def test_dry_run_logs_without_executing(
-        self, mock_evaluate, db_conn, v11_policy, mock_file_info
+        self, mock_evaluate, db_conn, phased_policy, mock_file_info
     ):
         """Dry-run logs changes but doesn't call executor."""
         # Insert file into database (required for file_id lookup)
@@ -476,7 +374,7 @@ class TestDryRunMode:
         mock_plan.tracks_removed = 1
         mock_evaluate.return_value = mock_plan
 
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         phase = PhaseDefinition(
             name="test",
@@ -492,13 +390,13 @@ class TestDryRunMode:
         mock_evaluate.assert_called_once()
 
     def test_dry_run_audio_synthesis_logs_only(
-        self, db_conn, v11_policy, mock_file_info
+        self, db_conn, phased_policy, mock_file_info
     ):
         """Dry-run for audio synthesis logs without executing."""
         # Insert file into database (required for file_id lookup)
         insert_test_file(db_conn, mock_file_info.path)
 
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         # Create a mock phase with audio_synthesis that has a non-None value
         mock_audio_synthesis = MagicMock()
@@ -517,7 +415,7 @@ class TestDryRunMode:
         # Returns operation count
         assert result == 2
 
-    def test_dry_run_transcription_logs_only(self, db_conn, v11_policy, test_file):
+    def test_dry_run_transcription_logs_only(self, db_conn, phased_policy, test_file):
         """Dry-run for transcription logs without executing."""
         from unittest.mock import MagicMock
 
@@ -546,9 +444,9 @@ class TestDryRunMode:
 
         # Create mock plugin registry for transcription to work
         mock_registry = MagicMock()
-        executor = V11PhaseExecutor(
+        executor = PhaseExecutor(
             conn=db_conn,
-            policy=v11_policy,
+            policy=phased_policy,
             dry_run=True,
             plugin_registry=mock_registry,
         )
@@ -566,7 +464,7 @@ class TestDryRunMode:
         assert result == 2
 
     def test_transcription_skipped_without_plugin_registry(
-        self, db_conn, v11_policy, test_file
+        self, db_conn, phased_policy, test_file
     ):
         """Transcription is skipped when no plugin registry is provided."""
         # Insert file and tracks into database
@@ -583,8 +481,8 @@ class TestDryRunMode:
         db_conn.commit()
 
         # No plugin_registry provided
-        executor = V11PhaseExecutor(
-            conn=db_conn, policy=v11_policy, dry_run=True, plugin_registry=None
+        executor = PhaseExecutor(
+            conn=db_conn, policy=phased_policy, dry_run=True, plugin_registry=None
         )
 
         phase = PhaseDefinition(
@@ -602,9 +500,11 @@ class TestDryRunMode:
 class TestPhaseExecution:
     """Tests for execute_phase."""
 
-    def test_execute_phase_empty_operations(self, db_conn, v11_policy, mock_file_info):
+    def test_execute_phase_empty_operations(
+        self, db_conn, phased_policy, mock_file_info
+    ):
         """Phase with no operations returns early."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         phase = PhaseDefinition(name="empty")
         result = executor.execute_phase(phase, mock_file_info.path, mock_file_info)
@@ -615,7 +515,7 @@ class TestPhaseExecution:
 
     @patch("vpo.workflow.phases.executor.evaluate_policy")
     def test_execute_phase_accumulates_changes(
-        self, mock_evaluate, db_conn, v11_policy, mock_file_info
+        self, mock_evaluate, db_conn, phased_policy, mock_file_info
     ):
         """Phase accumulates changes from multiple operations."""
         # Insert file into database (required for file_id lookup)
@@ -626,7 +526,7 @@ class TestPhaseExecution:
         mock_plan.tracks_removed = 1
         mock_evaluate.return_value = mock_plan
 
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         phase = PhaseDefinition(
             name="multi-op",
@@ -650,12 +550,12 @@ class TestPhaseExecution:
             commentary_patterns=global_config.commentary_patterns,
             on_error=OnErrorMode.SKIP,
         )
-        policy = PhasedPolicySchema(
+        policy = PolicySchema(
             schema_version=12,
             config=skip_config,
             phases=(PhaseDefinition(name="test"),),
         )
-        executor = V11PhaseExecutor(conn=db_conn, policy=policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=policy, dry_run=True)
 
         phase = PhaseDefinition(
             name="test",
@@ -685,12 +585,12 @@ class TestPhaseExecution:
             commentary_patterns=global_config.commentary_patterns,
             on_error=OnErrorMode.FAIL,
         )
-        policy = PhasedPolicySchema(
+        policy = PolicySchema(
             schema_version=12,
             config=fail_config,
             phases=(PhaseDefinition(name="test"),),
         )
-        executor = V11PhaseExecutor(conn=db_conn, policy=policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=policy, dry_run=True)
 
         phase = PhaseDefinition(
             name="test",
@@ -710,9 +610,9 @@ class TestPhaseExecution:
 class TestBackupHandling:
     """Tests for backup creation and cleanup."""
 
-    def test_backup_created_before_execution(self, db_conn, v11_policy, test_file):
+    def test_backup_created_before_execution(self, db_conn, phased_policy, test_file):
         """Backup is created before phase execution (non-dry-run)."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=False)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=False)
 
         backup_path = executor._create_backup(test_file)
 
@@ -726,9 +626,11 @@ class TestBackupHandling:
         # Cleanup
         backup_path.unlink()
 
-    def test_backup_not_created_in_dry_run(self, db_conn, v11_policy, mock_file_info):
+    def test_backup_not_created_in_dry_run(
+        self, db_conn, phased_policy, mock_file_info
+    ):
         """No backup created in dry-run mode."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         phase = PhaseDefinition(name="empty")
         executor.execute_phase(phase, mock_file_info.path, mock_file_info)
@@ -740,7 +642,7 @@ class TestBackupHandling:
         assert not backup_path.exists()
 
     def test_backup_cleaned_up_on_success(
-        self, db_conn, v11_policy, test_file, mock_tracks
+        self, db_conn, phased_policy, test_file, mock_tracks
     ):
         """Backup is removed after successful phase execution."""
         file_info = MockFileInfo(
@@ -749,7 +651,7 @@ class TestBackupHandling:
             tracks=mock_tracks,
         )
 
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=False)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=False)
 
         phase = PhaseDefinition(name="empty")
 
@@ -764,9 +666,9 @@ class TestBackupHandling:
 class TestOperationHandlerNoConfig:
     """Tests that operation handlers return 0 when config is not set."""
 
-    def test_container_no_config(self, db_conn, v11_policy, mock_file_info):
+    def test_container_no_config(self, db_conn, phased_policy, mock_file_info):
         """_execute_container returns 0 when phase.container is None."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         phase = PhaseDefinition(name="test")  # No container config
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
@@ -774,9 +676,9 @@ class TestOperationHandlerNoConfig:
         result = executor._execute_container(state, mock_file_info)
         assert result == 0
 
-    def test_audio_filter_no_config(self, db_conn, v11_policy, mock_file_info):
+    def test_audio_filter_no_config(self, db_conn, phased_policy, mock_file_info):
         """_execute_audio_filter returns 0 when phase.audio_filter is None."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         phase = PhaseDefinition(name="test")  # No audio filter config
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
@@ -784,9 +686,9 @@ class TestOperationHandlerNoConfig:
         result = executor._execute_audio_filter(state, mock_file_info)
         assert result == 0
 
-    def test_subtitle_filter_no_config(self, db_conn, v11_policy, mock_file_info):
+    def test_subtitle_filter_no_config(self, db_conn, phased_policy, mock_file_info):
         """_execute_subtitle_filter returns 0 when phase.subtitle_filter is None."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         phase = PhaseDefinition(name="test")
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
@@ -794,9 +696,9 @@ class TestOperationHandlerNoConfig:
         result = executor._execute_subtitle_filter(state, mock_file_info)
         assert result == 0
 
-    def test_attachment_filter_no_config(self, db_conn, v11_policy, mock_file_info):
+    def test_attachment_filter_no_config(self, db_conn, phased_policy, mock_file_info):
         """_execute_attachment_filter returns 0 when phase.attachment_filter is None."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         phase = PhaseDefinition(name="test")
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
@@ -804,9 +706,9 @@ class TestOperationHandlerNoConfig:
         result = executor._execute_attachment_filter(state, mock_file_info)
         assert result == 0
 
-    def test_track_order_no_config(self, db_conn, v11_policy, mock_file_info):
+    def test_track_order_no_config(self, db_conn, phased_policy, mock_file_info):
         """_execute_track_order returns 0 when phase.track_order is None."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         phase = PhaseDefinition(name="test")
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
@@ -814,9 +716,9 @@ class TestOperationHandlerNoConfig:
         result = executor._execute_track_order(state, mock_file_info)
         assert result == 0
 
-    def test_default_flags_no_config(self, db_conn, v11_policy, mock_file_info):
+    def test_default_flags_no_config(self, db_conn, phased_policy, mock_file_info):
         """_execute_default_flags returns 0 when phase.default_flags is None."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         phase = PhaseDefinition(name="test")
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
@@ -824,9 +726,9 @@ class TestOperationHandlerNoConfig:
         result = executor._execute_default_flags(state, mock_file_info)
         assert result == 0
 
-    def test_conditional_no_config(self, db_conn, v11_policy, mock_file_info):
+    def test_conditional_no_config(self, db_conn, phased_policy, mock_file_info):
         """_execute_conditional returns 0 when phase.conditional is None."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         phase = PhaseDefinition(name="test")
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
@@ -834,9 +736,9 @@ class TestOperationHandlerNoConfig:
         result = executor._execute_conditional(state, mock_file_info)
         assert result == 0
 
-    def test_audio_synthesis_no_config(self, db_conn, v11_policy, mock_file_info):
+    def test_audio_synthesis_no_config(self, db_conn, phased_policy, mock_file_info):
         """_execute_audio_synthesis returns 0 when phase.audio_synthesis is None."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         phase = PhaseDefinition(name="test")
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
@@ -844,9 +746,9 @@ class TestOperationHandlerNoConfig:
         result = executor._execute_audio_synthesis(state, mock_file_info)
         assert result == 0
 
-    def test_transcode_no_config(self, db_conn, v11_policy, mock_file_info):
+    def test_transcode_no_config(self, db_conn, phased_policy, mock_file_info):
         """_execute_transcode returns 0 when phase.transcode is None."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         phase = PhaseDefinition(name="test")
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
@@ -854,9 +756,9 @@ class TestOperationHandlerNoConfig:
         result = executor._execute_transcode(state, mock_file_info)
         assert result == 0
 
-    def test_transcription_no_config(self, db_conn, v11_policy, mock_file_info):
+    def test_transcription_no_config(self, db_conn, phased_policy, mock_file_info):
         """_execute_transcription returns 0 when phase.transcription is None."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         phase = PhaseDefinition(name="test")
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
@@ -864,9 +766,9 @@ class TestOperationHandlerNoConfig:
         result = executor._execute_transcription(state, mock_file_info)
         assert result == 0
 
-    def test_transcription_disabled(self, db_conn, v11_policy, mock_file_info):
+    def test_transcription_disabled(self, db_conn, phased_policy, mock_file_info):
         """_execute_transcription returns 0 when transcription.enabled=False."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         phase = PhaseDefinition(
             name="test",
@@ -884,7 +786,7 @@ class TestExecuteTranscode:
     @patch("vpo.executor.transcode.TranscodeExecutor")
     @patch("vpo.db.queries.get_file_by_path")
     def test_transcode_success(
-        self, mock_get_file, mock_executor_cls, db_conn, v11_policy, mock_file_info
+        self, mock_get_file, mock_executor_cls, db_conn, phased_policy, mock_file_info
     ):
         """Successful transcode returns 1 change."""
         mock_get_file.return_value = MagicMock(size_bytes=1000000)
@@ -899,7 +801,7 @@ class TestExecuteTranscode:
         mock_executor.execute.return_value = mock_result
         mock_executor_cls.return_value = mock_executor
 
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=False)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=False)
 
         phase = PhaseDefinition(
             name="compress",
@@ -915,7 +817,7 @@ class TestExecuteTranscode:
     @patch("vpo.executor.transcode.TranscodeExecutor")
     @patch("vpo.db.queries.get_file_by_path")
     def test_transcode_failure_raises_runtime_error(
-        self, mock_get_file, mock_executor_cls, db_conn, v11_policy, mock_file_info
+        self, mock_get_file, mock_executor_cls, db_conn, phased_policy, mock_file_info
     ):
         """Failed transcode raises RuntimeError with error_message."""
         mock_get_file.return_value = MagicMock(size_bytes=1000000)
@@ -931,7 +833,7 @@ class TestExecuteTranscode:
         mock_executor.execute.return_value = mock_result
         mock_executor_cls.return_value = mock_executor
 
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=False)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=False)
 
         phase = PhaseDefinition(
             name="compress",
@@ -948,7 +850,7 @@ class TestExecuteTranscode:
     @patch("vpo.executor.transcode.TranscodeExecutor")
     @patch("vpo.db.queries.get_file_by_path")
     def test_transcode_dry_run_does_not_execute(
-        self, mock_get_file, mock_executor_cls, db_conn, v11_policy, mock_file_info
+        self, mock_get_file, mock_executor_cls, db_conn, phased_policy, mock_file_info
     ):
         """Dry-run mode logs but doesn't execute transcode."""
         mock_get_file.return_value = MagicMock(size_bytes=1000000)
@@ -959,7 +861,7 @@ class TestExecuteTranscode:
         mock_executor.create_plan.return_value = mock_plan
         mock_executor_cls.return_value = mock_executor
 
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=True)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         phase = PhaseDefinition(
             name="compress",
@@ -973,7 +875,7 @@ class TestExecuteTranscode:
         mock_executor.execute.assert_not_called()
 
     def test_transcode_skips_when_plan_has_skip_reason(
-        self, db_conn, v11_policy, mock_file_info
+        self, db_conn, phased_policy, mock_file_info
     ):
         """Transcode is skipped when plan has a skip_reason."""
         with (
@@ -988,7 +890,7 @@ class TestExecuteTranscode:
             mock_executor.create_plan.return_value = mock_plan
             mock_executor_cls.return_value = mock_executor
 
-            executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=False)
+            executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=False)
 
             phase = PhaseDefinition(
                 name="compress",
@@ -1001,7 +903,9 @@ class TestExecuteTranscode:
             assert result == 0
             mock_executor.execute.assert_not_called()
 
-    def test_transcode_skips_when_no_video_track(self, db_conn, v11_policy, test_file):
+    def test_transcode_skips_when_no_video_track(
+        self, db_conn, phased_policy, test_file
+    ):
         """Transcode is skipped when file has no video track."""
         # Create file_info with only audio tracks
         audio_only_file_info = MockFileInfo(
@@ -1012,7 +916,7 @@ class TestExecuteTranscode:
             ],
         )
 
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy, dry_run=False)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=False)
 
         phase = PhaseDefinition(
             name="compress",
@@ -1028,7 +932,7 @@ class TestExecuteTranscode:
 class TestGetTracksFromDatabase:
     """Tests for _get_tracks method."""
 
-    def test_get_tracks_success(self, db_conn, v11_policy, test_file):
+    def test_get_tracks_success(self, db_conn, phased_policy, test_file):
         """_get_tracks returns tracks from database."""
         # Insert file and tracks
         file_id = insert_test_file(db_conn, test_file)
@@ -1036,7 +940,7 @@ class TestGetTracksFromDatabase:
         insert_test_track(db_conn, file_id, 1, "audio", "eng")
         insert_test_track(db_conn, file_id, 2, "subtitle", "eng")
 
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy)
 
         tracks = executor._get_tracks(test_file)
 
@@ -1045,9 +949,9 @@ class TestGetTracksFromDatabase:
         assert tracks[1].track_type == "audio"
         assert tracks[2].track_type == "subtitle"
 
-    def test_get_tracks_file_not_found(self, db_conn, v11_policy, test_file):
+    def test_get_tracks_file_not_found(self, db_conn, phased_policy, test_file):
         """_get_tracks raises ValueError when file not in database."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy)
 
         with pytest.raises(ValueError) as exc_info:
             executor._get_tracks(test_file)
@@ -1058,9 +962,9 @@ class TestGetTracksFromDatabase:
 class TestToolAvailabilityCaching:
     """Tests for tool availability caching."""
 
-    def test_tools_cached(self, db_conn, v11_policy):
+    def test_tools_cached(self, db_conn, phased_policy):
         """Tool availability is cached after first call."""
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy)
 
         with patch(
             "vpo.workflow.phases.executor.check_tool_availability"
@@ -1075,409 +979,3 @@ class TestToolAvailabilityCaching:
         # Should only call check_tool_availability once
         mock_check.assert_called_once()
         assert tools1 is tools2
-
-
-class TestConditionalRuleConversion:
-    """Tests for conditional rule conversion methods.
-
-    These tests verify that _build_virtual_policy correctly converts
-    ConditionalRule dataclasses to dict format for policy loading.
-    This catches bugs like accessing rule.then instead of rule.then_actions.
-    """
-
-    def test_build_virtual_policy_with_conditional_rules(self, db_conn, v11_policy):
-        """Virtual policy includes conditional rules with then_actions.
-
-        This test would have caught the original bug where _conditional_rule_to_dict
-        accessed rule.then instead of rule.then_actions.
-        """
-        rule = ConditionalRule(
-            name="test_rule",
-            when=ExistsCondition(track_type="video", filters=TrackFilters()),
-            then_actions=(SkipAction(skip_type=SkipType.VIDEO_TRANSCODE),),
-            else_actions=None,
-        )
-
-        phase = PhaseDefinition(name="test", conditional=(rule,))
-
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-        policy = executor._build_virtual_policy(phase)
-
-        # Verify conditional rules were converted
-        assert policy.conditional_rules is not None
-        assert len(policy.conditional_rules) == 1
-
-        # Verify rule loaded correctly - catches then vs then_actions bug
-        loaded_rule = policy.conditional_rules[0]
-        assert loaded_rule.name == "test_rule"
-        assert loaded_rule.then_actions is not None
-        assert len(loaded_rule.then_actions) == 1
-
-    def test_conditional_rule_with_then_and_else_actions(self, db_conn, v11_policy):
-        """Virtual policy correctly converts rules with both then and else branches."""
-        rule = ConditionalRule(
-            name="dual_branch_rule",
-            when=ExistsCondition(
-                track_type="audio",
-                filters=TrackFilters(language="eng"),
-            ),
-            then_actions=(SkipAction(skip_type=SkipType.TRACK_FILTER),),
-            else_actions=(WarnAction(message="No English audio found"),),
-        )
-
-        phase = PhaseDefinition(name="test", conditional=(rule,))
-
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-        policy = executor._build_virtual_policy(phase)
-
-        loaded_rule = policy.conditional_rules[0]
-        assert loaded_rule.then_actions is not None
-        assert loaded_rule.else_actions is not None
-        assert len(loaded_rule.then_actions) == 1
-        assert len(loaded_rule.else_actions) == 1
-
-    def test_condition_to_dict_exists_condition(self, db_conn, v11_policy):
-        """ExistsCondition with filters converts correctly."""
-        rule = ConditionalRule(
-            name="exists_test",
-            when=ExistsCondition(
-                track_type="subtitle",
-                filters=TrackFilters(
-                    language="eng",
-                    is_forced=True,
-                ),
-            ),
-            then_actions=(SkipAction(skip_type=SkipType.VIDEO_TRANSCODE),),
-        )
-
-        phase = PhaseDefinition(name="test", conditional=(rule,))
-
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-        policy = executor._build_virtual_policy(phase)
-
-        loaded_rule = policy.conditional_rules[0]
-        assert isinstance(loaded_rule.when, ExistsCondition)
-        assert loaded_rule.when.track_type == "subtitle"
-        assert loaded_rule.when.filters.language == "eng"
-        assert loaded_rule.when.filters.is_forced is True
-
-    def test_condition_to_dict_count_condition(self, db_conn, v11_policy):
-        """CountCondition converts correctly with operator and value."""
-        rule = ConditionalRule(
-            name="count_test",
-            when=CountCondition(
-                track_type="audio",
-                filters=TrackFilters(),
-                operator=ComparisonOperator.GTE,
-                value=2,
-            ),
-            then_actions=(SkipAction(skip_type=SkipType.TRACK_FILTER),),
-        )
-
-        phase = PhaseDefinition(name="test", conditional=(rule,))
-
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-        policy = executor._build_virtual_policy(phase)
-
-        loaded_rule = policy.conditional_rules[0]
-        assert isinstance(loaded_rule.when, CountCondition)
-        assert loaded_rule.when.track_type == "audio"
-        assert loaded_rule.when.operator == ComparisonOperator.GTE
-        assert loaded_rule.when.value == 2
-
-    def test_condition_to_dict_and_condition(self, db_conn, v11_policy):
-        """AndCondition converts correctly with nested conditions."""
-        rule = ConditionalRule(
-            name="and_test",
-            when=AndCondition(
-                conditions=(
-                    ExistsCondition(track_type="video", filters=TrackFilters()),
-                    ExistsCondition(
-                        track_type="audio", filters=TrackFilters(language="eng")
-                    ),
-                )
-            ),
-            then_actions=(SkipAction(skip_type=SkipType.VIDEO_TRANSCODE),),
-        )
-
-        phase = PhaseDefinition(name="test", conditional=(rule,))
-
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-        policy = executor._build_virtual_policy(phase)
-
-        loaded_rule = policy.conditional_rules[0]
-        assert isinstance(loaded_rule.when, AndCondition)
-        assert len(loaded_rule.when.conditions) == 2
-
-    def test_condition_to_dict_or_condition(self, db_conn, v11_policy):
-        """OrCondition converts correctly."""
-        rule = ConditionalRule(
-            name="or_test",
-            when=OrCondition(
-                conditions=(
-                    ExistsCondition(
-                        track_type="audio", filters=TrackFilters(language="eng")
-                    ),
-                    ExistsCondition(
-                        track_type="audio", filters=TrackFilters(language="und")
-                    ),
-                )
-            ),
-            then_actions=(SkipAction(skip_type=SkipType.VIDEO_TRANSCODE),),
-        )
-
-        phase = PhaseDefinition(name="test", conditional=(rule,))
-
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-        policy = executor._build_virtual_policy(phase)
-
-        loaded_rule = policy.conditional_rules[0]
-        assert isinstance(loaded_rule.when, OrCondition)
-        assert len(loaded_rule.when.conditions) == 2
-
-    def test_condition_to_dict_not_condition(self, db_conn, v11_policy):
-        """NotCondition converts correctly."""
-        rule = ConditionalRule(
-            name="not_test",
-            when=NotCondition(
-                inner=ExistsCondition(
-                    track_type="audio", filters=TrackFilters(language="eng")
-                )
-            ),
-            then_actions=(SkipAction(skip_type=SkipType.VIDEO_TRANSCODE),),
-        )
-
-        phase = PhaseDefinition(name="test", conditional=(rule,))
-
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-        policy = executor._build_virtual_policy(phase)
-
-        loaded_rule = policy.conditional_rules[0]
-        assert isinstance(loaded_rule.when, NotCondition)
-        assert isinstance(loaded_rule.when.inner, ExistsCondition)
-
-    def test_condition_to_dict_audio_is_multi_language(self, db_conn, v11_policy):
-        """AudioIsMultiLanguageCondition converts correctly."""
-        rule = ConditionalRule(
-            name="multi_lang_test",
-            when=AudioIsMultiLanguageCondition(threshold=0.1),
-            then_actions=(WarnAction(message="Multi-language audio detected"),),
-        )
-
-        phase = PhaseDefinition(name="test", conditional=(rule,))
-
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-        policy = executor._build_virtual_policy(phase)
-
-        loaded_rule = policy.conditional_rules[0]
-        assert isinstance(loaded_rule.when, AudioIsMultiLanguageCondition)
-        assert loaded_rule.when.threshold == 0.1
-
-    def test_condition_to_dict_plugin_metadata(self, db_conn, v11_policy):
-        """PluginMetadataCondition converts correctly."""
-        rule = ConditionalRule(
-            name="plugin_test",
-            when=PluginMetadataCondition(
-                plugin="radarr",
-                field="original_language",
-                value="jpn",
-                operator=PluginMetadataOperator.EQ,
-            ),
-            then_actions=(SkipAction(skip_type=SkipType.VIDEO_TRANSCODE),),
-        )
-
-        phase = PhaseDefinition(name="test", conditional=(rule,))
-
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-        policy = executor._build_virtual_policy(phase)
-
-        loaded_rule = policy.conditional_rules[0]
-        assert isinstance(loaded_rule.when, PluginMetadataCondition)
-        assert loaded_rule.when.plugin == "radarr"
-        assert loaded_rule.when.field == "original_language"
-        assert loaded_rule.when.value == "jpn"
-
-    def test_action_to_dict_skip_action(self, db_conn, v11_policy):
-        """SkipAction converts correctly."""
-        rule = ConditionalRule(
-            name="skip_test",
-            when=ExistsCondition(track_type="video", filters=TrackFilters()),
-            then_actions=(
-                SkipAction(skip_type=SkipType.VIDEO_TRANSCODE),
-                SkipAction(skip_type=SkipType.AUDIO_TRANSCODE),
-            ),
-        )
-
-        phase = PhaseDefinition(name="test", conditional=(rule,))
-
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-        policy = executor._build_virtual_policy(phase)
-
-        loaded_rule = policy.conditional_rules[0]
-        assert len(loaded_rule.then_actions) == 2
-        # Both should be SkipActions
-        assert all(isinstance(a, SkipAction) for a in loaded_rule.then_actions)
-
-    def test_action_to_dict_warn_action(self, db_conn, v11_policy):
-        """WarnAction converts correctly."""
-        rule = ConditionalRule(
-            name="warn_test",
-            when=ExistsCondition(track_type="video", filters=TrackFilters()),
-            then_actions=(WarnAction(message="Test warning message"),),
-        )
-
-        phase = PhaseDefinition(name="test", conditional=(rule,))
-
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-        policy = executor._build_virtual_policy(phase)
-
-        loaded_rule = policy.conditional_rules[0]
-        assert len(loaded_rule.then_actions) == 1
-        action = loaded_rule.then_actions[0]
-        assert isinstance(action, WarnAction)
-        assert action.message == "Test warning message"
-
-    def test_action_to_dict_set_forced_action(self, db_conn, v11_policy):
-        """SetForcedAction converts correctly."""
-        rule = ConditionalRule(
-            name="set_forced_test",
-            when=NotCondition(
-                inner=ExistsCondition(
-                    track_type="audio", filters=TrackFilters(language="eng")
-                )
-            ),
-            then_actions=(
-                SetForcedAction(track_type="subtitle", language="eng", value=True),
-            ),
-        )
-
-        phase = PhaseDefinition(name="test", conditional=(rule,))
-
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-        policy = executor._build_virtual_policy(phase)
-
-        loaded_rule = policy.conditional_rules[0]
-        assert len(loaded_rule.then_actions) == 1
-        action = loaded_rule.then_actions[0]
-        assert isinstance(action, SetForcedAction)
-        assert action.track_type == "subtitle"
-        assert action.language == "eng"
-        assert action.value is True
-
-    def test_action_to_dict_set_default_action(self, db_conn, v11_policy):
-        """SetDefaultAction converts correctly."""
-        rule = ConditionalRule(
-            name="set_default_test",
-            when=ExistsCondition(track_type="video", filters=TrackFilters()),
-            then_actions=(
-                SetDefaultAction(track_type="audio", language="eng", value=True),
-            ),
-        )
-
-        phase = PhaseDefinition(name="test", conditional=(rule,))
-
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-        policy = executor._build_virtual_policy(phase)
-
-        loaded_rule = policy.conditional_rules[0]
-        assert len(loaded_rule.then_actions) == 1
-        action = loaded_rule.then_actions[0]
-        assert isinstance(action, SetDefaultAction)
-        assert action.track_type == "audio"
-        assert action.language == "eng"
-
-    def test_filters_to_dict_all_fields(self, db_conn, v11_policy):
-        """TrackFilters with all fields converts correctly."""
-        rule = ConditionalRule(
-            name="filters_test",
-            when=ExistsCondition(
-                track_type="audio",
-                filters=TrackFilters(
-                    language=("eng", "und"),
-                    codec=("aac", "ac3"),
-                    is_default=True,
-                    is_forced=False,
-                    channels=Comparison(operator=ComparisonOperator.GTE, value=6),
-                    not_commentary=True,
-                ),
-            ),
-            then_actions=(SkipAction(skip_type=SkipType.VIDEO_TRANSCODE),),
-        )
-
-        phase = PhaseDefinition(name="test", conditional=(rule,))
-
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-        policy = executor._build_virtual_policy(phase)
-
-        loaded_rule = policy.conditional_rules[0]
-        filters = loaded_rule.when.filters
-        # Language and codec may be list or tuple depending on loader
-        assert set(filters.language) == {"eng", "und"}
-        assert set(filters.codec) == {"aac", "ac3"}
-        assert filters.is_default is True
-        assert filters.is_forced is False
-        assert filters.not_commentary is True
-        # Channels comparison
-        assert filters.channels is not None
-
-    def test_filters_to_dict_with_title_match(self, db_conn, v11_policy):
-        """TrackFilters with TitleMatch converts correctly."""
-        rule = ConditionalRule(
-            name="title_test",
-            when=ExistsCondition(
-                track_type="audio",
-                filters=TrackFilters(
-                    title=TitleMatch(contains="Commentary"),
-                ),
-            ),
-            then_actions=(SkipAction(skip_type=SkipType.TRACK_FILTER),),
-        )
-
-        phase = PhaseDefinition(name="test", conditional=(rule,))
-
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-        policy = executor._build_virtual_policy(phase)
-
-        loaded_rule = policy.conditional_rules[0]
-        filters = loaded_rule.when.filters
-        assert filters.title is not None
-        # Title could be TitleMatch or dict depending on loader
-        if isinstance(filters.title, TitleMatch):
-            assert filters.title.contains == "Commentary"
-        else:
-            assert filters.title.get("contains") == "Commentary"
-
-    def test_multiple_conditional_rules(self, db_conn, v11_policy):
-        """Multiple conditional rules convert correctly."""
-        rules = (
-            ConditionalRule(
-                name="rule1",
-                when=ExistsCondition(track_type="video", filters=TrackFilters()),
-                then_actions=(SkipAction(skip_type=SkipType.VIDEO_TRANSCODE),),
-            ),
-            ConditionalRule(
-                name="rule2",
-                when=ExistsCondition(
-                    track_type="audio", filters=TrackFilters(language="eng")
-                ),
-                then_actions=(WarnAction(message="English audio found"),),
-            ),
-            ConditionalRule(
-                name="rule3",
-                when=NotCondition(
-                    inner=ExistsCondition(track_type="subtitle", filters=TrackFilters())
-                ),
-                then_actions=(WarnAction(message="No subtitles"),),
-            ),
-        )
-
-        phase = PhaseDefinition(name="test", conditional=rules)
-
-        executor = V11PhaseExecutor(conn=db_conn, policy=v11_policy)
-        policy = executor._build_virtual_policy(phase)
-
-        assert policy.conditional_rules is not None
-        assert len(policy.conditional_rules) == 3
-        assert policy.conditional_rules[0].name == "rule1"
-        assert policy.conditional_rules[1].name == "rule2"
-        assert policy.conditional_rules[2].name == "rule3"

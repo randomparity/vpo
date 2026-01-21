@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from vpo.db.models import OperationStatus
+from vpo.db import OperationStatus
 from vpo.db.operations import (
     create_operation,
     get_operation,
@@ -536,7 +536,7 @@ class TestLimitParameterValidation:
         self, db_conn: sqlite3.Connection
     ) -> None:
         """Should reject negative limit values."""
-        from vpo.db.models import get_queued_jobs
+        from vpo.db import get_queued_jobs
 
         with pytest.raises(ValueError, match="Invalid limit value"):
             get_queued_jobs(db_conn, limit=-1)
@@ -545,7 +545,7 @@ class TestLimitParameterValidation:
         self, db_conn: sqlite3.Connection
     ) -> None:
         """Should reject zero limit value."""
-        from vpo.db.models import get_queued_jobs
+        from vpo.db import get_queued_jobs
 
         with pytest.raises(ValueError, match="Invalid limit value"):
             get_queued_jobs(db_conn, limit=0)
@@ -554,7 +554,7 @@ class TestLimitParameterValidation:
         self, db_conn: sqlite3.Connection
     ) -> None:
         """Should reject limit values over 10000."""
-        from vpo.db.models import get_queued_jobs
+        from vpo.db import get_queued_jobs
 
         with pytest.raises(ValueError, match="Invalid limit value"):
             get_queued_jobs(db_conn, limit=10001)
@@ -563,7 +563,7 @@ class TestLimitParameterValidation:
         self, db_conn: sqlite3.Connection
     ) -> None:
         """Should reject invalid limit in get_jobs_by_status."""
-        from vpo.db.models import JobStatus, get_jobs_by_status
+        from vpo.db import JobStatus, get_jobs_by_status
 
         with pytest.raises(ValueError, match="Invalid limit value"):
             get_jobs_by_status(db_conn, JobStatus.QUEUED, limit=-5)
@@ -572,14 +572,14 @@ class TestLimitParameterValidation:
         self, db_conn: sqlite3.Connection
     ) -> None:
         """Should reject invalid limit in get_all_jobs."""
-        from vpo.db.models import get_all_jobs
+        from vpo.db import get_all_jobs
 
         with pytest.raises(ValueError, match="Invalid limit value"):
             get_all_jobs(db_conn, limit=0)
 
     def test_valid_limit_accepted(self, db_conn: sqlite3.Connection) -> None:
         """Should accept valid limit values."""
-        from vpo.db.models import get_queued_jobs
+        from vpo.db import get_queued_jobs
 
         # Should not raise
         result = get_queued_jobs(db_conn, limit=100)
@@ -587,7 +587,7 @@ class TestLimitParameterValidation:
 
     def test_none_limit_returns_all(self, db_conn: sqlite3.Connection) -> None:
         """Should return all results when limit is None."""
-        from vpo.db.models import get_queued_jobs
+        from vpo.db import get_queued_jobs
 
         # Should not raise
         result = get_queued_jobs(db_conn, limit=None)
@@ -641,7 +641,7 @@ class TestUpdatePlanStatus:
         self, db_conn: sqlite3.Connection, pending_plan
     ) -> None:
         """Should transition from PENDING to APPROVED."""
-        from vpo.db.models import PlanStatus
+        from vpo.db import PlanStatus
         from vpo.db.operations import update_plan_status
 
         result = update_plan_status(db_conn, pending_plan.id, PlanStatus.APPROVED)
@@ -653,7 +653,7 @@ class TestUpdatePlanStatus:
         self, db_conn: sqlite3.Connection, pending_plan
     ) -> None:
         """Should transition from PENDING to REJECTED."""
-        from vpo.db.models import PlanStatus
+        from vpo.db import PlanStatus
         from vpo.db.operations import update_plan_status
 
         result = update_plan_status(db_conn, pending_plan.id, PlanStatus.REJECTED)
@@ -665,7 +665,7 @@ class TestUpdatePlanStatus:
         self, db_conn: sqlite3.Connection, pending_plan
     ) -> None:
         """Should raise InvalidPlanTransitionError for invalid transitions."""
-        from vpo.db.models import PlanStatus
+        from vpo.db import PlanStatus
         from vpo.db.operations import (
             InvalidPlanTransitionError,
             update_plan_status,
@@ -683,7 +683,7 @@ class TestUpdatePlanStatus:
 
     def test_update_plan_status_not_found(self, db_conn: sqlite3.Connection) -> None:
         """Should return None for non-existent plan."""
-        from vpo.db.models import PlanStatus
+        from vpo.db import PlanStatus
         from vpo.db.operations import update_plan_status
 
         result = update_plan_status(db_conn, "nonexistent-uuid", PlanStatus.APPROVED)
@@ -700,8 +700,8 @@ class TestUpdatePlanStatus:
         """
         import threading
 
+        from vpo.db import PlanStatus
         from vpo.db.connection import get_connection
-        from vpo.db.models import PlanStatus
         from vpo.db.operations import (
             InvalidPlanTransitionError,
             create_plan,

@@ -2,31 +2,31 @@
 # Used for testing track order changes via mkvmerge
 schema_version: 12
 
-track_order:
-  - video
-  - audio_main
-  - audio_alternate
-  - subtitle_main
-  - subtitle_alternate
-  - audio_commentary
+config:
+  audio_language_preference:
+    - eng
+    - jpn
+    - fra
+    - deu
+  subtitle_language_preference:
+    - eng
+    - jpn
+  commentary_patterns:
+    - commentary
+    - director
+    - cast
 
-audio_language_preference:
-  - eng
-  - jpn
-  - fra
-  - deu
-
-subtitle_language_preference:
-  - eng
-  - jpn
-
-commentary_patterns:
-  - commentary
-  - director
-  - cast
-
-default_flags:
-  set_first_video_default: true
-  set_preferred_audio_default: true
-  set_preferred_subtitle_default: true
-  clear_other_defaults: true
+phases:
+  - name: apply
+    track_order:
+      - video
+      - audio_main
+      - audio_alternate
+      - subtitle_main
+      - subtitle_alternate
+      - audio_commentary
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: true
+      clear_other_defaults: true

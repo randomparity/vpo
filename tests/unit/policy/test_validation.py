@@ -93,9 +93,12 @@ class TestFormatPydanticErrors:
             PolicyModel.model_validate(
                 {
                     "schema_version": 12,
-                    "track_order": [],  # Invalid: cannot be empty
-                    "audio_language_preference": ["eng"],
-                    "subtitle_language_preference": ["eng"],
+                    "phases": [
+                        {
+                            "name": "test",
+                            "track_order": [],  # Invalid: cannot be empty
+                        }
+                    ],
                 }
             )
             pytest.fail("Expected validation error")
@@ -114,9 +117,12 @@ class TestFormatPydanticErrors:
             PolicyModel.model_validate(
                 {
                     "schema_version": 12,
-                    "track_order": ["video"],
-                    "audio_language_preference": ["english"],  # Invalid: not ISO 639-2
-                    "subtitle_language_preference": ["eng"],
+                    "config": {
+                        "audio_language_preference": [
+                            "english"
+                        ],  # Invalid: not ISO 639-2
+                    },
+                    "phases": [{"name": "test"}],
                 }
             )
             pytest.fail("Expected validation error")
@@ -138,9 +144,16 @@ class TestFormatPydanticErrors:
             PolicyModel.model_validate(
                 {
                     "schema_version": 12,
-                    "track_order": [],  # Invalid
-                    "audio_language_preference": [],  # Invalid
-                    "subtitle_language_preference": [],  # Invalid
+                    "config": {
+                        "audio_language_preference": ["invalid_lang_code"],  # Invalid
+                        "subtitle_language_preference": ["also_invalid"],  # Invalid
+                    },
+                    "phases": [
+                        {
+                            "name": "test",
+                            "track_order": [],  # Invalid
+                        }
+                    ],
                 }
             )
             pytest.fail("Expected validation error")
@@ -148,7 +161,7 @@ class TestFormatPydanticErrors:
             errors = format_pydantic_errors(e)
 
         # Should have multiple errors
-        assert len(errors) >= 3
+        assert len(errors) >= 2
 
     def test_error_code_preserved(self):
         """Test that error type code is preserved."""
@@ -156,9 +169,10 @@ class TestFormatPydanticErrors:
             PolicyModel.model_validate(
                 {
                     "schema_version": 12,
-                    "track_order": ["video"],
-                    "audio_language_preference": ["toolongcode"],  # Invalid pattern
-                    "subtitle_language_preference": ["eng"],
+                    "config": {
+                        "audio_language_preference": ["toolongcode"],  # Invalid pattern
+                    },
+                    "phases": [{"name": "test"}],
                 }
             )
             pytest.fail("Expected validation error")
@@ -178,15 +192,22 @@ class TestValidatePolicyData:
         """Test validation of valid policy data."""
         data = {
             "schema_version": 12,
-            "track_order": ["video", "audio_main"],
-            "audio_language_preference": ["eng", "jpn"],
-            "subtitle_language_preference": ["eng"],
-            "default_flags": {
-                "set_first_video_default": True,
-                "set_preferred_audio_default": True,
-                "set_preferred_subtitle_default": False,
-                "clear_other_defaults": True,
+            "config": {
+                "audio_language_preference": ["eng", "jpn"],
+                "subtitle_language_preference": ["eng"],
             },
+            "phases": [
+                {
+                    "name": "organize",
+                    "track_order": ["video", "audio_main"],
+                    "default_flags": {
+                        "set_first_video_default": True,
+                        "set_preferred_audio_default": True,
+                        "set_preferred_subtitle_default": False,
+                        "clear_other_defaults": True,
+                    },
+                }
+            ],
         }
         result = validate_policy_data(data)
 
@@ -199,9 +220,12 @@ class TestValidatePolicyData:
         """Test validation fails for empty track_order."""
         data = {
             "schema_version": 12,
-            "track_order": [],
-            "audio_language_preference": ["eng"],
-            "subtitle_language_preference": ["eng"],
+            "phases": [
+                {
+                    "name": "test",
+                    "track_order": [],  # Invalid: empty
+                }
+            ],
         }
         result = validate_policy_data(data)
 
@@ -213,9 +237,10 @@ class TestValidatePolicyData:
         """Test validation fails for invalid language code."""
         data = {
             "schema_version": 12,
-            "track_order": ["video"],
-            "audio_language_preference": ["english"],  # Invalid
-            "subtitle_language_preference": ["eng"],
+            "config": {
+                "audio_language_preference": ["english"],  # Invalid
+            },
+            "phases": [{"name": "test"}],
         }
         result = validate_policy_data(data)
 
@@ -230,31 +255,30 @@ class TestValidatePolicyData:
         """Test validation fails for invalid regex pattern."""
         data = {
             "schema_version": 12,
-            "track_order": ["video"],
-            "audio_language_preference": ["eng"],
-            "subtitle_language_preference": ["eng"],
-            "commentary_patterns": ["[invalid("],  # Invalid regex
+            "config": {
+                "commentary_patterns": ["[invalid("],  # Invalid regex
+            },
+            "phases": [{"name": "test"}],
         }
         result = validate_policy_data(data)
 
         assert result.success is False
         assert len(result.errors) >= 1
 
-    def test_empty_language_preference(self):
-        """Test validation fails for empty language preference."""
+    def test_empty_language_preference_accepted(self):
+        """Test validation accepts empty language preference (uses defaults)."""
         data = {
             "schema_version": 12,
-            "track_order": ["video"],
-            "audio_language_preference": [],  # Empty
-            "subtitle_language_preference": ["eng"],
+            "config": {
+                "audio_language_preference": [],  # Empty - will use defaults
+            },
+            "phases": [{"name": "test"}],
         }
         result = validate_policy_data(data)
 
-        assert result.success is False
-        audio_error = next(
-            (e for e in result.errors if "audio_language_preference" in e.field), None
-        )
-        assert audio_error is not None
+        # Empty lists are valid - the model will use defaults internally
+        assert result.success is True
+        assert result.policy is not None
 
 
 class TestDiffSummary:

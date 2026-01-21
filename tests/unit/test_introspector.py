@@ -33,7 +33,7 @@ class TestStubIntrospector:
 
     def test_get_file_info_returns_introspection_result(self, temp_dir: Path):
         """Test that get_file_info returns an IntrospectionResult object."""
-        from vpo.db.models import IntrospectionResult
+        from vpo.db import IntrospectionResult
         from vpo.introspector.stub import StubIntrospector
 
         # Create a test file

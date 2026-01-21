@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 # V7: Multi-language conditions (in conditional)
 # V9: workflow
 # V10: music/sfx/non_speech track types (in transcription)
-# V11: phases, config (user-defined phases)
+# Phased policy: phases, config (user-defined phases)
 KNOWN_POLICY_FIELDS = {
     # V1-V2 base fields
     "schema_version",
@@ -52,7 +52,7 @@ KNOWN_POLICY_FIELDS = {
     "audio_synthesis",
     # V9+ fields
     "workflow",
-    # V11+ fields (user-defined phases)
+    # Phased policy fields (user-defined phases)
     "phases",
     "config",
 }
@@ -506,12 +506,12 @@ class PolicyRoundTripEditor:
             data["workflow"] = value
 
     # =========================================================================
-    # V11+ Field Accessors (phases, config)
+    # Phased Policy Field Accessors (phases, config)
     # =========================================================================
 
     @staticmethod
     def get_phases(data: dict[str, Any]) -> list[dict[str, Any]] | None:
-        """Get user-defined phases from policy data (V11+).
+        """Get user-defined phases from policy data.
 
         Args:
             data: Policy data dictionary.
@@ -523,7 +523,7 @@ class PolicyRoundTripEditor:
 
     @staticmethod
     def set_phases(data: dict[str, Any], value: list[dict[str, Any]] | None) -> None:
-        """Set user-defined phases in policy data (V11+).
+        """Set user-defined phases in policy data.
 
         Args:
             data: Policy data dictionary to modify.
@@ -536,7 +536,7 @@ class PolicyRoundTripEditor:
 
     @staticmethod
     def get_config(data: dict[str, Any]) -> dict[str, Any] | None:
-        """Get global config from policy data (V11+).
+        """Get global config from policy data.
 
         Args:
             data: Policy data dictionary.
@@ -548,7 +548,7 @@ class PolicyRoundTripEditor:
 
     @staticmethod
     def set_config(data: dict[str, Any], value: dict[str, Any] | None) -> None:
-        """Set global config in policy data (V11+).
+        """Set global config in policy data.
 
         Args:
             data: Policy data dictionary to modify.
@@ -561,7 +561,7 @@ class PolicyRoundTripEditor:
 
     @staticmethod
     def get_phase_names(data: dict[str, Any]) -> list[str]:
-        """Get list of phase names from policy data (V11+).
+        """Get list of phase names from policy data.
 
         Args:
             data: Policy data dictionary.
@@ -575,13 +575,13 @@ class PolicyRoundTripEditor:
         return [p.get("name", "") for p in phases if isinstance(p, dict)]
 
     @staticmethod
-    def is_v11_policy(data: dict[str, Any]) -> bool:
-        """Check if policy data is V11 format (has phases array).
+    def is_phased_policy(data: dict[str, Any]) -> bool:
+        """Check if policy data is phased format (has phases array).
 
         Args:
             data: Policy data dictionary.
 
         Returns:
-            True if this is a V11 policy with phases, False otherwise.
+            True if this is a phased policy with phases, False otherwise.
         """
-        return data.get("schema_version") == 11 and "phases" in data
+        return "phases" in data
