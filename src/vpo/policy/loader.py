@@ -20,10 +20,6 @@ from vpo.policy.types import PolicySchema
 # Current supported schema version (only V12 is supported)
 SCHEMA_VERSION = 12
 
-# Backward compatibility alias - DEPRECATED
-# This will be removed in a future release. Use SCHEMA_VERSION directly.
-MAX_SCHEMA_VERSION = SCHEMA_VERSION
-
 # RESERVED_PHASE_NAMES is imported from pydantic_models
 
 

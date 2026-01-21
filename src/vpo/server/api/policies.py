@@ -456,7 +456,7 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
 
     from vpo.policy.discovery import DEFAULT_POLICIES_DIR
     from vpo.policy.editor import KNOWN_POLICY_FIELDS
-    from vpo.policy.loader import MAX_SCHEMA_VERSION
+    from vpo.policy.loader import SCHEMA_VERSION
     from vpo.server.ui.models import PolicyEditorContext
 
     # Parse request body
@@ -516,7 +516,7 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
 
     # Create default policy data with current schema version
     policy_data = {
-        "schema_version": MAX_SCHEMA_VERSION,
+        "schema_version": SCHEMA_VERSION,
         "track_order": ["video", "audio", "subtitle"],
         "audio_language_preference": ["eng"],
         "subtitle_language_preference": ["eng"],
@@ -565,7 +565,7 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
         filename=policy_path.name,
         file_path=str(policy_path),
         last_modified=last_modified,
-        schema_version=created_data.get("schema_version", MAX_SCHEMA_VERSION),
+        schema_version=created_data.get("schema_version", SCHEMA_VERSION),
         track_order=created_data.get("track_order", []),
         audio_language_preference=created_data.get("audio_language_preference", []),
         subtitle_language_preference=created_data.get(
