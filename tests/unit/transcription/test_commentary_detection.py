@@ -6,7 +6,7 @@ from vpo.transcription.models import (
     COMMENTARY_KEYWORDS,
     COMMENTARY_TRANSCRIPT_PATTERNS,
     TrackClassification,
-    detect_commentary_type,
+    detect_track_classification,
     is_commentary_by_metadata,
 )
 
@@ -77,12 +77,12 @@ class TestIsCommentaryByMetadata:
 # =============================================================================
 
 
-class TestDetectCommentaryType:
-    """Tests for detect_commentary_type function."""
+class TestDetectTrackClassification:
+    """Tests for detect_track_classification function."""
 
     def test_metadata_based_detection(self):
         """Should detect commentary from metadata regardless of transcript."""
-        result = detect_commentary_type(
+        result = detect_track_classification(
             title="Director's Commentary",
             transcript_sample=None,
         )
@@ -94,7 +94,7 @@ class TestDetectCommentaryType:
             "This scene was really challenging. When we shot this, "
             "I remember the actor had to do multiple takes."
         )
-        result = detect_commentary_type(
+        result = detect_track_classification(
             title=None,
             transcript_sample=transcript,
         )
@@ -104,7 +104,7 @@ class TestDetectCommentaryType:
         """Single transcript pattern match shouldn't trigger commentary detection."""
         # Only one pattern: "I remember"
         transcript = "I remember this movie."
-        result = detect_commentary_type(
+        result = detect_track_classification(
             title=None,
             transcript_sample=transcript,
         )
@@ -112,7 +112,7 @@ class TestDetectCommentaryType:
 
     def test_no_transcript_returns_main(self):
         """Should return MAIN for tracks without transcript sample."""
-        result = detect_commentary_type(
+        result = detect_track_classification(
             title=None,
             transcript_sample=None,
         )
@@ -120,7 +120,7 @@ class TestDetectCommentaryType:
 
     def test_no_metadata_no_patterns_returns_main(self):
         """Should return MAIN when no commentary indicators present."""
-        result = detect_commentary_type(
+        result = detect_track_classification(
             title="English",
             transcript_sample="The quick brown fox jumps over the lazy dog.",
         )
@@ -128,7 +128,7 @@ class TestDetectCommentaryType:
 
     def test_metadata_takes_precedence(self):
         """Metadata-based detection should occur before transcript analysis."""
-        result = detect_commentary_type(
+        result = detect_track_classification(
             title="Director Commentary",
             transcript_sample="Regular dialogue without commentary patterns.",
         )
@@ -147,7 +147,7 @@ class TestDetectCommentaryType:
     )
     def test_various_commentary_transcripts(self, transcript):
         """Should detect various commentary transcript patterns."""
-        result = detect_commentary_type(
+        result = detect_track_classification(
             title=None,
             transcript_sample=transcript,
         )
