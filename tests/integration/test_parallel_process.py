@@ -105,10 +105,10 @@ class TestParallelProcessingJSON:
             ],
         )
 
-        # Parse JSON output (may fail on empty file, but should have valid JSON)
-        if result.exit_code == 0 or "workers" in result.output:
+        # Parse JSON output (use result.stdout to separate from stderr logs)
+        if result.exit_code == 0 or "workers" in result.stdout:
             try:
-                output = json.loads(result.output)
+                output = json.loads(result.stdout)
                 assert "workers" in output
                 assert output["workers"] == 2
             except json.JSONDecodeError:
@@ -135,7 +135,8 @@ class TestParallelProcessingJSON:
         )
 
         if result.exit_code == 0:
-            output = json.loads(result.output)
+            # Use result.stdout to get only stdout (JSON), not stderr (logs)
+            output = json.loads(result.stdout)
             assert "summary" in output
             assert "duration_seconds" in output["summary"]
             assert isinstance(output["summary"]["duration_seconds"], (int, float))
@@ -164,7 +165,8 @@ class TestParallelProcessingBehavior:
         )
 
         if result.exit_code == 0:
-            output = json.loads(result.output)
+            # Use result.stdout to get only stdout (JSON), not stderr (logs)
+            output = json.loads(result.stdout)
             # Default should be 2 (or less if capped by CPU)
             assert "workers" in output
             assert output["workers"] >= 1
@@ -218,5 +220,6 @@ class TestSequentialMode:
         )
 
         if result.exit_code == 0:
-            output = json.loads(result.output)
+            # Use result.stdout to get only stdout (JSON), not stderr (logs)
+            output = json.loads(result.stdout)
             assert output["workers"] == 1
