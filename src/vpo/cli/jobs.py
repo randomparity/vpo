@@ -9,6 +9,7 @@ from pathlib import Path
 import click
 
 from vpo.config import get_config
+from vpo.core import truncate_filename
 from vpo.db import (
     Job,
     JobStatus,
@@ -85,9 +86,7 @@ def _format_job_row(job: Job) -> tuple[str, str, str, str, str, str, str]:
     status_value = job.status.value
     status_color = status_colors.get(job.status, "white")
     job_id = job.id[:8]
-    file_name = Path(job.file_path).name
-    if len(file_name) > 40:
-        file_name = file_name[:37] + "..."
+    file_name = truncate_filename(Path(job.file_path).name, 40)
 
     progress = (
         f"{job.progress_percent:.0f}%" if job.status == JobStatus.RUNNING else "-"

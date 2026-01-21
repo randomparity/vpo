@@ -105,18 +105,39 @@
     }
 
     /**
-     * Truncate a path for display.
-     * @param {string} path - Full file path
+     * Truncate a filename for display, preserving start and extension.
+     * If truncation is needed, shows: beginning…extension
+     * Uses single ellipsis character (U+2026).
+     * @param {string} filename - Filename to truncate
      * @param {number} maxLength - Maximum display length
-     * @returns {string} Truncated path (ellipsis at end if too long)
+     * @returns {string} Truncated filename
      */
-    function truncatePath(path, maxLength) {
-        if (!path || path.length <= maxLength) {
-            return path || '\u2014'
+    function truncateFilename(filename, maxLength) {
+        if (!filename || filename.length <= maxLength) {
+            return filename || '\u2014'
         }
 
-        // Truncate at the end with ellipsis
-        return path.substring(0, maxLength - 3) + '...'
+        // Find extension (last dot)
+        var dotIndex = filename.lastIndexOf('.')
+        var base, extension
+
+        if (dotIndex > 0) {
+            extension = filename.substring(dotIndex)  // includes the dot
+            base = filename.substring(0, dotIndex)
+        } else {
+            extension = ''
+            base = filename
+        }
+
+        // Calculate space for base (1 char for ellipsis)
+        var availableForBase = maxLength - extension.length - 1
+
+        // Edge case: extension too long, just truncate everything
+        if (availableForBase < 1) {
+            return filename.substring(0, maxLength - 1) + '\u2026'
+        }
+
+        return base.substring(0, availableForBase) + '\u2026' + extension
     }
 
     /**
@@ -155,7 +176,7 @@
      * @returns {string} HTML string for table row
      */
     function renderFileRow(file) {
-        const truncatedFilename = truncatePath(file.filename, 50)
+        const truncatedFilename = truncateFilename(file.filename, 50)
         const hasFullPath = file.path && file.path.length > 50
         const title = file.title || '\u2014'
         const resolution = file.resolution || '\u2014'

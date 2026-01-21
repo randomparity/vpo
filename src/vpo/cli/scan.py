@@ -8,6 +8,7 @@ import click
 
 from vpo.cli.output import warning_output
 from vpo.cli.profile_loader import load_profile_or_exit
+from vpo.core import truncate_filename
 from vpo.language_analysis.orchestrator import (
     LanguageAnalysisOrchestrator,
 )
@@ -80,10 +81,7 @@ class ProgressDisplay:
         if self._phase != "language":
             self._finish_line()
             self._phase = "language"
-        # Truncate filename if too long
-        max_name_len = 40
-        if len(current_file) > max_name_len:
-            current_file = "..." + current_file[-(max_name_len - 3) :]
+        current_file = truncate_filename(current_file, 40)
         self._write(f"Analyzing languages... {processed:,}/{total:,} [{current_file}]")
 
     def finish(self) -> None:
