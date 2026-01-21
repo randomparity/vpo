@@ -48,9 +48,6 @@ from .types import TranscodePlan, TranscodeResult, TwoPassContext
 
 logger = logging.getLogger(__name__)
 
-# Local alias for code that still uses the old name in this module
-should_skip_transcode = evaluate_skip_condition
-
 
 class TranscodeExecutor:
     """Executor for video transcoding operations."""
@@ -166,7 +163,7 @@ class TranscodeExecutor:
                 logger.info("HDR detection: %s - %s", input_path, hdr_desc)
 
         # Evaluate V6 skip conditions using effective (possibly estimated) bitrate
-        skip_result = should_skip_transcode(
+        skip_result = evaluate_skip_condition(
             skip_if=self.skip_if,
             video_codec=video_codec,
             video_width=video_width,

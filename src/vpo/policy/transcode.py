@@ -445,7 +445,3 @@ def evaluate_skip_condition(
         "Already compliant: " + ", ".join(reasons) if reasons else "All conditions met"
     )
     return SkipEvaluationResult(skip=True, reason=reason)
-
-
-# Backward compatibility alias for executor/transcode.py
-should_skip_transcode = evaluate_skip_condition

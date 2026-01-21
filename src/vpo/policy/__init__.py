@@ -46,7 +46,6 @@ from vpo.policy.matchers import CommentaryMatcher
 from vpo.policy.transcode import (
     SkipEvaluationResult,
     evaluate_skip_condition,
-    should_skip_transcode,
 )
 from vpo.policy.types import (
     ActionType,
@@ -135,5 +134,4 @@ __all__ = [
     # Skip condition evaluation
     "SkipEvaluationResult",
     "evaluate_skip_condition",
-    "should_skip_transcode",
 ]
