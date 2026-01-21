@@ -22,9 +22,9 @@ from vpo.policy.matchers import CommentaryMatcher
 from vpo.policy.types import (
     ActionType,
     DefaultFlagsConfig,
+    EvaluationPolicy,
     Plan,
     PlannedAction,
-    PolicySchema,
     TrackType,
 )
 
@@ -314,9 +314,8 @@ class TestPolicyEvaluationWithRealFiles:
 
         result = introspector.get_file_info(generated_multi_audio)
 
-        policy = PolicySchema(
-            schema_version=12,
-            audio_language_preference=["eng", "jpn", "fra"],
+        policy = EvaluationPolicy(
+            audio_language_preference=("eng", "jpn", "fra"),
             default_flags=DefaultFlagsConfig(
                 set_first_video_default=True,
                 set_preferred_audio_default=True,
@@ -354,9 +353,8 @@ class TestPolicyEvaluationWithRealFiles:
 
         result = introspector.get_file_info(generated_multi_audio)
 
-        policy = PolicySchema(
-            schema_version=12,
-            audio_language_preference=["jpn", "eng", "fra"],  # Japanese first
+        policy = EvaluationPolicy(
+            audio_language_preference=("jpn", "eng", "fra"),  # Japanese first
             track_order=(
                 TrackType.VIDEO,
                 TrackType.AUDIO_MAIN,

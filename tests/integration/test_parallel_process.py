@@ -20,10 +20,11 @@ def v11_policy(tmp_path: Path) -> Path:
     """Create a V12 policy file (current version) for testing."""
     policy_content = """
 schema_version: 12
-workflow:
-  phases:
-    - apply
+config:
   on_error: skip
+phases:
+  - name: apply
+    track_order: [video, audio_main, subtitle_main]
 """
     policy_file = tmp_path / "test_policy.yaml"
     policy_file.write_text(policy_content)

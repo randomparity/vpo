@@ -1705,6 +1705,12 @@ class PolicyEditorRequest:
     def from_dict(cls, data: dict) -> PolicyEditorRequest:
         """Create PolicyEditorRequest from request payload.
 
+        Supports two input formats:
+        1. Phased format: `phases` and `config` fields provided. Flat fields
+           are extracted from config/phases.
+        2. Legacy format: Flat fields provided (for backwards compat in tests).
+           Must also provide `phases` field since flat-only policies removed.
+
         Args:
             data: JSON request payload.
 
@@ -1714,13 +1720,62 @@ class PolicyEditorRequest:
         Raises:
             ValueError: If required fields are missing.
         """
+        # last_modified_timestamp is always required for optimistic locking
+        if "last_modified_timestamp" not in data:
+            raise ValueError("Missing required field: last_modified_timestamp")
+
+        phases = data.get("phases")
+        config = data.get("config", {})
+
+        # If phases provided, extract flat fields from config/phases
+        if phases is not None:
+            # Extract flat fields from config with defaults
+            # These are used for validation and backwards compat
+            first_phase = phases[0] if phases else {}
+            track_order = data.get("track_order", first_phase.get("track_order", []))
+            audio_lang = data.get(
+                "audio_language_preference",
+                config.get("audio_language_preference", []),
+            )
+            subtitle_lang = data.get(
+                "subtitle_language_preference",
+                config.get("subtitle_language_preference", []),
+            )
+            commentary = data.get(
+                "commentary_patterns",
+                config.get("commentary_patterns", []),
+            )
+            default_flags = data.get(
+                "default_flags", first_phase.get("default_flags", {})
+            )
+
+            return cls(
+                track_order=track_order,
+                audio_language_preference=audio_lang,
+                subtitle_language_preference=subtitle_lang,
+                commentary_patterns=commentary,
+                default_flags=default_flags,
+                transcode=data.get("transcode"),
+                transcription=data.get("transcription"),
+                audio_filter=data.get("audio_filter"),
+                subtitle_filter=data.get("subtitle_filter"),
+                attachment_filter=data.get("attachment_filter"),
+                container=data.get("container"),
+                conditional=data.get("conditional"),
+                audio_synthesis=data.get("audio_synthesis"),
+                workflow=data.get("workflow"),
+                phases=phases,
+                config=config,
+                last_modified_timestamp=data["last_modified_timestamp"],
+            )
+
+        # Legacy format: flat fields required (still needs phases though)
         required_fields = [
             "track_order",
             "audio_language_preference",
             "subtitle_language_preference",
             "commentary_patterns",
             "default_flags",
-            "last_modified_timestamp",
         ]
 
         for field in required_fields:
@@ -1747,8 +1802,8 @@ class PolicyEditorRequest:
             # V9+ fields
             workflow=data.get("workflow"),
             # V11+ fields
-            phases=data.get("phases"),
-            config=data.get("config"),
+            phases=phases,
+            config=config,
             last_modified_timestamp=data["last_modified_timestamp"],
         )
 

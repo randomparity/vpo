@@ -16,7 +16,7 @@ import pytest
 
 from vpo.policy.evaluator import evaluate_policy
 from vpo.policy.loader import load_policy
-from vpo.policy.types import ActionType
+from vpo.policy.types import ActionType, EvaluationPolicy
 
 if TYPE_CHECKING:
     from vpo.introspector.ffprobe import FFprobeIntrospector
@@ -75,21 +75,22 @@ class TestConditionalForcedSubtitle:
         policy_path = tmp_path / "force_subs_policy.yaml"
         policy_path.write_text("""
 schema_version: 12
-
-subtitle_language_preference: [eng, und]
-
-conditional:
-  - name: force_english_subs_for_foreign_audio
-    when:
-      not:
-        exists:
-          track_type: audio
-          language: eng
-    then:
-      - set_forced:
-          track_type: subtitle
-          language: eng
-          value: true
+config:
+  subtitle_language_preference: [eng, und]
+phases:
+  - name: apply
+    conditional:
+      - name: force_english_subs_for_foreign_audio
+        when:
+          not:
+            exists:
+              track_type: audio
+              language: eng
+        then:
+          - set_forced:
+              track_type: subtitle
+              language: eng
+              value: true
 """)
 
         # Introspect the video
@@ -107,12 +108,13 @@ conditional:
 
         # Load policy and evaluate
         policy = load_policy(policy_path)
+        eval_policy = EvaluationPolicy.from_phase(policy.phases[0], policy.config)
         plan = evaluate_policy(
             file_id=None,
             file_path=video_path,
             container="mkv",
             tracks=tracks,
-            policy=policy,
+            policy=eval_policy,
         )
 
         # Verify SET_FORCED action exists
@@ -174,33 +176,35 @@ conditional:
         policy_path = tmp_path / "force_subs_policy.yaml"
         policy_path.write_text("""
 schema_version: 12
-
-subtitle_language_preference: [eng, und]
-
-conditional:
-  - name: force_english_subs_for_foreign_audio
-    when:
-      not:
-        exists:
-          track_type: audio
-          language: eng
-    then:
-      - set_forced:
-          track_type: subtitle
-          language: eng
-          value: true
+config:
+  subtitle_language_preference: [eng, und]
+phases:
+  - name: apply
+    conditional:
+      - name: force_english_subs_for_foreign_audio
+        when:
+          not:
+            exists:
+              track_type: audio
+              language: eng
+        then:
+          - set_forced:
+              track_type: subtitle
+              language: eng
+              value: true
 """)
 
         result = introspector.get_file_info(video_path)
         tracks = result.tracks
 
         policy = load_policy(policy_path)
+        eval_policy = EvaluationPolicy.from_phase(policy.phases[0], policy.config)
         plan = evaluate_policy(
             file_id=None,
             file_path=video_path,
             container="mkv",
             tracks=tracks,
-            policy=policy,
+            policy=eval_policy,
         )
 
         # Should NOT have SET_FORCED action (English audio exists)
@@ -251,31 +255,33 @@ conditional:
         policy_path = tmp_path / "policy.yaml"
         policy_path.write_text("""
 schema_version: 12
-
-conditional:
-  - name: force_english_subs_for_foreign_audio
-    when:
-      not:
-        exists:
-          track_type: audio
-          language: eng
-    then:
-      - set_forced:
-          track_type: subtitle
-          language: eng
-          value: true
+phases:
+  - name: apply
+    conditional:
+      - name: force_english_subs_for_foreign_audio
+        when:
+          not:
+            exists:
+              track_type: audio
+              language: eng
+        then:
+          - set_forced:
+              track_type: subtitle
+              language: eng
+              value: true
 """)
 
         result = introspector.get_file_info(video_path)
         tracks = result.tracks
 
         policy = load_policy(policy_path)
+        eval_policy = EvaluationPolicy.from_phase(policy.phases[0], policy.config)
         plan = evaluate_policy(
             file_id=None,
             file_path=video_path,
             container="mkv",
             tracks=tracks,
-            policy=policy,
+            policy=eval_policy,
         )
 
         # Verify conditional_result is populated

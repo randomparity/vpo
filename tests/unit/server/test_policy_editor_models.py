@@ -42,11 +42,11 @@ class TestPolicyEditorRequestV11:
         assert request.config == data["config"]
 
     def test_from_dict_without_v11_fields(self, base_fields):
-        """Test from_dict handles missing V11 fields as None."""
+        """Test from_dict handles missing V11 fields with defaults."""
         request = PolicyEditorRequest.from_dict(base_fields)
 
         assert request.phases is None
-        assert request.config is None
+        assert request.config == {}  # Defaults to empty dict
 
     def test_to_policy_dict_v11_with_phases(self, base_fields):
         """Test to_policy_dict produces V11 structure when phases present."""

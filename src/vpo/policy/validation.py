@@ -128,6 +128,9 @@ class DiffSummary:
     ) -> DiffSummary:
         """Compare two policy dictionaries and return a diff summary.
 
+        Supports both flat policies (fields at root level) and phased policies
+        (fields inside config/phases sections).
+
         Args:
             old_data: Original policy data.
             new_data: Updated policy data.
@@ -137,50 +140,87 @@ class DiffSummary:
         """
         changes: list[FieldChange] = []
 
-        # Fields to compare
-        comparable_fields = [
-            "track_order",
+        # Fields to compare - these may be at root level (flat) or in config (phased)
+        config_fields = [
             "audio_language_preference",
             "subtitle_language_preference",
             "commentary_patterns",
+        ]
+
+        # Fields that may be in phases (first phase for comparison)
+        phase_fields = [
+            "track_order",
             "default_flags",
         ]
 
-        for field_name in comparable_fields:
-            old_value = old_data.get(field_name)
-            new_value = new_data.get(field_name)
+        # Helper to get value from flat or phased structure
+        def get_value(data: dict, field: str) -> Any:
+            # First check root level (flat policy or explicit override)
+            if field in data:
+                return data[field]
+            # Then check config section (phased policy)
+            if field in config_fields and "config" in data:
+                return data["config"].get(field)
+            # Check first phase for phase-specific fields
+            if field in phase_fields and "phases" in data and data["phases"]:
+                return data["phases"][0].get(field)
+            return None
 
-            if old_value == new_value:
-                continue
+        # Compare config fields
+        for field_name in config_fields:
+            old_value = get_value(old_data, field_name)
+            new_value = get_value(new_data, field_name)
 
-            # Handle None cases
-            if old_value is None and new_value is not None:
-                changes.append(FieldChange(field=field_name, change_type="added"))
-                continue
-            if old_value is not None and new_value is None:
-                changes.append(FieldChange(field=field_name, change_type="removed"))
-                continue
+            change = DiffSummary._compare_field(field_name, old_value, new_value)
+            if change:
+                changes.append(change)
 
-            # Compare based on type
-            if isinstance(old_value, list) and isinstance(new_value, list):
-                change = DiffSummary._compare_lists(field_name, old_value, new_value)
-                if change:
-                    changes.append(change)
-            elif isinstance(old_value, dict) and isinstance(new_value, dict):
-                change = DiffSummary._compare_dicts(field_name, old_value, new_value)
-                if change:
-                    changes.append(change)
-            else:
-                # Scalar value changed
-                changes.append(
-                    FieldChange(
-                        field=field_name,
-                        change_type="modified",
-                        details=f"{old_value} -> {new_value}",
-                    )
-                )
+        # Compare phase fields
+        for field_name in phase_fields:
+            old_value = get_value(old_data, field_name)
+            new_value = get_value(new_data, field_name)
+
+            change = DiffSummary._compare_field(field_name, old_value, new_value)
+            if change:
+                changes.append(change)
 
         return DiffSummary(changes=changes)
+
+    @staticmethod
+    def _compare_field(
+        field_name: str, old_value: Any, new_value: Any
+    ) -> FieldChange | None:
+        """Compare two field values and return the appropriate change.
+
+        Args:
+            field_name: Name of the field being compared.
+            old_value: Original value.
+            new_value: Updated value.
+
+        Returns:
+            FieldChange describing the difference, or None if identical.
+        """
+        if old_value == new_value:
+            return None
+
+        # Handle None cases
+        if old_value is None and new_value is not None:
+            return FieldChange(field=field_name, change_type="added")
+        if old_value is not None and new_value is None:
+            return FieldChange(field=field_name, change_type="removed")
+
+        # Compare based on type
+        if isinstance(old_value, list) and isinstance(new_value, list):
+            return DiffSummary._compare_lists(field_name, old_value, new_value)
+        elif isinstance(old_value, dict) and isinstance(new_value, dict):
+            return DiffSummary._compare_dicts(field_name, old_value, new_value)
+        else:
+            # Scalar value changed
+            return FieldChange(
+                field=field_name,
+                change_type="modified",
+                details=f"{old_value} -> {new_value}",
+            )
 
     @staticmethod
     def _compare_lists(
