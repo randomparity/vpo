@@ -1,7 +1,8 @@
 """FFmpeg remux executor for container conversion.
 
 This module provides an executor for lossless container conversion
-(primarily MKV to MP4) using ffmpeg with stream copy.
+(primarily MKV to MP4) using ffmpeg with stream copy, with optional
+selective transcoding for incompatible tracks.
 """
 
 import logging
@@ -16,7 +17,7 @@ from vpo.executor.backup import (
     safe_restore_from_backup,
 )
 from vpo.executor.interface import ExecutorResult, require_tool
-from vpo.policy.types import Plan
+from vpo.policy.types import ContainerTranscodePlan, Plan
 
 logger = logging.getLogger(__name__)
 
@@ -25,16 +26,21 @@ class FFmpegRemuxExecutor:
     """Executor for container conversion using FFmpeg.
 
     This executor handles container conversion to MP4 using lossless
-    stream copy. It is used when:
+    stream copy, with optional selective transcoding for incompatible
+    tracks when on_incompatible_codec is set to 'transcode'.
+
+    It is used when:
     - Plan has container_change with target=mp4
 
-    Note: This executor assumes codec compatibility has already been
-    checked by the policy evaluator. Incompatible codecs should have
-    either raised IncompatibleCodecError or skipped the conversion.
+    When a transcode_plan is present, the executor:
+    - Transcodes incompatible audio tracks to AAC
+    - Converts text subtitles to mov_text
+    - Removes bitmap subtitles (PGS, DVD) that cannot be converted
+    - Copies all compatible tracks losslessly
 
     The executor:
     1. Creates a backup of the original file
-    2. Writes to a temp file with -c copy (lossless)
+    2. Writes to a temp file with -c copy (lossless) or selective transcoding
     3. Uses -movflags +faststart for streaming optimization
     4. Atomically moves the output to the final location
     """
@@ -182,9 +188,32 @@ class FFmpegRemuxExecutor:
 
         # Build success message
         src = plan.container_change.source_format
+        transcode_plan = plan.container_change.transcode_plan
+        if transcode_plan and transcode_plan.track_plans:
+            transcode_count = sum(
+                1 for p in transcode_plan.track_plans if p.action == "transcode"
+            )
+            convert_count = sum(
+                1 for p in transcode_plan.track_plans if p.action == "convert"
+            )
+            remove_count = sum(
+                1 for p in transcode_plan.track_plans if p.action == "remove"
+            )
+            details = []
+            if transcode_count:
+                details.append(f"{transcode_count} transcoded")
+            if convert_count:
+                details.append(f"{convert_count} converted")
+            if remove_count:
+                details.append(f"{remove_count} removed")
+            detail_str = ", ".join(details)
+            message = f"Converted {src} → mp4 ({detail_str})"
+        else:
+            message = f"Converted {src} → mp4"
+
         return ExecutorResult(
             success=True,
-            message=f"Converted {src} → mp4",
+            message=message,
             backup_path=result_backup_path,
         )
 
@@ -198,6 +227,15 @@ class FFmpegRemuxExecutor:
         Returns:
             List of command line arguments.
         """
+        # Check if we have a transcode plan for selective transcoding
+        transcode_plan = None
+        if plan.container_change:
+            transcode_plan = plan.container_change.transcode_plan
+
+        if transcode_plan:
+            return self._build_transcode_command(plan, output_path, transcode_plan)
+
+        # Standard remux command (no transcoding)
         cmd = [
             str(self.tool_path),
             "-i",
@@ -219,6 +257,86 @@ class FFmpegRemuxExecutor:
                     # Exclude this track from output
                     # -map -0:idx excludes global stream index
                     cmd.extend(["-map", f"-0:{disp.track_index}"])
+
+        # Output file (overwrite if exists)
+        cmd.extend(["-y", str(output_path)])
+
+        return cmd
+
+    def _build_transcode_command(
+        self,
+        plan: Plan,
+        output_path: Path,
+        transcode_plan: ContainerTranscodePlan,
+    ) -> list[str]:
+        """Build ffmpeg command with selective transcoding.
+
+        This method builds a command that:
+        - Copies compatible streams losslessly
+        - Transcodes incompatible audio to AAC
+        - Converts text subtitles to mov_text
+        - Removes bitmap subtitles
+
+        Args:
+            plan: The execution plan.
+            output_path: Path for the output file.
+            transcode_plan: Plan for handling incompatible tracks.
+
+        Returns:
+            List of command line arguments.
+        """
+        cmd = [
+            str(self.tool_path),
+            "-i",
+            str(plan.file_path),
+            "-map",
+            "0",  # Start with all streams
+        ]
+
+        # Build sets for quick lookup: idx -> (codec, bitrate) or target_codec
+        tracks_to_remove: set[int] = set()
+        tracks_to_transcode: dict[int, tuple[str, str | None]] = {}
+        tracks_to_convert: dict[int, str] = {}
+
+        for track_plan in transcode_plan.track_plans:
+            if track_plan.action == "remove":
+                tracks_to_remove.add(track_plan.track_index)
+            elif track_plan.action == "transcode":
+                tracks_to_transcode[track_plan.track_index] = (
+                    track_plan.target_codec or "aac",
+                    track_plan.target_bitrate,
+                )
+            elif track_plan.action == "convert":
+                tracks_to_convert[track_plan.track_index] = (
+                    track_plan.target_codec or "mov_text"
+                )
+
+        # Exclude removed tracks
+        for idx in sorted(tracks_to_remove):
+            cmd.extend(["-map", f"-0:{idx}"])
+
+        # Handle track filtering if dispositions indicate removal
+        if plan.track_dispositions:
+            for disp in plan.track_dispositions:
+                if disp.action == "REMOVE" and disp.track_index not in tracks_to_remove:
+                    cmd.extend(["-map", f"-0:{disp.track_index}"])
+
+        # Default: copy all streams
+        cmd.extend(["-c", "copy"])
+
+        # Override codec for specific streams that need transcoding
+        # Use stream index notation: -c:idx codec
+        for idx, (codec, bitrate) in tracks_to_transcode.items():
+            cmd.extend([f"-c:{idx}", codec])
+            if bitrate:
+                cmd.extend([f"-b:{idx}", bitrate])
+
+        # Override codec for subtitle conversions
+        for idx, codec in tracks_to_convert.items():
+            cmd.extend([f"-c:{idx}", codec])
+
+        # MP4-specific optimizations
+        cmd.extend(["-movflags", "+faststart"])
 
         # Output file (overwrite if exists)
         cmd.extend(["-y", str(output_path)])

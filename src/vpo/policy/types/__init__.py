@@ -75,7 +75,9 @@ from vpo.policy.types.filters import (
 # Plan and execution types (extracted)
 from vpo.policy.types.plan import (
     ContainerChange,
+    ContainerTranscodePlan,
     FileProcessingResult,
+    IncompatibleTrackPlan,
     PhaseExecutionContext,
     PhaseExecutionError,
     PhaseResult,
@@ -208,6 +210,8 @@ __all__ = [
     "ConditionalResult",
     # Plan types
     "TrackDisposition",
+    "IncompatibleTrackPlan",
+    "ContainerTranscodePlan",
     "ContainerChange",
     "PlannedAction",
     "Plan",

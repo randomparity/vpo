@@ -10,7 +10,9 @@ from vpo.domain import TrackInfo
 from vpo.policy.exceptions import IncompatibleCodecError
 from vpo.policy.types import (
     ContainerChange,
+    ContainerTranscodePlan,
     EvaluationPolicy,
+    IncompatibleTrackPlan,
 )
 
 # Codecs compatible with MP4 container
@@ -51,6 +53,27 @@ _MP4_COMPATIBLE_SUBTITLE_CODECS = frozenset(
         "tx3g",
         "webvtt",
     }
+)
+
+# Default transcoding targets for incompatible audio codecs when converting to MP4
+# Format: source_codec -> (target_codec, target_bitrate)
+_MP4_AUDIO_TRANSCODE_DEFAULTS: dict[str, tuple[str, str]] = {
+    "truehd": ("aac", "256k"),
+    "dts": ("aac", "256k"),
+    "dts-hd ma": ("aac", "320k"),
+    "dts-hd": ("aac", "320k"),
+    "vorbis": ("aac", "192k"),
+    "pcm_s16le": ("aac", "192k"),
+    "pcm_s24le": ("aac", "192k"),
+    "pcm_s32le": ("aac", "192k"),
+}
+
+# Text-based subtitle codecs that can be converted to mov_text
+_MP4_TEXT_SUBTITLE_CODECS = frozenset({"subrip", "srt", "ass", "ssa", "webvtt"})
+
+# Bitmap subtitle codecs that must be removed (OCR is too complex)
+_MP4_BITMAP_SUBTITLE_CODECS = frozenset(
+    {"hdmv_pgs_subtitle", "dvd_subtitle", "dvdsub", "pgssub"}
 )
 
 
@@ -116,6 +139,88 @@ def _is_codec_mp4_compatible(codec: str, track_type: str) -> bool:
     return False
 
 
+def _create_incompatible_track_plan(track: TrackInfo) -> IncompatibleTrackPlan:
+    """Create a plan for handling an incompatible track.
+
+    Determines the appropriate action (transcode, convert, or remove)
+    based on the track type and codec.
+
+    Args:
+        track: Track metadata for the incompatible track.
+
+    Returns:
+        IncompatibleTrackPlan with the appropriate action.
+    """
+    codec = (track.codec or "").casefold().strip()
+    track_type = track.track_type.casefold()
+
+    if track_type == "audio":
+        # Check if we have a known transcode mapping
+        if codec in _MP4_AUDIO_TRANSCODE_DEFAULTS:
+            target_codec, target_bitrate = _MP4_AUDIO_TRANSCODE_DEFAULTS[codec]
+            return IncompatibleTrackPlan(
+                track_index=track.index,
+                track_type=track_type,
+                source_codec=codec,
+                action="transcode",
+                target_codec=target_codec,
+                target_bitrate=target_bitrate,
+                reason=f"{codec} is not MP4-compatible, transcoding to {target_codec}",
+            )
+        else:
+            # Unknown audio codec - use generic AAC transcode
+            return IncompatibleTrackPlan(
+                track_index=track.index,
+                track_type=track_type,
+                source_codec=codec,
+                action="transcode",
+                target_codec="aac",
+                target_bitrate="192k",
+                reason=f"{codec} is not MP4-compatible, transcoding to aac",
+            )
+
+    elif track_type == "subtitle":
+        if codec in _MP4_TEXT_SUBTITLE_CODECS:
+            # Text subtitles can be converted to mov_text
+            return IncompatibleTrackPlan(
+                track_index=track.index,
+                track_type=track_type,
+                source_codec=codec,
+                action="convert",
+                target_codec="mov_text",
+                reason=f"Converting {codec} to mov_text (styling may be lost)",
+            )
+        elif codec in _MP4_BITMAP_SUBTITLE_CODECS:
+            # Bitmap subtitles must be removed
+            return IncompatibleTrackPlan(
+                track_index=track.index,
+                track_type=track_type,
+                source_codec=codec,
+                action="remove",
+                reason=f"Removing {codec} (bitmap subtitles cannot be converted)",
+            )
+        else:
+            # Unknown subtitle codec - try removal
+            return IncompatibleTrackPlan(
+                track_index=track.index,
+                track_type=track_type,
+                source_codec=codec,
+                action="remove",
+                reason=f"Removing {codec} (unknown subtitle format)",
+            )
+
+    # For video or other track types, just mark as needing transcode
+    # (video incompatibility shouldn't happen often since most codecs are supported)
+    return IncompatibleTrackPlan(
+        track_index=track.index,
+        track_type=track_type,
+        source_codec=codec,
+        action="transcode",
+        target_codec=None,
+        reason=f"{codec} is not MP4-compatible",
+    )
+
+
 def _evaluate_container_change(
     tracks: list[TrackInfo],
     source_format: str,
@@ -175,7 +280,7 @@ def evaluate_container_change_with_policy(
     """Evaluate container change with policy error handling.
 
     This function applies the policy's on_incompatible_codec setting
-    to determine whether to raise an error or skip conversion.
+    to determine whether to raise an error, skip conversion, or transcode.
 
     Args:
         tracks: List of track metadata.
@@ -211,5 +316,39 @@ def evaluate_container_change_with_policy(
         elif mode == "skip":
             # Skip conversion entirely
             return None
+        elif mode == "transcode":
+            # Create transcode plan for incompatible tracks
+            track_plans: list[IncompatibleTrackPlan] = []
+            warnings: list[str] = []
+
+            for idx in change.incompatible_tracks:
+                track = next(t for t in tracks if t.index == idx)
+                plan = _create_incompatible_track_plan(track)
+                track_plans.append(plan)
+
+                # Add warnings for removed tracks and conversions that lose data
+                if plan.action == "remove":
+                    warnings.append(
+                        f"Track {idx} ({plan.source_codec}) will be removed"
+                    )
+                elif plan.action == "convert" and plan.source_codec in ("ass", "ssa"):
+                    warnings.append(
+                        f"Track {idx} ({plan.source_codec}) will lose styling "
+                        f"when converted to mov_text"
+                    )
+
+            transcode_plan = ContainerTranscodePlan(
+                track_plans=tuple(track_plans),
+                warnings=tuple(warnings),
+            )
+
+            # Return updated ContainerChange with transcode plan
+            return ContainerChange(
+                source_format=change.source_format,
+                target_format=change.target_format,
+                warnings=change.warnings + transcode_plan.warnings,
+                incompatible_tracks=change.incompatible_tracks,
+                transcode_plan=transcode_plan,
+            )
 
     return change
