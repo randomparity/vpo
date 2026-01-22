@@ -14,6 +14,7 @@ from typing import Any
 from vpo.core.file_utils import get_file_mtime, set_file_mtime
 from vpo.db.queries import get_file_by_path
 from vpo.db.types import FileInfo
+from vpo.policy.types import FileTimestampConfig
 
 from .helpers import parse_plugin_metadata
 from .types import PhaseExecutionState
@@ -110,7 +111,7 @@ def _handle_release_date_mode(
     state: PhaseExecutionState,
     file_info: FileInfo | None,
     conn: Connection,
-    config: Any,  # FileTimestampConfig
+    config: FileTimestampConfig,
     dry_run: bool,
 ) -> int:
     """Handle release_date mode - set mtime from plugin metadata.
@@ -170,6 +171,39 @@ def _handle_release_date_mode(
     return 1
 
 
+def _validate_date_string(date_value: Any, field_name: str) -> str | None:
+    """Validate plugin metadata date field is a valid string.
+
+    Args:
+        date_value: Value from plugin metadata (may not be a string).
+        field_name: Name of the field for error logging.
+
+    Returns:
+        Date string if valid, None if invalid or not a string.
+    """
+    if date_value is None:
+        return None
+
+    if not isinstance(date_value, str):
+        logger.warning(
+            "Invalid date type in field '%s': expected str, got %s",
+            field_name,
+            type(date_value).__name__,
+        )
+        return None
+
+    # Basic format check (YYYY-MM-DD should be 10 chars)
+    if len(date_value) < 10:
+        logger.warning(
+            "Invalid date format in field '%s': '%s' (too short)",
+            field_name,
+            date_value,
+        )
+        return None
+
+    return date_value
+
+
 def _get_release_date(
     plugin_metadata: dict[str, Any],
     date_source: str,
@@ -200,24 +234,36 @@ def _get_release_date(
             sources = ["radarr", "sonarr"]
 
     # Check for release_date first (the consolidated primary date)
-    if release_date := plugin_metadata.get("release_date"):
-        return release_date
+    if date := _validate_date_string(
+        plugin_metadata.get("release_date"), "release_date"
+    ):
+        return date
 
     # Check source-specific dates
     for source in sources:
         if source == "radarr":
             # Prefer digital, then physical, then cinema
-            if date := plugin_metadata.get("digital_release"):
+            if date := _validate_date_string(
+                plugin_metadata.get("digital_release"), "digital_release"
+            ):
                 return date
-            if date := plugin_metadata.get("physical_release"):
+            if date := _validate_date_string(
+                plugin_metadata.get("physical_release"), "physical_release"
+            ):
                 return date
-            if date := plugin_metadata.get("cinema_release"):
+            if date := _validate_date_string(
+                plugin_metadata.get("cinema_release"), "cinema_release"
+            ):
                 return date
         elif source == "sonarr":
             # Prefer episode air_date, then premiere_date
-            if date := plugin_metadata.get("air_date"):
+            if date := _validate_date_string(
+                plugin_metadata.get("air_date"), "air_date"
+            ):
                 return date
-            if date := plugin_metadata.get("premiere_date"):
+            if date := _validate_date_string(
+                plugin_metadata.get("premiere_date"), "premiere_date"
+            ):
                 return date
 
     return None
@@ -233,12 +279,12 @@ def _parse_date_to_timestamp(date_str: str) -> float:
         Unix timestamp (seconds since epoch).
 
     Raises:
-        ValueError: If date format is invalid.
+        ValueError: If date format is invalid or date doesn't exist
+                   (e.g., Feb 30).
     """
-    # Parse date (expecting YYYY-MM-DD format)
-    dt = datetime.strptime(date_str, "%Y-%m-%d")
-    # Set to midnight UTC
-    dt = dt.replace(tzinfo=timezone.utc)
+    # Parse date (expecting YYYY-MM-DD format) and set UTC timezone atomically
+    # to avoid any window with a naive datetime object
+    dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
     return dt.timestamp()
 
 

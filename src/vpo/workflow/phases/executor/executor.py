@@ -162,7 +162,18 @@ class PhaseExecutor:
                     state.original_mtime,
                 )
             except OSError as e:
-                logger.warning("Failed to capture original mtime: %s", e)
+                if phase.file_timestamp.mode == "preserve":
+                    # Fail loudly - user explicitly requested preservation
+                    raise PhaseExecutionError(
+                        phase_name=phase.name,
+                        operation=None,
+                        message=f"Cannot capture mtime for preserve mode: {e}",
+                    ) from e
+                logger.warning(
+                    "Failed to capture mtime (mode=%s): %s",
+                    phase.file_timestamp.mode,
+                    e,
+                )
 
         # Get operations to execute
         operations = phase.get_operations()

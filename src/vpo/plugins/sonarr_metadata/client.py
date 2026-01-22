@@ -13,7 +13,7 @@ from urllib.parse import quote
 import httpx
 
 from vpo.config.models import PluginConnectionConfig
-from vpo.plugin_sdk.helpers import normalize_path_for_matching
+from vpo.plugin_sdk.helpers import extract_date_from_iso, normalize_path_for_matching
 from vpo.plugins.sonarr_metadata.models import (
     SonarrEpisode,
     SonarrLanguage,
@@ -178,7 +178,7 @@ class SonarrClient:
             )
 
         # Parse first aired date
-        first_aired = self._extract_date(data.get("firstAired"))
+        first_aired = extract_date_from_iso(data.get("firstAired"))
 
         return SonarrSeries(
             id=series_id,
@@ -201,7 +201,7 @@ class SonarrClient:
             SonarrEpisode dataclass.
         """
         # Parse air date
-        air_date = self._extract_date(data.get("airDate"))
+        air_date = extract_date_from_iso(data.get("airDate"))
 
         return SonarrEpisode(
             id=data.get("id", 0),
@@ -212,24 +212,6 @@ class SonarrClient:
             has_file=data.get("hasFile", False),
             air_date=air_date,
         )
-
-    def _extract_date(self, datetime_str: str | None) -> str | None:
-        """Extract date portion from ISO 8601 datetime string.
-
-        Args:
-            datetime_str: ISO 8601 datetime (e.g., "2024-01-15T00:00:00Z")
-                         or date string (e.g., "2024-01-15").
-
-        Returns:
-            Date portion only (e.g., "2024-01-15") or None if not present.
-        """
-        if not datetime_str:
-            return None
-        # Take just the date portion before 'T'
-        if "T" in datetime_str:
-            return datetime_str.split("T")[0]
-        # Handle date-only strings (Sonarr sometimes returns just dates)
-        return datetime_str[:10] if len(datetime_str) >= 10 else None
 
     def _parse_parse_result(self, data: dict[str, Any]) -> SonarrParseResult:
         """Parse full parse response to SonarrParseResult.

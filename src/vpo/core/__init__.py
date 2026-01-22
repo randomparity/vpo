@@ -12,6 +12,7 @@ from vpo.core.datetime_utils import (
     parse_iso_timestamp,
 )
 from vpo.core.file_utils import (
+    FileTimestampError,
     copy_file_mtime,
     get_file_mtime,
     set_file_mtime,
@@ -42,6 +43,7 @@ __all__ = [
     "calculate_duration_seconds",
     "mtime_to_utc_iso",
     # file_utils
+    "FileTimestampError",
     "get_file_mtime",
     "set_file_mtime",
     "copy_file_mtime",

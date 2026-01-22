@@ -8,13 +8,17 @@ This module contains models for track filtering:
 - AudioActionsModel: Audio track pre-processing actions
 - SubtitleActionsModel: Subtitle track pre-processing actions
 - ContainerModel: Container format configuration
+- FileTimestampModel: File timestamp handling configuration
 """
 
+import logging
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from vpo.policy.pydantic_models.base import _validate_language_codes
+
+logger = logging.getLogger(__name__)
 
 
 class LanguageFallbackModel(BaseModel):
@@ -135,3 +139,26 @@ class FileTimestampModel(BaseModel):
 
     date_source: Literal["auto", "radarr", "sonarr"] = "auto"
     """Source for release date."""
+
+    @model_validator(mode="after")
+    def validate_field_usage(self) -> "FileTimestampModel":
+        """Warn about unused fields based on mode.
+
+        The fallback and date_source fields are only meaningful when
+        mode is "release_date". Warn users if they specify these fields
+        with other modes to help catch configuration mistakes.
+        """
+        if self.mode != "release_date":
+            if self.fallback != "preserve":
+                logger.warning(
+                    "file_timestamp: fallback=%r ignored when mode=%r",
+                    self.fallback,
+                    self.mode,
+                )
+            if self.date_source != "auto":
+                logger.warning(
+                    "file_timestamp: date_source=%r ignored when mode=%r",
+                    self.date_source,
+                    self.mode,
+                )
+        return self

@@ -12,7 +12,7 @@ from typing import Any
 import httpx
 
 from vpo.config.models import PluginConnectionConfig
-from vpo.plugin_sdk.helpers import normalize_path_for_matching
+from vpo.plugin_sdk.helpers import extract_date_from_iso, normalize_path_for_matching
 from vpo.plugins.radarr_metadata.models import (
     RadarrCache,
     RadarrLanguage,
@@ -181,9 +181,9 @@ class RadarrClient:
 
         # Parse release dates - Radarr returns ISO 8601 datetime strings
         # We extract just the date portion (YYYY-MM-DD) if present
-        digital_release = self._extract_date(data.get("digitalRelease"))
-        physical_release = self._extract_date(data.get("physicalRelease"))
-        cinema_release = self._extract_date(data.get("inCinemas"))
+        digital_release = extract_date_from_iso(data.get("digitalRelease"))
+        physical_release = extract_date_from_iso(data.get("physicalRelease"))
+        cinema_release = extract_date_from_iso(data.get("inCinemas"))
 
         return RadarrMovie(
             id=data["id"],
@@ -199,23 +199,6 @@ class RadarrClient:
             physical_release=physical_release,
             cinema_release=cinema_release,
         )
-
-    def _extract_date(self, datetime_str: str | None) -> str | None:
-        """Extract date portion from ISO 8601 datetime string.
-
-        Args:
-            datetime_str: ISO 8601 datetime (e.g., "2024-01-15T00:00:00Z").
-
-        Returns:
-            Date portion only (e.g., "2024-01-15") or None if not present.
-        """
-        if not datetime_str:
-            return None
-        # Take just the date portion before 'T'
-        if "T" in datetime_str:
-            return datetime_str.split("T")[0]
-        # Handle date-only strings
-        return datetime_str[:10] if len(datetime_str) >= 10 else None
 
     def _parse_movie_file_response(self, data: dict[str, Any]) -> RadarrMovieFile:
         """Parse movie file JSON response to RadarrMovieFile.

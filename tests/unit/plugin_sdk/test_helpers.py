@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from vpo.plugin_sdk.helpers import (
+    extract_date_from_iso,
     get_config,
     get_data_dir,
     get_host_identifier,
@@ -297,3 +298,90 @@ class TestGetHostIdentifier:
         """Return type is string."""
         result = get_host_identifier()
         assert isinstance(result, str)
+
+
+class TestExtractDateFromIso:
+    """Tests for extract_date_from_iso function."""
+
+    def test_extracts_date_from_iso_datetime(self) -> None:
+        """Should extract date from full ISO 8601 datetime."""
+        result = extract_date_from_iso("2024-06-15T00:00:00Z")
+        assert result == "2024-06-15"
+
+    def test_extracts_date_from_iso_datetime_with_timezone(self) -> None:
+        """Should extract date from ISO datetime with timezone offset."""
+        result = extract_date_from_iso("2024-06-15T12:30:45+05:30")
+        assert result == "2024-06-15"
+
+    def test_extracts_date_from_date_only(self) -> None:
+        """Should pass through date-only strings."""
+        result = extract_date_from_iso("2024-06-15")
+        assert result == "2024-06-15"
+
+    def test_returns_none_for_none_input(self) -> None:
+        """Should return None for None input."""
+        result = extract_date_from_iso(None)
+        assert result is None
+
+    def test_returns_none_for_empty_string(self) -> None:
+        """Should return None for empty string."""
+        result = extract_date_from_iso("")
+        assert result is None
+
+    def test_returns_none_for_tbd(self) -> None:
+        """Should return None for placeholder strings like TBD."""
+        result = extract_date_from_iso("TBD")
+        assert result is None
+
+    def test_returns_none_for_unknown(self) -> None:
+        """Should return None for placeholder strings like Unknown."""
+        result = extract_date_from_iso("Unknown")
+        assert result is None
+
+    def test_returns_none_for_invalid_calendar_date(self) -> None:
+        """Should return None for invalid calendar dates."""
+        # February 30 never exists
+        result = extract_date_from_iso("2024-02-30")
+        assert result is None
+
+        # Month 13 doesn't exist
+        result = extract_date_from_iso("2024-13-01")
+        assert result is None
+
+        # April 31 doesn't exist
+        result = extract_date_from_iso("2024-04-31")
+        assert result is None
+
+    def test_returns_none_for_feb_29_non_leap_year(self) -> None:
+        """Should return None for Feb 29 in non-leap years."""
+        # 2023 is not a leap year
+        result = extract_date_from_iso("2023-02-29")
+        assert result is None
+
+    def test_valid_feb_29_leap_year(self) -> None:
+        """Should accept Feb 29 in leap years."""
+        # 2024 is a leap year
+        result = extract_date_from_iso("2024-02-29")
+        assert result == "2024-02-29"
+
+    def test_returns_none_for_short_strings(self) -> None:
+        """Should return None for strings shorter than 10 chars."""
+        result = extract_date_from_iso("2024")
+        assert result is None
+
+        result = extract_date_from_iso("2024-06")
+        assert result is None
+
+    def test_returns_none_for_wrong_format(self) -> None:
+        """Should return None for non-ISO format dates."""
+        # US format
+        result = extract_date_from_iso("06/15/2024")
+        assert result is None
+
+        # European format
+        result = extract_date_from_iso("15.06.2024")
+        assert result is None
+
+        # Wrong separators
+        result = extract_date_from_iso("2024/06/15")
+        assert result is None

@@ -79,6 +79,7 @@ from vpo.plugin_sdk.base import (
 
 # Helper functions
 from vpo.plugin_sdk.helpers import (
+    extract_date_from_iso,
     get_config,
     get_data_dir,
     get_host_identifier,
@@ -120,6 +121,7 @@ __all__ = [
     "BaseMutatorPlugin",
     "BaseDualPlugin",
     # Helpers
+    "extract_date_from_iso",
     "get_logger",
     "get_config",
     "get_data_dir",
