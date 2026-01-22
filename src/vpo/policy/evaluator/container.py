@@ -70,7 +70,9 @@ _MP4_AUDIO_TRANSCODE_DEFAULTS: dict[str, tuple[str, str]] = {
 }
 
 # Text-based subtitle codecs that can be converted to mov_text
-_MP4_TEXT_SUBTITLE_CODECS = frozenset({"subrip", "srt", "ass", "ssa", "webvtt"})
+# Note: webvtt is already MP4-compatible (in _MP4_COMPATIBLE_SUBTITLE_CODECS)
+# so it should not be in this conversion set
+_MP4_TEXT_SUBTITLE_CODECS = frozenset({"subrip", "srt", "ass", "ssa"})
 
 # Bitmap subtitle codecs that must be removed (OCR is too complex)
 _MP4_BITMAP_SUBTITLE_CODECS = frozenset(
@@ -248,15 +250,16 @@ def _create_incompatible_track_plan(
                 reason=f"Removing {codec} (unknown subtitle format)",
             )
 
-    # For video or other track types, just mark as needing transcode
-    # (video incompatibility shouldn't happen often since most codecs are supported)
+    # For video or other track types, remove the track since we cannot
+    # auto-transcode video (requires explicit transcode phase configuration).
+    # Video incompatibility is rare since most codecs are MP4-supported.
     return IncompatibleTrackPlan(
         track_index=track.index,
         track_type=track_type,
         source_codec=codec,
-        action="transcode",
+        action="remove",
         target_codec=None,
-        reason=f"{codec} is not MP4-compatible",
+        reason=f"{codec} is not MP4-compatible; track will be removed",
     )
 
 

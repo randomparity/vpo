@@ -23,6 +23,26 @@ from vpo.policy.types import ContainerTranscodePlan, Plan
 logger = logging.getLogger(__name__)
 
 
+def _truncate_stderr(stderr: str, max_lines: int = 20) -> str:
+    """Truncate long FFmpeg stderr output to the last N lines.
+
+    Args:
+        stderr: Full stderr output from FFmpeg.
+        max_lines: Maximum number of lines to keep.
+
+    Returns:
+        Truncated stderr string, or original if within limit.
+    """
+    if not stderr:
+        return stderr
+    lines = stderr.splitlines()
+    if len(lines) <= max_lines:
+        return stderr
+    return f"...(truncated {len(lines) - max_lines} lines)...\n" + "\n".join(
+        lines[-max_lines:]
+    )
+
+
 class FFmpegRemuxExecutor(FFmpegExecutorBase):
     """Executor for container conversion using FFmpeg.
 
@@ -156,35 +176,47 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
                     errors="replace",
                 )
             except subprocess.TimeoutExpired:
-                safe_restore_from_backup(backup_path)
+                restored = safe_restore_from_backup(backup_path)
                 timeout_mins = timeout // 60 if timeout else 0
-                return ExecutorResult(
-                    success=False,
-                    message=f"ffmpeg timed out after {timeout_mins} min for "
-                    f"{plan.file_path}",
-                )
+                msg = f"ffmpeg timed out after {timeout_mins} min for {plan.file_path}"
+                if not restored:
+                    msg += (
+                        "\nWARNING: Could not restore backup - "
+                        "original file may be corrupted"
+                    )
+                return ExecutorResult(success=False, message=msg)
             except (subprocess.SubprocessError, OSError) as e:
-                safe_restore_from_backup(backup_path)
-                return ExecutorResult(
-                    success=False,
-                    message=f"ffmpeg failed for {plan.file_path}: {e}",
-                )
+                restored = safe_restore_from_backup(backup_path)
+                msg = f"ffmpeg failed for {plan.file_path}: {e}"
+                if not restored:
+                    msg += (
+                        "\nWARNING: Could not restore backup - "
+                        "original file may be corrupted"
+                    )
+                return ExecutorResult(success=False, message=msg)
             except Exception as e:
                 logger.exception(
                     "Unexpected error during ffmpeg execution for %s", plan.file_path
                 )
-                safe_restore_from_backup(backup_path)
-                return ExecutorResult(
-                    success=False,
-                    message=f"Unexpected error for {plan.file_path}: {e}",
-                )
+                restored = safe_restore_from_backup(backup_path)
+                msg = f"Unexpected error for {plan.file_path}: {e}"
+                if not restored:
+                    msg += (
+                        "\nWARNING: Could not restore backup - "
+                        "original file may be corrupted"
+                    )
+                return ExecutorResult(success=False, message=msg)
 
             if result.returncode != 0:
-                safe_restore_from_backup(backup_path)
-                return ExecutorResult(
-                    success=False,
-                    message=f"ffmpeg failed for {plan.file_path}: {result.stderr}",
-                )
+                restored = safe_restore_from_backup(backup_path)
+                truncated_stderr = _truncate_stderr(result.stderr)
+                msg = f"ffmpeg failed for {plan.file_path}: {truncated_stderr}"
+                if not restored:
+                    msg += (
+                        "\nWARNING: Could not restore backup - "
+                        "original file may be corrupted"
+                    )
+                return ExecutorResult(success=False, message=msg)
 
             # Validate output file using base class method
             try:
@@ -194,25 +226,35 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
 
             is_valid, error_msg = self.validate_output(temp_path, input_size)
             if not is_valid:
-                safe_restore_from_backup(backup_path)
-                return ExecutorResult(
-                    success=False,
-                    message=f"ffmpeg output validation failed for {plan.file_path}: "
-                    f"{error_msg}",
+                restored = safe_restore_from_backup(backup_path)
+                msg = (
+                    f"ffmpeg output validation failed for {plan.file_path}: {error_msg}"
                 )
+                if not restored:
+                    msg += (
+                        "\nWARNING: Could not restore backup - "
+                        "original file may be corrupted"
+                    )
+                return ExecutorResult(success=False, message=msg)
 
             # Atomic move: move temp to output path
             try:
                 temp_path.replace(output_path)
             except Exception as e:
-                safe_restore_from_backup(backup_path)
-                return ExecutorResult(
-                    success=False,
-                    message=f"Failed to move output for {plan.file_path}: {e}",
-                )
+                restored = safe_restore_from_backup(backup_path)
+                msg = f"Failed to move output for {plan.file_path}: {e}"
+                if not restored:
+                    msg += (
+                        "\nWARNING: Could not restore backup - "
+                        "original file may be corrupted"
+                    )
+                return ExecutorResult(success=False, message=msg)
 
         finally:
-            # Guarantee temp file cleanup
+            # Guarantee temp file cleanup.
+            # After successful replace(), temp_path no longer exists (it was renamed
+            # to output_path). This cleanup only runs if replace() failed or the
+            # subprocess failed before we reached the replace() call.
             if temp_path.exists():
                 temp_path.unlink(missing_ok=True)
 

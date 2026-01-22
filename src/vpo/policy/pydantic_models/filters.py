@@ -12,7 +12,7 @@ This module contains models for track filtering:
 """
 
 import logging
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -232,10 +232,11 @@ class ContainerModel(BaseModel):
 
     @field_validator("codec_mappings", mode="before")
     @classmethod
-    def normalize_codec_keys(
-        cls, v: dict[str, CodecTranscodeMappingModel] | None
-    ) -> dict[str, CodecTranscodeMappingModel] | None:
-        """Normalize codec keys to lowercase."""
+    def normalize_codec_keys(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Normalize codec keys to lowercase.
+
+        Note: At mode="before", we receive raw dict data, not model instances.
+        """
         if v is None:
             return v
         return {k.lower(): val for k, val in v.items()}

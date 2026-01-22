@@ -568,6 +568,156 @@ class TestOutputValidation:
 # =============================================================================
 
 
+# =============================================================================
+# Tests for stderr truncation helper (Issue #258 review fix)
+# =============================================================================
+
+
+class TestStderrTruncation:
+    """Tests for _truncate_stderr helper function."""
+
+    def test_short_stderr_not_truncated(self) -> None:
+        """Short stderr output should not be truncated."""
+        from vpo.executor.ffmpeg_remux import _truncate_stderr
+
+        stderr = "Error line 1\nError line 2\nError line 3"
+        result = _truncate_stderr(stderr, max_lines=5)
+        assert result == stderr
+
+    def test_long_stderr_truncated(self) -> None:
+        """Long stderr output should be truncated to last N lines."""
+        from vpo.executor.ffmpeg_remux import _truncate_stderr
+
+        lines = [f"Line {i}" for i in range(50)]
+        stderr = "\n".join(lines)
+        result = _truncate_stderr(stderr, max_lines=10)
+
+        assert "truncated 40 lines" in result
+        assert "Line 49" in result  # Last line present
+        assert "Line 40" in result  # First of last 10 present
+        assert "Line 39" not in result  # Truncated line not present
+
+    def test_empty_stderr(self) -> None:
+        """Empty stderr should return empty string."""
+        from vpo.executor.ffmpeg_remux import _truncate_stderr
+
+        result = _truncate_stderr("", max_lines=10)
+        assert result == ""
+
+    def test_exact_max_lines_not_truncated(self) -> None:
+        """Exactly max_lines should not be truncated."""
+        from vpo.executor.ffmpeg_remux import _truncate_stderr
+
+        lines = [f"Line {i}" for i in range(10)]
+        stderr = "\n".join(lines)
+        result = _truncate_stderr(stderr, max_lines=10)
+        assert result == stderr
+        assert "truncated" not in result
+
+
+# =============================================================================
+# Tests for backup restoration failure reporting (Issue #258 review fix)
+# =============================================================================
+
+
+class TestBackupRestorationReporting:
+    """Tests for backup restoration failure reporting in error messages."""
+
+    def test_backup_restoration_failure_reported_in_message(
+        self, executor: FFmpegRemuxExecutor, tmp_path: Path
+    ) -> None:
+        """Error message should warn when backup restoration fails."""
+        input_file = tmp_path / "test.mkv"
+        input_file.write_bytes(b"fake mkv content")
+
+        plan = Plan(
+            file_id="test-id",
+            file_path=input_file,
+            policy_version=12,
+            actions=(),
+            requires_remux=True,
+            container_change=ContainerChange(
+                source_format="mkv",
+                target_format="mp4",
+                warnings=(),
+                incompatible_tracks=(),
+            ),
+        )
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=1, stderr="FFmpeg error")
+
+            with patch("tempfile.NamedTemporaryFile") as mock_temp:
+                temp_file = tmp_path / "temp.mp4"
+                temp_file.write_bytes(b"partial")
+                mock_temp_instance = MagicMock()
+                mock_temp_instance.__enter__ = MagicMock(
+                    return_value=mock_temp_instance
+                )
+                mock_temp_instance.__exit__ = MagicMock(return_value=False)
+                mock_temp_instance.name = str(temp_file)
+                mock_temp.return_value = mock_temp_instance
+
+                # Mock safe_restore_from_backup to return False (failure)
+                with patch(
+                    "vpo.executor.ffmpeg_remux.safe_restore_from_backup"
+                ) as mock_restore:
+                    mock_restore.return_value = False
+                    result = executor.execute(plan)
+
+        assert result.success is False
+        assert "WARNING" in result.message
+        assert "restore" in result.message.lower() or "backup" in result.message.lower()
+        assert "corrupted" in result.message.lower()
+
+    def test_ffmpeg_stderr_truncated_in_error(
+        self, executor: FFmpegRemuxExecutor, tmp_path: Path
+    ) -> None:
+        """Long FFmpeg stderr should be truncated to last N lines."""
+        input_file = tmp_path / "test.mkv"
+        input_file.write_bytes(b"fake mkv content")
+
+        plan = Plan(
+            file_id="test-id",
+            file_path=input_file,
+            policy_version=12,
+            actions=(),
+            requires_remux=True,
+            container_change=ContainerChange(
+                source_format="mkv",
+                target_format="mp4",
+                warnings=(),
+                incompatible_tracks=(),
+            ),
+        )
+
+        # Create stderr with many lines
+        long_stderr = "\n".join([f"Error line {i}" for i in range(100)])
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=1, stderr=long_stderr)
+
+            with patch("tempfile.NamedTemporaryFile") as mock_temp:
+                temp_file = tmp_path / "temp.mp4"
+                temp_file.write_bytes(b"partial")
+                mock_temp_instance = MagicMock()
+                mock_temp_instance.__enter__ = MagicMock(
+                    return_value=mock_temp_instance
+                )
+                mock_temp_instance.__exit__ = MagicMock(return_value=False)
+                mock_temp_instance.name = str(temp_file)
+                mock_temp.return_value = mock_temp_instance
+
+                result = executor.execute(plan)
+
+        assert result.success is False
+        # Check that stderr was truncated
+        assert "truncated" in result.message.lower()
+        # Should have the last lines, not all 100
+        assert "Error line 99" in result.message
+        assert "Error line 0" not in result.message
+
+
 class TestTempFileCleanup:
     """Tests for temp file cleanup on errors."""
 

@@ -1440,6 +1440,65 @@ class TestIncompatibleTrackPlanInvariants:
 # =============================================================================
 
 
+# =============================================================================
+# Tests for video/unknown track handling (Issue #258 review fix)
+# =============================================================================
+
+
+class TestIncompatibleVideoCodecHandling:
+    """Tests for handling incompatible video codecs during MP4 conversion."""
+
+    def test_evaluate_incompatible_video_codec_removes_track(self) -> None:
+        """Unknown incompatible video codec should be removed, not cause crash."""
+        from vpo.policy.evaluator import (
+            evaluate_container_change_with_policy,
+        )
+
+        # Use a rare/unsupported video codec that isn't MP4-compatible
+        tracks = [
+            make_video_track(index=0, codec="vp8"),  # Not in MP4 compatible list
+            make_audio_track(index=1, codec="aac"),
+        ]
+        policy = make_policy_with_container(
+            target="mp4", on_incompatible_codec="transcode"
+        )
+
+        result = evaluate_container_change_with_policy(tracks, "mkv", policy)
+
+        assert result is not None
+        assert result.transcode_plan is not None
+        assert len(result.transcode_plan.track_plans) == 1
+
+        plan = result.transcode_plan.track_plans[0]
+        assert plan.track_index == 0
+        assert plan.track_type == "video"
+        assert plan.action == "remove"  # Video codecs get removed, not transcoded
+        assert plan.target_codec is None
+        assert "removed" in plan.reason.lower()
+
+    def test_webvtt_not_converted_for_mp4(self) -> None:
+        """WebVTT subtitles should pass through to MP4 unchanged."""
+        from vpo.policy.evaluator import (
+            evaluate_container_change_with_policy,
+        )
+
+        tracks = [
+            make_video_track(index=0, codec="h264"),
+            make_audio_track(index=1, codec="aac"),
+            make_subtitle_track(index=2, codec="webvtt"),  # Already MP4-compatible
+        ]
+        policy = make_policy_with_container(
+            target="mp4", on_incompatible_codec="transcode"
+        )
+
+        result = evaluate_container_change_with_policy(tracks, "mkv", policy)
+
+        assert result is not None
+        # WebVTT is compatible, so no transcode plan should be created
+        assert result.transcode_plan is None
+        assert 2 not in result.incompatible_tracks
+
+
 class TestReasonStringFormatting:
     """Tests for proper reason string formatting in track plans."""
 

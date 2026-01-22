@@ -18,7 +18,16 @@ def check_disk_space_for_transcode(
     ratio_other: float = 0.8,
     buffer: float = 1.2,
 ) -> str | None:
-    """Check disk space with codec-aware estimation.
+    """Check disk space with codec-aware estimation for transcode operations.
+
+    Use this function for video transcode operations where the output file
+    may be significantly smaller than the input (e.g., transcoding to HEVC/AV1).
+    This function returns an error message string if space is insufficient,
+    or None if OK. It does NOT raise exceptions for space issues.
+
+    For backup+remux operations where output ~= input size, use
+    backup.check_disk_space() instead, which raises InsufficientDiskSpaceError
+    and uses a simpler 2.5x multiplier.
 
     Estimates required space based on target codec - HEVC/AV1 typically
     produce smaller files than other codecs.
@@ -32,12 +41,19 @@ def check_disk_space_for_transcode(
 
     Returns:
         Error message if insufficient space, None if OK.
+
+    Raises:
+        FileNotFoundError: If the input file does not exist.
     """
     try:
         input_size = path.stat().st_size
+    except FileNotFoundError:
+        # Caller passed a non-existent path; propagate so they can fix it
+        raise
+    except PermissionError:
+        return f"Cannot access file (permission denied): {path}"
     except OSError as e:
-        logger.warning("Could not stat input file: %s", e)
-        return None  # Can't check, proceed optimistically
+        return f"Cannot stat file: {e}. Check filesystem health."
 
     # Estimate output size based on target codec
     codec = target_codec or "hevc"
@@ -59,7 +75,10 @@ def check_disk_space_for_transcode(
             return (
                 f"Insufficient disk space: {free_gb:.1f}GB free, need ~{need_gb:.1f}GB"
             )
+    except PermissionError:
+        return f"Cannot check disk space (permission denied): {temp_path}"
     except OSError as e:
+        # Log but proceed optimistically for other OS errors (e.g., network fs issues)
         logger.warning("Could not check disk space: %s", e)
 
     return None

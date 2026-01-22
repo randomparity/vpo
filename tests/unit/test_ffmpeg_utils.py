@@ -3,6 +3,8 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from vpo.executor import ffmpeg_utils
 
 
@@ -48,21 +50,58 @@ class TestCheckDiskSpaceForTranscode:
             # With h264, should use 0.8 ratio
             ffmpeg_utils.check_disk_space_for_transcode(test_file, target_codec="h264")
 
-    def test_returns_none_when_file_not_accessible(self, tmp_path: Path) -> None:
-        """Returns None when file cannot be accessed (fails gracefully)."""
+    def test_file_not_found_propagates(self, tmp_path: Path) -> None:
+        """FileNotFoundError should propagate, not return None."""
         nonexistent = tmp_path / "nonexistent.mkv"
-        result = ffmpeg_utils.check_disk_space_for_transcode(nonexistent)
-        assert result is None
+        with pytest.raises(FileNotFoundError):
+            ffmpeg_utils.check_disk_space_for_transcode(nonexistent)
 
-    def test_returns_none_when_disk_check_fails(self, tmp_path: Path) -> None:
-        """Returns None when disk usage check fails."""
+    def test_permission_error_returns_clear_message(self, tmp_path: Path) -> None:
+        """PermissionError should return descriptive message, not None."""
+        test_file = tmp_path / "test.mkv"
+        test_file.write_bytes(b"x" * 1000)
+
+        with patch.object(Path, "stat") as mock_stat:
+            mock_stat.side_effect = PermissionError("Permission denied")
+            result = ffmpeg_utils.check_disk_space_for_transcode(test_file)
+
+        assert result is not None
+        assert "permission denied" in result.lower()
+
+    def test_disk_permission_error_returns_message(self, tmp_path: Path) -> None:
+        """PermissionError on disk_usage should return message."""
         test_file = tmp_path / "test.mkv"
         test_file.write_bytes(b"x" * 1000)
 
         with patch("shutil.disk_usage") as mock_usage:
-            mock_usage.side_effect = OSError("Permission denied")
+            mock_usage.side_effect = PermissionError("Permission denied")
             result = ffmpeg_utils.check_disk_space_for_transcode(test_file)
 
+        assert result is not None
+        assert "permission denied" in result.lower()
+
+    def test_other_oserror_returns_message_for_stat(self, tmp_path: Path) -> None:
+        """Other OSError on stat should return descriptive message."""
+        test_file = tmp_path / "test.mkv"
+        test_file.write_bytes(b"x" * 1000)
+
+        with patch.object(Path, "stat") as mock_stat:
+            mock_stat.side_effect = OSError("I/O error")
+            result = ffmpeg_utils.check_disk_space_for_transcode(test_file)
+
+        assert result is not None
+        assert "filesystem" in result.lower() or "i/o" in result.lower()
+
+    def test_other_oserror_on_disk_usage_returns_none(self, tmp_path: Path) -> None:
+        """Other OSError on disk_usage should return None (proceed optimistically)."""
+        test_file = tmp_path / "test.mkv"
+        test_file.write_bytes(b"x" * 1000)
+
+        with patch("shutil.disk_usage") as mock_usage:
+            mock_usage.side_effect = OSError("Network filesystem error")
+            result = ffmpeg_utils.check_disk_space_for_transcode(test_file)
+
+        # Non-PermissionError OSError on disk_usage should log and return None
         assert result is None
 
 
