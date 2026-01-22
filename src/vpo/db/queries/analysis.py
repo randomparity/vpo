@@ -319,6 +319,54 @@ def get_language_segments(
     ]
 
 
+def get_language_segments_for_analyses(
+    conn: sqlite3.Connection,
+    analysis_ids: list[int],
+    chunk_size: int = 900,
+) -> dict[int, list[LanguageSegmentRecord]]:
+    """Get language segments for multiple analysis IDs in one query.
+
+    Args:
+        conn: Database connection.
+        analysis_ids: List of language_analysis_results IDs.
+        chunk_size: Maximum IDs per query (default 900, max 999 for SQLite).
+
+    Returns:
+        Dictionary mapping analysis_id to list of LanguageSegmentRecord.
+        Analysis IDs without segments return empty lists.
+    """
+    if not analysis_ids:
+        return {}
+
+    result: dict[int, list[LanguageSegmentRecord]] = {aid: [] for aid in analysis_ids}
+
+    for i in range(0, len(analysis_ids), chunk_size):
+        chunk = analysis_ids[i : i + chunk_size]
+        placeholders = ",".join("?" * len(chunk))
+        cursor = conn.execute(
+            f"""
+            SELECT id, analysis_id, language_code, start_time, end_time, confidence
+            FROM language_segments
+            WHERE analysis_id IN ({placeholders})
+            ORDER BY analysis_id, start_time
+            """,
+            tuple(chunk),
+        )
+
+        for row in cursor.fetchall():
+            record = LanguageSegmentRecord(
+                id=row[0],
+                analysis_id=row[1],
+                language_code=row[2],
+                start_time=row[3],
+                end_time=row[4],
+                confidence=row[5],
+            )
+            result[record.analysis_id].append(record)
+
+    return result
+
+
 def get_language_analysis_by_file_hash(
     conn: sqlite3.Connection, file_hash: str
 ) -> list[LanguageAnalysisResultRecord]:
@@ -441,6 +489,59 @@ def delete_analysis_for_file(conn: sqlite3.Connection, file_id: int) -> int:
         Count of deleted records.
     """
     return delete_language_analysis_for_file(conn, file_id)
+
+
+def get_language_analysis_for_tracks(
+    conn: sqlite3.Connection,
+    track_ids: list[int],
+    chunk_size: int = 900,
+) -> dict[int, LanguageAnalysisResultRecord]:
+    """Get language analysis results for a list of track IDs.
+
+    Uses chunked queries to handle lists larger than SQLite's 999 parameter
+    limit.
+
+    Args:
+        conn: Database connection.
+        track_ids: List of track IDs to query.
+        chunk_size: Maximum IDs per query (default 900, max 999 for SQLite).
+
+    Returns:
+        Dictionary mapping track_id to LanguageAnalysisResultRecord.
+    """
+    if not track_ids:
+        return {}
+
+    result: dict[int, LanguageAnalysisResultRecord] = {}
+
+    for i in range(0, len(track_ids), chunk_size):
+        chunk = track_ids[i : i + chunk_size]
+        placeholders = ",".join("?" * len(chunk))
+        cursor = conn.execute(
+            f"""
+            SELECT id, track_id, file_hash, primary_language, primary_percentage,
+                   classification, analysis_metadata, created_at, updated_at
+            FROM language_analysis_results
+            WHERE track_id IN ({placeholders})
+            """,
+            tuple(chunk),
+        )
+
+        for row in cursor.fetchall():
+            record = LanguageAnalysisResultRecord(
+                id=row[0],
+                track_id=row[1],
+                file_hash=row[2],
+                primary_language=row[3],
+                primary_percentage=row[4],
+                classification=row[5],
+                analysis_metadata=row[6],
+                created_at=row[7],
+                updated_at=row[8],
+            )
+            result[record.track_id] = record
+
+    return result
 
 
 def get_file_ids_by_path_prefix(

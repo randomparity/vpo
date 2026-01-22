@@ -26,8 +26,10 @@ from .analysis import (
     delete_language_analysis_result,
     get_file_ids_by_path_prefix,
     get_language_analysis_by_file_hash,
+    get_language_analysis_for_tracks,
     get_language_analysis_result,
     get_language_segments,
+    get_language_segments_for_analyses,
     upsert_language_analysis_result,
     upsert_language_segments,
 )
@@ -150,8 +152,10 @@ __all__ = [
     "delete_language_analysis_result",
     "get_file_ids_by_path_prefix",
     "get_language_analysis_by_file_hash",
+    "get_language_analysis_for_tracks",
     "get_language_analysis_result",
     "get_language_segments",
+    "get_language_segments_for_analyses",
     "upsert_language_analysis_result",
     "upsert_language_segments",
     # Processing statistics operations

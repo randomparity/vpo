@@ -14,7 +14,12 @@ from vpo.db.types import TrackInfo
 from vpo.policy.evaluator import evaluate_policy
 from vpo.policy.types import EvaluationPolicy, PolicySchema
 
-from .helpers import get_tracks, parse_plugin_metadata, select_executor
+from .helpers import (
+    get_language_results_for_tracks,
+    get_tracks,
+    parse_plugin_metadata,
+    select_executor,
+)
 from .types import PhaseExecutionState
 
 if TYPE_CHECKING:
@@ -71,6 +76,9 @@ def execute_with_plan(
         file_record, file_path, file_id, "policy evaluation"
     )
 
+    # Get language analysis results for audio tracks
+    language_results = get_language_results_for_tracks(conn, tracks)
+
     # Create evaluation policy from phase definition
     eval_policy = EvaluationPolicy.from_phase(phase, policy.config)
     plan = evaluate_policy(
@@ -80,6 +88,7 @@ def execute_with_plan(
         tracks=tracks,
         policy=eval_policy,
         plugin_metadata=plugin_metadata,
+        language_results=language_results,
     )
 
     # Count changes
