@@ -8,6 +8,7 @@ selective transcoding for incompatible tracks.
 import logging
 import subprocess  # nosec B404 - subprocess is required for ffmpeg execution
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 from vpo.executor.backup import (
@@ -19,6 +20,7 @@ from vpo.executor.backup import (
 from vpo.executor.ffmpeg_base import FFmpegExecutorBase
 from vpo.executor.interface import ExecutorResult
 from vpo.policy.types import ContainerTranscodePlan, Plan
+from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 logger = logging.getLogger(__name__)
 
@@ -66,13 +68,20 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
     4. Atomically moves the output to the final location
     """
 
-    def __init__(self, timeout: int | None = None) -> None:
+    def __init__(
+        self,
+        timeout: int | None = None,
+        progress_callback: Callable[[FFmpegProgress], None] | None = None,
+    ) -> None:
         """Initialize the executor.
 
         Args:
             timeout: Subprocess timeout in seconds. None uses DEFAULT_TIMEOUT.
+            progress_callback: Optional callback for FFmpeg progress updates.
+                Only invoked when transcoding is required (not for pure remux).
         """
         super().__init__(timeout)
+        self.progress_callback = progress_callback
 
     def can_handle(self, plan: Plan) -> bool:
         """Check if this executor can handle the given plan.
@@ -163,60 +172,99 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
         # Build ffmpeg command
         cmd = self._build_command(plan, temp_path)
 
+        # Determine if transcoding is involved (for progress reporting)
+        transcode_plan = (
+            plan.container_change.transcode_plan if plan.container_change else None
+        )
+        has_transcode = bool(transcode_plan and transcode_plan.track_plans)
+
         # Use try/finally to guarantee temp file cleanup
         try:
-            # Execute command
-            try:
-                result = subprocess.run(  # nosec B603 - cmd from validated plan
+            # Execute command - use progress-aware execution for transcode operations
+            if has_transcode and self.progress_callback:
+                # Use threaded execution with progress reporting
+                success, rc, stderr_lines, _ = self._run_ffmpeg_with_timeout(
                     cmd,
-                    capture_output=True,
-                    text=True,
+                    "container conversion",
                     timeout=timeout,
-                    encoding="utf-8",
-                    errors="replace",
+                    progress_callback=self.progress_callback,
                 )
-            except subprocess.TimeoutExpired:
-                restored = safe_restore_from_backup(backup_path)
-                timeout_mins = timeout // 60 if timeout else 0
-                msg = f"ffmpeg timed out after {timeout_mins} min for {plan.file_path}"
-                if not restored:
-                    msg += (
-                        "\nWARNING: Could not restore backup - "
-                        "original file may be corrupted"
+                if not success:
+                    restored = safe_restore_from_backup(backup_path)
+                    if rc == -1:
+                        # Timeout case
+                        timeout_mins = timeout // 60 if timeout else 0
+                        msg = (
+                            f"ffmpeg timed out after {timeout_mins} min "
+                            f"for {plan.file_path}"
+                        )
+                    else:
+                        # Non-zero return code
+                        truncated_stderr = _truncate_stderr("\n".join(stderr_lines))
+                        msg = f"ffmpeg failed for {plan.file_path}: {truncated_stderr}"
+                    if not restored:
+                        msg += (
+                            "\nWARNING: Could not restore backup - "
+                            "original file may be corrupted"
+                        )
+                    return ExecutorResult(success=False, message=msg)
+            else:
+                # Fast path for remux-only (no progress reporting)
+                try:
+                    result = subprocess.run(  # nosec B603 - cmd from validated plan
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=timeout,
+                        encoding="utf-8",
+                        errors="replace",
                     )
-                return ExecutorResult(success=False, message=msg)
-            except (subprocess.SubprocessError, OSError) as e:
-                restored = safe_restore_from_backup(backup_path)
-                msg = f"ffmpeg failed for {plan.file_path}: {e}"
-                if not restored:
-                    msg += (
-                        "\nWARNING: Could not restore backup - "
-                        "original file may be corrupted"
+                except subprocess.TimeoutExpired:
+                    restored = safe_restore_from_backup(backup_path)
+                    timeout_mins = timeout // 60 if timeout else 0
+                    msg = (
+                        f"ffmpeg timed out after {timeout_mins} min "
+                        f"for {plan.file_path}"
                     )
-                return ExecutorResult(success=False, message=msg)
-            except Exception as e:
-                logger.exception(
-                    "Unexpected error during ffmpeg execution for %s", plan.file_path
-                )
-                restored = safe_restore_from_backup(backup_path)
-                msg = f"Unexpected error for {plan.file_path}: {e}"
-                if not restored:
-                    msg += (
-                        "\nWARNING: Could not restore backup - "
-                        "original file may be corrupted"
+                    if not restored:
+                        msg += (
+                            "\nWARNING: Could not restore backup - "
+                            "original file may be corrupted"
+                        )
+                    return ExecutorResult(success=False, message=msg)
+                except (subprocess.SubprocessError, OSError) as e:
+                    restored = safe_restore_from_backup(backup_path)
+                    msg = f"ffmpeg failed for {plan.file_path}: {e}"
+                    if not restored:
+                        msg += (
+                            "\nWARNING: Could not restore backup - "
+                            "original file may be corrupted"
+                        )
+                    return ExecutorResult(success=False, message=msg)
+                except Exception as e:
+                    logger.exception(
+                        "Unexpected error during ffmpeg execution for %s",
+                        plan.file_path,
                     )
-                return ExecutorResult(success=False, message=msg)
+                    restored = safe_restore_from_backup(backup_path)
+                    msg = f"Unexpected error for {plan.file_path}: {e}"
+                    if not restored:
+                        msg += (
+                            "\nWARNING: Could not restore backup - "
+                            "original file may be corrupted"
+                        )
+                    return ExecutorResult(success=False, message=msg)
 
-            if result.returncode != 0:
-                restored = safe_restore_from_backup(backup_path)
-                truncated_stderr = _truncate_stderr(result.stderr)
-                msg = f"ffmpeg failed for {plan.file_path}: {truncated_stderr}"
-                if not restored:
-                    msg += (
-                        "\nWARNING: Could not restore backup - "
-                        "original file may be corrupted"
-                    )
-                return ExecutorResult(success=False, message=msg)
+                if result.returncode != 0:
+                    restored = safe_restore_from_backup(backup_path)
+                    truncated_stderr = _truncate_stderr(result.stderr)
+                    msg = f"ffmpeg failed for {plan.file_path}: {truncated_stderr}"
+                    if not restored:
+                        msg += (
+                            "\nWARNING: Could not restore backup - "
+                            "original file may be corrupted"
+                        )
+                    return ExecutorResult(success=False, message=msg)
 
             # Validate output file using base class method
             try:

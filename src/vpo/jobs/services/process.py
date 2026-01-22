@@ -8,6 +8,7 @@ import json
 import logging
 import sqlite3
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from vpo.jobs.logs import JobLogWriter
 from vpo.logging import worker_context
 from vpo.policy.loader import load_policy
 from vpo.policy.types import PolicySchema
+from vpo.tools.ffmpeg_progress import FFmpegProgress
 from vpo.workflow import WorkflowProcessor
 
 logger = logging.getLogger(__name__)
@@ -52,12 +54,15 @@ class ProcessJobService:
         self,
         job: Job,
         job_log: JobLogWriter | None = None,
+        ffmpeg_progress_callback: Callable[[FFmpegProgress], None] | None = None,
     ) -> ProcessJobResult:
         """Process a workflow job end-to-end.
 
         Args:
             job: The job to process.
             job_log: Optional log writer for this job.
+            ffmpeg_progress_callback: Optional callback for FFmpeg progress updates.
+                Used during container conversion with audio transcoding.
 
         Returns:
             ProcessJobResult with success/failure status.
@@ -85,6 +90,7 @@ class ProcessJobService:
                     policy=policy,
                     dry_run=False,
                     verbose=True,
+                    ffmpeg_progress_callback=ffmpeg_progress_callback,
                 )
 
                 if job_log:

@@ -6,11 +6,8 @@ and atomic file replacement.
 """
 
 import logging
-import queue
 import shutil
-import subprocess  # nosec B404 - subprocess is required for FFmpeg invocation
 import tempfile
-import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -38,11 +35,7 @@ from vpo.policy.video_analysis import (
     detect_vfr_content,
     select_primary_video_stream,
 )
-from vpo.tools.ffmpeg_metrics import FFmpegMetricsAggregator, FFmpegMetricsSummary
-from vpo.tools.ffmpeg_progress import (
-    FFmpegProgress,
-    parse_stderr_progress,
-)
+from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 from .command import build_ffmpeg_command, build_ffmpeg_command_pass1
 from .decisions import should_transcode_video
@@ -458,131 +451,6 @@ class TranscodeExecutor(FFmpegExecutorBase):
             return False
         return True
 
-    def _run_ffmpeg_with_timeout(
-        self,
-        cmd: list[str],
-        description: str,
-        progress_callback: Callable[[FFmpegProgress], None] | None = None,
-    ) -> tuple[bool, int, list[str], FFmpegMetricsSummary | None]:
-        """Run FFmpeg command with timeout and threaded stderr reading.
-
-        Args:
-            cmd: FFmpeg command arguments.
-            description: Description for logging (e.g., "pass 1", "transcode").
-            progress_callback: Optional callback for progress updates.
-
-        Returns:
-            Tuple of (success, return_code, stderr_lines, metrics_summary).
-            success is False if timeout expired or process failed.
-            metrics_summary contains aggregated encoding metrics if available.
-        """
-        process = subprocess.Popen(  # nosec B603
-            cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-
-        # Read stderr in a separate thread to support timeout
-        stderr_output: list[str] = []
-        stderr_queue: queue.Queue[str | None] = queue.Queue()
-        stop_event = threading.Event()
-
-        # Metrics aggregator for collecting encoding stats (Issue #264)
-        metrics_aggregator = FFmpegMetricsAggregator()
-
-        def read_stderr() -> None:
-            """Read stderr lines and put them in the queue."""
-            try:
-                assert process.stderr is not None
-                for line in process.stderr:
-                    if stop_event.is_set():
-                        break
-                    stderr_queue.put(line)
-            except (ValueError, OSError):
-                # Pipe closed or process terminated
-                pass
-            finally:
-                stderr_queue.put(None)  # Signal end of output
-
-        reader_thread = threading.Thread(target=read_stderr, daemon=True)
-        reader_thread.start()
-
-        # Process stderr output while waiting for completion
-        timeout_expired = False
-        start_time = time.monotonic()
-
-        while True:
-            # Check timeout
-            if self.transcode_timeout is not None:
-                elapsed = time.monotonic() - start_time
-                if elapsed >= self.transcode_timeout:
-                    timeout_expired = True
-                    break
-
-            # Check if process finished
-            if process.poll() is not None:
-                break
-
-            # Read from queue with timeout to allow checking process status
-            try:
-                line = stderr_queue.get(timeout=1.0)
-                if line is None:
-                    break  # End of stderr
-                stderr_output.append(line)
-                progress = parse_stderr_progress(line)
-                if progress:
-                    # Collect metrics (Issue #264)
-                    metrics_aggregator.add_sample(progress)
-                    if progress_callback:
-                        progress_callback(progress)
-            except queue.Empty:
-                continue
-
-        # Handle timeout
-        if timeout_expired:
-            logger.warning(
-                "%s timed out after %s seconds", description, self.transcode_timeout
-            )
-            stop_event.set()  # Signal thread to stop
-            process.kill()
-            # Close stderr to unblock reader thread
-            if process.stderr:
-                try:
-                    process.stderr.close()
-                except Exception:  # nosec B110 - Intentionally ignoring close errors
-                    pass
-            process.wait()  # Clean up zombie process
-            # Wait for reader thread to finish with shorter timeout
-            reader_thread.join(timeout=2.0)
-            if reader_thread.is_alive():
-                logger.warning("Stderr reader thread did not terminate cleanly")
-            return (False, -1, stderr_output, metrics_aggregator.summarize())
-
-        # Signal thread to stop (process completed normally)
-        stop_event.set()
-
-        # Drain any remaining stderr output
-        reader_thread.join(timeout=5.0)
-        while True:
-            try:
-                line = stderr_queue.get_nowait()
-                if line is None:
-                    break
-                stderr_output.append(line)
-            except queue.Empty:
-                break
-
-        # Wait for process to finish (should already be done)
-        process.wait()
-
-        return (
-            process.returncode == 0,
-            process.returncode,
-            stderr_output,
-            metrics_aggregator.summarize(),
-        )
-
     def _execute_two_pass(
         self,
         plan: TranscodePlan,
@@ -628,7 +496,10 @@ class TranscodeExecutor(FFmpegExecutorBase):
             logger.debug("FFmpeg pass 1 command: %s", " ".join(cmd1))
 
             success1, rc1, stderr1, _ = self._run_ffmpeg_with_timeout(
-                cmd1, "Pass 1", self.progress_callback
+                cmd1,
+                "Pass 1",
+                timeout=self.transcode_timeout,
+                progress_callback=self.progress_callback,
             )
 
             if not success1:
@@ -681,7 +552,10 @@ class TranscodeExecutor(FFmpegExecutorBase):
             logger.debug("FFmpeg pass 2 command: %s", " ".join(cmd2))
 
             success2, rc2, stderr2, metrics2 = self._run_ffmpeg_with_timeout(
-                cmd2, "Pass 2", self.progress_callback
+                cmd2,
+                "Pass 2",
+                timeout=self.transcode_timeout,
+                progress_callback=self.progress_callback,
             )
 
             if not success2:
@@ -883,7 +757,10 @@ class TranscodeExecutor(FFmpegExecutorBase):
 
             # Run FFmpeg with progress monitoring and timeout
             success, rc, stderr_output, metrics = self._run_ffmpeg_with_timeout(
-                cmd, "Transcode", self.progress_callback
+                cmd,
+                "Transcode",
+                timeout=self.transcode_timeout,
+                progress_callback=self.progress_callback,
             )
 
             if not success:

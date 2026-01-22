@@ -4,11 +4,21 @@ Provides shared tool path management, disk space checking, and delegates
 to ffmpeg_utils for common operations.
 """
 
+import logging
+import queue
+import subprocess  # nosec B404 - subprocess is required for FFmpeg invocation
+import threading
+import time
 from abc import ABC
+from collections.abc import Callable
 from pathlib import Path
 
 from vpo.executor import ffmpeg_utils
 from vpo.executor.interface import require_tool
+from vpo.tools.ffmpeg_metrics import FFmpegMetricsAggregator, FFmpegMetricsSummary
+from vpo.tools.ffmpeg_progress import FFmpegProgress, parse_stderr_progress
+
+logger = logging.getLogger(__name__)
 
 
 class FFmpegExecutorBase(ABC):
@@ -127,3 +137,133 @@ class FFmpegExecutorBase(ABC):
             path: Path to temp file to remove.
         """
         ffmpeg_utils.cleanup_temp_file(path)
+
+    def _run_ffmpeg_with_timeout(
+        self,
+        cmd: list[str],
+        description: str,
+        timeout: float | None = None,
+        progress_callback: Callable[[FFmpegProgress], None] | None = None,
+    ) -> tuple[bool, int, list[str], FFmpegMetricsSummary | None]:
+        """Run FFmpeg command with timeout and threaded stderr reading.
+
+        This method runs an FFmpeg command with proper timeout handling and
+        optional progress reporting via callback. It uses a separate thread
+        to read stderr to avoid blocking while still supporting timeouts.
+
+        Args:
+            cmd: FFmpeg command arguments.
+            description: Description for logging (e.g., "pass 1", "transcode").
+            timeout: Maximum time in seconds for the operation. None = no limit.
+            progress_callback: Optional callback for progress updates.
+
+        Returns:
+            Tuple of (success, return_code, stderr_lines, metrics_summary).
+            success is False if timeout expired or process failed.
+            return_code is -1 on timeout, otherwise the process return code.
+            metrics_summary contains aggregated encoding metrics if available.
+        """
+        process = subprocess.Popen(  # nosec B603
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        # Read stderr in a separate thread to support timeout
+        stderr_output: list[str] = []
+        stderr_queue: queue.Queue[str | None] = queue.Queue()
+        stop_event = threading.Event()
+
+        # Metrics aggregator for collecting encoding stats
+        metrics_aggregator = FFmpegMetricsAggregator()
+
+        def read_stderr() -> None:
+            """Read stderr lines and put them in the queue."""
+            try:
+                assert process.stderr is not None
+                for line in process.stderr:
+                    if stop_event.is_set():
+                        break
+                    stderr_queue.put(line)
+            except (ValueError, OSError):
+                # Pipe closed or process terminated
+                pass
+            finally:
+                stderr_queue.put(None)  # Signal end of output
+
+        reader_thread = threading.Thread(target=read_stderr, daemon=True)
+        reader_thread.start()
+
+        # Process stderr output while waiting for completion
+        timeout_expired = False
+        start_time = time.monotonic()
+
+        while True:
+            # Check timeout
+            if timeout is not None:
+                elapsed = time.monotonic() - start_time
+                if elapsed >= timeout:
+                    timeout_expired = True
+                    break
+
+            # Check if process finished
+            if process.poll() is not None:
+                break
+
+            # Read from queue with timeout to allow checking process status
+            try:
+                line = stderr_queue.get(timeout=1.0)
+                if line is None:
+                    break  # End of stderr
+                stderr_output.append(line)
+                progress = parse_stderr_progress(line)
+                if progress:
+                    # Collect metrics
+                    metrics_aggregator.add_sample(progress)
+                    if progress_callback:
+                        progress_callback(progress)
+            except queue.Empty:
+                continue
+
+        # Handle timeout
+        if timeout_expired:
+            logger.warning("%s timed out after %s seconds", description, timeout)
+            stop_event.set()  # Signal thread to stop
+            process.kill()
+            # Close stderr to unblock reader thread
+            if process.stderr:
+                try:
+                    process.stderr.close()
+                except Exception:  # nosec B110 - Intentionally ignoring close errors
+                    pass
+            process.wait()  # Clean up zombie process
+            # Wait for reader thread to finish with shorter timeout
+            reader_thread.join(timeout=2.0)
+            if reader_thread.is_alive():
+                logger.warning("Stderr reader thread did not terminate cleanly")
+            return (False, -1, stderr_output, metrics_aggregator.summarize())
+
+        # Signal thread to stop (process completed normally)
+        stop_event.set()
+
+        # Drain any remaining stderr output
+        reader_thread.join(timeout=5.0)
+        while True:
+            try:
+                line = stderr_queue.get_nowait()
+                if line is None:
+                    break
+                stderr_output.append(line)
+            except queue.Empty:
+                break
+
+        # Wait for process to finish (should already be done)
+        process.wait()
+
+        return (
+            process.returncode == 0,
+            process.returncode,
+            stderr_output,
+            metrics_aggregator.summarize(),
+        )
