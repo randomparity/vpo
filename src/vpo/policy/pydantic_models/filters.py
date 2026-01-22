@@ -12,10 +12,14 @@ This module contains models for track filtering:
 """
 
 import logging
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from vpo.core.codecs import (
+    MP4_COMPATIBLE_AUDIO_CODECS,
+    MP4_COMPATIBLE_SUBTITLE_CODECS,
+)
 from vpo.policy.pydantic_models.base import _validate_language_codes
 
 logger = logging.getLogger(__name__)
@@ -114,6 +118,108 @@ class SubtitleActionsModel(BaseModel):
     clear_all_titles: bool = False
 
 
+# Known MP4-compatible codecs for validation warnings (from centralized registry)
+_KNOWN_CODECS = MP4_COMPATIBLE_AUDIO_CODECS | MP4_COMPATIBLE_SUBTITLE_CODECS
+
+
+class CodecTranscodeMappingModel(BaseModel):
+    """Pydantic model for per-codec transcode mapping.
+
+    Defines how a specific incompatible codec should be handled
+    during container conversion.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    codec: str
+    """Target codec to transcode to (e.g., 'aac', 'ac3', 'mov_text')."""
+
+    bitrate: str | None = None
+    """Target bitrate for audio transcoding (e.g., '256k', '320k')."""
+
+    action: Literal["transcode", "convert", "remove"] | None = None
+    """Override the default action for this codec."""
+
+    @field_validator("codec")
+    @classmethod
+    def validate_codec(cls, v: str) -> str:
+        """Validate codec is non-empty and warn if not MP4-compatible."""
+        v = v.strip().lower()
+        if not v:
+            raise ValueError("codec cannot be empty")
+        # Warn if codec is not known to be MP4-compatible
+        # This helps catch typos and configuration mistakes
+        if v not in _KNOWN_CODECS:
+            logger.warning(
+                "Codec '%s' is not a recognized MP4-compatible codec. "
+                "Known audio codecs: %s. Known subtitle codecs: %s. "
+                "If this is intentional, you can ignore this warning.",
+                v,
+                ", ".join(sorted(MP4_COMPATIBLE_AUDIO_CODECS)),
+                ", ".join(sorted(MP4_COMPATIBLE_SUBTITLE_CODECS)),
+            )
+        return v
+
+    @field_validator("bitrate")
+    @classmethod
+    def validate_bitrate(cls, v: str | None) -> str | None:
+        """Validate bitrate format if provided.
+
+        Requires explicit unit suffix (k for kbps, m for mbps) to avoid
+        confusion. Bare numbers like "256" would be interpreted as 256 bps
+        by ffmpeg, which is almost certainly not intended.
+
+        Valid range: 32k - 1536k (or equivalent in mbps).
+        """
+        if v is None:
+            return v
+        v = v.strip().lower()
+        if not v:
+            return None
+
+        # Require explicit unit suffix to avoid accidental bps values
+        if v.endswith("k"):
+            try:
+                value = int(v[:-1])
+            except ValueError:
+                raise ValueError(
+                    f"Invalid bitrate format '{v}'. Expected integer followed by "
+                    f"'k' (e.g., '256k')"
+                )
+            bitrate_kbps = value
+        elif v.endswith("m"):
+            try:
+                # Allow decimal for mbps (e.g., "1.5m")
+                value = float(v[:-1])
+            except ValueError:
+                raise ValueError(
+                    f"Invalid bitrate format '{v}'. Expected number followed by "
+                    f"'m' (e.g., '1m' or '1.5m')"
+                )
+            bitrate_kbps = int(value * 1000)
+        else:
+            # Bare numbers are rejected to avoid confusion
+            raise ValueError(
+                f"Bitrate '{v}' must include unit suffix. Use 'k' for kbps "
+                f"(e.g., '256k') or 'm' for mbps (e.g., '1m'). "
+                f"Bare numbers would be interpreted as bps, which is almost "
+                f"certainly not what you want."
+            )
+
+        # Validate range for audio bitrates (32k - 1536k is reasonable)
+        if bitrate_kbps < 32:
+            raise ValueError(
+                f"Bitrate {bitrate_kbps}k is too low. Minimum is 32k for audio."
+            )
+        if bitrate_kbps > 1536:
+            raise ValueError(
+                f"Bitrate {bitrate_kbps}k is too high. Maximum is 1536k (1.5m) "
+                f"for audio. For higher bitrates, consider using lossless codecs."
+            )
+
+        return v
+
+
 class ContainerModel(BaseModel):
     """Pydantic model for container configuration."""
 
@@ -121,6 +227,35 @@ class ContainerModel(BaseModel):
 
     target: Literal["mkv", "mp4"]
     on_incompatible_codec: Literal["error", "skip", "transcode"] = "error"
+    codec_mappings: dict[str, CodecTranscodeMappingModel] | None = None
+    """Per-codec transcode settings, keyed by source codec name."""
+
+    @field_validator("codec_mappings", mode="before")
+    @classmethod
+    def normalize_codec_keys(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Normalize codec keys to lowercase.
+
+        Note: At mode="before", we receive raw dict data, not model instances.
+        """
+        if v is None:
+            return v
+        return {k.lower(): val for k, val in v.items()}
+
+    @model_validator(mode="after")
+    def validate_codec_mappings_usage(self) -> "ContainerModel":
+        """Warn if codec_mappings is specified but won't be used.
+
+        codec_mappings only takes effect when on_incompatible_codec='transcode'.
+        Warn users if they configure mappings but use a different mode.
+        """
+        if self.codec_mappings and self.on_incompatible_codec != "transcode":
+            logger.warning(
+                "codec_mappings is configured but on_incompatible_codec='%s'. "
+                "codec_mappings only takes effect when "
+                "on_incompatible_codec='transcode'. The mappings will be ignored.",
+                self.on_incompatible_codec,
+            )
+        return self
 
 
 class FileTimestampModel(BaseModel):

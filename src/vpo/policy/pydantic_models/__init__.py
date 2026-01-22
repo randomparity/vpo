@@ -70,6 +70,7 @@ from vpo.policy.pydantic_models.filters import (
     AttachmentFilterModel,
     AudioActionsModel,
     AudioFilterModel,
+    CodecTranscodeMappingModel,
     ContainerModel,
     FileTimestampModel,
     LanguageFallbackModel,
@@ -140,6 +141,7 @@ __all__ = [
     "AttachmentFilterModel",
     "AudioActionsModel",
     "SubtitleActionsModel",
+    "CodecTranscodeMappingModel",
     "ContainerModel",
     "FileTimestampModel",
     # Conditions

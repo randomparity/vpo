@@ -957,7 +957,7 @@ class TestFFmpegRemuxExecutorBackup:
 
     @patch("vpo.executor.ffmpeg_remux.check_disk_space")
     @patch("vpo.executor.ffmpeg_remux.create_backup")
-    @patch("vpo.executor.ffmpeg_remux.require_tool")
+    @patch("vpo.executor.ffmpeg_base.require_tool")
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
     def test_creates_backup(
@@ -974,9 +974,13 @@ class TestFFmpegRemuxExecutorBackup:
         mock_backup.return_value = tmp_path / "video.mkv.vpo-backup"
         mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
+        # Create temp output file with content (simulating FFmpeg output)
+        temp_output = tmp_path / "output.mp4"
+        temp_output.write_bytes(b"fake mp4 content")
+
         # Mock the temp file context manager
         mock_temp = MagicMock()
-        mock_temp.name = str(tmp_path / "output.mp4")
+        mock_temp.name = str(temp_output)
         mock_tempfile.return_value.__enter__.return_value = mock_temp
 
         plan = Plan(
@@ -1004,7 +1008,7 @@ class TestFFmpegRemuxExecutorBackup:
     @patch("vpo.executor.ffmpeg_remux.check_disk_space")
     @patch("vpo.executor.ffmpeg_remux.create_backup")
     @patch("vpo.executor.ffmpeg_remux.safe_restore_from_backup")
-    @patch("vpo.executor.ffmpeg_remux.require_tool")
+    @patch("vpo.executor.ffmpeg_base.require_tool")
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
     def test_restores_on_failure(

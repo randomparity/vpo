@@ -2,10 +2,38 @@
 
 This package contains pure utility functions with no external dependencies.
 These utilities are used across the codebase for common operations like
-datetime parsing, formatting, validation, string manipulation, and subprocess
-invocation.
+datetime parsing, formatting, validation, string manipulation, subprocess
+invocation, and codec handling.
 """
 
+from vpo.core.codecs import (
+    AUDIO_CODEC_ALIASES,
+    BITMAP_SUBTITLE_CODECS,
+    DEFAULT_AUDIO_TRANSCODE_TARGET,
+    MP4_AUDIO_TRANSCODE_DEFAULTS,
+    MP4_COMPATIBLE_AUDIO_CODECS,
+    MP4_COMPATIBLE_SUBTITLE_CODECS,
+    MP4_COMPATIBLE_VIDEO_CODECS,
+    MP4_CONVERTIBLE_SUBTITLE_CODECS,
+    MP4_INCOMPATIBLE_CODECS,
+    SUBTITLE_CODEC_ALIASES,
+    VALID_TRANSCODE_AUDIO_CODECS,
+    VALID_TRANSCODE_VIDEO_CODECS,
+    VIDEO_CODEC_ALIASES,
+    TranscodeTarget,
+    audio_codec_matches,
+    audio_codec_matches_any,
+    codec_matches,
+    get_canonical_codec,
+    get_transcode_default,
+    is_bitmap_subtitle,
+    is_codec_compatible,
+    is_codec_mp4_compatible,
+    is_text_subtitle,
+    normalize_codec,
+    video_codec_matches,
+    video_codec_matches_any,
+)
 from vpo.core.datetime_utils import (
     calculate_duration_seconds,
     mtime_to_utc_iso,
@@ -38,6 +66,34 @@ from vpo.core.subprocess_utils import run_command
 from vpo.core.validation import is_valid_uuid
 
 __all__ = [
+    # codecs - constants
+    "VIDEO_CODEC_ALIASES",
+    "AUDIO_CODEC_ALIASES",
+    "SUBTITLE_CODEC_ALIASES",
+    "MP4_COMPATIBLE_VIDEO_CODECS",
+    "MP4_COMPATIBLE_AUDIO_CODECS",
+    "MP4_COMPATIBLE_SUBTITLE_CODECS",
+    "MP4_CONVERTIBLE_SUBTITLE_CODECS",
+    "BITMAP_SUBTITLE_CODECS",
+    "MP4_INCOMPATIBLE_CODECS",
+    "MP4_AUDIO_TRANSCODE_DEFAULTS",
+    "DEFAULT_AUDIO_TRANSCODE_TARGET",
+    "VALID_TRANSCODE_VIDEO_CODECS",
+    "VALID_TRANSCODE_AUDIO_CODECS",
+    "TranscodeTarget",
+    # codecs - functions
+    "normalize_codec",
+    "get_canonical_codec",
+    "video_codec_matches",
+    "video_codec_matches_any",
+    "audio_codec_matches",
+    "audio_codec_matches_any",
+    "codec_matches",
+    "is_codec_mp4_compatible",
+    "is_codec_compatible",
+    "get_transcode_default",
+    "is_text_subtitle",
+    "is_bitmap_subtitle",
     # datetime_utils
     "parse_iso_timestamp",
     "calculate_duration_seconds",

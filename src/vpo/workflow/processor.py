@@ -13,6 +13,7 @@ from sqlite3 import Connection
 from typing import TYPE_CHECKING
 
 from vpo.core import parse_iso_timestamp
+from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 if TYPE_CHECKING:
     from vpo.plugin import PluginRegistry
@@ -89,6 +90,7 @@ class WorkflowProcessor:
         policy_name: str = "workflow",
         selected_phases: list[str] | None = None,
         plugin_registry: "PluginRegistry | None" = None,
+        ffmpeg_progress_callback: Callable[[FFmpegProgress], None] | None = None,
     ) -> None:
         """Initialize the workflow processor.
 
@@ -104,6 +106,8 @@ class WorkflowProcessor:
             plugin_registry: Optional plugin registry for transcription.
                 If provided, uses TranscriptionCoordinator for transcription
                 operations. If None, transcription operations will be skipped.
+            ffmpeg_progress_callback: Optional callback for FFmpeg progress updates.
+                Used during container conversion with audio transcoding.
         """
         self.conn = conn
         self.policy = policy
@@ -112,6 +116,7 @@ class WorkflowProcessor:
         self.progress_callback = progress_callback
         self.policy_name = policy_name
         self._plugin_registry = plugin_registry
+        self._ffmpeg_progress_callback = ffmpeg_progress_callback
 
         # Determine which phases to execute
         if selected_phases:
@@ -137,6 +142,7 @@ class WorkflowProcessor:
             verbose=verbose,
             policy_name=policy_name,
             plugin_registry=plugin_registry,
+            ffmpeg_progress_callback=ffmpeg_progress_callback,
         )
 
         # Track phase outcomes for dependency resolution

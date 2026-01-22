@@ -265,12 +265,21 @@ def check_disk_space(
     file_path: Path,
     multiplier: float = 2.5,
 ) -> None:
-    """Pre-flight check for sufficient disk space before remux operations.
+    """Pre-flight check for sufficient disk space before backup+remux operations.
+
+    Use this function when you need a STRICT check before operations that
+    create backups (e.g., container remux). This function raises an exception
+    if space is insufficient, stopping the operation before it starts.
 
     This check ensures there's enough space for:
     - The backup file (1x original size)
     - The temporary output file (1x original size)
     - Some buffer for safety (0.5x original size)
+
+    For codec-aware transcode operations where output may be smaller than
+    input, use ffmpeg_utils.check_disk_space_for_transcode() instead,
+    which returns an error message string (or None) and estimates space
+    based on target codec compression ratios.
 
     Args:
         file_path: Path to the file being processed.

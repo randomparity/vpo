@@ -368,7 +368,11 @@ class JobWorker:
         if self._process_service is None:
             self._process_service = ProcessJobService(self.conn)
 
-        result = self._process_service.process(job, job_log)
+        result = self._process_service.process(
+            job,
+            job_log=job_log,
+            ffmpeg_progress_callback=self._create_progress_callback(job),
+        )
         return result.success, result.error_message, None
 
     def process_job(self, job: Job) -> None:

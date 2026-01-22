@@ -7,6 +7,7 @@ file information and track data to determine if a phase should be skipped.
 import logging
 from pathlib import Path
 
+from vpo.core.codecs import video_codec_matches
 from vpo.db.types import FileInfo, TrackInfo
 from vpo.policy.evaluator import normalize_container_format
 from vpo.policy.parsing import parse_duration, parse_file_size
@@ -72,28 +73,16 @@ def evaluate_skip_when(
     Returns:
         SkipReason if phase should be skipped, None if it should run
     """
-    # Check video_codec condition
+    # Check video_codec condition using centralized alias matching
     if condition.video_codec:
         video_track = get_video_track(file_info)
         if video_track is None:
             logger.debug("Cannot evaluate video_codec condition: no video track found")
         elif not video_track.codec:
             logger.debug("Cannot evaluate video_codec condition: video codec unknown")
-        elif video_track.codec:
-            video_codec_lower = video_track.codec.casefold()
-            # Check against common codec aliases
-            codec_aliases = {
-                video_codec_lower,
-                video_codec_lower.replace("-", ""),
-            }
-            # Add specific aliases
-            if video_codec_lower in ("hevc", "h265", "h.265"):
-                codec_aliases.update({"hevc", "h265", "h.265"})
-            if video_codec_lower in ("h264", "h.264", "avc"):
-                codec_aliases.update({"h264", "h.264", "avc"})
-
+        else:
             for target_codec in condition.video_codec:
-                if target_codec.casefold() in codec_aliases:
+                if video_codec_matches(video_track.codec, target_codec):
                     return SkipReason(
                         reason_type=SkipReasonType.CONDITION,
                         message=(

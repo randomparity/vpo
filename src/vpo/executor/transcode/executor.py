@@ -6,16 +6,14 @@ and atomic file replacement.
 """
 
 import logging
-import queue
 import shutil
-import subprocess  # nosec B404 - subprocess is required for FFmpeg invocation
 import tempfile
-import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
 
 from vpo.db import TrackInfo
+from vpo.executor.ffmpeg_base import FFmpegExecutorBase
 from vpo.policy.transcode import (
     AudioAction,
     create_audio_plan,
@@ -37,11 +35,7 @@ from vpo.policy.video_analysis import (
     detect_vfr_content,
     select_primary_video_stream,
 )
-from vpo.tools.ffmpeg_metrics import FFmpegMetricsAggregator, FFmpegMetricsSummary
-from vpo.tools.ffmpeg_progress import (
-    FFmpegProgress,
-    parse_stderr_progress,
-)
+from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 from .command import build_ffmpeg_command, build_ffmpeg_command_pass1
 from .decisions import should_transcode_video
@@ -96,7 +90,55 @@ def detect_encoder_type(cmd: list[str]) -> str:
     return "unknown"
 
 
-class TranscodeExecutor:
+# Patterns that indicate hardware encoder initialization failed
+HARDWARE_FALLBACK_PATTERNS = (
+    "Failed to initialise VAAPI",
+    "No device available",
+    "Cannot load nvenc",
+    "hwaccel initialisation returned error",
+    "Failed to create VAAPI",
+    "NVENC not available",
+    "No VAAPI support",
+    "Cannot open display",
+    "Failed to open encoder",  # Generic but often HW-related
+)
+
+
+def check_hardware_fallback(
+    cmd: list[str], stderr_lines: list[str]
+) -> tuple[str, bool]:
+    """Detect if hardware encoder fell back to software.
+
+    Args:
+        cmd: FFmpeg command arguments used.
+        stderr_lines: Stderr output from FFmpeg.
+
+    Returns:
+        Tuple of (encoder_type, was_fallback).
+        encoder_type is 'hardware', 'software', or 'unknown'.
+        was_fallback is True if hardware was requested but failed.
+    """
+    requested_type = detect_encoder_type(cmd)
+
+    # If we didn't request hardware, no fallback possible
+    if requested_type != "hardware":
+        return requested_type, False
+
+    # Check stderr for fallback indicators
+    stderr_text = "\n".join(stderr_lines)
+    for pattern in HARDWARE_FALLBACK_PATTERNS:
+        if pattern.lower() in stderr_text.lower():
+            logger.warning(
+                "Hardware encoder fallback detected: %s",
+                pattern,
+                extra={"pattern": pattern, "requested_encoder": requested_type},
+            )
+            return "software", True
+
+    return requested_type, False
+
+
+class TranscodeExecutor(FFmpegExecutorBase):
     """Executor for video transcoding operations."""
 
     def __init__(
@@ -122,6 +164,8 @@ class TranscodeExecutor:
             backup_original: Whether to backup original after success.
             transcode_timeout: Maximum time in seconds for transcode (None = no limit).
         """
+        # Note: TranscodeExecutor uses transcode_timeout, not base timeout
+        super().__init__(timeout=None)
         self.policy = policy
         self.skip_if = skip_if
         self.audio_config = audio_config
@@ -224,6 +268,15 @@ class TranscodeExecutor:
                 "Skipping video transcode - %s: %s",
                 skip_result.reason,
                 input_path,
+                extra={
+                    "input_path": str(input_path),
+                    "skip_reason": skip_result.reason,
+                    "video_codec": video_codec,
+                    "resolution": (
+                        f"{video_width}x{video_height}" if video_width else None
+                    ),
+                    "bitrate": effective_bitrate,
+                },
             )
             return TranscodePlan(
                 input_path=input_path,
@@ -325,38 +378,43 @@ class TranscodeExecutor:
         )
         return not needs_transcode
 
-    def _check_disk_space(
-        self,
-        plan: TranscodePlan,
-        ratio_hevc: float = 0.5,
-        ratio_other: float = 0.8,
-        buffer: float = 1.2,
-    ) -> str | None:
+    def _check_disk_space_for_plan(self, plan: TranscodePlan) -> str | None:
         """Check if there's enough disk space for transcoding.
+
+        Uses codec-aware disk space estimation. Checks the temp directory
+        if configured, otherwise checks the output file's parent directory.
 
         Args:
             plan: The transcode plan.
-            ratio_hevc: Estimated output/input size ratio for HEVC/AV1 codecs.
-            ratio_other: Estimated output/input size ratio for other codecs.
-            buffer: Buffer multiplier for safety margin.
 
         Returns:
             Error message if insufficient space, None if OK.
         """
-        # Estimate output size based on target codec
-        input_size = plan.input_path.stat().st_size
-        codec = self.policy.target_video_codec or "hevc"
-        ratio = ratio_hevc if codec in ("hevc", "h265", "av1") else ratio_other
-        estimated_size = int(input_size * ratio * buffer)
+        target_codec = self.policy.target_video_codec or "hevc"
 
-        # Check temp directory space if using temp
+        # Determine which directory to check for space
         if self.temp_directory:
-            temp_path = self.temp_directory
+            check_path = self.temp_directory
         else:
-            temp_path = plan.output_path.parent
+            check_path = plan.output_path.parent
+
+        # Estimate output size based on target codec
+        try:
+            input_size = plan.input_path.stat().st_size
+        except OSError as e:
+            logger.warning("Could not stat input file: %s", e)
+            return None
+
+        codec = target_codec.lower()
+        if codec in ("hevc", "h265", "av1"):
+            ratio = 0.5
+        else:
+            ratio = 0.8
+
+        estimated_size = int(input_size * ratio * 1.2)  # 1.2x buffer
 
         try:
-            disk_usage = shutil.disk_usage(temp_path)
+            disk_usage = shutil.disk_usage(check_path)
             if disk_usage.free < estimated_size:
                 free_gb = disk_usage.free / (1024**3)
                 need_gb = estimated_size / (1024**3)
@@ -401,18 +459,19 @@ class TranscodeExecutor:
     def _cleanup_partial(self, path: Path) -> None:
         """Remove partial output file on failure.
 
+        Uses the base class temp file cleanup method.
+
         Args:
             path: Path to potentially incomplete output file.
         """
-        if path.exists():
-            try:
-                path.unlink()
-                logger.info("Cleaned up partial output: %s", path)
-            except OSError as e:
-                logger.warning("Could not clean up partial output: %s", e)
+        self.cleanup_temp(path)
+        if not path.exists():
+            logger.info("Cleaned up partial output: %s", path)
 
     def _get_temp_output_path(self, output_path: Path) -> Path:
         """Generate temp output path for safe transcoding.
+
+        Uses the base class temp file generation method.
 
         Args:
             output_path: Final output path.
@@ -420,9 +479,7 @@ class TranscodeExecutor:
         Returns:
             Path for temporary output file.
         """
-        if self.temp_directory:
-            return self.temp_directory / f".vpo_temp_{output_path.name}"
-        return output_path.with_name(f".vpo_temp_{output_path.name}")
+        return self.create_temp_output(output_path, self.temp_directory)
 
     def _atomic_replace(self, temp_path: Path, output_path: Path) -> None:
         """Atomically replace output file with temp file.
@@ -437,147 +494,19 @@ class TranscodeExecutor:
     def _verify_output_integrity(self, output_path: Path) -> bool:
         """Verify output file integrity after transcode.
 
+        Uses the base class output validation method.
+
         Args:
             output_path: Path to output file.
 
         Returns:
             True if file passes integrity checks.
         """
-        if not output_path.exists():
-            logger.error("Output file does not exist: %s", output_path)
+        is_valid, error_msg = self.validate_output(output_path)
+        if not is_valid:
+            logger.error("Output validation failed: %s", error_msg)
             return False
-
-        if output_path.stat().st_size == 0:
-            logger.error("Output file is empty: %s", output_path)
-            return False
-
-        # Could add ffprobe validation here in future
         return True
-
-    def _run_ffmpeg_with_timeout(
-        self,
-        cmd: list[str],
-        description: str,
-        progress_callback: Callable[[FFmpegProgress], None] | None = None,
-    ) -> tuple[bool, int, list[str], FFmpegMetricsSummary | None]:
-        """Run FFmpeg command with timeout and threaded stderr reading.
-
-        Args:
-            cmd: FFmpeg command arguments.
-            description: Description for logging (e.g., "pass 1", "transcode").
-            progress_callback: Optional callback for progress updates.
-
-        Returns:
-            Tuple of (success, return_code, stderr_lines, metrics_summary).
-            success is False if timeout expired or process failed.
-            metrics_summary contains aggregated encoding metrics if available.
-        """
-        process = subprocess.Popen(  # nosec B603
-            cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-
-        # Read stderr in a separate thread to support timeout
-        stderr_output: list[str] = []
-        stderr_queue: queue.Queue[str | None] = queue.Queue()
-        stop_event = threading.Event()
-
-        # Metrics aggregator for collecting encoding stats (Issue #264)
-        metrics_aggregator = FFmpegMetricsAggregator()
-
-        def read_stderr() -> None:
-            """Read stderr lines and put them in the queue."""
-            try:
-                assert process.stderr is not None
-                for line in process.stderr:
-                    if stop_event.is_set():
-                        break
-                    stderr_queue.put(line)
-            except (ValueError, OSError):
-                # Pipe closed or process terminated
-                pass
-            finally:
-                stderr_queue.put(None)  # Signal end of output
-
-        reader_thread = threading.Thread(target=read_stderr, daemon=True)
-        reader_thread.start()
-
-        # Process stderr output while waiting for completion
-        timeout_expired = False
-        start_time = time.monotonic()
-
-        while True:
-            # Check timeout
-            if self.transcode_timeout is not None:
-                elapsed = time.monotonic() - start_time
-                if elapsed >= self.transcode_timeout:
-                    timeout_expired = True
-                    break
-
-            # Check if process finished
-            if process.poll() is not None:
-                break
-
-            # Read from queue with timeout to allow checking process status
-            try:
-                line = stderr_queue.get(timeout=1.0)
-                if line is None:
-                    break  # End of stderr
-                stderr_output.append(line)
-                progress = parse_stderr_progress(line)
-                if progress:
-                    # Collect metrics (Issue #264)
-                    metrics_aggregator.add_sample(progress)
-                    if progress_callback:
-                        progress_callback(progress)
-            except queue.Empty:
-                continue
-
-        # Handle timeout
-        if timeout_expired:
-            logger.warning(
-                "%s timed out after %s seconds", description, self.transcode_timeout
-            )
-            stop_event.set()  # Signal thread to stop
-            process.kill()
-            # Close stderr to unblock reader thread
-            if process.stderr:
-                try:
-                    process.stderr.close()
-                except Exception:  # nosec B110 - Intentionally ignoring close errors
-                    pass
-            process.wait()  # Clean up zombie process
-            # Wait for reader thread to finish with shorter timeout
-            reader_thread.join(timeout=2.0)
-            if reader_thread.is_alive():
-                logger.warning("Stderr reader thread did not terminate cleanly")
-            return (False, -1, stderr_output, metrics_aggregator.summarize())
-
-        # Signal thread to stop (process completed normally)
-        stop_event.set()
-
-        # Drain any remaining stderr output
-        reader_thread.join(timeout=5.0)
-        while True:
-            try:
-                line = stderr_queue.get_nowait()
-                if line is None:
-                    break
-                stderr_output.append(line)
-            except queue.Empty:
-                break
-
-        # Wait for process to finish (should already be done)
-        process.wait()
-
-        return (
-            process.returncode == 0,
-            process.returncode,
-            stderr_output,
-            metrics_aggregator.summarize(),
-        )
 
     def _execute_two_pass(
         self,
@@ -620,11 +549,22 @@ class TranscodeExecutor:
             cmd1 = build_ffmpeg_command_pass1(
                 plan, two_pass_ctx, self.cpu_cores, quality, target_codec
             )
-            logger.info("Starting two-pass encoding pass 1: %s", plan.input_path)
-            logger.debug("FFmpeg pass 1 command: %s", " ".join(cmd1))
+            logger.info(
+                "Starting two-pass encoding pass 1: %s",
+                plan.input_path,
+                extra={
+                    "input_path": str(plan.input_path),
+                    "command": " ".join(cmd1),
+                    "pass": 1,
+                },
+            )
 
+            pass1_start = time.monotonic()
             success1, rc1, stderr1, _ = self._run_ffmpeg_with_timeout(
-                cmd1, "Pass 1", self.progress_callback
+                cmd1,
+                "Pass 1",
+                timeout=self.transcode_timeout,
+                progress_callback=self.progress_callback,
             )
 
             if not success1:
@@ -644,7 +584,12 @@ class TranscodeExecutor:
                     error_message=f"Two-pass encoding failed on pass 1: {error_msg}",
                 )
 
-            logger.info("Pass 1 complete, starting pass 2")
+            pass1_elapsed = time.monotonic() - pass1_start
+            logger.info(
+                "Pass 1 complete (%.1fs), starting pass 2",
+                pass1_elapsed,
+                extra={"pass": 1, "elapsed_seconds": round(pass1_elapsed, 3)},
+            )
 
             # === PASS 2 ===
             two_pass_ctx.current_pass = 2
@@ -673,11 +618,22 @@ class TranscodeExecutor:
             cmd2 = build_ffmpeg_command(
                 temp_plan, self.cpu_cores, quality, target_codec, two_pass_ctx
             )
-            logger.info("Starting two-pass encoding pass 2: %s", plan.input_path)
-            logger.debug("FFmpeg pass 2 command: %s", " ".join(cmd2))
+            logger.info(
+                "Starting two-pass encoding pass 2: %s",
+                plan.input_path,
+                extra={
+                    "input_path": str(plan.input_path),
+                    "command": " ".join(cmd2),
+                    "pass": 2,
+                },
+            )
 
+            pass2_start = time.monotonic()
             success2, rc2, stderr2, metrics2 = self._run_ffmpeg_with_timeout(
-                cmd2, "Pass 2", self.progress_callback
+                cmd2,
+                "Pass 2",
+                timeout=self.transcode_timeout,
+                progress_callback=self.progress_callback,
             )
 
             if not success2:
@@ -697,6 +653,19 @@ class TranscodeExecutor:
                     success=False,
                     error_message=f"Two-pass encoding failed on pass 2: {error_msg}",
                 )
+
+            pass2_elapsed = time.monotonic() - pass2_start
+            total_elapsed = pass1_elapsed + pass2_elapsed
+            logger.info(
+                "Pass 2 complete (%.1fs, total: %.1fs)",
+                pass2_elapsed,
+                total_elapsed,
+                extra={
+                    "pass": 2,
+                    "pass2_seconds": round(pass2_elapsed, 3),
+                    "total_seconds": round(total_elapsed, 3),
+                },
+            )
 
             return TranscodeResult(
                 success=True,
@@ -737,17 +706,33 @@ class TranscodeExecutor:
                 "Skipping video transcode - already compliant: %s (%s)",
                 plan.input_path,
                 plan.skip_reason,
+                extra={
+                    "input_path": str(plan.input_path),
+                    "skip_reason": plan.skip_reason,
+                    "video_codec": plan.video_codec,
+                    "resolution": (
+                        f"{plan.video_width}x{plan.video_height}"
+                        if plan.video_width
+                        else None
+                    ),
+                    "bitrate": plan.video_bitrate,
+                },
             )
             return TranscodeResult(success=True)
 
         if not plan.needs_video_transcode:
             logger.info(
-                "File already compliant, no transcode needed: %s", plan.input_path
+                "File already compliant, no transcode needed: %s",
+                plan.input_path,
+                extra={
+                    "input_path": str(plan.input_path),
+                    "video_codec": plan.video_codec,
+                },
             )
             return TranscodeResult(success=True)
 
         # Check disk space before starting
-        space_error = self._check_disk_space(plan)
+        space_error = self._check_disk_space_for_plan(plan)
         if space_error:
             logger.error("Disk space check failed: %s", space_error)
             return TranscodeResult(success=False, error_message=space_error)
@@ -870,7 +855,11 @@ class TranscodeExecutor:
         )
 
         cmd = build_ffmpeg_command(temp_plan, self.cpu_cores)
-        logger.debug("FFmpeg command: %s", " ".join(cmd))
+        logger.info(
+            "Executing FFmpeg: %s",
+            " ".join(cmd),
+            extra={"input_path": str(plan.input_path), "command_type": "transcode"},
+        )
 
         try:
             # Ensure output directory exists
@@ -879,7 +868,10 @@ class TranscodeExecutor:
 
             # Run FFmpeg with progress monitoring and timeout
             success, rc, stderr_output, metrics = self._run_ffmpeg_with_timeout(
-                cmd, "Transcode", self.progress_callback
+                cmd,
+                "Transcode",
+                timeout=self.transcode_timeout,
+                progress_callback=self.progress_callback,
             )
 
             if not success:
@@ -923,6 +915,23 @@ class TranscodeExecutor:
                     # Not a fatal error - transcode succeeded
 
             elapsed = time.monotonic() - start_time
+
+            # Log encoding metrics summary for observability
+            if metrics and metrics.sample_count > 0:
+                logger.info(
+                    "Encoding metrics: avg=%.1f fps, peak=%.1f fps, bitrate=%.0f kbps",
+                    metrics.avg_fps or 0,
+                    metrics.peak_fps or 0,
+                    metrics.avg_bitrate_kbps or 0,
+                    extra={
+                        "avg_fps": metrics.avg_fps,
+                        "peak_fps": metrics.peak_fps,
+                        "avg_bitrate_kbps": metrics.avg_bitrate_kbps,
+                        "total_frames": metrics.total_frames,
+                        "sample_count": metrics.sample_count,
+                    },
+                )
+
             logger.info(
                 "Transcode completed: %s",
                 plan.output_path.name,

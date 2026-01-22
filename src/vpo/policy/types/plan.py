@@ -148,6 +148,84 @@ class TrackDisposition:
 
 
 @dataclass(frozen=True)
+class IncompatibleTrackPlan:
+    """Plan for handling an incompatible track during container conversion.
+
+    Created when on_incompatible_codec is set to 'transcode' and a track
+    has a codec that cannot be directly copied to the target container.
+
+    Invariants:
+    - If action is "transcode" or "convert", target_codec must be set
+    - If action is "remove", target_codec must be None
+    - target_bitrate is only valid when action is "transcode"
+    """
+
+    track_index: int
+    """0-based global track index in source file."""
+
+    track_type: str
+    """Track type: 'audio' or 'subtitle'."""
+
+    source_codec: str
+    """Source codec that is incompatible (e.g., 'truehd', 'hdmv_pgs_subtitle')."""
+
+    action: Literal["transcode", "remove", "convert"]
+    """Action to take:
+    - transcode: Re-encode to compatible codec (audio)
+    - convert: Convert to compatible format (text subtitles)
+    - remove: Remove track entirely (bitmap subtitles)
+    """
+
+    target_codec: str | None = None
+    """Target codec after transcoding/conversion (None if removing)."""
+
+    target_bitrate: str | None = None
+    """Target bitrate for audio transcoding (e.g., '256k')."""
+
+    reason: str = ""
+    """Human-readable reason for this action."""
+
+    def __post_init__(self) -> None:
+        """Validate invariants after initialization."""
+        if self.action in ("transcode", "convert"):
+            if self.target_codec is None:
+                raise ValueError(
+                    f"IncompatibleTrackPlan with action='{self.action}' requires "
+                    f"target_codec to be set (track {self.track_index})"
+                )
+        elif self.action == "remove":
+            if self.target_codec is not None:
+                raise ValueError(
+                    f"IncompatibleTrackPlan with action='remove' must have "
+                    f"target_codec=None, got '{self.target_codec}' "
+                    f"(track {self.track_index})"
+                )
+
+        if self.target_bitrate is not None and self.action != "transcode":
+            raise ValueError(
+                f"IncompatibleTrackPlan with action='{self.action}' must have "
+                f"target_bitrate=None, got '{self.target_bitrate}' "
+                f"(track {self.track_index}). "
+                f"target_bitrate is only valid for action='transcode'"
+            )
+
+
+@dataclass(frozen=True)
+class ContainerTranscodePlan:
+    """Plan for container conversion with track transcoding.
+
+    Created when on_incompatible_codec is 'transcode' and incompatible
+    tracks are found. Contains the detailed plan for each track.
+    """
+
+    track_plans: tuple[IncompatibleTrackPlan, ...]
+    """Plans for each incompatible track."""
+
+    warnings: tuple[str, ...] = ()
+    """Warnings about the conversion (e.g., lost subtitle styling)."""
+
+
+@dataclass(frozen=True)
 class ContainerChange:
     """Planned container format conversion.
 
@@ -166,6 +244,13 @@ class ContainerChange:
 
     incompatible_tracks: tuple[int, ...]
     """Track indices that are incompatible with target format."""
+
+    transcode_plan: ContainerTranscodePlan | None = None
+    """Plan for handling incompatible tracks via transcoding.
+
+    Only present when on_incompatible_codec is 'transcode' and
+    incompatible tracks were found.
+    """
 
 
 @dataclass(frozen=True)

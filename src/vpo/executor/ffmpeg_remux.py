@@ -1,12 +1,14 @@
 """FFmpeg remux executor for container conversion.
 
 This module provides an executor for lossless container conversion
-(primarily MKV to MP4) using ffmpeg with stream copy.
+(primarily MKV to MP4) using ffmpeg with stream copy, with optional
+selective transcoding for incompatible tracks.
 """
 
 import logging
 import subprocess  # nosec B404 - subprocess is required for ffmpeg execution
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 from vpo.executor.backup import (
@@ -15,47 +17,83 @@ from vpo.executor.backup import (
     create_backup,
     safe_restore_from_backup,
 )
-from vpo.executor.interface import ExecutorResult, require_tool
-from vpo.policy.types import Plan
+from vpo.executor.ffmpeg_base import FFmpegExecutorBase
+from vpo.executor.interface import ExecutorResult
+from vpo.policy.types import ContainerTranscodePlan, Plan
+from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 logger = logging.getLogger(__name__)
 
 
-class FFmpegRemuxExecutor:
+def _truncate_stderr(stderr: str, max_lines: int = 20, head_lines: int = 5) -> str:
+    """Truncate long FFmpeg stderr output keeping first N and last M lines.
+
+    Keeps the first `head_lines` lines (often contain important initialization
+    messages) and the last `max_lines - head_lines` lines (contain the error).
+
+    Args:
+        stderr: Full stderr output from FFmpeg.
+        max_lines: Total maximum number of lines to keep.
+        head_lines: Number of lines to keep from the beginning.
+
+    Returns:
+        Truncated stderr string, or original if within limit.
+    """
+    if not stderr:
+        return stderr
+    lines = stderr.splitlines()
+    if len(lines) <= max_lines:
+        return stderr
+
+    tail_lines = max_lines - head_lines
+    truncated_count = len(lines) - max_lines
+    head_part = lines[:head_lines]
+    tail_part = lines[-tail_lines:] if tail_lines > 0 else []
+
+    return (
+        "\n".join(head_part)
+        + f"\n...(truncated {truncated_count} lines)...\n"
+        + "\n".join(tail_part)
+    )
+
+
+class FFmpegRemuxExecutor(FFmpegExecutorBase):
     """Executor for container conversion using FFmpeg.
 
     This executor handles container conversion to MP4 using lossless
-    stream copy. It is used when:
+    stream copy, with optional selective transcoding for incompatible
+    tracks when on_incompatible_codec is set to 'transcode'.
+
+    It is used when:
     - Plan has container_change with target=mp4
 
-    Note: This executor assumes codec compatibility has already been
-    checked by the policy evaluator. Incompatible codecs should have
-    either raised IncompatibleCodecError or skipped the conversion.
+    When a transcode_plan is present, the executor:
+    - Transcodes incompatible audio tracks to AAC
+    - Converts text subtitles to mov_text
+    - Removes bitmap subtitles (PGS, DVD) that cannot be converted
+    - Copies all compatible tracks losslessly
 
     The executor:
     1. Creates a backup of the original file
-    2. Writes to a temp file with -c copy (lossless)
+    2. Writes to a temp file with -c copy (lossless) or selective transcoding
     3. Uses -movflags +faststart for streaming optimization
     4. Atomically moves the output to the final location
     """
 
-    DEFAULT_TIMEOUT: int = 1800  # 30 minutes
-
-    def __init__(self, timeout: int | None = None) -> None:
+    def __init__(
+        self,
+        timeout: int | None = None,
+        progress_callback: Callable[[FFmpegProgress], None] | None = None,
+    ) -> None:
         """Initialize the executor.
 
         Args:
             timeout: Subprocess timeout in seconds. None uses DEFAULT_TIMEOUT.
+            progress_callback: Optional callback for FFmpeg progress updates.
+                Only invoked when transcoding is required (not for pure remux).
         """
-        self._tool_path: Path | None = None
-        self._timeout = timeout if timeout is not None else self.DEFAULT_TIMEOUT
-
-    @property
-    def tool_path(self) -> Path:
-        """Get path to ffmpeg, verifying availability."""
-        if self._tool_path is None:
-            self._tool_path = require_tool("ffmpeg")
-        return self._tool_path
+        super().__init__(timeout)
+        self.progress_callback = progress_callback
 
     def can_handle(self, plan: Plan) -> bool:
         """Check if this executor can handle the given plan.
@@ -67,6 +105,35 @@ class FFmpegRemuxExecutor:
             return False
 
         return plan.container_change.target_format == "mp4"
+
+    def _compute_timeout_for_plan(self, plan: Plan) -> int | None:
+        """Compute appropriate timeout based on plan and file size.
+
+        When transcoding is required, scales timeout based on file size
+        since transcoding takes significantly longer than remuxing.
+
+        Args:
+            plan: The execution plan.
+
+        Returns:
+            Timeout in seconds, or None for no timeout.
+        """
+        if self._timeout <= 0:
+            return None
+
+        # Check if transcoding is involved
+        transcode_plan = None
+        if plan.container_change:
+            transcode_plan = plan.container_change.transcode_plan
+
+        has_transcode = bool(transcode_plan and transcode_plan.track_plans)
+
+        try:
+            file_size_bytes = plan.file_path.stat().st_size
+            return self.compute_timeout(file_size_bytes, is_transcode=has_transcode)
+        except OSError:
+            # If we can't stat the file, use default timeout
+            return self._timeout
 
     def execute(
         self,
@@ -111,64 +178,154 @@ class FFmpegRemuxExecutor:
         ) as tmp:
             temp_path = Path(tmp.name)
 
+        # Compute timeout (may scale for transcoding)
+        timeout = self._compute_timeout_for_plan(plan)
+
         # Build ffmpeg command
         cmd = self._build_command(plan, temp_path)
 
-        # Execute command
-        try:
-            result = subprocess.run(  # nosec B603 - cmd from validated plan
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=self._timeout if self._timeout > 0 else None,
-                encoding="utf-8",
-                errors="replace",
-            )
-        except subprocess.TimeoutExpired:
-            temp_path.unlink(missing_ok=True)
-            safe_restore_from_backup(backup_path)
-            timeout_mins = self._timeout // 60 if self._timeout else 0
-            return ExecutorResult(
-                success=False,
-                message=f"ffmpeg timed out after {timeout_mins} min for "
-                f"{plan.file_path}",
-            )
-        except (subprocess.SubprocessError, OSError) as e:
-            temp_path.unlink(missing_ok=True)
-            safe_restore_from_backup(backup_path)
-            return ExecutorResult(
-                success=False,
-                message=f"ffmpeg failed for {plan.file_path}: {e}",
-            )
-        except Exception as e:
-            logger.exception(
-                "Unexpected error during ffmpeg execution for %s", plan.file_path
-            )
-            temp_path.unlink(missing_ok=True)
-            safe_restore_from_backup(backup_path)
-            return ExecutorResult(
-                success=False,
-                message=f"Unexpected error for {plan.file_path}: {e}",
-            )
+        # Determine if transcoding is involved (for progress reporting)
+        transcode_plan = (
+            plan.container_change.transcode_plan if plan.container_change else None
+        )
+        has_transcode = bool(transcode_plan and transcode_plan.track_plans)
 
-        if result.returncode != 0:
-            temp_path.unlink(missing_ok=True)
-            safe_restore_from_backup(backup_path)
-            return ExecutorResult(
-                success=False,
-                message=f"ffmpeg failed for {plan.file_path}: {result.stderr}",
-            )
+        # Log the FFmpeg command for debugging and operator visibility
+        logger.info(
+            "Executing FFmpeg: %s",
+            " ".join(cmd),
+            extra={"input_path": str(plan.file_path), "command_type": "remux"},
+        )
 
-        # Atomic move: move temp to output path
+        # Use try/finally to guarantee temp file cleanup
         try:
-            temp_path.replace(output_path)
-        except Exception as e:
-            temp_path.unlink(missing_ok=True)
-            safe_restore_from_backup(backup_path)
-            return ExecutorResult(
-                success=False,
-                message=f"Failed to move output for {plan.file_path}: {e}",
-            )
+            # Execute command - use progress-aware execution for transcode operations
+            if has_transcode and self.progress_callback:
+                # Use threaded execution with progress reporting
+                success, rc, stderr_lines, _ = self._run_ffmpeg_with_timeout(
+                    cmd,
+                    "container conversion",
+                    timeout=timeout,
+                    progress_callback=self.progress_callback,
+                )
+                if not success:
+                    restored = safe_restore_from_backup(backup_path)
+                    if rc == -1:
+                        # Timeout case
+                        timeout_mins = timeout // 60 if timeout else 0
+                        msg = (
+                            f"ffmpeg timed out after {timeout_mins} min "
+                            f"for {plan.file_path}"
+                        )
+                    else:
+                        # Non-zero return code
+                        truncated_stderr = _truncate_stderr("\n".join(stderr_lines))
+                        msg = f"ffmpeg failed for {plan.file_path}: {truncated_stderr}"
+                    if not restored:
+                        msg += (
+                            "\nWARNING: Could not restore backup - "
+                            "original file may be corrupted"
+                        )
+                    return ExecutorResult(success=False, message=msg)
+            else:
+                # Fast path for remux-only (no progress reporting)
+                try:
+                    result = subprocess.run(  # nosec B603 - cmd from validated plan
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=timeout,
+                        encoding="utf-8",
+                        errors="replace",
+                    )
+                except subprocess.TimeoutExpired:
+                    restored = safe_restore_from_backup(backup_path)
+                    timeout_mins = timeout // 60 if timeout else 0
+                    msg = (
+                        f"ffmpeg timed out after {timeout_mins} min "
+                        f"for {plan.file_path}"
+                    )
+                    if not restored:
+                        msg += (
+                            "\nWARNING: Could not restore backup - "
+                            "original file may be corrupted"
+                        )
+                    return ExecutorResult(success=False, message=msg)
+                except (subprocess.SubprocessError, OSError) as e:
+                    restored = safe_restore_from_backup(backup_path)
+                    msg = f"ffmpeg failed for {plan.file_path}: {e}"
+                    if not restored:
+                        msg += (
+                            "\nWARNING: Could not restore backup - "
+                            "original file may be corrupted"
+                        )
+                    return ExecutorResult(success=False, message=msg)
+                except Exception as e:
+                    logger.exception(
+                        "Unexpected error during ffmpeg execution for %s",
+                        plan.file_path,
+                    )
+                    restored = safe_restore_from_backup(backup_path)
+                    msg = f"Unexpected error for {plan.file_path}: {e}"
+                    if not restored:
+                        msg += (
+                            "\nWARNING: Could not restore backup - "
+                            "original file may be corrupted"
+                        )
+                    return ExecutorResult(success=False, message=msg)
+
+                if result.returncode != 0:
+                    restored = safe_restore_from_backup(backup_path)
+                    truncated_stderr = _truncate_stderr(result.stderr)
+                    msg = f"ffmpeg failed for {plan.file_path}: {truncated_stderr}"
+                    if not restored:
+                        msg += (
+                            "\nWARNING: Could not restore backup - "
+                            "original file may be corrupted"
+                        )
+                    return ExecutorResult(success=False, message=msg)
+
+            # Validate output file using base class method
+            try:
+                input_size = plan.file_path.stat().st_size
+            except OSError:
+                input_size = None
+
+            is_valid, error_msg = self.validate_output(temp_path, input_size)
+            if not is_valid:
+                restored = safe_restore_from_backup(backup_path)
+                msg = (
+                    f"ffmpeg output validation failed for {plan.file_path}: {error_msg}"
+                )
+                if not restored:
+                    msg += (
+                        "\nWARNING: Could not restore backup - "
+                        "original file may be corrupted"
+                    )
+                return ExecutorResult(success=False, message=msg)
+
+            # Atomic move: move temp to output path
+            try:
+                temp_path.replace(output_path)
+            except Exception as e:
+                restored = safe_restore_from_backup(backup_path)
+                msg = f"Failed to move output for {plan.file_path}: {e}"
+                if not restored:
+                    msg += (
+                        "\nWARNING: Could not restore backup - "
+                        "original file may be corrupted"
+                    )
+                return ExecutorResult(success=False, message=msg)
+
+        finally:
+            # Guarantee temp file cleanup.
+            # After successful replace(), temp_path no longer exists (it was renamed
+            # to output_path). This cleanup only runs if replace() failed or the
+            # subprocess failed before we reached the replace() call.
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError as e:
+                logger.error("Failed to clean up temp file %s: %s", temp_path, e)
 
         # Delete original file if extension changed (container conversion)
         # unless keep_original is True
@@ -182,9 +339,32 @@ class FFmpegRemuxExecutor:
 
         # Build success message
         src = plan.container_change.source_format
+        transcode_plan = plan.container_change.transcode_plan
+        if transcode_plan and transcode_plan.track_plans:
+            transcode_count = sum(
+                1 for p in transcode_plan.track_plans if p.action == "transcode"
+            )
+            convert_count = sum(
+                1 for p in transcode_plan.track_plans if p.action == "convert"
+            )
+            remove_count = sum(
+                1 for p in transcode_plan.track_plans if p.action == "remove"
+            )
+            details = []
+            if transcode_count:
+                details.append(f"{transcode_count} transcoded")
+            if convert_count:
+                details.append(f"{convert_count} converted")
+            if remove_count:
+                details.append(f"{remove_count} removed")
+            detail_str = ", ".join(details)
+            message = f"Converted {src} → mp4 ({detail_str})"
+        else:
+            message = f"Converted {src} → mp4"
+
         return ExecutorResult(
             success=True,
-            message=f"Converted {src} → mp4",
+            message=message,
             backup_path=result_backup_path,
         )
 
@@ -198,6 +378,15 @@ class FFmpegRemuxExecutor:
         Returns:
             List of command line arguments.
         """
+        # Check if we have a transcode plan for selective transcoding
+        transcode_plan = None
+        if plan.container_change:
+            transcode_plan = plan.container_change.transcode_plan
+
+        if transcode_plan:
+            return self._build_transcode_command(plan, output_path, transcode_plan)
+
+        # Standard remux command (no transcoding)
         cmd = [
             str(self.tool_path),
             "-i",
@@ -219,6 +408,112 @@ class FFmpegRemuxExecutor:
                     # Exclude this track from output
                     # -map -0:idx excludes global stream index
                     cmd.extend(["-map", f"-0:{disp.track_index}"])
+
+        # Output file (overwrite if exists)
+        cmd.extend(["-y", str(output_path)])
+
+        return cmd
+
+    def _build_transcode_command(
+        self,
+        plan: Plan,
+        output_path: Path,
+        transcode_plan: ContainerTranscodePlan,
+    ) -> list[str]:
+        """Build ffmpeg command with selective transcoding.
+
+        This method builds a command that:
+        - Copies compatible streams losslessly
+        - Transcodes incompatible audio to AAC
+        - Converts text subtitles to mov_text
+        - Removes bitmap subtitles
+
+        Args:
+            plan: The execution plan.
+            output_path: Path for the output file.
+            transcode_plan: Plan for handling incompatible tracks.
+
+        Returns:
+            List of command line arguments.
+        """
+        cmd = [
+            str(self.tool_path),
+            "-i",
+            str(plan.file_path),
+            "-map",
+            "0",  # Start with all streams
+        ]
+
+        # Build sets for quick lookup: idx -> (codec, bitrate) or target_codec
+        tracks_to_remove: set[int] = set()
+        tracks_to_transcode: dict[int, tuple[str, str | None]] = {}
+        tracks_to_convert: dict[int, str] = {}
+
+        for track_plan in transcode_plan.track_plans:
+            if track_plan.action == "remove":
+                tracks_to_remove.add(track_plan.track_index)
+            elif track_plan.action == "transcode":
+                tracks_to_transcode[track_plan.track_index] = (
+                    track_plan.target_codec or "aac",
+                    track_plan.target_bitrate,
+                )
+            elif track_plan.action == "convert":
+                tracks_to_convert[track_plan.track_index] = (
+                    track_plan.target_codec or "mov_text"
+                )
+
+        # Log codec decisions for visibility
+        if tracks_to_transcode or tracks_to_convert or tracks_to_remove:
+            logger.info(
+                "Container transcode: transcode=%d, convert=%d, remove=%d tracks",
+                len(tracks_to_transcode),
+                len(tracks_to_convert),
+                len(tracks_to_remove),
+                extra={
+                    "transcode_indices": list(tracks_to_transcode.keys()),
+                    "convert_indices": list(tracks_to_convert.keys()),
+                    "remove_indices": list(tracks_to_remove),
+                },
+            )
+
+        # Collect all excluded track indices (from transcode_plan and dispositions)
+        all_excluded: set[int] = set(tracks_to_remove)
+
+        # Handle track filtering if dispositions indicate removal
+        if plan.track_dispositions:
+            for disp in plan.track_dispositions:
+                if disp.action == "REMOVE":
+                    all_excluded.add(disp.track_index)
+
+        # Exclude removed tracks (sorted for deterministic order)
+        for idx in sorted(all_excluded):
+            cmd.extend(["-map", f"-0:{idx}"])
+
+        # Default: copy all streams
+        cmd.extend(["-c", "copy"])
+
+        # Calculate output stream index for each input index
+        # After removing tracks with -map -0:{idx}, output indices shift.
+        # For example, if we remove track 1, input track 2 becomes output track 1.
+        def output_index(input_idx: int) -> int:
+            """Convert input stream index to output stream index."""
+            return input_idx - sum(1 for r in all_excluded if r < input_idx)
+
+        # Override codec for specific streams that need transcoding
+        # Use output stream index notation: -c:out_idx codec
+        for idx, (codec, bitrate) in tracks_to_transcode.items():
+            out_idx = output_index(idx)
+            cmd.extend([f"-c:{out_idx}", codec])
+            if bitrate:
+                cmd.extend([f"-b:{out_idx}", bitrate])
+
+        # Override codec for subtitle conversions
+        for idx, codec in tracks_to_convert.items():
+            out_idx = output_index(idx)
+            cmd.extend([f"-c:{out_idx}", codec])
+
+        # MP4-specific optimizations
+        cmd.extend(["-movflags", "+faststart"])
 
         # Output file (overwrite if exists)
         cmd.extend(["-y", str(output_path)])

@@ -6,6 +6,7 @@ metadata parsing, and executor selection.
 
 import json
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from sqlite3 import Connection
 
@@ -19,6 +20,7 @@ from vpo.executor import (
     check_tool_availability,
 )
 from vpo.policy.evaluator import Plan
+from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +92,7 @@ def select_executor(
     plan: Plan,
     container: str,
     tools: dict[str, bool],
+    ffmpeg_progress_callback: Callable[[FFmpegProgress], None] | None = None,
 ) -> (
     MkvpropeditExecutor
     | MkvmergeExecutor
@@ -103,6 +106,8 @@ def select_executor(
         plan: The execution plan.
         container: The file container format.
         tools: Dict of tool availability.
+        ffmpeg_progress_callback: Optional callback for FFmpeg progress updates.
+            Only used when FFmpegRemuxExecutor is selected for container conversion.
 
     Returns:
         Appropriate executor instance, or None if no tool available.
@@ -112,7 +117,7 @@ def select_executor(
         target = plan.container_change.target_format
         if target == "mp4":
             if tools.get("ffmpeg"):
-                return FFmpegRemuxExecutor()
+                return FFmpegRemuxExecutor(progress_callback=ffmpeg_progress_callback)
         elif target in ("mkv", "matroska"):
             if tools.get("mkvmerge"):
                 return MkvmergeExecutor()

@@ -7,6 +7,7 @@ executors based on the phase definition.
 
 import logging
 import time
+from collections.abc import Callable
 from pathlib import Path
 from sqlite3 import Connection
 from typing import TYPE_CHECKING
@@ -22,6 +23,7 @@ from vpo.policy.types import (
     PhaseResult,
     PolicySchema,
 )
+from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 from .backup import cleanup_backup, create_backup, handle_phase_failure
 from .helpers import get_tools, get_tracks, parse_plugin_metadata, select_executor
@@ -56,6 +58,7 @@ class PhaseExecutor:
         verbose: bool = False,
         policy_name: str = "workflow",
         plugin_registry: "PluginRegistry | None" = None,
+        ffmpeg_progress_callback: Callable[[FFmpegProgress], None] | None = None,
     ) -> None:
         """Initialize the phase executor.
 
@@ -68,6 +71,8 @@ class PhaseExecutor:
             plugin_registry: Optional plugin registry for transcription.
                 If provided, uses TranscriptionCoordinator for transcription
                 operations. If None, transcription operations will be skipped.
+            ffmpeg_progress_callback: Optional callback for FFmpeg progress updates.
+                Used during container conversion with audio transcoding.
         """
         self.conn = conn
         self.policy = policy
@@ -75,6 +80,7 @@ class PhaseExecutor:
         self.verbose = verbose
         self.policy_name = policy_name
         self._plugin_registry = plugin_registry
+        self._ffmpeg_progress_callback = ffmpeg_progress_callback
 
         # Cache tool availability
         self._tools: dict[str, bool] | None = None
@@ -127,7 +133,7 @@ class PhaseExecutor:
     ):
         """Select appropriate executor based on plan and container."""
         tools = self._get_tools()
-        return select_executor(plan, container, tools)
+        return select_executor(plan, container, tools, self._ffmpeg_progress_callback)
 
     # =========================================================================
     # Phase Execution

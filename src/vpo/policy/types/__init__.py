@@ -63,6 +63,7 @@ from vpo.policy.types.filters import (
     AttachmentFilterConfig,
     AudioActionsConfig,
     AudioFilterConfig,
+    CodecTranscodeMapping,
     ContainerConfig,
     DefaultFlagsConfig,
     FileTimestampConfig,
@@ -75,7 +76,9 @@ from vpo.policy.types.filters import (
 # Plan and execution types (extracted)
 from vpo.policy.types.plan import (
     ContainerChange,
+    ContainerTranscodePlan,
     FileProcessingResult,
+    IncompatibleTrackPlan,
     PhaseExecutionContext,
     PhaseExecutionError,
     PhaseResult,
@@ -167,6 +170,7 @@ __all__ = [
     "AttachmentFilterConfig",
     "AudioActionsConfig",
     "SubtitleActionsConfig",
+    "CodecTranscodeMapping",
     "ContainerConfig",
     "DefaultFlagsConfig",
     "FileTimestampConfig",
@@ -208,6 +212,8 @@ __all__ = [
     "ConditionalResult",
     # Plan types
     "TrackDisposition",
+    "IncompatibleTrackPlan",
+    "ContainerTranscodePlan",
     "ContainerChange",
     "PlannedAction",
     "Plan",

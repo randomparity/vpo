@@ -6,9 +6,12 @@ This module provides adapters for external tools:
 - mkvmerge: MKV track reordering via remux
 - ffmpeg_metadata: Non-MKV metadata changes
 - ffmpeg_remux: Container conversion to MP4
+- ffmpeg_base: Base class for FFmpeg-based executors
+- ffmpeg_utils: Shared utilities for FFmpeg executors
 - backup: Backup creation, restoration, and cleanup utilities
 """
 
+from vpo.executor import ffmpeg_utils
 from vpo.executor.backup import (
     BACKUP_SUFFIX,
     FileLockError,
@@ -19,6 +22,7 @@ from vpo.executor.backup import (
     has_backup,
     restore_from_backup,
 )
+from vpo.executor.ffmpeg_base import FFmpegExecutorBase
 from vpo.executor.ffmpeg_metadata import FfmpegMetadataExecutor
 from vpo.executor.ffmpeg_remux import FFmpegRemuxExecutor
 from vpo.executor.interface import (
@@ -43,6 +47,10 @@ __all__ = [
     "MkvmergeExecutor",
     "FfmpegMetadataExecutor",
     "FFmpegRemuxExecutor",
+    # Base class
+    "FFmpegExecutorBase",
+    # Utilities
+    "ffmpeg_utils",
     # Backup
     "BACKUP_SUFFIX",
     "FileLockError",

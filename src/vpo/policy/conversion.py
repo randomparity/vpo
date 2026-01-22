@@ -38,6 +38,7 @@ from vpo.policy.types import (
     AudioIsMultiLanguageCondition,
     AudioSynthesisConfig,
     AudioTranscodeConfig,
+    CodecTranscodeMapping,
     Comparison,
     ComparisonOperator,
     Condition,
@@ -695,9 +696,20 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
     # Convert container
     container: ContainerConfig | None = None
     if phase.container is not None:
+        codec_mappings: dict[str, CodecTranscodeMapping] | None = None
+        if phase.container.codec_mappings is not None:
+            codec_mappings = {
+                codec: CodecTranscodeMapping(
+                    codec=mapping.codec,
+                    bitrate=mapping.bitrate,
+                    action=mapping.action,
+                )
+                for codec, mapping in phase.container.codec_mappings.items()
+            }
         container = ContainerConfig(
             target=phase.container.target,
             on_incompatible_codec=phase.container.on_incompatible_codec,
+            codec_mappings=codec_mappings,
         )
 
     # Convert audio_filter
