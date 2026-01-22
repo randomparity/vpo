@@ -33,6 +33,7 @@ from vpo.policy.pydantic_models.filters import (
     AudioActionsModel,
     AudioFilterModel,
     ContainerModel,
+    FileTimestampModel,
     SubtitleActionsModel,
     SubtitleFilterModel,
 )
@@ -259,6 +260,7 @@ class PhaseModel(BaseModel):
     audio_synthesis: AudioSynthesisModel | None = None
     transcode: TranscodeV6Model | None = None
     transcription: TranscriptionPolicyModel | None = None
+    file_timestamp: FileTimestampModel | None = None
     audio_actions: AudioActionsModel | None = None
     subtitle_actions: SubtitleActionsModel | None = None
 

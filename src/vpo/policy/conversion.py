@@ -48,6 +48,7 @@ from vpo.policy.types import (
     DefaultFlagsConfig,
     ExistsCondition,
     FailAction,
+    FileTimestampConfig,
     GlobalConfig,
     HardwareAccelConfig,
     HardwareAccelMode,
@@ -781,6 +782,15 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
             reorder_commentary=phase.transcription.reorder_commentary,
         )
 
+    # Convert file_timestamp
+    file_timestamp: FileTimestampConfig | None = None
+    if phase.file_timestamp is not None:
+        file_timestamp = FileTimestampConfig(
+            mode=phase.file_timestamp.mode,
+            fallback=phase.file_timestamp.fallback,
+            date_source=phase.file_timestamp.date_source,
+        )
+
     # Convert audio_actions
     audio_actions: AudioActionsConfig | None = None
     if phase.audio_actions is not None:
@@ -857,6 +867,7 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
         transcode=transcode,
         audio_transcode=audio_transcode,
         transcription=transcription,
+        file_timestamp=file_timestamp,
         audio_actions=audio_actions,
         subtitle_actions=subtitle_actions,
         skip_when=skip_when,

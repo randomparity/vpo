@@ -54,6 +54,7 @@ class OperationType(Enum):
     CONDITIONAL = "conditional"
     AUDIO_SYNTHESIS = "audio_synthesis"
     TRANSCODE = "transcode"
+    FILE_TIMESTAMP = "file_timestamp"
     TRANSCRIPTION = "transcription"
 
 
@@ -69,6 +70,7 @@ CANONICAL_OPERATION_ORDER: tuple[OperationType, ...] = (
     OperationType.CONDITIONAL,
     OperationType.AUDIO_SYNTHESIS,
     OperationType.TRANSCODE,
+    OperationType.FILE_TIMESTAMP,
     OperationType.TRANSCRIPTION,
 )
 

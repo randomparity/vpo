@@ -177,6 +177,9 @@ class SonarrClient:
                 name=lang_data.get("name", "Unknown"),
             )
 
+        # Parse first aired date
+        first_aired = self._extract_date(data.get("firstAired"))
+
         return SonarrSeries(
             id=series_id,
             title=data.get("title", ""),
@@ -185,6 +188,7 @@ class SonarrClient:
             original_language=original_language,
             imdb_id=data.get("imdbId"),
             tvdb_id=data.get("tvdbId"),
+            first_aired=first_aired,
         )
 
     def _parse_episode_response(self, data: dict[str, Any]) -> SonarrEpisode:
@@ -196,6 +200,9 @@ class SonarrClient:
         Returns:
             SonarrEpisode dataclass.
         """
+        # Parse air date
+        air_date = self._extract_date(data.get("airDate"))
+
         return SonarrEpisode(
             id=data.get("id", 0),
             series_id=data.get("seriesId", 0),
@@ -203,7 +210,26 @@ class SonarrClient:
             episode_number=data.get("episodeNumber", 0),
             title=data.get("title", ""),
             has_file=data.get("hasFile", False),
+            air_date=air_date,
         )
+
+    def _extract_date(self, datetime_str: str | None) -> str | None:
+        """Extract date portion from ISO 8601 datetime string.
+
+        Args:
+            datetime_str: ISO 8601 datetime (e.g., "2024-01-15T00:00:00Z")
+                         or date string (e.g., "2024-01-15").
+
+        Returns:
+            Date portion only (e.g., "2024-01-15") or None if not present.
+        """
+        if not datetime_str:
+            return None
+        # Take just the date portion before 'T'
+        if "T" in datetime_str:
+            return datetime_str.split("T")[0]
+        # Handle date-only strings (Sonarr sometimes returns just dates)
+        return datetime_str[:10] if len(datetime_str) >= 10 else None
 
     def _parse_parse_result(self, data: dict[str, Any]) -> SonarrParseResult:
         """Parse full parse response to SonarrParseResult.

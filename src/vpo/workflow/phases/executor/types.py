@@ -46,3 +46,7 @@ class PhaseExecutionState:
 
     transcode_skip_reason: str | None = None
     """If transcode was skipped, the reason (for stats tracking)."""
+
+    original_mtime: float | None = None
+    """Original file modification time (Unix timestamp) captured at phase start.
+    Used by file_timestamp operation to restore original mtime after processing."""

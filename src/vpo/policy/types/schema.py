@@ -22,6 +22,7 @@ from vpo.policy.types.filters import (
     AudioFilterConfig,
     ContainerConfig,
     DefaultFlagsConfig,
+    FileTimestampConfig,
     SubtitleActionsConfig,
     SubtitleFilterConfig,
     TranscriptionPolicyOptions,
@@ -192,6 +193,9 @@ class PhaseDefinition:
     transcription: TranscriptionPolicyOptions | None = None
     """Transcription analysis configuration."""
 
+    file_timestamp: FileTimestampConfig | None = None
+    """File timestamp handling configuration."""
+
     audio_actions: AudioActionsConfig | None = None
     """Pre-processing actions for audio tracks."""
 
@@ -250,6 +254,11 @@ class PhaseDefinition:
                 ops.append(op_type)
             elif op_type == OperationType.TRANSCODE and (
                 self.transcode is not None or self.audio_transcode is not None
+            ):
+                ops.append(op_type)
+            elif (
+                op_type == OperationType.FILE_TIMESTAMP
+                and self.file_timestamp is not None
             ):
                 ops.append(op_type)
             elif (

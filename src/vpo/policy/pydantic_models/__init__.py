@@ -71,6 +71,7 @@ from vpo.policy.pydantic_models.filters import (
     AudioActionsModel,
     AudioFilterModel,
     ContainerModel,
+    FileTimestampModel,
     LanguageFallbackModel,
     SubtitleActionsModel,
     SubtitleFilterModel,
@@ -140,6 +141,7 @@ __all__ = [
     "AudioActionsModel",
     "SubtitleActionsModel",
     "ContainerModel",
+    "FileTimestampModel",
     # Conditions
     "ComparisonModel",
     "TitleMatchModel",

@@ -117,3 +117,21 @@ class ContainerModel(BaseModel):
 
     target: Literal["mkv", "mp4"]
     on_incompatible_codec: Literal["error", "skip", "transcode"] = "error"
+
+
+class FileTimestampModel(BaseModel):
+    """Pydantic model for file timestamp configuration.
+
+    Controls file modification timestamp handling after processing.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    mode: Literal["preserve", "release_date", "now"] = "preserve"
+    """Timestamp handling mode."""
+
+    fallback: Literal["preserve", "now", "skip"] = "preserve"
+    """Fallback behavior when release_date mode has no date available."""
+
+    date_source: Literal["auto", "radarr", "sonarr"] = "auto"
+    """Source for release date."""

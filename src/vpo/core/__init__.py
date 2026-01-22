@@ -11,6 +11,11 @@ from vpo.core.datetime_utils import (
     mtime_to_utc_iso,
     parse_iso_timestamp,
 )
+from vpo.core.file_utils import (
+    copy_file_mtime,
+    get_file_mtime,
+    set_file_mtime,
+)
 from vpo.core.formatting import (
     format_audio_languages,
     format_file_size,
@@ -36,6 +41,10 @@ __all__ = [
     "parse_iso_timestamp",
     "calculate_duration_seconds",
     "mtime_to_utc_iso",
+    # file_utils
+    "get_file_mtime",
+    "set_file_mtime",
+    "copy_file_mtime",
     # formatting
     "format_file_size",
     "get_resolution_label",

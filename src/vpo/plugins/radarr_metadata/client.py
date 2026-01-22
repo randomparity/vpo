@@ -179,6 +179,12 @@ class RadarrClient:
                 name=lang_data.get("name", "Unknown"),
             )
 
+        # Parse release dates - Radarr returns ISO 8601 datetime strings
+        # We extract just the date portion (YYYY-MM-DD) if present
+        digital_release = self._extract_date(data.get("digitalRelease"))
+        physical_release = self._extract_date(data.get("physicalRelease"))
+        cinema_release = self._extract_date(data.get("inCinemas"))
+
         return RadarrMovie(
             id=data["id"],
             title=data.get("title", ""),
@@ -189,7 +195,27 @@ class RadarrClient:
             has_file=data.get("hasFile", False),
             imdb_id=data.get("imdbId"),
             tmdb_id=data.get("tmdbId"),
+            digital_release=digital_release,
+            physical_release=physical_release,
+            cinema_release=cinema_release,
         )
+
+    def _extract_date(self, datetime_str: str | None) -> str | None:
+        """Extract date portion from ISO 8601 datetime string.
+
+        Args:
+            datetime_str: ISO 8601 datetime (e.g., "2024-01-15T00:00:00Z").
+
+        Returns:
+            Date portion only (e.g., "2024-01-15") or None if not present.
+        """
+        if not datetime_str:
+            return None
+        # Take just the date portion before 'T'
+        if "T" in datetime_str:
+            return datetime_str.split("T")[0]
+        # Handle date-only strings
+        return datetime_str[:10] if len(datetime_str) >= 10 else None
 
     def _parse_movie_file_response(self, data: dict[str, Any]) -> RadarrMovieFile:
         """Parse movie file JSON response to RadarrMovieFile.
