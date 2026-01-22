@@ -6,6 +6,7 @@ resolution, and policy settings.
 
 import logging
 
+from vpo.core.codecs import video_codec_matches
 from vpo.policy.types import TranscodePolicyConfig
 
 logger = logging.getLogger(__name__)
@@ -33,25 +34,14 @@ def should_transcode_video(
     target_width = None
     target_height = None
 
-    # Check codec compliance
+    # Check codec compliance using centralized alias matching
     if policy.target_video_codec:
         target_codec = policy.target_video_codec.casefold()
-        # Normalize codec names for comparison
-        codec_aliases = {
-            "hevc": ("hevc", "h265", "x265"),
-            "h264": ("h264", "avc", "x264"),
-            "vp9": ("vp9", "vp09"),
-            "av1": ("av1", "av01"),
-        }
-        target_variants = codec_aliases.get(target_codec, (target_codec,))
-
-        if current_codec:
-            current_normalized = current_codec.casefold()
-            if not any(variant in current_normalized for variant in target_variants):
-                needs_transcode = True
-                logger.debug(
-                    "Video transcode needed: %s -> %s", current_codec, target_codec
-                )
+        if current_codec and not video_codec_matches(current_codec, target_codec):
+            needs_transcode = True
+            logger.debug(
+                "Video transcode needed: %s -> %s", current_codec, target_codec
+            )
 
     # Check resolution limits
     max_dims = policy.get_max_dimensions()

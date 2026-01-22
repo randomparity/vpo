@@ -16,6 +16,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from vpo.core.codecs import (
+    MP4_COMPATIBLE_AUDIO_CODECS,
+    MP4_COMPATIBLE_SUBTITLE_CODECS,
+)
 from vpo.policy.pydantic_models.base import _validate_language_codes
 
 logger = logging.getLogger(__name__)
@@ -114,12 +118,8 @@ class SubtitleActionsModel(BaseModel):
     clear_all_titles: bool = False
 
 
-# Known MP4-compatible codecs for validation warnings
-_KNOWN_MP4_AUDIO_CODECS = frozenset(
-    {"aac", "mp4a", "ac3", "eac3", "mp3", "mp3float", "flac", "opus", "alac"}
-)
-_KNOWN_MP4_SUBTITLE_CODECS = frozenset({"mov_text", "tx3g", "webvtt"})
-_KNOWN_CODECS = _KNOWN_MP4_AUDIO_CODECS | _KNOWN_MP4_SUBTITLE_CODECS
+# Known MP4-compatible codecs for validation warnings (from centralized registry)
+_KNOWN_CODECS = MP4_COMPATIBLE_AUDIO_CODECS | MP4_COMPATIBLE_SUBTITLE_CODECS
 
 
 class CodecTranscodeMappingModel(BaseModel):
@@ -155,8 +155,8 @@ class CodecTranscodeMappingModel(BaseModel):
                 "Known audio codecs: %s. Known subtitle codecs: %s. "
                 "If this is intentional, you can ignore this warning.",
                 v,
-                ", ".join(sorted(_KNOWN_MP4_AUDIO_CODECS)),
-                ", ".join(sorted(_KNOWN_MP4_SUBTITLE_CODECS)),
+                ", ".join(sorted(MP4_COMPATIBLE_AUDIO_CODECS)),
+                ", ".join(sorted(MP4_COMPATIBLE_SUBTITLE_CODECS)),
             )
         return v
 

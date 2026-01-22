@@ -6,6 +6,13 @@ including codec compatibility checking for MP4 conversion.
 
 from __future__ import annotations
 
+from vpo.core.codecs import (
+    BITMAP_SUBTITLE_CODECS,
+    DEFAULT_AUDIO_TRANSCODE_TARGET,
+    MP4_AUDIO_TRANSCODE_DEFAULTS,
+    MP4_CONVERTIBLE_SUBTITLE_CODECS,
+    is_codec_mp4_compatible,
+)
 from vpo.domain import TrackInfo
 from vpo.policy.exceptions import IncompatibleCodecError
 from vpo.policy.types import (
@@ -14,69 +21,6 @@ from vpo.policy.types import (
     ContainerTranscodePlan,
     EvaluationPolicy,
     IncompatibleTrackPlan,
-)
-
-# Codecs compatible with MP4 container
-_MP4_COMPATIBLE_VIDEO_CODECS = frozenset(
-    {
-        "h264",
-        "avc",
-        "avc1",
-        "hevc",
-        "h265",
-        "hvc1",
-        "hev1",
-        "av1",
-        "av01",
-        "mpeg4",
-        "mp4v",
-        "vp9",
-    }
-)
-
-_MP4_COMPATIBLE_AUDIO_CODECS = frozenset(
-    {
-        "aac",
-        "mp4a",
-        "ac3",
-        "eac3",
-        "mp3",
-        "mp3float",
-        "flac",
-        "opus",
-        "alac",
-    }
-)
-
-_MP4_COMPATIBLE_SUBTITLE_CODECS = frozenset(
-    {
-        "mov_text",
-        "tx3g",
-        "webvtt",
-    }
-)
-
-# Default transcoding targets for incompatible audio codecs when converting to MP4
-# Format: source_codec -> (target_codec, target_bitrate)
-_MP4_AUDIO_TRANSCODE_DEFAULTS: dict[str, tuple[str, str]] = {
-    "truehd": ("aac", "256k"),
-    "dts": ("aac", "256k"),
-    "dts-hd ma": ("aac", "320k"),
-    "dts-hd": ("aac", "320k"),
-    "vorbis": ("aac", "192k"),
-    "pcm_s16le": ("aac", "192k"),
-    "pcm_s24le": ("aac", "192k"),
-    "pcm_s32le": ("aac", "192k"),
-}
-
-# Text-based subtitle codecs that can be converted to mov_text
-# Note: webvtt is already MP4-compatible (in _MP4_COMPATIBLE_SUBTITLE_CODECS)
-# so it should not be in this conversion set
-_MP4_TEXT_SUBTITLE_CODECS = frozenset({"subrip", "srt", "ass", "ssa"})
-
-# Bitmap subtitle codecs that must be removed (OCR is too complex)
-_MP4_BITMAP_SUBTITLE_CODECS = frozenset(
-    {"hdmv_pgs_subtitle", "dvd_subtitle", "dvdsub", "pgssub"}
 )
 
 
@@ -119,29 +63,6 @@ def normalize_container_format(container: str) -> str:
     return container
 
 
-def _is_codec_mp4_compatible(codec: str, track_type: str) -> bool:
-    """Check if a codec is compatible with MP4 container.
-
-    Args:
-        codec: Codec name (e.g., 'hevc', 'truehd').
-        track_type: Track type ('video', 'audio', 'subtitle').
-
-    Returns:
-        True if codec is compatible with MP4.
-    """
-    codec = codec.casefold().strip()
-
-    if track_type == "video":
-        return codec in _MP4_COMPATIBLE_VIDEO_CODECS
-    elif track_type == "audio":
-        return codec in _MP4_COMPATIBLE_AUDIO_CODECS
-    elif track_type == "subtitle":
-        return codec in _MP4_COMPATIBLE_SUBTITLE_CODECS
-
-    # Unknown track types (data, attachment) - skip for MP4
-    return False
-
-
 def _create_incompatible_track_plan(
     track: TrackInfo,
     codec_mappings: dict[str, CodecTranscodeMapping] | None = None,
@@ -171,7 +92,7 @@ def _create_incompatible_track_plan(
         elif track_type == "audio":
             action = "transcode"
         elif track_type == "subtitle":
-            if codec in _MP4_BITMAP_SUBTITLE_CODECS:
+            if codec in BITMAP_SUBTITLE_CODECS:
                 action = "remove"
             else:
                 action = "convert"
@@ -197,31 +118,35 @@ def _create_incompatible_track_plan(
     # Fall back to default behavior
     if track_type == "audio":
         # Check if we have a known transcode mapping
-        if codec in _MP4_AUDIO_TRANSCODE_DEFAULTS:
-            target_codec, target_bitrate = _MP4_AUDIO_TRANSCODE_DEFAULTS[codec]
+        if codec in MP4_AUDIO_TRANSCODE_DEFAULTS:
+            target = MP4_AUDIO_TRANSCODE_DEFAULTS[codec]
             return IncompatibleTrackPlan(
                 track_index=track.index,
                 track_type=track_type,
                 source_codec=codec,
                 action="transcode",
-                target_codec=target_codec,
-                target_bitrate=target_bitrate,
-                reason=f"{codec} is not MP4-compatible, transcoding to {target_codec}",
+                target_codec=target.codec,
+                target_bitrate=target.bitrate,
+                reason=f"{codec} is not MP4-compatible, transcoding to {target.codec}",
             )
         else:
             # Unknown audio codec - use generic AAC transcode
+            default_target = DEFAULT_AUDIO_TRANSCODE_TARGET
+            reason = (
+                f"{codec} is not MP4-compatible, transcoding to {default_target.codec}"
+            )
             return IncompatibleTrackPlan(
                 track_index=track.index,
                 track_type=track_type,
                 source_codec=codec,
                 action="transcode",
-                target_codec="aac",
-                target_bitrate="192k",
-                reason=f"{codec} is not MP4-compatible, transcoding to aac",
+                target_codec=default_target.codec,
+                target_bitrate=default_target.bitrate,
+                reason=reason,
             )
 
     elif track_type == "subtitle":
-        if codec in _MP4_TEXT_SUBTITLE_CODECS:
+        if codec in MP4_CONVERTIBLE_SUBTITLE_CODECS:
             # Text subtitles can be converted to mov_text
             return IncompatibleTrackPlan(
                 track_index=track.index,
@@ -231,7 +156,7 @@ def _create_incompatible_track_plan(
                 target_codec="mov_text",
                 reason=f"Converting {codec} to mov_text (styling may be lost)",
             )
-        elif codec in _MP4_BITMAP_SUBTITLE_CODECS:
+        elif codec in BITMAP_SUBTITLE_CODECS:
             # Bitmap subtitles must be removed
             return IncompatibleTrackPlan(
                 track_index=track.index,
@@ -297,7 +222,7 @@ def _evaluate_container_change(
             codec = (track.codec or "").casefold()
             track_type = track.track_type.casefold()
 
-            if not _is_codec_mp4_compatible(codec, track_type):
+            if not is_codec_mp4_compatible(codec, track_type):
                 incompatible_tracks.append(track.index)
                 warnings.append(
                     f"Track {track.index} ({track_type}, {codec}) "

@@ -6,6 +6,16 @@ the policy system. These have no dependencies on other policy types.
 
 from enum import Enum
 
+from vpo.core.codecs import (
+    MP4_INCOMPATIBLE_CODECS,
+)
+from vpo.core.codecs import (
+    VALID_TRANSCODE_AUDIO_CODECS as VALID_AUDIO_CODECS,
+)
+from vpo.core.codecs import (
+    VALID_TRANSCODE_VIDEO_CODECS as VALID_VIDEO_CODECS,
+)
+
 
 class TrackType(Enum):
     """Track type classification for policy ordering."""
@@ -125,52 +135,23 @@ DEFAULT_TRACK_ORDER: tuple[TrackType, ...] = (
     TrackType.ATTACHMENT,
 )
 
-# Valid video codecs for transcoding
-VALID_VIDEO_CODECS = frozenset({"h264", "hevc", "vp9", "av1"})
-
-# Codecs that are incompatible with MP4 container
-# These codecs cannot be stored in MP4 without transcoding
-MP4_INCOMPATIBLE_CODECS = frozenset(
-    {
-        # Lossless audio codecs
-        "truehd",
-        "dts-hd ma",
-        "dts-hd.ma",
-        "dtshd",
-        "mlp",
-        # Subtitle formats not supported in MP4
-        "hdmv_pgs_subtitle",
-        "pgssub",
-        "pgs",
-        "dvd_subtitle",
-        "dvdsub",
-        "vobsub",
-        # Advanced subtitle formats
-        "ass",
-        "ssa",
-        "subrip",  # SRT needs conversion to mov_text
-        # Attachment types (not supported in MP4)
-        "ttf",
-        "otf",
-        "application/x-truetype-font",
-    }
-)
-
-# Valid audio codecs for transcoding
-VALID_AUDIO_CODECS = frozenset(
-    {
-        "aac",
-        "ac3",
-        "eac3",
-        "flac",
-        "opus",
-        "mp3",
-        "truehd",
-        "dts",
-        "pcm_s16le",
-        "pcm_s24le",
-    }
-)
+__all__ = [
+    # Enums
+    "TrackType",
+    "ActionType",
+    "OperationType",
+    "OnErrorMode",
+    "PhaseOutcome",
+    "SkipReasonType",
+    # Constants
+    "CANONICAL_OPERATION_ORDER",
+    "DEFAULT_TRACK_ORDER",
+    "VALID_VIDEO_CODECS",
+    "VALID_AUDIO_CODECS",
+    "MP4_INCOMPATIBLE_CODECS",
+    "VALID_RESOLUTIONS",
+    "RESOLUTION_MAP",
+]
 
 # Valid resolution presets
 VALID_RESOLUTIONS = frozenset({"480p", "720p", "1080p", "1440p", "4k", "8k"})
