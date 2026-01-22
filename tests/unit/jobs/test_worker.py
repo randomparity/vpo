@@ -509,6 +509,93 @@ class TestProcessJob:
 
 
 # =============================================================================
+# TestGetFileDuration
+# =============================================================================
+
+
+class TestGetFileDuration:
+    """Tests for JobWorker._get_file_duration method."""
+
+    def test_returns_none_for_none_file_id(self, db_conn: sqlite3.Connection) -> None:
+        """Returns None when file_id is None."""
+        worker = JobWorker(conn=db_conn)
+
+        result = worker._get_file_duration(None)
+
+        assert result is None
+
+    def test_returns_video_track_duration(self, db_conn: sqlite3.Connection) -> None:
+        """Returns duration from video track."""
+        worker = JobWorker(conn=db_conn)
+
+        # Mock get_tracks_for_file to return a video track with duration
+        mock_track = MagicMock()
+        mock_track.track_type = "video"
+        mock_track.duration_seconds = 1800.5  # 30 minutes
+
+        with patch("vpo.jobs.worker.get_tracks_for_file") as mock_get_tracks:
+            mock_get_tracks.return_value = [mock_track]
+            result = worker._get_file_duration(123)
+
+        assert result == 1800.5
+        mock_get_tracks.assert_called_once_with(db_conn, 123)
+
+    def test_returns_none_when_no_video_track(
+        self, db_conn: sqlite3.Connection
+    ) -> None:
+        """Returns None when file has no video track."""
+        worker = JobWorker(conn=db_conn)
+
+        # Mock get_tracks_for_file to return only audio tracks
+        mock_audio = MagicMock()
+        mock_audio.track_type = "audio"
+        mock_audio.duration_seconds = 1800.0
+
+        with patch("vpo.jobs.worker.get_tracks_for_file") as mock_get_tracks:
+            mock_get_tracks.return_value = [mock_audio]
+            result = worker._get_file_duration(123)
+
+        assert result is None
+
+    def test_returns_none_when_video_track_has_no_duration(
+        self, db_conn: sqlite3.Connection
+    ) -> None:
+        """Returns None when video track exists but has no duration."""
+        worker = JobWorker(conn=db_conn)
+
+        # Mock get_tracks_for_file to return video track without duration
+        mock_track = MagicMock()
+        mock_track.track_type = "video"
+        mock_track.duration_seconds = None
+
+        with patch("vpo.jobs.worker.get_tracks_for_file") as mock_get_tracks:
+            mock_get_tracks.return_value = [mock_track]
+            result = worker._get_file_duration(123)
+
+        assert result is None
+
+    def test_returns_none_when_no_tracks(self, db_conn: sqlite3.Connection) -> None:
+        """Returns None when file has no tracks."""
+        worker = JobWorker(conn=db_conn)
+
+        with patch("vpo.jobs.worker.get_tracks_for_file") as mock_get_tracks:
+            mock_get_tracks.return_value = []
+            result = worker._get_file_duration(123)
+
+        assert result is None
+
+    def test_handles_database_error(self, db_conn: sqlite3.Connection) -> None:
+        """Handles database errors gracefully."""
+        worker = JobWorker(conn=db_conn)
+
+        with patch("vpo.jobs.worker.get_tracks_for_file") as mock_get_tracks:
+            mock_get_tracks.side_effect = sqlite3.Error("Database error")
+            result = worker._get_file_duration(123)
+
+        assert result is None
+
+
+# =============================================================================
 # TestCreateProgressCallback
 # =============================================================================
 
@@ -541,6 +628,95 @@ class TestCreateProgressCallback:
         assert updated is not None
         # Progress should be updated (less than 100 due to the min(99.9, ...) logic)
         assert updated.progress_percent < 100
+
+    def test_callback_uses_actual_duration_when_available(
+        self, db_conn: sqlite3.Connection
+    ) -> None:
+        """Callback uses actual file duration for progress calculation."""
+        worker = JobWorker(conn=db_conn)
+        job = make_test_job()
+        job = Job(
+            id=job.id,
+            file_id=123,  # Set file_id
+            file_path=job.file_path,
+            job_type=job.job_type,
+            status=job.status,
+            priority=job.priority,
+            policy_name=job.policy_name,
+            policy_json=job.policy_json,
+            progress_percent=job.progress_percent,
+            progress_json=job.progress_json,
+            created_at=job.created_at,
+        )
+        insert_job(db_conn, job)
+
+        # Mock video track with known duration
+        mock_track = MagicMock()
+        mock_track.track_type = "video"
+        mock_track.duration_seconds = 1800.0  # 30 minutes
+
+        with patch("vpo.jobs.worker.get_tracks_for_file") as mock_get_tracks:
+            mock_get_tracks.return_value = [mock_track]
+            callback = worker._create_progress_callback(job)
+
+        # Create mock progress at 15 minutes (50% of 30 min)
+        mock_progress = MagicMock()
+        mock_progress.frame = 27000
+        mock_progress.fps = 30.0
+        mock_progress.bitrate = "5000kbits/s"
+        mock_progress.speed = "2.0x"
+        mock_progress.out_time_seconds = 900.0  # 15 minutes
+
+        # get_percent should be called with actual duration (1800.0)
+        mock_progress.get_percent.return_value = 50.0
+        callback(mock_progress)
+
+        mock_progress.get_percent.assert_called_with(1800.0)
+
+    def test_callback_handles_missing_file_id(
+        self, db_conn: sqlite3.Connection
+    ) -> None:
+        """Callback handles jobs without file_id."""
+        worker = JobWorker(conn=db_conn)
+        job = make_test_job()  # file_id is None by default
+        insert_job(db_conn, job)
+
+        callback = worker._create_progress_callback(job)
+
+        mock_progress = MagicMock()
+        mock_progress.frame = 1000
+        mock_progress.fps = 30.0
+        mock_progress.bitrate = "5000kbits/s"
+        mock_progress.speed = "2.0x"
+        mock_progress.out_time_seconds = 60.0
+        mock_progress.get_percent.return_value = 0.0  # No duration, returns 0
+
+        callback(mock_progress)
+
+        # Should call get_percent with None (no duration available)
+        mock_progress.get_percent.assert_called_with(None)
+
+    def test_callback_caps_at_99_9_percent(self, db_conn: sqlite3.Connection) -> None:
+        """Callback caps progress at 99.9% to avoid premature 100%."""
+        worker = JobWorker(conn=db_conn)
+        job = make_test_job()
+        insert_job(db_conn, job)
+
+        callback = worker._create_progress_callback(job)
+
+        mock_progress = MagicMock()
+        mock_progress.frame = 1000
+        mock_progress.fps = 30.0
+        mock_progress.bitrate = "5000kbits/s"
+        mock_progress.speed = "2.0x"
+        mock_progress.out_time_seconds = 3700.0
+        mock_progress.get_percent.return_value = 102.8  # Exceeds 100%
+
+        callback(mock_progress)
+
+        updated = get_job(db_conn, job.id)
+        assert updated is not None
+        assert updated.progress_percent == 99.9
 
 
 # =============================================================================

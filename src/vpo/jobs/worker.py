@@ -21,6 +21,7 @@ from vpo.db import (
     Job,
     JobStatus,
     JobType,
+    get_tracks_for_file,
     update_job_progress,
 )
 from vpo.db.connection import get_connection
@@ -243,14 +244,44 @@ class JobWorker:
         if count > 0:
             logger.info("Purged %d old job(s)", count)
 
+    def _get_file_duration(self, file_id: int | None) -> float | None:
+        """Get the duration of the primary video track for a file.
+
+        Args:
+            file_id: Database ID of the file, or None if not available.
+
+        Returns:
+            Duration in seconds, or None if unavailable.
+        """
+        if file_id is None:
+            return None
+
+        try:
+            tracks = get_tracks_for_file(self.conn, file_id)
+            for track in tracks:
+                if track.track_type == "video" and track.duration_seconds:
+                    return track.duration_seconds
+            return None
+        except Exception as e:
+            logger.warning("Failed to get file duration for file_id=%s: %s", file_id, e)
+            return None
+
     def _create_progress_callback(self, job: Job):
         """Create a progress callback for a job."""
+        # Look up duration once when callback is created
+        duration = self._get_file_duration(job.file_id)
+        if duration:
+            logger.debug(
+                "Job %s: using actual duration %.1fs for progress",
+                job.id[:8],
+                duration,
+            )
 
         def callback(progress: FFmpegProgress) -> None:
-            # Get duration from job policy
-            percent = progress.get_percent(None)  # TODO: Get actual duration
-            if progress.out_time_seconds:
-                percent = min(99.9, progress.get_percent(3600))  # Estimate
+            percent = progress.get_percent(duration)
+            # Cap at 99.9% to avoid showing 100% before completion
+            if percent > 0:
+                percent = min(99.9, percent)
 
             try:
                 update_job_progress(
