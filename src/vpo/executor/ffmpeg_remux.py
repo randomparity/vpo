@@ -25,12 +25,16 @@ from vpo.tools.ffmpeg_progress import FFmpegProgress
 logger = logging.getLogger(__name__)
 
 
-def _truncate_stderr(stderr: str, max_lines: int = 20) -> str:
-    """Truncate long FFmpeg stderr output to the last N lines.
+def _truncate_stderr(stderr: str, max_lines: int = 20, head_lines: int = 5) -> str:
+    """Truncate long FFmpeg stderr output keeping first N and last M lines.
+
+    Keeps the first `head_lines` lines (often contain important initialization
+    messages) and the last `max_lines - head_lines` lines (contain the error).
 
     Args:
         stderr: Full stderr output from FFmpeg.
-        max_lines: Maximum number of lines to keep.
+        max_lines: Total maximum number of lines to keep.
+        head_lines: Number of lines to keep from the beginning.
 
     Returns:
         Truncated stderr string, or original if within limit.
@@ -40,8 +44,16 @@ def _truncate_stderr(stderr: str, max_lines: int = 20) -> str:
     lines = stderr.splitlines()
     if len(lines) <= max_lines:
         return stderr
-    return f"...(truncated {len(lines) - max_lines} lines)...\n" + "\n".join(
-        lines[-max_lines:]
+
+    tail_lines = max_lines - head_lines
+    truncated_count = len(lines) - max_lines
+    head_part = lines[:head_lines]
+    tail_part = lines[-tail_lines:] if tail_lines > 0 else []
+
+    return (
+        "\n".join(head_part)
+        + f"\n...(truncated {truncated_count} lines)...\n"
+        + "\n".join(tail_part)
     )
 
 
@@ -178,6 +190,13 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
         )
         has_transcode = bool(transcode_plan and transcode_plan.track_plans)
 
+        # Log the FFmpeg command for debugging and operator visibility
+        logger.info(
+            "Executing FFmpeg: %s",
+            " ".join(cmd),
+            extra={"input_path": str(plan.file_path), "command_type": "remux"},
+        )
+
         # Use try/finally to guarantee temp file cleanup
         try:
             # Execute command - use progress-aware execution for transcode operations
@@ -303,8 +322,10 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
             # After successful replace(), temp_path no longer exists (it was renamed
             # to output_path). This cleanup only runs if replace() failed or the
             # subprocess failed before we reached the replace() call.
-            if temp_path.exists():
+            try:
                 temp_path.unlink(missing_ok=True)
+            except OSError as e:
+                logger.error("Failed to clean up temp file %s: %s", temp_path, e)
 
         # Delete original file if extension changed (container conversion)
         # unless keep_original is True
@@ -440,6 +461,20 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
                 tracks_to_convert[track_plan.track_index] = (
                     track_plan.target_codec or "mov_text"
                 )
+
+        # Log codec decisions for visibility
+        if tracks_to_transcode or tracks_to_convert or tracks_to_remove:
+            logger.info(
+                "Container transcode: transcode=%d, convert=%d, remove=%d tracks",
+                len(tracks_to_transcode),
+                len(tracks_to_convert),
+                len(tracks_to_remove),
+                extra={
+                    "transcode_indices": list(tracks_to_transcode.keys()),
+                    "convert_indices": list(tracks_to_convert.keys()),
+                    "remove_indices": list(tracks_to_remove),
+                },
+            )
 
         # Collect all excluded track indices (from transcode_plan and dispositions)
         all_excluded: set[int] = set(tracks_to_remove)

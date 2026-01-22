@@ -354,10 +354,6 @@ def audio_codec_matches(codec: str | None, pattern: str) -> bool:
         if fnmatch.fnmatch(normalized_codec, normalized_pattern):
             return True
 
-    # Check if normalized codec contains the pattern (fuzzy match)
-    if normalized_pattern in normalized_codec:
-        return True
-
     return False
 
 
@@ -368,13 +364,13 @@ def audio_codec_matches_any(
 
     Args:
         codec: Codec name to check (from ffprobe).
-        patterns: Patterns to match against.
+        patterns: Patterns to match against. None means "no filter" (always passes).
 
     Returns:
-        True if the codec matches any pattern.
+        True if the codec matches any pattern, or if patterns is None.
     """
     if patterns is None:
-        return False
+        return True  # No patterns = always passes (consistent with video behavior)
     if codec is None:
         return False
 
@@ -490,11 +486,12 @@ def get_transcode_default(codec: str, container: str) -> TranscodeTarget | None:
     if container.casefold() != "mp4":
         return None
 
-    normalized = normalize_codec(codec)
+    # Use canonical codec name for lookup (e.g., 'dca' -> 'dts')
+    canonical = get_canonical_codec(codec, "audio")
 
-    # Check exact match first (only applies to audio codecs)
-    if normalized in MP4_AUDIO_TRANSCODE_DEFAULTS:
-        return MP4_AUDIO_TRANSCODE_DEFAULTS[normalized]
+    # Check exact match first using canonical name
+    if canonical in MP4_AUDIO_TRANSCODE_DEFAULTS:
+        return MP4_AUDIO_TRANSCODE_DEFAULTS[canonical]
 
     # Only provide a fallback for audio codecs that are known to be incompatible.
     # We can't determine track type from codec name alone, so we check if the
@@ -505,7 +502,6 @@ def get_transcode_default(codec: str, container: str) -> TranscodeTarget | None:
         "dts-hd",
         "dts-hd ma",
         "dts",
-        "dca",
         "vorbis",
         "pcm_s16le",
         "pcm_s24le",
@@ -513,7 +509,9 @@ def get_transcode_default(codec: str, container: str) -> TranscodeTarget | None:
         "pcm_f32le",
         "pcm",
     }
-    if normalized in audio_incompatible or any(
+    # Check canonical name against incompatible set
+    normalized = normalize_codec(codec)
+    if canonical in audio_incompatible or any(
         normalized.startswith(prefix) for prefix in ("pcm_", "dts")
     ):
         return DEFAULT_AUDIO_TRANSCODE_TARGET

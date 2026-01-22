@@ -90,6 +90,54 @@ def detect_encoder_type(cmd: list[str]) -> str:
     return "unknown"
 
 
+# Patterns that indicate hardware encoder initialization failed
+HARDWARE_FALLBACK_PATTERNS = (
+    "Failed to initialise VAAPI",
+    "No device available",
+    "Cannot load nvenc",
+    "hwaccel initialisation returned error",
+    "Failed to create VAAPI",
+    "NVENC not available",
+    "No VAAPI support",
+    "Cannot open display",
+    "Failed to open encoder",  # Generic but often HW-related
+)
+
+
+def check_hardware_fallback(
+    cmd: list[str], stderr_lines: list[str]
+) -> tuple[str, bool]:
+    """Detect if hardware encoder fell back to software.
+
+    Args:
+        cmd: FFmpeg command arguments used.
+        stderr_lines: Stderr output from FFmpeg.
+
+    Returns:
+        Tuple of (encoder_type, was_fallback).
+        encoder_type is 'hardware', 'software', or 'unknown'.
+        was_fallback is True if hardware was requested but failed.
+    """
+    requested_type = detect_encoder_type(cmd)
+
+    # If we didn't request hardware, no fallback possible
+    if requested_type != "hardware":
+        return requested_type, False
+
+    # Check stderr for fallback indicators
+    stderr_text = "\n".join(stderr_lines)
+    for pattern in HARDWARE_FALLBACK_PATTERNS:
+        if pattern.lower() in stderr_text.lower():
+            logger.warning(
+                "Hardware encoder fallback detected: %s",
+                pattern,
+                extra={"pattern": pattern, "requested_encoder": requested_type},
+            )
+            return "software", True
+
+    return requested_type, False
+
+
 class TranscodeExecutor(FFmpegExecutorBase):
     """Executor for video transcoding operations."""
 
@@ -220,6 +268,15 @@ class TranscodeExecutor(FFmpegExecutorBase):
                 "Skipping video transcode - %s: %s",
                 skip_result.reason,
                 input_path,
+                extra={
+                    "input_path": str(input_path),
+                    "skip_reason": skip_result.reason,
+                    "video_codec": video_codec,
+                    "resolution": (
+                        f"{video_width}x{video_height}" if video_width else None
+                    ),
+                    "bitrate": effective_bitrate,
+                },
             )
             return TranscodePlan(
                 input_path=input_path,
@@ -492,9 +549,17 @@ class TranscodeExecutor(FFmpegExecutorBase):
             cmd1 = build_ffmpeg_command_pass1(
                 plan, two_pass_ctx, self.cpu_cores, quality, target_codec
             )
-            logger.info("Starting two-pass encoding pass 1: %s", plan.input_path)
-            logger.debug("FFmpeg pass 1 command: %s", " ".join(cmd1))
+            logger.info(
+                "Starting two-pass encoding pass 1: %s",
+                plan.input_path,
+                extra={
+                    "input_path": str(plan.input_path),
+                    "command": " ".join(cmd1),
+                    "pass": 1,
+                },
+            )
 
+            pass1_start = time.monotonic()
             success1, rc1, stderr1, _ = self._run_ffmpeg_with_timeout(
                 cmd1,
                 "Pass 1",
@@ -519,7 +584,12 @@ class TranscodeExecutor(FFmpegExecutorBase):
                     error_message=f"Two-pass encoding failed on pass 1: {error_msg}",
                 )
 
-            logger.info("Pass 1 complete, starting pass 2")
+            pass1_elapsed = time.monotonic() - pass1_start
+            logger.info(
+                "Pass 1 complete (%.1fs), starting pass 2",
+                pass1_elapsed,
+                extra={"pass": 1, "elapsed_seconds": round(pass1_elapsed, 3)},
+            )
 
             # === PASS 2 ===
             two_pass_ctx.current_pass = 2
@@ -548,9 +618,17 @@ class TranscodeExecutor(FFmpegExecutorBase):
             cmd2 = build_ffmpeg_command(
                 temp_plan, self.cpu_cores, quality, target_codec, two_pass_ctx
             )
-            logger.info("Starting two-pass encoding pass 2: %s", plan.input_path)
-            logger.debug("FFmpeg pass 2 command: %s", " ".join(cmd2))
+            logger.info(
+                "Starting two-pass encoding pass 2: %s",
+                plan.input_path,
+                extra={
+                    "input_path": str(plan.input_path),
+                    "command": " ".join(cmd2),
+                    "pass": 2,
+                },
+            )
 
+            pass2_start = time.monotonic()
             success2, rc2, stderr2, metrics2 = self._run_ffmpeg_with_timeout(
                 cmd2,
                 "Pass 2",
@@ -575,6 +653,19 @@ class TranscodeExecutor(FFmpegExecutorBase):
                     success=False,
                     error_message=f"Two-pass encoding failed on pass 2: {error_msg}",
                 )
+
+            pass2_elapsed = time.monotonic() - pass2_start
+            total_elapsed = pass1_elapsed + pass2_elapsed
+            logger.info(
+                "Pass 2 complete (%.1fs, total: %.1fs)",
+                pass2_elapsed,
+                total_elapsed,
+                extra={
+                    "pass": 2,
+                    "pass2_seconds": round(pass2_elapsed, 3),
+                    "total_seconds": round(total_elapsed, 3),
+                },
+            )
 
             return TranscodeResult(
                 success=True,
@@ -615,12 +706,28 @@ class TranscodeExecutor(FFmpegExecutorBase):
                 "Skipping video transcode - already compliant: %s (%s)",
                 plan.input_path,
                 plan.skip_reason,
+                extra={
+                    "input_path": str(plan.input_path),
+                    "skip_reason": plan.skip_reason,
+                    "video_codec": plan.video_codec,
+                    "resolution": (
+                        f"{plan.video_width}x{plan.video_height}"
+                        if plan.video_width
+                        else None
+                    ),
+                    "bitrate": plan.video_bitrate,
+                },
             )
             return TranscodeResult(success=True)
 
         if not plan.needs_video_transcode:
             logger.info(
-                "File already compliant, no transcode needed: %s", plan.input_path
+                "File already compliant, no transcode needed: %s",
+                plan.input_path,
+                extra={
+                    "input_path": str(plan.input_path),
+                    "video_codec": plan.video_codec,
+                },
             )
             return TranscodeResult(success=True)
 
@@ -748,7 +855,11 @@ class TranscodeExecutor(FFmpegExecutorBase):
         )
 
         cmd = build_ffmpeg_command(temp_plan, self.cpu_cores)
-        logger.debug("FFmpeg command: %s", " ".join(cmd))
+        logger.info(
+            "Executing FFmpeg: %s",
+            " ".join(cmd),
+            extra={"input_path": str(plan.input_path), "command_type": "transcode"},
+        )
 
         try:
             # Ensure output directory exists
@@ -804,6 +915,23 @@ class TranscodeExecutor(FFmpegExecutorBase):
                     # Not a fatal error - transcode succeeded
 
             elapsed = time.monotonic() - start_time
+
+            # Log encoding metrics summary for observability
+            if metrics and metrics.sample_count > 0:
+                logger.info(
+                    "Encoding metrics: avg=%.1f fps, peak=%.1f fps, bitrate=%.0f kbps",
+                    metrics.avg_fps or 0,
+                    metrics.peak_fps or 0,
+                    metrics.avg_bitrate_kbps or 0,
+                    extra={
+                        "avg_fps": metrics.avg_fps,
+                        "peak_fps": metrics.peak_fps,
+                        "avg_bitrate_kbps": metrics.avg_bitrate_kbps,
+                        "total_frames": metrics.total_frames,
+                        "sample_count": metrics.sample_count,
+                    },
+                )
+
             logger.info(
                 "Transcode completed: %s",
                 plan.output_path.name,

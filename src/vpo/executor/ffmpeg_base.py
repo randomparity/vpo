@@ -36,6 +36,7 @@ class FFmpegExecutorBase(ABC):
     """
 
     DEFAULT_TIMEOUT: int = 1800  # 30 minutes
+    STDERR_DRAIN_TIMEOUT: float = 5.0  # Timeout for draining stderr after process ends
 
     def __init__(self, timeout: int | None = None) -> None:
         """Initialize the executor.
@@ -186,9 +187,12 @@ class FFmpegExecutorBase(ABC):
                     if stop_event.is_set():
                         break
                     stderr_queue.put(line)
-            except (ValueError, OSError):
+            except (ValueError, OSError) as e:
                 # Pipe closed or process terminated
-                pass
+                logger.debug("Stderr reader stopped: %s", e)
+            except Exception as e:
+                # Unexpected error - log for debugging
+                logger.debug("Stderr reader encountered unexpected error: %s", e)
             finally:
                 stderr_queue.put(None)  # Signal end of output
 
@@ -217,12 +221,19 @@ class FFmpegExecutorBase(ABC):
                 if line is None:
                     break  # End of stderr
                 stderr_output.append(line)
-                progress = parse_stderr_progress(line)
-                if progress:
-                    # Collect metrics
-                    metrics_aggregator.add_sample(progress)
-                    if progress_callback:
-                        progress_callback(progress)
+                # Parse progress with exception protection to avoid killing the loop
+                try:
+                    progress = parse_stderr_progress(line)
+                    if progress:
+                        # Collect metrics
+                        metrics_aggregator.add_sample(progress)
+                        if progress_callback:
+                            try:
+                                progress_callback(progress)
+                            except Exception as e:
+                                logger.warning("Progress callback error: %s", e)
+                except Exception as e:
+                    logger.debug("Failed to parse progress line: %s", e)
             except queue.Empty:
                 continue
 
@@ -241,14 +252,17 @@ class FFmpegExecutorBase(ABC):
             # Wait for reader thread to finish with shorter timeout
             reader_thread.join(timeout=2.0)
             if reader_thread.is_alive():
-                logger.warning("Stderr reader thread did not terminate cleanly")
+                logger.error(
+                    "Stderr reader thread failed to terminate after timeout. "
+                    "Thread will be abandoned (potential leak)."
+                )
             return (False, -1, stderr_output, metrics_aggregator.summarize())
 
         # Signal thread to stop (process completed normally)
         stop_event.set()
 
         # Drain any remaining stderr output
-        reader_thread.join(timeout=5.0)
+        reader_thread.join(timeout=self.STDERR_DRAIN_TIMEOUT)
         while True:
             try:
                 line = stderr_queue.get_nowait()

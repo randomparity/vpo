@@ -8,6 +8,14 @@ import logging
 import shutil
 from pathlib import Path
 
+__all__ = [
+    "check_disk_space_for_transcode",
+    "create_temp_output",
+    "validate_output",
+    "compute_timeout",
+    "cleanup_temp_file",
+]
+
 logger = logging.getLogger(__name__)
 
 
@@ -78,8 +86,8 @@ def check_disk_space_for_transcode(
     except PermissionError:
         return f"Cannot check disk space (permission denied): {temp_path}"
     except OSError as e:
-        # Log but proceed optimistically for other OS errors (e.g., network fs issues)
-        logger.warning("Could not check disk space: %s", e)
+        # Filesystem may be unavailable - return error instead of proceeding
+        return f"Cannot check disk space: {e}. Filesystem may be unavailable."
 
     return None
 
@@ -110,7 +118,7 @@ def create_temp_output(
 def validate_output(
     output_path: Path,
     input_size: int | None = None,
-    min_ratio: float = 0.1,
+    min_ratio: float = 0.2,
 ) -> tuple[bool, str | None]:
     """Validate FFmpeg output file.
 
@@ -137,9 +145,18 @@ def validate_output(
     if output_size == 0:
         return False, f"Output file is empty: {output_path}"
 
-    # Warn if output is suspiciously small (but don't fail)
+    # Check output size ratio if input size is known
     if input_size is not None and input_size > 0:
         ratio = output_size / input_size
+        # Fail if output is less than 10% of input - likely corrupted
+        if ratio < 0.1:
+            return (
+                False,
+                f"Output file is only {ratio * 100:.1f}% of input size "
+                f"({output_size / (1024 * 1024):.2f} MB vs "
+                f"{input_size / (1024 * 1024):.2f} MB) - likely corrupted",
+            )
+        # Warn if output is small but not suspiciously so (10-20%)
         if ratio < min_ratio:
             logger.warning(
                 "Output file for %s is only %.1f%% of input size "

@@ -585,17 +585,24 @@ class TestStderrTruncation:
         assert result == stderr
 
     def test_long_stderr_truncated(self) -> None:
-        """Long stderr output should be truncated to last N lines."""
+        """Long stderr output should be truncated keeping first N and last M lines."""
         from vpo.executor.ffmpeg_remux import _truncate_stderr
 
         lines = [f"Line {i}" for i in range(50)]
         stderr = "\n".join(lines)
-        result = _truncate_stderr(stderr, max_lines=10)
+        # Default: 5 head lines + 5 tail lines = 10 max_lines
+        result = _truncate_stderr(stderr, max_lines=10, head_lines=5)
 
         assert "truncated 40 lines" in result
-        assert "Line 49" in result  # Last line present
-        assert "Line 40" in result  # First of last 10 present
-        assert "Line 39" not in result  # Truncated line not present
+        # First 5 lines preserved
+        assert "Line 0" in result
+        assert "Line 4" in result
+        # Last 5 lines preserved
+        assert "Line 45" in result
+        assert "Line 49" in result
+        # Middle lines truncated
+        assert "Line 5" not in result
+        assert "Line 44" not in result
 
     def test_empty_stderr(self) -> None:
         """Empty stderr should return empty string."""
@@ -713,9 +720,12 @@ class TestBackupRestorationReporting:
         assert result.success is False
         # Check that stderr was truncated
         assert "truncated" in result.message.lower()
-        # Should have the last lines, not all 100
-        assert "Error line 99" in result.message
-        assert "Error line 0" not in result.message
+        # Should have first N and last M lines preserved
+        # Default: 5 head + 15 tail = 20 max lines
+        assert "Error line 99" in result.message  # Last line present
+        assert "Error line 0" in result.message  # First line present (kept as head)
+        # Middle lines should be truncated
+        assert "Error line 50" not in result.message
 
 
 class TestTempFileCleanup:

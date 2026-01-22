@@ -4,6 +4,7 @@ This module contains types for track filtering, pre-processing actions,
 container conversion, default flag handling, and transcription options.
 """
 
+import re
 from dataclasses import dataclass
 from typing import Literal
 
@@ -211,6 +212,28 @@ class CodecTranscodeMapping:
     - remove: Remove the track entirely (default for bitmap subtitles)
     If None, uses the default action for the track type.
     """
+
+    # Regex for valid bitrate format (e.g., "192k", "256k", "1.5M", "320000")
+    _BITRATE_PATTERN = re.compile(r"^\d+(\.\d+)?[kKmM]?$")
+
+    def __post_init__(self) -> None:
+        """Validate codec transcode mapping."""
+        if not self.codec or not self.codec.strip():
+            raise ValueError("codec cannot be empty")
+
+        # Bitrate is only valid for transcode action (audio re-encoding)
+        if self.bitrate is not None:
+            if self.action in ("convert", "remove"):
+                raise ValueError(
+                    f"bitrate is not applicable for action='{self.action}' "
+                    f"(only valid for 'transcode')"
+                )
+            # Validate bitrate format
+            if not self._BITRATE_PATTERN.match(self.bitrate):
+                raise ValueError(
+                    f"Invalid bitrate format '{self.bitrate}'. "
+                    f"Expected format: '192k', '256k', '1.5M', etc."
+                )
 
 
 @dataclass(frozen=True)

@@ -190,9 +190,9 @@ class TestAudioCodecMatches:
 class TestAudioCodecMatchesAny:
     """Tests for audio_codec_matches_any function."""
 
-    def test_none_patterns_returns_false(self) -> None:
-        """None patterns returns False (different from video)."""
-        assert not audio_codec_matches_any("aac", None)
+    def test_none_patterns_returns_true(self) -> None:
+        """None patterns returns True (no filter = always passes)."""
+        assert audio_codec_matches_any("aac", None)
 
     def test_none_codec_returns_false(self) -> None:
         """None codec returns False."""

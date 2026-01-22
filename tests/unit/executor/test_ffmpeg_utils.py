@@ -92,8 +92,8 @@ class TestCheckDiskSpaceForTranscode:
         assert result is not None
         assert "filesystem" in result.lower() or "i/o" in result.lower()
 
-    def test_other_oserror_on_disk_usage_returns_none(self, tmp_path: Path) -> None:
-        """Other OSError on disk_usage should return None (proceed optimistically)."""
+    def test_other_oserror_on_disk_usage_returns_error(self, tmp_path: Path) -> None:
+        """Other OSError on disk_usage should return error message."""
         test_file = tmp_path / "test.mkv"
         test_file.write_bytes(b"x" * 1000)
 
@@ -101,8 +101,10 @@ class TestCheckDiskSpaceForTranscode:
             mock_usage.side_effect = OSError("Network filesystem error")
             result = ffmpeg_utils.check_disk_space_for_transcode(test_file)
 
-        # Non-PermissionError OSError on disk_usage should log and return None
-        assert result is None
+        # Non-PermissionError OSError should return error (not proceed optimistically)
+        assert result is not None
+        assert "Cannot check disk space" in result
+        assert "Filesystem may be unavailable" in result
 
 
 class TestCreateTempOutput:
@@ -169,12 +171,27 @@ class TestValidateOutput:
         assert error is not None
         assert "empty" in error
 
+    def test_fails_on_very_small_output(self, tmp_path: Path) -> None:
+        """Returns failure when output is less than 10% of input (likely corrupted)."""
+        output_file = tmp_path / "output.mkv"
+        output_file.write_bytes(b"x" * 50)  # 50 bytes = 5% of input
+        input_size = 1000  # 1000 bytes
+
+        is_valid, error = ffmpeg_utils.validate_output(
+            output_file, input_size=input_size
+        )
+
+        # Output <10% of input should fail
+        assert is_valid is False
+        assert error is not None
+        assert "corrupted" in error.lower()
+
     def test_warns_on_small_output(self, tmp_path: Path, caplog) -> None:
-        """Logs warning when output is suspiciously small."""
+        """Logs warning for output 10-20% of input size (suspicious but valid)."""
         import logging
 
         output_file = tmp_path / "output.mkv"
-        output_file.write_bytes(b"x" * 50)  # 50 bytes
+        output_file.write_bytes(b"x" * 150)  # 150 bytes = 15% of input
         input_size = 1000  # 1000 bytes
 
         with caplog.at_level(logging.WARNING):
@@ -182,7 +199,7 @@ class TestValidateOutput:
                 output_file, input_size=input_size
             )
 
-        # File is valid (exists and non-empty) but small
+        # File is valid (10-20% is suspicious but not corrupted)
         assert is_valid is True
         # Should log warning about small size
         assert "only" in caplog.text.lower() or "%.1f%%" in caplog.text
