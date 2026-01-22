@@ -3,6 +3,7 @@
 import asyncio
 import signal
 import sys
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -256,3 +257,88 @@ class TestSIGHUPCallback:
 
         # Warning should be logged
         assert any("SIGHUP" in record.message for record in caplog.records)
+
+
+class TestReloadTaskExceptionHandling:
+    """Tests for reload task exception handling."""
+
+    def test_handle_reload_task_result_success(self) -> None:
+        """Test that successful task completion is handled without logging."""
+        from vpo.server.signals import _handle_reload_task_result
+
+        # Create a mock task that completed successfully
+        task = MagicMock()
+        task.result.return_value = None
+
+        # Should not raise
+        _handle_reload_task_result(task)
+        task.result.assert_called_once()
+
+    def test_handle_reload_task_result_cancelled(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that cancelled task logs at debug level."""
+        from vpo.server.signals import _handle_reload_task_result
+
+        # Create a mock task that was cancelled
+        task = MagicMock()
+        task.result.side_effect = asyncio.CancelledError()
+
+        with caplog.at_level("DEBUG"):
+            _handle_reload_task_result(task)
+
+        # Should log at debug level
+        assert any("cancelled" in record.message.lower() for record in caplog.records)
+
+    def test_handle_reload_task_result_exception(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that exceptions are logged properly."""
+        from vpo.server.signals import _handle_reload_task_result
+
+        # Create a mock task that raised an exception
+        task = MagicMock()
+        task.result.side_effect = RuntimeError("Something went wrong")
+
+        with caplog.at_level("ERROR"):
+            _handle_reload_task_result(task)
+
+        # Should log exception at error level
+        assert any("failed unexpectedly" in record.message for record in caplog.records)
+
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="SIGHUP not available on Windows",
+    )
+    def test_sighup_callback_exception_is_captured(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that exceptions in reload callback are captured and logged."""
+        import os
+
+        from vpo.server.lifecycle import DaemonLifecycle
+        from vpo.server.signals import remove_signal_handlers, setup_signal_handlers
+
+        async def _test() -> None:
+            loop = asyncio.get_running_loop()
+            lifecycle = DaemonLifecycle()
+            shutdown_event = asyncio.Event()
+
+            async def failing_callback() -> None:
+                raise RuntimeError("Callback failed intentionally")
+
+            setup_signal_handlers(loop, lifecycle, shutdown_event, failing_callback)
+            try:
+                # Send SIGHUP to ourselves
+                os.kill(os.getpid(), signal.SIGHUP)
+
+                # Wait for the exception to be handled
+                await asyncio.sleep(0.2)
+            finally:
+                remove_signal_handlers(loop)
+
+        with caplog.at_level("ERROR"):
+            asyncio.run(_test())
+
+        # Exception should have been logged
+        assert any("failed unexpectedly" in record.message for record in caplog.records)

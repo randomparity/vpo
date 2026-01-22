@@ -1,5 +1,6 @@
 """Unit tests for configuration reload support."""
 
+import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
@@ -391,3 +392,140 @@ class TestConfigReloader:
 
         assert "jobs.retention_days" in state.changes_detected
         assert "worker.max_files" in state.changes_detected
+
+    @pytest.mark.asyncio
+    async def test_reload_handles_missing_config_file(self) -> None:
+        """Test reload handles FileNotFoundError gracefully."""
+        state = ReloadState()
+        config_path = Path("/nonexistent/config.toml")
+        reloader = ConfigReloader(state, config_path=config_path)
+        old_config = VPOConfig()
+        reloader.set_current_config(old_config)
+
+        with patch(
+            "vpo.config.loader.get_config",
+            side_effect=FileNotFoundError("No such file"),
+        ):
+            with patch("vpo.config.loader.clear_config_cache"):
+                result = await reloader.reload()
+
+        assert result.success is False
+        assert "not found" in result.error.lower()
+        # Original config should be preserved
+        assert reloader._current_config is old_config
+
+    @pytest.mark.asyncio
+    async def test_reload_handles_permission_error(self) -> None:
+        """Test reload handles PermissionError gracefully."""
+        state = ReloadState()
+        reloader = ConfigReloader(state)
+        old_config = VPOConfig()
+        reloader.set_current_config(old_config)
+
+        with patch(
+            "vpo.config.loader.get_config",
+            side_effect=PermissionError("Permission denied"),
+        ):
+            with patch("vpo.config.loader.clear_config_cache"):
+                result = await reloader.reload()
+
+        assert result.success is False
+        assert "permission denied" in result.error.lower()
+        # Original config should be preserved
+        assert reloader._current_config is old_config
+
+    @pytest.mark.asyncio
+    async def test_concurrent_reload_attempts(self) -> None:
+        """Test that concurrent reload attempts are properly handled."""
+        state = ReloadState()
+        reloader = ConfigReloader(state)
+        old_config = VPOConfig(jobs=JobsConfig(retention_days=30))
+        new_config = VPOConfig(jobs=JobsConfig(retention_days=60))
+        reloader.set_current_config(old_config)
+
+        # Track how many reloads actually execute
+        reload_executions = []
+        lock_acquired = asyncio.Event()
+
+        def slow_get_config(*args, **kwargs):
+            reload_executions.append(1)
+            return new_config
+
+        # We'll use a custom side effect that blocks, allowing us to test
+        # concurrent access to the lock
+        async def first_reload():
+            # Acquire lock first and hold it
+            async with reloader._reload_lock:
+                lock_acquired.set()
+                await asyncio.sleep(0.1)  # Hold lock
+                return ReloadResult(success=True, changes=["test"])
+
+        async def second_reload():
+            # Wait for first to acquire lock
+            await lock_acquired.wait()
+            # Now try to reload - should fail because lock is held
+            return await reloader.reload()
+
+        # Run both concurrently
+        results = await asyncio.gather(first_reload(), second_reload())
+
+        # Second should report "already in progress"
+        assert results[1].success is False
+        assert results[1].error == "Reload already in progress"
+
+    @pytest.mark.asyncio
+    async def test_invalid_log_level_validation(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that invalid log level doesn't crash and logs warning."""
+        import logging as stdlib_logging
+
+        from vpo.server.config_reload import ConfigReloader
+
+        state = ReloadState()
+        reloader = ConfigReloader(state)
+        old_config = VPOConfig(logging=LoggingConfig(level="info"))
+        # Use a valid level that will pass config validation
+        new_config = VPOConfig(logging=LoggingConfig(level="debug"))
+        reloader.set_current_config(old_config)
+
+        # Mock getLevelName to return a string (which indicates invalid level)
+        # when called with "DEBUG" (uppercase)
+        original_getLevelName = stdlib_logging.getLevelName
+
+        def mock_getLevelName(level):
+            if level == "DEBUG":
+                return "Level DEBUG"  # String return = invalid
+            return original_getLevelName(level)
+
+        with patch("vpo.config.loader.get_config", return_value=new_config):
+            with patch("vpo.config.loader.clear_config_cache"):
+                with patch.object(
+                    stdlib_logging, "getLevelName", side_effect=mock_getLevelName
+                ):
+                    with caplog.at_level("WARNING"):
+                        result = await reloader.reload()
+
+        assert result.success is True  # Reload succeeds overall
+        assert "logging.level" in result.changes
+        # Warning should be logged about invalid level
+        assert any("invalid" in record.message.lower() for record in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_reload_includes_error_type_in_message(self) -> None:
+        """Test that generic exceptions include error type in message."""
+        state = ReloadState()
+        reloader = ConfigReloader(state)
+        old_config = VPOConfig()
+        reloader.set_current_config(old_config)
+
+        with patch(
+            "vpo.config.loader.get_config",
+            side_effect=RuntimeError("Something went wrong"),
+        ):
+            with patch("vpo.config.loader.clear_config_cache"):
+                result = await reloader.reload()
+
+        assert result.success is False
+        assert "RuntimeError" in result.error
+        assert "Something went wrong" in result.error

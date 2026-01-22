@@ -22,7 +22,10 @@ Requires Restart:
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -249,6 +252,7 @@ class ConfigReloader:
         self._state = state
         self._config_path = config_path
         self._current_config: VPOConfig | None = None
+        self._reload_lock = asyncio.Lock()
 
     def set_current_config(self, config: VPOConfig) -> None:
         """Set the current configuration snapshot.
@@ -265,70 +269,118 @@ class ConfigReloader:
         logs what changed, and updates state. On validation failure,
         keeps old config and returns error.
 
+        Concurrent reload attempts are protected by a lock - if a reload
+        is already in progress, subsequent calls return immediately.
+
         Returns:
             ReloadResult with success status and details.
         """
         from vpo.config.loader import clear_config_cache, get_config
 
-        logger.info("Received SIGHUP, reloading configuration")
+        pid = os.getpid()
 
-        if self._current_config is None:
-            error = "No current configuration snapshot to compare against"
-            logger.error("Configuration reload failed: %s", error)
-            self._state.last_error = error
-            return ReloadResult(success=False, changes=[], error=error)
-
-        try:
-            # Clear cache to force re-read from file
-            clear_config_cache()
-
-            # Load new configuration
-            new_config = get_config(config_path=self._config_path)
-
-            # Detect changes
-            changes, requires_restart = _detect_changes(
-                self._current_config, new_config
-            )
-
-            if not changes:
-                logger.info("Configuration unchanged, no reload needed")
-                return ReloadResult(success=True, changes=[])
-
-            # Log each change
-            for field in changes:
-                msg = _format_change_log(field, self._current_config, new_config)
-                if field in requires_restart:
-                    logger.warning("Configuration change requires restart: %s", msg)
-                else:
-                    logger.info("Configuration changed: %s", msg)
-
-            # Apply dynamic updates that can be changed at runtime
-            self._apply_dynamic_updates(changes, new_config)
-
-            # Update state
-            self._current_config = new_config
-            self._state.last_reload = datetime.now(timezone.utc)
-            self._state.reload_count += 1
-            self._state.last_error = None
-            self._state.changes_detected = changes
-
-            logger.info(
-                "Configuration reload complete: %d change(s), %d require restart",
-                len(changes),
-                len(requires_restart),
-            )
-
+        # Check if reload is already in progress (non-blocking check)
+        if self._reload_lock.locked():
+            logger.info("Config reload already in progress, skipping (pid=%d)", pid)
             return ReloadResult(
-                success=True,
-                changes=changes,
-                requires_restart=requires_restart,
+                success=False, changes=[], error="Reload already in progress"
             )
 
-        except Exception as e:
-            error = str(e)
-            logger.error("Configuration reload failed: %s", error)
-            self._state.last_error = error
-            return ReloadResult(success=False, changes=[], error=error)
+        async with self._reload_lock:
+            start_time = time.perf_counter()
+            config_path_str = (
+                str(self._config_path) if self._config_path else "~/.vpo/config.toml"
+            )
+            logger.info(
+                "Reloading configuration from %s (pid=%d)", config_path_str, pid
+            )
+
+            if self._current_config is None:
+                error = "No current configuration snapshot to compare against"
+                logger.error("Configuration reload failed: %s (pid=%d)", error, pid)
+                self._state.last_error = error
+                return ReloadResult(success=False, changes=[], error=error)
+
+            try:
+                # Clear cache to force re-read from file
+                clear_config_cache()
+
+                # Load new configuration
+                new_config = get_config(config_path=self._config_path)
+
+                # Detect changes
+                changes, requires_restart = _detect_changes(
+                    self._current_config, new_config
+                )
+
+                if not changes:
+                    duration = time.perf_counter() - start_time
+                    logger.info(
+                        "Configuration unchanged, no reload needed "
+                        "(duration=%.3fs, pid=%d)",
+                        duration,
+                        pid,
+                    )
+                    return ReloadResult(success=True, changes=[])
+
+                # Log each change
+                for field_name in changes:
+                    msg = _format_change_log(
+                        field_name, self._current_config, new_config
+                    )
+                    if field_name in requires_restart:
+                        logger.warning("Configuration change requires restart: %s", msg)
+                    else:
+                        logger.info("Configuration changed: %s", msg)
+
+                # Apply dynamic updates that can be changed at runtime
+                self._apply_dynamic_updates(changes, new_config)
+
+                # Update state
+                self._current_config = new_config
+                self._state.last_reload = datetime.now(timezone.utc)
+                self._state.reload_count += 1
+                self._state.last_error = None
+                self._state.changes_detected = changes
+
+                duration = time.perf_counter() - start_time
+                logger.info(
+                    "Configuration reload complete: %d change(s), %d require restart, "
+                    "duration=%.3fs (pid=%d)",
+                    len(changes),
+                    len(requires_restart),
+                    duration,
+                    pid,
+                )
+
+                return ReloadResult(
+                    success=True,
+                    changes=changes,
+                    requires_restart=requires_restart,
+                )
+
+            except FileNotFoundError:
+                error = f"Config file not found: {config_path_str}"
+                logger.warning("Configuration reload skipped: %s (pid=%d)", error, pid)
+                self._state.last_error = error
+                return ReloadResult(success=False, changes=[], error=error)
+
+            except PermissionError as e:
+                error = f"Permission denied reading config: {e}"
+                logger.error(
+                    "Configuration reload failed: %s (pid=%d)",
+                    error,
+                    pid,
+                    exc_info=True,
+                )
+                self._state.last_error = error
+                return ReloadResult(success=False, changes=[], error=error)
+
+            except Exception as e:
+                error = f"{type(e).__name__}: {e}"
+                logger.exception("Configuration reload failed (pid=%d)", pid)
+                self._state.last_error = error
+                return ReloadResult(success=False, changes=[], error=error)
 
     def _apply_dynamic_updates(self, changes: list[str], new_config: VPOConfig) -> None:
         """Apply dynamic configuration updates that don't require restart.
@@ -339,7 +391,15 @@ class ConfigReloader:
         """
         # Update log level if changed
         if "logging.level" in changes:
-            new_level = new_config.logging.level.upper()
-            root_logger = logging.getLogger()
-            root_logger.setLevel(new_level)
-            logger.info("Updated log level to %s", new_level)
+            try:
+                new_level = new_config.logging.level.upper()
+                # Validate the log level before setting
+                numeric_level = logging.getLevelName(new_level)
+                if isinstance(numeric_level, int):
+                    root_logger = logging.getLogger()
+                    root_logger.setLevel(numeric_level)
+                    logger.info("Updated log level to %s", new_level)
+                else:
+                    logger.warning("Invalid log level '%s', not updating", new_level)
+            except Exception as e:
+                logger.error("Failed to update log level: %s", e)

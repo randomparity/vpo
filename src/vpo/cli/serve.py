@@ -103,10 +103,13 @@ async def run_server(
     # Get the running event loop
     loop = asyncio.get_running_loop()
 
-    # Create async reload callback for SIGHUP
+    # Create async reload callback for SIGHUP with timeout protection
     async def reload_callback() -> None:
-        """Handle SIGHUP by reloading configuration."""
-        await lifecycle.reload_config()
+        """Handle SIGHUP by reloading configuration with timeout."""
+        try:
+            await asyncio.wait_for(lifecycle.reload_config(), timeout=30.0)
+        except asyncio.TimeoutError:
+            logger.error("Config reload timed out after 30s")
 
     # Set up signal handlers with reload callback
     setup_signal_handlers(loop, lifecycle, shutdown_event, reload_callback)

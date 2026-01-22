@@ -7,8 +7,9 @@ reload on SIGHUP.
 
 import asyncio
 import logging
+import os
 import signal
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -17,7 +18,24 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Type alias for async reload callback
-ReloadCallback = Callable[[], "asyncio.Future[None]"]
+ReloadCallback = Callable[[], Awaitable[None]]
+
+
+def _handle_reload_task_result(task: "asyncio.Task[None]") -> None:
+    """Handle completion of reload task to capture any exceptions.
+
+    This callback is added to the reload task to ensure exceptions
+    are logged rather than silently swallowed.
+
+    Args:
+        task: The completed reload task.
+    """
+    try:
+        task.result()
+    except asyncio.CancelledError:
+        logger.debug("Config reload task was cancelled")
+    except Exception:
+        logger.exception("Config reload callback failed unexpectedly")
 
 
 def setup_signal_handlers(
@@ -49,12 +67,17 @@ def setup_signal_handlers(
 
     def handle_reload_signal(sig: signal.Signals) -> None:
         """Handle reload signal (SIGHUP)."""
+        pid = os.getpid()
         if reload_callback is not None:
-            logger.debug("Received SIGHUP, scheduling config reload")
+            logger.info("Received SIGHUP, scheduling config reload (pid=%d)", pid)
             # Schedule the async callback in the event loop
-            asyncio.ensure_future(reload_callback())
+            task = asyncio.ensure_future(reload_callback())
+            # Add done callback to capture exceptions
+            task.add_done_callback(_handle_reload_task_result)
         else:
-            logger.warning("Received SIGHUP but no reload callback configured")
+            logger.warning(
+                "Received SIGHUP but no reload callback configured (pid=%d)", pid
+            )
 
     # Register handlers for SIGTERM and SIGINT (shutdown)
     for sig in (signal.SIGTERM, signal.SIGINT):

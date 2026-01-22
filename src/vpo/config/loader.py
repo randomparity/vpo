@@ -146,10 +146,14 @@ def load_config_file(path: Path | None = None) -> dict:
         current_mtime = 0.0
 
     # Fast path: check cache without lock (dict reads are atomic in CPython)
-    if path in _config_cache:
-        cached_config, cached_mtime = _config_cache[path]
-        if current_mtime == cached_mtime:
-            return cached_config
+    # Use try/except to handle race with clear_config_cache() (TOCTOU)
+    try:
+        if path in _config_cache:
+            cached_config, cached_mtime = _config_cache[path]
+            if current_mtime == cached_mtime:
+                return cached_config
+    except KeyError:
+        pass  # Cache was cleared between check and access, fall through to slow path
 
     # Slow path: acquire lock, double-check, then load
     with _config_cache_lock:
@@ -175,23 +179,6 @@ def clear_config_cache() -> None:
     """
     with _config_cache_lock:
         _config_cache.clear()
-
-
-def get_config_snapshot(config_path: Path | None = None) -> VPOConfig:
-    """Get a fresh configuration snapshot for reload comparison.
-
-    This function always clears the cache before loading to ensure
-    a fresh read from the file. Use this when you need to compare
-    configurations for hot-reload purposes.
-
-    Args:
-        config_path: Path to config file. If None, uses default location.
-
-    Returns:
-        VPOConfig with freshly loaded configuration.
-    """
-    clear_config_cache()
-    return get_config(config_path=config_path)
 
 
 def get_config(
