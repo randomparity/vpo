@@ -4,6 +4,7 @@ Tests the get_language_results_for_tracks helper that fetches language
 analysis results from the database for policy evaluation.
 """
 
+import logging
 import sqlite3
 from datetime import datetime, timezone
 
@@ -251,3 +252,33 @@ class TestGetLanguageResultsForTracks:
         assert len(result) == 1
         assert audio1_id in result
         assert audio2_id not in result
+
+    def test_logs_debug_when_no_audio_tracks(self, db_conn, caplog):
+        """Verify debug logging when no audio tracks found."""
+        tracks = [
+            TrackInfo(id=1, index=0, track_type="video", codec="h264", language="und"),
+        ]
+
+        with caplog.at_level(logging.DEBUG):
+            result = get_language_results_for_tracks(db_conn, tracks)
+
+        assert result is None
+        assert "No audio tracks with database IDs" in caplog.text
+
+    def test_logs_debug_when_no_analysis_results(self, db_conn, caplog):
+        """Verify debug logging when no analysis results in database."""
+        file_id = create_file(db_conn, "/media/movies/test.mkv")
+        track_id = create_track_record(db_conn, file_id, 1, "audio", "eng")
+
+        tracks = [
+            TrackInfo(
+                id=track_id, index=1, track_type="audio", codec="aac", language="eng"
+            ),
+        ]
+
+        with caplog.at_level(logging.DEBUG):
+            result = get_language_results_for_tracks(db_conn, tracks)
+
+        assert result is None
+        assert "No language analysis results found for" in caplog.text
+        assert "1 audio track(s)" in caplog.text

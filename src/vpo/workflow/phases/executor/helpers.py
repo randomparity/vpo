@@ -13,15 +13,15 @@ from pathlib import Path
 from sqlite3 import Connection
 from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from vpo.language_analysis.models import LanguageAnalysisResult
+
 from vpo.db.queries import (
     get_language_analysis_for_tracks,
-    get_language_segments,
+    get_language_segments_for_analyses,
     get_tracks_for_file,
 )
 from vpo.db.types import FileRecord, TrackInfo, tracks_to_track_info
-
-if TYPE_CHECKING:
-    from vpo.language_analysis.models import LanguageAnalysisResult
 from vpo.executor import (
     FfmpegMetadataExecutor,
     FFmpegRemuxExecutor,
@@ -175,19 +175,28 @@ def get_language_results_for_tracks(
     ]
 
     if not audio_track_ids:
+        logger.debug("No audio tracks with database IDs for language results lookup")
         return None
 
     # Batch fetch language analysis records
     records = get_language_analysis_for_tracks(conn, audio_track_ids)
     if not records:
+        logger.debug(
+            "No language analysis results found for %d audio track(s)",
+            len(audio_track_ids),
+        )
         return None
+
+    # Batch fetch all segments (fixes N+1 query)
+    analysis_ids = [r.id for r in records.values() if r.id is not None]
+    all_segments = get_language_segments_for_analyses(conn, analysis_ids)
 
     # Convert records to domain models with segments
     results: dict[int, LanguageAnalysisResult] = {}
     for track_id, record in records.items():
         if record.id is None:
             continue
-        segments = get_language_segments(conn, record.id)
+        segments = all_segments.get(record.id, [])
         results[track_id] = LanguageAnalysisResult.from_record(record, segments)
 
     return results if results else None
