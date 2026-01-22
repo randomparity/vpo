@@ -6,7 +6,7 @@ including codec compatibility checking for MP4 conversion.
 
 from __future__ import annotations
 
-from vpo.db import TrackInfo
+from vpo.domain import TrackInfo
 from vpo.policy.exceptions import IncompatibleCodecError
 from vpo.policy.types import (
     ContainerChange,

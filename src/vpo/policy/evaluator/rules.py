@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from vpo.language_analysis.models import LanguageAnalysisResult
     from vpo.track_classification.models import TrackClassificationResult
 
-from vpo.db import TrackInfo
+from vpo.domain import TrackInfo
 from vpo.policy.conditions import PluginMetadataDict
 from vpo.policy.types import (
     ConditionalResult,

@@ -14,7 +14,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from vpo.db.types import PluginMetadataDict
+from vpo.domain import PluginMetadataDict
 from vpo.policy.conditions import evaluate_condition
 from vpo.policy.synthesis.downmix import (
     get_downmix_filter,
@@ -45,7 +45,7 @@ from vpo.policy.synthesis.source_selector import (
 )
 
 if TYPE_CHECKING:
-    from vpo.db import TrackInfo
+    from vpo.domain import TrackInfo
     from vpo.policy.types import (
         AudioSynthesisConfig,
         Comparison,

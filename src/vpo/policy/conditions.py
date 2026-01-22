@@ -23,7 +23,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from vpo.db.types import OriginalDubbedStatus, PluginMetadataDict
+from vpo.domain import OriginalDubbedStatus, PluginMetadataDict
 from vpo.language import languages_match
 from vpo.language_analysis.models import (
     LanguageAnalysisResult,
@@ -51,7 +51,7 @@ from vpo.track_classification.models import (
 )
 
 if TYPE_CHECKING:
-    from vpo.db import TrackInfo
+    from vpo.domain import TrackInfo
 
 
 # Default patterns for identifying commentary tracks
