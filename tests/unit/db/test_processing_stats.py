@@ -929,3 +929,103 @@ class TestEncoderTypeTracking:
 
         assert summary.hardware_encodes == 2
         assert summary.software_encodes == 1
+
+
+class TestGetStatsForFileView:
+    """Tests for get_stats_for_file view function."""
+
+    def test_encoder_type_included_in_results(
+        self, conn: sqlite3.Connection, file_id: int
+    ) -> None:
+        """get_stats_for_file should include encoder_type in results."""
+        from vpo.db.views import get_stats_for_file
+
+        record = ProcessingStatsRecord(
+            id=str(uuid.uuid4()),
+            file_id=file_id,
+            processed_at="2024-01-15T10:00:00Z",
+            policy_name="test-policy",
+            size_before=1000000,
+            size_after=500000,
+            size_change=500000,
+            audio_tracks_before=0,
+            subtitle_tracks_before=0,
+            attachments_before=0,
+            audio_tracks_after=0,
+            subtitle_tracks_after=0,
+            attachments_after=0,
+            audio_tracks_removed=0,
+            subtitle_tracks_removed=0,
+            attachments_removed=0,
+            duration_seconds=10.0,
+            phases_completed=1,
+            phases_total=1,
+            total_changes=1,
+            video_source_codec=None,
+            video_target_codec=None,
+            video_transcode_skipped=False,
+            video_skip_reason=None,
+            audio_tracks_transcoded=0,
+            audio_tracks_preserved=0,
+            hash_before=None,
+            hash_after=None,
+            success=True,
+            error_message=None,
+            encoder_type="hardware",
+        )
+
+        insert_processing_stats(conn, record)
+        conn.commit()
+
+        results = get_stats_for_file(conn, file_id=file_id)
+
+        assert len(results) == 1
+        assert results[0].encoder_type == "hardware"
+
+    def test_encoder_type_none_when_not_set(
+        self, conn: sqlite3.Connection, file_id: int
+    ) -> None:
+        """get_stats_for_file should return None encoder_type when not set."""
+        from vpo.db.views import get_stats_for_file
+
+        record = ProcessingStatsRecord(
+            id=str(uuid.uuid4()),
+            file_id=file_id,
+            processed_at="2024-01-15T10:00:00Z",
+            policy_name="test-policy",
+            size_before=1000000,
+            size_after=500000,
+            size_change=500000,
+            audio_tracks_before=0,
+            subtitle_tracks_before=0,
+            attachments_before=0,
+            audio_tracks_after=0,
+            subtitle_tracks_after=0,
+            attachments_after=0,
+            audio_tracks_removed=0,
+            subtitle_tracks_removed=0,
+            attachments_removed=0,
+            duration_seconds=10.0,
+            phases_completed=1,
+            phases_total=1,
+            total_changes=1,
+            video_source_codec=None,
+            video_target_codec=None,
+            video_transcode_skipped=False,
+            video_skip_reason=None,
+            audio_tracks_transcoded=0,
+            audio_tracks_preserved=0,
+            hash_before=None,
+            hash_after=None,
+            success=True,
+            error_message=None,
+            encoder_type=None,  # Not set
+        )
+
+        insert_processing_stats(conn, record)
+        conn.commit()
+
+        results = get_stats_for_file(conn, file_id=file_id)
+
+        assert len(results) == 1
+        assert results[0].encoder_type is None

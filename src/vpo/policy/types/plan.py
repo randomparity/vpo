@@ -364,6 +364,9 @@ class PhaseResult:
     total_frames: int | None = None
     """Total frames encoded by FFmpeg (for stats tracking)."""
 
+    encoder_type: str | None = None
+    """Encoder type used: 'hardware', 'software', or None if unknown."""
+
     # Phase outcome tracking (for conditional phases feature)
     outcome: PhaseOutcome = PhaseOutcome.PENDING
     """Explicit outcome enum for dependency resolution."""

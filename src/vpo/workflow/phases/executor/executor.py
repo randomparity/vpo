@@ -252,6 +252,7 @@ class PhaseExecutor:
                 encoding_fps=state.encoding_fps,
                 encoding_bitrate_kbps=state.encoding_bitrate_kbps,
                 total_frames=state.total_frames,
+                encoder_type=state.encoder_type,
             )
 
         except PhaseExecutionError:

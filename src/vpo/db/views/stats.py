@@ -398,7 +398,8 @@ def get_stats_detail(
             ps.hash_before,
             ps.hash_after,
             ps.success,
-            ps.error_message
+            ps.error_message,
+            ps.encoder_type
         FROM processing_stats ps
         LEFT JOIN files f ON ps.file_id = f.id
         WHERE ps.id = ?
@@ -463,6 +464,7 @@ def get_stats_detail(
         hash_after=row[29],
         success=row[30] == 1,
         error_message=row[31],
+        encoder_type=row[32],
         actions=actions,
     )
 
@@ -509,7 +511,7 @@ def get_stats_for_file(
             id, processed_at, policy_name,
             size_before, size_after, size_change,
             audio_tracks_removed, subtitle_tracks_removed, attachments_removed,
-            duration_seconds, success, error_message
+            duration_seconds, success, error_message, encoder_type
         FROM processing_stats
         WHERE file_id = ?
         ORDER BY processed_at DESC
@@ -531,6 +533,7 @@ def get_stats_for_file(
             duration_seconds=row[9] or 0.0,
             success=row[10] == 1,
             error_message=row[11],
+            encoder_type=row[12],
         )
         for row in cursor.fetchall()
     ]

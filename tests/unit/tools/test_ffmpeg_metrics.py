@@ -147,6 +147,27 @@ class TestFFmpegMetricsAggregator:
         assert summary.avg_fps is None
         assert summary.total_frames == 100
 
+    def test_negative_bitrate_rejected(self) -> None:
+        """Negative bitrate values should be rejected."""
+        aggregator = FFmpegMetricsAggregator()
+
+        progress = FFmpegProgress(fps=30.0, bitrate="-500kbits/s")
+        aggregator.add_sample(progress)
+
+        summary = aggregator.summarize()
+        assert summary.avg_bitrate_kbps is None
+        assert summary.avg_fps == 30.0
+
+    def test_negative_mbits_bitrate_rejected(self) -> None:
+        """Negative Mbits/s bitrate should be rejected."""
+        aggregator = FFmpegMetricsAggregator()
+
+        progress = FFmpegProgress(fps=30.0, bitrate="-1.5Mbits/s")
+        aggregator.add_sample(progress)
+
+        summary = aggregator.summarize()
+        assert summary.avg_bitrate_kbps is None
+
 
 class TestFFmpegMetricsSummary:
     """Tests for FFmpegMetricsSummary dataclass."""

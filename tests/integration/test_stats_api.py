@@ -157,6 +157,44 @@ class TestStatsTrendsEndpoint(AioHTTPTestCase):
             dates = {point["date"] for point in data}
             assert len(dates) >= 2
 
+    async def test_trends_groups_by_week(self) -> None:
+        """Trends endpoint groups data by week."""
+        now = datetime.now(timezone.utc)
+
+        # Insert data
+        self._insert_test_stats(uuid4().hex, "test.yaml", now, success=True)
+
+        async with self.client.get("/api/stats/trends?since=30d&group_by=week") as resp:
+            assert resp.status == 200
+            data = await resp.json()
+
+            # Should have at least 1 data point with week format
+            assert len(data) >= 1
+            if data:
+                # Week format should contain 'W' for week number
+                assert "W" in data[0]["date"]
+
+    async def test_trends_groups_by_month(self) -> None:
+        """Trends endpoint groups data by month."""
+        now = datetime.now(timezone.utc)
+
+        # Insert data
+        self._insert_test_stats(uuid4().hex, "test.yaml", now, success=True)
+
+        # Use 30d since that's the max supported value
+        async with self.client.get(
+            "/api/stats/trends?since=30d&group_by=month"
+        ) as resp:
+            assert resp.status == 200
+            data = await resp.json()
+
+            # Should have at least 1 data point
+            assert len(data) >= 1
+            if data:
+                # Month format should be YYYY-MM
+                assert len(data[0]["date"]) == 7  # e.g., "2026-01"
+                assert "-" in data[0]["date"]
+
     async def test_trends_invalid_since_format(self) -> None:
         """Trends endpoint handles invalid since parameter."""
         async with self.client.get("/api/stats/trends?since=invalid") as response:

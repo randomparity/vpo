@@ -88,15 +88,21 @@ class FFmpegMetricsAggregator:
             # Check for Mbits/s
             if "Mbits/s" in bitrate_str or "mbits/s" in bitrate_str.lower():
                 value = float(bitrate_str.lower().replace("mbits/s", "").strip())
-                return int(value * 1000)
+                result = round(value * 1000)
+                # Reject negative values - invalid bitrate data
+                return result if result >= 0 else None
 
             # Check for kbits/s (most common)
             if "kbits/s" in bitrate_str.lower():
                 value = float(bitrate_str.lower().replace("kbits/s", "").strip())
-                return int(value)
+                result = round(value)
+                # Reject negative values - invalid bitrate data
+                return result if result >= 0 else None
 
             # Try parsing as plain number (assume kbps)
-            return int(float(bitrate_str))
+            result = round(float(bitrate_str))
+            # Reject negative values - invalid bitrate data
+            return result if result >= 0 else None
         except (ValueError, AttributeError):
             return None
 

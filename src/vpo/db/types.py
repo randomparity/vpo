@@ -963,6 +963,7 @@ class StatsDetailView:
         hash_after: File hash after processing.
         success: Whether processing succeeded.
         error_message: Error message if failed.
+        encoder_type: 'hardware', 'software', or None if unknown.
         actions: List of action summaries.
     """
 
@@ -1007,6 +1008,9 @@ class StatsDetailView:
 
     success: bool
     error_message: str | None
+
+    # Hardware encoder tracking (Issue #264)
+    encoder_type: str | None = None
 
     actions: list[ActionSummary] = field(default_factory=list)
 

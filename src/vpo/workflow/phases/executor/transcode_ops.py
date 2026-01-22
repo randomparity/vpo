@@ -147,6 +147,7 @@ def execute_transcode(
             state.encoding_fps = result.encoding_fps
             state.encoding_bitrate_kbps = result.encoding_bitrate_kbps
             state.total_frames = result.total_frames
+            state.encoder_type = result.encoder_type
 
     # Audio transcode (without video transcode)
     elif phase.audio_transcode:
