@@ -28,6 +28,8 @@ class SonarrSeries:
     original_language: SonarrLanguage | None = None
     imdb_id: str | None = None
     tvdb_id: int | None = None
+    # Release date (ISO 8601 format from Sonarr API)
+    first_aired: str | None = None  # firstAired from API (series premiere)
 
 
 @dataclass(frozen=True)
@@ -40,6 +42,8 @@ class SonarrEpisode:
     episode_number: int
     title: str
     has_file: bool = False
+    # Air date (ISO 8601 format from Sonarr API)
+    air_date: str | None = None  # airDate from API (episode air date)
 
 
 @dataclass(frozen=True)

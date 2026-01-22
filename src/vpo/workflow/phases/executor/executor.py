@@ -11,6 +11,7 @@ from pathlib import Path
 from sqlite3 import Connection
 from typing import TYPE_CHECKING
 
+from vpo.core.file_utils import get_file_mtime
 from vpo.db.queries import get_file_by_path
 from vpo.policy.evaluator import Plan
 from vpo.policy.types import (
@@ -150,6 +151,29 @@ class PhaseExecutor:
         """
         start_time = time.time()
         state = PhaseExecutionState(file_path=file_path, phase=phase)
+
+        # Capture original file mtime for file_timestamp preserve mode
+        # Do this before any operations modify the file
+        if phase.file_timestamp is not None:
+            try:
+                state.original_mtime = get_file_mtime(file_path)
+                logger.debug(
+                    "Captured original file mtime: %s",
+                    state.original_mtime,
+                )
+            except OSError as e:
+                if phase.file_timestamp.mode == "preserve":
+                    # Fail loudly - user explicitly requested preservation
+                    raise PhaseExecutionError(
+                        phase_name=phase.name,
+                        operation=None,
+                        message=f"Cannot capture mtime for preserve mode: {e}",
+                    ) from e
+                logger.warning(
+                    "Failed to capture mtime (mode=%s): %s",
+                    phase.file_timestamp.mode,
+                    e,
+                )
 
         # Get operations to execute
         operations = phase.get_operations()
@@ -346,6 +370,7 @@ class PhaseExecutor:
             OperationType.CONDITIONAL: self._execute_conditional,
             OperationType.AUDIO_SYNTHESIS: self._execute_audio_synthesis,
             OperationType.TRANSCODE: self._execute_transcode,
+            OperationType.FILE_TIMESTAMP: self._execute_file_timestamp,
             OperationType.TRANSCRIPTION: self._execute_transcription,
         }
 
@@ -460,6 +485,16 @@ class PhaseExecutor:
         from .transcode_ops import execute_transcode
 
         return execute_transcode(state, file_info, self.conn, self.dry_run)
+
+    def _execute_file_timestamp(
+        self,
+        state: PhaseExecutionState,
+        file_info: "FileInfo | None",
+    ) -> int:
+        """Execute file timestamp operation."""
+        from .timestamp_ops import execute_file_timestamp
+
+        return execute_file_timestamp(state, file_info, self.conn, self.dry_run)
 
     def _execute_audio_synthesis(
         self,

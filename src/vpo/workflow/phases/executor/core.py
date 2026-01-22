@@ -21,6 +21,7 @@ from .plan_operations import (
     execute_subtitle_filter,
     execute_track_order,
 )
+from .timestamp_ops import execute_file_timestamp
 from .transcode_ops import execute_transcode
 from .types import OperationResult, PhaseExecutionState
 
@@ -137,6 +138,8 @@ def dispatch_operation(
         return execute_transcode(state, file_info, conn, dry_run)
     elif op_type == OperationType.AUDIO_SYNTHESIS:
         return execute_audio_synthesis(state, file_info, conn, policy, dry_run)
+    elif op_type == OperationType.FILE_TIMESTAMP:
+        return execute_file_timestamp(state, file_info, conn, dry_run)
     elif op_type == OperationType.TRANSCRIPTION:
         return execute_transcription(state, file_info, conn, dry_run, plugin_registry)
     else:

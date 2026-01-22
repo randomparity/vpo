@@ -12,7 +12,7 @@ from typing import Any
 import httpx
 
 from vpo.config.models import PluginConnectionConfig
-from vpo.plugin_sdk.helpers import normalize_path_for_matching
+from vpo.plugin_sdk.helpers import extract_date_from_iso, normalize_path_for_matching
 from vpo.plugins.radarr_metadata.models import (
     RadarrCache,
     RadarrLanguage,
@@ -179,6 +179,12 @@ class RadarrClient:
                 name=lang_data.get("name", "Unknown"),
             )
 
+        # Parse release dates - Radarr returns ISO 8601 datetime strings
+        # We extract just the date portion (YYYY-MM-DD) if present
+        digital_release = extract_date_from_iso(data.get("digitalRelease"))
+        physical_release = extract_date_from_iso(data.get("physicalRelease"))
+        cinema_release = extract_date_from_iso(data.get("inCinemas"))
+
         return RadarrMovie(
             id=data["id"],
             title=data.get("title", ""),
@@ -189,6 +195,9 @@ class RadarrClient:
             has_file=data.get("hasFile", False),
             imdb_id=data.get("imdbId"),
             tmdb_id=data.get("tmdbId"),
+            digital_release=digital_release,
+            physical_release=physical_release,
+            cinema_release=cinema_release,
         )
 
     def _parse_movie_file_response(self, data: dict[str, Any]) -> RadarrMovieFile:

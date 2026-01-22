@@ -44,6 +44,15 @@ class MetadataEnrichment:
     episode_title: str | None = None
     tvdb_id: int | None = None
 
+    # Release date fields (ISO 8601 format, e.g., "2024-01-15")
+    # Used by file_timestamp policy operation to set file mtime
+    release_date: str | None = None  # Primary release date (digital/air)
+    cinema_release: str | None = None  # Theatrical release (movies)
+    digital_release: str | None = None  # Digital release (movies)
+    physical_release: str | None = None  # Physical release (movies)
+    air_date: str | None = None  # Episode air date (TV)
+    premiere_date: str | None = None  # Series premiere (TV)
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dict for plugin return value.
 
@@ -74,6 +83,19 @@ class MetadataEnrichment:
             result["episode_title"] = self.episode_title
         if self.tvdb_id is not None:
             result["tvdb_id"] = self.tvdb_id
+        # Release date fields
+        if self.release_date is not None:
+            result["release_date"] = self.release_date
+        if self.cinema_release is not None:
+            result["cinema_release"] = self.cinema_release
+        if self.digital_release is not None:
+            result["digital_release"] = self.digital_release
+        if self.physical_release is not None:
+            result["physical_release"] = self.physical_release
+        if self.air_date is not None:
+            result["air_date"] = self.air_date
+        if self.premiere_date is not None:
+            result["premiere_date"] = self.premiere_date
         return result
 
 

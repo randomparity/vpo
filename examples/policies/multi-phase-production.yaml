@@ -1,6 +1,6 @@
-# Multi-Phase Production Policy (V11)
+# Multi-Phase Production Policy (V12)
 # Enterprise workflow with all operations across 5 phases
-schema_version: 11
+schema_version: 12
 
 config:
   audio_language_preference: [eng, jpn, und]
@@ -94,3 +94,6 @@ phases:
         preserve_codecs: [truehd, dts-hd, flac, aac]
         transcode_to: aac
         transcode_bitrate: 128k
+    # Preserve original file modification time after all processing
+    file_timestamp:
+      mode: preserve

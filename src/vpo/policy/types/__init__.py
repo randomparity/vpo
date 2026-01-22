@@ -65,6 +65,7 @@ from vpo.policy.types.filters import (
     AudioFilterConfig,
     ContainerConfig,
     DefaultFlagsConfig,
+    FileTimestampConfig,
     LanguageFallbackConfig,
     SubtitleActionsConfig,
     SubtitleFilterConfig,
@@ -168,6 +169,7 @@ __all__ = [
     "SubtitleActionsConfig",
     "ContainerConfig",
     "DefaultFlagsConfig",
+    "FileTimestampConfig",
     "TranscriptionPolicyOptions",
     # Condition enums
     "ComparisonOperator",

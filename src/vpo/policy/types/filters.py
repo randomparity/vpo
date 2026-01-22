@@ -206,3 +206,33 @@ class ContainerConfig:
     - skip: Skip the entire file with a warning
     - transcode: Transcode incompatible tracks (requires transcode config)
     """
+
+
+@dataclass(frozen=True)
+class FileTimestampConfig:
+    """Configuration for file timestamp handling after processing.
+
+    Controls whether file modification timestamps are preserved, set to
+    release dates from external metadata (Radarr/Sonarr), or left as-is.
+    """
+
+    mode: Literal["preserve", "release_date", "now"] = "preserve"
+    """Timestamp handling mode:
+    - preserve: Restore original mtime after processing
+    - release_date: Set to release/air date from plugin metadata
+    - now: Use current time (default OS behavior, essentially a no-op)
+    """
+
+    fallback: Literal["preserve", "now", "skip"] = "preserve"
+    """Fallback behavior when release_date mode has no date available:
+    - preserve: Keep original mtime
+    - now: Use current time
+    - skip: Skip timestamp operation (leave as modified by processing)
+    """
+
+    date_source: Literal["auto", "radarr", "sonarr"] = "auto"
+    """Source for release date:
+    - auto: Auto-detect from external_source field in plugin metadata
+    - radarr: Use only Radarr metadata
+    - sonarr: Use only Sonarr metadata
+    """

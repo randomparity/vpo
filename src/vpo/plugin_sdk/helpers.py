@@ -7,9 +7,14 @@ common plugin development patterns.
 from __future__ import annotations
 
 import logging
+import re
 import socket
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+# Pattern for validating date format YYYY-MM-DD
+DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 def get_logger(plugin_name: str) -> logging.Logger:
@@ -189,3 +194,58 @@ def get_host_identifier() -> str:
 
     """
     return socket.gethostname()
+
+
+def extract_date_from_iso(datetime_str: str | None) -> str | None:
+    """Extract and validate date from ISO 8601 datetime string.
+
+    Extracts the date portion (YYYY-MM-DD) from an ISO 8601 datetime string
+    and validates that it represents a valid calendar date.
+
+    This is the canonical function for parsing dates from external APIs
+    like Radarr and Sonarr. Use this instead of duplicating the parsing logic.
+
+    Args:
+        datetime_str: ISO 8601 datetime string (e.g., "2024-06-15T00:00:00Z")
+                     or date-only string (e.g., "2024-06-15").
+                     Can be None.
+
+    Returns:
+        Date portion only (e.g., "2024-06-15") or None if:
+        - Input is None or empty
+        - Input doesn't match expected format
+        - Date is not a valid calendar date (e.g., "2024-02-30")
+
+    Example:
+        >>> extract_date_from_iso("2024-06-15T00:00:00Z")
+        '2024-06-15'
+        >>> extract_date_from_iso("2024-06-15")
+        '2024-06-15'
+        >>> extract_date_from_iso("TBD")
+        None
+        >>> extract_date_from_iso("2024-13-45")
+        None
+
+    """
+    if not datetime_str:
+        return None
+
+    # Extract the date portion
+    if "T" in datetime_str:
+        date_str = datetime_str.split("T")[0]
+    elif len(datetime_str) >= 10:
+        date_str = datetime_str[:10]
+    else:
+        return None
+
+    # Validate format matches YYYY-MM-DD
+    if not DATE_PATTERN.match(date_str):
+        return None
+
+    # Validate it's a real calendar date (e.g., not 2024-02-30)
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        return None
+
+    return date_str

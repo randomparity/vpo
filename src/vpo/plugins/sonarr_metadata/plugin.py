@@ -155,6 +155,12 @@ class SonarrMetadataPlugin:
                 warn_on_conversion=False,
             )
 
+        # Get episode air date if available, otherwise use series premiere
+        episode_air_date = episode.air_date if episode else None
+        premiere_date = series.first_aired if series else None
+        # Primary release date is the episode air date (most relevant for TV)
+        release_date = episode_air_date or premiere_date
+
         return MetadataEnrichment(
             original_language=original_language,
             external_source="sonarr",
@@ -168,6 +174,10 @@ class SonarrMetadataPlugin:
             season_number=episode.season_number if episode else None,
             episode_number=episode.episode_number if episode else None,
             episode_title=episode.title if episode else None,
+            # Release date fields
+            release_date=release_date,
+            air_date=episode_air_date,
+            premiere_date=premiere_date,
         )
 
     def on_policy_evaluate(self, event: Any) -> None:

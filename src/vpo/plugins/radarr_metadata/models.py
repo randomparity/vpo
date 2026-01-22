@@ -47,6 +47,10 @@ class RadarrMovie:
     has_file: bool
     imdb_id: str | None = None
     tmdb_id: int | None = None
+    # Release dates (ISO 8601 format from Radarr API)
+    digital_release: str | None = None  # digitalRelease from API
+    physical_release: str | None = None  # physicalRelease from API
+    cinema_release: str | None = None  # inCinemas from API
 
 
 @dataclass(frozen=True)

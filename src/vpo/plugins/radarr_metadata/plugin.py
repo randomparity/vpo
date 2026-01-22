@@ -147,6 +147,11 @@ class RadarrMetadataPlugin:
                 warn_on_conversion=False,
             )
 
+        # Determine primary release date (prefer digital, then physical, then cinema)
+        release_date = (
+            movie.digital_release or movie.physical_release or movie.cinema_release
+        )
+
         return MetadataEnrichment(
             original_language=original_language,
             external_source="radarr",
@@ -155,6 +160,11 @@ class RadarrMetadataPlugin:
             external_year=movie.year if movie.year > 0 else None,
             imdb_id=movie.imdb_id,
             tmdb_id=movie.tmdb_id,
+            # Release date fields
+            release_date=release_date,
+            digital_release=movie.digital_release,
+            physical_release=movie.physical_release,
+            cinema_release=movie.cinema_release,
         )
 
     def on_policy_evaluate(self, event: Any) -> None:

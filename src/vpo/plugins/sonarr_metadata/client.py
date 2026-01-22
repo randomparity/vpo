@@ -13,7 +13,7 @@ from urllib.parse import quote
 import httpx
 
 from vpo.config.models import PluginConnectionConfig
-from vpo.plugin_sdk.helpers import normalize_path_for_matching
+from vpo.plugin_sdk.helpers import extract_date_from_iso, normalize_path_for_matching
 from vpo.plugins.sonarr_metadata.models import (
     SonarrEpisode,
     SonarrLanguage,
@@ -177,6 +177,9 @@ class SonarrClient:
                 name=lang_data.get("name", "Unknown"),
             )
 
+        # Parse first aired date
+        first_aired = extract_date_from_iso(data.get("firstAired"))
+
         return SonarrSeries(
             id=series_id,
             title=data.get("title", ""),
@@ -185,6 +188,7 @@ class SonarrClient:
             original_language=original_language,
             imdb_id=data.get("imdbId"),
             tvdb_id=data.get("tvdbId"),
+            first_aired=first_aired,
         )
 
     def _parse_episode_response(self, data: dict[str, Any]) -> SonarrEpisode:
@@ -196,6 +200,9 @@ class SonarrClient:
         Returns:
             SonarrEpisode dataclass.
         """
+        # Parse air date
+        air_date = extract_date_from_iso(data.get("airDate"))
+
         return SonarrEpisode(
             id=data.get("id", 0),
             series_id=data.get("seriesId", 0),
@@ -203,6 +210,7 @@ class SonarrClient:
             episode_number=data.get("episodeNumber", 0),
             title=data.get("title", ""),
             has_file=data.get("hasFile", False),
+            air_date=air_date,
         )
 
     def _parse_parse_result(self, data: dict[str, Any]) -> SonarrParseResult:
