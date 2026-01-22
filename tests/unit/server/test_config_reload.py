@@ -1,0 +1,393 @@
+"""Unit tests for configuration reload support."""
+
+from datetime import datetime, timezone
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
+from vpo.config.models import (
+    JobsConfig,
+    LoggingConfig,
+    ProcessingConfig,
+    ServerConfig,
+    ToolPathsConfig,
+    VPOConfig,
+    WorkerConfig,
+)
+from vpo.server.config_reload import (
+    REQUIRES_RESTART_FIELDS,
+    ConfigReloader,
+    ReloadResult,
+    ReloadState,
+    _detect_changes,
+    _format_change_log,
+    _get_nested_attr,
+)
+
+
+class TestReloadState:
+    """Tests for ReloadState dataclass."""
+
+    def test_default_initialization(self) -> None:
+        """Test ReloadState initializes with default values."""
+        state = ReloadState()
+        assert state.last_reload is None
+        assert state.reload_count == 0
+        assert state.last_error is None
+        assert state.changes_detected == []
+
+    def test_initialization_with_values(self) -> None:
+        """Test ReloadState can be initialized with custom values."""
+        now = datetime.now(timezone.utc)
+        state = ReloadState(
+            last_reload=now,
+            reload_count=5,
+            last_error="test error",
+            changes_detected=["jobs.retention_days"],
+        )
+        assert state.last_reload == now
+        assert state.reload_count == 5
+        assert state.last_error == "test error"
+        assert state.changes_detected == ["jobs.retention_days"]
+
+
+class TestReloadResult:
+    """Tests for ReloadResult dataclass."""
+
+    def test_success_result(self) -> None:
+        """Test successful reload result."""
+        result = ReloadResult(
+            success=True,
+            changes=["jobs.retention_days", "logging.level"],
+        )
+        assert result.success is True
+        assert len(result.changes) == 2
+        assert result.error is None
+        assert result.requires_restart == []
+
+    def test_failure_result(self) -> None:
+        """Test failed reload result."""
+        result = ReloadResult(
+            success=False,
+            changes=[],
+            error="Config file not found",
+        )
+        assert result.success is False
+        assert result.changes == []
+        assert result.error == "Config file not found"
+
+    def test_result_with_restart_required(self) -> None:
+        """Test result with changes requiring restart."""
+        result = ReloadResult(
+            success=True,
+            changes=["server.port", "jobs.retention_days"],
+            requires_restart=["server.port"],
+        )
+        assert result.success is True
+        assert "server.port" in result.requires_restart
+        assert "jobs.retention_days" not in result.requires_restart
+
+
+class TestGetNestedAttr:
+    """Tests for _get_nested_attr helper."""
+
+    def test_single_level_attr(self) -> None:
+        """Test getting a single-level attribute."""
+        config = VPOConfig()
+        result = _get_nested_attr(config, "database_path")
+        assert result == config.database_path
+
+    def test_nested_attr(self) -> None:
+        """Test getting a nested attribute."""
+        config = VPOConfig(server=ServerConfig(port=9000))
+        result = _get_nested_attr(config, "server.port")
+        assert result == 9000
+
+    def test_missing_attr(self) -> None:
+        """Test getting a nonexistent attribute returns None."""
+        config = VPOConfig()
+        result = _get_nested_attr(config, "nonexistent.field")
+        assert result is None
+
+
+class TestDetectChanges:
+    """Tests for _detect_changes function."""
+
+    def test_no_changes(self) -> None:
+        """Test detection when configs are identical."""
+        config1 = VPOConfig()
+        config2 = VPOConfig()
+        changes, requires_restart = _detect_changes(config1, config2)
+        assert changes == []
+        assert requires_restart == []
+
+    def test_hot_reloadable_change(self) -> None:
+        """Test detection of hot-reloadable changes."""
+        config1 = VPOConfig(jobs=JobsConfig(retention_days=30))
+        config2 = VPOConfig(jobs=JobsConfig(retention_days=60))
+        changes, requires_restart = _detect_changes(config1, config2)
+        assert "jobs.retention_days" in changes
+        assert requires_restart == []
+
+    def test_requires_restart_change(self) -> None:
+        """Test detection of changes requiring restart."""
+        config1 = VPOConfig(server=ServerConfig(port=8321))
+        config2 = VPOConfig(server=ServerConfig(port=9000))
+        changes, requires_restart = _detect_changes(config1, config2)
+        assert "server.port" in changes
+        assert "server.port" in requires_restart
+
+    def test_multiple_changes(self) -> None:
+        """Test detection of multiple changes."""
+        config1 = VPOConfig(
+            jobs=JobsConfig(retention_days=30),
+            logging=LoggingConfig(level="info"),
+            processing=ProcessingConfig(workers=2),
+        )
+        config2 = VPOConfig(
+            jobs=JobsConfig(retention_days=60),
+            logging=LoggingConfig(level="debug"),
+            processing=ProcessingConfig(workers=4),
+        )
+        changes, _ = _detect_changes(config1, config2)
+        assert "jobs.retention_days" in changes
+        assert "logging.level" in changes
+        assert "processing.workers" in changes
+
+    def test_path_comparison(self) -> None:
+        """Test that Path fields are compared correctly."""
+        config1 = VPOConfig(tools=ToolPathsConfig(ffmpeg=Path("/usr/bin/ffmpeg")))
+        config2 = VPOConfig(tools=ToolPathsConfig(ffmpeg=Path("/usr/local/bin/ffmpeg")))
+        changes, requires_restart = _detect_changes(config1, config2)
+        assert "tools.ffmpeg" in changes
+        assert "tools.ffmpeg" in requires_restart
+
+
+class TestFormatChangeLog:
+    """Tests for _format_change_log function."""
+
+    def test_format_simple_change(self) -> None:
+        """Test formatting a simple value change."""
+        config1 = VPOConfig(jobs=JobsConfig(retention_days=30))
+        config2 = VPOConfig(jobs=JobsConfig(retention_days=60))
+        msg = _format_change_log("jobs.retention_days", config1, config2)
+        assert "jobs.retention_days" in msg
+        assert "30" in msg
+        assert "60" in msg
+
+    def test_format_auth_token_sanitized(self) -> None:
+        """Test that auth_token values are sanitized."""
+        config1 = VPOConfig(server=ServerConfig(auth_token="secret123"))
+        config2 = VPOConfig(server=ServerConfig(auth_token="newsecret456"))
+        msg = _format_change_log("server.auth_token", config1, config2)
+        assert "server.auth_token" in msg
+        assert "secret123" not in msg
+        assert "newsecret456" not in msg
+        assert "****" in msg
+
+
+class TestRequiresRestartFields:
+    """Tests for REQUIRES_RESTART_FIELDS constant."""
+
+    def test_server_fields_require_restart(self) -> None:
+        """Test that server binding fields require restart."""
+        assert "server.bind" in REQUIRES_RESTART_FIELDS
+        assert "server.port" in REQUIRES_RESTART_FIELDS
+        assert "server.auth_token" in REQUIRES_RESTART_FIELDS
+
+    def test_database_path_requires_restart(self) -> None:
+        """Test that database_path requires restart."""
+        assert "database_path" in REQUIRES_RESTART_FIELDS
+
+    def test_tool_paths_require_restart(self) -> None:
+        """Test that tool paths require restart."""
+        assert "tools.ffmpeg" in REQUIRES_RESTART_FIELDS
+        assert "tools.ffprobe" in REQUIRES_RESTART_FIELDS
+        assert "tools.mkvmerge" in REQUIRES_RESTART_FIELDS
+        assert "tools.mkvpropedit" in REQUIRES_RESTART_FIELDS
+
+    def test_jobs_config_not_in_requires_restart(self) -> None:
+        """Test that jobs config fields are hot-reloadable."""
+        assert "jobs.retention_days" not in REQUIRES_RESTART_FIELDS
+        assert "jobs.auto_purge" not in REQUIRES_RESTART_FIELDS
+
+
+class TestConfigReloader:
+    """Tests for ConfigReloader class."""
+
+    def test_initialization(self) -> None:
+        """Test ConfigReloader initialization."""
+        state = ReloadState()
+        reloader = ConfigReloader(state)
+        assert reloader._state is state
+        assert reloader._config_path is None
+        assert reloader._current_config is None
+
+    def test_initialization_with_config_path(self) -> None:
+        """Test ConfigReloader initialization with config path."""
+        state = ReloadState()
+        config_path = Path("/etc/vpo/config.toml")
+        reloader = ConfigReloader(state, config_path=config_path)
+        assert reloader._config_path == config_path
+
+    def test_set_current_config(self) -> None:
+        """Test setting current configuration snapshot."""
+        state = ReloadState()
+        reloader = ConfigReloader(state)
+        config = VPOConfig()
+        reloader.set_current_config(config)
+        assert reloader._current_config is config
+
+    @pytest.mark.asyncio
+    async def test_reload_without_current_config_fails(self) -> None:
+        """Test reload fails gracefully when no current config set."""
+        state = ReloadState()
+        reloader = ConfigReloader(state)
+        # Don't call set_current_config
+        result = await reloader.reload()
+        assert result.success is False
+        assert "No current configuration" in result.error
+        assert state.last_error is not None
+
+    @pytest.mark.asyncio
+    async def test_reload_success_no_changes(self) -> None:
+        """Test reload when config is unchanged."""
+        state = ReloadState()
+        reloader = ConfigReloader(state)
+        config = VPOConfig()
+        reloader.set_current_config(config)
+
+        # Mock get_config to return same config
+        with patch("vpo.config.loader.get_config", return_value=VPOConfig()):
+            with patch("vpo.config.loader.clear_config_cache"):
+                result = await reloader.reload()
+
+        assert result.success is True
+        assert result.changes == []
+
+    @pytest.mark.asyncio
+    async def test_reload_success_with_changes(self) -> None:
+        """Test reload with configuration changes."""
+        state = ReloadState()
+        reloader = ConfigReloader(state)
+        old_config = VPOConfig(jobs=JobsConfig(retention_days=30))
+        new_config = VPOConfig(jobs=JobsConfig(retention_days=60))
+        reloader.set_current_config(old_config)
+
+        with patch("vpo.config.loader.get_config", return_value=new_config):
+            with patch("vpo.config.loader.clear_config_cache"):
+                result = await reloader.reload()
+
+        assert result.success is True
+        assert "jobs.retention_days" in result.changes
+        assert state.reload_count == 1
+        assert state.last_reload is not None
+        assert state.last_error is None
+
+    @pytest.mark.asyncio
+    async def test_reload_with_restart_required(self) -> None:
+        """Test reload with changes that require restart."""
+        state = ReloadState()
+        reloader = ConfigReloader(state)
+        old_config = VPOConfig(server=ServerConfig(port=8321))
+        new_config = VPOConfig(server=ServerConfig(port=9000))
+        reloader.set_current_config(old_config)
+
+        with patch("vpo.config.loader.get_config", return_value=new_config):
+            with patch("vpo.config.loader.clear_config_cache"):
+                result = await reloader.reload()
+
+        assert result.success is True
+        assert "server.port" in result.changes
+        assert "server.port" in result.requires_restart
+
+    @pytest.mark.asyncio
+    async def test_reload_failure_preserves_old_config(self) -> None:
+        """Test that reload failure keeps old config."""
+        state = ReloadState()
+        reloader = ConfigReloader(state)
+        old_config = VPOConfig()
+        reloader.set_current_config(old_config)
+
+        with patch(
+            "vpo.config.loader.get_config",
+            side_effect=ValueError("Invalid config"),
+        ):
+            with patch("vpo.config.loader.clear_config_cache"):
+                result = await reloader.reload()
+
+        assert result.success is False
+        assert "Invalid config" in result.error
+        assert state.last_error is not None
+        # Original config should be preserved
+        assert reloader._current_config is old_config
+
+    @pytest.mark.asyncio
+    async def test_reload_updates_log_level(self) -> None:
+        """Test that logging.level change updates root logger."""
+        import logging
+
+        state = ReloadState()
+        reloader = ConfigReloader(state)
+        old_config = VPOConfig(logging=LoggingConfig(level="info"))
+        new_config = VPOConfig(logging=LoggingConfig(level="debug"))
+        reloader.set_current_config(old_config)
+
+        with patch("vpo.config.loader.get_config", return_value=new_config):
+            with patch("vpo.config.loader.clear_config_cache"):
+                result = await reloader.reload()
+
+        assert result.success is True
+        assert "logging.level" in result.changes
+        # Root logger should be updated
+        assert logging.getLogger().level == logging.DEBUG
+
+    @pytest.mark.asyncio
+    async def test_reload_increments_count(self) -> None:
+        """Test that reload count increments on each successful reload."""
+        state = ReloadState()
+        reloader = ConfigReloader(state)
+
+        # First reload
+        reloader.set_current_config(VPOConfig(jobs=JobsConfig(retention_days=30)))
+        with patch(
+            "vpo.config.loader.get_config",
+            return_value=VPOConfig(jobs=JobsConfig(retention_days=31)),
+        ):
+            with patch("vpo.config.loader.clear_config_cache"):
+                await reloader.reload()
+
+        assert state.reload_count == 1
+
+        # Second reload
+        with patch(
+            "vpo.config.loader.get_config",
+            return_value=VPOConfig(jobs=JobsConfig(retention_days=32)),
+        ):
+            with patch("vpo.config.loader.clear_config_cache"):
+                await reloader.reload()
+
+        assert state.reload_count == 2
+
+    @pytest.mark.asyncio
+    async def test_reload_stores_changes_detected(self) -> None:
+        """Test that changes are stored in state."""
+        state = ReloadState()
+        reloader = ConfigReloader(state)
+        old_config = VPOConfig(
+            jobs=JobsConfig(retention_days=30),
+            worker=WorkerConfig(max_files=100),
+        )
+        new_config = VPOConfig(
+            jobs=JobsConfig(retention_days=60),
+            worker=WorkerConfig(max_files=200),
+        )
+        reloader.set_current_config(old_config)
+
+        with patch("vpo.config.loader.get_config", return_value=new_config):
+            with patch("vpo.config.loader.clear_config_cache"):
+                await reloader.reload()
+
+        assert "jobs.retention_days" in state.changes_detected
+        assert "worker.max_files" in state.changes_detected

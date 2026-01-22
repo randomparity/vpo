@@ -4,11 +4,14 @@ This module provides the `vpo serve` command that runs VPO as a
 long-lived background service suitable for systemd management.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import re
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
 
@@ -17,6 +20,9 @@ from vpo.db.connection import (
     check_database_connectivity,
     get_default_db_path,
 )
+
+if TYPE_CHECKING:
+    from vpo.config.models import VPOConfig
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +60,8 @@ async def run_server(
     db_path: Path,
     profile_name: str | None = None,
     auth_token: str | None = None,
+    config_path: Path | None = None,
+    config: VPOConfig | None = None,
 ) -> int:
     """Run the daemon server.
 
@@ -64,6 +72,8 @@ async def run_server(
         db_path: Path to database file.
         profile_name: Optional profile name to store in app context.
         auth_token: Optional auth token for HTTP Basic Auth.
+        config_path: Optional path to config file for reload support.
+        config: Current configuration for reload comparison.
 
     Returns:
         Exit code (0 for clean shutdown, non-zero for errors).
@@ -77,8 +87,15 @@ async def run_server(
         setup_signal_handlers,
     )
 
-    # Create lifecycle manager
-    lifecycle = DaemonLifecycle(shutdown_timeout=shutdown_timeout)
+    # Create lifecycle manager with config path for reload
+    lifecycle = DaemonLifecycle(
+        shutdown_timeout=shutdown_timeout,
+        config_path=config_path,
+    )
+
+    # Initialize reload support if config provided
+    if config is not None:
+        lifecycle.init_reload_support(config)
 
     # Create shutdown event for signal coordination
     shutdown_event = asyncio.Event()
@@ -86,8 +103,13 @@ async def run_server(
     # Get the running event loop
     loop = asyncio.get_running_loop()
 
-    # Set up signal handlers
-    setup_signal_handlers(loop, lifecycle, shutdown_event)
+    # Create async reload callback for SIGHUP
+    async def reload_callback() -> None:
+        """Handle SIGHUP by reloading configuration."""
+        await lifecycle.reload_config()
+
+    # Set up signal handlers with reload callback
+    setup_signal_handlers(loop, lifecycle, shutdown_event, reload_callback)
 
     # Create the application with database path for connection pooling
     app = create_app(db_path=db_path, auth_token=auth_token)
@@ -115,6 +137,7 @@ async def run_server(
             __import__("os").getpid(),
         )
         logger.info("Health endpoint: http://%s:%d/health", bind, port)
+        logger.info("Send SIGHUP to reload configuration")
         logger.info("Press Ctrl+C or send SIGTERM to stop")
 
         # Wait for shutdown signal
@@ -267,7 +290,14 @@ def serve_command(
     try:
         exit_code = asyncio.run(
             run_server(
-                server_bind, server_port, shutdown_timeout, db_path, profile, auth_token
+                server_bind,
+                server_port,
+                shutdown_timeout,
+                db_path,
+                profile,
+                auth_token,
+                config_path,
+                config,
             )
         )
         sys.exit(exit_code)

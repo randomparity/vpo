@@ -671,3 +671,276 @@ class TestConcurrentHealthRequests:
             except subprocess.TimeoutExpired:
                 proc.kill()
                 proc.wait()
+
+
+class TestSIGHUPReload:
+    """Integration tests for SIGHUP configuration reload."""
+
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="SIGHUP not available on Windows",
+    )
+    def test_sighup_triggers_config_reload(self, temp_db: Path, tmp_path: Path) -> None:
+        """Test that SIGHUP triggers configuration reload.
+
+        Verifies that sending SIGHUP to the daemon process triggers
+        a config reload and the health endpoint reflects the change.
+        """
+        import json
+        import urllib.request
+
+        port = find_free_port()
+
+        # Create config file
+        config_dir = tmp_path / ".vpo"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_file = config_dir / "config.toml"
+        config_file.write_text("[jobs]\nretention_days = 30\n")
+
+        env = os.environ.copy()
+        env["VPO_DATABASE_PATH"] = str(temp_db)
+        env["HOME"] = str(tmp_path)
+
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "vpo.cli",
+                "serve",
+                "--port",
+                str(port),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+
+        try:
+            assert wait_for_port(port, timeout=10.0), "Server didn't start"
+
+            # Check initial health - reload count should be 0
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/health", timeout=5.0
+            ) as response:
+                data = json.loads(response.read().decode())
+                assert data["config_reload_count"] == 0
+                assert data["last_config_reload"] is None
+
+            # Modify config file
+            config_file.write_text("[jobs]\nretention_days = 60\n")
+
+            # Send SIGHUP to trigger reload
+            proc.send_signal(signal.SIGHUP)
+
+            # Wait for reload to complete
+            time.sleep(1.0)
+
+            # Check health after reload
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/health", timeout=5.0
+            ) as response:
+                data = json.loads(response.read().decode())
+                assert data["config_reload_count"] == 1
+                assert data["last_config_reload"] is not None
+                assert data["config_reload_error"] is None
+
+        finally:
+            proc.send_signal(signal.SIGTERM)
+            try:
+                proc.wait(timeout=10.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="SIGHUP not available on Windows",
+    )
+    def test_sighup_no_changes_detected(self, temp_db: Path, tmp_path: Path) -> None:
+        """Test SIGHUP when config file has not changed.
+
+        Verifies that SIGHUP works even when config is unchanged,
+        and reload_count stays at 0 when no changes detected.
+        """
+        import json
+        import urllib.request
+
+        port = find_free_port()
+
+        # Create config file
+        config_dir = tmp_path / ".vpo"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_file = config_dir / "config.toml"
+        config_file.write_text("[jobs]\nretention_days = 30\n")
+
+        env = os.environ.copy()
+        env["VPO_DATABASE_PATH"] = str(temp_db)
+        env["HOME"] = str(tmp_path)
+
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "vpo.cli",
+                "serve",
+                "--port",
+                str(port),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+
+        try:
+            assert wait_for_port(port, timeout=10.0), "Server didn't start"
+
+            # Send SIGHUP without changing config
+            proc.send_signal(signal.SIGHUP)
+
+            # Wait for reload to complete
+            time.sleep(1.0)
+
+            # Check health - reload count should stay 0 when no changes
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/health", timeout=5.0
+            ) as response:
+                data = json.loads(response.read().decode())
+                # No changes means reload_count stays at 0
+                assert data["config_reload_count"] == 0
+                assert data["config_reload_error"] is None
+
+        finally:
+            proc.send_signal(signal.SIGTERM)
+            try:
+                proc.wait(timeout=10.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="SIGHUP not available on Windows",
+    )
+    def test_health_shows_reload_state(self, temp_db: Path, tmp_path: Path) -> None:
+        """Test that health endpoint includes reload state fields.
+
+        Verifies the health endpoint response includes config reload
+        metrics in the response.
+        """
+        import json
+        import urllib.request
+
+        port = find_free_port()
+
+        env = os.environ.copy()
+        env["VPO_DATABASE_PATH"] = str(temp_db)
+        env["HOME"] = str(tmp_path)
+
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "vpo.cli",
+                "serve",
+                "--port",
+                str(port),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+
+        try:
+            assert wait_for_port(port, timeout=10.0), "Server didn't start"
+
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/health", timeout=5.0
+            ) as response:
+                data = json.loads(response.read().decode())
+
+            # Check that reload fields are present
+            assert "last_config_reload" in data
+            assert "config_reload_count" in data
+            assert "config_reload_error" in data
+
+        finally:
+            proc.send_signal(signal.SIGTERM)
+            try:
+                proc.wait(timeout=10.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="SIGHUP not available on Windows",
+    )
+    def test_multiple_sighup_increments_count(
+        self, temp_db: Path, tmp_path: Path
+    ) -> None:
+        """Test that multiple SIGHUP signals increment reload count.
+
+        Verifies that each successful reload with changes increments
+        the reload_count counter.
+        """
+        import json
+        import urllib.request
+
+        port = find_free_port()
+
+        # Create config file
+        config_dir = tmp_path / ".vpo"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_file = config_dir / "config.toml"
+        config_file.write_text("[jobs]\nretention_days = 30\n")
+
+        env = os.environ.copy()
+        env["VPO_DATABASE_PATH"] = str(temp_db)
+        env["HOME"] = str(tmp_path)
+
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "vpo.cli",
+                "serve",
+                "--port",
+                str(port),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+
+        try:
+            assert wait_for_port(port, timeout=10.0), "Server didn't start"
+
+            # First reload
+            config_file.write_text("[jobs]\nretention_days = 31\n")
+            proc.send_signal(signal.SIGHUP)
+            time.sleep(1.0)
+
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/health", timeout=5.0
+            ) as response:
+                data = json.loads(response.read().decode())
+                assert data["config_reload_count"] == 1
+
+            # Second reload
+            config_file.write_text("[jobs]\nretention_days = 32\n")
+            proc.send_signal(signal.SIGHUP)
+            time.sleep(1.0)
+
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/health", timeout=5.0
+            ) as response:
+                data = json.loads(response.read().decode())
+                assert data["config_reload_count"] == 2
+
+        finally:
+            proc.send_signal(signal.SIGTERM)
+            try:
+                proc.wait(timeout=10.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()

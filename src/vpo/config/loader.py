@@ -177,6 +177,23 @@ def clear_config_cache() -> None:
         _config_cache.clear()
 
 
+def get_config_snapshot(config_path: Path | None = None) -> VPOConfig:
+    """Get a fresh configuration snapshot for reload comparison.
+
+    This function always clears the cache before loading to ensure
+    a fresh read from the file. Use this when you need to compare
+    configurations for hot-reload purposes.
+
+    Args:
+        config_path: Path to config file. If None, uses default location.
+
+    Returns:
+        VPOConfig with freshly loaded configuration.
+    """
+    clear_config_cache()
+    return get_config(config_path=config_path)
+
+
 def get_config(
     config_path: Path | None = None,
     # CLI overrides (highest precedence)

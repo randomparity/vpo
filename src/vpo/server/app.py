@@ -61,6 +61,16 @@ class HealthStatus:
     recent_errors: int = 0
     """Number of failed jobs in last 24 hours."""
 
+    # Configuration reload metrics
+    last_config_reload: str | None = None
+    """ISO-8601 UTC timestamp of last successful config reload, or None."""
+
+    config_reload_count: int = 0
+    """Number of successful config reloads since daemon start."""
+
+    config_reload_error: str | None = None
+    """Error message from last failed reload, or None if succeeded."""
+
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return asdict(self)
@@ -332,6 +342,18 @@ async def health_handler(request: web.Request) -> web.Response:
     else:
         status = "healthy"
 
+    # Get config reload metrics
+    last_config_reload = None
+    config_reload_count = 0
+    config_reload_error = None
+    if lifecycle is not None:
+        reload_state = lifecycle.reload_state
+        if reload_state is not None:
+            if reload_state.last_reload is not None:
+                last_config_reload = reload_state.last_reload.isoformat()
+            config_reload_count = reload_state.reload_count
+            config_reload_error = reload_state.last_error
+
     health = HealthStatus(
         status=status,
         database="connected" if db_connected else "disconnected",
@@ -343,6 +365,10 @@ async def health_handler(request: web.Request) -> web.Response:
         jobs_running=job_metrics["jobs_running"],
         active_workers=job_metrics["active_workers"],
         recent_errors=job_metrics["recent_errors"],
+        # Config reload metrics
+        last_config_reload=last_config_reload,
+        config_reload_count=config_reload_count,
+        config_reload_error=config_reload_error,
     )
 
     # Return 503 for degraded/unhealthy, 200 for healthy
