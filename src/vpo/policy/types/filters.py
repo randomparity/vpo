@@ -190,6 +190,30 @@ class SubtitleActionsConfig:
 
 
 @dataclass(frozen=True)
+class CodecTranscodeMapping:
+    """Mapping for transcoding a specific codec during container conversion.
+
+    Defines how an incompatible codec should be handled when converting
+    to a different container format (e.g., MKV to MP4).
+    """
+
+    codec: str
+    """Target codec to transcode to (e.g., 'aac', 'ac3', 'mov_text')."""
+
+    bitrate: str | None = None
+    """Target bitrate for audio transcoding (e.g., '256k', '320k').
+    Only applicable to audio codecs. Ignored for subtitles."""
+
+    action: Literal["transcode", "convert", "remove"] | None = None
+    """Override the default action for this codec:
+    - transcode: Re-encode to target codec (default for audio)
+    - convert: Convert format without re-encoding (default for text subtitles)
+    - remove: Remove the track entirely (default for bitmap subtitles)
+    If None, uses the default action for the track type.
+    """
+
+
+@dataclass(frozen=True)
 class ContainerConfig:
     """Configuration for container format conversion.
 
@@ -204,7 +228,20 @@ class ContainerConfig:
     """Behavior when source contains codecs incompatible with target:
     - error: Fail with IncompatibleCodecError listing problematic tracks
     - skip: Skip the entire file with a warning
-    - transcode: Transcode incompatible tracks (requires transcode config)
+    - transcode: Transcode incompatible tracks to compatible codecs
+    """
+
+    codec_mappings: dict[str, CodecTranscodeMapping] | None = None
+    """Per-codec transcode settings, keyed by source codec name.
+
+    Allows overriding the default transcode behavior for specific codecs.
+    Example:
+        codec_mappings:
+          truehd: { codec: aac, bitrate: 320k }
+          dts: { codec: ac3, bitrate: 448k }
+          hdmv_pgs_subtitle: { action: remove }
+
+    If a codec is not in this mapping, default settings are used.
     """
 
 

@@ -114,6 +114,50 @@ class SubtitleActionsModel(BaseModel):
     clear_all_titles: bool = False
 
 
+class CodecTranscodeMappingModel(BaseModel):
+    """Pydantic model for per-codec transcode mapping.
+
+    Defines how a specific incompatible codec should be handled
+    during container conversion.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    codec: str
+    """Target codec to transcode to (e.g., 'aac', 'ac3', 'mov_text')."""
+
+    bitrate: str | None = None
+    """Target bitrate for audio transcoding (e.g., '256k', '320k')."""
+
+    action: Literal["transcode", "convert", "remove"] | None = None
+    """Override the default action for this codec."""
+
+    @field_validator("codec")
+    @classmethod
+    def validate_codec(cls, v: str) -> str:
+        """Validate codec is non-empty."""
+        v = v.strip().lower()
+        if not v:
+            raise ValueError("codec cannot be empty")
+        return v
+
+    @field_validator("bitrate")
+    @classmethod
+    def validate_bitrate(cls, v: str | None) -> str | None:
+        """Validate bitrate format if provided."""
+        if v is None:
+            return v
+        v = v.strip().lower()
+        if not v:
+            return None
+        # Basic validation: should end with 'k' or 'm' for kbps/mbps
+        if not (v.endswith("k") or v.endswith("m") or v.isdigit()):
+            raise ValueError(
+                f"bitrate must be in format like '256k', '1m', or numeric: {v}"
+            )
+        return v
+
+
 class ContainerModel(BaseModel):
     """Pydantic model for container configuration."""
 
@@ -121,6 +165,18 @@ class ContainerModel(BaseModel):
 
     target: Literal["mkv", "mp4"]
     on_incompatible_codec: Literal["error", "skip", "transcode"] = "error"
+    codec_mappings: dict[str, CodecTranscodeMappingModel] | None = None
+    """Per-codec transcode settings, keyed by source codec name."""
+
+    @field_validator("codec_mappings", mode="before")
+    @classmethod
+    def normalize_codec_keys(
+        cls, v: dict[str, CodecTranscodeMappingModel] | None
+    ) -> dict[str, CodecTranscodeMappingModel] | None:
+        """Normalize codec keys to lowercase."""
+        if v is None:
+            return v
+        return {k.lower(): val for k, val in v.items()}
 
 
 class FileTimestampModel(BaseModel):

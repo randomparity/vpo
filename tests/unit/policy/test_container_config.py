@@ -9,6 +9,7 @@ import pytest
 from vpo.db import TrackInfo
 from vpo.policy.exceptions import IncompatibleCodecError
 from vpo.policy.types import (
+    CodecTranscodeMapping,
     ContainerConfig,
     EvaluationPolicy,
 )
@@ -67,6 +68,7 @@ def make_subtitle_track(
 def make_policy_with_container(
     target: str,
     on_incompatible_codec: str = "error",
+    codec_mappings: dict[str, CodecTranscodeMapping] | None = None,
 ) -> EvaluationPolicy:
     """Create a test policy with container configuration."""
     return EvaluationPolicy(
@@ -74,6 +76,7 @@ def make_policy_with_container(
         container=ContainerConfig(
             target=target,
             on_incompatible_codec=on_incompatible_codec,
+            codec_mappings=codec_mappings,
         ),
     )
 
@@ -932,3 +935,218 @@ class TestTranscodeMode:
         assert result.transcode_plan is not None
         plan = result.transcode_plan.track_plans[0]
         assert plan.action == "remove"
+
+
+# =============================================================================
+# Tests for per-codec overrides in transcode mode (Issue #258)
+# =============================================================================
+
+
+class TestCodecMappingOverrides:
+    """Tests for codec_mappings configuration in transcode mode."""
+
+    def test_custom_audio_codec_override(self) -> None:
+        """Custom codec mapping should override default AAC target."""
+        from vpo.policy.evaluator import (
+            evaluate_container_change_with_policy,
+        )
+
+        tracks = [
+            make_video_track(index=0, codec="h264"),
+            make_audio_track(index=1, codec="truehd"),
+        ]
+        policy = make_policy_with_container(
+            target="mp4",
+            on_incompatible_codec="transcode",
+            codec_mappings={
+                "truehd": CodecTranscodeMapping(codec="ac3", bitrate="448k"),
+            },
+        )
+
+        result = evaluate_container_change_with_policy(tracks, "mkv", policy)
+
+        assert result is not None
+        assert result.transcode_plan is not None
+        plan = result.transcode_plan.track_plans[0]
+        assert plan.action == "transcode"
+        assert plan.target_codec == "ac3"
+        assert plan.target_bitrate == "448k"
+
+    def test_custom_bitrate_override(self) -> None:
+        """Custom bitrate should override default for known codecs."""
+        from vpo.policy.evaluator import (
+            evaluate_container_change_with_policy,
+        )
+
+        tracks = [
+            make_video_track(index=0, codec="h264"),
+            make_audio_track(index=1, codec="dts"),
+        ]
+        policy = make_policy_with_container(
+            target="mp4",
+            on_incompatible_codec="transcode",
+            codec_mappings={
+                "dts": CodecTranscodeMapping(codec="aac", bitrate="320k"),
+            },
+        )
+
+        result = evaluate_container_change_with_policy(tracks, "mkv", policy)
+
+        assert result is not None
+        assert result.transcode_plan is not None
+        plan = result.transcode_plan.track_plans[0]
+        assert plan.target_codec == "aac"
+        assert plan.target_bitrate == "320k"  # Custom, not default 256k
+
+    def test_explicit_remove_action(self) -> None:
+        """Explicit remove action should remove track even if convertible."""
+        from vpo.policy.evaluator import (
+            evaluate_container_change_with_policy,
+        )
+
+        tracks = [
+            make_video_track(index=0, codec="h264"),
+            make_audio_track(index=1, codec="aac"),
+            make_subtitle_track(index=2, codec="subrip"),  # Normally converts
+        ]
+        policy = make_policy_with_container(
+            target="mp4",
+            on_incompatible_codec="transcode",
+            codec_mappings={
+                "subrip": CodecTranscodeMapping(codec="mov_text", action="remove"),
+            },
+        )
+
+        result = evaluate_container_change_with_policy(tracks, "mkv", policy)
+
+        assert result is not None
+        assert result.transcode_plan is not None
+        plan = result.transcode_plan.track_plans[0]
+        assert plan.action == "remove"
+        assert plan.target_codec is None
+
+    def test_unmapped_codecs_use_defaults(self) -> None:
+        """Codecs not in mapping should still use default behavior."""
+        from vpo.policy.evaluator import (
+            evaluate_container_change_with_policy,
+        )
+
+        tracks = [
+            make_video_track(index=0, codec="h264"),
+            make_audio_track(index=1, codec="truehd"),  # Mapped
+            make_audio_track(index=2, codec="dts"),  # Not mapped
+        ]
+        policy = make_policy_with_container(
+            target="mp4",
+            on_incompatible_codec="transcode",
+            codec_mappings={
+                "truehd": CodecTranscodeMapping(codec="ac3", bitrate="640k"),
+            },
+        )
+
+        result = evaluate_container_change_with_policy(tracks, "mkv", policy)
+
+        assert result is not None
+        assert result.transcode_plan is not None
+        assert len(result.transcode_plan.track_plans) == 2
+
+        plans_by_index = {p.track_index: p for p in result.transcode_plan.track_plans}
+
+        # Mapped codec uses custom settings
+        assert plans_by_index[1].target_codec == "ac3"
+        assert plans_by_index[1].target_bitrate == "640k"
+
+        # Unmapped codec uses defaults
+        assert plans_by_index[2].target_codec == "aac"
+        assert plans_by_index[2].target_bitrate == "256k"
+
+    def test_case_insensitive_codec_matching(self) -> None:
+        """Codec mapping keys should be case-insensitive."""
+        from vpo.policy.evaluator import (
+            evaluate_container_change_with_policy,
+        )
+
+        tracks = [
+            make_video_track(index=0, codec="h264"),
+            make_audio_track(index=1, codec="TrueHD"),  # Mixed case
+        ]
+        policy = make_policy_with_container(
+            target="mp4",
+            on_incompatible_codec="transcode",
+            codec_mappings={
+                "truehd": CodecTranscodeMapping(codec="eac3", bitrate="384k"),
+            },
+        )
+
+        result = evaluate_container_change_with_policy(tracks, "mkv", policy)
+
+        assert result is not None
+        assert result.transcode_plan is not None
+        plan = result.transcode_plan.track_plans[0]
+        assert plan.target_codec == "eac3"
+
+    def test_policy_yaml_parsing_with_codec_mappings(self) -> None:
+        """Policy YAML with codec_mappings should parse correctly."""
+        from vpo.policy.loader import load_policy_from_dict
+
+        data = {
+            "schema_version": 12,
+            "phases": [
+                {
+                    "name": "convert",
+                    "container": {
+                        "target": "mp4",
+                        "on_incompatible_codec": "transcode",
+                        "codec_mappings": {
+                            "truehd": {"codec": "ac3", "bitrate": "640k"},
+                            "dts": {"codec": "aac", "bitrate": "256k"},
+                            "hdmv_pgs_subtitle": {
+                                "codec": "mov_text",
+                                "action": "remove",
+                            },
+                        },
+                    },
+                }
+            ],
+        }
+
+        policy = load_policy_from_dict(data)
+
+        assert policy.phases[0].container is not None
+        assert policy.phases[0].container.codec_mappings is not None
+        mappings = policy.phases[0].container.codec_mappings
+
+        assert "truehd" in mappings
+        assert mappings["truehd"].codec == "ac3"
+        assert mappings["truehd"].bitrate == "640k"
+
+        assert "dts" in mappings
+        assert mappings["dts"].codec == "aac"
+
+        assert "hdmv_pgs_subtitle" in mappings
+        assert mappings["hdmv_pgs_subtitle"].action == "remove"
+
+    def test_empty_codec_mappings_uses_defaults(self) -> None:
+        """Empty codec_mappings should behave like no mappings."""
+        from vpo.policy.evaluator import (
+            evaluate_container_change_with_policy,
+        )
+
+        tracks = [
+            make_video_track(index=0, codec="h264"),
+            make_audio_track(index=1, codec="truehd"),
+        ]
+        policy = make_policy_with_container(
+            target="mp4",
+            on_incompatible_codec="transcode",
+            codec_mappings={},  # Empty dict
+        )
+
+        result = evaluate_container_change_with_policy(tracks, "mkv", policy)
+
+        assert result is not None
+        assert result.transcode_plan is not None
+        plan = result.transcode_plan.track_plans[0]
+        # Should use default truehd -> aac mapping
+        assert plan.target_codec == "aac"
+        assert plan.target_bitrate == "256k"

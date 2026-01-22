@@ -9,6 +9,7 @@ from __future__ import annotations
 from vpo.domain import TrackInfo
 from vpo.policy.exceptions import IncompatibleCodecError
 from vpo.policy.types import (
+    CodecTranscodeMapping,
     ContainerChange,
     ContainerTranscodePlan,
     EvaluationPolicy,
@@ -139,14 +140,19 @@ def _is_codec_mp4_compatible(codec: str, track_type: str) -> bool:
     return False
 
 
-def _create_incompatible_track_plan(track: TrackInfo) -> IncompatibleTrackPlan:
+def _create_incompatible_track_plan(
+    track: TrackInfo,
+    codec_mappings: dict[str, CodecTranscodeMapping] | None = None,
+) -> IncompatibleTrackPlan:
     """Create a plan for handling an incompatible track.
 
     Determines the appropriate action (transcode, convert, or remove)
-    based on the track type and codec.
+    based on the track type and codec. Custom codec_mappings override
+    the default behavior.
 
     Args:
         track: Track metadata for the incompatible track.
+        codec_mappings: Optional per-codec override mappings from policy.
 
     Returns:
         IncompatibleTrackPlan with the appropriate action.
@@ -154,6 +160,33 @@ def _create_incompatible_track_plan(track: TrackInfo) -> IncompatibleTrackPlan:
     codec = (track.codec or "").casefold().strip()
     track_type = track.track_type.casefold()
 
+    # Check for custom mapping override first
+    if codec_mappings and codec in codec_mappings:
+        mapping = codec_mappings[codec]
+        # Determine action: use explicit action or infer from track type
+        if mapping.action is not None:
+            action = mapping.action
+        elif track_type == "audio":
+            action = "transcode"
+        elif track_type == "subtitle":
+            if codec in _MP4_BITMAP_SUBTITLE_CODECS:
+                action = "remove"
+            else:
+                action = "convert"
+        else:
+            action = "transcode"
+
+        return IncompatibleTrackPlan(
+            track_index=track.index,
+            track_type=track_type,
+            source_codec=codec,
+            action=action,
+            target_codec=mapping.codec if action != "remove" else None,
+            target_bitrate=mapping.bitrate if action == "transcode" else None,
+            reason=f"{codec} -> {mapping.codec} (custom mapping)",
+        )
+
+    # Fall back to default behavior
     if track_type == "audio":
         # Check if we have a known transcode mapping
         if codec in _MP4_AUDIO_TRANSCODE_DEFAULTS:
@@ -320,10 +353,11 @@ def evaluate_container_change_with_policy(
             # Create transcode plan for incompatible tracks
             track_plans: list[IncompatibleTrackPlan] = []
             warnings: list[str] = []
+            codec_mappings = policy.container.codec_mappings
 
             for idx in change.incompatible_tracks:
                 track = next(t for t in tracks if t.index == idx)
-                plan = _create_incompatible_track_plan(track)
+                plan = _create_incompatible_track_plan(track, codec_mappings)
                 track_plans.append(plan)
 
                 # Add warnings for removed tracks and conversions that lose data
