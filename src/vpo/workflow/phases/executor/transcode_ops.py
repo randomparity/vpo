@@ -143,6 +143,11 @@ def execute_transcode(
                 raise RuntimeError(msg)
             changes += 1
 
+            # Capture encoding metrics for stats (Issue #264)
+            state.encoding_fps = result.encoding_fps
+            state.encoding_bitrate_kbps = result.encoding_bitrate_kbps
+            state.total_frames = result.total_frames
+
     # Audio transcode (without video transcode)
     elif phase.audio_transcode:
         audio_tracks = [t for t in tracks if t.track_type == "audio"]

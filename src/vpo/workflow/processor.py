@@ -412,6 +412,8 @@ class WorkflowProcessor:
                         PhaseMetrics(
                             phase_name=phase.name,
                             wall_time_seconds=phase_duration,
+                            encoding_fps=phase_result.encoding_fps,
+                            encoding_bitrate=phase_result.encoding_bitrate_kbps,
                         )
                     )
                     # Capture transcode skip info if present

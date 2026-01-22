@@ -37,6 +37,7 @@ from vpo.policy.video_analysis import (
     detect_vfr_content,
     select_primary_video_stream,
 )
+from vpo.tools.ffmpeg_metrics import FFmpegMetricsAggregator, FFmpegMetricsSummary
 from vpo.tools.ffmpeg_progress import (
     FFmpegProgress,
     parse_stderr_progress,
@@ -412,7 +413,7 @@ class TranscodeExecutor:
         cmd: list[str],
         description: str,
         progress_callback: Callable[[FFmpegProgress], None] | None = None,
-    ) -> tuple[bool, int, list[str]]:
+    ) -> tuple[bool, int, list[str], FFmpegMetricsSummary | None]:
         """Run FFmpeg command with timeout and threaded stderr reading.
 
         Args:
@@ -421,8 +422,9 @@ class TranscodeExecutor:
             progress_callback: Optional callback for progress updates.
 
         Returns:
-            Tuple of (success, return_code, stderr_lines).
+            Tuple of (success, return_code, stderr_lines, metrics_summary).
             success is False if timeout expired or process failed.
+            metrics_summary contains aggregated encoding metrics if available.
         """
         process = subprocess.Popen(  # nosec B603
             cmd,
@@ -435,6 +437,9 @@ class TranscodeExecutor:
         stderr_output: list[str] = []
         stderr_queue: queue.Queue[str | None] = queue.Queue()
         stop_event = threading.Event()
+
+        # Metrics aggregator for collecting encoding stats (Issue #264)
+        metrics_aggregator = FFmpegMetricsAggregator()
 
         def read_stderr() -> None:
             """Read stderr lines and put them in the queue."""
@@ -476,8 +481,11 @@ class TranscodeExecutor:
                     break  # End of stderr
                 stderr_output.append(line)
                 progress = parse_stderr_progress(line)
-                if progress and progress_callback:
-                    progress_callback(progress)
+                if progress:
+                    # Collect metrics (Issue #264)
+                    metrics_aggregator.add_sample(progress)
+                    if progress_callback:
+                        progress_callback(progress)
             except queue.Empty:
                 continue
 
@@ -499,7 +507,7 @@ class TranscodeExecutor:
             reader_thread.join(timeout=2.0)
             if reader_thread.is_alive():
                 logger.warning("Stderr reader thread did not terminate cleanly")
-            return (False, -1, stderr_output)
+            return (False, -1, stderr_output, metrics_aggregator.summarize())
 
         # Signal thread to stop (process completed normally)
         stop_event.set()
@@ -518,7 +526,12 @@ class TranscodeExecutor:
         # Wait for process to finish (should already be done)
         process.wait()
 
-        return (process.returncode == 0, process.returncode, stderr_output)
+        return (
+            process.returncode == 0,
+            process.returncode,
+            stderr_output,
+            metrics_aggregator.summarize(),
+        )
 
     def _execute_two_pass(
         self,
@@ -564,7 +577,7 @@ class TranscodeExecutor:
             logger.info("Starting two-pass encoding pass 1: %s", plan.input_path)
             logger.debug("FFmpeg pass 1 command: %s", " ".join(cmd1))
 
-            success1, rc1, stderr1 = self._run_ffmpeg_with_timeout(
+            success1, rc1, stderr1, _ = self._run_ffmpeg_with_timeout(
                 cmd1, "Pass 1", self.progress_callback
             )
 
@@ -617,7 +630,7 @@ class TranscodeExecutor:
             logger.info("Starting two-pass encoding pass 2: %s", plan.input_path)
             logger.debug("FFmpeg pass 2 command: %s", " ".join(cmd2))
 
-            success2, rc2, stderr2 = self._run_ffmpeg_with_timeout(
+            success2, rc2, stderr2, metrics2 = self._run_ffmpeg_with_timeout(
                 cmd2, "Pass 2", self.progress_callback
             )
 
@@ -639,7 +652,13 @@ class TranscodeExecutor:
                     error_message=f"Two-pass encoding failed on pass 2: {error_msg}",
                 )
 
-            return TranscodeResult(success=True, output_path=temp_output)
+            return TranscodeResult(
+                success=True,
+                output_path=temp_output,
+                encoding_fps=metrics2.avg_fps if metrics2 else None,
+                encoding_bitrate_kbps=metrics2.avg_bitrate_kbps if metrics2 else None,
+                total_frames=metrics2.total_frames if metrics2 else None,
+            )
 
         finally:
             # Clean up pass log files
@@ -768,6 +787,9 @@ class TranscodeExecutor:
                     success=True,
                     output_path=plan.output_path,
                     backup_path=backup_path,
+                    encoding_fps=result.encoding_fps,
+                    encoding_bitrate_kbps=result.encoding_bitrate_kbps,
+                    total_frames=result.total_frames,
                 )
 
             except Exception as e:
@@ -808,7 +830,7 @@ class TranscodeExecutor:
             plan.output_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Run FFmpeg with progress monitoring and timeout
-            success, rc, stderr_output = self._run_ffmpeg_with_timeout(
+            success, rc, stderr_output, metrics = self._run_ffmpeg_with_timeout(
                 cmd, "Transcode", self.progress_callback
             )
 
@@ -865,6 +887,9 @@ class TranscodeExecutor:
                 success=True,
                 output_path=plan.output_path,
                 backup_path=backup_path,
+                encoding_fps=metrics.avg_fps if metrics else None,
+                encoding_bitrate_kbps=metrics.avg_bitrate_kbps if metrics else None,
+                total_frames=metrics.total_frames if metrics else None,
             )
 
         except Exception as e:
