@@ -149,7 +149,7 @@ def get_recent_stats(
             id, processed_at, policy_name,
             size_before, size_after, size_change,
             audio_tracks_removed, subtitle_tracks_removed, attachments_removed,
-            duration_seconds, success, error_message
+            duration_seconds, success, error_message, encoder_type
         FROM processing_stats
         {where_clause}
         ORDER BY processed_at DESC
@@ -172,6 +172,7 @@ def get_recent_stats(
             duration_seconds=row[9],
             success=row[10] == 1,
             error_message=row[11],
+            encoder_type=row[12],
         )
         for row in cursor.fetchall()
     ]

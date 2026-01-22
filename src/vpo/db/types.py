@@ -818,13 +818,13 @@ class StatsSummary:
 
     avg_processing_time: float  # seconds
 
+    # Time range
+    earliest_processing: str | None = None  # ISO-8601
+    latest_processing: str | None = None  # ISO-8601
+
     # Hardware encoder tracking (Issue #264)
     hardware_encodes: int = 0
     software_encodes: int = 0
-
-    # Time range
-    earliest_processing: str | None  # ISO-8601
-    latest_processing: str | None  # ISO-8601
 
 
 @dataclass
@@ -882,6 +882,7 @@ class FileProcessingHistory:
         duration_seconds: Processing duration in seconds.
         success: Whether processing succeeded.
         error_message: Error message if failed.
+        encoder_type: 'hardware', 'software', or None if unknown.
     """
 
     stats_id: str
@@ -899,6 +900,7 @@ class FileProcessingHistory:
     duration_seconds: float
     success: bool
     error_message: str | None
+    encoder_type: str | None = None
 
 
 @dataclass
