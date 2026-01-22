@@ -43,11 +43,12 @@ def make_test_job(
     job_type: JobType = JobType.TRANSCODE,
     status: JobStatus = JobStatus.QUEUED,
     file_path: str = "/test/file.mkv",
+    file_id: int | None = None,
 ) -> Job:
     """Create a test Job instance."""
     return Job(
         id=job_id or str(uuid.uuid4()),
-        file_id=None,
+        file_id=file_id,
         file_path=file_path,
         job_type=job_type,
         status=status,
@@ -594,6 +595,37 @@ class TestGetFileDuration:
 
         assert result is None
 
+    def test_returns_none_when_duration_is_zero(
+        self, db_conn: sqlite3.Connection
+    ) -> None:
+        """Returns None when video track duration is zero (falsy)."""
+        worker = JobWorker(conn=db_conn)
+
+        mock_track = MagicMock()
+        mock_track.track_type = "video"
+        mock_track.duration_seconds = 0.0
+
+        with patch("vpo.jobs.worker.get_tracks_for_file") as mock_get_tracks:
+            mock_get_tracks.return_value = [mock_track]
+            result = worker._get_file_duration(123)
+
+        assert result is None
+
+    def test_returns_first_video_track_duration(
+        self, db_conn: sqlite3.Connection
+    ) -> None:
+        """Returns duration from first video track when multiple exist."""
+        worker = JobWorker(conn=db_conn)
+
+        video1 = MagicMock(track_type="video", duration_seconds=1800.0)
+        video2 = MagicMock(track_type="video", duration_seconds=3600.0)
+
+        with patch("vpo.jobs.worker.get_tracks_for_file") as mock_get_tracks:
+            mock_get_tracks.return_value = [video1, video2]
+            result = worker._get_file_duration(123)
+
+        assert result == 1800.0
+
 
 # =============================================================================
 # TestCreateProgressCallback
@@ -634,20 +666,7 @@ class TestCreateProgressCallback:
     ) -> None:
         """Callback uses actual file duration for progress calculation."""
         worker = JobWorker(conn=db_conn)
-        job = make_test_job()
-        job = Job(
-            id=job.id,
-            file_id=123,  # Set file_id
-            file_path=job.file_path,
-            job_type=job.job_type,
-            status=job.status,
-            priority=job.priority,
-            policy_name=job.policy_name,
-            policy_json=job.policy_json,
-            progress_percent=job.progress_percent,
-            progress_json=job.progress_json,
-            created_at=job.created_at,
-        )
+        job = make_test_job(file_id=123)
         insert_job(db_conn, job)
 
         # Mock video track with known duration

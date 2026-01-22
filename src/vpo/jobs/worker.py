@@ -14,6 +14,7 @@ import signal
 import sqlite3
 import threading
 import time
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -259,15 +260,30 @@ class JobWorker:
         try:
             tracks = get_tracks_for_file(self.conn, file_id)
             for track in tracks:
+                # Note: treats 0.0 duration as unavailable (truthiness check)
                 if track.track_type == "video" and track.duration_seconds:
                     return track.duration_seconds
             return None
+        except sqlite3.Error as e:
+            logger.warning(
+                "Database error getting duration for file_id=%s: %s", file_id, e
+            )
+            return None
         except Exception as e:
-            logger.warning("Failed to get file duration for file_id=%s: %s", file_id, e)
+            logger.error(
+                "Unexpected error getting duration for file_id=%s: %s",
+                file_id,
+                e,
+                exc_info=True,
+            )
             return None
 
-    def _create_progress_callback(self, job: Job):
-        """Create a progress callback for a job."""
+    def _create_progress_callback(self, job: Job) -> Callable[[FFmpegProgress], None]:
+        """Create a progress callback for a job.
+
+        Looks up the file's video track duration once when creating the callback
+        to enable accurate progress percentage calculation during transcoding.
+        """
         # Look up duration once when callback is created
         duration = self._get_file_duration(job.file_id)
         if duration:
@@ -276,12 +292,24 @@ class JobWorker:
                 job.id[:8],
                 duration,
             )
+        else:
+            if job.file_id is None:
+                logger.debug(
+                    "Job %s: no file_id, progress will be indeterminate", job.id[:8]
+                )
+            else:
+                logger.debug(
+                    "Job %s (file_id=%s): duration unavailable, "
+                    "progress will be indeterminate",
+                    job.id[:8],
+                    job.file_id,
+                )
 
         def callback(progress: FFmpegProgress) -> None:
             percent = progress.get_percent(duration)
+            # Clamp to valid range [0.0, 99.9]
             # Cap at 99.9% to avoid showing 100% before completion
-            if percent > 0:
-                percent = min(99.9, percent)
+            percent = max(0.0, min(99.9, percent))
 
             try:
                 update_job_progress(
@@ -299,7 +327,9 @@ class JobWorker:
                     ),
                 )
             except Exception as e:
-                logger.warning("Failed to update job progress: %s", e)
+                logger.warning(
+                    "Failed to update progress for job %s: %s", job.id[:8], e
+                )
 
         return callback
 
