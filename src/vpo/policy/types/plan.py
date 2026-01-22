@@ -153,6 +153,11 @@ class IncompatibleTrackPlan:
 
     Created when on_incompatible_codec is set to 'transcode' and a track
     has a codec that cannot be directly copied to the target container.
+
+    Invariants:
+    - If action is "transcode" or "convert", target_codec must be set
+    - If action is "remove", target_codec must be None
+    - target_bitrate is only valid when action is "transcode"
     """
 
     track_index: int
@@ -179,6 +184,30 @@ class IncompatibleTrackPlan:
 
     reason: str = ""
     """Human-readable reason for this action."""
+
+    def __post_init__(self) -> None:
+        """Validate invariants after initialization."""
+        if self.action in ("transcode", "convert"):
+            if self.target_codec is None:
+                raise ValueError(
+                    f"IncompatibleTrackPlan with action='{self.action}' requires "
+                    f"target_codec to be set (track {self.track_index})"
+                )
+        elif self.action == "remove":
+            if self.target_codec is not None:
+                raise ValueError(
+                    f"IncompatibleTrackPlan with action='remove' must have "
+                    f"target_codec=None, got '{self.target_codec}' "
+                    f"(track {self.track_index})"
+                )
+
+        if self.target_bitrate is not None and self.action != "transcode":
+            raise ValueError(
+                f"IncompatibleTrackPlan with action='{self.action}' must have "
+                f"target_bitrate=None, got '{self.target_bitrate}' "
+                f"(track {self.track_index}). "
+                f"target_bitrate is only valid for action='transcode'"
+            )
 
 
 @dataclass(frozen=True)

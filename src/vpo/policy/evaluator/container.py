@@ -176,6 +176,12 @@ def _create_incompatible_track_plan(
         else:
             action = "transcode"
 
+        # Build reason string based on action
+        if action == "remove":
+            reason = f"{codec} removed (custom mapping)"
+        else:
+            reason = f"{codec} -> {mapping.codec} (custom mapping)"
+
         return IncompatibleTrackPlan(
             track_index=track.index,
             track_type=track_type,
@@ -183,7 +189,7 @@ def _create_incompatible_track_plan(
             action=action,
             target_codec=mapping.codec if action != "remove" else None,
             target_bitrate=mapping.bitrate if action == "transcode" else None,
-            reason=f"{codec} -> {mapping.codec} (custom mapping)",
+            reason=reason,
         )
 
     # Fall back to default behavior

@@ -1150,3 +1150,355 @@ class TestCodecMappingOverrides:
         # Should use default truehd -> aac mapping
         assert plan.target_codec == "aac"
         assert plan.target_bitrate == "256k"
+
+
+# =============================================================================
+# Tests for bitrate validation (Issue #258 review)
+# =============================================================================
+
+
+class TestBitrateValidation:
+    """Tests for bitrate format validation in codec_mappings."""
+
+    def test_valid_bitrate_with_k_suffix(self) -> None:
+        """Bitrate with 'k' suffix should be accepted."""
+        from vpo.policy.pydantic_models import CodecTranscodeMappingModel
+
+        mapping = CodecTranscodeMappingModel(codec="aac", bitrate="256k")
+        assert mapping.bitrate == "256k"
+
+    def test_valid_bitrate_with_m_suffix(self) -> None:
+        """Bitrate with 'm' suffix should be accepted."""
+        from vpo.policy.pydantic_models import CodecTranscodeMappingModel
+
+        mapping = CodecTranscodeMappingModel(codec="aac", bitrate="1m")
+        assert mapping.bitrate == "1m"
+
+    def test_valid_bitrate_decimal_mbps(self) -> None:
+        """Decimal mbps bitrate should be accepted."""
+        from vpo.policy.pydantic_models import CodecTranscodeMappingModel
+
+        mapping = CodecTranscodeMappingModel(codec="aac", bitrate="1.5m")
+        assert mapping.bitrate == "1.5m"
+
+    def test_rejects_bare_numeric_bitrate(self) -> None:
+        """Bare numeric bitrate without unit should be rejected."""
+        from pydantic import ValidationError
+
+        from vpo.policy.pydantic_models import CodecTranscodeMappingModel
+
+        with pytest.raises(ValidationError) as exc_info:
+            CodecTranscodeMappingModel(codec="aac", bitrate="256")
+
+        # Should mention unit suffix requirement
+        error_str = str(exc_info.value).lower()
+        assert "unit" in error_str or "suffix" in error_str
+
+    def test_rejects_zero_bitrate(self) -> None:
+        """Zero bitrate should be rejected (below minimum)."""
+        from pydantic import ValidationError
+
+        from vpo.policy.pydantic_models import CodecTranscodeMappingModel
+
+        with pytest.raises(ValidationError) as exc_info:
+            CodecTranscodeMappingModel(codec="aac", bitrate="0k")
+
+        error_str = str(exc_info.value).lower()
+        assert "low" in error_str or "minimum" in error_str
+
+    def test_rejects_bitrate_below_minimum(self) -> None:
+        """Bitrate below 32k should be rejected."""
+        from pydantic import ValidationError
+
+        from vpo.policy.pydantic_models import CodecTranscodeMappingModel
+
+        with pytest.raises(ValidationError) as exc_info:
+            CodecTranscodeMappingModel(codec="aac", bitrate="16k")
+
+        error_str = str(exc_info.value).lower()
+        assert "low" in error_str or "minimum" in error_str
+
+    def test_rejects_bitrate_above_maximum(self) -> None:
+        """Bitrate above 1536k should be rejected."""
+        from pydantic import ValidationError
+
+        from vpo.policy.pydantic_models import CodecTranscodeMappingModel
+
+        with pytest.raises(ValidationError) as exc_info:
+            CodecTranscodeMappingModel(codec="aac", bitrate="2000k")
+
+        error_str = str(exc_info.value).lower()
+        assert "high" in error_str or "maximum" in error_str
+
+    def test_accepts_boundary_minimum_bitrate(self) -> None:
+        """Exactly 32k bitrate should be accepted."""
+        from vpo.policy.pydantic_models import CodecTranscodeMappingModel
+
+        mapping = CodecTranscodeMappingModel(codec="aac", bitrate="32k")
+        assert mapping.bitrate == "32k"
+
+    def test_accepts_boundary_maximum_bitrate(self) -> None:
+        """Exactly 1536k (1.5m) bitrate should be accepted."""
+        from vpo.policy.pydantic_models import CodecTranscodeMappingModel
+
+        mapping = CodecTranscodeMappingModel(codec="aac", bitrate="1536k")
+        assert mapping.bitrate == "1536k"
+
+    def test_none_bitrate_allowed(self) -> None:
+        """None bitrate should be allowed (optional field)."""
+        from vpo.policy.pydantic_models import CodecTranscodeMappingModel
+
+        mapping = CodecTranscodeMappingModel(codec="aac", bitrate=None)
+        assert mapping.bitrate is None
+
+
+# =============================================================================
+# Tests for codec validation warnings (Issue #258 review)
+# =============================================================================
+
+
+class TestCodecValidationWarnings:
+    """Tests for codec validation warnings in codec_mappings."""
+
+    def test_known_codec_no_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Known MP4-compatible codec should not generate warning."""
+        import logging
+
+        from vpo.policy.pydantic_models import CodecTranscodeMappingModel
+
+        with caplog.at_level(logging.WARNING):
+            CodecTranscodeMappingModel(codec="aac", bitrate="256k")
+
+        assert "not a recognized" not in caplog.text
+
+    def test_unknown_codec_generates_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Unknown codec should generate a warning."""
+        import logging
+
+        from vpo.policy.pydantic_models import CodecTranscodeMappingModel
+
+        with caplog.at_level(logging.WARNING):
+            CodecTranscodeMappingModel(codec="unknowncodec", bitrate="256k")
+
+        assert "not a recognized" in caplog.text.lower()
+
+    def test_codec_mappings_warns_when_not_transcode_mode(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """codec_mappings should warn when on_incompatible_codec is not 'transcode'."""
+        import logging
+
+        from vpo.policy.pydantic_models import (
+            CodecTranscodeMappingModel,
+            ContainerModel,
+        )
+
+        with caplog.at_level(logging.WARNING):
+            ContainerModel(
+                target="mp4",
+                on_incompatible_codec="error",
+                codec_mappings={
+                    "truehd": CodecTranscodeMappingModel(codec="aac", bitrate="256k"),
+                },
+            )
+
+        assert "ignored" in caplog.text.lower() or "transcode" in caplog.text.lower()
+
+    def test_codec_mappings_no_warn_when_transcode_mode(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """codec_mappings should not warn when on_incompatible_codec is 'transcode'."""
+        import logging
+
+        from vpo.policy.pydantic_models import (
+            CodecTranscodeMappingModel,
+            ContainerModel,
+        )
+
+        with caplog.at_level(logging.WARNING):
+            ContainerModel(
+                target="mp4",
+                on_incompatible_codec="transcode",
+                codec_mappings={
+                    "truehd": CodecTranscodeMappingModel(codec="aac", bitrate="256k"),
+                },
+            )
+
+        # Should not warn about codec_mappings being ignored
+        assert "ignored" not in caplog.text.lower()
+
+
+# =============================================================================
+# Tests for IncompatibleTrackPlan invariants (Issue #258 review)
+# =============================================================================
+
+
+class TestIncompatibleTrackPlanInvariants:
+    """Tests for IncompatibleTrackPlan dataclass invariants."""
+
+    def test_transcode_action_requires_target_codec(self) -> None:
+        """Transcode action should require target_codec to be set."""
+        from vpo.policy.types import IncompatibleTrackPlan
+
+        with pytest.raises(ValueError) as exc_info:
+            IncompatibleTrackPlan(
+                track_index=1,
+                track_type="audio",
+                source_codec="truehd",
+                action="transcode",
+                target_codec=None,  # Missing!
+                reason="test",
+            )
+
+        assert "target_codec" in str(exc_info.value)
+
+    def test_convert_action_requires_target_codec(self) -> None:
+        """Convert action should require target_codec to be set."""
+        from vpo.policy.types import IncompatibleTrackPlan
+
+        with pytest.raises(ValueError) as exc_info:
+            IncompatibleTrackPlan(
+                track_index=2,
+                track_type="subtitle",
+                source_codec="subrip",
+                action="convert",
+                target_codec=None,  # Missing!
+                reason="test",
+            )
+
+        assert "target_codec" in str(exc_info.value)
+
+    def test_remove_action_requires_no_target_codec(self) -> None:
+        """Remove action should require target_codec to be None."""
+        from vpo.policy.types import IncompatibleTrackPlan
+
+        with pytest.raises(ValueError) as exc_info:
+            IncompatibleTrackPlan(
+                track_index=2,
+                track_type="subtitle",
+                source_codec="hdmv_pgs_subtitle",
+                action="remove",
+                target_codec="mov_text",  # Should be None!
+                reason="test",
+            )
+
+        assert "target_codec" in str(exc_info.value)
+
+    def test_remove_action_with_none_target_codec_valid(self) -> None:
+        """Remove action with None target_codec should be valid."""
+        from vpo.policy.types import IncompatibleTrackPlan
+
+        plan = IncompatibleTrackPlan(
+            track_index=2,
+            track_type="subtitle",
+            source_codec="hdmv_pgs_subtitle",
+            action="remove",
+            target_codec=None,
+            reason="bitmap subtitles removed",
+        )
+        assert plan.action == "remove"
+        assert plan.target_codec is None
+
+    def test_bitrate_only_valid_for_transcode_action(self) -> None:
+        """target_bitrate should only be valid for transcode action."""
+        from vpo.policy.types import IncompatibleTrackPlan
+
+        with pytest.raises(ValueError) as exc_info:
+            IncompatibleTrackPlan(
+                track_index=2,
+                track_type="subtitle",
+                source_codec="subrip",
+                action="convert",
+                target_codec="mov_text",
+                target_bitrate="256k",  # Invalid for convert!
+                reason="test",
+            )
+
+        assert "target_bitrate" in str(exc_info.value)
+
+    def test_transcode_with_bitrate_valid(self) -> None:
+        """Transcode action with bitrate should be valid."""
+        from vpo.policy.types import IncompatibleTrackPlan
+
+        plan = IncompatibleTrackPlan(
+            track_index=1,
+            track_type="audio",
+            source_codec="truehd",
+            action="transcode",
+            target_codec="aac",
+            target_bitrate="256k",
+            reason="truehd is not MP4-compatible",
+        )
+        assert plan.action == "transcode"
+        assert plan.target_bitrate == "256k"
+
+
+# =============================================================================
+# Tests for reason string formatting (Issue #258 review)
+# =============================================================================
+
+
+class TestReasonStringFormatting:
+    """Tests for proper reason string formatting in track plans."""
+
+    def test_remove_action_reason_does_not_show_none(self) -> None:
+        """Remove action reason should not show 'None' for target codec."""
+        from vpo.policy.evaluator import (
+            evaluate_container_change_with_policy,
+        )
+
+        tracks = [
+            make_video_track(index=0, codec="h264"),
+            make_audio_track(index=1, codec="aac"),
+            make_subtitle_track(index=2, codec="hdmv_pgs_subtitle"),
+        ]
+        policy = make_policy_with_container(
+            target="mp4",
+            on_incompatible_codec="transcode",
+            codec_mappings={
+                "hdmv_pgs_subtitle": CodecTranscodeMapping(
+                    codec="mov_text", action="remove"
+                ),
+            },
+        )
+
+        result = evaluate_container_change_with_policy(tracks, "mkv", policy)
+
+        assert result is not None
+        assert result.transcode_plan is not None
+        plan = result.transcode_plan.track_plans[0]
+
+        # Reason should say "removed" not "-> None"
+        assert plan.action == "remove"
+        assert "removed" in plan.reason.lower()
+        assert "none" not in plan.reason.lower()
+
+    def test_transcode_action_shows_codec_mapping(self) -> None:
+        """Transcode action reason should show source -> target mapping."""
+        from vpo.policy.evaluator import (
+            evaluate_container_change_with_policy,
+        )
+
+        tracks = [
+            make_video_track(index=0, codec="h264"),
+            make_audio_track(index=1, codec="truehd"),
+        ]
+        policy = make_policy_with_container(
+            target="mp4",
+            on_incompatible_codec="transcode",
+            codec_mappings={
+                "truehd": CodecTranscodeMapping(codec="ac3", bitrate="640k"),
+            },
+        )
+
+        result = evaluate_container_change_with_policy(tracks, "mkv", policy)
+
+        assert result is not None
+        assert result.transcode_plan is not None
+        plan = result.transcode_plan.track_plans[0]
+
+        # Reason should show the mapping
+        assert "->" in plan.reason
+        assert "ac3" in plan.reason.lower()

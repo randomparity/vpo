@@ -74,6 +74,40 @@ class FFmpegRemuxExecutor:
 
         return plan.container_change.target_format == "mp4"
 
+    def _compute_timeout(self, plan: Plan) -> int | None:
+        """Compute appropriate timeout based on plan and file size.
+
+        When transcoding is required, scales timeout based on file size
+        since transcoding takes significantly longer than remuxing.
+
+        Args:
+            plan: The execution plan.
+
+        Returns:
+            Timeout in seconds, or None for no timeout.
+        """
+        if self._timeout <= 0:
+            return None
+
+        # Check if transcoding is involved
+        transcode_plan = None
+        if plan.container_change:
+            transcode_plan = plan.container_change.transcode_plan
+
+        if transcode_plan and transcode_plan.track_plans:
+            # Scale timeout for transcoding operations
+            # Estimate ~5 minutes per GB of file size
+            try:
+                file_size_bytes = plan.file_path.stat().st_size
+                file_size_gb = file_size_bytes / (1024**3)
+                scaled_timeout = int(file_size_gb * 300)  # 5 min per GB
+                return max(self._timeout, scaled_timeout)
+            except OSError:
+                # If we can't stat the file, use default timeout
+                return self._timeout
+
+        return self._timeout
+
     def execute(
         self,
         plan: Plan,
@@ -117,64 +151,102 @@ class FFmpegRemuxExecutor:
         ) as tmp:
             temp_path = Path(tmp.name)
 
+        # Compute timeout (may scale for transcoding)
+        timeout = self._compute_timeout(plan)
+
         # Build ffmpeg command
         cmd = self._build_command(plan, temp_path)
 
-        # Execute command
+        # Use try/finally to guarantee temp file cleanup
         try:
-            result = subprocess.run(  # nosec B603 - cmd from validated plan
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=self._timeout if self._timeout > 0 else None,
-                encoding="utf-8",
-                errors="replace",
-            )
-        except subprocess.TimeoutExpired:
-            temp_path.unlink(missing_ok=True)
-            safe_restore_from_backup(backup_path)
-            timeout_mins = self._timeout // 60 if self._timeout else 0
-            return ExecutorResult(
-                success=False,
-                message=f"ffmpeg timed out after {timeout_mins} min for "
-                f"{plan.file_path}",
-            )
-        except (subprocess.SubprocessError, OSError) as e:
-            temp_path.unlink(missing_ok=True)
-            safe_restore_from_backup(backup_path)
-            return ExecutorResult(
-                success=False,
-                message=f"ffmpeg failed for {plan.file_path}: {e}",
-            )
-        except Exception as e:
-            logger.exception(
-                "Unexpected error during ffmpeg execution for %s", plan.file_path
-            )
-            temp_path.unlink(missing_ok=True)
-            safe_restore_from_backup(backup_path)
-            return ExecutorResult(
-                success=False,
-                message=f"Unexpected error for {plan.file_path}: {e}",
-            )
+            # Execute command
+            try:
+                result = subprocess.run(  # nosec B603 - cmd from validated plan
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                    encoding="utf-8",
+                    errors="replace",
+                )
+            except subprocess.TimeoutExpired:
+                safe_restore_from_backup(backup_path)
+                timeout_mins = timeout // 60 if timeout else 0
+                return ExecutorResult(
+                    success=False,
+                    message=f"ffmpeg timed out after {timeout_mins} min for "
+                    f"{plan.file_path}",
+                )
+            except (subprocess.SubprocessError, OSError) as e:
+                safe_restore_from_backup(backup_path)
+                return ExecutorResult(
+                    success=False,
+                    message=f"ffmpeg failed for {plan.file_path}: {e}",
+                )
+            except Exception as e:
+                logger.exception(
+                    "Unexpected error during ffmpeg execution for %s", plan.file_path
+                )
+                safe_restore_from_backup(backup_path)
+                return ExecutorResult(
+                    success=False,
+                    message=f"Unexpected error for {plan.file_path}: {e}",
+                )
 
-        if result.returncode != 0:
-            temp_path.unlink(missing_ok=True)
-            safe_restore_from_backup(backup_path)
-            return ExecutorResult(
-                success=False,
-                message=f"ffmpeg failed for {plan.file_path}: {result.stderr}",
-            )
+            if result.returncode != 0:
+                safe_restore_from_backup(backup_path)
+                return ExecutorResult(
+                    success=False,
+                    message=f"ffmpeg failed for {plan.file_path}: {result.stderr}",
+                )
 
-        # Atomic move: move temp to output path
-        try:
-            temp_path.replace(output_path)
-        except Exception as e:
-            temp_path.unlink(missing_ok=True)
-            safe_restore_from_backup(backup_path)
-            return ExecutorResult(
-                success=False,
-                message=f"Failed to move output for {plan.file_path}: {e}",
-            )
+            # Validate output file exists and is non-empty
+            if not temp_path.exists():
+                safe_restore_from_backup(backup_path)
+                return ExecutorResult(
+                    success=False,
+                    message=f"ffmpeg succeeded but no output file created for "
+                    f"{plan.file_path}",
+                )
+
+            output_size = temp_path.stat().st_size
+            if output_size == 0:
+                safe_restore_from_backup(backup_path)
+                return ExecutorResult(
+                    success=False,
+                    message=f"ffmpeg succeeded but output file is empty for "
+                    f"{plan.file_path}",
+                )
+
+            # Warn if output is suspiciously small (< 10% of input)
+            try:
+                input_size = plan.file_path.stat().st_size
+                if input_size > 0 and output_size < input_size * 0.1:
+                    logger.warning(
+                        "Output file for %s is only %.1f%% of input size "
+                        "(%.2f MB vs %.2f MB). This may indicate a problem.",
+                        plan.file_path,
+                        (output_size / input_size) * 100,
+                        output_size / (1024 * 1024),
+                        input_size / (1024 * 1024),
+                    )
+            except OSError:
+                pass  # Ignore stat errors for warning check
+
+            # Atomic move: move temp to output path
+            try:
+                temp_path.replace(output_path)
+            except Exception as e:
+                safe_restore_from_backup(backup_path)
+                return ExecutorResult(
+                    success=False,
+                    message=f"Failed to move output for {plan.file_path}: {e}",
+                )
+
+        finally:
+            # Guarantee temp file cleanup
+            if temp_path.exists():
+                temp_path.unlink(missing_ok=True)
 
         # Delete original file if extension changed (container conversion)
         # unless keep_original is True
@@ -311,29 +383,41 @@ class FFmpegRemuxExecutor:
                     track_plan.target_codec or "mov_text"
                 )
 
-        # Exclude removed tracks
-        for idx in sorted(tracks_to_remove):
-            cmd.extend(["-map", f"-0:{idx}"])
+        # Collect all excluded track indices (from transcode_plan and dispositions)
+        all_excluded: set[int] = set(tracks_to_remove)
 
         # Handle track filtering if dispositions indicate removal
         if plan.track_dispositions:
             for disp in plan.track_dispositions:
-                if disp.action == "REMOVE" and disp.track_index not in tracks_to_remove:
-                    cmd.extend(["-map", f"-0:{disp.track_index}"])
+                if disp.action == "REMOVE":
+                    all_excluded.add(disp.track_index)
+
+        # Exclude removed tracks (sorted for deterministic order)
+        for idx in sorted(all_excluded):
+            cmd.extend(["-map", f"-0:{idx}"])
 
         # Default: copy all streams
         cmd.extend(["-c", "copy"])
 
+        # Calculate output stream index for each input index
+        # After removing tracks with -map -0:{idx}, output indices shift.
+        # For example, if we remove track 1, input track 2 becomes output track 1.
+        def output_index(input_idx: int) -> int:
+            """Convert input stream index to output stream index."""
+            return input_idx - sum(1 for r in all_excluded if r < input_idx)
+
         # Override codec for specific streams that need transcoding
-        # Use stream index notation: -c:idx codec
+        # Use output stream index notation: -c:out_idx codec
         for idx, (codec, bitrate) in tracks_to_transcode.items():
-            cmd.extend([f"-c:{idx}", codec])
+            out_idx = output_index(idx)
+            cmd.extend([f"-c:{out_idx}", codec])
             if bitrate:
-                cmd.extend([f"-b:{idx}", bitrate])
+                cmd.extend([f"-b:{out_idx}", bitrate])
 
         # Override codec for subtitle conversions
         for idx, codec in tracks_to_convert.items():
-            cmd.extend([f"-c:{idx}", codec])
+            out_idx = output_index(idx)
+            cmd.extend([f"-c:{out_idx}", codec])
 
         # MP4-specific optimizations
         cmd.extend(["-movflags", "+faststart"])
