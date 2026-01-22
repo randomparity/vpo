@@ -146,10 +146,14 @@ def load_config_file(path: Path | None = None) -> dict:
         current_mtime = 0.0
 
     # Fast path: check cache without lock (dict reads are atomic in CPython)
-    if path in _config_cache:
-        cached_config, cached_mtime = _config_cache[path]
-        if current_mtime == cached_mtime:
-            return cached_config
+    # Use try/except to handle race with clear_config_cache() (TOCTOU)
+    try:
+        if path in _config_cache:
+            cached_config, cached_mtime = _config_cache[path]
+            if current_mtime == cached_mtime:
+                return cached_config
+    except KeyError:
+        pass  # Cache was cleared between check and access, fall through to slow path
 
     # Slow path: acquire lock, double-check, then load
     with _config_cache_lock:

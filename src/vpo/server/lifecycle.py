@@ -1,11 +1,19 @@
 """Daemon lifecycle management.
 
 This module provides classes for managing daemon startup, running state,
-and graceful shutdown coordination.
+graceful shutdown coordination, and configuration reload.
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from vpo.config.models import VPOConfig
+    from vpo.server.config_reload import ReloadResult, ReloadState
 
 
 @dataclass
@@ -51,6 +59,9 @@ class DaemonLifecycle:
     shutdown_state: ShutdownState = field(default_factory=ShutdownState)
     """Current shutdown state."""
 
+    config_path: Path | None = None
+    """Path to configuration file for reload."""
+
     @property
     def uptime_seconds(self) -> float:
         """Returns seconds since daemon startup."""
@@ -77,3 +88,46 @@ class DaemonLifecycle:
         self.shutdown_state.timeout_deadline = now + timedelta(
             seconds=self.shutdown_timeout
         )
+
+    def init_reload_support(self, config: VPOConfig) -> None:
+        """Initialize configuration reload support.
+
+        Sets up the config reloader with the current configuration snapshot.
+        Must be called after daemon startup to enable SIGHUP reload.
+
+        Args:
+            config: Current configuration to use as baseline for reload comparison.
+        """
+        from vpo.server.config_reload import ConfigReloader, ReloadState
+
+        self._reload_state = ReloadState()
+        self._config_reloader = ConfigReloader(
+            state=self._reload_state,
+            config_path=self.config_path,
+        )
+        self._config_reloader.set_current_config(config)
+
+    @property
+    def reload_state(self) -> ReloadState | None:
+        """Get the current reload state, or None if not initialized."""
+        return getattr(self, "_reload_state", None)
+
+    async def reload_config(self) -> ReloadResult:
+        """Reload configuration from file.
+
+        Compares new configuration with current snapshot, logs changes,
+        and updates internal state. On failure, keeps old configuration.
+
+        Returns:
+            ReloadResult with success status and change details.
+        """
+        from vpo.server.config_reload import ReloadResult
+
+        if not hasattr(self, "_config_reloader"):
+            return ReloadResult(
+                success=False,
+                changes=[],
+                error="Reload support not initialized",
+            )
+
+        return await self._config_reloader.reload()
