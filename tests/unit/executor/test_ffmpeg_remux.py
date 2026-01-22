@@ -55,6 +55,15 @@ def mock_plan(tmp_path: Path) -> Plan:
 class TestBuildTranscodeCommandStreamIndices:
     """Tests for correct output stream index calculation in _build_transcode_command."""
 
+    @pytest.fixture(autouse=True)
+    def mock_ffmpeg(self) -> None:
+        """Mock ffmpeg tool availability for all tests in this class."""
+        with patch(
+            "vpo.executor.ffmpeg_base.require_tool",
+            return_value=Path("/usr/bin/ffmpeg"),
+        ):
+            yield
+
     def test_single_audio_transcode_no_removals(
         self, executor: FFmpegRemuxExecutor, tmp_path: Path
     ) -> None:
@@ -478,6 +487,15 @@ class TestTimeoutScaling:
 class TestOutputValidation:
     """Tests for FFmpeg output file validation."""
 
+    @pytest.fixture(autouse=True)
+    def mock_ffmpeg(self) -> None:
+        """Mock ffmpeg tool availability for all tests in this class."""
+        with patch(
+            "vpo.executor.ffmpeg_base.require_tool",
+            return_value=Path("/usr/bin/ffmpeg"),
+        ):
+            yield
+
     def test_execute_fails_if_output_missing(
         self, executor: FFmpegRemuxExecutor, tmp_path: Path
     ) -> None:
@@ -630,6 +648,15 @@ class TestStderrTruncation:
 class TestBackupRestorationReporting:
     """Tests for backup restoration failure reporting in error messages."""
 
+    @pytest.fixture(autouse=True)
+    def mock_ffmpeg(self) -> None:
+        """Mock ffmpeg tool availability for all tests in this class."""
+        with patch(
+            "vpo.executor.ffmpeg_base.require_tool",
+            return_value=Path("/usr/bin/ffmpeg"),
+        ):
+            yield
+
     def test_backup_restoration_failure_reported_in_message(
         self, executor: FFmpegRemuxExecutor, tmp_path: Path
     ) -> None:
@@ -730,6 +757,15 @@ class TestBackupRestorationReporting:
 
 class TestTempFileCleanup:
     """Tests for temp file cleanup on errors."""
+
+    @pytest.fixture(autouse=True)
+    def mock_ffmpeg(self) -> None:
+        """Mock ffmpeg tool availability for all tests in this class."""
+        with patch(
+            "vpo.executor.ffmpeg_base.require_tool",
+            return_value=Path("/usr/bin/ffmpeg"),
+        ):
+            yield
 
     def test_temp_file_cleaned_on_subprocess_error(
         self, executor: FFmpegRemuxExecutor, tmp_path: Path
