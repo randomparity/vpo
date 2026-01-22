@@ -16,13 +16,14 @@ from vpo.executor.backup import (
     create_backup,
     safe_restore_from_backup,
 )
-from vpo.executor.interface import ExecutorResult, require_tool
+from vpo.executor.ffmpeg_base import FFmpegExecutorBase
+from vpo.executor.interface import ExecutorResult
 from vpo.policy.types import ContainerTranscodePlan, Plan
 
 logger = logging.getLogger(__name__)
 
 
-class FFmpegRemuxExecutor:
+class FFmpegRemuxExecutor(FFmpegExecutorBase):
     """Executor for container conversion using FFmpeg.
 
     This executor handles container conversion to MP4 using lossless
@@ -45,23 +46,13 @@ class FFmpegRemuxExecutor:
     4. Atomically moves the output to the final location
     """
 
-    DEFAULT_TIMEOUT: int = 1800  # 30 minutes
-
     def __init__(self, timeout: int | None = None) -> None:
         """Initialize the executor.
 
         Args:
             timeout: Subprocess timeout in seconds. None uses DEFAULT_TIMEOUT.
         """
-        self._tool_path: Path | None = None
-        self._timeout = timeout if timeout is not None else self.DEFAULT_TIMEOUT
-
-    @property
-    def tool_path(self) -> Path:
-        """Get path to ffmpeg, verifying availability."""
-        if self._tool_path is None:
-            self._tool_path = require_tool("ffmpeg")
-        return self._tool_path
+        super().__init__(timeout)
 
     def can_handle(self, plan: Plan) -> bool:
         """Check if this executor can handle the given plan.
@@ -74,7 +65,7 @@ class FFmpegRemuxExecutor:
 
         return plan.container_change.target_format == "mp4"
 
-    def _compute_timeout(self, plan: Plan) -> int | None:
+    def _compute_timeout_for_plan(self, plan: Plan) -> int | None:
         """Compute appropriate timeout based on plan and file size.
 
         When transcoding is required, scales timeout based on file size
@@ -94,19 +85,14 @@ class FFmpegRemuxExecutor:
         if plan.container_change:
             transcode_plan = plan.container_change.transcode_plan
 
-        if transcode_plan and transcode_plan.track_plans:
-            # Scale timeout for transcoding operations
-            # Estimate ~5 minutes per GB of file size
-            try:
-                file_size_bytes = plan.file_path.stat().st_size
-                file_size_gb = file_size_bytes / (1024**3)
-                scaled_timeout = int(file_size_gb * 300)  # 5 min per GB
-                return max(self._timeout, scaled_timeout)
-            except OSError:
-                # If we can't stat the file, use default timeout
-                return self._timeout
+        has_transcode = bool(transcode_plan and transcode_plan.track_plans)
 
-        return self._timeout
+        try:
+            file_size_bytes = plan.file_path.stat().st_size
+            return self.compute_timeout(file_size_bytes, is_transcode=has_transcode)
+        except OSError:
+            # If we can't stat the file, use default timeout
+            return self._timeout
 
     def execute(
         self,
@@ -152,7 +138,7 @@ class FFmpegRemuxExecutor:
             temp_path = Path(tmp.name)
 
         # Compute timeout (may scale for transcoding)
-        timeout = self._compute_timeout(plan)
+        timeout = self._compute_timeout_for_plan(plan)
 
         # Build ffmpeg command
         cmd = self._build_command(plan, temp_path)
@@ -200,38 +186,20 @@ class FFmpegRemuxExecutor:
                     message=f"ffmpeg failed for {plan.file_path}: {result.stderr}",
                 )
 
-            # Validate output file exists and is non-empty
-            if not temp_path.exists():
-                safe_restore_from_backup(backup_path)
-                return ExecutorResult(
-                    success=False,
-                    message=f"ffmpeg succeeded but no output file created for "
-                    f"{plan.file_path}",
-                )
-
-            output_size = temp_path.stat().st_size
-            if output_size == 0:
-                safe_restore_from_backup(backup_path)
-                return ExecutorResult(
-                    success=False,
-                    message=f"ffmpeg succeeded but output file is empty for "
-                    f"{plan.file_path}",
-                )
-
-            # Warn if output is suspiciously small (< 10% of input)
+            # Validate output file using base class method
             try:
                 input_size = plan.file_path.stat().st_size
-                if input_size > 0 and output_size < input_size * 0.1:
-                    logger.warning(
-                        "Output file for %s is only %.1f%% of input size "
-                        "(%.2f MB vs %.2f MB). This may indicate a problem.",
-                        plan.file_path,
-                        (output_size / input_size) * 100,
-                        output_size / (1024 * 1024),
-                        input_size / (1024 * 1024),
-                    )
             except OSError:
-                pass  # Ignore stat errors for warning check
+                input_size = None
+
+            is_valid, error_msg = self.validate_output(temp_path, input_size)
+            if not is_valid:
+                safe_restore_from_backup(backup_path)
+                return ExecutorResult(
+                    success=False,
+                    message=f"ffmpeg output validation failed for {plan.file_path}: "
+                    f"{error_msg}",
+                )
 
             # Atomic move: move temp to output path
             try:

@@ -16,6 +16,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from vpo.db import TrackInfo
+from vpo.executor.ffmpeg_base import FFmpegExecutorBase
 from vpo.policy.transcode import (
     AudioAction,
     create_audio_plan,
@@ -96,7 +97,7 @@ def detect_encoder_type(cmd: list[str]) -> str:
     return "unknown"
 
 
-class TranscodeExecutor:
+class TranscodeExecutor(FFmpegExecutorBase):
     """Executor for video transcoding operations."""
 
     def __init__(
@@ -122,6 +123,8 @@ class TranscodeExecutor:
             backup_original: Whether to backup original after success.
             transcode_timeout: Maximum time in seconds for transcode (None = no limit).
         """
+        # Note: TranscodeExecutor uses transcode_timeout, not base timeout
+        super().__init__(timeout=None)
         self.policy = policy
         self.skip_if = skip_if
         self.audio_config = audio_config
@@ -325,38 +328,43 @@ class TranscodeExecutor:
         )
         return not needs_transcode
 
-    def _check_disk_space(
-        self,
-        plan: TranscodePlan,
-        ratio_hevc: float = 0.5,
-        ratio_other: float = 0.8,
-        buffer: float = 1.2,
-    ) -> str | None:
+    def _check_disk_space_for_plan(self, plan: TranscodePlan) -> str | None:
         """Check if there's enough disk space for transcoding.
+
+        Uses codec-aware disk space estimation. Checks the temp directory
+        if configured, otherwise checks the output file's parent directory.
 
         Args:
             plan: The transcode plan.
-            ratio_hevc: Estimated output/input size ratio for HEVC/AV1 codecs.
-            ratio_other: Estimated output/input size ratio for other codecs.
-            buffer: Buffer multiplier for safety margin.
 
         Returns:
             Error message if insufficient space, None if OK.
         """
-        # Estimate output size based on target codec
-        input_size = plan.input_path.stat().st_size
-        codec = self.policy.target_video_codec or "hevc"
-        ratio = ratio_hevc if codec in ("hevc", "h265", "av1") else ratio_other
-        estimated_size = int(input_size * ratio * buffer)
+        target_codec = self.policy.target_video_codec or "hevc"
 
-        # Check temp directory space if using temp
+        # Determine which directory to check for space
         if self.temp_directory:
-            temp_path = self.temp_directory
+            check_path = self.temp_directory
         else:
-            temp_path = plan.output_path.parent
+            check_path = plan.output_path.parent
+
+        # Estimate output size based on target codec
+        try:
+            input_size = plan.input_path.stat().st_size
+        except OSError as e:
+            logger.warning("Could not stat input file: %s", e)
+            return None
+
+        codec = target_codec.lower()
+        if codec in ("hevc", "h265", "av1"):
+            ratio = 0.5
+        else:
+            ratio = 0.8
+
+        estimated_size = int(input_size * ratio * 1.2)  # 1.2x buffer
 
         try:
-            disk_usage = shutil.disk_usage(temp_path)
+            disk_usage = shutil.disk_usage(check_path)
             if disk_usage.free < estimated_size:
                 free_gb = disk_usage.free / (1024**3)
                 need_gb = estimated_size / (1024**3)
@@ -401,18 +409,19 @@ class TranscodeExecutor:
     def _cleanup_partial(self, path: Path) -> None:
         """Remove partial output file on failure.
 
+        Uses the base class temp file cleanup method.
+
         Args:
             path: Path to potentially incomplete output file.
         """
-        if path.exists():
-            try:
-                path.unlink()
-                logger.info("Cleaned up partial output: %s", path)
-            except OSError as e:
-                logger.warning("Could not clean up partial output: %s", e)
+        self.cleanup_temp(path)
+        if not path.exists():
+            logger.info("Cleaned up partial output: %s", path)
 
     def _get_temp_output_path(self, output_path: Path) -> Path:
         """Generate temp output path for safe transcoding.
+
+        Uses the base class temp file generation method.
 
         Args:
             output_path: Final output path.
@@ -420,9 +429,7 @@ class TranscodeExecutor:
         Returns:
             Path for temporary output file.
         """
-        if self.temp_directory:
-            return self.temp_directory / f".vpo_temp_{output_path.name}"
-        return output_path.with_name(f".vpo_temp_{output_path.name}")
+        return self.create_temp_output(output_path, self.temp_directory)
 
     def _atomic_replace(self, temp_path: Path, output_path: Path) -> None:
         """Atomically replace output file with temp file.
@@ -437,21 +444,18 @@ class TranscodeExecutor:
     def _verify_output_integrity(self, output_path: Path) -> bool:
         """Verify output file integrity after transcode.
 
+        Uses the base class output validation method.
+
         Args:
             output_path: Path to output file.
 
         Returns:
             True if file passes integrity checks.
         """
-        if not output_path.exists():
-            logger.error("Output file does not exist: %s", output_path)
+        is_valid, error_msg = self.validate_output(output_path)
+        if not is_valid:
+            logger.error("Output validation failed: %s", error_msg)
             return False
-
-        if output_path.stat().st_size == 0:
-            logger.error("Output file is empty: %s", output_path)
-            return False
-
-        # Could add ffprobe validation here in future
         return True
 
     def _run_ffmpeg_with_timeout(
@@ -747,7 +751,7 @@ class TranscodeExecutor:
             return TranscodeResult(success=True)
 
         # Check disk space before starting
-        space_error = self._check_disk_space(plan)
+        space_error = self._check_disk_space_for_plan(plan)
         if space_error:
             logger.error("Disk space check failed: %s", space_error)
             return TranscodeResult(success=False, error_message=space_error)

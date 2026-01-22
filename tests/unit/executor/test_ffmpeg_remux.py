@@ -380,7 +380,7 @@ class TestBuildTranscodeCommandStreamIndices:
 
 
 class TestTimeoutScaling:
-    """Tests for _compute_timeout method."""
+    """Tests for _compute_timeout_for_plan method."""
 
     def test_returns_none_when_timeout_zero(self, tmp_path: Path) -> None:
         """Returns None when timeout is 0 (no timeout)."""
@@ -399,7 +399,7 @@ class TestTimeoutScaling:
             ),
         )
 
-        result = executor._compute_timeout(plan)
+        result = executor._compute_timeout_for_plan(plan)
 
         assert result is None
 
@@ -421,7 +421,7 @@ class TestTimeoutScaling:
             ),
         )
 
-        result = executor._compute_timeout(plan)
+        result = executor._compute_timeout_for_plan(plan)
 
         assert result == 60  # Our test executor timeout
 
@@ -464,7 +464,7 @@ class TestTimeoutScaling:
         # Mock stat to return 2GB file size
         with patch.object(Path, "stat") as mock_stat:
             mock_stat.return_value = MagicMock(st_size=2 * 1024**3)
-            result = executor._compute_timeout(plan)
+            result = executor._compute_timeout_for_plan(plan)
 
         # 2GB * 300 seconds/GB = 600 seconds, which is > 60
         assert result == 600
@@ -516,7 +516,9 @@ class TestOutputValidation:
                 result = executor.execute(plan)
 
         assert result.success is False
-        assert "no output file created" in result.message.lower()
+        # Output validation now reports "does not exist"
+        msg = result.message.lower()
+        assert "does not exist" in msg or "validation failed" in msg
 
     def test_execute_fails_if_output_empty(
         self, executor: FFmpegRemuxExecutor, tmp_path: Path

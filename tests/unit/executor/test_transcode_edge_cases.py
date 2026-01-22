@@ -59,7 +59,7 @@ def basic_executor(basic_policy: TranscodePolicyConfig) -> TranscodeExecutor:
 
 
 class TestCheckDiskSpace:
-    """Tests for TranscodeExecutor._check_disk_space method."""
+    """Tests for TranscodeExecutor._check_disk_space_for_plan method."""
 
     def test_returns_none_when_sufficient_space(
         self, basic_executor: TranscodeExecutor, tmp_path: Path
@@ -75,7 +75,7 @@ class TestCheckDiskSpace:
             needs_video_transcode=True,
         )
 
-        result = basic_executor._check_disk_space(plan)
+        result = basic_executor._check_disk_space_for_plan(plan)
 
         assert result is None
 
@@ -96,7 +96,7 @@ class TestCheckDiskSpace:
         # Mock disk_usage to return very low free space
         with patch.object(shutil, "disk_usage") as mock_usage:
             mock_usage.return_value = MagicMock(free=100)  # 100 bytes free
-            result = basic_executor._check_disk_space(plan)
+            result = basic_executor._check_disk_space_for_plan(plan)
 
         assert result is not None
         assert "Insufficient disk space" in result
@@ -119,7 +119,7 @@ class TestCheckDiskSpace:
         # With HEVC, ratio is 0.5, so estimated = 10000 * 0.5 * 1.2 = 6000 bytes
         with patch.object(shutil, "disk_usage") as mock_usage:
             mock_usage.return_value = MagicMock(free=5000)  # 5KB free
-            result = executor._check_disk_space(plan)
+            result = executor._check_disk_space_for_plan(plan)
 
         assert result is not None  # Should fail (5000 < 6000)
 
@@ -141,7 +141,7 @@ class TestCheckDiskSpace:
         # With H264, ratio is 0.8, so estimated = 10000 * 0.8 * 1.2 = 9600 bytes
         with patch.object(shutil, "disk_usage") as mock_usage:
             mock_usage.return_value = MagicMock(free=9000)  # 9KB free
-            result = executor._check_disk_space(plan)
+            result = executor._check_disk_space_for_plan(plan)
 
         assert result is not None  # Should fail (9000 < 9600)
 
@@ -161,7 +161,7 @@ class TestCheckDiskSpace:
 
         with patch.object(shutil, "disk_usage") as mock_usage:
             mock_usage.side_effect = OSError("Permission denied")
-            result = basic_executor._check_disk_space(plan)
+            result = basic_executor._check_disk_space_for_plan(plan)
 
         # Should return None (not error out) when can't check
         assert result is None
@@ -186,7 +186,7 @@ class TestCheckDiskSpace:
 
         with patch.object(shutil, "disk_usage") as mock_usage:
             mock_usage.return_value = MagicMock(free=1000000)
-            executor._check_disk_space(plan)
+            executor._check_disk_space_for_plan(plan)
             # Should check temp_dir, not output parent
             mock_usage.assert_called_once_with(temp_dir)
 

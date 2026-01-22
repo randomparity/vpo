@@ -957,7 +957,7 @@ class TestFFmpegRemuxExecutorBackup:
 
     @patch("vpo.executor.ffmpeg_remux.check_disk_space")
     @patch("vpo.executor.ffmpeg_remux.create_backup")
-    @patch("vpo.executor.ffmpeg_remux.require_tool")
+    @patch("vpo.executor.ffmpeg_base.require_tool")
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
     def test_creates_backup(
@@ -1008,7 +1008,7 @@ class TestFFmpegRemuxExecutorBackup:
     @patch("vpo.executor.ffmpeg_remux.check_disk_space")
     @patch("vpo.executor.ffmpeg_remux.create_backup")
     @patch("vpo.executor.ffmpeg_remux.safe_restore_from_backup")
-    @patch("vpo.executor.ffmpeg_remux.require_tool")
+    @patch("vpo.executor.ffmpeg_base.require_tool")
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
     def test_restores_on_failure(
