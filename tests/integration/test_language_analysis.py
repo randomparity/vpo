@@ -585,3 +585,193 @@ class TestLanguageAnalysisFeatures:
         assert policy.schema_version == 12
         assert len(policy.phases[0].conditional) == 1
         assert policy.phases[0].conditional[0].name == "Skip 4K HEVC"
+
+
+# =============================================================================
+# T094: Integration Test for Workflow Executor Language Results Integration
+# =============================================================================
+
+
+class TestWorkflowLanguageIntegration:
+    """Integration tests for workflow executor passing language results.
+
+    Tests the core fix for Issue #270: ensuring language analysis results
+    are passed from the database through the workflow executor to the
+    policy evaluator.
+    """
+
+    def test_execute_with_plan_retrieves_language_results(
+        self,
+        temp_dir: Path,
+        v7_multi_language_policy: Path,
+        multi_language_analysis_result: LanguageAnalysisResult,
+    ):
+        """Test that execute_with_plan fetches and passes language results.
+
+        This test verifies the core fix for Issue #270 - that the workflow
+        executor now passes language_results to evaluate_policy.
+        """
+        import sqlite3
+        from datetime import datetime, timezone
+        from unittest.mock import patch
+
+        from vpo.db.queries import (
+            upsert_language_analysis_result,
+            upsert_language_segments,
+        )
+        from vpo.db.schema import create_schema
+        from vpo.db.types import LanguageAnalysisResultRecord, LanguageSegmentRecord
+        from vpo.policy.loader import load_policy
+
+        # Create in-memory database
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        create_schema(conn)
+
+        # Insert test file
+        now = datetime.now(timezone.utc).isoformat()
+        cursor = conn.execute(
+            """
+            INSERT INTO files (
+                path, filename, directory, extension, size_bytes,
+                container_format, modified_at, scanned_at, scan_status
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(temp_dir / "test.mkv"),
+                "test.mkv",
+                str(temp_dir),
+                ".mkv",
+                1000,
+                "mkv",
+                now,
+                now,
+                "ok",
+            ),
+        )
+        conn.commit()
+        file_id = cursor.lastrowid
+
+        # Insert tracks
+        # Video track
+        conn.execute(
+            """
+            INSERT INTO tracks (file_id, track_index, track_type, codec, language)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (file_id, 0, "video", "hevc", "und"),
+        )
+        # Audio track
+        cursor = conn.execute(
+            """
+            INSERT INTO tracks (file_id, track_index, track_type, codec, language)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (file_id, 1, "audio", "aac", "eng"),
+        )
+        audio_track_id = cursor.lastrowid
+
+        # Forced subtitle track
+        conn.execute(
+            """
+            INSERT INTO tracks (
+                file_id, track_index, track_type, codec, language, is_forced
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (file_id, 2, "subtitle", "ass", "eng", True),
+        )
+        conn.commit()
+
+        # Insert language analysis results for the audio track
+        analysis_record = LanguageAnalysisResultRecord(
+            id=None,
+            track_id=audio_track_id,
+            file_hash="hash123",
+            primary_language="eng",
+            primary_percentage=0.82,
+            classification="MULTI_LANGUAGE",
+            analysis_metadata=(
+                '{"plugin_name": "whisper", "plugin_version": "1.0.0", '
+                '"model_name": "base", "sample_positions": [0.0], '
+                '"sample_duration": 30.0, "total_duration": 600.0, '
+                '"speech_ratio": 0.8}'
+            ),
+            created_at=now,
+            updated_at=now,
+        )
+        analysis_id = upsert_language_analysis_result(conn, analysis_record)
+
+        # Add segments
+        segments = [
+            LanguageSegmentRecord(
+                id=None,
+                analysis_id=analysis_id,
+                language_code="eng",
+                start_time=0.0,
+                end_time=300.0,
+                confidence=0.95,
+            ),
+            LanguageSegmentRecord(
+                id=None,
+                analysis_id=analysis_id,
+                language_code="fre",
+                start_time=300.0,
+                end_time=360.0,
+                confidence=0.90,
+            ),
+        ]
+        upsert_language_segments(conn, analysis_id, segments)
+
+        # Create test file
+        test_file = temp_dir / "test.mkv"
+        test_file.write_bytes(b"\x00" * 100)
+
+        # Load the policy
+        policy = load_policy(v7_multi_language_policy)
+
+        # Capture the evaluate_policy call to verify language_results is passed
+        captured_language_results = []
+
+        original_evaluate = None
+
+        def capturing_evaluate(**kwargs):
+            captured_language_results.append(kwargs.get("language_results"))
+            # Call the original function
+            return original_evaluate(**kwargs)
+
+        from vpo.policy import evaluator
+
+        original_evaluate = evaluator.evaluate_policy
+
+        with patch.object(evaluator, "evaluate_policy", side_effect=capturing_evaluate):
+            from vpo.workflow.phases.executor import PhaseExecutionState
+            from vpo.workflow.phases.executor.plan_operations import execute_with_plan
+
+            state = PhaseExecutionState(
+                file_path=test_file,
+                phase=policy.phases[0],
+            )
+
+            # Execute the function under test
+            execute_with_plan(
+                state=state,
+                file_info=None,  # Will read from DB
+                operation_name="test",
+                conn=conn,
+                policy=policy,
+                dry_run=True,
+                tools={"mkvpropedit": True},
+            )
+
+        # Verify language_results was passed to evaluate_policy
+        assert len(captured_language_results) == 1
+        assert captured_language_results[0] is not None
+        assert audio_track_id in captured_language_results[0]
+
+        # Verify the analysis result has the expected data
+        passed_result = captured_language_results[0][audio_track_id]
+        assert passed_result.primary_language == "eng"
+        assert passed_result.primary_percentage == 0.82
+        assert passed_result.is_multi_language is True

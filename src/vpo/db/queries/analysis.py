@@ -443,6 +443,50 @@ def delete_analysis_for_file(conn: sqlite3.Connection, file_id: int) -> int:
     return delete_language_analysis_for_file(conn, file_id)
 
 
+def get_language_analysis_for_tracks(
+    conn: sqlite3.Connection, track_ids: list[int]
+) -> dict[int, LanguageAnalysisResultRecord]:
+    """Get language analysis results for a list of track IDs.
+
+    Args:
+        conn: Database connection.
+        track_ids: List of track IDs to query.
+
+    Returns:
+        Dictionary mapping track_id to LanguageAnalysisResultRecord.
+    """
+    if not track_ids:
+        return {}
+
+    placeholders = ",".join("?" * len(track_ids))
+    cursor = conn.execute(
+        f"""
+        SELECT id, track_id, file_hash, primary_language, primary_percentage,
+               classification, analysis_metadata, created_at, updated_at
+        FROM language_analysis_results
+        WHERE track_id IN ({placeholders})
+        """,
+        tuple(track_ids),
+    )
+
+    result = {}
+    for row in cursor.fetchall():
+        record = LanguageAnalysisResultRecord(
+            id=row[0],
+            track_id=row[1],
+            file_hash=row[2],
+            primary_language=row[3],
+            primary_percentage=row[4],
+            classification=row[5],
+            analysis_metadata=row[6],
+            created_at=row[7],
+            updated_at=row[8],
+        )
+        result[record.track_id] = record
+
+    return result
+
+
 def get_file_ids_by_path_prefix(
     conn: sqlite3.Connection,
     path_prefix: str,

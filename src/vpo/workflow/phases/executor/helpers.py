@@ -4,14 +4,24 @@ This module contains utility functions for tool caching, track retrieval,
 metadata parsing, and executor selection.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 from collections.abc import Callable
 from pathlib import Path
 from sqlite3 import Connection
+from typing import TYPE_CHECKING
 
-from vpo.db.queries import get_tracks_for_file
+from vpo.db.queries import (
+    get_language_analysis_for_tracks,
+    get_language_segments,
+    get_tracks_for_file,
+)
 from vpo.db.types import FileRecord, TrackInfo, tracks_to_track_info
+
+if TYPE_CHECKING:
+    from vpo.language_analysis.models import LanguageAnalysisResult
 from vpo.executor import (
     FfmpegMetadataExecutor,
     FFmpegRemuxExecutor,
@@ -138,3 +148,46 @@ def select_executor(
         return FfmpegMetadataExecutor()
 
     return None
+
+
+def get_language_results_for_tracks(
+    conn: Connection, tracks: list[TrackInfo]
+) -> dict[int, LanguageAnalysisResult] | None:
+    """Get language analysis results for audio tracks.
+
+    Fetches language analysis results from the database for audio tracks
+    that have database IDs. Used to pass language results to the policy
+    evaluator for audio_is_multi_language conditions.
+
+    Args:
+        conn: Database connection.
+        tracks: List of TrackInfo for the file.
+
+    Returns:
+        Dictionary mapping track_id to LanguageAnalysisResult, or None if
+        no results found.
+    """
+    from vpo.language_analysis.models import LanguageAnalysisResult
+
+    # Filter to audio tracks with database IDs
+    audio_track_ids = [
+        t.id for t in tracks if t.track_type.casefold() == "audio" and t.id is not None
+    ]
+
+    if not audio_track_ids:
+        return None
+
+    # Batch fetch language analysis records
+    records = get_language_analysis_for_tracks(conn, audio_track_ids)
+    if not records:
+        return None
+
+    # Convert records to domain models with segments
+    results: dict[int, LanguageAnalysisResult] = {}
+    for track_id, record in records.items():
+        if record.id is None:
+            continue
+        segments = get_language_segments(conn, record.id)
+        results[track_id] = LanguageAnalysisResult.from_record(record, segments)
+
+    return results if results else None
