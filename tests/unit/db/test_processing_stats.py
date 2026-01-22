@@ -654,3 +654,378 @@ class TestCascadeDelete:
         # Verify metric was cascaded
         cursor = conn.execute("SELECT COUNT(*) FROM performance_metrics")
         assert cursor.fetchone()[0] == 0
+
+
+# ==========================================================================
+# Stats Trends Tests (Issue #264)
+# ==========================================================================
+
+
+class TestGetStatsTrends:
+    """Tests for get_stats_trends function."""
+
+    def test_empty_database_returns_empty_list(self, conn: sqlite3.Connection) -> None:
+        """Empty database should return empty trends list."""
+        from vpo.db.views import get_stats_trends
+
+        trends = get_stats_trends(conn)
+        assert trends == []
+
+    def test_trends_grouped_by_day(
+        self, conn: sqlite3.Connection, file_id: int
+    ) -> None:
+        """Trends should be grouped by day correctly."""
+        from vpo.db.views import get_stats_trends
+
+        # Insert stats for different days
+        day1 = "2024-01-15T10:00:00Z"
+        day2 = "2024-01-16T10:00:00Z"
+
+        for i, date in enumerate([day1, day1, day2]):
+            record = ProcessingStatsRecord(
+                id=str(uuid.uuid4()),
+                file_id=file_id,
+                processed_at=date,
+                policy_name="test-policy",
+                size_before=1000000,
+                size_after=500000,
+                size_change=500000,
+                audio_tracks_before=2,
+                subtitle_tracks_before=1,
+                attachments_before=0,
+                audio_tracks_after=1,
+                subtitle_tracks_after=1,
+                attachments_after=0,
+                audio_tracks_removed=1,
+                subtitle_tracks_removed=0,
+                attachments_removed=0,
+                duration_seconds=10.0,
+                phases_completed=1,
+                phases_total=1,
+                total_changes=1,
+                video_source_codec=None,
+                video_target_codec=None,
+                video_transcode_skipped=False,
+                video_skip_reason=None,
+                audio_tracks_transcoded=0,
+                audio_tracks_preserved=0,
+                hash_before=None,
+                hash_after=None,
+                success=True,
+                error_message=None,
+            )
+            insert_processing_stats(conn, record)
+        conn.commit()
+
+        trends = get_stats_trends(conn, group_by="day")
+
+        assert len(trends) == 2
+        # Day 1 should have 2 files
+        assert trends[0].date == "2024-01-15"
+        assert trends[0].files_processed == 2
+        # Day 2 should have 1 file
+        assert trends[1].date == "2024-01-16"
+        assert trends[1].files_processed == 1
+
+    def test_trends_with_since_filter(
+        self, conn: sqlite3.Connection, file_id: int
+    ) -> None:
+        """Trends should respect since filter."""
+        from vpo.db.views import get_stats_trends
+
+        # Insert old and new stats
+        old_date = "2024-01-01T10:00:00Z"
+        new_date = "2024-01-15T10:00:00Z"
+
+        for date in [old_date, new_date]:
+            record = ProcessingStatsRecord(
+                id=str(uuid.uuid4()),
+                file_id=file_id,
+                processed_at=date,
+                policy_name="test-policy",
+                size_before=1000000,
+                size_after=500000,
+                size_change=500000,
+                audio_tracks_before=2,
+                subtitle_tracks_before=1,
+                attachments_before=0,
+                audio_tracks_after=1,
+                subtitle_tracks_after=1,
+                attachments_after=0,
+                audio_tracks_removed=1,
+                subtitle_tracks_removed=0,
+                attachments_removed=0,
+                duration_seconds=10.0,
+                phases_completed=1,
+                phases_total=1,
+                total_changes=1,
+                video_source_codec=None,
+                video_target_codec=None,
+                video_transcode_skipped=False,
+                video_skip_reason=None,
+                audio_tracks_transcoded=0,
+                audio_tracks_preserved=0,
+                hash_before=None,
+                hash_after=None,
+                success=True,
+                error_message=None,
+            )
+            insert_processing_stats(conn, record)
+        conn.commit()
+
+        # Filter since 2024-01-10
+        trends = get_stats_trends(conn, since="2024-01-10T00:00:00Z")
+
+        assert len(trends) == 1
+        assert trends[0].date == "2024-01-15"
+
+    def test_trends_success_fail_counts(
+        self, conn: sqlite3.Connection, file_id: int
+    ) -> None:
+        """Trends should track success and fail counts."""
+        from vpo.db.views import get_stats_trends
+
+        date = "2024-01-15T10:00:00Z"
+
+        # Insert 2 successful and 1 failed
+        for success in [True, True, False]:
+            record = ProcessingStatsRecord(
+                id=str(uuid.uuid4()),
+                file_id=file_id,
+                processed_at=date,
+                policy_name="test-policy",
+                size_before=1000000,
+                size_after=500000,
+                size_change=500000,
+                audio_tracks_before=2,
+                subtitle_tracks_before=1,
+                attachments_before=0,
+                audio_tracks_after=1,
+                subtitle_tracks_after=1,
+                attachments_after=0,
+                audio_tracks_removed=1,
+                subtitle_tracks_removed=0,
+                attachments_removed=0,
+                duration_seconds=10.0,
+                phases_completed=1,
+                phases_total=1,
+                total_changes=1,
+                video_source_codec=None,
+                video_target_codec=None,
+                video_transcode_skipped=False,
+                video_skip_reason=None,
+                audio_tracks_transcoded=0,
+                audio_tracks_preserved=0,
+                hash_before=None,
+                hash_after=None,
+                success=success,
+                error_message=None if success else "Test error",
+            )
+            insert_processing_stats(conn, record)
+        conn.commit()
+
+        trends = get_stats_trends(conn)
+
+        assert len(trends) == 1
+        assert trends[0].success_count == 2
+        assert trends[0].fail_count == 1
+
+
+class TestEncoderTypeTracking:
+    """Tests for encoder type tracking (Issue #264)."""
+
+    def test_encoder_type_stored_correctly(
+        self, conn: sqlite3.Connection, file_id: int
+    ) -> None:
+        """Encoder type should be stored and retrieved correctly."""
+        record = ProcessingStatsRecord(
+            id=str(uuid.uuid4()),
+            file_id=file_id,
+            processed_at="2024-01-15T10:00:00Z",
+            policy_name="test-policy",
+            size_before=1000000,
+            size_after=500000,
+            size_change=500000,
+            audio_tracks_before=0,
+            subtitle_tracks_before=0,
+            attachments_before=0,
+            audio_tracks_after=0,
+            subtitle_tracks_after=0,
+            attachments_after=0,
+            audio_tracks_removed=0,
+            subtitle_tracks_removed=0,
+            attachments_removed=0,
+            duration_seconds=10.0,
+            phases_completed=1,
+            phases_total=1,
+            total_changes=1,
+            video_source_codec="h264",
+            video_target_codec="hevc",
+            video_transcode_skipped=False,
+            video_skip_reason=None,
+            audio_tracks_transcoded=0,
+            audio_tracks_preserved=0,
+            hash_before=None,
+            hash_after=None,
+            success=True,
+            error_message=None,
+            encoder_type="hardware",
+        )
+
+        insert_processing_stats(conn, record)
+        conn.commit()
+
+        retrieved = get_processing_stats_by_id(conn, record.id)
+        assert retrieved is not None
+        assert retrieved.encoder_type == "hardware"
+
+    def test_encoder_type_counts_in_summary(
+        self, conn: sqlite3.Connection, file_id: int
+    ) -> None:
+        """Summary should include hardware/software encoder counts."""
+        from vpo.db.views import get_stats_summary
+
+        # Insert stats with different encoder types
+        encoder_types = ["hardware", "hardware", "software", None]
+
+        for encoder in encoder_types:
+            record = ProcessingStatsRecord(
+                id=str(uuid.uuid4()),
+                file_id=file_id,
+                processed_at="2024-01-15T10:00:00Z",
+                policy_name="test-policy",
+                size_before=1000000,
+                size_after=500000,
+                size_change=500000,
+                audio_tracks_before=0,
+                subtitle_tracks_before=0,
+                attachments_before=0,
+                audio_tracks_after=0,
+                subtitle_tracks_after=0,
+                attachments_after=0,
+                audio_tracks_removed=0,
+                subtitle_tracks_removed=0,
+                attachments_removed=0,
+                duration_seconds=10.0,
+                phases_completed=1,
+                phases_total=1,
+                total_changes=1,
+                video_source_codec=None,
+                video_target_codec=None,
+                video_transcode_skipped=False,
+                video_skip_reason=None,
+                audio_tracks_transcoded=0,
+                audio_tracks_preserved=0,
+                hash_before=None,
+                hash_after=None,
+                success=True,
+                error_message=None,
+                encoder_type=encoder,
+            )
+            insert_processing_stats(conn, record)
+        conn.commit()
+
+        summary = get_stats_summary(conn)
+
+        assert summary.hardware_encodes == 2
+        assert summary.software_encodes == 1
+
+
+class TestGetStatsForFileView:
+    """Tests for get_stats_for_file view function."""
+
+    def test_encoder_type_included_in_results(
+        self, conn: sqlite3.Connection, file_id: int
+    ) -> None:
+        """get_stats_for_file should include encoder_type in results."""
+        from vpo.db.views import get_stats_for_file
+
+        record = ProcessingStatsRecord(
+            id=str(uuid.uuid4()),
+            file_id=file_id,
+            processed_at="2024-01-15T10:00:00Z",
+            policy_name="test-policy",
+            size_before=1000000,
+            size_after=500000,
+            size_change=500000,
+            audio_tracks_before=0,
+            subtitle_tracks_before=0,
+            attachments_before=0,
+            audio_tracks_after=0,
+            subtitle_tracks_after=0,
+            attachments_after=0,
+            audio_tracks_removed=0,
+            subtitle_tracks_removed=0,
+            attachments_removed=0,
+            duration_seconds=10.0,
+            phases_completed=1,
+            phases_total=1,
+            total_changes=1,
+            video_source_codec=None,
+            video_target_codec=None,
+            video_transcode_skipped=False,
+            video_skip_reason=None,
+            audio_tracks_transcoded=0,
+            audio_tracks_preserved=0,
+            hash_before=None,
+            hash_after=None,
+            success=True,
+            error_message=None,
+            encoder_type="hardware",
+        )
+
+        insert_processing_stats(conn, record)
+        conn.commit()
+
+        results = get_stats_for_file(conn, file_id=file_id)
+
+        assert len(results) == 1
+        assert results[0].encoder_type == "hardware"
+
+    def test_encoder_type_none_when_not_set(
+        self, conn: sqlite3.Connection, file_id: int
+    ) -> None:
+        """get_stats_for_file should return None encoder_type when not set."""
+        from vpo.db.views import get_stats_for_file
+
+        record = ProcessingStatsRecord(
+            id=str(uuid.uuid4()),
+            file_id=file_id,
+            processed_at="2024-01-15T10:00:00Z",
+            policy_name="test-policy",
+            size_before=1000000,
+            size_after=500000,
+            size_change=500000,
+            audio_tracks_before=0,
+            subtitle_tracks_before=0,
+            attachments_before=0,
+            audio_tracks_after=0,
+            subtitle_tracks_after=0,
+            attachments_after=0,
+            audio_tracks_removed=0,
+            subtitle_tracks_removed=0,
+            attachments_removed=0,
+            duration_seconds=10.0,
+            phases_completed=1,
+            phases_total=1,
+            total_changes=1,
+            video_source_codec=None,
+            video_target_codec=None,
+            video_transcode_skipped=False,
+            video_skip_reason=None,
+            audio_tracks_transcoded=0,
+            audio_tracks_preserved=0,
+            hash_before=None,
+            hash_after=None,
+            success=True,
+            error_message=None,
+            encoder_type=None,  # Not set
+        )
+
+        insert_processing_stats(conn, record)
+        conn.commit()
+
+        results = get_stats_for_file(conn, file_id=file_id)
+
+        assert len(results) == 1
+        assert results[0].encoder_type is None

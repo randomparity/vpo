@@ -8,6 +8,7 @@ from ..types import (
     PolicyStats,
     StatsDetailView,
     StatsSummary,
+    TrendDataPoint,
 )
 from .helpers import _clamp_limit
 
@@ -70,7 +71,11 @@ def get_stats_summary(
             COALESCE(SUM(audio_tracks_transcoded), 0) as total_audio_transcoded,
             COALESCE(AVG(duration_seconds), 0.0) as avg_processing_time,
             MIN(processed_at) as earliest_processing,
-            MAX(processed_at) as latest_processing
+            MAX(processed_at) as latest_processing,
+            COALESCE(SUM(CASE WHEN encoder_type = 'hardware' THEN 1 ELSE 0 END), 0)
+                as hardware_encodes,
+            COALESCE(SUM(CASE WHEN encoder_type = 'software' THEN 1 ELSE 0 END), 0)
+                as software_encodes
         FROM processing_stats
         {where_clause}
     """
@@ -104,6 +109,8 @@ def get_stats_summary(
         avg_processing_time=row[12] or 0.0,
         earliest_processing=row[13],
         latest_processing=row[14],
+        hardware_encodes=row[15] or 0,
+        software_encodes=row[16] or 0,
     )
 
 
@@ -142,7 +149,7 @@ def get_recent_stats(
             id, processed_at, policy_name,
             size_before, size_after, size_change,
             audio_tracks_removed, subtitle_tracks_removed, attachments_removed,
-            duration_seconds, success, error_message
+            duration_seconds, success, error_message, encoder_type
         FROM processing_stats
         {where_clause}
         ORDER BY processed_at DESC
@@ -165,6 +172,7 @@ def get_recent_stats(
             duration_seconds=row[9],
             success=row[10] == 1,
             error_message=row[11],
+            encoder_type=row[12],
         )
         for row in cursor.fetchall()
     ]
@@ -390,7 +398,8 @@ def get_stats_detail(
             ps.hash_before,
             ps.hash_after,
             ps.success,
-            ps.error_message
+            ps.error_message,
+            ps.encoder_type
         FROM processing_stats ps
         LEFT JOIN files f ON ps.file_id = f.id
         WHERE ps.id = ?
@@ -455,6 +464,7 @@ def get_stats_detail(
         hash_after=row[29],
         success=row[30] == 1,
         error_message=row[31],
+        encoder_type=row[32],
         actions=actions,
     )
 
@@ -501,7 +511,7 @@ def get_stats_for_file(
             id, processed_at, policy_name,
             size_before, size_after, size_change,
             audio_tracks_removed, subtitle_tracks_removed, attachments_removed,
-            duration_seconds, success, error_message
+            duration_seconds, success, error_message, encoder_type
         FROM processing_stats
         WHERE file_id = ?
         ORDER BY processed_at DESC
@@ -523,6 +533,74 @@ def get_stats_for_file(
             duration_seconds=row[9] or 0.0,
             success=row[10] == 1,
             error_message=row[11],
+            encoder_type=row[12],
+        )
+        for row in cursor.fetchall()
+    ]
+
+
+def get_stats_trends(
+    conn: sqlite3.Connection,
+    *,
+    since: str | None = None,
+    group_by: str = "day",
+) -> list[TrendDataPoint]:
+    """Get processing trends aggregated by time period.
+
+    Aggregates processing statistics by day, week, or month for charting.
+    Returns data points sorted by date ascending.
+
+    Args:
+        conn: Database connection.
+        since: ISO-8601 timestamp for start of date range (inclusive).
+        group_by: Time grouping: 'day', 'week', or 'month'.
+
+    Returns:
+        List of TrendDataPoint objects ordered by date ascending.
+    """
+    # Determine SQL date format based on grouping
+    if group_by == "week":
+        # Group by year-week (ISO week number)
+        date_format = "%Y-W%W"
+    elif group_by == "month":
+        # Group by year-month
+        date_format = "%Y-%m"
+    else:
+        # Default to day
+        date_format = "%Y-%m-%d"
+
+    conditions: list[str] = []
+    params: list[str] = []
+
+    if since is not None:
+        conditions.append("processed_at >= ?")
+        params.append(since)
+
+    where_clause = ""
+    if conditions:
+        where_clause = " WHERE " + " AND ".join(conditions)
+
+    query = f"""
+        SELECT
+            strftime('{date_format}', processed_at) as period,
+            COUNT(*) as files_processed,
+            COALESCE(SUM(size_change), 0) as size_saved,
+            SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as success_count,
+            SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as fail_count
+        FROM processing_stats
+        {where_clause}
+        GROUP BY period
+        ORDER BY period ASC
+    """
+
+    cursor = conn.execute(query, params)
+    return [
+        TrendDataPoint(
+            date=row[0],
+            files_processed=row[1] or 0,
+            size_saved=row[2] or 0,
+            success_count=row[3] or 0,
+            fail_count=row[4] or 0,
         )
         for row in cursor.fetchall()
     ]

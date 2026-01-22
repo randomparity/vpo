@@ -58,6 +58,15 @@ class TranscodeResult:
     error_message: str | None = None
     backup_path: Path | None = None
 
+    # FFmpeg encoding metrics (Issue #264)
+    encoding_fps: float | None = None
+    encoding_bitrate_kbps: int | None = None
+    total_frames: int | None = None
+
+    # Hardware encoder tracking (Issue #264)
+    encoder_type: str | None = None
+    """Encoder type: 'hardware', 'software', or None if unknown."""
+
 
 @dataclass
 class TranscodePlan:

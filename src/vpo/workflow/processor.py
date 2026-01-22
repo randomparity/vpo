@@ -412,14 +412,21 @@ class WorkflowProcessor:
                         PhaseMetrics(
                             phase_name=phase.name,
                             wall_time_seconds=phase_duration,
+                            encoding_fps=phase_result.encoding_fps,
+                            encoding_bitrate=phase_result.encoding_bitrate_kbps,
                         )
                     )
-                    # Capture transcode skip info if present
+                    # Capture transcode info if present
                     if phase_result.transcode_skip_reason:
                         stats_collector.set_video_transcode_info(
                             target_codec=None,
                             skipped=True,
                             skip_reason=phase_result.transcode_skip_reason,
+                        )
+                    elif phase_result.encoder_type:
+                        # Successful transcode - capture encoder type
+                        stats_collector.set_video_transcode_info(
+                            encoder_type=phase_result.encoder_type,
                         )
 
                 if phase_result.success:

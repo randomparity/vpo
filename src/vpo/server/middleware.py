@@ -119,6 +119,7 @@ STATS_ALLOWED_PARAMS = frozenset(
         "until",
         "policy",
         "limit",
+        "group_by",
     }
 )
 

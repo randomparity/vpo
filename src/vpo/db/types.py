@@ -551,6 +551,9 @@ class ProcessingStatsRecord:
     success: bool
     error_message: str | None
 
+    # Hardware encoder tracking (Issue #264)
+    encoder_type: str | None = None
+
 
 @dataclass
 class ActionResultRecord:
@@ -816,8 +819,12 @@ class StatsSummary:
     avg_processing_time: float  # seconds
 
     # Time range
-    earliest_processing: str | None  # ISO-8601
-    latest_processing: str | None  # ISO-8601
+    earliest_processing: str | None = None  # ISO-8601
+    latest_processing: str | None = None  # ISO-8601
+
+    # Hardware encoder tracking (Issue #264)
+    hardware_encodes: int = 0
+    software_encodes: int = 0
 
 
 @dataclass
@@ -875,6 +882,7 @@ class FileProcessingHistory:
         duration_seconds: Processing duration in seconds.
         success: Whether processing succeeded.
         error_message: Error message if failed.
+        encoder_type: 'hardware', 'software', or None if unknown.
     """
 
     stats_id: str
@@ -892,6 +900,7 @@ class FileProcessingHistory:
     duration_seconds: float
     success: bool
     error_message: str | None
+    encoder_type: str | None = None
 
 
 @dataclass
@@ -954,6 +963,7 @@ class StatsDetailView:
         hash_after: File hash after processing.
         success: Whether processing succeeded.
         error_message: Error message if failed.
+        encoder_type: 'hardware', 'software', or None if unknown.
         actions: List of action summaries.
     """
 
@@ -998,6 +1008,9 @@ class StatsDetailView:
 
     success: bool
     error_message: str | None
+
+    # Hardware encoder tracking (Issue #264)
+    encoder_type: str | None = None
 
     actions: list[ActionSummary] = field(default_factory=list)
 
@@ -1068,3 +1081,29 @@ class TrackAnalysisDetail:
     primary_percentage: float
     secondary_languages: str | None
     analyzed_at: str
+
+
+# ==========================================================================
+# Statistics Trend Types (Issue #264)
+# ==========================================================================
+
+
+@dataclass
+class TrendDataPoint:
+    """Data point for processing trend charts.
+
+    Represents aggregated statistics for a time period (day, week, etc.).
+
+    Attributes:
+        date: ISO-8601 date string for the period.
+        files_processed: Number of files processed in this period.
+        size_saved: Total bytes saved in this period.
+        success_count: Number of successful processing runs.
+        fail_count: Number of failed processing runs.
+    """
+
+    date: str
+    files_processed: int
+    size_saved: int
+    success_count: int
+    fail_count: int

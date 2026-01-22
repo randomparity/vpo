@@ -8,6 +8,7 @@ Modules:
 - v06_to_v10: Jobs and indexing migrations (v6→v10)
 - v11_to_v15: Language analysis migrations (v11→v15)
 - v16_to_v20: Stats and classification migrations (v16→v20)
+- v21_to_v25: Enhanced statistics migrations (v21→v25)
 """
 
 from .v01_to_v05 import (
@@ -37,6 +38,9 @@ from .v16_to_v20 import (
     migrate_v18_to_v19,
     migrate_v19_to_v20,
 )
+from .v21_to_v25 import (
+    migrate_v20_to_v21,
+)
 
 __all__ = [
     # v1 to v5
@@ -62,4 +66,6 @@ __all__ = [
     "migrate_v17_to_v18",
     "migrate_v18_to_v19",
     "migrate_v19_to_v20",
+    # v20 to v25
+    "migrate_v20_to_v21",
 ]

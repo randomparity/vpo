@@ -54,6 +54,7 @@ def _row_to_processing_stats(row: sqlite3.Row) -> ProcessingStatsRecord:
         hash_after=row["hash_after"],
         success=row["success"] == 1,
         error_message=row["error_message"],
+        encoder_type=row["encoder_type"],
     )
 
 
@@ -82,10 +83,10 @@ def insert_processing_stats(
             duration_seconds, phases_completed, phases_total, total_changes,
             video_source_codec, video_target_codec, video_transcode_skipped,
             video_skip_reason, audio_tracks_transcoded, audio_tracks_preserved,
-            hash_before, hash_after, success, error_message
+            hash_before, hash_after, success, error_message, encoder_type
         ) VALUES (
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
         """,
         (
@@ -119,6 +120,7 @@ def insert_processing_stats(
             record.hash_after,
             1 if record.success else 0,
             record.error_message,
+            record.encoder_type,
         ),
     )
     return record.id
@@ -216,7 +218,7 @@ def get_processing_stats_by_id(
                duration_seconds, phases_completed, phases_total, total_changes,
                video_source_codec, video_target_codec, video_transcode_skipped,
                video_skip_reason, audio_tracks_transcoded, audio_tracks_preserved,
-               hash_before, hash_after, success, error_message
+               hash_before, hash_after, success, error_message, encoder_type
         FROM processing_stats WHERE id = ?
         """,
         (stats_id,),
@@ -252,7 +254,7 @@ def get_processing_stats_for_file(
                duration_seconds, phases_completed, phases_total, total_changes,
                video_source_codec, video_target_codec, video_transcode_skipped,
                video_skip_reason, audio_tracks_transcoded, audio_tracks_preserved,
-               hash_before, hash_after, success, error_message
+               hash_before, hash_after, success, error_message, encoder_type
         FROM processing_stats
         WHERE file_id = ?
         ORDER BY processed_at DESC

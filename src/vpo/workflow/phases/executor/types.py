@@ -47,6 +47,19 @@ class PhaseExecutionState:
     transcode_skip_reason: str | None = None
     """If transcode was skipped, the reason (for stats tracking)."""
 
+    # FFmpeg encoding metrics (Issue #264)
+    encoding_fps: float | None = None
+    """Average encoding FPS from FFmpeg (for stats tracking)."""
+
+    encoding_bitrate_kbps: int | None = None
+    """Average encoding bitrate in kbps from FFmpeg (for stats tracking)."""
+
+    total_frames: int | None = None
+    """Total frames encoded by FFmpeg (for stats tracking)."""
+
+    encoder_type: str | None = None
+    """Encoder type used: 'hardware', 'software', or None if unknown."""
+
     original_mtime: float | None = None
     """Original file modification time (Unix timestamp) captured at phase start.
     Used by file_timestamp operation to restore original mtime after processing."""

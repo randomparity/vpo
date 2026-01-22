@@ -167,6 +167,7 @@ class StatsCollector:
     video_skip_reason: str | None = None
     audio_tracks_transcoded: int = 0
     audio_tracks_preserved: int = 0
+    encoder_type: str | None = None  # 'hardware', 'software', or None
 
     # Processing metrics
     duration_seconds: float = 0.0
@@ -276,6 +277,7 @@ class StatsCollector:
         target_codec: str | None = None,
         skipped: bool = False,
         skip_reason: str | None = None,
+        encoder_type: str | None = None,
     ) -> None:
         """Set video transcode information.
 
@@ -283,10 +285,12 @@ class StatsCollector:
             target_codec: Target video codec (None if not transcoded).
             skipped: Whether transcode was skipped due to skip_if.
             skip_reason: Reason for skip (codec_matches, etc.).
+            encoder_type: 'hardware', 'software', or None if unknown.
         """
         self.video_target_codec = target_codec
         self.video_transcode_skipped = skipped
         self.video_skip_reason = skip_reason
+        self.encoder_type = encoder_type
 
     def set_audio_transcode_counts(
         self,
@@ -350,6 +354,7 @@ class StatsCollector:
                 hash_after=self.hash_after,
                 success=self.success,
                 error_message=self.error_message,
+                encoder_type=self.encoder_type,
             )
 
             insert_processing_stats(self.conn, stats_record)
