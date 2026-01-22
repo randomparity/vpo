@@ -170,7 +170,7 @@ def mock_ffmpeg():
     Yields:
         MagicMock: The patched require_tool function.
     """
-    with patch("vpo.executor.transcode.require_tool") as mock_require:
+    with patch("vpo.executor.transcode.command.require_tool") as mock_require:
         mock_require.return_value = Path("/usr/bin/ffmpeg")
         yield mock_require
 

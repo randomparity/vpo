@@ -1,21 +1,41 @@
 """Data type definitions for Video Policy Orchestrator database.
 
 This module contains all enums and dataclasses for the database layer:
-- Domain models (TrackInfo, FileInfo, IntrospectionResult)
 - Database records (FileRecord, TrackRecord, Job, etc.)
 - View models for typed query results (FileListViewItem, etc.)
+
+Domain models (TrackInfo, FileInfo, IntrospectionResult) and domain enums
+(OriginalDubbedStatus, CommentaryStatus, etc.) are defined in vpo.domain
+and re-exported here for backward compatibility.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from enum import Enum
-from pathlib import Path
 
-# Type alias for plugin-provided metadata
-# Structure: {"plugin_name": {"field": value, ...}, ...}
-# Note: Values must be scalar types (str, int, float, bool, None).
-# Nested structures (lists, dicts) are not supported in condition evaluation.
-PluginMetadataDict = dict[str, dict[str, str | int | float | bool | None]]
+# Import domain types for use in this module and re-export for backward compatibility
+from vpo.domain import (
+    CommentaryStatus,
+    DetectionMethod,
+    FileInfo,
+    IntrospectionResult,
+    OriginalDubbedStatus,
+    PluginMetadataDict,
+    TrackClassification,
+    TrackInfo,
+)
+
+# Re-export domain types for backward compatibility
+__all__ = [
+    # Domain types (re-exported from vpo.domain)
+    "TrackInfo",
+    "FileInfo",
+    "IntrospectionResult",
+    "PluginMetadataDict",
+    "OriginalDubbedStatus",
+    "CommentaryStatus",
+    "TrackClassification",
+    "DetectionMethod",
+]
 
 
 class OperationStatus(Enum):
@@ -48,64 +68,6 @@ class JobStatus(Enum):
     CANCELLED = "cancelled"
 
 
-class TrackClassification(Enum):
-    """Classification of audio track purpose.
-
-    Detection priority:
-    1. MUSIC/SFX: Identified by metadata keywords (title)
-    2. NON_SPEECH: Detected via transcription analysis (no speech/low confidence)
-    3. COMMENTARY: Identified by metadata keywords or transcript content
-    4. ALTERNATE: Identified as non-main dialog track
-    5. MAIN: Default for dialog tracks
-    """
-
-    MAIN = "main"  # Primary audio track with dialog
-    COMMENTARY = "commentary"  # Director/cast commentary
-    ALTERNATE = "alternate"  # Alternate mix with dialog
-    MUSIC = "music"  # Score, soundtrack (metadata-identified)
-    SFX = "sfx"  # Sound effects, ambient (metadata-identified)
-    NON_SPEECH = "non_speech"  # Unlabeled track detected as no speech
-
-
-class OriginalDubbedStatus(Enum):
-    """Classification of audio track as original or dubbed.
-
-    Determined by detection priority:
-    1. External metadata (Radarr/Sonarr production country, TMDB)
-    2. Track position heuristic (first audio track often original)
-    3. Acoustic analysis (quality comparison)
-    """
-
-    ORIGINAL = "original"  # Track is the original theatrical audio
-    DUBBED = "dubbed"  # Track is a dubbed version
-    UNKNOWN = "unknown"  # Cannot determine original/dubbed status
-
-
-class CommentaryStatus(Enum):
-    """Classification of audio track as commentary or main content.
-
-    Determined by:
-    1. Metadata keywords (title contains "commentary")
-    2. Acoustic analysis (speech density, dynamic range, voice count)
-    """
-
-    COMMENTARY = "commentary"  # Track contains commentary
-    MAIN = "main"  # Track contains main audio content
-    UNKNOWN = "unknown"  # Cannot determine commentary status
-
-
-class DetectionMethod(Enum):
-    """Method used to determine track classification.
-
-    Indicates the signal source that determined the classification result.
-    """
-
-    METADATA = "metadata"  # Determined from external metadata (Radarr/Sonarr/TMDB)
-    ACOUSTIC = "acoustic"  # Determined from acoustic analysis
-    COMBINED = "combined"  # Multiple signals combined
-    POSITION = "position"  # Determined from track position heuristic
-
-
 class PlanStatus(Enum):
     """Status of a plan in the approval workflow.
 
@@ -124,84 +86,6 @@ class PlanStatus(Enum):
     REJECTED = "rejected"  # Rejected by operator (terminal)
     APPLIED = "applied"  # Changes have been executed (terminal)
     CANCELED = "canceled"  # Withdrawn by operator or system (terminal)
-
-
-@dataclass
-class TrackInfo:
-    """Represents a media track within a video file (domain model)."""
-
-    index: int
-    track_type: str  # "video", "audio", "subtitle", "attachment", "other"
-    # Database ID (optional, set when loaded from database)
-    # Used for linking to related data like language analysis results
-    id: int | None = None
-    codec: str | None = None
-    language: str | None = None
-    title: str | None = None
-    is_default: bool = False
-    is_forced: bool = False
-    # Audio-specific fields (003-media-introspection)
-    channels: int | None = None
-    channel_layout: str | None = None  # Human-readable: "stereo", "5.1", etc.
-    # Video-specific fields (003-media-introspection)
-    width: int | None = None
-    height: int | None = None
-    frame_rate: str | None = None  # Stored as string to preserve precision
-    # HDR color metadata fields (034-conditional-video-transcode)
-    color_transfer: str | None = None  # e.g., "smpte2084" (PQ), "arib-std-b67" (HLG)
-    color_primaries: str | None = None  # e.g., "bt2020"
-    color_space: str | None = None  # e.g., "bt2020nc"
-    color_range: str | None = None  # e.g., "tv", "pc"
-    # Track duration (035-multi-language-audio-detection)
-    duration_seconds: float | None = None  # Duration in seconds
-
-
-@dataclass
-class FileInfo:
-    """Represents a scanned video file with its tracks (domain model)."""
-
-    path: Path
-    filename: str
-    directory: Path
-    extension: str
-    size_bytes: int
-    modified_at: datetime
-    content_hash: str | None = None
-    container_format: str | None = None
-    scanned_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    scan_status: str = "ok"  # "ok", "error", "pending"
-    scan_error: str | None = None
-    tracks: list[TrackInfo] = field(default_factory=list)
-    # Plugin-provided metadata (039-plugin-metadata-policy)
-    # Dict keyed by plugin name, e.g., {"radarr": {"original_language": "jpn", ...}}
-    plugin_metadata: PluginMetadataDict | None = None
-
-
-@dataclass
-class IntrospectionResult:
-    """Result of media file introspection."""
-
-    file_path: Path
-    container_format: str | None
-    tracks: list[TrackInfo]
-    warnings: list[str] = field(default_factory=list)
-    error: str | None = None
-
-    @property
-    def success(self) -> bool:
-        """Return True if introspection completed without fatal errors."""
-        return self.error is None
-
-    @property
-    def primary_video_track(self) -> TrackInfo | None:
-        """Return the first video track, or None if no video tracks exist."""
-        return next((t for t in self.tracks if t.track_type == "video"), None)
-
-    @property
-    def duration_seconds(self) -> float | None:
-        """Return duration from primary video track, or None if unavailable."""
-        video = self.primary_video_track
-        return video.duration_seconds if video else None
 
 
 @dataclass

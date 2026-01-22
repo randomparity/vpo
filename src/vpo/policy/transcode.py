@@ -11,7 +11,7 @@ Audio codec matching is delegated to policy/codecs.py.
 from dataclasses import dataclass
 from enum import Enum
 
-from vpo.db import TrackInfo
+from vpo.domain import TrackInfo
 from vpo.policy.codecs import (
     audio_codec_matches_any,
     video_codec_matches_any,
@@ -445,7 +445,3 @@ def evaluate_skip_condition(
         "Already compliant: " + ", ".join(reasons) if reasons else "All conditions met"
     )
     return SkipEvaluationResult(skip=True, reason=reason)
-
-
-# Backward compatibility alias for executor/transcode.py
-should_skip_transcode = evaluate_skip_condition

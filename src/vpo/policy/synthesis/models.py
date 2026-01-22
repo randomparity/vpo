@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from vpo.db import TrackInfo
+    from vpo.domain import TrackInfo
     from vpo.policy.types import Condition
 
 

@@ -16,7 +16,7 @@ from vpo.transcription.models import (
     TrackClassification,
     TranscriptionConfig,
     TranscriptionResult,
-    detect_commentary_type,
+    detect_track_classification,
 )
 
 # Confidence scores based on transcript quality.
@@ -272,7 +272,12 @@ class WhisperTranscriptionPlugin:
 
             # Detect track type using transcript analysis
             # Note: title is not available here, so we pass None
-            track_type = detect_commentary_type(None, transcript_sample)
+            track_type = detect_track_classification(
+                title=None,
+                transcript_sample=transcript_sample,
+                has_speech=True,
+                confidence=confidence,
+            )
 
             now = datetime.now(timezone.utc)
             return TranscriptionResult(

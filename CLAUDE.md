@@ -183,6 +183,42 @@ from vpo.db.models import FileRecord, get_file_by_path
 - `get_files_filtered()` returns `list[dict]`
 - `get_files_filtered_typed()` returns `list[FileListViewItem]`
 
+## Import Conventions
+
+### Public vs Private APIs
+- **Public API**: Functions/classes in `__all__` are stable interfaces
+- **Private**: Names starting with `_` are implementation details
+- Tests import private functions from their defining module, not re-exports
+
+### Package Import Patterns
+
+**Public API - Import from package:**
+```python
+from vpo.db import FileRecord, get_file_by_path
+from vpo.policy import evaluate_policy, Plan
+from vpo.executor.transcode import TranscodeExecutor
+```
+
+**Internal/test use - Import from specific module:**
+```python
+from vpo.db.queries.helpers import _escape_like_pattern
+from vpo.executor.transcode.command import _build_stream_maps
+```
+
+### Layer Dependencies
+
+```
+cli/ server/           # Presentation layer
+    ↓
+workflow/ scanner/     # Orchestration layer
+    ↓
+policy/ executor/      # Business logic layer
+    ↓
+db/ introspector/      # Data access layer
+    ↓
+core/ tools/           # Utilities (no VPO imports)
+```
+
 ## Development Methodology
 
 This project uses **spec-driven development**:

@@ -136,7 +136,7 @@ class TestMkvContainerCompatibility:
 
     def test_mkv_supports_all_video_codecs(self) -> None:
         """MKV should support all common video codecs."""
-        from vpo.policy.evaluator import (
+        from vpo.policy.evaluator.container import (
             _evaluate_container_change,
         )
 
@@ -159,7 +159,7 @@ class TestMkvContainerCompatibility:
 
     def test_mkv_supports_all_audio_codecs(self) -> None:
         """MKV should support all common audio codecs."""
-        from vpo.policy.evaluator import (
+        from vpo.policy.evaluator.container import (
             _evaluate_container_change,
         )
 
@@ -181,7 +181,7 @@ class TestMkvContainerCompatibility:
 
     def test_mkv_supports_all_subtitle_codecs(self) -> None:
         """MKV should support all common subtitle codecs."""
-        from vpo.policy.evaluator import (
+        from vpo.policy.evaluator.container import (
             _evaluate_container_change,
         )
 
@@ -213,7 +213,7 @@ class TestEvaluateContainerChange:
 
     def test_no_change_when_already_mkv(self) -> None:
         """Should return None when file is already MKV and target is MKV."""
-        from vpo.policy.evaluator import (
+        from vpo.policy.evaluator.container import (
             _evaluate_container_change,
         )
 
@@ -230,7 +230,7 @@ class TestEvaluateContainerChange:
 
     def test_no_change_when_already_matroska(self) -> None:
         """Should return None when container_format is 'matroska'."""
-        from vpo.policy.evaluator import (
+        from vpo.policy.evaluator.container import (
             _evaluate_container_change,
         )
 
@@ -247,7 +247,7 @@ class TestEvaluateContainerChange:
 
     def test_avi_to_mkv_conversion(self) -> None:
         """Should create change for AVI to MKV conversion."""
-        from vpo.policy.evaluator import (
+        from vpo.policy.evaluator.container import (
             _evaluate_container_change,
         )
 
@@ -266,7 +266,7 @@ class TestEvaluateContainerChange:
 
     def test_mov_to_mkv_conversion(self) -> None:
         """Should create change for MOV to MKV conversion."""
-        from vpo.policy.evaluator import (
+        from vpo.policy.evaluator.container import (
             _evaluate_container_change,
         )
 
@@ -284,7 +284,7 @@ class TestEvaluateContainerChange:
 
     def test_no_change_when_no_container_config(self) -> None:
         """Should return None when policy has no container config."""
-        from vpo.policy.evaluator import (
+        from vpo.policy.evaluator.container import (
             _evaluate_container_change,
         )
 
@@ -309,7 +309,7 @@ class TestMp4CodecCompatibility:
 
     def test_mp4_supports_h264_aac(self) -> None:
         """MP4 should support H.264 video and AAC audio."""
-        from vpo.policy.evaluator import (
+        from vpo.policy.evaluator.container import (
             _evaluate_container_change,
         )
 
@@ -326,7 +326,7 @@ class TestMp4CodecCompatibility:
 
     def test_mp4_supports_hevc(self) -> None:
         """MP4 should support HEVC (H.265) video."""
-        from vpo.policy.evaluator import (
+        from vpo.policy.evaluator.container import (
             _evaluate_container_change,
         )
 
@@ -343,7 +343,7 @@ class TestMp4CodecCompatibility:
 
     def test_mp4_rejects_truehd(self) -> None:
         """MP4 should reject TrueHD audio codec."""
-        from vpo.policy.evaluator import (
+        from vpo.policy.evaluator.container import (
             _evaluate_container_change,
         )
 
@@ -361,7 +361,7 @@ class TestMp4CodecCompatibility:
 
     def test_mp4_rejects_dts(self) -> None:
         """MP4 should reject DTS audio codec."""
-        from vpo.policy.evaluator import (
+        from vpo.policy.evaluator.container import (
             _evaluate_container_change,
         )
 
@@ -378,7 +378,7 @@ class TestMp4CodecCompatibility:
 
     def test_mp4_rejects_pgs_subtitles(self) -> None:
         """MP4 should reject PGS subtitle codec."""
-        from vpo.policy.evaluator import (
+        from vpo.policy.evaluator.container import (
             _evaluate_container_change,
         )
 
@@ -396,7 +396,7 @@ class TestMp4CodecCompatibility:
 
     def test_mp4_accepts_mov_text_subtitles(self) -> None:
         """MP4 should accept mov_text subtitles."""
-        from vpo.policy.evaluator import (
+        from vpo.policy.evaluator.container import (
             _evaluate_container_change,
         )
 

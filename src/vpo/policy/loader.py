@@ -20,10 +20,6 @@ from vpo.policy.types import PolicySchema
 # Current supported schema version (only V12 is supported)
 SCHEMA_VERSION = 12
 
-# Backward compatibility alias - DEPRECATED
-# This will be removed in a future release. Use SCHEMA_VERSION directly.
-MAX_SCHEMA_VERSION = SCHEMA_VERSION
-
 # RESERVED_PHASE_NAMES is imported from pydantic_models
 
 
@@ -107,12 +103,6 @@ def load_policy_from_dict(data: dict[str, Any]) -> PolicySchema:
         raise PolicyValidationError(error_msg) from e
 
     return _convert_to_policy_schema(model)
-
-
-# Backward compatibility aliases - DEPRECATED
-# These will be removed in a future release. Use load_policy_from_dict directly.
-load_phased_policy_from_dict = load_policy_from_dict
-load_v11_policy_from_dict = load_policy_from_dict
 
 
 def _format_validation_error(error: Exception) -> str:

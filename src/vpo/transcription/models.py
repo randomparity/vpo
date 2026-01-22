@@ -312,35 +312,6 @@ def is_hallucination(transcript_sample: str | None) -> bool:
     return False
 
 
-def detect_commentary_type(
-    title: str | None,
-    transcript_sample: str | None,
-) -> TrackClassification:
-    """Detect track classification using metadata and transcript analysis.
-
-    DEPRECATED: Use detect_track_classification() instead for full support
-    of music, sfx, and non-speech track types.
-
-    Uses a two-stage detection approach:
-    1. Metadata-based: Check track title for commentary keywords
-    2. Transcript-based: Analyze transcript sample for commentary patterns
-
-    Args:
-        title: Track title (metadata).
-        transcript_sample: Optional transcript text sample.
-
-    Returns:
-        TrackClassification (MAIN, COMMENTARY, or ALTERNATE).
-    """
-    # Delegate to the full detection function with default parameters
-    return detect_track_classification(
-        title=title,
-        transcript_sample=transcript_sample,
-        has_speech=True,
-        confidence=1.0,
-    )
-
-
 def detect_track_classification(
     title: str | None,
     transcript_sample: str | None,

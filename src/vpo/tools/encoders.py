@@ -229,27 +229,3 @@ def detect_hw_encoder_error(stderr_output: str) -> bool:
     """
     stderr_lower = stderr_output.casefold()
     return any(pattern in stderr_lower for pattern in HW_ENCODER_ERROR_PATTERNS)
-
-
-# Legacy compatibility function - same signature as old executor function
-def select_encoder_with_fallback(
-    codec: str,
-    hw_mode: str = "auto",
-    fallback_to_cpu: bool = True,
-) -> tuple[str, str]:
-    """Select the best available encoder with fallback support.
-
-    This is a compatibility wrapper around select_encoder() that returns
-    a tuple instead of EncoderSelection dataclass.
-
-    Args:
-        codec: Target video codec (hevc, h264, etc.).
-        hw_mode: Hardware acceleration mode (auto, nvenc, qsv, vaapi, none).
-        fallback_to_cpu: Whether to fall back to CPU if HW unavailable.
-
-    Returns:
-        Tuple of (encoder_name, encoder_type) where encoder_type is
-        'hardware' or 'software'.
-    """
-    selection = select_encoder(codec, hw_mode, fallback_to_cpu)
-    return selection.encoder, selection.encoder_type

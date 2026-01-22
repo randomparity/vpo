@@ -889,9 +889,3 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
         config=global_config,
         phases=phases,
     )
-
-
-# Backward compatibility aliases - DEPRECATED
-# These will be removed in a future release. Use _convert_to_policy_schema directly.
-_convert_to_v11_policy_schema = _convert_to_policy_schema
-_convert_to_phased_policy_schema = _convert_to_policy_schema

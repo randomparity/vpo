@@ -81,7 +81,7 @@ class TestEncoderDetection:
         """Verify encoder detection produces expected structure."""
         # This test verifies the expected interface for encoder detection
         # Actual detection is tested with mocks below
-        from vpo.executor.transcode import _get_encoder
+        from vpo.executor.transcode.command import _get_encoder
 
         # Software encoders should be default
         assert _get_encoder("hevc") == "libx265"
@@ -89,14 +89,14 @@ class TestEncoderDetection:
 
     def test_encoder_selection_for_hevc(self) -> None:
         """Verify HEVC encoder selection returns valid encoder."""
-        from vpo.executor.transcode import _get_encoder
+        from vpo.executor.transcode.command import _get_encoder
 
         encoder = _get_encoder("hevc")
         assert encoder in ("libx265", "hevc_nvenc", "hevc_qsv", "hevc_vaapi")
 
     def test_encoder_selection_for_h264(self) -> None:
         """Verify H.264 encoder selection returns valid encoder."""
-        from vpo.executor.transcode import _get_encoder
+        from vpo.executor.transcode.command import _get_encoder
 
         encoder = _get_encoder("h264")
         assert encoder in ("libx264", "h264_nvenc", "h264_qsv", "h264_vaapi")
@@ -130,7 +130,7 @@ class TestEncoderMapping:
 
     def test_hevc_aliases(self) -> None:
         """HEVC aliases map to correct encoder."""
-        from vpo.executor.transcode import _get_encoder
+        from vpo.executor.transcode.command import _get_encoder
 
         # All HEVC aliases should map to libx265 (software default)
         assert _get_encoder("hevc") == "libx265"
@@ -139,7 +139,7 @@ class TestEncoderMapping:
 
     def test_h264_aliases(self) -> None:
         """H.264 aliases map to correct encoder."""
-        from vpo.executor.transcode import _get_encoder
+        from vpo.executor.transcode.command import _get_encoder
 
         # All H.264 aliases should map to libx264 (software default)
         assert _get_encoder("h264") == "libx264"
@@ -147,13 +147,13 @@ class TestEncoderMapping:
 
     def test_vp9_encoder(self) -> None:
         """VP9 maps to correct encoder."""
-        from vpo.executor.transcode import _get_encoder
+        from vpo.executor.transcode.command import _get_encoder
 
         assert _get_encoder("vp9") == "libvpx-vp9"
 
     def test_av1_encoder(self) -> None:
         """AV1 maps to correct encoder."""
-        from vpo.executor.transcode import _get_encoder
+        from vpo.executor.transcode.command import _get_encoder
 
         encoder = _get_encoder("av1")
         # Could be libaom-av1 or svt-av1 depending on implementation

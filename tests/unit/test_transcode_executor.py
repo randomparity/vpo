@@ -16,7 +16,7 @@ from vpo.policy.types import TranscodePolicyConfig
 @pytest.fixture
 def mock_ffmpeg():
     """Mock require_tool to return a fake ffmpeg path."""
-    with patch("vpo.executor.transcode.require_tool") as mock_require:
+    with patch("vpo.executor.transcode.command.require_tool") as mock_require:
         mock_require.return_value = Path("/usr/bin/ffmpeg")
         yield mock_require
 
