@@ -13,6 +13,7 @@ const state = {
     summary: null,
     recent: [],
     policies: [],
+    trends: [],
     selectedDetail: null,
     detailLoading: false
 }
@@ -55,6 +56,11 @@ function init() {
         recentBody: document.getElementById('stats-recent-body'),
         policiesSection: document.getElementById('stats-policies-section'),
         policiesBody: document.getElementById('stats-policies-body'),
+        // Charts
+        chartsSection: document.getElementById('stats-charts-section'),
+        chartTrend: document.getElementById('stats-chart-trend'),
+        chartPolicy: document.getElementById('stats-chart-policy'),
+        chartGauge: document.getElementById('stats-chart-gauge'),
         // Detail modal
         detailModal: document.getElementById('stats-detail-modal'),
         detailClose: document.getElementById('stats-detail-close'),
@@ -125,20 +131,28 @@ async function loadStats() {
     showLoading()
 
     try {
+        // Determine group_by based on time filter for trends
+        let groupBy = 'day'
+        if (state.timeFilter === '90d' || state.timeFilter === '') {
+            groupBy = 'week'
+        }
+
         // Fetch all data in parallel
-        const [summaryRes, recentRes, policiesRes] = await Promise.all([
+        const [summaryRes, recentRes, policiesRes, trendsRes] = await Promise.all([
             fetch(`/api/stats/summary${buildQueryParams()}`),
             fetch(`/api/stats/recent${buildQueryParams({ limit: 20 })}`),
-            fetch(`/api/stats/policies${buildQueryParams()}`)
+            fetch(`/api/stats/policies${buildQueryParams()}`),
+            fetch(`/api/stats/trends${buildQueryParams({ group_by: groupBy })}`)
         ])
 
-        if (!summaryRes.ok || !recentRes.ok || !policiesRes.ok) {
+        if (!summaryRes.ok || !recentRes.ok || !policiesRes.ok || !trendsRes.ok) {
             throw new Error('Failed to load statistics')
         }
 
         state.summary = await summaryRes.json()
         state.recent = await recentRes.json()
         state.policies = await policiesRes.json()
+        state.trends = await trendsRes.json()
         state.error = null
 
         renderStats()
@@ -206,6 +220,9 @@ function renderStats() {
     elements.videosTranscoded.textContent = formatNumber(summary.total_videos_transcoded)
     elements.videosSkipped.textContent = formatNumber(summary.total_videos_skipped)
 
+    // Render charts
+    renderCharts()
+
     // Render tables
     renderRecentTable()
     renderPoliciesTable()
@@ -218,6 +235,80 @@ function showEmpty() {
     elements.empty.style.display = 'block'
     elements.recentSection.style.display = 'none'
     elements.policiesSection.style.display = 'none'
+    if (elements.chartsSection) {
+        elements.chartsSection.style.display = 'none'
+    }
+}
+
+/**
+ * Render charts using VPOCharts utilities
+ */
+function renderCharts() {
+    // Check if charts module is available
+    if (typeof window.VPOCharts === 'undefined') {
+        console.warn('VPOCharts module not loaded, skipping chart rendering')
+        return
+    }
+
+    const { renderLineChart, renderBarChart, renderGauge } = window.VPOCharts
+
+    // Show charts section
+    if (elements.chartsSection) {
+        elements.chartsSection.style.display = 'block'
+    }
+
+    // Render processing trend line chart
+    if (elements.chartTrend && state.trends && state.trends.length > 0) {
+        const trendData = state.trends.map(t => ({
+            date: t.date,
+            value: t.files_processed,
+            label: t.date
+        }))
+
+        renderLineChart(elements.chartTrend, trendData, {
+            title: '',
+            valueFormat: 'number',
+            height: 200,
+            showArea: true
+        })
+    } else if (elements.chartTrend) {
+        elements.chartTrend.innerHTML = '<div class="chart-empty">No trend data available</div>'
+    }
+
+    // Render policy savings bar chart
+    if (elements.chartPolicy && state.policies && state.policies.length > 0) {
+        // Sort policies by size saved and take top 5
+        const policyData = [...state.policies]
+            .sort((a, b) => b.total_size_saved - a.total_size_saved)
+            .slice(0, 5)
+            .map(p => ({
+                label: p.policy_name || 'Unknown',
+                value: p.total_size_saved,
+                color: p.total_size_saved > 0 ? window.VPOCharts.CHART_COLORS.success : window.VPOCharts.CHART_COLORS.muted
+            }))
+
+        renderBarChart(elements.chartPolicy, policyData, {
+            title: '',
+            valueFormat: 'bytes',
+            height: 200
+        })
+    } else if (elements.chartPolicy) {
+        elements.chartPolicy.innerHTML = '<div class="chart-empty">No policy data available</div>'
+    }
+
+    // Render compression gauge
+    if (elements.chartGauge && state.summary) {
+        // avg_savings_percent is already a percentage (e.g., 25.5 for 25.5%)
+        const savingsPercent = state.summary.avg_savings_percent || 0
+        // For the gauge, we show 100 - savings (so 0% savings = 100% gauge, 30% savings = 70% gauge)
+        // But the gauge shows savings directly
+        renderGauge(elements.chartGauge, 100 - savingsPercent, {
+            title: 'Avg Savings',
+            size: 140
+        })
+    } else if (elements.chartGauge) {
+        elements.chartGauge.innerHTML = '<div class="chart-empty">No data</div>'
+    }
 }
 
 /**

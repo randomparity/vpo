@@ -64,6 +64,30 @@
             </div>
         </div>
 
+        <!-- Charts section -->
+        <div id="stats-charts-section" class="stats-section stats-charts" aria-live="polite">
+            <h3 class="stats-section-title">Processing Trends</h3>
+            <div class="stats-charts-grid">
+                <!-- Processing trend chart (files over time) -->
+                <div class="stats-chart-container">
+                    <h4 class="stats-chart-title">Files Processed Over Time</h4>
+                    <div id="stats-chart-trend" class="stats-chart" aria-label="Processing trend line chart"></div>
+                </div>
+
+                <!-- Size savings by policy chart -->
+                <div class="stats-chart-container">
+                    <h4 class="stats-chart-title">Space Savings by Policy</h4>
+                    <div id="stats-chart-policy" class="stats-chart" aria-label="Policy savings bar chart"></div>
+                </div>
+
+                <!-- Compression gauge -->
+                <div class="stats-chart-container stats-chart-gauge-container">
+                    <h4 class="stats-chart-title">Average Savings</h4>
+                    <div id="stats-chart-gauge" class="stats-chart-gauge" aria-label="Compression ratio gauge"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- Empty state for no data -->
         <div id="stats-empty" class="stats-empty" style="display: none;" role="status" aria-live="polite">
             <div class="stats-empty-icon" aria-hidden="true">&#128200;</div>
@@ -137,5 +161,6 @@
     </div>
 </div>
 
+<script src="/static/js/charts.js"></script>
 <script src="/static/js/stats.js"></script>
 {% endblock %}

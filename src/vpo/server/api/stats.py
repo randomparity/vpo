@@ -26,6 +26,7 @@ from vpo.db.views import (
     get_stats_detail,
     get_stats_for_file,
     get_stats_summary,
+    get_stats_trends,
 )
 from vpo.server.middleware import (
     STATS_ALLOWED_PARAMS,
@@ -182,6 +183,60 @@ async def api_stats_policies_handler(request: web.Request) -> web.Response:
     policies = await asyncio.to_thread(_query_policies)
 
     return web.json_response([asdict(p) for p in policies])
+
+
+@shutdown_check_middleware
+@database_required_middleware
+@validate_query_params(STATS_ALLOWED_PARAMS)
+async def api_stats_trends_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/stats/trends - JSON API for processing trends.
+
+    Query parameters:
+        since: Time filter (24h, 7d, 30d, or ISO-8601)
+        group_by: Time grouping: 'day' (default), 'week', or 'month'
+
+    Returns:
+        JSON response with list of TrendDataPoint items for charting.
+    """
+    # Parse query parameters
+    since_str = request.query.get("since")
+    group_by = request.query.get("group_by", "day")
+
+    # Validate group_by
+    if group_by not in ("day", "week", "month"):
+        return web.json_response(
+            {
+                "error": f"Invalid group_by value: '{group_by}'. "
+                "Must be 'day', 'week', or 'month'."
+            },
+            status=400,
+        )
+
+    # Parse time filters
+    since_ts = None
+    if since_str:
+        since_ts = parse_time_filter(since_str)
+        if since_ts is None:
+            return web.json_response(
+                {"error": f"Invalid since value: '{since_str}'"},
+                status=400,
+            )
+
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
+
+    # Query trends
+    def _query_trends():
+        with connection_pool.transaction() as conn:
+            return get_stats_trends(
+                conn,
+                since=since_ts,
+                group_by=group_by,
+            )
+
+    trends = await asyncio.to_thread(_query_trends)
+
+    return web.json_response([asdict(t) for t in trends])
 
 
 @database_required_middleware
@@ -432,6 +487,7 @@ def setup_stats_routes(app: web.Application) -> None:
     # Processing statistics routes (040-processing-stats)
     app.router.add_get("/api/stats/summary", api_stats_summary_handler)
     app.router.add_get("/api/stats/recent", api_stats_recent_handler)
+    app.router.add_get("/api/stats/trends", api_stats_trends_handler)
     app.router.add_get("/api/stats/policies", api_stats_policies_handler)
     app.router.add_get("/api/stats/policies/{name}", api_stats_policy_handler)
     app.router.add_get("/api/stats/files/{file_id}", api_stats_file_handler)

@@ -1068,3 +1068,29 @@ class TrackAnalysisDetail:
     primary_percentage: float
     secondary_languages: str | None
     analyzed_at: str
+
+
+# ==========================================================================
+# Statistics Trend Types (Issue #264)
+# ==========================================================================
+
+
+@dataclass
+class TrendDataPoint:
+    """Data point for processing trend charts.
+
+    Represents aggregated statistics for a time period (day, week, etc.).
+
+    Attributes:
+        date: ISO-8601 date string for the period.
+        files_processed: Number of files processed in this period.
+        size_saved: Total bytes saved in this period.
+        success_count: Number of successful processing runs.
+        fail_count: Number of failed processing runs.
+    """
+
+    date: str
+    files_processed: int
+    size_saved: int
+    success_count: int
+    fail_count: int

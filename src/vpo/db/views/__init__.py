@@ -25,6 +25,7 @@ from ..types import (
     TrackAnalysisDetail,
     TranscriptionDetailView,
     TranscriptionListViewItem,
+    TrendDataPoint,
 )
 
 # Language analysis views
@@ -59,6 +60,7 @@ from .stats import (
     get_stats_detail,
     get_stats_for_file,
     get_stats_summary,
+    get_stats_trends,
 )
 
 # Transcription views
@@ -84,6 +86,7 @@ __all__ = [
     "TrackAnalysisDetail",
     "TranscriptionDetailView",
     "TranscriptionListViewItem",
+    "TrendDataPoint",
     # Pagination
     "DEFAULT_PAGE_SIZE",
     "MAX_PAGE_SIZE",
@@ -109,6 +112,7 @@ __all__ = [
     "get_stats_detail",
     "get_stats_for_file",
     "get_stats_summary",
+    "get_stats_trends",
     # Transcriptions
     "get_files_with_transcriptions",
     "get_files_with_transcriptions_typed",
