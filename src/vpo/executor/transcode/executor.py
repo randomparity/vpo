@@ -49,6 +49,52 @@ from .types import TranscodePlan, TranscodeResult, TwoPassContext
 
 logger = logging.getLogger(__name__)
 
+# Hardware encoder identifiers (Issue #264)
+HARDWARE_ENCODER_PATTERNS = (
+    "_nvenc",  # NVIDIA NVENC
+    "_vaapi",  # VA-API (Intel/AMD on Linux)
+    "_qsv",  # Intel Quick Sync
+    "_amf",  # AMD AMF
+    "_videotoolbox",  # Apple VideoToolbox
+)
+
+
+def detect_encoder_type(cmd: list[str]) -> str:
+    """Detect whether FFmpeg command uses hardware or software encoding.
+
+    Args:
+        cmd: FFmpeg command arguments.
+
+    Returns:
+        'hardware' if a hardware encoder is detected,
+        'software' if a software encoder is detected,
+        'unknown' if encoder cannot be determined.
+    """
+    # Look for -c:v or -codec:v arguments followed by encoder name
+    for i, arg in enumerate(cmd):
+        if arg in ("-c:v", "-codec:v", "-vcodec") and i + 1 < len(cmd):
+            encoder = cmd[i + 1]
+            if any(pattern in encoder for pattern in HARDWARE_ENCODER_PATTERNS):
+                return "hardware"
+            # Known software encoders
+            if encoder in (
+                "libx264",
+                "libx265",
+                "libvpx",
+                "libvpx-vp9",
+                "libaom-av1",
+                "libsvtav1",
+                "librav1e",
+            ):
+                return "software"
+            # Generic copy means no encoding
+            if encoder == "copy":
+                return "unknown"
+            # Default software encoders (e.g., "hevc", "h264")
+            if encoder in ("h264", "hevc", "h265", "vp8", "vp9", "av1"):
+                return "software"
+    return "unknown"
+
 
 class TranscodeExecutor:
     """Executor for video transcoding operations."""
@@ -658,6 +704,7 @@ class TranscodeExecutor:
                 encoding_fps=metrics2.avg_fps if metrics2 else None,
                 encoding_bitrate_kbps=metrics2.avg_bitrate_kbps if metrics2 else None,
                 total_frames=metrics2.total_frames if metrics2 else None,
+                encoder_type=detect_encoder_type(cmd2),
             )
 
         finally:
@@ -790,6 +837,7 @@ class TranscodeExecutor:
                     encoding_fps=result.encoding_fps,
                     encoding_bitrate_kbps=result.encoding_bitrate_kbps,
                     total_frames=result.total_frames,
+                    encoder_type=result.encoder_type,
                 )
 
             except Exception as e:
@@ -890,6 +938,7 @@ class TranscodeExecutor:
                 encoding_fps=metrics.avg_fps if metrics else None,
                 encoding_bitrate_kbps=metrics.avg_bitrate_kbps if metrics else None,
                 total_frames=metrics.total_frames if metrics else None,
+                encoder_type=detect_encoder_type(cmd),
             )
 
         except Exception as e:

@@ -7,7 +7,7 @@ used by the VPO database.
 
 import sqlite3
 
-SCHEMA_VERSION = 20
+SCHEMA_VERSION = 21
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -334,6 +334,9 @@ CREATE TABLE IF NOT EXISTS processing_stats (
     -- Status
     success INTEGER NOT NULL,               -- 1 = success, 0 = failure
     error_message TEXT,                     -- Error details if failed
+
+    -- Hardware encoder tracking (Issue #264)
+    encoder_type TEXT,                      -- 'hardware', 'software', or NULL
 
     FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
 );

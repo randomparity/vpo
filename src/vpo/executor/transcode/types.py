@@ -63,6 +63,10 @@ class TranscodeResult:
     encoding_bitrate_kbps: int | None = None
     total_frames: int | None = None
 
+    # Hardware encoder tracking (Issue #264)
+    encoder_type: str | None = None
+    """Encoder type: 'hardware', 'software', or None if unknown."""
+
 
 @dataclass
 class TranscodePlan:

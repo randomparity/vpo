@@ -51,6 +51,8 @@ function init() {
         subtitleRemoved: document.getElementById('stats-subtitle-removed'),
         videosTranscoded: document.getElementById('stats-videos-transcoded'),
         videosSkipped: document.getElementById('stats-videos-skipped'),
+        hardwareEncodes: document.getElementById('stats-hardware-encodes'),
+        softwareEncodes: document.getElementById('stats-software-encodes'),
         // Tables
         recentSection: document.getElementById('stats-recent-section'),
         recentBody: document.getElementById('stats-recent-body'),
@@ -219,6 +221,14 @@ function renderStats() {
 
     elements.videosTranscoded.textContent = formatNumber(summary.total_videos_transcoded)
     elements.videosSkipped.textContent = formatNumber(summary.total_videos_skipped)
+
+    // Hardware encoder stats (Issue #264)
+    if (elements.hardwareEncodes) {
+        elements.hardwareEncodes.textContent = formatNumber(summary.hardware_encodes || 0)
+    }
+    if (elements.softwareEncodes) {
+        elements.softwareEncodes.textContent = formatNumber(summary.software_encodes || 0)
+    }
 
     // Render charts
     renderCharts()

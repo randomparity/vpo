@@ -5056,6 +5056,10 @@ input.valid:focus {
     border-left-color: #8b5cf6;
 }
 
+.stats-card-encoder {
+    border-left-color: #06b6d4;
+}
+
 .stats-card-title {
     font-size: var(--font-size-sm);
     color: var(--color-text-muted);
@@ -5069,6 +5073,10 @@ input.valid:focus {
     font-weight: 700;
     color: var(--color-text);
     line-height: 1.2;
+}
+
+.stats-card-value-small {
+    font-size: 1.5rem;
 }
 
 .stats-card-detail {

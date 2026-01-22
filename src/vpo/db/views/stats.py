@@ -71,7 +71,11 @@ def get_stats_summary(
             COALESCE(SUM(audio_tracks_transcoded), 0) as total_audio_transcoded,
             COALESCE(AVG(duration_seconds), 0.0) as avg_processing_time,
             MIN(processed_at) as earliest_processing,
-            MAX(processed_at) as latest_processing
+            MAX(processed_at) as latest_processing,
+            COALESCE(SUM(CASE WHEN encoder_type = 'hardware' THEN 1 ELSE 0 END), 0)
+                as hardware_encodes,
+            COALESCE(SUM(CASE WHEN encoder_type = 'software' THEN 1 ELSE 0 END), 0)
+                as software_encodes
         FROM processing_stats
         {where_clause}
     """
@@ -105,6 +109,8 @@ def get_stats_summary(
         avg_processing_time=row[12] or 0.0,
         earliest_processing=row[13],
         latest_processing=row[14],
+        hardware_encodes=row[15] or 0,
+        software_encodes=row[16] or 0,
     )
 
 

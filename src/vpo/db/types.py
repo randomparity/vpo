@@ -551,6 +551,9 @@ class ProcessingStatsRecord:
     success: bool
     error_message: str | None
 
+    # Hardware encoder tracking (Issue #264)
+    encoder_type: str | None = None
+
 
 @dataclass
 class ActionResultRecord:
@@ -814,6 +817,10 @@ class StatsSummary:
     total_audio_transcoded: int
 
     avg_processing_time: float  # seconds
+
+    # Hardware encoder tracking (Issue #264)
+    hardware_encodes: int = 0
+    software_encodes: int = 0
 
     # Time range
     earliest_processing: str | None  # ISO-8601
