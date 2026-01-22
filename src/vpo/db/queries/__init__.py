@@ -56,9 +56,6 @@ from .files import (
     upsert_tracks_for_file,
 )
 
-# Shared helpers (re-exported for backward compatibility)
-from .helpers import _escape_like_pattern
-
 # Job operations
 from .jobs import (
     delete_job,
@@ -108,8 +105,6 @@ from .transcriptions import (
 )
 
 __all__ = [
-    # Shared helpers
-    "_escape_like_pattern",
     # File operations
     "delete_file",
     "get_file_by_id",

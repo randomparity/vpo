@@ -18,7 +18,7 @@ from vpo.db import (
     get_file_by_path,
     get_tracks_for_file,
 )
-from vpo.db.queries import _escape_like_pattern
+from vpo.db.queries.helpers import _escape_like_pattern
 from vpo.plugin import get_default_registry
 
 logger = logging.getLogger(__name__)

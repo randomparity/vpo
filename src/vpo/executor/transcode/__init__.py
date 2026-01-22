@@ -31,9 +31,6 @@ from .audio import (
 
 # Command building
 from .command import (
-    _build_stream_maps,
-    _get_encoder,
-    _needs_explicit_mapping,
     build_ffmpeg_command,
     build_ffmpeg_command_pass1,
     build_quality_args,
@@ -71,8 +68,4 @@ __all__ = [
     "build_quality_args",
     # Executor
     "TranscodeExecutor",
-    # Private functions (exported for tests)
-    "_build_stream_maps",
-    "_get_encoder",
-    "_needs_explicit_mapping",
 ]

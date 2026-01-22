@@ -15,13 +15,15 @@ from vpo.executor.transcode import (
     TranscodeExecutor,
     TranscodePlan,
     TwoPassContext,
-    _build_stream_maps,
-    _needs_explicit_mapping,
     build_audio_args,
     build_downmix_filter,
     build_ffmpeg_command_pass1,
     build_quality_args,
     get_audio_encoder,
+)
+from vpo.executor.transcode.command import (
+    _build_stream_maps,
+    _needs_explicit_mapping,
 )
 from vpo.policy.transcode import (
     AudioAction,
