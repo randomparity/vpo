@@ -8,11 +8,8 @@ import pytest
 
 from vpo.tools.ffmpeg_adapter import (
     FFmpegAdapter,
-    FFmpegCapabilityError,
     FFmpegError,
-    FFmpegVersionError,
     get_ffmpeg_adapter,
-    reset_ffmpeg_adapter,
 )
 from vpo.tools.models import (
     FFmpegCapabilities,
@@ -30,43 +27,6 @@ class TestFFmpegError:
         """FFmpegError is catchable exception."""
         with pytest.raises(FFmpegError):
             raise FFmpegError("Test error")
-
-    def test_version_error(self) -> None:
-        """FFmpegVersionError includes version info."""
-        err = FFmpegVersionError(
-            feature="Progress Reporting",
-            required_version=(4, 3),
-            actual_version=(3, 4),
-        )
-
-        assert "4.3" in str(err)
-        assert "3.4" in str(err)
-        assert "Progress Reporting" in str(err)
-
-    def test_version_error_unknown_version(self) -> None:
-        """FFmpegVersionError handles unknown version."""
-        err = FFmpegVersionError(
-            feature="Test",
-            required_version=(5, 0),
-            actual_version=None,
-        )
-
-        assert "unknown" in str(err)
-
-    def test_capability_error(self) -> None:
-        """FFmpegCapabilityError includes capability name."""
-        err = FFmpegCapabilityError("hevc_nvenc")
-
-        assert "hevc_nvenc" in str(err)
-
-    def test_capability_error_with_suggestion(self) -> None:
-        """FFmpegCapabilityError includes suggestion."""
-        err = FFmpegCapabilityError(
-            "hevc_nvenc",
-            suggestion="Install NVIDIA drivers",
-        )
-
-        assert "Install NVIDIA drivers" in str(err)
 
 
 class TestFFmpegAdapter:
@@ -268,7 +228,10 @@ class TestModuleFunctions:
 
     def test_get_ffmpeg_adapter_caches(self) -> None:
         """get_ffmpeg_adapter returns cached instance."""
-        reset_ffmpeg_adapter()
+        import vpo.tools.ffmpeg_adapter as adapter_module
+
+        # Clear any existing cache
+        adapter_module._adapter_cache = None
 
         with patch("vpo.tools.cache.get_tool_registry") as mock_get:
             ffmpeg = FFmpegInfo()
@@ -284,24 +247,5 @@ class TestModuleFunctions:
             # Only called once due to caching
             assert mock_get.call_count == 1
 
-        reset_ffmpeg_adapter()
-
-    def test_reset_clears_cache(self) -> None:
-        """reset_ffmpeg_adapter clears the cache."""
-        reset_ffmpeg_adapter()
-
-        with patch("vpo.tools.cache.get_tool_registry") as mock_get:
-            ffmpeg = FFmpegInfo()
-            ffmpeg.status = ToolStatus.AVAILABLE
-            ffmpeg.path = Path("/usr/bin/ffmpeg")
-            ffmpeg.capabilities = FFmpegCapabilities()
-            mock_get.return_value = ToolRegistry(ffmpeg=ffmpeg)
-
-            adapter1 = get_ffmpeg_adapter()
-            reset_ffmpeg_adapter()
-            adapter2 = get_ffmpeg_adapter()
-
-            assert adapter1 is not adapter2
-            assert mock_get.call_count == 2
-
-        reset_ffmpeg_adapter()
+        # Clean up
+        adapter_module._adapter_cache = None

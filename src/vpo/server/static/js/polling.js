@@ -506,27 +506,6 @@
     window.addEventListener('beforeunload', handleUnload)
 
     // ==========================================================================
-    // Loading Indicator (T038)
-    // ==========================================================================
-
-    /**
-     * Show a subtle loading indicator during polling refresh.
-     * @param {boolean} show - Whether to show or hide the indicator
-     */
-    function showLoadingIndicator(show) {
-        var indicator = document.getElementById('connection-status')
-        if (!indicator) {
-            return
-        }
-
-        if (show) {
-            indicator.classList.add('connection-status--loading')
-        } else {
-            indicator.classList.remove('connection-status--loading')
-        }
-    }
-
-    // ==========================================================================
     // Public API (T010)
     // ==========================================================================
 
@@ -612,7 +591,6 @@
 
         // UI
         setConnectionStatus: setConnectionStatus,
-        showLoadingIndicator: showLoadingIndicator,
 
         // Debug
         setDebug: function (enabled) {

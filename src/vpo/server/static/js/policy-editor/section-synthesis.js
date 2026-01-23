@@ -53,12 +53,6 @@ const SOURCE_PREFER_FIELDS = [
     { value: 'codec', label: 'Codec' }
 ]
 
-// ID counter for unique element IDs (reserved for future use)
-let _idCounter = 0
-function _generateId(prefix = 'synth') {
-    return `${prefix}-${++_idCounter}`
-}
-
 /**
  * Validate synthesis track name
  * @param {string} name - Track name to validate

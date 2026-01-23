@@ -24,19 +24,14 @@ from vpo.core.codecs import (
     audio_codec_matches,
     audio_codec_matches_any,
     codec_matches,
-    get_canonical_codec,
-    get_transcode_default,
-    is_bitmap_subtitle,
     is_codec_compatible,
     is_codec_mp4_compatible,
-    is_text_subtitle,
     normalize_codec,
     video_codec_matches,
     video_codec_matches_any,
 )
 from vpo.core.datetime_utils import (
     calculate_duration_seconds,
-    mtime_to_utc_iso,
     parse_iso_timestamp,
 )
 from vpo.core.file_utils import (
@@ -83,7 +78,6 @@ __all__ = [
     "TranscodeTarget",
     # codecs - functions
     "normalize_codec",
-    "get_canonical_codec",
     "video_codec_matches",
     "video_codec_matches_any",
     "audio_codec_matches",
@@ -91,13 +85,9 @@ __all__ = [
     "codec_matches",
     "is_codec_mp4_compatible",
     "is_codec_compatible",
-    "get_transcode_default",
-    "is_text_subtitle",
-    "is_bitmap_subtitle",
     # datetime_utils
     "parse_iso_timestamp",
     "calculate_duration_seconds",
-    "mtime_to_utc_iso",
     # file_utils
     "FileTimestampError",
     "get_file_mtime",
