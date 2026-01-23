@@ -23,6 +23,25 @@ logger = logging.getLogger(__name__)
 
 
 @shutdown_check_middleware
+async def api_policy_schema_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/policies/schema - JSON Schema for policy validation.
+
+    Returns:
+        JSON response with schema_version and json_schema for client-side validation.
+    """
+    from vpo.policy.loader import SCHEMA_VERSION
+    from vpo.policy.pydantic_models import PolicyModel
+
+    schema = PolicyModel.model_json_schema()
+    return web.json_response(
+        {
+            "schema_version": SCHEMA_VERSION,
+            "json_schema": schema,
+        }
+    )
+
+
+@shutdown_check_middleware
 async def policies_api_handler(request: web.Request) -> web.Response:
     """Handle GET /api/policies - JSON API for policy files listing.
 
@@ -617,6 +636,9 @@ def setup_policy_routes(app: web.Application) -> None:
     app.router.add_get("/api/policies", policies_api_handler)
     # Create new policy endpoint (036-v9-policy-editor T068)
     app.router.add_post("/api/policies", api_policy_create_handler)
+    # JSON Schema endpoint (256-policy-editor-enhancements T029)
+    # Must be before {name} route to avoid matching "schema" as a name
+    app.router.add_get("/api/policies/schema", api_policy_schema_handler)
     # Policy detail routes (024-policy-editor)
     app.router.add_get("/api/policies/{name}", api_policy_detail_handler)
     app.router.add_put("/api/policies/{name}", api_policy_update_handler)

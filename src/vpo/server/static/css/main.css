@@ -5841,3 +5841,170 @@ input.valid:focus {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
 }
+
+/* =============================================================================
+   Language Autocomplete Component (256-policy-editor-enhancements T023)
+   Accessible combobox pattern following WAI-ARIA 1.2
+   ============================================================================= */
+
+.language-autocomplete {
+    position: relative;
+    flex: 1;
+}
+
+.language-autocomplete-input {
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    font-size: var(--font-size-base);
+    font-family: var(--font-mono);
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.language-autocomplete-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb, 59, 130, 246), 0.2);
+}
+
+.language-autocomplete-input.invalid {
+    border-color: var(--color-error);
+}
+
+.language-autocomplete-input.valid {
+    border-color: var(--color-success);
+}
+
+.language-autocomplete-listbox {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    margin: 4px 0 0 0;
+    padding: var(--spacing-xs) 0;
+    list-style: none;
+    background-color: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.language-autocomplete-listbox[hidden] {
+    display: none;
+}
+
+.language-autocomplete-option {
+    display: flex;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.language-autocomplete-option:hover,
+.language-autocomplete-option.active {
+    background-color: var(--color-bg-hover);
+}
+
+.language-autocomplete-option.active {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.language-autocomplete-option[aria-selected="true"] {
+    background-color: var(--color-bg-hover);
+}
+
+.language-autocomplete-option .option-code {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--color-primary);
+    min-width: 3ch;
+}
+
+.language-autocomplete-option .option-name {
+    color: var(--color-text-muted);
+}
+
+.language-autocomplete-hint {
+    display: block;
+    margin-top: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+.language-autocomplete-hint:empty {
+    display: none;
+}
+
+/* =============================================================================
+   YAML Syntax Highlighting (256-policy-editor-enhancements T051)
+   Styles for Highlight.js integration in policy editor
+   ============================================================================= */
+
+.yaml-preview-container {
+    background-color: var(--color-bg-code, #1e1e1e);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-small, 4px);
+    margin: 0;
+    padding: 0;
+    overflow: auto;
+    max-height: calc(100vh - 300px);
+    min-height: 400px;
+}
+
+.yaml-preview-container:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.yaml-preview-container code {
+    display: block;
+    padding: var(--spacing-md);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+    white-space: pre;
+    tab-size: 2;
+}
+
+/* Override highlight.js background to match container */
+.yaml-preview-container code.hljs {
+    background: transparent;
+    padding: var(--spacing-md);
+}
+
+/* Light mode overrides for YAML preview */
+@media (prefers-color-scheme: light) {
+    .yaml-preview-container {
+        background-color: var(--color-bg-subtle, #f6f8fa);
+    }
+}
+
+/* Custom highlight.js theme tweaks for VPO dark mode */
+.yaml-preview-container .hljs-attr {
+    color: #79c0ff;
+}
+
+.yaml-preview-container .hljs-string {
+    color: #a5d6ff;
+}
+
+.yaml-preview-container .hljs-number {
+    color: #f2cc60;
+}
+
+.yaml-preview-container .hljs-literal {
+    color: #ff7b72;
+}
+
+.yaml-preview-container .hljs-comment {
+    color: #8b949e;
+    font-style: italic;
+}
