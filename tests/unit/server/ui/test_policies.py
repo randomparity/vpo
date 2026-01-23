@@ -57,6 +57,8 @@ class TestPolicyListItem:
             file_path="/path/to/test.yaml",
             last_modified="2025-01-01T00:00:00+00:00",
             schema_version=12,
+            description="Test policy description",
+            category="organize",
             audio_languages="eng, jpn",
             subtitle_languages="eng",
             has_transcode=True,
@@ -72,6 +74,8 @@ class TestPolicyListItem:
         assert d["file_path"] == "/path/to/test.yaml"
         assert d["last_modified"] == "2025-01-01T00:00:00+00:00"
         assert d["schema_version"] == 12
+        assert d["description"] == "Test policy description"
+        assert d["category"] == "organize"
         assert d["audio_languages"] == "eng, jpn"
         assert d["subtitle_languages"] == "eng"
         assert d["has_transcode"] is True
@@ -87,6 +91,8 @@ class TestPolicyListItem:
             file_path="/path/broken.yaml",
             last_modified="",
             schema_version=None,
+            description=None,
+            category=None,
             audio_languages="\u2014",
             subtitle_languages="\u2014",
             has_transcode=False,
@@ -100,6 +106,8 @@ class TestPolicyListItem:
         assert d["name"] == "broken"
         assert d["parse_error"] == "YAML error: something went wrong"
         assert d["schema_version"] is None
+        assert d["description"] is None
+        assert d["category"] is None
 
 
 class TestPolicyListResponse:
@@ -115,6 +123,8 @@ class TestPolicyListResponse:
                     file_path="/path/test.yaml",
                     last_modified="2025-01-01T00:00:00+00:00",
                     schema_version=12,
+                    description="Test description",
+                    category="organize",
                     audio_languages="eng",
                     subtitle_languages="eng",
                     has_transcode=False,

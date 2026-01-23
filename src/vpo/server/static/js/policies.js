@@ -75,6 +75,7 @@
         const errorDiv = document.getElementById('create-policy-error')
         const nameInput = document.getElementById('policy-name')
         const descriptionInput = document.getElementById('policy-description')
+        const categoryInput = document.getElementById('policy-category')
 
         if (!createBtn || !dialog || !form) {
             return
@@ -123,6 +124,9 @@
             cancelBtn.disabled = loading
             nameInput.disabled = loading
             descriptionInput.disabled = loading
+            if (categoryInput) {
+                categoryInput.disabled = loading
+            }
             submitBtn.textContent = loading ? 'Creating...' : 'Create Policy'
         }
 
@@ -153,6 +157,7 @@
             setLoading(true)
 
             try {
+                const category = categoryInput ? categoryInput.value : ''
                 const response = await fetch('/api/policies', {
                     method: 'POST',
                     headers: {
@@ -160,7 +165,8 @@
                     },
                     body: JSON.stringify({
                         name: name,
-                        description: description || undefined
+                        description: description || undefined,
+                        category: category || undefined
                     })
                 })
 
@@ -214,11 +220,84 @@
     }
 
     /**
+     * Initialize category filter functionality.
+     */
+    function initCategoryFilter() {
+        const filterSelect = document.getElementById('filter-category')
+        const tableBody = document.querySelector('.policies-table tbody')
+
+        if (!filterSelect || !tableBody) {
+            return
+        }
+
+        // Collect unique categories from table
+        const rows = tableBody.querySelectorAll('tr')
+        const categories = new Set()
+
+        rows.forEach(function (row) {
+            const category = row.getAttribute('data-category')
+            if (category) {
+                categories.add(category)
+            }
+        })
+
+        // Populate filter dropdown with sorted categories
+        const sortedCategories = Array.from(categories).sort()
+        sortedCategories.forEach(function (category) {
+            const option = document.createElement('option')
+            option.value = category
+            option.textContent = category
+            filterSelect.appendChild(option)
+        })
+
+        // Handle filter change
+        filterSelect.addEventListener('change', function () {
+            const selectedCategory = filterSelect.value
+
+            rows.forEach(function (row) {
+                const rowCategory = row.getAttribute('data-category')
+                if (!selectedCategory || rowCategory === selectedCategory) {
+                    row.style.display = ''
+                } else {
+                    row.style.display = 'none'
+                }
+            })
+
+            // Update count display
+            updateVisibleCount()
+        })
+    }
+
+    /**
+     * Update the visible policy count after filtering.
+     */
+    function updateVisibleCount() {
+        const countEl = document.querySelector('.policies-count')
+        const tableBody = document.querySelector('.policies-table tbody')
+
+        if (!countEl || !tableBody) {
+            return
+        }
+
+        const visibleRows = tableBody.querySelectorAll('tr:not([style*="display: none"])')
+        const totalRows = tableBody.querySelectorAll('tr')
+        const visible = visibleRows.length
+        const total = totalRows.length
+
+        if (visible === total) {
+            countEl.textContent = 'Showing ' + total + ' polic' + (total === 1 ? 'y' : 'ies')
+        } else {
+            countEl.textContent = 'Showing ' + visible + ' of ' + total + ' polic' + (total === 1 ? 'y' : 'ies')
+        }
+    }
+
+    /**
      * Initialize the policies page.
      */
     function init() {
         formatTimestamps()
         initCreatePolicyDialog()
+        initCategoryFilter()
     }
 
     // Run on DOM ready

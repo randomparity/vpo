@@ -37,6 +37,8 @@ class PolicyListItem:
         file_path: Absolute path to the policy file.
         last_modified: ISO-8601 UTC timestamp.
         schema_version: Policy schema version (null if parse error).
+        description: Optional policy description.
+        category: Optional category for filtering/grouping.
         audio_languages: Formatted audio language preferences.
         subtitle_languages: Formatted subtitle language preferences.
         has_transcode: True if policy includes transcode settings.
@@ -50,6 +52,8 @@ class PolicyListItem:
     file_path: str
     last_modified: str
     schema_version: int | None
+    description: str | None
+    category: str | None
     audio_languages: str
     subtitle_languages: str
     has_transcode: bool
@@ -65,6 +69,8 @@ class PolicyListItem:
             "file_path": self.file_path,
             "last_modified": self.last_modified,
             "schema_version": self.schema_version,
+            "description": self.description,
+            "category": self.category,
             "audio_languages": self.audio_languages,
             "subtitle_languages": self.subtitle_languages,
             "has_transcode": self.has_transcode,

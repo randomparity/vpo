@@ -37,12 +37,22 @@
         <p class="placeholder-hint">Add <code>.yaml</code> or <code>.yml</code> policy files to <code>{{ policies_context.policies_directory }}</code></p>
     </div>
     {% else %}
+    {# Category filter #}
+    <div class="policies-filters">
+        <label for="filter-category">Category:</label>
+        <select id="filter-category" class="filter-select" aria-label="Filter by category">
+            <option value="">All Categories</option>
+        </select>
+    </div>
+
     {# Display policies table #}
     <div class="policies-table-container">
         <table class="policies-table" aria-label="Policy files list">
             <thead>
                 <tr>
                     <th>Name</th>
+                    <th>Description</th>
+                    <th>Category</th>
                     <th>Version</th>
                     <th>Audio Languages</th>
                     <th>Subtitle Languages</th>
@@ -53,7 +63,7 @@
             </thead>
             <tbody>
                 {% for policy in policies_response.policies %}
-                <tr class="{% if policy.parse_error %}policy-error{% endif %}">
+                <tr class="{% if policy.parse_error %}policy-error{% endif %}" data-category="{{ policy.category or '' }}">
                     <td class="policy-name">
                         {{ policy.name }}
                         {% if policy.is_default %}
@@ -61,6 +71,20 @@
                         {% endif %}
                         {% if policy.parse_error %}
                         <span class="badge badge-error" title="{{ policy.parse_error }}" aria-label="Parse error">Error</span>
+                        {% endif %}
+                    </td>
+                    <td class="policy-description" title="{{ policy.description or '' }}">
+                        {% if policy.description %}
+                        {{ policy.description[:50] }}{% if policy.description|length > 50 %}...{% endif %}
+                        {% else %}
+                        &mdash;
+                        {% endif %}
+                    </td>
+                    <td class="policy-category">
+                        {% if policy.category %}
+                        <span class="badge badge-category">{{ policy.category }}</span>
+                        {% else %}
+                        &mdash;
                         {% endif %}
                     </td>
                     <td class="policy-version">
@@ -129,6 +153,21 @@
                        name="description"
                        placeholder="Brief description of this policy"
                        autocomplete="off">
+            </div>
+
+            <div class="form-group">
+                <label for="policy-category">Category (optional)</label>
+                <select id="policy-category" name="category" aria-describedby="category-help">
+                    <option value="">No category</option>
+                    <option value="organize">organize</option>
+                    <option value="transcode">transcode</option>
+                    <option value="archive">archive</option>
+                    <option value="streaming">streaming</option>
+                    <option value="custom">custom</option>
+                </select>
+                <small id="category-help" class="form-hint">
+                    Group policies by purpose.
+                </small>
             </div>
 
             <div id="create-policy-error" class="form-error" role="alert" hidden></div>

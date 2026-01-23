@@ -315,6 +315,12 @@ class PolicyModel(BaseModel):
     schema_version: Literal[12] = 12
     """Schema version, must be exactly 12."""
 
+    description: str | None = None
+    """Optional policy description for documentation purposes."""
+
+    category: str | None = None
+    """Optional category for filtering/grouping policies (e.g., organize, transcode)."""
+
     config: GlobalConfigModel = Field(default_factory=GlobalConfigModel)
     """Global configuration."""
 

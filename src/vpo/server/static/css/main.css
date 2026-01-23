@@ -2701,6 +2701,43 @@ html, body {
     color: #92400e;
 }
 
+.badge-category {
+    background-color: #e0e7ff;
+    color: #3730a3;
+}
+
+/* Policies filters */
+.policies-filters {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.policies-filters label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+.policies-filters .filter-select {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-sm);
+    background-color: var(--color-surface);
+    min-width: 150px;
+}
+
+/* Policy description column */
+.policy-description {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
 /* Policies count */
 .policies-count {
     font-size: var(--font-size-sm);

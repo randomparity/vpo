@@ -400,6 +400,12 @@ class PolicySchema:
     phases: tuple[PhaseDefinition, ...]
     """Ordered list of named phases."""
 
+    description: str | None = None
+    """Optional policy description for documentation purposes."""
+
+    category: str | None = None
+    """Optional category for filtering/grouping policies (e.g., organize, transcode)."""
+
     def __post_init__(self) -> None:
         """Validate policy schema."""
         if self.schema_version != 12:

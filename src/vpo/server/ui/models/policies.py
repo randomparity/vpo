@@ -37,6 +37,8 @@ class PolicyEditorContext:
         file_path: Absolute path to the policy file.
         last_modified: ISO-8601 UTC timestamp for concurrency check.
         schema_version: Policy schema version (read-only).
+        description: Optional policy description.
+        category: Optional category for filtering/grouping.
         track_order: List of track type strings.
         audio_language_preference: List of ISO 639-2 codes.
         subtitle_language_preference: List of ISO 639-2 codes.
@@ -67,6 +69,9 @@ class PolicyEditorContext:
     default_flags: dict
     transcode: dict | None
     transcription: dict | None
+    # Policy metadata fields
+    description: str | None = None
+    category: str | None = None
     # V3+ fields (036-v9-policy-editor)
     audio_filter: dict | None = None
     subtitle_filter: dict | None = None
@@ -93,6 +98,8 @@ class PolicyEditorContext:
             "file_path": self.file_path,
             "last_modified": self.last_modified,
             "schema_version": self.schema_version,
+            "description": self.description,
+            "category": self.category,
             "track_order": self.track_order,
             "audio_language_preference": self.audio_language_preference,
             "subtitle_language_preference": self.subtitle_language_preference,
