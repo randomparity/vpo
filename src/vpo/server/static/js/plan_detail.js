@@ -22,6 +22,11 @@
      * Hide the toast notification.
      */
     function hideToast() {
+        if (typeof window.ToastManager !== 'undefined') {
+            window.ToastManager.hideToast(toastEl)
+            return
+        }
+
         if (!toastEl) return
         toastEl.style.display = 'none'
         if (toastTimer) {
@@ -31,11 +36,20 @@
     }
 
     /**
-     * Show toast notification.
+     * Show toast notification with optional action buttons.
      * @param {string|HTMLElement|DocumentFragment} message - Message to display
      * @param {string} type - Toast type (success, error)
+     * @param {Object} options - Optional configuration
+     * @param {Array} options.actions - Array of {label, href?, onClick?} action buttons
+     * @param {number} options.duration - Auto-dismiss duration in ms (0 for no auto-dismiss)
      */
-    function showToast(message, type) {
+    function showToast(message, type, options) {
+        if (typeof window.ToastManager !== 'undefined') {
+            window.ToastManager.showToast(toastEl, message, type, options)
+            return
+        }
+
+        // Fallback implementation
         if (!toastEl) return
 
         if (toastTimer) {
@@ -56,6 +70,35 @@
 
         toastEl.appendChild(messageSpan)
 
+        // Add action buttons if provided
+        options = options || {}
+        if (options.actions && options.actions.length > 0) {
+            const actionsDiv = document.createElement('div')
+            actionsDiv.className = 'toast-actions'
+
+            options.actions.forEach(function (action) {
+                if (action.href) {
+                    const link = document.createElement('a')
+                    link.href = action.href
+                    link.className = 'toast-action-btn'
+                    link.textContent = action.label
+                    actionsDiv.appendChild(link)
+                } else if (action.onClick) {
+                    const btn = document.createElement('button')
+                    btn.type = 'button'
+                    btn.className = 'toast-action-btn'
+                    btn.textContent = action.label
+                    btn.addEventListener('click', function () {
+                        action.onClick()
+                        hideToast()
+                    })
+                    actionsDiv.appendChild(btn)
+                }
+            })
+
+            toastEl.appendChild(actionsDiv)
+        }
+
         const closeBtn = document.createElement('button')
         closeBtn.type = 'button'
         closeBtn.className = 'toast-close'
@@ -66,7 +109,11 @@
 
         toastEl.style.display = 'flex'
 
-        toastTimer = setTimeout(hideToast, 5000)
+        // Auto-dismiss unless duration is 0
+        const duration = options.duration !== undefined ? options.duration : 0
+        if (duration > 0) {
+            toastTimer = setTimeout(hideToast, duration)
+        }
     }
 
     /**
@@ -86,6 +133,13 @@
             btn.classList.remove('is-loading')
             btn.setAttribute('aria-busy', 'false')
         }
+    }
+
+    /**
+     * Navigate to plans list.
+     */
+    function navigateToPlans() {
+        window.location.href = '/plans'
     }
 
     /**
@@ -130,23 +184,25 @@
             const data = await response.json()
 
             if (data.success) {
-                const messageEl = document.createDocumentFragment()
-                messageEl.appendChild(document.createTextNode('Plan approved successfully'))
+                // Build action buttons for the toast
+                const actions = []
 
                 if (data.job_url) {
-                    messageEl.appendChild(document.createTextNode('. '))
-                    const link = document.createElement('a')
-                    link.href = data.job_url
-                    link.textContent = 'View job'
-                    messageEl.appendChild(link)
+                    actions.push({
+                        label: 'View Job',
+                        href: data.job_url
+                    })
                 }
 
-                showToast(messageEl, 'success')
+                actions.push({
+                    label: 'Continue',
+                    onClick: navigateToPlans
+                })
 
-                // Redirect to plans list after short delay
-                setTimeout(function () {
-                    window.location.href = '/plans'
-                }, 1500)
+                showToast('Plan approved successfully', 'success', {
+                    actions: actions,
+                    duration: 0  // Don't auto-dismiss - let user choose
+                })
             } else {
                 showToast(data.error || 'Failed to approve plan', 'error')
                 setButtonLoading(approveBtn, false)
@@ -205,12 +261,13 @@
             const data = await response.json()
 
             if (data.success) {
-                showToast('Plan rejected', 'success')
-
-                // Redirect to plans list after short delay
-                setTimeout(function () {
-                    window.location.href = '/plans'
-                }, 1500)
+                showToast('Plan rejected', 'success', {
+                    actions: [{
+                        label: 'Continue',
+                        onClick: navigateToPlans
+                    }],
+                    duration: 0  // Don't auto-dismiss - let user choose
+                })
             } else {
                 showToast(data.error || 'Failed to reject plan', 'error')
                 setButtonLoading(rejectBtn, false)

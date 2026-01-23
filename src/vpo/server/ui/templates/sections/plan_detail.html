@@ -107,10 +107,10 @@
         <table class="plan-actions-table">
             <thead>
                 <tr>
-                    <th>Track</th>
-                    <th>Type</th>
-                    <th>Action</th>
-                    <th>Details</th>
+                    <th scope="col">Track</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Action</th>
+                    <th scope="col">Details</th>
                 </tr>
             </thead>
             <tbody>
@@ -150,9 +150,9 @@
 <!-- Toast notification -->
 <div id="plan-toast" class="plans-toast" style="display: none;" role="alert" aria-live="polite"></div>
 
-<script>
-    window.CSRF_TOKEN = "{{ csrf_token }}";
-</script>
-<script src="/static/js/confirmation_modal.js"></script>
+<link rel="stylesheet" href="/static/css/components/confirmation-modal.css">
+<script>window.CSRF_TOKEN = {{ csrf_token | tojson }};</script>
+<script src="/static/js/components/toast-manager.js"></script>
+<script src="/static/js/components/confirmation-modal.js"></script>
 <script src="/static/js/plan_detail.js"></script>
 {% endblock %}

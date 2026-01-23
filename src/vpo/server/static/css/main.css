@@ -27,6 +27,11 @@
     /* Colors - Error */
     --color-error: #e74c3c;
 
+    /* Colors - Warning */
+    --color-warning-bg: #fef3c7;
+    --color-warning-border: #f59e0b;
+    --color-warning-text: #92400e;
+
     /* Spacing */
     --spacing-xxs: 0.125rem;
     --spacing-xs: 0.25rem;
@@ -79,6 +84,11 @@
 
         /* Colors - Error */
         --color-error: #e74c3c;
+
+        /* Colors - Warning */
+        --color-warning-bg: #3a3a2a;
+        --color-warning-border: #5a4a1a;
+        --color-warning-text: #f39c12;
 
         /* Status badge colors for dark mode */
         --status-completed-bg: #1e4620;
@@ -4608,6 +4618,42 @@ input.valid:focus {
     opacity: 0.9;
 }
 
+/* Toast info styling */
+.plans-toast--info {
+    background-color: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+}
+
+/* Toast action buttons */
+.plans-toast .toast-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-left: var(--spacing-sm);
+}
+
+.plans-toast .toast-action-btn {
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+    background-color: rgba(255, 255, 255, 0.3);
+    border: 1px solid currentColor;
+    color: inherit;
+}
+
+.plans-toast .toast-action-btn:hover {
+    background-color: rgba(255, 255, 255, 0.5);
+}
+
+.plans-toast .toast-action-btn:focus {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
 /* Plans responsive styles */
 @media (max-width: 767px) {
     .plans-filters {
@@ -4722,6 +4768,12 @@ input.valid:focus {
         color: #ff6b6b;
         border-color: #5a2020;
     }
+
+    .plans-toast--info {
+        background-color: #2a3a4a;
+        color: #5dade2;
+        border-color: #3a4a5a;
+    }
 }
 
 /* ======================================
@@ -4781,14 +4833,14 @@ input.valid:focus {
 .plan-detail-warning {
     margin-bottom: var(--spacing-lg);
     padding: var(--spacing-md);
-    background-color: #fef3c7;
-    border: 1px solid #f59e0b;
+    background-color: var(--color-warning-bg);
+    border: 1px solid var(--color-warning-border);
     border-radius: 4px;
 }
 
 .plan-detail-warning .warning-message {
     font-size: var(--font-size-sm);
-    color: #92400e;
+    color: var(--color-warning-text);
 }
 
 /* Metadata section */
@@ -4973,15 +5025,6 @@ input.valid:focus {
 
 /* Dark mode overrides for plan detail */
 @media (prefers-color-scheme: dark) {
-    .plan-detail-warning {
-        background-color: #3a3a2a;
-        border-color: #5a4a1a;
-    }
-
-    .plan-detail-warning .warning-message {
-        color: #f39c12;
-    }
-
     .plan-detail-remux-info p {
         background-color: #1a2a3a;
         border-color: #2a3a4a;

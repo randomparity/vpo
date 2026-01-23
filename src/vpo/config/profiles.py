@@ -17,7 +17,23 @@ if TYPE_CHECKING:
     from vpo.config.models import Profile, VPOConfig
 
 
-# Module-level storage for active profile in daemon mode
+# Module-level storage for active profile in daemon mode.
+#
+# Thread Safety Note:
+# This module-level variable is intentionally NOT protected by a lock because:
+#
+# 1. aiohttp runs in a single-threaded event loop model. All request handlers
+#    run as coroutines on the same thread, so there are no concurrent writes.
+#
+# 2. The _active_profile is set once at daemon startup (before any requests)
+#    and only read during request handling.
+#
+# 3. If VPO ever moves to a multi-process model (e.g., gunicorn workers),
+#    each worker process would have its own copy of this variable, which
+#    is the desired behavior (each worker loads its own profile).
+#
+# If true multi-threading is ever introduced (e.g., ThreadPoolExecutor for
+# request handling), this would need to be wrapped in a threading.Lock.
 _active_profile: Profile | None = None
 
 
@@ -26,6 +42,11 @@ def set_active_profile(profile: Profile | None) -> None:
 
     This is called during daemon startup to make the profile
     configuration available to service functions.
+
+    Note:
+        This function is only safe to call from the main event loop thread,
+        before request handling begins. See module docstring for thread
+        safety considerations.
 
     Args:
         profile: Profile to set as active, or None to clear.
@@ -36,6 +57,10 @@ def set_active_profile(profile: Profile | None) -> None:
 
 def get_active_profile() -> Profile | None:
     """Get the currently active profile (daemon mode only).
+
+    Note:
+        Thread-safe for reads from aiohttp request handlers due to the
+        single-threaded event loop model. See module docstring for details.
 
     Returns:
         The active Profile if set, or None if no profile is active.

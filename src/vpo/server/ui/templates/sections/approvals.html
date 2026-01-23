@@ -17,13 +17,13 @@
             </div>
             <div class="approvals-bulk-actions" id="approvals-bulk-actions" style="display: none;">
                 <button type="button" class="plan-action-btn plan-action-approve" id="bulk-approve-btn"
-                        aria-label="Approve all pending plans">
-                    <span class="btn-text">Approve All</span>
+                        aria-label="Approve selected pending plans">
+                    <span class="btn-text">Approve Selected</span>
                     <span class="btn-spinner" aria-hidden="true"></span>
                 </button>
                 <button type="button" class="plan-action-btn plan-action-reject" id="bulk-reject-btn"
-                        aria-label="Reject all pending plans">
-                    <span class="btn-text">Reject All</span>
+                        aria-label="Reject selected pending plans">
+                    <span class="btn-text">Reject Selected</span>
                     <span class="btn-spinner" aria-hidden="true"></span>
                 </button>
             </div>
@@ -47,16 +47,16 @@
             <table class="plans-table" id="approvals-table" aria-label="Pending approvals list">
                 <thead>
                     <tr>
-                        <th>
+                        <th scope="col">
                             <input type="checkbox" id="select-all-approvals"
                                    aria-label="Select all pending plans">
                         </th>
-                        <th>Plan ID</th>
-                        <th>File</th>
-                        <th>Policy</th>
-                        <th># Actions</th>
-                        <th>Created</th>
-                        <th>Manage</th>
+                        <th scope="col">Plan ID</th>
+                        <th scope="col">File</th>
+                        <th scope="col">Policy</th>
+                        <th scope="col"># Actions</th>
+                        <th scope="col">Created</th>
+                        <th scope="col">Manage</th>
                     </tr>
                 </thead>
                 <tbody id="approvals-table-body">
@@ -91,6 +91,7 @@
 <link rel="stylesheet" href="/static/css/components/confirmation-modal.css">
 <script>window.CSRF_TOKEN = {{ csrf_token | tojson }};</script>
 <script src="/static/js/polling.js"></script>
+<script src="/static/js/components/toast-manager.js"></script>
 <script src="/static/js/components/confirmation-modal.js"></script>
 <script src="/static/js/approvals.js"></script>
 {% endblock %}

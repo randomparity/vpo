@@ -8,6 +8,9 @@
 (function () {
     'use strict'
 
+    // Session storage key for selection persistence
+    const SELECTION_STORAGE_KEY = 'vpo_selected_approvals'
+
     // State
     let currentOffset = 0
     const pageSize = 50
@@ -15,6 +18,9 @@
     let totalPlans = 0
     let pendingActions = {}
     let selectedPlans = new Set()
+    let lastFocusedPlanId = null
+    let currentFetchController = null
+    let bulkOperationController = null
 
     // DOM elements
     const loadingEl = document.getElementById('approvals-loading')
@@ -153,6 +159,29 @@
         tableBodyEl.innerHTML = html
 
         updateSelectAllState()
+        restoreFocusAfterRefresh()
+    }
+
+    /**
+     * Restore focus to the next available row after an action.
+     */
+    function restoreFocusAfterRefresh() {
+        if (!lastFocusedPlanId) return
+
+        // Try to focus the same plan
+        let row = tableBodyEl.querySelector('[data-plan-id="' + lastFocusedPlanId + '"]')
+
+        // If not found, focus the first row
+        if (!row) {
+            row = tableBodyEl.querySelector('.plan-row-clickable')
+        }
+
+        if (row) {
+            row.focus()
+        }
+
+        // Clear after restoration attempt
+        lastFocusedPlanId = null
     }
 
     /**
@@ -180,6 +209,11 @@
         paginationInfoEl.textContent = 'Showing ' + start + '-' + end + ' of ' + totalPlans + ' pending'
         prevBtnEl.disabled = currentOffset === 0
         nextBtnEl.disabled = currentOffset + pageSize >= totalPlans
+
+        // Add aria-current to indicate current page range
+        const totalPages = Math.ceil(totalPlans / pageSize)
+        const currentPage = Math.floor(currentOffset / pageSize) + 1
+        paginationInfoEl.setAttribute('aria-label', 'Page ' + currentPage + ' of ' + totalPages)
     }
 
     /**
@@ -194,10 +228,15 @@
         return '?' + params.toString()
     }
 
-    // Toast management
+    // Toast management using shared component if available
     let toastTimer = null
 
     function hideToast() {
+        if (typeof window.ToastManager !== 'undefined') {
+            window.ToastManager.hideToast(toastEl)
+            return
+        }
+
         if (!toastEl) return
         toastEl.style.display = 'none'
         if (toastTimer) {
@@ -206,7 +245,13 @@
         }
     }
 
-    function showToast(message, type) {
+    function showToast(message, type, options) {
+        if (typeof window.ToastManager !== 'undefined') {
+            window.ToastManager.showToast(toastEl, message, type, options)
+            return
+        }
+
+        // Fallback implementation
         if (!toastEl) return
         if (toastTimer) clearTimeout(toastTimer)
 
@@ -234,12 +279,64 @@
         toastTimer = setTimeout(hideToast, 5000)
     }
 
+    function updateToastMessage(message) {
+        if (typeof window.ToastManager !== 'undefined') {
+            window.ToastManager.updateToastMessage(toastEl, message)
+            return
+        }
+
+        const messageSpan = toastEl ? toastEl.querySelector('.toast-message') : null
+        if (messageSpan) {
+            messageSpan.textContent = message
+        }
+    }
+
+    // Selection persistence
+    function saveSelectionToStorage() {
+        try {
+            const ids = Array.from(selectedPlans)
+            sessionStorage.setItem(SELECTION_STORAGE_KEY, JSON.stringify(ids))
+        } catch {
+            // Storage may be unavailable
+        }
+    }
+
+    function loadSelectionFromStorage() {
+        try {
+            const stored = sessionStorage.getItem(SELECTION_STORAGE_KEY)
+            if (stored) {
+                const ids = JSON.parse(stored)
+                if (Array.isArray(ids)) {
+                    selectedPlans = new Set(ids)
+                }
+            }
+        } catch {
+            // Storage may be unavailable or corrupted
+        }
+    }
+
+    function clearSelectionStorage() {
+        try {
+            sessionStorage.removeItem(SELECTION_STORAGE_KEY)
+        } catch {
+            // Storage may be unavailable
+        }
+    }
+
     /**
      * Fetch pending plans from the API.
      */
     async function fetchPlans() {
+        // Cancel any pending fetch
+        if (currentFetchController) {
+            currentFetchController.abort()
+        }
+        currentFetchController = new AbortController()
+
         try {
-            const response = await fetch('/api/plans' + buildQueryString())
+            const response = await fetch('/api/plans' + buildQueryString(), {
+                signal: currentFetchController.signal
+            })
             if (!response.ok) throw new Error('Failed to fetch plans: ' + response.status)
 
             const data = await response.json()
@@ -251,9 +348,15 @@
             loadingEl.style.display = 'none'
             contentEl.style.display = 'block'
         } catch (error) {
+            if (error.name === 'AbortError') {
+                // Fetch was cancelled, ignore
+                return
+            }
             console.error('Error fetching plans:', error)
             loadingEl.textContent = 'Error loading approvals. Please refresh the page.'
             loadingEl.style.color = 'var(--color-error)'
+        } finally {
+            currentFetchController = null
         }
     }
 
@@ -265,6 +368,41 @@
         btn.disabled = loading
         btn.classList.toggle('is-loading', loading)
         btn.setAttribute('aria-busy', loading.toString())
+    }
+
+    /**
+     * Remove a row from the table with optimistic UI.
+     * Returns the removed row data for potential restoration.
+     */
+    function removeRowOptimistically(planId) {
+        const row = tableBodyEl.querySelector('[data-plan-id="' + planId + '"]')
+        if (!row) return null
+
+        const rowData = {
+            element: row,
+            nextSibling: row.nextElementSibling,
+            html: row.outerHTML
+        }
+
+        row.remove()
+        return rowData
+    }
+
+    /**
+     * Restore a previously removed row.
+     */
+    function restoreRow(rowData) {
+        if (!rowData || !rowData.html) return
+
+        const temp = document.createElement('tbody')
+        temp.innerHTML = rowData.html
+        const row = temp.firstElementChild
+
+        if (rowData.nextSibling && rowData.nextSibling.parentNode === tableBodyEl) {
+            tableBodyEl.insertBefore(row, rowData.nextSibling)
+        } else {
+            tableBodyEl.appendChild(row)
+        }
     }
 
     /**
@@ -284,8 +422,14 @@
         )
         if (!confirmed) return
 
+        // Track last focused for restoration
+        lastFocusedPlanId = planId
+
         pendingActions[planId] = true
         setButtonLoading(btn, true)
+
+        // Optimistic removal
+        const removedRow = removeRowOptimistically(planId)
 
         try {
             const response = await fetch('/api/plans/' + planId + '/approve', {
@@ -295,6 +439,9 @@
             const data = await response.json()
 
             if (data.success) {
+                selectedPlans.delete(planId)
+                saveSelectionToStorage()
+
                 const msg = document.createDocumentFragment()
                 msg.appendChild(document.createTextNode('Plan approved'))
                 if (data.job_url) {
@@ -307,10 +454,14 @@
                 showToast(msg, 'success')
                 fetchPlans()
             } else {
+                // Restore row on failure
+                restoreRow(removedRow)
                 showToast(data.error || 'Failed to approve plan', 'error')
                 setButtonLoading(btn, false)
             }
         } catch (error) {
+            // Restore row on failure
+            restoreRow(removedRow)
             console.error('Error approving plan:', error)
             showToast('Failed to approve plan', 'error')
             setButtonLoading(btn, false)
@@ -336,8 +487,14 @@
         )
         if (!confirmed) return
 
+        // Track last focused for restoration
+        lastFocusedPlanId = planId
+
         pendingActions[planId] = true
         setButtonLoading(btn, true)
+
+        // Optimistic removal
+        const removedRow = removeRowOptimistically(planId)
 
         try {
             const response = await fetch('/api/plans/' + planId + '/reject', {
@@ -347,13 +504,19 @@
             const data = await response.json()
 
             if (data.success) {
+                selectedPlans.delete(planId)
+                saveSelectionToStorage()
                 showToast('Plan rejected', 'success')
                 fetchPlans()
             } else {
+                // Restore row on failure
+                restoreRow(removedRow)
                 showToast(data.error || 'Failed to reject plan', 'error')
                 setButtonLoading(btn, false)
             }
         } catch (error) {
+            // Restore row on failure
+            restoreRow(removedRow)
             console.error('Error rejecting plan:', error)
             showToast('Failed to reject plan', 'error')
             setButtonLoading(btn, false)
@@ -363,7 +526,7 @@
     }
 
     /**
-     * Handle bulk approve.
+     * Handle bulk approve with progress feedback.
      */
     async function handleBulkApprove() {
         const planIds = Array.from(selectedPlans)
@@ -383,7 +546,7 @@
 
         const confirmed = await window.ConfirmationModal.show(msg, {
             title: 'Bulk Approve',
-            confirmText: 'Approve All',
+            confirmText: 'Approve Selected',
             cancelText: 'Cancel'
         })
         if (!confirmed) return
@@ -391,23 +554,43 @@
         setButtonLoading(bulkApproveBtn, true)
         setButtonLoading(bulkRejectBtn, true)
 
+        // Create abort controller for cancellation
+        bulkOperationController = new AbortController()
+
         let successCount = 0
         let errorCount = 0
+        const total = planIds.length
 
-        for (const planId of planIds) {
+        // Show initial progress toast
+        showToast('Approving 1 of ' + total + '...', 'info', { duration: 0 })
+
+        for (let i = 0; i < planIds.length; i++) {
+            // Check for cancellation
+            if (bulkOperationController.signal.aborted) {
+                break
+            }
+
+            const planId = planIds[i]
+            updateToastMessage('Approving ' + (i + 1) + ' of ' + total + '...')
+
             try {
                 const response = await fetch('/api/plans/' + planId + '/approve', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window.CSRF_TOKEN }
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window.CSRF_TOKEN },
+                    signal: bulkOperationController.signal
                 })
                 const data = await response.json()
                 if (data.success) successCount++
                 else errorCount++
-            } catch {
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    break
+                }
                 errorCount++
             }
         }
 
+        bulkOperationController = null
         setButtonLoading(bulkApproveBtn, false)
         setButtonLoading(bulkRejectBtn, false)
 
@@ -418,11 +601,12 @@
         }
 
         selectedPlans.clear()
+        clearSelectionStorage()
         fetchPlans()
     }
 
     /**
-     * Handle bulk reject.
+     * Handle bulk reject with progress feedback.
      */
     async function handleBulkReject() {
         const planIds = Array.from(selectedPlans)
@@ -442,7 +626,7 @@
 
         const confirmed = await window.ConfirmationModal.show(msg, {
             title: 'Bulk Reject',
-            confirmText: 'Reject All',
+            confirmText: 'Reject Selected',
             cancelText: 'Cancel',
             focusCancel: true
         })
@@ -451,23 +635,43 @@
         setButtonLoading(bulkApproveBtn, true)
         setButtonLoading(bulkRejectBtn, true)
 
+        // Create abort controller for cancellation
+        bulkOperationController = new AbortController()
+
         let successCount = 0
         let errorCount = 0
+        const total = planIds.length
 
-        for (const planId of planIds) {
+        // Show initial progress toast
+        showToast('Rejecting 1 of ' + total + '...', 'info', { duration: 0 })
+
+        for (let i = 0; i < planIds.length; i++) {
+            // Check for cancellation
+            if (bulkOperationController.signal.aborted) {
+                break
+            }
+
+            const planId = planIds[i]
+            updateToastMessage('Rejecting ' + (i + 1) + ' of ' + total + '...')
+
             try {
                 const response = await fetch('/api/plans/' + planId + '/reject', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window.CSRF_TOKEN }
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window.CSRF_TOKEN },
+                    signal: bulkOperationController.signal
                 })
                 const data = await response.json()
                 if (data.success) successCount++
                 else errorCount++
-            } catch {
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    break
+                }
                 errorCount++
             }
         }
 
+        bulkOperationController = null
         setButtonLoading(bulkApproveBtn, false)
         setButtonLoading(bulkRejectBtn, false)
 
@@ -478,6 +682,7 @@
         }
 
         selectedPlans.clear()
+        clearSelectionStorage()
         fetchPlans()
     }
 
@@ -535,6 +740,7 @@
                 selectedPlans.delete(planId)
             }
         })
+        saveSelectionToStorage()
     })
 
     if (bulkApproveBtn) bulkApproveBtn.addEventListener('click', handleBulkApprove)
@@ -554,6 +760,7 @@
                     selectedPlans.delete(planId)
                 }
                 updateSelectAllState()
+                saveSelectionToStorage()
                 return
             }
 
@@ -592,6 +799,7 @@
         })
     }
 
-    // Initialize
+    // Load persisted selections and initialize
+    loadSelectionFromStorage()
     fetchPlans()
 })()

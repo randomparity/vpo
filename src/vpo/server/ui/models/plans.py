@@ -428,6 +428,72 @@ class PlanDetailContext:
     plan: PlanDetailItem
     back_url: str
 
+    # Allowed path prefixes for back navigation
+    _SAFE_PATH_PREFIXES = ("/plans", "/approvals", "/library", "/jobs")
+
+    @staticmethod
+    def _is_safe_back_url(url: str | None) -> str | None:
+        """Validate and extract safe path from a URL.
+
+        Prevents open redirect vulnerabilities by ensuring the URL is:
+        - A relative path starting with an allowed prefix
+        - Not a protocol-relative URL (//evil.com)
+        - Not an absolute URL to an external domain
+
+        Args:
+            url: URL to validate (may be full URL or path).
+
+        Returns:
+            Safe path to use, or None if URL is invalid/unsafe.
+        """
+        if not url:
+            return None
+
+        # Reject protocol-relative URLs (//evil.com/plans) before parsing
+        if url.startswith("//"):
+            return None
+
+        from urllib.parse import urlparse
+
+        try:
+            parsed = urlparse(url)
+        except (ValueError, TypeError):
+            return None
+
+        # If there's a netloc (hostname), only allow localhost
+        if parsed.netloc:
+            # Only trust localhost URLs
+            netloc_lower = parsed.netloc.lower()
+            if not (
+                netloc_lower.startswith("localhost")
+                or netloc_lower.startswith("127.0.0.1")
+                or netloc_lower.startswith("[::1]")
+            ):
+                return None
+
+        # Use path component only (strips scheme, netloc, query, fragment)
+        path = parsed.path
+
+        # Reject empty paths
+        if not path:
+            return None
+
+        # Must start with /
+        if not path.startswith("/"):
+            return None
+
+        # Reject paths that look like protocol-relative URLs after parsing
+        if path.startswith("//"):
+            return None
+
+        # Must match one of the allowed prefixes
+        if not any(
+            path.startswith(prefix) for prefix in PlanDetailContext._SAFE_PATH_PREFIXES
+        ):
+            return None
+
+        return path
+
     @classmethod
     def from_plan_and_request(
         cls, plan: PlanDetailItem, referer: str | None
@@ -444,9 +510,10 @@ class PlanDetailContext:
         # Default back URL is plans list
         back_url = "/plans"
 
-        # Use referer if it's a VPO page
-        if referer and "/plans" in referer:
-            back_url = referer
+        # Use referer if it's a safe VPO path
+        safe_path = cls._is_safe_back_url(referer)
+        if safe_path:
+            back_url = safe_path
 
         return cls(plan=plan, back_url=back_url)
 
