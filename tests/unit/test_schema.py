@@ -964,3 +964,150 @@ class TestMigrationV19ToV20:
         # Verify jobs were inserted
         cursor = db_v19.execute("SELECT COUNT(*) FROM jobs")
         assert cursor.fetchone()[0] == 6  # 4 original + 2 new
+
+
+class TestMigrationV21ToV22:
+    """Tests for v21 to v22 migration (compound index for transcode report)."""
+
+    @pytest.fixture
+    def db_v21(self, tmp_path: Path) -> sqlite3.Connection:
+        """Create a database at version 21 with processing_stats table."""
+        db_path = tmp_path / "test.db"
+        conn = sqlite3.connect(str(db_path))
+
+        # Create minimal schema at v21 with processing_stats table
+        conn.executescript(
+            """
+            CREATE TABLE _meta (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            INSERT INTO _meta (key, value) VALUES ('schema_version', '21');
+
+            CREATE TABLE files (
+                id INTEGER PRIMARY KEY,
+                path TEXT UNIQUE NOT NULL
+            );
+            INSERT INTO files (id, path) VALUES (1, '/test.mkv');
+
+            CREATE TABLE processing_stats (
+                id TEXT PRIMARY KEY,
+                file_id INTEGER NOT NULL,
+                processed_at TEXT NOT NULL,
+                policy_name TEXT NOT NULL,
+                size_before INTEGER NOT NULL,
+                size_after INTEGER NOT NULL,
+                size_change INTEGER NOT NULL,
+                duration_seconds REAL NOT NULL,
+                success INTEGER NOT NULL,
+                FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
+            );
+
+            -- Existing indexes from v21
+            CREATE INDEX IF NOT EXISTS idx_stats_file ON processing_stats(file_id);
+            CREATE INDEX IF NOT EXISTS idx_stats_policy
+                ON processing_stats(policy_name);
+            CREATE INDEX IF NOT EXISTS idx_stats_time
+                ON processing_stats(processed_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_stats_success ON processing_stats(success);
+
+            -- Insert test data
+            INSERT INTO processing_stats (
+                id, file_id, processed_at, policy_name,
+                size_before, size_after, size_change,
+                duration_seconds, success
+            ) VALUES
+                ('stat-1', 1, '2025-01-15T10:00:00Z', 'test.yaml',
+                 1000000, 800000, 200000, 5.5, 1),
+                ('stat-2', 1, '2025-01-15T11:00:00Z', 'test.yaml',
+                 800000, 750000, 50000, 3.2, 1);
+            """
+        )
+
+        conn.commit()
+        return conn
+
+    def test_migration_creates_compound_index(self, db_v21: sqlite3.Connection):
+        """Test that migration creates idx_stats_file_time index."""
+        from vpo.db.schema import migrate_v21_to_v22
+
+        # Run migration
+        migrate_v21_to_v22(db_v21)
+
+        # Check that compound index exists
+        cursor = db_v21.execute(
+            "SELECT name FROM sqlite_master WHERE type='index' "
+            "AND tbl_name='processing_stats' AND name='idx_stats_file_time'"
+        )
+        result = cursor.fetchone()
+        assert result is not None
+        assert result[0] == "idx_stats_file_time"
+
+    def test_migration_updates_schema_version(self, db_v21: sqlite3.Connection):
+        """Test that schema version is updated to 22."""
+        from vpo.db.schema import migrate_v21_to_v22
+
+        # Run migration
+        migrate_v21_to_v22(db_v21)
+
+        # Check schema version updated
+        cursor = db_v21.execute("SELECT value FROM _meta WHERE key = 'schema_version'")
+        assert cursor.fetchone()[0] == "22"
+
+    def test_migration_is_idempotent(self, db_v21: sqlite3.Connection):
+        """Test that running migration twice doesn't error."""
+        from vpo.db.schema import migrate_v21_to_v22
+
+        # Run migration twice
+        migrate_v21_to_v22(db_v21)
+        migrate_v21_to_v22(db_v21)
+
+        # Verify schema version is still 22
+        cursor = db_v21.execute("SELECT value FROM _meta WHERE key = 'schema_version'")
+        assert cursor.fetchone()[0] == "22"
+
+        # Verify index still exists (only one)
+        cursor = db_v21.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='index' "
+            "AND name='idx_stats_file_time'"
+        )
+        assert cursor.fetchone()[0] == 1
+
+    def test_migration_preserves_existing_data(self, db_v21: sqlite3.Connection):
+        """Test that existing processing_stats records are preserved."""
+        from vpo.db.schema import migrate_v21_to_v22
+
+        # Run migration
+        migrate_v21_to_v22(db_v21)
+
+        # Verify data is preserved
+        cursor = db_v21.execute("SELECT COUNT(*) FROM processing_stats")
+        assert cursor.fetchone()[0] == 2
+
+        cursor = db_v21.execute(
+            "SELECT id, file_id, policy_name, size_change FROM processing_stats "
+            "ORDER BY id"
+        )
+        rows = cursor.fetchall()
+        assert rows[0] == ("stat-1", 1, "test.yaml", 200000)
+        assert rows[1] == ("stat-2", 1, "test.yaml", 50000)
+
+    def test_migration_preserves_existing_indexes(self, db_v21: sqlite3.Connection):
+        """Test that existing indexes are preserved after migration."""
+        from vpo.db.schema import migrate_v21_to_v22
+
+        # Run migration
+        migrate_v21_to_v22(db_v21)
+
+        # Check that all original indexes still exist
+        cursor = db_v21.execute(
+            "SELECT name FROM sqlite_master WHERE type='index' "
+            "AND tbl_name='processing_stats' ORDER BY name"
+        )
+        indexes = {row[0] for row in cursor.fetchall()}
+
+        assert "idx_stats_file" in indexes
+        assert "idx_stats_policy" in indexes
+        assert "idx_stats_time" in indexes
+        assert "idx_stats_success" in indexes
+        assert "idx_stats_file_time" in indexes  # New compound index

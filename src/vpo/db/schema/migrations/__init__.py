@@ -40,6 +40,7 @@ from .v16_to_v20 import (
 )
 from .v21_to_v25 import (
     migrate_v20_to_v21,
+    migrate_v21_to_v22,
 )
 
 __all__ = [
@@ -68,4 +69,5 @@ __all__ = [
     "migrate_v19_to_v20",
     # v20 to v25
     "migrate_v20_to_v21",
+    "migrate_v21_to_v22",
 ]

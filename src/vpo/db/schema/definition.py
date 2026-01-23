@@ -7,7 +7,7 @@ used by the VPO database.
 
 import sqlite3
 
-SCHEMA_VERSION = 21
+SCHEMA_VERSION = 22
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -345,6 +345,8 @@ CREATE INDEX IF NOT EXISTS idx_stats_file ON processing_stats(file_id);
 CREATE INDEX IF NOT EXISTS idx_stats_policy ON processing_stats(policy_name);
 CREATE INDEX IF NOT EXISTS idx_stats_time ON processing_stats(processed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_stats_success ON processing_stats(success);
+CREATE INDEX IF NOT EXISTS idx_stats_file_time
+    ON processing_stats(file_id, processed_at DESC);
 
 -- Action results table (040-processing-stats)
 CREATE TABLE IF NOT EXISTS action_results (
