@@ -11,6 +11,7 @@ from vpo.reports.filters import TimeFilter
 from vpo.reports.formatters import (
     calculate_duration_seconds,
     format_duration,
+    format_size_change,
     format_timestamp_local,
 )
 
@@ -507,6 +508,9 @@ def get_transcodes_report(
         ValueError: If limit is negative or exceeds MAX_LIMIT.
     """
     _validate_limit(limit)
+    # Join with processing_stats to get actual size change data.
+    # The join correlates stats to jobs via file_id and timestamp range
+    # (stats processed_at must fall within job execution window).
     query = """
         SELECT
             j.id,
@@ -515,9 +519,16 @@ def get_transcodes_report(
             j.completed_at,
             j.status,
             j.policy_json,
-            f.size_bytes as original_size
+            f.size_bytes as original_size,
+            ps.size_before,
+            ps.size_after
         FROM jobs j
         LEFT JOIN files f ON j.file_id = f.id
+        LEFT JOIN processing_stats ps ON (
+            ps.file_id = j.file_id
+            AND ps.processed_at >= j.started_at
+            AND ps.processed_at <= COALESCE(j.completed_at, datetime('now'))
+        )
         WHERE j.job_type = 'transcode'
     """
     params: list[Any] = []
@@ -556,8 +567,10 @@ def get_transcodes_report(
 
         duration_seconds = calculate_duration_seconds(row[2], row[3])
 
-        # Calculate size change (placeholder - would need output file size)
-        size_change = "N/A"
+        # Format size change from processing_stats (columns 7 and 8)
+        size_before = row[7]
+        size_after = row[8]
+        size_change = format_size_change(size_before, size_after)
 
         report_row = TranscodeReportRow(
             job_id=row[0][:8] if row[0] else "-",

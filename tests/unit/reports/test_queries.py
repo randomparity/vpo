@@ -75,6 +75,41 @@ def test_db():
             output_path TEXT,
             backup_path TEXT
         );
+
+        CREATE TABLE processing_stats (
+            id TEXT PRIMARY KEY,
+            file_id INTEGER,
+            processed_at TEXT,
+            policy_name TEXT,
+            size_before INTEGER,
+            size_after INTEGER,
+            size_change INTEGER,
+            audio_tracks_before INTEGER DEFAULT 0,
+            subtitle_tracks_before INTEGER DEFAULT 0,
+            attachments_before INTEGER DEFAULT 0,
+            audio_tracks_after INTEGER DEFAULT 0,
+            subtitle_tracks_after INTEGER DEFAULT 0,
+            attachments_after INTEGER DEFAULT 0,
+            audio_tracks_removed INTEGER DEFAULT 0,
+            subtitle_tracks_removed INTEGER DEFAULT 0,
+            attachments_removed INTEGER DEFAULT 0,
+            duration_seconds REAL DEFAULT 0,
+            phases_completed INTEGER DEFAULT 0,
+            phases_total INTEGER DEFAULT 0,
+            total_changes INTEGER DEFAULT 0,
+            video_source_codec TEXT,
+            video_target_codec TEXT,
+            video_transcode_skipped INTEGER DEFAULT 0,
+            video_skip_reason TEXT,
+            audio_tracks_transcoded INTEGER DEFAULT 0,
+            audio_tracks_preserved INTEGER DEFAULT 0,
+            hash_before TEXT,
+            hash_after TEXT,
+            success INTEGER DEFAULT 1,
+            error_message TEXT,
+            encoder_type TEXT,
+            FOREIGN KEY (file_id) REFERENCES files(id)
+        );
     """)
 
     yield conn
@@ -466,6 +501,77 @@ class TestGetTranscodesReport:
         result = get_transcodes_report(test_db, codec="hevc")
         assert len(result) == 1
         assert result[0]["target_codec"] == "hevc"
+
+    def test_size_change_with_processing_stats(self, test_db):
+        """Size change populated when processing_stats record exists."""
+        # Create file
+        test_db.execute("""
+            INSERT INTO files (id, path, filename, size_bytes)
+            VALUES (1, '/path/file.mkv', 'file.mkv', 1073741824)
+        """)
+        # Create transcode job
+        test_db.execute("""
+            INSERT INTO jobs (id, file_id, job_type, status, file_path, created_at,
+                            started_at, completed_at, policy_json)
+            VALUES ('tc-123', 1, 'transcode', 'completed', '/path/file.mkv',
+                    '2025-01-15T12:00:00Z', '2025-01-15T12:00:00Z',
+                    '2025-01-15T12:30:00Z', '{"target_codec": "hevc"}')
+        """)
+        # Create processing_stats with size data (1 GB -> 500 MB = 50% reduction)
+        test_db.execute("""
+            INSERT INTO processing_stats (id, file_id, processed_at, policy_name,
+                            size_before, size_after, size_change)
+            VALUES ('stats-123', 1, '2025-01-15T12:15:00Z', 'test.yaml',
+                    1073741824, 536870912, -536870912)
+        """)
+
+        result = get_transcodes_report(test_db)
+        assert len(result) == 1
+        # Size change should show reduction with percentage
+        assert "-" in result[0]["size_change"]  # Negative (reduction)
+        assert "%" in result[0]["size_change"]  # Has percentage
+        assert "MB" in result[0]["size_change"]  # Has unit
+
+    def test_size_change_na_without_processing_stats(self, test_db):
+        """Size change shows N/A when no processing_stats record exists."""
+        # Create transcode job without processing_stats
+        test_db.execute("""
+            INSERT INTO jobs (id, job_type, status, file_path, created_at,
+                            started_at, completed_at, policy_json)
+            VALUES ('tc-456', 'transcode', 'completed', '/path/file.mkv',
+                    '2025-01-15T12:00:00Z', '2025-01-15T12:00:00Z',
+                    '2025-01-15T12:30:00Z', '{"target_codec": "hevc"}')
+        """)
+
+        result = get_transcodes_report(test_db)
+        assert len(result) == 1
+        assert result[0]["size_change"] == "N/A"
+
+    def test_size_change_stats_outside_job_window(self, test_db):
+        """Size change N/A when stats record is outside job time window."""
+        # Create file and job
+        test_db.execute("""
+            INSERT INTO files (id, path, filename, size_bytes)
+            VALUES (2, '/path/file2.mkv', 'file2.mkv', 2147483648)
+        """)
+        test_db.execute("""
+            INSERT INTO jobs (id, file_id, job_type, status, file_path, created_at,
+                            started_at, completed_at, policy_json)
+            VALUES ('tc-789', 2, 'transcode', 'completed', '/path/file2.mkv',
+                    '2025-01-15T12:00:00Z', '2025-01-15T12:00:00Z',
+                    '2025-01-15T12:30:00Z', '{"target_codec": "hevc"}')
+        """)
+        # Create processing_stats BEFORE job started (should not match)
+        test_db.execute("""
+            INSERT INTO processing_stats (id, file_id, processed_at, policy_name,
+                            size_before, size_after, size_change)
+            VALUES ('stats-old', 2, '2025-01-14T12:00:00Z', 'test.yaml',
+                    2147483648, 1073741824, -1073741824)
+        """)
+
+        result = get_transcodes_report(test_db)
+        assert len(result) == 1
+        assert result[0]["size_change"] == "N/A"
 
 
 class TestGetPolicyApplyReport:

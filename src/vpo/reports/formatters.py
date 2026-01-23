@@ -4,9 +4,12 @@ import csv
 import io
 import json
 import os
+import tempfile
 from enum import Enum
 from pathlib import Path
 from typing import Any
+
+from vpo.core.formatting import format_file_size
 
 
 class ReportFormat(Enum):
@@ -74,6 +77,40 @@ def format_duration(seconds: float | None) -> str:
     hours = int(seconds // 3600)
     minutes = int((seconds % 3600) // 60)
     return f"{hours}h {minutes}m"
+
+
+def format_size_change(size_before: int | None, size_after: int | None) -> str:
+    """Format size change with human-readable size and percentage.
+
+    Args:
+        size_before: File size in bytes before processing.
+        size_after: File size in bytes after processing.
+
+    Returns:
+        Formatted string like "-1.2 GB (48%)" for reduction,
+        "+500 MB (12%)" for increase, "0 B (0%)" for no change,
+        or "N/A" if either value is None.
+    """
+    if size_before is None or size_after is None:
+        return "N/A"
+
+    if size_before == 0:
+        # Avoid division by zero
+        if size_after == 0:
+            return "0 B (0%)"
+        return f"+{format_file_size(size_after)} (N/A)"
+
+    change = size_after - size_before
+    percent = abs(change) / size_before * 100
+
+    if change < 0:
+        # Size reduction (positive outcome for transcoding)
+        return f"-{format_file_size(abs(change))} ({percent:.0f}%)"
+    elif change > 0:
+        # Size increase
+        return f"+{format_file_size(change)} ({percent:.0f}%)"
+    else:
+        return "0 B (0%)"
 
 
 def calculate_duration_seconds(
@@ -206,12 +243,46 @@ def render_json(rows: list[dict[str, Any]]) -> str:
     return json.dumps(rows, indent=2, sort_keys=True, default=str)
 
 
+def _atomic_write_text(path: Path, content: str) -> None:
+    """Write content to file atomically using temp file + rename.
+
+    Creates a temp file in the same directory as the target, writes content,
+    then atomically replaces the target. This ensures the file is never
+    left in a partial state if the process crashes during write.
+
+    Args:
+        path: Target file path.
+        content: Content to write.
+
+    Raises:
+        OSError: If write or rename fails.
+        PermissionError: If permission denied.
+    """
+    # Create temp file in same directory (ensures same filesystem for atomic rename)
+    fd, temp_path_str = tempfile.mkstemp(
+        suffix=path.suffix,
+        dir=path.parent,
+        text=True,
+    )
+    temp_path = Path(temp_path_str)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(content)
+        temp_path.replace(path)  # Atomic on POSIX
+    except Exception:
+        temp_path.unlink(missing_ok=True)
+        raise
+
+
 def write_report_to_file(
     content: str,
     output_path: Path,
     force: bool = False,
 ) -> None:
     """Write report content to file with overwrite protection.
+
+    Uses atomic write (temp file + rename) to prevent corrupted partial
+    files if the process crashes during write.
 
     Args:
         content: Report content to write.
@@ -228,5 +299,5 @@ def write_report_to_file(
     # Ensure parent directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Write with UTF-8 encoding
-    output_path.write_text(content, encoding="utf-8")
+    # Write atomically using temp file + rename
+    _atomic_write_text(output_path, content)
