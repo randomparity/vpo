@@ -23,10 +23,7 @@ from pathlib import Path
 __all__ = [
     "FFmpegAdapter",
     "FFmpegError",
-    "FFmpegVersionError",
-    "FFmpegCapabilityError",
     "get_ffmpeg_adapter",
-    "reset_ffmpeg_adapter",
 ]
 
 from vpo.tools.ffmpeg_builder import FFmpegCommandBuilder
@@ -37,50 +34,6 @@ class FFmpegError(Exception):
     """Base class for FFmpeg-related errors."""
 
     pass
-
-
-class FFmpegVersionError(FFmpegError):
-    """Error due to FFmpeg version incompatibility.
-
-    Raised when the installed FFmpeg version is too old for a required feature.
-    """
-
-    def __init__(
-        self,
-        feature: str,
-        required_version: tuple[int, ...],
-        actual_version: tuple[int, ...] | None,
-    ):
-        self.feature = feature
-        self.required_version = required_version
-        self.actual_version = actual_version
-
-        req_str = ".".join(str(v) for v in required_version)
-        act_str = (
-            ".".join(str(v) for v in actual_version) if actual_version else "unknown"
-        )
-        super().__init__(
-            f"FFmpeg {req_str}+ required for {feature}, but found {act_str}. "
-            f"Upgrade FFmpeg: https://ffmpeg.org/download.html"
-        )
-
-
-class FFmpegCapabilityError(FFmpegError):
-    """Error due to missing FFmpeg capability.
-
-    Raised when FFmpeg is missing a required encoder, decoder, or feature.
-
-    Note:
-        Currently defined for future capability checking. Will be used when
-        verifying encoder/decoder availability before operations.
-    """
-
-    def __init__(self, capability: str, suggestion: str = ""):
-        self.capability = capability
-        msg = f"FFmpeg missing required capability: {capability}"
-        if suggestion:
-            msg += f". {suggestion}"
-        super().__init__(msg)
 
 
 @dataclass
@@ -274,14 +227,3 @@ def get_ffmpeg_adapter() -> FFmpegAdapter:
 
                 _adapter_cache = FFmpegAdapter(get_tool_registry())
     return _adapter_cache
-
-
-def reset_ffmpeg_adapter() -> None:
-    """Reset the cached FFmpegAdapter.
-
-    Call this after refreshing the tool registry to ensure the adapter
-    picks up new capabilities. Thread-safe.
-    """
-    global _adapter_cache
-    with _adapter_lock:
-        _adapter_cache = None

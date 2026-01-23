@@ -8,54 +8,12 @@ from __future__ import annotations
 
 import json
 import sys
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import click
 
 if TYPE_CHECKING:
     from .exit_codes import ExitCode
-
-
-@dataclass
-class CLIResult:
-    """Result object for CLI operations.
-
-    Provides consistent JSON serialization for command results.
-    """
-
-    success: bool
-    message: str
-    data: dict[str, Any] = field(default_factory=dict)
-    exit_code: int = 0
-
-    def to_json(self) -> str:
-        """Serialize to JSON string.
-
-        Returns:
-            JSON string with status, message, and optional data fields.
-        """
-        output: dict[str, Any] = {
-            "status": "completed" if self.success else "failed",
-        }
-        if self.success:
-            output["message"] = self.message
-            output.update(self.data)
-        else:
-            # Import here to avoid circular imports at module load
-            from .exit_codes import ExitCode
-
-            # Get enum name if it's an ExitCode, otherwise use generic
-            if isinstance(self.exit_code, ExitCode):
-                code_name = self.exit_code.name
-            else:
-                code_name = "UNKNOWN_ERROR"
-
-            output["error"] = {
-                "code": code_name,
-                "message": self.message,
-            }
-        return json.dumps(output, indent=2)
 
 
 def error_exit(
@@ -104,22 +62,6 @@ def error_exit(
         click.echo(f"Error: {message}", err=True)
 
     sys.exit(exit_value)
-
-
-def success_output(
-    result: CLIResult,
-    json_output: bool = False,
-) -> None:
-    """Output successful result in appropriate format.
-
-    Args:
-        result: The CLIResult to output.
-        json_output: Whether to format output as JSON.
-    """
-    if json_output:
-        click.echo(result.to_json())
-    else:
-        click.echo(result.message)
 
 
 def warning_output(

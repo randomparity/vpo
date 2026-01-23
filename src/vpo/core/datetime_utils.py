@@ -54,18 +54,6 @@ def calculate_duration_seconds(created_at: str, completed_at: str) -> int | None
         return None
 
 
-def mtime_to_utc_iso(mtime: float) -> str:
-    """Convert file modification time to UTC ISO-8601 string.
-
-    Args:
-        mtime: File modification time as returned by os.stat().st_mtime.
-
-    Returns:
-        UTC ISO-8601 timestamp string.
-    """
-    return datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
-
-
 def parse_time_filter(since: str | None) -> str | None:
     """Parse time filter string to ISO-8601 timestamp.
 

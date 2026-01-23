@@ -437,32 +437,6 @@
     }
 
     /**
-     * Append a new job row to the table (T016).
-     * @param {Object} job - Job data
-     */
-    function _appendJobRow(job) {
-        if (!tableBodyEl) return
-
-        // If table is hidden (empty state), switch to showing it
-        if (tableEl.style.display === 'none') {
-            tableEl.style.display = 'table'
-            emptyEl.style.display = 'none'
-        }
-
-        // Prepend row (newest jobs first)
-        var rowHtml = renderJobRow(job)
-        var temp = document.createElement('tbody')
-        temp.innerHTML = rowHtml
-        var newRow = temp.firstChild
-
-        if (tableBodyEl.firstChild) {
-            tableBodyEl.insertBefore(newRow, tableBodyEl.firstChild)
-        } else {
-            tableBodyEl.appendChild(newRow)
-        }
-    }
-
-    /**
      * Fetch jobs for polling, preserving filter state (T011).
      * Returns a promise that resolves when fetch is complete.
      * @returns {Promise} Resolves when fetch is complete

@@ -20,12 +20,8 @@ from vpo.core.codecs import (
     audio_codec_matches,
     audio_codec_matches_any,
     codec_matches,
-    get_canonical_codec,
-    get_transcode_default,
-    is_bitmap_subtitle,
     is_codec_compatible,
     is_codec_mp4_compatible,
-    is_text_subtitle,
     normalize_codec,
     video_codec_matches,
     video_codec_matches_any,
@@ -172,33 +168,6 @@ class TestNormalizeCodec:
         assert normalize_codec("TrueHD") == "truehd"
 
 
-class TestGetCanonicalCodec:
-    """Tests for get_canonical_codec function."""
-
-    def test_video_codec_canonical(self) -> None:
-        """Video codec returns canonical name."""
-        assert get_canonical_codec("h265", "video") == "hevc"
-        assert get_canonical_codec("avc", "video") == "h264"
-
-    def test_audio_codec_canonical(self) -> None:
-        """Audio codec returns canonical name."""
-        assert get_canonical_codec("dca", "audio") == "dts"
-        assert get_canonical_codec("mp4a", "audio") == "aac"
-
-    def test_subtitle_codec_canonical(self) -> None:
-        """Subtitle codec returns canonical name."""
-        assert get_canonical_codec("srt", "subtitle") == "subrip"
-        assert get_canonical_codec("ssa", "subtitle") == "ass"
-
-    def test_unknown_codec_returns_normalized(self) -> None:
-        """Unknown codec returns normalized version."""
-        assert get_canonical_codec("unknown_codec", "video") == "unknown_codec"
-
-    def test_unknown_track_type_returns_normalized(self) -> None:
-        """Unknown track type returns normalized codec."""
-        assert get_canonical_codec("HEVC", "data") == "hevc"
-
-
 class TestCodecMatches:
     """Tests for generic codec_matches function."""
 
@@ -286,72 +255,6 @@ class TestIsCodecCompatible:
         """Unknown containers assume compatibility."""
         assert is_codec_compatible("hevc", "avi", "video")
         assert is_codec_compatible("truehd", "unknown", "audio")
-
-
-class TestGetTranscodeDefault:
-    """Tests for get_transcode_default function."""
-
-    def test_truehd_to_mp4(self) -> None:
-        """TrueHD gets transcode default for MP4."""
-        target = get_transcode_default("truehd", "mp4")
-        assert target is not None
-        assert target.codec == "aac"
-        assert target.bitrate == "256k"
-
-    def test_dts_hd_to_mp4(self) -> None:
-        """DTS-HD gets transcode default for MP4."""
-        target = get_transcode_default("dts-hd", "mp4")
-        assert target is not None
-        assert target.codec == "aac"
-        assert target.bitrate == "320k"
-
-    def test_known_incompatible_audio_gets_default(self) -> None:
-        """Known incompatible audio codec gets default target."""
-        # vorbis is in the explicit defaults
-        target = get_transcode_default("vorbis", "mp4")
-        assert target is not None
-        assert target.codec == "aac"
-
-    def test_pcm_variants_get_default(self) -> None:
-        """PCM variants get default target."""
-        target = get_transcode_default("pcm_s16le", "mp4")
-        assert target is not None
-        assert target.codec == "aac"
-
-    def test_unknown_codec_returns_none(self) -> None:
-        """Unknown codecs return None (require explicit config)."""
-        target = get_transcode_default("some_weird_codec", "mp4")
-        assert target is None
-
-    def test_compatible_codec_returns_none(self) -> None:
-        """Compatible codecs return None."""
-        assert get_transcode_default("aac", "mp4") is None
-        assert get_transcode_default("hevc", "mp4") is None
-
-    def test_mkv_returns_none(self) -> None:
-        """MKV container returns None (no transcode needed)."""
-        assert get_transcode_default("truehd", "mkv") is None
-
-
-class TestSubtitleClassification:
-    """Tests for subtitle classification functions."""
-
-    def test_is_text_subtitle(self) -> None:
-        """Text subtitle detection works."""
-        assert is_text_subtitle("subrip")
-        assert is_text_subtitle("srt")
-        assert is_text_subtitle("ass")
-        assert is_text_subtitle("ssa")
-        assert not is_text_subtitle("hdmv_pgs_subtitle")
-        assert not is_text_subtitle("mov_text")  # Already MP4-compatible
-
-    def test_is_bitmap_subtitle(self) -> None:
-        """Bitmap subtitle detection works."""
-        assert is_bitmap_subtitle("hdmv_pgs_subtitle")
-        assert is_bitmap_subtitle("dvd_subtitle")
-        assert is_bitmap_subtitle("pgssub")
-        assert not is_bitmap_subtitle("subrip")
-        assert not is_bitmap_subtitle("ass")
 
 
 class TestMP4IncompatibleCodecs:
