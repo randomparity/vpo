@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="plan-detail">
+    <!-- Back navigation -->
+    <a href="{{ back_url }}" class="plan-detail-back">&larr; Back to Plans</a>
+
+    <!-- Plan header with status badge -->
+    <header class="plan-detail-header">
+        <h1>Plan {{ plan.id_short }}</h1>
+        <span class="status-badge {{ plan.status_badge.class }}">{{ plan.status_badge.label }}</span>
+    </header>
+
+    <!-- Action buttons for pending plans -->
+    {% if plan.status == 'pending' %}
+    <section class="plan-detail-actions">
+        <button type="button" class="plan-action-btn plan-action-approve"
+                id="btn-approve" data-plan-id="{{ plan.id }}"
+                aria-label="Approve plan {{ plan.id_short }}">
+            <span class="btn-text">Approve</span>
+            <span class="btn-spinner" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="plan-action-btn plan-action-reject"
+                id="btn-reject" data-plan-id="{{ plan.id }}"
+                aria-label="Reject plan {{ plan.id_short }}">
+            <span class="btn-text">Reject</span>
+            <span class="btn-spinner" aria-hidden="true"></span>
+        </button>
+    </section>
+    {% endif %}
+
+    <!-- File deleted warning -->
+    {% if plan.file_deleted %}
+    <section class="plan-detail-warning">
+        <div class="warning-message">
+            <strong>Warning:</strong> The source file has been deleted.
+            This plan can still be rejected but cannot be applied.
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Plan metadata section -->
+    <section class="plan-detail-meta">
+        <h2>Details</h2>
+        <dl class="plan-detail-dl">
+            <div class="plan-detail-dl-row">
+                <dt>Plan ID</dt>
+                <dd class="plan-detail-id" title="{{ plan.id }}">{{ plan.id }}</dd>
+            </div>
+            <div class="plan-detail-dl-row">
+                <dt>Status</dt>
+                <dd><span class="status-badge {{ plan.status_badge.class }}">{{ plan.status_badge.label }}</span></dd>
+            </div>
+            <div class="plan-detail-dl-row">
+                <dt>Source File</dt>
+                <dd class="plan-detail-path" title="{{ plan.file_path }}">
+                    {% if plan.file_deleted %}
+                    <span class="plan-file-deleted">[Deleted]</span> {{ plan.filename }}
+                    {% elif plan.file_id %}
+                    <a href="/library/{{ plan.file_id }}">{{ plan.filename }}</a>
+                    {% else %}
+                    {{ plan.filename }}
+                    {% endif %}
+                </dd>
+            </div>
+            <div class="plan-detail-dl-row">
+                <dt>File Path</dt>
+                <dd class="plan-detail-path" title="{{ plan.file_path }}">{{ plan.file_path }}</dd>
+            </div>
+            <div class="plan-detail-dl-row">
+                <dt>Policy</dt>
+                <dd>
+                    <a href="/policies/{{ plan.policy_name }}/edit">{{ plan.policy_name }}</a>
+                    <span class="policy-version">(v{{ plan.policy_version }})</span>
+                </dd>
+            </div>
+            <div class="plan-detail-dl-row">
+                <dt>Actions</dt>
+                <dd>
+                    {{ plan.action_count }}
+                    {% if plan.requires_remux %}
+                    <span class="plan-remux-indicator" title="Requires container remux">*</span>
+                    {% endif %}
+                </dd>
+            </div>
+            {% if plan.job_id %}
+            <div class="plan-detail-dl-row">
+                <dt>Origin Job</dt>
+                <dd><a href="/jobs/{{ plan.job_id }}">{{ plan.job_id[:8] }}</a></dd>
+            </div>
+            {% endif %}
+            <div class="plan-detail-dl-row">
+                <dt>Created</dt>
+                <dd><time data-timestamp="{{ plan.created_at }}" datetime="{{ plan.created_at }}">{{ plan.created_at }}</time></dd>
+            </div>
+            <div class="plan-detail-dl-row">
+                <dt>Updated</dt>
+                <dd><time data-timestamp="{{ plan.updated_at }}" datetime="{{ plan.updated_at }}">{{ plan.updated_at }}</time></dd>
+            </div>
+        </dl>
+    </section>
+
+    <!-- Planned actions section -->
+    {% if plan.actions %}
+    <section class="plan-detail-actions-list">
+        <h2>Planned Actions</h2>
+        <table class="plan-actions-table">
+            <thead>
+                <tr>
+                    <th scope="col">Track</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Action</th>
+                    <th scope="col">Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for action in plan.actions %}
+                <tr>
+                    <td class="action-track">
+                        {% if action.track_index is not none %}
+                        #{{ action.track_index }}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td class="action-track-type">{{ action.track_type or '-' }}</td>
+                    <td class="action-type">{{ action.type }}</td>
+                    <td class="action-details">{{ action.details }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% else %}
+    <section class="plan-detail-actions-list">
+        <h2>Planned Actions</h2>
+        <p class="plan-no-actions">No actions in this plan.</p>
+    </section>
+    {% endif %}
+
+    <!-- Requires remux info -->
+    {% if plan.requires_remux %}
+    <section class="plan-detail-remux-info">
+        <h2>Container Remux Required</h2>
+        <p>This plan requires remuxing the container. The file will be rewritten to apply all changes.</p>
+    </section>
+    {% endif %}
+</div>
+
+<!-- Toast notification -->
+<div id="plan-toast" class="plans-toast" style="display: none;" role="alert" aria-live="polite"></div>
+
+<link rel="stylesheet" href="/static/css/components/confirmation-modal.css">
+<script>window.CSRF_TOKEN = {{ csrf_token | tojson }};</script>
+<script src="/static/js/components/toast-manager.js"></script>
+<script src="/static/js/components/confirmation-modal.js"></script>
+<script src="/static/js/plan_detail.js"></script>
+{% endblock %}

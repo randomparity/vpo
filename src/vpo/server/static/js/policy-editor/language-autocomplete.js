@@ -193,15 +193,20 @@ export function createLanguageAutocomplete(container, options) {
     function selectOption(index) {
         if (index >= 0 && index < suggestions.length) {
             const lang = suggestions[index]
-            input.value = ''
-            closeListbox()
-            hint.textContent = ''
 
+            // Call onSelect first - only clear if it succeeds
+            let success = true
             if (onSelect) {
-                onSelect(lang.code, lang.name)
+                success = onSelect(lang.code, lang.name) !== false
             }
 
-            announce(`${lang.code} selected`)
+            if (success) {
+                input.value = ''
+                closeListbox()
+                hint.textContent = ''
+                clearError()
+                announce(`${lang.code} selected`)
+            }
             input.focus()
         }
     }
@@ -216,6 +221,34 @@ export function createLanguageAutocomplete(container, options) {
         setTimeout(() => {
             liveRegion.textContent = message
         }, 50)
+    }
+
+    /**
+     * Show error state on input
+     * @param {string} message - Error message for hint
+     */
+    function showError(message) {
+        input.classList.add('input-error')
+        hint.textContent = message
+        hint.classList.add('error')
+        announce(message)
+
+        // Clear error state after 2 seconds
+        setTimeout(() => {
+            input.classList.remove('input-error')
+            hint.classList.remove('error')
+            if (hint.textContent === message) {
+                hint.textContent = ''
+            }
+        }, 2000)
+    }
+
+    /**
+     * Clear any error state on input
+     */
+    function clearError() {
+        input.classList.remove('input-error')
+        hint.classList.remove('error')
     }
 
     /**
@@ -249,11 +282,20 @@ export function createLanguageAutocomplete(container, options) {
                 // Allow direct entry if no suggestion selected
                 const code = input.value.trim().toLowerCase()
                 if (/^[a-z]{2,3}$/.test(code)) {
-                    input.value = ''
-                    closeListbox()
+                    // Call onSelect first - only clear if it succeeds
+                    let success = true
                     if (onSelect) {
-                        onSelect(code, null)
+                        success = onSelect(code, null) !== false
                     }
+                    if (success) {
+                        input.value = ''
+                        closeListbox()
+                        hint.textContent = ''
+                        clearError()
+                    }
+                } else {
+                    // Show error for invalid format
+                    showError('Enter 2 or 3 letter code')
                 }
             }
             break

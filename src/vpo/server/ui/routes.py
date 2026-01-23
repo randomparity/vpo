@@ -34,6 +34,8 @@ from vpo.server.ui.models import (
     JobListContext,
     LibraryContext,
     NavigationState,
+    PlanDetailContext,
+    PlanDetailItem,
     PlansContext,
     PoliciesContext,
     TemplateContext,
@@ -276,10 +278,9 @@ async def job_detail_handler(request: web.Request) -> dict:
         HTTPBadRequest: If job ID format is invalid.
 
     Note:
-        TODO: Add authentication when auth system is implemented.
-        This endpoint currently exposes job details without access control.
-        VPO is designed as a local tool, but authentication should be
-        added before exposing the web UI to untrusted networks.
+        Authentication is applied globally via auth middleware when
+        `auth_token` is configured in settings. VPO is designed as a
+        local tool but can be secured for network exposure.
     """
     from vpo.jobs.logs import log_file_exists
 
@@ -773,13 +774,77 @@ async def plans_handler(request: web.Request) -> dict:
     return context
 
 
+async def plan_detail_handler(request: web.Request) -> dict:
+    """Handle GET /plans/{plan_id} - Plan detail HTML page.
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        Template context dict for rendering.
+
+    Raises:
+        HTTPNotFound: If plan not found.
+        HTTPBadRequest: If plan ID format is invalid.
+        HTTPServiceUnavailable: If database not available.
+    """
+    from vpo.core.validation import is_valid_uuid
+    from vpo.db.operations import get_plan_by_id
+
+    plan_id = request.match_info["plan_id"]
+
+    # Validate UUID format
+    if not is_valid_uuid(plan_id):
+        raise web.HTTPBadRequest(reason="Invalid plan ID format")
+
+    # Get connection pool
+    connection_pool: DaemonConnectionPool | None = request.app.get("connection_pool")
+    if connection_pool is None:
+        raise web.HTTPServiceUnavailable(reason="Database not available")
+
+    # Query plan from database
+    def _query_plan():
+        with connection_pool.transaction() as conn:
+            return get_plan_by_id(conn, plan_id)
+
+    plan = await asyncio.to_thread(_query_plan)
+
+    if plan is None:
+        raise web.HTTPNotFound(reason="Plan not found")
+
+    # Convert to detail item with deserialized actions
+    detail_item = PlanDetailItem.from_plan_record(plan)
+
+    # Get referer for back navigation
+    referer = request.headers.get("Referer")
+
+    # Create context
+    detail_context = PlanDetailContext.from_plan_and_request(detail_item, referer)
+
+    context = _create_template_context(
+        active_id="plans",
+        section_title=f"Plan {detail_item.id_short}",
+    )
+    context["plan"] = detail_item
+    context["back_url"] = detail_context.back_url
+    # CSRF token is injected by csrf_middleware into request context
+    context["csrf_token"] = request.get("csrf_token", "")
+
+    return context
+
+
 async def approvals_handler(request: web.Request) -> dict:
-    """Handle GET /approvals - Approvals section page."""
-    return _create_template_context(
+    """Handle GET /approvals - Approvals section page.
+
+    Shows only pending plans with bulk approve/reject functionality.
+    """
+    context = _create_template_context(
         active_id="approvals",
         section_title="Approvals",
-        section_content="<p>Approvals section - coming soon</p>",
     )
+    # CSRF token is injected by csrf_middleware into request context
+    context["csrf_token"] = request.get("csrf_token", "")
+    return context
 
 
 # ==========================================================================
@@ -1076,6 +1141,11 @@ def setup_ui_routes(app: web.Application) -> None:
     app.router.add_get(
         "/plans",
         aiohttp_jinja2.template("sections/plans.html")(plans_handler),
+    )
+    # Plan detail route
+    app.router.add_get(
+        "/plans/{plan_id}",
+        aiohttp_jinja2.template("sections/plan_detail.html")(plan_detail_handler),
     )
     app.router.add_get(
         "/approvals",

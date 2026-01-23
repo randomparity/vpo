@@ -261,9 +261,9 @@ async def api_job_logs_handler(request: web.Request) -> web.Response:
         JSON response with JobLogsResponse payload.
 
     Note:
-        TODO: Add authentication when auth system is implemented.
-        TODO: Add CSRF protection if state-changing operations (cancel/retry)
-        are added to this endpoint in the future.
+        Authentication is applied globally via auth middleware when
+        `auth_token` is configured. CSRF protection would be needed if
+        state-changing operations (cancel/retry) are added.
     """
     from vpo.jobs.logs import DEFAULT_LOG_LINES, read_log_tail
 
