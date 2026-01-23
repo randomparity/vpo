@@ -428,13 +428,16 @@ function announceToScreenReader(message) {
 
     /**
      * Add language
+     * @param {string} listType - 'audio' or 'subtitle'
+     * @param {string} code - Language code to add
+     * @returns {boolean} - true if added successfully, false if validation failed
      */
     function addLanguage(listType, code) {
         // Validate ISO 639-2 code (2-3 lowercase letters)
         const trimmed = code.trim().toLowerCase()
         if (!/^[a-z]{2,3}$/.test(trimmed)) {
             showError(`Invalid language code: "${code}". Use 2-3 letter codes (e.g., eng, jpn, fra).`)
-            return
+            return false
         }
 
         const list = listType === 'audio' ? formState.audio_language_preference : formState.subtitle_language_preference
@@ -442,14 +445,14 @@ function announceToScreenReader(message) {
         // Check for duplicates
         if (list.includes(trimmed)) {
             showError(`Language "${trimmed}" is already in the list.`)
-            return
+            return false
         }
 
         list.push(trimmed)
         renderLanguageLists()
         markDirty()
 
-        // Clear input
+        // Clear input (for the original input fields, not autocomplete)
         if (listType === 'audio') {
             audioLangInput.value = ''
             audioLangInput.focus()
@@ -457,6 +460,8 @@ function announceToScreenReader(message) {
             subtitleLangInput.value = ''
             subtitleLangInput.focus()
         }
+
+        return true
     }
 
     /**

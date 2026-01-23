@@ -6389,6 +6389,15 @@ input.valid:focus {
     display: none;
 }
 
+.language-autocomplete-input.input-error {
+    border-color: var(--color-error);
+    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25);
+}
+
+.language-autocomplete-hint.error {
+    color: var(--color-error);
+}
+
 /* =============================================================================
    YAML Syntax Highlighting (256-policy-editor-enhancements T051)
    Styles for Highlight.js integration in policy editor
