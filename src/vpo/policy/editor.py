@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 # V9: workflow
 # V10: music/sfx/non_speech track types (in transcription)
 # Phased policy: phases, config (user-defined phases)
+# Metadata: description, category (for documentation and filtering)
 KNOWN_POLICY_FIELDS = {
     # V1-V2 base fields
     "schema_version",
@@ -55,6 +56,9 @@ KNOWN_POLICY_FIELDS = {
     # Phased policy fields (user-defined phases)
     "phases",
     "config",
+    # Policy metadata fields
+    "description",
+    "category",
 }
 
 

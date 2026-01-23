@@ -44,6 +44,8 @@ class PolicySummary:
         file_path: Absolute path to the policy file.
         last_modified: File modification time (UTC ISO-8601).
         schema_version: Policy schema version if parseable.
+        description: Optional policy description.
+        category: Optional category for filtering/grouping.
         audio_languages: Audio language preferences list.
         subtitle_languages: Subtitle language preferences list.
         has_transcode: True if policy includes transcode settings.
@@ -57,6 +59,8 @@ class PolicySummary:
     file_path: str = ""
     last_modified: str = ""  # ISO-8601 UTC
     schema_version: int | None = None
+    description: str | None = None
+    category: str | None = None
     audio_languages: list[str] = field(default_factory=list)
     subtitle_languages: list[str] = field(default_factory=list)
     has_transcode: bool = False
@@ -72,6 +76,8 @@ class PolicySummary:
             "file_path": self.file_path,
             "last_modified": self.last_modified,
             "schema_version": self.schema_version,
+            "description": self.description,
+            "category": self.category,
             "audio_languages": self.audio_languages,
             "subtitle_languages": self.subtitle_languages,
             "has_transcode": self.has_transcode,
@@ -183,12 +189,22 @@ def _parse_policy_file(path: Path) -> PolicySummary:
                     has_transcode = True
                     break
 
+        # Extract description and category metadata
+        description = data.get("description")
+        if description is not None and not isinstance(description, str):
+            description = None  # Invalid type, ignore
+        category = data.get("category")
+        if category is not None and not isinstance(category, str):
+            category = None  # Invalid type, ignore
+
         summary = PolicySummary(
             name=path.stem,
             filename=path.name,
             file_path=cache_key,
             last_modified=last_modified,
             schema_version=data.get("schema_version"),
+            description=description,
+            category=category,
             audio_languages=list(audio_languages),
             subtitle_languages=list(subtitle_languages),
             has_transcode=has_transcode,

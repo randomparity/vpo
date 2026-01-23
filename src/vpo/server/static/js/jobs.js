@@ -364,8 +364,11 @@
     }
 
     // ==========================================================================
-    // Polling Support (017-live-job-polling)
+    // Real-Time Updates Support (SSE with polling fallback)
     // ==========================================================================
+
+    // SSE client instance
+    var sseClient = null
 
     /**
      * Update the jobs cache with new data (T013).
@@ -433,6 +436,12 @@
             durationCell.textContent = formatDuration(duration)
         }
 
+        // Add visual feedback animation for the update
+        row.classList.remove('job-row-updated')
+        // Force reflow to restart animation
+        void row.offsetWidth
+        row.classList.add('job-row-updated')
+
         return true
     }
 
@@ -455,7 +464,6 @@
                 totalJobs = data.total
 
                 // Check for changes and update (T012)
-                var _hasChanges = false
                 var newJobIds = {}
 
                 for (var i = 0; i < data.jobs.length; i++) {
@@ -463,7 +471,6 @@
                     newJobIds[job.id] = true
 
                     if (hasJobChanged(job)) {
-                        _hasChanges = true
                         // Try to update existing row
                         if (!updateJobRow(job.id, job)) {
                             // Job not in current view - could be new
@@ -480,7 +487,6 @@
                 for (var cachedId in cachedJobs) {
                     if (!newJobIds[cachedId]) {
                         // Job was removed - do full re-render
-                        _hasChanges = true
                         renderJobsTable(data.jobs, data.has_filters)
                         updateJobsCache(data.jobs)
                         updatePagination()
@@ -499,12 +505,106 @@
     }
 
     /**
-     * Initialize polling for jobs dashboard (T014, T017).
+     * Handle SSE/polling update data.
+     * @param {Object} data - Update data with jobs array
+     */
+    function handleRealtimeUpdate(data) {
+        if (!data || !data.jobs) {
+            return
+        }
+
+        // Update total and pagination
+        var totalChanged = totalJobs !== data.total
+        totalJobs = data.total || 0
+
+        // Check for changes and update
+        var newJobIds = {}
+
+        for (var i = 0; i < data.jobs.length; i++) {
+            var job = data.jobs[i]
+            newJobIds[job.id] = true
+
+            if (hasJobChanged(job)) {
+                // Try to update existing row
+                if (!updateJobRow(job.id, job)) {
+                    // Job not in current view - do full re-render
+                    renderJobsTable(data.jobs, data.has_filters || false)
+                    updateJobsCache(data.jobs)
+                    updatePagination()
+                    return
+                }
+            }
+        }
+
+        // Check for removed jobs
+        for (var cachedId in cachedJobs) {
+            if (!newJobIds[cachedId]) {
+                renderJobsTable(data.jobs, data.has_filters || false)
+                updateJobsCache(data.jobs)
+                updatePagination()
+                return
+            }
+        }
+
+        // Update cache
+        updateJobsCache(data.jobs)
+
+        // Update pagination if total changed
+        if (totalChanged) {
+            updatePagination()
+        }
+    }
+
+    /**
+     * Initialize real-time updates (SSE with polling fallback).
      */
     function initPolling() {
-        // Check if VPOPolling is available
+        // Try SSE first if available
+        if (typeof window.VPOSSE !== 'undefined') {
+            // eslint-disable-next-line no-console
+            console.log('[Jobs] Using SSE for real-time updates')
+
+            sseClient = window.VPOSSE.createJobsSSE({
+                onUpdate: function (data) {
+                    handleRealtimeUpdate(data)
+                },
+                onStatusChange: function (status) {
+                    if (typeof window.VPOPolling !== 'undefined') {
+                        window.VPOPolling.setConnectionStatus(status)
+                    }
+                },
+                fallbackFetchFn: function () {
+                    return fetch('/api/jobs' + buildQueryString())
+                        .then(function (response) {
+                            if (!response.ok) {
+                                throw new Error('Failed to fetch jobs: ' + response.status)
+                            }
+                            return response.json()
+                        })
+                }
+            })
+
+            sseClient.start()
+
+            // Register cleanup
+            if (typeof window.VPOPolling !== 'undefined') {
+                window.VPOPolling.onCleanup(function () {
+                    if (sseClient) {
+                        sseClient.cleanup()
+                        sseClient = null
+                    }
+                })
+            }
+
+            return
+        }
+
+        // Fall back to polling if SSE not available
+        // eslint-disable-next-line no-console
+        console.log('[Jobs] SSE not available, using polling')
+
         if (typeof window.VPOPolling === 'undefined') {
-            console.warn('[Jobs] VPOPolling not available, polling disabled')
+            console.warn('[Jobs] VPOPolling not available, live updates disabled')
             return
         }
 

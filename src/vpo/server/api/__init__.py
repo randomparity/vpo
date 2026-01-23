@@ -9,10 +9,12 @@ for better organization. Each module handles a specific domain:
 - plans.py: Plan listing, approval, and rejection endpoints
 - stats.py: Processing statistics endpoints
 - plugins.py: Plugin data browser endpoints
+- events.py: Server-Sent Events (SSE) for real-time updates
 """
 
 from aiohttp import web
 
+from vpo.server.api.events import setup_events_routes
 from vpo.server.api.files import setup_file_routes
 from vpo.server.api.jobs import setup_job_routes
 from vpo.server.api.plans import setup_plan_routes
@@ -37,3 +39,4 @@ def setup_api_routes(app: web.Application) -> None:
     setup_plan_routes(app)
     setup_stats_routes(app)
     setup_plugin_routes(app)
+    setup_events_routes(app)

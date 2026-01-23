@@ -147,6 +147,9 @@ async def api_policy_detail_handler(request: web.Request) -> web.Response:
         default_flags=policy_data.get("default_flags", {}),
         transcode=policy_data.get("transcode"),
         transcription=policy_data.get("transcription"),
+        # Policy metadata fields
+        description=policy_data.get("description"),
+        category=policy_data.get("category"),
         # V3+ fields (036-v9-policy-editor)
         audio_filter=policy_data.get("audio_filter"),
         subtitle_filter=policy_data.get("subtitle_filter"),
@@ -354,6 +357,9 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
         default_flags=policy_data.get("default_flags", {}),
         transcode=policy_data.get("transcode"),
         transcription=policy_data.get("transcription"),
+        # Policy metadata fields
+        description=policy_data.get("description"),
+        category=policy_data.get("category"),
         # V3+ fields (036-v9-policy-editor)
         audio_filter=policy_data.get("audio_filter"),
         subtitle_filter=policy_data.get("subtitle_filter"),
@@ -541,10 +547,14 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
         "subtitle_language_preference": ["eng"],
     }
 
-    # Add optional description if provided
+    # Add optional description and category if provided
     description = request_data.get("description", "").strip()
     if description:
         policy_data["description"] = description
+
+    category = request_data.get("category", "").strip()
+    if category:
+        policy_data["category"] = category
 
     # Write new policy file
     def _create_policy():
@@ -594,6 +604,9 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
         default_flags=created_data.get("default_flags", {}),
         transcode=created_data.get("transcode"),
         transcription=created_data.get("transcription"),
+        # Policy metadata fields
+        description=created_data.get("description"),
+        category=created_data.get("category"),
         audio_filter=created_data.get("audio_filter"),
         subtitle_filter=created_data.get("subtitle_filter"),
         attachment_filter=created_data.get("attachment_filter"),

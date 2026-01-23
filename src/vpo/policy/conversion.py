@@ -911,4 +911,6 @@ def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
         schema_version=12,
         config=global_config,
         phases=phases,
+        description=model.description,
+        category=model.category,
     )
