@@ -392,6 +392,18 @@ class TestFormatSizeChange:
         assert "KB" in result
         assert "50%" in result
 
+    def test_negative_size_before(self):
+        """Return N/A for negative size_before."""
+        assert format_size_change(-100, 200) == "N/A"
+
+    def test_negative_size_after(self):
+        """Return N/A for negative size_after."""
+        assert format_size_change(100, -200) == "N/A"
+
+    def test_both_negative(self):
+        """Return N/A when both sizes are negative."""
+        assert format_size_change(-100, -200) == "N/A"
+
 
 class TestAtomicWrite:
     """Tests for atomic write functionality."""
@@ -466,3 +478,68 @@ class TestAtomicWrite:
             # Verify no temp files left behind
             files = list(Path(tmpdir).iterdir())
             assert len(files) == 1
+
+    def test_atomic_write_cleanup_on_write_failure(self, monkeypatch):
+        """Temp file cleaned up when write raises."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "test.txt"
+            path.write_text("original content")
+
+            # Track temp file paths created
+            created_temps = []
+
+            class FailingFile:
+                """Mock file that fails on write."""
+
+                def __init__(self, real_file):
+                    self._real_file = real_file
+                    self.name = real_file.name
+                    created_temps.append(Path(real_file.name))
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *args):
+                    self._real_file.close()
+
+                def write(self, content):
+                    raise OSError("Simulated write failure")
+
+            original_ntf = tempfile.NamedTemporaryFile
+
+            def tracking_ntf(*args, **kwargs):
+                real_file = original_ntf(*args, **kwargs)
+                return FailingFile(real_file)
+
+            monkeypatch.setattr(tempfile, "NamedTemporaryFile", tracking_ntf)
+
+            with pytest.raises(OSError, match="Simulated write failure"):
+                _atomic_write_text(path, "new content")
+
+            # Original file should be preserved
+            assert path.read_text() == "original content"
+
+            # Temp files should be cleaned up
+            for temp_path in created_temps:
+                assert not temp_path.exists()
+
+    def test_atomic_write_cleanup_on_rename_failure(self, monkeypatch):
+        """Temp file cleaned up when rename raises."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "test.txt"
+
+            # Track if temp file was cleaned
+            temp_path_ref = []
+
+            def failing_replace(self, target):
+                temp_path_ref.append(self)
+                raise OSError("Simulated rename failure")
+
+            monkeypatch.setattr(Path, "replace", failing_replace)
+
+            with pytest.raises(OSError, match="Simulated rename failure"):
+                _atomic_write_text(path, "new content")
+
+            # Temp file should be cleaned up
+            if temp_path_ref:
+                assert not temp_path_ref[0].exists()

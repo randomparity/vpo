@@ -495,6 +495,12 @@ def get_transcodes_report(
 ) -> list[dict[str, Any]]:
     """Query transcode jobs with codec filtering.
 
+    Joins with processing_stats to get actual size change data. The join uses
+    a correlated subquery to select the most recent stats record within the
+    job's execution window (stats processed_at falls between job started_at
+    and completed_at). Returns "N/A" for size_change if no matching stats
+    record exists.
+
     Args:
         conn: Database connection.
         codec: Filter by target codec (case-insensitive).
@@ -509,8 +515,9 @@ def get_transcodes_report(
     """
     _validate_limit(limit)
     # Join with processing_stats to get actual size change data.
-    # The join correlates stats to jobs via file_id and timestamp range
-    # (stats processed_at must fall within job execution window).
+    # Use a correlated subquery to pick the most recent stats record
+    # within the job's execution window, avoiding duplicate rows when
+    # multiple stats records match.
     query = """
         SELECT
             j.id,
@@ -524,10 +531,14 @@ def get_transcodes_report(
             ps.size_after
         FROM jobs j
         LEFT JOIN files f ON j.file_id = f.id
-        LEFT JOIN processing_stats ps ON (
-            ps.file_id = j.file_id
-            AND ps.processed_at >= j.started_at
-            AND ps.processed_at <= COALESCE(j.completed_at, datetime('now'))
+        LEFT JOIN processing_stats ps ON ps.id = (
+            SELECT ps2.id
+            FROM processing_stats ps2
+            WHERE ps2.file_id = j.file_id
+              AND ps2.processed_at >= j.started_at
+              AND ps2.processed_at <= COALESCE(j.completed_at, datetime('now', 'utc'))
+            ORDER BY ps2.processed_at DESC
+            LIMIT 1
         )
         WHERE j.job_type = 'transcode'
     """

@@ -89,9 +89,12 @@ def format_size_change(size_before: int | None, size_after: int | None) -> str:
     Returns:
         Formatted string like "-1.2 GB (48%)" for reduction,
         "+500 MB (12%)" for increase, "0 B (0%)" for no change,
-        or "N/A" if either value is None.
+        or "N/A" if either value is None or negative.
     """
     if size_before is None or size_after is None:
+        return "N/A"
+
+    if size_before < 0 or size_after < 0:
         return "N/A"
 
     if size_before == 0:
@@ -258,19 +261,26 @@ def _atomic_write_text(path: Path, content: str) -> None:
         OSError: If write or rename fails.
         PermissionError: If permission denied.
     """
-    # Create temp file in same directory (ensures same filesystem for atomic rename)
-    fd, temp_path_str = tempfile.mkstemp(
-        suffix=path.suffix,
-        dir=path.parent,
-        text=True,
-    )
-    temp_path = Path(temp_path_str)
+    temp_path: Path | None = None
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
+        # Use NamedTemporaryFile to handle fd lifecycle automatically
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            suffix=path.suffix,
+            dir=path.parent,
+            delete=False,
+        ) as f:
+            temp_path = Path(f.name)
             f.write(content)
+        # File closed by context manager, now safe to rename
         temp_path.replace(path)  # Atomic on POSIX
     except Exception:
-        temp_path.unlink(missing_ok=True)
+        if temp_path is not None:
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError:
+                pass  # Don't mask original exception
         raise
 
 

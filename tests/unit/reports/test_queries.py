@@ -573,6 +573,74 @@ class TestGetTranscodesReport:
         assert len(result) == 1
         assert result[0]["size_change"] == "N/A"
 
+    def test_multiple_stats_records_returns_single_row(self, test_db):
+        """When multiple stats records match a job, return one row with most recent."""
+        # Create file
+        test_db.execute("""
+            INSERT INTO files (id, path, filename, size_bytes)
+            VALUES (3, '/path/file3.mkv', 'file3.mkv', 2147483648)
+        """)
+        # Create transcode job
+        test_db.execute("""
+            INSERT INTO jobs (id, file_id, job_type, status, file_path, created_at,
+                            started_at, completed_at, policy_json)
+            VALUES ('tc-multi', 3, 'transcode', 'completed', '/path/file3.mkv',
+                    '2025-01-15T12:00:00Z', '2025-01-15T12:00:00Z',
+                    '2025-01-15T12:30:00Z', '{"target_codec": "hevc"}')
+        """)
+        # Create TWO processing_stats records within job window
+        # First stats record (earlier, should NOT be used)
+        test_db.execute("""
+            INSERT INTO processing_stats (id, file_id, processed_at, policy_name,
+                            size_before, size_after, size_change)
+            VALUES ('stats-early', 3, '2025-01-15T12:10:00Z', 'test.yaml',
+                    2147483648, 1610612736, -536870912)
+        """)
+        # Second stats record (later, should be used - 50% reduction)
+        test_db.execute("""
+            INSERT INTO processing_stats (id, file_id, processed_at, policy_name,
+                            size_before, size_after, size_change)
+            VALUES ('stats-late', 3, '2025-01-15T12:20:00Z', 'test.yaml',
+                    2147483648, 1073741824, -1073741824)
+        """)
+
+        result = get_transcodes_report(test_db)
+        # Should return exactly 1 row (not duplicates)
+        assert len(result) == 1
+        # Should use the most recent stats (50% reduction = 1GB change)
+        assert "-" in result[0]["size_change"]
+        assert "GB" in result[0]["size_change"]
+        assert "50%" in result[0]["size_change"]
+
+    def test_in_progress_job_matches_stats(self, test_db):
+        """In-progress jobs (completed_at=NULL) can match stats."""
+        # Create file
+        test_db.execute("""
+            INSERT INTO files (id, path, filename, size_bytes)
+            VALUES (4, '/path/file4.mkv', 'file4.mkv', 1073741824)
+        """)
+        # Create in-progress transcode job (no completed_at)
+        test_db.execute("""
+            INSERT INTO jobs (id, file_id, job_type, status, file_path, created_at,
+                            started_at, completed_at, policy_json)
+            VALUES ('tc-running', 4, 'transcode', 'running', '/path/file4.mkv',
+                    '2025-01-15T12:00:00Z', '2025-01-15T12:00:00Z',
+                    NULL, '{"target_codec": "hevc"}')
+        """)
+        # Create processing_stats within job window (after started_at, before now)
+        test_db.execute("""
+            INSERT INTO processing_stats (id, file_id, processed_at, policy_name,
+                            size_before, size_after, size_change)
+            VALUES ('stats-running', 4, '2025-01-15T12:15:00Z', 'test.yaml',
+                    1073741824, 536870912, -536870912)
+        """)
+
+        result = get_transcodes_report(test_db)
+        assert len(result) == 1
+        # Should still match stats even with NULL completed_at
+        assert "-" in result[0]["size_change"]
+        assert "50%" in result[0]["size_change"]
+
 
 class TestGetPolicyApplyReport:
     """Tests for get_policy_apply_report function."""
