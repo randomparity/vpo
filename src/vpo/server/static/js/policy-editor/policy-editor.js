@@ -13,6 +13,8 @@ import { initSynthesisSection } from './section-synthesis.js'
 import { initContainerSection } from './section-container.js'
 import { initWorkflowSection } from './section-workflow.js'
 import { initPhasesSection } from './section-phases.js'
+import { validatePolicyData } from './validator.js'
+import { createLanguageAutocomplete } from './language-autocomplete.js'
 
 // ======================================
 // Toast Module (H3: Undo toast for destructive actions)
@@ -652,14 +654,24 @@ function announceToScreenReader(message) {
     }
 
     /**
-     * Update YAML preview with debouncing
+     * Update YAML preview with debouncing and syntax highlighting (T051)
      */
     function updateYAMLPreview() {
         if (!yamlPreview) return
 
         clearTimeout(yamlPreviewTimeout)
         yamlPreviewTimeout = setTimeout(() => {
-            yamlPreview.value = generateYAML()
+            const yaml = generateYAML()
+            yamlPreview.textContent = yaml
+
+            // Apply syntax highlighting if highlight.js is available
+            if (typeof hljs !== 'undefined') {
+                // Remove previous highlighting classes
+                yamlPreview.classList.remove('hljs')
+                yamlPreview.removeAttribute('data-highlighted')
+                // Apply fresh highlighting
+                hljs.highlightElement(yamlPreview)
+            }
         }, 300) // 300ms debounce as per spec
     }
 
@@ -1039,7 +1051,7 @@ function announceToScreenReader(message) {
 
     /**
      * Test policy without saving (T032)
-     * Calls POST /api/policies/{name}/validate
+     * Uses client-side JSON Schema validation first (T033), then server validation
      */
     async function testPolicy() {
         // Don't test during save operation
@@ -1084,6 +1096,31 @@ function announceToScreenReader(message) {
             last_modified_timestamp: formState.last_modified
         }
 
+        // Build policy data for schema validation (includes schema_version)
+        const policyForValidation = {
+            schema_version: window.POLICY_DATA.schema_version,
+            ...requestData,
+        }
+        // Remove editor-specific fields not in schema
+        delete policyForValidation.last_modified_timestamp
+
+        // Client-side JSON Schema validation (T033)
+        try {
+            const clientResult = await validatePolicyData(policyForValidation)
+            if (!clientResult.valid && clientResult.errors.length > 0) {
+                // Show client-side validation errors immediately
+                showErrors(clientResult.errors)
+                testBtn.innerHTML = originalText
+                testBtn.setAttribute('aria-busy', 'false')
+                testBtn.disabled = false
+                return
+            }
+        } catch (clientError) {
+            // Client validation failed, fall through to server validation
+            console.warn('Client-side validation unavailable:', clientError)
+        }
+
+        // Server-side validation (fallback and authoritative check)
         try {
             const response = await fetch(`/api/policies/${formState.name}/validate`, {
                 method: 'POST',
@@ -1422,6 +1459,77 @@ function announceToScreenReader(message) {
     }
 
     /**
+     * Initialize accessible language autocomplete components (T023)
+     */
+    function initLanguageAutocomplete() {
+        // Audio language autocomplete
+        const audioInputGroup = document.querySelector('#audio-lang-input')?.parentElement
+        if (audioInputGroup) {
+            const existingInput = document.getElementById('audio-lang-input')
+            const existingBtn = document.getElementById('audio-lang-add-btn')
+
+            // Create wrapper for autocomplete
+            const wrapper = document.createElement('div')
+            wrapper.style.flex = '1'
+
+            // Insert wrapper before button
+            audioInputGroup.insertBefore(wrapper, existingBtn)
+
+            // Create autocomplete
+            const _audioAutocomplete = createLanguageAutocomplete(wrapper, {
+                inputId: 'audio-lang-autocomplete',
+                listboxId: 'audio-lang-listbox',
+                label: 'Add audio language',
+                placeholder: 'Type language code or name...',
+                onSelect: (code) => {
+                    addLanguage('audio', code)
+                },
+            })
+
+            // Remove original input (keep label)
+            if (existingInput) {
+                existingInput.style.display = 'none'
+            }
+            if (existingBtn) {
+                existingBtn.style.display = 'none'
+            }
+        }
+
+        // Subtitle language autocomplete
+        const subtitleInputGroup = document.querySelector('#subtitle-lang-input')?.parentElement
+        if (subtitleInputGroup) {
+            const existingInput = document.getElementById('subtitle-lang-input')
+            const existingBtn = document.getElementById('subtitle-lang-add-btn')
+
+            // Create wrapper for autocomplete
+            const wrapper = document.createElement('div')
+            wrapper.style.flex = '1'
+
+            // Insert wrapper before button
+            subtitleInputGroup.insertBefore(wrapper, existingBtn)
+
+            // Create autocomplete
+            const _subtitleAutocomplete = createLanguageAutocomplete(wrapper, {
+                inputId: 'subtitle-lang-autocomplete',
+                listboxId: 'subtitle-lang-listbox',
+                label: 'Add subtitle language',
+                placeholder: 'Type language code or name...',
+                onSelect: (code) => {
+                    addLanguage('subtitle', code)
+                },
+            })
+
+            // Remove original input
+            if (existingInput) {
+                existingInput.style.display = 'none'
+            }
+            if (existingBtn) {
+                existingBtn.style.display = 'none'
+            }
+        }
+    }
+
+    /**
      * Initialize editor
      */
     function init() {
@@ -1435,6 +1543,9 @@ function announceToScreenReader(message) {
 
         // Initialize V3-V10 section controllers
         initSectionControllers()
+
+        // Initialize accessible language autocomplete (T023)
+        initLanguageAutocomplete()
     }
 
     // Start the editor

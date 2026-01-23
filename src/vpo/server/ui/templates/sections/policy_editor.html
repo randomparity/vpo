@@ -394,18 +394,13 @@
         </div>
     </form>
 
-    <!-- YAML Preview Panel (US5) -->
+    <!-- YAML Preview Panel (US5) with syntax highlighting (T051) -->
     <aside class="yaml-preview-panel">
         <h2>YAML Preview</h2>
         <p class="section-description">Real-time preview of the policy file</p>
-        <textarea
-            id="yaml-preview"
-            class="yaml-preview-textarea"
-            aria-readonly="true"
-            aria-label="YAML policy preview"
-            spellcheck="false"
-            tabindex="0"
-        ></textarea>
+        <pre class="yaml-preview-container" tabindex="0" aria-label="YAML policy preview">
+            <code id="yaml-preview" class="language-yaml"></code>
+        </pre>
     </aside>
 
     </div><!-- End policy-editor-container -->
