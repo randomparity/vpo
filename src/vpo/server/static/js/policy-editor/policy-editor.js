@@ -87,7 +87,7 @@ export function hideToast() {
  * @param {string} message - Message to announce
  */
 function announceToScreenReader(message) {
-    const statusRegion = document.getElementById('save-status')
+    const statusRegion = document.getElementById('sr-save-status')
     if (statusRegion) {
         statusRegion.textContent = message
     }

@@ -35,6 +35,7 @@ export function createLanguageAutocomplete(container, options) {
     let isOpen = false
     let activeIndex = -1
     let suggestions = []
+    let debounceTimer = null
 
     // Create DOM structure
     const wrapper = document.createElement('div')
@@ -90,7 +91,7 @@ export function createLanguageAutocomplete(container, options) {
 
         if (suggestions.length === 0) {
             closeListbox()
-            hint.textContent = query.length > 0 ? 'No matching languages found' : ''
+            hint.textContent = query.length > 0 ? 'No matches. Press Enter to add custom code.' : ''
             return
         }
 
@@ -272,7 +273,11 @@ export function createLanguageAutocomplete(container, options) {
 
     // Event listeners
     input.addEventListener('input', () => {
-        updateSuggestions()
+        // Debounce input to avoid excessive filtering on every keystroke
+        clearTimeout(debounceTimer)
+        debounceTimer = setTimeout(() => {
+            updateSuggestions()
+        }, 150)
     })
 
     input.addEventListener('keydown', handleKeydown)
@@ -284,20 +289,21 @@ export function createLanguageAutocomplete(container, options) {
     })
 
     input.addEventListener('blur', () => {
-        // Delay close to allow click on option
+        // Delay close to allow click on option (200ms for touch device support)
         setTimeout(() => {
             if (!wrapper.contains(document.activeElement)) {
                 closeListbox()
             }
-        }, 150)
+        }, 200)
     })
 
-    // Close on outside click
-    document.addEventListener('click', (e) => {
+    // Close on outside click (named function for cleanup)
+    function handleDocumentClick(e) {
         if (!wrapper.contains(e.target)) {
             closeListbox()
         }
-    })
+    }
+    document.addEventListener('click', handleDocumentClick)
 
     // Return controller
     return {
@@ -314,6 +320,8 @@ export function createLanguageAutocomplete(container, options) {
             hint.textContent = ''
         },
         destroy: () => {
+            clearTimeout(debounceTimer)
+            document.removeEventListener('click', handleDocumentClick)
             wrapper.remove()
         },
     }
