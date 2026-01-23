@@ -187,7 +187,7 @@
 
                 // Success - redirect to edit the new policy
                 if (data.policy && data.policy.name) {
-                    window.location.href = `/policies/${data.policy.name}/edit`
+                    window.location.href = '/policies/' + encodeURIComponent(data.policy.name) + '/edit'
                 } else {
                     // Fallback: just reload the page
                     window.location.reload()
@@ -240,6 +240,18 @@
                 categories.add(category)
             }
         })
+
+        // Handle empty categories case
+        if (categories.size === 0) {
+            filterSelect.disabled = true
+            filterSelect.setAttribute('title', 'No policies have categories assigned')
+            // Add visually hidden hint for screen readers
+            const hint = document.createElement('span')
+            hint.className = 'visually-hidden'
+            hint.textContent = 'No categories available'
+            filterSelect.parentNode.appendChild(hint)
+            return
+        }
 
         // Populate filter dropdown with sorted categories
         const sortedCategories = Array.from(categories).sort()

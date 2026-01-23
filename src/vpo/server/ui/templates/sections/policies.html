@@ -63,7 +63,7 @@
             </thead>
             <tbody>
                 {% for policy in policies_response.policies %}
-                <tr class="{% if policy.parse_error %}policy-error{% endif %}" data-category="{{ policy.category or '' }}">
+                <tr class="{% if policy.parse_error %}policy-error{% endif %}" data-category="{{ (policy.category or '')|e }}">
                     <td class="policy-name">
                         {{ policy.name }}
                         {% if policy.is_default %}
@@ -73,7 +73,7 @@
                         <span class="badge badge-error" title="{{ policy.parse_error }}" aria-label="Parse error">Error</span>
                         {% endif %}
                     </td>
-                    <td class="policy-description" title="{{ policy.description or '' }}">
+                    <td class="policy-description" title="{{ (policy.description or '')|e }}">
                         {% if policy.description %}
                         {{ policy.description[:50] }}{% if policy.description|length > 50 %}...{% endif %}
                         {% else %}

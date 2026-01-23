@@ -436,6 +436,12 @@
             durationCell.textContent = formatDuration(duration)
         }
 
+        // Add visual feedback animation for the update
+        row.classList.remove('job-row-updated')
+        // Force reflow to restart animation
+        void row.offsetWidth
+        row.classList.add('job-row-updated')
+
         return true
     }
 
@@ -458,7 +464,6 @@
                 totalJobs = data.total
 
                 // Check for changes and update (T012)
-                var _hasChanges = false
                 var newJobIds = {}
 
                 for (var i = 0; i < data.jobs.length; i++) {
@@ -466,7 +471,6 @@
                     newJobIds[job.id] = true
 
                     if (hasJobChanged(job)) {
-                        _hasChanges = true
                         // Try to update existing row
                         if (!updateJobRow(job.id, job)) {
                             // Job not in current view - could be new
@@ -483,7 +487,6 @@
                 for (var cachedId in cachedJobs) {
                     if (!newJobIds[cachedId]) {
                         // Job was removed - do full re-render
-                        _hasChanges = true
                         renderJobsTable(data.jobs, data.has_filters)
                         updateJobsCache(data.jobs)
                         updatePagination()
@@ -515,7 +518,6 @@
         totalJobs = data.total || 0
 
         // Check for changes and update
-        var _hasChanges = false
         var newJobIds = {}
 
         for (var i = 0; i < data.jobs.length; i++) {
@@ -523,7 +525,6 @@
             newJobIds[job.id] = true
 
             if (hasJobChanged(job)) {
-                _hasChanges = true
                 // Try to update existing row
                 if (!updateJobRow(job.id, job)) {
                     // Job not in current view - do full re-render
@@ -538,7 +539,6 @@
         // Check for removed jobs
         for (var cachedId in cachedJobs) {
             if (!newJobIds[cachedId]) {
-                _hasChanges = true
                 renderJobsTable(data.jobs, data.has_filters || false)
                 updateJobsCache(data.jobs)
                 updatePagination()

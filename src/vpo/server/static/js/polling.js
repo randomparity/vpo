@@ -381,8 +381,11 @@
     /**
      * Update the connection status indicator in the UI.
      * @param {string} status - One of CONNECTION_STATUS values
+     * @param {Object} [metadata] - Optional metadata about the status change
+     * @param {number} [metadata.attempt] - Current reconnect attempt number
+     * @param {number} [metadata.maxAttempts] - Maximum reconnect attempts
      */
-    function setConnectionStatus(status) {
+    function setConnectionStatus(status, metadata) {
         var indicator = document.getElementById('connection-status')
         if (!indicator) {
             return
@@ -391,18 +394,36 @@
         // Update class
         indicator.className = 'connection-status connection-status--' + status
 
-        // Update title/tooltip
+        // Status text for display (triggers aria-live announcement)
+        var statusTexts = {
+            'connected': 'Live',
+            'reconnecting': 'Reconnecting',
+            'error': 'Offline'
+        }
+
+        // Detailed descriptions for title/tooltip
         var titles = {
             'connected': 'Live updates active',
             'reconnecting': 'Reconnecting...',
             'error': 'Connection lost - retrying'
         }
-        indicator.setAttribute('title', titles[status] || '')
 
-        // Update aria-label for accessibility
-        indicator.setAttribute('aria-label', titles[status] || 'Connection status')
+        // Include reconnection progress in title if available
+        var title = titles[status] || ''
+        if (status === 'reconnecting' && metadata && metadata.attempt && metadata.maxAttempts) {
+            title = 'Reconnecting... (attempt ' + metadata.attempt + ' of ' + metadata.maxAttempts + ')'
+        }
 
-        log('Connection status UI updated:', status)
+        // Update visible text content - this triggers aria-live announcement
+        indicator.textContent = statusTexts[status] || 'Unknown'
+
+        // Update title/tooltip
+        indicator.setAttribute('title', title)
+
+        // Update aria-label for detailed accessibility description
+        indicator.setAttribute('aria-label', title || 'Connection status')
+
+        log('Connection status UI updated:', status, metadata || '')
     }
 
     // ==========================================================================

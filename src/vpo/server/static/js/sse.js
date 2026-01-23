@@ -16,14 +16,21 @@
         /** Default SSE endpoint for jobs */
         JOBS_ENDPOINT: '/api/events/jobs',
 
-        /** Reconnect delay after SSE error (ms) */
-        RECONNECT_DELAY: 5000,
+        /** Base reconnect delay (ms) - used for exponential backoff */
+        RECONNECT_BASE_DELAY: 1000,
+
+        /** Maximum reconnect delay (ms) */
+        RECONNECT_MAX_DELAY: 30000,
 
         /** Maximum reconnect attempts before falling back to polling */
-        MAX_RECONNECT_ATTEMPTS: 3,
+        MAX_RECONNECT_ATTEMPTS: 10,
 
-        /** Heartbeat timeout - consider disconnected if no message for this long (ms) */
-        HEARTBEAT_TIMEOUT: 30000
+        /** Heartbeat timeout - consider disconnected if no message for this long (ms)
+         *  Should be > 2x server heartbeat interval (15s) + margin */
+        HEARTBEAT_TIMEOUT: 35000,
+
+        /** Jitter factor for randomizing delays (0.25 = +/- 25%) */
+        JITTER_FACTOR: 0.25
     }
 
     // ==========================================================================
@@ -72,6 +79,26 @@
         this.heartbeatTimer = null
         this.reconnectTimer = null
         this.lastEventTime = null
+    }
+
+    /**
+     * Calculate reconnect delay with exponential backoff and jitter.
+     * @param {number} attempt - Current attempt number (1-based)
+     * @returns {number} Delay in milliseconds
+     */
+    SSEClient.prototype._calculateReconnectDelay = function (attempt) {
+        // Exponential backoff: base * 2^(attempt-1)
+        var exponentialDelay = CONFIG.RECONNECT_BASE_DELAY * Math.pow(2, attempt - 1)
+
+        // Cap at max delay
+        var delay = Math.min(exponentialDelay, CONFIG.RECONNECT_MAX_DELAY)
+
+        // Add jitter: +/- JITTER_FACTOR
+        var jitter = delay * CONFIG.JITTER_FACTOR
+        var randomJitter = (Math.random() * 2 - 1) * jitter
+        delay = Math.round(delay + randomJitter)
+
+        return delay
     }
 
     /**
@@ -168,6 +195,39 @@
                 log('Heartbeat received')
             })
 
+            // Listen for server error events
+            this.eventSource.addEventListener('error', function (e) {
+                self._resetHeartbeatTimer()
+                try {
+                    var data = JSON.parse(e.data)
+                    log('Server error event:', data)
+
+                    // If server suggests retry_after, use it for backoff hint
+                    if (data.retry_after && typeof data.retry_after === 'number') {
+                        log('Server suggests retry after', data.retry_after, 'seconds')
+                    }
+                } catch (err) {
+                    log('Error parsing server error event:', err)
+                }
+            })
+
+            // Listen for close events from server
+            this.eventSource.addEventListener('close', function (e) {
+                log('Server close event received')
+                try {
+                    var data = JSON.parse(e.data)
+                    log('Close reason:', data.reason)
+
+                    if (data.reason === 'server_shutdown') {
+                        // Server is shutting down - wait longer before reconnect
+                        log('Server shutting down, will retry with longer delay')
+                    }
+                } catch (err) {
+                    log('Error parsing close event:', err)
+                }
+                self._handleError()
+            })
+
         } catch (err) {
             log('Error creating EventSource:', err)
             this._handleError()
@@ -236,19 +296,26 @@
 
         if (this.reconnectAttempts >= CONFIG.MAX_RECONNECT_ATTEMPTS) {
             log('Max reconnect attempts reached, falling back to polling')
-            this.onStatusChange('reconnecting')
+            this.onStatusChange('error')
             this._startFallbackPolling()
             return
         }
 
-        log('Reconnecting in', CONFIG.RECONNECT_DELAY, 'ms (attempt', this.reconnectAttempts, ')')
-        this.onStatusChange('reconnecting')
+        var delay = this._calculateReconnectDelay(this.reconnectAttempts)
+        log('Reconnecting in', delay, 'ms (attempt', this.reconnectAttempts, 'of', CONFIG.MAX_RECONNECT_ATTEMPTS, ')')
+
+        // Pass metadata about reconnection attempt
+        this.onStatusChange('reconnecting', {
+            attempt: this.reconnectAttempts,
+            maxAttempts: CONFIG.MAX_RECONNECT_ATTEMPTS,
+            delayMs: delay
+        })
 
         this.reconnectTimer = setTimeout(function () {
             if (self.isActive) {
                 self._connect()
             }
-        }, CONFIG.RECONNECT_DELAY)
+        }, delay)
     }
 
     /**
