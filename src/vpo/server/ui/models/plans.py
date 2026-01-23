@@ -220,6 +220,238 @@ class PlansContext:
 
 
 @dataclass
+class PlannedActionItem:
+    """Represents a single planned action for display.
+
+    Attributes:
+        type: Action type (set_language, set_title, remove_track, etc.).
+        track_index: Target track index (if applicable).
+        track_type: Track type (video, audio, subtitle, etc.).
+        details: Human-readable description of the action.
+        parameters: Raw action parameters dict.
+    """
+
+    type: str
+    track_index: int | None
+    track_type: str | None
+    details: str
+    parameters: dict
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "type": self.type,
+            "track_index": self.track_index,
+            "track_type": self.track_type,
+            "details": self.details,
+            "parameters": self.parameters,
+        }
+
+
+def _format_action_details(action: dict) -> str:
+    """Format action dict into human-readable details string.
+
+    Args:
+        action: Action dictionary with type and parameters.
+
+    Returns:
+        Human-readable description of the action.
+    """
+    action_type = action.get("type", "unknown")
+    params = action.get("parameters", {})
+
+    if action_type == "set_language":
+        return f"Set language to '{params.get('language', '?')}'"
+    elif action_type == "set_title":
+        return f"Set title to '{params.get('title', '?')}'"
+    elif action_type == "set_default":
+        return "Set as default track"
+    elif action_type == "clear_default":
+        return "Clear default flag"
+    elif action_type == "set_forced":
+        return "Set forced flag"
+    elif action_type == "clear_forced":
+        return "Clear forced flag"
+    elif action_type == "remove_track":
+        return "Remove track"
+    elif action_type == "reorder_tracks":
+        return "Reorder tracks"
+    elif action_type == "convert_container":
+        target = params.get("target", "?")
+        return f"Convert container to {target}"
+    elif action_type == "transcode_video":
+        codec = params.get("target_codec", "?")
+        return f"Transcode video to {codec}"
+    elif action_type == "transcode_audio":
+        codec = params.get("target_codec", "?")
+        return f"Transcode audio to {codec}"
+    elif action_type == "copy_stream":
+        return "Copy stream"
+    elif action_type == "synthesize_audio":
+        return f"Synthesize audio track ({params.get('channels', '?')} channels)"
+    elif action_type == "warn":
+        return f"Warning: {params.get('message', '?')}"
+    else:
+        return f"{action_type}: {params}"
+
+
+@dataclass
+class PlanDetailItem:
+    """Full plan details for detail view.
+
+    Extends PlanListItem with deserialized actions and additional metadata.
+
+    Attributes:
+        id: Plan UUID.
+        id_short: First 8 characters of UUID for display.
+        file_id: Associated file ID (null if file deleted).
+        file_path: Cached file path.
+        filename: Extracted filename for display.
+        file_deleted: True if file_id is null (file was deleted).
+        policy_name: Name of the policy that generated this plan.
+        policy_version: Version of the policy at evaluation time.
+        action_count: Number of planned actions.
+        requires_remux: Whether plan requires container remux.
+        status: Current plan status.
+        status_badge: Badge class and label for status display.
+        created_at: ISO-8601 UTC creation timestamp.
+        updated_at: ISO-8601 UTC last update timestamp.
+        actions: List of deserialized PlannedActionItem.
+        job_id: Reference to originating job (if from batch evaluation).
+    """
+
+    id: str
+    id_short: str
+    file_id: int | None
+    file_path: str
+    filename: str
+    file_deleted: bool
+    policy_name: str
+    policy_version: int
+    action_count: int
+    requires_remux: bool
+    status: str
+    status_badge: dict
+    created_at: str
+    updated_at: str
+    actions: list[PlannedActionItem]
+    job_id: str | None = None
+
+    @classmethod
+    def from_plan_record(cls, record) -> PlanDetailItem:
+        """Create PlanDetailItem from a PlanRecord.
+
+        Args:
+            record: PlanRecord from database.
+
+        Returns:
+            PlanDetailItem with deserialized actions.
+        """
+        import json
+
+        # Extract filename from path
+        filename = Path(record.file_path).name
+
+        # Get status badge config
+        status_badge = PLAN_STATUS_BADGES.get(
+            record.status.value,
+            {"class": "status-unknown", "label": record.status.value},
+        )
+
+        # Deserialize actions
+        actions = []
+        try:
+            actions_raw = json.loads(record.actions_json) if record.actions_json else []
+            for action in actions_raw:
+                actions.append(
+                    PlannedActionItem(
+                        type=action.get("type", "unknown"),
+                        track_index=action.get("track_index"),
+                        track_type=action.get("track_type"),
+                        details=_format_action_details(action),
+                        parameters=action.get("parameters", {}),
+                    )
+                )
+        except (json.JSONDecodeError, TypeError):
+            pass  # Return empty actions list on parse error
+
+        return cls(
+            id=record.id,
+            id_short=record.id[:8],
+            file_id=record.file_id,
+            file_path=record.file_path,
+            filename=filename,
+            file_deleted=record.file_id is None,
+            policy_name=record.policy_name,
+            policy_version=record.policy_version,
+            action_count=record.action_count,
+            requires_remux=record.requires_remux,
+            status=record.status.value,
+            status_badge=status_badge,
+            created_at=record.created_at,
+            updated_at=record.updated_at,
+            actions=actions,
+            job_id=record.job_id,
+        )
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "id": self.id,
+            "id_short": self.id_short,
+            "file_id": self.file_id,
+            "file_path": self.file_path,
+            "filename": self.filename,
+            "file_deleted": self.file_deleted,
+            "policy_name": self.policy_name,
+            "policy_version": self.policy_version,
+            "action_count": self.action_count,
+            "requires_remux": self.requires_remux,
+            "status": self.status,
+            "status_badge": self.status_badge,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "actions": [a.to_dict() for a in self.actions],
+            "job_id": self.job_id,
+        }
+
+
+@dataclass
+class PlanDetailContext:
+    """Template context for plan detail page.
+
+    Attributes:
+        plan: The plan detail item.
+        back_url: URL to navigate back to.
+    """
+
+    plan: PlanDetailItem
+    back_url: str
+
+    @classmethod
+    def from_plan_and_request(
+        cls, plan: PlanDetailItem, referer: str | None
+    ) -> PlanDetailContext:
+        """Create context from plan and request referer.
+
+        Args:
+            plan: PlanDetailItem to display.
+            referer: HTTP Referer header value.
+
+        Returns:
+            PlanDetailContext for template rendering.
+        """
+        # Default back URL is plans list
+        back_url = "/plans"
+
+        # Use referer if it's a VPO page
+        if referer and "/plans" in referer:
+            back_url = referer
+
+        return cls(plan=plan, back_url=back_url)
+
+
+@dataclass
 class PlanActionResponse:
     """API response for plan action endpoints (approve/reject).
 

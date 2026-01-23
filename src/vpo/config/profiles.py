@@ -17,6 +17,32 @@ if TYPE_CHECKING:
     from vpo.config.models import Profile, VPOConfig
 
 
+# Module-level storage for active profile in daemon mode
+_active_profile: Profile | None = None
+
+
+def set_active_profile(profile: Profile | None) -> None:
+    """Set the active profile for daemon mode.
+
+    This is called during daemon startup to make the profile
+    configuration available to service functions.
+
+    Args:
+        profile: Profile to set as active, or None to clear.
+    """
+    global _active_profile
+    _active_profile = profile
+
+
+def get_active_profile() -> Profile | None:
+    """Get the currently active profile (daemon mode only).
+
+    Returns:
+        The active Profile if set, or None if no profile is active.
+    """
+    return _active_profile
+
+
 class ProfileError(Exception):
     """Error loading or validating a profile."""
 

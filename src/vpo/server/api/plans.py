@@ -17,6 +17,7 @@ from vpo.core.validation import is_valid_uuid
 from vpo.server.middleware import PLANS_ALLOWED_PARAMS, validate_query_params
 from vpo.server.ui.models import (
     PlanActionResponse,
+    PlanDetailItem,
     PlanFilterParams,
     PlanListItem,
     PlanListResponse,
@@ -102,6 +103,50 @@ async def api_plans_handler(request: web.Request) -> web.Response:
     )
 
     return web.json_response(response.to_dict())
+
+
+@shutdown_check_middleware
+@database_required_middleware
+async def api_plan_detail_handler(request: web.Request) -> web.Response:
+    """Handle GET /api/plans/{plan_id} - JSON API for single plan detail.
+
+    Args:
+        request: aiohttp Request object.
+
+    Returns:
+        JSON response with PlanDetailItem payload or error.
+    """
+    from vpo.db.operations import get_plan_by_id
+
+    plan_id = request.match_info["plan_id"]
+
+    # Validate UUID format
+    if not is_valid_uuid(plan_id):
+        return web.json_response(
+            {"error": "Invalid plan ID format"},
+            status=400,
+        )
+
+    # Get connection pool from middleware
+    connection_pool = request["connection_pool"]
+
+    # Query plan from database
+    def _query_plan():
+        with connection_pool.transaction() as conn:
+            return get_plan_by_id(conn, plan_id)
+
+    plan = await asyncio.to_thread(_query_plan)
+
+    if plan is None:
+        return web.json_response(
+            {"error": "Plan not found"},
+            status=404,
+        )
+
+    # Convert to detail item with deserialized actions
+    detail_item = PlanDetailItem.from_plan_record(plan)
+
+    return web.json_response(detail_item.to_dict())
 
 
 @shutdown_check_middleware
@@ -216,5 +261,6 @@ def setup_plan_routes(app: web.Application) -> None:
     """
     # Plans list routes (026-plans-list-view)
     app.router.add_get("/api/plans", api_plans_handler)
+    app.router.add_get("/api/plans/{plan_id}", api_plan_detail_handler)
     app.router.add_post("/api/plans/{plan_id}/approve", api_plan_approve_handler)
     app.router.add_post("/api/plans/{plan_id}/reject", api_plan_reject_handler)

@@ -4725,6 +4725,339 @@ input.valid:focus {
 }
 
 /* ======================================
+   Plan Detail View
+   ====================================== */
+
+.plan-detail {
+    padding: var(--spacing-md);
+}
+
+.plan-detail-back {
+    display: inline-block;
+    margin-bottom: var(--spacing-md);
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: var(--font-size-sm);
+    transition: color var(--transition-fast);
+}
+
+.plan-detail-back:hover {
+    color: var(--color-primary-dark);
+    text-decoration: underline;
+}
+
+.plan-detail-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.plan-detail-header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+/* Action buttons section */
+.plan-detail-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    padding: var(--spacing-md);
+    background-color: var(--color-body-bg);
+    border-radius: 4px;
+}
+
+.plan-detail-actions .plan-action-btn {
+    padding: 0.5rem 1rem;
+    font-size: var(--font-size-sm);
+}
+
+/* Warning section */
+.plan-detail-warning {
+    margin-bottom: var(--spacing-lg);
+    padding: var(--spacing-md);
+    background-color: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: 4px;
+}
+
+.plan-detail-warning .warning-message {
+    font-size: var(--font-size-sm);
+    color: #92400e;
+}
+
+/* Metadata section */
+.plan-detail-meta {
+    margin-bottom: var(--spacing-lg);
+}
+
+.plan-detail-meta h2 {
+    margin: 0 0 var(--spacing-md) 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.plan-detail-dl {
+    margin: 0;
+    padding: var(--spacing-md);
+    background-color: var(--color-body-bg);
+    border-radius: 4px;
+}
+
+.plan-detail-dl-row {
+    display: flex;
+    padding: var(--spacing-sm) 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.plan-detail-dl-row:last-child {
+    border-bottom: none;
+}
+
+.plan-detail-dl dt {
+    flex: 0 0 120px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
+.plan-detail-dl dd {
+    flex: 1;
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+}
+
+.plan-detail-id {
+    font-family: monospace;
+    font-size: 0.8rem;
+}
+
+.plan-detail-path {
+    word-break: break-all;
+}
+
+.policy-version {
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+    margin-left: 0.25rem;
+}
+
+/* Actions list section */
+.plan-detail-actions-list {
+    margin-bottom: var(--spacing-lg);
+}
+
+.plan-detail-actions-list h2 {
+    margin: 0 0 var(--spacing-md) 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.plan-actions-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: var(--color-content-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.plan-actions-table th,
+.plan-actions-table td {
+    padding: var(--spacing-sm) var(--spacing-md);
+    text-align: left;
+    font-size: var(--font-size-sm);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.plan-actions-table th {
+    background-color: var(--color-body-bg);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.plan-actions-table tbody tr:hover {
+    background-color: var(--color-body-bg);
+}
+
+.plan-actions-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.plan-actions-table .action-track {
+    font-family: monospace;
+    font-weight: 500;
+    width: 60px;
+}
+
+.plan-actions-table .action-track-type {
+    width: 80px;
+}
+
+.plan-actions-table .action-type {
+    width: 150px;
+    font-family: monospace;
+    font-size: 0.8rem;
+}
+
+.plan-actions-table .action-details {
+    color: var(--color-text-muted);
+}
+
+.plan-no-actions {
+    color: var(--color-text-muted);
+    font-style: italic;
+    padding: var(--spacing-md);
+    background-color: var(--color-body-bg);
+    border-radius: 4px;
+}
+
+/* Remux info section */
+.plan-detail-remux-info {
+    margin-bottom: var(--spacing-lg);
+}
+
+.plan-detail-remux-info h2 {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.plan-detail-remux-info p {
+    margin: 0;
+    padding: var(--spacing-md);
+    background-color: #e0f2fe;
+    border: 1px solid #7dd3fc;
+    border-radius: 4px;
+    color: #0369a1;
+    font-size: var(--font-size-sm);
+}
+
+/* Plan detail responsive styles */
+@media (max-width: 767px) {
+    .plan-detail-dl-row {
+        flex-direction: column;
+        gap: var(--spacing-xs);
+    }
+
+    .plan-detail-dl dt {
+        flex: none;
+    }
+
+    .plan-detail-actions {
+        flex-direction: column;
+    }
+
+    .plan-actions-table {
+        font-size: 0.75rem;
+    }
+
+    .plan-actions-table th,
+    .plan-actions-table td {
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+
+    .plan-actions-table .action-track-type {
+        display: none;
+    }
+}
+
+/* Dark mode overrides for plan detail */
+@media (prefers-color-scheme: dark) {
+    .plan-detail-warning {
+        background-color: #3a3a2a;
+        border-color: #5a4a1a;
+    }
+
+    .plan-detail-warning .warning-message {
+        color: #f39c12;
+    }
+
+    .plan-detail-remux-info p {
+        background-color: #1a2a3a;
+        border-color: #2a3a4a;
+        color: #5dade2;
+    }
+}
+
+/* ======================================
+   Approvals Dashboard
+   ====================================== */
+
+.approvals-dashboard {
+    padding: var(--spacing-md);
+}
+
+.approvals-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.approvals-count {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.approvals-bulk-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.approvals-bulk-actions .plan-action-btn {
+    padding: 0.5rem 1rem;
+    font-size: var(--font-size-sm);
+}
+
+/* Checkbox column */
+.plan-select {
+    width: 40px;
+    text-align: center;
+}
+
+.plan-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+/* Approvals responsive styles */
+@media (max-width: 767px) {
+    .approvals-header {
+        flex-direction: column;
+        gap: var(--spacing-md);
+        align-items: stretch;
+    }
+
+    .approvals-count {
+        text-align: center;
+    }
+
+    .approvals-bulk-actions {
+        justify-content: center;
+    }
+
+    /* Hide checkbox column on mobile */
+    .plan-select,
+    .plans-table th:first-child {
+        display: none;
+    }
+}
+
+/* ======================================
    Undo Toast Component (UI/UX Review)
    ====================================== */
 

@@ -76,9 +76,12 @@ from vpo.server.ui.models.library import (
 from vpo.server.ui.models.plans import (
     PLAN_STATUS_BADGES,
     PlanActionResponse,
+    PlanDetailContext,
+    PlanDetailItem,
     PlanFilterParams,
     PlanListItem,
     PlanListResponse,
+    PlannedActionItem,
     PlansContext,
 )
 
@@ -190,6 +193,9 @@ __all__ = [
     "PlanListResponse",
     "PlansContext",
     "PlanActionResponse",
+    "PlanDetailItem",
+    "PlanDetailContext",
+    "PlannedActionItem",
     # Plugin models
     "PluginInfo",
     "PluginListResponse",

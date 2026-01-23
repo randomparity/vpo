@@ -1,8 +1,96 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="section-placeholder">
-    <p>Approvals section - coming soon</p>
-    <p class="placeholder-hint">This section will display pending approvals.</p>
+<div class="approvals-dashboard">
+    <!-- Loading state -->
+    <div id="approvals-loading" class="plans-loading" role="status" aria-label="Loading pending approvals">
+        <div class="plans-loading-spinner" aria-hidden="true"></div>
+        <p>Loading pending approvals...</p>
+    </div>
+
+    <!-- Main content (hidden until loaded) -->
+    <div id="approvals-content" style="display: none;">
+        <!-- Header with count and bulk actions -->
+        <div class="approvals-header">
+            <div class="approvals-count">
+                <span id="approvals-count-text">0 pending approvals</span>
+            </div>
+            <div class="approvals-bulk-actions" id="approvals-bulk-actions" style="display: none;">
+                <button type="button" class="plan-action-btn plan-action-approve" id="bulk-approve-btn"
+                        aria-label="Approve all pending plans">
+                    <span class="btn-text">Approve All</span>
+                    <span class="btn-spinner" aria-hidden="true"></span>
+                </button>
+                <button type="button" class="plan-action-btn plan-action-reject" id="bulk-reject-btn"
+                        aria-label="Reject all pending plans">
+                    <span class="btn-text">Reject All</span>
+                    <span class="btn-spinner" aria-hidden="true"></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Time filter -->
+        <div class="plans-filters">
+            <div class="plans-filter">
+                <label for="filter-time">Time Range</label>
+                <select id="filter-time">
+                    <option value="">All Time</option>
+                    <option value="24h">Last 24 Hours</option>
+                    <option value="7d">Last 7 Days</option>
+                    <option value="30d">Last 30 Days</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Plans table container -->
+        <div class="plans-table-container">
+            <table class="plans-table" id="approvals-table" aria-label="Pending approvals list">
+                <thead>
+                    <tr>
+                        <th>
+                            <input type="checkbox" id="select-all-approvals"
+                                   aria-label="Select all pending plans">
+                        </th>
+                        <th>Plan ID</th>
+                        <th>File</th>
+                        <th>Policy</th>
+                        <th># Actions</th>
+                        <th>Created</th>
+                        <th>Manage</th>
+                    </tr>
+                </thead>
+                <tbody id="approvals-table-body">
+                    <!-- Plans will be rendered here by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Empty state (hidden by default) -->
+        <div id="approvals-empty" class="plans-empty" style="display: none;" role="status" aria-live="polite">
+            <div class="plans-empty-icon" aria-hidden="true">&#9989;</div>
+            <div class="plans-empty-title" id="approvals-empty-title">No pending approvals</div>
+            <div class="plans-empty-hint" id="approvals-empty-hint">All plans have been reviewed. New plans will appear here when policies are evaluated.</div>
+        </div>
+
+        <!-- Pagination (hidden until needed) -->
+        <div id="approvals-pagination" class="plans-pagination" style="display: none;">
+            <div class="plans-pagination-info" id="approvals-pagination-info">
+                Showing 1-50 of 100 pending
+            </div>
+            <div class="plans-pagination-controls">
+                <button class="plans-pagination-btn" id="approvals-prev-btn" aria-label="Previous page" disabled>Previous</button>
+                <button class="plans-pagination-btn" id="approvals-next-btn" aria-label="Next page">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container for notifications -->
+    <div id="approvals-toast" class="plans-toast" role="alert" aria-live="assertive" style="display: none;"></div>
 </div>
+
+<link rel="stylesheet" href="/static/css/components/confirmation-modal.css">
+<script>window.CSRF_TOKEN = {{ csrf_token | tojson }};</script>
+<script src="/static/js/polling.js"></script>
+<script src="/static/js/components/confirmation-modal.js"></script>
+<script src="/static/js/approvals.js"></script>
 {% endblock %}
