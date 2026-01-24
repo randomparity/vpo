@@ -50,6 +50,9 @@ from vpo.workflow.stats_capture import (
 
 logger = logging.getLogger(__name__)
 
+# Space estimation multiplier for backup + temp + buffer
+DISK_SPACE_SAFETY_MULTIPLIER = 2.5
+
 
 @dataclass
 class WorkflowProgress:
@@ -275,7 +278,8 @@ class WorkflowProcessor:
             file_path: Path to the file being processed.
 
         Raises:
-            InsufficientDiskSpaceError: If threshold would be violated.
+            InsufficientDiskSpaceError: If threshold would be violated or file
+                stat fails.
         """
         config = get_config()
         min_free_percent = config.jobs.min_free_disk_percent
@@ -284,14 +288,16 @@ class WorkflowProcessor:
         if min_free_percent <= 0:
             return
 
-        # Estimate space needed: 2.5x file size for backup + temp + buffer
+        # Fail fast if we can't read file size - better to error than silently proceed
         try:
             file_size = file_path.stat().st_size
         except OSError as e:
-            logger.warning("Cannot get file size for %s: %s", file_path, e)
-            return
+            raise InsufficientDiskSpaceError(
+                f"Cannot read file size for {file_path}: {e}"
+            ) from e
 
-        estimated_space_needed = int(file_size * 2.5)
+        # Estimate space needed using safety multiplier for backup + temp + buffer
+        estimated_space_needed = int(file_size * DISK_SPACE_SAFETY_MULTIPLIER)
 
         error_msg = check_min_free_disk_percent(
             directory=file_path.parent,
@@ -314,11 +320,14 @@ class WorkflowProcessor:
         file_path = file_path.expanduser().resolve()
         start_time = time.time()
 
-        # Pre-flight check: minimum free disk space (skip in dry-run mode)
-        if not self.dry_run:
-            try:
-                self._check_min_free_disk_threshold(file_path)
-            except InsufficientDiskSpaceError as e:
+        # Pre-flight check: minimum free disk space
+        # In dry-run mode, warn but don't block; in normal mode, block on failure
+        try:
+            self._check_min_free_disk_threshold(file_path)
+        except InsufficientDiskSpaceError as e:
+            if self.dry_run:
+                logger.warning("Disk space check failed (dry-run, continuing): %s", e)
+            else:
                 logger.error("Disk space check failed: %s", e)
                 return FileProcessingResult(
                     file_path=file_path,

@@ -89,13 +89,25 @@ class EnvReader:
 
         Returns:
             Parsed float value, or default if not set or invalid.
-            Logs a warning if the value is set but cannot be parsed.
+            Logs a warning if the value is set but cannot be parsed,
+            or if the value is NaN or infinity.
         """
         value = self._env.get(var)
         if value is None:
             return default
         try:
-            return float(value)
+            result = float(value)
+            # Reject NaN and infinity - these are rarely intentional in config
+            import math
+
+            if math.isnan(result) or math.isinf(result):
+                logger.warning(
+                    "Invalid float value for %s: %s (NaN/infinity not allowed)",
+                    var,
+                    value,
+                )
+                return default
+            return result
         except ValueError:
             logger.warning("Invalid float value for %s: %s", var, value)
             return default

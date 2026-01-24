@@ -546,3 +546,49 @@ class TestProcessingConfig:
         reader = EnvReader(env={"VPO_PROCESSING_WORKERS": "6"})
         source = source_from_env(reader)
         assert source.processing_workers == 6
+
+
+class TestMinFreeDiskPercentConfig:
+    """Tests for min_free_disk_percent configuration loading."""
+
+    def test_min_free_disk_percent_default(self, tmp_path: Path) -> None:
+        """Should use default 5.0 when not specified."""
+        builder = ConfigBuilder()
+        config = builder.build(default_plugins_dir=tmp_path / "plugins")
+        assert config.jobs.min_free_disk_percent == 5.0
+
+    def test_min_free_disk_percent_from_file(self) -> None:
+        """Should parse min_free_disk_percent from TOML config."""
+        file_config = {
+            "jobs": {
+                "min_free_disk_percent": 10.0,
+            }
+        }
+        source = source_from_file(file_config)
+        assert source.jobs_min_free_disk_percent == 10.0
+
+    def test_min_free_disk_percent_from_env(self) -> None:
+        """Should read min_free_disk_percent from environment."""
+        reader = EnvReader(env={"VPO_MIN_FREE_DISK_PERCENT": "15.5"})
+        source = source_from_env(reader)
+        assert source.jobs_min_free_disk_percent == pytest.approx(15.5)
+
+    def test_min_free_disk_percent_env_overrides_file(self, tmp_path: Path) -> None:
+        """Environment should override file config."""
+        file_source = ConfigSource(jobs_min_free_disk_percent=5.0)
+        env_source = ConfigSource(jobs_min_free_disk_percent=20.0)
+
+        builder = ConfigBuilder()
+        builder.apply(file_source)
+        builder.apply(env_source)
+        config = builder.build(default_plugins_dir=tmp_path / "plugins")
+
+        assert config.jobs.min_free_disk_percent == 20.0
+
+    def test_min_free_disk_percent_zero_disables(self, tmp_path: Path) -> None:
+        """Setting to 0 should disable the check."""
+        builder = ConfigBuilder()
+        builder.apply(ConfigSource(jobs_min_free_disk_percent=0.0))
+        config = builder.build(default_plugins_dir=tmp_path / "plugins")
+
+        assert config.jobs.min_free_disk_percent == 0.0

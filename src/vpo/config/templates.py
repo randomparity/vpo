@@ -187,7 +187,10 @@ def get_config_template(data_dir: Path) -> str:
 # backup_original = true         # Keep backup of original after transcode
 # log_compression_days = 7       # Days before compressing job log files
 # log_deletion_days = 90         # Days before deleting old job logs
-# min_free_disk_percent = 5.0    # Minimum % of disk that must remain free (0 = disable)
+# Minimum % of disk that must remain free (0 = disable)
+# NOTE: In daemon mode with parallel jobs, set higher to account for
+# simultaneous space usage from concurrent operations.
+# min_free_disk_percent = 5.0
 
 # =============================================================================
 # Worker

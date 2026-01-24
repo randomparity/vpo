@@ -71,3 +71,19 @@ class TestJobsConfig:
         """Values over 100 should raise ValueError."""
         with pytest.raises(ValueError, match="must be between 0 and 100"):
             JobsConfig(min_free_disk_percent=101.0)
+
+    def test_min_free_disk_percent_decimal_precision(self) -> None:
+        """Should preserve decimal precision."""
+        config = JobsConfig(min_free_disk_percent=5.123456)
+        assert config.min_free_disk_percent == pytest.approx(5.123456)
+
+    def test_min_free_disk_percent_scientific_notation(self) -> None:
+        """Should accept values from scientific notation (already parsed by Python)."""
+        # When Python parses TOML, scientific notation is converted to float
+        config = JobsConfig(min_free_disk_percent=5e0)  # 5.0
+        assert config.min_free_disk_percent == 5.0
+
+    def test_min_free_disk_percent_very_small_value(self) -> None:
+        """Should accept very small positive values."""
+        config = JobsConfig(min_free_disk_percent=0.001)
+        assert config.min_free_disk_percent == pytest.approx(0.001)

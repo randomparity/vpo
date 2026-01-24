@@ -11,7 +11,8 @@ from pathlib import Path
 import click
 
 from vpo.cli.exit_codes import DOCTOR_EXIT_CODES
-from vpo.config import get_config
+from vpo.config import VPOConfig, get_config
+from vpo.core.formatting import format_file_size
 from vpo.tools import (
     RequirementLevel,
     check_requirements,
@@ -302,16 +303,7 @@ def _show_transcription_plugins(verbose: bool) -> None:
             click.echo(traceback.format_exc(), err=True)
 
 
-def _format_size(size: int) -> str:
-    """Format size in bytes to human-readable string."""
-    for unit in ["B", "KB", "MB", "GB", "TB"]:
-        if size < 1024:
-            return f"{size:.1f} {unit}"
-        size /= 1024
-    return f"{size:.1f} PB"
-
-
-def _show_disk_status(config) -> bool:
+def _show_disk_status(config: VPOConfig) -> bool:
     """Show disk space status and configured threshold.
 
     Args:
@@ -335,8 +327,8 @@ def _show_disk_status(config) -> bool:
         free_percent = (free / total) * 100
 
         click.echo(f"  VPO data directory: {vpo_data_dir}")
-        click.echo(f"  Total disk space: {_format_size(total)}")
-        click.echo(f"  Free disk space: {_format_size(free)} ({free_percent:.1f}%)")
+        click.echo(f"  Total disk space: {format_file_size(total)}")
+        click.echo(f"  Free disk space: {format_file_size(free)} ({free_percent:.1f}%)")
 
         if min_free_percent > 0:
             click.echo(f"  Configured threshold: {min_free_percent:.1f}%")
@@ -350,6 +342,8 @@ def _show_disk_status(config) -> bool:
                 click.echo("  ✓ Disk space is above threshold")
         else:
             click.echo("  Threshold check: disabled (min_free_disk_percent = 0)")
+
+        click.echo("  Note: Processing checks the target file's filesystem")
 
         return False
 

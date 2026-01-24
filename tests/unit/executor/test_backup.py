@@ -131,3 +131,18 @@ class TestCheckMinFreeDiskPercent:
         assert result is not None
         # Post-operation free should be reported as 0%
         assert "0.0% free disk space" in result
+
+    def test_zero_total_disk_handled_gracefully(self, tmp_path: Path) -> None:
+        """Pseudo-filesystems with zero total size should not crash."""
+        # Mock disk_usage to report 0 total (can occur on pseudo-filesystems)
+        mock_usage = type("usage", (), {"total": 0, "free": 0})()
+
+        with patch("vpo.executor.backup.shutil.disk_usage", return_value=mock_usage):
+            result = check_min_free_disk_percent(
+                directory=tmp_path,
+                required_bytes=1_000_000,
+                min_free_percent=5.0,
+            )
+
+        # Should return None (allow operation to proceed) rather than crash
+        assert result is None

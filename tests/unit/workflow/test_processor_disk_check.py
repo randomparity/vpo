@@ -62,8 +62,12 @@ class TestWorkflowProcessorDiskCheck:
         assert result.phases_skipped == 1
         assert result.phases_completed == 0
 
-    def test_disk_check_skipped_in_dry_run(self, tmp_path: Path) -> None:
-        """Pre-flight disk check should be skipped in dry-run mode."""
+    def test_disk_check_called_in_dry_run_but_warns(
+        self, tmp_path: Path, caplog
+    ) -> None:
+        """Pre-flight disk check runs in dry-run mode but only warns on failure."""
+        import logging
+
         # Create a test file
         test_file = tmp_path / "test.mkv"
         test_file.write_bytes(b"\x00" * 1000)
@@ -77,33 +81,40 @@ class TestWorkflowProcessorDiskCheck:
             dry_run=True,  # Dry run mode
         )
 
-        # Mock the disk check to raise an error - should NOT be called
-        check_mock = MagicMock(side_effect=InsufficientDiskSpaceError("Should not run"))
+        # Mock the disk check to raise an error - now gets called but just warns
+        check_mock = MagicMock(
+            side_effect=InsufficientDiskSpaceError("Disk check failed")
+        )
 
-        with patch.object(processor, "_check_min_free_disk_threshold", check_mock):
-            # Mock _get_file_info to return None (file not in DB)
-            with patch.object(processor, "_get_file_info", return_value=None):
-                # Mock _executor.execute_phase to return a successful result
-                mock_result = MagicMock()
-                mock_result.success = True
-                mock_result.changes_made = 0
-                mock_result.phase_name = "test"
-                mock_result.duration_seconds = 0.1
-                mock_result.operations_executed = ()
-                mock_result.message = None
-                mock_result.error = None
-                mock_result.planned_actions = None
-                mock_result.transcode_skip_reason = None
-                mock_result.encoding_fps = None
-                mock_result.encoding_bitrate_kbps = None
-                mock_result.encoder_type = None
+        with (
+            patch.object(processor, "_check_min_free_disk_threshold", check_mock),
+            patch.object(processor, "_get_file_info", return_value=None),
+            patch.object(processor._executor, "execute_phase") as exec_mock,
+            caplog.at_level(logging.WARNING),
+        ):
+            mock_result = MagicMock()
+            mock_result.success = True
+            mock_result.changes_made = 0
+            mock_result.phase_name = "test"
+            mock_result.duration_seconds = 0.1
+            mock_result.operations_executed = ()
+            mock_result.message = None
+            mock_result.error = None
+            mock_result.planned_actions = None
+            mock_result.transcode_skip_reason = None
+            mock_result.encoding_fps = None
+            mock_result.encoding_bitrate_kbps = None
+            mock_result.encoder_type = None
+            exec_mock.return_value = mock_result
 
-                with patch.object(processor._executor, "execute_phase") as exec_mock:
-                    exec_mock.return_value = mock_result
-                    processor.process_file(test_file)
+            result = processor.process_file(test_file)
 
-        # Check should not have been called in dry-run mode
-        check_mock.assert_not_called()
+        # Check WAS called in dry-run mode
+        check_mock.assert_called_once()
+        # But processing continued (succeeded)
+        assert result.success is True
+        # And a warning was logged
+        assert "dry-run, continuing" in caplog.text
 
     def test_check_uses_config_threshold(self, tmp_path: Path) -> None:
         """Pre-flight check should use threshold from config."""
@@ -199,3 +210,95 @@ class TestWorkflowProcessorDiskCheck:
         # check_min_free_disk_percent should NOT have been called
         # because the private method returns early when threshold is 0
         check_mock.assert_not_called()
+
+    def test_dry_run_warns_but_continues_on_disk_error(
+        self, tmp_path: Path, caplog
+    ) -> None:
+        """Dry-run mode should warn about disk issues but not block."""
+        import logging
+
+        # Create a test file
+        test_file = tmp_path / "test.mkv"
+        test_file.write_bytes(b"\x00" * 1000)
+
+        conn = MagicMock(spec=sqlite3.Connection)
+        policy = make_minimal_policy()
+
+        processor = WorkflowProcessor(
+            conn=conn,
+            policy=policy,
+            dry_run=True,  # Dry run mode
+        )
+
+        # Mock the disk check to raise an error
+        with (
+            patch.object(
+                processor,
+                "_check_min_free_disk_threshold",
+                side_effect=InsufficientDiskSpaceError("Disk space too low"),
+            ),
+            patch.object(processor, "_get_file_info", return_value=None),
+            patch.object(processor._executor, "execute_phase") as exec_mock,
+            caplog.at_level(logging.WARNING),
+        ):
+            mock_result = MagicMock()
+            mock_result.success = True
+            mock_result.changes_made = 0
+            mock_result.phase_name = "test"
+            mock_result.duration_seconds = 0.1
+            mock_result.operations_executed = ()
+            mock_result.message = None
+            mock_result.error = None
+            mock_result.planned_actions = None
+            mock_result.transcode_skip_reason = None
+            mock_result.encoding_fps = None
+            mock_result.encoding_bitrate_kbps = None
+            mock_result.encoder_type = None
+            exec_mock.return_value = mock_result
+
+            result = processor.process_file(test_file)
+
+        # Should succeed (not blocked) but log a warning
+        assert result.success is True
+        assert "dry-run, continuing" in caplog.text
+
+    def test_file_stat_error_raises_insufficient_disk_space(
+        self, tmp_path: Path
+    ) -> None:
+        """File stat errors should raise, not silently proceed."""
+        # Create a test file (doesn't matter, we'll mock stat)
+        test_file = tmp_path / "test.mkv"
+        test_file.write_bytes(b"\x00" * 1000)
+
+        conn = MagicMock(spec=sqlite3.Connection)
+        policy = make_minimal_policy()
+
+        processor = WorkflowProcessor(
+            conn=conn,
+            policy=policy,
+            dry_run=False,
+        )
+
+        # Mock get_config to return a config with enabled threshold
+        mock_config = MagicMock()
+        mock_config.jobs.min_free_disk_percent = 5.0
+
+        # Create a mock Path whose stat raises OSError
+        original_stat = Path.stat
+
+        def mock_stat(self):
+            if str(self).endswith("test.mkv"):
+                raise OSError("Permission denied")
+            return original_stat(self)
+
+        # Mock Path.stat at the class level
+        with (
+            patch("vpo.workflow.processor.get_config", return_value=mock_config),
+            patch.object(Path, "stat", mock_stat),
+        ):
+            # The check should raise InsufficientDiskSpaceError
+            result = processor.process_file(test_file)
+
+        # Should fail with disk space error message about stat
+        assert result.success is False
+        assert "Cannot read file size" in result.error_message
