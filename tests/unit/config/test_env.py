@@ -121,6 +121,30 @@ class TestEnvReaderGetFloat:
         assert result == 1.0
         assert "Invalid float value for MY_VAR: not_a_number" in caplog.text
 
+    def test_rejects_nan_value(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Should reject 'nan' string from environment."""
+        reader = EnvReader(env={"MY_VAR": "nan"})
+        with caplog.at_level(logging.WARNING):
+            result = reader.get_float("MY_VAR", 1.0)
+        assert result == 1.0
+        assert "NaN/infinity not allowed" in caplog.text
+
+    def test_rejects_infinity_value(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Should reject 'inf' string from environment."""
+        reader = EnvReader(env={"MY_VAR": "inf"})
+        with caplog.at_level(logging.WARNING):
+            result = reader.get_float("MY_VAR", 1.0)
+        assert result == 1.0
+        assert "NaN/infinity not allowed" in caplog.text
+
+    def test_rejects_negative_infinity(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Should reject '-inf' string from environment."""
+        reader = EnvReader(env={"MY_VAR": "-inf"})
+        with caplog.at_level(logging.WARNING):
+            result = reader.get_float("MY_VAR", 1.0)
+        assert result == 1.0
+        assert "NaN/infinity not allowed" in caplog.text
+
 
 class TestEnvReaderGetBool:
     """Tests for EnvReader.get_bool method."""

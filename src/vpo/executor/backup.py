@@ -10,6 +10,8 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+from vpo.core.formatting import format_file_size
+
 logger = logging.getLogger(__name__)
 
 # Backup file suffix
@@ -261,6 +263,84 @@ class InsufficientDiskSpaceError(Exception):
     pass
 
 
+def check_min_free_disk_percent(
+    directory: Path,
+    required_bytes: int,
+    min_free_percent: float,
+) -> str | None:
+    """Check if operation would violate minimum free space threshold.
+
+    This check ensures the filesystem maintains a safety buffer of free space
+    after the operation completes. This is different from check_disk_space(),
+    which only checks if there's enough space for the operation itself.
+
+    Args:
+        directory: Directory where the operation will occur.
+        required_bytes: Estimated bytes the operation will use.
+        min_free_percent: Minimum percentage of disk that must remain free (0-100).
+            Set to 0 to disable the check.
+
+    Returns:
+        Error message if threshold would be violated, None if OK.
+    """
+    # Check disabled
+    if min_free_percent <= 0:
+        return None
+
+    try:
+        stat = shutil.disk_usage(directory)
+    except PermissionError:
+        logger.warning("Cannot check disk usage for %s: permission denied", directory)
+        return None
+    except OSError as e:
+        logger.warning("Cannot check disk usage for %s: %s", directory, e)
+        return None
+
+    total = stat.total
+    current_free = stat.free
+
+    # Guard against pseudo-filesystems or broken mounts with zero total size
+    if total == 0:
+        logger.warning(
+            "Cannot check disk usage for %s: total disk size is 0 (pseudo-filesystem?)",
+            directory,
+        )
+        return None
+
+    # Calculate what free space would be after operation
+    post_operation_free = current_free - required_bytes
+    if post_operation_free < 0:
+        post_operation_free = 0
+
+    # Calculate percentage that would remain free
+    post_operation_free_percent = (post_operation_free / total) * 100
+
+    if post_operation_free_percent < min_free_percent:
+        current_free_percent = current_free / total * 100
+
+        # Structured logging for observability
+        logger.warning(
+            "Disk space threshold would be violated",
+            extra={
+                "directory": str(directory),
+                "current_free_percent": current_free_percent,
+                "post_op_free_percent": post_operation_free_percent,
+                "threshold_percent": min_free_percent,
+                "required_bytes": required_bytes,
+            },
+        )
+
+        return (
+            f"Operation would leave only {post_operation_free_percent:.1f}% "
+            f"free disk space (threshold: {min_free_percent:.1f}%). "
+            f"Currently {current_free_percent:.1f}% free "
+            f"({format_file_size(current_free)} of {format_file_size(total)}). "
+            f"Free up space or adjust min_free_disk_percent in config."
+        )
+
+    return None
+
+
 def check_disk_space(
     file_path: Path,
     multiplier: float = 2.5,
@@ -300,17 +380,9 @@ def check_disk_space(
     available_space = stat.free
 
     if available_space < required_space:
-        # Format sizes for human-readable message
-        def format_size(size: int) -> str:
-            for unit in ["B", "KB", "MB", "GB", "TB"]:
-                if size < 1024:
-                    return f"{size:.1f} {unit}"
-                size /= 1024
-            return f"{size:.1f} PB"
-
         raise InsufficientDiskSpaceError(
             f"Insufficient disk space for remux operation. "
-            f"Required: {format_size(required_space)}, "
-            f"Available: {format_size(available_space)}. "
+            f"Required: {format_file_size(required_space)}, "
+            f"Available: {format_file_size(available_space)}. "
             f"Free up space or move file to a filesystem with more space."
         )

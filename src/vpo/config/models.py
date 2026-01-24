@@ -170,6 +170,19 @@ class JobsConfig:
     # Days before deleting job log files (after compression)
     log_deletion_days: int = 90
 
+    # Minimum free disk space percentage (0-100)
+    # Operations are blocked if they would leave less than this % free
+    # Set to 0 to disable the check
+    min_free_disk_percent: float = 5.0
+
+    def __post_init__(self) -> None:
+        """Validate configuration."""
+        if not 0 <= self.min_free_disk_percent <= 100:
+            raise ValueError(
+                f"min_free_disk_percent must be between 0 and 100, "
+                f"got {self.min_free_disk_percent}"
+            )
+
 
 @dataclass
 class WorkerConfig:

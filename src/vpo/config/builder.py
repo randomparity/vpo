@@ -68,6 +68,7 @@ class ConfigSource:
     jobs_backup_original: bool | None = None
     jobs_log_compression_days: int | None = None
     jobs_log_deletion_days: int | None = None
+    jobs_min_free_disk_percent: float | None = None
 
     # Worker config
     worker_max_files: int | None = None
@@ -229,6 +230,7 @@ class ConfigBuilder:
             backup_original=self._get("jobs_backup_original", True),
             log_compression_days=self._get("jobs_log_compression_days", 7),
             log_deletion_days=self._get("jobs_log_deletion_days", 90),
+            min_free_disk_percent=self._get("jobs_min_free_disk_percent", 5.0),
         )
 
         # Build worker config
@@ -366,6 +368,7 @@ def source_from_file(file_config: dict[str, Any]) -> ConfigSource:
         jobs_backup_original=jobs.get("backup_original"),
         jobs_log_compression_days=jobs.get("log_compression_days"),
         jobs_log_deletion_days=jobs.get("log_deletion_days"),
+        jobs_min_free_disk_percent=jobs.get("min_free_disk_percent"),
         # Worker
         worker_max_files=worker.get("max_files"),
         worker_max_duration=worker.get("max_duration"),
@@ -434,6 +437,7 @@ def source_from_env(reader: EnvReader) -> ConfigSource:
         jobs_backup_original=reader.get_bool("VPO_JOBS_BACKUP_ORIGINAL"),
         jobs_log_compression_days=reader.get_int("VPO_LOG_COMPRESSION_DAYS"),
         jobs_log_deletion_days=reader.get_int("VPO_LOG_DELETION_DAYS"),
+        jobs_min_free_disk_percent=reader.get_float("VPO_MIN_FREE_DISK_PERCENT"),
         # Worker
         worker_max_files=reader.get_int("VPO_WORKER_MAX_FILES"),
         worker_max_duration=reader.get_int("VPO_WORKER_MAX_DURATION"),

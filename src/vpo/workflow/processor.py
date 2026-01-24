@@ -12,7 +12,9 @@ from pathlib import Path
 from sqlite3 import Connection
 from typing import TYPE_CHECKING
 
+from vpo.config import get_config
 from vpo.core import parse_iso_timestamp
+from vpo.executor.backup import InsufficientDiskSpaceError, check_min_free_disk_percent
 from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 if TYPE_CHECKING:
@@ -47,6 +49,9 @@ from vpo.workflow.stats_capture import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Space estimation multiplier for backup + temp + buffer
+DISK_SPACE_SAFETY_MULTIPLIER = 2.5
 
 
 @dataclass
@@ -266,6 +271,43 @@ class WorkflowProcessor:
             return phase.on_error
         return self.policy.config.on_error
 
+    def _check_min_free_disk_threshold(self, file_path: Path) -> None:
+        """Pre-flight check for minimum free disk space threshold.
+
+        Args:
+            file_path: Path to the file being processed.
+
+        Raises:
+            InsufficientDiskSpaceError: If threshold would be violated or file
+                stat fails.
+        """
+        config = get_config()
+        min_free_percent = config.jobs.min_free_disk_percent
+
+        # Skip check if disabled
+        if min_free_percent <= 0:
+            return
+
+        # Fail fast if we can't read file size - better to error than silently proceed
+        try:
+            file_size = file_path.stat().st_size
+        except OSError as e:
+            raise InsufficientDiskSpaceError(
+                f"Cannot read file size for {file_path}: {e}"
+            ) from e
+
+        # Estimate space needed using safety multiplier for backup + temp + buffer
+        estimated_space_needed = int(file_size * DISK_SPACE_SAFETY_MULTIPLIER)
+
+        error_msg = check_min_free_disk_percent(
+            directory=file_path.parent,
+            required_bytes=estimated_space_needed,
+            min_free_percent=min_free_percent,
+        )
+
+        if error_msg:
+            raise InsufficientDiskSpaceError(error_msg)
+
     def process_file(self, file_path: Path) -> FileProcessingResult:
         """Process a single file through all enabled phases.
 
@@ -277,6 +319,28 @@ class WorkflowProcessor:
         """
         file_path = file_path.expanduser().resolve()
         start_time = time.time()
+
+        # Pre-flight check: minimum free disk space
+        # In dry-run mode, warn but don't block; in normal mode, block on failure
+        try:
+            self._check_min_free_disk_threshold(file_path)
+        except InsufficientDiskSpaceError as e:
+            if self.dry_run:
+                logger.warning("Disk space check failed (dry-run, continuing): %s", e)
+            else:
+                logger.error("Disk space check failed: %s", e)
+                return FileProcessingResult(
+                    file_path=file_path,
+                    success=False,
+                    phase_results=(),
+                    total_duration_seconds=time.time() - start_time,
+                    total_changes=0,
+                    phases_completed=0,
+                    phases_failed=0,
+                    phases_skipped=len(self.phases_to_execute),
+                    failed_phase=None,
+                    error_message=str(e),
+                )
 
         logger.info(
             "Processing %s with %d phase(s)",

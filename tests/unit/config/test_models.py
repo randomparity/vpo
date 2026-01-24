@@ -2,7 +2,7 @@
 
 import pytest
 
-from vpo.config.models import ProcessingConfig
+from vpo.config.models import JobsConfig, ProcessingConfig
 
 
 class TestProcessingConfig:
@@ -37,3 +37,53 @@ class TestProcessingConfig:
         """Large worker values are allowed at config level (capped at runtime)."""
         config = ProcessingConfig(workers=100)
         assert config.workers == 100
+
+
+class TestJobsConfig:
+    """Tests for JobsConfig dataclass."""
+
+    def test_default_min_free_disk_percent(self) -> None:
+        """Default min_free_disk_percent should be 5.0."""
+        config = JobsConfig()
+        assert config.min_free_disk_percent == 5.0
+
+    def test_min_free_disk_percent_can_be_set(self) -> None:
+        """min_free_disk_percent can be set via constructor."""
+        config = JobsConfig(min_free_disk_percent=10.0)
+        assert config.min_free_disk_percent == 10.0
+
+    def test_min_free_disk_percent_zero_disables_check(self) -> None:
+        """Setting min_free_disk_percent to 0 disables the check."""
+        config = JobsConfig(min_free_disk_percent=0.0)
+        assert config.min_free_disk_percent == 0.0
+
+    def test_min_free_disk_percent_max_value(self) -> None:
+        """min_free_disk_percent can be set to 100."""
+        config = JobsConfig(min_free_disk_percent=100.0)
+        assert config.min_free_disk_percent == 100.0
+
+    def test_min_free_disk_percent_negative_raises(self) -> None:
+        """Negative values should raise ValueError."""
+        with pytest.raises(ValueError, match="must be between 0 and 100"):
+            JobsConfig(min_free_disk_percent=-1.0)
+
+    def test_min_free_disk_percent_over_100_raises(self) -> None:
+        """Values over 100 should raise ValueError."""
+        with pytest.raises(ValueError, match="must be between 0 and 100"):
+            JobsConfig(min_free_disk_percent=101.0)
+
+    def test_min_free_disk_percent_decimal_precision(self) -> None:
+        """Should preserve decimal precision."""
+        config = JobsConfig(min_free_disk_percent=5.123456)
+        assert config.min_free_disk_percent == pytest.approx(5.123456)
+
+    def test_min_free_disk_percent_scientific_notation(self) -> None:
+        """Should accept values from scientific notation (already parsed by Python)."""
+        # When Python parses TOML, scientific notation is converted to float
+        config = JobsConfig(min_free_disk_percent=5e0)  # 5.0
+        assert config.min_free_disk_percent == 5.0
+
+    def test_min_free_disk_percent_very_small_value(self) -> None:
+        """Should accept very small positive values."""
+        config = JobsConfig(min_free_disk_percent=0.001)
+        assert config.min_free_disk_percent == pytest.approx(0.001)

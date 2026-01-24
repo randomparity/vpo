@@ -4,12 +4,15 @@ This module provides the 'vpo doctor' command to check external tool
 availability, versions, and capabilities.
 """
 
+import shutil
 import sys
+from pathlib import Path
 
 import click
 
 from vpo.cli.exit_codes import DOCTOR_EXIT_CODES
-from vpo.config import get_config
+from vpo.config import VPOConfig, get_config
+from vpo.core.formatting import format_file_size
 from vpo.tools import (
     RequirementLevel,
     check_requirements,
@@ -215,6 +218,15 @@ def doctor_command(verbose: bool, refresh: bool, json_output: bool) -> None:
     _show_transcription_plugins(verbose)
     click.echo()
 
+    # Disk Space Status (always show when verbose)
+    if verbose:
+        click.echo("Disk Space Status:")
+        click.echo("-" * 20)
+        disk_warning = _show_disk_status(config)
+        if disk_warning:
+            has_warnings = True
+        click.echo()
+
     # Summary
     click.echo("Summary:")
     click.echo("-" * 20)
@@ -289,3 +301,52 @@ def _show_transcription_plugins(verbose: bool) -> None:
             import traceback
 
             click.echo(traceback.format_exc(), err=True)
+
+
+def _show_disk_status(config: VPOConfig) -> bool:
+    """Show disk space status and configured threshold.
+
+    Args:
+        config: VPOConfig instance.
+
+    Returns:
+        True if there's a warning (disk below threshold), False otherwise.
+    """
+    min_free_percent = config.jobs.min_free_disk_percent
+
+    # Get home directory for VPO data
+    vpo_data_dir = Path.home() / ".vpo"
+
+    # Check disk space on VPO data directory (or home if not exists)
+    check_path = vpo_data_dir if vpo_data_dir.exists() else Path.home()
+
+    try:
+        stat = shutil.disk_usage(check_path)
+        total = stat.total
+        free = stat.free
+        free_percent = (free / total) * 100
+
+        click.echo(f"  VPO data directory: {vpo_data_dir}")
+        click.echo(f"  Total disk space: {format_file_size(total)}")
+        click.echo(f"  Free disk space: {format_file_size(free)} ({free_percent:.1f}%)")
+
+        if min_free_percent > 0:
+            click.echo(f"  Configured threshold: {min_free_percent:.1f}%")
+            if free_percent < min_free_percent:
+                click.echo(
+                    f"  ⚠ Warning: Free space ({free_percent:.1f}%) is below "
+                    f"threshold ({min_free_percent:.1f}%)"
+                )
+                return True
+            else:
+                click.echo("  ✓ Disk space is above threshold")
+        else:
+            click.echo("  Threshold check: disabled (min_free_disk_percent = 0)")
+
+        click.echo("  Note: Processing checks the target file's filesystem")
+
+        return False
+
+    except OSError as e:
+        click.echo(f"  ✗ Cannot check disk space: {e}")
+        return False
