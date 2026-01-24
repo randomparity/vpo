@@ -54,6 +54,7 @@ from .files import (
     get_tracks_for_file,
     insert_file,
     insert_track,
+    update_file_path,
     upsert_file,
     upsert_tracks_for_file,
 )
@@ -113,6 +114,7 @@ __all__ = [
     "get_file_by_path",
     "get_files_by_paths",
     "insert_file",
+    "update_file_path",
     "upsert_file",
     # Track operations
     "delete_tracks_for_file",

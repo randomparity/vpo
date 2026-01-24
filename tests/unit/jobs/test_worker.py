@@ -386,21 +386,25 @@ class TestProcessJob:
         assert updated is not None
         assert updated.status == JobStatus.COMPLETED
 
-    def test_handles_move_job_not_implemented(
-        self, db_conn: sqlite3.Connection
-    ) -> None:
-        """Handles MOVE job type (not yet implemented)."""
+    def test_handles_move_job(self, db_conn: sqlite3.Connection) -> None:
+        """Handles MOVE job type successfully."""
         worker = JobWorker(conn=db_conn)
         job = make_test_job(job_type=JobType.MOVE)
         insert_job(db_conn, job)
 
-        worker.process_job(job)
+        mock_result = MagicMock()
+        mock_result.success = True
+        mock_result.error_message = None
+        mock_result.destination_path = "/destination/file.mkv"
 
-        # Job should be marked as failed
+        with patch.object(worker, "_process_move_job") as mock_process:
+            mock_process.return_value = (True, None, "/destination/file.mkv")
+            worker.process_job(job)
+
+        # Job should be marked as completed
         updated = get_job(db_conn, job.id)
         assert updated is not None
-        assert updated.status == JobStatus.FAILED
-        assert "not yet implemented" in updated.error_message.lower()
+        assert updated.status == JobStatus.COMPLETED
 
     def test_increments_files_processed(self, db_conn: sqlite3.Connection) -> None:
         """Increments files_processed counter after job completion."""
