@@ -7,6 +7,7 @@ from pathlib import Path
 
 import click
 
+from vpo.cli.formatting import get_status_color
 from vpo.config import get_config
 from vpo.core import parse_relative_time, truncate_filename
 from vpo.db import (
@@ -19,7 +20,6 @@ from vpo.db import (
     get_jobs_by_status,
     get_jobs_filtered,
 )
-from vpo.jobs import get_status_color
 from vpo.jobs.queue import (
     cancel_job,
     get_queue_stats,

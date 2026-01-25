@@ -159,31 +159,40 @@ def parse_relative_time_iso(value: str) -> str:
     return parse_relative_time(value).isoformat()
 
 
-def parse_relative_or_iso_time(value: str) -> str:
+def parse_relative_or_iso_time(value: str) -> str | None:
     """Parse either relative time or ISO-8601 timestamp to ISO-8601.
 
     Accepts either a relative time string (e.g., "7d", "1w") or an
-    ISO-8601 timestamp. Returns an ISO-8601 formatted string.
+    ISO-8601 timestamp. Returns an ISO-8601 formatted string, or None
+    if the value is neither a valid relative time nor valid ISO-8601.
 
     Args:
         value: Relative time string or ISO-8601 timestamp.
 
     Returns:
-        ISO-8601 timestamp string.
-
-    Raises:
-        ValueError: If format is invalid and cannot be parsed as either format.
+        ISO-8601 timestamp string, or None if invalid.
 
     Examples:
         >>> parse_relative_or_iso_time("7d")
         '2024-01-08T10:30:00+00:00'
         >>> parse_relative_or_iso_time("2024-01-15T10:30:00Z")
         '2024-01-15T10:30:00Z'
+        >>> parse_relative_or_iso_time("invalid")
+        None
     """
-    # Check if it looks like an ISO-8601 timestamp (contains 'T' or is date-like)
-    # ISO timestamps have T separator or are at least 10 chars (YYYY-MM-DD)
-    if "T" in value or len(value) >= 10:
-        return value
+    # Try relative time first (1d, 2w, 3h, etc.)
+    try:
+        return parse_relative_time_iso(value)
+    except ValueError:
+        pass
 
-    # Try parsing as relative time
-    return parse_relative_time_iso(value)
+    # Check if it looks like ISO and validate
+    if "T" in value or len(value) >= 10:
+        try:
+            # Validate by parsing (handles Z and +00:00 suffixes)
+            datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return value  # Valid ISO, return as-is
+        except ValueError:
+            return None  # Looks like ISO but invalid
+
+    return None  # Not relative, not ISO-like

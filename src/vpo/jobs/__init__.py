@@ -8,18 +8,12 @@ This module provides the job queue system for long-running operations:
 - maintenance: Job maintenance operations (purge, cleanup)
 - services: Job processing services
 - summary: Job summary text generation
-- display: Display utilities (status colors, formatting)
 
-Note: FFmpeg progress parsing is in vpo.tools.ffmpeg_progress
+Note: FFmpeg progress parsing is in vpo.tools.ffmpeg_progress.
+Display utilities (status colors) are in vpo.cli.formatting.
 """
 
 from vpo.jobs.cli_lifecycle import CLIJobLifecycle
-from vpo.jobs.display import (
-    DEFAULT_STATUS_COLOR,
-    JOB_STATUS_COLORS,
-    format_job_status,
-    get_status_color,
-)
 from vpo.jobs.exceptions import (
     ConcurrentModificationError,
     JobNotFoundError,
@@ -73,11 +67,6 @@ def __getattr__(name: str):
 
 
 __all__ = [
-    # Display utilities
-    "JOB_STATUS_COLORS",
-    "DEFAULT_STATUS_COLOR",
-    "get_status_color",
-    "format_job_status",
     # Progress reporters
     "ProgressReporter",
     "StderrProgressReporter",

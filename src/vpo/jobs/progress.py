@@ -277,6 +277,9 @@ class CompositeProgressReporter:
 
     Useful when you need to update both stderr and database, or
     combine any reporters.
+
+    Error isolation: If one reporter fails, others continue.
+    Failures are logged but don't propagate.
     """
 
     def __init__(self, reporters: list[ProgressReporter]) -> None:
@@ -287,27 +290,42 @@ class CompositeProgressReporter:
         """
         self.reporters = reporters
 
+    def _safe_call(self, method_name: str, *args, **kwargs) -> None:
+        """Call method on all reporters, isolating errors.
+
+        Args:
+            method_name: Name of the method to call on each reporter.
+            *args: Positional arguments to pass to the method.
+            **kwargs: Keyword arguments to pass to the method.
+        """
+        for reporter in self.reporters:
+            try:
+                method = getattr(reporter, method_name)
+                method(*args, **kwargs)
+            except Exception as e:
+                logger.warning(
+                    "Progress reporter %s.%s failed: %s",
+                    reporter.__class__.__name__,
+                    method_name,
+                    e,
+                )
+
     def on_start(self, total: int) -> None:
         """Delegate to all reporters."""
-        for reporter in self.reporters:
-            reporter.on_start(total)
+        self._safe_call("on_start", total)
 
     def on_item_start(self, index: int, message: str = "") -> None:
         """Delegate to all reporters."""
-        for reporter in self.reporters:
-            reporter.on_item_start(index, message)
+        self._safe_call("on_item_start", index, message)
 
     def on_item_complete(self, index: int, success: bool, message: str = "") -> None:
         """Delegate to all reporters."""
-        for reporter in self.reporters:
-            reporter.on_item_complete(index, success, message)
+        self._safe_call("on_item_complete", index, success, message)
 
     def on_progress(self, percent: float, message: str = "") -> None:
         """Delegate to all reporters."""
-        for reporter in self.reporters:
-            reporter.on_progress(percent, message)
+        self._safe_call("on_progress", percent, message)
 
     def on_complete(self, success: bool = True) -> None:
         """Delegate to all reporters."""
-        for reporter in self.reporters:
-            reporter.on_complete(success)
+        self._safe_call("on_complete", success)

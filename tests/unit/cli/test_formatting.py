@@ -1,12 +1,12 @@
-"""Tests for job display utilities."""
+"""Tests for CLI display formatting utilities."""
 
-from vpo.db import JobStatus
-from vpo.jobs.display import (
+from vpo.cli.formatting import (
     DEFAULT_STATUS_COLOR,
     JOB_STATUS_COLORS,
     format_job_status,
     get_status_color,
 )
+from vpo.db import JobStatus
 
 
 class TestJobStatusColors:

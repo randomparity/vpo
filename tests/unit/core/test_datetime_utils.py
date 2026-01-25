@@ -355,7 +355,22 @@ class TestParseRelativeOrIsoTime:
         parse_relative_or_iso_time("1h")
         parse_relative_or_iso_time("1m")
 
-    def test_raises_on_invalid_short_string(self):
-        """Invalid short strings (not relative, not ISO) raise ValueError."""
-        with pytest.raises(ValueError):
-            parse_relative_or_iso_time("abc")
+    def test_returns_none_for_invalid_short_string(self):
+        """Invalid short strings (not relative, not ISO) return None."""
+        assert parse_relative_or_iso_time("abc") is None
+        assert parse_relative_or_iso_time("xyz") is None
+
+    def test_returns_none_for_invalid_iso_format(self):
+        """Strings that look like ISO but are invalid return None."""
+        # Looks like ISO (has T) but is garbage
+        assert parse_relative_or_iso_time("not-a-dateT00:00:00") is None
+        # Looks like date (>= 10 chars) but invalid
+        assert parse_relative_or_iso_time("2025/01/15T10:30") is None
+        assert parse_relative_or_iso_time("invalid-value") is None
+
+    def test_returns_none_for_malformed_timestamp(self):
+        """Malformed timestamps return None."""
+        # Missing time component
+        assert parse_relative_or_iso_time("2025-13-45") is None  # Invalid month/day
+        # Gibberish with T
+        assert parse_relative_or_iso_time("fooTbar") is None

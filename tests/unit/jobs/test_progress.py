@@ -154,6 +154,59 @@ class TestCompositeProgressReporter:
         composite.on_progress(50.0)
         composite.on_complete()
 
+    def test_error_isolation_continues_to_next_reporter(self):
+        """If one reporter fails, subsequent reporters still get called."""
+        failing_mock = MagicMock()
+        failing_mock.on_start.side_effect = RuntimeError("Mock failure")
+        working_mock = MagicMock()
+
+        composite = CompositeProgressReporter([failing_mock, working_mock])
+        composite.on_start(10)
+
+        # Failing reporter was called (and failed)
+        failing_mock.on_start.assert_called_once_with(10)
+        # Working reporter was still called despite the earlier failure
+        working_mock.on_start.assert_called_once_with(10)
+
+    def test_error_isolation_all_methods(self):
+        """Error isolation works for all progress methods."""
+        failing_mock = MagicMock()
+        failing_mock.on_start.side_effect = RuntimeError("fail")
+        failing_mock.on_item_start.side_effect = RuntimeError("fail")
+        failing_mock.on_item_complete.side_effect = RuntimeError("fail")
+        failing_mock.on_progress.side_effect = RuntimeError("fail")
+        failing_mock.on_complete.side_effect = RuntimeError("fail")
+        working_mock = MagicMock()
+
+        composite = CompositeProgressReporter([failing_mock, working_mock])
+
+        # None of these should raise
+        composite.on_start(10)
+        composite.on_item_start(0, "test")
+        composite.on_item_complete(0, True, "done")
+        composite.on_progress(50.0, "msg")
+        composite.on_complete(False)
+
+        # Working reporter received all calls
+        working_mock.on_start.assert_called_once_with(10)
+        working_mock.on_item_start.assert_called_once_with(0, "test")
+        working_mock.on_item_complete.assert_called_once_with(0, True, "done")
+        working_mock.on_progress.assert_called_once_with(50.0, "msg")
+        working_mock.on_complete.assert_called_once_with(False)
+
+    def test_error_isolation_logs_warning(self, caplog):
+        """Failed reporter calls are logged as warnings."""
+        failing_mock = MagicMock()
+        failing_mock.on_start.side_effect = ValueError("test error message")
+
+        composite = CompositeProgressReporter([failing_mock])
+
+        with caplog.at_level(logging.WARNING):
+            composite.on_start(10)
+
+        assert "Progress reporter MagicMock.on_start failed" in caplog.text
+        assert "test error message" in caplog.text
+
 
 class TestDatabaseProgressReporter:
     """Tests for DatabaseProgressReporter."""

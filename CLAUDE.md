@@ -86,7 +86,6 @@ The `jobs/` module provides shared utilities for CLI and daemon job processing:
 
 ```
 jobs/
-├── display.py    # Status colors and formatting utilities
 ├── progress.py   # Progress reporting protocol and implementations
 ├── runner.py     # Unified workflow execution runner
 ├── tracking.py   # Job creation, completion, failure tracking
@@ -99,8 +98,6 @@ jobs/
 
 **Key utilities:**
 
-- `JOB_STATUS_COLORS`: Maps JobStatus to terminal color names
-- `get_status_color(status)`: Get color for a job status
 - `ProgressReporter`: Protocol for progress reporting (CLI/daemon/tests)
 - `StderrProgressReporter`: Progress on stderr for CLI batch operations
 - `DatabaseProgressReporter`: Progress stored in database for daemon

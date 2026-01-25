@@ -1,7 +1,8 @@
-"""Job display utilities for consistent formatting across CLI and UI.
+"""Job display utilities for consistent formatting in CLI output.
 
-This module provides shared display constants and formatting functions
+This module provides display constants and formatting functions
 for job status, colors, and other display-related utilities.
+These are CLI-specific and should not be used in daemon/server code.
 """
 
 from vpo.db import JobStatus

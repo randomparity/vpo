@@ -705,7 +705,7 @@ def _parse_time_filter(value: str) -> str:
     """Parse a time filter value to ISO-8601 timestamp.
 
     Thin wrapper around core.parse_relative_or_iso_time that converts
-    ValueError to click.ClickException for CLI usage.
+    None return to click.ClickException for CLI usage.
 
     Args:
         value: Time filter value (relative: 7d, 1w, 2h, 30m, or ISO-8601).
@@ -716,13 +716,13 @@ def _parse_time_filter(value: str) -> str:
     Raises:
         click.ClickException: If format is invalid.
     """
-    try:
-        return parse_relative_or_iso_time(value)
-    except ValueError:
+    result = parse_relative_or_iso_time(value)
+    if result is None:
         raise click.ClickException(
             f"Invalid time format: {value}. "
             "Use relative time (7d, 1w, 2h, 30m) or ISO-8601."
         )
+    return result
 
 
 @stats_group.command("file")
