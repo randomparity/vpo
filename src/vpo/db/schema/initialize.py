@@ -31,6 +31,7 @@ from .migrations import (
     migrate_v21_to_v22,
     migrate_v22_to_v23,
     migrate_v23_to_v24,
+    migrate_v24_to_v25,
 )
 from .version import get_schema_version
 
@@ -115,3 +116,6 @@ def initialize_database(conn: sqlite3.Connection) -> None:
             current_version = 23
         if current_version == 23:
             migrate_v23_to_v24(conn)
+            current_version = 24
+        if current_version == 24:
+            migrate_v24_to_v25(conn)

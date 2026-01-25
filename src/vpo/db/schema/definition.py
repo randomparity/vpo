@@ -7,7 +7,7 @@ used by the VPO database.
 
 import sqlite3
 
-SCHEMA_VERSION = 24
+SCHEMA_VERSION = 25
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -347,7 +347,8 @@ CREATE TABLE IF NOT EXISTS processing_stats (
     -- Job linkage (unified CLI/daemon tracking)
     job_id TEXT,                            -- FK to jobs.id (NULL = legacy)
 
-    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
+    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
+    FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE SET NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_stats_file ON processing_stats(file_id);

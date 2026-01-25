@@ -1425,3 +1425,284 @@ class TestMigrationV22ToV23:
         )
         row = cursor.fetchone()
         assert row[0] is None  # job_id
+
+
+class TestMigrationV24ToV25:
+    """Tests for v24→v25 migration (FK constraint on processing_stats.job_id)."""
+
+    @pytest.fixture
+    def db_v24(self, temp_db: Path) -> sqlite3.Connection:
+        """Create a database at v24 schema version."""
+        from vpo.db.schema import (
+            migrate_v22_to_v23,
+            migrate_v23_to_v24,
+        )
+
+        conn = sqlite3.connect(str(temp_db))
+        conn.row_factory = sqlite3.Row
+
+        # Create v22 schema (before job tracking unification)
+        conn.executescript("""
+            CREATE TABLE _meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            INSERT INTO _meta (key, value) VALUES ('schema_version', '22');
+
+            CREATE TABLE files (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                path TEXT UNIQUE NOT NULL,
+                filename TEXT NOT NULL,
+                directory TEXT NOT NULL,
+                extension TEXT NOT NULL,
+                size_bytes INTEGER NOT NULL,
+                modified_at TEXT NOT NULL,
+                content_hash TEXT,
+                container_format TEXT,
+                scanned_at TEXT NOT NULL,
+                scan_status TEXT NOT NULL DEFAULT 'pending',
+                scan_error TEXT
+            );
+
+            CREATE TABLE jobs (
+                id TEXT PRIMARY KEY,
+                file_id INTEGER,
+                file_path TEXT NOT NULL,
+                job_type TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'queued',
+                priority INTEGER NOT NULL DEFAULT 100,
+                policy_name TEXT,
+                policy_json TEXT,
+                progress_percent REAL NOT NULL DEFAULT 0.0,
+                progress_json TEXT,
+                created_at TEXT NOT NULL,
+                started_at TEXT,
+                completed_at TEXT,
+                worker_pid INTEGER,
+                worker_heartbeat TEXT,
+                output_path TEXT,
+                backup_path TEXT,
+                error_message TEXT,
+                files_affected_json TEXT,
+                summary_json TEXT,
+                log_path TEXT,
+                FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE processing_stats (
+                id TEXT PRIMARY KEY,
+                file_id INTEGER NOT NULL,
+                processed_at TEXT NOT NULL,
+                policy_name TEXT NOT NULL,
+                size_before INTEGER NOT NULL,
+                size_after INTEGER NOT NULL,
+                size_change INTEGER NOT NULL,
+                audio_tracks_before INTEGER NOT NULL DEFAULT 0,
+                subtitle_tracks_before INTEGER NOT NULL DEFAULT 0,
+                attachments_before INTEGER NOT NULL DEFAULT 0,
+                audio_tracks_after INTEGER NOT NULL DEFAULT 0,
+                subtitle_tracks_after INTEGER NOT NULL DEFAULT 0,
+                attachments_after INTEGER NOT NULL DEFAULT 0,
+                audio_tracks_removed INTEGER NOT NULL DEFAULT 0,
+                subtitle_tracks_removed INTEGER NOT NULL DEFAULT 0,
+                attachments_removed INTEGER NOT NULL DEFAULT 0,
+                duration_seconds REAL NOT NULL,
+                phases_completed INTEGER NOT NULL DEFAULT 0,
+                phases_total INTEGER NOT NULL DEFAULT 0,
+                total_changes INTEGER NOT NULL DEFAULT 0,
+                video_source_codec TEXT,
+                video_target_codec TEXT,
+                video_transcode_skipped INTEGER NOT NULL DEFAULT 0,
+                video_skip_reason TEXT,
+                audio_tracks_transcoded INTEGER NOT NULL DEFAULT 0,
+                audio_tracks_preserved INTEGER NOT NULL DEFAULT 0,
+                hash_before TEXT,
+                hash_after TEXT,
+                success INTEGER NOT NULL,
+                error_message TEXT,
+                encoder_type TEXT,
+                FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
+            );
+
+            -- Insert test data
+            INSERT INTO files (
+                id, path, filename, directory, extension,
+                size_bytes, modified_at, scanned_at, scan_status
+            ) VALUES (
+                1, '/videos/test.mkv', 'test.mkv', '/videos', '.mkv',
+                1000000, '2025-01-15T10:00:00Z', '2025-01-15T10:00:00Z', 'scanned'
+            );
+
+            INSERT INTO jobs (
+                id, file_id, file_path, job_type, status, priority,
+                created_at, started_at
+            ) VALUES (
+                'job-1', 1, '/videos/test.mkv', 'transcode', 'completed', 100,
+                '2025-01-15T10:00:00Z', '2025-01-15T10:00:00Z'
+            );
+
+            INSERT INTO processing_stats (
+                id, file_id, processed_at, policy_name,
+                size_before, size_after, size_change,
+                duration_seconds, success
+            ) VALUES (
+                'stat-1', 1, '2025-01-15T10:30:00Z', 'test.yaml',
+                1000000, 900000, 100000, 5.0, 1
+            );
+        """)
+
+        # Migrate to v23 (adds origin, batch_id, job_id columns)
+        migrate_v22_to_v23(conn)
+
+        # Migrate to v24 (adds indexes)
+        migrate_v23_to_v24(conn)
+
+        # Add some test data with job_id references
+        conn.execute(
+            """
+            INSERT INTO processing_stats (
+                id, file_id, processed_at, policy_name,
+                size_before, size_after, size_change,
+                duration_seconds, success, job_id
+            ) VALUES (
+                'stat-2', 1, '2025-01-15T11:00:00Z', 'test.yaml',
+                800000, 700000, 100000, 3.0, 1, 'job-1'
+            )
+            """
+        )
+        # Add stats with orphaned job_id (references non-existent job)
+        conn.execute(
+            """
+            INSERT INTO processing_stats (
+                id, file_id, processed_at, policy_name,
+                size_before, size_after, size_change,
+                duration_seconds, success, job_id
+            ) VALUES (
+                'stat-orphan', 1, '2025-01-15T12:00:00Z', 'test.yaml',
+                500000, 400000, 100000, 2.0, 1, 'nonexistent-job'
+            )
+            """
+        )
+        conn.commit()
+
+        return conn
+
+    def test_migration_adds_fk_constraint(self, db_v24: sqlite3.Connection):
+        """Test that migration adds FK constraint on job_id."""
+        from vpo.db.schema import migrate_v24_to_v25
+
+        migrate_v24_to_v25(db_v24)
+
+        # Check table SQL contains FK constraint
+        cursor = db_v24.execute(
+            "SELECT sql FROM sqlite_master "
+            "WHERE type='table' AND name='processing_stats'"
+        )
+        row = cursor.fetchone()
+        assert "REFERENCES jobs(id)" in row[0]
+        assert "ON DELETE SET NULL" in row[0]
+
+    def test_migration_updates_schema_version(self, db_v24: sqlite3.Connection):
+        """Test that migration updates schema version to 25."""
+        from vpo.db.schema import get_schema_version, migrate_v24_to_v25
+
+        migrate_v24_to_v25(db_v24)
+
+        version = get_schema_version(db_v24)
+        assert version == 25
+
+    def test_migration_preserves_existing_data(self, db_v24: sqlite3.Connection):
+        """Test that migration preserves existing processing_stats data."""
+        from vpo.db.schema import migrate_v24_to_v25
+
+        migrate_v24_to_v25(db_v24)
+
+        # Check stat-1 (no job_id) is preserved
+        cursor = db_v24.execute(
+            "SELECT id, file_id, policy_name, success, job_id "
+            "FROM processing_stats WHERE id = 'stat-1'"
+        )
+        row = cursor.fetchone()
+        assert row["id"] == "stat-1"
+        assert row["file_id"] == 1
+        assert row["policy_name"] == "test.yaml"
+        assert row["success"] == 1
+        assert row["job_id"] is None
+
+        # Check stat-2 (with valid job_id) is preserved
+        cursor = db_v24.execute(
+            "SELECT id, job_id FROM processing_stats WHERE id = 'stat-2'"
+        )
+        row = cursor.fetchone()
+        assert row["id"] == "stat-2"
+        assert row["job_id"] == "job-1"
+
+    def test_migration_nullifies_orphaned_job_ids(self, db_v24: sqlite3.Connection):
+        """Test that migration sets orphaned job_ids to NULL."""
+        from vpo.db.schema import migrate_v24_to_v25
+
+        migrate_v24_to_v25(db_v24)
+
+        # Check stat-orphan has job_id set to NULL
+        cursor = db_v24.execute(
+            "SELECT id, job_id FROM processing_stats WHERE id = 'stat-orphan'"
+        )
+        row = cursor.fetchone()
+        assert row["id"] == "stat-orphan"
+        assert row["job_id"] is None  # Was 'nonexistent-job', now NULL
+
+    def test_migration_is_idempotent(self, db_v24: sqlite3.Connection):
+        """Test that migration can be run multiple times safely."""
+        from vpo.db.schema import migrate_v24_to_v25
+
+        # Run migration twice
+        migrate_v24_to_v25(db_v24)
+        migrate_v24_to_v25(db_v24)
+
+        # Should still be at version 25
+        cursor = db_v24.execute("SELECT value FROM _meta WHERE key = 'schema_version'")
+        row = cursor.fetchone()
+        assert row[0] == "25"
+
+    def test_migration_recreates_indexes(self, db_v24: sqlite3.Connection):
+        """Test that migration recreates all indexes."""
+        from vpo.db.schema import migrate_v24_to_v25
+
+        migrate_v24_to_v25(db_v24)
+
+        cursor = db_v24.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type='index' AND tbl_name='processing_stats'"
+        )
+        indexes = {row[0] for row in cursor.fetchall()}
+
+        assert "idx_stats_file" in indexes
+        assert "idx_stats_job" in indexes
+        assert "idx_stats_policy" in indexes
+        assert "idx_stats_time" in indexes
+        assert "idx_stats_success" in indexes
+        assert "idx_stats_file_time" in indexes
+
+    def test_fk_cascade_sets_null_on_job_delete(self, db_v24: sqlite3.Connection):
+        """Test that deleting a job sets job_id to NULL in processing_stats."""
+        from vpo.db.schema import migrate_v24_to_v25
+
+        migrate_v24_to_v25(db_v24)
+
+        # Enable foreign key enforcement (required for ON DELETE SET NULL)
+        db_v24.execute("PRAGMA foreign_keys = ON")
+
+        # Verify stat-2 has job_id = 'job-1'
+        cursor = db_v24.execute(
+            "SELECT job_id FROM processing_stats WHERE id = 'stat-2'"
+        )
+        row = cursor.fetchone()
+        assert row["job_id"] == "job-1"
+
+        # Delete job-1
+        db_v24.execute("DELETE FROM jobs WHERE id = 'job-1'")
+        db_v24.commit()
+
+        # Verify job_id is now NULL (ON DELETE SET NULL)
+        cursor = db_v24.execute(
+            "SELECT job_id FROM processing_stats WHERE id = 'stat-2'"
+        )
+        row = cursor.fetchone()
+        assert row["job_id"] is None
