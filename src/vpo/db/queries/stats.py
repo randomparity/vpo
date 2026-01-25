@@ -23,6 +23,9 @@ def _row_to_processing_stats(row: sqlite3.Row) -> ProcessingStatsRecord:
     Returns:
         ProcessingStatsRecord instance populated from the row.
     """
+    # Handle optional column that may not exist before migration v22→v23
+    job_id = row["job_id"] if "job_id" in row.keys() else None
+
     return ProcessingStatsRecord(
         id=row["id"],
         file_id=row["file_id"],
@@ -55,6 +58,7 @@ def _row_to_processing_stats(row: sqlite3.Row) -> ProcessingStatsRecord:
         success=row["success"] == 1,
         error_message=row["error_message"],
         encoder_type=row["encoder_type"],
+        job_id=job_id,
     )
 
 
@@ -83,10 +87,11 @@ def insert_processing_stats(
             duration_seconds, phases_completed, phases_total, total_changes,
             video_source_codec, video_target_codec, video_transcode_skipped,
             video_skip_reason, audio_tracks_transcoded, audio_tracks_preserved,
-            hash_before, hash_after, success, error_message, encoder_type
+            hash_before, hash_after, success, error_message, encoder_type,
+            job_id
         ) VALUES (
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
         """,
         (
@@ -121,6 +126,7 @@ def insert_processing_stats(
             1 if record.success else 0,
             record.error_message,
             record.encoder_type,
+            record.job_id,
         ),
     )
     return record.id
@@ -218,7 +224,8 @@ def get_processing_stats_by_id(
                duration_seconds, phases_completed, phases_total, total_changes,
                video_source_codec, video_target_codec, video_transcode_skipped,
                video_skip_reason, audio_tracks_transcoded, audio_tracks_preserved,
-               hash_before, hash_after, success, error_message, encoder_type
+               hash_before, hash_after, success, error_message, encoder_type,
+               job_id
         FROM processing_stats WHERE id = ?
         """,
         (stats_id,),
@@ -254,7 +261,8 @@ def get_processing_stats_for_file(
                duration_seconds, phases_completed, phases_total, total_changes,
                video_source_codec, video_target_codec, video_transcode_skipped,
                video_skip_reason, audio_tracks_transcoded, audio_tracks_preserved,
-               hash_before, hash_after, success, error_message, encoder_type
+               hash_before, hash_after, success, error_message, encoder_type,
+               job_id
         FROM processing_stats
         WHERE file_id = ?
         ORDER BY processed_at DESC

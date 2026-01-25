@@ -38,6 +38,7 @@ from .migrations import (
     migrate_v19_to_v20,
     migrate_v20_to_v21,
     migrate_v21_to_v22,
+    migrate_v22_to_v23,
 )
 from .version import get_schema_version
 
@@ -71,4 +72,5 @@ __all__ = [
     "migrate_v19_to_v20",
     "migrate_v20_to_v21",
     "migrate_v21_to_v22",
+    "migrate_v22_to_v23",
 ]

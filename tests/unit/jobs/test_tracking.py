@@ -8,8 +8,11 @@ import pytest
 from vpo.db import JobStatus, JobType
 from vpo.jobs.tracking import (
     cancel_scan_job,
+    complete_process_job,
     complete_scan_job,
+    create_process_job,
     create_scan_job,
+    fail_process_job,
     fail_scan_job,
 )
 
@@ -304,3 +307,272 @@ class TestFailScanJob:
         """fail_scan_job raises ValueError for non-existent job."""
         with pytest.raises(ValueError, match="not found"):
             fail_scan_job(db_conn, "nonexistent-job-id", "Error")
+
+
+class TestCreateProcessJob:
+    """Tests for create_process_job function."""
+
+    def test_creates_job_with_defaults(self, db_conn: sqlite3.Connection):
+        """create_process_job creates a job with default values."""
+        job = create_process_job(
+            db_conn,
+            file_id=123,
+            file_path="/videos/movie.mkv",
+            policy_name="default.yaml",
+        )
+
+        assert job.id is not None
+        assert job.file_id == 123
+        assert job.file_path == "/videos/movie.mkv"
+        assert job.job_type == JobType.PROCESS
+        assert job.status == JobStatus.RUNNING
+        assert job.policy_name == "default.yaml"
+        assert job.origin == "cli"
+        assert job.batch_id is None
+
+    def test_creates_job_with_origin(self, db_conn: sqlite3.Connection):
+        """create_process_job stores origin correctly."""
+        job = create_process_job(
+            db_conn,
+            file_id=None,
+            file_path="/videos/movie.mkv",
+            policy_name="default.yaml",
+            origin="daemon",
+        )
+
+        assert job.origin == "daemon"
+
+    def test_creates_job_with_batch_id(self, db_conn: sqlite3.Connection):
+        """create_process_job stores batch_id correctly."""
+        batch_uuid = "12345678-1234-1234-1234-123456789abc"
+        job = create_process_job(
+            db_conn,
+            file_id=None,
+            file_path="/videos/movie.mkv",
+            policy_name="default.yaml",
+            batch_id=batch_uuid,
+        )
+
+        assert job.batch_id == batch_uuid
+
+    def test_job_persisted_to_database(self, db_conn: sqlite3.Connection):
+        """create_process_job persists job to database."""
+        batch_uuid = "12345678-1234-1234-1234-123456789abc"
+        job = create_process_job(
+            db_conn,
+            file_id=456,
+            file_path="/videos/movie.mkv",
+            policy_name="transcode.yaml",
+            origin="cli",
+            batch_id=batch_uuid,
+        )
+
+        # Query directly from database
+        cursor = db_conn.execute("SELECT * FROM jobs WHERE id = ?", (job.id,))
+        row = cursor.fetchone()
+
+        assert row is not None
+        assert row["file_id"] == 456
+        assert row["file_path"] == "/videos/movie.mkv"
+        assert row["job_type"] == JobType.PROCESS.value
+        assert row["status"] == JobStatus.RUNNING.value
+        assert row["policy_name"] == "transcode.yaml"
+        assert row["origin"] == "cli"
+        assert row["batch_id"] == batch_uuid
+
+    def test_creates_job_with_timestamps(self, db_conn: sqlite3.Connection):
+        """create_process_job sets created_at and started_at timestamps."""
+        job = create_process_job(
+            db_conn,
+            file_id=None,
+            file_path="/videos/movie.mkv",
+            policy_name="default.yaml",
+        )
+
+        assert job.created_at is not None
+        assert job.started_at is not None
+
+    def test_creates_job_with_null_file_id(self, db_conn: sqlite3.Connection):
+        """create_process_job accepts None for file_id (unscanned files)."""
+        job = create_process_job(
+            db_conn,
+            file_id=None,
+            file_path="/videos/movie.mkv",
+            policy_name="default.yaml",
+        )
+
+        assert job.file_id is None
+
+
+class TestCompleteProcessJob:
+    """Tests for complete_process_job function."""
+
+    def test_marks_job_completed(self, db_conn: sqlite3.Connection):
+        """complete_process_job marks job as COMPLETED on success."""
+        job = create_process_job(
+            db_conn,
+            file_id=123,
+            file_path="/videos/movie.mkv",
+            policy_name="default.yaml",
+        )
+
+        complete_process_job(
+            db_conn,
+            job.id,
+            success=True,
+            phases_completed=3,
+            total_changes=5,
+        )
+
+        cursor = db_conn.execute("SELECT status FROM jobs WHERE id = ?", (job.id,))
+        row = cursor.fetchone()
+        assert row["status"] == JobStatus.COMPLETED.value
+
+    def test_marks_job_failed_on_failure(self, db_conn: sqlite3.Connection):
+        """complete_process_job marks job as FAILED when success=False."""
+        job = create_process_job(
+            db_conn,
+            file_id=123,
+            file_path="/videos/movie.mkv",
+            policy_name="default.yaml",
+        )
+
+        complete_process_job(
+            db_conn,
+            job.id,
+            success=False,
+            phases_completed=1,
+            total_changes=0,
+            error_message="Phase 'transcode' failed",
+        )
+
+        cursor = db_conn.execute(
+            "SELECT status, error_message FROM jobs WHERE id = ?", (job.id,)
+        )
+        row = cursor.fetchone()
+        assert row["status"] == JobStatus.FAILED.value
+        assert row["error_message"] == "Phase 'transcode' failed"
+
+    def test_stores_summary_json(self, db_conn: sqlite3.Connection):
+        """complete_process_job stores summary as JSON."""
+        job = create_process_job(
+            db_conn,
+            file_id=123,
+            file_path="/videos/movie.mkv",
+            policy_name="default.yaml",
+        )
+
+        complete_process_job(
+            db_conn,
+            job.id,
+            success=True,
+            phases_completed=3,
+            total_changes=5,
+            stats_id="abc-123",
+        )
+
+        cursor = db_conn.execute(
+            "SELECT summary_json FROM jobs WHERE id = ?", (job.id,)
+        )
+        row = cursor.fetchone()
+        summary = json.loads(row["summary_json"])
+        assert summary["phases_completed"] == 3
+        assert summary["total_changes"] == 5
+        assert summary["stats_id"] == "abc-123"
+
+    def test_sets_completed_at_timestamp(self, db_conn: sqlite3.Connection):
+        """complete_process_job sets completed_at timestamp."""
+        job = create_process_job(
+            db_conn,
+            file_id=123,
+            file_path="/videos/movie.mkv",
+            policy_name="default.yaml",
+        )
+
+        complete_process_job(db_conn, job.id, success=True)
+
+        cursor = db_conn.execute(
+            "SELECT completed_at FROM jobs WHERE id = ?", (job.id,)
+        )
+        row = cursor.fetchone()
+        assert row["completed_at"] is not None
+
+    def test_sets_progress_to_100(self, db_conn: sqlite3.Connection):
+        """complete_process_job sets progress to 100%."""
+        job = create_process_job(
+            db_conn,
+            file_id=123,
+            file_path="/videos/movie.mkv",
+            policy_name="default.yaml",
+        )
+
+        complete_process_job(db_conn, job.id, success=True)
+
+        cursor = db_conn.execute(
+            "SELECT progress_percent FROM jobs WHERE id = ?", (job.id,)
+        )
+        row = cursor.fetchone()
+        assert row["progress_percent"] == 100.0
+
+    def test_raises_for_nonexistent_job(self, db_conn: sqlite3.Connection):
+        """complete_process_job raises ValueError for non-existent job."""
+        with pytest.raises(ValueError, match="not found"):
+            complete_process_job(db_conn, "nonexistent-job-id", success=True)
+
+
+class TestFailProcessJob:
+    """Tests for fail_process_job function."""
+
+    def test_marks_job_failed(self, db_conn: sqlite3.Connection):
+        """fail_process_job marks job as FAILED."""
+        job = create_process_job(
+            db_conn,
+            file_id=123,
+            file_path="/videos/movie.mkv",
+            policy_name="default.yaml",
+        )
+
+        fail_process_job(db_conn, job.id, "Exception during processing")
+
+        cursor = db_conn.execute("SELECT status FROM jobs WHERE id = ?", (job.id,))
+        row = cursor.fetchone()
+        assert row["status"] == JobStatus.FAILED.value
+
+    def test_stores_error_message(self, db_conn: sqlite3.Connection):
+        """fail_process_job stores error message."""
+        job = create_process_job(
+            db_conn,
+            file_id=123,
+            file_path="/videos/movie.mkv",
+            policy_name="default.yaml",
+        )
+
+        fail_process_job(db_conn, job.id, "Disk space exhausted")
+
+        cursor = db_conn.execute(
+            "SELECT error_message FROM jobs WHERE id = ?", (job.id,)
+        )
+        row = cursor.fetchone()
+        assert row["error_message"] == "Disk space exhausted"
+
+    def test_sets_completed_at_timestamp(self, db_conn: sqlite3.Connection):
+        """fail_process_job sets completed_at timestamp."""
+        job = create_process_job(
+            db_conn,
+            file_id=123,
+            file_path="/videos/movie.mkv",
+            policy_name="default.yaml",
+        )
+
+        fail_process_job(db_conn, job.id, "Error")
+
+        cursor = db_conn.execute(
+            "SELECT completed_at FROM jobs WHERE id = ?", (job.id,)
+        )
+        row = cursor.fetchone()
+        assert row["completed_at"] is not None
+
+    def test_raises_for_nonexistent_job(self, db_conn: sqlite3.Connection):
+        """fail_process_job raises ValueError for non-existent job."""
+        with pytest.raises(ValueError, match="not found"):
+            fail_process_job(db_conn, "nonexistent-job-id", "Error")

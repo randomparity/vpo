@@ -186,3 +186,131 @@ def maybe_purge_old_jobs(conn: sqlite3.Connection, config: JobsConfig) -> int:
         config.retention_days,
         auto_purge=config.auto_purge,
     )
+
+
+def create_process_job(
+    conn: sqlite3.Connection,
+    file_id: int | None,
+    file_path: str,
+    policy_name: str,
+    *,
+    origin: str = "cli",
+    batch_id: str | None = None,
+) -> Job:
+    """Create a new process job record.
+
+    Process jobs track individual file processing through the workflow,
+    allowing unified reporting for both CLI and daemon operations.
+
+    Args:
+        conn: Database connection.
+        file_id: Database ID of the file (None if file not in database).
+        file_path: Path to the file being processed.
+        policy_name: Name/path of the policy being used.
+        origin: Origin of the job ('cli' or 'daemon').
+        batch_id: UUID grouping CLI batch operations (None for daemon jobs).
+
+    Returns:
+        The created Job record.
+    """
+    job_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+
+    job = Job(
+        id=job_id,
+        file_id=file_id,
+        file_path=file_path,
+        job_type=JobType.PROCESS,
+        status=JobStatus.RUNNING,
+        priority=100,
+        policy_name=policy_name,
+        policy_json=None,
+        progress_percent=0.0,
+        progress_json=None,
+        created_at=now,
+        started_at=now,
+        origin=origin,
+        batch_id=batch_id,
+    )
+
+    insert_job(conn, job)
+    return job
+
+
+def complete_process_job(
+    conn: sqlite3.Connection,
+    job_id: str,
+    *,
+    success: bool,
+    phases_completed: int = 0,
+    total_changes: int = 0,
+    error_message: str | None = None,
+    stats_id: str | None = None,
+) -> None:
+    """Mark a process job as completed.
+
+    Args:
+        conn: Database connection.
+        job_id: ID of the job to complete.
+        success: Whether the processing succeeded.
+        phases_completed: Number of phases completed.
+        total_changes: Total number of changes made.
+        error_message: Error message if job failed.
+        stats_id: ID of the processing_stats record (for linkage).
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    status = JobStatus.COMPLETED if success else JobStatus.FAILED
+
+    # Build summary JSON
+    summary = {
+        "phases_completed": phases_completed,
+        "total_changes": total_changes,
+    }
+    if stats_id:
+        summary["stats_id"] = stats_id
+    summary_json = json.dumps(summary)
+
+    cursor = conn.execute(
+        """
+        UPDATE jobs SET
+            status = ?,
+            error_message = ?,
+            completed_at = ?,
+            summary_json = ?,
+            progress_percent = 100.0
+        WHERE id = ?
+        """,
+        (status.value, error_message, now, summary_json, job_id),
+    )
+    if cursor.rowcount == 0:
+        raise ValueError(f"Job {job_id} not found")
+    conn.commit()
+
+
+def fail_process_job(
+    conn: sqlite3.Connection,
+    job_id: str,
+    error_message: str,
+) -> None:
+    """Mark a process job as failed due to an error.
+
+    Args:
+        conn: Database connection.
+        job_id: ID of the job to fail.
+        error_message: Description of the error.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+
+    cursor = conn.execute(
+        """
+        UPDATE jobs SET
+            status = ?,
+            error_message = ?,
+            completed_at = ?
+        WHERE id = ?
+        """,
+        (JobStatus.FAILED.value, error_message, now, job_id),
+    )
+    if cursor.rowcount == 0:
+        raise ValueError(f"Job {job_id} not found")
+    conn.commit()

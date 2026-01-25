@@ -102,6 +102,11 @@ def _row_to_job(row: sqlite3.Row) -> Job:
     Returns:
         Job instance populated from the row.
     """
+    # Handle optional columns that may not exist in older databases
+    # before migration v22→v23 is applied
+    origin = row["origin"] if "origin" in row.keys() else None
+    batch_id = row["batch_id"] if "batch_id" in row.keys() else None
+
     return Job(
         id=row["id"],
         file_id=row["file_id"],
@@ -124,4 +129,6 @@ def _row_to_job(row: sqlite3.Row) -> Job:
         files_affected_json=row["files_affected_json"],
         summary_json=row["summary_json"],
         log_path=row["log_path"],
+        origin=origin,
+        batch_id=batch_id,
     )

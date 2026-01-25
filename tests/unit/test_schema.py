@@ -1111,3 +1111,317 @@ class TestMigrationV21ToV22:
         assert "idx_stats_time" in indexes
         assert "idx_stats_success" in indexes
         assert "idx_stats_file_time" in indexes  # New compound index
+
+
+class TestMigrationV22ToV23:
+    """Tests for v22 to v23 migration (unified CLI/daemon job tracking)."""
+
+    @pytest.fixture
+    def db_v22(self, tmp_path: Path) -> sqlite3.Connection:
+        """Create a database at version 22 with jobs and processing_stats tables."""
+        db_path = tmp_path / "test.db"
+        conn = sqlite3.connect(str(db_path))
+
+        # Create minimal schema at v22 without origin, batch_id, job_id columns
+        conn.executescript(
+            """
+            CREATE TABLE _meta (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            INSERT INTO _meta (key, value) VALUES ('schema_version', '22');
+
+            CREATE TABLE files (
+                id INTEGER PRIMARY KEY,
+                path TEXT UNIQUE NOT NULL
+            );
+            INSERT INTO files (id, path) VALUES (1, '/test.mkv');
+
+            CREATE TABLE jobs (
+                id TEXT PRIMARY KEY,
+                file_id INTEGER,
+                file_path TEXT NOT NULL,
+                job_type TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'queued',
+                priority INTEGER NOT NULL DEFAULT 100,
+                policy_name TEXT,
+                policy_json TEXT,
+                progress_percent REAL NOT NULL DEFAULT 0.0,
+                progress_json TEXT,
+                created_at TEXT NOT NULL,
+                started_at TEXT,
+                completed_at TEXT,
+                worker_pid INTEGER,
+                worker_heartbeat TEXT,
+                output_path TEXT,
+                backup_path TEXT,
+                error_message TEXT,
+                files_affected_json TEXT,
+                summary_json TEXT,
+                log_path TEXT,
+                FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
+                CONSTRAINT valid_status CHECK (
+                    status IN ('queued', 'running', 'completed', 'failed', 'cancelled')
+                ),
+                CONSTRAINT valid_job_type CHECK (
+                    job_type IN ('transcode', 'move', 'scan', 'apply')
+                )
+            );
+
+            CREATE TABLE processing_stats (
+                id TEXT PRIMARY KEY,
+                file_id INTEGER NOT NULL,
+                processed_at TEXT NOT NULL,
+                policy_name TEXT NOT NULL,
+                size_before INTEGER NOT NULL,
+                size_after INTEGER NOT NULL,
+                size_change INTEGER NOT NULL,
+                duration_seconds REAL NOT NULL,
+                success INTEGER NOT NULL,
+                encoder_type TEXT,
+                FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
+            );
+
+            -- Insert test data
+            INSERT INTO jobs (
+                id, file_id, file_path, job_type, status, priority, created_at
+            ) VALUES
+                ('job-1', 1, '/test.mkv', 'scan', 'completed', 100, '2025-01-15');
+
+            INSERT INTO processing_stats (
+                id, file_id, processed_at, policy_name,
+                size_before, size_after, size_change,
+                duration_seconds, success
+            ) VALUES
+                ('stat-1', 1, '2025-01-15T10:00:00Z', 'test.yaml',
+                 1000000, 800000, 200000, 5.5, 1);
+            """
+        )
+
+        conn.commit()
+        return conn
+
+    def test_migration_adds_origin_column_to_jobs(self, db_v22: sqlite3.Connection):
+        """Test that migration adds origin column to jobs table."""
+        from vpo.db.schema import migrate_v22_to_v23
+
+        # Run migration
+        migrate_v22_to_v23(db_v22)
+
+        # Check that origin column exists
+        cursor = db_v22.execute("PRAGMA table_info(jobs)")
+        columns = {row[1] for row in cursor.fetchall()}
+        assert "origin" in columns
+
+    def test_migration_adds_batch_id_column_to_jobs(self, db_v22: sqlite3.Connection):
+        """Test that migration adds batch_id column to jobs table."""
+        from vpo.db.schema import migrate_v22_to_v23
+
+        # Run migration
+        migrate_v22_to_v23(db_v22)
+
+        # Check that batch_id column exists
+        cursor = db_v22.execute("PRAGMA table_info(jobs)")
+        columns = {row[1] for row in cursor.fetchall()}
+        assert "batch_id" in columns
+
+    def test_migration_adds_job_id_column_to_processing_stats(
+        self, db_v22: sqlite3.Connection
+    ):
+        """Test that migration adds job_id column to processing_stats table."""
+        from vpo.db.schema import migrate_v22_to_v23
+
+        # Run migration
+        migrate_v22_to_v23(db_v22)
+
+        # Check that job_id column exists
+        cursor = db_v22.execute("PRAGMA table_info(processing_stats)")
+        columns = {row[1] for row in cursor.fetchall()}
+        assert "job_id" in columns
+
+    def test_migration_creates_job_id_index(self, db_v22: sqlite3.Connection):
+        """Test that migration creates idx_stats_job index."""
+        from vpo.db.schema import migrate_v22_to_v23
+
+        # Run migration
+        migrate_v22_to_v23(db_v22)
+
+        # Check that index exists
+        cursor = db_v22.execute(
+            "SELECT name FROM sqlite_master WHERE type='index' "
+            "AND tbl_name='processing_stats' AND name='idx_stats_job'"
+        )
+        result = cursor.fetchone()
+        assert result is not None
+        assert result[0] == "idx_stats_job"
+
+    def test_migration_updates_schema_version(self, db_v22: sqlite3.Connection):
+        """Test that schema version is updated to 23."""
+        from vpo.db.schema import migrate_v22_to_v23
+
+        # Run migration
+        migrate_v22_to_v23(db_v22)
+
+        # Check schema version updated
+        cursor = db_v22.execute("SELECT value FROM _meta WHERE key = 'schema_version'")
+        assert cursor.fetchone()[0] == "23"
+
+    def test_migration_is_idempotent(self, db_v22: sqlite3.Connection):
+        """Test that running migration twice doesn't error."""
+        from vpo.db.schema import migrate_v22_to_v23
+
+        # Run migration twice
+        migrate_v22_to_v23(db_v22)
+        migrate_v22_to_v23(db_v22)
+
+        # Verify schema version is still 23
+        cursor = db_v22.execute("SELECT value FROM _meta WHERE key = 'schema_version'")
+        assert cursor.fetchone()[0] == "23"
+
+    def test_migration_preserves_existing_job_data(self, db_v22: sqlite3.Connection):
+        """Test that existing jobs records are preserved."""
+        from vpo.db.schema import migrate_v22_to_v23
+
+        # Run migration
+        migrate_v22_to_v23(db_v22)
+
+        # Verify job data is preserved
+        cursor = db_v22.execute(
+            "SELECT id, job_type, status, file_path FROM jobs WHERE id = 'job-1'"
+        )
+        row = cursor.fetchone()
+        assert row[0] == "job-1"
+        assert row[1] == "scan"
+        assert row[2] == "completed"
+        assert row[3] == "/test.mkv"
+
+    def test_migration_preserves_existing_stats_data(self, db_v22: sqlite3.Connection):
+        """Test that existing processing_stats records are preserved."""
+        from vpo.db.schema import migrate_v22_to_v23
+
+        # Run migration
+        migrate_v22_to_v23(db_v22)
+
+        # Verify stats data is preserved
+        cursor = db_v22.execute(
+            "SELECT id, policy_name, size_change FROM processing_stats "
+            "WHERE id = 'stat-1'"
+        )
+        row = cursor.fetchone()
+        assert row[0] == "stat-1"
+        assert row[1] == "test.yaml"
+        assert row[2] == 200000
+
+    def test_process_job_type_requires_new_database(self, db_v22: sqlite3.Connection):
+        """Test that 'process' job_type requires new database (constraint limitation).
+
+        SQLite doesn't support modifying CHECK constraints after table creation.
+        For existing databases, 'process' job type will be rejected. New databases
+        created with schema v23 will allow 'process' job type.
+        """
+        from vpo.db.schema import migrate_v22_to_v23
+
+        # Run migration
+        migrate_v22_to_v23(db_v22)
+
+        # Verify the old constraint still blocks 'process' in migrated databases
+        # This is expected behavior - SQLite CHECK constraints can't be modified
+        with pytest.raises(sqlite3.IntegrityError):
+            db_v22.execute(
+                """
+                INSERT INTO jobs (
+                    id, file_path, job_type, status, priority, created_at,
+                    origin, batch_id
+                ) VALUES (
+                    'job-proc', '/test.mkv', 'process', 'running', 100,
+                    '2025-01-15', 'cli', 'batch-123'
+                )
+                """
+            )
+
+    def test_new_database_allows_process_job_type(self, tmp_path: Path):
+        """Test that new databases (v23) allow 'process' job_type."""
+        from vpo.db.schema import create_schema
+
+        # Create a fresh database with v23 schema
+        db_path = tmp_path / "fresh.db"
+        conn = sqlite3.connect(str(db_path))
+        create_schema(conn)
+
+        # Insert job with 'process' type - should work in new database
+        conn.execute(
+            """
+            INSERT INTO files (path, filename, directory, extension, size_bytes,
+                               modified_at, scanned_at, scan_status)
+            VALUES ('/test.mkv', 'test.mkv', '/', '.mkv', 1000,
+                    '2025-01-15T00:00:00Z', '2025-01-15T00:00:00Z', 'ok')
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO jobs (id, file_path, job_type, status, priority, created_at,
+                              origin, batch_id)
+            VALUES ('job-proc', '/test.mkv', 'process', 'running', 100, '2025-01-15',
+                    'cli', 'batch-123')
+            """
+        )
+        conn.commit()
+
+        cursor = conn.execute(
+            "SELECT job_type, origin, batch_id FROM jobs WHERE id = 'job-proc'"
+        )
+        row = cursor.fetchone()
+        assert row[0] == "process"
+        assert row[1] == "cli"
+        assert row[2] == "batch-123"
+
+        conn.close()
+
+    def test_migration_allows_stats_with_job_id(self, db_v22: sqlite3.Connection):
+        """Test that processing_stats can be linked to jobs after migration."""
+        from vpo.db.schema import migrate_v22_to_v23
+
+        # Run migration
+        migrate_v22_to_v23(db_v22)
+
+        # Insert stats with job_id
+        db_v22.execute(
+            """
+            INSERT INTO processing_stats (
+                id, file_id, processed_at, policy_name,
+                size_before, size_after, size_change,
+                duration_seconds, success, job_id
+            ) VALUES (
+                'stat-2', 1, '2025-01-15T11:00:00Z', 'test.yaml',
+                800000, 700000, 100000, 3.0, 1, 'job-1'
+            )
+            """
+        )
+        db_v22.commit()
+
+        cursor = db_v22.execute(
+            "SELECT id, job_id FROM processing_stats WHERE id = 'stat-2'"
+        )
+        row = cursor.fetchone()
+        assert row[0] == "stat-2"
+        assert row[1] == "job-1"
+
+    def test_new_columns_are_null_by_default(self, db_v22: sqlite3.Connection):
+        """Test that new columns are NULL for existing records."""
+        from vpo.db.schema import migrate_v22_to_v23
+
+        # Run migration
+        migrate_v22_to_v23(db_v22)
+
+        # Check jobs columns are NULL
+        cursor = db_v22.execute("SELECT origin, batch_id FROM jobs WHERE id = 'job-1'")
+        row = cursor.fetchone()
+        assert row[0] is None  # origin
+        assert row[1] is None  # batch_id
+
+        # Check processing_stats job_id is NULL
+        cursor = db_v22.execute(
+            "SELECT job_id FROM processing_stats WHERE id = 'stat-1'"
+        )
+        row = cursor.fetchone()
+        assert row[0] is None  # job_id

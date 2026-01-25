@@ -146,6 +146,9 @@ class StatsCollector:
     # Generated ID
     stats_id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
+    # Job linkage (unified CLI/daemon tracking)
+    job_id: str | None = None  # FK to jobs.id
+
     # Pre-processing state
     size_before: int = 0
     hash_before: str | None = None
@@ -355,6 +358,7 @@ class StatsCollector:
                 success=self.success,
                 error_message=self.error_message,
                 encoder_type=self.encoder_type,
+                job_id=self.job_id,
             )
 
             insert_processing_stats(self.conn, stats_record)
