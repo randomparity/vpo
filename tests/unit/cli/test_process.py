@@ -5,7 +5,6 @@ from unittest.mock import patch
 import pytest
 
 from vpo.cli.process import (
-    ProgressTracker,
     get_max_workers,
     resolve_worker_count,
 )
@@ -77,82 +76,5 @@ class TestResolveWorkerCount:
             assert result == 1
 
 
-class TestProgressTracker:
-    """Tests for ProgressTracker class."""
-
-    def test_initial_state(self) -> None:
-        """Initial state should be zeros."""
-        tracker = ProgressTracker(total=10, enabled=False)
-        assert tracker.total == 10
-        assert tracker.completed == 0
-        assert tracker.active == 0
-
-    def test_start_file_increments_active(self) -> None:
-        """start_file should increment active count."""
-        tracker = ProgressTracker(total=10, enabled=False)
-        tracker.start_file()
-        assert tracker.active == 1
-        assert tracker.completed == 0
-
-    def test_complete_file_updates_counts(self) -> None:
-        """complete_file should update both active and completed."""
-        tracker = ProgressTracker(total=10, enabled=False)
-        tracker.start_file()
-        tracker.complete_file()
-        assert tracker.active == 0
-        assert tracker.completed == 1
-
-    def test_multiple_active_files(self) -> None:
-        """Should track multiple active files."""
-        tracker = ProgressTracker(total=10, enabled=False)
-        tracker.start_file()
-        tracker.start_file()
-        tracker.start_file()
-        assert tracker.active == 3
-        tracker.complete_file()
-        assert tracker.active == 2
-        assert tracker.completed == 1
-
-    def test_thread_safety(self) -> None:
-        """Progress tracker should be thread-safe."""
-        import threading
-
-        tracker = ProgressTracker(total=100, enabled=False)
-        errors: list[Exception] = []
-
-        def worker() -> None:
-            try:
-                for _ in range(10):
-                    tracker.start_file()
-                    tracker.complete_file()
-            except Exception as e:
-                errors.append(e)
-
-        threads = [threading.Thread(target=worker) for _ in range(10)]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
-
-        assert not errors
-        assert tracker.completed == 100
-        assert tracker.active == 0
-
-    def test_enabled_false_suppresses_output(
-        self, capsys: pytest.CaptureFixture
-    ) -> None:
-        """enabled=False should suppress stderr output."""
-        tracker = ProgressTracker(total=10, enabled=False)
-        tracker.start_file()
-        tracker.complete_file()
-        tracker.finish()
-        captured = capsys.readouterr()
-        assert captured.err == ""
-
-    def test_enabled_true_writes_to_stderr(self, capsys: pytest.CaptureFixture) -> None:
-        """enabled=True should write to stderr."""
-        tracker = ProgressTracker(total=10, enabled=True)
-        tracker.start_file()
-        captured = capsys.readouterr()
-        assert "Processing:" in captured.err
-        assert "[1 active]" in captured.err
+# Note: Progress tracking is now handled by StderrProgressReporter in vpo.jobs.progress
+# Tests for progress reporters are in tests/unit/jobs/test_progress.py

@@ -13,6 +13,7 @@ This module provides the job queue system for long-running operations:
 Note: FFmpeg progress parsing is in vpo.tools.ffmpeg_progress
 """
 
+from vpo.jobs.cli_lifecycle import CLIJobLifecycle
 from vpo.jobs.display import (
     DEFAULT_STATUS_COLOR,
     JOB_STATUS_COLORS,
@@ -33,11 +34,13 @@ from vpo.jobs.progress import (
     StderrProgressReporter,
 )
 from vpo.jobs.runner import (
+    ErrorClassification,
     JobLifecycle,
     NullJobLifecycle,
     WorkflowRunner,
     WorkflowRunnerConfig,
     WorkflowRunResult,
+    classify_workflow_error,
 )
 from vpo.jobs.summary import generate_summary_text
 from vpo.jobs.tracking import (
@@ -87,6 +90,9 @@ __all__ = [
     "WorkflowRunResult",
     "JobLifecycle",
     "NullJobLifecycle",
+    "CLIJobLifecycle",
+    "ErrorClassification",
+    "classify_workflow_error",
     # Exceptions
     "JobTrackingError",
     "JobNotFoundError",

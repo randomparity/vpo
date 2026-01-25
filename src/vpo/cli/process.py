@@ -22,10 +22,12 @@ from vpo.cli.profile_loader import load_profile_or_exit
 from vpo.config.loader import get_config
 from vpo.db.connection import get_connection
 from vpo.db.queries import get_file_by_path
-from vpo.jobs.tracking import (
-    complete_process_job,
-    create_process_job,
-    fail_job_with_retry,
+from vpo.jobs import (
+    CLIJobLifecycle,
+    NullJobLifecycle,
+    StderrProgressReporter,
+    WorkflowRunner,
+    WorkflowRunnerConfig,
 )
 from vpo.logging import worker_context
 from vpo.policy.loader import PolicyValidationError, load_policy
@@ -34,7 +36,6 @@ from vpo.policy.types import (
     OnErrorMode,
     PolicySchema,
 )
-from vpo.workflow import WorkflowProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -99,64 +100,8 @@ def _validate_workers(
 
 
 # =============================================================================
-# Progress Tracking
+# File Discovery
 # =============================================================================
-
-
-class ProgressTracker:
-    """Thread-safe progress tracking for parallel file processing.
-
-    Displays aggregate progress on stderr using in-place updates.
-    """
-
-    def __init__(self, total: int, enabled: bool = True) -> None:
-        """Initialize progress tracker.
-
-        Args:
-            total: Total number of files to process.
-            enabled: If False, suppresses output (for JSON mode).
-        """
-        self.total = total
-        self.completed = 0
-        self.active = 0
-        self.enabled = enabled
-        self._lock = threading.Lock()
-
-    def start_file(self) -> None:
-        """Mark a file as starting processing."""
-        with self._lock:
-            self.active += 1
-            completed, total, active = self.completed, self.total, self.active
-        # I/O outside lock to avoid blocking workers if stderr is slow
-        self._update_display(completed, total, active)
-
-    def complete_file(self) -> None:
-        """Mark a file as completed processing."""
-        with self._lock:
-            self.active -= 1
-            self.completed += 1
-            completed, total, active = self.completed, self.total, self.active
-        # I/O outside lock to avoid blocking workers if stderr is slow
-        self._update_display(completed, total, active)
-
-    def _update_display(self, completed: int, total: int, active: int) -> None:
-        """Update progress display on stderr.
-
-        Args:
-            completed: Number of completed files.
-            total: Total number of files.
-            active: Number of currently active workers.
-        """
-        if self.enabled:
-            msg = f"\rProcessing: {completed}/{total} [{active} active]"
-            sys.stderr.write(msg)
-            sys.stderr.flush()
-
-    def finish(self) -> None:
-        """Complete progress display with newline."""
-        if self.enabled:
-            sys.stderr.write("\n")
-            sys.stderr.flush()
 
 
 def _discover_files(paths: list[Path], recursive: bool) -> list[Path]:
@@ -292,31 +237,27 @@ _output_lock = threading.Lock()
 
 def _process_single_file(
     file_path: Path,
+    file_index: int,
     db_path: Path,
     policy: PolicySchema,
-    dry_run: bool,
-    verbose: bool,
-    policy_name: str,
-    selected_phases: list[str] | None,
-    progress: ProgressTracker,
+    runner_config: WorkflowRunnerConfig,
+    progress: StderrProgressReporter,
     stop_event: threading.Event,
     worker_id: str,
     file_id: str,
     batch_id: str | None,
 ) -> tuple[Path, FileProcessingResult | None, bool]:
-    """Process a single file (worker function).
+    """Process a single file using WorkflowRunner.
 
     Each worker creates its own database connection for thread safety.
 
     Args:
         file_path: Path to the video file.
+        file_index: Zero-based index for progress tracking.
         db_path: Path to the database file.
         policy: Policy schema.
-        dry_run: Whether to preview changes without modifying.
-        verbose: Whether to emit verbose logging.
-        policy_name: Name of the policy for audit.
-        selected_phases: Optional phases to execute.
-        progress: Progress tracker for display.
+        runner_config: WorkflowRunner configuration.
+        progress: Progress reporter for display.
         stop_event: Event signaling batch should stop.
         worker_id: Worker identifier for logging (e.g., "01").
         file_id: File identifier for logging (e.g., "F001").
@@ -328,8 +269,7 @@ def _process_single_file(
     if stop_event.is_set():
         return file_path, None, False
 
-    progress.start_file()
-    job = None
+    progress.on_item_start(file_index)
     try:
         # Set worker context for logging - all logs within this context
         # will include [W{worker_id}:{file_id}] tag
@@ -339,64 +279,33 @@ def _process_single_file(
 
             # Each worker gets its own connection for thread safety
             with get_connection(db_path) as conn:
-                # Create job record (skip for dry-run)
+                # Get database file_id if file exists in DB
                 db_file_id: int | None = None
-                job_id: str | None = None
-                if not dry_run:
-                    # Get file_id from database if file exists there
+                if not runner_config.dry_run:
                     file_record = get_file_by_path(conn, str(file_path))
                     if file_record:
                         db_file_id = file_record.id
 
-                    job = create_process_job(
+                # Create lifecycle for job management (or no-op for dry-run)
+                if runner_config.dry_run:
+                    lifecycle = NullJobLifecycle()
+                else:
+                    lifecycle = CLIJobLifecycle(
                         conn,
-                        db_file_id,
-                        str(file_path),
-                        policy_name,
-                        origin="cli",
                         batch_id=batch_id,
-                    )
-                    job_id = job.id
-                    conn.commit()
-
-                processor = WorkflowProcessor(
-                    conn=conn,
-                    policy=policy,
-                    dry_run=dry_run,
-                    verbose=verbose,
-                    policy_name=policy_name,
-                    selected_phases=selected_phases,
-                    job_id=job_id,
-                )
-                result = processor.process_file(file_path)
-
-                # Complete job record (skip for dry-run)
-                if not dry_run and job:
-                    complete_process_job(
-                        conn,
-                        job.id,
-                        success=result.success,
-                        phases_completed=result.phases_completed,
-                        total_changes=result.total_changes,
-                        error_message=result.error_message,
-                        stats_id=result.stats_id,
+                        policy_name=runner_config.policy_name,
                     )
 
-                return file_path, result, result.success
+                # Create and run workflow
+                runner = WorkflowRunner.for_cli(conn, policy, runner_config, lifecycle)
+                run_result = runner.run_single(file_path, file_id=db_file_id)
+
+                progress.on_item_complete(file_index, success=run_result.success)
+                return file_path, run_result.result, run_result.success
+
     except Exception as e:
-        logger.exception("Error processing %s: %s", file_path, e)
-
-        # Fail job record if it was created, with retry for resilience
-        if job:
-            with get_connection(db_path) as conn:
-                success = fail_job_with_retry(conn, job.id, str(e))
-                if not success:
-                    # Job failure recording itself failed - this is critical
-                    # The job will remain in RUNNING state (orphaned)
-                    logger.error(
-                        "CRITICAL: Job %s may be orphaned - failed to record failure",
-                        job.id,
-                    )
+        logger.exception("Worker error processing %s: %s", file_path, e)
+        progress.on_item_complete(file_index, success=False)
 
         # Create a minimal failure result
         result = FileProcessingResult(
@@ -411,8 +320,6 @@ def _process_single_file(
             error_message=str(e),
         )
         return file_path, result, False
-    finally:
-        progress.complete_file()
 
 
 @click.command("process")
@@ -597,14 +504,22 @@ def process_command(
     from vpo.db.connection import get_default_db_path
 
     db_path = get_default_db_path()
-    progress = ProgressTracker(
-        total=len(file_paths),
+    progress = StderrProgressReporter(
         enabled=not json_output and not verbose,  # Disable if JSON or verbose
     )
+    progress.on_start(len(file_paths))
     stop_event = threading.Event()
 
     # Generate batch_id for CLI batch operations (skip for dry-run)
     batch_id = str(uuid.uuid4()) if not dry_run else None
+
+    # Create shared runner configuration
+    runner_config = WorkflowRunnerConfig(
+        dry_run=dry_run,
+        verbose=verbose,
+        selected_phases=selected_phases,
+        policy_name=str(policy_path),
+    )
 
     try:
         # Parallel processing with ThreadPoolExecutor
@@ -630,15 +545,14 @@ def process_command(
                 worker_id = f"{((file_idx - 1) % effective_workers) + 1:02d}"
                 file_id = f"F{file_idx:0{file_id_width}d}"
 
+                # file_index is 0-based for progress tracking
                 future = executor.submit(
                     _process_single_file,
                     file_path,
+                    file_idx - 1,  # 0-based index for progress
                     db_path,
                     policy,
-                    dry_run,
-                    verbose,
-                    str(policy_path),
-                    selected_phases,
+                    runner_config,
                     progress,
                     stop_event,
                     worker_id,
@@ -723,7 +637,7 @@ def process_command(
                 executor.shutdown(wait=True, cancel_futures=True)
 
         # Finish progress display
-        progress.finish()
+        progress.on_complete()
 
     except sqlite3.Error as e:
         error_exit(f"Database error: {e}", ExitCode.GENERAL_ERROR, json_output)

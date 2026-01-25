@@ -6,12 +6,16 @@ different execution contexts (CLI, daemon, tests).
 
 from __future__ import annotations
 
+import logging
+import sqlite3
 import sys
 import threading
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from vpo.db.connection import DaemonConnectionPool
+
+logger = logging.getLogger(__name__)
 
 
 class ProgressReporter(Protocol):
@@ -106,8 +110,29 @@ class StderrProgressReporter:
     def on_item_complete(self, index: int, success: bool, message: str = "") -> None:
         """Mark an item as completed."""
         with self._lock:
-            self.active -= 1
+            # Validate state before mutation
+            if self.active < 1:
+                logger.warning(
+                    "Progress tracking: on_item_complete called without matching "
+                    "on_item_start (active=%d, completed=%d, total=%d)",
+                    self.active,
+                    self.completed,
+                    self.total,
+                )
+                # Don't decrement below zero
+            else:
+                self.active -= 1
+
             self.completed += 1
+
+            # Warn if over-completed
+            if self.completed > self.total > 0:
+                logger.warning(
+                    "Progress tracking: completed (%d) exceeds total (%d)",
+                    self.completed,
+                    self.total,
+                )
+
             if not success:
                 self.failed += 1
         self._update_display()
@@ -143,6 +168,9 @@ class DatabaseProgressReporter:
 
     Suitable for daemon mode where job progress should be persisted
     for monitoring via the web UI or API.
+
+    Thread-safe: uses a lock to protect counter mutations from concurrent
+    access when multiple workers update progress simultaneously.
     """
 
     def __init__(
@@ -160,11 +188,13 @@ class DatabaseProgressReporter:
         self.job_id = job_id
         self.total = 0
         self.completed = 0
+        self._lock = threading.Lock()
 
     def on_start(self, total: int) -> None:
         """Initialize with total item count."""
-        self.total = total
-        self.completed = 0
+        with self._lock:
+            self.total = total
+            self.completed = 0
         self._update_db(0.0)
 
     def on_item_start(self, index: int, message: str = "") -> None:
@@ -173,10 +203,14 @@ class DatabaseProgressReporter:
 
     def on_item_complete(self, index: int, success: bool, message: str = "") -> None:
         """Mark an item as completed and update progress."""
-        self.completed += 1
-        if self.total > 0:
-            percent = (self.completed / self.total) * 100
-            self._update_db(percent)
+        with self._lock:
+            self.completed += 1
+            if self.total > 0:
+                percent = (self.completed / self.total) * 100
+            else:
+                percent = 0.0
+        # I/O outside lock to avoid blocking other workers
+        self._update_db(percent)
 
     def on_progress(self, percent: float, message: str = "") -> None:
         """Update progress percentage directly."""
@@ -187,15 +221,27 @@ class DatabaseProgressReporter:
         self._update_db(100.0)
 
     def _update_db(self, percent: float) -> None:
-        """Update job progress in database."""
+        """Update job progress in database.
+
+        Handles errors gracefully since progress updates are non-critical.
+        """
         try:
             self.pool.execute_write(
                 "UPDATE jobs SET progress_percent = ? WHERE id = ?",
                 (percent, self.job_id),
             )
-        except Exception:  # nosec B110 - progress update failure is non-critical
-            # Don't fail the job just because progress update failed
+        except sqlite3.Error:
+            # Database errors are expected and non-critical for progress
             pass
+        except RuntimeError as e:
+            if "closed" in str(e).casefold():
+                # Pool closed - expected during shutdown
+                pass
+            else:
+                logger.debug("Unexpected error updating job progress: %s", e)
+        except Exception as e:
+            # Log unexpected errors for investigation
+            logger.debug("Unexpected error updating job progress: %s", e)
 
 
 class NullProgressReporter:

@@ -17,11 +17,11 @@ import yaml
 from vpo.config.loader import get_data_dir
 from vpo.db.types import Job
 from vpo.jobs.logs import JobLogWriter
+from vpo.jobs.runner import WorkflowRunner, WorkflowRunnerConfig
 from vpo.logging import worker_context
 from vpo.policy.loader import load_policy
 from vpo.policy.types import PolicySchema
 from vpo.tools.ffmpeg_progress import FFmpegProgress
-from vpo.workflow import WorkflowProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ class ProcessJobService:
         job_log: JobLogWriter | None = None,
         ffmpeg_progress_callback: Callable[[FFmpegProgress], None] | None = None,
     ) -> ProcessJobResult:
-        """Process a workflow job end-to-end.
+        """Process a workflow job using WorkflowRunner.
 
         Args:
             job: The job to process.
@@ -72,72 +72,48 @@ class ProcessJobService:
         if error:
             return ProcessJobResult(success=False, error_message=error)
 
-        # Validate input file
         input_path = Path(job.file_path)
-        if not input_path.exists():
-            error = f"Input file not found: {input_path}"
-            if job_log:
-                job_log.write_error(error)
-            return ProcessJobResult(success=False, error_message=error)
 
         # Execute workflow with worker context for log correlation
         # Use "D" for daemon worker, job ID prefix for file identification
         job_id_short = f"J{job.id[:8]}"
         with worker_context("D", job_id_short, input_path):
-            try:
-                processor = WorkflowProcessor(
-                    conn=self.conn,
-                    policy=policy,
-                    dry_run=False,
-                    verbose=True,
-                    ffmpeg_progress_callback=ffmpeg_progress_callback,
-                    job_id=job.id,
-                )
+            # Create runner configuration
+            config = WorkflowRunnerConfig(
+                dry_run=False,
+                verbose=True,
+                policy_name=job.policy_name or "embedded",
+            )
 
-                if job_log:
-                    phases_str = ", ".join(policy.phase_names)
-                    job_log.write_line(f"Workflow phases: {phases_str}")
+            # Create runner for daemon mode (worker manages job lifecycle)
+            runner = WorkflowRunner.for_daemon(
+                self.conn,
+                policy,
+                config,
+                job_id=job.id,
+                job_log=job_log,
+                ffmpeg_progress_callback=ffmpeg_progress_callback,
+            )
 
-                result = processor.process_file(input_path)
+            run_result = runner.run_single(input_path)
 
-                # Collect phase names from results
-                phases_completed = tuple(
-                    pr.phase_name for pr in result.phase_results if pr.success
-                )
-                phases_failed = tuple(
-                    pr.phase_name for pr in result.phase_results if not pr.success
-                )
+            # Collect phase names from results
+            phases_completed = tuple(
+                pr.phase_name for pr in run_result.result.phase_results if pr.success
+            )
+            phases_failed = tuple(
+                pr.phase_name
+                for pr in run_result.result.phase_results
+                if not pr.success
+            )
 
-                if job_log:
-                    for pr in result.phase_results:
-                        status = "OK" if pr.success else "FAILED"
-                        job_log.write_line(
-                            f"Phase {pr.phase_name}: {status} "
-                            f"({pr.changes_made} changes, {pr.duration_seconds:.1f}s)"
-                        )
-                        if pr.message:
-                            job_log.write_line(f"  {pr.message}")
-
-                if result.success:
-                    return ProcessJobResult(
-                        success=True,
-                        phases_completed=phases_completed,
-                        phases_failed=phases_failed,
-                    )
-                else:
-                    return ProcessJobResult(
-                        success=False,
-                        phases_completed=phases_completed,
-                        phases_failed=phases_failed,
-                        error_message=result.error_message,
-                    )
-
-            except Exception as e:
-                logger.exception("Workflow execution failed")
-                error = f"Workflow execution failed: {e}"
-                if job_log:
-                    job_log.write_error(error, e)
-                return ProcessJobResult(success=False, error_message=error)
+            # Convert to ProcessJobResult for backward compatibility
+            return ProcessJobResult(
+                success=run_result.success,
+                phases_completed=phases_completed,
+                phases_failed=phases_failed,
+                error_message=run_result.result.error_message,
+            )
 
     def _parse_policy(
         self, job: Job, job_log: JobLogWriter | None

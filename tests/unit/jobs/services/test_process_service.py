@@ -313,40 +313,37 @@ class TestProcessJobServiceTempFileCleanup:
 class TestProcessJobServiceWorkflowExecution:
     """Tests for workflow execution."""
 
-    @patch("vpo.jobs.services.process.WorkflowProcessor")
+    @patch("vpo.jobs.services.process.WorkflowRunner")
     def test_process_executes_workflow(
-        self, mock_processor_cls, db_conn, test_job_with_json
+        self, mock_runner_cls, db_conn, test_job_with_json
     ):
-        """process() creates and runs WorkflowProcessor."""
-        mock_processor = MagicMock()
-        mock_result = MagicMock()
-        mock_result.success = True
-        mock_result.phases_completed = []
-        mock_result.phases_failed = []
-        mock_result.phase_results = []
-        mock_processor.process_file.return_value = mock_result
-        mock_processor_cls.return_value = mock_processor
+        """process() creates and runs WorkflowRunner."""
+        mock_runner = MagicMock()
+        mock_run_result = MagicMock()
+        mock_run_result.success = True
+        mock_run_result.result.phase_results = []
+        mock_run_result.result.error_message = None
+        mock_runner.run_single.return_value = mock_run_result
+        mock_runner_cls.for_daemon.return_value = mock_runner
 
         service = ProcessJobService(conn=db_conn)
         result = service.process(test_job_with_json)
 
         assert result.success is True
-        mock_processor.process_file.assert_called_once()
+        mock_runner.run_single.assert_called_once()
 
-    @patch("vpo.jobs.services.process.WorkflowProcessor")
+    @patch("vpo.jobs.services.process.WorkflowRunner")
     def test_process_handles_workflow_failure(
-        self, mock_processor_cls, db_conn, test_job_with_json
+        self, mock_runner_cls, db_conn, test_job_with_json
     ):
         """process() handles workflow failures gracefully."""
-        mock_processor = MagicMock()
-        mock_result = MagicMock()
-        mock_result.success = False
-        mock_result.phases_completed = []
-        mock_result.phases_failed = [MagicMock(value="apply")]
-        mock_result.phase_results = []
-        mock_result.error_message = "Apply phase failed"
-        mock_processor.process_file.return_value = mock_result
-        mock_processor_cls.return_value = mock_processor
+        mock_runner = MagicMock()
+        mock_run_result = MagicMock()
+        mock_run_result.success = False
+        mock_run_result.result.phase_results = []
+        mock_run_result.result.error_message = "Apply phase failed"
+        mock_runner.run_single.return_value = mock_run_result
+        mock_runner_cls.for_daemon.return_value = mock_runner
 
         service = ProcessJobService(conn=db_conn)
         result = service.process(test_job_with_json)
@@ -354,17 +351,25 @@ class TestProcessJobServiceWorkflowExecution:
         assert result.success is False
         assert "Apply phase failed" in result.error_message
 
-    @patch("vpo.jobs.services.process.WorkflowProcessor")
+    @patch("vpo.jobs.services.process.WorkflowRunner")
     def test_process_handles_workflow_exception(
-        self, mock_processor_cls, db_conn, test_job_with_json
+        self, mock_runner_cls, db_conn, test_job_with_json
     ):
-        """process() handles exceptions from workflow gracefully."""
-        mock_processor = MagicMock()
-        mock_processor.process_file.side_effect = RuntimeError("Unexpected error")
-        mock_processor_cls.return_value = mock_processor
+        """process() handles exceptions from WorkflowRunner.
+
+        Note: Exceptions are now caught inside WorkflowRunner.run_single,
+        so this tests that the result error is properly propagated.
+        """
+        mock_runner = MagicMock()
+        mock_run_result = MagicMock()
+        mock_run_result.success = False
+        mock_run_result.result.phase_results = []
+        mock_run_result.result.error_message = "Unexpected error"
+        mock_runner.run_single.return_value = mock_run_result
+        mock_runner_cls.for_daemon.return_value = mock_runner
 
         service = ProcessJobService(conn=db_conn)
         result = service.process(test_job_with_json)
 
         assert result.success is False
-        assert "Workflow execution failed" in result.error_message
+        assert "Unexpected error" in result.error_message

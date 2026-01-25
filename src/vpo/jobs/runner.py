@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
@@ -22,6 +23,62 @@ if TYPE_CHECKING:
     from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 logger = logging.getLogger(__name__)
+
+
+class ErrorClassification(Enum):
+    """Classification of workflow errors for retry decisions.
+
+    Used by callers to determine whether retrying a failed operation
+    might succeed or if the error is permanent.
+
+    Values:
+        TRANSIENT: Retry likely to succeed (locks, temp disk full).
+        PERMANENT: Retry won't help (corrupt file, unsupported format).
+        FATAL: System-level issue (missing tool, config error).
+    """
+
+    TRANSIENT = "transient"
+    PERMANENT = "permanent"
+    FATAL = "fatal"
+
+
+def classify_workflow_error(exception: Exception) -> ErrorClassification:
+    """Classify an exception for retry decision making.
+
+    Args:
+        exception: The exception to classify.
+
+    Returns:
+        ErrorClassification indicating whether retry might succeed.
+
+    Examples:
+        >>> classify_workflow_error(FileNotFoundError("file.mkv"))
+        ErrorClassification.PERMANENT
+
+        >>> classify_workflow_error(sqlite3.OperationalError("database is locked"))
+        ErrorClassification.TRANSIENT
+    """
+    # Permanent errors (file-specific issues that won't change on retry)
+    if isinstance(exception, (FileNotFoundError, IsADirectoryError)):
+        return ErrorClassification.PERMANENT
+
+    # Transient errors (may succeed on retry)
+    if isinstance(exception, (sqlite3.OperationalError, OSError, PermissionError)):
+        error_msg = str(exception).casefold()
+        if "locked" in error_msg or "busy" in error_msg:
+            return ErrorClassification.TRANSIENT
+        if "no space" in error_msg or "disk full" in error_msg:
+            return ErrorClassification.TRANSIENT
+        # Permission errors might be transient (file in use) or permanent
+        if isinstance(exception, PermissionError):
+            return ErrorClassification.TRANSIENT
+
+    # Fatal errors (configuration/environment issues)
+    if isinstance(exception, (ValueError, TypeError, AttributeError)):
+        return ErrorClassification.FATAL
+
+    # Default to permanent (conservative - don't retry unknown errors)
+    return ErrorClassification.PERMANENT
 
 
 @dataclass
@@ -119,10 +176,12 @@ class WorkflowRunResult:
         result: The file processing result from the workflow.
         job_id: Job ID if one was created, None otherwise.
         success: Whether the workflow completed successfully.
+        error_classification: Classification of error for retry decisions (if failed).
     """
 
     result: FileProcessingResult
     job_id: str | None = None
+    error_classification: ErrorClassification | None = None
     success: bool = field(init=False)
 
     def __post_init__(self) -> None:
@@ -136,14 +195,18 @@ class WorkflowRunner:
     Encapsulates the common workflow execution pattern used by both
     CLI and daemon, with pluggable job lifecycle management.
 
-    Example usage (CLI):
-        lifecycle = CLIJobLifecycle(conn, batch_id)
-        runner = WorkflowRunner(conn, policy, config, lifecycle)
-        result = runner.run_single(file_path)
+    Prefer using the factory methods for clarity:
 
-    Example usage (daemon):
-        lifecycle = NullJobLifecycle()  # Worker manages jobs
-        runner = WorkflowRunner(conn, policy, config, lifecycle)
+    CLI mode (lifecycle manages job records):
+        lifecycle = CLIJobLifecycle(conn, batch_id=batch_id, policy_name="policy.yaml")
+        runner = WorkflowRunner.for_cli(conn, policy, config, lifecycle)
+        result = runner.run_single(file_path, file_id=file_id)
+
+    Daemon mode (worker manages job records):
+        runner = WorkflowRunner.for_daemon(
+            conn, policy, config, job_id=job.id,
+            job_log=job_log, ffmpeg_progress_callback=callback
+        )
         result = runner.run_single(file_path)
     """
 
@@ -158,6 +221,8 @@ class WorkflowRunner:
         job_id: str | None = None,
     ) -> None:
         """Initialize the workflow runner.
+
+        Note: Prefer using for_cli() or for_daemon() factory methods for clarity.
 
         Args:
             conn: Database connection for workflow operations.
@@ -176,6 +241,82 @@ class WorkflowRunner:
         self.ffmpeg_progress_callback = ffmpeg_progress_callback
         self.pre_existing_job_id = job_id
 
+    @classmethod
+    def for_cli(
+        cls,
+        conn: sqlite3.Connection,
+        policy: PolicySchema,
+        config: WorkflowRunnerConfig,
+        lifecycle: JobLifecycle,
+    ) -> WorkflowRunner:
+        """Create runner for CLI mode where lifecycle manages job records.
+
+        In CLI mode, the lifecycle creates job records on start and updates
+        them on completion/failure. This is appropriate for batch processing
+        where each file needs its own job record.
+
+        Args:
+            conn: Database connection for workflow operations.
+            policy: The policy to apply.
+            config: Workflow runner configuration.
+            lifecycle: Job lifecycle manager (e.g., CLIJobLifecycle).
+
+        Returns:
+            Configured WorkflowRunner for CLI use.
+
+        Example:
+            lifecycle = CLIJobLifecycle(
+                conn, batch_id=batch_id, policy_name="policy.yaml"
+            )
+            runner = WorkflowRunner.for_cli(conn, policy, config, lifecycle)
+            result = runner.run_single(file_path, file_id=file_id)
+        """
+        return cls(conn, policy, config, lifecycle=lifecycle, job_id=None)
+
+    @classmethod
+    def for_daemon(
+        cls,
+        conn: sqlite3.Connection,
+        policy: PolicySchema,
+        config: WorkflowRunnerConfig,
+        job_id: str,
+        job_log: JobLogWriter | None = None,
+        ffmpeg_progress_callback: Callable[[FFmpegProgress], None] | None = None,
+    ) -> WorkflowRunner:
+        """Create runner for daemon mode where worker manages job records.
+
+        In daemon mode, the job record already exists (created by queue system).
+        The runner uses NullJobLifecycle since the worker handles completion
+        and failure updates.
+
+        Args:
+            conn: Database connection for workflow operations.
+            policy: The policy to apply.
+            config: Workflow runner configuration.
+            job_id: Pre-existing job ID from the queue system.
+            job_log: Optional log writer for job-specific logs.
+            ffmpeg_progress_callback: Optional callback for FFmpeg progress.
+
+        Returns:
+            Configured WorkflowRunner for daemon use.
+
+        Example:
+            runner = WorkflowRunner.for_daemon(
+                conn, policy, config, job_id=job.id,
+                job_log=job_log, ffmpeg_progress_callback=callback
+            )
+            result = runner.run_single(Path(job.file_path))
+        """
+        return cls(
+            conn,
+            policy,
+            config,
+            lifecycle=NullJobLifecycle(),
+            job_log=job_log,
+            ffmpeg_progress_callback=ffmpeg_progress_callback,
+            job_id=job_id,
+        )
+
     def run_single(
         self,
         file_path: Path,
@@ -188,7 +329,8 @@ class WorkflowRunner:
             file_id: Database ID of the file (if known).
 
         Returns:
-            WorkflowRunResult with processing result and job info.
+            WorkflowRunResult with processing result, job info, and error
+            classification (if failed).
         """
         job_id = self.pre_existing_job_id
 
@@ -201,12 +343,19 @@ class WorkflowRunner:
         try:
             # Validate input file exists
             if not file_path.exists():
-                error = f"Input file not found: {file_path}"
+                error = (
+                    f"Input file not found: {file_path} "
+                    f"(policy: {self.config.policy_name or 'unnamed'})"
+                )
                 if self.job_log:
                     self.job_log.write_error(error)
                 result = _create_error_result(file_path, error)
                 self.lifecycle.on_job_fail(job_id, error)
-                return WorkflowRunResult(result=result, job_id=job_id)
+                return WorkflowRunResult(
+                    result=result,
+                    job_id=job_id,
+                    error_classification=ErrorClassification.PERMANENT,
+                )
 
             # Create and run workflow processor
             processor = WorkflowProcessor(
@@ -246,6 +395,8 @@ class WorkflowRunner:
         except Exception as e:
             logger.exception("Workflow execution failed for %s: %s", file_path, e)
             error = str(e)
+            error_class = classify_workflow_error(e)
+
             if self.job_log:
                 self.job_log.write_error(f"Workflow execution failed: {e}", e)
 
@@ -253,7 +404,9 @@ class WorkflowRunner:
             self.lifecycle.on_job_fail(job_id, error)
 
             result = _create_error_result(file_path, error)
-            return WorkflowRunResult(result=result, job_id=job_id)
+            return WorkflowRunResult(
+                result=result, job_id=job_id, error_classification=error_class
+            )
 
 
 def _create_error_result(file_path: Path, error_message: str) -> FileProcessingResult:
