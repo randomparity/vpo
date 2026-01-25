@@ -13,7 +13,10 @@ import asyncio
 
 from aiohttp import web
 
-from vpo.core.datetime_utils import parse_iso_timestamp, parse_time_filter
+from vpo.core.datetime_utils import (
+    calculate_duration_seconds,
+    parse_time_filter,
+)
 from vpo.core.json_utils import parse_json_safe
 from vpo.core.validation import is_valid_uuid
 from vpo.db.views import get_scan_errors_for_job
@@ -48,12 +51,7 @@ def _job_to_detail_item(job, has_logs: bool) -> JobDetailItem:
     # Calculate duration if completed
     duration_seconds = None
     if job.completed_at and job.created_at:
-        try:
-            created = parse_iso_timestamp(job.created_at)
-            completed = parse_iso_timestamp(job.completed_at)
-            duration_seconds = int((completed - created).total_seconds())
-        except (ValueError, TypeError):
-            pass
+        duration_seconds = calculate_duration_seconds(job.created_at, job.completed_at)
 
     # Parse summary_json if present
     summary_result = parse_json_safe(job.summary_json, context="summary_json")
@@ -163,12 +161,9 @@ async def api_jobs_handler(request: web.Request) -> web.Response:
         # Calculate duration if completed
         duration_seconds = None
         if job.completed_at and job.created_at:
-            try:
-                created = parse_iso_timestamp(job.created_at)
-                completed = parse_iso_timestamp(job.completed_at)
-                duration_seconds = int((completed - created).total_seconds())
-            except (ValueError, TypeError):
-                pass
+            duration_seconds = calculate_duration_seconds(
+                job.created_at, job.completed_at
+            )
 
         job_items.append(
             JobListItem(

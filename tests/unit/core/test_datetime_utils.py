@@ -2,9 +2,14 @@
 
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from vpo.core.datetime_utils import (
     TIME_FILTER_DELTAS,
     parse_iso_timestamp,
+    parse_relative_or_iso_time,
+    parse_relative_time,
+    parse_relative_time_iso,
     parse_time_filter,
 )
 
@@ -167,10 +172,205 @@ class TestParseIsoTimestamp:
 
     def test_raises_on_invalid_format(self):
         """parse_iso_timestamp raises ValueError for invalid input."""
-        import pytest
-
         with pytest.raises(ValueError):
             parse_iso_timestamp("not-a-timestamp")
 
         with pytest.raises(ValueError):
             parse_iso_timestamp("2025/01/15")
+
+
+class TestParseRelativeTime:
+    """Tests for parse_relative_time function."""
+
+    def test_parses_days(self):
+        """parse_relative_time handles 'd' suffix for days."""
+        before = datetime.now(timezone.utc)
+        result = parse_relative_time("7d")
+        after = datetime.now(timezone.utc)
+
+        expected_start = before - timedelta(days=7)
+        expected_end = after - timedelta(days=7)
+
+        assert expected_start <= result <= expected_end
+        assert result.tzinfo == timezone.utc
+
+    def test_parses_weeks(self):
+        """parse_relative_time handles 'w' suffix for weeks."""
+        before = datetime.now(timezone.utc)
+        result = parse_relative_time("2w")
+        after = datetime.now(timezone.utc)
+
+        expected_start = before - timedelta(weeks=2)
+        expected_end = after - timedelta(weeks=2)
+
+        assert expected_start <= result <= expected_end
+
+    def test_parses_hours(self):
+        """parse_relative_time handles 'h' suffix for hours."""
+        before = datetime.now(timezone.utc)
+        result = parse_relative_time("3h")
+        after = datetime.now(timezone.utc)
+
+        expected_start = before - timedelta(hours=3)
+        expected_end = after - timedelta(hours=3)
+
+        assert expected_start <= result <= expected_end
+
+    def test_parses_minutes(self):
+        """parse_relative_time handles 'm' suffix for minutes."""
+        before = datetime.now(timezone.utc)
+        result = parse_relative_time("30m")
+        after = datetime.now(timezone.utc)
+
+        expected_start = before - timedelta(minutes=30)
+        expected_end = after - timedelta(minutes=30)
+
+        assert expected_start <= result <= expected_end
+
+    def test_case_insensitive(self):
+        """parse_relative_time is case-insensitive."""
+        before = datetime.now(timezone.utc)
+
+        # Uppercase
+        result_upper = parse_relative_time("1D")
+        after = datetime.now(timezone.utc)
+
+        expected_start = before - timedelta(days=1)
+        expected_end = after - timedelta(days=1)
+
+        assert expected_start <= result_upper <= expected_end
+
+    def test_handles_whitespace(self):
+        """parse_relative_time strips whitespace."""
+        before = datetime.now(timezone.utc)
+        result = parse_relative_time("  1d  ")
+        after = datetime.now(timezone.utc)
+
+        expected_start = before - timedelta(days=1)
+        expected_end = after - timedelta(days=1)
+
+        assert expected_start <= result <= expected_end
+
+    def test_raises_on_invalid_format(self):
+        """parse_relative_time raises ValueError for invalid input."""
+        with pytest.raises(ValueError, match="Invalid relative time format"):
+            parse_relative_time("invalid")
+
+    def test_raises_on_no_number(self):
+        """parse_relative_time raises ValueError when number is missing."""
+        with pytest.raises(ValueError, match="Invalid relative time format"):
+            parse_relative_time("d")
+
+    def test_raises_on_no_unit(self):
+        """parse_relative_time raises ValueError when unit is missing."""
+        with pytest.raises(ValueError, match="Invalid relative time format"):
+            parse_relative_time("123")
+
+    def test_raises_on_unknown_unit(self):
+        """parse_relative_time raises ValueError for unknown units."""
+        with pytest.raises(ValueError, match="Invalid relative time format"):
+            parse_relative_time("5y")  # years not supported
+
+    def test_returns_utc_datetime(self):
+        """parse_relative_time returns timezone-aware UTC datetime."""
+        result = parse_relative_time("1h")
+
+        assert result.tzinfo is not None
+        assert result.tzinfo == timezone.utc
+
+
+class TestParseRelativeTimeIso:
+    """Tests for parse_relative_time_iso function."""
+
+    def test_returns_iso_string(self):
+        """parse_relative_time_iso returns ISO-8601 formatted string."""
+        result = parse_relative_time_iso("1d")
+
+        # Should be parseable as ISO format
+        parsed = datetime.fromisoformat(result)
+        assert parsed.tzinfo is not None
+
+    def test_is_consistent_with_parse_relative_time(self):
+        """parse_relative_time_iso matches parse_relative_time().isoformat()."""
+        # They might differ by microseconds, so just check date/hour
+        result_iso = parse_relative_time_iso("7d")
+        result_dt = parse_relative_time("7d")
+
+        # Parse the ISO string back
+        parsed = datetime.fromisoformat(result_iso)
+
+        # Should be within 1 second of each other
+        diff = abs((parsed - result_dt).total_seconds())
+        assert diff < 1.0
+
+    def test_raises_on_invalid_format(self):
+        """parse_relative_time_iso raises ValueError for invalid input."""
+        with pytest.raises(ValueError):
+            parse_relative_time_iso("invalid")
+
+
+class TestParseRelativeOrIsoTime:
+    """Tests for parse_relative_or_iso_time function."""
+
+    def test_passes_through_iso_timestamp_with_t(self):
+        """ISO timestamps with T separator are passed through unchanged."""
+        iso_timestamp = "2025-01-15T10:30:00Z"
+        result = parse_relative_or_iso_time(iso_timestamp)
+
+        assert result == iso_timestamp
+
+    def test_passes_through_date_string(self):
+        """Date strings (>= 10 chars) are passed through unchanged."""
+        date_string = "2025-01-15"
+        result = parse_relative_or_iso_time(date_string)
+
+        assert result == date_string
+
+    def test_passes_through_iso_with_offset(self):
+        """ISO timestamps with timezone offset are passed through."""
+        iso_timestamp = "2025-01-15T10:30:00+05:00"
+        result = parse_relative_or_iso_time(iso_timestamp)
+
+        assert result == iso_timestamp
+
+    def test_parses_relative_time(self):
+        """Short relative time strings are parsed."""
+        before = datetime.now(timezone.utc)
+        result = parse_relative_or_iso_time("7d")
+        after = datetime.now(timezone.utc)
+
+        # Should be an ISO string
+        parsed = datetime.fromisoformat(result)
+
+        expected_start = before - timedelta(days=7)
+        expected_end = after - timedelta(days=7)
+
+        assert expected_start <= parsed <= expected_end
+
+    def test_parses_all_relative_units(self):
+        """All relative time units (d, w, h, m) are supported."""
+        # Just verify they don't raise
+        parse_relative_or_iso_time("1d")
+        parse_relative_or_iso_time("1w")
+        parse_relative_or_iso_time("1h")
+        parse_relative_or_iso_time("1m")
+
+    def test_returns_none_for_invalid_short_string(self):
+        """Invalid short strings (not relative, not ISO) return None."""
+        assert parse_relative_or_iso_time("abc") is None
+        assert parse_relative_or_iso_time("xyz") is None
+
+    def test_returns_none_for_invalid_iso_format(self):
+        """Strings that look like ISO but are invalid return None."""
+        # Looks like ISO (has T) but is garbage
+        assert parse_relative_or_iso_time("not-a-dateT00:00:00") is None
+        # Looks like date (>= 10 chars) but invalid
+        assert parse_relative_or_iso_time("2025/01/15T10:30") is None
+        assert parse_relative_or_iso_time("invalid-value") is None
+
+    def test_returns_none_for_malformed_timestamp(self):
+        """Malformed timestamps return None."""
+        # Missing time component
+        assert parse_relative_or_iso_time("2025-13-45") is None  # Invalid month/day
+        # Gibberish with T
+        assert parse_relative_or_iso_time("fooTbar") is None

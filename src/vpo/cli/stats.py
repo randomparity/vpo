@@ -12,6 +12,7 @@ from dataclasses import asdict
 
 import click
 
+from vpo.core import parse_relative_or_iso_time
 from vpo.db.views import (
     get_policy_stats,
     get_policy_stats_by_name,
@@ -703,10 +704,11 @@ def stats_policy(
 def _parse_time_filter(value: str) -> str:
     """Parse a time filter value to ISO-8601 timestamp.
 
-    Accepts relative times (7d, 1w, 2h) or ISO-8601 timestamps.
+    Thin wrapper around core.parse_relative_or_iso_time that converts
+    None return to click.ClickException for CLI usage.
 
     Args:
-        value: Time filter value.
+        value: Time filter value (relative: 7d, 1w, 2h, 30m, or ISO-8601).
 
     Returns:
         ISO-8601 timestamp string.
@@ -714,39 +716,13 @@ def _parse_time_filter(value: str) -> str:
     Raises:
         click.ClickException: If format is invalid.
     """
-    from datetime import datetime, timedelta, timezone
-
-    # Check if it's already an ISO-8601 timestamp
-    if "T" in value or len(value) >= 10:
-        return value
-
-    # Parse relative time
-    try:
-        if value.endswith("d"):
-            days = int(value[:-1])
-            delta = timedelta(days=days)
-        elif value.endswith("w"):
-            weeks = int(value[:-1])
-            delta = timedelta(weeks=weeks)
-        elif value.endswith("h"):
-            hours = int(value[:-1])
-            delta = timedelta(hours=hours)
-        elif value.endswith("m"):
-            minutes = int(value[:-1])
-            delta = timedelta(minutes=minutes)
-        else:
-            raise click.ClickException(
-                f"Invalid time format: {value}. "
-                "Use relative time (7d, 1w, 2h) or ISO-8601."
-            )
-
-        result = datetime.now(timezone.utc) - delta
-        return result.isoformat()
-
-    except ValueError:
+    result = parse_relative_or_iso_time(value)
+    if result is None:
         raise click.ClickException(
-            f"Invalid time format: {value}. Use relative time (7d, 1w, 2h) or ISO-8601."
+            f"Invalid time format: {value}. "
+            "Use relative time (7d, 1w, 2h, 30m) or ISO-8601."
         )
+    return result
 
 
 @stats_group.command("file")

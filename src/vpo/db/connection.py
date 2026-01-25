@@ -19,6 +19,35 @@ T = TypeVar("T")
 DEFAULT_DB_PATH = Path.home() / ".vpo" / "library.db"
 
 
+def _apply_standard_pragmas(conn: sqlite3.Connection) -> None:
+    """Apply standard SQLite PRAGMA settings to a connection.
+
+    These settings optimize for WAL mode concurrency and provide good
+    balance of safety and performance.
+
+    Args:
+        conn: SQLite connection to configure.
+    """
+    # Enable foreign keys
+    conn.execute("PRAGMA foreign_keys = ON")
+
+    # Enable WAL mode for better concurrency (multiple readers, single writer)
+    conn.execute("PRAGMA journal_mode = WAL")
+
+    # Set synchronous to NORMAL for balance of safety and speed
+    # NORMAL is safe with WAL mode and provides good durability
+    conn.execute("PRAGMA synchronous = NORMAL")
+
+    # Increase busy timeout for better handling of lock contention
+    conn.execute("PRAGMA busy_timeout = 10000")
+
+    # Store temp tables in memory for performance
+    conn.execute("PRAGMA temp_store = MEMORY")
+
+    # Return rows as dictionaries
+    conn.row_factory = sqlite3.Row
+
+
 def get_default_db_path() -> Path:
     """Return the default database path (~/.vpo/library.db)."""
     return DEFAULT_DB_PATH
@@ -51,25 +80,7 @@ def get_connection(
     ensure_db_directory(db_path)
 
     conn = sqlite3.connect(str(db_path), timeout=timeout)
-
-    # Enable foreign keys
-    conn.execute("PRAGMA foreign_keys = ON")
-
-    # Enable WAL mode for better concurrency (multiple readers, single writer)
-    conn.execute("PRAGMA journal_mode = WAL")
-
-    # Set synchronous to NORMAL for balance of safety and speed
-    # NORMAL is safe with WAL mode and provides good durability
-    conn.execute("PRAGMA synchronous = NORMAL")
-
-    # Increase busy timeout for better handling of lock contention
-    conn.execute("PRAGMA busy_timeout = 10000")
-
-    # Store temp tables in memory for performance
-    conn.execute("PRAGMA temp_store = MEMORY")
-
-    # Return rows as dictionaries
-    conn.row_factory = sqlite3.Row
+    _apply_standard_pragmas(conn)
 
     try:
         yield conn
@@ -259,14 +270,7 @@ class DaemonConnectionPool:
             timeout=self.timeout,
             check_same_thread=False,
         )
-
-        # Apply standard PRAGMAs
-        conn.execute("PRAGMA foreign_keys = ON")
-        conn.execute("PRAGMA journal_mode = WAL")
-        conn.execute("PRAGMA synchronous = NORMAL")
-        conn.execute("PRAGMA busy_timeout = 10000")
-        conn.execute("PRAGMA temp_store = MEMORY")
-        conn.row_factory = sqlite3.Row
+        _apply_standard_pragmas(conn)
 
         return conn
 

@@ -80,6 +80,50 @@ crates/vpo-core/   # Rust extension for parallel discovery/hashing
 3. `process` → loads policy YAML → evaluates against file → produces Plan → executes via mkvpropedit/ffmpeg
 4. `serve` → starts aiohttp daemon → serves web UI and REST API → manages background jobs
 
+## Jobs Module
+
+The `jobs/` module provides shared utilities for CLI and daemon job processing:
+
+```
+jobs/
+├── progress.py   # Progress reporting protocol and implementations
+├── runner.py     # Unified workflow execution runner
+├── tracking.py   # Job creation, completion, failure tracking
+├── queue.py      # Job queue operations (enqueue, claim, release)
+├── worker.py     # Background job worker
+├── logs.py       # Job log file management
+├── maintenance.py # Job cleanup and purging
+└── services/     # Job type-specific services (process, transcode, etc.)
+```
+
+**Key utilities:**
+
+- `ProgressReporter`: Protocol for progress reporting (CLI/daemon/tests)
+- `StderrProgressReporter`: Progress on stderr for CLI batch operations
+- `DatabaseProgressReporter`: Progress stored in database for daemon
+- `NullProgressReporter`: No-op for dry-run/test modes
+- `WorkflowRunner`: Unified workflow execution with pluggable job lifecycle
+- `WorkflowRunnerConfig`: Configuration for workflow execution
+- `JobLifecycle`: Protocol for job creation/completion management
+
+**Usage patterns:**
+
+```python
+# CLI progress reporting
+from vpo.jobs import StderrProgressReporter
+progress = StderrProgressReporter(enabled=True)
+progress.on_start(total=10)
+progress.on_item_start(0)
+progress.on_item_complete(0, success=True)
+progress.on_complete()
+
+# Workflow execution with lifecycle
+from vpo.jobs import WorkflowRunner, WorkflowRunnerConfig, NullJobLifecycle
+config = WorkflowRunnerConfig(dry_run=False, verbose=True)
+runner = WorkflowRunner(conn, policy, config, lifecycle=NullJobLifecycle())
+result = runner.run_single(file_path)
+```
+
 ## Development Guidelines
 
 - Prefer explicit, well-typed dataclasses/models over dicts

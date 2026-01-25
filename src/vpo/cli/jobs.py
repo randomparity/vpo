@@ -2,14 +2,14 @@
 
 import json
 import logging
-import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import click
 
+from vpo.cli.formatting import get_status_color
 from vpo.config import get_config
-from vpo.core import truncate_filename
+from vpo.core import parse_relative_time, truncate_filename
 from vpo.db import (
     Job,
     JobStatus,
@@ -31,42 +31,6 @@ from vpo.jobs.worker import JobWorker
 logger = logging.getLogger(__name__)
 
 
-def _parse_relative_date(relative: str) -> datetime:
-    """Parse relative date string like '1d', '1w', '2h'.
-
-    Supports:
-        - Nd: N days ago (e.g., "1d", "7d")
-        - Nw: N weeks ago (e.g., "1w", "2w")
-        - Nh: N hours ago (e.g., "2h", "24h")
-
-    Args:
-        relative: Relative date string.
-
-    Returns:
-        datetime in UTC.
-
-    Raises:
-        ValueError: If format is invalid.
-    """
-    match = re.match(r"^(\d+)([dwh])$", relative.casefold())
-    if not match:
-        raise ValueError(
-            f"Invalid relative date '{relative}'. Use format: Nd, Nw, or Nh "
-            "(e.g., '1d' for 1 day, '1w' for 1 week, '2h' for 2 hours)"
-        )
-
-    amount = int(match.group(1))
-    unit = match.group(2)
-
-    now = datetime.now(timezone.utc)
-    if unit == "d":
-        return now - timedelta(days=amount)
-    elif unit == "w":
-        return now - timedelta(weeks=amount)
-    else:  # unit == "h"
-        return now - timedelta(hours=amount)
-
-
 def _format_job_row(job: Job) -> tuple[str, str, str, str, str, str, str]:
     """Format a job for table display.
 
@@ -75,16 +39,8 @@ def _format_job_row(job: Job) -> tuple[str, str, str, str, str, str, str]:
         file_name, progress, created). Color is returned separately
         to allow proper column width formatting.
     """
-    status_colors = {
-        JobStatus.QUEUED: "yellow",
-        JobStatus.RUNNING: "blue",
-        JobStatus.COMPLETED: "green",
-        JobStatus.FAILED: "red",
-        JobStatus.CANCELLED: "bright_black",
-    }
-
     status_value = job.status.value
-    status_color = status_colors.get(job.status, "white")
+    status_color = get_status_color(job.status)
     job_id = job.id[:8]
     file_name = truncate_filename(Path(job.file_path).name, 40)
 
@@ -177,7 +133,7 @@ def list_jobs(
     if since:
         try:
             # Try parsing as relative date first
-            since_dt = _parse_relative_date(since)
+            since_dt = parse_relative_time(since)
             since_iso = since_dt.isoformat()
         except ValueError:
             # Assume it's an ISO-8601 date
@@ -320,16 +276,8 @@ def _output_job_json(job: Job) -> None:
 
 def _output_job_human(job: Job) -> None:
     """Output detailed job info in human-readable format."""
-    status_colors = {
-        JobStatus.QUEUED: "yellow",
-        JobStatus.RUNNING: "blue",
-        JobStatus.COMPLETED: "green",
-        JobStatus.FAILED: "red",
-        JobStatus.CANCELLED: "bright_black",
-    }
-
     status_colored = click.style(
-        job.status.value.upper(), fg=status_colors.get(job.status, "white")
+        job.status.value.upper(), fg=get_status_color(job.status)
     )
 
     click.echo(f"\nJob: {job.id}")
@@ -671,7 +619,6 @@ def cleanup_jobs(
         # Clean up orphaned temp files
         vpo jobs cleanup --remove-temp
     """
-    from datetime import datetime, timedelta, timezone
 
     from vpo.db import delete_old_jobs
 

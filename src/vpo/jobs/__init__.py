@@ -9,15 +9,33 @@ This module provides the job queue system for long-running operations:
 - services: Job processing services
 - summary: Job summary text generation
 
-Note: FFmpeg progress parsing is in vpo.tools.ffmpeg_progress
+Note: FFmpeg progress parsing is in vpo.tools.ffmpeg_progress.
+Display utilities (status colors) are in vpo.cli.formatting.
 """
 
+from vpo.jobs.cli_lifecycle import CLIJobLifecycle
 from vpo.jobs.exceptions import (
     ConcurrentModificationError,
     JobNotFoundError,
     JobTrackingError,
 )
 from vpo.jobs.maintenance import cleanup_orphaned_cli_jobs, purge_old_jobs
+from vpo.jobs.progress import (
+    CompositeProgressReporter,
+    DatabaseProgressReporter,
+    NullProgressReporter,
+    ProgressReporter,
+    StderrProgressReporter,
+)
+from vpo.jobs.runner import (
+    ErrorClassification,
+    JobLifecycle,
+    NullJobLifecycle,
+    WorkflowRunner,
+    WorkflowRunnerConfig,
+    WorkflowRunResult,
+    classify_workflow_error,
+)
 from vpo.jobs.summary import generate_summary_text
 from vpo.jobs.tracking import (
     ProcessSummary,
@@ -49,6 +67,21 @@ def __getattr__(name: str):
 
 
 __all__ = [
+    # Progress reporters
+    "ProgressReporter",
+    "StderrProgressReporter",
+    "DatabaseProgressReporter",
+    "NullProgressReporter",
+    "CompositeProgressReporter",
+    # Workflow runner
+    "WorkflowRunner",
+    "WorkflowRunnerConfig",
+    "WorkflowRunResult",
+    "JobLifecycle",
+    "NullJobLifecycle",
+    "CLIJobLifecycle",
+    "ErrorClassification",
+    "classify_workflow_error",
     # Exceptions
     "JobTrackingError",
     "JobNotFoundError",
