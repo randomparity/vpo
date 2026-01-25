@@ -96,3 +96,25 @@ def migrate_v22_to_v23(conn: sqlite3.Connection) -> None:
     # Update schema version to 23
     conn.execute("UPDATE _meta SET value = '23' WHERE key = 'schema_version'")
     conn.commit()
+
+
+def migrate_v23_to_v24(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 23 to version 24.
+
+    Adds indexes on jobs(origin) and jobs(batch_id) to optimize queries
+    filtering by job origin or batch grouping.
+
+    This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Add index on origin column
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_origin ON jobs(origin)")
+
+    # Add index on batch_id column
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_batch_id ON jobs(batch_id)")
+
+    # Update schema version to 24
+    conn.execute("UPDATE _meta SET value = '24' WHERE key = 'schema_version'")
+    conn.commit()

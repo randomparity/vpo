@@ -173,9 +173,10 @@ class JobWorker:
     def _start_heartbeat(self, job_id: str) -> None:
         """Start heartbeat thread for a job.
 
-        Uses a separate database connection to avoid interfering with
-        transactions on the main connection. This prevents the heartbeat
-        commit() from accidentally committing a partial transaction.
+        Creates a fresh database connection for each heartbeat to avoid:
+        1. Holding a connection indefinitely (resource concern)
+        2. Interfering with transactions on the main connection
+        3. Stale connection issues after long-running jobs
 
         Tracks consecutive heartbeat failures and requests shutdown if
         MAX_HEARTBEAT_FAILURES is reached, preventing duplicate job execution.
@@ -184,31 +185,33 @@ class JobWorker:
         self._consecutive_heartbeat_failures = 0
 
         def heartbeat_loop() -> None:
-            # Use separate connection for heartbeat to avoid transaction interference
             if self._db_path is None:
                 logger.warning("Cannot start heartbeat: db_path not available")
                 return
 
-            with get_connection(self._db_path) as heartbeat_conn:
-                while not self._heartbeat_stop.wait(HEARTBEAT_INTERVAL):
-                    try:
+            while not self._heartbeat_stop.wait(HEARTBEAT_INTERVAL):
+                try:
+                    # Create fresh connection for each heartbeat
+                    # This avoids holding a connection indefinitely and
+                    # ensures we don't accumulate transaction state
+                    with get_connection(self._db_path) as heartbeat_conn:
                         update_heartbeat(heartbeat_conn, job_id, os.getpid())
-                        self._consecutive_heartbeat_failures = 0  # Reset on success
-                    except Exception as e:
-                        self._consecutive_heartbeat_failures += 1
-                        logger.error(
-                            "Heartbeat failed (%d/%d): %s",
-                            self._consecutive_heartbeat_failures,
-                            MAX_HEARTBEAT_FAILURES,
-                            e,
+                    self._consecutive_heartbeat_failures = 0  # Reset on success
+                except Exception as e:
+                    self._consecutive_heartbeat_failures += 1
+                    logger.error(
+                        "Heartbeat failed (%d/%d): %s",
+                        self._consecutive_heartbeat_failures,
+                        MAX_HEARTBEAT_FAILURES,
+                        e,
+                    )
+                    max_failures = MAX_HEARTBEAT_FAILURES
+                    if self._consecutive_heartbeat_failures >= max_failures:
+                        logger.critical(
+                            "Max heartbeat failures reached, requesting shutdown"
                         )
-                        max_failures = MAX_HEARTBEAT_FAILURES
-                        if self._consecutive_heartbeat_failures >= max_failures:
-                            logger.critical(
-                                "Max heartbeat failures reached, requesting shutdown"
-                            )
-                            self._shutdown_requested = True
-                            break
+                        self._shutdown_requested = True
+                        break
 
         self._heartbeat_thread = threading.Thread(
             target=heartbeat_loop,

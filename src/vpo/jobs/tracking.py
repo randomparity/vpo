@@ -7,9 +7,12 @@ for scan and policy application operations.
 from __future__ import annotations
 
 import json
+import logging
+import sqlite3
+import time
 import uuid
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict, TypeVar
 
 from vpo.db import (
     Job,
@@ -17,11 +20,207 @@ from vpo.db import (
     JobType,
     insert_job,
 )
+from vpo.jobs.exceptions import JobNotFoundError
 
 if TYPE_CHECKING:
-    import sqlite3
+    from collections.abc import Callable
 
     from vpo.config.models import JobsConfig
+
+
+logger = logging.getLogger(__name__)
+
+# Type variable for generic retry function
+T = TypeVar("T")
+
+# Default retry configuration
+DEFAULT_MAX_RETRIES = 3
+DEFAULT_RETRY_BASE_DELAY = 0.1  # seconds
+
+
+class ScanSummary(TypedDict):
+    """Type definition for scan job summary.
+
+    Attributes:
+        total_discovered: Total files found in directory.
+        scanned: Files that were introspected.
+        skipped: Files skipped (unchanged or excluded).
+        added: New files added to database.
+        removed: Files removed from database.
+        errors: Number of errors encountered.
+    """
+
+    total_discovered: int
+    scanned: int
+    skipped: int
+    added: int
+    removed: int
+    errors: int
+
+
+class ProcessSummary(TypedDict, total=False):
+    """Type definition for process job summary.
+
+    Attributes:
+        phases_completed: Number of phases completed.
+        total_changes: Total number of changes made.
+        stats_id: ID of the processing_stats record (optional).
+    """
+
+    phases_completed: int
+    total_changes: int
+    stats_id: str
+
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+
+def _utc_now_iso() -> str:
+    """Return current UTC time as ISO 8601 string.
+
+    Returns:
+        Current UTC timestamp in ISO 8601 format.
+    """
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _validate_non_empty(value: str | None, field: str) -> None:
+    """Validate that a string field is not empty or whitespace-only.
+
+    Args:
+        value: The string value to validate.
+        field: The field name for error messages.
+
+    Raises:
+        ValueError: If the value is None, empty, or whitespace-only.
+    """
+    if not value or not value.strip():
+        raise ValueError(f"{field} cannot be empty")
+
+
+def _execute_with_retry(
+    operation: Callable[[], T],
+    max_retries: int = DEFAULT_MAX_RETRIES,
+    retry_on: tuple[type[Exception], ...] = (sqlite3.OperationalError,),
+) -> T:
+    """Execute an operation with exponential backoff retry.
+
+    Useful for handling transient database errors like SQLITE_BUSY.
+
+    Args:
+        operation: A callable that performs the database operation.
+        max_retries: Maximum number of retry attempts.
+        retry_on: Tuple of exception types to retry on.
+
+    Returns:
+        The result of the operation.
+
+    Raises:
+        The last exception if all retries are exhausted.
+    """
+    last_exception: Exception | None = None
+
+    for attempt in range(max_retries):
+        try:
+            return operation()
+        except retry_on as e:
+            last_exception = e
+            if attempt < max_retries - 1:
+                delay = DEFAULT_RETRY_BASE_DELAY * (2**attempt)
+                logger.warning(
+                    "Database operation failed (attempt %d/%d), retrying in %.2fs: %s",
+                    attempt + 1,
+                    max_retries,
+                    delay,
+                    e,
+                )
+                time.sleep(delay)
+            else:
+                logger.error(
+                    "Database operation failed after %d attempts: %s",
+                    max_retries,
+                    e,
+                )
+
+    # This should never be reached if retry_on contains at least one exception type
+    # and max_retries >= 1, but we need to satisfy the type checker
+    if last_exception is not None:
+        raise last_exception
+    raise RuntimeError("Unexpected state in retry loop")
+
+
+def _update_job_status(
+    conn: sqlite3.Connection,
+    job_id: str,
+    status: JobStatus,
+    *,
+    error_message: str | None = None,
+    summary_json: str | None = None,
+    set_progress_100: bool = False,
+    operation_name: str = "update",
+) -> None:
+    """Internal helper to update job status with rollback support.
+
+    This function performs the common pattern of updating job status
+    with optional error message, summary, and progress fields.
+
+    Args:
+        conn: Database connection.
+        job_id: ID of the job to update.
+        status: New status for the job.
+        error_message: Optional error message.
+        summary_json: Optional JSON summary string.
+        set_progress_100: Whether to set progress to 100%.
+        operation_name: Name of the operation for error messages.
+
+    Raises:
+        JobNotFoundError: If the job doesn't exist.
+    """
+    now = _utc_now_iso()
+
+    try:
+        if set_progress_100:
+            cursor = conn.execute(
+                """
+                UPDATE jobs SET
+                    status = ?,
+                    error_message = ?,
+                    completed_at = ?,
+                    summary_json = ?,
+                    progress_percent = 100.0
+                WHERE id = ?
+                """,
+                (status.value, error_message, now, summary_json, job_id),
+            )
+        else:
+            cursor = conn.execute(
+                """
+                UPDATE jobs SET
+                    status = ?,
+                    error_message = ?,
+                    completed_at = ?
+                WHERE id = ?
+                """,
+                (status.value, error_message, now, job_id),
+            )
+
+        if cursor.rowcount == 0:
+            raise JobNotFoundError(job_id, operation_name)
+
+        conn.commit()
+    except JobNotFoundError:
+        # Don't rollback for not-found errors (no changes were made)
+        raise
+    except Exception:
+        conn.rollback()
+        raise
+
+
+# =============================================================================
+# Scan Job Functions
+# =============================================================================
 
 
 def create_scan_job(
@@ -43,9 +242,14 @@ def create_scan_job(
 
     Returns:
         The created Job record.
+
+    Raises:
+        ValueError: If directory is empty.
     """
+    _validate_non_empty(directory, "directory")
+
     job_id = str(uuid.uuid4())
-    now = datetime.now(timezone.utc).isoformat()
+    now = _utc_now_iso()
 
     # Serialize scan configuration to policy_json
     config = {
@@ -76,7 +280,7 @@ def create_scan_job(
 def complete_scan_job(
     conn: sqlite3.Connection,
     job_id: str,
-    summary: dict[str, int],
+    summary: ScanSummary | dict[str, int],
     *,
     error_message: str | None = None,
 ) -> None:
@@ -88,27 +292,25 @@ def complete_scan_job(
         summary: Summary dict with scan counts (total_discovered, scanned,
             skipped, added, removed, errors).
         error_message: Error message if job failed.
+
+    Raises:
+        JobNotFoundError: If the job doesn't exist.
+        ValueError: If job_id is empty.
     """
-    now = datetime.now(timezone.utc).isoformat()
+    _validate_non_empty(job_id, "job_id")
+
     status = JobStatus.FAILED if error_message else JobStatus.COMPLETED
     summary_json = json.dumps(summary)
 
-    # Single atomic update for all completion fields
-    cursor = conn.execute(
-        """
-        UPDATE jobs SET
-            status = ?,
-            error_message = ?,
-            completed_at = ?,
-            summary_json = ?,
-            progress_percent = 100.0
-        WHERE id = ?
-        """,
-        (status.value, error_message, now, summary_json, job_id),
+    _update_job_status(
+        conn,
+        job_id,
+        status,
+        error_message=error_message,
+        summary_json=summary_json,
+        set_progress_100=True,
+        operation_name="complete",
     )
-    if cursor.rowcount == 0:
-        raise ValueError(f"Job {job_id} not found")
-    conn.commit()
 
 
 def cancel_scan_job(
@@ -122,22 +324,20 @@ def cancel_scan_job(
         conn: Database connection.
         job_id: ID of the job to cancel.
         reason: Reason for cancellation.
-    """
-    now = datetime.now(timezone.utc).isoformat()
 
-    cursor = conn.execute(
-        """
-        UPDATE jobs SET
-            status = ?,
-            error_message = ?,
-            completed_at = ?
-        WHERE id = ?
-        """,
-        (JobStatus.CANCELLED.value, reason, now, job_id),
+    Raises:
+        JobNotFoundError: If the job doesn't exist.
+        ValueError: If job_id is empty.
+    """
+    _validate_non_empty(job_id, "job_id")
+
+    _update_job_status(
+        conn,
+        job_id,
+        JobStatus.CANCELLED,
+        error_message=reason,
+        operation_name="cancel",
     )
-    if cursor.rowcount == 0:
-        raise ValueError(f"Job {job_id} not found")
-    conn.commit()
 
 
 def fail_scan_job(
@@ -151,22 +351,21 @@ def fail_scan_job(
         conn: Database connection.
         job_id: ID of the job to fail.
         error_message: Description of the error.
-    """
-    now = datetime.now(timezone.utc).isoformat()
 
-    cursor = conn.execute(
-        """
-        UPDATE jobs SET
-            status = ?,
-            error_message = ?,
-            completed_at = ?
-        WHERE id = ?
-        """,
-        (JobStatus.FAILED.value, error_message, now, job_id),
+    Raises:
+        JobNotFoundError: If the job doesn't exist.
+        ValueError: If job_id or error_message is empty.
+    """
+    _validate_non_empty(job_id, "job_id")
+    _validate_non_empty(error_message, "error_message")
+
+    _update_job_status(
+        conn,
+        job_id,
+        JobStatus.FAILED,
+        error_message=error_message,
+        operation_name="fail",
     )
-    if cursor.rowcount == 0:
-        raise ValueError(f"Job {job_id} not found")
-    conn.commit()
 
 
 def maybe_purge_old_jobs(conn: sqlite3.Connection, config: JobsConfig) -> int:
@@ -186,6 +385,11 @@ def maybe_purge_old_jobs(conn: sqlite3.Connection, config: JobsConfig) -> int:
         config.retention_days,
         auto_purge=config.auto_purge,
     )
+
+
+# =============================================================================
+# Process Job Functions
+# =============================================================================
 
 
 def create_process_job(
@@ -212,9 +416,15 @@ def create_process_job(
 
     Returns:
         The created Job record.
+
+    Raises:
+        ValueError: If file_path or policy_name is empty.
     """
+    _validate_non_empty(file_path, "file_path")
+    _validate_non_empty(policy_name, "policy_name")
+
     job_id = str(uuid.uuid4())
-    now = datetime.now(timezone.utc).isoformat()
+    now = _utc_now_iso()
 
     job = Job(
         id=job_id,
@@ -257,12 +467,17 @@ def complete_process_job(
         total_changes: Total number of changes made.
         error_message: Error message if job failed.
         stats_id: ID of the processing_stats record (for linkage).
+
+    Raises:
+        JobNotFoundError: If the job doesn't exist.
+        ValueError: If job_id is empty.
     """
-    now = datetime.now(timezone.utc).isoformat()
+    _validate_non_empty(job_id, "job_id")
+
     status = JobStatus.COMPLETED if success else JobStatus.FAILED
 
     # Build summary JSON
-    summary = {
+    summary: ProcessSummary = {
         "phases_completed": phases_completed,
         "total_changes": total_changes,
     }
@@ -270,21 +485,42 @@ def complete_process_job(
         summary["stats_id"] = stats_id
     summary_json = json.dumps(summary)
 
-    cursor = conn.execute(
-        """
-        UPDATE jobs SET
-            status = ?,
-            error_message = ?,
-            completed_at = ?,
-            summary_json = ?,
-            progress_percent = 100.0
-        WHERE id = ?
-        """,
-        (status.value, error_message, now, summary_json, job_id),
+    _update_job_status(
+        conn,
+        job_id,
+        status,
+        error_message=error_message,
+        summary_json=summary_json,
+        set_progress_100=True,
+        operation_name="complete",
     )
-    if cursor.rowcount == 0:
-        raise ValueError(f"Job {job_id} not found")
-    conn.commit()
+
+
+def cancel_process_job(
+    conn: sqlite3.Connection,
+    job_id: str,
+    reason: str = "Cancelled by user",
+) -> None:
+    """Mark a process job as cancelled (e.g., user pressed Ctrl+C).
+
+    Args:
+        conn: Database connection.
+        job_id: ID of the job to cancel.
+        reason: Reason for cancellation.
+
+    Raises:
+        JobNotFoundError: If the job doesn't exist.
+        ValueError: If job_id is empty.
+    """
+    _validate_non_empty(job_id, "job_id")
+
+    _update_job_status(
+        conn,
+        job_id,
+        JobStatus.CANCELLED,
+        error_message=reason,
+        operation_name="cancel",
+    )
 
 
 def fail_process_job(
@@ -298,19 +534,54 @@ def fail_process_job(
         conn: Database connection.
         job_id: ID of the job to fail.
         error_message: Description of the error.
-    """
-    now = datetime.now(timezone.utc).isoformat()
 
-    cursor = conn.execute(
-        """
-        UPDATE jobs SET
-            status = ?,
-            error_message = ?,
-            completed_at = ?
-        WHERE id = ?
-        """,
-        (JobStatus.FAILED.value, error_message, now, job_id),
+    Raises:
+        JobNotFoundError: If the job doesn't exist.
+        ValueError: If job_id or error_message is empty.
+    """
+    _validate_non_empty(job_id, "job_id")
+    _validate_non_empty(error_message, "error_message")
+
+    _update_job_status(
+        conn,
+        job_id,
+        JobStatus.FAILED,
+        error_message=error_message,
+        operation_name="fail",
     )
-    if cursor.rowcount == 0:
-        raise ValueError(f"Job {job_id} not found")
-    conn.commit()
+
+
+def fail_job_with_retry(
+    conn: sqlite3.Connection,
+    job_id: str,
+    error_message: str,
+    *,
+    max_retries: int = DEFAULT_MAX_RETRIES,
+) -> bool:
+    """Attempt to fail a job with retry on transient DB errors.
+
+    This is useful for error handling paths where we want to ensure
+    the job failure is recorded even if the database is temporarily busy.
+
+    Args:
+        conn: Database connection.
+        job_id: ID of the job to fail.
+        error_message: Description of the error.
+        max_retries: Maximum number of retry attempts.
+
+    Returns:
+        True if the job was successfully marked as failed, False otherwise.
+    """
+    try:
+
+        def _do_fail() -> None:
+            fail_process_job(conn, job_id, error_message)
+
+        _execute_with_retry(_do_fail, max_retries=max_retries)
+        return True
+    except JobNotFoundError:
+        logger.warning("Job %s not found when trying to mark as failed", job_id)
+        return False
+    except Exception as e:
+        logger.error("CRITICAL: Failed to mark job %s as failed: %s", job_id, e)
+        return False

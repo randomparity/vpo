@@ -7,7 +7,7 @@ used by the VPO database.
 
 import sqlite3
 
-SCHEMA_VERSION = 23
+SCHEMA_VERSION = 24
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -186,6 +186,8 @@ CREATE INDEX IF NOT EXISTS idx_jobs_file_id ON jobs(file_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_priority_created ON jobs(priority, created_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_job_type ON jobs(job_type);
+CREATE INDEX IF NOT EXISTS idx_jobs_origin ON jobs(origin);
+CREATE INDEX IF NOT EXISTS idx_jobs_batch_id ON jobs(batch_id);
 
 -- Transcription results table (007-audio-transcription)
 CREATE TABLE IF NOT EXISTS transcription_results (

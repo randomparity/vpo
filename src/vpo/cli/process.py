@@ -25,7 +25,7 @@ from vpo.db.queries import get_file_by_path
 from vpo.jobs.tracking import (
     complete_process_job,
     create_process_job,
-    fail_process_job,
+    fail_job_with_retry,
 )
 from vpo.logging import worker_context
 from vpo.policy.loader import PolicyValidationError, load_policy
@@ -386,13 +386,17 @@ def _process_single_file(
     except Exception as e:
         logger.exception("Error processing %s: %s", file_path, e)
 
-        # Fail job record if it was created
+        # Fail job record if it was created, with retry for resilience
         if job:
-            try:
-                with get_connection(db_path) as conn:
-                    fail_process_job(conn, job.id, str(e))
-            except Exception as job_err:
-                logger.warning("Failed to update job record: %s", job_err)
+            with get_connection(db_path) as conn:
+                success = fail_job_with_retry(conn, job.id, str(e))
+                if not success:
+                    # Job failure recording itself failed - this is critical
+                    # The job will remain in RUNNING state (orphaned)
+                    logger.error(
+                        "CRITICAL: Job %s may be orphaned - failed to record failure",
+                        job.id,
+                    )
 
         # Create a minimal failure result
         result = FileProcessingResult(
