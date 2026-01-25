@@ -1,7 +1,7 @@
 # Track Filtering Policy for Video Policy Orchestrator
 # This policy demonstrates v3 track filtering features.
 #
-# Usage: vpo apply --policy track-filtering-policy.yaml [--dry-run] <file.mkv>
+# Usage: vpo process --policy track-filtering-policy.yaml [--dry-run] <file.mkv>
 
 schema_version: 3
 

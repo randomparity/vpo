@@ -20,11 +20,10 @@ phases:
           max_resolution: 1080p
 ```
 
-Queue files for transcoding:
+Process files with transcode policy:
 
 ```bash
-vpo transcode --policy my-policy.yaml /videos/movie.mkv
-vpo jobs start
+vpo process --policy my-policy.yaml /videos/movie.mkv
 ```
 
 ## Transcode Settings Reference
@@ -307,16 +306,16 @@ Override policy settings from the command line:
 
 ```bash
 # Override codec
-vpo transcode --policy base.yaml --codec hevc movie.mkv
+vpo process --policy base.yaml --codec hevc movie.mkv
 
 # Override quality
-vpo transcode --policy base.yaml --crf 22 movie.mkv
+vpo process --policy base.yaml --crf 22 movie.mkv
 
 # Override resolution
-vpo transcode --policy base.yaml --max-resolution 720p movie.mkv
+vpo process --policy base.yaml --max-resolution 720p movie.mkv
 
 # Override bitrate
-vpo transcode --policy base.yaml --bitrate 4M movie.mkv
+vpo process --policy base.yaml --bitrate 4M movie.mkv
 ```
 
 ## Dry Run
@@ -324,10 +323,10 @@ vpo transcode --policy base.yaml --bitrate 4M movie.mkv
 Preview transcoding without making changes:
 
 ```bash
-vpo transcode --dry-run --policy my-policy.yaml /videos/
+vpo process --dry-run --policy my-policy.yaml /videos/
 
 # Output shows:
-#   [QUEUE] Movie.mkv: h264 -> hevc, 3840x2160 -> 1920x1080
+#   [PLAN] Movie.mkv: h264 -> hevc, 3840x2160 -> 1920x1080
 #           Destination: Processed/2023/Movie/
 #   [SKIP] Already.mkv: Already compliant
 ```
