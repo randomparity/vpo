@@ -392,41 +392,45 @@ class TestProcessCommandDryRun:
 class TestProcessCommandOnErrorBehavior:
     """Tests for on_error behavior differentiation."""
 
-    @patch("vpo.cli.process.WorkflowProcessor")
+    @patch("vpo.cli.process.WorkflowRunner")
     def test_on_error_skip_continues_batch(
-        self, mock_processor_cls, temp_video_dir: Path, policy_file_with_fail: Path
+        self, mock_runner_cls, temp_video_dir: Path, policy_file_with_fail: Path
     ):
-        """Test that on_error=skip allows batch to continue."""
-        # Create mock results - first file fails, second succeeds
+        """Test that on_error=skip allows batch to continue after failures."""
+        import threading
+
+        from vpo.jobs.runner import WorkflowRunResult
         from vpo.policy.types import FileProcessingResult
 
-        mock_processor = MagicMock()
-        fail_result = MagicMock(spec=FileProcessingResult)
-        fail_result.success = False
-        fail_result.batch_should_stop = False  # skip mode
-        fail_result.failed_phase = "apply"
-        fail_result.phases_completed = 0
-        fail_result.phases_failed = 1
-        fail_result.phases_skipped = 0
-        fail_result.phase_results = ()
-        fail_result.file_path = temp_video_dir / "movie.mkv"
-        fail_result.total_duration_seconds = 0.1
-        fail_result.total_changes = 0
+        # Thread-safe call counter and result generator
+        call_count = {"n": 0}
+        lock = threading.Lock()
 
-        success_result = MagicMock(spec=FileProcessingResult)
-        success_result.success = True
-        success_result.batch_should_stop = False
-        success_result.failed_phase = None
-        success_result.phases_completed = 1
-        success_result.phases_failed = 0
-        success_result.phases_skipped = 0
-        success_result.phase_results = ()
-        success_result.file_path = temp_video_dir / "show.mp4"
-        success_result.total_duration_seconds = 0.1
-        success_result.total_changes = 0
+        def make_run_result(*args, **kwargs):
+            """Generate a failure result (batch_should_stop=False to continue)."""
+            with lock:
+                call_count["n"] += 1
 
-        mock_processor.process_file.side_effect = [fail_result, success_result]
-        mock_processor_cls.return_value = mock_processor
+            file_result = MagicMock(spec=FileProcessingResult)
+            file_result.success = False
+            file_result.batch_should_stop = False  # Key: skip mode continues
+            file_result.failed_phase = "apply"
+            file_result.phases_completed = 0
+            file_result.phases_failed = 1
+            file_result.phases_skipped = 0
+            file_result.phase_results = ()
+            file_result.file_path = args[0] if args else "unknown"
+            file_result.total_duration_seconds = 0.1
+            file_result.total_changes = 0
+
+            run_result = MagicMock(spec=WorkflowRunResult)
+            run_result.result = file_result
+            run_result.success = False
+            return run_result
+
+        mock_runner = MagicMock()
+        mock_runner.run_single.side_effect = make_run_result
+        mock_runner_cls.for_cli.return_value = mock_runner
 
         runner = CliRunner()
         runner.invoke(
@@ -437,35 +441,43 @@ class TestProcessCommandOnErrorBehavior:
                 str(policy_file_with_fail),
                 "--on-error",
                 "skip",
+                "--workers",
+                "1",  # Sequential processing for deterministic behavior
                 str(temp_video_dir),  # Directory with multiple files
             ],
         )
 
-        # Both files should be processed
-        assert mock_processor.process_file.call_count == 2
+        # Both files should be processed despite failures (on_error=skip)
+        assert call_count["n"] == 2
 
-    @patch("vpo.cli.process.WorkflowProcessor")
+    @patch("vpo.cli.process.WorkflowRunner")
     def test_on_error_fail_stops_batch(
-        self, mock_processor_cls, temp_video_dir: Path, policy_file: Path
+        self, mock_runner_cls, temp_video_dir: Path, policy_file: Path
     ):
         """Test that on_error=fail stops batch processing."""
+        from vpo.jobs.runner import WorkflowRunResult
         from vpo.policy.types import FileProcessingResult
 
-        mock_processor = MagicMock()
-        fail_result = MagicMock(spec=FileProcessingResult)
-        fail_result.success = False
-        fail_result.batch_should_stop = True  # fail mode
-        fail_result.failed_phase = "apply"
-        fail_result.phases_completed = 0
-        fail_result.phases_failed = 1
-        fail_result.phases_skipped = 0
-        fail_result.phase_results = ()
-        fail_result.file_path = temp_video_dir / "movie.mkv"
-        fail_result.total_duration_seconds = 0.1
-        fail_result.total_changes = 0
+        mock_runner = MagicMock()
 
-        mock_processor.process_file.return_value = fail_result
-        mock_processor_cls.return_value = mock_processor
+        fail_file_result = MagicMock(spec=FileProcessingResult)
+        fail_file_result.success = False
+        fail_file_result.batch_should_stop = True  # fail mode
+        fail_file_result.failed_phase = "apply"
+        fail_file_result.phases_completed = 0
+        fail_file_result.phases_failed = 1
+        fail_file_result.phases_skipped = 0
+        fail_file_result.phase_results = ()
+        fail_file_result.file_path = temp_video_dir / "movie.mkv"
+        fail_file_result.total_duration_seconds = 0.1
+        fail_file_result.total_changes = 0
+
+        fail_run_result = MagicMock(spec=WorkflowRunResult)
+        fail_run_result.result = fail_file_result
+        fail_run_result.success = False
+
+        mock_runner.run_single.return_value = fail_run_result
+        mock_runner_cls.for_cli.return_value = mock_runner
 
         runner = CliRunner()
         result = runner.invoke(
@@ -486,7 +498,7 @@ class TestProcessCommandOnErrorBehavior:
         # might start before the stop event is checked. We verify that:
         # 1. At most 2 files were processed (some may have started before stop)
         # 2. The batch indicated it stopped early
-        assert mock_processor.process_file.call_count <= 2
+        assert mock_runner.run_single.call_count <= 2
         # The output should indicate batch stopped early
         assert (
             "stopped early" in result.output.lower()
@@ -498,28 +510,34 @@ class TestProcessCommandOnErrorBehavior:
 class TestProcessCommandWorkflow:
     """Tests for workflow execution."""
 
-    @patch("vpo.cli.process.WorkflowProcessor")
+    @patch("vpo.cli.process.WorkflowRunner")
     def test_phases_override(
-        self, mock_processor_cls, temp_video_dir: Path, policy_file: Path
+        self, mock_runner_cls, temp_video_dir: Path, policy_file: Path
     ):
         """Test that --phases overrides policy phases via selected_phases parameter."""
+        from vpo.jobs.runner import WorkflowRunResult
         from vpo.policy.types import FileProcessingResult
 
-        mock_processor = MagicMock()
-        mock_result = MagicMock(spec=FileProcessingResult)
-        mock_result.success = True
-        mock_result.batch_should_stop = False
-        mock_result.failed_phase = None
-        mock_result.phases_completed = 1
-        mock_result.phases_failed = 0
-        mock_result.phases_skipped = 0
-        mock_result.phase_results = ()
-        mock_result.file_path = temp_video_dir / "movie.mkv"
-        mock_result.total_duration_seconds = 0.1
-        mock_result.total_changes = 0
+        mock_runner = MagicMock()
 
-        mock_processor.process_file.return_value = mock_result
-        mock_processor_cls.return_value = mock_processor
+        mock_file_result = MagicMock(spec=FileProcessingResult)
+        mock_file_result.success = True
+        mock_file_result.batch_should_stop = False
+        mock_file_result.failed_phase = None
+        mock_file_result.phases_completed = 1
+        mock_file_result.phases_failed = 0
+        mock_file_result.phases_skipped = 0
+        mock_file_result.phase_results = ()
+        mock_file_result.file_path = temp_video_dir / "movie.mkv"
+        mock_file_result.total_duration_seconds = 0.1
+        mock_file_result.total_changes = 0
+
+        mock_run_result = MagicMock(spec=WorkflowRunResult)
+        mock_run_result.result = mock_file_result
+        mock_run_result.success = True
+
+        mock_runner.run_single.return_value = mock_run_result
+        mock_runner_cls.for_cli.return_value = mock_runner
 
         runner = CliRunner()
         runner.invoke(
@@ -534,46 +552,52 @@ class TestProcessCommandWorkflow:
             ],
         )
 
-        # WorkflowProcessor should be called
-        mock_processor_cls.assert_called_once()
-        # Check that selected_phases parameter was passed
-        call_kwargs = mock_processor_cls.call_args.kwargs
-        assert call_kwargs["selected_phases"] == ["apply"]
+        # WorkflowRunner.for_cli should be called
+        mock_runner_cls.for_cli.assert_called_once()
+        # Check that selected_phases is in the config passed to for_cli
+        call_args = mock_runner_cls.for_cli.call_args
+        runner_config = call_args[0][2]  # Third positional arg is runner_config
+        assert runner_config.selected_phases == ["apply"]
 
 
 class TestProcessCommandSummary:
     """Tests for summary output."""
 
-    @patch("vpo.cli.process.WorkflowProcessor")
+    @patch("vpo.cli.process.WorkflowRunner")
     def test_summary_counts(
-        self, mock_processor_cls, temp_video_dir: Path, policy_file: Path
+        self, mock_runner_cls, temp_video_dir: Path, policy_file: Path
     ):
         """Test that summary shows correct counts."""
+        from vpo.jobs.runner import WorkflowRunResult
         from vpo.policy.types import FileProcessingResult
 
-        mock_processor = MagicMock()
+        mock_runner = MagicMock()
 
         # Create results for all 2 files in temp_video_dir (movie.mkv, show.mp4)
         # Non-recursive, so won't find nested/episode.mkv
-        def make_result(path, success):
-            result = MagicMock(spec=FileProcessingResult)
-            result.success = success
-            result.batch_should_stop = False
-            result.failed_phase = None if success else "apply"
-            result.phases_completed = 1 if success else 0
-            result.phases_failed = 0 if success else 1
-            result.phases_skipped = 0
-            result.phase_results = ()
-            result.file_path = path
-            result.total_duration_seconds = 0.1
-            result.total_changes = 0
-            return result
+        def make_run_result(path, success):
+            file_result = MagicMock(spec=FileProcessingResult)
+            file_result.success = success
+            file_result.batch_should_stop = False
+            file_result.failed_phase = None if success else "apply"
+            file_result.phases_completed = 1 if success else 0
+            file_result.phases_failed = 0 if success else 1
+            file_result.phases_skipped = 0
+            file_result.phase_results = ()
+            file_result.file_path = path
+            file_result.total_duration_seconds = 0.1
+            file_result.total_changes = 0
 
-        mock_processor.process_file.side_effect = [
-            make_result(temp_video_dir / "movie.mkv", True),
-            make_result(temp_video_dir / "show.mp4", True),
+            run_result = MagicMock(spec=WorkflowRunResult)
+            run_result.result = file_result
+            run_result.success = success
+            return run_result
+
+        mock_runner.run_single.side_effect = [
+            make_run_result(temp_video_dir / "movie.mkv", True),
+            make_run_result(temp_video_dir / "show.mp4", True),
         ]
-        mock_processor_cls.return_value = mock_processor
+        mock_runner_cls.for_cli.return_value = mock_runner
 
         runner = CliRunner()
         result = runner.invoke(
