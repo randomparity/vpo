@@ -6,6 +6,7 @@ providing better testability and separation of concerns.
 
 import json
 import logging
+import shutil
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +17,12 @@ from vpo.executor.move import MoveExecutor
 from vpo.jobs.logs import JobLogWriter
 
 logger = logging.getLogger(__name__)
+
+
+class MoveRollbackError(Exception):
+    """Raised when file rollback after DB failure fails."""
+
+    pass
 
 
 @dataclass(frozen=True)
@@ -106,9 +113,51 @@ class MoveJobService:
         if job_log:
             job_log.write_line("Move completed successfully")
 
-        # Update database if file_id is available
-        if job.file_id is not None:
-            self._update_file_path(job.file_id, result.destination_path, job_log)
+        # Update database if file_id and destination_path are available
+        if job.file_id is not None and result.destination_path is not None:
+            try:
+                self._update_file_path(job.file_id, result.destination_path, job_log)
+            except Exception as e:
+                # Attempt to rollback the file move
+                error_msg = f"Database update failed: {e}"
+                if job_log:
+                    job_log.write_error(error_msg)
+                    job_log.write_line("Attempting to rollback file move...")
+
+                try:
+                    self._rollback_file_move(
+                        result.destination_path, source_path, job_log
+                    )
+                    return MoveJobResult(
+                        success=False,
+                        source_path=str(source_path),
+                        error_message=f"{error_msg} (file rolled back to source)",
+                    )
+                except MoveRollbackError as rollback_err:
+                    # Critical: file moved but DB not updated and rollback failed
+                    critical_msg = (
+                        f"{error_msg}. "
+                        f"CRITICAL: Rollback also failed: {rollback_err}. "
+                        f"File is now at: {result.destination_path}"
+                    )
+                    logger.critical(
+                        "Move job rollback failed: file_id=%s, "
+                        "original_path=%s, current_path=%s, db_error=%s, "
+                        "rollback_error=%s",
+                        job.file_id,
+                        source_path,
+                        result.destination_path,
+                        e,
+                        rollback_err,
+                    )
+                    if job_log:
+                        job_log.write_error(critical_msg)
+                    return MoveJobResult(
+                        success=False,
+                        source_path=str(source_path),
+                        destination_path=str(result.destination_path),
+                        error_message=critical_msg,
+                    )
 
         return MoveJobResult(
             success=True,
@@ -155,7 +204,11 @@ class MoveJobService:
         )
 
         if job_log:
-            job_log.write_line(f"Parsed config: dest={config.destination_path}")
+            job_log.write_line(
+                f"Config: destination={config.destination_path}, "
+                f"create_directories={config.create_directories}, "
+                f"overwrite={config.overwrite}"
+            )
 
         return config, None
 
@@ -168,24 +221,56 @@ class MoveJobService:
             file_id: Database ID of the file.
             new_path: New path after move.
             job_log: Optional log writer.
+
+        Raises:
+            sqlite3.Error: If database update fails.
+
+        Note:
+            Does NOT commit the transaction. Caller manages transactions.
+        """
+        updated = update_file_path(self.conn, file_id, str(new_path))
+        if updated:
+            if job_log:
+                job_log.write_line(f"Updated database path for file_id={file_id}")
+            logger.info(
+                "Updated file path in database: file_id=%s -> %s", file_id, new_path
+            )
+        else:
+            if job_log:
+                job_log.write_line(f"File not found in database: file_id={file_id}")
+            logger.warning(
+                "File not found in database during path update: "
+                "file_id=%s, new_path=%s",
+                file_id,
+                new_path,
+            )
+
+    def _rollback_file_move(
+        self, current_path: Path, original_path: Path, job_log: JobLogWriter | None
+    ) -> None:
+        """Attempt to rollback a file move by moving back to original location.
+
+        Args:
+            current_path: Current location of the file.
+            original_path: Original location to restore.
+            job_log: Optional log writer.
+
+        Raises:
+            MoveRollbackError: If rollback fails.
         """
         try:
-            updated = update_file_path(self.conn, file_id, str(new_path))
-            self.conn.commit()
-            if updated:
-                if job_log:
-                    job_log.write_line(f"Updated database path for file_id={file_id}")
-                logger.info(
-                    "Updated file path in database: file_id=%s -> %s", file_id, new_path
-                )
-            else:
-                if job_log:
-                    job_log.write_line(f"File not found in database: file_id={file_id}")
-                logger.warning(
-                    "File not found in database during path update: file_id=%s", file_id
-                )
-        except sqlite3.Error as e:
-            # Log warning but don't fail the job - the file was successfully moved
+            logger.warning(
+                "Rolling back file move: %s -> %s", current_path, original_path
+            )
+            shutil.move(str(current_path), str(original_path))
             if job_log:
-                job_log.write_line(f"Warning: Failed to update database path: {e}")
-            logger.warning("Failed to update file path in database: %s", e)
+                job_log.write_line(
+                    f"Rollback successful: file restored to {original_path}"
+                )
+            logger.info("File rollback successful: %s", original_path)
+        except OSError as e:
+            error_msg = (
+                f"Failed to rollback file from {current_path} to {original_path}: {e}"
+            )
+            logger.error(error_msg)
+            raise MoveRollbackError(error_msg) from e

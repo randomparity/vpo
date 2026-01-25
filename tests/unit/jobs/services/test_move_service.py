@@ -342,7 +342,7 @@ class TestMoveJobServiceProcess:
 
         assert result.success is True
         mock_update.assert_called_once_with(mock_conn, 42, "/destination/video.mkv")
-        mock_conn.commit.assert_called_once()
+        # Note: service does NOT commit - caller manages transactions
 
     def test_process_skips_db_update_when_no_file_id(self, mock_conn):
         """Skips database update when job has no file_id."""
@@ -385,7 +385,6 @@ class TestMoveJobServiceProcess:
 
         assert result.success is True
         mock_update.assert_not_called()
-        mock_conn.commit.assert_not_called()
 
     def test_process_handles_move_executor_failure(self, mock_conn, sample_move_job):
         """Returns error when MoveExecutor fails."""
@@ -412,16 +411,91 @@ class TestMoveJobServiceProcess:
         assert result.destination_path is None
         assert "Permission denied" in result.error_message
 
-    def test_process_handles_db_update_failure_gracefully(
+    def test_parse_empty_destination_path(self, mock_conn):
+        """Empty destination_path string treated as missing."""
+        service = MoveJobService(mock_conn)
+        job = Job(
+            id="test",
+            file_id=1,
+            file_path="/source/test.mkv",
+            job_type=JobType.MOVE,
+            status=JobStatus.RUNNING,
+            priority=100,
+            policy_name=None,
+            policy_json=json.dumps({"destination_path": ""}),
+            progress_percent=0.0,
+            progress_json=None,
+            created_at="2024-01-01T00:00:00+00:00",
+            started_at="2024-01-01T00:00:00+00:00",
+        )
+
+        config, error = service._parse_config(job, None)
+
+        assert config is None
+        assert error is not None
+        assert "destination_path" in error
+
+    def test_process_passes_correct_config_to_executor(
         self, mock_conn, sample_move_job
     ):
-        """Move succeeds even if DB update fails."""
+        """Verify config values are passed to executor correctly."""
+        service = MoveJobService(mock_conn)
+
+        # Create job with custom config
+        job = Job(
+            id="test-job",
+            file_id=42,
+            file_path="/source/video.mkv",
+            job_type=JobType.MOVE,
+            status=JobStatus.RUNNING,
+            priority=100,
+            policy_name=None,
+            policy_json=json.dumps(
+                {
+                    "destination_path": "/custom/dest.mkv",
+                    "create_directories": False,
+                    "overwrite": True,
+                }
+            ),
+            progress_percent=0.0,
+            progress_json=None,
+            created_at="2024-01-01T00:00:00+00:00",
+            started_at="2024-01-01T00:00:00+00:00",
+        )
+
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("vpo.jobs.services.move.MoveExecutor") as mock_executor_cls,
+            patch("vpo.jobs.services.move.update_file_path") as mock_update,
+        ):
+            mock_executor = MagicMock()
+            mock_executor_cls.return_value = mock_executor
+            mock_executor.create_plan.return_value = MagicMock()
+            mock_executor.execute.return_value = MagicMock(
+                success=True,
+                source_path=Path("/source/video.mkv"),
+                destination_path=Path("/custom/dest.mkv"),
+                error_message=None,
+            )
+            mock_update.return_value = True
+
+            service.process(job)
+
+        # Verify executor was created with correct config
+        mock_executor_cls.assert_called_once_with(
+            create_directories=False,
+            overwrite=True,
+        )
+
+    def test_process_rollback_on_db_failure(self, mock_conn, sample_move_job):
+        """File rolled back when DB update fails."""
         service = MoveJobService(mock_conn)
 
         with (
             patch("pathlib.Path.exists", return_value=True),
             patch("vpo.jobs.services.move.MoveExecutor") as mock_executor_cls,
             patch("vpo.jobs.services.move.update_file_path") as mock_update,
+            patch("vpo.jobs.services.move.shutil.move") as mock_shutil_move,
         ):
             mock_executor = MagicMock()
             mock_executor_cls.return_value = mock_executor
@@ -437,6 +511,47 @@ class TestMoveJobServiceProcess:
 
             result = service.process(sample_move_job)
 
-        # Move should still succeed
-        assert result.success is True
+        # Move should fail with rollback
+        assert result.success is False
+        assert "Database update failed" in result.error_message
+        assert "rolled back" in result.error_message
+        # Verify rollback was attempted
+        mock_shutil_move.assert_called_once_with(
+            "/destination/video.mkv", "/source/video.mkv"
+        )
+
+    def test_process_rollback_failure_logs_critical(self, mock_conn, sample_move_job):
+        """Critical log when rollback fails."""
+        service = MoveJobService(mock_conn)
+
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("vpo.jobs.services.move.MoveExecutor") as mock_executor_cls,
+            patch("vpo.jobs.services.move.update_file_path") as mock_update,
+            patch("vpo.jobs.services.move.shutil.move") as mock_shutil_move,
+            patch("vpo.jobs.services.move.logger") as mock_logger,
+        ):
+            mock_executor = MagicMock()
+            mock_executor_cls.return_value = mock_executor
+            mock_executor.create_plan.return_value = MagicMock()
+            mock_executor.execute.return_value = MagicMock(
+                success=True,
+                source_path=Path("/source/video.mkv"),
+                destination_path=Path("/destination/video.mkv"),
+                error_message=None,
+            )
+            # Simulate DB error
+            mock_update.side_effect = sqlite3.Error("database is locked")
+            # Simulate rollback failure
+            mock_shutil_move.side_effect = OSError("permission denied")
+
+            result = service.process(sample_move_job)
+
+        # Move should fail with critical error
+        assert result.success is False
+        assert "CRITICAL" in result.error_message
+        assert "Rollback also failed" in result.error_message
+        # Verify destination_path is included so user knows where file is
         assert result.destination_path == "/destination/video.mkv"
+        # Verify critical was logged
+        mock_logger.critical.assert_called_once()

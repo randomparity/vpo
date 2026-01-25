@@ -13,12 +13,28 @@ Design Note:
     - MoveExecutor: operates on MovePlan, returns MoveResult
 """
 
+import errno
 import logging
 import shutil
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+
+class MoveErrorType(Enum):
+    """Categorization of move operation errors.
+
+    Enables future retry logic by distinguishing transient from permanent failures.
+    """
+
+    DISK_SPACE = "disk_space"
+    PERMISSION = "permission"
+    NOT_FOUND = "not_found"
+    CROSS_DEVICE = "cross_device"
+    IO_ERROR = "io_error"
+    UNKNOWN = "unknown"
 
 
 @dataclass
@@ -29,6 +45,7 @@ class MoveResult:
     source_path: Path
     destination_path: Path | None = None
     error_message: str | None = None
+    error_type: MoveErrorType | None = None
 
 
 @dataclass
@@ -113,6 +130,25 @@ class MoveExecutor:
                 "Use create_directories=True to create."
             )
 
+        # Check disk space if source and destination directory exist
+        if plan.source_path.exists():
+            source_size = plan.source_path.stat().st_size
+            # Check destination directory or first existing parent
+            check_dir = dest_dir
+            while not check_dir.exists() and check_dir.parent != check_dir:
+                check_dir = check_dir.parent
+            if check_dir.exists():
+                try:
+                    free_space = shutil.disk_usage(check_dir).free
+                    if source_size > free_space:
+                        errors.append(
+                            f"Insufficient disk space: need {source_size} bytes, "
+                            f"have {free_space} bytes"
+                        )
+                except OSError:
+                    # Cannot check disk space, skip validation
+                    pass
+
         return errors
 
     def execute(self, plan: MovePlan) -> MoveResult:
@@ -152,11 +188,25 @@ class MoveExecutor:
             )
 
         except OSError as e:
-            logger.error("Move failed: %s", e)
+            # Categorize error by errno for future retry logic
+            error_type = MoveErrorType.UNKNOWN
+            if e.errno == errno.ENOSPC:
+                error_type = MoveErrorType.DISK_SPACE
+            elif e.errno == errno.EACCES or e.errno == errno.EPERM:
+                error_type = MoveErrorType.PERMISSION
+            elif e.errno == errno.ENOENT:
+                error_type = MoveErrorType.NOT_FOUND
+            elif e.errno == errno.EXDEV:
+                error_type = MoveErrorType.CROSS_DEVICE
+            elif e.errno in (errno.EIO, errno.EROFS):
+                error_type = MoveErrorType.IO_ERROR
+
+            logger.error("Move failed (%s): %s", error_type.value, e)
             return MoveResult(
                 success=False,
                 source_path=plan.source_path,
                 error_message=str(e),
+                error_type=error_type,
             )
 
     def dry_run(self, plan: MovePlan) -> dict:

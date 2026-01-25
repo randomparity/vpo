@@ -466,8 +466,22 @@ class JobWorker:
             else:
                 logger.error("Job %s failed: %s", job.id[:8], error_msg)
 
+        except (OSError, sqlite3.Error, json.JSONDecodeError, ValueError) as e:
+            # Known, handleable errors
+            logger.error("Job %s failed: %s", job.id[:8], e)
+            if job_log:
+                job_log.write_error("Job processing error", e)
+                job_log.write_footer(False, time.time() - job_start_time)
+            release_job(
+                self.conn,
+                job.id,
+                JobStatus.FAILED,
+                error_message=str(e),
+            )
+
         except Exception as e:
-            logger.exception("Job %s failed with exception", job.id[:8])
+            # Unexpected errors - log with full stack trace
+            logger.critical("Job %s unexpected error: %s", job.id[:8], e, exc_info=True)
             if job_log:
                 job_log.write_error("Unexpected exception", e)
                 job_log.write_footer(False, time.time() - job_start_time)
@@ -475,7 +489,7 @@ class JobWorker:
                 self.conn,
                 job.id,
                 JobStatus.FAILED,
-                error_message=str(e),
+                error_message=f"Unexpected {type(e).__name__}: {e}",
             )
 
         finally:
