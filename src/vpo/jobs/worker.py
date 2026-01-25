@@ -35,6 +35,7 @@ from vpo.jobs.queue import (
     update_heartbeat,
 )
 from vpo.jobs.services import (
+    MoveJobService,
     ProcessJobService,
     TranscodeJobService,
 )
@@ -94,6 +95,7 @@ class JobWorker:
         # Cache services for reuse across jobs
         self._transcode_service = TranscodeJobService(cpu_cores=cpu_cores)
         self._process_service: ProcessJobService | None = None
+        self._move_service: MoveJobService | None = None
 
         # State
         self._shutdown_requested = False
@@ -375,6 +377,25 @@ class JobWorker:
         )
         return result.success, result.error_message, None
 
+    def _process_move_job(
+        self, job: Job, job_log: JobLogWriter | None = None
+    ) -> tuple[bool, str | None, str | None]:
+        """Process a move job.
+
+        Args:
+            job: The job to process.
+            job_log: Optional log writer for this job.
+
+        Returns:
+            Tuple of (success, error_message, output_path).
+        """
+        # Lazy init move service (needs conn)
+        if self._move_service is None:
+            self._move_service = MoveJobService(self.conn)
+
+        result = self._move_service.process(job, job_log=job_log)
+        return result.success, result.error_message, result.destination_path
+
     def process_job(self, job: Job) -> None:
         """Process a single job.
 
@@ -417,12 +438,7 @@ class JobWorker:
                     job, job_log
                 )
             elif job.job_type == JobType.MOVE:
-                # TODO: Implement move job processing
-                success = False
-                error_msg = "Move jobs not yet implemented"
-                output_path = None
-                if job_log:
-                    job_log.write_error(error_msg)
+                success, error_msg, output_path = self._process_move_job(job, job_log)
             else:
                 success = False
                 error_msg = f"Unknown job type: {job.job_type}"
@@ -450,8 +466,22 @@ class JobWorker:
             else:
                 logger.error("Job %s failed: %s", job.id[:8], error_msg)
 
+        except (OSError, sqlite3.Error, json.JSONDecodeError, ValueError) as e:
+            # Known, handleable errors
+            logger.error("Job %s failed: %s", job.id[:8], e)
+            if job_log:
+                job_log.write_error("Job processing error", e)
+                job_log.write_footer(False, time.time() - job_start_time)
+            release_job(
+                self.conn,
+                job.id,
+                JobStatus.FAILED,
+                error_message=str(e),
+            )
+
         except Exception as e:
-            logger.exception("Job %s failed with exception", job.id[:8])
+            # Unexpected errors - log with full stack trace
+            logger.critical("Job %s unexpected error: %s", job.id[:8], e, exc_info=True)
             if job_log:
                 job_log.write_error("Unexpected exception", e)
                 job_log.write_footer(False, time.time() - job_start_time)
@@ -459,7 +489,7 @@ class JobWorker:
                 self.conn,
                 job.id,
                 JobStatus.FAILED,
-                error_message=str(e),
+                error_message=f"Unexpected {type(e).__name__}: {e}",
             )
 
         finally:

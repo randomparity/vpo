@@ -6,6 +6,7 @@ This module contains database query functions for files and tracks:
 """
 
 import sqlite3
+from pathlib import Path
 
 from vpo.db.types import (
     FileRecord,
@@ -226,6 +227,51 @@ def delete_file(conn: sqlite3.Connection, file_id: int) -> None:
         This function does NOT commit. Caller must manage transactions.
     """
     conn.execute("DELETE FROM files WHERE id = ?", (file_id,))
+
+
+def update_file_path(conn: sqlite3.Connection, file_id: int, new_path: str) -> bool:
+    """Update a file's path after move operation.
+
+    Updates path, filename, and directory fields atomically.
+
+    Args:
+        conn: Database connection.
+        file_id: ID of the file to update.
+        new_path: New absolute path for the file.
+
+    Returns:
+        True if file was updated, False if not found.
+
+    Raises:
+        sqlite3.IntegrityError: If new_path already exists in database.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
+    """
+    path = Path(new_path)
+    try:
+        cursor = conn.execute(
+            """
+            UPDATE files SET
+                path = ?,
+                filename = ?,
+                directory = ?
+            WHERE id = ?
+            """,
+            (
+                str(path),
+                path.name,
+                str(path.parent),
+                file_id,
+            ),
+        )
+        return cursor.rowcount > 0
+    except sqlite3.IntegrityError as e:
+        if "UNIQUE constraint failed: files.path" in str(e):
+            raise sqlite3.IntegrityError(
+                f"Path already exists in database: {new_path}"
+            ) from e
+        raise
 
 
 # ==========================================================================
