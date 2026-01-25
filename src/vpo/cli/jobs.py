@@ -2,14 +2,13 @@
 
 import json
 import logging
-import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import click
 
 from vpo.config import get_config
-from vpo.core import truncate_filename
+from vpo.core import parse_relative_time, truncate_filename
 from vpo.db import (
     Job,
     JobStatus,
@@ -29,42 +28,6 @@ from vpo.jobs.queue import (
 from vpo.jobs.worker import JobWorker
 
 logger = logging.getLogger(__name__)
-
-
-def _parse_relative_date(relative: str) -> datetime:
-    """Parse relative date string like '1d', '1w', '2h'.
-
-    Supports:
-        - Nd: N days ago (e.g., "1d", "7d")
-        - Nw: N weeks ago (e.g., "1w", "2w")
-        - Nh: N hours ago (e.g., "2h", "24h")
-
-    Args:
-        relative: Relative date string.
-
-    Returns:
-        datetime in UTC.
-
-    Raises:
-        ValueError: If format is invalid.
-    """
-    match = re.match(r"^(\d+)([dwh])$", relative.casefold())
-    if not match:
-        raise ValueError(
-            f"Invalid relative date '{relative}'. Use format: Nd, Nw, or Nh "
-            "(e.g., '1d' for 1 day, '1w' for 1 week, '2h' for 2 hours)"
-        )
-
-    amount = int(match.group(1))
-    unit = match.group(2)
-
-    now = datetime.now(timezone.utc)
-    if unit == "d":
-        return now - timedelta(days=amount)
-    elif unit == "w":
-        return now - timedelta(weeks=amount)
-    else:  # unit == "h"
-        return now - timedelta(hours=amount)
 
 
 def _format_job_row(job: Job) -> tuple[str, str, str, str, str, str, str]:
@@ -177,7 +140,7 @@ def list_jobs(
     if since:
         try:
             # Try parsing as relative date first
-            since_dt = _parse_relative_date(since)
+            since_dt = parse_relative_time(since)
             since_iso = since_dt.isoformat()
         except ValueError:
             # Assume it's an ISO-8601 date
@@ -671,7 +634,6 @@ def cleanup_jobs(
         # Clean up orphaned temp files
         vpo jobs cleanup --remove-temp
     """
-    from datetime import datetime, timedelta, timezone
 
     from vpo.db import delete_old_jobs
 

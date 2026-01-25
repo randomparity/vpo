@@ -33,6 +33,9 @@ from vpo.core.codecs import (
 from vpo.core.datetime_utils import (
     calculate_duration_seconds,
     parse_iso_timestamp,
+    parse_relative_or_iso_time,
+    parse_relative_time,
+    parse_relative_time_iso,
 )
 from vpo.core.file_utils import (
     FileTimestampError,
@@ -88,6 +91,9 @@ __all__ = [
     # datetime_utils
     "parse_iso_timestamp",
     "calculate_duration_seconds",
+    "parse_relative_time",
+    "parse_relative_time_iso",
+    "parse_relative_or_iso_time",
     # file_utils
     "FileTimestampError",
     "get_file_mtime",
