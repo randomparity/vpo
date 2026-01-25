@@ -363,6 +363,10 @@ class Job:
     # Log file reference (016-job-detail-view)
     log_path: str | None = None  # Relative path to log file from VPO data directory
 
+    # Origin and batch tracking (unified CLI/daemon jobs)
+    origin: str | None = None  # 'cli' or 'daemon' (None = legacy)
+    batch_id: str | None = None  # UUID grouping CLI batch operations
+
 
 @dataclass
 class TranscriptionResultRecord:
@@ -553,6 +557,9 @@ class ProcessingStatsRecord:
 
     # Hardware encoder tracking (Issue #264)
     encoder_type: str | None = None
+
+    # Job linkage (unified CLI/daemon tracking)
+    job_id: str | None = None  # FK to jobs.id (None = legacy)
 
 
 @dataclass

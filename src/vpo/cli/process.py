@@ -10,6 +10,7 @@ import sqlite3
 import sys
 import threading
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -20,6 +21,12 @@ from vpo.cli.output import error_exit
 from vpo.cli.profile_loader import load_profile_or_exit
 from vpo.config.loader import get_config
 from vpo.db.connection import get_connection
+from vpo.db.queries import get_file_by_path
+from vpo.jobs.tracking import (
+    complete_process_job,
+    create_process_job,
+    fail_job_with_retry,
+)
 from vpo.logging import worker_context
 from vpo.policy.loader import PolicyValidationError, load_policy
 from vpo.policy.types import (
@@ -295,6 +302,7 @@ def _process_single_file(
     stop_event: threading.Event,
     worker_id: str,
     file_id: str,
+    batch_id: str | None,
 ) -> tuple[Path, FileProcessingResult | None, bool]:
     """Process a single file (worker function).
 
@@ -312,6 +320,7 @@ def _process_single_file(
         stop_event: Event signaling batch should stop.
         worker_id: Worker identifier for logging (e.g., "01").
         file_id: File identifier for logging (e.g., "F001").
+        batch_id: UUID grouping CLI batch operations (None if dry-run).
 
     Returns:
         Tuple of (file_path, result, success).
@@ -320,6 +329,7 @@ def _process_single_file(
         return file_path, None, False
 
     progress.start_file()
+    job = None
     try:
         # Set worker context for logging - all logs within this context
         # will include [W{worker_id}:{file_id}] tag
@@ -329,6 +339,26 @@ def _process_single_file(
 
             # Each worker gets its own connection for thread safety
             with get_connection(db_path) as conn:
+                # Create job record (skip for dry-run)
+                db_file_id: int | None = None
+                job_id: str | None = None
+                if not dry_run:
+                    # Get file_id from database if file exists there
+                    file_record = get_file_by_path(conn, str(file_path))
+                    if file_record:
+                        db_file_id = file_record.id
+
+                    job = create_process_job(
+                        conn,
+                        db_file_id,
+                        str(file_path),
+                        policy_name,
+                        origin="cli",
+                        batch_id=batch_id,
+                    )
+                    job_id = job.id
+                    conn.commit()
+
                 processor = WorkflowProcessor(
                     conn=conn,
                     policy=policy,
@@ -336,11 +366,38 @@ def _process_single_file(
                     verbose=verbose,
                     policy_name=policy_name,
                     selected_phases=selected_phases,
+                    job_id=job_id,
                 )
                 result = processor.process_file(file_path)
+
+                # Complete job record (skip for dry-run)
+                if not dry_run and job:
+                    complete_process_job(
+                        conn,
+                        job.id,
+                        success=result.success,
+                        phases_completed=result.phases_completed,
+                        total_changes=result.total_changes,
+                        error_message=result.error_message,
+                        stats_id=result.stats_id,
+                    )
+
                 return file_path, result, result.success
     except Exception as e:
         logger.exception("Error processing %s: %s", file_path, e)
+
+        # Fail job record if it was created, with retry for resilience
+        if job:
+            with get_connection(db_path) as conn:
+                success = fail_job_with_retry(conn, job.id, str(e))
+                if not success:
+                    # Job failure recording itself failed - this is critical
+                    # The job will remain in RUNNING state (orphaned)
+                    logger.error(
+                        "CRITICAL: Job %s may be orphaned - failed to record failure",
+                        job.id,
+                    )
+
         # Create a minimal failure result
         result = FileProcessingResult(
             file_path=file_path,
@@ -546,6 +603,9 @@ def process_command(
     )
     stop_event = threading.Event()
 
+    # Generate batch_id for CLI batch operations (skip for dry-run)
+    batch_id = str(uuid.uuid4()) if not dry_run else None
+
     try:
         # Parallel processing with ThreadPoolExecutor
         # Determine on_error mode from policy config
@@ -583,6 +643,7 @@ def process_command(
                     stop_event,
                     worker_id,
                     file_id,
+                    batch_id,
                 )
                 futures[future] = file_path
 

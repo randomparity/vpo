@@ -37,8 +37,9 @@ def insert_job(conn: sqlite3.Connection, job: Job) -> str:
             created_at, started_at, completed_at,
             worker_pid, worker_heartbeat,
             output_path, backup_path, error_message,
-            files_affected_json, summary_json, log_path
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            files_affected_json, summary_json, log_path,
+            origin, batch_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             job.id,
@@ -62,6 +63,8 @@ def insert_job(conn: sqlite3.Connection, job: Job) -> str:
             job.files_affected_json,
             job.summary_json,
             job.log_path,
+            job.origin,
+            job.batch_id,
         ),
     )
     return job.id
@@ -84,7 +87,8 @@ def get_job(conn: sqlite3.Connection, job_id: str) -> Job | None:
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
                output_path, backup_path, error_message,
-               files_affected_json, summary_json, log_path
+               files_affected_json, summary_json, log_path,
+               origin, batch_id
         FROM jobs WHERE id = ?
         """,
         (job_id,),
@@ -244,7 +248,8 @@ def get_queued_jobs(conn: sqlite3.Connection, limit: int | None = None) -> list[
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
                output_path, backup_path, error_message,
-               files_affected_json, summary_json, log_path
+               files_affected_json, summary_json, log_path,
+               origin, batch_id
         FROM jobs
         WHERE status = 'queued'
         ORDER BY priority ASC, created_at ASC
@@ -277,7 +282,8 @@ def get_jobs_by_status(
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
                output_path, backup_path, error_message,
-               files_affected_json, summary_json, log_path
+               files_affected_json, summary_json, log_path,
+               origin, batch_id
         FROM jobs
         WHERE status = ?
         ORDER BY created_at DESC
@@ -307,7 +313,8 @@ def get_all_jobs(conn: sqlite3.Connection, limit: int | None = None) -> list[Job
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
                output_path, backup_path, error_message,
-               files_affected_json, summary_json, log_path
+               files_affected_json, summary_json, log_path,
+               origin, batch_id
         FROM jobs
         ORDER BY created_at DESC
     """
@@ -338,7 +345,8 @@ def get_jobs_by_id_prefix(conn: sqlite3.Connection, prefix: str) -> list[Job]:
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
                output_path, backup_path, error_message,
-               files_affected_json, summary_json, log_path
+               files_affected_json, summary_json, log_path,
+               origin, batch_id
         FROM jobs
         WHERE id LIKE ?
         ORDER BY created_at DESC
@@ -408,7 +416,8 @@ def get_jobs_filtered(
                created_at, started_at, completed_at,
                worker_pid, worker_heartbeat,
                output_path, backup_path, error_message,
-               files_affected_json, summary_json, log_path
+               files_affected_json, summary_json, log_path,
+               origin, batch_id
         FROM jobs
     """
     base_query += where_clause

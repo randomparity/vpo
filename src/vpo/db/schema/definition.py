@@ -7,7 +7,7 @@ used by the VPO database.
 
 import sqlite3
 
-SCHEMA_VERSION = 22
+SCHEMA_VERSION = 25
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -162,12 +162,16 @@ CREATE TABLE IF NOT EXISTS jobs (
     -- Log file reference (016-job-detail-view)
     log_path TEXT,
 
+    -- Origin and batch tracking (unified CLI/daemon jobs)
+    origin TEXT,      -- 'cli' or 'daemon' (NULL = legacy)
+    batch_id TEXT,    -- UUID grouping CLI batch operations
+
     FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
     CONSTRAINT valid_status CHECK (
         status IN ('queued', 'running', 'completed', 'failed', 'cancelled')
     ),
     CONSTRAINT valid_job_type CHECK (
-        job_type IN ('transcode', 'move', 'scan', 'apply')
+        job_type IN ('transcode', 'move', 'scan', 'apply', 'process')
     ),
     CONSTRAINT valid_progress CHECK (
         progress_percent >= 0.0 AND progress_percent <= 100.0
@@ -182,6 +186,8 @@ CREATE INDEX IF NOT EXISTS idx_jobs_file_id ON jobs(file_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_priority_created ON jobs(priority, created_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_job_type ON jobs(job_type);
+CREATE INDEX IF NOT EXISTS idx_jobs_origin ON jobs(origin);
+CREATE INDEX IF NOT EXISTS idx_jobs_batch_id ON jobs(batch_id);
 
 -- Transcription results table (007-audio-transcription)
 CREATE TABLE IF NOT EXISTS transcription_results (
@@ -338,10 +344,15 @@ CREATE TABLE IF NOT EXISTS processing_stats (
     -- Hardware encoder tracking (Issue #264)
     encoder_type TEXT,                      -- 'hardware', 'software', or NULL
 
-    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
+    -- Job linkage (unified CLI/daemon tracking)
+    job_id TEXT,                            -- FK to jobs.id (NULL = legacy)
+
+    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
+    FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE SET NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_stats_file ON processing_stats(file_id);
+CREATE INDEX IF NOT EXISTS idx_stats_job ON processing_stats(job_id);
 CREATE INDEX IF NOT EXISTS idx_stats_policy ON processing_stats(policy_name);
 CREATE INDEX IF NOT EXISTS idx_stats_time ON processing_stats(processed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_stats_success ON processing_stats(success);

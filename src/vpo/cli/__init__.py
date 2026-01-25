@@ -308,8 +308,9 @@ def main(
     if ctx.invoked_subcommand != "init":
         _log_startup_settings(log_level, log_file)
 
-    # Initialize database connection for subcommands
-    ctx.obj["db_conn"] = _get_db_connection()
+    # Initialize database connection for subcommands (preserve mock if passed by tests)
+    if "db_conn" not in ctx.obj:
+        ctx.obj["db_conn"] = _get_db_connection()
 
 
 # Defer import to avoid circular dependency

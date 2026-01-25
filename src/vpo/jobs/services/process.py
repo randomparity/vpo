@@ -91,6 +91,7 @@ class ProcessJobService:
                     dry_run=False,
                     verbose=True,
                     ffmpeg_progress_callback=ffmpeg_progress_callback,
+                    job_id=job.id,
                 )
 
                 if job_log:

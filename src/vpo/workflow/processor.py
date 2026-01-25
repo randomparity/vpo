@@ -96,6 +96,7 @@ class WorkflowProcessor:
         selected_phases: list[str] | None = None,
         plugin_registry: "PluginRegistry | None" = None,
         ffmpeg_progress_callback: Callable[[FFmpegProgress], None] | None = None,
+        job_id: str | None = None,
     ) -> None:
         """Initialize the workflow processor.
 
@@ -113,6 +114,8 @@ class WorkflowProcessor:
                 operations. If None, transcription operations will be skipped.
             ffmpeg_progress_callback: Optional callback for FFmpeg progress updates.
                 Used during container conversion with audio transcoding.
+            job_id: Optional job ID for unified CLI/daemon tracking.
+                If provided, processing_stats will link to this job.
         """
         self.conn = conn
         self.policy = policy
@@ -122,6 +125,7 @@ class WorkflowProcessor:
         self.policy_name = policy_name
         self._plugin_registry = plugin_registry
         self._ffmpeg_progress_callback = ffmpeg_progress_callback
+        self._job_id = job_id
 
         # Determine which phases to execute
         if selected_phases:
@@ -369,6 +373,7 @@ class WorkflowProcessor:
                     conn=self.conn,
                     file_id=file_record.id,
                     policy_name=self.policy_name,
+                    job_id=self._job_id,
                 )
                 stats_collector.phases_total = len(self.phases_to_execute)
                 stats_collector.capture_before_state(file_info, file_path)
