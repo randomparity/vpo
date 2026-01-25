@@ -354,7 +354,7 @@ def get_library_report(
                 WHERE t.file_id = f.id AND t.track_type = 'subtitle'
             ) as subtitle_count
         FROM files f
-        WHERE f.scan_status = 'scanned'
+        WHERE f.scan_status = 'ok'
     """
     params: list[Any] = []
 
