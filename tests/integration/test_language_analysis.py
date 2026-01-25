@@ -741,14 +741,15 @@ class TestWorkflowLanguageIntegration:
             # Call the original function
             return original_evaluate(**kwargs)
 
-        from vpo.policy import evaluator
+        from vpo.workflow.phases.executor import PhaseExecutionState, plan_operations
+        from vpo.workflow.phases.executor.plan_operations import execute_with_plan
 
-        original_evaluate = evaluator.evaluate_policy
+        original_evaluate = plan_operations.evaluate_policy
 
-        with patch.object(evaluator, "evaluate_policy", side_effect=capturing_evaluate):
-            from vpo.workflow.phases.executor import PhaseExecutionState
-            from vpo.workflow.phases.executor.plan_operations import execute_with_plan
-
+        # Patch where evaluate_policy is used, not where it's defined
+        with patch.object(
+            plan_operations, "evaluate_policy", side_effect=capturing_evaluate
+        ):
             state = PhaseExecutionState(
                 file_path=test_file,
                 phase=policy.phases[0],
