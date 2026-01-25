@@ -41,7 +41,7 @@ def test_db():
             size_bytes INTEGER,
             container_format TEXT,
             scanned_at TEXT,
-            scan_status TEXT DEFAULT 'scanned'
+            scan_status TEXT DEFAULT 'ok'
         );
 
         CREATE TABLE tracks (
@@ -321,7 +321,7 @@ class TestGetLibraryReport:
             INSERT INTO files
                 (id, path, filename, container_format, scanned_at, scan_status)
             VALUES (1, '/path/movie.mkv', 'movie.mkv', 'mkv',
-                    '2025-01-15T12:00:00Z', 'scanned')
+                    '2025-01-15T12:00:00Z', 'ok')
         """)
         test_db.execute("""
             INSERT INTO tracks (file_id, track_type, width, height, language)
@@ -345,7 +345,7 @@ class TestGetLibraryReport:
             INSERT INTO files
                 (id, path, filename, container_format, scanned_at, scan_status)
             VALUES (1, '/path/4k.mkv', '4k.mkv', 'mkv',
-                    '2025-01-15T12:00:00Z', 'scanned')
+                    '2025-01-15T12:00:00Z', 'ok')
         """)
         test_db.execute("""
             INSERT INTO tracks (file_id, track_type, width, height)
@@ -357,7 +357,7 @@ class TestGetLibraryReport:
             INSERT INTO files
                 (id, path, filename, container_format, scanned_at, scan_status)
             VALUES (2, '/path/1080p.mkv', '1080p.mkv', 'mkv',
-                    '2025-01-15T12:00:00Z', 'scanned')
+                    '2025-01-15T12:00:00Z', 'ok')
         """)
         test_db.execute("""
             INSERT INTO tracks (file_id, track_type, width, height)
@@ -374,7 +374,7 @@ class TestGetLibraryReport:
             INSERT INTO files
                 (id, path, filename, container_format, scanned_at, scan_status)
             VALUES (1, '/path/eng.mkv', 'eng.mkv', 'mkv',
-                    '2025-01-15T12:00:00Z', 'scanned')
+                    '2025-01-15T12:00:00Z', 'ok')
         """)
         test_db.execute("""
             INSERT INTO tracks (file_id, track_type, language)
@@ -385,7 +385,7 @@ class TestGetLibraryReport:
             INSERT INTO files
                 (id, path, filename, container_format, scanned_at, scan_status)
             VALUES (2, '/path/jpn.mkv', 'jpn.mkv', 'mkv',
-                    '2025-01-15T12:00:00Z', 'scanned')
+                    '2025-01-15T12:00:00Z', 'ok')
         """)
         test_db.execute("""
             INSERT INTO tracks (file_id, track_type, language)
@@ -403,7 +403,7 @@ class TestGetLibraryReport:
             INSERT INTO files
                 (id, path, filename, container_format, scanned_at, scan_status)
             VALUES (1, '/path/subs.mkv', 'subs.mkv', 'mkv',
-                    '2025-01-15T12:00:00Z', 'scanned')
+                    '2025-01-15T12:00:00Z', 'ok')
         """)
         test_db.execute("""
             INSERT INTO tracks (file_id, track_type) VALUES (1, 'subtitle')
@@ -414,7 +414,7 @@ class TestGetLibraryReport:
             INSERT INTO files
                 (id, path, filename, container_format, scanned_at, scan_status)
             VALUES (2, '/path/nosubs.mkv', 'nosubs.mkv', 'mkv',
-                    '2025-01-15T12:00:00Z', 'scanned')
+                    '2025-01-15T12:00:00Z', 'ok')
         """)
 
         result = get_library_report(test_db, has_subtitles=True)
