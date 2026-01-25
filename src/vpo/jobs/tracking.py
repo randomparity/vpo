@@ -9,10 +9,9 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-import time
 import uuid
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, TypedDict, TypeVar
+from typing import TYPE_CHECKING, TypedDict
 
 from vpo.db import (
     Job,
@@ -20,22 +19,17 @@ from vpo.db import (
     JobType,
     insert_job,
 )
+from vpo.db.connection import execute_with_retry
 from vpo.jobs.exceptions import JobNotFoundError
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from vpo.config.models import JobsConfig
 
 
 logger = logging.getLogger(__name__)
 
-# Type variable for generic retry function
-T = TypeVar("T")
-
-# Default retry configuration
-DEFAULT_MAX_RETRIES = 3
-DEFAULT_RETRY_BASE_DELAY = 0.1  # seconds
+# Default retry configuration for job failure recording
+DEFAULT_MAX_RETRIES = 5
 
 
 class ScanSummary(TypedDict):
@@ -98,57 +92,6 @@ def _validate_non_empty(value: str | None, field: str) -> None:
     """
     if not value or not value.strip():
         raise ValueError(f"{field} cannot be empty")
-
-
-def _execute_with_retry(
-    operation: Callable[[], T],
-    max_retries: int = DEFAULT_MAX_RETRIES,
-    retry_on: tuple[type[Exception], ...] = (sqlite3.OperationalError,),
-) -> T:
-    """Execute an operation with exponential backoff retry.
-
-    Useful for handling transient database errors like SQLITE_BUSY.
-
-    Args:
-        operation: A callable that performs the database operation.
-        max_retries: Maximum number of retry attempts.
-        retry_on: Tuple of exception types to retry on.
-
-    Returns:
-        The result of the operation.
-
-    Raises:
-        The last exception if all retries are exhausted.
-    """
-    last_exception: Exception | None = None
-
-    for attempt in range(max_retries):
-        try:
-            return operation()
-        except retry_on as e:
-            last_exception = e
-            if attempt < max_retries - 1:
-                delay = DEFAULT_RETRY_BASE_DELAY * (2**attempt)
-                logger.warning(
-                    "Database operation failed (attempt %d/%d), retrying in %.2fs: %s",
-                    attempt + 1,
-                    max_retries,
-                    delay,
-                    e,
-                )
-                time.sleep(delay)
-            else:
-                logger.error(
-                    "Database operation failed after %d attempts: %s",
-                    max_retries,
-                    e,
-                )
-
-    # This should never be reached if retry_on contains at least one exception type
-    # and max_retries >= 1, but we need to satisfy the type checker
-    if last_exception is not None:
-        raise last_exception
-    raise RuntimeError("Unexpected state in retry loop")
 
 
 def _update_job_status(
@@ -577,7 +520,7 @@ def fail_job_with_retry(
         def _do_fail() -> None:
             fail_process_job(conn, job_id, error_message)
 
-        _execute_with_retry(_do_fail, max_retries=max_retries)
+        execute_with_retry(_do_fail, max_retries=max_retries)
         return True
     except JobNotFoundError:
         logger.warning("Job %s not found when trying to mark as failed", job_id)
