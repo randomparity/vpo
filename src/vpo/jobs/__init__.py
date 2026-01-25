@@ -25,6 +25,13 @@ from vpo.jobs.exceptions import (
     JobTrackingError,
 )
 from vpo.jobs.maintenance import cleanup_orphaned_cli_jobs, purge_old_jobs
+from vpo.jobs.progress import (
+    CompositeProgressReporter,
+    DatabaseProgressReporter,
+    NullProgressReporter,
+    ProgressReporter,
+    StderrProgressReporter,
+)
 from vpo.jobs.summary import generate_summary_text
 from vpo.jobs.tracking import (
     ProcessSummary,
@@ -61,6 +68,12 @@ __all__ = [
     "DEFAULT_STATUS_COLOR",
     "get_status_color",
     "format_job_status",
+    # Progress reporters
+    "ProgressReporter",
+    "StderrProgressReporter",
+    "DatabaseProgressReporter",
+    "NullProgressReporter",
+    "CompositeProgressReporter",
     # Exceptions
     "JobTrackingError",
     "JobNotFoundError",
