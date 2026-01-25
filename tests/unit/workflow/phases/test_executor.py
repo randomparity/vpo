@@ -205,6 +205,23 @@ class TestPhaseExecutorInit:
 
         assert executor.policy_name == "custom.yaml"
 
+    def test_init_with_progress_callback(self, db_conn, phased_policy):
+        """Progress callback is stored for later use."""
+        mock_callback = MagicMock()
+        executor = PhaseExecutor(
+            conn=db_conn,
+            policy=phased_policy,
+            ffmpeg_progress_callback=mock_callback,
+        )
+
+        assert executor._ffmpeg_progress_callback is mock_callback
+
+    def test_init_without_progress_callback(self, db_conn, phased_policy):
+        """Progress callback defaults to None."""
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy)
+
+        assert executor._ffmpeg_progress_callback is None
+
 
 class TestOperationDispatch:
     """Tests for _dispatch_operation handler routing."""
@@ -356,6 +373,51 @@ class TestExecutorSelection:
             selected = executor._select_executor(mock_plan, "mkv")
 
         assert selected is None
+
+    def test_select_executor_passes_progress_callback_to_ffmpeg_remux(
+        self, db_conn, phased_policy
+    ):
+        """Progress callback is passed to FFmpegRemuxExecutor for MP4 conversion."""
+        mock_callback = MagicMock()
+        executor = PhaseExecutor(
+            conn=db_conn,
+            policy=phased_policy,
+            ffmpeg_progress_callback=mock_callback,
+        )
+
+        mock_plan = MagicMock()
+        mock_plan.container_change = MagicMock()
+        mock_plan.container_change.target_format = "mp4"
+        mock_plan.tracks_removed = 0
+        mock_plan.requires_remux = False
+
+        with patch.object(executor, "_get_tools", return_value={"ffmpeg": True}):
+            selected = executor._select_executor(mock_plan, "mkv")
+
+        from vpo.executor import FFmpegRemuxExecutor
+
+        assert isinstance(selected, FFmpegRemuxExecutor)
+        assert selected.progress_callback is mock_callback
+
+    def test_select_executor_ffmpeg_remux_without_callback(
+        self, db_conn, phased_policy
+    ):
+        """FFmpegRemuxExecutor works without progress callback."""
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy)
+
+        mock_plan = MagicMock()
+        mock_plan.container_change = MagicMock()
+        mock_plan.container_change.target_format = "mp4"
+        mock_plan.tracks_removed = 0
+        mock_plan.requires_remux = False
+
+        with patch.object(executor, "_get_tools", return_value={"ffmpeg": True}):
+            selected = executor._select_executor(mock_plan, "mkv")
+
+        from vpo.executor import FFmpegRemuxExecutor
+
+        assert isinstance(selected, FFmpegRemuxExecutor)
+        assert selected.progress_callback is None
 
 
 class TestDryRunMode:
@@ -979,3 +1041,89 @@ class TestToolAvailabilityCaching:
         # Should only call check_tool_availability once
         mock_check.assert_called_once()
         assert tools1 is tools2
+
+
+class TestProgressCallbackThreading:
+    """Tests for ffmpeg_progress_callback threading through container operations."""
+
+    def test_execute_container_passes_callback_to_plan_operations(
+        self, db_conn, phased_policy, mock_file_info
+    ):
+        """Progress callback is passed from _execute_container to execute_container."""
+        mock_callback = MagicMock()
+        executor = PhaseExecutor(
+            conn=db_conn,
+            policy=phased_policy,
+            ffmpeg_progress_callback=mock_callback,
+        )
+
+        phase = PhaseDefinition(
+            name="convert",
+            container=ContainerConfig(target="mp4"),
+        )
+        state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
+
+        with patch(
+            "vpo.workflow.phases.executor.plan_operations.execute_container"
+        ) as mock_execute:
+            mock_execute.return_value = 1
+
+            # Call the wrapper method
+            executor._execute_container(state, mock_file_info)
+
+        # Verify execute_container was called with the callback
+        mock_execute.assert_called_once()
+        call_kwargs = mock_execute.call_args.kwargs
+        assert "ffmpeg_progress_callback" in call_kwargs
+        assert call_kwargs["ffmpeg_progress_callback"] is mock_callback
+
+    def test_execute_container_without_callback(
+        self, db_conn, phased_policy, mock_file_info
+    ):
+        """Container execution works when no progress callback is set."""
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy)
+
+        phase = PhaseDefinition(
+            name="convert",
+            container=ContainerConfig(target="mp4"),
+        )
+        state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
+
+        with patch(
+            "vpo.workflow.phases.executor.plan_operations.execute_container"
+        ) as mock_execute:
+            mock_execute.return_value = 0
+
+            executor._execute_container(state, mock_file_info)
+
+        # Verify callback is None when not provided
+        call_kwargs = mock_execute.call_args.kwargs
+        assert call_kwargs["ffmpeg_progress_callback"] is None
+
+    def test_callback_threading_through_select_executor(self, db_conn, phased_policy):
+        """Callback is threaded through _select_executor to select_executor."""
+        mock_callback = MagicMock()
+        executor = PhaseExecutor(
+            conn=db_conn,
+            policy=phased_policy,
+            ffmpeg_progress_callback=mock_callback,
+        )
+
+        mock_plan = MagicMock()
+        mock_plan.container_change = MagicMock()
+        mock_plan.container_change.target_format = "mp4"
+        mock_plan.tracks_removed = 0
+        mock_plan.requires_remux = False
+
+        with patch(
+            "vpo.workflow.phases.executor.executor.select_executor"
+        ) as mock_select:
+            mock_select.return_value = MagicMock()
+
+            with patch.object(executor, "_get_tools", return_value={"ffmpeg": True}):
+                executor._select_executor(mock_plan, "mkv")
+
+        # Verify select_executor was called with the callback as 4th positional arg
+        mock_select.assert_called_once_with(
+            mock_plan, "mkv", {"ffmpeg": True}, mock_callback
+        )
