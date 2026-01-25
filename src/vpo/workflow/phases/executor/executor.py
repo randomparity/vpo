@@ -405,7 +405,13 @@ class PhaseExecutor:
 
         tools = self._get_tools()
         return execute_container(
-            state, file_info, self.conn, self.policy, self.dry_run, tools
+            state,
+            file_info,
+            self.conn,
+            self.policy,
+            self.dry_run,
+            tools,
+            ffmpeg_progress_callback=self._ffmpeg_progress_callback,
         )
 
     def _execute_audio_filter(

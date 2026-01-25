@@ -6,6 +6,7 @@ default flags, and conditional rules.
 """
 
 import logging
+from collections.abc import Callable
 from sqlite3 import Connection
 from typing import TYPE_CHECKING
 
@@ -13,6 +14,7 @@ from vpo.db.queries import get_file_by_path
 from vpo.db.types import TrackInfo
 from vpo.policy.evaluator import evaluate_policy
 from vpo.policy.types import EvaluationPolicy, PolicySchema
+from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 from .helpers import (
     get_language_results_for_tracks,
@@ -36,6 +38,7 @@ def execute_with_plan(
     policy: PolicySchema,
     dry_run: bool,
     tools: dict[str, bool],
+    ffmpeg_progress_callback: Callable[[FFmpegProgress], None] | None = None,
 ) -> int:
     """Common execution flow for plan-based operations.
 
@@ -47,6 +50,8 @@ def execute_with_plan(
         policy: PolicySchema configuration.
         dry_run: If True, preview without making changes.
         tools: Dict of tool availability.
+        ffmpeg_progress_callback: Optional callback for FFmpeg progress updates.
+            Used during container conversion with audio transcoding.
 
     Returns:
         Number of changes made.
@@ -107,7 +112,7 @@ def execute_with_plan(
         return changes
 
     # Select and run executor
-    executor = select_executor(plan, container, tools)
+    executor = select_executor(plan, container, tools, ffmpeg_progress_callback)
     if executor is None:
         raise ValueError(
             f"No executor available for {operation_name} (container={container})"
@@ -136,12 +141,34 @@ def execute_container(
     policy: PolicySchema,
     dry_run: bool,
     tools: dict[str, bool],
+    ffmpeg_progress_callback: Callable[[FFmpegProgress], None] | None = None,
 ) -> int:
-    """Execute container conversion operation."""
+    """Execute container conversion operation.
+
+    Args:
+        state: Current execution state.
+        file_info: FileInfo from database.
+        conn: Database connection.
+        policy: PolicySchema configuration.
+        dry_run: If True, preview without making changes.
+        tools: Dict of tool availability.
+        ffmpeg_progress_callback: Optional callback for FFmpeg progress updates.
+            Used during container conversion with audio transcoding.
+
+    Returns:
+        Number of changes made.
+    """
     if not state.phase.container:
         return 0
     return execute_with_plan(
-        state, file_info, "container conversion", conn, policy, dry_run, tools
+        state,
+        file_info,
+        "container conversion",
+        conn,
+        policy,
+        dry_run,
+        tools,
+        ffmpeg_progress_callback,
     )
 
 
