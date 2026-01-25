@@ -504,6 +504,10 @@ def process_command(
     config = get_config()
     effective_workers = resolve_worker_count(workers, config.processing.workers)
 
+    # Auto-enable verbose for dry-run (seeing changes is the whole point)
+    if dry_run and not json_output:
+        verbose = True
+
     if verbose and not json_output:
         click.echo(f"Policy: {policy_path} (v{policy.schema_version})")
         click.echo(f"Files: {len(file_paths)}")
