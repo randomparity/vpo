@@ -32,6 +32,13 @@ from vpo.jobs.progress import (
     ProgressReporter,
     StderrProgressReporter,
 )
+from vpo.jobs.runner import (
+    JobLifecycle,
+    NullJobLifecycle,
+    WorkflowRunner,
+    WorkflowRunnerConfig,
+    WorkflowRunResult,
+)
 from vpo.jobs.summary import generate_summary_text
 from vpo.jobs.tracking import (
     ProcessSummary,
@@ -74,6 +81,12 @@ __all__ = [
     "DatabaseProgressReporter",
     "NullProgressReporter",
     "CompositeProgressReporter",
+    # Workflow runner
+    "WorkflowRunner",
+    "WorkflowRunnerConfig",
+    "WorkflowRunResult",
+    "JobLifecycle",
+    "NullJobLifecycle",
     # Exceptions
     "JobTrackingError",
     "JobNotFoundError",
