@@ -451,3 +451,229 @@ def make_transcode_result():
         )
 
     return _make_result
+
+
+# =============================================================================
+# Workflow Phase Execution Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def make_phase_execution_state():
+    """Factory for creating PhaseExecutionState objects with sensible defaults.
+
+    Creates a mutable execution state for testing phase execution.
+
+    Returns:
+        Callable: Factory function that creates PhaseExecutionState instances.
+
+    Example:
+        def test_phase_state(make_phase_execution_state):
+            state = make_phase_execution_state(
+                file_modified=True,
+                total_changes=5
+            )
+            assert state.file_modified is True
+    """
+    from vpo.policy.types import PhaseDefinition
+    from vpo.workflow.phases.executor.types import PhaseExecutionState
+
+    def _make_state(
+        file_path: Path | str = Path("/videos/movie.mkv"),
+        phase: PhaseDefinition | None = None,
+        backup_path: Path | None = None,
+        operations_completed: list[str] | None = None,
+        file_modified: bool = False,
+        total_changes: int = 0,
+        transcode_skip_reason: str | None = None,
+        encoding_fps: float | None = None,
+        encoding_bitrate_kbps: int | None = None,
+        total_frames: int | None = None,
+        encoder_type: str | None = None,
+        original_mtime: float | None = None,
+    ) -> PhaseExecutionState:
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+        if phase is None:
+            phase = PhaseDefinition(name="test_phase", conditional=())
+        if operations_completed is None:
+            operations_completed = []
+
+        return PhaseExecutionState(
+            file_path=file_path,
+            phase=phase,
+            backup_path=backup_path,
+            operations_completed=operations_completed,
+            file_modified=file_modified,
+            total_changes=total_changes,
+            transcode_skip_reason=transcode_skip_reason,
+            encoding_fps=encoding_fps,
+            encoding_bitrate_kbps=encoding_bitrate_kbps,
+            total_frames=total_frames,
+            encoder_type=encoder_type,
+            original_mtime=original_mtime,
+        )
+
+    return _make_state
+
+
+@pytest.fixture
+def make_synthesis_plan(make_track_info):
+    """Factory for creating SynthesisPlan objects with sensible defaults.
+
+    Creates a synthesis plan for testing audio synthesis operations.
+
+    Returns:
+        Callable: Factory function that creates SynthesisPlan instances.
+
+    Example:
+        def test_synthesis(make_synthesis_plan):
+            plan = make_synthesis_plan(
+                operations=[...],
+                skipped=[...]
+            )
+            assert plan.has_operations
+    """
+    from vpo.policy.synthesis.models import (
+        SynthesisPlan,
+    )
+
+    def _make_plan(
+        file_id: str = "test-file-uuid",
+        file_path: Path | str = Path("/videos/movie.mkv"),
+        operations: tuple | list | None = None,
+        skipped: tuple | list | None = None,
+        final_track_order: tuple | list | None = None,
+        audio_tracks: tuple | list | None = None,
+    ) -> SynthesisPlan:
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+        if operations is None:
+            operations = ()
+        if skipped is None:
+            skipped = ()
+        if final_track_order is None:
+            final_track_order = ()
+        if audio_tracks is None:
+            audio_tracks = ()
+
+        # Convert lists to tuples
+        if isinstance(operations, list):
+            operations = tuple(operations)
+        if isinstance(skipped, list):
+            skipped = tuple(skipped)
+        if isinstance(final_track_order, list):
+            final_track_order = tuple(final_track_order)
+        if isinstance(audio_tracks, list):
+            audio_tracks = tuple(audio_tracks)
+
+        return SynthesisPlan(
+            file_id=file_id,
+            file_path=file_path,
+            operations=operations,
+            skipped=skipped,
+            final_track_order=final_track_order,
+            audio_tracks=audio_tracks,
+        )
+
+    return _make_plan
+
+
+# =============================================================================
+# Mocking Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def mock_subprocess_run():
+    """Mock subprocess.run for FFmpeg and other command-line tool tests.
+
+    Returns a context manager that patches subprocess.run and returns
+    a MagicMock that can be configured with custom return values.
+
+    Returns:
+        Callable: Context manager that yields the mock.
+
+    Example:
+        def test_ffmpeg_call(mock_subprocess_run):
+            with mock_subprocess_run() as mock_run:
+                mock_run.return_value.returncode = 0
+                # ... run code that uses subprocess.run
+                mock_run.assert_called_once()
+    """
+    from contextlib import contextmanager
+    from unittest.mock import MagicMock, patch
+
+    @contextmanager
+    def _mock():
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = ""
+        mock_result.stderr = ""
+
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            mock_run.return_value = mock_result
+            yield mock_run
+
+    return _mock
+
+
+@pytest.fixture
+def mock_all_phase_handlers():
+    """Mock all phase operation handlers for dispatch testing.
+
+    Patches all handler functions in workflow.phases.executor.handlers
+    to return success results. Useful for testing dispatch routing
+    without executing actual operations.
+
+    Returns:
+        Callable: Context manager that yields dict of mock handlers.
+
+    Example:
+        def test_dispatch(mock_all_phase_handlers):
+            with mock_all_phase_handlers() as handlers:
+                # Configure specific handler
+                handlers["execute_transcode"].return_value = 0
+                # ... run dispatch code
+                handlers["execute_transcode"].assert_called_once()
+    """
+    from contextlib import contextmanager
+    from unittest.mock import MagicMock, patch
+
+    @contextmanager
+    def _mock():
+        handlers = {}
+        patches = []
+
+        # List of handler functions to mock
+        handler_names = [
+            "execute_container",
+            "execute_audio_filter",
+            "execute_subtitle_filter",
+            "execute_attachment_filter",
+            "execute_conditional",
+            "execute_transcode",
+            "execute_audio_synthesis",
+            "execute_metadata",
+            "execute_timestamp",
+            "execute_track_order",
+            "execute_default_flags",
+            "execute_move",
+        ]
+
+        base_path = "vpo.workflow.phases.executor.core"
+
+        for name in handler_names:
+            mock = MagicMock(return_value=0)
+            patcher = patch(f"{base_path}.{name}", mock)
+            patcher.start()
+            patches.append(patcher)
+            handlers[name] = mock
+
+        try:
+            yield handlers
+        finally:
+            for patcher in patches:
+                patcher.stop()
+
+    return _mock
