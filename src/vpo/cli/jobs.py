@@ -19,6 +19,7 @@ from vpo.db import (
     get_jobs_by_status,
     get_jobs_filtered,
 )
+from vpo.jobs import get_status_color
 from vpo.jobs.queue import (
     cancel_job,
     get_queue_stats,
@@ -38,16 +39,8 @@ def _format_job_row(job: Job) -> tuple[str, str, str, str, str, str, str]:
         file_name, progress, created). Color is returned separately
         to allow proper column width formatting.
     """
-    status_colors = {
-        JobStatus.QUEUED: "yellow",
-        JobStatus.RUNNING: "blue",
-        JobStatus.COMPLETED: "green",
-        JobStatus.FAILED: "red",
-        JobStatus.CANCELLED: "bright_black",
-    }
-
     status_value = job.status.value
-    status_color = status_colors.get(job.status, "white")
+    status_color = get_status_color(job.status)
     job_id = job.id[:8]
     file_name = truncate_filename(Path(job.file_path).name, 40)
 
@@ -283,16 +276,8 @@ def _output_job_json(job: Job) -> None:
 
 def _output_job_human(job: Job) -> None:
     """Output detailed job info in human-readable format."""
-    status_colors = {
-        JobStatus.QUEUED: "yellow",
-        JobStatus.RUNNING: "blue",
-        JobStatus.COMPLETED: "green",
-        JobStatus.FAILED: "red",
-        JobStatus.CANCELLED: "bright_black",
-    }
-
     status_colored = click.style(
-        job.status.value.upper(), fg=status_colors.get(job.status, "white")
+        job.status.value.upper(), fg=get_status_color(job.status)
     )
 
     click.echo(f"\nJob: {job.id}")
