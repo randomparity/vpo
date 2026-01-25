@@ -11,6 +11,7 @@ Tests the full execute() method including:
 - Hardware encoder detection
 """
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -33,6 +34,16 @@ from vpo.policy.video_analysis import HDRType
 # =============================================================================
 # Fixtures
 # =============================================================================
+
+
+@pytest.fixture
+def mock_require_tool():
+    """Mock require_tool to return a fake ffmpeg path for CI environments."""
+    with patch(
+        "vpo.executor.transcode.command.require_tool",
+        return_value=Path("/usr/bin/ffmpeg"),
+    ):
+        yield
 
 
 @pytest.fixture
@@ -232,7 +243,7 @@ class TestTranscodeExecutorExecute:
     """Tests for TranscodeExecutor.execute method."""
 
     def test_execute_success_path(
-        self, basic_executor, make_plan_for_executor, tmp_path
+        self, basic_executor, make_plan_for_executor, tmp_path, mock_require_tool
     ):
         """Successful execution returns success result with output path."""
         plan = make_plan_for_executor(needs_video_transcode=True)
@@ -302,7 +313,7 @@ class TestTranscodeExecutorExecute:
         assert "Insufficient disk space" in result.error_message
 
     def test_cleans_up_partial_on_failure(
-        self, basic_executor, make_plan_for_executor, tmp_path
+        self, basic_executor, make_plan_for_executor, tmp_path, mock_require_tool
     ):
         """Cleans up partial output file when FFmpeg fails."""
         input_file = tmp_path / "input.mkv"
@@ -327,7 +338,7 @@ class TestTranscodeExecutorExecute:
         assert cleanup_called["called"] is True
 
     def test_handles_timeout_error(
-        self, basic_executor, make_plan_for_executor, tmp_path
+        self, basic_executor, make_plan_for_executor, tmp_path, mock_require_tool
     ):
         """Returns error result when transcode times out."""
         input_file = tmp_path / "input.mkv"
@@ -354,7 +365,7 @@ class TestTwoPassEncoding:
     """Tests for two-pass encoding in TranscodeExecutor."""
 
     def test_two_pass_creates_passlog(
-        self, basic_executor, make_plan_for_executor, tmp_path
+        self, basic_executor, make_plan_for_executor, tmp_path, mock_require_tool
     ):
         """Two-pass encoding creates pass log file for second pass."""
         plan = make_plan_for_executor(needs_video_transcode=True)
@@ -391,7 +402,7 @@ class TestTwoPassEncoding:
         assert mock_ffmpeg.call_count == 2
 
     def test_pass1_failure_returns_early(
-        self, basic_executor, make_plan_for_executor, tmp_path
+        self, basic_executor, make_plan_for_executor, tmp_path, mock_require_tool
     ):
         """Two-pass encoding returns early when pass 1 fails."""
         input_file = tmp_path / "input.mkv"
@@ -415,7 +426,7 @@ class TestTwoPassEncoding:
         assert mock_ffmpeg.call_count == 1
 
     def test_pass2_failure_cleans_up_output(
-        self, basic_executor, make_plan_for_executor, tmp_path
+        self, basic_executor, make_plan_for_executor, tmp_path, mock_require_tool
     ):
         """Two-pass encoding cleans up when pass 2 fails."""
         input_file = tmp_path / "input.mkv"
@@ -591,7 +602,9 @@ class TestIsCompliant:
 class TestDryRun:
     """Tests for TranscodeExecutor.dry_run method."""
 
-    def test_dry_run_shows_operations(self, basic_executor, make_plan_for_executor):
+    def test_dry_run_shows_operations(
+        self, basic_executor, make_plan_for_executor, mock_require_tool
+    ):
         """Dry run returns planned operations."""
         plan = make_plan_for_executor(
             needs_video_transcode=True,
