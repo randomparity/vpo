@@ -14,7 +14,7 @@ import pytest
 from click.testing import CliRunner
 
 from vpo.cli import main
-from vpo.cli.jobs import _parse_relative_date
+from vpo.core import parse_relative_time
 from vpo.db import (
     Job,
     JobStatus,
@@ -103,43 +103,43 @@ def sample_jobs(db_conn: sqlite3.Connection) -> list[Job]:
     return jobs
 
 
-class TestParseRelativeDate:
-    """Tests for relative date parsing."""
+class TestParseRelativeTime:
+    """Tests for relative time parsing."""
 
     def test_parse_days(self) -> None:
-        """Parse days relative date."""
-        result = _parse_relative_date("1d")
+        """Parse days relative time."""
+        result = parse_relative_time("1d")
         now = datetime.now(timezone.utc)
         assert (now - result).days == 1
 
     def test_parse_weeks(self) -> None:
-        """Parse weeks relative date."""
-        result = _parse_relative_date("1w")
+        """Parse weeks relative time."""
+        result = parse_relative_time("1w")
         now = datetime.now(timezone.utc)
         assert (now - result).days == 7
 
     def test_parse_hours(self) -> None:
-        """Parse hours relative date."""
-        result = _parse_relative_date("2h")
+        """Parse hours relative time."""
+        result = parse_relative_time("2h")
         now = datetime.now(timezone.utc)
         diff = now - result
         assert 7000 < diff.total_seconds() < 7300  # ~2 hours
 
     def test_parse_multiple_units(self) -> None:
         """Parse multi-digit values."""
-        result = _parse_relative_date("30d")
+        result = parse_relative_time("30d")
         now = datetime.now(timezone.utc)
         assert (now - result).days == 30
 
     def test_invalid_format(self) -> None:
         """Invalid format raises ValueError."""
-        with pytest.raises(ValueError, match="Invalid relative date"):
-            _parse_relative_date("invalid")
+        with pytest.raises(ValueError, match="Invalid relative time format"):
+            parse_relative_time("invalid")
 
     def test_invalid_unit(self) -> None:
         """Invalid unit raises ValueError."""
-        with pytest.raises(ValueError, match="Invalid relative date"):
-            _parse_relative_date("1x")
+        with pytest.raises(ValueError, match="Invalid relative time format"):
+            parse_relative_time("1x")
 
 
 class TestGetJobsFiltered:
