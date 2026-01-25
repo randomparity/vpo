@@ -85,10 +85,10 @@ Applying the same policy twice must produce identical results:
 
 ```bash
 # Preview policy changes (dry run)
-vpo apply --dry-run --policy my-policy.yaml /media/movies
+vpo process --dry-run --policy my-policy.yaml /media/movies
 
 # Apply policy to library
-vpo apply --policy my-policy.yaml /media/movies
+vpo process --policy my-policy.yaml /media/movies
 
 # Validate policy syntax
 vpo policy validate my-policy.yaml

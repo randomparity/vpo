@@ -1,12 +1,12 @@
 # Job Queue Guide
 
-VPO uses a job queue system for long-running operations like transcoding. Jobs are queued with `vpo transcode` and processed by a worker started with `vpo jobs start`.
+VPO uses a job queue system for long-running operations like transcoding. Jobs are queued with `vpo process --queue` and processed by a worker started with `vpo jobs start`.
 
 ## Quick Start
 
 ```bash
 # Queue files for transcoding
-vpo transcode --policy hevc.yaml /videos/*.mkv
+vpo process --policy hevc.yaml --queue /videos/*.mkv
 
 # Start processing
 vpo jobs start
@@ -324,7 +324,7 @@ This resets stale running jobs to `queued` for reprocessing.
 
 1. **Use dry-run first**: Preview transcoding before queueing
    ```bash
-   vpo transcode --dry-run --policy hevc.yaml /videos/
+   vpo process --dry-run --policy hevc.yaml /videos/
    ```
 
 2. **Set appropriate limits**: Prevent runaway processing

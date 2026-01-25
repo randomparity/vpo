@@ -32,7 +32,7 @@ uv run maturin develop
 uv run vpo --help
 uv run vpo scan /path/to/videos
 uv run vpo inspect /path/to/file.mkv
-uv run vpo apply --policy policy.yaml /path/to/file.mkv --dry-run
+uv run vpo process --policy policy.yaml /path/to/file.mkv --dry-run
 
 # Run web UI daemon
 uv run vpo serve --port 8080          # Start daemon with web UI
@@ -54,7 +54,7 @@ uv run vpo doctor                       # Runtime tool check
 
 ```
 src/vpo/
-├── cli/           # Click commands: scan, inspect, apply, doctor, serve, process
+├── cli/           # Click commands: scan, inspect, process, doctor, serve, stats
 ├── config/        # Configuration loading and models
 ├── db/            # SQLite schema, models, and query functions (see below)
 ├── executor/      # Tool executors: mkvpropedit, mkvmerge, ffmpeg_metadata, transcode
@@ -77,7 +77,7 @@ crates/vpo-core/   # Rust extension for parallel discovery/hashing
 **Key data flows:**
 1. `scan` → discovers files (Rust) → introspects via ffprobe → stores in SQLite
 2. `inspect` → reads file from DB or live introspection → displays track info
-3. `apply` → loads policy YAML → evaluates against file → produces Plan → executes via mkvpropedit/ffmpeg
+3. `process` → loads policy YAML → evaluates against file → produces Plan → executes via mkvpropedit/ffmpeg
 4. `serve` → starts aiohttp daemon → serves web UI and REST API → manages background jobs
 
 ## Development Guidelines

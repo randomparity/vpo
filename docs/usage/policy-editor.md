@@ -607,7 +607,7 @@ Validation errors are displayed with field-level detail:
 3. **Edit** - Make one logical set of changes
 4. **Preview** - Verify YAML looks correct
 5. **Save** - Save and wait for confirmation
-6. **Test** - Test changes with `vpo apply --dry-run`
+6. **Test** - Test changes with `vpo process --dry-run`
 
 ### Organization
 
@@ -640,7 +640,7 @@ The Visual Policy Editor fully supports V6+ transcode configuration:
 2. Configure codec, quality, and skip conditions
 3. Preview changes in the YAML panel
 4. Test with **Test Policy** before saving
-5. Validate with `vpo apply --dry-run` after saving
+5. Validate with `vpo process --dry-run` after saving
 
 ### Multiple Policies
 
