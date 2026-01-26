@@ -8,6 +8,9 @@
 (function () {
     'use strict'
 
+    // Double-init guard
+    let initialized = false
+
     // State
     let currentOffset = 0
     const pageSize = 50
@@ -705,6 +708,7 @@
     function handleSearchInput(value) {
         currentFilters.search = value.trim()
         currentOffset = 0
+        updateSearchVisuals()
         fetchJobs()
     }
 
@@ -740,6 +744,17 @@
     }
 
     /**
+     * Update visual feedback for search input.
+     * Toggles filter-active class based on search state.
+     */
+    function updateSearchVisuals() {
+        var searchInput = document.getElementById('filter-search')
+        if (searchInput) {
+            searchInput.classList.toggle('filter-active', Boolean(currentFilters.search))
+        }
+    }
+
+    /**
      * Update sort indicators in table headers.
      */
     function updateSortIndicators() {
@@ -762,6 +777,14 @@
                 }
             }
         })
+
+        // Announce sort change to screen readers
+        var sortStatus = document.getElementById('sort-status')
+        if (sortStatus) {
+            var columnHeader = document.querySelector('.jobs-table th[data-sort-key="' + currentSort.column + '"]')
+            var columnName = columnHeader ? columnHeader.textContent.replace(/[\u25B2\u25BC]/g, '').trim() : currentSort.column
+            sortStatus.textContent = 'Sorted by ' + columnName + ', ' + (currentSort.order === 'asc' ? 'ascending' : 'descending')
+        }
     }
 
     /**
@@ -846,11 +869,18 @@
      * Initialize the jobs dashboard.
      */
     function init() {
+        // Prevent double initialization
+        if (initialized) return
+        initialized = true
+
         // Setup sortable column listeners
         setupSortListeners()
 
         // Initialize sort indicators (default: created_at desc)
         updateSortIndicators()
+
+        // Initialize search visual state
+        updateSearchVisuals()
 
         // Initial fetch
         fetchJobs()

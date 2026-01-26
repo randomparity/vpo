@@ -299,6 +299,145 @@ class TestGetJobsFiltered:
             paths = [j.file_path for j in jobs]
             assert paths == sorted(paths)
 
+    def test_search_escapes_percent_wildcard(self, db_conn: sqlite3.Connection) -> None:
+        """Search with % matches literally, not as wildcard."""
+        now = datetime.now(timezone.utc).isoformat()
+        # Insert job with literal % in path
+        job = Job(
+            id=str(uuid.uuid4()),
+            file_id=99,
+            file_path="/videos/100%_complete.mkv",
+            job_type=JobType.APPLY,
+            status=JobStatus.COMPLETED,
+            priority=100,
+            policy_name=None,
+            policy_json=None,
+            progress_percent=100.0,
+            progress_json=None,
+            created_at=now,
+        )
+        insert_job(db_conn, job)
+        db_conn.commit()
+
+        jobs = get_jobs_filtered(db_conn, search="100%")
+        assert len(jobs) == 1
+        assert "100%" in jobs[0].file_path
+
+    def test_search_escapes_underscore_wildcard(
+        self, db_conn: sqlite3.Connection
+    ) -> None:
+        """Search with _ matches literally, not as single-char wildcard."""
+        now = datetime.now(timezone.utc).isoformat()
+        job1 = Job(
+            id=str(uuid.uuid4()),
+            file_id=100,
+            file_path="/videos/file_v1.mkv",
+            job_type=JobType.APPLY,
+            status=JobStatus.COMPLETED,
+            priority=100,
+            policy_name=None,
+            policy_json=None,
+            progress_percent=100.0,
+            progress_json=None,
+            created_at=now,
+        )
+        job2 = Job(
+            id=str(uuid.uuid4()),
+            file_id=101,
+            file_path="/videos/fileXv1.mkv",
+            job_type=JobType.APPLY,
+            status=JobStatus.COMPLETED,
+            priority=100,
+            policy_name=None,
+            policy_json=None,
+            progress_percent=100.0,
+            progress_json=None,
+            created_at=now,
+        )
+        insert_job(db_conn, job1)
+        insert_job(db_conn, job2)
+        db_conn.commit()
+
+        # Search for underscore - should only match file_v1, not fileXv1
+        jobs = get_jobs_filtered(db_conn, search="_v1")
+        assert len(jobs) == 1
+        assert "_v1" in jobs[0].file_path
+
+    def test_search_escapes_bracket(self, db_conn: sqlite3.Connection) -> None:
+        """Search with [ matches literally, not as character class."""
+        now = datetime.now(timezone.utc).isoformat()
+        job = Job(
+            id=str(uuid.uuid4()),
+            file_id=102,
+            file_path="/videos/test[1].mkv",
+            job_type=JobType.APPLY,
+            status=JobStatus.COMPLETED,
+            priority=100,
+            policy_name=None,
+            policy_json=None,
+            progress_percent=100.0,
+            progress_json=None,
+            created_at=now,
+        )
+        insert_job(db_conn, job)
+        db_conn.commit()
+
+        jobs = get_jobs_filtered(db_conn, search="[1]")
+        assert len(jobs) == 1
+        assert "[1]" in jobs[0].file_path
+
+    def test_sort_by_duration_nulls_last(self, db_conn: sqlite3.Connection) -> None:
+        """Duration sort places running jobs (NULL completed_at) at end."""
+        now = datetime.now(timezone.utc)
+        # Create completed job with short duration
+        completed_job = Job(
+            id=str(uuid.uuid4()),
+            file_id=110,
+            file_path="/videos/short.mkv",
+            job_type=JobType.APPLY,
+            status=JobStatus.COMPLETED,
+            priority=100,
+            policy_name=None,
+            policy_json=None,
+            progress_percent=100.0,
+            progress_json=None,
+            created_at=now.isoformat(),
+            started_at=now.isoformat(),
+            completed_at=(now + timedelta(seconds=30)).isoformat(),
+        )
+        # Create running job (no completed_at)
+        running_job = Job(
+            id=str(uuid.uuid4()),
+            file_id=111,
+            file_path="/videos/running.mkv",
+            job_type=JobType.APPLY,
+            status=JobStatus.RUNNING,
+            priority=100,
+            policy_name=None,
+            policy_json=None,
+            progress_percent=50.0,
+            progress_json=None,
+            created_at=now.isoformat(),
+            started_at=now.isoformat(),
+            completed_at=None,
+        )
+        insert_job(db_conn, completed_job)
+        insert_job(db_conn, running_job)
+        db_conn.commit()
+
+        # Sort by duration ascending
+        jobs = get_jobs_filtered(db_conn, sort_by="duration", sort_order="asc")
+
+        # Find positions
+        running = [j for j in jobs if j.completed_at is None]
+        completed = [j for j in jobs if j.completed_at is not None]
+
+        if running and completed:
+            running_positions = [jobs.index(j) for j in running]
+            completed_positions = [jobs.index(j) for j in completed]
+            # Running jobs (NULL duration) should be after completed jobs
+            assert min(running_positions) > max(completed_positions)
+
 
 class TestGetJobsByIdPrefix:
     """Tests for get_jobs_by_id_prefix() function."""

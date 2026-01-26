@@ -7,10 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-# Valid sort columns for job list
-VALID_SORT_COLUMNS = frozenset(
-    {"created_at", "job_type", "status", "file_path", "duration"}
-)
+from vpo.db.queries.jobs import SORTABLE_JOB_COLUMNS as VALID_SORT_COLUMNS
 
 
 @dataclass

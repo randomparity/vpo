@@ -31,7 +31,12 @@ def _escape_like_pattern(value: str) -> str:
     Note:
         Queries using this must include ESCAPE '\\' clause.
     """
-    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return (
+        value.replace("\\", "\\\\")
+        .replace("%", "\\%")
+        .replace("_", "\\_")
+        .replace("[", "\\[")
+    )
 
 
 def _row_to_file_record(row: sqlite3.Row) -> FileRecord:
