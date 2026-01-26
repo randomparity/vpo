@@ -119,6 +119,8 @@ def release_job(
     error_message: str | None = None,
     output_path: str | None = None,
     backup_path: str | None = None,
+    summary_json: str | None = None,
+    set_progress_100: bool = False,
 ) -> bool:
     """Release a job after processing.
 
@@ -131,26 +133,63 @@ def release_job(
         error_message: Error details if FAILED.
         output_path: Path to output file if successful.
         backup_path: Path to backup file if created.
+        summary_json: Optional JSON summary data (phases_completed, total_changes, etc).
+        set_progress_100: If True, set progress_percent to 100.0.
 
     Returns:
         True if job was released, False if not found.
     """
     now = datetime.now(timezone.utc).isoformat()
 
-    cursor = conn.execute(
-        """
-        UPDATE jobs
-        SET status = ?,
-            completed_at = ?,
-            error_message = ?,
-            output_path = ?,
-            backup_path = ?,
-            worker_pid = NULL,
-            worker_heartbeat = NULL
-        WHERE id = ?
-        """,
-        (status.value, now, error_message, output_path, backup_path, job_id),
-    )
+    if set_progress_100:
+        cursor = conn.execute(
+            """
+            UPDATE jobs
+            SET status = ?,
+                completed_at = ?,
+                error_message = ?,
+                output_path = ?,
+                backup_path = ?,
+                summary_json = ?,
+                progress_percent = 100.0,
+                worker_pid = NULL,
+                worker_heartbeat = NULL
+            WHERE id = ?
+            """,
+            (
+                status.value,
+                now,
+                error_message,
+                output_path,
+                backup_path,
+                summary_json,
+                job_id,
+            ),
+        )
+    else:
+        cursor = conn.execute(
+            """
+            UPDATE jobs
+            SET status = ?,
+                completed_at = ?,
+                error_message = ?,
+                output_path = ?,
+                backup_path = ?,
+                summary_json = ?,
+                worker_pid = NULL,
+                worker_heartbeat = NULL
+            WHERE id = ?
+            """,
+            (
+                status.value,
+                now,
+                error_message,
+                output_path,
+                backup_path,
+                summary_json,
+                job_id,
+            ),
+        )
     conn.commit()
     return cursor.rowcount > 0
 
