@@ -105,10 +105,12 @@ class CLIJobLifecycle:
             try:
                 self._current_job_log = JobLogWriter(job.id)
                 self._current_job_log.__enter__()
-                self._update_job_log_path(job.id, self._current_job_log.relative_path)
             except Exception as e:
                 logger.warning("Failed to create job log: %s", e)
                 self._current_job_log = None
+            else:
+                # Only update DB if log creation succeeded
+                self._update_job_log_path(job.id, self._current_job_log.relative_path)
 
         return job.id
 
@@ -127,6 +129,7 @@ class CLIJobLifecycle:
         Should be called in a finally block after processing completes.
         """
         if self._current_job_log is not None:
+            logger.debug("Closing job log for job %s", self._current_job_log.job_id)
             self._current_job_log.close()
             self._current_job_log = None
 

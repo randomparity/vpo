@@ -445,13 +445,17 @@ class JobWorker:
                 error_msg = process_result.error_message
                 output_path = None
                 # Build summary JSON for PROCESS jobs
-                summary_data = {
-                    "phases_completed": process_result.phases_completed_count,
-                    "total_changes": process_result.total_changes,
-                }
-                if process_result.stats_id:
-                    summary_data["stats_id"] = process_result.stats_id
-                summary_json = json.dumps(summary_data)
+                try:
+                    summary_data = {
+                        "phases_completed": process_result.phases_completed_count,
+                        "total_changes": process_result.total_changes,
+                    }
+                    if process_result.stats_id:
+                        summary_data["stats_id"] = process_result.stats_id
+                    summary_json = json.dumps(summary_data)
+                except (TypeError, ValueError) as e:
+                    logger.warning("Failed to serialize job summary: %s", e)
+                    summary_json = None
             elif job.job_type == JobType.MOVE:
                 success, error_msg, output_path = self._process_move_job(job, job_log)
             else:

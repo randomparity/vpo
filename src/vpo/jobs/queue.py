@@ -141,56 +141,38 @@ def release_job(
     """
     now = datetime.now(timezone.utc).isoformat()
 
-    if set_progress_100:
-        cursor = conn.execute(
-            """
-            UPDATE jobs
-            SET status = ?,
-                completed_at = ?,
-                error_message = ?,
-                output_path = ?,
-                backup_path = ?,
-                summary_json = ?,
-                progress_percent = 100.0,
-                worker_pid = NULL,
-                worker_heartbeat = NULL
-            WHERE id = ?
-            """,
-            (
-                status.value,
-                now,
-                error_message,
-                output_path,
-                backup_path,
-                summary_json,
-                job_id,
-            ),
-        )
-    else:
-        cursor = conn.execute(
-            """
-            UPDATE jobs
-            SET status = ?,
-                completed_at = ?,
-                error_message = ?,
-                output_path = ?,
-                backup_path = ?,
-                summary_json = ?,
-                worker_pid = NULL,
-                worker_heartbeat = NULL
-            WHERE id = ?
-            """,
-            (
-                status.value,
-                now,
-                error_message,
-                output_path,
-                backup_path,
-                summary_json,
-                job_id,
-            ),
-        )
+    # Use CASE expression to conditionally set progress to 100
+    # This consolidates two near-identical SQL blocks into one
+    cursor = conn.execute(
+        """
+        UPDATE jobs
+        SET status = ?,
+            completed_at = ?,
+            error_message = ?,
+            output_path = ?,
+            backup_path = ?,
+            summary_json = ?,
+            progress_percent = CASE WHEN ? THEN 100.0 ELSE progress_percent END,
+            worker_pid = NULL,
+            worker_heartbeat = NULL
+        WHERE id = ?
+        """,
+        (
+            status.value,
+            now,
+            error_message,
+            output_path,
+            backup_path,
+            summary_json,
+            set_progress_100,
+            job_id,
+        ),
+    )
     conn.commit()
+
+    if cursor.rowcount > 0 and summary_json:
+        logger.debug("Job %s: Updated summary: %s", job_id[:8], summary_json)
+
     return cursor.rowcount > 0
 
 

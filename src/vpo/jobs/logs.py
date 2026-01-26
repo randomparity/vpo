@@ -291,8 +291,15 @@ class JobLogWriter:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        """Flush and close log file."""
-        self.close()
+        """Flush and close log file.
+
+        Wraps close() in try/except to avoid masking any original exception.
+        """
+        try:
+            self.close()
+        except Exception as e:
+            logger.warning("Error closing job log %s: %s", self.job_id, e)
+        # Return None to not suppress original exception
 
     def close(self) -> None:
         """Flush buffer and close the file handle."""

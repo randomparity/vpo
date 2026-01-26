@@ -128,6 +128,119 @@ class TestCLIJobLifecycle:
         assert "orphaned" in caplog.text
 
 
+class TestCLIJobLifecycleSaveLogs:
+    """Tests for CLIJobLifecycle save_logs feature."""
+
+    def test_on_job_start_creates_log_when_save_logs_enabled(self):
+        """on_job_start creates a log file when save_logs=True."""
+        conn = MagicMock()
+        lifecycle = CLIJobLifecycle(
+            conn, batch_id="batch-1", policy_name="test.yaml", save_logs=True
+        )
+
+        with (
+            patch("vpo.jobs.cli_lifecycle.create_process_job") as mock_create,
+            patch("vpo.jobs.cli_lifecycle.JobLogWriter") as mock_log_writer,
+        ):
+            mock_job = MagicMock()
+            mock_job.id = "job-123"
+            mock_create.return_value = mock_job
+
+            mock_log = MagicMock()
+            mock_log.relative_path = "logs/job-123.log"
+            mock_log_writer.return_value = mock_log
+
+            lifecycle.on_job_start(Path("/test.mkv"), "test.yaml", file_id=1)
+
+        # JobLogWriter should be created and entered
+        mock_log_writer.assert_called_once_with("job-123")
+        mock_log.__enter__.assert_called_once()
+
+        # job_log property should return the log writer
+        assert lifecycle.job_log is mock_log
+
+    def test_on_job_start_handles_log_creation_failure(self, caplog):
+        """on_job_start logs warning and continues when log creation fails."""
+        import logging
+
+        conn = MagicMock()
+        lifecycle = CLIJobLifecycle(
+            conn, batch_id="batch-1", policy_name="test.yaml", save_logs=True
+        )
+
+        with (
+            patch("vpo.jobs.cli_lifecycle.create_process_job") as mock_create,
+            patch("vpo.jobs.cli_lifecycle.JobLogWriter") as mock_log_writer,
+        ):
+            mock_job = MagicMock()
+            mock_job.id = "job-123"
+            mock_create.return_value = mock_job
+
+            # Simulate log creation failure
+            mock_log_writer.side_effect = OSError("Cannot create log file")
+
+            with caplog.at_level(logging.WARNING):
+                job_id = lifecycle.on_job_start(Path("/test.mkv"), "test.yaml")
+
+        # Should still return job_id despite log failure
+        assert job_id == "job-123"
+        # job_log should be None
+        assert lifecycle.job_log is None
+        # Warning should be logged
+        assert "Failed to create job log" in caplog.text
+
+    def test_close_job_log_handles_none(self):
+        """close_job_log does nothing when no log is open."""
+        conn = MagicMock()
+        lifecycle = CLIJobLifecycle(conn, policy_name="test.yaml", save_logs=False)
+
+        # Should not raise
+        lifecycle.close_job_log()
+        assert lifecycle.job_log is None
+
+    def test_close_job_log_closes_active_log(self):
+        """close_job_log closes the active log writer."""
+        conn = MagicMock()
+        lifecycle = CLIJobLifecycle(
+            conn, batch_id="batch-1", policy_name="test.yaml", save_logs=True
+        )
+
+        with (
+            patch("vpo.jobs.cli_lifecycle.create_process_job") as mock_create,
+            patch("vpo.jobs.cli_lifecycle.JobLogWriter") as mock_log_writer,
+        ):
+            mock_job = MagicMock()
+            mock_job.id = "job-123"
+            mock_create.return_value = mock_job
+
+            mock_log = MagicMock()
+            mock_log.relative_path = "logs/job-123.log"
+            mock_log.job_id = "job-123"
+            mock_log_writer.return_value = mock_log
+
+            lifecycle.on_job_start(Path("/test.mkv"), "test.yaml")
+
+            # Close the log
+            lifecycle.close_job_log()
+
+        mock_log.close.assert_called_once()
+        assert lifecycle.job_log is None
+
+    def test_update_job_log_path_handles_db_error(self, caplog):
+        """_update_job_log_path logs warning on database error."""
+        import logging
+
+        conn = MagicMock()
+        conn.execute.side_effect = Exception("DB error")
+
+        lifecycle = CLIJobLifecycle(conn, policy_name="test.yaml")
+
+        with caplog.at_level(logging.WARNING):
+            lifecycle._update_job_log_path("job-123", "logs/job-123.log")
+
+        assert "Failed to update job log path" in caplog.text
+
+
 class TestCLIJobLifecycleProtocol:
     """Tests that CLIJobLifecycle conforms to JobLifecycle protocol."""
 
