@@ -39,6 +39,7 @@ from vpo.jobs.services import (
     ProcessJobService,
     TranscodeJobService,
 )
+from vpo.jobs.services.process import ProcessJobResult
 from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 logger = logging.getLogger(__name__)
@@ -359,7 +360,7 @@ class JobWorker:
 
     def _process_workflow_job(
         self, job: Job, job_log: JobLogWriter | None = None
-    ) -> tuple[bool, str | None, str | None]:
+    ) -> ProcessJobResult:
         """Process a workflow (PROCESS) job.
 
         Args:
@@ -367,18 +368,17 @@ class JobWorker:
             job_log: Optional log writer for this job.
 
         Returns:
-            Tuple of (success, error_message, output_path).
+            ProcessJobResult with full summary data.
         """
         # Lazy init process service (needs conn)
         if self._process_service is None:
             self._process_service = ProcessJobService(self.conn)
 
-        result = self._process_service.process(
+        return self._process_service.process(
             job,
             job_log=job_log,
             ffmpeg_progress_callback=self._create_progress_callback(job),
         )
-        return result.success, result.error_message, None
 
     def _process_move_job(
         self, job: Job, job_log: JobLogWriter | None = None
@@ -432,14 +432,26 @@ class JobWorker:
                     policy=job.policy_name or "default",
                 )
 
+            # Process based on job type
+            summary_json: str | None = None
+
             if job.job_type == JobType.TRANSCODE:
                 success, error_msg, output_path = self._process_transcode_job(
                     job, job_log
                 )
             elif job.job_type == JobType.PROCESS:
-                success, error_msg, output_path = self._process_workflow_job(
-                    job, job_log
-                )
+                process_result = self._process_workflow_job(job, job_log)
+                success = process_result.success
+                error_msg = process_result.error_message
+                output_path = None
+                # Build summary JSON for PROCESS jobs
+                summary_data = {
+                    "phases_completed": process_result.phases_completed_count,
+                    "total_changes": process_result.total_changes,
+                }
+                if process_result.stats_id:
+                    summary_data["stats_id"] = process_result.stats_id
+                summary_json = json.dumps(summary_data)
             elif job.job_type == JobType.MOVE:
                 success, error_msg, output_path = self._process_move_job(job, job_log)
             else:
@@ -462,6 +474,8 @@ class JobWorker:
                 status,
                 error_message=error_msg,
                 output_path=output_path,
+                summary_json=summary_json,
+                set_progress_100=True,
             )
 
             if success:
