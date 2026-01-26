@@ -34,6 +34,10 @@ class ProcessJobResult:
     phases_completed: tuple[str, ...] = ()
     phases_failed: tuple[str, ...] = ()
     error_message: str | None = None
+    # Summary fields for unified job tracking
+    total_changes: int = 0
+    stats_id: str | None = None
+    phases_completed_count: int = 0
 
 
 class ProcessJobService:
@@ -107,12 +111,15 @@ class ProcessJobService:
                 if not pr.success
             )
 
-            # Convert to ProcessJobResult for backward compatibility
+            # Convert to ProcessJobResult with full summary data
             return ProcessJobResult(
                 success=run_result.success,
                 phases_completed=phases_completed,
                 phases_failed=phases_failed,
                 error_message=run_result.result.error_message,
+                total_changes=run_result.result.total_changes,
+                stats_id=run_result.result.stats_id,
+                phases_completed_count=run_result.result.phases_completed,
             )
 
     def _parse_policy(
