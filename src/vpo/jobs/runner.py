@@ -248,6 +248,7 @@ class WorkflowRunner:
         policy: PolicySchema,
         config: WorkflowRunnerConfig,
         lifecycle: JobLifecycle,
+        job_log: JobLogWriter | None = None,
     ) -> WorkflowRunner:
         """Create runner for CLI mode where lifecycle manages job records.
 
@@ -260,6 +261,7 @@ class WorkflowRunner:
             policy: The policy to apply.
             config: Workflow runner configuration.
             lifecycle: Job lifecycle manager (e.g., CLIJobLifecycle).
+            job_log: Optional log writer for CLI logging (from lifecycle.job_log).
 
         Returns:
             Configured WorkflowRunner for CLI use.
@@ -270,8 +272,21 @@ class WorkflowRunner:
             )
             runner = WorkflowRunner.for_cli(conn, policy, config, lifecycle)
             result = runner.run_single(file_path, file_id=file_id)
+
+        Example with logging:
+            lifecycle = CLIJobLifecycle(
+                conn, batch_id=batch_id, policy_name="policy.yaml", save_logs=True
+            )
+            runner = WorkflowRunner.for_cli(conn, policy, config, lifecycle,
+                                            job_log=lifecycle.job_log)
+            try:
+                result = runner.run_single(file_path, file_id=file_id)
+            finally:
+                lifecycle.close_job_log()
         """
-        return cls(conn, policy, config, lifecycle=lifecycle, job_id=None)
+        return cls(
+            conn, policy, config, lifecycle=lifecycle, job_log=job_log, job_id=None
+        )
 
     @classmethod
     def for_daemon(
