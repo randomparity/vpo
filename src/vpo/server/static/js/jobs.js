@@ -8,15 +8,27 @@
 (function () {
     'use strict'
 
+    // Double-init guard
+    let initialized = false
+
     // State
     let currentOffset = 0
     const pageSize = 50
     let currentFilters = {
         status: '',
         type: '',
-        since: ''
+        since: '',
+        search: ''
+    }
+    let currentSort = {
+        column: 'created_at',
+        order: 'desc'
     }
     let totalJobs = 0
+
+    // Debounce timer for search
+    let debounceTimer = null
+    const DEBOUNCE_DELAY = 300 // ms
 
     // Cached job data for comparison (T013)
     var cachedJobs = {}
@@ -309,7 +321,7 @@
     }
 
     /**
-     * Build query string from current filters.
+     * Build query string from current filters and sort.
      * @returns {string} Query string (including leading ?)
      */
     function buildQueryString() {
@@ -323,6 +335,17 @@
         }
         if (currentFilters.since) {
             params.set('since', currentFilters.since)
+        }
+        if (currentFilters.search) {
+            params.set('search', currentFilters.search)
+        }
+
+        // Include sort params
+        if (currentSort.column) {
+            params.set('sort', currentSort.column)
+        }
+        if (currentSort.order) {
+            params.set('order', currentSort.order)
         }
 
         params.set('limit', pageSize.toString())
@@ -678,6 +701,115 @@
         fetchJobs()
     }
 
+    /**
+     * Handle search input change (debounced).
+     * @param {string} value - Search input value
+     */
+    function handleSearchInput(value) {
+        currentFilters.search = value.trim()
+        currentOffset = 0
+        updateSearchVisuals()
+        fetchJobs()
+    }
+
+    /**
+     * Debounce wrapper for search input.
+     * @param {string} value - Search input value
+     */
+    function debouncedSearch(value) {
+        if (debounceTimer) {
+            clearTimeout(debounceTimer)
+        }
+        debounceTimer = setTimeout(function () {
+            handleSearchInput(value)
+        }, DEBOUNCE_DELAY)
+    }
+
+    /**
+     * Handle sort column click.
+     * @param {string} column - Column to sort by
+     */
+    function handleSortClick(column) {
+        if (currentSort.column === column) {
+            // Toggle direction
+            currentSort.order = currentSort.order === 'asc' ? 'desc' : 'asc'
+        } else {
+            // New column, default to descending
+            currentSort.column = column
+            currentSort.order = 'desc'
+        }
+        currentOffset = 0
+        updateSortIndicators()
+        fetchJobs()
+    }
+
+    /**
+     * Update visual feedback for search input.
+     * Toggles filter-active class based on search state.
+     */
+    function updateSearchVisuals() {
+        var searchInput = document.getElementById('filter-search')
+        if (searchInput) {
+            searchInput.classList.toggle('filter-active', Boolean(currentFilters.search))
+        }
+    }
+
+    /**
+     * Update sort indicators in table headers.
+     */
+    function updateSortIndicators() {
+        var headers = document.querySelectorAll('.jobs-table th.sortable')
+        headers.forEach(function (th) {
+            var sortKey = th.getAttribute('data-sort-key')
+            var indicator = th.querySelector('.sort-indicator')
+
+            if (sortKey === currentSort.column) {
+                th.classList.add('sorted')
+                th.setAttribute('aria-sort', currentSort.order === 'asc' ? 'ascending' : 'descending')
+                if (indicator) {
+                    indicator.textContent = currentSort.order === 'asc' ? '\u25B2' : '\u25BC'
+                }
+            } else {
+                th.classList.remove('sorted')
+                th.setAttribute('aria-sort', 'none')
+                if (indicator) {
+                    indicator.textContent = ''
+                }
+            }
+        })
+
+        // Announce sort change to screen readers
+        var sortStatus = document.getElementById('sort-status')
+        if (sortStatus) {
+            var columnHeader = document.querySelector('.jobs-table th[data-sort-key="' + currentSort.column + '"]')
+            var columnName = columnHeader ? columnHeader.textContent.replace(/[\u25B2\u25BC]/g, '').trim() : currentSort.column
+            sortStatus.textContent = 'Sorted by ' + columnName + ', ' + (currentSort.order === 'asc' ? 'ascending' : 'descending')
+        }
+    }
+
+    /**
+     * Setup event listeners for sortable column headers.
+     */
+    function setupSortListeners() {
+        var headers = document.querySelectorAll('.jobs-table th.sortable')
+        headers.forEach(function (th) {
+            var sortKey = th.getAttribute('data-sort-key')
+
+            // Click handler
+            th.addEventListener('click', function () {
+                handleSortClick(sortKey)
+            })
+
+            // Keyboard handler (Enter and Space)
+            th.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    handleSortClick(sortKey)
+                }
+            })
+        })
+    }
+
     // Event listeners for pagination
     if (prevBtnEl) {
         prevBtnEl.addEventListener('click', handlePrevPage)
@@ -690,6 +822,7 @@
     const statusFilterEl = document.getElementById('filter-status')
     const typeFilterEl = document.getElementById('filter-type')
     const timeFilterEl = document.getElementById('filter-time')
+    const searchInputEl = document.getElementById('filter-search')
 
     if (statusFilterEl) {
         statusFilterEl.addEventListener('change', function (e) {
@@ -706,18 +839,49 @@
             handleTimeFilter(e.target.value)
         })
     }
+    if (searchInputEl) {
+        // Debounced input handler
+        searchInputEl.addEventListener('input', function (e) {
+            debouncedSearch(e.target.value)
+        })
+
+        // Immediate search on Enter key
+        searchInputEl.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                if (debounceTimer) {
+                    clearTimeout(debounceTimer)
+                }
+                handleSearchInput(searchInputEl.value)
+            }
+        })
+    }
 
     // Export functions for filter handlers (kept for backwards compatibility)
     window.jobsDashboard = {
         handleStatusFilter: handleStatusFilter,
         handleTypeFilter: handleTypeFilter,
-        handleTimeFilter: handleTimeFilter
+        handleTimeFilter: handleTimeFilter,
+        handleSearchInput: handleSearchInput,
+        handleSortClick: handleSortClick
     }
 
     /**
      * Initialize the jobs dashboard.
      */
     function init() {
+        // Prevent double initialization
+        if (initialized) return
+        initialized = true
+
+        // Setup sortable column listeners
+        setupSortListeners()
+
+        // Initialize sort indicators (default: created_at desc)
+        updateSortIndicators()
+
+        // Initialize search visual state
+        updateSearchVisuals()
+
         // Initial fetch
         fetchJobs()
 

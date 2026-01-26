@@ -147,6 +147,9 @@ async def api_jobs_handler(request: web.Request) -> web.Response:
                 status=status_enum,
                 job_type=job_type_enum,
                 since=since_timestamp,
+                search=params.search,
+                sort_by=params.sort_by,
+                sort_order=params.sort_order,
                 limit=params.limit,
                 offset=params.offset,
                 return_total=True,
@@ -179,7 +182,9 @@ async def api_jobs_handler(request: web.Request) -> web.Response:
         )
 
     # Determine if any filters are active
-    has_filters = bool(params.status or params.job_type or params.since)
+    has_filters = bool(
+        params.status or params.job_type or params.since or params.search
+    )
 
     response = JobListResponse(
         jobs=job_items,

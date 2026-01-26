@@ -12,6 +12,7 @@ import sqlite3
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from vpo.jobs.logs import JobLogWriter
 from vpo.jobs.runner import JobLifecycle
 from vpo.jobs.tracking import (
     complete_process_job,
@@ -37,6 +38,17 @@ class CLIJobLifecycle:
         )
         runner = WorkflowRunner.for_cli(conn, policy, config, lifecycle)
         result = runner.run_single(file_path, file_id=file_id)
+
+    With log saving:
+        lifecycle = CLIJobLifecycle(
+            conn, batch_id=batch_id, policy_name="my-policy.yaml", save_logs=True
+        )
+        runner = WorkflowRunner.for_cli(conn, policy, config, lifecycle,
+                                        job_log=lifecycle.job_log)
+        try:
+            result = runner.run_single(file_path, file_id=file_id)
+        finally:
+            lifecycle.close_job_log()
     """
 
     def __init__(
@@ -45,6 +57,7 @@ class CLIJobLifecycle:
         *,
         batch_id: str | None = None,
         policy_name: str,
+        save_logs: bool = False,
     ) -> None:
         """Initialize CLI job lifecycle.
 
@@ -52,10 +65,13 @@ class CLIJobLifecycle:
             conn: Database connection for job operations.
             batch_id: UUID grouping CLI batch operations (None if dry-run).
             policy_name: Name/path of the policy being used.
+            save_logs: If True, create log files like daemon mode.
         """
         self.conn = conn
         self.batch_id = batch_id
         self.policy_name = policy_name
+        self.save_logs = save_logs
+        self._current_job_log: JobLogWriter | None = None
 
     def on_job_start(
         self,
@@ -83,7 +99,57 @@ class CLIJobLifecycle:
             batch_id=self.batch_id,
         )
         self.conn.commit()
+
+        # Create log file if save_logs is enabled
+        if self.save_logs:
+            try:
+                self._current_job_log = JobLogWriter(job.id)
+                self._current_job_log.__enter__()
+            except Exception as e:
+                logger.warning("Failed to create job log: %s", e)
+                self._current_job_log = None
+            else:
+                # Only update DB if log creation succeeded
+                self._update_job_log_path(job.id, self._current_job_log.relative_path)
+
         return job.id
+
+    @property
+    def job_log(self) -> JobLogWriter | None:
+        """Get the current job log writer.
+
+        Returns:
+            The JobLogWriter for the current job, or None if not saving logs.
+        """
+        return self._current_job_log
+
+    def close_job_log(self) -> None:
+        """Close the current job log writer.
+
+        Should be called in a finally block after processing completes.
+        """
+        if self._current_job_log is not None:
+            logger.debug("Closing job log for job %s", self._current_job_log.job_id)
+            self._current_job_log.close()
+            self._current_job_log = None
+
+    def _update_job_log_path(self, job_id: str, log_path: str | None) -> None:
+        """Update the job's log_path in the database.
+
+        Args:
+            job_id: The job UUID.
+            log_path: Relative path to the log file.
+        """
+        if log_path is None:
+            return
+        try:
+            self.conn.execute(
+                "UPDATE jobs SET log_path = ? WHERE id = ?",
+                (log_path, job_id),
+            )
+            self.conn.commit()
+        except Exception as e:
+            logger.warning("Failed to update job log path: %s", e)
 
     def on_job_complete(
         self,

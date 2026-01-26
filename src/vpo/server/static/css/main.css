@@ -657,6 +657,37 @@ html, body {
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
 
+/* Search input styling */
+.jobs-filter-search {
+    flex: 1;
+    min-width: 200px;
+    max-width: 300px;
+}
+
+.jobs-filter input[type="text"] {
+    padding: 0.5rem 0.75rem;
+    font-size: var(--font-size-base);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.jobs-filter input[type="text"]:hover {
+    border-color: var(--color-primary);
+}
+
+.jobs-filter input[type="text"]:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.jobs-filter input[type="text"].filter-active {
+    border-color: var(--color-primary);
+    background-color: rgba(52, 152, 219, 0.05);
+}
+
 /* Jobs table */
 .jobs-table-container {
     overflow-x: auto;
@@ -680,6 +711,38 @@ html, body {
     font-weight: 600;
     color: var(--color-text);
     white-space: nowrap;
+}
+
+/* Sortable column headers */
+.jobs-table th.sortable {
+    cursor: pointer;
+    position: relative;
+    padding-right: 1.5em;
+    user-select: none;
+}
+
+.jobs-table th.sortable:hover {
+    background-color: rgba(52, 152, 219, 0.1);
+}
+
+.jobs-table th.sortable:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.jobs-table th.sortable.sorted {
+    background-color: rgba(52, 152, 219, 0.08);
+}
+
+.jobs-table th .sort-indicator {
+    position: absolute;
+    right: 0.5em;
+    font-size: 0.7em;
+    color: var(--color-text-muted);
+}
+
+.jobs-table th.sorted .sort-indicator {
+    color: var(--color-primary);
 }
 
 .jobs-table tbody tr:hover {

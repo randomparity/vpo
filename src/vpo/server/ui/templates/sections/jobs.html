@@ -12,6 +12,11 @@
     <div id="jobs-content" style="display: none;">
         <!-- Filter bar -->
         <div id="jobs-filters" class="jobs-filters">
+            <div class="jobs-filter jobs-filter-search">
+                <label for="filter-search">Search</label>
+                <input type="text" id="filter-search" placeholder="Search filename..." maxlength="200" aria-describedby="search-hint">
+                <span id="search-hint" class="visually-hidden">Type to filter jobs by filename</span>
+            </div>
             <div class="jobs-filter">
                 <label for="filter-status">Status</label>
                 <select id="filter-status">
@@ -44,12 +49,12 @@
                 <thead>
                     <tr>
                         <th>Job ID</th>
-                        <th>Type</th>
-                        <th>Status</th>
+                        <th class="sortable" data-sort-key="job_type" role="columnheader" aria-sort="none" tabindex="0">Type <span class="sort-indicator" aria-hidden="true"></span></th>
+                        <th class="sortable" data-sort-key="status" role="columnheader" aria-sort="none" tabindex="0">Status <span class="sort-indicator" aria-hidden="true"></span></th>
                         <th>Progress</th>
-                        <th>Target</th>
-                        <th>Started</th>
-                        <th>Duration</th>
+                        <th class="sortable" data-sort-key="file_path" role="columnheader" aria-sort="none" tabindex="0">Target <span class="sort-indicator" aria-hidden="true"></span></th>
+                        <th class="sortable sorted" data-sort-key="created_at" role="columnheader" aria-sort="descending" tabindex="0">Started <span class="sort-indicator" aria-hidden="true"></span></th>
+                        <th class="sortable" data-sort-key="duration" role="columnheader" aria-sort="none" tabindex="0">Duration <span class="sort-indicator" aria-hidden="true"></span></th>
                     </tr>
                 </thead>
                 <tbody id="jobs-table-body">
@@ -57,6 +62,9 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Screen reader announcement for sort changes -->
+        <div id="sort-status" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
 
         <!-- Empty state (hidden by default) -->
         <div id="jobs-empty" class="jobs-empty" style="display: none;" role="status" aria-live="polite">

@@ -13,7 +13,12 @@ from vpo.db.types import (
     JobType,
 )
 
-from .helpers import _row_to_job
+from .helpers import _escape_like_pattern, _row_to_job
+
+# Whitelist of sortable columns for get_jobs_filtered (prevent SQL injection)
+SORTABLE_JOB_COLUMNS = frozenset(
+    {"created_at", "job_type", "status", "file_path", "duration"}
+)
 
 
 def insert_job(conn: sqlite3.Connection, job: Job) -> str:
@@ -361,25 +366,32 @@ def get_jobs_filtered(
     status: JobStatus | None = None,
     job_type: JobType | None = None,
     since: str | None = None,
+    search: str | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
     limit: int | None = None,
     offset: int | None = None,
     return_total: bool = False,
 ) -> list[Job] | tuple[list[Job], int]:
     """Get jobs with flexible filtering (008-operational-ux).
 
-    Supports filtering by status, type, and date range.
+    Supports filtering by status, type, date range, and filename search.
+    Supports sorting by various columns.
 
     Args:
         conn: Database connection.
         status: Filter by job status (None = all statuses).
         job_type: Filter by job type (None = all types).
         since: ISO-8601 timestamp - only return jobs created after this time.
+        search: Case-insensitive substring search on file_path.
+        sort_by: Column to sort by (created_at, job_type, status, file_path, duration).
+        sort_order: Sort order ('asc' or 'desc').
         limit: Maximum number of jobs to return.
         offset: Number of jobs to skip (for pagination).
         return_total: If True, return tuple of (jobs, total_count).
 
     Returns:
-        List of Job objects, ordered by created_at DESC.
+        List of Job objects, ordered by specified sort or created_at DESC.
         If return_total=True, returns tuple of (jobs, total_count).
     """
     # Build WHERE clause
@@ -397,6 +409,11 @@ def get_jobs_filtered(
     if since is not None:
         conditions.append("created_at >= ?")
         params.append(since)
+
+    if search is not None:
+        escaped = _escape_like_pattern(search)
+        conditions.append("LOWER(file_path) LIKE LOWER(?) ESCAPE '\\'")
+        params.append(f"%{escaped}%")
 
     where_clause = ""
     if conditions:
@@ -421,7 +438,28 @@ def get_jobs_filtered(
         FROM jobs
     """
     base_query += where_clause
-    base_query += " ORDER BY created_at DESC"
+
+    # Build ORDER BY clause (validated against whitelist)
+    order_column = sort_by if sort_by in SORTABLE_JOB_COLUMNS else "created_at"
+    order_direction = sort_order.upper() if sort_order in ("asc", "desc") else "DESC"
+
+    if order_column == "duration":
+        # Duration is computed: completed_at - created_at
+        # Sort NULLs (running jobs) to end regardless of sort direction
+        if order_direction == "ASC":
+            base_query += """
+                ORDER BY
+                    CASE WHEN completed_at IS NULL THEN 1 ELSE 0 END,
+                    (julianday(completed_at) - julianday(created_at)) ASC
+            """
+        else:
+            base_query += """
+                ORDER BY
+                    CASE WHEN completed_at IS NULL THEN 1 ELSE 0 END,
+                    (julianday(completed_at) - julianday(created_at)) DESC
+            """
+    else:
+        base_query += f" ORDER BY {order_column} {order_direction}"
 
     # Apply pagination
     pagination_params = list(params)  # Copy params for pagination query

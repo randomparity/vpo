@@ -176,6 +176,56 @@ class TestReleaseJob:
         result = release_job(db_conn, "nonexistent-id", JobStatus.COMPLETED)
         assert result is False
 
+    def test_records_summary_json(self, db_conn):
+        """Records summary_json on completion."""
+        job = create_test_job(status=JobStatus.RUNNING)
+        insert_job(db_conn, job)
+
+        summary = '{"phases_completed": 3, "total_changes": 5}'
+        release_job(
+            db_conn,
+            job.id,
+            JobStatus.COMPLETED,
+            summary_json=summary,
+        )
+
+        updated = get_job(db_conn, job.id)
+        assert updated.summary_json == summary
+
+    def test_set_progress_100_updates_progress(self, db_conn):
+        """set_progress_100=True sets progress_percent to 100.0."""
+        job = create_test_job(status=JobStatus.RUNNING)
+        insert_job(db_conn, job)
+
+        # Set partial progress first
+        db_conn.execute(
+            "UPDATE jobs SET progress_percent = 50.0 WHERE id = ?",
+            (job.id,),
+        )
+        db_conn.commit()
+
+        release_job(db_conn, job.id, JobStatus.COMPLETED, set_progress_100=True)
+
+        updated = get_job(db_conn, job.id)
+        assert updated.progress_percent == 100.0
+
+    def test_set_progress_100_false_preserves_progress(self, db_conn):
+        """set_progress_100=False preserves existing progress_percent."""
+        job = create_test_job(status=JobStatus.RUNNING)
+        insert_job(db_conn, job)
+
+        # Set partial progress
+        db_conn.execute(
+            "UPDATE jobs SET progress_percent = 75.0 WHERE id = ?",
+            (job.id,),
+        )
+        db_conn.commit()
+
+        release_job(db_conn, job.id, JobStatus.FAILED, set_progress_100=False)
+
+        updated = get_job(db_conn, job.id)
+        assert updated.progress_percent == 75.0
+
 
 class TestUpdateHeartbeat:
     """Tests for update_heartbeat function."""

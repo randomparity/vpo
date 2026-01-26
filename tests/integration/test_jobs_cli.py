@@ -202,6 +202,242 @@ class TestGetJobsFiltered:
         assert jobs[0].status == JobStatus.COMPLETED
         assert jobs[0].job_type == JobType.SCAN
 
+    def test_search_filter(
+        self, db_conn: sqlite3.Connection, sample_jobs: list[Job]
+    ) -> None:
+        """Filter by search term in file_path."""
+        # Search for a substring that matches one job
+        jobs = get_jobs_filtered(db_conn, search="movie.mkv")
+        assert len(jobs) >= 1
+        assert all("movie.mkv" in j.file_path.lower() for j in jobs)
+
+    def test_search_filter_case_insensitive(
+        self, db_conn: sqlite3.Connection, sample_jobs: list[Job]
+    ) -> None:
+        """Search is case-insensitive."""
+        jobs_upper = get_jobs_filtered(db_conn, search="MOVIE")
+        jobs_lower = get_jobs_filtered(db_conn, search="movie")
+        # Both should return the same results
+        assert len(jobs_upper) == len(jobs_lower)
+
+    def test_search_filter_partial_match(
+        self, db_conn: sqlite3.Connection, sample_jobs: list[Job]
+    ) -> None:
+        """Search matches partial strings."""
+        jobs = get_jobs_filtered(db_conn, search="video")
+        # Should match paths containing 'video'
+        for job in jobs:
+            assert "video" in job.file_path.lower()
+
+    def test_sort_by_created_at_desc(
+        self, db_conn: sqlite3.Connection, sample_jobs: list[Job]
+    ) -> None:
+        """Sort by created_at descending (default)."""
+        jobs = get_jobs_filtered(db_conn, sort_by="created_at", sort_order="desc")
+        assert len(jobs) > 1
+        # Verify descending order
+        for i in range(len(jobs) - 1):
+            assert jobs[i].created_at >= jobs[i + 1].created_at
+
+    def test_sort_by_created_at_asc(
+        self, db_conn: sqlite3.Connection, sample_jobs: list[Job]
+    ) -> None:
+        """Sort by created_at ascending."""
+        jobs = get_jobs_filtered(db_conn, sort_by="created_at", sort_order="asc")
+        assert len(jobs) > 1
+        # Verify ascending order
+        for i in range(len(jobs) - 1):
+            assert jobs[i].created_at <= jobs[i + 1].created_at
+
+    def test_sort_by_status(
+        self, db_conn: sqlite3.Connection, sample_jobs: list[Job]
+    ) -> None:
+        """Sort by status column."""
+        jobs = get_jobs_filtered(db_conn, sort_by="status", sort_order="asc")
+        assert len(jobs) > 1
+        # Verify status values are in order
+        statuses = [j.status.value for j in jobs]
+        assert statuses == sorted(statuses)
+
+    def test_sort_by_file_path(
+        self, db_conn: sqlite3.Connection, sample_jobs: list[Job]
+    ) -> None:
+        """Sort by file_path column."""
+        jobs = get_jobs_filtered(db_conn, sort_by="file_path", sort_order="asc")
+        assert len(jobs) > 1
+        # Verify paths are in order
+        paths = [j.file_path for j in jobs]
+        assert paths == sorted(paths)
+
+    def test_invalid_sort_column_uses_default(
+        self, db_conn: sqlite3.Connection, sample_jobs: list[Job]
+    ) -> None:
+        """Invalid sort column falls back to created_at."""
+        # This should not raise, but use default sorting
+        jobs = get_jobs_filtered(db_conn, sort_by="invalid_column", sort_order="desc")
+        # Default is created_at DESC
+        assert len(jobs) == len(sample_jobs)
+        # Should be in created_at desc order
+        for i in range(len(jobs) - 1):
+            assert jobs[i].created_at >= jobs[i + 1].created_at
+
+    def test_search_with_sort(
+        self, db_conn: sqlite3.Connection, sample_jobs: list[Job]
+    ) -> None:
+        """Combine search with sort."""
+        jobs = get_jobs_filtered(
+            db_conn,
+            search="video",
+            sort_by="file_path",
+            sort_order="asc",
+        )
+        # All should match search
+        for job in jobs:
+            assert "video" in job.file_path.lower()
+        # Should be sorted by file_path
+        if len(jobs) > 1:
+            paths = [j.file_path for j in jobs]
+            assert paths == sorted(paths)
+
+    def test_search_escapes_percent_wildcard(self, db_conn: sqlite3.Connection) -> None:
+        """Search with % matches literally, not as wildcard."""
+        now = datetime.now(timezone.utc).isoformat()
+        # Insert job with literal % in path
+        job = Job(
+            id=str(uuid.uuid4()),
+            file_id=99,
+            file_path="/videos/100%_complete.mkv",
+            job_type=JobType.APPLY,
+            status=JobStatus.COMPLETED,
+            priority=100,
+            policy_name=None,
+            policy_json=None,
+            progress_percent=100.0,
+            progress_json=None,
+            created_at=now,
+        )
+        insert_job(db_conn, job)
+        db_conn.commit()
+
+        jobs = get_jobs_filtered(db_conn, search="100%")
+        assert len(jobs) == 1
+        assert "100%" in jobs[0].file_path
+
+    def test_search_escapes_underscore_wildcard(
+        self, db_conn: sqlite3.Connection
+    ) -> None:
+        """Search with _ matches literally, not as single-char wildcard."""
+        now = datetime.now(timezone.utc).isoformat()
+        job1 = Job(
+            id=str(uuid.uuid4()),
+            file_id=100,
+            file_path="/videos/file_v1.mkv",
+            job_type=JobType.APPLY,
+            status=JobStatus.COMPLETED,
+            priority=100,
+            policy_name=None,
+            policy_json=None,
+            progress_percent=100.0,
+            progress_json=None,
+            created_at=now,
+        )
+        job2 = Job(
+            id=str(uuid.uuid4()),
+            file_id=101,
+            file_path="/videos/fileXv1.mkv",
+            job_type=JobType.APPLY,
+            status=JobStatus.COMPLETED,
+            priority=100,
+            policy_name=None,
+            policy_json=None,
+            progress_percent=100.0,
+            progress_json=None,
+            created_at=now,
+        )
+        insert_job(db_conn, job1)
+        insert_job(db_conn, job2)
+        db_conn.commit()
+
+        # Search for underscore - should only match file_v1, not fileXv1
+        jobs = get_jobs_filtered(db_conn, search="_v1")
+        assert len(jobs) == 1
+        assert "_v1" in jobs[0].file_path
+
+    def test_search_escapes_bracket(self, db_conn: sqlite3.Connection) -> None:
+        """Search with [ matches literally, not as character class."""
+        now = datetime.now(timezone.utc).isoformat()
+        job = Job(
+            id=str(uuid.uuid4()),
+            file_id=102,
+            file_path="/videos/test[1].mkv",
+            job_type=JobType.APPLY,
+            status=JobStatus.COMPLETED,
+            priority=100,
+            policy_name=None,
+            policy_json=None,
+            progress_percent=100.0,
+            progress_json=None,
+            created_at=now,
+        )
+        insert_job(db_conn, job)
+        db_conn.commit()
+
+        jobs = get_jobs_filtered(db_conn, search="[1]")
+        assert len(jobs) == 1
+        assert "[1]" in jobs[0].file_path
+
+    def test_sort_by_duration_nulls_last(self, db_conn: sqlite3.Connection) -> None:
+        """Duration sort places running jobs (NULL completed_at) at end."""
+        now = datetime.now(timezone.utc)
+        # Create completed job with short duration
+        completed_job = Job(
+            id=str(uuid.uuid4()),
+            file_id=110,
+            file_path="/videos/short.mkv",
+            job_type=JobType.APPLY,
+            status=JobStatus.COMPLETED,
+            priority=100,
+            policy_name=None,
+            policy_json=None,
+            progress_percent=100.0,
+            progress_json=None,
+            created_at=now.isoformat(),
+            started_at=now.isoformat(),
+            completed_at=(now + timedelta(seconds=30)).isoformat(),
+        )
+        # Create running job (no completed_at)
+        running_job = Job(
+            id=str(uuid.uuid4()),
+            file_id=111,
+            file_path="/videos/running.mkv",
+            job_type=JobType.APPLY,
+            status=JobStatus.RUNNING,
+            priority=100,
+            policy_name=None,
+            policy_json=None,
+            progress_percent=50.0,
+            progress_json=None,
+            created_at=now.isoformat(),
+            started_at=now.isoformat(),
+            completed_at=None,
+        )
+        insert_job(db_conn, completed_job)
+        insert_job(db_conn, running_job)
+        db_conn.commit()
+
+        # Sort by duration ascending
+        jobs = get_jobs_filtered(db_conn, sort_by="duration", sort_order="asc")
+
+        # Find positions
+        running = [j for j in jobs if j.completed_at is None]
+        completed = [j for j in jobs if j.completed_at is not None]
+
+        if running and completed:
+            running_positions = [jobs.index(j) for j in running]
+            completed_positions = [jobs.index(j) for j in completed]
+            # Running jobs (NULL duration) should be after completed jobs
+            assert min(running_positions) > max(completed_positions)
+
 
 class TestGetJobsByIdPrefix:
     """Tests for get_jobs_by_id_prefix() function."""

@@ -76,6 +76,9 @@ JOBS_ALLOWED_PARAMS = frozenset(
         "status",
         "type",
         "since",
+        "search",
+        "sort",
+        "order",
         "limit",
         "offset",
     }

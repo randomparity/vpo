@@ -248,6 +248,7 @@ class WorkflowRunner:
         policy: PolicySchema,
         config: WorkflowRunnerConfig,
         lifecycle: JobLifecycle,
+        job_log: JobLogWriter | None = None,
     ) -> WorkflowRunner:
         """Create runner for CLI mode where lifecycle manages job records.
 
@@ -260,6 +261,7 @@ class WorkflowRunner:
             policy: The policy to apply.
             config: Workflow runner configuration.
             lifecycle: Job lifecycle manager (e.g., CLIJobLifecycle).
+            job_log: Optional log writer for CLI logging (from lifecycle.job_log).
 
         Returns:
             Configured WorkflowRunner for CLI use.
@@ -270,8 +272,22 @@ class WorkflowRunner:
             )
             runner = WorkflowRunner.for_cli(conn, policy, config, lifecycle)
             result = runner.run_single(file_path, file_id=file_id)
+
+        Example with logging:
+            lifecycle = CLIJobLifecycle(
+                conn, batch_id=batch_id, policy_name="policy.yaml", save_logs=True
+            )
+            # Note: Don't pass job_log here - it's created in on_job_start()
+            # and retrieved dynamically by run_single() via lifecycle.job_log
+            runner = WorkflowRunner.for_cli(conn, policy, config, lifecycle)
+            try:
+                result = runner.run_single(file_path, file_id=file_id)
+            finally:
+                lifecycle.close_job_log()
         """
-        return cls(conn, policy, config, lifecycle=lifecycle, job_id=None)
+        return cls(
+            conn, policy, config, lifecycle=lifecycle, job_log=job_log, job_id=None
+        )
 
     @classmethod
     def for_daemon(
@@ -340,15 +356,26 @@ class WorkflowRunner:
                 file_path, self.config.policy_name, file_id
             )
 
+        # Get job_log from lifecycle if not provided at construction.
+        # This supports CLIJobLifecycle.save_logs where the log is created
+        # in on_job_start().
+        # IMPORTANT: WorkflowRunner NEVER closes the job_log - ownership
+        # remains with the lifecycle (CLI mode) or caller (daemon mode).
+        job_log = self.job_log
+        if job_log is None:
+            job_log = getattr(self.lifecycle, "job_log", None)
+
         try:
             # Validate input file exists
             if not file_path.exists():
+                job_id_short = job_id[:8] if job_id else "no-job"
                 error = (
                     f"Input file not found: {file_path} "
                     f"(policy: {self.config.policy_name or 'unnamed'})"
                 )
-                if self.job_log:
-                    self.job_log.write_error(error)
+                logger.error("Job %s: %s", job_id_short, error)
+                if job_log:
+                    job_log.write_error(error)
                 result = _create_error_result(file_path, error)
                 self.lifecycle.on_job_fail(job_id, error)
                 return WorkflowRunResult(
@@ -369,23 +396,34 @@ class WorkflowRunner:
                 ffmpeg_progress_callback=self.ffmpeg_progress_callback,
             )
 
-            # Log workflow phases if we have a logger
-            if self.job_log:
-                phases_str = ", ".join(self.policy.phase_names)
-                self.job_log.write_line(f"Workflow phases: {phases_str}")
+            # Log workflow phases
+            phases_str = ", ".join(self.policy.phase_names)
+            job_id_short = job_id[:8] if job_id else "no-job"
+            logger.debug("Job %s: Workflow phases: %s", job_id_short, phases_str)
+            if job_log:
+                job_log.write_line(f"Workflow phases: {phases_str}")
 
             result = processor.process_file(file_path)
 
-            # Log phase results if we have a logger
-            if self.job_log:
-                for pr in result.phase_results:
-                    status = "OK" if pr.success else "FAILED"
-                    self.job_log.write_line(
+            # Log phase results
+            job_id_short = job_id[:8] if job_id else "no-job"
+            for pr in result.phase_results:
+                status = "OK" if pr.success else "FAILED"
+                logger.debug(
+                    "Job %s: Phase %s: %s (%d changes, %.1fs)",
+                    job_id_short,
+                    pr.phase_name,
+                    status,
+                    pr.changes_made,
+                    pr.duration_seconds,
+                )
+                if job_log:
+                    job_log.write_line(
                         f"Phase {pr.phase_name}: {status} "
                         f"({pr.changes_made} changes, {pr.duration_seconds:.1f}s)"
                     )
                     if pr.message:
-                        self.job_log.write_line(f"  {pr.message}")
+                        job_log.write_line(f"  {pr.message}")
 
             # Notify lifecycle of completion
             self.lifecycle.on_job_complete(job_id, result)
@@ -393,12 +431,26 @@ class WorkflowRunner:
             return WorkflowRunResult(result=result, job_id=job_id)
 
         except Exception as e:
-            logger.exception("Workflow execution failed for %s: %s", file_path, e)
+            job_id_short = job_id[:8] if job_id else "no-job"
+            logger.exception(
+                "Job %s: Workflow execution failed for %s: %s",
+                job_id_short,
+                file_path,
+                e,
+            )
             error = str(e)
             error_class = classify_workflow_error(e)
+            logger.info(
+                "Job %s: Error classified as %s (retry %s)",
+                job_id_short,
+                error_class.value,
+                "recommended"
+                if error_class == ErrorClassification.TRANSIENT
+                else "not recommended",
+            )
 
-            if self.job_log:
-                self.job_log.write_error(f"Workflow execution failed: {e}", e)
+            if job_log:
+                job_log.write_error(f"Workflow execution failed: {e}", e)
 
             # Notify lifecycle of failure
             self.lifecycle.on_job_fail(job_id, error)

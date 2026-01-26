@@ -119,6 +119,8 @@ def release_job(
     error_message: str | None = None,
     output_path: str | None = None,
     backup_path: str | None = None,
+    summary_json: str | None = None,
+    set_progress_100: bool = False,
 ) -> bool:
     """Release a job after processing.
 
@@ -131,12 +133,16 @@ def release_job(
         error_message: Error details if FAILED.
         output_path: Path to output file if successful.
         backup_path: Path to backup file if created.
+        summary_json: Optional JSON summary data (phases_completed, total_changes, etc).
+        set_progress_100: If True, set progress_percent to 100.0.
 
     Returns:
         True if job was released, False if not found.
     """
     now = datetime.now(timezone.utc).isoformat()
 
+    # Use CASE expression to conditionally set progress to 100
+    # This consolidates two near-identical SQL blocks into one
     cursor = conn.execute(
         """
         UPDATE jobs
@@ -145,13 +151,28 @@ def release_job(
             error_message = ?,
             output_path = ?,
             backup_path = ?,
+            summary_json = ?,
+            progress_percent = CASE WHEN ? THEN 100.0 ELSE progress_percent END,
             worker_pid = NULL,
             worker_heartbeat = NULL
         WHERE id = ?
         """,
-        (status.value, now, error_message, output_path, backup_path, job_id),
+        (
+            status.value,
+            now,
+            error_message,
+            output_path,
+            backup_path,
+            summary_json,
+            set_progress_100,
+            job_id,
+        ),
     )
     conn.commit()
+
+    if cursor.rowcount > 0 and summary_json:
+        logger.debug("Job %s: Updated summary: %s", job_id[:8], summary_json)
+
     return cursor.rowcount > 0
 
 
