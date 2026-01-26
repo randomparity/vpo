@@ -355,6 +355,12 @@ class WorkflowRunner:
                 file_path, self.config.policy_name, file_id
             )
 
+        # Get job_log from lifecycle if not provided at construction
+        # This supports CLIJobLifecycle.save_logs where log is created in on_job_start()
+        job_log = self.job_log
+        if job_log is None:
+            job_log = getattr(self.lifecycle, "job_log", None)
+
         try:
             # Validate input file exists
             if not file_path.exists():
@@ -362,8 +368,8 @@ class WorkflowRunner:
                     f"Input file not found: {file_path} "
                     f"(policy: {self.config.policy_name or 'unnamed'})"
                 )
-                if self.job_log:
-                    self.job_log.write_error(error)
+                if job_log:
+                    job_log.write_error(error)
                 result = _create_error_result(file_path, error)
                 self.lifecycle.on_job_fail(job_id, error)
                 return WorkflowRunResult(
@@ -385,22 +391,22 @@ class WorkflowRunner:
             )
 
             # Log workflow phases if we have a logger
-            if self.job_log:
+            if job_log:
                 phases_str = ", ".join(self.policy.phase_names)
-                self.job_log.write_line(f"Workflow phases: {phases_str}")
+                job_log.write_line(f"Workflow phases: {phases_str}")
 
             result = processor.process_file(file_path)
 
             # Log phase results if we have a logger
-            if self.job_log:
+            if job_log:
                 for pr in result.phase_results:
                     status = "OK" if pr.success else "FAILED"
-                    self.job_log.write_line(
+                    job_log.write_line(
                         f"Phase {pr.phase_name}: {status} "
                         f"({pr.changes_made} changes, {pr.duration_seconds:.1f}s)"
                     )
                     if pr.message:
-                        self.job_log.write_line(f"  {pr.message}")
+                        job_log.write_line(f"  {pr.message}")
 
             # Notify lifecycle of completion
             self.lifecycle.on_job_complete(job_id, result)
@@ -412,8 +418,8 @@ class WorkflowRunner:
             error = str(e)
             error_class = classify_workflow_error(e)
 
-            if self.job_log:
-                self.job_log.write_error(f"Workflow execution failed: {e}", e)
+            if job_log:
+                job_log.write_error(f"Workflow execution failed: {e}", e)
 
             # Notify lifecycle of failure
             self.lifecycle.on_job_fail(job_id, error)

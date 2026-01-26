@@ -246,6 +246,7 @@ def _process_single_file(
     worker_id: str,
     file_id: str,
     batch_id: str | None,
+    save_logs: bool = False,
 ) -> tuple[Path, FileProcessingResult | None, bool]:
     """Process a single file using WorkflowRunner.
 
@@ -262,6 +263,7 @@ def _process_single_file(
         worker_id: Worker identifier for logging (e.g., "01").
         file_id: File identifier for logging (e.g., "F001").
         batch_id: UUID grouping CLI batch operations (None if dry-run).
+        save_logs: If True, save detailed logs to ~/.vpo/logs/.
 
     Returns:
         Tuple of (file_path, result, success).
@@ -288,20 +290,30 @@ def _process_single_file(
 
                 # Create lifecycle for job management (or no-op for dry-run)
                 if runner_config.dry_run:
-                    lifecycle = NullJobLifecycle()
+                    lifecycle: CLIJobLifecycle | NullJobLifecycle = NullJobLifecycle()
                 else:
                     lifecycle = CLIJobLifecycle(
                         conn,
                         batch_id=batch_id,
                         policy_name=runner_config.policy_name,
+                        save_logs=save_logs,
                     )
 
-                # Create and run workflow
-                runner = WorkflowRunner.for_cli(conn, policy, runner_config, lifecycle)
-                run_result = runner.run_single(file_path, file_id=db_file_id)
+                try:
+                    # Create and run workflow
+                    # job_log is created in on_job_start() if save_logs=True;
+                    # run_single() gets it from lifecycle dynamically
+                    runner = WorkflowRunner.for_cli(
+                        conn, policy, runner_config, lifecycle
+                    )
+                    run_result = runner.run_single(file_path, file_id=db_file_id)
 
-                progress.on_item_complete(file_index, success=run_result.success)
-                return file_path, run_result.result, run_result.success
+                    progress.on_item_complete(file_index, success=run_result.success)
+                    return file_path, run_result.result, run_result.success
+                finally:
+                    # Ensure job log is closed
+                    if isinstance(lifecycle, CLIJobLifecycle):
+                        lifecycle.close_job_log()
 
     except Exception as e:
         logger.exception("Worker error processing %s: %s", file_path, e)
@@ -390,6 +402,12 @@ def _process_single_file(
         "Each worker needs ~2.5x file size disk space for transcoding."
     ),
 )
+@click.option(
+    "--save-logs",
+    is_flag=True,
+    default=False,
+    help="Save detailed job logs to ~/.vpo/logs/ (like daemon mode).",
+)
 @click.argument(
     "paths",
     nargs=-1,
@@ -406,6 +424,7 @@ def process_command(
     verbose: bool,
     json_output: bool,
     workers: int | None,
+    save_logs: bool,
     paths: tuple[Path, ...],
 ) -> None:
     """Process media files through the unified workflow.
@@ -558,6 +577,7 @@ def process_command(
                     worker_id,
                     file_id,
                     batch_id,
+                    save_logs,
                 )
                 futures[future] = file_path
 
