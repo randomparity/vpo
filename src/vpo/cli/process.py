@@ -403,10 +403,9 @@ def _process_single_file(
     ),
 )
 @click.option(
-    "--save-logs",
-    is_flag=True,
-    default=False,
-    help="Save detailed job logs to ~/.vpo/logs/ (like daemon mode).",
+    "--save-logs/--no-save-logs",
+    default=True,
+    help="Save detailed job logs to ~/.vpo/logs/ (default: enabled).",
 )
 @click.argument(
     "paths",
