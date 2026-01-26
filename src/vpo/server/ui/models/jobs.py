@@ -7,6 +7,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+# Valid sort columns for job list
+VALID_SORT_COLUMNS = frozenset(
+    {"created_at", "job_type", "status", "file_path", "duration"}
+)
+
 
 @dataclass
 class JobFilterParams:
@@ -16,6 +21,9 @@ class JobFilterParams:
         status: Filter by job status (None = all statuses).
         job_type: Filter by job type (None = all types).
         since: Time range filter: "24h", "7d", or None (all time).
+        search: Case-insensitive substring search on filename (max 200 chars).
+        sort_by: Column to sort by (None = default created_at).
+        sort_order: Sort order ('asc' or 'desc', None = default desc).
         limit: Page size (1-100, default 50).
         offset: Pagination offset (>= 0, default 0).
     """
@@ -23,6 +31,9 @@ class JobFilterParams:
     status: str | None = None
     job_type: str | None = None
     since: str | None = None
+    search: str | None = None
+    sort_by: str | None = None
+    sort_order: str | None = None
     limit: int = 50
     offset: int = 0
 
@@ -50,10 +61,27 @@ class JobFilterParams:
         except (ValueError, TypeError):
             offset = 0
 
+        # Parse search (truncate to 200 chars max)
+        search_raw = query.get("search", "")
+        search = search_raw.strip()[:200] if search_raw else None
+        if search == "":
+            search = None
+
+        # Parse sort_by (validate against whitelist)
+        sort_by_raw = query.get("sort")
+        sort_by = sort_by_raw if sort_by_raw in VALID_SORT_COLUMNS else None
+
+        # Parse sort_order (validate asc/desc)
+        sort_order_raw = query.get("order", "").lower()
+        sort_order = sort_order_raw if sort_order_raw in ("asc", "desc") else None
+
         return cls(
             status=query.get("status"),
             job_type=query.get("type"),
             since=query.get("since"),
+            search=search,
+            sort_by=sort_by,
+            sort_order=sort_order,
             limit=limit,
             offset=offset,
         )

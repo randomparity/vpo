@@ -202,6 +202,103 @@ class TestGetJobsFiltered:
         assert jobs[0].status == JobStatus.COMPLETED
         assert jobs[0].job_type == JobType.SCAN
 
+    def test_search_filter(
+        self, db_conn: sqlite3.Connection, sample_jobs: list[Job]
+    ) -> None:
+        """Filter by search term in file_path."""
+        # Search for a substring that matches one job
+        jobs = get_jobs_filtered(db_conn, search="movie.mkv")
+        assert len(jobs) >= 1
+        assert all("movie.mkv" in j.file_path.lower() for j in jobs)
+
+    def test_search_filter_case_insensitive(
+        self, db_conn: sqlite3.Connection, sample_jobs: list[Job]
+    ) -> None:
+        """Search is case-insensitive."""
+        jobs_upper = get_jobs_filtered(db_conn, search="MOVIE")
+        jobs_lower = get_jobs_filtered(db_conn, search="movie")
+        # Both should return the same results
+        assert len(jobs_upper) == len(jobs_lower)
+
+    def test_search_filter_partial_match(
+        self, db_conn: sqlite3.Connection, sample_jobs: list[Job]
+    ) -> None:
+        """Search matches partial strings."""
+        jobs = get_jobs_filtered(db_conn, search="video")
+        # Should match paths containing 'video'
+        for job in jobs:
+            assert "video" in job.file_path.lower()
+
+    def test_sort_by_created_at_desc(
+        self, db_conn: sqlite3.Connection, sample_jobs: list[Job]
+    ) -> None:
+        """Sort by created_at descending (default)."""
+        jobs = get_jobs_filtered(db_conn, sort_by="created_at", sort_order="desc")
+        assert len(jobs) > 1
+        # Verify descending order
+        for i in range(len(jobs) - 1):
+            assert jobs[i].created_at >= jobs[i + 1].created_at
+
+    def test_sort_by_created_at_asc(
+        self, db_conn: sqlite3.Connection, sample_jobs: list[Job]
+    ) -> None:
+        """Sort by created_at ascending."""
+        jobs = get_jobs_filtered(db_conn, sort_by="created_at", sort_order="asc")
+        assert len(jobs) > 1
+        # Verify ascending order
+        for i in range(len(jobs) - 1):
+            assert jobs[i].created_at <= jobs[i + 1].created_at
+
+    def test_sort_by_status(
+        self, db_conn: sqlite3.Connection, sample_jobs: list[Job]
+    ) -> None:
+        """Sort by status column."""
+        jobs = get_jobs_filtered(db_conn, sort_by="status", sort_order="asc")
+        assert len(jobs) > 1
+        # Verify status values are in order
+        statuses = [j.status.value for j in jobs]
+        assert statuses == sorted(statuses)
+
+    def test_sort_by_file_path(
+        self, db_conn: sqlite3.Connection, sample_jobs: list[Job]
+    ) -> None:
+        """Sort by file_path column."""
+        jobs = get_jobs_filtered(db_conn, sort_by="file_path", sort_order="asc")
+        assert len(jobs) > 1
+        # Verify paths are in order
+        paths = [j.file_path for j in jobs]
+        assert paths == sorted(paths)
+
+    def test_invalid_sort_column_uses_default(
+        self, db_conn: sqlite3.Connection, sample_jobs: list[Job]
+    ) -> None:
+        """Invalid sort column falls back to created_at."""
+        # This should not raise, but use default sorting
+        jobs = get_jobs_filtered(db_conn, sort_by="invalid_column", sort_order="desc")
+        # Default is created_at DESC
+        assert len(jobs) == len(sample_jobs)
+        # Should be in created_at desc order
+        for i in range(len(jobs) - 1):
+            assert jobs[i].created_at >= jobs[i + 1].created_at
+
+    def test_search_with_sort(
+        self, db_conn: sqlite3.Connection, sample_jobs: list[Job]
+    ) -> None:
+        """Combine search with sort."""
+        jobs = get_jobs_filtered(
+            db_conn,
+            search="video",
+            sort_by="file_path",
+            sort_order="asc",
+        )
+        # All should match search
+        for job in jobs:
+            assert "video" in job.file_path.lower()
+        # Should be sorted by file_path
+        if len(jobs) > 1:
+            paths = [j.file_path for j in jobs]
+            assert paths == sorted(paths)
+
 
 class TestGetJobsByIdPrefix:
     """Tests for get_jobs_by_id_prefix() function."""

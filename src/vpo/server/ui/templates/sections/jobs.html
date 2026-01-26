@@ -36,6 +36,10 @@
                     {% endfor %}
                 </select>
             </div>
+            <div class="jobs-filter jobs-filter-search">
+                <label for="filter-search">Search</label>
+                <input type="text" id="filter-search" placeholder="Search filename..." maxlength="200">
+            </div>
         </div>
 
         <!-- Jobs table container -->
@@ -44,12 +48,12 @@
                 <thead>
                     <tr>
                         <th>Job ID</th>
-                        <th>Type</th>
-                        <th>Status</th>
+                        <th class="sortable" data-sort-key="job_type" role="columnheader" aria-sort="none" tabindex="0">Type <span class="sort-indicator" aria-hidden="true"></span></th>
+                        <th class="sortable" data-sort-key="status" role="columnheader" aria-sort="none" tabindex="0">Status <span class="sort-indicator" aria-hidden="true"></span></th>
                         <th>Progress</th>
-                        <th>Target</th>
-                        <th>Started</th>
-                        <th>Duration</th>
+                        <th class="sortable" data-sort-key="file_path" role="columnheader" aria-sort="none" tabindex="0">Target <span class="sort-indicator" aria-hidden="true"></span></th>
+                        <th class="sortable sorted" data-sort-key="created_at" role="columnheader" aria-sort="descending" tabindex="0">Started <span class="sort-indicator" aria-hidden="true"></span></th>
+                        <th class="sortable" data-sort-key="duration" role="columnheader" aria-sort="none" tabindex="0">Duration <span class="sort-indicator" aria-hidden="true"></span></th>
                     </tr>
                 </thead>
                 <tbody id="jobs-table-body">

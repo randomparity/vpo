@@ -121,6 +121,113 @@ class TestJobFilterParams:
         assert params.limit == 20
         assert params.offset == 40
 
+    # Search parameter tests
+
+    def test_parses_search_filter(self):
+        """Parses search filter from query."""
+        params = JobFilterParams.from_query({"search": "movie"})
+
+        assert params.search == "movie"
+
+    def test_strips_search_whitespace(self):
+        """Strips leading/trailing whitespace from search."""
+        params = JobFilterParams.from_query({"search": "  movie  "})
+
+        assert params.search == "movie"
+
+    def test_truncates_long_search(self):
+        """Truncates search to 200 characters max."""
+        long_search = "a" * 250
+        params = JobFilterParams.from_query({"search": long_search})
+
+        assert len(params.search) == 200
+
+    def test_empty_search_becomes_none(self):
+        """Empty search string becomes None."""
+        params = JobFilterParams.from_query({"search": ""})
+
+        assert params.search is None
+
+    def test_whitespace_only_search_becomes_none(self):
+        """Whitespace-only search string becomes None."""
+        params = JobFilterParams.from_query({"search": "   "})
+
+        assert params.search is None
+
+    # Sort parameter tests
+
+    def test_parses_sort_by(self):
+        """Parses valid sort_by column from query."""
+        params = JobFilterParams.from_query({"sort": "created_at"})
+
+        assert params.sort_by == "created_at"
+
+    def test_parses_sort_by_file_path(self):
+        """Parses file_path sort column."""
+        params = JobFilterParams.from_query({"sort": "file_path"})
+
+        assert params.sort_by == "file_path"
+
+    def test_parses_sort_by_duration(self):
+        """Parses duration sort column."""
+        params = JobFilterParams.from_query({"sort": "duration"})
+
+        assert params.sort_by == "duration"
+
+    def test_invalid_sort_by_becomes_none(self):
+        """Invalid sort column becomes None (uses default)."""
+        params = JobFilterParams.from_query({"sort": "invalid_column"})
+
+        assert params.sort_by is None
+
+    def test_parses_sort_order_asc(self):
+        """Parses ascending sort order."""
+        params = JobFilterParams.from_query({"order": "asc"})
+
+        assert params.sort_order == "asc"
+
+    def test_parses_sort_order_desc(self):
+        """Parses descending sort order."""
+        params = JobFilterParams.from_query({"order": "desc"})
+
+        assert params.sort_order == "desc"
+
+    def test_parses_sort_order_uppercase(self):
+        """Handles uppercase sort order (converts to lowercase)."""
+        params = JobFilterParams.from_query({"order": "ASC"})
+
+        assert params.sort_order == "asc"
+
+    def test_invalid_sort_order_becomes_none(self):
+        """Invalid sort order becomes None (uses default)."""
+        params = JobFilterParams.from_query({"order": "random"})
+
+        assert params.sort_order is None
+
+    def test_parses_all_parameters_with_search_and_sort(self):
+        """Parses all parameters including search and sort."""
+        params = JobFilterParams.from_query(
+            {
+                "status": "completed",
+                "type": "apply",
+                "since": "7d",
+                "search": "movie",
+                "sort": "file_path",
+                "order": "asc",
+                "limit": "20",
+                "offset": "40",
+            }
+        )
+
+        assert params.status == "completed"
+        assert params.job_type == "apply"
+        assert params.since == "7d"
+        assert params.search == "movie"
+        assert params.sort_by == "file_path"
+        assert params.sort_order == "asc"
+        assert params.limit == 20
+        assert params.offset == 40
+
 
 # =============================================================================
 # Tests for JobListItem
