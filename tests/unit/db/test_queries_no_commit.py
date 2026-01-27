@@ -411,13 +411,14 @@ class TestUpdateFileAttributesNoCommit:
         # Rollback should undo the update
         test_conn.rollback()
 
-        # Verify attributes reverted
+        # Verify all three attributes reverted
         cursor = test_conn.execute(
             "SELECT size_bytes, modified_at, content_hash FROM files WHERE id = ?",
             (file_id,),
         )
         row = cursor.fetchone()
-        assert row[0] == 1000  # Original value
+        assert row[0] == 1000  # Original size
+        assert row[1] == record.modified_at  # Original modified_at
         assert row[2] == "abc123"  # Original hash
 
     def test_update_file_attributes_updates_all_fields(
@@ -481,3 +482,47 @@ class TestUpdateFileAttributesNoCommit:
         assert row[0] == new_size
         assert row[1] == new_modified
         assert row[2] is None
+
+    def test_update_file_attributes_negative_size_raises(
+        self, test_conn: sqlite3.Connection
+    ) -> None:
+        """update_file_attributes should raise ValueError for negative size_bytes."""
+        record = make_test_file_record()
+        file_id = insert_file(test_conn, record)
+        test_conn.commit()
+
+        with pytest.raises(ValueError, match="size_bytes must be non-negative"):
+            update_file_attributes(
+                test_conn, file_id, -1, "2025-01-01T00:00:00+00:00", "hash"
+            )
+
+    def test_update_file_attributes_zero_file_id_raises(
+        self, test_conn: sqlite3.Connection
+    ) -> None:
+        """update_file_attributes should raise ValueError for file_id=0."""
+        with pytest.raises(ValueError, match="file_id must be positive"):
+            update_file_attributes(
+                test_conn, 0, 1000, "2025-01-01T00:00:00+00:00", "hash"
+            )
+
+    def test_update_file_attributes_negative_file_id_raises(
+        self, test_conn: sqlite3.Connection
+    ) -> None:
+        """update_file_attributes should raise ValueError for negative file_id."""
+        with pytest.raises(ValueError, match="file_id must be positive"):
+            update_file_attributes(
+                test_conn, -5, 1000, "2025-01-01T00:00:00+00:00", "hash"
+            )
+
+    def test_update_file_attributes_empty_hash_raises(
+        self, test_conn: sqlite3.Connection
+    ) -> None:
+        """update_file_attributes should raise ValueError for empty string hash."""
+        record = make_test_file_record()
+        file_id = insert_file(test_conn, record)
+        test_conn.commit()
+
+        with pytest.raises(ValueError, match="content_hash cannot be empty string"):
+            update_file_attributes(
+                test_conn, file_id, 1000, "2025-01-01T00:00:00+00:00", ""
+            )

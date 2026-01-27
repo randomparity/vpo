@@ -293,9 +293,20 @@ def update_file_attributes(
     Returns:
         True if file was updated, False if not found.
 
+    Raises:
+        ValueError: If parameters are invalid.
+
     Note:
         This function does NOT commit. Caller must manage transactions.
     """
+    # Validate inputs
+    if file_id <= 0:
+        raise ValueError(f"file_id must be positive, got {file_id}")
+    if size_bytes < 0:
+        raise ValueError(f"size_bytes must be non-negative, got {size_bytes}")
+    if content_hash is not None and not content_hash:
+        raise ValueError("content_hash cannot be empty string (use None)")
+
     cursor = conn.execute(
         """
         UPDATE files SET
