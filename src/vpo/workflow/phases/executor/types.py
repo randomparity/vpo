@@ -3,10 +3,16 @@
 This module contains dataclasses used during phase execution.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from vpo.policy.types import OperationType, PhaseDefinition
+
+if TYPE_CHECKING:
+    from vpo.policy.types import ContainerChange, TrackDisposition
 
 
 @dataclass
@@ -63,3 +69,25 @@ class PhaseExecutionState:
     original_mtime: float | None = None
     """Original file modification time (Unix timestamp) captured at phase start.
     Used by file_timestamp operation to restore original mtime after processing."""
+
+    # Enhanced workflow logging - accumulated details during execution
+    track_dispositions: list[TrackDisposition] = field(default_factory=list)
+    """Tracks removed/kept during filter operations (accumulated)."""
+
+    container_change: ContainerChange | None = None
+    """Container conversion details captured during container operation."""
+
+    track_order_before: tuple[int, ...] | None = None
+    """Track indices before reordering."""
+
+    track_order_after: tuple[int, ...] | None = None
+    """Track indices after reordering."""
+
+    audio_synthesis_created: list[str] = field(default_factory=list)
+    """Descriptions of audio tracks created by synthesis."""
+
+    size_before: int | None = None
+    """File size in bytes before transcode."""
+
+    size_after: int | None = None
+    """File size in bytes after transcode."""

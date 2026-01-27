@@ -247,6 +247,12 @@ class PhaseExecutor:
             cleanup_backup(state)
 
             duration = time.time() - start_time
+
+            # Build track order change tuple if we have before/after data
+            track_order_change = None
+            if state.track_order_before and state.track_order_after:
+                track_order_change = (state.track_order_before, state.track_order_after)
+
             return PhaseResult(
                 phase_name=phase.name,
                 success=True,
@@ -259,6 +265,13 @@ class PhaseExecutor:
                 encoding_bitrate_kbps=state.encoding_bitrate_kbps,
                 total_frames=state.total_frames,
                 encoder_type=state.encoder_type,
+                # Enhanced workflow logging fields
+                track_dispositions=tuple(state.track_dispositions),
+                container_change=state.container_change,
+                track_order_change=track_order_change,
+                size_before=state.size_before,
+                size_after=state.size_after,
+                audio_synthesis_created=tuple(state.audio_synthesis_created),
             )
 
         except PhaseExecutionError:

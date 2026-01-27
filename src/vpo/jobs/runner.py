@@ -405,10 +405,20 @@ class WorkflowRunner:
 
             result = processor.process_file(file_path)
 
-            # Log phase results
+            # Log phase results with enhanced detail
+            from vpo.cli.log_formatter import format_phase_details
+            from vpo.policy.types import PhaseOutcome
+
             job_id_short = job_id[:8] if job_id else "no-job"
             for pr in result.phase_results:
-                status = "OK" if pr.success else "FAILED"
+                # Determine status string
+                if pr.outcome == PhaseOutcome.SKIPPED:
+                    status = "SKIP"
+                elif pr.success:
+                    status = "OK"
+                else:
+                    status = "FAILED"
+
                 logger.debug(
                     "Job %s: Phase %s: %s (%d changes, %.1fs)",
                     job_id_short,
@@ -422,8 +432,25 @@ class WorkflowRunner:
                         f"Phase {pr.phase_name}: {status} "
                         f"({pr.changes_made} changes, {pr.duration_seconds:.1f}s)"
                     )
+                    # Write operations executed
+                    if pr.operations_executed:
+                        ops_str = ", ".join(pr.operations_executed)
+                        job_log.write_line(f"  Operations: {ops_str}")
+
+                    # Write enhanced detail lines
+                    detail_lines = format_phase_details(pr)
+                    for detail in detail_lines:
+                        job_log.write_line(f"  {detail}")
+
+                    # Write skip reason if phase was skipped
+                    if pr.skip_reason:
+                        job_log.write_line(f"  Skip reason: {pr.skip_reason.message}")
+
+                    # Write message or error
                     if pr.message:
                         job_log.write_line(f"  {pr.message}")
+                    if pr.error:
+                        job_log.write_line(f"  Error: {pr.error}")
 
             # Notify lifecycle of completion
             self.lifecycle.on_job_complete(job_id, result)
