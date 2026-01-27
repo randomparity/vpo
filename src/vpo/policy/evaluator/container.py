@@ -209,10 +209,8 @@ def _evaluate_container_change(
     target = policy.container.target.casefold()
     source = normalize_container_format(source_format)
 
-    # Skip if already in target format
-    if source == target:
-        return None
-
+    # Always create ContainerChange when container config exists
+    # (even if source == target, for logging purposes)
     warnings: list[str] = []
     incompatible_tracks: list[int] = []
 

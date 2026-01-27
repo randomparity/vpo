@@ -82,6 +82,17 @@ class TestFormatContainerChange:
         result = _format_container_change(cc)
         assert result == ["Container: avi -> mkv"]
 
+    def test_format_container_change_no_change(self):
+        """Container with same source and target shows no change."""
+        cc = ContainerChange(
+            source_format="mkv",
+            target_format="mkv",
+            warnings=(),
+            incompatible_tracks=(),
+        )
+        result = _format_container_change(cc)
+        assert result == ["Container: mkv (no change)"]
+
     def test_format_container_change_with_warnings(self):
         """Container change with warnings."""
         cc = ContainerChange(

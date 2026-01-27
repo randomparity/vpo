@@ -79,7 +79,10 @@ def _format_container_change(cc: ContainerChange) -> list[str]:
     Returns:
         List of formatted lines.
     """
-    lines = [f"Container: {cc.source_format} -> {cc.target_format}"]
+    if cc.source_format == cc.target_format:
+        lines = [f"Container: {cc.source_format} (no change)"]
+    else:
+        lines = [f"Container: {cc.source_format} -> {cc.target_format}"]
 
     # Add warnings if any
     for warning in cc.warnings:
