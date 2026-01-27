@@ -8,10 +8,12 @@ import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from datetime import datetime, timezone
 from pathlib import Path
 from sqlite3 import Connection
 from typing import TYPE_CHECKING
 
+from vpo._core import hash_files
 from vpo.config import get_config
 from vpo.core import parse_iso_timestamp
 from vpo.executor.backup import InsufficientDiskSpaceError, check_min_free_disk_percent
@@ -23,6 +25,7 @@ if TYPE_CHECKING:
 from vpo.db.queries import (
     get_file_by_path,
     get_tracks_for_file,
+    update_file_attributes,
     upsert_tracks_for_file,
 )
 from vpo.db.types import FileInfo, tracks_to_track_info
@@ -693,18 +696,50 @@ class WorkflowProcessor:
                 file_path,
             )
 
-            # Parse ISO 8601 timestamp from database
-            modified_at = parse_iso_timestamp(file_record.modified_at)
+            # Get fresh file stats
+            stat = file_path.stat()
+            size_bytes = stat.st_size
+            modified_at = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
 
-            # Return fresh FileInfo with updated tracks
+            # Compute new content hash (handle failure gracefully)
+            content_hash: str | None = None
+            try:
+                hash_results = hash_files([str(file_path)])
+                if hash_results and hash_results[0].get("hash"):
+                    content_hash = hash_results[0]["hash"]
+                elif hash_results and hash_results[0].get("error"):
+                    logger.warning(
+                        "Hash computation failed for %s: %s",
+                        file_path,
+                        hash_results[0]["error"],
+                    )
+            except Exception as e:
+                logger.warning("Hash computation failed for %s: %s", file_path, e)
+
+            # Update file attributes in database
+            update_file_attributes(
+                self.conn,
+                file_record.id,
+                size_bytes,
+                modified_at.isoformat(),
+                content_hash,
+            )
+            logger.debug(
+                "Updated file attributes in database: size=%d, modified=%s, hash=%s",
+                size_bytes,
+                modified_at.isoformat(),
+                content_hash[:16] + "..." if content_hash else None,
+            )
+
+            # Return fresh FileInfo with updated tracks and attributes
             return FileInfo(
                 path=file_path,
                 filename=file_record.filename,
                 directory=Path(file_record.directory),
                 extension=file_record.extension,
-                size_bytes=file_record.size_bytes,
+                size_bytes=size_bytes,
                 modified_at=modified_at,
-                content_hash=file_record.content_hash,
+                content_hash=content_hash,
                 container_format=result.container_format,
                 tracks=result.tracks,
             )

@@ -274,6 +274,41 @@ def update_file_path(conn: sqlite3.Connection, file_id: int, new_path: str) -> b
         raise
 
 
+def update_file_attributes(
+    conn: sqlite3.Connection,
+    file_id: int,
+    size_bytes: int,
+    modified_at: str,
+    content_hash: str | None,
+) -> bool:
+    """Update file physical attributes after processing.
+
+    Args:
+        conn: Database connection.
+        file_id: ID of the file to update.
+        size_bytes: New file size in bytes.
+        modified_at: New modification time (ISO 8601 UTC).
+        content_hash: New content hash (may be None if hashing failed).
+
+    Returns:
+        True if file was updated, False if not found.
+
+    Note:
+        This function does NOT commit. Caller must manage transactions.
+    """
+    cursor = conn.execute(
+        """
+        UPDATE files SET
+            size_bytes = ?,
+            modified_at = ?,
+            content_hash = ?
+        WHERE id = ?
+        """,
+        (size_bytes, modified_at, content_hash, file_id),
+    )
+    return cursor.rowcount > 0
+
+
 # ==========================================================================
 # Track Operations
 # ==========================================================================
