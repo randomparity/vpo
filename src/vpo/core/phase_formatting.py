@@ -109,8 +109,8 @@ def _format_track_dispositions(dispositions: tuple[TrackDisposition, ...]) -> li
         lines.append(f"{type_label} removed ({len(removed)}):")
 
         for td in removed:
-            # Build track description
-            parts = [f"Track {td.track_index}:"]
+            # Build track description parts (metadata comes after colon)
+            parts: list[str] = []
 
             if td.language:
                 parts.append(td.language)
@@ -126,7 +126,11 @@ def _format_track_dispositions(dispositions: tuple[TrackDisposition, ...]) -> li
             if td.title:
                 parts.append(f'"{td.title}"')
 
-            lines.append("  - " + " ".join(parts))
+            # Build track description - only add colon if there's content after it
+            track_desc = f"Track {td.track_index}"
+            if parts:
+                track_desc += ": " + " ".join(parts)
+            lines.append("  - " + track_desc)
 
     return lines
 

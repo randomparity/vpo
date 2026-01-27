@@ -17,10 +17,10 @@ from pathlib import Path
 import click
 
 from vpo.cli.exit_codes import ExitCode
-from vpo.cli.log_formatter import format_phase_details
 from vpo.cli.output import error_exit
 from vpo.cli.profile_loader import load_profile_or_exit
 from vpo.config.loader import get_config
+from vpo.core.phase_formatting import format_phase_details
 from vpo.db.connection import get_connection
 from vpo.db.queries import get_file_by_path
 from vpo.jobs import (
@@ -276,6 +276,7 @@ def _format_phase_result_json(pr) -> dict:
                 "codec": td.codec,
                 "language": td.language,
                 "channels": td.channels,
+                "title": td.title,
                 "reason": td.reason,
             }
             for td in pr.track_dispositions

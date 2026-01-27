@@ -195,9 +195,10 @@ class PhaseExecutor:
             )
 
         logger.info(
-            "Executing phase '%s' with %d operation(s): %s",
+            "Executing phase '%s' with %d operation(s) on %s: %s",
             phase.name,
             len(operations),
+            file_path.name,
             ", ".join(op.value for op in operations),
         )
 
@@ -211,7 +212,9 @@ class PhaseExecutor:
                     message="Cannot proceed: backup creation failed "
                     "(check disk space/permissions)",
                 )
-            logger.debug("Created backup at %s", state.backup_path)
+            logger.debug(
+                "Created backup for %s at %s", file_path.name, state.backup_path
+            )
 
         try:
             # Execute operations in canonical order
@@ -335,7 +338,9 @@ class PhaseExecutor:
         from vpo.policy.exceptions import PolicyError
 
         start_time = time.time()
-        logger.debug("Executing operation: %s", op_type.value)
+        logger.debug(
+            "Executing operation %s on %s", op_type.value, state.file_path.name
+        )
 
         try:
             changes = self._dispatch_operation(op_type, state, file_info)
@@ -358,7 +363,9 @@ class PhaseExecutor:
                 duration_seconds=time.time() - start_time,
             )
         except Exception as e:
-            logger.error("Operation %s failed: %s", op_type.value, e)
+            logger.error(
+                "Operation %s failed on %s: %s", op_type.value, state.file_path.name, e
+            )
             return OperationResult(
                 operation=op_type,
                 success=False,

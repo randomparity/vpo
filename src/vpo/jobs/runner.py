@@ -13,7 +13,8 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
-from vpo.policy.types import FileProcessingResult, PolicySchema
+from vpo.core.phase_formatting import format_phase_details
+from vpo.policy.types import FileProcessingResult, PhaseOutcome, PolicySchema
 from vpo.workflow import WorkflowProcessor
 
 if TYPE_CHECKING:
@@ -406,10 +407,6 @@ class WorkflowRunner:
             result = processor.process_file(file_path)
 
             # Log phase results with enhanced detail
-            from vpo.cli.log_formatter import format_phase_details
-            from vpo.policy.types import PhaseOutcome
-
-            job_id_short = job_id[:8] if job_id else "no-job"
             for pr in result.phase_results:
                 # Determine status string
                 if pr.outcome == PhaseOutcome.SKIPPED:
@@ -419,7 +416,7 @@ class WorkflowRunner:
                 else:
                     status = "FAILED"
 
-                logger.debug(
+                logger.info(
                     "Job %s: Phase %s: %s (%d changes, %.1fs)",
                     job_id_short,
                     pr.phase_name,
