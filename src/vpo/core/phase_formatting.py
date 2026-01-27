@@ -56,6 +56,8 @@ def format_phase_details(pr: PhaseResult) -> list[str]:
                 pr.size_after,
                 pr.encoder_type,
                 pr.encoding_fps,
+                pr.video_source_codec,
+                pr.video_target_codec,
             )
         )
     elif pr.transcode_skip_reason:
@@ -178,6 +180,8 @@ def _format_transcode_result(
     size_after: int,
     encoder_type: str | None,
     encoding_fps: float | None,
+    source_codec: str | None = None,
+    target_codec: str | None = None,
 ) -> list[str]:
     """Format transcode size change, encoder type, and speed.
 
@@ -186,11 +190,17 @@ def _format_transcode_result(
         size_after: File size in bytes after transcode.
         encoder_type: 'hardware', 'software', or None.
         encoding_fps: Average encoding speed in FPS.
+        source_codec: Source video codec (e.g., 'h264').
+        target_codec: Target video codec (e.g., 'hevc').
 
     Returns:
         List of formatted lines.
     """
     lines: list[str] = []
+
+    # Codec conversion (shown first)
+    if source_codec and target_codec:
+        lines.append(f"Video: {source_codec} -> {target_codec}")
 
     # Size change with percentage
     before_str = format_file_size(size_before)

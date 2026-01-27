@@ -274,6 +274,8 @@ class PhaseExecutor:
                 track_order_change=track_order_change,
                 size_before=state.size_before,
                 size_after=state.size_after,
+                video_source_codec=state.video_source_codec,
+                video_target_codec=state.video_target_codec,
                 audio_synthesis_created=tuple(state.audio_synthesis_created),
             )
 

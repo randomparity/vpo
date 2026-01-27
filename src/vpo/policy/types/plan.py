@@ -468,6 +468,12 @@ class PhaseResult:
     size_after: int | None = None
     """File size in bytes after transcode operation."""
 
+    video_source_codec: str | None = None
+    """Source video codec before transcode (e.g., 'h264')."""
+
+    video_target_codec: str | None = None
+    """Target video codec after transcode (e.g., 'hevc')."""
+
     audio_synthesis_created: tuple[str, ...] = ()
     """Descriptions of audio tracks created by synthesis (e.g., 'eng stereo AAC')."""
 

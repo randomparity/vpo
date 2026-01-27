@@ -137,8 +137,10 @@ def execute_transcode(
             )
             changes += 1
         else:
-            # Capture file size before transcode for logging
+            # Capture file size and codec before transcode for logging
             state.size_before = file_path.stat().st_size
+            state.video_source_codec = video_track.codec
+            state.video_target_codec = vt.target_codec
 
             result = executor.execute(plan)
             if not result.success:
