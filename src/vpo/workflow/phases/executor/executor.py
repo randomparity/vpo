@@ -243,8 +243,16 @@ class PhaseExecutor:
                             op_type.value,
                             phase.name,
                         )
+                        # Capture the failure before breaking
+                        state.operation_failures.append(
+                            (op_type.value, op_result.message or "Operation failed")
+                        )
                         break
                     # OnErrorMode.CONTINUE - proceed to next operation
+                    # Capture failure for logging
+                    state.operation_failures.append(
+                        (op_type.value, op_result.message or "Operation failed")
+                    )
 
             # Clean up backup on success
             cleanup_backup(state)
@@ -278,6 +286,7 @@ class PhaseExecutor:
                 video_target_codec=state.video_target_codec,
                 audio_synthesis_created=tuple(state.audio_synthesis_created),
                 transcription_results=tuple(state.transcription_results),
+                operation_failures=tuple(state.operation_failures),
             )
 
         except PhaseExecutionError:

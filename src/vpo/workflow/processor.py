@@ -487,6 +487,7 @@ class WorkflowProcessor:
                     video_target_codec=phase_result.video_target_codec,
                     audio_synthesis_created=phase_result.audio_synthesis_created,
                     transcription_results=phase_result.transcription_results,
+                    operation_failures=phase_result.operation_failures,
                     # Phase outcome tracking
                     outcome=PhaseOutcome.COMPLETED
                     if phase_result.success

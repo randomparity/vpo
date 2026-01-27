@@ -91,6 +91,9 @@ class PhaseExecutionState:
     )
     """Transcription results: (track_index, language, confidence, track_type)."""
 
+    operation_failures: list[tuple[str, str]] = field(default_factory=list)
+    """Operations that failed: (operation_name, error_message)."""
+
     size_before: int | None = None
     """File size in bytes before transcode."""
 

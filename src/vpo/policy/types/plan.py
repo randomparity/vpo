@@ -480,6 +480,9 @@ class PhaseResult:
     transcription_results: tuple[tuple[int, str | None, float, str], ...] = ()
     """Transcription results: (track_index, language, confidence, track_type)."""
 
+    operation_failures: tuple[tuple[str, str], ...] = ()
+    """Operations that failed: (operation_name, error_message)."""
+
     # Phase outcome tracking (for conditional phases feature)
     outcome: PhaseOutcome = PhaseOutcome.PENDING
     """Explicit outcome enum for dependency resolution."""

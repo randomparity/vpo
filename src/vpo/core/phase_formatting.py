@@ -52,6 +52,10 @@ def format_phase_details(pr: PhaseResult) -> list[str]:
     if pr.transcription_results:
         lines.extend(_format_transcription_results(pr.transcription_results))
 
+    # Operation failures (when on_error=continue/skip)
+    if pr.operation_failures:
+        lines.extend(_format_operation_failures(pr.operation_failures))
+
     # Transcode results
     if pr.size_before is not None and pr.size_after is not None:
         lines.extend(
@@ -201,6 +205,29 @@ def _format_transcription_results(
         pct = int(confidence * 100)
         lang_str = lang if lang else "unknown"
         lines.append(f"  - Track {track_idx}: {lang_str} ({track_type}, {pct}%)")
+    return lines
+
+
+def _format_operation_failures(
+    failures: tuple[tuple[str, str], ...],
+) -> list[str]:
+    """Format operation failures.
+
+    Args:
+        failures: Tuple of (operation_name, error_message).
+
+    Returns:
+        List of formatted lines.
+    """
+    if not failures:
+        return []
+
+    lines = [f"Failures ({len(failures)}):"]
+    for op_name, error_msg in failures:
+        # Truncate long error messages
+        if len(error_msg) > 80:
+            error_msg = error_msg[:77] + "..."
+        lines.append(f"  - {op_name}: {error_msg}")
     return lines
 
 

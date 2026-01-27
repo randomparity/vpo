@@ -3,6 +3,7 @@
 from vpo.core.phase_formatting import (
     _format_audio_synthesis,
     _format_container_change,
+    _format_operation_failures,
     _format_track_dispositions,
     _format_track_order,
     _format_transcode_result,
@@ -404,3 +405,41 @@ class TestFormatTranscriptionResults:
             "Transcription analyzed (1):",
             "  - Track 2: eng (commentary, 92%)",
         ]
+
+
+class TestFormatOperationFailures:
+    """Tests for _format_operation_failures function."""
+
+    def test_format_operation_failures_empty(self):
+        """Empty tuple returns empty list."""
+        result = _format_operation_failures(())
+        assert result == []
+
+    def test_format_operation_failures_single(self):
+        """Single failure is formatted correctly."""
+        failures = (("container", "File not found"),)
+        result = _format_operation_failures(failures)
+        assert result == [
+            "Failures (1):",
+            "  - container: File not found",
+        ]
+
+    def test_format_operation_failures_multiple(self):
+        """Multiple failures are formatted correctly."""
+        failures = (
+            ("container", "Incompatible codec"),
+            ("audio_filter", "No audio tracks"),
+        )
+        result = _format_operation_failures(failures)
+        assert result == [
+            "Failures (2):",
+            "  - container: Incompatible codec",
+            "  - audio_filter: No audio tracks",
+        ]
+
+    def test_format_operation_failures_long_message_truncated(self):
+        """Long error messages are truncated to 80 chars."""
+        long_msg = "A" * 100
+        failures = (("transcode", long_msg),)
+        result = _format_operation_failures(failures)
+        assert result[1] == "  - transcode: " + "A" * 77 + "..."
