@@ -6,6 +6,7 @@ from vpo.core.phase_formatting import (
     _format_track_dispositions,
     _format_track_order,
     _format_transcode_result,
+    _format_transcription_results,
     format_phase_details,
 )
 from vpo.policy.types import ContainerChange, PhaseResult, TrackDisposition
@@ -334,3 +335,61 @@ class TestFormatTranscodeResult:
         )
 
         assert not any("Speed:" in line for line in result)
+
+
+class TestFormatTranscriptionResults:
+    """Tests for _format_transcription_results function."""
+
+    def test_format_transcription_results_empty(self):
+        """Empty tuple returns empty list."""
+        result = _format_transcription_results(())
+        assert result == []
+
+    def test_format_transcription_results_single_track(self):
+        """Single transcription result is formatted correctly."""
+        results = ((1, "eng", 0.94, "main"),)
+        result = _format_transcription_results(results)
+        assert result == [
+            "Transcription analyzed (1):",
+            "  - Track 1: eng (main, 94%)",
+        ]
+
+    def test_format_transcription_results_multiple_tracks(self):
+        """Multiple transcription results are formatted correctly."""
+        results = (
+            (1, "eng", 0.94, "main"),
+            (2, "fra", 0.87, "alternate"),
+        )
+        result = _format_transcription_results(results)
+        assert result == [
+            "Transcription analyzed (2):",
+            "  - Track 1: eng (main, 94%)",
+            "  - Track 2: fra (alternate, 87%)",
+        ]
+
+    def test_format_transcription_results_unknown_language(self):
+        """Transcription result with None language shows 'unknown'."""
+        results = ((3, None, 0.45, "non_speech"),)
+        result = _format_transcription_results(results)
+        assert result == [
+            "Transcription analyzed (1):",
+            "  - Track 3: unknown (non_speech, 45%)",
+        ]
+
+    def test_format_transcription_results_low_confidence(self):
+        """Transcription result with low confidence rounds correctly."""
+        results = ((1, "eng", 0.156, "main"),)
+        result = _format_transcription_results(results)
+        assert result == [
+            "Transcription analyzed (1):",
+            "  - Track 1: eng (main, 15%)",
+        ]
+
+    def test_format_transcription_results_commentary_type(self):
+        """Transcription result with commentary track type."""
+        results = ((2, "eng", 0.92, "commentary"),)
+        result = _format_transcription_results(results)
+        assert result == [
+            "Transcription analyzed (1):",
+            "  - Track 2: eng (commentary, 92%)",
+        ]

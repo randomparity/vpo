@@ -86,6 +86,11 @@ class PhaseExecutionState:
     audio_synthesis_created: list[str] = field(default_factory=list)
     """Descriptions of audio tracks created by synthesis."""
 
+    transcription_results: list[tuple[int, str | None, float, str]] = field(
+        default_factory=list
+    )
+    """Transcription results: (track_index, language, confidence, track_type)."""
+
     size_before: int | None = None
     """File size in bytes before transcode."""
 

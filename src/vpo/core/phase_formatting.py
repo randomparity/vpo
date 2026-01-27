@@ -48,6 +48,10 @@ def format_phase_details(pr: PhaseResult) -> list[str]:
     if pr.audio_synthesis_created:
         lines.extend(_format_audio_synthesis(pr.audio_synthesis_created))
 
+    # Transcription results
+    if pr.transcription_results:
+        lines.extend(_format_transcription_results(pr.transcription_results))
+
     # Transcode results
     if pr.size_before is not None and pr.size_after is not None:
         lines.extend(
@@ -172,6 +176,28 @@ def _format_audio_synthesis(tracks_created: tuple[str, ...]) -> list[str]:
     lines = [f"Audio synthesized ({len(tracks_created)}):"]
     for desc in tracks_created:
         lines.append(f"  - {desc}")
+    return lines
+
+
+def _format_transcription_results(
+    results: tuple[tuple[int, str | None, float, str], ...],
+) -> list[str]:
+    """Format transcription analysis results.
+
+    Args:
+        results: Tuple of (track_index, language, confidence, track_type).
+
+    Returns:
+        List of formatted lines.
+    """
+    if not results:
+        return []
+
+    lines = [f"Transcription analyzed ({len(results)}):"]
+    for track_idx, lang, confidence, track_type in results:
+        pct = int(confidence * 100)
+        lang_str = lang if lang else "unknown"
+        lines.append(f"  - Track {track_idx}: {lang_str} ({track_type}, {pct}%)")
     return lines
 
 

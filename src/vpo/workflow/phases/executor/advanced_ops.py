@@ -233,12 +233,21 @@ def execute_transcription(
             logger.debug("Analyzing track %d", track.index)
 
             # Coordinator handles extraction → detection → persistence
-            coordinator.analyze_and_persist(
+            result = coordinator.analyze_and_persist(
                 file_path=context.file_path,
                 track=track,
                 track_duration=track.duration_seconds,
                 conn=conn,
                 options=options,
+            )
+            # Capture result for enhanced logging
+            state.transcription_results.append(
+                (
+                    track.index,
+                    result.detected_language,
+                    result.confidence,
+                    result.track_type.value,
+                )
             )
             changes += 1
 

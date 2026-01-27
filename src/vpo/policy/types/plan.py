@@ -477,6 +477,9 @@ class PhaseResult:
     audio_synthesis_created: tuple[str, ...] = ()
     """Descriptions of audio tracks created by synthesis (e.g., 'eng stereo AAC')."""
 
+    transcription_results: tuple[tuple[int, str | None, float, str], ...] = ()
+    """Transcription results: (track_index, language, confidence, track_type)."""
+
     # Phase outcome tracking (for conditional phases feature)
     outcome: PhaseOutcome = PhaseOutcome.PENDING
     """Explicit outcome enum for dependency resolution."""

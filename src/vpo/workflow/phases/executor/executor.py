@@ -277,6 +277,7 @@ class PhaseExecutor:
                 video_source_codec=state.video_source_codec,
                 video_target_codec=state.video_target_codec,
                 audio_synthesis_created=tuple(state.audio_synthesis_created),
+                transcription_results=tuple(state.transcription_results),
             )
 
         except PhaseExecutionError:
