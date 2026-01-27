@@ -461,6 +461,7 @@ class WorkflowProcessor:
                 file_was_modified = phase_result.changes_made > 0
 
                 # Create updated result with outcome tracking
+                # Preserve all fields from executor result, adding outcome/modified
                 phase_result = PhaseResult(
                     phase_name=phase_result.phase_name,
                     success=phase_result.success,
@@ -471,6 +472,22 @@ class WorkflowProcessor:
                     error=phase_result.error,
                     planned_actions=phase_result.planned_actions,
                     transcode_skip_reason=phase_result.transcode_skip_reason,
+                    # FFmpeg encoding metrics
+                    encoding_fps=phase_result.encoding_fps,
+                    encoding_bitrate_kbps=phase_result.encoding_bitrate_kbps,
+                    total_frames=phase_result.total_frames,
+                    encoder_type=phase_result.encoder_type,
+                    # Enhanced workflow logging fields
+                    track_dispositions=phase_result.track_dispositions,
+                    container_change=phase_result.container_change,
+                    track_order_change=phase_result.track_order_change,
+                    size_before=phase_result.size_before,
+                    size_after=phase_result.size_after,
+                    video_source_codec=phase_result.video_source_codec,
+                    video_target_codec=phase_result.video_target_codec,
+                    audio_synthesis_created=phase_result.audio_synthesis_created,
+                    transcription_results=phase_result.transcription_results,
+                    # Phase outcome tracking
                     outcome=PhaseOutcome.COMPLETED
                     if phase_result.success
                     else PhaseOutcome.FAILED,
