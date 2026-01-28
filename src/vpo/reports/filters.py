@@ -51,6 +51,56 @@ class TimeFilter:
         return since_iso, until_iso
 
 
+_RELATIVE_UNITS = {
+    "d": lambda n: timedelta(days=n),
+    "w": lambda n: timedelta(weeks=n),
+    "h": lambda n: timedelta(hours=n),
+}
+
+
+def _parse_relative_time(value: str) -> datetime | None:
+    """Parse relative time string (e.g., 7d, 2w, 24h).
+
+    Returns:
+        datetime in UTC or None if not a relative format.
+    """
+    match = re.match(r"^(\d+)([dwh])$", value.casefold())
+    if not match:
+        return None
+
+    amount = int(match.group(1))
+    unit = match.group(2)
+    delta = _RELATIVE_UNITS[unit](amount)
+    return datetime.now(timezone.utc) - delta
+
+
+def _parse_iso_datetime(value: str) -> datetime:
+    """Parse ISO-8601 datetime string.
+
+    Args:
+        value: ISO-8601 datetime string.
+
+    Returns:
+        datetime in UTC.
+
+    Raises:
+        ValueError: If format is invalid.
+    """
+    # Handle date-only format (YYYY-MM-DD)
+    if "T" not in value and len(value) == 10:
+        dt = datetime.strptime(value, "%Y-%m-%d")
+        return dt.replace(tzinfo=timezone.utc)
+
+    # Handle full ISO format with Z suffix normalization
+    normalized = value.replace("Z", "+00:00")
+    dt = datetime.fromisoformat(normalized)
+
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+
+    return dt
+
+
 def parse_relative_date(value: str) -> datetime:
     """Parse relative date string or ISO-8601 datetime.
 
@@ -70,40 +120,16 @@ def parse_relative_date(value: str) -> datetime:
         ValueError: If format is invalid.
     """
     # Try relative format first
-    match = re.match(r"^(\d+)([dwh])$", value.casefold())
-    if match:
-        amount = int(match.group(1))
-        unit = match.group(2)
-
-        now = datetime.now(timezone.utc)
-        if unit == "d":
-            return now - timedelta(days=amount)
-        elif unit == "w":
-            return now - timedelta(weeks=amount)
-        else:  # unit == "h"
-            return now - timedelta(hours=amount)
+    result = _parse_relative_time(value)
+    if result is not None:
+        return result
 
     # Try ISO-8601 format
     try:
-        # Handle date-only format (YYYY-MM-DD)
-        if "T" not in value and len(value) == 10:
-            dt = datetime.strptime(value, "%Y-%m-%d")
-            return dt.replace(tzinfo=timezone.utc)
-
-        # Handle full ISO format
-        # Remove Z suffix and replace with +00:00 for fromisoformat compatibility
-        normalized = value.replace("Z", "+00:00")
-        dt = datetime.fromisoformat(normalized)
-
-        # If no timezone info, assume UTC
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-
-        return dt
+        return _parse_iso_datetime(value)
     except ValueError:
         pass
 
-    # Invalid format
     raise ValueError(
         f"Invalid time format '{value}'. "
         "Use ISO-8601 (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS) or relative (7d, 1w, 2h)."

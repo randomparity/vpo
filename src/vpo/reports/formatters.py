@@ -5,6 +5,7 @@ import io
 import json
 import os
 import tempfile
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,25 @@ class ReportFormat(Enum):
     JSON = "json"
 
 
+def _parse_iso_timestamp(iso_str: str) -> datetime:
+    """Parse ISO-8601 timestamp string to UTC datetime.
+
+    Args:
+        iso_str: ISO-8601 timestamp string (with or without timezone).
+
+    Returns:
+        datetime with UTC timezone.
+
+    Raises:
+        ValueError: If format is invalid.
+    """
+    normalized = iso_str.replace("Z", "+00:00")
+    dt = datetime.fromisoformat(normalized)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 def format_timestamp_local(utc_iso: str | None) -> str:
     """Convert UTC ISO timestamp to local time display.
 
@@ -32,18 +52,8 @@ def format_timestamp_local(utc_iso: str | None) -> str:
     if not utc_iso:
         return "-"
 
-    from datetime import datetime, timezone
-
     try:
-        # Handle Z suffix and various ISO formats
-        normalized = utc_iso.replace("Z", "+00:00")
-        dt = datetime.fromisoformat(normalized)
-
-        # If no timezone, assume UTC
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-
-        # Convert to local time
+        dt = _parse_iso_timestamp(utc_iso)
         local_dt = dt.astimezone()
         return local_dt.strftime("%Y-%m-%d %H:%M:%S")
     except (ValueError, TypeError):
@@ -57,25 +67,22 @@ def format_duration(seconds: float | None) -> str:
         seconds: Duration in seconds.
 
     Returns:
-        Human-readable duration string or "-" if None.
+        Human-readable duration string or "-" if None/negative.
     """
-    if seconds is None:
+    if seconds is None or seconds < 0:
         return "-"
 
-    seconds = float(seconds)
-    if seconds < 0:
-        return "-"
+    total_seconds = int(seconds)
 
-    if seconds < 60:
-        return f"{seconds:.0f}s"
+    if total_seconds < 60:
+        return f"{total_seconds}s"
 
-    if seconds < 3600:
-        minutes = int(seconds // 60)
-        secs = int(seconds % 60)
+    if total_seconds < 3600:
+        minutes, secs = divmod(total_seconds, 60)
         return f"{minutes}m {secs}s"
 
-    hours = int(seconds // 3600)
-    minutes = int((seconds % 3600) // 60)
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes = remainder // 60
     return f"{hours}h {minutes}m"
 
 
@@ -126,28 +133,15 @@ def calculate_duration_seconds(
         completed_at: End timestamp in ISO-8601 format.
 
     Returns:
-        Duration in seconds or None if either timestamp is missing.
+        Duration in seconds or None if either timestamp is missing/invalid.
     """
     if not started_at or not completed_at:
         return None
 
-    from datetime import datetime, timezone
-
     try:
-        start_normalized = started_at.replace("Z", "+00:00")
-        end_normalized = completed_at.replace("Z", "+00:00")
-
-        start_dt = datetime.fromisoformat(start_normalized)
-        end_dt = datetime.fromisoformat(end_normalized)
-
-        # Ensure timezone info
-        if start_dt.tzinfo is None:
-            start_dt = start_dt.replace(tzinfo=timezone.utc)
-        if end_dt.tzinfo is None:
-            end_dt = end_dt.replace(tzinfo=timezone.utc)
-
-        delta = end_dt - start_dt
-        return delta.total_seconds()
+        start_dt = _parse_iso_timestamp(started_at)
+        end_dt = _parse_iso_timestamp(completed_at)
+        return (end_dt - start_dt).total_seconds()
     except (ValueError, TypeError):
         return None
 
@@ -197,6 +191,22 @@ def render_text_table(
     return "\n".join(lines)
 
 
+def _serialize_csv_value(value: Any) -> str:
+    """Serialize a value for CSV output.
+
+    Args:
+        value: Value to serialize.
+
+    Returns:
+        String representation suitable for CSV.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return str(value).casefold()
+    return str(value)
+
+
 def render_csv(
     rows: list[dict[str, Any]],
     columns: list[str],
@@ -219,16 +229,7 @@ def render_csv(
     writer.writeheader()
 
     for row in rows:
-        # Ensure all values are serializable
-        clean_row = {}
-        for col in columns:
-            value = row.get(col)
-            if value is None:
-                clean_row[col] = ""
-            elif isinstance(value, bool):
-                clean_row[col] = str(value).casefold()
-            else:
-                clean_row[col] = str(value)
+        clean_row = {col: _serialize_csv_value(row.get(col)) for col in columns}
         writer.writerow(clean_row)
 
     return output.getvalue()

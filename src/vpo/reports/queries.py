@@ -31,10 +31,6 @@ class JobReportRow:
     duration: str
     error: str
 
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for formatting."""
-        return asdict(self)
-
 
 @dataclass
 class LibraryReportRow:
@@ -47,10 +43,6 @@ class LibraryReportRow:
     audio_languages: str
     has_subtitles: str | bool
     scanned_at: str
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for formatting."""
-        return asdict(self)
 
 
 @dataclass
@@ -65,10 +57,6 @@ class ScanReportRow:
     files_new: int
     files_changed: int
     status: str
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for formatting."""
-        return asdict(self)
 
 
 @dataclass
@@ -85,10 +73,6 @@ class TranscodeReportRow:
     status: str
     size_change: str
 
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for formatting."""
-        return asdict(self)
-
 
 @dataclass
 class PolicyApplyReportRow:
@@ -102,10 +86,6 @@ class PolicyApplyReportRow:
     status: str
     started_at: str
 
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for formatting."""
-        return asdict(self)
-
 
 @dataclass
 class PolicyApplyDetailRow:
@@ -113,10 +93,6 @@ class PolicyApplyDetailRow:
 
     file_path: str
     changes: str
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for formatting."""
-        return asdict(self)
 
 
 MAX_LIMIT = 10000
@@ -138,6 +114,14 @@ def _validate_limit(limit: int | None) -> None:
             raise ValueError(f"Limit too large (max {MAX_LIMIT}), got {limit}")
 
 
+_RESOLUTION_THRESHOLDS = [
+    (2160, "4K"),
+    (1080, "1080p"),
+    (720, "720p"),
+    (480, "480p"),
+]
+
+
 def get_resolution_category(width: int | None, height: int | None) -> str:
     """Categorize resolution from dimensions.
 
@@ -151,14 +135,10 @@ def get_resolution_category(width: int | None, height: int | None) -> str:
     if width is None or height is None:
         return "unknown"
 
-    if height >= 2160:
-        return "4K"
-    if height >= 1080:
-        return "1080p"
-    if height >= 720:
-        return "720p"
-    if height >= 480:
-        return "480p"
+    for threshold, label in _RESOLUTION_THRESHOLDS:
+        if height >= threshold:
+            return label
+
     return "SD"
 
 
@@ -294,7 +274,7 @@ def get_jobs_report(
             duration=format_duration(duration_seconds),
             error=row[6][:50] if row[6] else "-",
         )
-        result.append(report_row.to_dict())
+        result.append(asdict(report_row))
 
     return result
 
@@ -416,7 +396,7 @@ def get_library_report(
             has_subtitles="Yes" if subtitle_present else "No",
             scanned_at=format_timestamp_local(row[4]),
         )
-        result.append(report_row.to_dict())
+        result.append(asdict(report_row))
 
     return result
 
@@ -481,7 +461,7 @@ def get_scans_report(
             files_changed=summary["files_changed"],
             status=row[3] or "-",
         )
-        result.append(report_row.to_dict())
+        result.append(asdict(report_row))
 
     return result
 
@@ -594,7 +574,7 @@ def get_transcodes_report(
             status=row[4] or "-",
             size_change=size_change,
         )
-        result.append(report_row.to_dict())
+        result.append(asdict(report_row))
 
     return result
 
@@ -681,7 +661,7 @@ def get_policy_apply_report(
                     file_path=file_path,
                     changes=str(changes),
                 )
-                result.append(detail_row.to_dict())
+                result.append(asdict(detail_row))
 
                 if limit and len(result) >= limit:
                     return result
@@ -725,6 +705,6 @@ def get_policy_apply_report(
             status=row[3] or "-",
             started_at=format_timestamp_local(row[4]),
         )
-        result.append(report_row.to_dict())
+        result.append(asdict(report_row))
 
     return result
