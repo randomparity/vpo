@@ -352,8 +352,10 @@ def evaluate_policy(
         container_change = evaluate_container_change_with_policy(
             tracks, container, policy
         )
+        # Only requires remux if actually changing format
         if container_change is not None:
-            requires_remux = True
+            if container_change.source_format != container_change.target_format:
+                requires_remux = True
 
     return Plan(
         file_id=file_id,

@@ -19,6 +19,7 @@ from vpo.db.queries import (
     insert_file,
     insert_job,
     insert_track,
+    update_file_attributes,
     update_job_progress,
     update_job_status,
     upsert_file,
@@ -375,3 +376,153 @@ class TestDeleteOldJobsNoCommit:
         # Verify job exists again
         cursor = test_conn.execute("SELECT id FROM jobs WHERE id = ?", (job.id,))
         assert cursor.fetchone() is not None
+
+
+class TestUpdateFileAttributesNoCommit:
+    """Tests for update_file_attributes function."""
+
+    def test_update_file_attributes_does_not_commit(
+        self, test_conn: sqlite3.Connection
+    ) -> None:
+        """update_file_attributes should not commit the transaction."""
+        record = make_test_file_record()
+        file_id = insert_file(test_conn, record)
+        test_conn.commit()
+
+        # Update file attributes
+        new_size = 2000
+        new_modified = "2025-01-15T10:30:00+00:00"
+        new_hash = "newhash123"
+        result = update_file_attributes(
+            test_conn, file_id, new_size, new_modified, new_hash
+        )
+        assert result is True
+
+        # Verify attributes are updated in current connection
+        cursor = test_conn.execute(
+            "SELECT size_bytes, modified_at, content_hash FROM files WHERE id = ?",
+            (file_id,),
+        )
+        row = cursor.fetchone()
+        assert row[0] == new_size
+        assert row[1] == new_modified
+        assert row[2] == new_hash
+
+        # Rollback should undo the update
+        test_conn.rollback()
+
+        # Verify all three attributes reverted
+        cursor = test_conn.execute(
+            "SELECT size_bytes, modified_at, content_hash FROM files WHERE id = ?",
+            (file_id,),
+        )
+        row = cursor.fetchone()
+        assert row[0] == 1000  # Original size
+        assert row[1] == record.modified_at  # Original modified_at
+        assert row[2] == "abc123"  # Original hash
+
+    def test_update_file_attributes_updates_all_fields(
+        self, test_conn: sqlite3.Connection
+    ) -> None:
+        """update_file_attributes should update all three fields atomically."""
+        record = make_test_file_record()
+        file_id = insert_file(test_conn, record)
+        test_conn.commit()
+
+        new_size = 5000
+        new_modified = "2025-06-20T15:45:00+00:00"
+        new_hash = "xxh64:abcdef1234567890"
+
+        result = update_file_attributes(
+            test_conn, file_id, new_size, new_modified, new_hash
+        )
+
+        assert result is True
+
+        cursor = test_conn.execute(
+            "SELECT size_bytes, modified_at, content_hash FROM files WHERE id = ?",
+            (file_id,),
+        )
+        row = cursor.fetchone()
+        assert row[0] == new_size
+        assert row[1] == new_modified
+        assert row[2] == new_hash
+
+    def test_update_file_attributes_returns_false_for_nonexistent(
+        self, test_conn: sqlite3.Connection
+    ) -> None:
+        """update_file_attributes should return False for non-existent file_id."""
+        result = update_file_attributes(
+            test_conn, 99999, 1000, "2025-01-01T00:00:00+00:00", "hash"
+        )
+        assert result is False
+
+    def test_update_file_attributes_accepts_none_hash(
+        self, test_conn: sqlite3.Connection
+    ) -> None:
+        """update_file_attributes should accept None for content_hash."""
+        record = make_test_file_record()
+        file_id = insert_file(test_conn, record)
+        test_conn.commit()
+
+        new_size = 3000
+        new_modified = "2025-03-10T08:00:00+00:00"
+
+        result = update_file_attributes(
+            test_conn, file_id, new_size, new_modified, None
+        )
+
+        assert result is True
+
+        cursor = test_conn.execute(
+            "SELECT size_bytes, modified_at, content_hash FROM files WHERE id = ?",
+            (file_id,),
+        )
+        row = cursor.fetchone()
+        assert row[0] == new_size
+        assert row[1] == new_modified
+        assert row[2] is None
+
+    def test_update_file_attributes_negative_size_raises(
+        self, test_conn: sqlite3.Connection
+    ) -> None:
+        """update_file_attributes should raise ValueError for negative size_bytes."""
+        record = make_test_file_record()
+        file_id = insert_file(test_conn, record)
+        test_conn.commit()
+
+        with pytest.raises(ValueError, match="size_bytes must be non-negative"):
+            update_file_attributes(
+                test_conn, file_id, -1, "2025-01-01T00:00:00+00:00", "hash"
+            )
+
+    def test_update_file_attributes_zero_file_id_raises(
+        self, test_conn: sqlite3.Connection
+    ) -> None:
+        """update_file_attributes should raise ValueError for file_id=0."""
+        with pytest.raises(ValueError, match="file_id must be positive"):
+            update_file_attributes(
+                test_conn, 0, 1000, "2025-01-01T00:00:00+00:00", "hash"
+            )
+
+    def test_update_file_attributes_negative_file_id_raises(
+        self, test_conn: sqlite3.Connection
+    ) -> None:
+        """update_file_attributes should raise ValueError for negative file_id."""
+        with pytest.raises(ValueError, match="file_id must be positive"):
+            update_file_attributes(
+                test_conn, -5, 1000, "2025-01-01T00:00:00+00:00", "hash"
+            )
+
+    def test_update_file_attributes_empty_hash_raises(
+        self, test_conn: sqlite3.Connection
+    ) -> None:
+        """update_file_attributes should raise ValueError for empty string hash."""
+        record = make_test_file_record()
+        file_id = insert_file(test_conn, record)
+        test_conn.commit()
+
+        with pytest.raises(ValueError, match="content_hash cannot be empty string"):
+            update_file_attributes(
+                test_conn, file_id, 1000, "2025-01-01T00:00:00+00:00", ""
+            )

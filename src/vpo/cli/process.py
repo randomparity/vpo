@@ -20,6 +20,7 @@ from vpo.cli.exit_codes import ExitCode
 from vpo.cli.output import error_exit
 from vpo.cli.profile_loader import load_profile_or_exit
 from vpo.config.loader import get_config
+from vpo.core.phase_formatting import format_phase_details
 from vpo.db.connection import get_connection
 from vpo.db.queries import get_file_by_path
 from vpo.jobs import (
@@ -34,6 +35,7 @@ from vpo.policy.loader import PolicyValidationError, load_policy
 from vpo.policy.types import (
     FileProcessingResult,
     OnErrorMode,
+    PhaseOutcome,
     PolicySchema,
 )
 
@@ -168,19 +170,41 @@ def _format_result_human(result, file_path: Path, verbose: bool = False) -> str:
         lines.append(f"Phases failed: {result.phases_failed}")
         lines.append(f"Phases skipped: {result.phases_skipped}")
 
-    # Add phase details
+    # Add phase details (always show in verbose mode)
     if verbose:
         lines.append("")
         lines.append("Phase details:")
         for pr in result.phase_results:
-            status = "OK" if pr.success else "FAILED"
+            # Status indicator with outcome awareness
+            if pr.outcome == PhaseOutcome.SKIPPED:
+                status = "SKIP"
+            elif pr.success:
+                status = "OK"
+            else:
+                status = "FAIL"
+
+            # Phase summary line
+            change_word = "change" if pr.changes_made == 1 else "changes"
             lines.append(
                 f"  [{status}] {pr.phase_name}: "
-                f"{pr.changes_made} changes, {pr.duration_seconds:.2f}s"
+                f"{pr.changes_made} {change_word}, {pr.duration_seconds:.2f}s"
             )
+
+            # Operations list
             if pr.operations_executed:
                 ops_str = ", ".join(pr.operations_executed)
                 lines.append(f"         Operations: {ops_str}")
+
+            # Enhanced detail lines (container change, tracks removed, etc.)
+            detail_lines = format_phase_details(pr)
+            for detail in detail_lines:
+                lines.append(f"         {detail}")
+
+            # Skip reason for skipped phases
+            if pr.skip_reason:
+                lines.append(f"         Skip reason: {pr.skip_reason.message}")
+
+            # Error message for failed phases
             if pr.error:
                 lines.append(f"         Error: {pr.error}")
 
@@ -211,19 +235,87 @@ def _format_result_json(result, file_path: Path) -> dict:
         "failed_phase": result.failed_phase,
         "error_message": result.error_message,
         "duration_seconds": round(result.total_duration_seconds, 2),
-        "phase_results": [
-            {
-                "phase": pr.phase_name,
-                "success": pr.success,
-                "operations_executed": list(pr.operations_executed),
-                "changes_made": pr.changes_made,
-                "duration_seconds": round(pr.duration_seconds, 2),
-                "message": pr.message,
-                "error": pr.error,
-            }
-            for pr in result.phase_results
-        ],
+        "phase_results": [_format_phase_result_json(pr) for pr in result.phase_results],
     }
+
+
+def _format_phase_result_json(pr) -> dict:
+    """Format a PhaseResult for JSON output including enhanced detail fields.
+
+    Args:
+        pr: PhaseResult to format.
+
+    Returns:
+        Dictionary for JSON serialization.
+    """
+    result = {
+        "phase": pr.phase_name,
+        "success": pr.success,
+        "outcome": pr.outcome.value if pr.outcome else None,
+        "operations_executed": list(pr.operations_executed),
+        "changes_made": pr.changes_made,
+        "duration_seconds": round(pr.duration_seconds, 2),
+        "message": pr.message,
+        "error": pr.error,
+    }
+
+    # Add container change details
+    if pr.container_change:
+        result["container_change"] = {
+            "source_format": pr.container_change.source_format,
+            "target_format": pr.container_change.target_format,
+            "warnings": list(pr.container_change.warnings),
+        }
+
+    # Add track dispositions (removed tracks)
+    if pr.track_dispositions:
+        removed_tracks = [
+            {
+                "track_index": td.track_index,
+                "track_type": td.track_type,
+                "codec": td.codec,
+                "language": td.language,
+                "channels": td.channels,
+                "title": td.title,
+                "reason": td.reason,
+            }
+            for td in pr.track_dispositions
+            if td.action == "REMOVE"
+        ]
+        if removed_tracks:
+            result["tracks_removed"] = removed_tracks
+
+    # Add track order change
+    if pr.track_order_change:
+        before, after = pr.track_order_change
+        result["track_order_change"] = {
+            "before": list(before),
+            "after": list(after),
+        }
+
+    # Add audio synthesis info
+    if pr.audio_synthesis_created:
+        result["audio_synthesis_created"] = list(pr.audio_synthesis_created)
+
+    # Add transcode results
+    if pr.size_before is not None and pr.size_after is not None:
+        result["transcode"] = {
+            "size_before": pr.size_before,
+            "size_after": pr.size_after,
+            "encoder_type": pr.encoder_type,
+            "encoding_fps": pr.encoding_fps,
+        }
+    elif pr.transcode_skip_reason:
+        result["transcode_skip_reason"] = pr.transcode_skip_reason
+
+    # Add skip reason for skipped phases
+    if pr.skip_reason:
+        result["skip_reason"] = {
+            "type": pr.skip_reason.reason_type.value,
+            "message": pr.skip_reason.message,
+        }
+
+    return result
 
 
 # =============================================================================

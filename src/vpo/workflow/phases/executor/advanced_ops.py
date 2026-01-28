@@ -93,6 +93,28 @@ def execute_audio_synthesis(
         )
         return changes
 
+    # Capture synthesis descriptions for enhanced logging
+    for op in synthesis_plan.operations:
+        # Build description like "eng stereo AAC" or "eng 5.1 AAC"
+        parts = []
+        if op.target_language:
+            parts.append(op.target_language)
+        if op.target_channels:
+            if op.target_channels == 2:
+                ch_str = "stereo"
+            elif op.target_channels == 6:
+                ch_str = "5.1"
+            elif op.target_channels == 8:
+                ch_str = "7.1"
+            else:
+                ch_str = f"{op.target_channels}ch"
+            parts.append(ch_str)
+        if op.target_codec:
+            parts.append(op.target_codec.value.upper())
+        source_idx = op.source_track.track_index
+        description = " ".join(parts) if parts else f"track from #{source_idx}"
+        state.audio_synthesis_created.append(description)
+
     # Execute synthesis
     logger.info("Executing audio synthesis: %d track(s)", changes)
     result = execute_synthesis_plan(
@@ -211,12 +233,21 @@ def execute_transcription(
             logger.debug("Analyzing track %d", track.index)
 
             # Coordinator handles extraction → detection → persistence
-            coordinator.analyze_and_persist(
+            result = coordinator.analyze_and_persist(
                 file_path=context.file_path,
                 track=track,
                 track_duration=track.duration_seconds,
                 conn=conn,
                 options=options,
+            )
+            # Capture result for enhanced logging
+            state.transcription_results.append(
+                (
+                    track.index,
+                    result.detected_language,
+                    result.confidence,
+                    result.track_type.value,
+                )
             )
             changes += 1
 

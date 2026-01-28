@@ -215,7 +215,7 @@ class TestEvaluateContainerChange:
     """Tests for _evaluate_container_change function."""
 
     def test_no_change_when_already_mkv(self) -> None:
-        """Should return None when file is already MKV and target is MKV."""
+        """Should return ContainerChange with same source/target when already MKV."""
         from vpo.policy.evaluator.container import (
             _evaluate_container_change,
         )
@@ -226,13 +226,15 @@ class TestEvaluateContainerChange:
         ]
         policy = make_policy_with_container(target="mkv")
 
-        # Source is already MKV
+        # Source is already MKV - still returns ContainerChange for logging
         change = _evaluate_container_change(tracks, "mkv", policy)
 
-        assert change is None
+        assert change is not None
+        assert change.source_format == "mkv"
+        assert change.target_format == "mkv"
 
     def test_no_change_when_already_matroska(self) -> None:
-        """Should return None when container_format is 'matroska'."""
+        """Should return ContainerChange with same formats when matroska."""
         from vpo.policy.evaluator.container import (
             _evaluate_container_change,
         )
@@ -243,10 +245,12 @@ class TestEvaluateContainerChange:
         ]
         policy = make_policy_with_container(target="mkv")
 
-        # Source is matroska (ffprobe format name)
+        # Source is matroska (ffprobe format name) - normalized to mkv
         change = _evaluate_container_change(tracks, "matroska", policy)
 
-        assert change is None
+        assert change is not None
+        assert change.source_format == "mkv"
+        assert change.target_format == "mkv"
 
     def test_avi_to_mkv_conversion(self) -> None:
         """Should create change for AVI to MKV conversion."""
@@ -516,8 +520,8 @@ class TestEvaluatePolicyContainerIntegration:
         assert plan.container_change.target_format == "mkv"
         assert plan.requires_remux is True
 
-    def test_evaluate_policy_no_container_change_when_same_format(self) -> None:
-        """evaluate_policy() should not include container_change when same format."""
+    def test_evaluate_policy_container_change_same_format_no_remux(self) -> None:
+        """evaluate_policy() includes container_change but no remux when same format."""
         from pathlib import Path
 
         from vpo.policy.evaluator import evaluate_policy
@@ -536,7 +540,12 @@ class TestEvaluatePolicyContainerIntegration:
             policy=policy,
         )
 
-        assert plan.container_change is None
+        # container_change is set for logging purposes
+        assert plan.container_change is not None
+        assert plan.container_change.source_format == "mkv"
+        assert plan.container_change.target_format == "mkv"
+        # But requires_remux is False since no actual conversion needed
+        assert plan.requires_remux is False
 
     def test_evaluate_policy_no_container_change_without_config(self) -> None:
         """evaluate_policy() should not include container_change without config."""

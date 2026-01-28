@@ -84,6 +84,7 @@ from .queries import (
     insert_processing_stats,
     insert_track,
     is_plugin_acknowledged,
+    update_file_attributes,
     update_file_path,
     update_job_output,
     update_job_progress,
@@ -230,6 +231,7 @@ __all__ = [
     "get_file_by_path",
     "get_files_by_paths",
     "insert_file",
+    "update_file_attributes",
     "update_file_path",
     "upsert_file",
     # Track operations

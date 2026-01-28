@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from vpo.db.queries import get_file_by_path
 from vpo.db.types import TrackInfo
 from vpo.policy.evaluator import evaluate_policy
-from vpo.policy.types import EvaluationPolicy, PolicySchema
+from vpo.policy.types import ActionType, EvaluationPolicy, PolicySchema
 from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 from .helpers import (
@@ -95,6 +95,9 @@ def execute_with_plan(
         plugin_metadata=plugin_metadata,
         language_results=language_results,
     )
+
+    # Capture plan details in state for enhanced logging
+    _capture_plan_details(state, plan)
 
     # Count changes
     changes = len(plan.actions) + plan.tracks_removed
@@ -266,3 +269,34 @@ def execute_conditional(
     return execute_with_plan(
         state, file_info, "conditional rules", conn, policy, dry_run, tools
     )
+
+
+def _capture_plan_details(state: PhaseExecutionState, plan) -> None:
+    """Capture plan details in state for enhanced workflow logging.
+
+    Args:
+        state: Execution state to populate.
+        plan: Evaluated policy plan with track dispositions, actions, etc.
+    """
+    from vpo.policy.types import Plan
+
+    if not isinstance(plan, Plan):
+        return
+
+    # Capture track dispositions (for filter operations)
+    if plan.track_dispositions:
+        # Extend rather than replace - multiple filter ops might run
+        state.track_dispositions.extend(plan.track_dispositions)
+
+    # Capture container change info
+    if plan.container_change:
+        state.container_change = plan.container_change
+
+    # Capture track reorder info from REORDER action
+    for action in plan.actions:
+        if action.action_type == ActionType.REORDER:
+            # current_value and desired_value are the before/after track orders
+            if isinstance(action.current_value, (list, tuple)):
+                state.track_order_before = tuple(action.current_value)
+            if isinstance(action.desired_value, (list, tuple)):
+                state.track_order_after = tuple(action.desired_value)

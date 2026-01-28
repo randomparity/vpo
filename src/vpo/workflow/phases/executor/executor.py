@@ -195,9 +195,10 @@ class PhaseExecutor:
             )
 
         logger.info(
-            "Executing phase '%s' with %d operation(s): %s",
+            "Executing phase '%s' with %d operation(s) on %s: %s",
             phase.name,
             len(operations),
+            file_path.name,
             ", ".join(op.value for op in operations),
         )
 
@@ -211,7 +212,9 @@ class PhaseExecutor:
                     message="Cannot proceed: backup creation failed "
                     "(check disk space/permissions)",
                 )
-            logger.debug("Created backup at %s", state.backup_path)
+            logger.debug(
+                "Created backup for %s at %s", file_path.name, state.backup_path
+            )
 
         try:
             # Execute operations in canonical order
@@ -240,13 +243,27 @@ class PhaseExecutor:
                             op_type.value,
                             phase.name,
                         )
+                        # Capture the failure before breaking
+                        state.operation_failures.append(
+                            (op_type.value, op_result.message or "Operation failed")
+                        )
                         break
                     # OnErrorMode.CONTINUE - proceed to next operation
+                    # Capture failure for logging
+                    state.operation_failures.append(
+                        (op_type.value, op_result.message or "Operation failed")
+                    )
 
             # Clean up backup on success
             cleanup_backup(state)
 
             duration = time.time() - start_time
+
+            # Build track order change tuple if we have before/after data
+            track_order_change = None
+            if state.track_order_before and state.track_order_after:
+                track_order_change = (state.track_order_before, state.track_order_after)
+
             return PhaseResult(
                 phase_name=phase.name,
                 success=True,
@@ -259,6 +276,17 @@ class PhaseExecutor:
                 encoding_bitrate_kbps=state.encoding_bitrate_kbps,
                 total_frames=state.total_frames,
                 encoder_type=state.encoder_type,
+                # Enhanced workflow logging fields
+                track_dispositions=tuple(state.track_dispositions),
+                container_change=state.container_change,
+                track_order_change=track_order_change,
+                size_before=state.size_before,
+                size_after=state.size_after,
+                video_source_codec=state.video_source_codec,
+                video_target_codec=state.video_target_codec,
+                audio_synthesis_created=tuple(state.audio_synthesis_created),
+                transcription_results=tuple(state.transcription_results),
+                operation_failures=tuple(state.operation_failures),
             )
 
         except PhaseExecutionError:
@@ -322,7 +350,9 @@ class PhaseExecutor:
         from vpo.policy.exceptions import PolicyError
 
         start_time = time.time()
-        logger.debug("Executing operation: %s", op_type.value)
+        logger.debug(
+            "Executing operation %s on %s", op_type.value, state.file_path.name
+        )
 
         try:
             changes = self._dispatch_operation(op_type, state, file_info)
@@ -345,7 +375,9 @@ class PhaseExecutor:
                 duration_seconds=time.time() - start_time,
             )
         except Exception as e:
-            logger.error("Operation %s failed: %s", op_type.value, e)
+            logger.error(
+                "Operation %s failed on %s: %s", op_type.value, state.file_path.name, e
+            )
             return OperationResult(
                 operation=op_type,
                 success=False,

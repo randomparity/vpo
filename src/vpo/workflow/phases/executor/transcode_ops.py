@@ -137,11 +137,19 @@ def execute_transcode(
             )
             changes += 1
         else:
+            # Capture file size and codec before transcode for logging
+            state.size_before = file_path.stat().st_size
+            state.video_source_codec = video_track.codec
+            state.video_target_codec = vt.target_codec
+
             result = executor.execute(plan)
             if not result.success:
                 msg = f"Video transcode failed: {result.error_message}"
                 raise RuntimeError(msg)
             changes += 1
+
+            # Capture file size after transcode for logging
+            state.size_after = file_path.stat().st_size
 
             # Capture encoding metrics for stats (Issue #264)
             state.encoding_fps = result.encoding_fps

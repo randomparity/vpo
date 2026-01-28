@@ -452,6 +452,37 @@ class PhaseResult:
     encoder_type: str | None = None
     """Encoder type used: 'hardware', 'software', or None if unknown."""
 
+    # Enhanced workflow logging - detailed transformation info
+    track_dispositions: tuple[TrackDisposition, ...] = ()
+    """Tracks that were removed or kept during filter operations."""
+
+    container_change: ContainerChange | None = None
+    """Container conversion details (source -> target format)."""
+
+    track_order_change: tuple[tuple[int, ...], tuple[int, ...]] | None = None
+    """Track order before and after (before_indices, after_indices)."""
+
+    size_before: int | None = None
+    """File size in bytes before transcode operation."""
+
+    size_after: int | None = None
+    """File size in bytes after transcode operation."""
+
+    video_source_codec: str | None = None
+    """Source video codec before transcode (e.g., 'h264')."""
+
+    video_target_codec: str | None = None
+    """Target video codec after transcode (e.g., 'hevc')."""
+
+    audio_synthesis_created: tuple[str, ...] = ()
+    """Descriptions of audio tracks created by synthesis (e.g., 'eng stereo AAC')."""
+
+    transcription_results: tuple[tuple[int, str | None, float, str], ...] = ()
+    """Transcription results: (track_index, language, confidence, track_type)."""
+
+    operation_failures: tuple[tuple[str, str], ...] = ()
+    """Operations that failed: (operation_name, error_message)."""
+
     # Phase outcome tracking (for conditional phases feature)
     outcome: PhaseOutcome = PhaseOutcome.PENDING
     """Explicit outcome enum for dependency resolution."""

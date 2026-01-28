@@ -8,10 +8,12 @@ import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from datetime import datetime, timezone
 from pathlib import Path
 from sqlite3 import Connection
 from typing import TYPE_CHECKING
 
+from vpo._core import hash_files
 from vpo.config import get_config
 from vpo.core import parse_iso_timestamp
 from vpo.executor.backup import InsufficientDiskSpaceError, check_min_free_disk_percent
@@ -23,6 +25,7 @@ if TYPE_CHECKING:
 from vpo.db.queries import (
     get_file_by_path,
     get_tracks_for_file,
+    update_file_attributes,
     upsert_tracks_for_file,
 )
 from vpo.db.types import FileInfo, tracks_to_track_info
@@ -458,6 +461,7 @@ class WorkflowProcessor:
                 file_was_modified = phase_result.changes_made > 0
 
                 # Create updated result with outcome tracking
+                # Preserve all fields from executor result, adding outcome/modified
                 phase_result = PhaseResult(
                     phase_name=phase_result.phase_name,
                     success=phase_result.success,
@@ -468,6 +472,23 @@ class WorkflowProcessor:
                     error=phase_result.error,
                     planned_actions=phase_result.planned_actions,
                     transcode_skip_reason=phase_result.transcode_skip_reason,
+                    # FFmpeg encoding metrics
+                    encoding_fps=phase_result.encoding_fps,
+                    encoding_bitrate_kbps=phase_result.encoding_bitrate_kbps,
+                    total_frames=phase_result.total_frames,
+                    encoder_type=phase_result.encoder_type,
+                    # Enhanced workflow logging fields
+                    track_dispositions=phase_result.track_dispositions,
+                    container_change=phase_result.container_change,
+                    track_order_change=phase_result.track_order_change,
+                    size_before=phase_result.size_before,
+                    size_after=phase_result.size_after,
+                    video_source_codec=phase_result.video_source_codec,
+                    video_target_codec=phase_result.video_target_codec,
+                    audio_synthesis_created=phase_result.audio_synthesis_created,
+                    transcription_results=phase_result.transcription_results,
+                    operation_failures=phase_result.operation_failures,
+                    # Phase outcome tracking
                     outcome=PhaseOutcome.COMPLETED
                     if phase_result.success
                     else PhaseOutcome.FAILED,
@@ -684,31 +705,6 @@ class WorkflowProcessor:
             # Run ffprobe to get fresh track data
             introspector = FFprobeIntrospector()
             result = introspector.get_file_info(file_path)
-
-            # Update tracks in database
-            upsert_tracks_for_file(self.conn, file_record.id, result.tracks)
-            logger.debug(
-                "Updated %d tracks in database for file %s",
-                len(result.tracks),
-                file_path,
-            )
-
-            # Parse ISO 8601 timestamp from database
-            modified_at = parse_iso_timestamp(file_record.modified_at)
-
-            # Return fresh FileInfo with updated tracks
-            return FileInfo(
-                path=file_path,
-                filename=file_record.filename,
-                directory=Path(file_record.directory),
-                extension=file_record.extension,
-                size_bytes=file_record.size_bytes,
-                modified_at=modified_at,
-                content_hash=file_record.content_hash,
-                container_format=result.container_format,
-                tracks=result.tracks,
-            )
-
         except MediaIntrospectionError as e:
             logger.error("Re-introspection failed for %s: %s", file_path, e)
             raise PhaseExecutionError(
@@ -717,3 +713,85 @@ class WorkflowProcessor:
                 message=f"Cannot re-introspect file after modification: {e}. "
                 "File may be corrupted.",
             ) from e
+
+        # Get fresh file stats (outside transaction to minimize lock duration)
+        try:
+            stat = file_path.stat()
+        except OSError as e:
+            logger.error("Cannot stat file after modification %s: %s", file_path, e)
+            raise PhaseExecutionError(
+                phase_name="re-introspection",
+                operation=None,
+                message=f"Cannot read file attributes after modification: {e}",
+            ) from e
+
+        size_bytes = stat.st_size
+        modified_at = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
+
+        # Compute new content hash (handle failure gracefully, outside transaction)
+        content_hash: str | None = None
+        try:
+            hash_results = hash_files([str(file_path)])
+            if hash_results and hash_results[0].get("hash"):
+                content_hash = hash_results[0]["hash"]
+            elif hash_results and hash_results[0].get("error"):
+                logger.warning(
+                    "Hash computation failed for %s: %s",
+                    file_path,
+                    hash_results[0]["error"],
+                )
+        except (OSError, RuntimeError) as e:
+            # OSError: file access issues
+            # RuntimeError: Rust panics converted to RuntimeError
+            logger.warning("Hash computation failed for %s: %s", file_path, e)
+
+        # Wrap both database operations in a single transaction for atomicity
+        self.conn.execute("BEGIN IMMEDIATE")
+        try:
+            # Update tracks in database (participates in our transaction)
+            upsert_tracks_for_file(self.conn, file_record.id, result.tracks)
+            logger.debug(
+                "Updated %d tracks in database for file %s",
+                len(result.tracks),
+                file_path,
+            )
+
+            # Update file attributes in database
+            updated = update_file_attributes(
+                self.conn,
+                file_record.id,
+                size_bytes,
+                modified_at.isoformat(),
+                content_hash,
+            )
+            if not updated:
+                logger.warning(
+                    "File record not found during attribute update (id=%d, path=%s)",
+                    file_record.id,
+                    file_path,
+                )
+
+            self.conn.execute("COMMIT")
+        except Exception:
+            self.conn.execute("ROLLBACK")
+            raise
+
+        logger.debug(
+            "Updated file attributes in database: size=%d, modified=%s, hash=%s",
+            size_bytes,
+            modified_at.isoformat(),
+            content_hash[:16] + "..." if content_hash else None,
+        )
+
+        # Return fresh FileInfo with updated tracks and attributes
+        return FileInfo(
+            path=file_path,
+            filename=file_record.filename,
+            directory=Path(file_record.directory),
+            extension=file_record.extension,
+            size_bytes=size_bytes,
+            modified_at=modified_at,
+            content_hash=content_hash,
+            container_format=result.container_format,
+            tracks=result.tracks,
+        )
