@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # image/font/subtitle/filter stacks
     libass-dev libfreetype6-dev libfribidi-dev libfontconfig1-dev libxml2-dev \
     libopenjp2-7-dev libwebp-dev libtiff-dev libpng-dev libjpeg-dev \
-    libplacebo-dev \
+    # libplacebo built from source below for FFmpeg 8 compatibility
     # audio codecs
     libmp3lame-dev libopus-dev libvorbis-dev libsoxr-dev libspeex-dev \
     # video codecs & accel
@@ -66,6 +66,13 @@ RUN git clone --depth=1 https://github.com/Netflix/vmaf.git \
  && ninja -C build && ninja -C build install && ldconfig \
  && mkdir -p /usr/local/share/model && cp -a /tmp/src/vmaf/model/* /usr/local/share/model/
 
+# --- Build libplacebo from source (FFmpeg 8 requires newer API than Ubuntu 24.04 provides) ---
+RUN git clone --depth=1 --recursive https://code.videolan.org/videolan/libplacebo.git \
+ && cd libplacebo \
+ && meson setup build --prefix="${PREFIX}" --buildtype=release \
+    -Dvulkan=enabled -Dshaderc=disabled -Dglslang=enabled -Ddemos=false -Dtests=false \
+ && ninja -C build && ninja -C build install && ldconfig
+
 # --- FFmpeg from source ---
 RUN git clone --depth=1 -b "${FFMPEG_BRANCH}" https://github.com/FFmpeg/FFmpeg.git ffmpeg
 WORKDIR /tmp/src/ffmpeg
@@ -103,7 +110,7 @@ RUN export DEB_HOST_MULTIARCH=$(dpkg-architecture -q DEB_HOST_MULTIARCH) \
   --enable-libsoxr --enable-zlib --enable-bzlib --enable-lzma --enable-libzimg \
   --enable-libtheora --enable-libxvid \
   \
-  --enable-ffmpeg --enable-ffplay --enable-ffprobe
+  --enable-ffmpeg --disable-ffplay --enable-ffprobe
 
 RUN make -j"${MAKE_JOBS}" && make install && ldconfig
 
@@ -122,7 +129,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libass9 libfreetype6 libfribidi0 libfontconfig1 libxml2 \
     libopenjp2-7 libwebp7 libtiff6 libpng16-16 libjpeg-turbo8 \
     libwebpmux3 libwebpdemux2 \
-    libplacebo338 \
+    # libplacebo provided via /usr/local from builder stage
     libmp3lame0 libopus0 libvorbis0a libvorbisenc2 libsoxr0 libspeex1 \
     libx264-164 libx265-199 libnuma1 \
     libvpx9 libaom3 libsvtav1enc1d1 libdav1d7 \
