@@ -135,6 +135,7 @@ def build_ffmpeg_command(
     quality: QualitySettings | None = None,
     target_codec: str | None = None,
     two_pass_ctx: TwoPassContext | None = None,
+    scale_algorithm: str | None = None,
 ) -> list[str]:
     """Build FFmpeg command for transcoding.
 
@@ -144,6 +145,7 @@ def build_ffmpeg_command(
         quality: V6 quality settings (overrides policy settings if provided).
         target_codec: V6 target codec (overrides policy codec if provided).
         two_pass_ctx: Context for two-pass encoding (if active).
+        scale_algorithm: Scaling algorithm (e.g., 'lanczos', 'bicubic').
 
     Returns:
         List of command arguments.
@@ -172,12 +174,10 @@ def build_ffmpeg_command(
 
         # Scaling
         if plan.needs_video_scale and plan.target_width and plan.target_height:
-            cmd.extend(
-                [
-                    "-vf",
-                    f"scale={plan.target_width}:{plan.target_height}",
-                ]
-            )
+            scale_filter = f"scale={plan.target_width}:{plan.target_height}"
+            if scale_algorithm:
+                scale_filter += f":flags={scale_algorithm}"
+            cmd.extend(["-vf", scale_filter])
 
         # HDR preservation (must come after video encoder settings)
         hdr_args = build_hdr_preservation_args(
@@ -217,6 +217,7 @@ def build_ffmpeg_command_pass1(
     cpu_cores: int | None = None,
     quality: QualitySettings | None = None,
     target_codec: str | None = None,
+    scale_algorithm: str | None = None,
 ) -> list[str]:
     """Build FFmpeg command for first pass of two-pass encoding.
 
@@ -229,6 +230,7 @@ def build_ffmpeg_command_pass1(
         cpu_cores: Number of CPU cores to use (None = auto).
         quality: V6 quality settings.
         target_codec: V6 target codec.
+        scale_algorithm: Scaling algorithm (e.g., 'lanczos', 'bicubic').
 
     Returns:
         List of command arguments.
@@ -252,7 +254,10 @@ def build_ffmpeg_command_pass1(
 
     # Scaling (same as pass 2)
     if plan.needs_video_scale and plan.target_width and plan.target_height:
-        cmd.extend(["-vf", f"scale={plan.target_width}:{plan.target_height}"])
+        scale_filter = f"scale={plan.target_width}:{plan.target_height}"
+        if scale_algorithm:
+            scale_filter += f":flags={scale_algorithm}"
+        cmd.extend(["-vf", scale_filter])
 
     # HDR preservation (same as pass 2)
     hdr_args = build_hdr_preservation_args(
