@@ -20,9 +20,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from vpo.db import FileRecord, TrackRecord
     from vpo.plugin import PluginRegistry
-    from vpo.transcription.coordinator import (
-        TranscriptionCoordinator,
-    )
+    from vpo.transcription.coordinator import TranscriptionCoordinator
 
 from vpo.language_analysis.models import LanguageAnalysisResult
 from vpo.language_analysis.service import (
@@ -38,6 +36,29 @@ from vpo.transcription.interface import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _create_verbose_callback() -> ProgressCallback:
+    """Create a progress callback that logs analysis progress."""
+
+    def callback(p: AnalysisProgress) -> None:
+        if p.status == "cached":
+            classification = p.result.classification.value if p.result else "unknown"
+            logger.info("Track %d: %s (cached)", p.track_index, classification)
+        elif p.status == "analyzed" and p.result:
+            logger.info(
+                "Track %d: %s (%s %.0f%%)",
+                p.track_index,
+                p.result.classification.value,
+                p.result.primary_language,
+                p.result.primary_percentage * 100,
+            )
+        elif p.status == "skipped":
+            logger.info("Track %d: skipped - %s", p.track_index, p.error)
+        elif p.status == "error":
+            logger.warning("Track %d: error - %s", p.track_index, p.error)
+
+    return callback
 
 
 @dataclass
@@ -298,28 +319,7 @@ def analyze_file_audio_tracks(
 
     # Create a verbose callback if requested and no callback provided
     if verbose and progress_callback is None:
-
-        def verbose_callback(p: AnalysisProgress) -> None:
-            if p.status == "cached":
-                logger.info(
-                    "Track %d: %s (cached)",
-                    p.track_index,
-                    p.result.classification.value if p.result else "unknown",
-                )
-            elif p.status == "analyzed" and p.result:
-                logger.info(
-                    "Track %d: %s (%s %.0f%%)",
-                    p.track_index,
-                    p.result.classification.value,
-                    p.result.primary_language,
-                    p.result.primary_percentage * 100,
-                )
-            elif p.status == "skipped":
-                logger.info("Track %d: skipped - %s", p.track_index, p.error)
-            elif p.status == "error":
-                logger.warning("Track %d: error - %s", p.track_index, p.error)
-
-        progress_callback = verbose_callback
+        progress_callback = _create_verbose_callback()
 
     result = orchestrator.analyze_tracks_for_file(
         conn=conn,

@@ -144,16 +144,16 @@ def get_files_filtered(
     cursor = conn.execute(query, pagination_params)
     files = [
         {
-            "id": row[0],
-            "path": row[1],
-            "filename": row[2],
-            "scanned_at": row[3],
-            "scan_status": row[4],
-            "scan_error": row[5],
-            "video_title": row[6],
-            "width": row[7],
-            "height": row[8],
-            "audio_languages": row[9],
+            "id": row["id"],
+            "path": row["path"],
+            "filename": row["filename"],
+            "scanned_at": row["scanned_at"],
+            "scan_status": row["scan_status"],
+            "scan_error": row["scan_error"],
+            "video_title": row["video_title"],
+            "width": row["width"],
+            "height": row["height"],
+            "audio_languages": row["audio_languages"],
         }
         for row in cursor.fetchall()
     ]

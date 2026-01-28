@@ -16,8 +16,6 @@ logger = logging.getLogger(__name__)
 class TomlParseError(Exception):
     """Raised when TOML parsing fails in strict mode."""
 
-    pass
-
 
 class BasicTomlParser:
     """Limited TOML parser for basic key=value configs.

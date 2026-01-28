@@ -17,68 +17,22 @@ from vpo.core.datetime_utils import (
     calculate_duration_seconds,
     parse_time_filter,
 )
-from vpo.core.json_utils import parse_json_safe
 from vpo.core.validation import is_valid_uuid
 from vpo.db.views import get_scan_errors_for_job
 from vpo.server.middleware import JOBS_ALLOWED_PARAMS, validate_query_params
 from vpo.server.ui.models import (
-    JobDetailItem,
     JobFilterParams,
     JobListItem,
     JobListResponse,
     JobLogsResponse,
     ScanErrorItem,
     ScanErrorsResponse,
-    generate_summary_text,
+    build_job_detail_item,
 )
 from vpo.server.ui.routes import (
     database_required_middleware,
     shutdown_check_middleware,
 )
-
-
-def _job_to_detail_item(job, has_logs: bool) -> JobDetailItem:
-    """Convert a Job database record to a JobDetailItem.
-
-    Args:
-        job: Job database record.
-        has_logs: Whether log file exists for this job.
-
-    Returns:
-        JobDetailItem for API/template use.
-    """
-
-    # Calculate duration if completed
-    duration_seconds = None
-    if job.completed_at and job.created_at:
-        duration_seconds = calculate_duration_seconds(job.created_at, job.completed_at)
-
-    # Parse summary_json if present
-    summary_result = parse_json_safe(job.summary_json, context="summary_json")
-    summary_raw = summary_result.value
-
-    # Generate human-readable summary from summary_raw
-    summary_text = generate_summary_text(job.job_type.value, summary_raw)
-
-    return JobDetailItem(
-        id=job.id,
-        id_short=job.id[:8],
-        job_type=job.job_type.value,
-        status=job.status.value,
-        priority=job.priority,
-        file_path=job.file_path,
-        policy_name=job.policy_name,
-        created_at=job.created_at,
-        started_at=job.started_at,
-        completed_at=job.completed_at,
-        duration_seconds=duration_seconds,
-        progress_percent=job.progress_percent,
-        error_message=job.error_message,
-        output_path=job.output_path,
-        summary=summary_text,
-        summary_raw=summary_raw,
-        has_logs=has_logs,
-    )
 
 
 @shutdown_check_middleware
@@ -241,7 +195,7 @@ async def api_job_detail_handler(request: web.Request) -> web.Response:
     has_logs = log_file_exists(job_id)
 
     # Convert to detail item
-    detail_item = _job_to_detail_item(job, has_logs)
+    detail_item = build_job_detail_item(job, has_logs)
 
     return web.json_response(detail_item.to_dict())
 

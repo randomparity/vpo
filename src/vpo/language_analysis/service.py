@@ -315,12 +315,12 @@ def _create_segments_from_samples(
     Returns:
         List of LanguageSegment objects for samples with detected speech.
     """
-    segments = []
-    for sample in samples:
-        segment = LanguageSegment.from_detection_result(sample, sample_duration)
-        if segment is not None:
-            segments.append(segment)
-    return segments
+    return [
+        segment
+        for sample in samples
+        if (segment := LanguageSegment.from_detection_result(sample, sample_duration))
+        is not None
+    ]
 
 
 def get_cached_analysis(

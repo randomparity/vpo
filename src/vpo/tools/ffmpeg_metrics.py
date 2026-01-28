@@ -74,34 +74,25 @@ class FFmpegMetricsAggregator:
         Returns:
             Bitrate in kbps as integer, or None if parsing fails.
         """
-        if not bitrate_str:
+        if not bitrate_str or bitrate_str.strip() in ("N/A", ""):
             return None
 
-        # Remove any whitespace
-        bitrate_str = bitrate_str.strip()
-
-        # Handle N/A or empty
-        if bitrate_str in ("N/A", ""):
-            return None
+        bitrate_lower = bitrate_str.lower().strip()
 
         try:
-            # Check for Mbits/s
-            if "Mbits/s" in bitrate_str or "mbits/s" in bitrate_str.lower():
-                value = float(bitrate_str.lower().replace("mbits/s", "").strip())
-                result = round(value * 1000)
-                # Reject negative values - invalid bitrate data
-                return result if result >= 0 else None
+            # Determine multiplier based on unit suffix
+            if "mbits/s" in bitrate_lower:
+                value = float(bitrate_lower.replace("mbits/s", "").strip())
+                multiplier = 1000
+            elif "kbits/s" in bitrate_lower:
+                value = float(bitrate_lower.replace("kbits/s", "").strip())
+                multiplier = 1
+            else:
+                # Plain number - assume kbps
+                value = float(bitrate_str.strip())
+                multiplier = 1
 
-            # Check for kbits/s (most common)
-            if "kbits/s" in bitrate_str.lower():
-                value = float(bitrate_str.lower().replace("kbits/s", "").strip())
-                result = round(value)
-                # Reject negative values - invalid bitrate data
-                return result if result >= 0 else None
-
-            # Try parsing as plain number (assume kbps)
-            result = round(float(bitrate_str))
-            # Reject negative values - invalid bitrate data
+            result = round(value * multiplier)
             return result if result >= 0 else None
         except (ValueError, AttributeError):
             return None

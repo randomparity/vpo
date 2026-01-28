@@ -29,13 +29,9 @@ normalize_path = normalize_path_for_matching
 class RadarrConnectionError(Exception):
     """Raised when connection to Radarr fails."""
 
-    pass
-
 
 class RadarrAuthError(RadarrConnectionError):
     """Raised when Radarr API key is invalid."""
-
-    pass
 
 
 class RadarrClient:

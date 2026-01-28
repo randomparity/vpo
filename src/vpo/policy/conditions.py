@@ -100,21 +100,19 @@ def _compare_value(actual: int, comparison: Comparison) -> bool:
     Returns:
         True if comparison passes, False otherwise.
     """
-    op = comparison.operator
-    value = comparison.value
+    import operator
 
-    if op == ComparisonOperator.EQ:
-        return actual == value
-    elif op == ComparisonOperator.LT:
-        return actual < value
-    elif op == ComparisonOperator.LTE:
-        return actual <= value
-    elif op == ComparisonOperator.GT:
-        return actual > value
-    elif op == ComparisonOperator.GTE:
-        return actual >= value
-
-    return False
+    ops = {
+        ComparisonOperator.EQ: operator.eq,
+        ComparisonOperator.LT: operator.lt,
+        ComparisonOperator.LTE: operator.le,
+        ComparisonOperator.GT: operator.gt,
+        ComparisonOperator.GTE: operator.ge,
+    }
+    op_func = ops.get(comparison.operator)
+    if op_func is None:
+        return False
+    return op_func(actual, comparison.value)
 
 
 def _matches_string_or_list(
@@ -427,6 +425,72 @@ def evaluate_audio_is_multi_language(
     return (False, reason)
 
 
+def _evaluate_track_classification(
+    condition_name: str,
+    expected_value: bool,
+    target_status: OriginalDubbedStatus,
+    min_confidence: float,
+    language_filter: str | None,
+    tracks: list[TrackInfo],
+    classification_results: dict[int, TrackClassificationResult] | None,
+) -> tuple[bool, str]:
+    """Evaluate a track classification condition (is_original or is_dubbed).
+
+    Args:
+        condition_name: Name for logging (e.g., "is_original", "is_dubbed").
+        expected_value: The expected boolean value from the condition.
+        target_status: The OriginalDubbedStatus to check for (ORIGINAL or DUBBED).
+        min_confidence: Minimum confidence threshold.
+        language_filter: Optional language filter.
+        tracks: List of tracks to check.
+        classification_results: Dict mapping track_id to TrackClassificationResult.
+
+    Returns:
+        Tuple of (result, reason).
+    """
+    if classification_results is None:
+        return (
+            False,
+            f"{condition_name} → False (no classification results available)",
+        )
+
+    audio_tracks = [t for t in tracks if t.track_type.casefold() == "audio"]
+
+    for track in audio_tracks:
+        if track.id is None:
+            continue
+
+        classification = classification_results.get(track.id)
+        if classification is None:
+            continue
+
+        if classification.confidence < min_confidence:
+            continue
+
+        if language_filter is not None:
+            if classification.language is None:
+                continue
+            if not languages_match(classification.language, language_filter):
+                continue
+
+        has_target_status = classification.original_dubbed_status == target_status
+        if expected_value == has_target_status:
+            # Report the actual status of the track, not the target status
+            actual_status_str = classification.original_dubbed_status.value
+            reason = (
+                f"{condition_name} → True "
+                f"(track[{track.index}] is {actual_status_str}, "
+                f"confidence={classification.confidence:.0%})"
+            )
+            return (True, reason)
+
+    if expected_value:
+        expected_str = target_status.value
+    else:
+        expected_str = f"not {target_status.value}"
+    return (False, f"{condition_name} → False (no {expected_str} tracks found)")
+
+
 def evaluate_is_original(
     condition: IsOriginalCondition,
     tracks: list[TrackInfo],
@@ -443,51 +507,15 @@ def evaluate_is_original(
         Tuple of (result, reason) where result is True if any track matches
         the original/dubbed status with sufficient confidence.
     """
-    if classification_results is None:
-        return (
-            False,
-            "is_original → False (no classification results available)",
-        )
-
-    # Filter to audio tracks
-    audio_tracks = [t for t in tracks if t.track_type.casefold() == "audio"]
-
-    for track in audio_tracks:
-        if track.id is None:
-            continue
-
-        classification = classification_results.get(track.id)
-        if classification is None:
-            continue
-
-        # Check confidence threshold
-        if classification.confidence < condition.min_confidence:
-            continue
-
-        # Check language filter if specified
-        if condition.language is not None:
-            if classification.language is None:
-                continue
-            if not languages_match(classification.language, condition.language):
-                continue
-
-        # Check original status
-        is_original = (
-            classification.original_dubbed_status == OriginalDubbedStatus.ORIGINAL
-        )
-
-        if condition.value == is_original:
-            status_str = "original" if is_original else "dubbed"
-            reason = (
-                f"is_original → True "
-                f"(track[{track.index}] is {status_str}, "
-                f"confidence={classification.confidence:.0%})"
-            )
-            return (True, reason)
-
-    # No matching track found
-    expected = "original" if condition.value else "not original"
-    return (False, f"is_original → False (no {expected} tracks found)")
+    return _evaluate_track_classification(
+        condition_name="is_original",
+        expected_value=condition.value,
+        target_status=OriginalDubbedStatus.ORIGINAL,
+        min_confidence=condition.min_confidence,
+        language_filter=condition.language,
+        tracks=tracks,
+        classification_results=classification_results,
+    )
 
 
 def evaluate_is_dubbed(
@@ -506,49 +534,15 @@ def evaluate_is_dubbed(
         Tuple of (result, reason) where result is True if any track matches
         the dubbed status with sufficient confidence.
     """
-    if classification_results is None:
-        return (
-            False,
-            "is_dubbed → False (no classification results available)",
-        )
-
-    # Filter to audio tracks
-    audio_tracks = [t for t in tracks if t.track_type.casefold() == "audio"]
-
-    for track in audio_tracks:
-        if track.id is None:
-            continue
-
-        classification = classification_results.get(track.id)
-        if classification is None:
-            continue
-
-        # Check confidence threshold
-        if classification.confidence < condition.min_confidence:
-            continue
-
-        # Check language filter if specified
-        if condition.language is not None:
-            if classification.language is None:
-                continue
-            if not languages_match(classification.language, condition.language):
-                continue
-
-        # Check dubbed status
-        is_dubbed = classification.original_dubbed_status == OriginalDubbedStatus.DUBBED
-
-        if condition.value == is_dubbed:
-            status_str = "dubbed" if is_dubbed else "original"
-            reason = (
-                f"is_dubbed → True "
-                f"(track[{track.index}] is {status_str}, "
-                f"confidence={classification.confidence:.0%})"
-            )
-            return (True, reason)
-
-    # No matching track found
-    expected = "dubbed" if condition.value else "not dubbed"
-    return (False, f"is_dubbed → False (no {expected} tracks found)")
+    return _evaluate_track_classification(
+        condition_name="is_dubbed",
+        expected_value=condition.value,
+        target_status=OriginalDubbedStatus.DUBBED,
+        min_confidence=condition.min_confidence,
+        language_filter=condition.language,
+        tracks=tracks,
+        classification_results=classification_results,
+    )
 
 
 def evaluate_plugin_metadata(
@@ -655,40 +649,34 @@ def _evaluate_plugin_metadata_op(
     Returns:
         True if the comparison succeeds, False otherwise.
     """
+    # Handle equality operators with case-insensitive string comparison
     if op == PluginMetadataOperator.EQ:
-        # String comparison is case-insensitive
         if isinstance(actual, str) and isinstance(expected, str):
             return actual.casefold() == expected.casefold()
         return actual == expected
 
     if op == PluginMetadataOperator.NEQ:
-        # String comparison is case-insensitive
         if isinstance(actual, str) and isinstance(expected, str):
             return actual.casefold() != expected.casefold()
         return actual != expected
 
     if op == PluginMetadataOperator.CONTAINS:
-        # Substring match (strings only)
-        if isinstance(actual, str) and isinstance(expected, str):
-            return expected.casefold() in actual.casefold()
-        # Non-string types: convert to string and match
         return str(expected).casefold() in str(actual).casefold()
 
-    # Numeric comparisons (integers/floats only)
+    # Numeric comparisons require numeric types
     if not isinstance(actual, (int, float)) or not isinstance(expected, (int, float)):
-        # Comparison operators only work on numeric types
         return False
 
-    if op == PluginMetadataOperator.LT:
-        return actual < expected
-    if op == PluginMetadataOperator.LTE:
-        return actual <= expected
-    if op == PluginMetadataOperator.GT:
-        return actual > expected
-    if op == PluginMetadataOperator.GTE:
-        return actual >= expected
+    import operator
 
-    return False
+    numeric_ops = {
+        PluginMetadataOperator.LT: operator.lt,
+        PluginMetadataOperator.LTE: operator.le,
+        PluginMetadataOperator.GT: operator.gt,
+        PluginMetadataOperator.GTE: operator.ge,
+    }
+    op_func = numeric_ops.get(op)
+    return op_func(actual, expected) if op_func else False
 
 
 def evaluate_condition(

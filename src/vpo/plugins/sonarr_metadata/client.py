@@ -30,13 +30,9 @@ normalize_path = normalize_path_for_matching
 class SonarrConnectionError(Exception):
     """Raised when connection to Sonarr fails."""
 
-    pass
-
 
 class SonarrAuthError(SonarrConnectionError):
     """Raised when Sonarr API key is invalid."""
-
-    pass
 
 
 class SonarrClient:

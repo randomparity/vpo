@@ -52,8 +52,6 @@ MAX_HEARTBEAT_FAILURES = 3  # Abort job after this many consecutive heartbeat fa
 class WorkerShutdownRequested(Exception):
     """Exception raised when worker shutdown is requested."""
 
-    pass
-
 
 class JobWorker:
     """Worker for processing jobs from the queue."""

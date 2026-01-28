@@ -51,6 +51,37 @@ logger = logging.getLogger(__name__)
 # Default confidence threshold for language detection
 DEFAULT_CONFIDENCE_THRESHOLD = 0.8
 
+# Threshold for warning about slow plugin handlers (seconds)
+SLOW_PLUGIN_THRESHOLD = 1.0
+
+
+def _record_plugin_metrics(
+    plugin_name: str,
+    event_name: str,
+    duration: float,
+) -> None:
+    """Record metrics and log warnings for plugin invocations.
+
+    Args:
+        plugin_name: Name of the plugin.
+        event_name: Name of the event being handled.
+        duration: Duration of the handler call in seconds.
+    """
+    increment_counter("plugin.invocations", plugin_name=plugin_name)
+    get_metrics_store().record_duration(
+        "plugin.duration",
+        duration,
+        plugin_name=plugin_name,
+        event=event_name,
+    )
+    if duration > SLOW_PLUGIN_THRESHOLD:
+        logger.warning(
+            "Slow plugin: %s took %.2fs for %s",
+            plugin_name,
+            duration,
+            event_name,
+        )
+
 
 class NoTranscriptionPluginError(Exception):
     """Raised when no transcription plugin is available."""
@@ -198,22 +229,9 @@ class PluginTranscriberAdapter:
                 result = handler(event)
                 duration = time.monotonic() - start_time
 
-                # Record metrics
-                increment_counter("plugin.invocations", plugin_name=loaded_plugin.name)
-                get_metrics_store().record_duration(
-                    "plugin.duration",
-                    duration,
-                    plugin_name=loaded_plugin.name,
-                    event="transcription.requested",
+                _record_plugin_metrics(
+                    loaded_plugin.name, "transcription.requested", duration
                 )
-
-                # Warn on slow plugins
-                if duration > 1.0:
-                    logger.warning(
-                        "Slow plugin: %s took %.2fs for transcription.requested",
-                        loaded_plugin.name,
-                        duration,
-                    )
 
                 if result is not None:
                     self._last_plugin_name = loaded_plugin.name
@@ -590,29 +608,12 @@ class TranscriptionCoordinator:
                     loaded_plugin.instance, "on_transcription_completed", None
                 )
                 if handler:
-                    # Time the handler call
                     start_time = time.monotonic()
                     handler(event)
                     duration = time.monotonic() - start_time
-
-                    # Record metrics
-                    increment_counter(
-                        "plugin.invocations", plugin_name=loaded_plugin.name
+                    _record_plugin_metrics(
+                        loaded_plugin.name, "transcription.completed", duration
                     )
-                    get_metrics_store().record_duration(
-                        "plugin.duration",
-                        duration,
-                        plugin_name=loaded_plugin.name,
-                        event="transcription.completed",
-                    )
-
-                    # Warn on slow plugins
-                    if duration > 1.0:
-                        logger.warning(
-                            "Slow plugin: %s took %.2fs for transcription.completed",
-                            loaded_plugin.name,
-                            duration,
-                        )
             except Exception as e:
                 logger.warning(
                     "Plugin %s failed to handle completion event: %s",

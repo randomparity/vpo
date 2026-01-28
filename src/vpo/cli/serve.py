@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 import click
 
+from vpo.cli.exit_codes import ExitCode
 from vpo.config import get_config
 from vpo.db.connection import (
     check_database_connectivity,
@@ -278,7 +279,7 @@ def serve_command(
     if not check_database_connectivity(db_path):
         logger.error("Database not accessible: %s", db_path)
         logger.error("Run 'vpo scan' first to initialize the database")
-        sys.exit(1)
+        sys.exit(ExitCode.DATABASE_ERROR)
 
     # Clean up orphaned temp files from previous runs
     from vpo.server.cleanup import cleanup_orphaned_temp_files
@@ -292,7 +293,7 @@ def serve_command(
     # Validate port range
     if not 1 <= server_port <= 65535:
         logger.error("Port must be 1-65535, got %d", server_port)
-        sys.exit(1)
+        sys.exit(ExitCode.INVALID_ARGUMENTS)
 
     # Warn about privileged ports
     if server_port < 1024:
@@ -323,4 +324,4 @@ def serve_command(
     except KeyboardInterrupt:
         # User pressed Ctrl+C before server started
         logger.info("Interrupted before server started")
-        sys.exit(130)
+        sys.exit(ExitCode.INTERRUPTED)

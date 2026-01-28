@@ -41,10 +41,7 @@ def set_worker_context(
     """
     _worker_id.set(worker_id)
     _file_id.set(file_id)
-    if file_path is not None:
-        _file_path.set(str(file_path))
-    else:
-        _file_path.set(None)
+    _file_path.set(str(file_path) if file_path is not None else None)
 
 
 def clear_worker_context() -> None:

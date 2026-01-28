@@ -383,6 +383,7 @@ class PluginTestCase:
     """Base class for plugin test cases.
 
     Provides helper methods for creating test events and fixtures.
+    All methods delegate to the standalone factory functions with the same names.
 
     Example:
         class TestMyPlugin(PluginTestCase):
@@ -394,76 +395,17 @@ class PluginTestCase:
 
     """
 
-    def create_file_scanned_event(
-        self,
-        file_path: str | Path = "/test/video.mkv",
-        file_info: FileInfo | None = None,
-        tracks: list[TrackInfo] | None = None,
-    ) -> FileScannedEvent:
-        """Create a FileScannedEvent for testing."""
-        return create_file_scanned_event(
-            file_path=file_path,
-            file_info=file_info,
-            tracks=tracks,
-        )
-
-    def create_policy_evaluate_event(
-        self,
-        file_path: str | Path = "/test/video.mkv",
-        file_info: FileInfo | None = None,
-        policy: Any | None = None,
-        plan: Plan | None = None,
-    ) -> PolicyEvaluateEvent:
-        """Create a PolicyEvaluateEvent for testing."""
-        return create_policy_evaluate_event(
-            file_path=file_path,
-            file_info=file_info,
-            policy=policy,
-            plan=plan,
-        )
-
-    def create_plan_execute_event(
-        self,
-        plan: Plan | None = None,
-        result: ExecutorResult | None = None,
-        error: Exception | None = None,
-    ) -> PlanExecuteEvent:
-        """Create a PlanExecuteEvent for testing."""
-        return create_plan_execute_event(
-            plan=plan,
-            result=result,
-            error=error,
-        )
-
-    def create_transcription_requested_event(
-        self,
-        file_path: str | Path = "/test/video.mkv",
-        track: TrackInfo | None = None,
-        audio_data: bytes = b"\x00" * 1000,
-        sample_rate: int = 16000,
-        options: dict[str, Any] | None = None,
-    ) -> TranscriptionRequestedEvent:
-        """Create a TranscriptionRequestedEvent for testing."""
-        return create_transcription_requested_event(
-            file_path=file_path,
-            track=track,
-            audio_data=audio_data,
-            sample_rate=sample_rate,
-            options=options,
-        )
-
-    def create_transcription_completed_event(
-        self,
-        file_path: str | Path = "/test/video.mkv",
-        track_id: int = 1,
-        result: Any | None = None,
-    ) -> TranscriptionCompletedEvent:
-        """Create a TranscriptionCompletedEvent for testing."""
-        return create_transcription_completed_event(
-            file_path=file_path,
-            track_id=track_id,
-            result=result,
-        )
+    # Delegate to standalone functions - these methods provide the same
+    # interface as the module-level functions for convenience when subclassing
+    create_file_scanned_event = staticmethod(create_file_scanned_event)
+    create_policy_evaluate_event = staticmethod(create_policy_evaluate_event)
+    create_plan_execute_event = staticmethod(create_plan_execute_event)
+    create_transcription_requested_event = staticmethod(
+        create_transcription_requested_event
+    )
+    create_transcription_completed_event = staticmethod(
+        create_transcription_completed_event
+    )
 
 
 # ==============================================================================

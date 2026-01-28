@@ -32,6 +32,17 @@ def sanitize_string(value: str | None) -> str | None:
     return value.encode("utf-8", errors="replace").decode("utf-8")
 
 
+def _log_validation_warning(
+    message: str,
+    field_name: str,
+    file_path: str | None,
+    *args: object,
+) -> None:
+    """Log a validation warning with optional file context."""
+    context = f" in {file_path}" if file_path else ""
+    logger.warning(f"{message}{context}", field_name, *args)
+
+
 def validate_positive_int(
     value: int | None,
     field_name: str,
@@ -50,22 +61,12 @@ def validate_positive_int(
     if value is None:
         return None
     if not isinstance(value, int):
-        context = f" in {file_path}" if file_path else ""
-        logger.warning(
-            "Expected int for %s, got %s%s",
-            field_name,
-            type(value).__name__,
-            context,
+        _log_validation_warning(
+            "Expected int for %s, got %s", field_name, file_path, type(value).__name__
         )
         return None
     if value < 0:
-        context = f" in {file_path}" if file_path else ""
-        logger.warning(
-            "Invalid negative %s: %d%s",
-            field_name,
-            value,
-            context,
-        )
+        _log_validation_warning("Invalid negative %s: %d", field_name, file_path, value)
         return None
     return value
 
@@ -88,22 +89,12 @@ def validate_positive_float(
     if value is None:
         return None
     if not isinstance(value, (int, float)):
-        context = f" in {file_path}" if file_path else ""
-        logger.warning(
-            "Expected float for %s, got %s%s",
-            field_name,
-            type(value).__name__,
-            context,
+        _log_validation_warning(
+            "Expected float for %s, got %s", field_name, file_path, type(value).__name__
         )
         return None
     if value < 0:
-        context = f" in {file_path}" if file_path else ""
-        logger.warning(
-            "Invalid negative %s: %s%s",
-            field_name,
-            value,
-            context,
-        )
+        _log_validation_warning("Invalid negative %s: %s", field_name, file_path, value)
         return None
     return float(value)
 
@@ -197,18 +188,14 @@ def parse_stream(
         if frame_rate and frame_rate != "0/0":
             track.frame_rate = frame_rate
         # Extract HDR color metadata
-        color_transfer = stream.get("color_transfer")
-        if color_transfer:
-            track.color_transfer = color_transfer
-        color_primaries = stream.get("color_primaries")
-        if color_primaries:
-            track.color_primaries = color_primaries
-        color_space = stream.get("color_space")
-        if color_space:
-            track.color_space = color_space
-        color_range = stream.get("color_range")
-        if color_range:
-            track.color_range = color_range
+        for field in (
+            "color_transfer",
+            "color_primaries",
+            "color_space",
+            "color_range",
+        ):
+            if value := stream.get(field):
+                setattr(track, field, value)
 
     return track
 

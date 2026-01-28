@@ -88,6 +88,13 @@ from vpo.policy.types import (
     WarnAction,
 )
 
+# Module-level constant for on_error mode conversion (used in multiple places)
+_ON_ERROR_MAP = {
+    "skip": OnErrorMode.SKIP,
+    "continue": OnErrorMode.CONTINUE,
+    "fail": OnErrorMode.FAIL,
+}
+
 # =============================================================================
 # V4 Conversion Functions for Conditional Rules
 # =============================================================================
@@ -95,13 +102,14 @@ from vpo.policy.types import (
 
 def _convert_comparison(model: ComparisonModel) -> Comparison:
     """Convert ComparisonModel to Comparison dataclass."""
-    for op_name, op_enum in [
-        ("eq", ComparisonOperator.EQ),
-        ("lt", ComparisonOperator.LT),
-        ("lte", ComparisonOperator.LTE),
-        ("gt", ComparisonOperator.GT),
-        ("gte", ComparisonOperator.GTE),
-    ]:
+    op_map = {
+        "eq": ComparisonOperator.EQ,
+        "lt": ComparisonOperator.LT,
+        "lte": ComparisonOperator.LTE,
+        "gt": ComparisonOperator.GT,
+        "gte": ComparisonOperator.GTE,
+    }
+    for op_name, op_enum in op_map.items():
         val = getattr(model, op_name)
         if val is not None:
             return Comparison(operator=op_enum, value=val)
@@ -218,14 +226,14 @@ def _convert_count_condition(model: CountConditionModel) -> CountCondition:
         not_commentary=model.not_commentary,
     )
 
-    # Get count comparison operator
-    for op_name, op_enum in [
-        ("eq", ComparisonOperator.EQ),
-        ("lt", ComparisonOperator.LT),
-        ("lte", ComparisonOperator.LTE),
-        ("gt", ComparisonOperator.GT),
-        ("gte", ComparisonOperator.GTE),
-    ]:
+    op_map = {
+        "eq": ComparisonOperator.EQ,
+        "lt": ComparisonOperator.LT,
+        "lte": ComparisonOperator.LTE,
+        "gt": ComparisonOperator.GT,
+        "gte": ComparisonOperator.GTE,
+    }
+    for op_name, op_enum in op_map.items():
         val = getattr(model, op_name)
         if val is not None:
             return CountCondition(
@@ -857,14 +865,9 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
         )
 
     # Convert on_error override
-    on_error_map = {
-        "skip": OnErrorMode.SKIP,
-        "continue": OnErrorMode.CONTINUE,
-        "fail": OnErrorMode.FAIL,
-    }
     on_error: OnErrorMode | None = None
     if phase.on_error is not None:
-        on_error = on_error_map[phase.on_error]
+        on_error = _ON_ERROR_MAP[phase.on_error]
 
     return PhaseDefinition(
         name=phase.name,
@@ -892,16 +895,11 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
 def _convert_to_policy_schema(model: PolicyModel) -> PolicySchema:
     """Convert PolicyModel to PolicySchema dataclass."""
     # Convert global config
-    on_error_map = {
-        "skip": OnErrorMode.SKIP,
-        "continue": OnErrorMode.CONTINUE,
-        "fail": OnErrorMode.FAIL,
-    }
     global_config = GlobalConfig(
         audio_language_preference=tuple(model.config.audio_language_preference),
         subtitle_language_preference=tuple(model.config.subtitle_language_preference),
         commentary_patterns=tuple(model.config.commentary_patterns),
-        on_error=on_error_map[model.config.on_error],
+        on_error=_ON_ERROR_MAP[model.config.on_error],
     )
 
     # Convert phases

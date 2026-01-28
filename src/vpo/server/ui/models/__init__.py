@@ -46,6 +46,7 @@ from vpo.server.ui.models.file_detail import (
     FileDetailItem,
     FileDetailResponse,
     TrackDetailItem,
+    build_file_detail_item,
 )
 
 # Job models
@@ -59,6 +60,7 @@ from vpo.server.ui.models.jobs import (
     JobLogsResponse,
     ScanErrorItem,
     ScanErrorsResponse,
+    build_job_detail_item,
 )
 
 # Library models
@@ -117,6 +119,7 @@ from vpo.server.ui.models.transcriptions import (
     TranscriptionFilterParams,
     TranscriptionListItem,
     TranscriptionListResponse,
+    build_transcription_detail_item,
     format_detected_languages,
     get_classification_reasoning,
     get_confidence_level,
@@ -151,6 +154,7 @@ __all__ = [
     "ScanErrorItem",
     "ScanErrorsResponse",
     "JobDetailContext",
+    "build_job_detail_item",
     # Library models
     "VALID_RESOLUTIONS",
     "LibraryFilterParams",
@@ -164,6 +168,7 @@ __all__ = [
     "FileDetailItem",
     "FileDetailResponse",
     "FileDetailContext",
+    "build_file_detail_item",
     # Transcription models
     "TRANSCRIPT_DISPLAY_LIMIT",
     "TRANSCRIPT_HIGHLIGHT_LIMIT",
@@ -171,6 +176,7 @@ __all__ = [
     "format_detected_languages",
     "get_classification_reasoning",
     "highlight_keywords_in_transcript",
+    "build_transcription_detail_item",
     "TranscriptionFilterParams",
     "TranscriptionListItem",
     "TranscriptionListResponse",

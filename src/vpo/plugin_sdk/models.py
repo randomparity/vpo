@@ -59,43 +59,36 @@ class MetadataEnrichment:
         Returns:
             Dictionary suitable for merging into FileInfo.
         """
+        # Required fields always included
         result: dict[str, Any] = {
             "original_language": self.original_language,
             "external_source": self.external_source,
             "external_id": self.external_id,
             "external_title": self.external_title,
         }
-        # Add optional fields only if present
-        if self.external_year is not None:
-            result["external_year"] = self.external_year
-        if self.imdb_id is not None:
-            result["imdb_id"] = self.imdb_id
-        if self.tmdb_id is not None:
-            result["tmdb_id"] = self.tmdb_id
-        # TV-specific fields
-        if self.series_title is not None:
-            result["series_title"] = self.series_title
-        if self.season_number is not None:
-            result["season_number"] = self.season_number
-        if self.episode_number is not None:
-            result["episode_number"] = self.episode_number
-        if self.episode_title is not None:
-            result["episode_title"] = self.episode_title
-        if self.tvdb_id is not None:
-            result["tvdb_id"] = self.tvdb_id
-        # Release date fields
-        if self.release_date is not None:
-            result["release_date"] = self.release_date
-        if self.cinema_release is not None:
-            result["cinema_release"] = self.cinema_release
-        if self.digital_release is not None:
-            result["digital_release"] = self.digital_release
-        if self.physical_release is not None:
-            result["physical_release"] = self.physical_release
-        if self.air_date is not None:
-            result["air_date"] = self.air_date
-        if self.premiere_date is not None:
-            result["premiere_date"] = self.premiere_date
+
+        # Optional fields only included when present
+        optional_fields = [
+            "external_year",
+            "imdb_id",
+            "tmdb_id",
+            "series_title",
+            "season_number",
+            "episode_number",
+            "episode_title",
+            "tvdb_id",
+            "release_date",
+            "cinema_release",
+            "digital_release",
+            "physical_release",
+            "air_date",
+            "premiere_date",
+        ]
+        for field in optional_fields:
+            value = getattr(self, field)
+            if value is not None:
+                result[field] = value
+
         return result
 
 

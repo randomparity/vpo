@@ -131,6 +131,22 @@ def parse_template(
     )
 
 
+_SANITIZE_TRANS = str.maketrans(
+    {
+        "/": "-",
+        "\\": "-",
+        ":": "-",
+        "*": None,
+        "?": None,
+        '"': None,
+        "<": None,
+        ">": None,
+        "|": None,
+        "\0": None,
+    }
+)
+
+
 def sanitize_path_component(value: str) -> str:
     """Sanitize a string for use as a path component.
 
@@ -142,33 +158,16 @@ def sanitize_path_component(value: str) -> str:
     Returns:
         Sanitized string safe for filesystem use.
     """
-    # Replace common problematic characters
-    replacements = {
-        "/": "-",
-        "\\": "-",
-        ":": "-",
-        "*": "",
-        "?": "",
-        '"': "",
-        "<": "",
-        ">": "",
-        "|": "",
-        "\0": "",
-    }
-    for old, new in replacements.items():
-        value = value.replace(old, new)
+    # Replace/remove problematic characters
+    value = value.translate(_SANITIZE_TRANS)
 
-    # Collapse multiple dashes/spaces
+    # Collapse multiple dashes/spaces to single space
     value = re.sub(r"[-\s]+", " ", value)
 
     # Remove leading/trailing spaces and dots
     value = value.strip(" .")
 
-    # If empty after sanitization, use a placeholder
-    if not value:
-        value = "Unknown"
-
-    return value
+    return value if value else "Unknown"
 
 
 def render_destination(

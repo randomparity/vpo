@@ -12,7 +12,7 @@ from dataclasses import asdict
 
 import click
 
-from vpo.core import parse_relative_or_iso_time
+from vpo.core import format_file_size, parse_relative_or_iso_time
 from vpo.db.views import (
     get_policy_stats,
     get_policy_stats_by_name,
@@ -23,29 +23,6 @@ from vpo.db.views import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _format_bytes(size_bytes: int) -> str:
-    """Format bytes as human-readable string.
-
-    Args:
-        size_bytes: Size in bytes.
-
-    Returns:
-        Formatted string (e.g., "1.5 GB", "256 MB").
-    """
-    if size_bytes == 0:
-        return "0 B"
-
-    abs_bytes = abs(size_bytes)
-    sign = "-" if size_bytes < 0 else ""
-
-    for unit in ["B", "KB", "MB", "GB", "TB"]:
-        if abs_bytes < 1024:
-            return f"{sign}{abs_bytes:.1f} {unit}"
-        abs_bytes /= 1024
-
-    return f"{sign}{abs_bytes:.1f} PB"
 
 
 def _format_duration(seconds: float) -> str:
@@ -226,13 +203,15 @@ def _output_summary_table(summary, since, until, policy_name) -> None:
     click.echo("")
     click.echo("Disk Space")
     click.echo("-" * 30)
-    click.echo(f"  Size Before:        {_format_bytes(summary.total_size_before)}")
-    click.echo(f"  Size After:         {_format_bytes(summary.total_size_after)}")
+    click.echo(f"  Size Before:        {format_file_size(summary.total_size_before)}")
+    click.echo(f"  Size After:         {format_file_size(summary.total_size_after)}")
     if summary.total_size_saved >= 0:
-        click.echo(f"  Space Saved:        {_format_bytes(summary.total_size_saved)}")
+        click.echo(
+            f"  Space Saved:        {format_file_size(summary.total_size_saved)}"
+        )
     else:
         click.echo(
-            f"  Space Added:        {_format_bytes(abs(summary.total_size_saved))}"
+            f"  Space Added:        {format_file_size(abs(summary.total_size_saved))}"
         )
     click.echo(f"  Avg Savings:        {_format_percent(summary.avg_savings_percent)}")
 
@@ -400,7 +379,7 @@ def stats_recent(
     for entry in entries:
         date = entry.processed_at[:19] if entry.processed_at else ""
         policy = entry.policy_name[:24] if entry.policy_name else ""
-        saved = _format_bytes(entry.size_change)
+        saved = format_file_size(entry.size_change)
         audio = str(entry.audio_removed)
         subs = str(entry.subtitle_removed)
         duration = _format_duration(entry.duration_seconds)
@@ -535,7 +514,7 @@ def stats_policies(
         name = policy.policy_name[:29] if policy.policy_name else ""
         files = str(policy.files_processed)
         success = _format_percent(policy.success_rate * 100)
-        saved = _format_bytes(policy.total_size_saved)
+        saved = format_file_size(policy.total_size_saved)
         audio = str(policy.audio_tracks_removed)
         subs = str(policy.subtitle_tracks_removed)
         avg_time = _format_duration(policy.avg_processing_time)
@@ -677,7 +656,7 @@ def stats_policy(
     click.echo("")
     click.echo("Disk Space")
     click.echo("-" * 30)
-    click.echo(f"  Total Saved:        {_format_bytes(policy.total_size_saved)}")
+    click.echo(f"  Total Saved:        {format_file_size(policy.total_size_saved)}")
     click.echo(f"  Avg Savings:        {_format_percent(policy.avg_savings_percent)}")
 
     click.echo("")
@@ -792,7 +771,7 @@ def stats_file(
     for entry in entries:
         date = entry.processed_at[:19] if entry.processed_at else ""
         policy = entry.policy_name[:24] if entry.policy_name else ""
-        saved = _format_bytes(entry.size_change)
+        saved = format_file_size(entry.size_change)
         audio = str(entry.audio_removed)
         subs = str(entry.subtitle_removed)
         duration = _format_duration(entry.duration_seconds)
@@ -878,12 +857,12 @@ def _output_detail_table(detail) -> None:
     click.echo("")
     click.echo("Size Changes")
     click.echo("-" * 40)
-    click.echo(f"  Before:         {_format_bytes(detail.size_before)}")
-    click.echo(f"  After:          {_format_bytes(detail.size_after)}")
+    click.echo(f"  Before:         {format_file_size(detail.size_before)}")
+    click.echo(f"  After:          {format_file_size(detail.size_after)}")
     if detail.size_change >= 0:
-        click.echo(f"  Saved:          {_format_bytes(detail.size_change)}")
+        click.echo(f"  Saved:          {format_file_size(detail.size_change)}")
     else:
-        click.echo(f"  Added:          {_format_bytes(abs(detail.size_change))}")
+        click.echo(f"  Added:          {format_file_size(abs(detail.size_change))}")
     if detail.size_before > 0:
         pct = (detail.size_change / detail.size_before) * 100
         click.echo(f"  Savings:        {_format_percent(pct)}")

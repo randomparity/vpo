@@ -36,16 +36,16 @@ def get_analysis_status_summary(
     """)
     row = cursor.fetchone()
 
-    total_tracks = row[1] or 0
-    analyzed = row[2] or 0
+    total_tracks = row["total_tracks"] or 0
+    analyzed = row["analyzed_tracks"] or 0
 
     return AnalysisStatusSummary(
-        total_files=row[0] or 0,
+        total_files=row["total_files"] or 0,
         total_tracks=total_tracks,
         analyzed_tracks=analyzed,
         pending_tracks=total_tracks - analyzed,
-        multi_language_count=row[3] or 0,
-        single_language_count=row[4] or 0,
+        multi_language_count=row["multi_language"] or 0,
+        single_language_count=row["single_language"] or 0,
     )
 
 
@@ -129,10 +129,10 @@ def get_files_analysis_status(
     cursor = conn.execute(query, (limit,))
     return [
         FileAnalysisStatus(
-            file_id=row[0],
-            file_path=row[1],
-            track_count=row[2],
-            analyzed_count=row[3],
+            file_id=row["id"],
+            file_path=row["path"],
+            track_count=row["track_count"],
+            analyzed_count=row["analyzed_count"],
         )
         for row in cursor.fetchall()
     ]
@@ -182,21 +182,22 @@ def get_file_analysis_detail(
     for row in cursor.fetchall():
         # Extract secondary_languages from analysis_metadata JSON if present
         secondary_langs = None
-        if row[6]:  # analysis_metadata
-            result = parse_json_safe(row[6], context="analysis_metadata")
+        analysis_metadata = row["analysis_metadata"]
+        if analysis_metadata:
+            result = parse_json_safe(analysis_metadata, context="analysis_metadata")
             if result.success and result.value:
                 secondary_langs = result.value.get("secondary_languages")
 
         results.append(
             TrackAnalysisDetail(
-                track_id=row[0],
-                track_index=row[1],
-                language=row[2],
-                classification=row[3],
-                primary_language=row[4],
-                primary_percentage=row[5] or 0.0,
+                track_id=row["id"],
+                track_index=row["track_index"],
+                language=row["language"],
+                classification=row["classification"],
+                primary_language=row["primary_language"],
+                primary_percentage=row["primary_percentage"] or 0.0,
                 secondary_languages=secondary_langs,
-                analyzed_at=row[7] or "",
+                analyzed_at=row["updated_at"] or "",
             )
         )
 

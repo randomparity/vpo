@@ -33,8 +33,6 @@ from vpo.tools.models import ToolRegistry
 class FFmpegError(Exception):
     """Base class for FFmpeg-related errors."""
 
-    pass
-
 
 @dataclass
 class FFmpegAdapter:

@@ -4,14 +4,17 @@ This module provides the 'vpo doctor' command to check external tool
 availability, versions, and capabilities.
 """
 
+from __future__ import annotations
+
 import shutil
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
 
-from vpo.cli.exit_codes import DOCTOR_EXIT_CODES
-from vpo.config import VPOConfig, get_config
+from vpo.cli.exit_codes import ExitCode
+from vpo.config import get_config
 from vpo.core.formatting import format_file_size
 from vpo.tools import (
     RequirementLevel,
@@ -21,10 +24,8 @@ from vpo.tools import (
 )
 from vpo.tools.cache import DEFAULT_CACHE_FILE
 
-# Backward compatibility aliases - prefer using DOCTOR_EXIT_CODES
-EXIT_OK = DOCTOR_EXIT_CODES["EXIT_OK"]
-EXIT_WARNINGS = DOCTOR_EXIT_CODES["EXIT_WARNINGS"]
-EXIT_CRITICAL = DOCTOR_EXIT_CODES["EXIT_CRITICAL"]
+if TYPE_CHECKING:
+    from vpo.config import VPOConfig
 
 
 def _format_status(available: bool) -> str:
@@ -240,15 +241,15 @@ def doctor_command(verbose: bool, refresh: bool, json_output: bool) -> None:
     if has_critical:
         click.echo()
         click.echo("⚠ Critical tools are missing. Some VPO features will not work.")
-        sys.exit(EXIT_CRITICAL)
+        sys.exit(ExitCode.CRITICAL)
     elif has_warnings:
         click.echo()
         click.echo("Note: Some optional tools are missing or outdated.")
-        sys.exit(EXIT_WARNINGS)
+        sys.exit(ExitCode.WARNINGS)
     else:
         click.echo()
         click.echo("✓ All tools available and ready.")
-        sys.exit(EXIT_OK)
+        sys.exit(ExitCode.SUCCESS)
 
 
 def _output_json(registry) -> None:

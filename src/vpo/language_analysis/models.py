@@ -420,28 +420,27 @@ class LanguageAnalysisResult:
         if not segments:
             return ()
 
-        # Count duration per language
+        # Count duration per language using segment's duration property
         language_durations: dict[str, float] = {}
         for seg in segments:
-            duration = seg.end_time - seg.start_time
             language_durations[seg.language_code] = (
-                language_durations.get(seg.language_code, 0.0) + duration
+                language_durations.get(seg.language_code, 0.0) + seg.duration
             )
 
         total_duration = sum(language_durations.values())
         if total_duration <= 0:
             return ()
 
-        # Build secondary languages (excluding primary)
-        secondary = []
-        for lang, duration in language_durations.items():
-            if lang != primary_language:
-                percentage = duration / total_duration
-                if percentage > 0:
-                    secondary.append(LanguagePercentage(lang, percentage))
-
-        # Sort by percentage descending
-        secondary.sort(key=lambda lp: lp.percentage, reverse=True)
+        # Build secondary languages sorted by percentage descending
+        secondary = sorted(
+            (
+                LanguagePercentage(lang, duration / total_duration)
+                for lang, duration in language_durations.items()
+                if lang != primary_language and duration > 0
+            ),
+            key=lambda lp: lp.percentage,
+            reverse=True,
+        )
         return tuple(secondary)
 
     def to_records(

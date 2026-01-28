@@ -448,66 +448,40 @@ def _detect_ffmpeg_capabilities(
     return caps
 
 
-def _parse_codec_list(output: str) -> set[str]:
-    """Parse ffmpeg -encoders or -decoders output.
-
-    Format: " VFXSBD codec_name    Description..."
-    Where V=video, A=audio, S=subtitle, F=frame, X=experimental, etc.
+def _parse_ffmpeg_list(output: str, pattern: str) -> set[str]:
+    """Parse ffmpeg list output (encoders, decoders, muxers, demuxers, filters).
 
     Args:
         output: Command output.
+        pattern: Regex pattern with a single capture group for the name.
 
     Returns:
-        Set of codec names (lowercase).
+        Set of names (lowercase).
     """
-    codecs = set()
-    for line in output.split("\n"):
-        # Skip header lines (look for lines starting with space + flags)
-        match = re.match(r"\s+[VASFXBDI.]{6}\s+(\S+)", line)
-        if match:
-            codecs.add(match.group(1).casefold())
-    return codecs
+    compiled = re.compile(pattern)
+    return {
+        match.group(1).casefold()
+        for line in output.split("\n")
+        if (match := compiled.match(line))
+    }
+
+
+def _parse_codec_list(output: str) -> set[str]:
+    """Parse ffmpeg -encoders or -decoders output."""
+    # Format: " VFXSBD codec_name    Description..."
+    return _parse_ffmpeg_list(output, r"\s+[VASFXBDI.]{6}\s+(\S+)")
 
 
 def _parse_format_list(output: str) -> set[str]:
-    """Parse ffmpeg -muxers or -demuxers output.
-
-    Format: " DE format_name    Description..."
-    Where D=demuxing, E=muxing.
-
-    Args:
-        output: Command output.
-
-    Returns:
-        Set of format names (lowercase).
-    """
-    formats = set()
-    for line in output.split("\n"):
-        # Skip header lines
-        match = re.match(r"\s+[DE .]{2}\s+(\S+)", line)
-        if match:
-            formats.add(match.group(1).casefold())
-    return formats
+    """Parse ffmpeg -muxers or -demuxers output."""
+    # Format: " DE format_name    Description..."
+    return _parse_ffmpeg_list(output, r"\s+[DE .]{2}\s+(\S+)")
 
 
 def _parse_filter_list(output: str) -> set[str]:
-    """Parse ffmpeg -filters output.
-
-    Format: " TSC filter_name     type->type     Description..."
-
-    Args:
-        output: Command output.
-
-    Returns:
-        Set of filter names (lowercase).
-    """
-    filters = set()
-    for line in output.split("\n"):
-        # Skip header lines
-        match = re.match(r"\s+[TSC.]{3}\s+(\S+)", line)
-        if match:
-            filters.add(match.group(1).casefold())
-    return filters
+    """Parse ffmpeg -filters output."""
+    # Format: " TSC filter_name     type->type     Description..."
+    return _parse_ffmpeg_list(output, r"\s+[TSC.]{3}\s+(\S+)")
 
 
 def detect_ffprobe(configured_path: Path | None = None) -> FFprobeInfo:

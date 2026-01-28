@@ -9,8 +9,6 @@ from vpo.db.types import IntrospectionResult
 class MediaIntrospectionError(Exception):
     """Raised when media introspection fails."""
 
-    pass
-
 
 class MediaIntrospector(Protocol):
     """Protocol for media introspection implementations.

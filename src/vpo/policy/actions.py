@@ -116,26 +116,17 @@ def execute_skip_action(action: SkipAction, context: ActionContext) -> ActionCon
     Returns:
         Updated context with skip flag set.
     """
-    flags = context.skip_flags
+    from dataclasses import replace
 
-    if action.skip_type == SkipType.VIDEO_TRANSCODE:
-        context.skip_flags = SkipFlags(
-            skip_video_transcode=True,
-            skip_audio_transcode=flags.skip_audio_transcode,
-            skip_track_filter=flags.skip_track_filter,
-        )
-    elif action.skip_type == SkipType.AUDIO_TRANSCODE:
-        context.skip_flags = SkipFlags(
-            skip_video_transcode=flags.skip_video_transcode,
-            skip_audio_transcode=True,
-            skip_track_filter=flags.skip_track_filter,
-        )
-    elif action.skip_type == SkipType.TRACK_FILTER:
-        context.skip_flags = SkipFlags(
-            skip_video_transcode=flags.skip_video_transcode,
-            skip_audio_transcode=flags.skip_audio_transcode,
-            skip_track_filter=True,
-        )
+    skip_type_to_flag = {
+        SkipType.VIDEO_TRANSCODE: "skip_video_transcode",
+        SkipType.AUDIO_TRANSCODE: "skip_audio_transcode",
+        SkipType.TRACK_FILTER: "skip_track_filter",
+    }
+
+    flag_name = skip_type_to_flag.get(action.skip_type)
+    if flag_name:
+        context.skip_flags = replace(context.skip_flags, **{flag_name: True})
 
     return context
 
@@ -173,6 +164,54 @@ def execute_fail_action(action: FailAction, context: ActionContext) -> None:
     )
 
 
+def _find_matching_tracks(
+    context: ActionContext,
+    track_type: str,
+    language: str | None,
+    action_name: str,
+) -> list[TrackInfo]:
+    """Find tracks matching the specified type and optional language filter.
+
+    Args:
+        context: Current action context with tracks.
+        track_type: Track type to match (e.g., "audio", "subtitle").
+        language: Optional language filter.
+        action_name: Name of the calling action for log messages.
+
+    Returns:
+        List of matching tracks (may be empty).
+    """
+    if not context.tracks:
+        logger.warning(
+            "%s action skipped: no tracks available in context for %s",
+            action_name,
+            context.file_path,
+        )
+        return []
+
+    matching_tracks = [
+        t for t in context.tracks if t.track_type.casefold() == track_type.casefold()
+    ]
+
+    if language is not None:
+        matching_tracks = [
+            t
+            for t in matching_tracks
+            if t.language and languages_match(t.language, language)
+        ]
+
+    if not matching_tracks:
+        logger.warning(
+            "%s action: no matching %s tracks%s found in %s",
+            action_name,
+            track_type,
+            f" (language={language})" if language else "",
+            context.file_path,
+        )
+
+    return matching_tracks
+
+
 def execute_set_forced_action(
     action: SetForcedAction, context: ActionContext
 ) -> ActionContext:
@@ -185,38 +224,10 @@ def execute_set_forced_action(
     Returns:
         Updated context with track flag changes recorded.
     """
-    if not context.tracks:
-        logger.warning(
-            "set_forced action skipped: no tracks available in context for %s",
-            context.file_path,
-        )
-        return context
+    matching_tracks = _find_matching_tracks(
+        context, action.track_type, action.language, "set_forced"
+    )
 
-    # Find matching tracks
-    matching_tracks = [
-        t
-        for t in context.tracks
-        if t.track_type.casefold() == action.track_type.casefold()
-    ]
-
-    # Apply language filter if specified
-    if action.language is not None:
-        matching_tracks = [
-            t
-            for t in matching_tracks
-            if t.language and languages_match(t.language, action.language)
-        ]
-
-    if not matching_tracks:
-        logger.warning(
-            "set_forced action: no matching %s tracks%s found in %s",
-            action.track_type,
-            f" (language={action.language})" if action.language else "",
-            context.file_path,
-        )
-        return context
-
-    # Add flag changes for matching tracks
     for track in matching_tracks:
         context.track_flag_changes.append(
             TrackFlagChange(
@@ -247,35 +258,11 @@ def execute_set_default_action(
     Returns:
         Updated context with track flag changes recorded.
     """
-    if not context.tracks:
-        logger.warning(
-            "set_default action skipped: no tracks available in context for %s",
-            context.file_path,
-        )
-        return context
-
-    # Find matching tracks
-    matching_tracks = [
-        t
-        for t in context.tracks
-        if t.track_type.casefold() == action.track_type.casefold()
-    ]
-
-    # Apply language filter if specified
-    if action.language is not None:
-        matching_tracks = [
-            t
-            for t in matching_tracks
-            if t.language and languages_match(t.language, action.language)
-        ]
+    matching_tracks = _find_matching_tracks(
+        context, action.track_type, action.language, "set_default"
+    )
 
     if not matching_tracks:
-        logger.warning(
-            "set_default action: no matching %s tracks%s found in %s",
-            action.track_type,
-            f" (language={action.language})" if action.language else "",
-            context.file_path,
-        )
         return context
 
     # Add flag change for first matching track only (there can be only one default)

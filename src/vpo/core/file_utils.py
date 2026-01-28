@@ -19,8 +19,6 @@ class FileTimestampError(OSError):
     file operation that failed and recovery guidance.
     """
 
-    pass
-
 
 # Timestamp validation constants
 MIN_TIMESTAMP = 0.0  # Unix epoch (1970-01-01)

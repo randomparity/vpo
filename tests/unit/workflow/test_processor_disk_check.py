@@ -8,9 +8,21 @@ from vpo.executor.backup import InsufficientDiskSpaceError
 from vpo.policy.types import (
     GlobalConfig,
     PhaseDefinition,
+    PhaseResult,
     PolicySchema,
 )
 from vpo.workflow.processor import WorkflowProcessor
+
+
+def make_mock_phase_result() -> PhaseResult:
+    """Create a minimal PhaseResult for testing."""
+    return PhaseResult(
+        phase_name="test",
+        success=True,
+        duration_seconds=0.1,
+        operations_executed=(),
+        changes_made=0,
+    )
 
 
 def make_minimal_policy() -> PolicySchema:
@@ -92,21 +104,7 @@ class TestWorkflowProcessorDiskCheck:
             patch.object(processor._executor, "execute_phase") as exec_mock,
             caplog.at_level(logging.WARNING),
         ):
-            mock_result = MagicMock()
-            mock_result.success = True
-            mock_result.changes_made = 0
-            mock_result.phase_name = "test"
-            mock_result.duration_seconds = 0.1
-            mock_result.operations_executed = ()
-            mock_result.message = None
-            mock_result.error = None
-            mock_result.planned_actions = None
-            mock_result.transcode_skip_reason = None
-            mock_result.encoding_fps = None
-            mock_result.encoding_bitrate_kbps = None
-            mock_result.encoder_type = None
-            exec_mock.return_value = mock_result
-
+            exec_mock.return_value = make_mock_phase_result()
             result = processor.process_file(test_file)
 
         # Check WAS called in dry-run mode
@@ -143,21 +141,7 @@ class TestWorkflowProcessorDiskCheck:
             patch.object(processor, "_get_file_info", return_value=None),
             patch.object(processor._executor, "execute_phase") as exec_mock,
         ):
-            mock_result = MagicMock()
-            mock_result.success = True
-            mock_result.changes_made = 0
-            mock_result.phase_name = "test"
-            mock_result.duration_seconds = 0.1
-            mock_result.operations_executed = ()
-            mock_result.message = None
-            mock_result.error = None
-            mock_result.planned_actions = None
-            mock_result.transcode_skip_reason = None
-            mock_result.encoding_fps = None
-            mock_result.encoding_bitrate_kbps = None
-            mock_result.encoder_type = None
-            exec_mock.return_value = mock_result
-
+            exec_mock.return_value = make_mock_phase_result()
             processor.process_file(test_file)
 
         # Verify check was called with correct threshold
@@ -190,21 +174,7 @@ class TestWorkflowProcessorDiskCheck:
             patch.object(processor, "_get_file_info", return_value=None),
             patch.object(processor._executor, "execute_phase") as exec_mock,
         ):
-            mock_result = MagicMock()
-            mock_result.success = True
-            mock_result.changes_made = 0
-            mock_result.phase_name = "test"
-            mock_result.duration_seconds = 0.1
-            mock_result.operations_executed = ()
-            mock_result.message = None
-            mock_result.error = None
-            mock_result.planned_actions = None
-            mock_result.transcode_skip_reason = None
-            mock_result.encoding_fps = None
-            mock_result.encoding_bitrate_kbps = None
-            mock_result.encoder_type = None
-            exec_mock.return_value = mock_result
-
+            exec_mock.return_value = make_mock_phase_result()
             processor.process_file(test_file)
 
         # check_min_free_disk_percent should NOT have been called
@@ -241,21 +211,7 @@ class TestWorkflowProcessorDiskCheck:
             patch.object(processor._executor, "execute_phase") as exec_mock,
             caplog.at_level(logging.WARNING),
         ):
-            mock_result = MagicMock()
-            mock_result.success = True
-            mock_result.changes_made = 0
-            mock_result.phase_name = "test"
-            mock_result.duration_seconds = 0.1
-            mock_result.operations_executed = ()
-            mock_result.message = None
-            mock_result.error = None
-            mock_result.planned_actions = None
-            mock_result.transcode_skip_reason = None
-            mock_result.encoding_fps = None
-            mock_result.encoding_bitrate_kbps = None
-            mock_result.encoder_type = None
-            exec_mock.return_value = mock_result
-
+            exec_mock.return_value = make_mock_phase_result()
             result = processor.process_file(test_file)
 
         # Should succeed (not blocked) but log a warning

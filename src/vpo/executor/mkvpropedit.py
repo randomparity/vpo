@@ -229,27 +229,28 @@ class MkvpropeditExecutor:
             raise ValueError(f"Action {action.action_type} requires track_index")
 
         # mkvpropedit uses 1-based track selectors
-        # Format: --edit track:TYPE_INDEX --set PROPERTY=VALUE
-        # We need to determine the track type from context
-        # For now, we use track:NUMBER which is 1-based global index
         track_selector = f"track:{action.track_index + 1}"
 
-        if action.action_type == ActionType.SET_DEFAULT:
-            return ["--edit", track_selector, "--set", "flag-default=1"]
-        elif action.action_type == ActionType.CLEAR_DEFAULT:
-            return ["--edit", track_selector, "--set", "flag-default=0"]
-        elif action.action_type == ActionType.SET_FORCED:
-            return ["--edit", track_selector, "--set", "flag-forced=1"]
-        elif action.action_type == ActionType.CLEAR_FORCED:
-            return ["--edit", track_selector, "--set", "flag-forced=0"]
-        elif action.action_type == ActionType.SET_TITLE:
+        # Map action types to property settings
+        flag_actions = {
+            ActionType.SET_DEFAULT: "flag-default=1",
+            ActionType.CLEAR_DEFAULT: "flag-default=0",
+            ActionType.SET_FORCED: "flag-forced=1",
+            ActionType.CLEAR_FORCED: "flag-forced=0",
+        }
+
+        if action.action_type in flag_actions:
+            return ["--edit", track_selector, "--set", flag_actions[action.action_type]]
+
+        if action.action_type == ActionType.SET_TITLE:
             if action.desired_value is None:
                 raise ValueError(
                     f"SET_TITLE requires a non-None desired_value "
                     f"for track {action.track_index}"
                 )
             return ["--edit", track_selector, "--set", f"name={action.desired_value}"]
-        elif action.action_type == ActionType.SET_LANGUAGE:
+
+        if action.action_type == ActionType.SET_LANGUAGE:
             if action.desired_value is None:
                 raise ValueError(
                     f"SET_LANGUAGE requires a non-None desired_value "
@@ -261,5 +262,5 @@ class MkvpropeditExecutor:
                 "--set",
                 f"language={action.desired_value}",
             ]
-        else:
-            raise ValueError(f"Unsupported action type: {action.action_type}")
+
+        raise ValueError(f"Unsupported action type: {action.action_type}")

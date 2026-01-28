@@ -20,18 +20,17 @@ def get_resolution_label(width: int | None, height: int | None) -> str:
 
     if height >= 2160:
         return "4K"
-    elif height >= 1440:
+    if height >= 1440:
         return "1440p"
-    elif height >= 1080:
+    if height >= 1080:
         return "1080p"
-    elif height >= 720:
+    if height >= 720:
         return "720p"
-    elif height >= 480:
+    if height >= 480:
         return "480p"
-    elif height > 0:
+    if height > 0:
         return f"{height}p"
-    else:
-        return "\u2014"
+    return "\u2014"
 
 
 def format_audio_languages(languages_csv: str | None) -> str:
@@ -60,20 +59,31 @@ def format_audio_languages(languages_csv: str | None) -> str:
 def format_file_size(size_bytes: int) -> str:
     """Format file size in human-readable format.
 
+    Handles negative values (useful for displaying size changes/savings).
+
     Args:
-        size_bytes: File size in bytes.
+        size_bytes: File size in bytes (can be negative for size changes).
 
     Returns:
-        Formatted string (e.g., "4.2 GB", "128 MB", "1.5 KB").
+        Formatted string (e.g., "4.2 GB", "-1.5 GB", "128 MB").
     """
-    if size_bytes >= 1024**3:
-        return f"{size_bytes / (1024**3):.1f} GB"
-    elif size_bytes >= 1024**2:
-        return f"{size_bytes / (1024**2):.1f} MB"
-    elif size_bytes >= 1024:
-        return f"{size_bytes / 1024:.1f} KB"
-    else:
-        return f"{size_bytes} B"
+    if size_bytes == 0:
+        return "0 B"
+
+    abs_bytes = abs(size_bytes)
+    sign = "-" if size_bytes < 0 else ""
+
+    # Bytes shown as integers, larger units with one decimal
+    if abs_bytes < 1024:
+        return f"{sign}{int(abs_bytes)} B"
+
+    abs_bytes /= 1024
+    for unit in ("KB", "MB", "GB", "TB", "PB"):
+        if abs_bytes < 1024:
+            return f"{sign}{abs_bytes:.1f} {unit}"
+        abs_bytes /= 1024
+
+    return f"{sign}{abs_bytes:.1f} EB"
 
 
 def truncate_filename(filename: str, max_length: int = 40) -> str:

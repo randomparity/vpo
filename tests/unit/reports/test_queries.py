@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+from dataclasses import asdict
 from datetime import datetime, timezone
 
 import pytest
@@ -717,10 +718,10 @@ class TestGetPolicyApplyReport:
 
 
 class TestDataclassesToDict:
-    """Tests for dataclass to_dict methods."""
+    """Tests for dataclass serialization with asdict."""
 
     def test_job_report_row(self):
-        """JobReportRow converts to dict."""
+        """JobReportRow converts to dict via asdict."""
         row = JobReportRow(
             job_id="abc12345",
             type="scan",
@@ -731,12 +732,12 @@ class TestDataclassesToDict:
             duration="5m 0s",
             error="-",
         )
-        d = row.to_dict()
+        d = asdict(row)
         assert d["job_id"] == "abc12345"
         assert d["type"] == "scan"
 
     def test_library_report_row(self):
-        """LibraryReportRow converts to dict."""
+        """LibraryReportRow converts to dict via asdict."""
         row = LibraryReportRow(
             path="/path/movie.mkv",
             title="Movie",
@@ -746,7 +747,7 @@ class TestDataclassesToDict:
             has_subtitles="Yes",
             scanned_at="2025-01-15 12:00:00",
         )
-        d = row.to_dict()
+        d = asdict(row)
         assert d["path"] == "/path/movie.mkv"
         assert d["resolution"] == "1080p"
 

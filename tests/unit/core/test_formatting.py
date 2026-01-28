@@ -167,7 +167,21 @@ class TestFormatFileSize:
     def test_large_gigabytes(self):
         """format_file_size handles large gigabyte values."""
         assert format_file_size(100 * 1024**3) == "100.0 GB"
-        assert format_file_size(1024 * 1024**3) == "1024.0 GB"
+
+    def test_terabytes_range(self):
+        """format_file_size formats terabytes correctly."""
+        assert format_file_size(1024**4) == "1.0 TB"
+        assert format_file_size(int(2.5 * 1024**4)) == "2.5 TB"
+
+    def test_petabytes_range(self):
+        """format_file_size formats petabytes correctly."""
+        assert format_file_size(1024**5) == "1.0 PB"
+
+    def test_negative_values(self):
+        """format_file_size handles negative values for size changes."""
+        assert format_file_size(-(1024**3)) == "-1.0 GB"
+        assert format_file_size(-512 * 1024**2) == "-512.0 MB"
+        assert format_file_size(-100) == "-100 B"
 
     def test_boundary_kb_to_mb(self):
         """format_file_size handles boundary between KB and MB."""

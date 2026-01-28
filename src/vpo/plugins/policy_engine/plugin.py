@@ -120,24 +120,18 @@ class PolicyEnginePlugin:
         Args:
             event: PlanExecuteEvent with plan and result/error.
         """
+        file_path = event.plan.file_path
+
         if event.error is not None:
+            logger.warning("Plan execution failed for %s: %s", file_path, event.error)
+        elif event.result is None:
+            return
+        elif event.result.success:
+            logger.info("Plan execution succeeded for %s", file_path)
+        else:
             logger.warning(
-                "Plan execution failed for %s: %s",
-                event.plan.file_path,
-                event.error,
+                "Plan execution failed for %s: %s", file_path, event.result.message
             )
-        elif event.result is not None:
-            if event.result.success:
-                logger.info(
-                    "Plan execution succeeded for %s",
-                    event.plan.file_path,
-                )
-            else:
-                logger.warning(
-                    "Plan execution failed for %s: %s",
-                    event.plan.file_path,
-                    event.result.message,
-                )
 
     # ============================================================
     # MutatorPlugin interface methods

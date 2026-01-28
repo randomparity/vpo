@@ -189,17 +189,16 @@ class MoveExecutor:
 
         except OSError as e:
             # Categorize error by errno for future retry logic
-            error_type = MoveErrorType.UNKNOWN
-            if e.errno == errno.ENOSPC:
-                error_type = MoveErrorType.DISK_SPACE
-            elif e.errno == errno.EACCES or e.errno == errno.EPERM:
-                error_type = MoveErrorType.PERMISSION
-            elif e.errno == errno.ENOENT:
-                error_type = MoveErrorType.NOT_FOUND
-            elif e.errno == errno.EXDEV:
-                error_type = MoveErrorType.CROSS_DEVICE
-            elif e.errno in (errno.EIO, errno.EROFS):
-                error_type = MoveErrorType.IO_ERROR
+            errno_to_type = {
+                errno.ENOSPC: MoveErrorType.DISK_SPACE,
+                errno.EACCES: MoveErrorType.PERMISSION,
+                errno.EPERM: MoveErrorType.PERMISSION,
+                errno.ENOENT: MoveErrorType.NOT_FOUND,
+                errno.EXDEV: MoveErrorType.CROSS_DEVICE,
+                errno.EIO: MoveErrorType.IO_ERROR,
+                errno.EROFS: MoveErrorType.IO_ERROR,
+            }
+            error_type = errno_to_type.get(e.errno, MoveErrorType.UNKNOWN)
 
             logger.error("Move failed (%s): %s", error_type.value, e)
             return MoveResult(

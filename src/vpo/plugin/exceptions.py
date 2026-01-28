@@ -4,8 +4,6 @@
 class PluginError(Exception):
     """Base exception for plugin errors."""
 
-    pass
-
 
 class PluginNotFoundError(PluginError):
     """Plugin not found in discovery."""
