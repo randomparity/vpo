@@ -53,22 +53,71 @@ except DatabaseLockedError as e:
 
 ## CLI Exit Codes
 
-### `vpo scan`
+VPO uses a centralized exit code system defined in `src/vpo/cli/exit_codes.py`. Exit codes are organized into ranges by category for consistency across all commands.
 
-| Code | Meaning |
-|------|---------|
-| `0` | Success (all files processed, or partial success with some errors) |
-| `1` | Complete failure (errors occurred and no files were found) |
-| `130` | Interrupted by Ctrl+C (partial results saved) |
+### Exit Code Ranges
 
-### `vpo inspect`
-
-| Code | Meaning |
-|------|---------|
+| Range | Category |
+|-------|----------|
 | `0` | Success |
-| `1` | File not found |
-| `2` | ffprobe not installed or not in PATH |
-| `3` | Failed to parse media file |
+| `1-9` | General errors |
+| `10-19` | Validation errors (policy, config, input) |
+| `20-29` | Target/file errors |
+| `30-39` | Tool/dependency errors |
+| `40-49` | Operation errors |
+| `50-59` | Analysis errors |
+| `60-69` | Warning states |
+
+### Complete Exit Code Reference
+
+| Code | Name | Description |
+|------|------|-------------|
+| `0` | `SUCCESS` | Operation completed successfully |
+| `1` | `GENERAL_ERROR` | Unspecified error |
+| `2` | `INTERRUPTED` | Operation interrupted (Ctrl+C / SIGINT) |
+| `3` | `INVALID_ARGUMENTS` | Invalid CLI arguments |
+| `10` | `POLICY_VALIDATION_ERROR` | Policy file validation failed |
+| `11` | `CONFIG_ERROR` | Configuration error |
+| `12` | `PROFILE_NOT_FOUND` | Specified profile not found |
+| `20` | `TARGET_NOT_FOUND` | Target file or directory not found |
+| `21` | `FILE_NOT_IN_DATABASE` | File not found in database |
+| `22` | `NO_TRACKS_FOUND` | No tracks found in file |
+| `30` | `TOOL_NOT_AVAILABLE` | Required external tool not available |
+| `31` | `PLUGIN_UNAVAILABLE` | Required plugin not available |
+| `32` | `FFPROBE_NOT_FOUND` | ffprobe not installed or not in PATH |
+| `40` | `OPERATION_FAILED` | Operation failed during execution |
+| `41` | `FILE_LOCKED` | File is locked by another process |
+| `42` | `DATABASE_ERROR` | Database operation failed |
+| `50` | `ANALYSIS_ERROR` | Analysis or classification failed |
+| `51` | `PARSE_ERROR` | Failed to parse file |
+| `60` | `WARNINGS` | Completed with warnings |
+| `61` | `CRITICAL` | Critical issues detected |
+
+### Exit Codes by Command
+
+**`vpo scan`**: `SUCCESS`, `GENERAL_ERROR`, `INTERRUPTED`
+
+**`vpo inspect`**: `SUCCESS`, `TARGET_NOT_FOUND`, `FFPROBE_NOT_FOUND`, `PARSE_ERROR`, `ANALYSIS_ERROR`
+
+**`vpo classify`**: `SUCCESS`, `TARGET_NOT_FOUND`, `NO_TRACKS_FOUND`, `ANALYSIS_ERROR`
+
+**`vpo doctor`**: `SUCCESS`, `WARNINGS`, `CRITICAL`
+
+**`vpo process`**: `SUCCESS`, `GENERAL_ERROR`, `POLICY_VALIDATION_ERROR`, `TARGET_NOT_FOUND`, `TOOL_NOT_AVAILABLE`, `OPERATION_FAILED`
+
+### Using Exit Codes in Code
+
+```python
+from vpo.cli.exit_codes import ExitCode
+
+# Use the enum for type safety and clarity
+sys.exit(ExitCode.TARGET_NOT_FOUND)
+
+# The enum is an IntEnum, so it works with sys.exit()
+if not path.exists():
+    click.echo(f"Error: File not found: {path}", err=True)
+    sys.exit(ExitCode.TARGET_NOT_FOUND)
+```
 
 ---
 
