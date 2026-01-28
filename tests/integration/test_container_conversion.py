@@ -231,7 +231,7 @@ class TestAviToMkvConversion:
         self,
         mkv_mp4_compatible_tracks: list[TrackInfo],
     ) -> None:
-        """MKV to MKV should not create a container_change."""
+        """MKV to MKV should not require remux."""
         policy = EvaluationPolicy(
             container=ContainerConfig(target="mkv"),
         )
@@ -244,7 +244,11 @@ class TestAviToMkvConversion:
             policy=policy,
         )
 
-        assert plan.container_change is None
+        # ContainerChange is created for logging, but no remux is needed
+        assert plan.container_change is not None
+        assert plan.container_change.source_format == "mkv"
+        assert plan.container_change.target_format == "mkv"
+        assert plan.requires_remux is False
 
     def test_matroska_format_normalized(
         self,
@@ -263,8 +267,11 @@ class TestAviToMkvConversion:
             policy=policy,
         )
 
-        # Should recognize that matroska == mkv, no change needed
-        assert plan.container_change is None
+        # Should recognize that matroska == mkv, no remux needed
+        assert plan.container_change is not None
+        assert plan.container_change.source_format == "mkv"  # normalized
+        assert plan.container_change.target_format == "mkv"
+        assert plan.requires_remux is False
 
 
 # =============================================================================
@@ -347,7 +354,7 @@ class TestMkvToMp4Conversion:
         self,
         mkv_mp4_compatible_tracks: list[TrackInfo],
     ) -> None:
-        """MP4 to MP4 should not create a container_change."""
+        """MP4 to MP4 should not require remux."""
         policy = EvaluationPolicy(
             container=ContainerConfig(target="mp4"),
         )
@@ -360,7 +367,11 @@ class TestMkvToMp4Conversion:
             policy=policy,
         )
 
-        assert plan.container_change is None
+        # ContainerChange is created for logging, but no remux is needed
+        assert plan.container_change is not None
+        assert plan.container_change.source_format == "mp4"
+        assert plan.container_change.target_format == "mp4"
+        assert plan.requires_remux is False
 
 
 # =============================================================================
