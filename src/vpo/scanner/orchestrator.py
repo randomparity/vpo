@@ -39,6 +39,47 @@ class ScanProgressCallback(Protocol):
         ...
 
 
+def _determine_scan_status(
+    hash_error: str | None, introspection_error: str | None
+) -> tuple[str, str | None]:
+    """Determine scan status and error message from errors.
+
+    Args:
+        hash_error: Error from hashing, if any.
+        introspection_error: Error from introspection, if any.
+
+    Returns:
+        Tuple of (scan_status, scan_error).
+    """
+    if hash_error:
+        return "error", hash_error
+    if introspection_error:
+        return "error", introspection_error
+    return "ok", None
+
+
+def _apply_hash_results(
+    files: list[ScannedFile],
+    hash_results: list[dict],
+    result: ScanResult,
+) -> None:
+    """Apply hash results to scanned files and record errors.
+
+    Args:
+        files: List of scanned files to update.
+        hash_results: List of hash result dicts from hash_files().
+        result: ScanResult to record errors in.
+    """
+    path_to_file = {f.path: f for f in files}
+    for hash_result in hash_results:
+        file = path_to_file.get(hash_result["path"])
+        if file:
+            file.content_hash = hash_result["hash"]
+            file.hash_error = hash_result["error"]
+            if hash_result["error"]:
+                result.errors.append((hash_result["path"], hash_result["error"]))
+
+
 @dataclass
 class ScanResult:
     """Result of a scan operation."""
@@ -159,6 +200,72 @@ class ScannerOrchestrator:
         """Check if the scan has been interrupted."""
         return self._interrupt_event.is_set()
 
+    def _handle_missing_files(
+        self,
+        conn: sqlite3.Connection,
+        directories: list[Path],
+        discovered_paths: set[str],
+        prune: bool,
+        batch_commit_size: int,
+        result: ScanResult,
+        get_file_by_path: Callable,
+        delete_file: Callable,
+    ) -> int:
+        """Handle files in DB that no longer exist on disk.
+
+        Args:
+            conn: Database connection.
+            directories: Directories being scanned.
+            discovered_paths: Set of paths discovered on disk.
+            prune: If True, delete records; otherwise mark as missing.
+            batch_commit_size: Commit frequency for batching.
+            result: ScanResult to update.
+            get_file_by_path: Function to get file record by path.
+            delete_file: Function to delete file record.
+
+        Returns:
+            Number of missing files processed.
+        """
+        # Get all file paths from DB for the scanned directories
+        db_paths_in_dirs: list[str] = []
+        for directory in directories:
+            cursor = conn.execute(
+                "SELECT path FROM files WHERE directory LIKE ?",
+                (f"{directory}%",),
+            )
+            db_paths_in_dirs.extend(row[0] for row in cursor.fetchall())
+
+        missing_paths = detect_missing_files(db_paths_in_dirs)
+        missing_count = 0
+
+        for missing_path in missing_paths:
+            if missing_path in discovered_paths:
+                continue
+
+            if prune:
+                record = get_file_by_path(conn, missing_path)
+                if record and record.id:
+                    delete_file(conn, record.id)
+                    result.files_removed += 1
+                    missing_count += 1
+            else:
+                conn.execute(
+                    "UPDATE files SET scan_status = 'missing' WHERE path = ?",
+                    (missing_path,),
+                )
+                result.files_removed += 1
+                missing_count += 1
+
+            # Batch commit
+            if batch_commit_size > 0 and missing_count % batch_commit_size == 0:
+                conn.commit()
+
+        # Final commit for remaining changes
+        if missing_count > 0:
+            conn.commit()
+
+        return missing_count
+
     def scan_directories(
         self,
         directories: list[Path],
@@ -223,17 +330,7 @@ class ScannerOrchestrator:
         if compute_hashes and all_files:
             paths = [f.path for f in all_files]
             hash_results = hash_files(paths, progress_callback=hash_cb)
-
-            path_to_file = {f.path: f for f in all_files}
-            for hash_result in hash_results:
-                file = path_to_file.get(hash_result["path"])
-                if file:
-                    file.content_hash = hash_result["hash"]
-                    file.hash_error = hash_result["error"]
-                    if hash_result["error"]:
-                        result.errors.append(
-                            (hash_result["path"], hash_result["error"])
-                        )
+            _apply_hash_results(all_files, hash_results, result)
 
         result.elapsed_seconds = time.time() - start_time
         return all_files, result
@@ -377,44 +474,16 @@ class ScannerOrchestrator:
 
             # Handle missing files (files in DB but not on disk)
             if not self._is_interrupted():
-                # Get all file paths from DB for the scanned directories
-                db_paths_in_dirs = []
-                for directory in directories:
-                    cursor = conn.execute(
-                        "SELECT path FROM files WHERE directory LIKE ?",
-                        (f"{directory}%",),
-                    )
-                    db_paths_in_dirs.extend(row[0] for row in cursor.fetchall())
-
-                missing_paths = detect_missing_files(db_paths_in_dirs)
-                missing_count = 0
-                for missing_path in missing_paths:
-                    if missing_path not in discovered_paths:
-                        if prune:
-                            # Delete record for missing file
-                            record = get_file_by_path(conn, missing_path)
-                            if record and record.id:
-                                delete_file(conn, record.id)
-                                result.files_removed += 1
-                                missing_count += 1
-                        else:
-                            # Mark file as missing
-                            update_sql = (
-                                "UPDATE files SET scan_status = 'missing' "
-                                "WHERE path = ?"
-                            )
-                            conn.execute(update_sql, (missing_path,))
-                            result.files_removed += 1
-                            missing_count += 1
-
-                        # Batch commit for missing file updates
-                        should_commit = batch_commit_size > 0
-                        if should_commit and missing_count % batch_commit_size == 0:
-                            conn.commit()
-
-                # Commit any remaining missing file updates
-                if missing_count > 0:
-                    conn.commit()
+                self._handle_missing_files(
+                    conn,
+                    directories,
+                    discovered_paths,
+                    prune,
+                    batch_commit_size,
+                    result,
+                    get_file_by_path,
+                    delete_file,
+                )
 
             # Create progress callback for hashing if progress reporting enabled
             hash_cb = None
@@ -425,30 +494,20 @@ class ScannerOrchestrator:
             if compute_hashes and files_to_process and not self._is_interrupted():
                 paths = [f.path for f in files_to_process]
                 hash_results = hash_files(paths, progress_callback=hash_cb)
-
-                path_to_file = {f.path: f for f in files_to_process}
-                for hash_result in hash_results:
-                    file = path_to_file.get(hash_result["path"])
-                    if file:
-                        file.content_hash = hash_result["hash"]
-                        file.hash_error = hash_result["error"]
-                        if hash_result["error"]:
-                            result.errors.append(
-                                (hash_result["path"], hash_result["error"])
-                            )
+                _apply_hash_results(files_to_process, hash_results, result)
 
             # verify_hash mode: compute hashes for skipped files and check for changes
             if verify_hash and not full and not self._is_interrupted():
-                skipped_files = [
-                    f
-                    for f in all_files
-                    if f.path not in {sf.path for sf in files_to_process}
-                ]
+                processed_paths = {sf.path for sf in files_to_process}
+                skipped_files = [f for f in all_files if f.path not in processed_paths]
                 if skipped_files:
                     skipped_paths = [f.path for f in skipped_files]
                     verify_hash_results = hash_files(
                         skipped_paths, progress_callback=hash_cb
                     )
+
+                    # Build path-to-file lookup for efficient matching
+                    path_to_skipped = {f.path: f for f in skipped_files}
 
                     # Check if hash changed for any skipped file
                     for hash_result in verify_hash_results:
@@ -457,12 +516,11 @@ class ScannerOrchestrator:
                         existing = existing_records.get(hash_result["path"])
                         if existing and existing.content_hash != hash_result["hash"]:
                             # Hash changed - need to process this file
-                            for f in skipped_files:
-                                if f.path == hash_result["path"]:
-                                    f.content_hash = hash_result["hash"]
-                                    files_to_process.append(f)
-                                    result.files_skipped -= 1
-                                    break
+                            file = path_to_skipped.get(hash_result["path"])
+                            if file:
+                                file.content_hash = hash_result["hash"]
+                                files_to_process.append(file)
+                                result.files_skipped -= 1
 
             # Persist to database with progress reporting
             now = datetime.now(timezone.utc)
@@ -510,16 +568,9 @@ class ScannerOrchestrator:
                     introspection_error = f"Unexpected error: {e}"
                     result.files_errored += 1
 
-                # Determine scan status: hash_error takes precedence
-                if scanned.hash_error:
-                    scan_status = "error"
-                    scan_error = scanned.hash_error
-                elif introspection_error:
-                    scan_status = "error"
-                    scan_error = introspection_error
-                else:
-                    scan_status = "ok"
-                    scan_error = None
+                scan_status, scan_error = _determine_scan_status(
+                    scanned.hash_error, introspection_error
+                )
 
                 record = FileRecord(
                     id=None,
