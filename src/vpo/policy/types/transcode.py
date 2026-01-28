@@ -488,6 +488,12 @@ class VideoTranscodeConfig:
     hardware_acceleration: HardwareAccelConfig | None = None
     """Hardware acceleration settings."""
 
+    ffmpeg_args: tuple[str, ...] | None = None
+    """Custom FFmpeg command-line arguments to append before output.
+
+    Example: ("-max_muxing_queue_size", "9999")
+    """
+
     def __post_init__(self) -> None:
         """Validate video transcode configuration."""
         if self.target_codec.casefold() not in VALID_VIDEO_CODECS:

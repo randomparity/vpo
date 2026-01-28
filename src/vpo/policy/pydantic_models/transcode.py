@@ -170,6 +170,19 @@ class VideoTranscodeConfigModel(BaseModel):
     quality: QualitySettingsModel | None = None
     scaling: ScalingSettingsModel | None = None
     hardware_acceleration: HardwareAccelConfigModel | None = None
+    ffmpeg_args: list[str] | None = None
+
+    @field_validator("ffmpeg_args")
+    @classmethod
+    def validate_ffmpeg_args(cls, v: list[str] | None) -> list[str] | None:
+        """Validate FFmpeg arguments are strings."""
+        if v is None:
+            return None
+        for arg in v:
+            if not isinstance(arg, str):
+                arg_type = type(arg).__name__
+                raise ValueError(f"ffmpeg_args must be strings, got {arg_type}")
+        return v
 
     @field_validator("target_codec")
     @classmethod

@@ -146,11 +146,16 @@ def execute_transcode(
             scale_algorithm = None
             if vt.scaling and vt.scaling.algorithm:
                 scale_algorithm = vt.scaling.algorithm.value
+
+            # Extract custom ffmpeg_args from config
+            ffmpeg_args = vt.ffmpeg_args
+
             result = executor.execute(
                 plan,
                 quality=vt.quality,
                 target_codec=vt.target_codec,
                 scale_algorithm=scale_algorithm,
+                ffmpeg_args=ffmpeg_args,
             )
             if not result.success:
                 msg = f"Video transcode failed: {result.error_message}"

@@ -526,6 +526,7 @@ class TranscodeExecutor(FFmpegExecutorBase):
         target_codec: str | None,
         temp_output: Path,
         scale_algorithm: str | None = None,
+        ffmpeg_args: tuple[str, ...] | None = None,
     ) -> TranscodeResult:
         """Execute two-pass encoding.
 
@@ -539,6 +540,7 @@ class TranscodeExecutor(FFmpegExecutorBase):
             target_codec: Target codec override.
             temp_output: Temp output path.
             scale_algorithm: Scaling algorithm (e.g., 'lanczos', 'bicubic').
+            ffmpeg_args: Custom FFmpeg arguments to insert before output.
 
         Returns:
             TranscodeResult with success status.
@@ -566,6 +568,7 @@ class TranscodeExecutor(FFmpegExecutorBase):
                 quality,
                 target_codec,
                 scale_algorithm,
+                ffmpeg_args,
             )
             logger.info(
                 "Starting two-pass encoding pass 1: %s",
@@ -640,6 +643,7 @@ class TranscodeExecutor(FFmpegExecutorBase):
                 target_codec,
                 two_pass_ctx,
                 scale_algorithm,
+                ffmpeg_args,
             )
             logger.info(
                 "Starting two-pass encoding pass 2: %s",
@@ -710,6 +714,7 @@ class TranscodeExecutor(FFmpegExecutorBase):
         quality: QualitySettings | None = None,
         target_codec: str | None = None,
         scale_algorithm: str | None = None,
+        ffmpeg_args: tuple[str, ...] | None = None,
     ) -> TranscodeResult:
         """Execute a transcode plan with safety features.
 
@@ -721,6 +726,7 @@ class TranscodeExecutor(FFmpegExecutorBase):
             quality: V6 quality settings (optional).
             target_codec: V6 target codec (optional).
             scale_algorithm: Scaling algorithm (e.g., 'lanczos', 'bicubic').
+            ffmpeg_args: Custom FFmpeg arguments to insert before output.
 
         Returns:
             TranscodeResult with success status.
@@ -797,7 +803,7 @@ class TranscodeExecutor(FFmpegExecutorBase):
         # Check if two-pass encoding is requested
         if quality and quality.two_pass and quality.mode == QualityMode.BITRATE:
             result = self._execute_two_pass(
-                plan, quality, target_codec, temp_output, scale_algorithm
+                plan, quality, target_codec, temp_output, scale_algorithm, ffmpeg_args
             )
             if not result.success:
                 return result
@@ -887,6 +893,7 @@ class TranscodeExecutor(FFmpegExecutorBase):
             quality=quality,
             target_codec=target_codec,
             scale_algorithm=scale_algorithm,
+            ffmpeg_args=ffmpeg_args,
         )
         logger.info(
             "Executing FFmpeg: %s",

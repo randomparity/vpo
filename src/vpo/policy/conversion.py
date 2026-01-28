@@ -677,6 +677,7 @@ def _convert_video_transcode_config(
         hardware_acceleration=_convert_hardware_accel_config(
             model.hardware_acceleration
         ),
+        ffmpeg_args=tuple(model.ffmpeg_args) if model.ffmpeg_args else None,
     )
 
 

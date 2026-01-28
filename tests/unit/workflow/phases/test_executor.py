@@ -879,6 +879,7 @@ class TestExecuteTranscode:
             quality=None,
             target_codec="hevc",
             scale_algorithm=None,
+            ffmpeg_args=None,
         )
 
     @patch("vpo.executor.transcode.TranscodeExecutor")

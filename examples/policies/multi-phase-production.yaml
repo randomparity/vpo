@@ -90,6 +90,10 @@ phases:
         hardware_acceleration:
           enabled: auto
           fallback_to_cpu: true
+        # Custom FFmpeg arguments for complex files with many streams
+        ffmpeg_args:
+          - "-max_muxing_queue_size"
+          - "9999"
       audio:
         preserve_codecs: [truehd, dts-hd, flac, aac]
         transcode_to: aac

@@ -136,6 +136,7 @@ def build_ffmpeg_command(
     target_codec: str | None = None,
     two_pass_ctx: TwoPassContext | None = None,
     scale_algorithm: str | None = None,
+    ffmpeg_args: tuple[str, ...] | None = None,
 ) -> list[str]:
     """Build FFmpeg command for transcoding.
 
@@ -146,6 +147,7 @@ def build_ffmpeg_command(
         target_codec: V6 target codec (overrides policy codec if provided).
         two_pass_ctx: Context for two-pass encoding (if active).
         scale_algorithm: Scaling algorithm (e.g., 'lanczos', 'bicubic').
+        ffmpeg_args: Custom FFmpeg arguments to insert before output.
 
     Returns:
         List of command arguments.
@@ -202,6 +204,10 @@ def build_ffmpeg_command(
     if cpu_cores:
         cmd.extend(["-threads", str(cpu_cores)])
 
+    # Custom FFmpeg arguments (inserted before stats_period and output)
+    if ffmpeg_args:
+        cmd.extend(ffmpeg_args)
+
     # Progress output to stderr
     cmd.extend(["-stats_period", "1"])
 
@@ -218,6 +224,7 @@ def build_ffmpeg_command_pass1(
     quality: QualitySettings | None = None,
     target_codec: str | None = None,
     scale_algorithm: str | None = None,
+    ffmpeg_args: tuple[str, ...] | None = None,
 ) -> list[str]:
     """Build FFmpeg command for first pass of two-pass encoding.
 
@@ -231,6 +238,7 @@ def build_ffmpeg_command_pass1(
         quality: V6 quality settings.
         target_codec: V6 target codec.
         scale_algorithm: Scaling algorithm (e.g., 'lanczos', 'bicubic').
+        ffmpeg_args: Custom FFmpeg arguments to insert before output.
 
     Returns:
         List of command arguments.
@@ -271,6 +279,10 @@ def build_ffmpeg_command_pass1(
     # Thread control
     if cpu_cores:
         cmd.extend(["-threads", str(cpu_cores)])
+
+    # Custom FFmpeg arguments (inserted before stats_period and output)
+    if ffmpeg_args:
+        cmd.extend(ffmpeg_args)
 
     # Progress output to stderr
     cmd.extend(["-stats_period", "1"])
