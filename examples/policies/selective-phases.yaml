@@ -1,6 +1,6 @@
-# Selective Phases Policy (V11)
+# Selective Phases Policy (V12)
 # Designed for CLI phase selection: vpo process -p selective-phases.yaml --phases quick-fix
-schema_version: 11
+schema_version: 12
 
 config:
   audio_language_preference: [eng, und]

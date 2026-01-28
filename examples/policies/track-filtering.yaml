@@ -1,6 +1,6 @@
-# Track Filtering Policy (V11)
+# Track Filtering Policy (V12)
 # Comprehensive audio, subtitle, and attachment filtering
-schema_version: 11
+schema_version: 12
 
 config:
   audio_language_preference: [eng, jpn, fra, deu, und]

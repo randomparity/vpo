@@ -1,6 +1,6 @@
-# Simple HEVC Transcoding Policy (V11)
+# Simple HEVC Transcoding Policy (V12)
 # Minimal single-phase policy for video transcoding
-schema_version: 11
+schema_version: 12
 
 config:
   on_error: skip

@@ -1,6 +1,6 @@
-# Conditional Transcoding Policy (V11)
+# Conditional Transcoding Policy (V12)
 # Two-phase workflow with smart skip conditions and hardware acceleration
-schema_version: 11
+schema_version: 12
 
 config:
   on_error: skip
