@@ -8,7 +8,7 @@ from typing import Any
 
 import click
 
-from vpo.cli.exit_codes import INSPECT_EXIT_CODES
+from vpo.cli.exit_codes import ExitCode
 from vpo.introspector import (
     FFprobeIntrospector,
     MediaIntrospectionError,
@@ -31,13 +31,6 @@ from vpo.transcription.interface import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Backward compatibility aliases - prefer using ExitCode or INSPECT_EXIT_CODES
-EXIT_SUCCESS = INSPECT_EXIT_CODES["EXIT_SUCCESS"]
-EXIT_FILE_NOT_FOUND = INSPECT_EXIT_CODES["EXIT_FILE_NOT_FOUND"]
-EXIT_FFPROBE_NOT_INSTALLED = INSPECT_EXIT_CODES["EXIT_FFPROBE_NOT_INSTALLED"]
-EXIT_PARSE_ERROR = INSPECT_EXIT_CODES["EXIT_PARSE_ERROR"]
-EXIT_ANALYSIS_ERROR = INSPECT_EXIT_CODES["EXIT_ANALYSIS_ERROR"]
 
 
 def _get_plugin_registry_or_error():
@@ -128,7 +121,7 @@ def inspect_command(
     # Check if file exists (exit code 1)
     if not file_path.exists():
         click.echo(f"Error: File not found: {file_path}", err=True)
-        sys.exit(EXIT_FILE_NOT_FOUND)
+        sys.exit(ExitCode.TARGET_NOT_FOUND)
 
     # Check ffprobe availability (exit code 2)
     if not FFprobeIntrospector.is_available():
@@ -137,7 +130,7 @@ def inspect_command(
             "Install ffmpeg to use media introspection features.",
             err=True,
         )
-        sys.exit(EXIT_FFPROBE_NOT_INSTALLED)
+        sys.exit(ExitCode.FFPROBE_NOT_FOUND)
 
     try:
         introspector = FFprobeIntrospector()
@@ -145,7 +138,7 @@ def inspect_command(
     except MediaIntrospectionError as e:
         click.echo(f"Error: Could not parse file: {file_path}", err=True)
         click.echo(f"Reason: {e}", err=True)
-        sys.exit(EXIT_PARSE_ERROR)
+        sys.exit(ExitCode.PARSE_ERROR)
 
     # Build output data for JSON format
     output_data: dict[str, Any] | None = None
@@ -165,18 +158,18 @@ def inspect_command(
             audio_tracks = [t for t in audio_tracks if t.index == track]
             if not audio_tracks:
                 click.echo(f"Error: No audio track found at index {track}", err=True)
-                sys.exit(EXIT_ANALYSIS_ERROR)
+                sys.exit(ExitCode.ANALYSIS_ERROR)
 
         if not audio_tracks:
             click.echo("No audio tracks to analyze.", err=True)
-            sys.exit(EXIT_SUCCESS)
+            sys.exit(ExitCode.SUCCESS)
 
         # Get plugin registry with transcription plugins
         try:
             plugin_registry = _get_plugin_registry_or_error()
         except click.ClickException as e:
             click.echo(f"Error: {e.message}", err=True)
-            sys.exit(EXIT_ANALYSIS_ERROR)
+            sys.exit(ExitCode.ANALYSIS_ERROR)
 
         # Import adapter for creating per-track transcribers
         from vpo.transcription.coordinator import (
@@ -329,4 +322,4 @@ def inspect_command(
     if output_format == "json" and output_data is not None:
         click.echo(json.dumps(output_data, indent=2))
 
-    sys.exit(EXIT_SUCCESS)
+    sys.exit(ExitCode.SUCCESS)

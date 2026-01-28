@@ -11,6 +11,7 @@ import logging
 import click
 
 from vpo.config import get_config
+from vpo.core.formatting import format_file_size
 from vpo.jobs.logs import (
     LogMaintenanceStats,
     compress_old_logs,
@@ -20,16 +21,6 @@ from vpo.jobs.logs import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _format_bytes(num_bytes: int) -> str:
-    """Format bytes as human-readable string."""
-    value = float(num_bytes)
-    for unit in ("B", "KB", "MB", "GB"):
-        if abs(value) < 1024:
-            return f"{value:.1f} {unit}"
-        value /= 1024
-    return f"{value:.1f} TB"
 
 
 def _stats_to_dict(stats: LogMaintenanceStats) -> dict:
@@ -189,7 +180,7 @@ def logs_command(
 
     click.echo(
         f"Log directory: {before_stats['total_count']} files, "
-        f"{_format_bytes(before_stats['total_bytes'])}"
+        f"{format_file_size(before_stats['total_bytes'])}"
     )
     click.echo()
 
@@ -198,8 +189,8 @@ def logs_command(
         if compression_stats.compressed_count > 0:
             count = compression_stats.compressed_count
             click.echo(f"  {action} compress {count} file(s)")
-            before = _format_bytes(compression_stats.compressed_bytes_before)
-            after = _format_bytes(compression_stats.compressed_bytes_after)
+            before = format_file_size(compression_stats.compressed_bytes_before)
+            after = format_file_size(compression_stats.compressed_bytes_after)
             click.echo(f"  Before: {before}")
             click.echo(f"  After:  {after}")
             if compression_stats.compressed_bytes_before > 0:
@@ -219,7 +210,7 @@ def logs_command(
         click.echo(f"Deletion (logs older than {delete_days} days):")
         if deletion_stats.deleted_count > 0:
             click.echo(f"  {action} delete {deletion_stats.deleted_count} file(s)")
-            click.echo(f"  Freed: {_format_bytes(deletion_stats.deleted_bytes)}")
+            click.echo(f"  Freed: {format_file_size(deletion_stats.deleted_bytes)}")
         else:
             click.echo("  No logs to delete")
 
@@ -281,8 +272,8 @@ def all_command(dry_run: bool, output_json: bool) -> None:
     if compression_stats.compressed_count > 0:
         click.echo(
             f"  {action} compress {compression_stats.compressed_count} file(s) "
-            f"({_format_bytes(compression_stats.compressed_bytes_before)} -> "
-            f"{_format_bytes(compression_stats.compressed_bytes_after)})"
+            f"({format_file_size(compression_stats.compressed_bytes_before)} -> "
+            f"{format_file_size(compression_stats.compressed_bytes_after)})"
         )
     else:
         click.echo("  No logs to compress")
@@ -290,7 +281,7 @@ def all_command(dry_run: bool, output_json: bool) -> None:
     if deletion_stats.deleted_count > 0:
         click.echo(
             f"  {action} delete {deletion_stats.deleted_count} file(s) "
-            f"(freed {_format_bytes(deletion_stats.deleted_bytes)})"
+            f"(freed {format_file_size(deletion_stats.deleted_bytes)})"
         )
     else:
         click.echo("  No logs to delete")
@@ -335,13 +326,13 @@ def status_command(output_json: bool) -> None:
     click.echo(f"  Total:        {log_stats['total_count']} files")
     click.echo(
         f"  Uncompressed: {log_stats['uncompressed_count']} files "
-        f"({_format_bytes(log_stats['uncompressed_bytes'])})"
+        f"({format_file_size(log_stats['uncompressed_bytes'])})"
     )
     click.echo(
         f"  Compressed:   {log_stats['compressed_count']} files "
-        f"({_format_bytes(log_stats['compressed_bytes'])})"
+        f"({format_file_size(log_stats['compressed_bytes'])})"
     )
-    click.echo(f"  Total size:   {_format_bytes(log_stats['total_bytes'])}")
+    click.echo(f"  Total size:   {format_file_size(log_stats['total_bytes'])}")
     click.echo()
     click.echo("Configuration:")
     click.echo(f"  Compress after: {config.jobs.log_compression_days} days")

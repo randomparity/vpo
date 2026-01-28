@@ -4,12 +4,6 @@ Provides commands for classifying audio tracks as original/dubbed/commentary:
 - classify run: Run classification on files
 - classify status: View classification status for files
 - classify clear: Clear classification data
-
-Exit codes:
-- 0: Success
-- 2: File not found
-- 3: No audio tracks found
-- 4: Classification failed
 """
 
 import logging
@@ -18,6 +12,7 @@ from pathlib import Path
 
 import click
 
+from vpo.cli.exit_codes import ExitCode
 from vpo.db import get_file_by_path
 from vpo.db.queries import (
     delete_track_classification,
@@ -28,12 +23,6 @@ from vpo.track_classification.service import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Exit codes specific to classify command
-EXIT_SUCCESS = 0
-EXIT_FILE_NOT_FOUND = 2
-EXIT_NO_TRACKS = 3
-EXIT_CLASSIFICATION_FAILED = 4
 
 
 def _get_db_conn(ctx: click.Context) -> sqlite3.Connection:
@@ -137,7 +126,7 @@ def classify_run(
     if file_record is None:
         click.echo(f"Error: File not found in database: {path}", err=True)
         click.echo("Run 'vpo scan' first to add the file to the library.", err=True)
-        ctx.exit(EXIT_FILE_NOT_FOUND)
+        ctx.exit(ExitCode.TARGET_NOT_FOUND)
 
     # Get audio tracks
     from vpo.db import get_tracks_for_file
@@ -147,7 +136,7 @@ def classify_run(
 
     if not audio_tracks:
         click.echo(f"Error: No audio tracks found in file: {path}", err=True)
-        ctx.exit(EXIT_NO_TRACKS)
+        ctx.exit(ExitCode.NO_TRACKS_FOUND)
 
     try:
         # Run classification
@@ -223,9 +212,9 @@ def classify_run(
     except Exception as e:
         logger.exception("Classification failed")
         click.echo(f"Error: Classification failed: {e}", err=True)
-        ctx.exit(EXIT_CLASSIFICATION_FAILED)
+        ctx.exit(ExitCode.ANALYSIS_ERROR)
 
-    ctx.exit(EXIT_SUCCESS)
+    ctx.exit(ExitCode.SUCCESS)
 
 
 @classify_group.command(name="status")
@@ -256,7 +245,7 @@ def classify_status(
     file_record = get_file_by_path(conn, str(path))
     if file_record is None:
         click.echo(f"Error: File not found in database: {path}", err=True)
-        ctx.exit(EXIT_FILE_NOT_FOUND)
+        ctx.exit(ExitCode.TARGET_NOT_FOUND)
 
     # Get existing classifications
     classifications = get_classifications_for_file(conn, file_record.id)
@@ -284,7 +273,7 @@ def classify_status(
         if not classifications:
             click.echo(f"No classification data for: {path.name}")
             click.echo("Run 'vpo classify run' to classify tracks.")
-            ctx.exit(EXIT_SUCCESS)
+            ctx.exit(ExitCode.SUCCESS)
 
         click.echo(f"\nClassification status for: {path.name}")
         click.echo("=" * 60)
@@ -311,7 +300,7 @@ def classify_status(
         click.echo("")
         click.echo(f"Found {len(classifications)} classification record(s)")
 
-    ctx.exit(EXIT_SUCCESS)
+    ctx.exit(ExitCode.SUCCESS)
 
 
 @classify_group.command(name="clear")
@@ -343,21 +332,21 @@ def classify_clear(
     file_record = get_file_by_path(conn, str(path))
     if file_record is None:
         click.echo(f"Error: File not found in database: {path}", err=True)
-        ctx.exit(EXIT_FILE_NOT_FOUND)
+        ctx.exit(ExitCode.TARGET_NOT_FOUND)
 
     # Get existing classifications to show what will be deleted
     classifications = get_classifications_for_file(conn, file_record.id)
 
     if not classifications:
         click.echo(f"No classification data to clear for: {path.name}")
-        ctx.exit(EXIT_SUCCESS)
+        ctx.exit(ExitCode.SUCCESS)
 
     if not yes:
         click.echo(f"\nWill delete {len(classifications)} classification record(s)")
         click.echo(f"File: {path.name}")
         if not click.confirm("Continue?"):
             click.echo("Cancelled.")
-            ctx.exit(EXIT_SUCCESS)
+            ctx.exit(ExitCode.SUCCESS)
 
     # Delete classifications
     deleted_count = 0
@@ -368,4 +357,4 @@ def classify_clear(
     conn.commit()
 
     click.echo(f"Cleared {deleted_count} classification record(s)")
-    ctx.exit(EXIT_SUCCESS)
+    ctx.exit(ExitCode.SUCCESS)

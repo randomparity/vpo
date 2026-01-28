@@ -86,9 +86,6 @@ def _get_db_connection() -> sqlite3.Connection | None:
 
         return conn
     except (sqlite3.Error, OSError) as e:
-        import logging
-
-        logger = logging.getLogger(__name__)
         logger.warning("Failed to create database connection: %s", e)
         return None
 
