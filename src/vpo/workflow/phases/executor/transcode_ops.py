@@ -102,6 +102,7 @@ def execute_transcode(
             policy=transcode_policy,
             skip_if=vt.skip_if,
             audio_config=phase.audio_transcode,
+            hardware_acceleration=vt.hardware_acceleration,
             backup_original=True,
             temp_directory=get_temp_directory(),
         )

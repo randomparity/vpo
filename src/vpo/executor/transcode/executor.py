@@ -23,6 +23,7 @@ from vpo.policy.transcode import (
 )
 from vpo.policy.types import (
     AudioTranscodeConfig,
+    HardwareAccelConfig,
     QualityMode,
     QualitySettings,
     SkipCondition,
@@ -157,6 +158,7 @@ class TranscodeExecutor(FFmpegExecutorBase):
         policy: TranscodePolicyConfig,
         skip_if: SkipCondition | None = None,
         audio_config: AudioTranscodeConfig | None = None,
+        hardware_acceleration: HardwareAccelConfig | None = None,
         cpu_cores: int | None = None,
         progress_callback: Callable[[FFmpegProgress], None] | None = None,
         temp_directory: Path | None = None,
@@ -169,6 +171,7 @@ class TranscodeExecutor(FFmpegExecutorBase):
             policy: Transcode policy configuration.
             skip_if: V6 skip condition for conditional transcoding.
             audio_config: V6 audio transcode config for preserve_codecs handling.
+            hardware_acceleration: V6 hardware acceleration config.
             cpu_cores: Number of CPU cores to use.
             progress_callback: Optional callback for progress updates.
             temp_directory: Directory for temp files (None = same as output).
@@ -180,6 +183,7 @@ class TranscodeExecutor(FFmpegExecutorBase):
         self.policy = policy
         self.skip_if = skip_if
         self.audio_config = audio_config
+        self.hardware_acceleration = hardware_acceleration
         self.cpu_cores = cpu_cores
         self.progress_callback = progress_callback
         self.temp_directory = temp_directory
@@ -569,6 +573,7 @@ class TranscodeExecutor(FFmpegExecutorBase):
                 target_codec,
                 scale_algorithm,
                 ffmpeg_args,
+                self.hardware_acceleration,
             )
             logger.info(
                 "Starting two-pass encoding pass 1: %s",
@@ -644,6 +649,7 @@ class TranscodeExecutor(FFmpegExecutorBase):
                 two_pass_ctx,
                 scale_algorithm,
                 ffmpeg_args,
+                self.hardware_acceleration,
             )
             logger.info(
                 "Starting two-pass encoding pass 2: %s",
@@ -894,6 +900,7 @@ class TranscodeExecutor(FFmpegExecutorBase):
             target_codec=target_codec,
             scale_algorithm=scale_algorithm,
             ffmpeg_args=ffmpeg_args,
+            hardware_acceleration=self.hardware_acceleration,
         )
         logger.info(
             "Executing FFmpeg: %s",
@@ -1089,6 +1096,12 @@ class TranscodeExecutor(FFmpegExecutorBase):
                 describe_audio_plan(plan.audio_plan) if plan.audio_plan else []
             ),
             "command": (
-                build_ffmpeg_command(plan, self.cpu_cores) if needs_work else None
+                build_ffmpeg_command(
+                    plan,
+                    self.cpu_cores,
+                    hardware_acceleration=self.hardware_acceleration,
+                )
+                if needs_work
+                else None
             ),
         }
