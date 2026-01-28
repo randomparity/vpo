@@ -140,7 +140,7 @@ def evaluate_skip_when(
             logger.debug("Cannot evaluate resolution condition: no video track found")
         elif not video_track.height:
             logger.debug("Cannot evaluate resolution condition: video height unknown")
-        elif video_track.height:
+        else:
             actual_label = get_video_resolution_label(video_track.height)
             # Normalize '4k' to '2160p' for comparison
             target = condition.resolution.casefold()
@@ -165,7 +165,7 @@ def evaluate_skip_when(
             logger.debug(
                 "Cannot evaluate resolution_under condition: video height unknown"
             )
-        elif video_track.height:
+        else:
             target = condition.resolution_under.casefold()
             if target == "4k":
                 target = "2160p"

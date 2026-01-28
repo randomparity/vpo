@@ -35,19 +35,18 @@ from vpo.tools.ffmpeg_progress import FFmpegProgress
 logger = logging.getLogger(__name__)
 
 
-def get_tools(cache: dict[str, bool] | None) -> tuple[dict[str, bool], dict[str, bool]]:
+def get_tools(cache: dict[str, bool] | None) -> dict[str, bool]:
     """Get tool availability, using cache if available.
 
     Args:
         cache: Existing cache dict or None.
 
     Returns:
-        Tuple of (tools dict, updated cache).
+        Tools dict (returns cache if provided, else checks availability).
     """
     if cache is not None:
-        return cache, cache
-    tools = check_tool_availability()
-    return tools, tools
+        return cache
+    return check_tool_availability()
 
 
 def get_tracks(conn: Connection, file_id: int) -> list[TrackInfo]:

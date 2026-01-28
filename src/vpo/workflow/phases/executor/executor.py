@@ -91,8 +91,9 @@ class PhaseExecutor:
 
     def _get_tools(self) -> dict[str, bool]:
         """Get tool availability, caching the result."""
-        tools, self._tools = get_tools(self._tools)
-        return tools
+        if self._tools is None:
+            self._tools = get_tools(None)
+        return self._tools
 
     def _get_tracks(self, file_path: Path):
         """Get tracks from database for a file.
