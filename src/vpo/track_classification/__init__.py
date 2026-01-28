@@ -23,12 +23,14 @@ from .models import (
 from .service import (
     classify_file_tracks,
     classify_track,
+    detect_commentary,
 )
 
 __all__ = [
     # Service functions
     "classify_track",
     "classify_file_tracks",
+    "detect_commentary",
     # Metadata functions
     "get_original_language_from_metadata",
     "determine_original_track",

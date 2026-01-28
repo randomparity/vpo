@@ -25,6 +25,7 @@ from vpo.db.types import (
     TrackRecord,
 )
 
+from .acoustic import is_commentary_by_acoustic
 from .metadata import determine_original_track, get_original_language_from_metadata
 from .models import (
     AcousticProfile,
@@ -145,7 +146,7 @@ def classify_track(
         )
     elif acoustic_profile is not None:
         # Use acoustic analysis for commentary detection
-        if _is_commentary_by_acoustic(acoustic_profile):
+        if is_commentary_by_acoustic(acoustic_profile):
             commentary_status = CommentaryStatus.COMMENTARY
             detection_method = DetectionMethod.ACOUSTIC
             confidence = max(confidence, CONFIDENCE_COMMENTARY_ACOUSTIC)
@@ -348,8 +349,19 @@ def _persist_classification(
     upsert_track_classification(conn, record)
 
 
+# Keywords that indicate a commentary track (all lowercase for casefold matching)
+_COMMENTARY_KEYWORDS = [
+    "commentary",
+    "director's commentary",
+    "cast commentary",
+    "audio commentary",
+    "behind the scenes",
+    "making of",
+]
+
+
 def _is_commentary_by_title(title: str | None) -> bool:
-    """Check if track title indicates commentary.
+    """Check if title indicates commentary.
 
     Args:
         title: Track title to check.
@@ -361,16 +373,7 @@ def _is_commentary_by_title(title: str | None) -> bool:
         return False
 
     title_lower = title.casefold()
-    commentary_keywords = [
-        "commentary",
-        "director's commentary",
-        "cast commentary",
-        "audio commentary",
-        "behind the scenes",
-        "making of",
-    ]
-
-    return any(keyword in title_lower for keyword in commentary_keywords)
+    return any(keyword in title_lower for keyword in _COMMENTARY_KEYWORDS)
 
 
 def _is_commentary_by_metadata(track: TrackRecord) -> bool:
@@ -385,49 +388,7 @@ def _is_commentary_by_metadata(track: TrackRecord) -> bool:
     return _is_commentary_by_title(track.title)
 
 
-def _is_commentary_by_acoustic(profile: AcousticProfile) -> bool:
-    """Determine if acoustic profile indicates commentary track.
-
-    Commentary tracks typically have:
-    - High speech density (>0.7) - continuous talking
-    - Low dynamic range (<15 dB) - consistent speech levels
-    - 1-3 distinct voices - consistent speakers
-    - Often have background audio (film playing underneath)
-
-    Args:
-        profile: Acoustic analysis profile.
-
-    Returns:
-        True if profile indicates commentary.
-    """
-    # Weighted scoring for commentary indicators
-    score = 0.0
-
-    # High speech density is strong indicator
-    if profile.speech_density > 0.7:
-        score += 0.4
-    elif profile.speech_density > 0.5:
-        score += 0.2
-
-    # Low dynamic range typical for commentary
-    if profile.dynamic_range_db < 15:
-        score += 0.3
-    elif profile.dynamic_range_db < 20:
-        score += 0.15
-
-    # 1-3 consistent voices typical for commentary
-    if 1 <= profile.voice_count_estimate <= 3:
-        score += 0.2
-
-    # Background audio (film playing) is indicator
-    if profile.has_background_audio:
-        score += 0.1
-
-    # Threshold for commentary determination
-    return score >= 0.5
-
-
-def _detect_commentary(
+def detect_commentary(
     track: TrackRecord | TrackInfo,
     acoustic_profile: AcousticProfile | None = None,
 ) -> tuple[bool, str]:
@@ -452,7 +413,11 @@ def _detect_commentary(
         return True, "metadata"
 
     # Check acoustic profile if available
-    if acoustic_profile is not None and _is_commentary_by_acoustic(acoustic_profile):
+    if acoustic_profile is not None and is_commentary_by_acoustic(acoustic_profile):
         return True, "acoustic"
 
     return False, "none"
+
+
+# Backward compatibility alias
+_detect_commentary = detect_commentary

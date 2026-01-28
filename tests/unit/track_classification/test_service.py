@@ -9,9 +9,9 @@ from vpo.db.types import (
     OriginalDubbedStatus,
     TrackRecord,
 )
+from vpo.track_classification.acoustic import is_commentary_by_acoustic
 from vpo.track_classification.models import AcousticProfile
 from vpo.track_classification.service import (
-    _is_commentary_by_acoustic,
     _is_commentary_by_metadata,
     classify_track,
 )
@@ -81,7 +81,7 @@ class TestIsCommentaryByMetadata:
 
 
 class TestIsCommentaryByAcoustic:
-    """Tests for _is_commentary_by_acoustic helper."""
+    """Tests for is_commentary_by_acoustic helper."""
 
     def test_high_speech_density_and_low_dynamic_range(self):
         """High speech density + low dynamic range = commentary."""
@@ -92,7 +92,7 @@ class TestIsCommentaryByAcoustic:
             dynamic_range_db=12.0,
             has_background_audio=True,
         )
-        assert _is_commentary_by_acoustic(profile) is True
+        assert is_commentary_by_acoustic(profile) is True
 
     def test_low_speech_density(self):
         """Low speech density should not indicate commentary."""
@@ -103,7 +103,7 @@ class TestIsCommentaryByAcoustic:
             dynamic_range_db=30.0,
             has_background_audio=False,
         )
-        assert _is_commentary_by_acoustic(profile) is False
+        assert is_commentary_by_acoustic(profile) is False
 
     def test_high_dynamic_range(self):
         """High dynamic range (movie audio) should not be commentary."""
@@ -114,7 +114,7 @@ class TestIsCommentaryByAcoustic:
             dynamic_range_db=35.0,
             has_background_audio=False,
         )
-        assert _is_commentary_by_acoustic(profile) is False
+        assert is_commentary_by_acoustic(profile) is False
 
     def test_moderate_indicators(self):
         """Moderate values should be borderline."""
@@ -127,7 +127,7 @@ class TestIsCommentaryByAcoustic:
             has_background_audio=False,
         )
         # This should be just below 0.5 threshold
-        result = _is_commentary_by_acoustic(profile)
+        result = is_commentary_by_acoustic(profile)
         # 0.2 (speech) + 0.15 (dynamic) + 0.2 (voices) = 0.55 >= 0.5
         assert result is True
 
@@ -140,7 +140,7 @@ class TestIsCommentaryByAcoustic:
             dynamic_range_db=25.0,
             has_background_audio=False,
         )
-        assert _is_commentary_by_acoustic(profile) is False
+        assert is_commentary_by_acoustic(profile) is False
 
 
 class TestClassifyTrack:

@@ -136,8 +136,6 @@ class ClassificationError(Exception):
     in the classification process.
     """
 
-    pass
-
 
 class InsufficientDataError(ClassificationError):
     """Track has insufficient data for reliable classification.
@@ -145,5 +143,3 @@ class InsufficientDataError(ClassificationError):
     Raised when there is not enough data (metadata, acoustic signals)
     to perform a reliable classification of the track.
     """
-
-    pass

@@ -223,11 +223,9 @@ def inspect_command(
     # Track classification (if requested)
     classification_results: list[dict[str, Any]] = []
     if classify_tracks:
-        from vpo.track_classification.metadata import (
+        from vpo.track_classification import (
+            detect_commentary,
             determine_original_track,
-        )
-        from vpo.track_classification.service import (
-            _detect_commentary,
         )
 
         # Get audio tracks to classify
@@ -270,7 +268,7 @@ def inspect_command(
                 )
 
                 # Classify commentary
-                is_commentary, commentary_source = _detect_commentary(
+                is_commentary, commentary_source = detect_commentary(
                     track=audio_track,
                     acoustic_profile=None,  # Would need acoustic analyzer
                 )
