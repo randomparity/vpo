@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from vpo.db.types import FileRecord, TrackRecord, TranscriptionResultRecord
     from vpo.server.ui.models.library import TrackTranscriptionInfo
 
 
@@ -232,3 +233,58 @@ class FileDetailContext:
                 if idx != -1:
                     back_url = referer[idx:]
         return cls(file=file, back_url=back_url)
+
+
+def build_file_detail_item(
+    file_record: FileRecord,
+    tracks: list[TrackRecord],
+    transcriptions: dict[int, TranscriptionResultRecord],
+) -> FileDetailItem:
+    """Build FileDetailItem from database records.
+
+    This is a shared builder used by both HTML and API handlers.
+
+    Args:
+        file_record: FileRecord from database.
+        tracks: List of TrackRecord from database.
+        transcriptions: Dict mapping track_id to TranscriptionResultRecord.
+
+    Returns:
+        FileDetailItem ready for API/template use.
+    """
+    from vpo.core.formatting import format_file_size
+    from vpo.core.json_utils import parse_json_safe
+    from vpo.server.ui.models.library import group_tracks_by_type
+
+    # Group tracks by type
+    video_tracks, audio_tracks, subtitle_tracks, other_tracks = group_tracks_by_type(
+        tracks, transcriptions
+    )
+
+    # Parse plugin_metadata JSON
+    plugin_result = parse_json_safe(
+        file_record.plugin_metadata,
+        context=f"plugin_metadata for file {file_record.id}",
+    )
+    plugin_metadata = plugin_result.value
+
+    return FileDetailItem(
+        id=file_record.id,
+        path=file_record.path,
+        filename=file_record.filename,
+        directory=file_record.directory,
+        extension=file_record.extension,
+        container_format=file_record.container_format,
+        size_bytes=file_record.size_bytes,
+        size_human=format_file_size(file_record.size_bytes),
+        modified_at=file_record.modified_at,
+        scanned_at=file_record.scanned_at,
+        scan_status=file_record.scan_status,
+        scan_error=file_record.scan_error,
+        scan_job_id=file_record.job_id,
+        video_tracks=video_tracks,
+        audio_tracks=audio_tracks,
+        subtitle_tracks=subtitle_tracks,
+        other_tracks=other_tracks,
+        plugin_metadata=plugin_metadata,
+    )

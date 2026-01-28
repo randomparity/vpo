@@ -49,24 +49,6 @@ async def get_csrf_token(request: web.Request) -> str:
     return token
 
 
-def validate_csrf_token(request: web.Request, token: str) -> bool:
-    """Validate CSRF token against session token.
-
-    Args:
-        request: aiohttp Request object.
-        token: CSRF token from request header.
-
-    Returns:
-        True if token matches session token, False otherwise.
-    """
-    # Use timing-safe comparison
-    session_token = request.get("csrf_token")
-    if not session_token:
-        return False
-
-    return secrets.compare_digest(token, session_token)
-
-
 @web.middleware
 async def csrf_middleware(
     request: web.Request, handler: Callable[[web.Request], Awaitable[web.Response]]

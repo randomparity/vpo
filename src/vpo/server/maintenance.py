@@ -16,13 +16,9 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
 
 from vpo.config import get_config
 from vpo.jobs.logs import run_log_maintenance
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 

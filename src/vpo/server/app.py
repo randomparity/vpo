@@ -116,8 +116,9 @@ async def check_database_health(connection_pool: DaemonConnectionPool | None) ->
             timeout=HEALTH_CHECK_TIMEOUT,
         )
     except asyncio.TimeoutError:
-        timeout = HEALTH_CHECK_TIMEOUT
-        logger.warning("Database health check timed out after %.1fs", timeout)
+        logger.warning(
+            "Database health check timed out after %.1fs", HEALTH_CHECK_TIMEOUT
+        )
         return False
     except Exception as e:
         logger.error("Failed to run health check: %s", e)

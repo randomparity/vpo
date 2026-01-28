@@ -472,3 +472,60 @@ class TranscriptionDetailContext:
             back_url=back_url,
             back_label=back_label,
         )
+
+
+def build_transcription_detail_item(data: dict) -> TranscriptionDetailItem:
+    """Build TranscriptionDetailItem from database query result.
+
+    This is a shared builder used by both HTML and API handlers.
+
+    Args:
+        data: Dictionary from get_transcription_detail() query.
+
+    Returns:
+        TranscriptionDetailItem ready for API/template use.
+    """
+    track_type = data["track_type"]
+    transcript = data["transcript_sample"]
+
+    # Get classification reasoning
+    classification_source, matched_keywords = get_classification_reasoning(
+        data["title"],
+        transcript,
+        track_type,
+    )
+
+    # Generate highlighted HTML
+    transcript_html, transcript_truncated = highlight_keywords_in_transcript(
+        transcript,
+        track_type,
+    )
+
+    return TranscriptionDetailItem(
+        id=data["id"],
+        track_id=data["track_id"],
+        detected_language=data["detected_language"],
+        confidence_score=data["confidence_score"],
+        confidence_level=get_confidence_level(data["confidence_score"]),
+        track_classification=track_type,
+        transcript_sample=transcript,
+        transcript_html=transcript_html,
+        transcript_truncated=transcript_truncated,
+        plugin_name=data["plugin_name"],
+        created_at=data["created_at"],
+        updated_at=data["updated_at"],
+        track_index=data["track_index"],
+        track_codec=data["codec"],
+        original_language=data["original_language"],
+        track_title=data["title"],
+        channels=data["channels"],
+        channel_layout=data["channel_layout"],
+        is_default=bool(data["is_default"]),
+        is_forced=bool(data["is_forced"]),
+        is_commentary=track_type == "commentary",
+        classification_source=classification_source,
+        matched_keywords=matched_keywords,
+        file_id=data["file_id"],
+        filename=data["filename"],
+        file_path=data["path"],
+    )

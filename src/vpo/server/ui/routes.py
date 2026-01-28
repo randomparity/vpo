@@ -20,7 +20,6 @@ import jinja2
 from aiohttp import web
 
 from vpo import __version__
-from vpo.core.json_utils import parse_json_safe
 from vpo.core.validation import is_valid_uuid
 from vpo.db.connection import DaemonConnectionPool
 from vpo.server.ui.models import (
@@ -28,9 +27,7 @@ from vpo.server.ui.models import (
     NAVIGATION_ITEMS,
     AboutInfo,
     FileDetailContext,
-    FileDetailItem,
     JobDetailContext,
-    JobDetailItem,
     JobListContext,
     LibraryContext,
     NavigationState,
@@ -40,13 +37,9 @@ from vpo.server.ui.models import (
     PoliciesContext,
     TemplateContext,
     TranscriptionDetailContext,
-    TranscriptionDetailItem,
-    format_file_size,
-    generate_summary_text,
-    get_classification_reasoning,
-    get_confidence_level,
-    group_tracks_by_type,
-    highlight_keywords_in_transcript,
+    build_file_detail_item,
+    build_job_detail_item,
+    build_transcription_detail_item,
 )
 
 # Type alias for handler functions (used in middleware decorators)
@@ -214,56 +207,6 @@ async def jobs_handler(request: web.Request) -> dict:
     return context
 
 
-def _job_to_detail_item(job, has_logs: bool) -> JobDetailItem:
-    """Convert a Job database record to a JobDetailItem.
-
-    Args:
-        job: Job database record.
-        has_logs: Whether log file exists for this job.
-
-    Returns:
-        JobDetailItem for API/template use.
-    """
-    from vpo.core.datetime_utils import parse_iso_timestamp
-
-    # Calculate duration if completed
-    duration_seconds = None
-    if job.completed_at and job.created_at:
-        try:
-            created = parse_iso_timestamp(job.created_at)
-            completed = parse_iso_timestamp(job.completed_at)
-            duration_seconds = int((completed - created).total_seconds())
-        except (ValueError, TypeError):
-            pass
-
-    # Parse summary_json if present
-    summary_result = parse_json_safe(job.summary_json, context="summary_json")
-    summary_raw = summary_result.value
-
-    # Generate human-readable summary from summary_raw
-    summary_text = generate_summary_text(job.job_type.value, summary_raw)
-
-    return JobDetailItem(
-        id=job.id,
-        id_short=job.id[:8],
-        job_type=job.job_type.value,
-        status=job.status.value,
-        priority=job.priority,
-        file_path=job.file_path,
-        policy_name=job.policy_name,
-        created_at=job.created_at,
-        started_at=job.started_at,
-        completed_at=job.completed_at,
-        duration_seconds=duration_seconds,
-        progress_percent=job.progress_percent,
-        error_message=job.error_message,
-        output_path=job.output_path,
-        summary=summary_text,
-        summary_raw=summary_raw,
-        has_logs=has_logs,
-    )
-
-
 async def job_detail_handler(request: web.Request) -> dict:
     """Handle GET /jobs/{job_id} - Job detail HTML page.
 
@@ -311,7 +254,7 @@ async def job_detail_handler(request: web.Request) -> dict:
     has_logs = log_file_exists(job_id)
 
     # Convert to detail item
-    detail_item = _job_to_detail_item(job, has_logs)
+    detail_item = build_job_detail_item(job, has_logs)
 
     # Get referer for back navigation
     referer = request.headers.get("Referer")
@@ -346,52 +289,6 @@ async def library_handler(request: web.Request) -> dict:
 # ==========================================================================
 # File Detail View Handlers (020-file-detail-view)
 # ==========================================================================
-
-
-def _build_file_detail_item(file_record, tracks, transcriptions) -> FileDetailItem:
-    """Build FileDetailItem from database records.
-
-    Args:
-        file_record: FileRecord from database.
-        tracks: List of TrackRecord from database.
-        transcriptions: Dict mapping track_id to TranscriptionResultRecord.
-
-    Returns:
-        FileDetailItem ready for API/template use.
-    """
-
-    # Group tracks by type
-    video_tracks, audio_tracks, subtitle_tracks, other_tracks = group_tracks_by_type(
-        tracks, transcriptions
-    )
-
-    # Parse plugin_metadata JSON (236-generic-plugin-data-browser)
-    plugin_result = parse_json_safe(
-        file_record.plugin_metadata,
-        context=f"plugin_metadata for file {file_record.id}",
-    )
-    plugin_metadata = plugin_result.value
-
-    return FileDetailItem(
-        id=file_record.id,
-        path=file_record.path,
-        filename=file_record.filename,
-        directory=file_record.directory,
-        extension=file_record.extension,
-        container_format=file_record.container_format,
-        size_bytes=file_record.size_bytes,
-        size_human=format_file_size(file_record.size_bytes),
-        modified_at=file_record.modified_at,
-        scanned_at=file_record.scanned_at,
-        scan_status=file_record.scan_status,
-        scan_error=file_record.scan_error,
-        scan_job_id=file_record.job_id,
-        video_tracks=video_tracks,
-        audio_tracks=audio_tracks,
-        subtitle_tracks=subtitle_tracks,
-        other_tracks=other_tracks,
-        plugin_metadata=plugin_metadata,
-    )
 
 
 async def file_detail_handler(request: web.Request) -> dict:
@@ -447,7 +344,7 @@ async def file_detail_handler(request: web.Request) -> dict:
         raise web.HTTPNotFound(reason="File not found")
 
     # Build FileDetailItem
-    detail_item = _build_file_detail_item(file_record, tracks, transcriptions)
+    detail_item = build_file_detail_item(file_record, tracks, transcriptions)
 
     # Get referer for back navigation
     referer = request.headers.get("Referer")
@@ -470,66 +367,6 @@ async def transcriptions_handler(request: web.Request) -> dict:
     return _create_template_context(
         active_id="transcriptions",
         section_title="Transcriptions",
-    )
-
-
-# ==========================================================================
-# Transcription Detail View Handlers (022-transcription-detail)
-# ==========================================================================
-
-
-def _build_transcription_detail_item(data: dict) -> TranscriptionDetailItem:
-    """Build TranscriptionDetailItem from database query result.
-
-    Args:
-        data: Dictionary from get_transcription_detail() query.
-
-    Returns:
-        TranscriptionDetailItem ready for API/template use.
-    """
-    track_type = data["track_type"]
-    transcript = data["transcript_sample"]
-
-    # Get classification reasoning
-    classification_source, matched_keywords = get_classification_reasoning(
-        data["title"],
-        transcript,
-        track_type,
-    )
-
-    # Generate highlighted HTML
-    transcript_html, transcript_truncated = highlight_keywords_in_transcript(
-        transcript,
-        track_type,
-    )
-
-    return TranscriptionDetailItem(
-        id=data["id"],
-        track_id=data["track_id"],
-        detected_language=data["detected_language"],
-        confidence_score=data["confidence_score"],
-        confidence_level=get_confidence_level(data["confidence_score"]),
-        track_classification=track_type,
-        transcript_sample=transcript,
-        transcript_html=transcript_html,
-        transcript_truncated=transcript_truncated,
-        plugin_name=data["plugin_name"],
-        created_at=data["created_at"],
-        updated_at=data["updated_at"],
-        track_index=data["track_index"],
-        track_codec=data["codec"],
-        original_language=data["original_language"],
-        track_title=data["title"],
-        channels=data["channels"],
-        channel_layout=data["channel_layout"],
-        is_default=bool(data["is_default"]),
-        is_forced=bool(data["is_forced"]),
-        is_commentary=track_type == "commentary",
-        classification_source=classification_source,
-        matched_keywords=matched_keywords,
-        file_id=data["file_id"],
-        filename=data["filename"],
-        file_path=data["path"],
     )
 
 
@@ -575,7 +412,7 @@ async def transcription_detail_handler(request: web.Request) -> dict:
         raise web.HTTPNotFound(reason="Transcription not found")
 
     # Build detail item
-    detail_item = _build_transcription_detail_item(data)
+    detail_item = build_transcription_detail_item(data)
 
     # Get referer for back navigation
     referer = request.headers.get("Referer")

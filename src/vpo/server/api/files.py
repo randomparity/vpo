@@ -15,27 +15,22 @@ import logging
 
 from aiohttp import web
 
-from vpo.core.json_utils import parse_json_safe
 from vpo.server.middleware import TRANSCRIPTIONS_ALLOWED_PARAMS, validate_query_params
 from vpo.server.ui.models import (
-    FileDetailItem,
     FileDetailResponse,
     FileListItem,
     FileListResponse,
     LibraryFilterParams,
-    TranscriptionDetailItem,
     TranscriptionDetailResponse,
     TranscriptionFilterParams,
     TranscriptionListItem,
     TranscriptionListResponse,
+    build_file_detail_item,
+    build_transcription_detail_item,
     format_audio_languages,
     format_detected_languages,
-    format_file_size,
-    get_classification_reasoning,
     get_confidence_level,
     get_resolution_label,
-    group_tracks_by_type,
-    highlight_keywords_in_transcript,
 )
 from vpo.server.ui.routes import (
     database_required_middleware,
@@ -43,107 +38,6 @@ from vpo.server.ui.routes import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _build_file_detail_item(file_record, tracks, transcriptions) -> FileDetailItem:
-    """Build FileDetailItem from database records.
-
-    Args:
-        file_record: FileRecord from database.
-        tracks: List of TrackRecord from database.
-        transcriptions: Dict mapping track_id to TranscriptionResultRecord.
-
-    Returns:
-        FileDetailItem ready for API/template use.
-    """
-
-    # Group tracks by type
-    video_tracks, audio_tracks, subtitle_tracks, other_tracks = group_tracks_by_type(
-        tracks, transcriptions
-    )
-
-    # Parse plugin_metadata JSON (236-generic-plugin-data-browser)
-    plugin_result = parse_json_safe(
-        file_record.plugin_metadata,
-        context=f"plugin_metadata for file {file_record.id}",
-    )
-    plugin_metadata = plugin_result.value
-
-    return FileDetailItem(
-        id=file_record.id,
-        path=file_record.path,
-        filename=file_record.filename,
-        directory=file_record.directory,
-        extension=file_record.extension,
-        container_format=file_record.container_format,
-        size_bytes=file_record.size_bytes,
-        size_human=format_file_size(file_record.size_bytes),
-        modified_at=file_record.modified_at,
-        scanned_at=file_record.scanned_at,
-        scan_status=file_record.scan_status,
-        scan_error=file_record.scan_error,
-        scan_job_id=file_record.job_id,
-        video_tracks=video_tracks,
-        audio_tracks=audio_tracks,
-        subtitle_tracks=subtitle_tracks,
-        other_tracks=other_tracks,
-        plugin_metadata=plugin_metadata,
-    )
-
-
-def _build_transcription_detail_item(data: dict) -> TranscriptionDetailItem:
-    """Build TranscriptionDetailItem from database query result.
-
-    Args:
-        data: Dictionary from get_transcription_detail() query.
-
-    Returns:
-        TranscriptionDetailItem ready for API/template use.
-    """
-    track_type = data["track_type"]
-    transcript = data["transcript_sample"]
-
-    # Get classification reasoning
-    classification_source, matched_keywords = get_classification_reasoning(
-        data["title"],
-        transcript,
-        track_type,
-    )
-
-    # Generate highlighted HTML
-    transcript_html, transcript_truncated = highlight_keywords_in_transcript(
-        transcript,
-        track_type,
-    )
-
-    return TranscriptionDetailItem(
-        id=data["id"],
-        track_id=data["track_id"],
-        detected_language=data["detected_language"],
-        confidence_score=data["confidence_score"],
-        confidence_level=get_confidence_level(data["confidence_score"]),
-        track_classification=track_type,
-        transcript_sample=transcript,
-        transcript_html=transcript_html,
-        transcript_truncated=transcript_truncated,
-        plugin_name=data["plugin_name"],
-        created_at=data["created_at"],
-        updated_at=data["updated_at"],
-        track_index=data["track_index"],
-        track_codec=data["codec"],
-        original_language=data["original_language"],
-        track_title=data["title"],
-        channels=data["channels"],
-        channel_layout=data["channel_layout"],
-        is_default=bool(data["is_default"]),
-        is_forced=bool(data["is_forced"]),
-        is_commentary=track_type == "commentary",
-        classification_source=classification_source,
-        matched_keywords=matched_keywords,
-        file_id=data["file_id"],
-        filename=data["filename"],
-        file_path=data["path"],
-    )
 
 
 @shutdown_check_middleware
@@ -320,7 +214,7 @@ async def api_file_detail_handler(request: web.Request) -> web.Response:
         )
 
     # Build FileDetailItem
-    detail_item = _build_file_detail_item(file_record, tracks, transcriptions)
+    detail_item = build_file_detail_item(file_record, tracks, transcriptions)
 
     # Build response
     response = FileDetailResponse(file=detail_item)
@@ -435,7 +329,7 @@ async def api_transcription_detail_handler(request: web.Request) -> web.Response
         )
 
     # Build detail item
-    detail_item = _build_transcription_detail_item(data)
+    detail_item = build_transcription_detail_item(data)
 
     # Build response
     response = TranscriptionDetailResponse(transcription=detail_item)
