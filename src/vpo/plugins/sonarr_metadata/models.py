@@ -71,7 +71,7 @@ class SonarrCache:
     @classmethod
     def empty(cls) -> SonarrCache:
         """Create an empty cache."""
-        return cls(series={}, parse_results={})
+        return cls()
 
     def lookup_by_path(self, path: str) -> SonarrParseResult | None:
         """Look up cached parse result by file path.

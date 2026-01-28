@@ -79,7 +79,7 @@ class RadarrCache:
     @classmethod
     def empty(cls) -> RadarrCache:
         """Create an empty cache."""
-        return cls(movies={}, files={}, path_to_movie={})
+        return cls()
 
     def lookup_by_path(self, path: str) -> RadarrMovie | None:
         """Look up movie by file path.

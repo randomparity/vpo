@@ -35,8 +35,6 @@ TRANSCRIPT_LENGTH_SHORT = 50
 class PluginDependencyError(TranscriptionError):
     """Raised when a required plugin dependency is not installed."""
 
-    pass
-
 
 def _get_whisper():
     """Lazy load whisper module.
