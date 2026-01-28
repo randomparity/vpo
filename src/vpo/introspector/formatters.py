@@ -189,32 +189,21 @@ def track_to_dict(track: TrackInfo) -> dict[str, Any]:
         "is_forced": track.is_forced,
     }
 
-    # Add video fields if present
-    if track.width is not None:
-        d["width"] = track.width
-    if track.height is not None:
-        d["height"] = track.height
-    if track.frame_rate is not None:
-        d["frame_rate"] = track.frame_rate
-
-    # HDR color metadata (video tracks)
-    if track.color_transfer is not None:
-        d["color_transfer"] = track.color_transfer
-    if track.color_primaries is not None:
-        d["color_primaries"] = track.color_primaries
-    if track.color_space is not None:
-        d["color_space"] = track.color_space
-    if track.color_range is not None:
-        d["color_range"] = track.color_range
-
-    # Add audio fields if present
-    if track.channels is not None:
-        d["channels"] = track.channels
-    if track.channel_layout is not None:
-        d["channel_layout"] = track.channel_layout
-
-    # Duration (available for all track types)
-    if track.duration_seconds is not None:
-        d["duration_seconds"] = track.duration_seconds
+    # Add optional fields if present (video, audio, and duration)
+    optional_fields = (
+        "width",
+        "height",
+        "frame_rate",
+        "color_transfer",
+        "color_primaries",
+        "color_space",
+        "color_range",
+        "channels",
+        "channel_layout",
+        "duration_seconds",
+    )
+    for field in optional_fields:
+        if (value := getattr(track, field, None)) is not None:
+            d[field] = value
 
     return d
