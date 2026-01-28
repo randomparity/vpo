@@ -96,37 +96,21 @@ def calculate_sample_positions(
     if num_samples < 1:
         return []
 
-    if track_duration <= 0:
-        return [0.0]
-
-    # Ensure we don't try to sample past the end
+    # Handle edge cases: short/zero duration or single sample
     max_start = max(0, track_duration - sample_duration)
-
-    if num_samples == 1:
+    if track_duration <= 0 or max_start == 0 or num_samples == 1:
         return [0.0]
 
-    if max_start == 0:
-        # Track is shorter than sample duration, just sample from start
-        return [0.0]
-
-    # Calculate positions at regular intervals
-    # For n samples: 0%, 50%, 25%, 75%, 12.5%, 37.5%, 62.5%, 87.5%, etc.
-    # This ordering prioritizes beginning and middle for early exit
+    # Priority fractions: beginning, middle, quarter, three-quarters
+    priority_fractions = [0.0, 0.5, 0.25, 0.75]
     positions: list[float] = []
 
-    # Build positions in priority order
-    if num_samples >= 1:
-        positions.append(0.0)  # Beginning
-    if num_samples >= 2:
-        positions.append(max_start * 0.5)  # Middle
-    if num_samples >= 3:
-        positions.append(max_start * 0.25)  # Quarter
-    if num_samples >= 4:
-        positions.append(max_start * 0.75)  # Three-quarters
+    # Add priority positions first
+    for fraction in priority_fractions[:num_samples]:
+        positions.append(max_start * fraction)
 
-    # For more samples, fill in remaining positions
+    # For more samples, fill in remaining positions evenly
     for i in range(4, num_samples):
-        # Distribute remaining positions evenly
         fraction = i / num_samples
         pos = max_start * fraction
         if not _position_exists(pos, positions):

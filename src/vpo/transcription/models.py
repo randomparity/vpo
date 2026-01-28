@@ -225,56 +225,43 @@ SPEECH_RATIO_THRESHOLD = 0.15  # Below this = no meaningful speech
 TRANSCRIPT_MIN_LENGTH = 10  # Filter out very short hallucinations
 
 
-def is_commentary_by_metadata(title: str | None) -> bool:
-    """Check if track title suggests commentary based on keywords.
+def _title_matches_keywords(title: str | None, keywords: list[str]) -> bool:
+    """Check if track title matches any keyword in the list.
 
     Args:
         title: Track title to check.
+        keywords: List of keywords to match against.
 
     Returns:
-        True if title matches any commentary keyword.
+        True if title matches any keyword.
     """
     if not title:
         return False
-
     title_lower = title.casefold()
-    return any(keyword in title_lower for keyword in COMMENTARY_KEYWORDS)
+    return any(keyword in title_lower for keyword in keywords)
+
+
+def is_commentary_by_metadata(title: str | None) -> bool:
+    """Check if track title suggests commentary based on keywords."""
+    return _title_matches_keywords(title, COMMENTARY_KEYWORDS)
 
 
 def is_music_by_metadata(title: str | None) -> bool:
-    """Check if track title suggests music track based on keywords.
-
-    Args:
-        title: Track title to check.
-
-    Returns:
-        True if title matches any music keyword.
-    """
-    if not title:
-        return False
-
-    title_lower = title.casefold()
-    return any(keyword in title_lower for keyword in MUSIC_KEYWORDS)
+    """Check if track title suggests music track based on keywords."""
+    return _title_matches_keywords(title, MUSIC_KEYWORDS)
 
 
 def is_sfx_by_metadata(title: str | None) -> bool:
     """Check if track title suggests SFX track based on keywords.
 
-    Args:
-        title: Track title to check.
-
-    Returns:
-        True if title matches any SFX keyword.
+    Note: "effects" alone is too broad - require "sound effects" or "effects only"
+    to avoid matching "visual effects".
     """
     if not title:
         return False
-
     title_lower = title.casefold()
-    # Check for SFX keywords, but avoid false positives
-    # "effects" alone is too broad - require "sound effects" or "effects only"
     for keyword in SFX_KEYWORDS:
         if keyword in title_lower:
-            # Special case: "effects" alone could be visual effects
             if keyword == "effects" and "sound" not in title_lower:
                 continue
             return True
