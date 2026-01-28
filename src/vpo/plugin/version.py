@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from functools import total_ordering
 
 # Current plugin API version
 PLUGIN_API_VERSION = "1.0.0"
 
 
+@total_ordering
 @dataclass(frozen=True)
 class APIVersion:
     """Semantic version for plugin API compatibility.
@@ -70,29 +72,14 @@ class APIVersion:
             other.patch,
         )
 
-    def __le__(self, other: APIVersion) -> bool:
-        """Compare versions for ordering."""
-        return (self.major, self.minor, self.patch) <= (
-            other.major,
-            other.minor,
-            other.patch,
-        )
 
-    def __gt__(self, other: APIVersion) -> bool:
-        """Compare versions for ordering."""
-        return (self.major, self.minor, self.patch) > (
-            other.major,
-            other.minor,
-            other.patch,
-        )
-
-    def __ge__(self, other: APIVersion) -> bool:
-        """Compare versions for ordering."""
-        return (self.major, self.minor, self.patch) >= (
-            other.major,
-            other.minor,
-            other.patch,
-        )
+def _to_api_version(version: str | APIVersion | None) -> APIVersion:
+    """Convert a version to APIVersion, using current if None."""
+    if version is None:
+        return APIVersion.current()
+    if isinstance(version, APIVersion):
+        return version
+    return APIVersion.parse(version)
 
 
 def is_compatible(
@@ -112,22 +99,8 @@ def is_compatible(
         True if core version is within plugin's supported range.
 
     """
-    if core_version is None:
-        core = APIVersion.current()
-    elif isinstance(core_version, str):
-        core = APIVersion.parse(core_version)
-    else:
-        core = core_version
-
-    min_ver = (
-        plugin_min
-        if isinstance(plugin_min, APIVersion)
-        else APIVersion.parse(plugin_min)
-    )
-    max_ver = (
-        plugin_max
-        if isinstance(plugin_max, APIVersion)
-        else APIVersion.parse(plugin_max)
-    )
+    core = _to_api_version(core_version)
+    min_ver = _to_api_version(plugin_min)
+    max_ver = _to_api_version(plugin_max)
 
     return min_ver <= core <= max_ver

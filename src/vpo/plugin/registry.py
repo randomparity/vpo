@@ -10,14 +10,10 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from vpo.plugin.interfaces import AnalyzerPlugin, MutatorPlugin
 from vpo.plugin.manifest import PluginManifest, PluginSource
 from vpo.plugin.version import PLUGIN_API_VERSION
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 

@@ -135,30 +135,14 @@ class PluginManifest:
         if events is None:
             raise ValueError("Plugin class missing 'events' attribute")
 
-        # Determine plugin type from class hierarchy
-        from vpo.plugin.interfaces import (
-            AnalyzerPlugin,
-            MutatorPlugin,
-        )
+        # Determine plugin type from method presence
+        # Analyzer methods: on_file_scanned, on_policy_evaluate, on_plan_complete
+        # Mutator methods: on_plan_execute, execute
+        analyzer_methods = ("on_file_scanned", "on_policy_evaluate", "on_plan_complete")
+        mutator_methods = ("on_plan_execute", "execute")
 
-        is_analyzer = isinstance(plugin_class, type) and (
-            hasattr(plugin_class, "on_file_scanned")
-            or hasattr(plugin_class, "on_policy_evaluate")
-            or hasattr(plugin_class, "on_plan_complete")
-        )
-        is_mutator = isinstance(plugin_class, type) and (
-            hasattr(plugin_class, "on_plan_execute") or hasattr(plugin_class, "execute")
-        )
-
-        # Also check protocol compliance
-        try:
-            is_analyzer = is_analyzer or isinstance(plugin_class(), AnalyzerPlugin)
-        except (TypeError, Exception):
-            pass
-        try:
-            is_mutator = is_mutator or isinstance(plugin_class(), MutatorPlugin)
-        except (TypeError, Exception):
-            pass
+        is_analyzer = any(hasattr(plugin_class, m) for m in analyzer_methods)
+        is_mutator = any(hasattr(plugin_class, m) for m in mutator_methods)
 
         if is_analyzer and is_mutator:
             plugin_type = PluginType.BOTH
