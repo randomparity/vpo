@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from vpo.core.formatting import format_file_size
+
 
 def generate_summary_text(job_type: str, summary_raw: dict | None) -> str | None:
     """Generate human-readable summary text from summary_json data.
@@ -87,14 +89,7 @@ def generate_summary_text(job_type: str, summary_raw: dict | None) -> str | None
 
             summary = f"Moved {source_name} \u2192 {dest_path}"
             if size > 0:
-                # Format size
-                if size >= 1024 * 1024 * 1024:
-                    size_str = f"{size / (1024 * 1024 * 1024):.1f} GB"
-                elif size >= 1024 * 1024:
-                    size_str = f"{size / (1024 * 1024):.1f} MB"
-                else:
-                    size_str = f"{size / 1024:.1f} KB"
-                summary += f" ({size_str})"
+                summary += f" ({format_file_size(size)})"
             return summary
 
         else:

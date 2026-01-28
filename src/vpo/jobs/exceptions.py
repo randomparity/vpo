@@ -12,8 +12,6 @@ class JobTrackingError(Exception):
     to catch all job errors with a single except clause if desired.
     """
 
-    pass
-
 
 class JobNotFoundError(JobTrackingError):
     """Raised when a job doesn't exist in the database.

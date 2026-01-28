@@ -22,8 +22,6 @@ logger = logging.getLogger(__name__)
 class MoveRollbackError(Exception):
     """Raised when file rollback after DB failure fails."""
 
-    pass
-
 
 @dataclass(frozen=True)
 class MoveConfig:
