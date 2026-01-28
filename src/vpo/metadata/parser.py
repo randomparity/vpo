@@ -49,23 +49,22 @@ class ParsedMetadata:
         Returns:
             Dictionary with string values for all available fields.
         """
-        result = {}
-        if self.title:
-            result["title"] = self.title
-        if self.year:
+        result: dict[str, str] = {}
+
+        # String fields: include if truthy
+        for field in ("title", "series", "resolution", "codec", "source"):
+            value = getattr(self, field)
+            if value:
+                result[field] = value
+
+        # Integer fields: format with zero-padding where appropriate
+        if self.year is not None:
             result["year"] = str(self.year)
-        if self.series:
-            result["series"] = self.series
         if self.season is not None:
             result["season"] = f"{self.season:02d}"
         if self.episode is not None:
             result["episode"] = f"{self.episode:02d}"
-        if self.resolution:
-            result["resolution"] = self.resolution
-        if self.codec:
-            result["codec"] = self.codec
-        if self.source:
-            result["source"] = self.source
+
         return result
 
 
@@ -192,16 +191,26 @@ def _extract_additional_metadata(
     if not metadata.codec:
         match = CODEC_PATTERN.search(filename)
         if match:
-            codec = match.group(1).casefold()
-            # Normalize codec names
-            if codec in ("h264", "h.264"):
-                metadata.codec = "h264"
-            elif codec in ("h265", "h.265", "hevc"):
-                metadata.codec = "hevc"
-            else:
-                metadata.codec = codec
+            metadata.codec = _normalize_codec(match.group(1))
 
     return metadata
+
+
+def _normalize_codec(codec: str) -> str:
+    """Normalize codec name to canonical form.
+
+    Args:
+        codec: Raw codec string from filename.
+
+    Returns:
+        Normalized codec name.
+    """
+    codec_lower = codec.casefold()
+    if codec_lower in ("h264", "h.264"):
+        return "h264"
+    if codec_lower in ("h265", "h.265", "hevc"):
+        return "hevc"
+    return codec_lower
 
 
 def parse_movie_filename(filename: str) -> ParsedMetadata | None:
@@ -280,19 +289,10 @@ def parse_filename(path: Path | str) -> ParsedMetadata:
     Returns:
         ParsedMetadata with extracted information.
     """
-    if isinstance(path, Path):
-        filename = path.stem  # Filename without extension
-    else:
-        # Handle string path
-        filename = Path(path).stem
+    filename = Path(path).stem
 
-    # Try TV show patterns first (more specific)
-    result = parse_tv_filename(filename)
-    if result:
-        return result
-
-    # Try movie patterns
-    result = parse_movie_filename(filename)
+    # Try TV show patterns first (more specific), then movie patterns
+    result = parse_tv_filename(filename) or parse_movie_filename(filename)
     if result:
         return result
 
