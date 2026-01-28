@@ -83,34 +83,35 @@ def get_stats_summary(
     cursor = conn.execute(query, params)
     row = cursor.fetchone()
 
-    total = row[0] or 0
-    successful = row[1] or 0
-    size_before = row[3] or 0
+    total = row["total_files_processed"] or 0
+    successful = row["total_successful"] or 0
+    size_before = row["total_size_before"] or 0
+    size_saved = row["total_size_saved"] or 0
 
     # Calculate derived values
     success_rate = (successful / total) if total > 0 else 0.0
-    avg_savings = ((row[5] / size_before) * 100) if size_before > 0 else 0.0
+    avg_savings = ((size_saved / size_before) * 100) if size_before > 0 else 0.0
 
     return StatsSummary(
         total_files_processed=total,
         total_successful=successful,
-        total_failed=row[2] or 0,
+        total_failed=row["total_failed"] or 0,
         success_rate=success_rate,
         total_size_before=size_before,
-        total_size_after=row[4] or 0,
-        total_size_saved=row[5] or 0,
+        total_size_after=row["total_size_after"] or 0,
+        total_size_saved=size_saved,
         avg_savings_percent=avg_savings,
-        total_audio_removed=row[6] or 0,
-        total_subtitles_removed=row[7] or 0,
-        total_attachments_removed=row[8] or 0,
-        total_videos_transcoded=row[9] or 0,
-        total_videos_skipped=row[10] or 0,
-        total_audio_transcoded=row[11] or 0,
-        avg_processing_time=row[12] or 0.0,
-        earliest_processing=row[13],
-        latest_processing=row[14],
-        hardware_encodes=row[15] or 0,
-        software_encodes=row[16] or 0,
+        total_audio_removed=row["total_audio_removed"] or 0,
+        total_subtitles_removed=row["total_subtitles_removed"] or 0,
+        total_attachments_removed=row["total_attachments_removed"] or 0,
+        total_videos_transcoded=row["total_videos_transcoded"] or 0,
+        total_videos_skipped=row["total_videos_skipped"] or 0,
+        total_audio_transcoded=row["total_audio_transcoded"] or 0,
+        avg_processing_time=row["avg_processing_time"] or 0.0,
+        earliest_processing=row["earliest_processing"],
+        latest_processing=row["latest_processing"],
+        hardware_encodes=row["hardware_encodes"] or 0,
+        software_encodes=row["software_encodes"] or 0,
     )
 
 
@@ -160,19 +161,19 @@ def get_recent_stats(
     cursor = conn.execute(query, params)
     return [
         FileProcessingHistory(
-            stats_id=row[0],
-            processed_at=row[1],
-            policy_name=row[2],
-            size_before=row[3],
-            size_after=row[4],
-            size_change=row[5],
-            audio_removed=row[6],
-            subtitle_removed=row[7],
-            attachments_removed=row[8],
-            duration_seconds=row[9],
-            success=row[10] == 1,
-            error_message=row[11],
-            encoder_type=row[12],
+            stats_id=row["id"],
+            processed_at=row["processed_at"],
+            policy_name=row["policy_name"],
+            size_before=row["size_before"],
+            size_after=row["size_after"],
+            size_change=row["size_change"],
+            audio_removed=row["audio_tracks_removed"],
+            subtitle_removed=row["subtitle_tracks_removed"],
+            attachments_removed=row["attachments_removed"],
+            duration_seconds=row["duration_seconds"],
+            success=row["success"] == 1,
+            error_message=row["error_message"],
+            encoder_type=row["encoder_type"],
         )
         for row in cursor.fetchall()
     ]
@@ -239,27 +240,28 @@ def get_policy_stats(
     cursor = conn.execute(query, [*params, limit])
     results = []
     for row in cursor.fetchall():
-        files_processed = row[1] or 0
-        successful = row[2] or 0
-        size_before = row[4] or 0
+        files_processed = row["files_processed"] or 0
+        successful = row["successful"] or 0
+        size_before = row["total_size_before"] or 0
+        size_saved = row["total_size_saved"] or 0
 
         success_rate = (successful / files_processed) if files_processed > 0 else 0.0
-        avg_savings = ((row[3] / size_before) * 100) if size_before > 0 else 0.0
+        avg_savings = ((size_saved / size_before) * 100) if size_before > 0 else 0.0
 
         results.append(
             PolicyStats(
-                policy_name=row[0],
+                policy_name=row["policy_name"],
                 files_processed=files_processed,
                 success_rate=success_rate,
-                total_size_saved=row[3] or 0,
+                total_size_saved=size_saved,
                 avg_savings_percent=avg_savings,
-                audio_tracks_removed=row[5] or 0,
-                subtitle_tracks_removed=row[6] or 0,
-                attachments_removed=row[7] or 0,
-                videos_transcoded=row[8] or 0,
-                audio_transcoded=row[9] or 0,
-                avg_processing_time=row[10] or 0.0,
-                last_used=row[11],
+                audio_tracks_removed=row["audio_tracks_removed"] or 0,
+                subtitle_tracks_removed=row["subtitle_tracks_removed"] or 0,
+                attachments_removed=row["attachments_removed"] or 0,
+                videos_transcoded=row["videos_transcoded"] or 0,
+                audio_transcoded=row["audio_transcoded"] or 0,
+                avg_processing_time=row["avg_processing_time"] or 0.0,
+                last_used=row["last_used"],
             )
         )
     return results
@@ -321,29 +323,30 @@ def get_policy_stats_by_name(
     if row is None:
         return None
 
-    files_processed = row[1] or 0
+    files_processed = row["files_processed"] or 0
     if files_processed == 0:
         return None
 
-    successful = row[2] or 0
-    size_before = row[4] or 0
+    successful = row["successful"] or 0
+    size_before = row["total_size_before"] or 0
+    size_saved = row["total_size_saved"] or 0
 
     success_rate = (successful / files_processed) if files_processed > 0 else 0.0
-    avg_savings = ((row[3] / size_before) * 100) if size_before > 0 else 0.0
+    avg_savings = ((size_saved / size_before) * 100) if size_before > 0 else 0.0
 
     return PolicyStats(
-        policy_name=row[0],
+        policy_name=row["policy_name"],
         files_processed=files_processed,
         success_rate=success_rate,
-        total_size_saved=row[3] or 0,
+        total_size_saved=size_saved,
         avg_savings_percent=avg_savings,
-        audio_tracks_removed=row[5] or 0,
-        subtitle_tracks_removed=row[6] or 0,
-        attachments_removed=row[7] or 0,
-        videos_transcoded=row[8] or 0,
-        audio_transcoded=row[9] or 0,
-        avg_processing_time=row[10] or 0.0,
-        last_used=row[11],
+        audio_tracks_removed=row["audio_tracks_removed"] or 0,
+        subtitle_tracks_removed=row["subtitle_tracks_removed"] or 0,
+        attachments_removed=row["attachments_removed"] or 0,
+        videos_transcoded=row["videos_transcoded"] or 0,
+        audio_transcoded=row["audio_transcoded"] or 0,
+        avg_processing_time=row["avg_processing_time"] or 0.0,
+        last_used=row["last_used"],
     )
 
 
@@ -422,49 +425,49 @@ def get_stats_detail(
     )
     actions = [
         ActionSummary(
-            action_type=a[0],
-            track_type=a[1],
-            track_index=a[2],
-            success=a[3] == 1,
-            message=a[4],
+            action_type=a["action_type"],
+            track_type=a["track_type"],
+            track_index=a["track_index"],
+            success=a["success"] == 1,
+            message=a["message"],
         )
         for a in actions_cursor.fetchall()
     ]
 
     return StatsDetailView(
-        stats_id=row[0],
-        file_id=row[1],
-        file_path=row[2],
-        filename=row[3],
-        processed_at=row[4],
-        policy_name=row[5],
-        size_before=row[6] or 0,
-        size_after=row[7] or 0,
-        size_change=row[8] or 0,
-        audio_tracks_before=row[9] or 0,
-        audio_tracks_after=row[10] or 0,
-        audio_tracks_removed=row[11] or 0,
-        subtitle_tracks_before=row[12] or 0,
-        subtitle_tracks_after=row[13] or 0,
-        subtitle_tracks_removed=row[14] or 0,
-        attachments_before=row[15] or 0,
-        attachments_after=row[16] or 0,
-        attachments_removed=row[17] or 0,
-        video_source_codec=row[18],
-        video_target_codec=row[19],
-        video_transcode_skipped=row[20] == 1,
-        video_skip_reason=row[21],
-        audio_tracks_transcoded=row[22] or 0,
-        audio_tracks_preserved=row[23] or 0,
-        duration_seconds=row[24] or 0.0,
-        phases_completed=row[25] or 0,
-        phases_total=row[26] or 0,
-        total_changes=row[27] or 0,
-        hash_before=row[28],
-        hash_after=row[29],
-        success=row[30] == 1,
-        error_message=row[31],
-        encoder_type=row[32],
+        stats_id=row["id"],
+        file_id=row["file_id"],
+        file_path=row["path"],
+        filename=row["filename"],
+        processed_at=row["processed_at"],
+        policy_name=row["policy_name"],
+        size_before=row["size_before"] or 0,
+        size_after=row["size_after"] or 0,
+        size_change=row["size_change"] or 0,
+        audio_tracks_before=row["audio_tracks_before"] or 0,
+        audio_tracks_after=row["audio_tracks_after"] or 0,
+        audio_tracks_removed=row["audio_tracks_removed"] or 0,
+        subtitle_tracks_before=row["subtitle_tracks_before"] or 0,
+        subtitle_tracks_after=row["subtitle_tracks_after"] or 0,
+        subtitle_tracks_removed=row["subtitle_tracks_removed"] or 0,
+        attachments_before=row["attachments_before"] or 0,
+        attachments_after=row["attachments_after"] or 0,
+        attachments_removed=row["attachments_removed"] or 0,
+        video_source_codec=row["video_source_codec"],
+        video_target_codec=row["video_target_codec"],
+        video_transcode_skipped=row["video_transcode_skipped"] == 1,
+        video_skip_reason=row["video_skip_reason"],
+        audio_tracks_transcoded=row["audio_tracks_transcoded"] or 0,
+        audio_tracks_preserved=row["audio_tracks_preserved"] or 0,
+        duration_seconds=row["duration_seconds"] or 0.0,
+        phases_completed=row["phases_completed"] or 0,
+        phases_total=row["phases_total"] or 0,
+        total_changes=row["total_changes"] or 0,
+        hash_before=row["hash_before"],
+        hash_after=row["hash_after"],
+        success=row["success"] == 1,
+        error_message=row["error_message"],
+        encoder_type=row["encoder_type"],
         actions=actions,
     )
 
@@ -521,19 +524,19 @@ def get_stats_for_file(
     )
     return [
         FileProcessingHistory(
-            stats_id=row[0],
-            processed_at=row[1],
-            policy_name=row[2],
-            size_before=row[3] or 0,
-            size_after=row[4] or 0,
-            size_change=row[5] or 0,
-            audio_removed=row[6] or 0,
-            subtitle_removed=row[7] or 0,
-            attachments_removed=row[8] or 0,
-            duration_seconds=row[9] or 0.0,
-            success=row[10] == 1,
-            error_message=row[11],
-            encoder_type=row[12],
+            stats_id=row["id"],
+            processed_at=row["processed_at"],
+            policy_name=row["policy_name"],
+            size_before=row["size_before"] or 0,
+            size_after=row["size_after"] or 0,
+            size_change=row["size_change"] or 0,
+            audio_removed=row["audio_tracks_removed"] or 0,
+            subtitle_removed=row["subtitle_tracks_removed"] or 0,
+            attachments_removed=row["attachments_removed"] or 0,
+            duration_seconds=row["duration_seconds"] or 0.0,
+            success=row["success"] == 1,
+            error_message=row["error_message"],
+            encoder_type=row["encoder_type"],
         )
         for row in cursor.fetchall()
     ]
@@ -596,11 +599,11 @@ def get_stats_trends(
     cursor = conn.execute(query, params)
     return [
         TrendDataPoint(
-            date=row[0],
-            files_processed=row[1] or 0,
-            size_saved=row[2] or 0,
-            success_count=row[3] or 0,
-            fail_count=row[4] or 0,
+            date=row["period"],
+            files_processed=row["files_processed"] or 0,
+            size_saved=row["size_saved"] or 0,
+            success_count=row["success_count"] or 0,
+            fail_count=row["fail_count"] or 0,
         )
         for row in cursor.fetchall()
     ]

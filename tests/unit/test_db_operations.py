@@ -26,6 +26,7 @@ from vpo.policy.types import ActionType, Plan, PlannedAction
 def db_conn(temp_db: Path) -> sqlite3.Connection:
     """Create an in-memory database with schema for testing."""
     conn = sqlite3.connect(str(temp_db))
+    conn.row_factory = sqlite3.Row
     create_schema(conn)
     return conn
 

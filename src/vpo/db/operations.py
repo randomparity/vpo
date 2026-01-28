@@ -19,6 +19,55 @@ if TYPE_CHECKING:
     from vpo.policy.types import Plan, PlannedAction
 
 
+def _row_to_operation_record(row: sqlite3.Row) -> OperationRecord:
+    """Convert a database row to OperationRecord using named columns.
+
+    Args:
+        row: sqlite3.Row from a SELECT query on the operations table.
+
+    Returns:
+        OperationRecord instance populated from the row.
+    """
+    return OperationRecord(
+        id=row["id"],
+        file_id=row["file_id"],
+        file_path=row["file_path"],
+        policy_name=row["policy_name"],
+        policy_version=row["policy_version"],
+        actions_json=row["actions_json"],
+        status=OperationStatus(row["status"]),
+        error_message=row["error_message"],
+        backup_path=row["backup_path"],
+        started_at=row["started_at"],
+        completed_at=row["completed_at"],
+    )
+
+
+def _row_to_plan_record(row: sqlite3.Row) -> PlanRecord:
+    """Convert a database row to PlanRecord using named columns.
+
+    Args:
+        row: sqlite3.Row from a SELECT query on the plans table.
+
+    Returns:
+        PlanRecord instance populated from the row.
+    """
+    return PlanRecord(
+        id=row["id"],
+        file_id=row["file_id"],
+        file_path=row["file_path"],
+        policy_name=row["policy_name"],
+        policy_version=row["policy_version"],
+        job_id=row["job_id"],
+        actions_json=row["actions_json"],
+        action_count=row["action_count"],
+        requires_remux=bool(row["requires_remux"]),
+        status=PlanStatus(row["status"]),
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
 def create_operation(
     conn: sqlite3.Connection,
     plan: Plan,
@@ -140,23 +189,9 @@ def get_operation(
         (operation_id,),
     )
     row = cursor.fetchone()
-
     if row is None:
         return None
-
-    return OperationRecord(
-        id=row[0],
-        file_id=row[1],
-        file_path=row[2],
-        policy_name=row[3],
-        policy_version=row[4],
-        actions_json=row[5],
-        status=OperationStatus(row[6]),
-        error_message=row[7],
-        backup_path=row[8],
-        started_at=row[9],
-        completed_at=row[10],
-    )
+    return _row_to_operation_record(row)
 
 
 def get_pending_operations(conn: sqlite3.Connection) -> list[OperationRecord]:
@@ -178,26 +213,7 @@ def get_pending_operations(conn: sqlite3.Connection) -> list[OperationRecord]:
         ORDER BY started_at
         """,
     )
-
-    operations = []
-    for row in cursor.fetchall():
-        operations.append(
-            OperationRecord(
-                id=row[0],
-                file_id=row[1],
-                file_path=row[2],
-                policy_name=row[3],
-                policy_version=row[4],
-                actions_json=row[5],
-                status=OperationStatus(row[6]),
-                error_message=row[7],
-                backup_path=row[8],
-                started_at=row[9],
-                completed_at=row[10],
-            )
-        )
-
-    return operations
+    return [_row_to_operation_record(row) for row in cursor.fetchall()]
 
 
 def get_operations_for_file(
@@ -223,26 +239,7 @@ def get_operations_for_file(
         """,
         (file_id,),
     )
-
-    operations = []
-    for row in cursor.fetchall():
-        operations.append(
-            OperationRecord(
-                id=row[0],
-                file_id=row[1],
-                file_path=row[2],
-                policy_name=row[3],
-                policy_version=row[4],
-                actions_json=row[5],
-                status=OperationStatus(row[6]),
-                error_message=row[7],
-                backup_path=row[8],
-                started_at=row[9],
-                completed_at=row[10],
-            )
-        )
-
-    return operations
+    return [_row_to_operation_record(row) for row in cursor.fetchall()]
 
 
 def _action_to_dict(action: PlannedAction) -> dict:
@@ -371,24 +368,9 @@ def get_plan_by_id(conn: sqlite3.Connection, plan_id: str) -> PlanRecord | None:
         (plan_id,),
     )
     row = cursor.fetchone()
-
     if row is None:
         return None
-
-    return PlanRecord(
-        id=row[0],
-        file_id=row[1],
-        file_path=row[2],
-        policy_name=row[3],
-        policy_version=row[4],
-        job_id=row[5],
-        actions_json=row[6],
-        action_count=row[7],
-        requires_remux=bool(row[8]),
-        status=PlanStatus(row[9]),
-        created_at=row[10],
-        updated_at=row[11],
-    )
+    return _row_to_plan_record(row)
 
 
 def get_plans_filtered(
@@ -455,25 +437,7 @@ def get_plans_filtered(
         """,
         params + [limit, offset],
     )
-
-    plans = []
-    for row in cursor.fetchall():
-        plans.append(
-            PlanRecord(
-                id=row[0],
-                file_id=row[1],
-                file_path=row[2],
-                policy_name=row[3],
-                policy_version=row[4],
-                job_id=row[5],
-                actions_json=row[6],
-                action_count=row[7],
-                requires_remux=bool(row[8]),
-                status=PlanStatus(row[9]),
-                created_at=row[10],
-                updated_at=row[11],
-            )
-        )
+    plans = [_row_to_plan_record(row) for row in cursor.fetchall()]
 
     if return_total:
         return plans, total

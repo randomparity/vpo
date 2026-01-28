@@ -87,13 +87,13 @@ def get_files_with_transcriptions(
     cursor = conn.execute(query, params)
     files = [
         {
-            "id": row[0],
-            "filename": row[1],
-            "path": row[2],
-            "scan_status": row[3],
-            "transcription_count": row[4],
-            "detected_languages": row[5],
-            "avg_confidence": row[6],
+            "id": row["id"],
+            "filename": row["filename"],
+            "path": row["path"],
+            "scan_status": row["scan_status"],
+            "transcription_count": row["transcription_count"],
+            "detected_languages": row["detected_languages"],
+            "avg_confidence": row["avg_confidence"],
         }
         for row in cursor.fetchall()
     ]
