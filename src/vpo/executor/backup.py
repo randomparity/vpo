@@ -24,8 +24,6 @@ LOCK_SUFFIX = ".vpo-lock"
 class FileLockError(Exception):
     """Error acquiring file lock (file is being modified by another operation)."""
 
-    pass
-
 
 @contextmanager
 def file_lock(file_path: Path) -> Iterator[None]:
@@ -125,8 +123,6 @@ def create_backup(file_path: Path) -> Path:
 
 class BackupRestorationError(Exception):
     """Raised when backup restoration fails verification."""
-
-    pass
 
 
 def restore_from_backup(backup_path: Path, original_path: Path | None = None) -> Path:

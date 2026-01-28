@@ -209,9 +209,8 @@ def cleanup_temp_file(path: Path) -> None:
     Args:
         path: Path to temp file to remove.
     """
-    if path.exists():
-        try:
-            path.unlink()
-            logger.debug("Cleaned up temp file: %s", path)
-        except OSError as e:
-            logger.warning("Could not clean up temp file %s: %s", path, e)
+    try:
+        path.unlink(missing_ok=True)
+        logger.debug("Cleaned up temp file: %s", path)
+    except OSError as e:
+        logger.warning("Could not clean up temp file %s: %s", path, e)

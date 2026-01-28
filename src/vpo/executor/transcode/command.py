@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 import platform
-from typing import TYPE_CHECKING
 
 from vpo.executor.interface import require_tool
 from vpo.policy.transcode import AudioAction, AudioPlan
@@ -24,9 +23,6 @@ from vpo.tools.encoders import get_software_encoder
 
 from .audio import build_audio_args
 from .types import TranscodePlan, TwoPassContext
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 

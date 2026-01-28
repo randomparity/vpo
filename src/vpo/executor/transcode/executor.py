@@ -43,13 +43,32 @@ from .types import TranscodePlan, TranscodeResult, TwoPassContext
 
 logger = logging.getLogger(__name__)
 
-# Hardware encoder identifiers (Issue #264)
+# Hardware encoder suffix patterns (Issue #264)
 HARDWARE_ENCODER_PATTERNS = (
     "_nvenc",  # NVIDIA NVENC
     "_vaapi",  # VA-API (Intel/AMD on Linux)
     "_qsv",  # Intel Quick Sync
     "_amf",  # AMD AMF
     "_videotoolbox",  # Apple VideoToolbox
+)
+
+# Known software encoders (explicit library encoders and codec defaults)
+SOFTWARE_ENCODERS = frozenset(
+    {
+        "libx264",
+        "libx265",
+        "libvpx",
+        "libvpx-vp9",
+        "libaom-av1",
+        "libsvtav1",
+        "librav1e",
+        "h264",
+        "hevc",
+        "h265",
+        "vp8",
+        "vp9",
+        "av1",
+    }
 )
 
 
@@ -64,29 +83,21 @@ def detect_encoder_type(cmd: list[str]) -> str:
         'software' if a software encoder is detected,
         'unknown' if encoder cannot be determined.
     """
-    # Look for -c:v or -codec:v arguments followed by encoder name
+    video_codec_args = {"-c:v", "-codec:v", "-vcodec"}
+
     for i, arg in enumerate(cmd):
-        if arg in ("-c:v", "-codec:v", "-vcodec") and i + 1 < len(cmd):
+        if arg in video_codec_args and i + 1 < len(cmd):
             encoder = cmd[i + 1]
-            if any(pattern in encoder for pattern in HARDWARE_ENCODER_PATTERNS):
-                return "hardware"
-            # Known software encoders
-            if encoder in (
-                "libx264",
-                "libx265",
-                "libvpx",
-                "libvpx-vp9",
-                "libaom-av1",
-                "libsvtav1",
-                "librav1e",
-            ):
-                return "software"
-            # Generic copy means no encoding
+
             if encoder == "copy":
                 return "unknown"
-            # Default software encoders (e.g., "hevc", "h264")
-            if encoder in ("h264", "hevc", "h265", "vp8", "vp9", "av1"):
+
+            if any(pattern in encoder for pattern in HARDWARE_ENCODER_PATTERNS):
+                return "hardware"
+
+            if encoder in SOFTWARE_ENCODERS:
                 return "software"
+
     return "unknown"
 
 

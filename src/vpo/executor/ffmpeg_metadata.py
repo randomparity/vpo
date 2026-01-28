@@ -291,26 +291,29 @@ class FfmpegMetadataExecutor:
 
         idx = action.track_index
 
-        if action.action_type == ActionType.SET_DEFAULT:
-            return [f"-disposition:{idx}", "default"]
-        elif action.action_type == ActionType.CLEAR_DEFAULT:
-            return [f"-disposition:{idx}", "none"]
-        elif action.action_type == ActionType.SET_FORCED:
-            return [f"-disposition:{idx}", "forced"]
-        elif action.action_type == ActionType.CLEAR_FORCED:
-            # Clear forced but keep other dispositions
-            return [f"-disposition:{idx}", "0"]
-        elif action.action_type == ActionType.SET_TITLE:
+        # Map disposition actions to ffmpeg values
+        disposition_actions = {
+            ActionType.SET_DEFAULT: "default",
+            ActionType.CLEAR_DEFAULT: "none",
+            ActionType.SET_FORCED: "forced",
+            ActionType.CLEAR_FORCED: "0",
+        }
+
+        if action.action_type in disposition_actions:
+            return [f"-disposition:{idx}", disposition_actions[action.action_type]]
+
+        if action.action_type == ActionType.SET_TITLE:
             if action.desired_value is None:
                 raise ValueError(
                     f"SET_TITLE requires a non-None desired_value for track {idx}"
                 )
             return [f"-metadata:s:{idx}", f"title={action.desired_value}"]
-        elif action.action_type == ActionType.SET_LANGUAGE:
+
+        if action.action_type == ActionType.SET_LANGUAGE:
             if action.desired_value is None:
                 raise ValueError(
                     f"SET_LANGUAGE requires a non-None desired_value for track {idx}"
                 )
             return [f"-metadata:s:{idx}", f"language={action.desired_value}"]
-        else:
-            raise ValueError(f"Unsupported action type: {action.action_type}")
+
+        raise ValueError(f"Unsupported action type: {action.action_type}")
