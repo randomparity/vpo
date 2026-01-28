@@ -6,6 +6,7 @@ from pathlib import Path
 
 import click
 
+from vpo.cli.exit_codes import ExitCode
 from vpo.cli.output import warning_output
 from vpo.cli.profile_loader import load_profile_or_exit
 from vpo.core import truncate_filename
@@ -410,7 +411,7 @@ def scan(
                     cancel_scan_job(conn, job.id, "Scan aborted by user (Ctrl+C)")
                     progress.finish()
                     click.echo("\nScan aborted by user.", err=True)
-                    sys.exit(130)  # Standard exit code for Ctrl+C
+                    sys.exit(ExitCode.INTERRUPTED)
 
                 except Exception as e:
                     # Unexpected error - mark job as failed
@@ -423,12 +424,12 @@ def scan(
         click.echo(
             "Hint: Close other VPO instances or use a different --db path.", err=True
         )
-        sys.exit(1)
+        sys.exit(ExitCode.DATABASE_ERROR)
 
     except Exception as e:
         progress.finish()
         click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
+        sys.exit(ExitCode.GENERAL_ERROR)
 
     # Finish progress display before outputting results
     progress.finish()
@@ -442,12 +443,15 @@ def scan(
     # Exit with appropriate code
     if getattr(result, "interrupted", False):
         click.echo("\nScan interrupted. Partial results saved.", err=True)
-        sys.exit(130)  # Standard exit code for Ctrl+C
+        sys.exit(ExitCode.INTERRUPTED)
     elif result.errors:
-        # Exit 1 only if errors occurred AND no files were found (complete
-        # failure). Exit 0 if some files were processed despite errors
-        # (partial success).
-        sys.exit(1) if not files else sys.exit(0)
+        # Exit with error only if errors occurred AND no files were found
+        # (complete failure). Exit success if some files were processed
+        # despite errors (partial success).
+        if not files:
+            sys.exit(ExitCode.GENERAL_ERROR)
+        else:
+            sys.exit(ExitCode.SUCCESS)
 
 
 def output_json(
