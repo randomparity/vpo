@@ -53,6 +53,37 @@ PROGRESS_PATTERNS = {
     "speed": re.compile(r"speed=\s*([^\s]+)"),
 }
 
+# Keys that require numeric conversion (return None on parse failure)
+_NUMERIC_KEYS = frozenset(("frame", "total_size", "out_time_us", "fps"))
+
+# All valid progress keys
+_VALID_KEYS = frozenset(
+    ("frame", "total_size", "out_time_us", "fps", "bitrate", "speed")
+)
+
+
+def _convert_progress_value(key: str, value: str) -> int | float | str | None:
+    """Convert a progress value to the appropriate type.
+
+    Args:
+        key: The field name.
+        value: The string value to convert.
+
+    Returns:
+        Converted value or None.
+    """
+    if key in ("frame", "total_size", "out_time_us"):
+        try:
+            return int(value)
+        except ValueError:
+            return None
+    if key == "fps":
+        try:
+            return float(value)
+        except ValueError:
+            return None
+    return value if value != "N/A" else None
+
 
 def parse_progress_line(line: str) -> dict[str, str | int | float | None]:
     """Parse a single line from FFmpeg progress output.
@@ -71,20 +102,13 @@ def parse_progress_line(line: str) -> dict[str, str | int | float | None]:
     key = key.strip()
     value = value.strip()
 
-    if key in ("frame", "total_size", "out_time_us"):
-        try:
-            return {key: int(value)}
-        except ValueError:
-            return {}
-    elif key == "fps":
-        try:
-            return {key: float(value)}
-        except ValueError:
-            return {}
-    elif key in ("bitrate", "speed"):
-        return {key: value if value != "N/A" else None}
+    if key not in _VALID_KEYS:
+        return {}
 
-    return {}
+    converted = _convert_progress_value(key, value)
+    if converted is None and key in _NUMERIC_KEYS:
+        return {}
+    return {key: converted}
 
 
 def parse_progress_block(block: str) -> FFmpegProgress:
@@ -127,13 +151,9 @@ def parse_stderr_progress(line: str) -> FFmpegProgress | None:
     for key, pattern in PROGRESS_PATTERNS.items():
         match = pattern.search(line)
         if match:
-            value = match.group(1)
-            if key in ("frame", "total_size", "out_time_us"):
-                setattr(result, key, int(value))
-            elif key == "fps":
-                setattr(result, key, float(value))
-            else:
-                setattr(result, key, value if value != "N/A" else None)
+            converted = _convert_progress_value(key, match.group(1))
+            if converted is not None:
+                setattr(result, key, converted)
 
     # Also try to parse time= format from stderr
     time_match = re.search(r"time=(\d+):(\d+):(\d+)\.(\d+)", line)

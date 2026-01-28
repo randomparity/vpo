@@ -269,27 +269,17 @@ class ToolRegistry:
         Returns:
             Dict mapping tool name to status info.
         """
+
+        def tool_summary(tool: ToolInfo) -> dict[str, str | bool]:
+            return {
+                "available": tool.is_available(),
+                "version": tool.version or "not found",
+                "path": str(tool.path) if tool.path else "not found",
+            }
+
         return {
-            "ffmpeg": {
-                "available": self.ffmpeg.is_available(),
-                "version": self.ffmpeg.version or "not found",
-                "path": str(self.ffmpeg.path) if self.ffmpeg.path else "not found",
-            },
-            "ffprobe": {
-                "available": self.ffprobe.is_available(),
-                "version": self.ffprobe.version or "not found",
-                "path": str(self.ffprobe.path) if self.ffprobe.path else "not found",
-            },
-            "mkvmerge": {
-                "available": self.mkvmerge.is_available(),
-                "version": self.mkvmerge.version or "not found",
-                "path": str(self.mkvmerge.path) if self.mkvmerge.path else "not found",
-            },
-            "mkvpropedit": {
-                "available": self.mkvpropedit.is_available(),
-                "version": self.mkvpropedit.version or "not found",
-                "path": (
-                    str(self.mkvpropedit.path) if self.mkvpropedit.path else "not found"
-                ),
-            },
+            "ffmpeg": tool_summary(self.ffmpeg),
+            "ffprobe": tool_summary(self.ffprobe),
+            "mkvmerge": tool_summary(self.mkvmerge),
+            "mkvpropedit": tool_summary(self.mkvpropedit),
         }

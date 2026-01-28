@@ -335,24 +335,20 @@ def get_tool_registry(
         registry = cache.load()
         if registry is not None:
             # Check if configured paths match cached paths (use resolve() for symlinks)
-            paths_match = True
-            if ffmpeg_path and registry.ffmpeg.path:
-                if registry.ffmpeg.path.resolve() != ffmpeg_path.resolve():
-                    paths_match = False
-            if ffprobe_path and registry.ffprobe.path:
-                if registry.ffprobe.path.resolve() != ffprobe_path.resolve():
-                    paths_match = False
-            if mkvmerge_path and registry.mkvmerge.path:
-                if registry.mkvmerge.path.resolve() != mkvmerge_path.resolve():
-                    paths_match = False
-            if mkvpropedit_path and registry.mkvpropedit.path:
-                if registry.mkvpropedit.path.resolve() != mkvpropedit_path.resolve():
-                    paths_match = False
+            configured_paths = [
+                (ffmpeg_path, registry.ffmpeg.path),
+                (ffprobe_path, registry.ffprobe.path),
+                (mkvmerge_path, registry.mkvmerge.path),
+                (mkvpropedit_path, registry.mkvpropedit.path),
+            ]
+            paths_match = all(
+                cfg is None or cached is None or cfg.resolve() == cached.resolve()
+                for cfg, cached in configured_paths
+            )
 
             if paths_match:
                 return registry
-            else:
-                logger.debug("Configured paths changed, refreshing detection")
+            logger.debug("Configured paths changed, refreshing detection")
 
     # Detect fresh
     logger.debug("Detecting tools fresh")
