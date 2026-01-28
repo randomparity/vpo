@@ -20,18 +20,17 @@ def get_resolution_label(width: int | None, height: int | None) -> str:
 
     if height >= 2160:
         return "4K"
-    elif height >= 1440:
+    if height >= 1440:
         return "1440p"
-    elif height >= 1080:
+    if height >= 1080:
         return "1080p"
-    elif height >= 720:
+    if height >= 720:
         return "720p"
-    elif height >= 480:
+    if height >= 480:
         return "480p"
-    elif height > 0:
+    if height > 0:
         return f"{height}p"
-    else:
-        return "\u2014"
+    return "\u2014"
 
 
 def format_audio_languages(languages_csv: str | None) -> str:

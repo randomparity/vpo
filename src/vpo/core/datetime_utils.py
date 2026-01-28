@@ -186,13 +186,13 @@ def parse_relative_or_iso_time(value: str) -> str | None:
     except ValueError:
         pass
 
-    # Check if it looks like ISO and validate
-    if "T" in value or len(value) >= 10:
-        try:
-            # Validate by parsing (handles Z and +00:00 suffixes)
-            datetime.fromisoformat(value.replace("Z", "+00:00"))
-            return value  # Valid ISO, return as-is
-        except ValueError:
-            return None  # Looks like ISO but invalid
+    # Check if it looks like ISO (contains T or is date-length) and validate
+    if "T" not in value and len(value) < 10:
+        return None
 
-    return None  # Not relative, not ISO-like
+    try:
+        # Validate by parsing (handles Z and +00:00 suffixes)
+        datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return value  # Valid ISO, return as-is
+    except ValueError:
+        return None  # Looks like ISO but invalid

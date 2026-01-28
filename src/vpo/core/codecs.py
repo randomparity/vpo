@@ -348,6 +348,35 @@ def audio_codec_matches_any(
     return False
 
 
+def _subtitle_codec_matches(codec: str | None, target: str) -> bool:
+    """Check if a subtitle codec matches a target pattern.
+
+    Args:
+        codec: Codec name to check (from ffprobe).
+        target: Target codec to match against.
+
+    Returns:
+        True if the codec matches the target.
+    """
+    if codec is None:
+        return False
+
+    normalized = normalize_codec(codec)
+    target_lower = target.casefold().strip()
+
+    # Direct match
+    if normalized == target_lower:
+        return True
+
+    # Check subtitle aliases
+    target_aliases = SUBTITLE_CODEC_ALIASES.get(target_lower, frozenset())
+    if normalized in target_aliases:
+        return True
+
+    current_aliases = SUBTITLE_CODEC_ALIASES.get(normalized, frozenset())
+    return target_lower in current_aliases
+
+
 def codec_matches(codec: str | None, target: str, track_type: str) -> bool:
     """Generic codec matching for any track type.
 
@@ -361,29 +390,10 @@ def codec_matches(codec: str | None, target: str, track_type: str) -> bool:
     """
     if track_type == "video":
         return video_codec_matches(codec, target)
-    elif track_type == "audio":
+    if track_type == "audio":
         return audio_codec_matches(codec, target)
-    elif track_type == "subtitle":
-        # Subtitle matching uses similar logic to audio
-        if codec is None:
-            return False
-        normalized = normalize_codec(codec)
-        target_lower = target.casefold().strip()
-
-        if normalized == target_lower:
-            return True
-
-        # Check subtitle aliases
-        target_aliases = SUBTITLE_CODEC_ALIASES.get(target_lower, frozenset())
-        if normalized in target_aliases:
-            return True
-
-        current_aliases = SUBTITLE_CODEC_ALIASES.get(normalized, frozenset())
-        if target_lower in current_aliases:
-            return True
-
-        return False
-
+    if track_type == "subtitle":
+        return _subtitle_codec_matches(codec, target)
     return False
 
 

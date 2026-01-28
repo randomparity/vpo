@@ -36,6 +36,13 @@ logger = logging.getLogger(__name__)
 _UNSET: object = object()
 
 
+def _format_error(context: str, message: str) -> str:
+    """Format an error message with optional context prefix."""
+    if context:
+        return f"{context}: {message}"
+    return message
+
+
 @dataclass(frozen=True)
 class JsonParseResult(Generic[T]):
     """Result of a JSON parsing operation.
@@ -84,15 +91,13 @@ def parse_json_safe(
         value = json.loads(raw)
         return JsonParseResult(success=True, value=value, error=None)
     except json.JSONDecodeError as e:
-        context_prefix = f"{context}: " if context else ""
-        error_msg = f"{context_prefix}Invalid JSON at position {e.pos}: {e.msg}"
+        error_msg = _format_error(context, f"Invalid JSON at position {e.pos}: {e.msg}")
         logger.warning(error_msg)
         if default is not _UNSET:
             return JsonParseResult(success=True, value=default, error=error_msg)
         return JsonParseResult(success=False, value=None, error=error_msg)
     except TypeError as e:
-        context_prefix = f"{context}: " if context else ""
-        error_msg = f"{context_prefix}TypeError during JSON parsing: {e}"
+        error_msg = _format_error(context, f"TypeError during JSON parsing: {e}")
         logger.warning(error_msg)
         if default is not _UNSET:
             return JsonParseResult(success=True, value=default, error=error_msg)
@@ -133,13 +138,11 @@ def parse_json_with_schema(
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as e:
-        context_prefix = f"{context}: " if context else ""
-        error_msg = f"{context_prefix}Invalid JSON at position {e.pos}: {e.msg}"
+        error_msg = _format_error(context, f"Invalid JSON at position {e.pos}: {e.msg}")
         logger.warning(error_msg)
         return JsonParseResult(success=False, value=None, error=error_msg)
     except TypeError as e:
-        context_prefix = f"{context}: " if context else ""
-        error_msg = f"{context_prefix}TypeError during JSON parsing: {e}"
+        error_msg = _format_error(context, f"TypeError during JSON parsing: {e}")
         logger.warning(error_msg)
         return JsonParseResult(success=False, value=None, error=error_msg)
 
@@ -148,15 +151,12 @@ def parse_json_with_schema(
         validated = schema.model_validate(data)
         return JsonParseResult(success=True, value=validated, error=None)
     except ValidationError as e:
-        context_prefix = f"{context}: " if context else ""
         error_count = len(e.errors())
         first_error = e.errors()[0] if e.errors() else {}
         field = ".".join(str(loc) for loc in first_error.get("loc", []))
         msg = first_error.get("msg", "validation error")
-        error_msg = (
-            f"{context_prefix}Schema validation failed "
-            f"({error_count} error(s)): {field}: {msg}"
-        )
+        detail = f"Schema validation failed ({error_count} error(s)): {field}: {msg}"
+        error_msg = _format_error(context, detail)
         logger.warning(error_msg)
         return JsonParseResult(success=False, value=None, error=error_msg)
 
@@ -184,7 +184,6 @@ def serialize_json_safe(
     try:
         return json.dumps(data)
     except TypeError as e:
-        context_prefix = f"{context}: " if context else ""
-        error_msg = f"{context_prefix}Cannot serialize to JSON: {e}"
+        error_msg = _format_error(context, f"Cannot serialize to JSON: {e}")
         logger.error(error_msg)
         raise TypeError(error_msg) from e
