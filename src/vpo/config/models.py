@@ -205,7 +205,7 @@ class WorkerConfig:
 class ProcessingConfig:
     """Configuration for batch processing behavior.
 
-    Controls parallel file processing in the `vpo process` command.
+    Controls parallel file processing in the `vpo policy run` command.
     """
 
     workers: int = 2

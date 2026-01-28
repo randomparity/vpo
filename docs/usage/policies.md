@@ -243,7 +243,7 @@ phases:
 Always preview changes before applying:
 
 ```bash
-vpo process --policy my-policy.yaml --dry-run /path/to/file.mkv
+vpo policy run --policy my-policy.yaml --dry-run /path/to/file.mkv
 ```
 
 The dry-run output shows:
@@ -256,13 +256,13 @@ The dry-run output shows:
 Apply the policy to a file:
 
 ```bash
-vpo process --policy my-policy.yaml /path/to/file.mkv
+vpo policy run --policy my-policy.yaml /path/to/file.mkv
 ```
 
 Apply to multiple files:
 
 ```bash
-vpo process --policy my-policy.yaml /path/to/files/*.mkv
+vpo policy run --policy my-policy.yaml /path/to/files/*.mkv
 ```
 
 ### JSON Output
@@ -270,7 +270,7 @@ vpo process --policy my-policy.yaml /path/to/files/*.mkv
 Get machine-readable output:
 
 ```bash
-vpo process --policy my-policy.yaml --dry-run --json /path/to/file.mkv
+vpo policy run --policy my-policy.yaml --dry-run --json /path/to/file.mkv
 ```
 
 ---

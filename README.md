@@ -55,7 +55,7 @@ vpo scan /path/to/videos
 vpo inspect /path/to/movie.mkv
 
 # Apply a policy (preview changes first)
-vpo process --policy policy.yaml /path/to/movie.mkv --dry-run
+vpo policy run --policy policy.yaml /path/to/movie.mkv --dry-run
 
 # Check external tool availability
 vpo doctor
@@ -141,7 +141,7 @@ See [docs/daemon-mode.md](docs/daemon-mode.md) for configuration and [docs/syste
 |---------|-------------|
 | `vpo scan` | Scan directories for video files |
 | `vpo inspect` | Display detailed track information |
-| `vpo process` | Apply a policy to media files (filter, transcode, organize) |
+| `vpo policy run` | Apply a policy to media files (filter, transcode, organize) |
 | `vpo jobs` | Manage job queue (list, start, cancel, cleanup) |
 | `vpo serve` | Run as daemon with web UI |
 | `vpo doctor` | Check external tool availability |

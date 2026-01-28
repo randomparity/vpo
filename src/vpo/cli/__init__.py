@@ -322,7 +322,6 @@ def _register_commands():
     from vpo.cli.maintain import maintain_group
     from vpo.cli.plugins import plugins
     from vpo.cli.policy import policy_group
-    from vpo.cli.process import process_command
     from vpo.cli.profiles import profiles_group
     from vpo.cli.report import report_group
     from vpo.cli.serve import serve_command
@@ -335,7 +334,6 @@ def _register_commands():
     main.add_command(doctor_command)
     main.add_command(plugins)
     main.add_command(policy_group)
-    main.add_command(process_command)
     main.add_command(jobs_group)
     main.add_command(stats_group)
     main.add_command(profiles_group)

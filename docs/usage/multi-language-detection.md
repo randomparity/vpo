@@ -190,7 +190,7 @@ then:
 Automatically run language analysis before applying a policy:
 
 ```bash
-vpo process --policy multi-language.yaml --auto-analyze /path/to/movie.mkv
+vpo policy run --policy multi-language.yaml --auto-analyze /path/to/movie.mkv
 ```
 
 This ensures language analysis results are available for `audio_is_multi_language` conditions.

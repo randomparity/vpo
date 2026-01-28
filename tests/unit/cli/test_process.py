@@ -1,10 +1,10 @@
-"""Tests for cli/process.py module."""
+"""Tests for policy run command worker utilities."""
 
 from unittest.mock import patch
 
 import pytest
 
-from vpo.cli.process import (
+from vpo.cli.policy import (
     get_max_workers,
     resolve_worker_count,
 )

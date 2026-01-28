@@ -111,14 +111,14 @@ The following workflows will be available once the policy engine is implemented:
 
 ```bash
 # NOT YET IMPLEMENTED
-vpo process --dry-run --policy normalize-tracks.yaml /media/movies
+vpo policy run --dry-run --policy normalize-tracks.yaml /media/movies
 ```
 
 ### Apply Policies to Library
 
 ```bash
 # NOT YET IMPLEMENTED
-vpo process --policy normalize-tracks.yaml /media/movies
+vpo policy run --policy normalize-tracks.yaml /media/movies
 ```
 
 ### View and Manage Jobs

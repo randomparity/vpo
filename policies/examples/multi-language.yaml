@@ -12,14 +12,14 @@
 # - set_forced action: Sets the forced flag on matching subtitle tracks
 #
 # Usage:
-#   vpo process --policy policies/examples/multi-language.yaml /path/to/movie.mkv --dry-run
+#   vpo policy run --policy policies/examples/multi-language.yaml /path/to/movie.mkv --dry-run
 #
 # Prerequisites:
 #   Run language analysis first:
 #   vpo scan /path/to/movies --analyze-languages
 #
 # Or use auto-analyze:
-#   vpo process --policy policies/examples/multi-language.yaml /path/to/movie.mkv --auto-analyze
+#   vpo policy run --policy policies/examples/multi-language.yaml /path/to/movie.mkv --auto-analyze
 
 schema_version: 12
 

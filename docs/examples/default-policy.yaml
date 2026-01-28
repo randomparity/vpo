@@ -1,7 +1,7 @@
 # Default Policy for Video Policy Orchestrator
 # This policy provides sensible defaults for organizing track metadata.
 #
-# Usage: vpo process --policy default-policy.yaml [--dry-run] <file.mkv>
+# Usage: vpo policy run --policy default-policy.yaml [--dry-run] <file.mkv>
 
 schema_version: 1
 

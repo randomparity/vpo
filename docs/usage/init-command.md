@@ -244,7 +244,7 @@ vpo doctor
 vpo scan /path/to/videos
 
 # 4. Preview policy application
-vpo process --policy ~/.vpo/policies/default.yaml --dry-run /path/to/video.mkv
+vpo policy run --policy ~/.vpo/policies/default.yaml --dry-run /path/to/video.mkv
 
 # 5. Start the web UI (optional)
 vpo serve
