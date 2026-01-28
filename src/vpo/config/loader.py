@@ -105,12 +105,11 @@ def get_temp_directory() -> Path:
         path = Path(env_path).expanduser().resolve()
         if path.exists() and path.is_dir():
             return path
-        else:
-            logger.warning(
-                "VPO_TEMP_DIR '%s' is not a valid directory, "
-                "falling back to config/default",
-                env_path,
-            )
+        logger.warning(
+            "VPO_TEMP_DIR '%s' is not a valid directory, "
+            "falling back to config/default",
+            env_path,
+        )
 
     # Check config file (under [jobs] section)
     config = get_config()

@@ -302,6 +302,12 @@ class ConfigBuilder:
         )
 
 
+def _get_path(config: dict[str, Any], key: str) -> Path | None:
+    """Extract an optional Path from a config dict, with tilde expansion."""
+    value = config.get(key)
+    return Path(value).expanduser() if value else None
+
+
 def source_from_file(file_config: dict[str, Any]) -> ConfigSource:
     """Create ConfigSource from parsed TOML config file.
 
@@ -328,28 +334,14 @@ def source_from_file(file_config: dict[str, Any]) -> ConfigSource:
     if plugins.get("plugin_dirs"):
         plugin_dirs = [Path(d).expanduser() for d in plugins["plugin_dirs"]]
 
-    # Parse temp directory
-    temp_dir_str = jobs.get("temp_directory")
-    temp_dir = Path(temp_dir_str).expanduser() if temp_dir_str else None
-
-    # Parse log file
-    log_file_str = logging_conf.get("file")
-    log_file = Path(log_file_str).expanduser() if log_file_str else None
-
     return ConfigSource(
         # Tool paths
-        ffmpeg_path=Path(tools["ffmpeg"]) if tools.get("ffmpeg") else None,
-        ffprobe_path=Path(tools["ffprobe"]) if tools.get("ffprobe") else None,
-        mkvmerge_path=Path(tools["mkvmerge"]) if tools.get("mkvmerge") else None,
-        mkvpropedit_path=(
-            Path(tools["mkvpropedit"]) if tools.get("mkvpropedit") else None
-        ),
+        ffmpeg_path=_get_path(tools, "ffmpeg"),
+        ffprobe_path=_get_path(tools, "ffprobe"),
+        mkvmerge_path=_get_path(tools, "mkvmerge"),
+        mkvpropedit_path=_get_path(tools, "mkvpropedit"),
         # Database
-        database_path=(
-            Path(file_config["database_path"])
-            if file_config.get("database_path")
-            else None
-        ),
+        database_path=_get_path(file_config, "database_path"),
         # Detection
         cache_ttl_hours=detection.get("cache_ttl_hours"),
         auto_detect_on_startup=detection.get("auto_detect_on_startup"),
@@ -364,7 +356,7 @@ def source_from_file(file_config: dict[str, Any]) -> ConfigSource:
         # Jobs
         jobs_retention_days=jobs.get("retention_days"),
         jobs_auto_purge=jobs.get("auto_purge"),
-        jobs_temp_directory=temp_dir,
+        jobs_temp_directory=_get_path(jobs, "temp_directory"),
         jobs_backup_original=jobs.get("backup_original"),
         jobs_log_compression_days=jobs.get("log_compression_days"),
         jobs_log_deletion_days=jobs.get("log_deletion_days"),
@@ -384,7 +376,7 @@ def source_from_file(file_config: dict[str, Any]) -> ConfigSource:
         language_warn_on_conversion=language.get("warn_on_conversion"),
         # Logging
         logging_level=logging_conf.get("level"),
-        logging_file=log_file,
+        logging_file=_get_path(logging_conf, "file"),
         logging_format=logging_conf.get("format"),
         logging_include_stderr=logging_conf.get("include_stderr"),
         logging_max_bytes=logging_conf.get("max_bytes"),

@@ -485,6 +485,37 @@ def _rollback_init(files: list[Path], dirs: list[Path]) -> None:
             logger.warning("Rollback: failed to remove directory %s: %s", d, e)
 
 
+def _create_directory(
+    directory: Path, name: str, dry_run: bool = False
+) -> tuple[bool, str | None]:
+    """Create a directory with standard error handling.
+
+    Args:
+        directory: Path to create.
+        name: Human-readable name for logging (e.g., "data", "plugins").
+        dry_run: If True, don't actually create anything.
+
+    Returns:
+        Tuple of (success, error_message). Error is None on success.
+    """
+    if directory.exists():
+        logger.debug("%s directory already exists: %s", name.capitalize(), directory)
+        return True, None
+
+    if dry_run:
+        logger.debug("Would create %s directory: %s", name, directory)
+        return True, None
+
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        logger.debug("Created %s directory: %s", name, directory)
+        return True, None
+    except PermissionError:
+        return False, f"Permission denied: cannot create {directory}"
+    except OSError as e:
+        return False, f"Cannot create {name} directory {directory}: {e}"
+
+
 def create_data_directory(
     data_dir: Path, dry_run: bool = False
 ) -> tuple[bool, str | None]:
@@ -497,22 +528,7 @@ def create_data_directory(
     Returns:
         Tuple of (success, error_message). Error is None on success.
     """
-    if data_dir.exists():
-        logger.debug("Data directory already exists: %s", data_dir)
-        return True, None
-
-    if dry_run:
-        logger.debug("Would create data directory: %s", data_dir)
-        return True, None
-
-    try:
-        data_dir.mkdir(parents=True, exist_ok=True)
-        logger.debug("Created data directory: %s", data_dir)
-        return True, None
-    except PermissionError:
-        return False, f"Permission denied: cannot create {data_dir}"
-    except OSError as e:
-        return False, f"Cannot create directory {data_dir}: {e}"
+    return _create_directory(data_dir, "data", dry_run)
 
 
 def write_config_file(data_dir: Path, dry_run: bool = False) -> tuple[bool, str | None]:
@@ -590,24 +606,7 @@ def create_plugins_directory(
     Returns:
         Tuple of (success, error_message). Error is None on success.
     """
-    plugins_dir = data_dir / "plugins"
-
-    if plugins_dir.exists():
-        logger.debug("Plugins directory already exists: %s", plugins_dir)
-        return True, None
-
-    if dry_run:
-        logger.debug("Would create plugins directory: %s", plugins_dir)
-        return True, None
-
-    try:
-        plugins_dir.mkdir(parents=True, exist_ok=True)
-        logger.debug("Created plugins directory: %s", plugins_dir)
-        return True, None
-    except PermissionError:
-        return False, f"Permission denied: cannot create {plugins_dir}"
-    except OSError as e:
-        return False, f"Cannot create plugins directory: {e}"
+    return _create_directory(data_dir / "plugins", "plugins", dry_run)
 
 
 def create_logs_directory(
@@ -622,24 +621,7 @@ def create_logs_directory(
     Returns:
         Tuple of (success, error_message). Error is None on success.
     """
-    logs_dir = data_dir / "logs"
-
-    if logs_dir.exists():
-        logger.debug("Logs directory already exists: %s", logs_dir)
-        return True, None
-
-    if dry_run:
-        logger.debug("Would create logs directory: %s", logs_dir)
-        return True, None
-
-    try:
-        logs_dir.mkdir(parents=True, exist_ok=True)
-        logger.debug("Created logs directory: %s", logs_dir)
-        return True, None
-    except PermissionError:
-        return False, f"Permission denied: cannot create {logs_dir}"
-    except OSError as e:
-        return False, f"Cannot create logs directory: {e}"
+    return _create_directory(data_dir / "logs", "logs", dry_run)
 
 
 def run_init(

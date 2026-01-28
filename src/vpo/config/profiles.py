@@ -71,8 +71,6 @@ def get_active_profile() -> Profile | None:
 class ProfileError(Exception):
     """Error loading or validating a profile."""
 
-    pass
-
 
 class ProfileNotFoundError(ProfileError):
     """Profile does not exist."""
