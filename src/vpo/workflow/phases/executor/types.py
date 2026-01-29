@@ -53,6 +53,9 @@ class PhaseExecutionState:
     transcode_skip_reason: str | None = None
     """If transcode was skipped, the reason (for stats tracking)."""
 
+    transcode_reasons: list[str] = field(default_factory=list)
+    """Human-readable reasons why transcoding was performed."""
+
     # FFmpeg encoding metrics (Issue #264)
     encoding_fps: float | None = None
     """Average encoding FPS from FFmpeg (for stats tracking)."""

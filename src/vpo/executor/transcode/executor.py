@@ -346,17 +346,15 @@ class TranscodeExecutor(FFmpegExecutorBase):
             )
 
         # Normal transcode evaluation
-        needs_transcode, needs_scale, target_width, target_height = (
-            should_transcode_video(
-                self.policy,
-                video_codec,
-                video_width,
-                video_height,
-            )
+        decision = should_transcode_video(
+            self.policy,
+            video_codec,
+            video_width,
+            video_height,
         )
 
         # Edge case: HDR preservation warning (T101)
-        if is_hdr and needs_scale:
+        if is_hdr and decision.needs_scale:
             warnings.append(
                 "HDR content will be scaled. HDR metadata will be preserved, but "
                 "visual quality may be affected. Consider keeping original resolution "
@@ -387,10 +385,11 @@ class TranscodeExecutor(FFmpegExecutorBase):
             duration_seconds=duration_seconds,
             audio_tracks=audio_tracks,
             skip_result=skip_result,
-            needs_video_transcode=needs_transcode,
-            needs_video_scale=needs_scale,
-            target_width=target_width,
-            target_height=target_height,
+            needs_video_transcode=decision.needs_transcode,
+            needs_video_scale=decision.needs_scale,
+            target_width=decision.target_width,
+            target_height=decision.target_height,
+            transcode_reasons=decision.reasons,
             audio_plan=audio_plan,
             warnings=warnings if warnings else None,
             is_vfr=is_vfr,
@@ -416,13 +415,13 @@ class TranscodeExecutor(FFmpegExecutorBase):
         Returns:
             True if file is already compliant.
         """
-        needs_transcode, _, _, _ = should_transcode_video(
+        decision = should_transcode_video(
             self.policy,
             video_codec,
             video_width,
             video_height,
         )
-        return not needs_transcode
+        return not decision.needs_transcode
 
     def _check_disk_space_for_plan(self, plan: TranscodePlan) -> str | None:
         """Check if there's enough disk space for transcoding.

@@ -348,6 +348,70 @@ class TestFormatTranscodeResult:
 
         assert not any("Speed:" in line for line in result)
 
+    def test_format_transcode_result_single_reason(self):
+        """Transcode result with a single reason displays it."""
+        result = _format_transcode_result(
+            size_before=8_000_000_000,
+            size_after=4_000_000_000,
+            encoder_type=None,
+            encoding_fps=None,
+            source_codec="h264",
+            target_codec="hevc",
+            transcode_reasons=("Codec h264 does not match target hevc",),
+        )
+
+        assert "Reason: Codec h264 does not match target hevc" in result
+
+    def test_format_transcode_result_multiple_reasons(self):
+        """Transcode result with multiple reasons joins with semicolons."""
+        result = _format_transcode_result(
+            size_before=8_000_000_000,
+            size_after=4_000_000_000,
+            encoder_type=None,
+            encoding_fps=None,
+            source_codec="h264",
+            target_codec="hevc",
+            transcode_reasons=(
+                "Codec h264 does not match target hevc",
+                "Resolution 3840x2160 exceeds 1080p max (scaling to 1920x1080)",
+            ),
+        )
+
+        reason_line = [line for line in result if line.startswith("Reason:")]
+        assert len(reason_line) == 1
+        assert ";" in reason_line[0]
+        assert "Codec h264" in reason_line[0]
+        assert "3840x2160" in reason_line[0]
+
+    def test_format_transcode_result_no_reasons(self):
+        """Transcode result without reasons omits the Reason line."""
+        result = _format_transcode_result(
+            size_before=8_000_000_000,
+            size_after=4_000_000_000,
+            encoder_type=None,
+            encoding_fps=None,
+            source_codec="h264",
+            target_codec="hevc",
+        )
+
+        assert not any("Reason:" in line for line in result)
+
+    def test_format_transcode_result_reason_after_video_line(self):
+        """Reason line appears immediately after Video line."""
+        result = _format_transcode_result(
+            size_before=8_000_000_000,
+            size_after=4_000_000_000,
+            encoder_type=None,
+            encoding_fps=None,
+            source_codec="h264",
+            target_codec="hevc",
+            transcode_reasons=("Codec h264 does not match target hevc",),
+        )
+
+        video_idx = next(i for i, line in enumerate(result) if "Video:" in line)
+        reason_idx = next(i for i, line in enumerate(result) if "Reason:" in line)
+        assert reason_idx == video_idx + 1
+
 
 class TestFormatTranscriptionResults:
     """Tests for _format_transcription_results function."""

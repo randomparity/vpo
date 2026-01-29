@@ -28,93 +28,134 @@ class TestShouldTranscodeVideo:
         """Returns True when codec doesn't match target."""
         policy = TranscodePolicyConfig(target_video_codec="hevc")
 
-        needs, scale, w, h = should_transcode_video(policy, "h264", 1920, 1080)
+        decision = should_transcode_video(policy, "h264", 1920, 1080)
 
-        assert needs is True
-        assert scale is False
+        assert decision.needs_transcode is True
+        assert decision.needs_scale is False
 
     def test_no_transcode_for_same_codec(self):
         """Returns False when codec already matches target."""
         policy = TranscodePolicyConfig(target_video_codec="hevc")
 
-        needs, scale, w, h = should_transcode_video(policy, "hevc", 1920, 1080)
+        decision = should_transcode_video(policy, "hevc", 1920, 1080)
 
-        assert needs is False
+        assert decision.needs_transcode is False
 
     def test_handles_codec_aliases(self):
         """Handles codec aliases (h265/hevc, h264/avc)."""
         policy = TranscodePolicyConfig(target_video_codec="hevc")
 
         # h265 is alias for hevc
-        needs, _, _, _ = should_transcode_video(policy, "h265", 1920, 1080)
-        assert needs is False
+        decision = should_transcode_video(policy, "h265", 1920, 1080)
+        assert decision.needs_transcode is False
 
         # x265 is also hevc family
-        needs, _, _, _ = should_transcode_video(policy, "x265", 1920, 1080)
-        assert needs is False
+        decision = should_transcode_video(policy, "x265", 1920, 1080)
+        assert decision.needs_transcode is False
 
     def test_needs_scale_for_oversized(self):
         """Returns True for scale when resolution exceeds max."""
         policy = TranscodePolicyConfig(max_resolution="1080p")
 
-        needs, scale, w, h = should_transcode_video(policy, "hevc", 3840, 2160)
+        decision = should_transcode_video(policy, "hevc", 3840, 2160)
 
-        assert needs is True  # Scale triggers transcode
-        assert scale is True
-        assert w <= 1920
-        assert h <= 1080
+        assert decision.needs_transcode is True  # Scale triggers transcode
+        assert decision.needs_scale is True
+        assert decision.target_width <= 1920
+        assert decision.target_height <= 1080
 
     def test_no_scale_for_undersized(self):
         """No scale needed when resolution is within limits."""
         policy = TranscodePolicyConfig(max_resolution="1080p")
 
-        needs, scale, w, h = should_transcode_video(policy, "hevc", 1280, 720)
+        decision = should_transcode_video(policy, "hevc", 1280, 720)
 
-        assert scale is False
-        assert w is None
-        assert h is None
+        assert decision.needs_scale is False
+        assert decision.target_width is None
+        assert decision.target_height is None
 
     def test_maintains_aspect_ratio(self):
         """Scaling maintains aspect ratio."""
         policy = TranscodePolicyConfig(max_resolution="1080p")
 
         # 21:9 ultrawide
-        _, _, w, h = should_transcode_video(policy, "h264", 3440, 1440)
+        decision = should_transcode_video(policy, "h264", 3440, 1440)
 
         # Should scale down but maintain aspect ratio
-        if w and h:
+        if decision.target_width and decision.target_height:
             original_ratio = 3440 / 1440
-            new_ratio = w / h
+            new_ratio = decision.target_width / decision.target_height
             assert abs(original_ratio - new_ratio) < 0.1
 
     def test_ensures_even_dimensions(self):
         """Scaled dimensions are even (required by most codecs)."""
         policy = TranscodePolicyConfig(max_resolution="720p")
 
-        _, _, w, h = should_transcode_video(policy, "h264", 1920, 1080)
+        decision = should_transcode_video(policy, "h264", 1920, 1080)
 
-        if w and h:
-            assert w % 2 == 0
-            assert h % 2 == 0
+        if decision.target_width and decision.target_height:
+            assert decision.target_width % 2 == 0
+            assert decision.target_height % 2 == 0
 
     def test_no_policy_settings_no_transcode(self):
         """No transcode needed when no policy settings specified."""
         policy = TranscodePolicyConfig()
 
-        needs, scale, w, h = should_transcode_video(policy, "h264", 1920, 1080)
+        decision = should_transcode_video(policy, "h264", 1920, 1080)
 
-        assert needs is False
-        assert scale is False
+        assert decision.needs_transcode is False
+        assert decision.needs_scale is False
 
     def test_max_width_height_override(self):
         """max_width/max_height override max_resolution."""
         policy = TranscodePolicyConfig(max_width=1280, max_height=720)
 
-        needs, scale, w, h = should_transcode_video(policy, "hevc", 1920, 1080)
+        decision = should_transcode_video(policy, "hevc", 1920, 1080)
 
-        assert scale is True
-        assert w <= 1280
-        assert h <= 720
+        assert decision.needs_scale is True
+        assert decision.target_width <= 1280
+        assert decision.target_height <= 720
+
+    def test_reason_codec_mismatch(self):
+        """Reason string includes codec mismatch details."""
+        policy = TranscodePolicyConfig(target_video_codec="hevc")
+
+        decision = should_transcode_video(policy, "h264", 1920, 1080)
+
+        assert len(decision.reasons) == 1
+        assert "h264" in decision.reasons[0]
+        assert "hevc" in decision.reasons[0]
+
+    def test_reason_resolution_exceeded(self):
+        """Reason string includes resolution exceeded details."""
+        policy = TranscodePolicyConfig(max_resolution="1080p")
+
+        decision = should_transcode_video(policy, "hevc", 3840, 2160)
+
+        assert len(decision.reasons) == 1
+        assert "3840x2160" in decision.reasons[0]
+        assert "1080p" in decision.reasons[0]
+        assert "scaling to" in decision.reasons[0]
+
+    def test_reason_both_codec_and_resolution(self):
+        """Both codec mismatch and resolution exceeded produce two reasons."""
+        policy = TranscodePolicyConfig(
+            target_video_codec="hevc", max_resolution="1080p"
+        )
+
+        decision = should_transcode_video(policy, "h264", 3840, 2160)
+
+        assert len(decision.reasons) == 2
+        assert "h264" in decision.reasons[0]
+        assert "3840x2160" in decision.reasons[1]
+
+    def test_reason_empty_when_compliant(self):
+        """No reasons when file is already compliant."""
+        policy = TranscodePolicyConfig(target_video_codec="hevc")
+
+        decision = should_transcode_video(policy, "hevc", 1920, 1080)
+
+        assert decision.reasons == ()
 
 
 class TestBuildFFmpegCommand:

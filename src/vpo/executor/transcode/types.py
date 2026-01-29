@@ -94,6 +94,7 @@ class TranscodePlan:
     needs_video_scale: bool = False
     target_width: int | None = None
     target_height: int | None = None
+    transcode_reasons: tuple[str, ...] = ()
 
     # Computed audio plan
     audio_plan: AudioPlan | None = None

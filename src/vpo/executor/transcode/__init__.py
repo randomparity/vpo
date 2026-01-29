@@ -38,6 +38,7 @@ from .command import (
 
 # Decisions
 from .decisions import (
+    TranscodeDecision,
     should_transcode_video,
 )
 
@@ -57,6 +58,7 @@ __all__ = [
     "TranscodeResult",
     "TwoPassContext",
     # Decisions
+    "TranscodeDecision",
     "should_transcode_video",
     # Audio utilities
     "build_audio_args",

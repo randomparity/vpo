@@ -439,6 +439,9 @@ class PhaseResult:
     transcode_skip_reason: str | None = None
     """If transcode was skipped, the reason (e.g., 'codec_matches')."""
 
+    transcode_reasons: tuple[str, ...] = ()
+    """Human-readable reasons why transcoding was performed."""
+
     # FFmpeg encoding metrics (Issue #264)
     encoding_fps: float | None = None
     """Average encoding FPS from FFmpeg (for stats tracking)."""

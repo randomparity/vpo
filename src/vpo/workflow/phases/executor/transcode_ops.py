@@ -142,6 +142,7 @@ def execute_transcode(
             state.size_before = file_path.stat().st_size
             state.video_source_codec = video_track.codec
             state.video_target_codec = vt.target_codec
+            state.transcode_reasons = list(plan.transcode_reasons)
 
             # Extract scale algorithm from scaling settings
             scale_algorithm = None
