@@ -101,11 +101,10 @@ class TestUpdateFilePath:
         record = get_file_by_path(db_conn, "/media/video.mkv")
         assert record.extension == "mkv"
 
-    def test_extension_handles_no_extension_raises(self, db_conn):
-        """Raises IntegrityError for files without extension (NOT NULL constraint)."""
+    def test_no_extension_raises_integrity_error(self, db_conn):
+        """Raises IntegrityError for paths without extension (NOT NULL constraint)."""
         file_id = create_file(db_conn, "/media/video.mkv", extension="mkv")
 
-        # Database has NOT NULL constraint on extension column
         with pytest.raises(sqlite3.IntegrityError, match="NOT NULL"):
             update_file_path(db_conn, file_id, "/media/video")
 
