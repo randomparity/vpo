@@ -780,6 +780,11 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
             clear_other_defaults=phase.default_flags.clear_other_defaults,
             set_subtitle_default_when_audio_differs=phase.default_flags.set_subtitle_default_when_audio_differs,
             set_subtitle_forced_when_audio_differs=phase.default_flags.set_subtitle_forced_when_audio_differs,
+            preferred_audio_codec=(
+                tuple(phase.default_flags.preferred_audio_codec)
+                if phase.default_flags.preferred_audio_codec is not None
+                else None
+            ),
         )
 
     # Convert conditional rules

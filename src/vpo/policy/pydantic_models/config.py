@@ -26,6 +26,18 @@ class DefaultFlagsModel(BaseModel):
     clear_other_defaults: bool = True
     set_subtitle_default_when_audio_differs: bool = False
     set_subtitle_forced_when_audio_differs: bool = False
+    preferred_audio_codec: list[str] | None = None
+
+    @field_validator("preferred_audio_codec", mode="before")
+    @classmethod
+    def casefold_preferred_audio_codec(
+        cls,
+        v: list[str] | None,
+    ) -> list[str] | None:
+        """Casefold codec names for case-insensitive matching."""
+        if v is None:
+            return None
+        return [c.casefold() for c in v]
 
 
 class TranscriptionPolicyModel(BaseModel):
