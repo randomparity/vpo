@@ -259,12 +259,14 @@ class TestDetectEncoderType:
 class TestExecuteHardwareFallback:
     """Tests for hardware fallback during execute()."""
 
+    @patch("vpo.tools.encoders.check_encoder_available", return_value=True)
     @patch("vpo.executor.transcode.command.require_tool")
     @patch("vpo.executor.transcode.executor.TranscodeExecutor._run_ffmpeg_with_timeout")
     def test_retries_with_software_on_hw_failure(
         self,
         mock_run_ffmpeg: MagicMock,
         mock_require_tool: MagicMock,
+        mock_check_encoder: MagicMock,
         executor_with_hw_fallback: TranscodeExecutor,
         make_plan,
         tmp_path: Path,
@@ -307,12 +309,14 @@ class TestExecuteHardwareFallback:
         # Result should be success from the SW retry
         assert result.success is True
 
+    @patch("vpo.tools.encoders.check_encoder_available", return_value=True)
     @patch("vpo.executor.transcode.command.require_tool")
     @patch("vpo.executor.transcode.executor.TranscodeExecutor._run_ffmpeg_with_timeout")
     def test_no_retry_when_fallback_disabled(
         self,
         mock_run_ffmpeg: MagicMock,
         mock_require_tool: MagicMock,
+        mock_check_encoder: MagicMock,
         executor_without_hw_fallback: TranscodeExecutor,
         make_plan,
     ):
@@ -334,12 +338,14 @@ class TestExecuteHardwareFallback:
         assert mock_run_ffmpeg.call_count == 1
         assert result.success is False
 
+    @patch("vpo.tools.encoders.check_encoder_available", return_value=True)
     @patch("vpo.executor.transcode.command.require_tool")
     @patch("vpo.executor.transcode.executor.TranscodeExecutor._run_ffmpeg_with_timeout")
     def test_no_retry_on_non_hw_error(
         self,
         mock_run_ffmpeg: MagicMock,
         mock_require_tool: MagicMock,
+        mock_check_encoder: MagicMock,
         executor_with_hw_fallback: TranscodeExecutor,
         make_plan,
     ):
