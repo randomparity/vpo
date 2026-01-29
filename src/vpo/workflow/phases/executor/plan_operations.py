@@ -6,12 +6,13 @@ default flags, and conditional rules.
 """
 
 import logging
+import sqlite3
 from collections.abc import Callable
 from pathlib import Path
 from sqlite3 import Connection
 from typing import TYPE_CHECKING
 
-from vpo.db.queries import get_file_by_path
+from vpo.db.queries import get_file_by_path, update_file_path
 from vpo.db.types import TrackInfo
 from vpo.policy.evaluator import evaluate_policy
 from vpo.policy.types import ActionType, EvaluationPolicy, PolicySchema
@@ -153,20 +154,40 @@ def _handle_path_change(
         state: Execution state to update.
         new_path: New file path after container conversion.
         conn: Database connection for updating file record.
+
+    Raises:
+        ValueError: If old path not found in database or new path already exists.
+        RuntimeError: If database update fails.
+
+    Note:
+        This function does NOT commit. Caller manages transactions.
     """
-    from vpo.db.queries import get_file_by_path, update_file_path
-
     old_path = state.file_path
-    state.file_path = new_path
 
+    # Look up file record by old path
     file_record = get_file_by_path(conn, str(old_path))
-    if file_record:
-        try:
-            update_file_path(conn, file_record.id, str(new_path))
-            conn.commit()
-            logger.info("Updated file path: %s -> %s", old_path.name, new_path.name)
-        except Exception as e:
-            logger.error("Failed to update path in database: %s", e)
+    if file_record is None:
+        raise ValueError(f"Cannot update path: file not in database ({old_path})")
+
+    # Update database FIRST (fail-fast)
+    try:
+        updated = update_file_path(conn, file_record.id, str(new_path))
+        if not updated:
+            raise RuntimeError(
+                f"Database update returned False for file_id={file_record.id}"
+            )
+    except sqlite3.IntegrityError as e:
+        if "already exists" in str(e).lower():
+            raise ValueError(
+                f"Cannot update path: {new_path} already exists in database"
+            ) from e
+        raise RuntimeError(f"Database integrity error: {e}") from e
+    except sqlite3.Error as e:
+        raise RuntimeError(f"Database update failed: {e}") from e
+
+    # Only update state AFTER successful DB update
+    state.file_path = new_path
+    logger.info("Updated file path: %s -> %s", old_path.name, new_path.name)
 
 
 def execute_container(

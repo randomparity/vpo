@@ -519,6 +519,10 @@ class WorkflowProcessor:
                             phase.name,
                             file_path.name,
                         )
+                        # Commit the path change from plan_operations
+                        # (_handle_path_change does not commit)
+                        if not self.dry_run:
+                            self.conn.commit()
 
                     # Re-introspect if file was modified
                     if file_was_modified and not self.dry_run:
