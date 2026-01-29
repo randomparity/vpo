@@ -16,7 +16,6 @@ import logging
 import shutil
 import signal
 import subprocess  # nosec B404 - subprocess needed for FFmpeg/mkvmerge
-import tempfile
 import threading
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -124,7 +123,7 @@ class FFmpegSynthesisExecutor:
         Args:
             ffmpeg_path: Path to ffmpeg binary, or None to auto-detect.
             mkvmerge_path: Path to mkvmerge binary, or None to auto-detect.
-            temp_dir: Directory for temporary files, or None for system default.
+            temp_dir: Directory for temporary files, or None for source file directory.
         """
         self._ffmpeg_path = ffmpeg_path
         self._mkvmerge_path = mkvmerge_path
@@ -442,7 +441,7 @@ class FFmpegSynthesisExecutor:
             )
 
         # Create working directory
-        temp_dir = self._temp_dir or Path(tempfile.gettempdir())
+        temp_dir = self._temp_dir or plan.file_path.parent
         work_dir = temp_dir / f"vpo_synthesis_{plan.file_id[:8]}"
         work_dir.mkdir(parents=True, exist_ok=True)
         logger.debug("Created work directory: %s", work_dir)

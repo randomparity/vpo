@@ -84,21 +84,19 @@ def get_data_dir() -> Path:
     return DEFAULT_CONFIG_DIR
 
 
-def get_temp_directory() -> Path:
+def get_temp_directory() -> Path | None:
     """Get the temporary directory for intermediate files.
 
     Precedence (highest to lowest):
     1. VPO_TEMP_DIR environment variable
     2. Config file [jobs] temp_directory
-    3. System default (tempfile.gettempdir())
+    3. None (callers use source file directory as fallback)
 
     Use /dev/shm on Linux for RAM-backed storage.
 
     Returns:
-        Path to the temp directory.
+        Path to the temp directory, or None if unconfigured.
     """
-    import tempfile
-
     # Check environment variable first
     env_path = os.environ.get("VPO_TEMP_DIR")
     if env_path:
@@ -116,8 +114,8 @@ def get_temp_directory() -> Path:
     if config.jobs.temp_directory is not None:
         return config.jobs.temp_directory
 
-    # Fall back to system default
-    return Path(tempfile.gettempdir())
+    # No temp directory configured — callers should use source file directory
+    return None
 
 
 def load_config_file(path: Path | None = None) -> dict:

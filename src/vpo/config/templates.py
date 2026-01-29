@@ -183,7 +183,7 @@ def get_config_template(data_dir: Path) -> str:
 [jobs]
 # retention_days = 30            # Days to keep completed job records
 # auto_purge = true              # Purge old jobs on worker start
-# temp_directory = ""            # Temp directory for output (empty = source dir)
+# temp_directory = ""            # Temp directory (empty = source file dir)
 # backup_original = true         # Keep backup of original after transcode
 # log_compression_days = 7       # Days before compressing job log files
 # log_deletion_days = 90         # Days before deleting old job logs
