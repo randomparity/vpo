@@ -24,6 +24,7 @@ from vpo.policy.transcode import (
 from vpo.policy.types import (
     AudioTranscodeConfig,
     HardwareAccelConfig,
+    HardwareAccelMode,
     QualityMode,
     QualitySettings,
     SkipCondition,
@@ -36,6 +37,7 @@ from vpo.policy.video_analysis import (
     detect_vfr_content,
     select_primary_video_stream,
 )
+from vpo.tools.encoders import detect_hw_encoder_error
 from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 from .command import build_ffmpeg_command, build_ffmpeg_command_pass1
@@ -189,6 +191,35 @@ class TranscodeExecutor(FFmpegExecutorBase):
         self.temp_directory = temp_directory
         self.backup_original = backup_original
         self.transcode_timeout = transcode_timeout
+
+    def _should_retry_with_software(
+        self, cmd: list[str], stderr_lines: list[str]
+    ) -> bool:
+        """Check if we should retry with software encoding after hardware failure.
+
+        Args:
+            cmd: FFmpeg command arguments that were used.
+            stderr_lines: Stderr output from FFmpeg.
+
+        Returns:
+            True if hardware encoder failed and fallback_to_cpu is enabled.
+        """
+        # Only check if hardware acceleration is configured with fallback enabled
+        if not self.hardware_acceleration:
+            return False
+        if not self.hardware_acceleration.fallback_to_cpu:
+            return False
+        if self.hardware_acceleration.enabled == HardwareAccelMode.NONE:
+            return False
+
+        # Check if the encoder used was hardware
+        encoder_type = detect_encoder_type(cmd)
+        if encoder_type != "hardware":
+            return False
+
+        # Check stderr for hardware encoder error patterns
+        stderr_text = "\n".join(stderr_lines)
+        return detect_hw_encoder_error(stderr_text)
 
     def create_plan(
         self,
@@ -927,6 +958,32 @@ class TranscodeExecutor(FFmpegExecutorBase):
                     timeout_secs = self.transcode_timeout
                     msg = f"Transcode timed out after {timeout_secs} seconds"
                     return TranscodeResult(success=False, error_message=msg)
+
+                # Check if we should retry with software encoding
+                if self._should_retry_with_software(cmd, stderr_output):
+                    logger.warning(
+                        "Hardware encoder failed, retrying with software encoder: %s",
+                        plan.input_path.name,
+                    )
+                    # Retry with hardware acceleration disabled
+                    original_hw_accel = self.hardware_acceleration
+                    try:
+                        self.hardware_acceleration = HardwareAccelConfig(
+                            enabled=HardwareAccelMode.NONE,
+                            fallback_to_cpu=False,
+                        )
+                        # Recursive call with software encoding
+                        return self.execute(
+                            plan,
+                            quality=quality,
+                            target_codec=target_codec,
+                            scale_algorithm=scale_algorithm,
+                            ffmpeg_args=ffmpeg_args,
+                        )
+                    finally:
+                        # Restore original config
+                        self.hardware_acceleration = original_hw_accel
+
                 error_msg = "".join(stderr_output[-10:])  # Last 10 lines
                 logger.error("FFmpeg failed: %s", error_msg)
                 return TranscodeResult(

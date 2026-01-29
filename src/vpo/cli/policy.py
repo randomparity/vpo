@@ -114,6 +114,18 @@ def _validate_policy(policy_path: Path) -> dict:
         result["message"] = f"File not found: {policy_path}"
         return result
 
+    # Check if it's a directory
+    if policy_path.is_dir():
+        result["errors"].append(
+            {
+                "field": None,
+                "message": f"Path is a directory, not a file: {policy_path}",
+                "code": "is_directory",
+            }
+        )
+        result["message"] = f"Path is a directory, not a file: {policy_path}"
+        return result
+
     # Try to load and validate the policy
     try:
         load_policy(policy_path)
@@ -121,11 +133,15 @@ def _validate_policy(policy_path: Path) -> dict:
         result["message"] = "Policy is valid"
     except PolicyValidationError as e:
         error_msg = str(e.message) if hasattr(e, "message") else str(e)
+        # Detect YAML syntax errors from the message
+        code = "validation_error"
+        if "Invalid YAML syntax" in error_msg:
+            code = "yaml_syntax_error"
         result["errors"].append(
             {
                 "field": getattr(e, "field", None),
                 "message": error_msg,
-                "code": "validation_error",
+                "code": code,
             }
         )
         result["message"] = error_msg
@@ -138,6 +154,24 @@ def _validate_policy(policy_path: Path) -> dict:
             }
         )
         result["message"] = str(e)
+    except PermissionError as e:
+        result["errors"].append(
+            {
+                "field": None,
+                "message": f"Permission denied: {e}",
+                "code": "permission_denied",
+            }
+        )
+        result["message"] = f"Permission denied: {e}"
+    except IsADirectoryError as e:
+        result["errors"].append(
+            {
+                "field": None,
+                "message": f"Path is a directory: {e}",
+                "code": "is_directory",
+            }
+        )
+        result["message"] = f"Path is a directory: {e}"
     except Exception as e:
         result["errors"].append(
             {

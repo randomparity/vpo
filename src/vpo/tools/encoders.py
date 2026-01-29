@@ -19,6 +19,8 @@ from vpo.executor.interface import require_tool
 
 logger = logging.getLogger(__name__)
 
+# Timeout for encoder availability checks (seconds)
+ENCODER_CHECK_TIMEOUT = 10
 
 # Software encoder mappings by codec
 SOFTWARE_ENCODERS: dict[str, str] = {
@@ -119,10 +121,14 @@ def check_encoder_available(encoder: str) -> bool:
             [str(ffmpeg_path), "-hide_banner", "-encoders"],
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=ENCODER_CHECK_TIMEOUT,
         )
         return encoder in result.stdout
-    except (subprocess.TimeoutExpired, OSError):
+    except subprocess.TimeoutExpired:
+        logger.debug("Encoder check timed out for %s", encoder)
+        return False
+    except OSError as e:
+        logger.debug("Encoder check failed for %s: %s", encoder, e)
         return False
 
 

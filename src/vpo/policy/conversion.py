@@ -656,8 +656,15 @@ def _convert_hardware_accel_config(
         "none": HardwareAccelMode.NONE,
     }
 
+    mode = mode_map.get(model.enabled)
+    if mode is None:
+        raise ValueError(
+            f"Invalid hardware acceleration mode: '{model.enabled}'. "
+            f"Must be one of: {', '.join(sorted(mode_map.keys()))}"
+        )
+
     return HardwareAccelConfig(
-        enabled=mode_map[model.enabled],
+        enabled=mode,
         fallback_to_cpu=model.fallback_to_cpu,
     )
 

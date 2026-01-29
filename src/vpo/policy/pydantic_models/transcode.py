@@ -23,6 +23,24 @@ from vpo.policy.types import (
     parse_bitrate,
 )
 
+# Security: Forbidden shell metacharacters in ffmpeg_args to prevent injection
+FORBIDDEN_FFMPEG_ARG_PATTERNS = (
+    ";",
+    "|",
+    "&",
+    "$(",
+    "`",
+    "${",
+    ">",
+    "<",
+    "\\n",
+    "\n",
+)
+
+# Limits for ffmpeg_args to prevent abuse
+MAX_FFMPEG_ARGS_COUNT = 50
+MAX_FFMPEG_ARG_LENGTH = 1024
+
 
 class SkipConditionModel(BaseModel):
     """Pydantic model for skip condition configuration."""
@@ -175,13 +193,36 @@ class VideoTranscodeConfigModel(BaseModel):
     @field_validator("ffmpeg_args")
     @classmethod
     def validate_ffmpeg_args(cls, v: list[str] | None) -> list[str] | None:
-        """Validate FFmpeg arguments are strings."""
+        """Validate FFmpeg arguments for safety and correctness."""
         if v is None:
             return None
-        for arg in v:
+
+        # Check argument count limit
+        if len(v) > MAX_FFMPEG_ARGS_COUNT:
+            raise ValueError(
+                f"ffmpeg_args count exceeds limit: {len(v)} > {MAX_FFMPEG_ARGS_COUNT}"
+            )
+
+        for i, arg in enumerate(v):
             if not isinstance(arg, str):
                 arg_type = type(arg).__name__
                 raise ValueError(f"ffmpeg_args must be strings, got {arg_type}")
+
+            # Check individual argument length
+            if len(arg) > MAX_FFMPEG_ARG_LENGTH:
+                raise ValueError(
+                    f"ffmpeg_args[{i}] exceeds length limit: "
+                    f"{len(arg)} > {MAX_FFMPEG_ARG_LENGTH}"
+                )
+
+            # Check for forbidden shell metacharacters
+            for pattern in FORBIDDEN_FFMPEG_ARG_PATTERNS:
+                if pattern in arg:
+                    raise ValueError(
+                        f"ffmpeg_args[{i}] contains forbidden character: "
+                        f"'{pattern}' (shell metacharacters not allowed)"
+                    )
+
         return v
 
     @field_validator("target_codec")
