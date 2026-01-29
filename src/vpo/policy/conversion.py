@@ -656,8 +656,15 @@ def _convert_hardware_accel_config(
         "none": HardwareAccelMode.NONE,
     }
 
+    mode = mode_map.get(model.enabled)
+    if mode is None:
+        raise ValueError(
+            f"Invalid hardware acceleration mode: '{model.enabled}'. "
+            f"Must be one of: {', '.join(sorted(mode_map.keys()))}"
+        )
+
     return HardwareAccelConfig(
-        enabled=mode_map[model.enabled],
+        enabled=mode,
         fallback_to_cpu=model.fallback_to_cpu,
     )
 
@@ -677,6 +684,7 @@ def _convert_video_transcode_config(
         hardware_acceleration=_convert_hardware_accel_config(
             model.hardware_acceleration
         ),
+        ffmpeg_args=tuple(model.ffmpeg_args) if model.ffmpeg_args else None,
     )
 
 

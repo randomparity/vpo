@@ -301,10 +301,14 @@ class MkvmergeExecutor:
             },
         )
 
+        # Report output_path if container conversion changed the path
+        result_output_path = output_path if output_path != plan.file_path else None
+
         return ExecutorResult(
             success=True,
             message=message,
             backup_path=result_backup_path,
+            output_path=result_output_path,
         )
 
     def _build_track_selection_args(

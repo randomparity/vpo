@@ -208,26 +208,26 @@ Operations within each phase execute in this canonical order:
 ### Run All Phases
 
 ```bash
-vpo process -p policy.yaml /path/to/video.mkv
+vpo policy run -p policy.yaml /path/to/video.mkv
 ```
 
 ### Run Specific Phases
 
 ```bash
 # Run only the cleanup and organize phases
-vpo process -p policy.yaml --phases cleanup,organize /path/to/video.mkv
+vpo policy run -p policy.yaml --phases cleanup,organize /path/to/video.mkv
 ```
 
 ### Dry Run
 
 ```bash
-vpo process -p policy.yaml --dry-run /path/to/video.mkv
+vpo policy run -p policy.yaml --dry-run /path/to/video.mkv
 ```
 
 ### JSON Output
 
 ```bash
-vpo process -p policy.yaml --json /path/to/video.mkv
+vpo policy run -p policy.yaml --json /path/to/video.mkv
 ```
 
 ---

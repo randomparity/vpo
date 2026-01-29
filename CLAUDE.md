@@ -32,7 +32,7 @@ uv run maturin develop
 uv run vpo --help
 uv run vpo scan /path/to/videos
 uv run vpo inspect /path/to/file.mkv
-uv run vpo process --policy policy.yaml /path/to/file.mkv --dry-run
+uv run vpo policy run --policy policy.yaml /path/to/file.mkv --dry-run
 
 # Run web UI daemon
 uv run vpo serve --port 8080          # Start daemon with web UI

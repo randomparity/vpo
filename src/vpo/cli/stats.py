@@ -186,7 +186,7 @@ def _output_summary_table(summary, since, until, policy_name) -> None:
     if summary.total_files_processed == 0:
         click.echo("")
         click.echo("No processing statistics recorded yet.")
-        click.echo("Statistics are captured during 'vpo process' (non-dry-run).")
+        click.echo("Statistics are captured during 'vpo policy run' (non-dry-run).")
         click.echo("")
         return
 

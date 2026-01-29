@@ -157,6 +157,7 @@ class PhaseExecutor:
             PhaseResult with execution status and details.
         """
         start_time = time.time()
+        original_file_path = file_path  # Capture for tracking path changes
         state = PhaseExecutionState(file_path=file_path, phase=phase)
 
         # Capture original file mtime for file_timestamp preserve mode
@@ -265,6 +266,11 @@ class PhaseExecutor:
             if state.track_order_before and state.track_order_after:
                 track_order_change = (state.track_order_before, state.track_order_after)
 
+            # Determine if path changed during phase execution
+            result_output_path = (
+                state.file_path if state.file_path != original_file_path else None
+            )
+
             return PhaseResult(
                 phase_name=phase.name,
                 success=True,
@@ -288,6 +294,7 @@ class PhaseExecutor:
                 audio_synthesis_created=tuple(state.audio_synthesis_created),
                 transcription_results=tuple(state.transcription_results),
                 operation_failures=tuple(state.operation_failures),
+                output_path=result_output_path,
             )
 
         except PhaseExecutionError:

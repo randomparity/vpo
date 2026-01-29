@@ -12,6 +12,8 @@ import platform
 from vpo.executor.interface import require_tool
 from vpo.policy.transcode import AudioAction, AudioPlan
 from vpo.policy.types import (
+    HardwareAccelConfig,
+    HardwareAccelMode,
     QualityMode,
     QualitySettings,
     TranscodePolicyConfig,
@@ -19,7 +21,7 @@ from vpo.policy.types import (
     parse_bitrate,
 )
 from vpo.policy.video_analysis import build_hdr_preservation_args
-from vpo.tools.encoders import get_software_encoder
+from vpo.tools.encoders import get_software_encoder, select_encoder
 
 from .audio import build_audio_args
 from .types import TranscodePlan, TwoPassContext
@@ -28,6 +30,58 @@ logger = logging.getLogger(__name__)
 
 # Local alias for internal use
 _get_encoder = get_software_encoder
+
+# Hardware acceleration decode mode mapping
+_HWACCEL_DECODE_MAP: dict[HardwareAccelMode, str | None] = {
+    HardwareAccelMode.NVENC: "cuda",
+    HardwareAccelMode.QSV: "qsv",
+    HardwareAccelMode.VAAPI: "vaapi",
+    HardwareAccelMode.AUTO: None,  # Let FFmpeg auto-detect
+}
+
+
+def _select_video_encoder(
+    codec: str,
+    hardware_acceleration: HardwareAccelConfig | None,
+    context: str = "",
+    file_path: str | None = None,
+) -> str:
+    """Select video encoder based on codec and hardware acceleration settings.
+
+    Args:
+        codec: Target video codec (hevc, h264, etc.).
+        hardware_acceleration: Hardware acceleration configuration.
+        context: Additional context for log messages (e.g., "pass 1").
+        file_path: File path for error context.
+
+    Returns:
+        FFmpeg encoder name (e.g., 'libx265', 'hevc_nvenc').
+
+    Raises:
+        RuntimeError: If hardware encoder unavailable and fallback disabled.
+    """
+    if (
+        hardware_acceleration
+        and hardware_acceleration.enabled != HardwareAccelMode.NONE
+    ):
+        hw_mode = hardware_acceleration.enabled.value
+        fallback = hardware_acceleration.fallback_to_cpu
+        try:
+            selection = select_encoder(codec, hw_mode, fallback)
+        except RuntimeError as e:
+            # Add file context to error message
+            file_context = f" for file {file_path}" if file_path else ""
+            raise RuntimeError(f"{e}{file_context}") from e
+        encoder = selection.encoder
+        if selection.fallback_occurred:
+            context_str = f" for {context}" if context else ""
+            logger.info(
+                "Hardware encoder not available%s, falling back to %s",
+                context_str,
+                encoder,
+            )
+        return encoder
+    return _get_encoder(codec)
 
 
 def build_quality_args(
@@ -135,6 +189,9 @@ def build_ffmpeg_command(
     quality: QualitySettings | None = None,
     target_codec: str | None = None,
     two_pass_ctx: TwoPassContext | None = None,
+    scale_algorithm: str | None = None,
+    ffmpeg_args: tuple[str, ...] | None = None,
+    hardware_acceleration: HardwareAccelConfig | None = None,
 ) -> list[str]:
     """Build FFmpeg command for transcoding.
 
@@ -144,12 +201,22 @@ def build_ffmpeg_command(
         quality: V6 quality settings (overrides policy settings if provided).
         target_codec: V6 target codec (overrides policy codec if provided).
         two_pass_ctx: Context for two-pass encoding (if active).
+        scale_algorithm: Scaling algorithm (e.g., 'lanczos', 'bicubic').
+        ffmpeg_args: Custom FFmpeg arguments to insert before output.
+        hardware_acceleration: V6 hardware acceleration config.
 
     Returns:
         List of command arguments.
     """
     ffmpeg_path = require_tool("ffmpeg")
     cmd = [str(ffmpeg_path), "-y", "-hide_banner"]
+
+    # Hardware decode flags (must come before input)
+    hw_accel = hardware_acceleration
+    if hw_accel and hw_accel.enabled != HardwareAccelMode.NONE:
+        hwaccel = _HWACCEL_DECODE_MAP.get(hw_accel.enabled)
+        if hwaccel:
+            cmd.extend(["-hwaccel", hwaccel])
 
     # Input file
     cmd.extend(["-i", str(plan.input_path)])
@@ -164,7 +231,14 @@ def build_ffmpeg_command(
 
         # Determine codec (V6 target_codec takes precedence)
         codec = target_codec or policy.target_video_codec or "hevc"
-        encoder = _get_encoder(codec)
+
+        # Select encoder based on hardware acceleration settings
+        encoder = _select_video_encoder(
+            codec,
+            hardware_acceleration,
+            context="",
+            file_path=str(plan.input_path),
+        )
         cmd.extend(["-c:v", encoder])
 
         # Build quality arguments (V6 quality takes precedence over policy)
@@ -172,12 +246,10 @@ def build_ffmpeg_command(
 
         # Scaling
         if plan.needs_video_scale and plan.target_width and plan.target_height:
-            cmd.extend(
-                [
-                    "-vf",
-                    f"scale={plan.target_width}:{plan.target_height}",
-                ]
-            )
+            scale_filter = f"scale={plan.target_width}:{plan.target_height}"
+            if scale_algorithm:
+                scale_filter += f":flags={scale_algorithm}"
+            cmd.extend(["-vf", scale_filter])
 
         # HDR preservation (must come after video encoder settings)
         hdr_args = build_hdr_preservation_args(
@@ -202,6 +274,10 @@ def build_ffmpeg_command(
     if cpu_cores:
         cmd.extend(["-threads", str(cpu_cores)])
 
+    # Custom FFmpeg arguments (inserted before stats_period and output)
+    if ffmpeg_args:
+        cmd.extend(ffmpeg_args)
+
     # Progress output to stderr
     cmd.extend(["-stats_period", "1"])
 
@@ -217,6 +293,9 @@ def build_ffmpeg_command_pass1(
     cpu_cores: int | None = None,
     quality: QualitySettings | None = None,
     target_codec: str | None = None,
+    scale_algorithm: str | None = None,
+    ffmpeg_args: tuple[str, ...] | None = None,
+    hardware_acceleration: HardwareAccelConfig | None = None,
 ) -> list[str]:
     """Build FFmpeg command for first pass of two-pass encoding.
 
@@ -229,6 +308,9 @@ def build_ffmpeg_command_pass1(
         cpu_cores: Number of CPU cores to use (None = auto).
         quality: V6 quality settings.
         target_codec: V6 target codec.
+        scale_algorithm: Scaling algorithm (e.g., 'lanczos', 'bicubic').
+        ffmpeg_args: Custom FFmpeg arguments to insert before output.
+        hardware_acceleration: V6 hardware acceleration config.
 
     Returns:
         List of command arguments.
@@ -236,13 +318,27 @@ def build_ffmpeg_command_pass1(
     ffmpeg_path = require_tool("ffmpeg")
     cmd = [str(ffmpeg_path), "-y", "-hide_banner"]
 
+    # Hardware decode flags (must come before input)
+    hw_accel = hardware_acceleration
+    if hw_accel and hw_accel.enabled != HardwareAccelMode.NONE:
+        hwaccel = _HWACCEL_DECODE_MAP.get(hw_accel.enabled)
+        if hwaccel:
+            cmd.extend(["-hwaccel", hwaccel])
+
     # Input file
     cmd.extend(["-i", str(plan.input_path)])
 
     # Video encoder settings
     policy = plan.policy
     codec = target_codec or policy.target_video_codec or "hevc"
-    encoder = _get_encoder(codec)
+
+    # Select encoder based on hardware acceleration settings
+    encoder = _select_video_encoder(
+        codec,
+        hardware_acceleration,
+        context="pass 1",
+        file_path=str(plan.input_path),
+    )
     cmd.extend(["-c:v", encoder])
 
     # Quality args with two-pass context (pass 1)
@@ -252,7 +348,10 @@ def build_ffmpeg_command_pass1(
 
     # Scaling (same as pass 2)
     if plan.needs_video_scale and plan.target_width and plan.target_height:
-        cmd.extend(["-vf", f"scale={plan.target_width}:{plan.target_height}"])
+        scale_filter = f"scale={plan.target_width}:{plan.target_height}"
+        if scale_algorithm:
+            scale_filter += f":flags={scale_algorithm}"
+        cmd.extend(["-vf", scale_filter])
 
     # HDR preservation (same as pass 2)
     hdr_args = build_hdr_preservation_args(
@@ -266,6 +365,10 @@ def build_ffmpeg_command_pass1(
     # Thread control
     if cpu_cores:
         cmd.extend(["-threads", str(cpu_cores)])
+
+    # Custom FFmpeg arguments (inserted before stats_period and output)
+    if ffmpeg_args:
+        cmd.extend(ffmpeg_args)
 
     # Progress output to stderr
     cmd.extend(["-stats_period", "1"])

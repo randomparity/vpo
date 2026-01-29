@@ -433,6 +433,14 @@ class HardwareAccelConfig:
     fallback_to_cpu: bool = True
     """Fall back to CPU encoding if hardware encoder fails or unavailable."""
 
+    def __post_init__(self) -> None:
+        """Validate hardware acceleration configuration."""
+        if not isinstance(self.enabled, HardwareAccelMode):
+            raise ValueError(
+                f"enabled must be a HardwareAccelMode enum value, "
+                f"got {type(self.enabled).__name__}: {self.enabled}"
+            )
+
 
 @dataclass(frozen=True)
 class AudioTranscodeConfig:
@@ -487,6 +495,12 @@ class VideoTranscodeConfig:
 
     hardware_acceleration: HardwareAccelConfig | None = None
     """Hardware acceleration settings."""
+
+    ffmpeg_args: tuple[str, ...] | None = None
+    """Custom FFmpeg command-line arguments to append before output.
+
+    Example: ("-max_muxing_queue_size", "9999")
+    """
 
     def __post_init__(self) -> None:
         """Validate video transcode configuration."""

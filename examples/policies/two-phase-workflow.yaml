@@ -1,6 +1,6 @@
-# Two Phase Workflow Policy (V11)
+# Two Phase Workflow Policy (V12)
 # Demonstrates cleanup-then-organize pattern
-schema_version: 11
+schema_version: 12
 
 config:
   audio_language_preference: [eng, jpn, und]

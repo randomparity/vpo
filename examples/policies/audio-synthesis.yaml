@@ -1,6 +1,6 @@
-# Audio Synthesis Policy (V11)
+# Audio Synthesis Policy (V12)
 # Create compatibility audio tracks from lossless sources
-schema_version: 11
+schema_version: 12
 
 config:
   audio_language_preference: [eng, und]

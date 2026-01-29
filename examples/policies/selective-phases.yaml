@@ -1,6 +1,6 @@
-# Selective Phases Policy (V11)
-# Designed for CLI phase selection: vpo process -p selective-phases.yaml --phases quick-fix
-schema_version: 11
+# Selective Phases Policy (V12)
+# Designed for CLI phase selection: vpo policy run -p selective-phases.yaml --phases quick-fix
+schema_version: 12
 
 config:
   audio_language_preference: [eng, und]
@@ -9,7 +9,7 @@ config:
 
 phases:
   # Quick metadata fixes only (no transcoding)
-  # Usage: vpo process -p selective-phases.yaml --phases quick-fix video.mkv
+  # Usage: vpo policy run -p selective-phases.yaml --phases quick-fix video.mkv
   - name: quick-fix
     default_flags:
       set_first_video_default: true
@@ -17,7 +17,7 @@ phases:
       clear_other_defaults: true
 
   # Full normalization without transcoding
-  # Usage: vpo process -p selective-phases.yaml --phases full-normalize video.mkv
+  # Usage: vpo policy run -p selective-phases.yaml --phases full-normalize video.mkv
   - name: full-normalize
     audio_filter:
       languages: [eng, und]
@@ -39,7 +39,7 @@ phases:
       clear_other_defaults: true
 
   # Archive quality transcoding for long-term storage
-  # Usage: vpo process -p selective-phases.yaml --phases archive video.mkv
+  # Usage: vpo policy run -p selective-phases.yaml --phases archive video.mkv
   - name: archive
     transcode:
       video:

@@ -1,6 +1,6 @@
-# Container Conversion Policy (V11)
+# Container Conversion Policy (V12)
 # Convert container format with codec compatibility handling
-schema_version: 11
+schema_version: 12
 
 config:
   on_error: skip

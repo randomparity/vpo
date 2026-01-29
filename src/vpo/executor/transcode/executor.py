@@ -23,6 +23,8 @@ from vpo.policy.transcode import (
 )
 from vpo.policy.types import (
     AudioTranscodeConfig,
+    HardwareAccelConfig,
+    HardwareAccelMode,
     QualityMode,
     QualitySettings,
     SkipCondition,
@@ -35,6 +37,7 @@ from vpo.policy.video_analysis import (
     detect_vfr_content,
     select_primary_video_stream,
 )
+from vpo.tools.encoders import detect_hw_encoder_error
 from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 from .command import build_ffmpeg_command, build_ffmpeg_command_pass1
@@ -157,6 +160,7 @@ class TranscodeExecutor(FFmpegExecutorBase):
         policy: TranscodePolicyConfig,
         skip_if: SkipCondition | None = None,
         audio_config: AudioTranscodeConfig | None = None,
+        hardware_acceleration: HardwareAccelConfig | None = None,
         cpu_cores: int | None = None,
         progress_callback: Callable[[FFmpegProgress], None] | None = None,
         temp_directory: Path | None = None,
@@ -169,6 +173,7 @@ class TranscodeExecutor(FFmpegExecutorBase):
             policy: Transcode policy configuration.
             skip_if: V6 skip condition for conditional transcoding.
             audio_config: V6 audio transcode config for preserve_codecs handling.
+            hardware_acceleration: V6 hardware acceleration config.
             cpu_cores: Number of CPU cores to use.
             progress_callback: Optional callback for progress updates.
             temp_directory: Directory for temp files (None = same as output).
@@ -180,11 +185,41 @@ class TranscodeExecutor(FFmpegExecutorBase):
         self.policy = policy
         self.skip_if = skip_if
         self.audio_config = audio_config
+        self.hardware_acceleration = hardware_acceleration
         self.cpu_cores = cpu_cores
         self.progress_callback = progress_callback
         self.temp_directory = temp_directory
         self.backup_original = backup_original
         self.transcode_timeout = transcode_timeout
+
+    def _should_retry_with_software(
+        self, cmd: list[str], stderr_lines: list[str]
+    ) -> bool:
+        """Check if we should retry with software encoding after hardware failure.
+
+        Args:
+            cmd: FFmpeg command arguments that were used.
+            stderr_lines: Stderr output from FFmpeg.
+
+        Returns:
+            True if hardware encoder failed and fallback_to_cpu is enabled.
+        """
+        # Only check if hardware acceleration is configured with fallback enabled
+        if not self.hardware_acceleration:
+            return False
+        if not self.hardware_acceleration.fallback_to_cpu:
+            return False
+        if self.hardware_acceleration.enabled == HardwareAccelMode.NONE:
+            return False
+
+        # Check if the encoder used was hardware
+        encoder_type = detect_encoder_type(cmd)
+        if encoder_type != "hardware":
+            return False
+
+        # Check stderr for hardware encoder error patterns
+        stderr_text = "\n".join(stderr_lines)
+        return detect_hw_encoder_error(stderr_text)
 
     def create_plan(
         self,
@@ -525,6 +560,8 @@ class TranscodeExecutor(FFmpegExecutorBase):
         quality: QualitySettings,
         target_codec: str | None,
         temp_output: Path,
+        scale_algorithm: str | None = None,
+        ffmpeg_args: tuple[str, ...] | None = None,
     ) -> TranscodeResult:
         """Execute two-pass encoding.
 
@@ -537,6 +574,8 @@ class TranscodeExecutor(FFmpegExecutorBase):
             quality: Quality settings with two_pass=True.
             target_codec: Target codec override.
             temp_output: Temp output path.
+            scale_algorithm: Scaling algorithm (e.g., 'lanczos', 'bicubic').
+            ffmpeg_args: Custom FFmpeg arguments to insert before output.
 
         Returns:
             TranscodeResult with success status.
@@ -558,7 +597,14 @@ class TranscodeExecutor(FFmpegExecutorBase):
             # === PASS 1 ===
             two_pass_ctx.current_pass = 1
             cmd1 = build_ffmpeg_command_pass1(
-                plan, two_pass_ctx, self.cpu_cores, quality, target_codec
+                plan,
+                two_pass_ctx,
+                self.cpu_cores,
+                quality,
+                target_codec,
+                scale_algorithm,
+                ffmpeg_args,
+                self.hardware_acceleration,
             )
             logger.info(
                 "Starting two-pass encoding pass 1: %s",
@@ -627,7 +673,14 @@ class TranscodeExecutor(FFmpegExecutorBase):
             )
 
             cmd2 = build_ffmpeg_command(
-                temp_plan, self.cpu_cores, quality, target_codec, two_pass_ctx
+                temp_plan,
+                self.cpu_cores,
+                quality,
+                target_codec,
+                two_pass_ctx,
+                scale_algorithm,
+                ffmpeg_args,
+                self.hardware_acceleration,
             )
             logger.info(
                 "Starting two-pass encoding pass 2: %s",
@@ -697,6 +750,8 @@ class TranscodeExecutor(FFmpegExecutorBase):
         plan: TranscodePlan,
         quality: QualitySettings | None = None,
         target_codec: str | None = None,
+        scale_algorithm: str | None = None,
+        ffmpeg_args: tuple[str, ...] | None = None,
     ) -> TranscodeResult:
         """Execute a transcode plan with safety features.
 
@@ -707,6 +762,8 @@ class TranscodeExecutor(FFmpegExecutorBase):
             plan: The transcode plan to execute.
             quality: V6 quality settings (optional).
             target_codec: V6 target codec (optional).
+            scale_algorithm: Scaling algorithm (e.g., 'lanczos', 'bicubic').
+            ffmpeg_args: Custom FFmpeg arguments to insert before output.
 
         Returns:
             TranscodeResult with success status.
@@ -782,7 +839,9 @@ class TranscodeExecutor(FFmpegExecutorBase):
 
         # Check if two-pass encoding is requested
         if quality and quality.two_pass and quality.mode == QualityMode.BITRATE:
-            result = self._execute_two_pass(plan, quality, target_codec, temp_output)
+            result = self._execute_two_pass(
+                plan, quality, target_codec, temp_output, scale_algorithm, ffmpeg_args
+            )
             if not result.success:
                 return result
             # Two-pass succeeded, continue with verification and move
@@ -865,7 +924,15 @@ class TranscodeExecutor(FFmpegExecutorBase):
             hdr_type=plan.hdr_type,
         )
 
-        cmd = build_ffmpeg_command(temp_plan, self.cpu_cores)
+        cmd = build_ffmpeg_command(
+            temp_plan,
+            self.cpu_cores,
+            quality=quality,
+            target_codec=target_codec,
+            scale_algorithm=scale_algorithm,
+            ffmpeg_args=ffmpeg_args,
+            hardware_acceleration=self.hardware_acceleration,
+        )
         logger.info(
             "Executing FFmpeg: %s",
             " ".join(cmd),
@@ -891,6 +958,32 @@ class TranscodeExecutor(FFmpegExecutorBase):
                     timeout_secs = self.transcode_timeout
                     msg = f"Transcode timed out after {timeout_secs} seconds"
                     return TranscodeResult(success=False, error_message=msg)
+
+                # Check if we should retry with software encoding
+                if self._should_retry_with_software(cmd, stderr_output):
+                    logger.warning(
+                        "Hardware encoder failed, retrying with software encoder: %s",
+                        plan.input_path.name,
+                    )
+                    # Retry with hardware acceleration disabled
+                    original_hw_accel = self.hardware_acceleration
+                    try:
+                        self.hardware_acceleration = HardwareAccelConfig(
+                            enabled=HardwareAccelMode.NONE,
+                            fallback_to_cpu=False,
+                        )
+                        # Recursive call with software encoding
+                        return self.execute(
+                            plan,
+                            quality=quality,
+                            target_codec=target_codec,
+                            scale_algorithm=scale_algorithm,
+                            ffmpeg_args=ffmpeg_args,
+                        )
+                    finally:
+                        # Restore original config
+                        self.hardware_acceleration = original_hw_accel
+
                 error_msg = "".join(stderr_output[-10:])  # Last 10 lines
                 logger.error("FFmpeg failed: %s", error_msg)
                 return TranscodeResult(
@@ -1060,6 +1153,12 @@ class TranscodeExecutor(FFmpegExecutorBase):
                 describe_audio_plan(plan.audio_plan) if plan.audio_plan else []
             ),
             "command": (
-                build_ffmpeg_command(plan, self.cpu_cores) if needs_work else None
+                build_ffmpeg_command(
+                    plan,
+                    self.cpu_cores,
+                    hardware_acceleration=self.hardware_acceleration,
+                )
+                if needs_work
+                else None
             ),
         }

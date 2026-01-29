@@ -230,9 +230,9 @@ def delete_file(conn: sqlite3.Connection, file_id: int) -> None:
 
 
 def update_file_path(conn: sqlite3.Connection, file_id: int, new_path: str) -> bool:
-    """Update a file's path after move operation.
+    """Update a file's path after move or container conversion.
 
-    Updates path, filename, and directory fields atomically.
+    Updates path, filename, directory, and extension fields atomically.
 
     Args:
         conn: Database connection.
@@ -249,19 +249,23 @@ def update_file_path(conn: sqlite3.Connection, file_id: int, new_path: str) -> b
         This function does NOT commit. Caller must manage transactions.
     """
     path = Path(new_path)
+    # Extract extension without leading dot, or None for files without extension
+    extension = path.suffix.lstrip(".") or None
     try:
         cursor = conn.execute(
             """
             UPDATE files SET
                 path = ?,
                 filename = ?,
-                directory = ?
+                directory = ?,
+                extension = ?
             WHERE id = ?
             """,
             (
                 str(path),
                 path.name,
                 str(path.parent),
+                extension,
                 file_id,
             ),
         )

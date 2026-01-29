@@ -102,6 +102,7 @@ def execute_transcode(
             policy=transcode_policy,
             skip_if=vt.skip_if,
             audio_config=phase.audio_transcode,
+            hardware_acceleration=vt.hardware_acceleration,
             backup_original=True,
             temp_directory=get_temp_directory(),
         )
@@ -142,7 +143,21 @@ def execute_transcode(
             state.video_source_codec = video_track.codec
             state.video_target_codec = vt.target_codec
 
-            result = executor.execute(plan)
+            # Extract scale algorithm from scaling settings
+            scale_algorithm = None
+            if vt.scaling and vt.scaling.algorithm:
+                scale_algorithm = vt.scaling.algorithm.value
+
+            # Extract custom ffmpeg_args from config
+            ffmpeg_args = vt.ffmpeg_args
+
+            result = executor.execute(
+                plan,
+                quality=vt.quality,
+                target_codec=vt.target_codec,
+                scale_algorithm=scale_algorithm,
+                ffmpeg_args=ffmpeg_args,
+            )
             if not result.success:
                 msg = f"Video transcode failed: {result.error_message}"
                 raise RuntimeError(msg)

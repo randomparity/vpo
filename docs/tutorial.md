@@ -204,7 +204,7 @@ phases:
 Always preview what VPO will do before applying changes:
 
 ```bash
-vpo process --policy my-policy.yaml /path/to/movie.mkv --dry-run
+vpo policy run --policy my-policy.yaml /path/to/movie.mkv --dry-run
 ```
 
 ### Example Dry-Run Output
@@ -227,17 +227,17 @@ The dry-run shows you exactly what VPO would change without modifying any files.
 Once you're satisfied with the planned changes, apply the policy:
 
 ```bash
-vpo process --policy my-policy.yaml /path/to/movie.mkv
+vpo policy run --policy my-policy.yaml /path/to/movie.mkv
 ```
 
 ### Apply to Multiple Files
 
 ```bash
 # Apply to all files in a directory
-vpo process --policy my-policy.yaml ~/Movies/
+vpo policy run --policy my-policy.yaml ~/Movies/
 
 # Apply to specific files
-vpo process --policy my-policy.yaml movie1.mkv movie2.mkv
+vpo policy run --policy my-policy.yaml movie1.mkv movie2.mkv
 ```
 
 ### Verify Changes

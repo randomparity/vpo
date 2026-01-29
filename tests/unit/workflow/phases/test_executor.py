@@ -874,7 +874,13 @@ class TestExecuteTranscode:
         result = executor._execute_transcode(state, mock_file_info)
 
         assert result == 1
-        mock_executor.execute.assert_called_once_with(mock_plan)
+        mock_executor.execute.assert_called_once_with(
+            mock_plan,
+            quality=None,
+            target_codec="hevc",
+            scale_algorithm=None,
+            ffmpeg_args=None,
+        )
 
     @patch("vpo.executor.transcode.TranscodeExecutor")
     @patch("vpo.db.queries.get_file_by_path")

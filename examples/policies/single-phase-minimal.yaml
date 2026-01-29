@@ -1,6 +1,6 @@
-# Single Phase Minimal Policy (V11)
-# Simplest possible V11 policy structure
-schema_version: 11
+# Single Phase Minimal Policy (V12)
+# Simplest possible V12 policy structure
+schema_version: 12
 
 config:
   audio_language_preference: [eng, und]

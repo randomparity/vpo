@@ -362,10 +362,14 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
         else:
             message = f"Converted {src} → mp4"
 
+        # Report output_path if container conversion changed the path
+        result_output_path = output_path if output_path != plan.file_path else None
+
         return ExecutorResult(
             success=True,
             message=message,
             backup_path=result_backup_path,
+            output_path=result_output_path,
         )
 
     def _build_command(self, plan: Plan, output_path: Path) -> list[str]:

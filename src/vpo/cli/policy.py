@@ -1,7 +1,4 @@
-"""CLI command for processing media files through the unified workflow.
-
-This command processes files through user-defined phases in order.
-"""
+"""CLI commands for policy management and execution."""
 
 import json
 import logging
@@ -42,8 +39,169 @@ from vpo.policy.types import (
 logger = logging.getLogger(__name__)
 
 
+@click.group("policy")
+def policy_group() -> None:
+    """Manage and validate policy files."""
+    pass
+
+
 # =============================================================================
-# Worker Count Utilities
+# Validate Command
+# =============================================================================
+
+
+@policy_group.command("validate")
+@click.argument("policy_file", type=click.Path(exists=False, path_type=Path))
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    help="Output validation result in JSON format.",
+)
+def validate_policy_cmd(policy_file: Path, json_output: bool) -> None:
+    """Validate a policy YAML file.
+
+    Checks that the policy file has valid YAML syntax, uses the correct
+    schema version, and contains all required fields.
+
+    Exit codes:
+        0: Policy is valid
+        10: Policy validation failed
+
+    Examples:
+
+        # Validate a policy file
+        vpo policy validate my-policy.yaml
+
+        # Validate with JSON output (for CI/tooling)
+        vpo policy validate my-policy.yaml --json
+    """
+    result = _validate_policy(policy_file)
+
+    if json_output:
+        _output_json(result)
+    else:
+        _output_human(result)
+
+    if not result["valid"]:
+        raise SystemExit(ExitCode.POLICY_VALIDATION_ERROR)
+
+
+def _validate_policy(policy_path: Path) -> dict:
+    """Validate a policy file and return the result as a dict.
+
+    Args:
+        policy_path: Path to the policy file.
+
+    Returns:
+        Dict with keys: valid, file, message, errors
+    """
+    result = {
+        "valid": False,
+        "file": str(policy_path),
+        "errors": [],
+    }
+
+    # Check file exists
+    if not policy_path.exists():
+        result["errors"].append(
+            {
+                "field": None,
+                "message": f"File not found: {policy_path}",
+                "code": "file_not_found",
+            }
+        )
+        result["message"] = f"File not found: {policy_path}"
+        return result
+
+    # Check if it's a directory
+    if policy_path.is_dir():
+        result["errors"].append(
+            {
+                "field": None,
+                "message": f"Path is a directory, not a file: {policy_path}",
+                "code": "is_directory",
+            }
+        )
+        result["message"] = f"Path is a directory, not a file: {policy_path}"
+        return result
+
+    # Try to load and validate the policy
+    try:
+        load_policy(policy_path)
+        result["valid"] = True
+        result["message"] = "Policy is valid"
+    except PolicyValidationError as e:
+        error_msg = str(e.message) if hasattr(e, "message") else str(e)
+        # Detect YAML syntax errors from the message
+        code = "validation_error"
+        if "Invalid YAML syntax" in error_msg:
+            code = "yaml_syntax_error"
+        result["errors"].append(
+            {
+                "field": getattr(e, "field", None),
+                "message": error_msg,
+                "code": code,
+            }
+        )
+        result["message"] = error_msg
+    except FileNotFoundError as e:
+        result["errors"].append(
+            {
+                "field": None,
+                "message": str(e),
+                "code": "file_not_found",
+            }
+        )
+        result["message"] = str(e)
+    except PermissionError as e:
+        result["errors"].append(
+            {
+                "field": None,
+                "message": f"Permission denied: {e}",
+                "code": "permission_denied",
+            }
+        )
+        result["message"] = f"Permission denied: {e}"
+    except IsADirectoryError as e:
+        result["errors"].append(
+            {
+                "field": None,
+                "message": f"Path is a directory: {e}",
+                "code": "is_directory",
+            }
+        )
+        result["message"] = f"Path is a directory: {e}"
+    except Exception as e:
+        result["errors"].append(
+            {
+                "field": None,
+                "message": str(e),
+                "code": "unknown_error",
+            }
+        )
+        result["message"] = str(e)
+
+    return result
+
+
+def _output_json(result: dict) -> None:
+    """Output validation result in JSON format."""
+    click.echo(json.dumps(result, indent=2))
+
+
+def _output_human(result: dict) -> None:
+    """Output validation result in human-readable format."""
+    if result["valid"]:
+        click.echo(click.style("Valid", fg="green") + f": {result['file']}")
+    else:
+        click.echo(click.style("Invalid", fg="red") + f": {result['file']}")
+        if result.get("message"):
+            click.echo(f"  {result['message']}")
+
+
+# =============================================================================
+# Run Command - Worker Count Utilities
 # =============================================================================
 
 
@@ -102,7 +260,7 @@ def _validate_workers(
 
 
 # =============================================================================
-# File Discovery
+# Run Command - File Discovery
 # =============================================================================
 
 
@@ -136,7 +294,7 @@ def _discover_files(paths: list[Path], recursive: bool) -> list[Path]:
 
 
 # =============================================================================
-# Result Formatting
+# Run Command - Result Formatting
 # =============================================================================
 
 
@@ -319,7 +477,7 @@ def _format_phase_result_json(pr) -> dict:
 
 
 # =============================================================================
-# Parallel Processing Worker
+# Run Command - Parallel Processing Worker
 # =============================================================================
 
 
@@ -426,7 +584,12 @@ def _process_single_file(
         return file_path, result, False
 
 
-@click.command("process")
+# =============================================================================
+# Run Command
+# =============================================================================
+
+
+@policy_group.command("run")
 @click.option(
     "--policy",
     "-p",
@@ -505,7 +668,7 @@ def _process_single_file(
     type=click.Path(exists=True, path_type=Path),
     required=True,
 )
-def process_command(
+def run_command(
     policy_path: Path | None,
     profile: str | None,
     recursive: bool,
@@ -518,23 +681,23 @@ def process_command(
     save_logs: bool,
     paths: tuple[Path, ...],
 ) -> None:
-    """Process media files through the unified workflow.
+    """Run a policy against media files.
 
     PATHS can be files or directories. Use -R for recursive directory processing.
 
-    The workflow runs phases in order: analyze → apply → transcode.
+    The workflow runs phases in order as defined in the policy.
     Each phase is optional and controlled by the policy's workflow section
     or the --phases option.
 
     Examples:
 
-        vpo process --policy policy.yaml movie.mkv
+        vpo policy run --policy policy.yaml movie.mkv
 
-        vpo process -p policy.yaml -R /media/movies/
+        vpo policy run -p policy.yaml -R /media/movies/
 
-        vpo process -p policy.yaml --phases analyze,apply movie.mkv
+        vpo policy run -p policy.yaml --phases analyze,apply movie.mkv
 
-        vpo process -p policy.yaml --dry-run movie.mkv
+        vpo policy run -p policy.yaml --dry-run movie.mkv
     """
     # Load profile if specified
     loaded_profile = None

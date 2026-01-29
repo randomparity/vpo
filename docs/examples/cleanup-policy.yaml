@@ -1,7 +1,7 @@
 # Cleanup Policy for Video Policy Orchestrator
 # This policy removes unwanted tracks and attachments for smaller files.
 #
-# Usage: vpo process --policy cleanup-policy.yaml [--dry-run] <file.mkv>
+# Usage: vpo policy run --policy cleanup-policy.yaml [--dry-run] <file.mkv>
 #
 # Use case: Reduce file size by removing:
 # - Non-English audio tracks
