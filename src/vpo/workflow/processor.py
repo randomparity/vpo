@@ -511,6 +511,15 @@ class WorkflowProcessor:
                         phase_result.changes_made,
                     )
 
+                    # Update file_path if container conversion changed it
+                    if phase_result.output_path is not None:
+                        file_path = phase_result.output_path
+                        logger.info(
+                            "File path changed during '%s': %s",
+                            phase.name,
+                            file_path.name,
+                        )
+
                     # Re-introspect if file was modified
                     if file_was_modified and not self.dry_run:
                         file_info = self._re_introspect(file_path)

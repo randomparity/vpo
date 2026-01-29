@@ -7,6 +7,7 @@ default flags, and conditional rules.
 
 import logging
 from collections.abc import Callable
+from pathlib import Path
 from sqlite3 import Connection
 from typing import TYPE_CHECKING
 
@@ -134,7 +135,38 @@ def execute_with_plan(
     if not result.success:
         raise RuntimeError(f"Executor failed: {result.message}")
 
+    # Handle path change from container conversion
+    if result.output_path is not None and result.output_path != state.file_path:
+        _handle_path_change(state, result.output_path, conn)
+
     return changes
+
+
+def _handle_path_change(
+    state: PhaseExecutionState,
+    new_path: Path,
+    conn: Connection,
+) -> None:
+    """Update state and database after container conversion.
+
+    Args:
+        state: Execution state to update.
+        new_path: New file path after container conversion.
+        conn: Database connection for updating file record.
+    """
+    from vpo.db.queries import get_file_by_path, update_file_path
+
+    old_path = state.file_path
+    state.file_path = new_path
+
+    file_record = get_file_by_path(conn, str(old_path))
+    if file_record:
+        try:
+            update_file_path(conn, file_record.id, str(new_path))
+            conn.commit()
+            logger.info("Updated file path: %s -> %s", old_path.name, new_path.name)
+        except Exception as e:
+            logger.error("Failed to update path in database: %s", e)
 
 
 def execute_container(

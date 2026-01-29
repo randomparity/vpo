@@ -29,6 +29,9 @@ class ExecutorResult:
     backup_path: Path | None = None
     """Path to backup file, if one was created."""
 
+    output_path: Path | None = None
+    """Path to output file if different from input (e.g., container conversion)."""
+
 
 class Executor(Protocol):
     """Protocol for execution adapters.

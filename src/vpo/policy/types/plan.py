@@ -493,6 +493,9 @@ class PhaseResult:
     file_modified: bool = False
     """True if this phase modified the file (for run_if evaluation)."""
 
+    output_path: Path | None = None
+    """New file path if container conversion changed it, None otherwise."""
+
 
 @dataclass(frozen=True)
 class FileProcessingResult:
