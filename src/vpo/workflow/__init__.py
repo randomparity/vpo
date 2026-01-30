@@ -4,6 +4,7 @@ This module provides a unified workflow system for processing video files
 through user-defined phases.
 """
 
+from vpo.workflow.phase_formatting import format_phase_details
 from vpo.workflow.processor import (
     ProgressCallback,
     WorkflowProcessor,
@@ -18,6 +19,7 @@ from vpo.workflow.stats_capture import (
 )
 
 __all__ = [
+    "format_phase_details",
     "ActionCapture",
     "PhaseMetrics",
     "ProgressCallback",

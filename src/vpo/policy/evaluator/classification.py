@@ -6,6 +6,7 @@ computing desired track order based on policy preferences.
 
 from __future__ import annotations
 
+from vpo.core.codecs import audio_codec_matches
 from vpo.db import (
     TrackInfo,
     TranscriptionResultRecord,
@@ -197,6 +198,7 @@ def _find_preferred_track(
     tracks: list[TrackInfo],
     language_preference: tuple[str, ...],
     matcher: CommentaryMatcher,
+    preferred_codecs: tuple[str, ...] | None = None,
 ) -> TrackInfo | None:
     """Find the preferred track based on language and non-commentary status.
 
@@ -204,6 +206,9 @@ def _find_preferred_track(
         tracks: List of tracks to search.
         language_preference: Ordered list of preferred languages.
         matcher: Commentary pattern matcher.
+        preferred_codecs: Optional ordered list of preferred audio codecs.
+            Within a language group, tracks matching earlier codecs are
+            preferred. Language always takes priority over codec.
 
     Returns:
         The preferred track, or None if no suitable track found.
@@ -218,10 +223,21 @@ def _find_preferred_track(
     # Find first track matching language preference
     # Use languages_match() to handle different ISO standards
     for lang in language_preference:
-        for track in non_commentary:
-            track_lang = track.language or "und"
-            if languages_match(track_lang, lang):
-                return track
+        lang_matches = [
+            t for t in non_commentary if languages_match(t.language or "und", lang)
+        ]
+        if not lang_matches:
+            continue
+
+        # Within this language group, prefer matching codec
+        if preferred_codecs is not None:
+            for codec_pref in preferred_codecs:
+                for track in lang_matches:
+                    if audio_codec_matches(track.codec, codec_pref):
+                        return track
+
+        # No codec match or no preference - first language match
+        return lang_matches[0]
 
     # Fall back to first non-commentary track
     return non_commentary[0]
@@ -297,7 +313,10 @@ def compute_default_flags(
     if flags.set_preferred_audio_default and audio_tracks:
         # Find first non-commentary audio matching language preference
         default_audio = _find_preferred_track(
-            audio_tracks, policy.audio_language_preference, matcher
+            audio_tracks,
+            policy.audio_language_preference,
+            matcher,
+            preferred_codecs=flags.preferred_audio_codec,
         )
         if default_audio is not None:
             result[default_audio.index] = True

@@ -13,9 +13,9 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
-from vpo.core.phase_formatting import format_phase_details
 from vpo.policy.types import FileProcessingResult, PhaseOutcome, PolicySchema
 from vpo.workflow import WorkflowProcessor
+from vpo.workflow.phase_formatting import format_phase_details
 
 if TYPE_CHECKING:
     from collections.abc import Callable

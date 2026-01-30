@@ -47,6 +47,11 @@ class DefaultFlagsConfig:
     language differs from audio_language_preference. Useful for ensuring
     subtitles display automatically for foreign language content."""
 
+    preferred_audio_codec: tuple[str, ...] | None = None
+    """If set, prefer audio tracks matching these codecs (in order) when
+    selecting the default audio track within the same language group.
+    E.g., ('eac3', 'ac3') prefers EAC3 first, then AC3, then fallback."""
+
 
 @dataclass(frozen=True)
 class LanguageFallbackConfig:

@@ -202,6 +202,9 @@ function announceToScreenReader(message) {
         clear_other_defaults: document.getElementById('clear_other_defaults')
     }
 
+    // Preferred audio codec input
+    const preferredAudioCodecInput = document.getElementById('preferred_audio_codec')
+
     // Debounce timer for YAML preview
     let yamlPreviewTimeout
 
@@ -630,7 +633,15 @@ function announceToScreenReader(message) {
         // Default flags
         yaml += 'default_flags:\n'
         Object.keys(formState.default_flags).forEach(key => {
-            yaml += `  ${key}: ${formState.default_flags[key]}\n`
+            const value = formState.default_flags[key]
+            if (key === 'preferred_audio_codec') {
+                if (Array.isArray(value) && value.length > 0) {
+                    yaml += `  ${key}: [${value.join(', ')}]\n`
+                }
+                // Omit if null/empty
+            } else {
+                yaml += `  ${key}: ${value}\n`
+            }
         })
         yaml += '\n'
 
@@ -817,7 +828,8 @@ function announceToScreenReader(message) {
         'audio_language_preference': 'audio-lang-list',
         'subtitle_language_preference': 'subtitle-lang-list',
         'commentary_patterns': 'commentary-patterns-list',
-        'default_flags': 'default-flags-section'
+        'default_flags': 'default-flags-section',
+        'preferred_audio_codec': 'preferred_audio_codec'
     }
 
     /**
@@ -1351,6 +1363,27 @@ function announceToScreenReader(message) {
                 })
             }
         })
+
+        // Preferred audio codec input
+        if (preferredAudioCodecInput) {
+            // Initialize from state
+            const codecs = formState.default_flags.preferred_audio_codec
+            if (Array.isArray(codecs) && codecs.length > 0) {
+                preferredAudioCodecInput.value = codecs.join(', ')
+            }
+            preferredAudioCodecInput.addEventListener('input', () => {
+                const value = preferredAudioCodecInput.value.trim()
+                if (value === '') {
+                    formState.default_flags.preferred_audio_codec = null
+                } else {
+                    formState.default_flags.preferred_audio_codec = value
+                        .split(',')
+                        .map(s => s.trim().toLowerCase())
+                        .filter(s => s.length > 0)
+                }
+                markDirty()
+            })
+        }
 
         // Save button
         saveBtn.addEventListener('click', () => {

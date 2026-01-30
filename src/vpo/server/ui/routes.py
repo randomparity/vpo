@@ -538,6 +538,7 @@ async def policy_editor_handler(request: web.Request) -> dict:
         "set_preferred_audio_default": True,
         "set_preferred_subtitle_default": False,
         "clear_other_defaults": True,
+        "preferred_audio_codec": None,
     }
 
     # Get unknown fields for warning banner (T076)

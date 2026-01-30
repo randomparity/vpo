@@ -496,9 +496,77 @@ class TestGetTempDirectory:
         with caplog.at_level(logging.WARNING):
             result = get_temp_directory()
 
-        # Should fall back to system default (not the invalid path)
-        assert result != invalid_path
+        # Should fall back to None (no config, no valid env)
+        assert result is None
 
         # Should log a warning
         assert "VPO_TEMP_DIR" in caplog.text
         assert "not a valid directory" in caplog.text
+
+    def test_default_returns_none_when_unconfigured(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Should return None when no env var and no config temp_directory."""
+        from vpo.config.loader import (
+            clear_config_cache,
+            get_temp_directory,
+        )
+
+        # Clear cache to ensure clean state
+        clear_config_cache()
+
+        # Unset env var
+        monkeypatch.delenv("VPO_TEMP_DIR", raising=False)
+
+        # Set up empty config (no temp_directory)
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("")
+        monkeypatch.setenv("VPO_CONFIG_PATH", str(config_file))
+
+        result = get_temp_directory()
+        assert result is None
+
+
+class TestGetTempDirectoryForFile:
+    """Tests for get_temp_directory_for_file function."""
+
+    def test_returns_configured_dir_when_set(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Returns configured temp directory when available."""
+        from vpo.config.loader import (
+            clear_config_cache,
+            get_temp_directory_for_file,
+        )
+
+        clear_config_cache()
+
+        temp_dir = tmp_path / "temp"
+        temp_dir.mkdir()
+        monkeypatch.setenv("VPO_TEMP_DIR", str(temp_dir))
+
+        source = tmp_path / "video.mkv"
+        result = get_temp_directory_for_file(source)
+        assert result == temp_dir
+
+    def test_falls_back_to_source_parent(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Falls back to source file's parent when unconfigured."""
+        from vpo.config.loader import (
+            clear_config_cache,
+            get_temp_directory_for_file,
+        )
+
+        clear_config_cache()
+
+        monkeypatch.delenv("VPO_TEMP_DIR", raising=False)
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("")
+        monkeypatch.setenv("VPO_CONFIG_PATH", str(config_file))
+
+        source = tmp_path / "videos" / "movie.mkv"
+        result = get_temp_directory_for_file(source)
+        assert result == source.parent

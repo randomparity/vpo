@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from vpo.config.loader import get_temp_directory
 from vpo.db.types import IntrospectionResult, Job, TrackInfo
 from vpo.executor.move import MoveExecutor
 from vpo.executor.transcode import TranscodeExecutor
@@ -232,7 +231,6 @@ class TranscodeJobService:
             policy=policy,
             cpu_cores=self.cpu_cores,
             progress_callback=progress_callback,
-            temp_directory=get_temp_directory(),
         )
 
         plan = executor.create_plan(

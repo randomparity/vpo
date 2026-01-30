@@ -1,6 +1,8 @@
 """Tests for phase formatting utilities."""
 
-from vpo.core.phase_formatting import (
+from vpo.executor.transcode.decisions import TranscodeReason, TranscodeReasonCode
+from vpo.policy.types import ContainerChange, PhaseResult, TrackDisposition
+from vpo.workflow.phase_formatting import (
     _format_audio_synthesis,
     _format_container_change,
     _format_operation_failures,
@@ -9,8 +11,8 @@ from vpo.core.phase_formatting import (
     _format_transcode_result,
     _format_transcription_results,
     format_phase_details,
+    format_transcode_reason,
 )
-from vpo.policy.types import ContainerChange, PhaseResult, TrackDisposition
 
 
 class TestFormatPhaseDetails:
@@ -67,6 +69,41 @@ class TestFormatPhaseDetails:
         assert any("Audio removed" in line for line in result)
         assert any("Size:" in line for line in result)
         assert any("Encoder: hardware" in line for line in result)
+
+    def test_format_phase_details_with_transcode_reasons(self):
+        """Transcode reasons on PhaseResult thread through to format output."""
+        codec_reason = TranscodeReason(
+            code=TranscodeReasonCode.CODEC_MISMATCH,
+            current_codec="h264",
+            target_codec="hevc",
+        )
+        res_reason = TranscodeReason(
+            code=TranscodeReasonCode.RESOLUTION_EXCEEDED,
+            current_width=3840,
+            current_height=2160,
+            max_label="1080p",
+            target_width=1920,
+            target_height=1080,
+        )
+        pr = PhaseResult(
+            phase_name="transcode",
+            success=True,
+            duration_seconds=120.0,
+            operations_executed=("transcode",),
+            changes_made=1,
+            size_before=8_000_000_000,
+            size_after=4_000_000_000,
+            video_source_codec="h264",
+            video_target_codec="hevc",
+            transcode_reasons=(codec_reason, res_reason),
+        )
+        result = format_phase_details(pr)
+
+        reason_lines = [line for line in result if line.startswith("Reason:")]
+        assert len(reason_lines) == 1
+        assert ";" in reason_lines[0]
+        assert "Codec h264" in reason_lines[0]
+        assert "3840x2160" in reason_lines[0]
 
 
 class TestFormatContainerChange:
@@ -348,6 +385,90 @@ class TestFormatTranscodeResult:
 
         assert not any("Speed:" in line for line in result)
 
+    def test_format_transcode_result_single_reason(self):
+        """Transcode result with a single reason displays it."""
+        reason = TranscodeReason(
+            code=TranscodeReasonCode.CODEC_MISMATCH,
+            current_codec="h264",
+            target_codec="hevc",
+        )
+        result = _format_transcode_result(
+            size_before=8_000_000_000,
+            size_after=4_000_000_000,
+            encoder_type=None,
+            encoding_fps=None,
+            source_codec="h264",
+            target_codec="hevc",
+            transcode_reasons=(reason,),
+        )
+
+        assert "Reason: Codec h264 does not match target hevc" in result
+
+    def test_format_transcode_result_multiple_reasons(self):
+        """Transcode result with multiple reasons joins with semicolons."""
+        codec_reason = TranscodeReason(
+            code=TranscodeReasonCode.CODEC_MISMATCH,
+            current_codec="h264",
+            target_codec="hevc",
+        )
+        res_reason = TranscodeReason(
+            code=TranscodeReasonCode.RESOLUTION_EXCEEDED,
+            current_width=3840,
+            current_height=2160,
+            max_label="1080p",
+            target_width=1920,
+            target_height=1080,
+        )
+        result = _format_transcode_result(
+            size_before=8_000_000_000,
+            size_after=4_000_000_000,
+            encoder_type=None,
+            encoding_fps=None,
+            source_codec="h264",
+            target_codec="hevc",
+            transcode_reasons=(codec_reason, res_reason),
+        )
+
+        reason_line = [line for line in result if line.startswith("Reason:")]
+        assert len(reason_line) == 1
+        assert ";" in reason_line[0]
+        assert "Codec h264" in reason_line[0]
+        assert "3840x2160" in reason_line[0]
+
+    def test_format_transcode_result_no_reasons(self):
+        """Transcode result without reasons omits the Reason line."""
+        result = _format_transcode_result(
+            size_before=8_000_000_000,
+            size_after=4_000_000_000,
+            encoder_type=None,
+            encoding_fps=None,
+            source_codec="h264",
+            target_codec="hevc",
+        )
+
+        assert not any("Reason:" in line for line in result)
+
+    def test_format_transcode_result_reason_after_video_line(self):
+        """Reason line appears immediately after Video line."""
+        reason = TranscodeReason(
+            code=TranscodeReasonCode.CODEC_MISMATCH,
+            current_codec="h264",
+            target_codec="hevc",
+        )
+        result = _format_transcode_result(
+            size_before=8_000_000_000,
+            size_after=4_000_000_000,
+            encoder_type=None,
+            encoding_fps=None,
+            source_codec="h264",
+            target_codec="hevc",
+            transcode_reasons=(reason,),
+        )
+
+        video_idx = next(i for i, line in enumerate(result) if "Video:" in line)
+        reason_idx = next(i for i, line in enumerate(result) if "Reason:" in line)
+        assert reason_idx == video_idx + 1
+
 
 class TestFormatTranscriptionResults:
     """Tests for _format_transcription_results function."""
@@ -443,3 +564,30 @@ class TestFormatOperationFailures:
         failures = (("transcode", long_msg),)
         result = _format_operation_failures(failures)
         assert result[1] == "  - transcode: " + "A" * 77 + "..."
+
+
+class TestFormatTranscodeReason:
+    """Tests for format_transcode_reason function."""
+
+    def test_format_transcode_reason_codec_mismatch(self):
+        """Codec mismatch reason formats correctly."""
+        reason = TranscodeReason(
+            code=TranscodeReasonCode.CODEC_MISMATCH,
+            current_codec="h264",
+            target_codec="hevc",
+        )
+        result = format_transcode_reason(reason)
+        assert result == "Codec h264 does not match target hevc"
+
+    def test_format_transcode_reason_resolution_exceeded(self):
+        """Resolution exceeded reason formats correctly."""
+        reason = TranscodeReason(
+            code=TranscodeReasonCode.RESOLUTION_EXCEEDED,
+            current_width=3840,
+            current_height=2160,
+            max_label="1080p",
+            target_width=1920,
+            target_height=1080,
+        )
+        result = format_transcode_reason(reason)
+        assert result == "Resolution 3840x2160 exceeds 1080p max (scaling to 1920x1080)"

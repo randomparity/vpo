@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from vpo.db import TrackInfo
+from vpo.executor.transcode.decisions import TranscodeReason
 from vpo.policy.transcode import AudioPlan, SkipEvaluationResult
 from vpo.policy.video_analysis import HDRType
 
@@ -94,6 +95,7 @@ class TranscodePlan:
     needs_video_scale: bool = False
     target_width: int | None = None
     target_height: int | None = None
+    transcode_reasons: tuple[TranscodeReason, ...] = ()
 
     # Computed audio plan
     audio_plan: AudioPlan | None = None

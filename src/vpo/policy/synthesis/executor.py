@@ -16,7 +16,6 @@ import logging
 import shutil
 import signal
 import subprocess  # nosec B404 - subprocess needed for FFmpeg/mkvmerge
-import tempfile
 import threading
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -24,7 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from vpo.config.loader import get_temp_directory
+from vpo.config.loader import get_temp_directory_for_file
 from vpo.executor.interface import require_tool
 from vpo.policy.synthesis.encoders import (
     get_encoder_for_codec,
@@ -117,18 +116,15 @@ class FFmpegSynthesisExecutor:
         self,
         ffmpeg_path: Path | None = None,
         mkvmerge_path: Path | None = None,
-        temp_dir: Path | None = None,
     ) -> None:
         """Initialize the executor.
 
         Args:
             ffmpeg_path: Path to ffmpeg binary, or None to auto-detect.
             mkvmerge_path: Path to mkvmerge binary, or None to auto-detect.
-            temp_dir: Directory for temporary files, or None for system default.
         """
         self._ffmpeg_path = ffmpeg_path
         self._mkvmerge_path = mkvmerge_path
-        self._temp_dir = temp_dir
 
     def _get_ffmpeg(self) -> Path:
         """Get the FFmpeg path, raising if unavailable."""
@@ -442,7 +438,7 @@ class FFmpegSynthesisExecutor:
             )
 
         # Create working directory
-        temp_dir = self._temp_dir or Path(tempfile.gettempdir())
+        temp_dir = get_temp_directory_for_file(plan.file_path)
         work_dir = temp_dir / f"vpo_synthesis_{plan.file_id[:8]}"
         work_dir.mkdir(parents=True, exist_ok=True)
         logger.debug("Created work directory: %s", work_dir)
@@ -602,5 +598,5 @@ def execute_synthesis_plan(
     Returns:
         SynthesisExecutionResult with execution details.
     """
-    executor = FFmpegSynthesisExecutor(temp_dir=get_temp_directory())
+    executor = FFmpegSynthesisExecutor()
     return executor.execute(plan, keep_backup=keep_backup, dry_run=dry_run)

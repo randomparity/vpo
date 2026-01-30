@@ -55,7 +55,6 @@ from vpo.core.json_utils import (
     parse_json_with_schema,
     serialize_json_safe,
 )
-from vpo.core.phase_formatting import format_phase_details
 from vpo.core.string_utils import (
     compare_strings_ci,
     contains_ci,
@@ -118,6 +117,4 @@ __all__ = [
     "run_command",
     # validation
     "is_valid_uuid",
-    # phase_formatting
-    "format_phase_details",
 ]

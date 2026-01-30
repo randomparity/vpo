@@ -13,6 +13,7 @@ from vpo.policy.evaluator import (
     compute_desired_order,
     evaluate_policy,
 )
+from vpo.policy.evaluator.classification import _find_preferred_track
 from vpo.policy.matchers import CommentaryMatcher
 from vpo.policy.types import (
     ActionType,
@@ -563,6 +564,170 @@ class TestComputeDefaultFlags:
         assert result[1] is True  # Audio gets default (only audio)
         assert result[2] is False  # Subtitle does NOT get default (feature disabled)
 
+    def test_preferred_audio_codec_selects_matching(self, matcher: CommentaryMatcher):
+        """Preferred codec selects matching track over first track."""
+        policy = EvaluationPolicy(
+            schema_version=12,
+            audio_language_preference=("eng", "und"),
+            subtitle_language_preference=("eng", "und"),
+            commentary_patterns=("commentary", "director"),
+            default_flags=DefaultFlagsConfig(
+                set_first_video_default=True,
+                set_preferred_audio_default=True,
+                clear_other_defaults=True,
+                preferred_audio_codec=("ac3", "eac3"),
+            ),
+        )
+        tracks = [
+            TrackInfo(index=0, track_type="audio", codec="truehd", language="eng"),
+            TrackInfo(index=1, track_type="audio", codec="ac3", language="eng"),
+            TrackInfo(index=2, track_type="audio", codec="aac", language="eng"),
+        ]
+        result = compute_default_flags(tracks, policy, matcher)
+        assert result[1] is True  # AC3 gets default
+        assert result[0] is False
+        assert result[2] is False
+
+    def test_preferred_audio_codec_respects_order(self, matcher: CommentaryMatcher):
+        """First codec in preference list wins over later ones."""
+        policy = EvaluationPolicy(
+            schema_version=12,
+            audio_language_preference=("eng", "und"),
+            subtitle_language_preference=("eng", "und"),
+            commentary_patterns=("commentary", "director"),
+            default_flags=DefaultFlagsConfig(
+                set_first_video_default=True,
+                set_preferred_audio_default=True,
+                clear_other_defaults=True,
+                preferred_audio_codec=("eac3", "ac3"),
+            ),
+        )
+        tracks = [
+            TrackInfo(index=0, track_type="audio", codec="ac3", language="eng"),
+            TrackInfo(index=1, track_type="audio", codec="eac3", language="eng"),
+        ]
+        result = compute_default_flags(tracks, policy, matcher)
+        assert result[1] is True  # EAC3 wins (first in preference)
+        assert result[0] is False
+
+    def test_preferred_audio_codec_falls_back(self, matcher: CommentaryMatcher):
+        """Falls back to first language match when no codec matches."""
+        policy = EvaluationPolicy(
+            schema_version=12,
+            audio_language_preference=("eng", "und"),
+            subtitle_language_preference=("eng", "und"),
+            commentary_patterns=("commentary", "director"),
+            default_flags=DefaultFlagsConfig(
+                set_first_video_default=True,
+                set_preferred_audio_default=True,
+                clear_other_defaults=True,
+                preferred_audio_codec=("opus",),
+            ),
+        )
+        tracks = [
+            TrackInfo(index=0, track_type="audio", codec="truehd", language="eng"),
+            TrackInfo(index=1, track_type="audio", codec="aac", language="eng"),
+        ]
+        result = compute_default_flags(tracks, policy, matcher)
+        assert result[0] is True  # First eng track (fallback)
+        assert result[1] is False
+
+    def test_preferred_audio_codec_language_priority(self, matcher: CommentaryMatcher):
+        """Language preference takes priority over codec preference."""
+        policy = EvaluationPolicy(
+            schema_version=12,
+            audio_language_preference=("eng", "fra"),
+            subtitle_language_preference=("eng", "und"),
+            commentary_patterns=("commentary", "director"),
+            default_flags=DefaultFlagsConfig(
+                set_first_video_default=True,
+                set_preferred_audio_default=True,
+                clear_other_defaults=True,
+                preferred_audio_codec=("eac3",),
+            ),
+        )
+        tracks = [
+            TrackInfo(index=0, track_type="audio", codec="eac3", language="fra"),
+            TrackInfo(index=1, track_type="audio", codec="truehd", language="eng"),
+        ]
+        result = compute_default_flags(tracks, policy, matcher)
+        assert result[1] is True  # English wins over French EAC3
+        assert result[0] is False
+
+    def test_preferred_audio_codec_none_preserves_behavior(
+        self, matcher: CommentaryMatcher
+    ):
+        """None preferred_audio_codec preserves existing behavior."""
+        policy = EvaluationPolicy(
+            schema_version=12,
+            audio_language_preference=("eng", "und"),
+            subtitle_language_preference=("eng", "und"),
+            commentary_patterns=("commentary", "director"),
+            default_flags=DefaultFlagsConfig(
+                set_first_video_default=True,
+                set_preferred_audio_default=True,
+                clear_other_defaults=True,
+                preferred_audio_codec=None,
+            ),
+        )
+        tracks = [
+            TrackInfo(index=0, track_type="audio", codec="truehd", language="eng"),
+            TrackInfo(index=1, track_type="audio", codec="ac3", language="eng"),
+        ]
+        result = compute_default_flags(tracks, policy, matcher)
+        assert result[0] is True  # First eng track (existing behavior)
+        assert result[1] is False
+
+    def test_preferred_audio_codec_skips_commentary(self, matcher: CommentaryMatcher):
+        """Commentary tracks are excluded even if codec matches."""
+        policy = EvaluationPolicy(
+            schema_version=12,
+            audio_language_preference=("eng", "und"),
+            subtitle_language_preference=("eng", "und"),
+            commentary_patterns=("commentary", "director"),
+            default_flags=DefaultFlagsConfig(
+                set_first_video_default=True,
+                set_preferred_audio_default=True,
+                clear_other_defaults=True,
+                preferred_audio_codec=("ac3",),
+            ),
+        )
+        tracks = [
+            TrackInfo(
+                index=0,
+                track_type="audio",
+                codec="ac3",
+                language="eng",
+                title="Director Commentary",
+            ),
+            TrackInfo(index=1, track_type="audio", codec="aac", language="eng"),
+        ]
+        result = compute_default_flags(tracks, policy, matcher)
+        assert result[1] is True  # AAC gets default (commentary excluded)
+        assert result[0] is False
+
+    def test_preferred_audio_codec_case_insensitive(self, matcher: CommentaryMatcher):
+        """Codec matching is case-insensitive via audio_codec_matches."""
+        policy = EvaluationPolicy(
+            schema_version=12,
+            audio_language_preference=("eng", "und"),
+            subtitle_language_preference=("eng", "und"),
+            commentary_patterns=("commentary", "director"),
+            default_flags=DefaultFlagsConfig(
+                set_first_video_default=True,
+                set_preferred_audio_default=True,
+                clear_other_defaults=True,
+                preferred_audio_codec=("eac3",),
+            ),
+        )
+        tracks = [
+            TrackInfo(index=0, track_type="audio", codec="eac3", language="eng"),
+            TrackInfo(index=1, track_type="audio", codec="aac", language="eng"),
+        ]
+        result = compute_default_flags(tracks, policy, matcher)
+        assert result[0] is True  # eac3 matches eac3 preference
+        assert result[1] is False
+
 
 # =============================================================================
 # Full Evaluation Tests
@@ -950,3 +1115,77 @@ class TestTrackDispositionTranscriptionStatus:
         assert len(dispositions) == 1
         # Even with fallback, transcription status should be preserved
         assert dispositions[0].transcription_status == "main 92%"
+
+
+# =============================================================================
+# _find_preferred_track Edge Case Tests
+# =============================================================================
+
+
+class TestFindPreferredTrack:
+    """Direct tests for _find_preferred_track edge cases."""
+
+    def test_find_preferred_track_empty_tracks(
+        self, matcher: CommentaryMatcher
+    ) -> None:
+        result = _find_preferred_track(
+            tracks=[],
+            language_preference=("eng",),
+            matcher=matcher,
+        )
+        assert result is None
+
+    def test_find_preferred_track_all_commentary_falls_back_to_first(
+        self, matcher: CommentaryMatcher
+    ) -> None:
+        tracks = [
+            TrackInfo(
+                index=0,
+                track_type="audio",
+                codec="aac",
+                language="eng",
+                title="Commentary",
+            ),
+            TrackInfo(
+                index=1,
+                track_type="audio",
+                codec="aac",
+                language="eng",
+                title="Director Commentary",
+            ),
+        ]
+        result = _find_preferred_track(
+            tracks=tracks,
+            language_preference=("eng",),
+            matcher=matcher,
+        )
+        assert result is tracks[0]
+
+    def test_find_preferred_track_no_language_match_falls_back(
+        self, matcher: CommentaryMatcher
+    ) -> None:
+        tracks = [
+            TrackInfo(index=0, track_type="audio", codec="aac", language="fra"),
+            TrackInfo(index=1, track_type="audio", codec="aac", language="deu"),
+        ]
+        result = _find_preferred_track(
+            tracks=tracks,
+            language_preference=("jpn",),
+            matcher=matcher,
+        )
+        assert result is tracks[0]
+
+    def test_find_preferred_track_empty_codecs_tuple_returns_first_language_match(
+        self, matcher: CommentaryMatcher
+    ) -> None:
+        tracks = [
+            TrackInfo(index=0, track_type="audio", codec="aac", language="eng"),
+            TrackInfo(index=1, track_type="audio", codec="flac", language="eng"),
+        ]
+        result = _find_preferred_track(
+            tracks=tracks,
+            language_preference=("eng",),
+            matcher=matcher,
+            preferred_codecs=(),
+        )
+        assert result is tracks[0]

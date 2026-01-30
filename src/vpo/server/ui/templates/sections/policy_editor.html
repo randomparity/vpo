@@ -119,6 +119,18 @@
                     <span>Clear other default flags</span>
                 </label>
             </div>
+
+            <div class="form-group" style="margin-top: var(--spacing-md);">
+                <label for="preferred_audio_codec">Preferred Audio Codec</label>
+                <p id="preferred-audio-codec-description" class="section-description">Comma-separated list of preferred audio codecs when selecting the default audio track (e.g., eac3, ac3). Language preference always takes priority.</p>
+                <input
+                    type="text"
+                    id="preferred_audio_codec"
+                    name="preferred_audio_codec"
+                    placeholder="e.g., eac3, ac3"
+                    aria-describedby="preferred-audio-codec-description"
+                />
+            </div>
         </section>
 
         <!-- Commentary Detection Section (US4) -->

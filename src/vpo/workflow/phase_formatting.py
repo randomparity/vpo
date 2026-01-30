@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from vpo.core.formatting import format_file_size
+from vpo.executor.transcode.decisions import TranscodeReason, TranscodeReasonCode
 
 if TYPE_CHECKING:
     from vpo.policy.types import ContainerChange, PhaseResult, TrackDisposition
@@ -66,6 +67,7 @@ def format_phase_details(pr: PhaseResult) -> list[str]:
                 pr.encoding_fps,
                 pr.video_source_codec,
                 pr.video_target_codec,
+                pr.transcode_reasons,
             )
         )
     elif pr.transcode_skip_reason:
@@ -231,6 +233,21 @@ def _format_operation_failures(
     return lines
 
 
+def format_transcode_reason(reason: TranscodeReason) -> str:
+    """Format a structured transcode reason as a human-readable string."""
+    if reason.code == TranscodeReasonCode.CODEC_MISMATCH:
+        return (
+            f"Codec {reason.current_codec} does not match target {reason.target_codec}"
+        )
+    if reason.code == TranscodeReasonCode.RESOLUTION_EXCEEDED:
+        return (
+            f"Resolution {reason.current_width}x{reason.current_height}"
+            f" exceeds {reason.max_label} max"
+            f" (scaling to {reason.target_width}x{reason.target_height})"
+        )
+    return str(reason.code.value)
+
+
 def _format_transcode_result(
     size_before: int,
     size_after: int,
@@ -238,6 +255,7 @@ def _format_transcode_result(
     encoding_fps: float | None,
     source_codec: str | None = None,
     target_codec: str | None = None,
+    transcode_reasons: tuple[TranscodeReason, ...] = (),
 ) -> list[str]:
     """Format transcode size change, encoder type, and speed.
 
@@ -248,6 +266,7 @@ def _format_transcode_result(
         encoding_fps: Average encoding speed in FPS.
         source_codec: Source video codec (e.g., 'h264').
         target_codec: Target video codec (e.g., 'hevc').
+        transcode_reasons: Structured reasons for transcoding.
 
     Returns:
         List of formatted lines.
@@ -257,6 +276,11 @@ def _format_transcode_result(
     # Codec conversion (shown first)
     if source_codec and target_codec:
         lines.append(f"Video: {source_codec} -> {target_codec}")
+
+    # Transcode reasons (shown after video codec line)
+    if transcode_reasons:
+        formatted = "; ".join(format_transcode_reason(r) for r in transcode_reasons)
+        lines.append(f"Reason: {formatted}")
 
     # Size change with percentage
     before_str = format_file_size(size_before)
@@ -271,8 +295,7 @@ def _format_transcode_result(
 
     # Encoder type
     if encoder_type:
-        encoder_label = "hardware" if encoder_type == "hardware" else "software"
-        lines.append(f"Encoder: {encoder_label}")
+        lines.append(f"Encoder: {encoder_type}")
 
     # Encoding speed
     if encoding_fps is not None and encoding_fps > 0:
