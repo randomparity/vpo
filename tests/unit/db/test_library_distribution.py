@@ -184,6 +184,104 @@ class TestGetLibraryDistribution:
         assert result.video_codecs[0].label == "hevc"
         assert result.video_codecs[0].count == 2
 
+    def test_null_container_format_excluded(self, db_conn):
+        """Files with NULL container_format should not appear in containers."""
+        conn = db_conn
+        conn.execute(
+            """
+            INSERT INTO files (path, filename, directory, extension,
+                               size_bytes, modified_at, container_format,
+                               scanned_at, scan_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "/v/null.mkv",
+                "null.mkv",
+                "/v",
+                "mkv",
+                1000,
+                "2025-01-15T10:00:00Z",
+                None,
+                "2025-01-15T10:00:00Z",
+                "ok",
+            ),
+        )
+        _insert_file(conn, path="/v/good.mkv", container_format="mkv")
+
+        result = get_library_distribution(conn)
+
+        assert len(result.containers) == 1
+        assert result.containers[0].label == "mkv"
+        assert result.containers[0].count == 1
+
+    def test_empty_string_container_format_excluded(self, db_conn):
+        """Files with empty string container_format should not appear."""
+        _insert_file(db_conn, path="/v/empty.mkv", container_format="")
+        _insert_file(db_conn, path="/v/good.mkv", container_format="mkv")
+
+        result = get_library_distribution(db_conn)
+
+        assert len(result.containers) == 1
+        assert result.containers[0].label == "mkv"
+        assert result.containers[0].count == 1
+
+    def test_null_codec_excluded(self, db_conn):
+        """Tracks with NULL codec should not appear in codec lists."""
+        fid = _insert_file(db_conn, path="/v/null.mkv")
+        db_conn.execute(
+            """
+            INSERT INTO tracks (file_id, track_index, track_type, codec)
+            VALUES (?, ?, ?, ?)
+            """,
+            (fid, 0, "video", None),
+        )
+        db_conn.execute(
+            """
+            INSERT INTO tracks (file_id, track_index, track_type, codec)
+            VALUES (?, ?, ?, ?)
+            """,
+            (fid, 1, "audio", None),
+        )
+
+        result = get_library_distribution(db_conn)
+
+        assert result.video_codecs == []
+        assert result.audio_codecs == []
+
+    def test_empty_string_codec_excluded(self, db_conn):
+        """Tracks with empty string codec should not appear."""
+        fid = _insert_file(db_conn, path="/v/empty.mkv")
+        _insert_track(db_conn, fid, track_index=0, track_type="video", codec="")
+        _insert_track(db_conn, fid, track_index=1, track_type="audio", codec="")
+
+        result = get_library_distribution(db_conn)
+
+        assert result.video_codecs == []
+        assert result.audio_codecs == []
+
+    def test_subtitle_only_file(self, db_conn):
+        """A file with only subtitle tracks produces no video/audio codecs."""
+        fid = _insert_file(db_conn, path="/v/subs.mkv")
+        _insert_track(db_conn, fid, track_index=0, track_type="subtitle", codec="srt")
+
+        result = get_library_distribution(db_conn)
+
+        assert len(result.containers) == 1
+        assert result.video_codecs == []
+        assert result.audio_codecs == []
+
+    def test_same_audio_codec_multiple_tracks(self, db_conn):
+        """Multiple aac tracks on one file should count each track."""
+        fid = _insert_file(db_conn, path="/v/multi_aac.mkv")
+        _insert_track(db_conn, fid, track_index=0, track_type="audio", codec="aac")
+        _insert_track(db_conn, fid, track_index=1, track_type="audio", codec="aac")
+
+        result = get_library_distribution(db_conn)
+
+        assert len(result.audio_codecs) == 1
+        assert result.audio_codecs[0].label == "aac"
+        assert result.audio_codecs[0].count == 2
+
     def test_results_ordered_by_count_descending(self, db_conn):
         """All three distributions should be ordered by count DESC."""
         # 2 mkv, 1 mp4, 3 avi

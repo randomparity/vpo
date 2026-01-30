@@ -6242,7 +6242,14 @@ input.valid:focus {
     }
 }
 
-/* Responsive chart adjustments */
+/* Responsive chart adjustments - tablet */
+@media (max-width: 1024px) {
+    .stats-charts-grid--3col {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Responsive chart adjustments - mobile */
 @media (max-width: 768px) {
     .stats-charts-grid {
         grid-template-columns: 1fr;

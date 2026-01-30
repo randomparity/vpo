@@ -495,20 +495,13 @@ async def api_library_distribution_handler(
     """
     from vpo.db.views import get_library_distribution
 
-    pool = request.app.get("connection_pool")
-    conn = pool.get_connection() if pool else None
-    if conn is None:
-        return web.json_response({"error": "Database unavailable"}, status=503)
+    connection_pool = request["connection_pool"]
 
-    try:
-
-        def _query() -> dict:
+    def _query():
+        with connection_pool.transaction() as conn:
             return get_library_distribution(conn)
 
-        distribution = await asyncio.to_thread(_query)
-    finally:
-        if pool:
-            pool.release_connection(conn)
+    distribution = await asyncio.to_thread(_query)
 
     return web.json_response(asdict(distribution))
 
@@ -545,20 +538,13 @@ async def api_library_trends_handler(
                 status=400,
             )
 
-    pool = request.app.get("connection_pool")
-    conn = pool.get_connection() if pool else None
-    if conn is None:
-        return web.json_response({"error": "Database unavailable"}, status=503)
+    connection_pool = request["connection_pool"]
 
-    try:
-
-        def _query() -> list:
+    def _query():
+        with connection_pool.transaction() as conn:
             return get_library_snapshots(conn, since=since_ts)
 
-        snapshots = await asyncio.to_thread(_query)
-    finally:
-        if pool:
-            pool.release_connection(conn)
+    snapshots = await asyncio.to_thread(_query)
 
     return web.json_response([asdict(s) for s in snapshots])
 

@@ -21,7 +21,7 @@ const CHART_COLORS = {
 // Pie chart color palette
 const PIE_COLORS = [
     '#3498db', '#27ae60', '#f39c12', '#e74c3c', '#9b59b6',
-    '#1abc9c', '#e67e22', '#2980b9', '#8e44ad', '#16a085'
+    '#1abc9c', '#e67e22', '#d35400', '#8e44ad', '#16a085'
 ]
 
 // SVG namespace
@@ -568,11 +568,19 @@ function renderPieChart(container, data, options = {}) {
     const wrapper = document.createElement('div')
     wrapper.className = 'chart-pie-wrapper'
 
+    // Build accessible label from data
+    const ariaLabel = data.slice(0, 5).map(d => {
+        const pct = ((d.count / total) * 100).toFixed(1)
+        return `${d.label}: ${d.count} (${pct}%)`
+    }).join(', ') + (data.length > 5 ? `, and ${data.length - 5} more` : '')
+
     // Create SVG
     const svg = createSvgElement('svg', {
         width: size,
         height: size,
-        class: 'chart-pie'
+        class: 'chart-pie',
+        role: 'img',
+        'aria-label': ariaLabel
     })
 
     const cx = size / 2

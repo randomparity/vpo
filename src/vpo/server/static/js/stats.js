@@ -176,7 +176,12 @@ async function loadStats() {
         state.policies = await policiesRes.json()
         state.trends = await trendsRes.json()
         state.libraryTrends = libraryRes.ok ? await libraryRes.json() : []
-        state.libraryDistribution = distributionRes.ok ? await distributionRes.json() : null
+        try {
+            state.libraryDistribution = distributionRes.ok ? await distributionRes.json() : null
+        } catch {
+            console.warn('Failed to parse library distribution response')
+            state.libraryDistribution = null
+        }
         state.error = null
 
         renderStats()
