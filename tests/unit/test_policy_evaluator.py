@@ -13,6 +13,7 @@ from vpo.policy.evaluator import (
     compute_desired_order,
     evaluate_policy,
 )
+from vpo.policy.evaluator.classification import _find_preferred_track
 from vpo.policy.matchers import CommentaryMatcher
 from vpo.policy.types import (
     ActionType,
@@ -1114,3 +1115,77 @@ class TestTrackDispositionTranscriptionStatus:
         assert len(dispositions) == 1
         # Even with fallback, transcription status should be preserved
         assert dispositions[0].transcription_status == "main 92%"
+
+
+# =============================================================================
+# _find_preferred_track Edge Case Tests
+# =============================================================================
+
+
+class TestFindPreferredTrack:
+    """Direct tests for _find_preferred_track edge cases."""
+
+    def test_find_preferred_track_empty_tracks(
+        self, matcher: CommentaryMatcher
+    ) -> None:
+        result = _find_preferred_track(
+            tracks=[],
+            language_preference=("eng",),
+            matcher=matcher,
+        )
+        assert result is None
+
+    def test_find_preferred_track_all_commentary_falls_back_to_first(
+        self, matcher: CommentaryMatcher
+    ) -> None:
+        tracks = [
+            TrackInfo(
+                index=0,
+                track_type="audio",
+                codec="aac",
+                language="eng",
+                title="Commentary",
+            ),
+            TrackInfo(
+                index=1,
+                track_type="audio",
+                codec="aac",
+                language="eng",
+                title="Director Commentary",
+            ),
+        ]
+        result = _find_preferred_track(
+            tracks=tracks,
+            language_preference=("eng",),
+            matcher=matcher,
+        )
+        assert result is tracks[0]
+
+    def test_find_preferred_track_no_language_match_falls_back(
+        self, matcher: CommentaryMatcher
+    ) -> None:
+        tracks = [
+            TrackInfo(index=0, track_type="audio", codec="aac", language="fra"),
+            TrackInfo(index=1, track_type="audio", codec="aac", language="deu"),
+        ]
+        result = _find_preferred_track(
+            tracks=tracks,
+            language_preference=("jpn",),
+            matcher=matcher,
+        )
+        assert result is tracks[0]
+
+    def test_find_preferred_track_empty_codecs_tuple_returns_first_language_match(
+        self, matcher: CommentaryMatcher
+    ) -> None:
+        tracks = [
+            TrackInfo(index=0, track_type="audio", codec="aac", language="eng"),
+            TrackInfo(index=1, track_type="audio", codec="flac", language="eng"),
+        ]
+        result = _find_preferred_track(
+            tracks=tracks,
+            language_preference=("eng",),
+            matcher=matcher,
+            preferred_codecs=(),
+        )
+        assert result is tracks[0]
