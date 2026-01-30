@@ -32,11 +32,13 @@ class DefaultFlagsModel(BaseModel):
     @classmethod
     def casefold_preferred_audio_codec(
         cls,
-        v: list[str] | None,
+        v: list[str] | str | None,
     ) -> list[str] | None:
         """Casefold codec names for case-insensitive matching."""
         if v is None:
             return None
+        if isinstance(v, str):
+            v = [v]
         return [c.casefold() for c in v]
 
 
