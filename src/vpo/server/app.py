@@ -220,6 +220,10 @@ def create_app(
     app["maintenance_task"] = None
     app["maintenance_task_handle"] = None
 
+    # Initialize auto-prune task (will be started on server startup if enabled)
+    app["auto_prune_task"] = None
+    app["auto_prune_task_handle"] = None
+
     # Register API routes
     app.router.add_get("/health", health_handler)
     app.router.add_get("/api/about", api_about_handler)
@@ -252,6 +256,8 @@ def create_app(
 
     # Register startup and cleanup handlers
     app.on_startup.append(_start_maintenance_task)
+    app.on_startup.append(_start_auto_prune_task)
+    app.on_cleanup.append(_stop_auto_prune_task)
     app.on_cleanup.append(_stop_maintenance_task)
     app.on_cleanup.append(_cleanup_connection_pool)
 
@@ -289,6 +295,48 @@ async def _stop_maintenance_task(app: web.Application) -> None:
                 pass
 
     logger.debug("Stopped background maintenance task")
+
+
+async def _start_auto_prune_task(app: web.Application) -> None:
+    """Start the background auto-prune task if enabled."""
+    from vpo.config import get_config
+    from vpo.server.auto_prune import AutoPruneTask
+
+    config = get_config()
+    if not config.jobs.auto_prune_enabled:
+        logger.debug("Auto-prune task disabled")
+        return
+
+    interval = config.jobs.auto_prune_interval_hours * 3600
+    task = AutoPruneTask(interval_seconds=interval)
+    app["auto_prune_task"] = task
+    app["auto_prune_task_handle"] = asyncio.create_task(task.run())
+    logger.info(
+        "Started auto-prune task (interval: %dh)",
+        config.jobs.auto_prune_interval_hours,
+    )
+
+
+async def _stop_auto_prune_task(app: web.Application) -> None:
+    """Stop the background auto-prune task."""
+    task = app.get("auto_prune_task")
+    task_handle = app.get("auto_prune_task_handle")
+
+    if task:
+        task.stop()
+
+    if task_handle and not task_handle.done():
+        try:
+            await asyncio.wait_for(task_handle, timeout=5.0)
+        except asyncio.TimeoutError:
+            logger.warning("Auto-prune task did not stop in time, cancelling")
+            task_handle.cancel()
+            try:
+                await task_handle
+            except asyncio.CancelledError:
+                pass
+
+    logger.debug("Stopped auto-prune task")
 
 
 async def health_handler(request: web.Request) -> web.Response:
