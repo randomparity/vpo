@@ -18,6 +18,7 @@ from vpo.policy.types.enums import (
 )
 
 if TYPE_CHECKING:
+    from vpo.executor.transcode.decisions import TranscodeReason
     from vpo.policy.types.actions import ConditionalResult, SkipFlags
 
 
@@ -439,8 +440,8 @@ class PhaseResult:
     transcode_skip_reason: str | None = None
     """If transcode was skipped, the reason (e.g., 'codec_matches')."""
 
-    transcode_reasons: tuple[str, ...] = ()
-    """Human-readable reasons why transcoding was performed."""
+    transcode_reasons: tuple[TranscodeReason, ...] = ()
+    """Structured reasons why transcoding was performed."""
 
     # FFmpeg encoding metrics (Issue #264)
     encoding_fps: float | None = None

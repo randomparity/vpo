@@ -7,6 +7,7 @@ import pytest
 
 from vpo.executor.transcode import (
     TranscodePlan,
+    TranscodeReasonCode,
     build_ffmpeg_command,
     should_transcode_video,
 )
@@ -117,25 +118,29 @@ class TestShouldTranscodeVideo:
         assert decision.target_height <= 720
 
     def test_reason_codec_mismatch(self):
-        """Reason string includes codec mismatch details."""
+        """Reason includes structured codec mismatch details."""
         policy = TranscodePolicyConfig(target_video_codec="hevc")
 
         decision = should_transcode_video(policy, "h264", 1920, 1080)
 
         assert len(decision.reasons) == 1
-        assert "h264" in decision.reasons[0]
-        assert "hevc" in decision.reasons[0]
+        assert decision.reasons[0].code == TranscodeReasonCode.CODEC_MISMATCH
+        assert decision.reasons[0].current_codec == "h264"
+        assert decision.reasons[0].target_codec == "hevc"
 
     def test_reason_resolution_exceeded(self):
-        """Reason string includes resolution exceeded details."""
+        """Reason includes structured resolution exceeded details."""
         policy = TranscodePolicyConfig(max_resolution="1080p")
 
         decision = should_transcode_video(policy, "hevc", 3840, 2160)
 
         assert len(decision.reasons) == 1
-        assert "3840x2160" in decision.reasons[0]
-        assert "1080p" in decision.reasons[0]
-        assert "scaling to" in decision.reasons[0]
+        assert decision.reasons[0].code == TranscodeReasonCode.RESOLUTION_EXCEEDED
+        assert decision.reasons[0].current_width == 3840
+        assert decision.reasons[0].current_height == 2160
+        assert decision.reasons[0].max_label == "1080p"
+        assert decision.reasons[0].target_width is not None
+        assert decision.reasons[0].target_height is not None
 
     def test_reason_both_codec_and_resolution(self):
         """Both codec mismatch and resolution exceeded produce two reasons."""
@@ -146,8 +151,8 @@ class TestShouldTranscodeVideo:
         decision = should_transcode_video(policy, "h264", 3840, 2160)
 
         assert len(decision.reasons) == 2
-        assert "h264" in decision.reasons[0]
-        assert "3840x2160" in decision.reasons[1]
+        assert decision.reasons[0].code == TranscodeReasonCode.CODEC_MISMATCH
+        assert decision.reasons[1].code == TranscodeReasonCode.RESOLUTION_EXCEEDED
 
     def test_reason_empty_when_compliant(self):
         """No reasons when file is already compliant."""

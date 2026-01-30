@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from vpo.policy.types import OperationType, PhaseDefinition
 
 if TYPE_CHECKING:
+    from vpo.executor.transcode.decisions import TranscodeReason
     from vpo.policy.types import ContainerChange, TrackDisposition
 
 
@@ -53,8 +54,8 @@ class PhaseExecutionState:
     transcode_skip_reason: str | None = None
     """If transcode was skipped, the reason (for stats tracking)."""
 
-    transcode_reasons: list[str] = field(default_factory=list)
-    """Human-readable reasons why transcoding was performed."""
+    transcode_reasons: list[TranscodeReason] = field(default_factory=list)
+    """Structured reasons why transcoding was performed."""
 
     # FFmpeg encoding metrics (Issue #264)
     encoding_fps: float | None = None
