@@ -773,18 +773,18 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
     # Convert default_flags
     default_flags: DefaultFlagsConfig | None = None
     if phase.default_flags is not None:
+        pf = phase.default_flags
+        preferred_codec: tuple[str, ...] | None = None
+        if pf.preferred_audio_codec is not None:
+            preferred_codec = tuple(pf.preferred_audio_codec)
         default_flags = DefaultFlagsConfig(
-            set_first_video_default=phase.default_flags.set_first_video_default,
-            set_preferred_audio_default=phase.default_flags.set_preferred_audio_default,
-            set_preferred_subtitle_default=phase.default_flags.set_preferred_subtitle_default,
-            clear_other_defaults=phase.default_flags.clear_other_defaults,
-            set_subtitle_default_when_audio_differs=phase.default_flags.set_subtitle_default_when_audio_differs,
-            set_subtitle_forced_when_audio_differs=phase.default_flags.set_subtitle_forced_when_audio_differs,
-            preferred_audio_codec=(
-                tuple(phase.default_flags.preferred_audio_codec)
-                if phase.default_flags.preferred_audio_codec is not None
-                else None
-            ),
+            set_first_video_default=pf.set_first_video_default,
+            set_preferred_audio_default=pf.set_preferred_audio_default,
+            set_preferred_subtitle_default=pf.set_preferred_subtitle_default,
+            clear_other_defaults=pf.clear_other_defaults,
+            set_subtitle_default_when_audio_differs=pf.set_subtitle_default_when_audio_differs,
+            set_subtitle_forced_when_audio_differs=pf.set_subtitle_forced_when_audio_differs,
+            preferred_audio_codec=preferred_codec,
         )
 
     # Convert conditional rules

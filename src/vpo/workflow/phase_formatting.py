@@ -239,7 +239,7 @@ def format_transcode_reason(reason: TranscodeReason) -> str:
         return (
             f"Codec {reason.current_codec} does not match target {reason.target_codec}"
         )
-    elif reason.code == TranscodeReasonCode.RESOLUTION_EXCEEDED:
+    if reason.code == TranscodeReasonCode.RESOLUTION_EXCEEDED:
         return (
             f"Resolution {reason.current_width}x{reason.current_height}"
             f" exceeds {reason.max_label} max"
@@ -295,8 +295,7 @@ def _format_transcode_result(
 
     # Encoder type
     if encoder_type:
-        encoder_label = "hardware" if encoder_type == "hardware" else "software"
-        lines.append(f"Encoder: {encoder_label}")
+        lines.append(f"Encoder: {encoder_type}")
 
     # Encoding speed
     if encoding_fps is not None and encoding_fps > 0:
