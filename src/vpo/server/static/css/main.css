@@ -6166,6 +6166,66 @@ input.valid:focus {
     fill: var(--color-text-muted);
 }
 
+/* Pie chart styles */
+.stats-chart--pie {
+    min-height: 180px;
+}
+
+.chart-pie-wrapper {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+}
+
+.chart-pie {
+    flex-shrink: 0;
+}
+
+.chart-pie-slice {
+    transition: opacity 0.15s ease;
+    cursor: default;
+}
+
+.chart-pie-slice:hover {
+    opacity: 0.8;
+}
+
+.chart-pie-legend {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.chart-pie-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+}
+
+.chart-pie-legend-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.chart-pie-legend-label {
+    color: var(--color-text);
+    font-weight: 500;
+}
+
+.chart-pie-legend-value {
+    color: var(--color-text-muted);
+    margin-left: auto;
+    padding-left: 8px;
+}
+
+.stats-charts-grid--3col {
+    grid-template-columns: repeat(3, 1fr);
+}
+
 /* Dark mode chart adjustments */
 @media (prefers-color-scheme: dark) {
     .chart-bar-bg {
@@ -6175,12 +6235,26 @@ input.valid:focus {
     .chart-gauge-bg {
         stroke: #404040;
     }
+
+    .chart-pie-slice {
+        stroke: var(--color-content-bg);
+        stroke-width: 1;
+    }
 }
 
 /* Responsive chart adjustments */
 @media (max-width: 768px) {
     .stats-charts-grid {
         grid-template-columns: 1fr;
+    }
+
+    .stats-charts-grid--3col {
+        grid-template-columns: 1fr;
+    }
+
+    .chart-pie-wrapper {
+        flex-direction: column;
+        align-items: center;
     }
 
     .stats-chart-container {
