@@ -206,7 +206,10 @@ def create_app(
         # - create_schema uses executescript() which commits implicitly
         # - Migrations are idempotent and safe to re-run on failure
         conn = pool.get_connection()
-        initialize_database(conn)
+        try:
+            initialize_database(conn)
+        finally:
+            pool.release_connection(conn)
 
         logger.debug(
             "Created database connection pool for %s with timeout %.1fs",
@@ -308,7 +311,11 @@ async def _start_auto_prune_task(app: web.Application) -> None:
         return
 
     interval = config.jobs.auto_prune_interval_hours * 3600
-    task = AutoPruneTask(interval_seconds=interval)
+    task = AutoPruneTask(
+        interval_seconds=interval,
+        connection_pool=app.get("connection_pool"),
+        lifecycle=app.get("lifecycle"),
+    )
     app["auto_prune_task"] = task
     app["auto_prune_task_handle"] = asyncio.create_task(task.run())
     logger.info(

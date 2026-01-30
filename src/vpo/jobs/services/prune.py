@@ -65,20 +65,20 @@ class PruneJobService:
                 )
 
             pruned = 0
-            for file_id, file_path in missing_files:
-                try:
+            # Ensure we start a clean transaction for atomic deletion
+            if self.conn.in_transaction:
+                self.conn.commit()
+            self.conn.execute("BEGIN IMMEDIATE")
+            try:
+                for file_id, file_path in missing_files:
                     delete_file(self.conn, file_id)
                     pruned += 1
                     if job_log:
                         job_log.write_line(f"  Pruned: {file_path}")
-                except Exception as e:
-                    logger.warning(
-                        "Failed to prune file %d (%s): %s", file_id, file_path, e
-                    )
-                    if job_log:
-                        job_log.write_line(f"  Failed to prune: {file_path} ({e})")
-
-            self.conn.commit()
+                self.conn.commit()
+            except Exception:
+                self.conn.rollback()
+                raise
 
             logger.info("Pruned %d missing file(s) from library", pruned)
             if job_log:

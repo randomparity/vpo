@@ -14,11 +14,21 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
+
+from vpo.jobs.services.prune import PruneJobService
+from vpo.jobs.tracking import complete_prune_job, create_prune_job
+
+if TYPE_CHECKING:
+    from vpo.db.connection import DaemonConnectionPool
 
 logger = logging.getLogger(__name__)
 
 # Delay before first prune run after startup (10 minutes)
 STARTUP_DELAY_SECONDS = 600
+
+# Number of consecutive failures before marking unhealthy
+_UNHEALTHY_THRESHOLD = 3
 
 
 class AutoPruneTask:
@@ -27,7 +37,11 @@ class AutoPruneTask:
     Follows the same pattern as MaintenanceTask for consistency.
 
     Usage:
-        task = AutoPruneTask(interval_seconds=604800)  # 7 days
+        task = AutoPruneTask(
+            interval_seconds=604800,
+            connection_pool=pool,
+            lifecycle=lifecycle,
+        )
         asyncio.create_task(task.run())
         # ... later ...
         task.stop()
@@ -35,20 +49,30 @@ class AutoPruneTask:
 
     def __init__(
         self,
+        *,
         interval_seconds: int,
+        connection_pool: DaemonConnectionPool | None = None,
+        lifecycle: object | None = None,
         startup_delay_seconds: int = STARTUP_DELAY_SECONDS,
     ) -> None:
         """Initialize the auto-prune task.
 
         Args:
             interval_seconds: Seconds between prune runs.
+            connection_pool: DaemonConnectionPool for database access.
+            lifecycle: DaemonLifecycle instance (unused currently, reserved).
             startup_delay_seconds: Seconds to wait before first run.
         """
         self.interval_seconds = interval_seconds
         self.startup_delay_seconds = startup_delay_seconds
+        self._pool = connection_pool
+        self._lifecycle = lifecycle
         self._stop_event = asyncio.Event()
         self._last_run: datetime | None = None
         self._running = False
+        self._state_lock = asyncio.Lock()
+        self._consecutive_failures: int = 0
+        self._is_healthy: bool = True
 
     async def run(self) -> None:
         """Run the auto-prune loop.
@@ -56,11 +80,12 @@ class AutoPruneTask:
         This method runs indefinitely until stop() is called.
         It should be run as an asyncio task.
         """
-        if self._running:
-            logger.warning("Auto-prune task already running")
-            return
+        async with self._state_lock:
+            if self._running:
+                logger.warning("Auto-prune task already running")
+                return
+            self._running = True
 
-        self._running = True
         logger.info(
             "Auto-prune task started (first run in %d seconds, interval %d seconds)",
             self.startup_delay_seconds,
@@ -77,6 +102,8 @@ class AutoPruneTask:
                 return
             except asyncio.TimeoutError:
                 pass  # Normal case - startup delay elapsed
+            except asyncio.CancelledError:
+                return
 
             # Run prune loop
             while not self._stop_event.is_set():
@@ -90,9 +117,14 @@ class AutoPruneTask:
                     break
                 except asyncio.TimeoutError:
                     pass  # Normal case - interval elapsed
+                except asyncio.CancelledError:
+                    break
 
+        except asyncio.CancelledError:
+            pass
         finally:
-            self._running = False
+            async with self._state_lock:
+                self._running = False
             logger.info("Auto-prune task stopped")
 
     def stop(self) -> None:
@@ -109,25 +141,18 @@ class AutoPruneTask:
         """Get the timestamp of the last prune run."""
         return self._last_run
 
+    @property
+    def is_healthy(self) -> bool:
+        """Check if the auto-prune task is healthy."""
+        return self._is_healthy
+
     async def _run_prune(self) -> None:
         """Execute a single prune run."""
         start_time = datetime.now(timezone.utc)
         logger.info("Starting auto-prune run")
 
         try:
-            from vpo.jobs.services.prune import PruneJobService
-            from vpo.jobs.tracking import (
-                complete_prune_job,
-                create_prune_job,
-            )
-            from vpo.server.lifecycle import DaemonLifecycle
-
-            lifecycle = DaemonLifecycle.instance()
-            if lifecycle is None:
-                logger.warning("Auto-prune: daemon lifecycle not available")
-                return
-
-            pool = lifecycle.connection_pool
+            pool = self._pool
             if pool is None:
                 logger.warning("Auto-prune: connection pool not available")
                 return
@@ -148,10 +173,20 @@ class AutoPruneTask:
                     )
                     return result
 
-                result = await asyncio.to_thread(_do_prune)
+                try:
+                    result = await asyncio.to_thread(_do_prune)
+                except asyncio.CancelledError:
+                    return
 
                 duration = (datetime.now(timezone.utc) - start_time).total_seconds()
-                self._last_run = start_time
+                async with self._state_lock:
+                    self._last_run = start_time
+
+                # Reset failure tracking on success
+                self._consecutive_failures = 0
+                if not self._is_healthy:
+                    self._is_healthy = True
+                    logger.info("Auto-prune recovered, marking healthy")
 
                 if result.files_pruned > 0:
                     logger.info(
@@ -169,5 +204,15 @@ class AutoPruneTask:
             finally:
                 pool.release_connection(conn)
 
+        except asyncio.CancelledError:
+            raise
         except Exception as e:
+            self._consecutive_failures += 1
+            if self._consecutive_failures >= _UNHEALTHY_THRESHOLD:
+                if self._is_healthy:
+                    self._is_healthy = False
+                    logger.error(
+                        "Auto-prune marked unhealthy after %d consecutive failures",
+                        self._consecutive_failures,
+                    )
             logger.exception("Auto-prune run failed: %s", e)
