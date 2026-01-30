@@ -2,7 +2,12 @@
 
 import sqlite3
 
-from ..types import FileListViewItem, LanguageOption
+from ..types import (
+    DistributionItem,
+    FileListViewItem,
+    LanguageOption,
+    LibraryDistribution,
+)
 from .helpers import _clamp_limit
 
 
@@ -299,3 +304,76 @@ def get_distinct_audio_languages_typed(
         List of LanguageOption objects, sorted by code.
     """
     return [LanguageOption(**d) for d in get_distinct_audio_languages(conn)]
+
+
+def get_library_distribution(
+    conn: sqlite3.Connection,
+) -> LibraryDistribution:
+    """Get distribution of container formats and codecs across the library.
+
+    Returns counts grouped by container type, video codec, and audio codec
+    for rendering pie charts on the Statistics page.
+
+    Args:
+        conn: Database connection.
+
+    Returns:
+        LibraryDistribution with containers, video_codecs, and audio_codecs.
+    """
+    # Container format distribution
+    container_rows = conn.execute(
+        """
+        SELECT LOWER(container_format) AS label, COUNT(*) AS count
+        FROM files
+        WHERE scan_status = 'ok'
+          AND container_format IS NOT NULL
+          AND container_format != ''
+        GROUP BY LOWER(container_format)
+        ORDER BY count DESC
+        """
+    ).fetchall()
+    containers = [
+        DistributionItem(label=r["label"], count=r["count"]) for r in container_rows
+    ]
+
+    # Video codec distribution (count distinct files, not tracks)
+    video_rows = conn.execute(
+        """
+        SELECT LOWER(t.codec) AS label, COUNT(DISTINCT f.id) AS count
+        FROM files f
+        JOIN tracks t ON f.id = t.file_id
+        WHERE f.scan_status = 'ok'
+          AND t.track_type = 'video'
+          AND t.codec IS NOT NULL
+          AND t.codec != ''
+        GROUP BY LOWER(t.codec)
+        ORDER BY count DESC
+        """
+    ).fetchall()
+    video_codecs = [
+        DistributionItem(label=r["label"], count=r["count"]) for r in video_rows
+    ]
+
+    # Audio codec distribution (count tracks, not distinct files)
+    audio_rows = conn.execute(
+        """
+        SELECT LOWER(t.codec) AS label, COUNT(*) AS count
+        FROM files f
+        JOIN tracks t ON f.id = t.file_id
+        WHERE f.scan_status = 'ok'
+          AND t.track_type = 'audio'
+          AND t.codec IS NOT NULL
+          AND t.codec != ''
+        GROUP BY LOWER(t.codec)
+        ORDER BY count DESC
+        """
+    ).fetchall()
+    audio_codecs = [
+        DistributionItem(label=r["label"], count=r["count"]) for r in audio_rows
+    ]
+
+    return LibraryDistribution(
+        containers=containers,
+        video_codecs=video_codecs,
+        audio_codecs=audio_codecs,
+    )

@@ -874,6 +874,23 @@ class PolicyStats:
 
 
 @dataclass
+class DistributionItem:
+    """A single category in a distribution count."""
+
+    label: str
+    count: int
+
+
+@dataclass
+class LibraryDistribution:
+    """Distribution data for library composition pie charts."""
+
+    containers: list[DistributionItem]
+    video_codecs: list[DistributionItem]
+    audio_codecs: list[DistributionItem]
+
+
+@dataclass
 class FileProcessingHistory:
     """Processing history entry for a file.
 

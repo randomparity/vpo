@@ -14,10 +14,12 @@ New code should use the _typed variants that return dataclasses.
 from ..types import (
     ActionSummary,
     AnalysisStatusSummary,
+    DistributionItem,
     FileAnalysisStatus,
     FileListViewItem,
     FileProcessingHistory,
     LanguageOption,
+    LibraryDistribution,
     PolicyStats,
     ScanErrorView,
     StatsDetailView,
@@ -44,6 +46,7 @@ from .library import (
     get_distinct_audio_languages_typed,
     get_files_filtered,
     get_files_filtered_typed,
+    get_library_distribution,
     get_missing_files,
 )
 
@@ -83,10 +86,12 @@ __all__ = [
     # Types (re-exported for backward compatibility)
     "ActionSummary",
     "AnalysisStatusSummary",
+    "DistributionItem",
     "FileAnalysisStatus",
     "FileListViewItem",
     "FileProcessingHistory",
     "LanguageOption",
+    "LibraryDistribution",
     "PolicyStats",
     "ScanErrorView",
     "StatsDetailView",
@@ -108,6 +113,7 @@ __all__ = [
     "get_distinct_audio_languages_typed",
     "get_files_filtered",
     "get_files_filtered_typed",
+    "get_library_distribution",
     "get_missing_files",
     # Plugins
     "get_files_with_plugin_data",
