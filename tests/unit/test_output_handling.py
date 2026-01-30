@@ -5,6 +5,7 @@ and output integrity verification.
 """
 
 from pathlib import Path
+from unittest.mock import patch
 
 from vpo.executor.transcode import TranscodeExecutor
 from vpo.policy.types import TranscodePolicyConfig
@@ -49,14 +50,19 @@ class TestTempFilePathGeneration:
     def test_temp_path_custom_directory(self) -> None:
         """Temp file can use custom directory if specified."""
         policy = TranscodePolicyConfig(target_video_codec="hevc")
-        executor = TranscodeExecutor(policy, temp_directory=Path("/tmp/vpo"))
+        executor = TranscodeExecutor(policy)
 
         output_path = Path("/video/movie.mkv")
-        temp_path = executor._get_temp_output_path(output_path)
+        custom_dir = Path("/tmp/vpo")
 
-        # When temp_directory is specified, temp file goes there
-        if executor.temp_directory:
-            assert temp_path.parent == executor.temp_directory
+        with patch(
+            "vpo.executor.transcode.executor.get_temp_directory_for_file",
+            return_value=custom_dir,
+        ):
+            temp_path = executor._get_temp_output_path(output_path)
+
+        # When temp directory is configured, temp file goes there
+        assert temp_path.parent == custom_dir
 
 
 class TestAtomicFileReplacement:

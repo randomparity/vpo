@@ -12,6 +12,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
+from vpo.config.loader import get_temp_directory_for_file
 from vpo.db import TrackInfo
 from vpo.executor.ffmpeg_base import FFmpegExecutorBase
 from vpo.policy.transcode import (
@@ -163,7 +164,6 @@ class TranscodeExecutor(FFmpegExecutorBase):
         hardware_acceleration: HardwareAccelConfig | None = None,
         cpu_cores: int | None = None,
         progress_callback: Callable[[FFmpegProgress], None] | None = None,
-        temp_directory: Path | None = None,
         backup_original: bool = True,
         transcode_timeout: float | None = None,
     ) -> None:
@@ -176,7 +176,6 @@ class TranscodeExecutor(FFmpegExecutorBase):
             hardware_acceleration: V6 hardware acceleration config.
             cpu_cores: Number of CPU cores to use.
             progress_callback: Optional callback for progress updates.
-            temp_directory: Directory for temp files (None = same as output).
             backup_original: Whether to backup original after success.
             transcode_timeout: Maximum time in seconds for transcode (None = no limit).
         """
@@ -188,7 +187,6 @@ class TranscodeExecutor(FFmpegExecutorBase):
         self.hardware_acceleration = hardware_acceleration
         self.cpu_cores = cpu_cores
         self.progress_callback = progress_callback
-        self.temp_directory = temp_directory
         self.backup_original = backup_original
         self.transcode_timeout = transcode_timeout
 
@@ -426,8 +424,8 @@ class TranscodeExecutor(FFmpegExecutorBase):
     def _check_disk_space_for_plan(self, plan: TranscodePlan) -> str | None:
         """Check if there's enough disk space for transcoding.
 
-        Uses codec-aware disk space estimation. Checks the temp directory
-        if configured, otherwise checks the output file's parent directory.
+        Uses codec-aware disk space estimation. Checks the configured temp
+        directory, falling back to the output file's parent directory.
 
         Args:
             plan: The transcode plan.
@@ -438,10 +436,7 @@ class TranscodeExecutor(FFmpegExecutorBase):
         target_codec = self.policy.target_video_codec or "hevc"
 
         # Determine which directory to check for space
-        if self.temp_directory:
-            check_path = self.temp_directory
-        else:
-            check_path = plan.output_path.parent
+        check_path = get_temp_directory_for_file(plan.output_path)
 
         # Estimate output size based on target codec
         try:
@@ -524,7 +519,9 @@ class TranscodeExecutor(FFmpegExecutorBase):
         Returns:
             Path for temporary output file.
         """
-        return self.create_temp_output(output_path, self.temp_directory)
+        return self.create_temp_output(
+            output_path, get_temp_directory_for_file(output_path)
+        )
 
     def _atomic_replace(self, temp_path: Path, output_path: Path) -> None:
         """Atomically replace output file with temp file.
@@ -583,7 +580,7 @@ class TranscodeExecutor(FFmpegExecutorBase):
 
         try:
             # Create passlogfile in temp directory
-            passlog_dir = self.temp_directory or plan.output_path.parent
+            passlog_dir = get_temp_directory_for_file(plan.output_path)
             with tempfile.NamedTemporaryFile(
                 prefix="vpo_passlog_",
                 suffix="",
@@ -829,12 +826,8 @@ class TranscodeExecutor(FFmpegExecutorBase):
         )
 
         # Determine temp path (write to temp, then move to final)
-        if self.temp_directory:
-            temp_output = self.temp_directory / f".vpo_temp_{plan.output_path.name}"
-        else:
-            temp_output = plan.output_path.with_name(
-                f".vpo_temp_{plan.output_path.name}"
-            )
+        temp_dir = get_temp_directory_for_file(plan.output_path)
+        temp_output = temp_dir / f".vpo_temp_{plan.output_path.name}"
 
         # Check if two-pass encoding is requested
         if quality and quality.two_pass and quality.mode == QualityMode.BITRATE:

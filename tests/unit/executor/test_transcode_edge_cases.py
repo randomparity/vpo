@@ -166,13 +166,13 @@ class TestCheckDiskSpace:
         # Should return None (not error out) when can't check
         assert result is None
 
-    def test_checks_temp_directory_when_specified(self, tmp_path: Path) -> None:
-        """Checks temp directory space when temp_directory is set."""
+    def test_checks_temp_directory_when_configured(self, tmp_path: Path) -> None:
+        """Checks configured temp directory space instead of output parent."""
         temp_dir = tmp_path / "temp"
         temp_dir.mkdir()
 
         policy = TranscodePolicyConfig(target_video_codec="hevc")
-        executor = TranscodeExecutor(policy=policy, temp_directory=temp_dir)
+        executor = TranscodeExecutor(policy=policy)
 
         input_file = tmp_path / "input.mkv"
         input_file.write_bytes(b"x" * 1000)
@@ -184,7 +184,13 @@ class TestCheckDiskSpace:
             needs_video_transcode=True,
         )
 
-        with patch.object(shutil, "disk_usage") as mock_usage:
+        with (
+            patch(
+                "vpo.executor.transcode.executor.get_temp_directory_for_file",
+                return_value=temp_dir,
+            ),
+            patch.object(shutil, "disk_usage") as mock_usage,
+        ):
             mock_usage.return_value = MagicMock(free=1000000)
             executor._check_disk_space_for_plan(plan)
             # Should check temp_dir, not output parent

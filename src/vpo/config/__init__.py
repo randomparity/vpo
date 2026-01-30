@@ -25,6 +25,7 @@ from vpo.config.loader import (
     get_config,
     get_default_config_path,
     get_temp_directory,
+    get_temp_directory_for_file,
     load_config_file,
 )
 from vpo.config.logging_factory import (
@@ -55,6 +56,7 @@ __all__ = [
     "get_config",
     "get_default_config_path",
     "get_temp_directory",
+    "get_temp_directory_for_file",
     "load_config_file",
     # New modules (refactored architecture)
     "EnvReader",

@@ -10,7 +10,7 @@ from pathlib import Path
 from sqlite3 import Connection
 from typing import TYPE_CHECKING
 
-from vpo.config.loader import get_temp_directory
+from vpo.config.loader import get_temp_directory_for_file
 from vpo.db.queries import get_file_by_path
 from vpo.db.types import TrackInfo
 from vpo.executor.backup import (
@@ -104,7 +104,6 @@ def execute_transcode(
             audio_config=phase.audio_transcode,
             hardware_acceleration=vt.hardware_acceleration,
             backup_original=True,
-            temp_directory=get_temp_directory(),
         )
 
         # Create plan
@@ -257,9 +256,10 @@ def execute_audio_only_transcode(
         return False
 
     # Create temp output file
-    temp_dir = get_temp_directory()
     with tempfile.NamedTemporaryFile(
-        suffix=file_path.suffix, delete=False, dir=temp_dir or file_path.parent
+        suffix=file_path.suffix,
+        delete=False,
+        dir=get_temp_directory_for_file(file_path),
     ) as tmp:
         temp_path = Path(tmp.name)
 

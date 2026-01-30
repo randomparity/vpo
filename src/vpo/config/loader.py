@@ -118,6 +118,19 @@ def get_temp_directory() -> Path | None:
     return None
 
 
+def get_temp_directory_for_file(source_file: Path) -> Path:
+    """Get temp directory for file operations, falling back to source directory.
+
+    Args:
+        source_file: Path to the source file being processed.
+
+    Returns:
+        Configured temp directory, or source_file's parent directory.
+    """
+    temp = get_temp_directory()
+    return temp if temp is not None else source_file.parent
+
+
 def load_config_file(path: Path | None = None) -> dict:
     """Load configuration from TOML file.
 
