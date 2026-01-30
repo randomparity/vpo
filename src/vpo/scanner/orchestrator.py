@@ -200,6 +200,47 @@ class ScannerOrchestrator:
         """Check if the scan has been interrupted."""
         return self._interrupt_event.is_set()
 
+    def _capture_library_snapshot(self, conn: sqlite3.Connection) -> None:
+        """Insert a snapshot of current library counts and sizes.
+
+        Called at the end of a scan to record library state over time.
+        Failures are logged but do not affect the scan result.
+        """
+        try:
+            cursor = conn.execute(
+                "SELECT scan_status, COUNT(*), "
+                "COALESCE(SUM(size_bytes), 0) "
+                "FROM files GROUP BY scan_status"
+            )
+            total_files = 0
+            total_size = 0
+            missing_files = 0
+            error_files = 0
+            for status, count, size in cursor.fetchall():
+                total_files += count
+                total_size += size
+                if status == "missing":
+                    missing_files = count
+                elif status == "error":
+                    error_files = count
+
+            now = datetime.now(timezone.utc).isoformat()
+            conn.execute(
+                "INSERT INTO library_snapshots "
+                "(snapshot_at, total_files, total_size_bytes, "
+                "missing_files, error_files) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (now, total_files, total_size, missing_files, error_files),
+            )
+            conn.commit()
+            logger.debug(
+                "Captured library snapshot: %d files, %d bytes",
+                total_files,
+                total_size,
+            )
+        except Exception as e:
+            logger.warning("Failed to capture library snapshot: %s", e)
+
     def _handle_missing_files(
         self,
         conn: sqlite3.Connection,
@@ -633,6 +674,10 @@ class ScannerOrchestrator:
                 in_transaction = False
 
             result.elapsed_seconds = time.time() - start_time
+
+            # Capture library snapshot for trend tracking
+            self._capture_library_snapshot(conn)
+
             return all_files, result
 
         finally:

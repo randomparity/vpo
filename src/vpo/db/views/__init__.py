@@ -53,6 +53,13 @@ from .plugins import get_files_with_plugin_data, get_plugin_data_for_file
 # Scan error views
 from .scan_errors import get_scan_errors_for_job
 
+# Library snapshots
+from .snapshots import (
+    LibrarySnapshotPoint,
+    get_library_snapshots,
+    insert_library_snapshot,
+)
+
 # Processing statistics views
 from .stats import (
     get_policy_stats,
@@ -107,6 +114,10 @@ __all__ = [
     "get_plugin_data_for_file",
     # Scan errors
     "get_scan_errors_for_job",
+    # Snapshots
+    "LibrarySnapshotPoint",
+    "get_library_snapshots",
+    "insert_library_snapshot",
     # Stats
     "get_policy_stats",
     "get_policy_stats_by_name",

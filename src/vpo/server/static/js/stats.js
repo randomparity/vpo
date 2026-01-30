@@ -21,6 +21,7 @@ const state = {
     recent: [],
     policies: [],
     trends: [],
+    libraryTrends: [],
     selectedDetail: null,
     detailLoading: false
 }
@@ -65,6 +66,10 @@ function init() {
         recentBody: document.getElementById('stats-recent-body'),
         policiesSection: document.getElementById('stats-policies-section'),
         policiesBody: document.getElementById('stats-policies-body'),
+        // Library overview charts
+        librarySection: document.getElementById('stats-library-section'),
+        chartLibraryFiles: document.getElementById('stats-chart-library-files'),
+        chartLibrarySize: document.getElementById('stats-chart-library-size'),
         // Charts
         chartsSection: document.getElementById('stats-charts-section'),
         chartTrend: document.getElementById('stats-chart-trend'),
@@ -147,11 +152,12 @@ async function loadStats() {
         }
 
         // Fetch all data in parallel
-        const [summaryRes, recentRes, policiesRes, trendsRes] = await Promise.all([
+        const [summaryRes, recentRes, policiesRes, trendsRes, libraryRes] = await Promise.all([
             fetch(`/api/stats/summary${buildQueryParams()}`),
             fetch(`/api/stats/recent${buildQueryParams({ limit: 20 })}`),
             fetch(`/api/stats/policies${buildQueryParams()}`),
-            fetch(`/api/stats/trends${buildQueryParams({ group_by: groupBy })}`)
+            fetch(`/api/stats/trends${buildQueryParams({ group_by: groupBy })}`),
+            fetch(`/api/stats/library-trends${buildQueryParams()}`)
         ])
 
         if (!summaryRes.ok || !recentRes.ok || !policiesRes.ok || !trendsRes.ok) {
@@ -162,6 +168,7 @@ async function loadStats() {
         state.recent = await recentRes.json()
         state.policies = await policiesRes.json()
         state.trends = await trendsRes.json()
+        state.libraryTrends = libraryRes.ok ? await libraryRes.json() : []
         state.error = null
 
         renderStats()
@@ -238,6 +245,7 @@ function renderStats() {
     }
 
     // Render charts
+    renderLibraryCharts()
     renderCharts()
 
     // Render tables
@@ -254,6 +262,58 @@ function showEmpty() {
     elements.policiesSection.style.display = 'none'
     if (elements.chartsSection) {
         elements.chartsSection.style.display = 'none'
+    }
+    // Library charts are independent of processing stats
+    renderLibraryCharts()
+}
+
+/**
+ * Render library overview charts (file count + size over time)
+ */
+function renderLibraryCharts() {
+    if (typeof window.VPOCharts === 'undefined') {
+        return
+    }
+
+    const { renderLineChart } = window.VPOCharts
+    const data = state.libraryTrends
+
+    if (elements.librarySection) {
+        elements.librarySection.style.display = data && data.length > 0 ? 'block' : 'none'
+    }
+
+    if (!data || data.length === 0) {
+        return
+    }
+
+    // File count chart (total + missing as two series)
+    if (elements.chartLibraryFiles) {
+        const fileData = data.map(s => ({
+            date: s.snapshot_at.slice(0, 10),
+            value: s.total_files,
+            label: s.snapshot_at.slice(0, 10)
+        }))
+        renderLineChart(elements.chartLibraryFiles, fileData, {
+            title: '',
+            valueFormat: 'number',
+            height: 200,
+            showArea: true
+        })
+    }
+
+    // Size chart
+    if (elements.chartLibrarySize) {
+        const sizeData = data.map(s => ({
+            date: s.snapshot_at.slice(0, 10),
+            value: s.total_size_bytes,
+            label: s.snapshot_at.slice(0, 10)
+        }))
+        renderLineChart(elements.chartLibrarySize, sizeData, {
+            title: '',
+            valueFormat: 'bytes',
+            height: 200,
+            showArea: true
+        })
     }
 }
 
