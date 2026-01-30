@@ -70,6 +70,41 @@ class TestFormatPhaseDetails:
         assert any("Size:" in line for line in result)
         assert any("Encoder: hardware" in line for line in result)
 
+    def test_format_phase_details_with_transcode_reasons(self):
+        """Transcode reasons on PhaseResult thread through to format output."""
+        codec_reason = TranscodeReason(
+            code=TranscodeReasonCode.CODEC_MISMATCH,
+            current_codec="h264",
+            target_codec="hevc",
+        )
+        res_reason = TranscodeReason(
+            code=TranscodeReasonCode.RESOLUTION_EXCEEDED,
+            current_width=3840,
+            current_height=2160,
+            max_label="1080p",
+            target_width=1920,
+            target_height=1080,
+        )
+        pr = PhaseResult(
+            phase_name="transcode",
+            success=True,
+            duration_seconds=120.0,
+            operations_executed=("transcode",),
+            changes_made=1,
+            size_before=8_000_000_000,
+            size_after=4_000_000_000,
+            video_source_codec="h264",
+            video_target_codec="hevc",
+            transcode_reasons=(codec_reason, res_reason),
+        )
+        result = format_phase_details(pr)
+
+        reason_lines = [line for line in result if line.startswith("Reason:")]
+        assert len(reason_lines) == 1
+        assert ";" in reason_lines[0]
+        assert "Codec h264" in reason_lines[0]
+        assert "3840x2160" in reason_lines[0]
+
 
 class TestFormatContainerChange:
     """Tests for _format_container_change function."""
