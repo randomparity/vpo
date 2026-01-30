@@ -202,6 +202,11 @@
         color: var(--status-pending-color);
     }
 
+    .status-badge--missing {
+        background-color: #3a3a2a;
+        color: #f59e0b;
+    }
+
     /* Checkbox labels */
     .checkbox-label {
         color: var(--color-text);
@@ -818,6 +823,11 @@ html, body {
 .status-badge--cancelled {
     background-color: #ffedd5;
     color: #9a3412;
+}
+
+.status-badge--missing {
+    background-color: #fef3c7;
+    color: #92400e;
 }
 
 /* Type badges */
@@ -1621,6 +1631,15 @@ html, body {
 
 .library-row-error:hover {
     background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* Row with missing file - subtle amber highlight */
+.library-row-missing {
+    background-color: rgba(245, 158, 11, 0.05);
+}
+
+.library-row-missing:hover {
+    background-color: rgba(245, 158, 11, 0.1);
 }
 
 /* Empty state */

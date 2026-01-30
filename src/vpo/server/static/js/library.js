@@ -82,6 +82,11 @@
                 '<span class="scan-error-icon" aria-hidden="true">&#9888;</span> error</span>'
         }
 
+        if (normalizedStatus === 'missing') {
+            return '<span class="status-badge status-badge--missing">' +
+                '<span class="scan-error-icon" aria-hidden="true">&#63;</span> missing</span>'
+        }
+
         return '<span class="status-badge status-badge--completed">' + escapeHtml(status || 'ok') + '</span>'
     }
 
@@ -100,13 +105,21 @@
         // Policy column: always show em-dash (policy tracking out of scope)
         const policy = '\u2014'
 
-        // Add error class for rows with scan errors
-        const rowClass = file.scan_status === 'error' ? ' class="library-row-error"' : ''
+        // Add error/missing class for rows with scan issues
+        let rowClass = ''
+        if (file.scan_status === 'error') {
+            rowClass = ' class="library-row-error"'
+        } else if (file.scan_status === 'missing') {
+            rowClass = ' class="library-row-missing"'
+        }
+
+        // Show status badge for error or missing files
+        const showBadge = file.scan_status === 'error' || file.scan_status === 'missing'
 
         return '<tr' + rowClass + ' data-file-id="' + escapeHtml(String(file.id)) + '" tabindex="0" role="link" style="cursor: pointer;">' +
             '<td class="library-filename"' + (hasFullPath ? ' title="' + escapeHtml(file.path) + '"' : '') + '>' +
             escapeHtml(truncatedFilename) +
-            (file.scan_status === 'error' ? ' ' + createScanStatusBadge(file.scan_status, file.scan_error) : '') +
+            (showBadge ? ' ' + createScanStatusBadge(file.scan_status, file.scan_error) : '') +
             '</td>' +
             '<td class="library-title">' + escapeHtml(title) + '</td>' +
             '<td class="library-resolution">' + escapeHtml(resolution) + '</td>' +

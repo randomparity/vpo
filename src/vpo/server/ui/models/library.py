@@ -64,7 +64,7 @@ class LibraryFilterParams:
 
         # Validate status - only allow specific values
         status = query.get("status")
-        if status not in (None, "", "ok", "error"):
+        if status not in (None, "", "ok", "error", "missing"):
             status = None
 
         # Parse search - trim and limit length (019-library-filters-search)
@@ -206,6 +206,7 @@ class LibraryContext:
                 {"value": "", "label": "All files"},
                 {"value": "ok", "label": "Scanned OK"},
                 {"value": "error", "label": "Scan errors"},
+                {"value": "missing", "label": "Missing files"},
             ],
             resolution_options=[
                 {"value": "", "label": "All resolutions"},
