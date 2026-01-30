@@ -2,11 +2,13 @@
 
 import sqlite3
 
+from ..queries.helpers import _escape_like_pattern
 from ..types import (
     DistributionItem,
     FileListViewItem,
     LanguageOption,
     LibraryDistribution,
+    MissingFileViewItem,
 )
 from .helpers import _clamp_limit
 
@@ -55,12 +57,14 @@ def get_files_filtered(
 
     # Text search on filename and video title (019-library-filters-search)
     if search is not None:
-        search_pattern = f"%{search}%"
+        escaped = _escape_like_pattern(search)
+        search_pattern = f"%{escaped}%"
         conditions.append(
-            "(LOWER(f.filename) LIKE LOWER(?) OR "
-            "LOWER(f.path) LIKE LOWER(?) OR "
+            "(LOWER(f.filename) LIKE LOWER(?) ESCAPE '\\' OR "
+            "LOWER(f.path) LIKE LOWER(?) ESCAPE '\\' OR "
             "EXISTS (SELECT 1 FROM tracks t2 WHERE t2.file_id = f.id "
-            "AND t2.track_type = 'video' AND LOWER(t2.title) LIKE LOWER(?)))"
+            "AND t2.track_type = 'video' "
+            "AND LOWER(t2.title) LIKE LOWER(?) ESCAPE '\\'))"
         )
         params.extend([search_pattern, search_pattern, search_pattern])
 
@@ -254,6 +258,25 @@ def get_missing_files(
         }
         for row in cursor.fetchall()
     ]
+
+
+def get_missing_files_typed(
+    conn: sqlite3.Connection,
+    *,
+    limit: int = 100,
+) -> list[MissingFileViewItem]:
+    """Typed version of get_missing_files().
+
+    Returns MissingFileViewItem dataclass instances instead of dicts.
+
+    Args:
+        conn: Database connection.
+        limit: Maximum files to return.
+
+    Returns:
+        List of MissingFileViewItem objects.
+    """
+    return [MissingFileViewItem(**d) for d in get_missing_files(conn, limit=limit)]
 
 
 def get_distinct_audio_languages(

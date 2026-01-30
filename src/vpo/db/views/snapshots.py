@@ -49,7 +49,6 @@ def insert_library_snapshot(
             error_files,
         ),
     )
-    conn.commit()
 
 
 def get_library_snapshots(
