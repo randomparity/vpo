@@ -22,6 +22,7 @@ const state = {
     policies: [],
     trends: [],
     libraryTrends: [],
+    libraryDistribution: null,
     selectedDetail: null,
     detailLoading: false
 }
@@ -70,6 +71,11 @@ function init() {
         librarySection: document.getElementById('stats-library-section'),
         chartLibraryFiles: document.getElementById('stats-chart-library-files'),
         chartLibrarySize: document.getElementById('stats-chart-library-size'),
+        // Composition pie charts
+        compositionSection: document.getElementById('stats-composition-section'),
+        chartContainers: document.getElementById('stats-chart-containers'),
+        chartVideoCodecs: document.getElementById('stats-chart-video-codecs'),
+        chartAudioCodecs: document.getElementById('stats-chart-audio-codecs'),
         // Charts
         chartsSection: document.getElementById('stats-charts-section'),
         chartTrend: document.getElementById('stats-chart-trend'),
@@ -152,12 +158,13 @@ async function loadStats() {
         }
 
         // Fetch all data in parallel
-        const [summaryRes, recentRes, policiesRes, trendsRes, libraryRes] = await Promise.all([
+        const [summaryRes, recentRes, policiesRes, trendsRes, libraryRes, distributionRes] = await Promise.all([
             fetch(`/api/stats/summary${buildQueryParams()}`),
             fetch(`/api/stats/recent${buildQueryParams({ limit: 20 })}`),
             fetch(`/api/stats/policies${buildQueryParams()}`),
             fetch(`/api/stats/trends${buildQueryParams({ group_by: groupBy })}`),
-            fetch(`/api/stats/library-trends${buildQueryParams()}`)
+            fetch(`/api/stats/library-trends${buildQueryParams()}`),
+            fetch('/api/stats/library-distribution')
         ])
 
         if (!summaryRes.ok || !recentRes.ok || !policiesRes.ok || !trendsRes.ok) {
@@ -169,6 +176,7 @@ async function loadStats() {
         state.policies = await policiesRes.json()
         state.trends = await trendsRes.json()
         state.libraryTrends = libraryRes.ok ? await libraryRes.json() : []
+        state.libraryDistribution = distributionRes.ok ? await distributionRes.json() : null
         state.error = null
 
         renderStats()
@@ -246,6 +254,7 @@ function renderStats() {
 
     // Render charts
     renderLibraryCharts()
+    renderCompositionCharts()
     renderCharts()
 
     // Render tables
@@ -265,6 +274,7 @@ function showEmpty() {
     }
     // Library charts are independent of processing stats
     renderLibraryCharts()
+    renderCompositionCharts()
 }
 
 /**
@@ -314,6 +324,36 @@ function renderLibraryCharts() {
             height: 200,
             showArea: true
         })
+    }
+}
+
+/**
+ * Render library composition pie charts (container, video codec, audio codec)
+ */
+function renderCompositionCharts() {
+    if (typeof window.VPOCharts === 'undefined') {
+        return
+    }
+
+    const { renderPieChart } = window.VPOCharts
+    const data = state.libraryDistribution
+
+    if (elements.compositionSection) {
+        elements.compositionSection.style.display = data ? 'block' : 'none'
+    }
+
+    if (!data) {
+        return
+    }
+
+    if (elements.chartContainers) {
+        renderPieChart(elements.chartContainers, data.containers, { size: 180 })
+    }
+    if (elements.chartVideoCodecs) {
+        renderPieChart(elements.chartVideoCodecs, data.video_codecs, { size: 180 })
+    }
+    if (elements.chartAudioCodecs) {
+        renderPieChart(elements.chartAudioCodecs, data.audio_codecs, { size: 180 })
     }
 }
 
