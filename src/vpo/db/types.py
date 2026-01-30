@@ -56,6 +56,7 @@ class JobType(Enum):
     SCAN = "scan"  # Directory scan operation
     APPLY = "apply"  # Policy application operation
     PROCESS = "process"  # Full workflow processing (analyze → apply → transcode)
+    PRUNE = "prune"  # Prune missing files from library
 
 
 class JobStatus(Enum):

@@ -18,6 +18,10 @@ from vpo.jobs.services.process import (
     ProcessJobResult,
     ProcessJobService,
 )
+from vpo.jobs.services.prune import (
+    PruneJobResult,
+    PruneJobService,
+)
 from vpo.jobs.services.transcode import (
     TranscodeJobResult,
     TranscodeJobService,
@@ -31,6 +35,8 @@ __all__ = [
     "PlanApprovalService",
     "ProcessJobResult",
     "ProcessJobService",
+    "PruneJobResult",
+    "PruneJobService",
     "RejectionResult",
     "TranscodeJobResult",
     "TranscodeJobService",

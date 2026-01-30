@@ -528,3 +528,79 @@ def fail_job_with_retry(
     except Exception as e:
         logger.error("CRITICAL: Failed to mark job %s as failed: %s", job_id, e)
         return False
+
+
+# =============================================================================
+# Prune Job Functions
+# =============================================================================
+
+
+def create_prune_job(
+    conn: sqlite3.Connection,
+) -> Job:
+    """Create a new prune job record.
+
+    Prune jobs remove files with scan_status='missing' from the library.
+    They operate on the whole library, not a specific file.
+
+    Args:
+        conn: Database connection.
+
+    Returns:
+        The created Job record.
+    """
+    job_id = str(uuid.uuid4())
+    now = _utc_now_iso()
+
+    job = Job(
+        id=job_id,
+        file_id=None,  # Prune jobs don't target a specific file
+        file_path="library",
+        job_type=JobType.PRUNE,
+        status=JobStatus.RUNNING,
+        priority=50,
+        policy_name=None,
+        policy_json=None,
+        progress_percent=0.0,
+        progress_json=None,
+        created_at=now,
+        started_at=now,
+    )
+
+    insert_job(conn, job)
+    return job
+
+
+def complete_prune_job(
+    conn: sqlite3.Connection,
+    job_id: str,
+    summary: dict[str, int],
+    *,
+    error_message: str | None = None,
+) -> None:
+    """Mark a prune job as completed.
+
+    Args:
+        conn: Database connection.
+        job_id: ID of the job to complete.
+        summary: Summary dict with prune counts (files_pruned).
+        error_message: Error message if job failed.
+
+    Raises:
+        JobNotFoundError: If the job doesn't exist.
+        ValueError: If job_id is empty.
+    """
+    _validate_non_empty(job_id, "job_id")
+
+    status = JobStatus.FAILED if error_message else JobStatus.COMPLETED
+    summary_json = json.dumps(summary)
+
+    _update_job_status(
+        conn,
+        job_id,
+        status,
+        error_message=error_message,
+        summary_json=summary_json,
+        set_progress_100=True,
+        operation_name="complete",
+    )
