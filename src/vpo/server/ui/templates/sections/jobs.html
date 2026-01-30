@@ -8,6 +8,14 @@
         <p>Loading jobs...</p>
     </div>
 
+    <!-- Error state -->
+    <div id="jobs-error" class="jobs-error" style="display: none;" role="alert">
+        <div class="jobs-error-icon" aria-hidden="true">!</div>
+        <div class="jobs-error-title">Error loading jobs</div>
+        <div class="jobs-error-message" id="jobs-error-message">Failed to load jobs.</div>
+        <button class="jobs-retry-btn" id="jobs-retry-btn" type="button">Retry</button>
+    </div>
+
     <!-- Main content (hidden until loaded) -->
     <div id="jobs-content" style="display: none;">
         <!-- Filter bar -->

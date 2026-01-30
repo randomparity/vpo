@@ -1,31 +1,22 @@
 /**
  * Confirmation Modal Component Styles
+ * Uses native <dialog> element for backdrop and centering.
  */
 
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 1000;
-    animation: fadeIn 0.2s ease-out;
-}
-
-.modal-dialog {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+dialog.modal-dialog {
     background: var(--color-content-bg);
     border: 1px solid var(--color-border);
     border-radius: 8px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
     max-width: 500px;
     width: 90%;
-    z-index: 1001;
+    padding: 0;
     animation: slideIn 0.2s ease-out;
+}
+
+dialog.modal-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+    animation: fadeIn 0.2s ease-out;
 }
 
 .modal-header {
@@ -105,21 +96,21 @@
 @keyframes slideIn {
     from {
         opacity: 0;
-        transform: translate(-50%, -48%);
+        transform: translateY(-8px);
     }
     to {
         opacity: 1;
-        transform: translate(-50%, -50%);
+        transform: translateY(0);
     }
 }
 
 /* Dark mode adjustments */
 @media (prefers-color-scheme: dark) {
-    .modal-overlay {
+    dialog.modal-dialog::backdrop {
         background: rgba(0, 0, 0, 0.7);
     }
 
-    .modal-dialog {
+    dialog.modal-dialog {
         box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
     }
 }

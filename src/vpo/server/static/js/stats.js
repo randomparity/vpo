@@ -5,6 +5,13 @@
  * Part of 040-processing-stats feature.
  */
 
+// Shared utilities
+var escapeHtml = window.VPOUtils.escapeHtml
+var _formatDuration = window.VPOUtils.formatDuration
+function formatDuration(seconds) {
+    return _formatDuration(seconds, { fractionalSeconds: true })
+}
+
 // State management
 const state = {
     timeFilter: '7d',
@@ -494,25 +501,6 @@ function formatPercent(value) {
 }
 
 /**
- * Format duration in seconds as human-readable string
- */
-function formatDuration(seconds) {
-    if (seconds === null || seconds === undefined || seconds < 0) return '-'
-
-    if (seconds < 60) {
-        return `${seconds.toFixed(1)}s`
-    } else if (seconds < 3600) {
-        const minutes = Math.floor(seconds / 60)
-        const secs = Math.floor(seconds % 60)
-        return `${minutes}m ${secs}s`
-    } else {
-        const hours = Math.floor(seconds / 3600)
-        const minutes = Math.floor((seconds % 3600) / 60)
-        return `${hours}h ${minutes}m`
-    }
-}
-
-/**
  * Format ISO date string as readable date
  */
 function formatDate(isoString) {
@@ -762,16 +750,6 @@ function renderDetailContent(detail) {
     }
 
     elements.detailBody.innerHTML = html
-}
-
-/**
- * Escape HTML special characters
- */
-function escapeHtml(text) {
-    if (text === null || text === undefined) return ''
-    const div = document.createElement('div')
-    div.textContent = text
-    return div.innerHTML
 }
 
 // Initialize on DOM ready

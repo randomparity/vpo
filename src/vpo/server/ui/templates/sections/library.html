@@ -23,7 +23,8 @@
             <!-- Text search -->
             <div class="library-filter library-filter-search">
                 <label for="filter-search">Search</label>
-                <input type="text" id="filter-search" placeholder="Search filename or title..." maxlength="200">
+                <input type="text" id="filter-search" placeholder="Search filename or title..." maxlength="200" aria-describedby="library-search-hint">
+                <span id="library-search-hint" class="visually-hidden">Filters the library table by filename or title. Results update as you type.</span>
             </div>
             <!-- Status filter -->
             <div class="library-filter">

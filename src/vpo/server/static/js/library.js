@@ -62,83 +62,10 @@
         clearFiltersBtnEl = document.getElementById('clear-filters-btn')
     }
 
-    /**
-     * Format an ISO timestamp to a relative time string.
-     * @param {string} isoString - ISO 8601 timestamp
-     * @returns {string} Relative time (e.g., "2 hours ago")
-     */
-    function formatRelativeTime(isoString) {
-        if (!isoString) {
-            return '\u2014'
-        }
-
-        try {
-            const date = new Date(isoString)
-            const now = new Date()
-            const diffMs = now - date
-            const diffSec = Math.floor(diffMs / 1000)
-            const diffMin = Math.floor(diffSec / 60)
-            const diffHour = Math.floor(diffMin / 60)
-            const diffDay = Math.floor(diffHour / 24)
-
-            if (diffDay > 30) {
-                // Fall back to date format for older items
-                return date.toLocaleDateString(undefined, {
-                    month: 'short',
-                    day: 'numeric',
-                    year: diffDay > 365 ? 'numeric' : undefined
-                })
-            }
-            if (diffDay > 0) {
-                return diffDay + ' day' + (diffDay > 1 ? 's' : '') + ' ago'
-            }
-            if (diffHour > 0) {
-                return diffHour + ' hour' + (diffHour > 1 ? 's' : '') + ' ago'
-            }
-            if (diffMin > 0) {
-                return diffMin + ' minute' + (diffMin > 1 ? 's' : '') + ' ago'
-            }
-            return 'Just now'
-        } catch {
-            return isoString
-        }
-    }
-
-    /**
-     * Truncate a filename for display, preserving start and extension.
-     * If truncation is needed, shows: beginning…extension
-     * Uses single ellipsis character (U+2026).
-     * @param {string} filename - Filename to truncate
-     * @param {number} maxLength - Maximum display length
-     * @returns {string} Truncated filename
-     */
-    function truncateFilename(filename, maxLength) {
-        if (!filename || filename.length <= maxLength) {
-            return filename || '\u2014'
-        }
-
-        // Find extension (last dot)
-        var dotIndex = filename.lastIndexOf('.')
-        var base, extension
-
-        if (dotIndex > 0) {
-            extension = filename.substring(dotIndex)  // includes the dot
-            base = filename.substring(0, dotIndex)
-        } else {
-            extension = ''
-            base = filename
-        }
-
-        // Calculate space for base (1 char for ellipsis)
-        var availableForBase = maxLength - extension.length - 1
-
-        // Edge case: extension too long, just truncate everything
-        if (availableForBase < 1) {
-            return filename.substring(0, maxLength - 1) + '\u2026'
-        }
-
-        return base.substring(0, availableForBase) + '\u2026' + extension
-    }
+    // Shared utilities
+    var escapeHtml = window.VPOUtils.escapeHtml
+    var truncateFilename = window.VPOUtils.truncateFilename
+    var formatRelativeTime = window.VPOUtils.formatRelativeTime
 
     /**
      * Create a scan status badge element.
@@ -159,18 +86,6 @@
     }
 
     /**
-     * Escape HTML to prevent XSS.
-     * @param {string} str - String to escape
-     * @returns {string} Escaped string
-     */
-    function escapeHtml(str) {
-        if (!str) return ''
-        const div = document.createElement('div')
-        div.textContent = str
-        return div.innerHTML
-    }
-
-    /**
      * Render a single file row.
      * @param {Object} file - File data from API
      * @returns {string} HTML string for table row
@@ -188,7 +103,7 @@
         // Add error class for rows with scan errors
         const rowClass = file.scan_status === 'error' ? ' class="library-row-error"' : ''
 
-        return '<tr' + rowClass + ' data-file-id="' + escapeHtml(String(file.id)) + '">' +
+        return '<tr' + rowClass + ' data-file-id="' + escapeHtml(String(file.id)) + '" tabindex="0" role="link" style="cursor: pointer;">' +
             '<td class="library-filename"' + (hasFullPath ? ' title="' + escapeHtml(file.path) + '"' : '') + '>' +
             escapeHtml(truncatedFilename) +
             (file.scan_status === 'error' ? ' ' + createScanStatusBadge(file.scan_status, file.scan_error) : '') +
@@ -235,41 +150,35 @@
 
         const html = files.map(renderFileRow).join('')
         tableBodyEl.innerHTML = html
-
-        // Add click handlers to rows for navigation (020-file-detail-view)
-        setupRowClickHandlers()
     }
 
     /**
-     * Setup click and keyboard handlers on table rows for navigation to file detail.
+     * Setup event delegation for clickable file rows.
+     * Called once during init, not after each render.
      * (020-file-detail-view)
      */
-    function setupRowClickHandlers() {
-        const rows = tableBodyEl.querySelectorAll('tr[data-file-id]')
-        rows.forEach(function (row) {
-            row.style.cursor = 'pointer'
-            row.setAttribute('tabindex', '0')
-            row.setAttribute('role', 'link')
-            row.addEventListener('click', function (e) {
-                // Don't navigate if clicking on a link or button
-                if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') {
-                    return
-                }
-                const fileId = row.getAttribute('data-file-id')
-                if (fileId) {
-                    window.location.href = '/library/' + fileId
-                }
-            })
-            row.addEventListener('keydown', function (e) {
-                // Allow Enter and Space to activate the row
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    const fileId = row.getAttribute('data-file-id')
-                    if (fileId) {
-                        window.location.href = '/library/' + fileId
-                    }
-                }
-            })
+    function setupRowDelegation() {
+        if (!tableBodyEl) return
+
+        tableBodyEl.addEventListener('click', function (e) {
+            if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') return
+            var row = e.target.closest('tr[data-file-id]')
+            if (!row) return
+            var fileId = row.getAttribute('data-file-id')
+            if (fileId) {
+                window.location.href = '/library/' + fileId
+            }
+        })
+
+        tableBodyEl.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter' && e.key !== ' ') return
+            var row = e.target.closest('tr[data-file-id]')
+            if (!row) return
+            e.preventDefault()
+            var fileId = row.getAttribute('data-file-id')
+            if (fileId) {
+                window.location.href = '/library/' + fileId
+            }
         })
     }
 
@@ -701,6 +610,9 @@
     async function init() {
         // Initialize DOM element references first
         initElements()
+
+        // Setup event delegation for clickable rows (once, not per-render)
+        setupRowDelegation()
 
         // Setup event listeners for filter controls
         setupFilterListeners()

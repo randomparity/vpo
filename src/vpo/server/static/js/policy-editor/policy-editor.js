@@ -1401,15 +1401,20 @@ function announceToScreenReader(message) {
         // Cancel button
         cancelBtn.addEventListener('click', async () => {
             if (formState.isDirty) {
-                const confirmed = await window.ConfirmationModal.show(
-                    'You have unsaved changes. Are you sure you want to discard them?',
-                    {
-                        title: 'Unsaved Changes',
-                        confirmText: 'Discard',
-                        cancelText: 'Keep Editing',
-                        focusCancel: true
-                    }
-                )
+                let confirmed = false
+                if (typeof window.ConfirmationModal !== 'undefined') {
+                    confirmed = await window.ConfirmationModal.show(
+                        'You have unsaved changes. Are you sure you want to discard them?',
+                        {
+                            title: 'Unsaved Changes',
+                            confirmText: 'Discard',
+                            cancelText: 'Keep Editing',
+                            focusCancel: true
+                        }
+                    )
+                } else {
+                    confirmed = confirm('You have unsaved changes. Are you sure you want to discard them?')
+                }
                 if (confirmed) {
                     window.location.href = '/policies'
                 }
@@ -1425,17 +1430,6 @@ function announceToScreenReader(message) {
                 e.returnValue = 'You have unsaved changes. Are you sure you want to leave?'
             }
         })
-
-        // Make YAML preview read-only (prevent editing while maintaining keyboard access)
-        if (yamlPreview) {
-            yamlPreview.addEventListener('keydown', (e) => {
-                // Allow navigation keys but prevent typing/editing
-                const allowedKeys = ['Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']
-                if (!allowedKeys.includes(e.key) && !e.ctrlKey && !e.metaKey) {
-                    e.preventDefault()
-                }
-            })
-        }
     }
 
     /**

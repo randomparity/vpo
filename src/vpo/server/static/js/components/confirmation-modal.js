@@ -1,16 +1,15 @@
 /**
  * Reusable Confirmation Modal Component
  *
- * Accessible modal dialog for confirmations with focus trapping and keyboard support.
+ * Accessible modal dialog using native <dialog> element.
+ * Focus trapping and scroll lock are handled natively by the browser.
  */
 
 class ConfirmationModal {
     constructor() {
-        this.modal = null
-        this.overlay = null
-        this.resolve = null
-        this.focusedElementBeforeModal = null
-        this._handleKeyDown = this._handleKeyDown.bind(this)
+        this._dialog = null
+        this._resolve = null
+        this._focusedElementBeforeModal = null
     }
 
     /**
@@ -33,24 +32,17 @@ class ConfirmationModal {
         } = options
 
         return new Promise((resolve) => {
-            this.resolve = resolve
-            this.focusedElementBeforeModal = document.activeElement
+            this._resolve = resolve
+            this._focusedElementBeforeModal = document.activeElement
 
-            // Create overlay
-            this.overlay = document.createElement('div')
-            this.overlay.className = 'modal-overlay'
-            this.overlay.setAttribute('role', 'presentation')
-
-            // Create modal dialog
-            this.modal = document.createElement('div')
-            this.modal.className = 'modal-dialog'
-            this.modal.setAttribute('role', 'alertdialog')
-            this.modal.setAttribute('aria-modal', 'true')
-            this.modal.setAttribute('aria-labelledby', 'modal-title')
-            this.modal.setAttribute('aria-describedby', 'modal-message')
+            // Create native dialog element
+            this._dialog = document.createElement('dialog')
+            this._dialog.className = 'modal-dialog'
+            this._dialog.setAttribute('aria-labelledby', 'modal-title')
+            this._dialog.setAttribute('aria-describedby', 'modal-message')
 
             // Modal content
-            this.modal.innerHTML = `
+            this._dialog.innerHTML = `
                 <div class="modal-header">
                     <h2 id="modal-title" class="modal-title">${this._escapeHtml(title)}</h2>
                 </div>
@@ -63,98 +55,75 @@ class ConfirmationModal {
                 </div>
             `
 
-            // Append to body
-            document.body.appendChild(this.overlay)
-            document.body.appendChild(this.modal)
+            // Append to body and show as modal
+            document.body.appendChild(this._dialog)
 
             // Set up event listeners
-            const confirmBtn = this.modal.querySelector('.modal-btn-confirm')
-            const cancelBtn = this.modal.querySelector('.modal-btn-cancel')
+            const confirmBtn = this._dialog.querySelector('.modal-btn-confirm')
+            const cancelBtn = this._dialog.querySelector('.modal-btn-cancel')
 
-            confirmBtn.addEventListener('click', () => this._confirm(true))
-            cancelBtn.addEventListener('click', () => this._confirm(false))
-            this.overlay.addEventListener('click', () => this._confirm(false))
+            confirmBtn.addEventListener('click', () => this._close(true))
+            cancelBtn.addEventListener('click', () => this._close(false))
 
-            // Keyboard support
-            document.addEventListener('keydown', this._handleKeyDown)
+            // Backdrop click closes modal (cancel)
+            this._dialog.addEventListener('click', (e) => {
+                if (e.target === this._dialog) {
+                    this._close(false)
+                }
+            })
+
+            // Native dialog handles Escape key; listen for close event
+            this._dialog.addEventListener('close', () => {
+                // If close fired without _close() being called, treat as cancel
+                if (this._resolve) {
+                    this._cleanup()
+                    resolve(false)
+                }
+            })
+
+            // Show as modal (provides focus trapping and scroll lock natively)
+            this._dialog.showModal()
 
             // Focus the appropriate button
-            // For destructive actions, focus cancel to require deliberate confirmation
             if (focusCancel) {
                 cancelBtn.focus()
             } else {
                 confirmBtn.focus()
             }
-
-            // Prevent body scroll
-            document.body.style.overflow = 'hidden'
         })
-    }
-
-    /**
-     * Handle keyboard events
-     * @private
-     */
-    _handleKeyDown(e) {
-        if (e.key === 'Escape') {
-            e.preventDefault()
-            this._confirm(false)
-        } else if (e.key === 'Tab') {
-            // Trap focus within modal
-            this._trapFocus(e)
-        }
-    }
-
-    /**
-     * Trap focus within the modal
-     * @private
-     */
-    _trapFocus(e) {
-        const focusableElements = this.modal.querySelectorAll(
-            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        )
-        const firstElement = focusableElements[0]
-        const lastElement = focusableElements[focusableElements.length - 1]
-
-        if (e.shiftKey && document.activeElement === firstElement) {
-            e.preventDefault()
-            lastElement.focus()
-        } else if (!e.shiftKey && document.activeElement === lastElement) {
-            e.preventDefault()
-            firstElement.focus()
-        }
     }
 
     /**
      * Close modal and resolve promise
      * @private
      */
-    _confirm(result) {
-        // Remove event listeners
-        document.removeEventListener('keydown', this._handleKeyDown)
+    _close(result) {
+        const resolve = this._resolve
+        this._resolve = null
 
-        // Restore body scroll
-        document.body.style.overflow = ''
-
-        // Remove elements
-        if (this.modal) {
-            this.modal.remove()
-            this.modal = null
-        }
-        if (this.overlay) {
-            this.overlay.remove()
-            this.overlay = null
-        }
+        this._dialog.close()
+        this._cleanup()
 
         // Restore focus
-        if (this.focusedElementBeforeModal) {
-            this.focusedElementBeforeModal.focus()
+        if (this._focusedElementBeforeModal) {
+            this._focusedElementBeforeModal.focus()
+            this._focusedElementBeforeModal = null
         }
 
         // Resolve promise
-        if (this.resolve) {
-            this.resolve(result)
-            this.resolve = null
+        if (resolve) {
+            resolve(result)
+        }
+    }
+
+    /**
+     * Remove dialog element from DOM
+     * @private
+     */
+    _cleanup() {
+        if (this._dialog) {
+            this._dialog.remove()
+            this._dialog = null
         }
     }
 
