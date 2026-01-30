@@ -502,7 +502,7 @@ def _atomic_write_text(path: Path, content: str) -> None:
         raise
 
 
-def _rollback_init(files: list[Path], dirs: list[Path]) -> None:
+def _rollback_init(files: list[Path], dirs: list[Path]) -> list[str]:
     """Clean up created files and directories on failure.
 
     Removes items in reverse order of creation. Directories are only
@@ -511,13 +511,20 @@ def _rollback_init(files: list[Path], dirs: list[Path]) -> None:
     Args:
         files: Files that were created.
         dirs: Directories that were created.
+
+    Returns:
+        List of rollback failure messages (empty if all succeeded).
     """
+    failures: list[str] = []
+
     for f in reversed(files):
         try:
             f.unlink(missing_ok=True)
             logger.debug("Rollback: removed file %s", f)
         except OSError as e:
-            logger.warning("Rollback: failed to remove file %s: %s", f, e)
+            msg = f"Failed to remove file {f}: {e}"
+            logger.error("Rollback: %s", msg)
+            failures.append(msg)
 
     for d in reversed(dirs):
         try:
@@ -525,7 +532,11 @@ def _rollback_init(files: list[Path], dirs: list[Path]) -> None:
                 d.rmdir()
                 logger.debug("Rollback: removed directory %s", d)
         except OSError as e:
-            logger.warning("Rollback: failed to remove directory %s: %s", d, e)
+            msg = f"Failed to remove directory {d}: {e}"
+            logger.error("Rollback: %s", msg)
+            failures.append(msg)
+
+    return failures
 
 
 def _create_directory(
@@ -765,8 +776,17 @@ def run_init(
     def handle_failure(error_msg: str) -> InitResult:
         """Roll back and return failure result."""
         if not dry_run:
-            _rollback_init(actually_created_files, actually_created_dirs)
-            error_msg = f"{error_msg} All changes have been rolled back."
+            rollback_failures = _rollback_init(
+                actually_created_files, actually_created_dirs
+            )
+            if rollback_failures:
+                details = "; ".join(rollback_failures)
+                error_msg = (
+                    f"{error_msg} Rollback partially failed: {details}. "
+                    "Manual cleanup may be required."
+                )
+            else:
+                error_msg = f"{error_msg} All changes have been rolled back."
         return InitResult(
             success=False,
             data_dir=data_dir,
