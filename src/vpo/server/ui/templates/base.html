@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ section_title }} - VPO</title>
     <link rel="stylesheet" href="/static/css/main.css">
+    <script src="/static/js/utils.js"></script>
 </head>
 <body data-polling-interval="{{ polling_interval | default(5000) }}"
       data-polling-enabled="{{ polling_enabled | default('true') }}"
@@ -43,7 +44,6 @@
             </div>
         </main>
     </div>
-    <script src="/static/js/utils.js"></script>
     <script src="/static/js/nav.js"></script>
 </body>
 </html>
