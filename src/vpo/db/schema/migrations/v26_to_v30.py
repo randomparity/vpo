@@ -37,62 +37,91 @@ def migrate_v25_to_v26(conn: sqlite3.Connection) -> None:
         cursor = conn.execute("PRAGMA table_info(jobs)")
         columns = [r[1] for r in cursor.fetchall()]
 
-        # Create new jobs table with updated constraint
-        conn.execute("""
-            CREATE TABLE jobs_new (
-                id TEXT PRIMARY KEY,
-                file_id INTEGER,
-                file_path TEXT NOT NULL,
-                job_type TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'queued',
-                priority INTEGER NOT NULL DEFAULT 100,
-                policy_name TEXT,
-                policy_json TEXT,
-                progress_percent REAL NOT NULL DEFAULT 0.0,
-                progress_json TEXT,
-                created_at TEXT NOT NULL,
-                started_at TEXT,
-                completed_at TEXT,
-                error_message TEXT,
-                output_path TEXT,
-                summary_json TEXT,
-                origin TEXT,
-                batch_id TEXT,
+        # Wrap rebuild in explicit transaction to prevent partial state
+        # (e.g., crash between DROP and RENAME leaving no jobs table)
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            # Create new jobs table with updated constraint
+            conn.execute("""
+                CREATE TABLE jobs_new (
+                    id TEXT PRIMARY KEY,
+                    file_id INTEGER,
+                    file_path TEXT NOT NULL,
+                    job_type TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'queued',
+                    priority INTEGER NOT NULL DEFAULT 100,
+                    policy_name TEXT,
+                    policy_json TEXT,
+                    progress_percent REAL NOT NULL DEFAULT 0.0,
+                    progress_json TEXT,
+                    created_at TEXT NOT NULL,
+                    started_at TEXT,
+                    completed_at TEXT,
+                    error_message TEXT,
+                    output_path TEXT,
+                    summary_json TEXT,
+                    worker_pid INTEGER,
+                    worker_heartbeat TEXT,
+                    backup_path TEXT,
+                    files_affected_json TEXT,
+                    log_path TEXT,
+                    origin TEXT,
+                    batch_id TEXT,
 
-                FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
-                CONSTRAINT valid_status CHECK (
-                    status IN ('queued', 'running', 'completed', 'failed', 'cancelled')
-                ),
-                CONSTRAINT valid_job_type CHECK (
-                    job_type IN (
-                        'transcode', 'move', 'scan',
-                        'apply', 'process', 'prune'
+                    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
+                    CONSTRAINT valid_status CHECK (
+                        status IN (
+                            'queued', 'running', 'completed',
+                            'failed', 'cancelled'
+                        )
+                    ),
+                    CONSTRAINT valid_job_type CHECK (
+                        job_type IN (
+                            'transcode', 'move', 'scan',
+                            'apply', 'process', 'prune'
+                        )
+                    ),
+                    CONSTRAINT valid_progress CHECK (
+                        progress_percent >= 0.0 AND progress_percent <= 100.0
+                    ),
+                    CONSTRAINT valid_priority CHECK (
+                        priority >= 0 AND priority <= 1000
                     )
-                ),
-                CONSTRAINT valid_progress CHECK (
-                    progress_percent >= 0.0 AND progress_percent <= 100.0
-                ),
-                CONSTRAINT valid_priority CHECK (
-                    priority >= 0 AND priority <= 1000
                 )
+            """)
+
+            # Build column list for copy (use only columns that exist in both)
+            col_list = ", ".join(columns)
+            conn.execute(
+                f"INSERT INTO jobs_new ({col_list}) SELECT {col_list} FROM jobs"
             )
-        """)
 
-        # Build column list for copy (use only columns that exist in both)
-        col_list = ", ".join(columns)
-        conn.execute(f"INSERT INTO jobs_new ({col_list}) SELECT {col_list} FROM jobs")
+            # Drop old table and rename
+            conn.execute("DROP TABLE jobs")
+            conn.execute("ALTER TABLE jobs_new RENAME TO jobs")
 
-        # Drop old table and rename
-        conn.execute("DROP TABLE jobs")
-        conn.execute("ALTER TABLE jobs_new RENAME TO jobs")
+            # Recreate indexes (canonical names from definition.py)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_jobs_job_type ON jobs(job_type)"
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_file_id ON jobs(file_id)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_jobs_priority_created "
+                "ON jobs(priority, created_at)"
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_origin ON jobs(origin)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_jobs_batch_id ON jobs(batch_id)"
+            )
 
-        # Recreate indexes
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_type ON jobs(job_type)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_file ON jobs(file_id)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs(created_at)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_origin ON jobs(origin)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_batch_id ON jobs(batch_id)")
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
 
     # --- Part 2: Create library_snapshots table ---
     conn.execute("""
