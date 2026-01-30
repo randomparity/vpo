@@ -175,12 +175,23 @@ class JobsConfig:
     # Set to 0 to disable the check
     min_free_disk_percent: float = 5.0
 
+    # Periodically prune files with scan_status='missing'
+    auto_prune_enabled: bool = False
+
+    # Hours between auto-prune runs (default: 7 days)
+    auto_prune_interval_hours: int = 168
+
     def __post_init__(self) -> None:
         """Validate configuration."""
         if not 0 <= self.min_free_disk_percent <= 100:
             raise ValueError(
                 f"min_free_disk_percent must be between 0 and 100, "
                 f"got {self.min_free_disk_percent}"
+            )
+        if self.auto_prune_interval_hours < 1:
+            raise ValueError(
+                f"auto_prune_interval_hours must be >= 1, "
+                f"got {self.auto_prune_interval_hours}"
             )
 
 

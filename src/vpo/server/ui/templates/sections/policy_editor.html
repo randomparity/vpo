@@ -410,9 +410,7 @@
     <aside class="yaml-preview-panel">
         <h2>YAML Preview</h2>
         <p class="section-description">Real-time preview of the policy file</p>
-        <pre class="yaml-preview-container" tabindex="0" aria-label="YAML policy preview" aria-readonly="true">
-            <code id="yaml-preview" class="language-yaml"></code>
-        </pre>
+        <pre class="yaml-preview-container" tabindex="0" aria-label="YAML policy preview" aria-readonly="true"><code id="yaml-preview" class="language-yaml"></code></pre>
     </aside>
 
     </div><!-- End policy-editor-container -->
@@ -439,13 +437,13 @@
 <!-- CDN libraries for policy editor (256-policy-editor-enhancements) -->
 <!-- SRI hashes below are integrity checksums, not secrets -->
 <script src="https://cdn.jsdelivr.net/npm/ajv@8.17.1/dist/ajv7.bundle.min.js"
-        integrity="sha384-2lXfKVfMgXEf8v5HvM8X/6TE1IOQdCKmPfxRwXzJ2VcqNhVQ9jkVBNj8QKQmZk2p" crossorigin="anonymous"></script><!-- pragma: allowlist secret -->
+        integrity="sha384-2lXfKVfMgXEf8v5HvM8X/6TE1IOQdCKmPfxRwXzJ2VcqNhVQ9jkVBNj8QKQmZk2p" crossorigin="anonymous" async></script><!-- pragma: allowlist secret -->
 <!-- Highlight.js for YAML syntax highlighting (T051) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css"
       integrity="sha384-hXSfn69mEJdPJNKS8aHzW6xDCYzw+PbLpLkCJXvxEeV8FfVcVbTy3QRLDdR/PV1N" crossorigin="anonymous"><!-- pragma: allowlist secret -->
 <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"
-        integrity="sha384-xBsHBR6CP1UT3NrCcJkIq6gwKRCflZEbch5HsGhFC6zD9epLJvNJr4vASNNHcGKU" crossorigin="anonymous"></script><!-- pragma: allowlist secret -->
+        integrity="sha384-xBsHBR6CP1UT3NrCcJkIq6gwKRCflZEbch5HsGhFC6zD9epLJvNJr4vASNNHcGKU" crossorigin="anonymous" async></script><!-- pragma: allowlist secret -->
 <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/languages/yaml.min.js"
-        integrity="sha384-hT5gXe+p5rGkJUbPlLxiMeS/6C5D0bKpNtAbxGAO1MBuOjN8u9FRfKMq7FN2zk9L" crossorigin="anonymous"></script><!-- pragma: allowlist secret -->
+        integrity="sha384-hT5gXe+p5rGkJUbPlLxiMeS/6C5D0bKpNtAbxGAO1MBuOjN8u9FRfKMq7FN2zk9L" crossorigin="anonymous" async></script><!-- pragma: allowlist secret -->
 <script type="module" src="/static/js/policy-editor/policy-editor.js"></script>
 {% endblock %}

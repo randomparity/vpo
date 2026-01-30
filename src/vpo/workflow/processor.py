@@ -35,6 +35,7 @@ from vpo.introspector.ffprobe import (
 )
 from vpo.policy.types import (
     FileProcessingResult,
+    FileSnapshot,
     OnErrorMode,
     PhaseDefinition,
     PhaseExecutionError,
@@ -366,6 +367,11 @@ class WorkflowProcessor:
         # Get initial file info from database
         file_info = self._get_file_info(file_path)
 
+        # Capture before snapshot for verbose output
+        file_before_snapshot: FileSnapshot | None = None
+        if file_info is not None:
+            file_before_snapshot = FileSnapshot.from_file_info(file_info)
+
         # Initialize stats collector for non-dry-run processing
         stats_collector: StatsCollector | None = None
         if not self.dry_run and file_info:
@@ -495,8 +501,9 @@ class WorkflowProcessor:
                             skip_reason=phase_result.transcode_skip_reason,
                         )
                     elif phase_result.encoder_type:
-                        # Successful transcode - capture encoder type
+                        # Successful transcode - capture encoder type and target codec
                         stats_collector.set_video_transcode_info(
+                            target_codec=phase_result.video_target_codec,
                             encoder_type=phase_result.encoder_type,
                         )
 
@@ -591,6 +598,11 @@ class WorkflowProcessor:
 
         duration = time.time() - start_time
 
+        # Capture after snapshot (file_info reflects final state after re-introspection)
+        file_after_snapshot: FileSnapshot | None = None
+        if not self.dry_run and file_info is not None:
+            file_after_snapshot = FileSnapshot.from_file_info(file_info)
+
         result = FileProcessingResult(
             file_path=file_path,
             success=len(phases_failed) == 0,
@@ -602,6 +614,8 @@ class WorkflowProcessor:
             phases_skipped=len(phases_skipped),
             failed_phase=failed_phase,
             error_message=error_message,
+            file_before=file_before_snapshot,
+            file_after=file_after_snapshot,
         )
 
         # Capture after state and persist statistics

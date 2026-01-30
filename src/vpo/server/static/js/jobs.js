@@ -31,13 +31,16 @@
     const DEBOUNCE_DELAY = 300 // ms
 
     // Cached job data for comparison (T013)
-    var cachedJobs = {}
+    let cachedJobs = {}
 
     // Polling instance (T014)
-    var pollingInstance = null
+    let pollingInstance = null
 
     // DOM elements
     const loadingEl = document.getElementById('jobs-loading')
+    const errorEl = document.getElementById('jobs-error')
+    const errorMessageEl = document.getElementById('jobs-error-message')
+    const retryBtnEl = document.getElementById('jobs-retry-btn')
     const contentEl = document.getElementById('jobs-content')
     const tableBodyEl = document.getElementById('jobs-table-body')
     const tableEl = document.getElementById('jobs-table')
@@ -49,32 +52,10 @@
     const prevBtnEl = document.getElementById('jobs-prev-btn')
     const nextBtnEl = document.getElementById('jobs-next-btn')
 
-    /**
-     * Format a duration in seconds to a human-readable string.
-     * @param {number|null} seconds - Duration in seconds
-     * @returns {string} Formatted duration
-     */
-    function formatDuration(seconds) {
-        if (seconds === null || seconds === undefined) {
-            return '-'
-        }
-
-        if (seconds < 60) {
-            return seconds + 's'
-        }
-
-        const minutes = Math.floor(seconds / 60)
-        const remainingSeconds = seconds % 60
-
-        if (minutes < 60) {
-            return minutes + 'm ' + remainingSeconds + 's'
-        }
-
-        const hours = Math.floor(minutes / 60)
-        const remainingMinutes = minutes % 60
-
-        return hours + 'h ' + remainingMinutes + 'm'
-    }
+    // Shared utilities
+    const escapeHtml = window.VPOUtils.escapeHtml
+    const truncateFilename = window.VPOUtils.truncateFilename
+    const formatDuration = window.VPOUtils.formatDuration
 
     /**
      * Format an ISO timestamp to a localized date/time string.
@@ -106,44 +87,8 @@
      */
     function getFilename(path) {
         if (!path) return ''
-        var parts = path.split('/')
+        const parts = path.split('/')
         return parts[parts.length - 1] || ''
-    }
-
-    /**
-     * Truncate a filename for display, preserving start and extension.
-     * If truncation is needed, shows: beginning…extension
-     * Uses single ellipsis character (U+2026).
-     * @param {string} filename - Filename to truncate
-     * @param {number} maxLength - Maximum display length
-     * @returns {string} Truncated filename
-     */
-    function truncateFilename(filename, maxLength) {
-        if (!filename || filename.length <= maxLength) {
-            return filename || '-'
-        }
-
-        // Find extension (last dot)
-        var dotIndex = filename.lastIndexOf('.')
-        var base, extension
-
-        if (dotIndex > 0) {
-            extension = filename.substring(dotIndex)  // includes the dot
-            base = filename.substring(0, dotIndex)
-        } else {
-            extension = ''
-            base = filename
-        }
-
-        // Calculate space for base (1 char for ellipsis)
-        var availableForBase = maxLength - extension.length - 1
-
-        // Edge case: extension too long, just truncate everything
-        if (availableForBase < 1) {
-            return filename.substring(0, maxLength - 1) + '\u2026'
-        }
-
-        return base.substring(0, availableForBase) + '\u2026' + extension
     }
 
     /**
@@ -178,8 +123,8 @@
      * @returns {string} HTML string for progress bar
      */
     function createProgressBar(job) {
-        var status = job.status
-        var percent = job.progress_percent
+        const status = job.status
+        const percent = job.progress_percent
 
         // For completed/failed/cancelled jobs, show 100% or appropriate state
         if (status === 'completed') {
@@ -192,8 +137,8 @@
         }
 
         if (status === 'failed' || status === 'cancelled') {
-            var barClass = status === 'failed' ? 'job-progress-bar--failed' : ''
-            var displayPercent = percent !== null && percent !== undefined ? percent : 0
+            const barClass = status === 'failed' ? 'job-progress-bar--failed' : ''
+            const displayPercent = percent !== null && percent !== undefined ? percent : 0
             return '<div class="job-progress">' +
                 '<div class="job-progress-track">' +
                 '<div class="job-progress-bar ' + barClass + '" style="width: ' + displayPercent + '%"></div>' +
@@ -251,7 +196,7 @@
         }
 
         // Make row clickable - link to job detail view (016-job-detail-view)
-        return '<tr class="job-row-clickable" data-job-id="' + escapeHtml(job.id) + '" onclick="window.location.href=\'/jobs/' + escapeHtml(job.id) + '\'" style="cursor: pointer;">' +
+        return '<tr class="job-row-clickable" data-job-id="' + escapeHtml(job.id) + '" tabindex="0" role="link" aria-label="View job ' + escapeHtml(shortId) + '">' +
             '<td class="job-id" title="' + escapeHtml(job.id) + '">' + escapeHtml(shortId) + '</td>' +
             '<td class="job-type">' + createTypeBadge(job.job_type) + '</td>' +
             '<td class="job-status">' + createStatusBadge(job.status) + '</td>' +
@@ -260,18 +205,6 @@
             '<td class="job-created">' + formatDateTime(job.created_at) + '</td>' +
             '<td class="job-duration">' + formatDuration(duration) + '</td>' +
             '</tr>'
-    }
-
-    /**
-     * Escape HTML to prevent XSS.
-     * @param {string} str - String to escape
-     * @returns {string} Escaped string
-     */
-    function escapeHtml(str) {
-        if (!str) return ''
-        const div = document.createElement('div')
-        div.textContent = str
-        return div.innerHTML
     }
 
     /**
@@ -375,14 +308,11 @@
             updateJobsCache(data.jobs)
 
             // Show content, hide loading
-            loadingEl.style.display = 'none'
-            contentEl.style.display = 'block'
+            showContent()
 
         } catch (error) {
             console.error('Error fetching jobs:', error)
-            // Use textContent to prevent XSS in error display
-            loadingEl.textContent = 'Error loading jobs. Please refresh the page.'
-            loadingEl.style.color = 'var(--color-error)'
+            showError(error.message || 'Failed to load jobs. Please try again.')
         }
     }
 
@@ -391,7 +321,7 @@
     // ==========================================================================
 
     // SSE client instance
-    var sseClient = null
+    let sseClient = null
 
     /**
      * Update the jobs cache with new data (T013).
@@ -399,7 +329,7 @@
      */
     function updateJobsCache(jobs) {
         cachedJobs = {}
-        for (var i = 0; i < jobs.length; i++) {
+        for (let i = 0; i < jobs.length; i++) {
             cachedJobs[jobs[i].id] = jobs[i]
         }
     }
@@ -410,7 +340,7 @@
      * @returns {boolean} True if job has changed
      */
     function hasJobChanged(newJob) {
-        var cached = cachedJobs[newJob.id]
+        const cached = cachedJobs[newJob.id]
         if (!cached) {
             return true // New job
         }
@@ -428,33 +358,33 @@
      * @param {Object} newData - New job data
      */
     function updateJobRow(jobId, newData) {
-        var row = tableBodyEl.querySelector('tr[data-job-id="' + jobId + '"]')
+        const row = tableBodyEl.querySelector('tr[data-job-id="' + jobId + '"]')
         if (!row) {
             return false // Row not found
         }
 
         // Calculate duration for running jobs
-        var duration = newData.duration_seconds
+        let duration = newData.duration_seconds
         if (newData.status === 'running' && newData.created_at && duration === null) {
-            var created = new Date(newData.created_at)
-            var now = new Date()
+            const created = new Date(newData.created_at)
+            const now = new Date()
             duration = Math.floor((now - created) / 1000)
         }
 
         // Update status cell
-        var statusCell = row.querySelector('.job-status')
+        const statusCell = row.querySelector('.job-status')
         if (statusCell) {
             statusCell.innerHTML = createStatusBadge(newData.status)
         }
 
         // Update progress cell (T025)
-        var progressCell = row.querySelector('.job-progress-cell')
+        const progressCell = row.querySelector('.job-progress-cell')
         if (progressCell) {
             progressCell.innerHTML = createProgressBar(newData)
         }
 
         // Update duration cell
-        var durationCell = row.querySelector('.job-duration')
+        const durationCell = row.querySelector('.job-duration')
         if (durationCell) {
             durationCell.textContent = formatDuration(duration)
         }
@@ -483,14 +413,14 @@
             })
             .then(function (data) {
                 // Update total and pagination
-                var totalChanged = totalJobs !== data.total
+                const totalChanged = totalJobs !== data.total
                 totalJobs = data.total
 
                 // Check for changes and update (T012)
-                var newJobIds = {}
+                const newJobIds = {}
 
-                for (var i = 0; i < data.jobs.length; i++) {
-                    var job = data.jobs[i]
+                for (let i = 0; i < data.jobs.length; i++) {
+                    const job = data.jobs[i]
                     newJobIds[job.id] = true
 
                     if (hasJobChanged(job)) {
@@ -507,7 +437,7 @@
                 }
 
                 // Check for removed jobs (jobs in cache but not in new data)
-                for (var cachedId in cachedJobs) {
+                for (const cachedId in cachedJobs) {
                     if (!newJobIds[cachedId]) {
                         // Job was removed - do full re-render
                         renderJobsTable(data.jobs, data.has_filters)
@@ -537,14 +467,14 @@
         }
 
         // Update total and pagination
-        var totalChanged = totalJobs !== data.total
+        const totalChanged = totalJobs !== data.total
         totalJobs = data.total || 0
 
         // Check for changes and update
-        var newJobIds = {}
+        const newJobIds = {}
 
-        for (var i = 0; i < data.jobs.length; i++) {
-            var job = data.jobs[i]
+        for (let i = 0; i < data.jobs.length; i++) {
+            const job = data.jobs[i]
             newJobIds[job.id] = true
 
             if (hasJobChanged(job)) {
@@ -560,7 +490,7 @@
         }
 
         // Check for removed jobs
-        for (var cachedId in cachedJobs) {
+        for (const cachedId in cachedJobs) {
             if (!newJobIds[cachedId]) {
                 renderJobsTable(data.jobs, data.has_filters || false)
                 updateJobsCache(data.jobs)
@@ -748,7 +678,7 @@
      * Toggles filter-active class based on search state.
      */
     function updateSearchVisuals() {
-        var searchInput = document.getElementById('filter-search')
+        const searchInput = document.getElementById('filter-search')
         if (searchInput) {
             searchInput.classList.toggle('filter-active', Boolean(currentFilters.search))
         }
@@ -758,10 +688,10 @@
      * Update sort indicators in table headers.
      */
     function updateSortIndicators() {
-        var headers = document.querySelectorAll('.jobs-table th.sortable')
+        const headers = document.querySelectorAll('.jobs-table th.sortable')
         headers.forEach(function (th) {
-            var sortKey = th.getAttribute('data-sort-key')
-            var indicator = th.querySelector('.sort-indicator')
+            const sortKey = th.getAttribute('data-sort-key')
+            const indicator = th.querySelector('.sort-indicator')
 
             if (sortKey === currentSort.column) {
                 th.classList.add('sorted')
@@ -779,10 +709,10 @@
         })
 
         // Announce sort change to screen readers
-        var sortStatus = document.getElementById('sort-status')
+        const sortStatus = document.getElementById('sort-status')
         if (sortStatus) {
-            var columnHeader = document.querySelector('.jobs-table th[data-sort-key="' + currentSort.column + '"]')
-            var columnName = columnHeader ? columnHeader.textContent.replace(/[\u25B2\u25BC]/g, '').trim() : currentSort.column
+            const columnHeader = document.querySelector('.jobs-table th[data-sort-key="' + currentSort.column + '"]')
+            const columnName = columnHeader ? columnHeader.textContent.replace(/[\u25B2\u25BC]/g, '').trim() : currentSort.column
             sortStatus.textContent = 'Sorted by ' + columnName + ', ' + (currentSort.order === 'asc' ? 'ascending' : 'descending')
         }
     }
@@ -791,9 +721,9 @@
      * Setup event listeners for sortable column headers.
      */
     function setupSortListeners() {
-        var headers = document.querySelectorAll('.jobs-table th.sortable')
+        const headers = document.querySelectorAll('.jobs-table th.sortable')
         headers.forEach(function (th) {
-            var sortKey = th.getAttribute('data-sort-key')
+            const sortKey = th.getAttribute('data-sort-key')
 
             // Click handler
             th.addEventListener('click', function () {
@@ -868,10 +798,79 @@
     /**
      * Initialize the jobs dashboard.
      */
+    /**
+     * Show the loading state and hide other states.
+     */
+    function showLoading() {
+        loadingEl.style.display = ''
+        if (errorEl) errorEl.style.display = 'none'
+        contentEl.style.display = 'none'
+    }
+
+    /**
+     * Show the error state with a message.
+     * @param {string} message - Error message to display
+     */
+    function showError(message) {
+        loadingEl.style.display = 'none'
+        if (errorEl) {
+            errorEl.style.display = ''
+            if (errorMessageEl) errorMessageEl.textContent = message || 'Failed to load jobs.'
+        }
+        contentEl.style.display = 'none'
+    }
+
+    /**
+     * Show the main content and hide other states.
+     */
+    function showContent() {
+        loadingEl.style.display = 'none'
+        if (errorEl) errorEl.style.display = 'none'
+        contentEl.style.display = ''
+    }
+
+    /**
+     * Setup event delegation for clickable job rows.
+     */
+    function setupRowDelegation() {
+        if (!tableBodyEl) return
+
+        tableBodyEl.addEventListener('click', function (e) {
+            const row = e.target.closest('.job-row-clickable')
+            if (!row) return
+            const jobId = row.getAttribute('data-job-id')
+            if (jobId) {
+                window.location.href = '/jobs/' + jobId
+            }
+        })
+
+        tableBodyEl.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter' && e.key !== ' ') return
+            const row = e.target.closest('.job-row-clickable')
+            if (!row) return
+            e.preventDefault()
+            const jobId = row.getAttribute('data-job-id')
+            if (jobId) {
+                window.location.href = '/jobs/' + jobId
+            }
+        })
+    }
+
     function init() {
         // Prevent double initialization
         if (initialized) return
         initialized = true
+
+        // Setup event delegation for clickable rows
+        setupRowDelegation()
+
+        // Setup retry button
+        if (retryBtnEl) {
+            retryBtnEl.addEventListener('click', function () {
+                showLoading()
+                fetchJobs()
+            })
+        }
 
         // Setup sortable column listeners
         setupSortListeners()

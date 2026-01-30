@@ -43,43 +43,11 @@
     const nextBtnEl = document.getElementById('plans-next-btn')
     const toastEl = document.getElementById('plans-toast')
 
-    /**
-     * Format an ISO timestamp to a relative time string (e.g., "2 hours ago").
-     * @param {string} isoString - ISO 8601 timestamp
-     * @returns {string} Relative time string
-     */
-    function formatRelativeTime(isoString) {
-        if (!isoString) {
-            return '-'
-        }
-
-        try {
-            const date = new Date(isoString)
-            const now = new Date()
-            const diffMs = now - date
-            const diffSec = Math.floor(diffMs / 1000)
-            const diffMin = Math.floor(diffSec / 60)
-            const diffHour = Math.floor(diffMin / 60)
-            const diffDay = Math.floor(diffHour / 24)
-
-            if (diffSec < 60) {
-                return 'just now'
-            } else if (diffMin < 60) {
-                return diffMin === 1 ? '1 minute ago' : diffMin + ' minutes ago'
-            } else if (diffHour < 24) {
-                return diffHour === 1 ? '1 hour ago' : diffHour + ' hours ago'
-            } else if (diffDay < 7) {
-                return diffDay === 1 ? '1 day ago' : diffDay + ' days ago'
-            } else {
-                // Fall back to date format
-                return date.toLocaleDateString(undefined, {
-                    month: 'short',
-                    day: 'numeric'
-                })
-            }
-        } catch {
-            return isoString
-        }
+    // Shared utilities
+    var escapeHtml = window.VPOUtils.escapeHtml
+    var _formatRelativeTime = window.VPOUtils.formatRelativeTime
+    function formatRelativeTime(input) {
+        return _formatRelativeTime(input, { emptyText: '-', dateFallbackDays: 7, capitalizeJustNow: false })
     }
 
     /**
@@ -165,18 +133,6 @@
             '<td class="plan-created">' + formatRelativeTime(plan.created_at) + '</td>' +
             '<td class="plan-actions-cell">' + createActionButtons(plan) + '</td>' +
             '</tr>'
-    }
-
-    /**
-     * Escape HTML to prevent XSS.
-     * @param {string} str - String to escape
-     * @returns {string} Escaped string
-     */
-    function escapeHtml(str) {
-        if (!str) return ''
-        const div = document.createElement('div')
-        div.textContent = str
-        return div.innerHTML
     }
 
     /**

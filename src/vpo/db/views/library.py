@@ -2,7 +2,14 @@
 
 import sqlite3
 
-from ..types import FileListViewItem, LanguageOption
+from ..queries.helpers import _escape_like_pattern
+from ..types import (
+    DistributionItem,
+    FileListViewItem,
+    LanguageOption,
+    LibraryDistribution,
+    MissingFileViewItem,
+)
 from .helpers import _clamp_limit
 
 
@@ -50,12 +57,14 @@ def get_files_filtered(
 
     # Text search on filename and video title (019-library-filters-search)
     if search is not None:
-        search_pattern = f"%{search}%"
+        escaped = _escape_like_pattern(search)
+        search_pattern = f"%{escaped}%"
         conditions.append(
-            "(LOWER(f.filename) LIKE LOWER(?) OR "
-            "LOWER(f.path) LIKE LOWER(?) OR "
+            "(LOWER(f.filename) LIKE LOWER(?) ESCAPE '\\' OR "
+            "LOWER(f.path) LIKE LOWER(?) ESCAPE '\\' OR "
             "EXISTS (SELECT 1 FROM tracks t2 WHERE t2.file_id = f.id "
-            "AND t2.track_type = 'video' AND LOWER(t2.title) LIKE LOWER(?)))"
+            "AND t2.track_type = 'video' "
+            "AND LOWER(t2.title) LIKE LOWER(?) ESCAPE '\\'))"
         )
         params.extend([search_pattern, search_pattern, search_pattern])
 
@@ -212,6 +221,64 @@ def get_files_filtered_typed(
     return [FileListViewItem(**f) for f in result]
 
 
+def get_missing_files(
+    conn: sqlite3.Connection,
+    *,
+    limit: int = 100,
+) -> list[dict]:
+    """Get files with scan_status='missing'.
+
+    Returns files that were previously scanned but are no longer found
+    on the filesystem.
+
+    Args:
+        conn: Database connection.
+        limit: Maximum files to return.
+
+    Returns:
+        List of dicts with id, path, filename, size_bytes, scanned_at.
+    """
+    limit = _clamp_limit(limit)
+
+    query = """
+        SELECT id, path, filename, size_bytes, scanned_at
+        FROM files
+        WHERE scan_status = 'missing'
+        ORDER BY scanned_at DESC
+        LIMIT ?
+    """
+    cursor = conn.execute(query, (limit,))
+    return [
+        {
+            "id": row["id"],
+            "path": row["path"],
+            "filename": row["filename"],
+            "size_bytes": row["size_bytes"],
+            "scanned_at": row["scanned_at"],
+        }
+        for row in cursor.fetchall()
+    ]
+
+
+def get_missing_files_typed(
+    conn: sqlite3.Connection,
+    *,
+    limit: int = 100,
+) -> list[MissingFileViewItem]:
+    """Typed version of get_missing_files().
+
+    Returns MissingFileViewItem dataclass instances instead of dicts.
+
+    Args:
+        conn: Database connection.
+        limit: Maximum files to return.
+
+    Returns:
+        List of MissingFileViewItem objects.
+    """
+    return [MissingFileViewItem(**d) for d in get_missing_files(conn, limit=limit)]
+
+
 def get_distinct_audio_languages(
     conn: sqlite3.Connection,
     *,
@@ -260,3 +327,76 @@ def get_distinct_audio_languages_typed(
         List of LanguageOption objects, sorted by code.
     """
     return [LanguageOption(**d) for d in get_distinct_audio_languages(conn)]
+
+
+def get_library_distribution(
+    conn: sqlite3.Connection,
+) -> LibraryDistribution:
+    """Get distribution of container formats and codecs across the library.
+
+    Returns counts grouped by container type, video codec, and audio codec
+    for rendering pie charts on the Statistics page.
+
+    Args:
+        conn: Database connection.
+
+    Returns:
+        LibraryDistribution with containers, video_codecs, and audio_codecs.
+    """
+    # Container format distribution
+    container_rows = conn.execute(
+        """
+        SELECT LOWER(container_format) AS label, COUNT(*) AS count
+        FROM files
+        WHERE scan_status = 'ok'
+          AND container_format IS NOT NULL
+          AND container_format != ''
+        GROUP BY LOWER(container_format)
+        ORDER BY count DESC
+        """
+    ).fetchall()
+    containers = [
+        DistributionItem(label=r["label"], count=r["count"]) for r in container_rows
+    ]
+
+    # Video codec distribution (count distinct files, not tracks)
+    video_rows = conn.execute(
+        """
+        SELECT LOWER(t.codec) AS label, COUNT(DISTINCT f.id) AS count
+        FROM files f
+        JOIN tracks t ON f.id = t.file_id
+        WHERE f.scan_status = 'ok'
+          AND t.track_type = 'video'
+          AND t.codec IS NOT NULL
+          AND t.codec != ''
+        GROUP BY LOWER(t.codec)
+        ORDER BY count DESC
+        """
+    ).fetchall()
+    video_codecs = [
+        DistributionItem(label=r["label"], count=r["count"]) for r in video_rows
+    ]
+
+    # Audio codec distribution (count tracks, not distinct files)
+    audio_rows = conn.execute(
+        """
+        SELECT LOWER(t.codec) AS label, COUNT(*) AS count
+        FROM files f
+        JOIN tracks t ON f.id = t.file_id
+        WHERE f.scan_status = 'ok'
+          AND t.track_type = 'audio'
+          AND t.codec IS NOT NULL
+          AND t.codec != ''
+        GROUP BY LOWER(t.codec)
+        ORDER BY count DESC
+        """
+    ).fetchall()
+    audio_codecs = [
+        DistributionItem(label=r["label"], count=r["count"]) for r in audio_rows
+    ]
+
+    return LibraryDistribution(
+        containers=containers,
+        video_codecs=video_codecs,
+        audio_codecs=audio_codecs,
+    )

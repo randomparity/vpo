@@ -119,11 +119,13 @@ class TestInitCommand:
         policy_path = target / "policies" / "default.yaml"
         content = policy_path.read_text()
 
-        # Parse and verify structure
+        # Parse and verify structure (V12 phased format)
         data = yaml.safe_load(content)
         assert data["schema_version"] == 12
-        assert "track_order" in data
-        assert "audio_language_preference" in data
+        assert "config" in data
+        assert "audio_language_preference" in data["config"]
+        assert "phases" in data
+        assert "track_order" in data["phases"][0]
 
     def test_next_steps_shown(self, temp_dir: Path):
         """Test that next steps are displayed."""

@@ -23,65 +23,12 @@
     // Terminal states where polling should stop (T020)
     var TERMINAL_STATES = ['completed', 'failed', 'cancelled']
 
-    /**
-     * Format a duration in seconds to a human-readable string.
-     * @param {number} seconds - Duration in seconds
-     * @returns {string} Formatted duration
-     */
-    function formatDuration(seconds) {
-        if (seconds === null || seconds === undefined || isNaN(seconds)) {
-            return '—'
-        }
-
-        seconds = Math.floor(seconds)
-
-        if (seconds < 60) {
-            return seconds + 's'
-        }
-
-        const minutes = Math.floor(seconds / 60)
-        const remainingSeconds = seconds % 60
-
-        if (minutes < 60) {
-            return minutes + 'm ' + remainingSeconds + 's'
-        }
-
-        const hours = Math.floor(minutes / 60)
-        const remainingMinutes = minutes % 60
-
-        return hours + 'h ' + remainingMinutes + 'm'
-    }
-
-    /**
-     * Format a timestamp as relative time (e.g., "2 hours ago").
-     * @param {Date} date - Date to format
-     * @returns {string} Relative time string
-     */
-    function formatRelativeTime(date) {
-        const now = new Date()
-        const diffMs = now - date
-        const diffSec = Math.floor(diffMs / 1000)
-        const diffMin = Math.floor(diffSec / 60)
-        const diffHour = Math.floor(diffMin / 60)
-        const diffDay = Math.floor(diffHour / 24)
-
-        if (diffSec < 60) {
-            return 'just now'
-        } else if (diffMin < 60) {
-            return diffMin + ' minute' + (diffMin !== 1 ? 's' : '') + ' ago'
-        } else if (diffHour < 24) {
-            return diffHour + ' hour' + (diffHour !== 1 ? 's' : '') + ' ago'
-        } else if (diffDay < 7) {
-            return diffDay + ' day' + (diffDay !== 1 ? 's' : '') + ' ago'
-        } else {
-            // Fall back to localized date for older timestamps
-            return date.toLocaleString(undefined, {
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            })
-        }
+    // Shared utilities
+    var escapeHtml = window.VPOUtils.escapeHtml
+    var formatDuration = window.VPOUtils.formatDuration
+    var _formatRelativeTime = window.VPOUtils.formatRelativeTime
+    function formatRelativeTime(input) {
+        return _formatRelativeTime(input, { emptyText: '-', dateFallbackDays: 7, capitalizeJustNow: false })
     }
 
     /**
@@ -121,18 +68,6 @@
                 el.textContent = formatDuration(duration)
             }
         })
-    }
-
-    /**
-     * Escape HTML to prevent XSS.
-     * @param {string} str - String to escape
-     * @returns {string} Escaped string
-     */
-    function escapeHtml(str) {
-        if (!str) return ''
-        const div = document.createElement('div')
-        div.textContent = str
-        return div.innerHTML
     }
 
     /**

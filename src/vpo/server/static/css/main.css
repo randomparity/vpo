@@ -202,6 +202,11 @@
         color: var(--status-pending-color);
     }
 
+    .status-badge--missing {
+        background-color: #3a3a2a;
+        color: #f59e0b;
+    }
+
     /* Checkbox labels */
     .checkbox-label {
         color: var(--color-text);
@@ -442,6 +447,25 @@ html, body {
     border: 0;
 }
 
+/* Skip link - visible only on keyboard focus */
+.skip-link {
+    position: absolute;
+    top: -100%;
+    left: var(--spacing-md);
+    z-index: 1000;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-primary);
+    color: #fff;
+    border-radius: 0 0 4px 4px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+}
+
+.skip-link:focus {
+    top: 0;
+}
+
 /* App shell grid layout */
 .app-shell {
     display: grid;
@@ -637,7 +661,7 @@ html, body {
     font-size: var(--font-size-base);
     border: 1px solid var(--color-border);
     border-radius: 4px;
-    background-color: #fff;
+    background-color: var(--color-content-bg);
     cursor: pointer;
     min-width: 150px;
     appearance: none;
@@ -652,7 +676,7 @@ html, body {
 }
 
 .jobs-filter select:focus {
-    outline: none;
+    outline: 2px solid transparent;
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
@@ -678,7 +702,7 @@ html, body {
 }
 
 .jobs-filter input[type="text"]:focus {
-    outline: none;
+    outline: 2px solid transparent;
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
@@ -801,6 +825,11 @@ html, body {
     color: #9a3412;
 }
 
+.status-badge--missing {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
 /* Type badges */
 .type-badge {
     display: inline-block;
@@ -857,6 +886,59 @@ html, body {
 
 @keyframes spin {
     to { transform: rotate(360deg); }
+}
+
+/* Error state */
+.jobs-error {
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--color-text-muted);
+}
+
+.jobs-error-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background-color: var(--color-error);
+    color: #fff;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: var(--spacing-md);
+}
+
+.jobs-error-title {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: var(--spacing-sm);
+}
+
+.jobs-error-message {
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-md);
+}
+
+.jobs-retry-btn {
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-size-base);
+    border: 1px solid var(--color-primary);
+    border-radius: 4px;
+    background-color: var(--color-primary);
+    color: #fff;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.jobs-retry-btn:hover {
+    background-color: var(--color-primary-dark);
+}
+
+/* Clickable job rows */
+.job-row-clickable {
+    cursor: pointer;
 }
 
 /* Pagination */
@@ -1393,7 +1475,7 @@ html, body {
     font-size: var(--font-size-base);
     border: 1px solid var(--color-border);
     border-radius: 4px;
-    background-color: #fff;
+    background-color: var(--color-content-bg);
     cursor: pointer;
     min-width: 150px;
     appearance: none;
@@ -1408,7 +1490,7 @@ html, body {
 }
 
 .library-filter select:focus {
-    outline: none;
+    outline: 2px solid transparent;
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
@@ -1425,7 +1507,7 @@ html, body {
     font-size: var(--font-size-base);
     border: 1px solid var(--color-border);
     border-radius: 4px;
-    background-color: #fff;
+    background-color: var(--color-content-bg);
     width: 100%;
 }
 
@@ -1434,7 +1516,7 @@ html, body {
 }
 
 .library-filter input[type="text"]:focus {
-    outline: none;
+    outline: 2px solid transparent;
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
@@ -1549,6 +1631,15 @@ html, body {
 
 .library-row-error:hover {
     background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* Row with missing file - subtle amber highlight */
+.library-row-missing {
+    background-color: rgba(245, 158, 11, 0.05);
+}
+
+.library-row-missing:hover {
+    background-color: rgba(245, 158, 11, 0.1);
 }
 
 /* Empty state */
@@ -2898,7 +2989,7 @@ html, body {
 }
 
 .create-policy-dialog .form-group input:focus {
-    outline: none;
+    outline: 2px solid transparent;
     border-color: var(--color-accent);
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
@@ -3546,7 +3637,7 @@ input.valid:focus {
 }
 
 .yaml-preview-textarea:focus {
-    outline: none;
+    outline: 2px solid transparent;
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
@@ -3744,7 +3835,7 @@ input.valid:focus {
 }
 
 .accordion-content select:focus {
-    outline: none;
+    outline: 2px solid transparent;
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
@@ -3763,7 +3854,7 @@ input.valid:focus {
 
 .accordion-content input[type="text"]:focus,
 .accordion-content input[type="number"]:focus {
-    outline: none;
+    outline: 2px solid transparent;
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
@@ -5341,7 +5432,7 @@ input.valid:focus {
 }
 
 .phase-name-input:focus {
-    outline: none;
+    outline: 2px solid transparent;
     border-color: var(--color-primary, #3498db);
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
@@ -6075,6 +6166,66 @@ input.valid:focus {
     fill: var(--color-text-muted);
 }
 
+/* Pie chart styles */
+.stats-chart--pie {
+    min-height: 180px;
+}
+
+.chart-pie-wrapper {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+}
+
+.chart-pie {
+    flex-shrink: 0;
+}
+
+.chart-pie-slice {
+    transition: opacity 0.15s ease;
+    cursor: default;
+}
+
+.chart-pie-slice:hover {
+    opacity: 0.8;
+}
+
+.chart-pie-legend {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.chart-pie-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+}
+
+.chart-pie-legend-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.chart-pie-legend-label {
+    color: var(--color-text);
+    font-weight: 500;
+}
+
+.chart-pie-legend-value {
+    color: var(--color-text-muted);
+    margin-left: auto;
+    padding-left: 8px;
+}
+
+.stats-charts-grid--3col {
+    grid-template-columns: repeat(3, 1fr);
+}
+
 /* Dark mode chart adjustments */
 @media (prefers-color-scheme: dark) {
     .chart-bar-bg {
@@ -6084,12 +6235,33 @@ input.valid:focus {
     .chart-gauge-bg {
         stroke: #404040;
     }
+
+    .chart-pie-slice {
+        stroke: var(--color-content-bg);
+        stroke-width: 1;
+    }
 }
 
-/* Responsive chart adjustments */
+/* Responsive chart adjustments - tablet */
+@media (max-width: 1024px) {
+    .stats-charts-grid--3col {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Responsive chart adjustments - mobile */
 @media (max-width: 768px) {
     .stats-charts-grid {
         grid-template-columns: 1fr;
+    }
+
+    .stats-charts-grid--3col {
+        grid-template-columns: 1fr;
+    }
+
+    .chart-pie-wrapper {
+        flex-direction: column;
+        align-items: center;
     }
 
     .stats-chart-container {
@@ -6374,7 +6546,7 @@ input.valid:focus {
 }
 
 .language-autocomplete-input:focus {
-    outline: none;
+    outline: 2px solid transparent;
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb, 59, 130, 246), 0.2);
 }

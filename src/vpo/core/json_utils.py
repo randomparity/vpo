@@ -122,12 +122,15 @@ def parse_json_with_schema(
         If raw is None/empty, returns success with None value.
 
     Example:
-        from vpo.db.json_schemas import JobProgressSchema
+        from pydantic import BaseModel
 
-        result = parse_json_with_schema(job.progress_json, JobProgressSchema)
+        class MySchema(BaseModel):
+            percent: float
+
+        result = parse_json_with_schema(raw_json, MySchema)
         if result.success and result.value:
-            progress = result.value  # Type: JobProgressSchema
-            print(f"Progress: {progress.percent}%")
+            data = result.value  # Type: MySchema
+            print(f"Percent: {data.percent}%")
     """
     from pydantic import ValidationError
 

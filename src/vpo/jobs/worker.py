@@ -37,9 +37,11 @@ from vpo.jobs.queue import (
 from vpo.jobs.services import (
     MoveJobService,
     ProcessJobService,
+    PruneJobService,
     TranscodeJobService,
 )
 from vpo.jobs.services.process import ProcessJobResult
+from vpo.jobs.services.prune import PruneJobResult
 from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 logger = logging.getLogger(__name__)
@@ -378,6 +380,21 @@ class JobWorker:
             ffmpeg_progress_callback=self._create_progress_callback(job),
         )
 
+    def _process_prune_job(
+        self, job: Job, job_log: JobLogWriter | None = None
+    ) -> PruneJobResult:
+        """Process a prune job.
+
+        Args:
+            job: The job to process.
+            job_log: Optional log writer for this job.
+
+        Returns:
+            PruneJobResult with pruned file count.
+        """
+        service = PruneJobService(self.conn)
+        return service.process(job_log=job_log)
+
     def _process_move_job(
         self, job: Job, job_log: JobLogWriter | None = None
     ) -> tuple[bool, str | None, str | None]:
@@ -456,6 +473,18 @@ class JobWorker:
                     summary_json = None
             elif job.job_type == JobType.MOVE:
                 success, error_msg, output_path = self._process_move_job(job, job_log)
+            elif job.job_type == JobType.PRUNE:
+                prune_result = self._process_prune_job(job, job_log)
+                success = prune_result.success
+                error_msg = prune_result.error_message
+                output_path = None
+                try:
+                    summary_json = json.dumps(
+                        {"files_pruned": prune_result.files_pruned}
+                    )
+                except (TypeError, ValueError) as e:
+                    logger.warning("Failed to serialize prune summary: %s", e)
+                    summary_json = None
             else:
                 success = False
                 error_msg = f"Unknown job type: {job.job_type}"

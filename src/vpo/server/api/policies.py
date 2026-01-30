@@ -539,12 +539,25 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
             status=400,
         )
 
-    # Create default policy data with current schema version
+    # Create default policy data with current schema version (phased format)
     policy_data = {
         "schema_version": SCHEMA_VERSION,
-        "track_order": ["video", "audio", "subtitle"],
-        "audio_language_preference": ["eng"],
-        "subtitle_language_preference": ["eng"],
+        "config": {
+            "audio_language_preference": ["eng"],
+            "subtitle_language_preference": ["eng"],
+        },
+        "phases": [
+            {
+                "name": "organize",
+                "track_order": ["video", "audio", "subtitle"],
+                "default_flags": {
+                    "set_first_video_default": True,
+                    "set_preferred_audio_default": True,
+                    "set_preferred_subtitle_default": False,
+                    "clear_other_defaults": True,
+                },
+            }
+        ],
     }
 
     # Add optional description and category if provided

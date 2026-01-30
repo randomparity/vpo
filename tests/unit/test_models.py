@@ -89,6 +89,91 @@ class TestFileOperations:
 
         conn.close()
 
+    def test_upsert_preserves_original_job_id(self, temp_db: Path):
+        """Upserting a file preserves the original job_id from first scan."""
+        from vpo.db import (
+            FileRecord,
+            get_file_by_path,
+            upsert_file,
+        )
+        from vpo.db.schema import create_schema
+
+        conn = sqlite3.connect(str(temp_db))
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
+        create_schema(conn)
+
+        # First scan sets job_id
+        record = FileRecord(
+            id=None,
+            path="/media/video.mkv",
+            filename="video.mkv",
+            directory="/media",
+            extension="mkv",
+            size_bytes=1000000,
+            modified_at="2024-01-01T00:00:00",
+            content_hash=None,
+            container_format="matroska",
+            scanned_at="2024-01-01T00:00:00",
+            scan_status="ok",
+            scan_error=None,
+            job_id="original-job-id",
+        )
+        upsert_file(conn, record)
+
+        # Second scan with different job_id
+        record.scanned_at = "2024-02-01T00:00:00"
+        record.job_id = "newer-job-id"
+        upsert_file(conn, record)
+
+        # Original job_id should be preserved
+        result = get_file_by_path(conn, "/media/video.mkv")
+        assert result.job_id == "original-job-id"
+
+        conn.close()
+
+    def test_upsert_sets_job_id_when_null(self, temp_db: Path):
+        """Upserting sets job_id if the existing record has no job_id."""
+        from vpo.db import (
+            FileRecord,
+            get_file_by_path,
+            upsert_file,
+        )
+        from vpo.db.schema import create_schema
+
+        conn = sqlite3.connect(str(temp_db))
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
+        create_schema(conn)
+
+        # First insert with no job_id
+        record = FileRecord(
+            id=None,
+            path="/media/video.mkv",
+            filename="video.mkv",
+            directory="/media",
+            extension="mkv",
+            size_bytes=1000000,
+            modified_at="2024-01-01T00:00:00",
+            content_hash=None,
+            container_format="matroska",
+            scanned_at="2024-01-01T00:00:00",
+            scan_status="ok",
+            scan_error=None,
+            job_id=None,
+        )
+        upsert_file(conn, record)
+
+        # Second scan provides a job_id
+        record.job_id = "new-job-id"
+        upsert_file(conn, record)
+
+        # Should pick up the new job_id since original was NULL
+        result = get_file_by_path(conn, "/media/video.mkv")
+        assert result.job_id == "new-job-id"
+
+        conn.close()
+
     def test_get_file_by_path(self, temp_db: Path):
         """Test retrieving a file by path."""
         from vpo.db import (

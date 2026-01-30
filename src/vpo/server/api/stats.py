@@ -478,6 +478,78 @@ async def api_stats_policy_handler(request: web.Request) -> web.Response:
     return web.json_response(asdict(policy))
 
 
+@shutdown_check_middleware
+@database_required_middleware
+@validate_query_params(frozenset())
+async def api_library_distribution_handler(
+    request: web.Request,
+) -> web.Response:
+    """Handle GET /api/stats/library-distribution.
+
+    Returns distribution of container formats, video codecs, and audio codecs
+    across the library for pie chart rendering.
+
+    No query parameters (reflects current library state).
+
+    Returns:
+        JSON response with containers, video_codecs, audio_codecs lists.
+    """
+    from vpo.db.views import get_library_distribution
+
+    connection_pool = request["connection_pool"]
+
+    def _query():
+        with connection_pool.transaction() as conn:
+            return get_library_distribution(conn)
+
+    distribution = await asyncio.to_thread(_query)
+
+    return web.json_response(asdict(distribution))
+
+
+LIBRARY_TRENDS_ALLOWED_PARAMS = frozenset({"since"})
+
+
+@shutdown_check_middleware
+@database_required_middleware
+@validate_query_params(LIBRARY_TRENDS_ALLOWED_PARAMS)
+async def api_library_trends_handler(
+    request: web.Request,
+) -> web.Response:
+    """Handle GET /api/stats/library-trends.
+
+    Returns library snapshot data for charting file counts and sizes
+    over time.
+
+    Query parameters:
+        since: Time filter (7d, 30d, 90d, or ISO-8601)
+
+    Returns:
+        JSON array of snapshot points.
+    """
+    from vpo.db.views import get_library_snapshots
+
+    since_str = request.query.get("since")
+    since_ts = None
+    if since_str:
+        since_ts = parse_time_filter(since_str)
+        if since_ts is None:
+            return web.json_response(
+                {"error": f"Invalid since value: '{since_str}'"},
+                status=400,
+            )
+
+    connection_pool = request["connection_pool"]
+
+    def _query():
+        with connection_pool.transaction() as conn:
+            return get_library_snapshots(conn, since=since_ts)
+
+    snapshots = await asyncio.to_thread(_query)
+
+    return web.json_response([asdict(s) for s in snapshots])
+
+
 def setup_stats_routes(app: web.Application) -> None:
     """Register stats API routes with the application.
 
@@ -488,6 +560,10 @@ def setup_stats_routes(app: web.Application) -> None:
     app.router.add_get("/api/stats/summary", api_stats_summary_handler)
     app.router.add_get("/api/stats/recent", api_stats_recent_handler)
     app.router.add_get("/api/stats/trends", api_stats_trends_handler)
+    app.router.add_get("/api/stats/library-trends", api_library_trends_handler)
+    app.router.add_get(
+        "/api/stats/library-distribution", api_library_distribution_handler
+    )
     app.router.add_get("/api/stats/policies", api_stats_policies_handler)
     app.router.add_get("/api/stats/policies/{name}", api_stats_policy_handler)
     app.router.add_get("/api/stats/files/{file_id}", api_stats_file_handler)

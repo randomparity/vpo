@@ -39,6 +39,12 @@ class InitializationState:
     default_policy_exists: bool
     """True if policies/default.yaml exists."""
 
+    profiles_dir_exists: bool
+    """True if profiles/ directory exists."""
+
+    default_profile_exists: bool
+    """True if profiles/default.yaml exists."""
+
     has_partial_state: bool
     """True if directory exists but is incomplete (interrupted init)."""
 
@@ -267,50 +273,75 @@ DEFAULT_POLICY_TEMPLATE = """\
 
 schema_version: 12
 
-# Track type ordering (first = top priority)
-# Tracks are reordered to match this sequence
-track_order:
-  - video
-  - audio_main
-  - audio_alternate
-  - subtitle_main
-  - subtitle_forced
-  - audio_commentary
-  - subtitle_commentary
-  - attachment
+# Global configuration
+config:
+  # Preferred audio languages (ISO 639-2 codes)
+  # First matching language becomes the default audio track
+  audio_language_preference:
+    - eng  # English
+    - und  # Undefined/unknown
 
-# Preferred audio languages (ISO 639-2 codes)
-# First matching language becomes the default audio track
-audio_language_preference:
-  - eng  # English
-  - und  # Undefined/unknown
+  # Preferred subtitle languages (ISO 639-2 codes)
+  # Used when set_preferred_subtitle_default is enabled
+  subtitle_language_preference:
+    - eng  # English
+    - und  # Undefined/unknown
 
-# Preferred subtitle languages (ISO 639-2 codes)
-# Used when set_preferred_subtitle_default is enabled
-subtitle_language_preference:
-  - eng  # English
-  - und  # Undefined/unknown
+  # Patterns to identify commentary tracks (regex, case-insensitive)
+  # Tracks matching these patterns are classified as commentary
+  commentary_patterns:
+    - 'commentary'
+    - 'director'
 
-# Patterns to identify commentary tracks (regex, case-insensitive)
-# Tracks matching these patterns are classified as commentary
-commentary_patterns:
-  - 'commentary'
-  - 'director'
+  # Error handling: skip | continue | fail
+  on_error: skip
 
-# Default flag behavior
-default_flags:
-  # Set the first video track as default (recommended)
-  set_first_video_default: true
+phases:
+  - name: organize
+    # Track type ordering (first = top priority)
+    # Tracks are reordered to match this sequence
+    track_order:
+      - video
+      - audio_main
+      - audio_alternate
+      - subtitle_main
+      - subtitle_forced
+      - audio_commentary
+      - subtitle_commentary
+      - attachment
 
-  # Set the preferred audio track as default based on language preference
-  set_preferred_audio_default: true
+    # Default flag behavior
+    default_flags:
+      # Set the first video track as default (recommended)
+      set_first_video_default: true
 
-  # Set the preferred subtitle track as default (disabled by default)
-  # Enable this for foreign-language content where subtitles are expected
-  set_preferred_subtitle_default: false
+      # Set the preferred audio track as default based on language preference
+      set_preferred_audio_default: true
 
-  # Clear the default flag on non-preferred tracks of the same type
-  clear_other_defaults: true
+      # Set the preferred subtitle track as default (disabled by default)
+      # Enable this for foreign-language content where subtitles are expected
+      set_preferred_subtitle_default: false
+
+      # Clear the default flag on non-preferred tracks of the same type
+      clear_other_defaults: true
+"""
+
+
+# =============================================================================
+# Default Profile Template
+# =============================================================================
+
+DEFAULT_PROFILE_TEMPLATE = """\
+# Default VPO profile
+#
+# This profile was created by 'vpo init'. It designates the default policy
+# and can be extended with tool paths, behavior settings, and more.
+#
+# For more profiles, create additional YAML files in this directory
+# and use: vpo serve --profile <name>
+
+name: default
+default_policy: ~/.vpo/policies/default.yaml
 """
 
 
@@ -331,18 +362,22 @@ def check_initialization_state(data_dir: Path) -> InitializationState:
     config_path = data_dir / "config.toml"
     policies_dir = data_dir / "policies"
     plugins_dir = data_dir / "plugins"
+    profiles_dir = data_dir / "profiles"
     default_policy = policies_dir / "default.yaml"
+    default_profile = profiles_dir / "default.yaml"
 
     config_exists = config_path.exists()
     policies_dir_exists = policies_dir.exists()
     plugins_dir_exists = plugins_dir.exists()
+    profiles_dir_exists = profiles_dir.exists()
     default_policy_exists = default_policy.exists()
+    default_profile_exists = default_profile.exists()
 
     # Directory exists but config doesn't = partial state (interrupted init)
     has_partial_state = (
         data_dir.exists()
         and not config_exists
-        and (policies_dir_exists or plugins_dir_exists)
+        and (policies_dir_exists or plugins_dir_exists or profiles_dir_exists)
     )
 
     # Collect existing files for reporting
@@ -353,15 +388,21 @@ def check_initialization_state(data_dir: Path) -> InitializationState:
         existing_files.append(policies_dir)
     if plugins_dir_exists:
         existing_files.append(plugins_dir)
+    if profiles_dir_exists:
+        existing_files.append(profiles_dir)
     if default_policy_exists:
         existing_files.append(default_policy)
+    if default_profile_exists:
+        existing_files.append(default_profile)
 
     logger.debug(
-        "Initialization state for %s: config=%s, policies=%s, plugins=%s, partial=%s",
+        "Initialization state for %s: config=%s, policies=%s, plugins=%s, "
+        "profiles=%s, partial=%s",
         data_dir,
         config_exists,
         policies_dir_exists,
         plugins_dir_exists,
+        profiles_dir_exists,
         has_partial_state,
     )
 
@@ -372,6 +413,8 @@ def check_initialization_state(data_dir: Path) -> InitializationState:
         policies_dir_exists=policies_dir_exists,
         plugins_dir_exists=plugins_dir_exists,
         default_policy_exists=default_policy_exists,
+        profiles_dir_exists=profiles_dir_exists,
+        default_profile_exists=default_profile_exists,
         has_partial_state=has_partial_state,
         existing_files=existing_files,
     )
@@ -459,7 +502,7 @@ def _atomic_write_text(path: Path, content: str) -> None:
         raise
 
 
-def _rollback_init(files: list[Path], dirs: list[Path]) -> None:
+def _rollback_init(files: list[Path], dirs: list[Path]) -> list[str]:
     """Clean up created files and directories on failure.
 
     Removes items in reverse order of creation. Directories are only
@@ -468,13 +511,20 @@ def _rollback_init(files: list[Path], dirs: list[Path]) -> None:
     Args:
         files: Files that were created.
         dirs: Directories that were created.
+
+    Returns:
+        List of rollback failure messages (empty if all succeeded).
     """
+    failures: list[str] = []
+
     for f in reversed(files):
         try:
             f.unlink(missing_ok=True)
             logger.debug("Rollback: removed file %s", f)
         except OSError as e:
-            logger.warning("Rollback: failed to remove file %s: %s", f, e)
+            msg = f"Failed to remove file {f}: {e}"
+            logger.error("Rollback: %s", msg)
+            failures.append(msg)
 
     for d in reversed(dirs):
         try:
@@ -482,7 +532,11 @@ def _rollback_init(files: list[Path], dirs: list[Path]) -> None:
                 d.rmdir()
                 logger.debug("Rollback: removed directory %s", d)
         except OSError as e:
-            logger.warning("Rollback: failed to remove directory %s: %s", d, e)
+            msg = f"Failed to remove directory {d}: {e}"
+            logger.error("Rollback: %s", msg)
+            failures.append(msg)
+
+    return failures
 
 
 def _create_directory(
@@ -594,6 +648,41 @@ def write_default_policy(
         return False, f"Cannot create policy file: {e}"
 
 
+def write_default_profile(
+    data_dir: Path, dry_run: bool = False
+) -> tuple[bool, str | None]:
+    """Write the default profile file to the profiles directory.
+
+    Uses atomic write (temp file + rename) to prevent partial writes.
+
+    Args:
+        data_dir: VPO data directory path.
+        dry_run: If True, don't actually write anything.
+
+    Returns:
+        Tuple of (success, error_message). Error is None on success.
+    """
+    profiles_dir = data_dir / "profiles"
+    profile_path = profiles_dir / "default.yaml"
+
+    if dry_run:
+        logger.debug("Would create profiles directory: %s", profiles_dir)
+        logger.debug("Would create default profile: %s", profile_path)
+        return True, None
+
+    try:
+        profiles_dir.mkdir(parents=True, exist_ok=True)
+        logger.debug("Created profiles directory: %s", profiles_dir)
+
+        _atomic_write_text(profile_path, DEFAULT_PROFILE_TEMPLATE)
+        logger.debug("Created default profile: %s", profile_path)
+        return True, None
+    except PermissionError:
+        return False, f"Permission denied: cannot write to {profiles_dir}"
+    except OSError as e:
+        return False, f"Cannot create profile file: {e}"
+
+
 def create_plugins_directory(
     data_dir: Path, dry_run: bool = False
 ) -> tuple[bool, str | None]:
@@ -687,8 +776,17 @@ def run_init(
     def handle_failure(error_msg: str) -> InitResult:
         """Roll back and return failure result."""
         if not dry_run:
-            _rollback_init(actually_created_files, actually_created_dirs)
-            error_msg = f"{error_msg} All changes have been rolled back."
+            rollback_failures = _rollback_init(
+                actually_created_files, actually_created_dirs
+            )
+            if rollback_failures:
+                details = "; ".join(rollback_failures)
+                error_msg = (
+                    f"{error_msg} Rollback partially failed: {details}. "
+                    "Manual cleanup may be required."
+                )
+            else:
+                error_msg = f"{error_msg} All changes have been rolled back."
         return InitResult(
             success=False,
             data_dir=data_dir,
@@ -767,6 +865,28 @@ def run_init(
         planned_directories.append(plugins_dir)
         if not dry_run:
             actually_created_dirs.append(plugins_dir)
+
+    # Create profiles directory and default profile
+    profiles_dir = data_dir / "profiles"
+    profile_path = profiles_dir / "default.yaml"
+    profiles_dir_existed = profiles_dir.exists()
+    profile_existed = profile_path.exists()
+
+    if profiles_dir_existed:
+        skipped_files.append(profiles_dir)
+    if profile_existed:
+        skipped_files.append(profile_path)
+
+    success, error = write_default_profile(data_dir, dry_run)
+    if not success:
+        return handle_failure(error or "Failed to write default profile.")
+    if not profiles_dir_existed:
+        planned_directories.append(profiles_dir)
+        if not dry_run:
+            actually_created_dirs.append(profiles_dir)
+    planned_files.append(profile_path)
+    if not dry_run and not profile_existed:
+        actually_created_files.append(profile_path)
 
     logger.debug(
         "Init completed: created %d files, %d directories",

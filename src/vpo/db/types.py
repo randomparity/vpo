@@ -56,6 +56,7 @@ class JobType(Enum):
     SCAN = "scan"  # Directory scan operation
     APPLY = "apply"  # Policy application operation
     PROCESS = "process"  # Full workflow processing (analyze → apply → transcode)
+    PRUNE = "prune"  # Prune missing files from library
 
 
 class JobStatus(Enum):
@@ -870,6 +871,44 @@ class PolicyStats:
     avg_processing_time: float
 
     last_used: str  # ISO-8601
+
+
+@dataclass
+class MissingFileViewItem:
+    """Typed result for missing files view query.
+
+    Replaces dict return from get_missing_files().
+
+    Attributes:
+        id: File primary key.
+        path: Full file path.
+        filename: File name only.
+        size_bytes: File size in bytes (may be None).
+        scanned_at: ISO-8601 timestamp of last scan (may be None).
+    """
+
+    id: int
+    path: str
+    filename: str
+    size_bytes: int | None
+    scanned_at: str | None
+
+
+@dataclass
+class DistributionItem:
+    """A single category in a distribution count."""
+
+    label: str
+    count: int
+
+
+@dataclass
+class LibraryDistribution:
+    """Distribution data for library composition pie charts."""
+
+    containers: list[DistributionItem]
+    video_codecs: list[DistributionItem]
+    audio_codecs: list[DistributionItem]
 
 
 @dataclass

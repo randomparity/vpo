@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ section_title }} - VPO</title>
     <link rel="stylesheet" href="/static/css/main.css">
+    <script src="/static/js/utils.js"></script>
 </head>
 <body data-polling-interval="{{ polling_interval | default(5000) }}"
       data-polling-enabled="{{ polling_enabled | default('true') }}"
       data-polling-log-interval="{{ polling_log_interval | default(15000) }}">
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <div class="app-shell">
         <nav class="sidebar" aria-label="Main navigation">
             <div class="sidebar-header">
@@ -26,7 +28,7 @@
                 {% endfor %}
             </ul>
         </nav>
-        <main class="content">
+        <main class="content" id="main-content">
             <header class="content-header">
                 <h2>{{ section_title }}</h2>
                 <span id="connection-status" class="connection-status connection-status--connected" title="Live updates active" aria-label="Live updates active" aria-live="polite" role="status">Live</span>

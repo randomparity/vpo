@@ -1029,3 +1029,153 @@ class TestGetStatsForFileView:
 
         assert len(results) == 1
         assert results[0].encoder_type is None
+
+
+class TestVideosTranscodedCounter:
+    """Tests for total_videos_transcoded summary counter.
+
+    The counter uses: CASE WHEN video_target_codec IS NOT NULL
+    AND video_transcode_skipped = 0 THEN 1 ELSE 0 END
+    """
+
+    def test_counts_when_target_codec_set(
+        self, conn: sqlite3.Connection, file_id: int
+    ) -> None:
+        """Should count as transcoded when target_codec is set and not skipped."""
+        from vpo.db.views import get_stats_summary
+
+        record = ProcessingStatsRecord(
+            id=str(uuid.uuid4()),
+            file_id=file_id,
+            processed_at="2024-01-15T10:00:00Z",
+            policy_name="test-policy",
+            size_before=1000000,
+            size_after=500000,
+            size_change=500000,
+            audio_tracks_before=0,
+            subtitle_tracks_before=0,
+            attachments_before=0,
+            audio_tracks_after=0,
+            subtitle_tracks_after=0,
+            attachments_after=0,
+            audio_tracks_removed=0,
+            subtitle_tracks_removed=0,
+            attachments_removed=0,
+            duration_seconds=10.0,
+            phases_completed=1,
+            phases_total=1,
+            total_changes=1,
+            video_source_codec="h264",
+            video_target_codec="hevc",
+            video_transcode_skipped=False,
+            video_skip_reason=None,
+            audio_tracks_transcoded=0,
+            audio_tracks_preserved=0,
+            hash_before=None,
+            hash_after=None,
+            success=True,
+            error_message=None,
+            encoder_type="software",
+        )
+
+        insert_processing_stats(conn, record)
+        conn.commit()
+
+        summary = get_stats_summary(conn)
+        assert summary.total_videos_transcoded == 1
+
+    def test_not_counted_when_target_codec_null(
+        self, conn: sqlite3.Connection, file_id: int
+    ) -> None:
+        """Should NOT count as transcoded when target_codec is NULL.
+
+        This documents the pre-fix state where encoder_type was set
+        but target_codec was missing, causing the counter to always be 0.
+        """
+        from vpo.db.views import get_stats_summary
+
+        record = ProcessingStatsRecord(
+            id=str(uuid.uuid4()),
+            file_id=file_id,
+            processed_at="2024-01-15T10:00:00Z",
+            policy_name="test-policy",
+            size_before=1000000,
+            size_after=500000,
+            size_change=500000,
+            audio_tracks_before=0,
+            subtitle_tracks_before=0,
+            attachments_before=0,
+            audio_tracks_after=0,
+            subtitle_tracks_after=0,
+            attachments_after=0,
+            audio_tracks_removed=0,
+            subtitle_tracks_removed=0,
+            attachments_removed=0,
+            duration_seconds=10.0,
+            phases_completed=1,
+            phases_total=1,
+            total_changes=1,
+            video_source_codec="h264",
+            video_target_codec=None,
+            video_transcode_skipped=False,
+            video_skip_reason=None,
+            audio_tracks_transcoded=0,
+            audio_tracks_preserved=0,
+            hash_before=None,
+            hash_after=None,
+            success=True,
+            error_message=None,
+            encoder_type="software",
+        )
+
+        insert_processing_stats(conn, record)
+        conn.commit()
+
+        summary = get_stats_summary(conn)
+        assert summary.total_videos_transcoded == 0
+
+    def test_not_counted_when_skipped(
+        self, conn: sqlite3.Connection, file_id: int
+    ) -> None:
+        """Should NOT count as transcoded when transcode was skipped."""
+        from vpo.db.views import get_stats_summary
+
+        record = ProcessingStatsRecord(
+            id=str(uuid.uuid4()),
+            file_id=file_id,
+            processed_at="2024-01-15T10:00:00Z",
+            policy_name="test-policy",
+            size_before=1000000,
+            size_after=500000,
+            size_change=500000,
+            audio_tracks_before=0,
+            subtitle_tracks_before=0,
+            attachments_before=0,
+            audio_tracks_after=0,
+            subtitle_tracks_after=0,
+            attachments_after=0,
+            audio_tracks_removed=0,
+            subtitle_tracks_removed=0,
+            attachments_removed=0,
+            duration_seconds=10.0,
+            phases_completed=1,
+            phases_total=1,
+            total_changes=1,
+            video_source_codec="h264",
+            video_target_codec="hevc",
+            video_transcode_skipped=True,
+            video_skip_reason="codec_matches",
+            audio_tracks_transcoded=0,
+            audio_tracks_preserved=0,
+            hash_before=None,
+            hash_after=None,
+            success=True,
+            error_message=None,
+            encoder_type=None,
+        )
+
+        insert_processing_stats(conn, record)
+        conn.commit()
+
+        summary = get_stats_summary(conn)
+        assert summary.total_videos_transcoded == 0

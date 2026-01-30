@@ -18,6 +18,12 @@ const CHART_COLORS = {
     background: 'var(--color-content-bg, #fff)'
 }
 
+// Pie chart color palette
+const PIE_COLORS = [
+    '#3498db', '#27ae60', '#f39c12', '#e74c3c', '#9b59b6',
+    '#1abc9c', '#e67e22', '#d35400', '#8e44ad', '#16a085'
+]
+
 // SVG namespace
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
@@ -511,12 +517,170 @@ function renderGauge(container, ratio, options = {}) {
     container.appendChild(svg)
 }
 
+/**
+ * Render a pie chart with legend.
+ *
+ * @param {HTMLElement} container - Container element to render into
+ * @param {Array<{label: string, count: number}>} data - Chart data
+ * @param {Object} options - Chart options
+ * @param {string} options.title - Chart title (optional)
+ * @param {number} options.size - Pie diameter in pixels (default 180)
+ * @param {number} options.otherThreshold - Percentage below which items are grouped as "Other" (default 3)
+ */
+function renderPieChart(container, data, options = {}) {
+    const {
+        size = 180,
+        otherThreshold = 3
+    } = options
+
+    // Clear container
+    container.innerHTML = ''
+
+    if (!data || data.length === 0) {
+        container.innerHTML = '<div class="chart-empty">No data available</div>'
+        return
+    }
+
+    // Calculate total
+    const total = data.reduce((sum, d) => sum + d.count, 0)
+    if (total === 0) {
+        container.innerHTML = '<div class="chart-empty">No data available</div>'
+        return
+    }
+
+    // Group small slices into "Other"
+    const threshold = (otherThreshold / 100) * total
+    const mainItems = []
+    let otherCount = 0
+
+    for (const item of data) {
+        if (item.count >= threshold) {
+            mainItems.push(item)
+        } else {
+            otherCount += item.count
+        }
+    }
+    if (otherCount > 0) {
+        mainItems.push({ label: 'Other', count: otherCount })
+    }
+
+    // Create wrapper (pie + legend side by side)
+    const wrapper = document.createElement('div')
+    wrapper.className = 'chart-pie-wrapper'
+
+    // Build accessible label from data
+    const ariaLabel = data.slice(0, 5).map(d => {
+        const pct = ((d.count / total) * 100).toFixed(1)
+        return `${d.label}: ${d.count} (${pct}%)`
+    }).join(', ') + (data.length > 5 ? `, and ${data.length - 5} more` : '')
+
+    // Create SVG
+    const svg = createSvgElement('svg', {
+        width: size,
+        height: size,
+        class: 'chart-pie',
+        role: 'img',
+        'aria-label': ariaLabel
+    })
+
+    const cx = size / 2
+    const cy = size / 2
+    const radius = size / 2 - 4
+
+    if (mainItems.length === 1) {
+        // Single slice: draw a full circle
+        const circle = createSvgElement('circle', {
+            cx: cx,
+            cy: cy,
+            r: radius,
+            fill: PIE_COLORS[0],
+            class: 'chart-pie-slice'
+        })
+        const tooltip = createSvgElement('title')
+        const pct = ((mainItems[0].count / total) * 100).toFixed(1)
+        tooltip.textContent = `${mainItems[0].label}: ${mainItems[0].count} (${pct}%)`
+        circle.appendChild(tooltip)
+        svg.appendChild(circle)
+    } else {
+        // Multiple slices: draw arcs
+        let currentAngle = -Math.PI / 2 // Start at 12 o'clock
+
+        mainItems.forEach((item, index) => {
+            const sliceAngle = (item.count / total) * 2 * Math.PI
+            const startAngle = currentAngle
+            const endAngle = currentAngle + sliceAngle
+
+            const x1 = cx + radius * Math.cos(startAngle)
+            const y1 = cy + radius * Math.sin(startAngle)
+            const x2 = cx + radius * Math.cos(endAngle)
+            const y2 = cy + radius * Math.sin(endAngle)
+
+            const largeArc = sliceAngle > Math.PI ? 1 : 0
+
+            const d = [
+                `M ${cx} ${cy}`,
+                `L ${x1} ${y1}`,
+                `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
+                'Z'
+            ].join(' ')
+
+            const slice = createSvgElement('path', {
+                d: d,
+                fill: PIE_COLORS[index % PIE_COLORS.length],
+                class: 'chart-pie-slice'
+            })
+
+            const pct = ((item.count / total) * 100).toFixed(1)
+            const tooltip = createSvgElement('title')
+            tooltip.textContent = `${item.label}: ${item.count} (${pct}%)`
+            slice.appendChild(tooltip)
+
+            svg.appendChild(slice)
+            currentAngle = endAngle
+        })
+    }
+
+    wrapper.appendChild(svg)
+
+    // Create legend
+    const legend = document.createElement('ul')
+    legend.className = 'chart-pie-legend'
+
+    mainItems.forEach((item, index) => {
+        const li = document.createElement('li')
+        li.className = 'chart-pie-legend-item'
+
+        const swatch = document.createElement('span')
+        swatch.className = 'chart-pie-legend-swatch'
+        swatch.style.backgroundColor = PIE_COLORS[index % PIE_COLORS.length]
+
+        const label = document.createElement('span')
+        label.className = 'chart-pie-legend-label'
+        label.textContent = item.label
+
+        const value = document.createElement('span')
+        value.className = 'chart-pie-legend-value'
+        const pct = ((item.count / total) * 100).toFixed(1)
+        value.textContent = `${item.count} (${pct}%)`
+
+        li.appendChild(swatch)
+        li.appendChild(label)
+        li.appendChild(value)
+        legend.appendChild(li)
+    })
+
+    wrapper.appendChild(legend)
+    container.appendChild(wrapper)
+}
+
 // Export functions for use in stats.js
 window.VPOCharts = {
     renderBarChart,
     renderLineChart,
     renderGauge,
+    renderPieChart,
     formatBytesShort,
     formatNumberShort,
-    CHART_COLORS
+    CHART_COLORS,
+    PIE_COLORS
 }

@@ -7,7 +7,7 @@ used by the VPO database.
 
 import sqlite3
 
-SCHEMA_VERSION = 25
+SCHEMA_VERSION = 26
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -171,7 +171,7 @@ CREATE TABLE IF NOT EXISTS jobs (
         status IN ('queued', 'running', 'completed', 'failed', 'cancelled')
     ),
     CONSTRAINT valid_job_type CHECK (
-        job_type IN ('transcode', 'move', 'scan', 'apply', 'process')
+        job_type IN ('transcode', 'move', 'scan', 'apply', 'process', 'prune')
     ),
     CONSTRAINT valid_progress CHECK (
         progress_percent >= 0.0 AND progress_percent <= 100.0
@@ -440,6 +440,19 @@ CREATE INDEX IF NOT EXISTS idx_classification_hash
     ON track_classification_results(file_hash);
 CREATE INDEX IF NOT EXISTS idx_classification_od_status
     ON track_classification_results(original_dubbed_status);
+
+-- Library snapshots for trend tracking
+CREATE TABLE IF NOT EXISTS library_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snapshot_at TEXT NOT NULL,
+    total_files INTEGER NOT NULL,
+    total_size_bytes INTEGER NOT NULL,
+    missing_files INTEGER NOT NULL,
+    error_files INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_library_snapshots_time
+    ON library_snapshots(snapshot_at);
 """
 
 

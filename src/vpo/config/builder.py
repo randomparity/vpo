@@ -69,6 +69,8 @@ class ConfigSource:
     jobs_log_compression_days: int | None = None
     jobs_log_deletion_days: int | None = None
     jobs_min_free_disk_percent: float | None = None
+    jobs_auto_prune_enabled: bool | None = None
+    jobs_auto_prune_interval_hours: int | None = None
 
     # Worker config
     worker_max_files: int | None = None
@@ -231,6 +233,8 @@ class ConfigBuilder:
             log_compression_days=self._get("jobs_log_compression_days", 7),
             log_deletion_days=self._get("jobs_log_deletion_days", 90),
             min_free_disk_percent=self._get("jobs_min_free_disk_percent", 5.0),
+            auto_prune_enabled=self._get("jobs_auto_prune_enabled", False),
+            auto_prune_interval_hours=self._get("jobs_auto_prune_interval_hours", 168),
         )
 
         # Build worker config
@@ -430,6 +434,8 @@ def source_from_env(reader: EnvReader) -> ConfigSource:
         jobs_log_compression_days=reader.get_int("VPO_LOG_COMPRESSION_DAYS"),
         jobs_log_deletion_days=reader.get_int("VPO_LOG_DELETION_DAYS"),
         jobs_min_free_disk_percent=reader.get_float("VPO_MIN_FREE_DISK_PERCENT"),
+        jobs_auto_prune_enabled=reader.get_bool("VPO_AUTO_PRUNE_ENABLED"),
+        jobs_auto_prune_interval_hours=reader.get_int("VPO_AUTO_PRUNE_INTERVAL_HOURS"),
         # Worker
         worker_max_files=reader.get_int("VPO_WORKER_MAX_FILES"),
         worker_max_duration=reader.get_int("VPO_WORKER_MAX_DURATION"),

@@ -39,40 +39,11 @@
     const bulkRejectBtn = document.getElementById('bulk-reject-btn')
     const selectAllCheckbox = document.getElementById('select-all-approvals')
 
-    /**
-     * Format an ISO timestamp to a relative time string.
-     */
-    function formatRelativeTime(isoString) {
-        if (!isoString) return '-'
-
-        try {
-            const date = new Date(isoString)
-            const now = new Date()
-            const diffMs = now - date
-            const diffSec = Math.floor(diffMs / 1000)
-            const diffMin = Math.floor(diffSec / 60)
-            const diffHour = Math.floor(diffMin / 60)
-            const diffDay = Math.floor(diffHour / 24)
-
-            if (diffSec < 60) return 'just now'
-            if (diffMin < 60) return diffMin === 1 ? '1 minute ago' : diffMin + ' minutes ago'
-            if (diffHour < 24) return diffHour === 1 ? '1 hour ago' : diffHour + ' hours ago'
-            if (diffDay < 7) return diffDay === 1 ? '1 day ago' : diffDay + ' days ago'
-
-            return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-        } catch {
-            return isoString
-        }
-    }
-
-    /**
-     * Escape HTML to prevent XSS.
-     */
-    function escapeHtml(str) {
-        if (!str) return ''
-        const div = document.createElement('div')
-        div.textContent = str
-        return div.innerHTML
+    // Shared utilities
+    var escapeHtml = window.VPOUtils.escapeHtml
+    var _formatRelativeTime = window.VPOUtils.formatRelativeTime
+    function formatRelativeTime(input) {
+        return _formatRelativeTime(input, { emptyText: '-', dateFallbackDays: 7, capitalizeJustNow: false })
     }
 
     /**

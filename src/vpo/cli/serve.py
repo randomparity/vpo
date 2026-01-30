@@ -129,6 +129,7 @@ async def run_server(
     # Load and store active profile for daemon mode
     # This makes profile settings (like default_policy) available to web UI
     if validated_profile != "Default":
+        # User explicitly specified --profile
         try:
             from vpo.config.profiles import load_profile, set_active_profile
 
@@ -141,6 +142,19 @@ async def run_server(
             )
         except Exception as e:
             logger.warning("Could not load profile '%s': %s", validated_profile, e)
+    else:
+        # No --profile specified — try auto-loading "default" profile
+        try:
+            from vpo.config.profiles import load_profile, set_active_profile
+
+            loaded = load_profile("default")
+            set_active_profile(loaded)
+            logger.info(
+                "Auto-loaded default profile (default_policy=%s)",
+                loaded.default_policy,
+            )
+        except Exception:
+            logger.debug("No default profile found, continuing without profile")
 
     # Create the runner and site
     runner = web.AppRunner(app)
