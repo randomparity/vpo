@@ -51,8 +51,9 @@ def _make_prune_job() -> Job:
 class TestProcessPruneJob:
     """Tests for prune job processing in the worker."""
 
+    @patch("vpo.jobs.services.transcode.FFprobeIntrospector")
     @patch("vpo.jobs.worker.PruneJobService")
-    def test_process_prune_job_calls_service(self, mock_cls, db_conn):
+    def test_process_prune_job_calls_service(self, mock_cls, _mock_ffprobe, db_conn):
         """Worker creates PruneJobService and calls process()."""
         from vpo.jobs.worker import JobWorker
 
@@ -69,8 +70,9 @@ class TestProcessPruneJob:
         mock_service.process.assert_called_once_with(job_log=job_log)
         assert result.files_pruned == 2
 
+    @patch("vpo.jobs.services.transcode.FFprobeIntrospector")
     @patch("vpo.jobs.worker.PruneJobService")
-    def test_process_prune_builds_summary(self, mock_cls, db_conn):
+    def test_process_prune_builds_summary(self, mock_cls, _mock_ffprobe, db_conn):
         """Summary JSON includes files_pruned count."""
         from vpo.jobs.worker import JobWorker
 
