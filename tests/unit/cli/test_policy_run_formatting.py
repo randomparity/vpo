@@ -14,6 +14,8 @@ from vpo.policy.types import (
     FileSnapshot,
     PhaseOutcome,
     PhaseResult,
+    SkipReason,
+    SkipReasonType,
 )
 
 
@@ -266,3 +268,111 @@ class TestFormatResultJsonSnapshots:
 
         assert "before" in data
         assert "after" not in data
+
+
+# =============================================================================
+# Edge case tests for _format_result_human (M12)
+# =============================================================================
+
+
+class TestFormatResultHumanFailure:
+    """Tests for failure output in _format_result_human()."""
+
+    def test_failure_shows_error_and_failed_phase(self):
+        phase = _make_phase_result(
+            name="transcode",
+            success=False,
+            outcome=PhaseOutcome.FAILED,
+        )
+        result = FileProcessingResult(
+            file_path=Path("/media/movie.mkv"),
+            success=False,
+            phase_results=(phase,),
+            total_duration_seconds=1.0,
+            total_changes=0,
+            phases_completed=0,
+            phases_failed=1,
+            phases_skipped=0,
+            failed_phase="transcode",
+            error_message="Encoder crashed",
+        )
+        output = _format_result_human(result, Path("/media/movie.mkv"), verbose=False)
+
+        assert "Failed" in output
+        assert "Encoder crashed" in output
+        assert "transcode" in output
+
+    def test_skip_reason_shown_in_verbose(self):
+        skip = SkipReason(
+            reason_type=SkipReasonType.CONDITION,
+            message="video_codec matched: hevc",
+            condition_name="video_codec",
+            condition_value="hevc",
+        )
+        phase = PhaseResult(
+            phase_name="transcode",
+            success=True,
+            duration_seconds=0.0,
+            operations_executed=(),
+            changes_made=0,
+            outcome=PhaseOutcome.SKIPPED,
+            skip_reason=skip,
+        )
+        result = FileProcessingResult(
+            file_path=Path("/media/movie.mkv"),
+            success=True,
+            phase_results=(phase,),
+            total_duration_seconds=0.5,
+            total_changes=0,
+            phases_completed=0,
+            phases_failed=0,
+            phases_skipped=1,
+        )
+        output = _format_result_human(result, Path("/media/movie.mkv"), verbose=True)
+
+        assert "SKIP" in output
+        assert "video_codec matched: hevc" in output
+
+    def test_stats_id_shown(self):
+        result = FileProcessingResult(
+            file_path=Path("/media/movie.mkv"),
+            success=True,
+            phase_results=(_make_phase_result(),),
+            total_duration_seconds=1.5,
+            total_changes=2,
+            phases_completed=1,
+            phases_failed=0,
+            phases_skipped=0,
+            stats_id="abc-123-def",
+        )
+        output = _format_result_human(result, Path("/media/movie.mkv"), verbose=False)
+
+        assert "Stats ID: abc-123-def" in output
+
+
+class TestFormatFileSnapshotSafety:
+    """Tests that formatting errors are caught gracefully."""
+
+    def test_malformed_snapshot_returns_error_line(self):
+        """A snapshot with None where a tuple is expected doesn't crash."""
+
+        # Create a snapshot-like object with a bad attribute
+        class BadSnapshot:
+            container_format = "mkv"
+            size_bytes = 1000
+            tracks = None  # Should be a tuple
+
+        lines = _format_file_snapshot(BadSnapshot(), "Before")
+        # Should return graceful error, not crash
+        assert any("formatting error" in line for line in lines)
+
+    def test_malformed_result_returns_error_string(self):
+        """A result with missing attributes doesn't crash."""
+
+        class BadResult:
+            file_before = None
+            file_after = None
+            # Missing: success, phase_results, etc.
+
+        output = _format_result_human(BadResult(), Path("/media/x.mkv"), verbose=False)
+        assert "formatting error" in output

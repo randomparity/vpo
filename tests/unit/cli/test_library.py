@@ -164,3 +164,62 @@ class TestLibraryMissingCommand:
 
         data = json.loads(result.output)
         assert data["total"] == 2
+
+
+class TestLibraryMissingEdgeCases:
+    """Edge case tests for library missing command."""
+
+    def test_human_output_zero_size(self, runner, db_conn):
+        """Files with zero size_bytes don't crash human output."""
+        _insert_file(
+            db_conn,
+            1,
+            "/media/missing.mkv",
+            scan_status="missing",
+            size_bytes=0,
+        )
+
+        result = runner.invoke(
+            main,
+            ["library", "missing"],
+            obj={"db_conn": db_conn},
+        )
+        assert result.exit_code == 0
+        assert "missing.mkv" in result.output
+
+    def test_json_output_zero_size(self, runner, db_conn):
+        """JSON output handles zero size_bytes."""
+        _insert_file(
+            db_conn,
+            1,
+            "/media/missing.mkv",
+            scan_status="missing",
+            size_bytes=0,
+        )
+
+        result = runner.invoke(
+            main,
+            ["library", "missing", "--json"],
+            obj={"db_conn": db_conn},
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["files"][0]["size_bytes"] == 0
+
+    def test_human_output_large_size(self, runner, db_conn):
+        """Files with very large size_bytes format correctly."""
+        _insert_file(
+            db_conn,
+            1,
+            "/media/missing.mkv",
+            scan_status="missing",
+            size_bytes=42_000_000_000,
+        )
+
+        result = runner.invoke(
+            main,
+            ["library", "missing"],
+            obj={"db_conn": db_conn},
+        )
+        assert result.exit_code == 0
+        assert "missing.mkv" in result.output

@@ -106,3 +106,97 @@ class TestPruneJobServiceProcess:
         cursor = db_conn.execute("SELECT scan_status FROM files ORDER BY id")
         statuses = [row[0] for row in cursor.fetchall()]
         assert statuses == ["ok", "error"]
+
+
+class TestPruneJobServiceErrorPaths:
+    """Tests for error handling in PruneJobService.process()."""
+
+    def test_rolls_back_on_delete_failure(self, db_conn):
+        """All deletions roll back if any single delete fails."""
+        _insert_file(db_conn, 1, "/media/missing1.mkv", scan_status="missing")
+        _insert_file(db_conn, 2, "/media/missing2.mkv", scan_status="missing")
+        _insert_file(db_conn, 3, "/media/missing3.mkv", scan_status="missing")
+
+        # Commit so files are persisted before we start
+        db_conn.commit()
+
+        # Monkey-patch delete_file to fail on the second call
+        import vpo.jobs.services.prune as prune_module
+
+        original_delete = prune_module.delete_file
+        call_count = 0
+
+        def failing_delete(conn, file_id):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 2:
+                raise sqlite3.OperationalError("simulated delete failure")
+            return original_delete(conn, file_id)
+
+        prune_module.delete_file = failing_delete
+        try:
+            service = PruneJobService(db_conn)
+            result = service.process()
+        finally:
+            prune_module.delete_file = original_delete
+
+        # Should report failure
+        assert result.success is False
+        assert "simulated delete failure" in result.error_message
+
+        # All 3 missing files should still exist (transaction rolled back)
+        cursor = db_conn.execute(
+            "SELECT COUNT(*) FROM files WHERE scan_status = 'missing'"
+        )
+        assert cursor.fetchone()[0] == 3
+
+    def test_returns_failure_on_query_error(self, db_conn):
+        """Returns failure result if the initial SELECT fails."""
+        # Drop the files table to cause a query error
+        db_conn.execute("DROP TABLE files")
+
+        service = PruneJobService(db_conn)
+        result = service.process()
+
+        assert result.success is False
+        assert result.error_message is not None
+
+    def test_writes_to_job_log(self, db_conn):
+        """Verifies job_log.write_line is called for progress messages."""
+        _insert_file(db_conn, 1, "/media/missing1.mkv", scan_status="missing")
+        _insert_file(db_conn, 2, "/media/missing2.mkv", scan_status="missing")
+
+        class MockJobLog:
+            def __init__(self):
+                self.lines = []
+
+            def write_line(self, msg):
+                self.lines.append(msg)
+
+        mock_log = MockJobLog()
+        service = PruneJobService(db_conn)
+        result = service.process(job_log=mock_log)
+
+        assert result.success is True
+
+        # Should have: header, per-file lines, summary
+        assert any("Found 2" in line for line in mock_log.lines)
+        assert any("Pruned:" in line for line in mock_log.lines)
+        assert any("Pruned 2" in line for line in mock_log.lines)
+
+    def test_no_missing_files_logs_message(self, db_conn):
+        """When no files to prune, job log gets a message."""
+        _insert_file(db_conn, 1, "/media/ok.mkv", scan_status="ok")
+
+        class MockJobLog:
+            def __init__(self):
+                self.lines = []
+
+            def write_line(self, msg):
+                self.lines.append(msg)
+
+        mock_log = MockJobLog()
+        service = PruneJobService(db_conn)
+        service.process(job_log=mock_log)
+
+        assert any("No missing files" in line for line in mock_log.lines)
