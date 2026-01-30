@@ -48,6 +48,7 @@ from .library import (
     get_files_filtered_typed,
     get_library_distribution,
     get_missing_files,
+    get_missing_files_typed,
 )
 
 # Plugin data views
@@ -115,6 +116,7 @@ __all__ = [
     "get_files_filtered_typed",
     "get_library_distribution",
     "get_missing_files",
+    "get_missing_files_typed",
     # Plugins
     "get_files_with_plugin_data",
     "get_plugin_data_for_file",

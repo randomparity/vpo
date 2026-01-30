@@ -874,6 +874,27 @@ class PolicyStats:
 
 
 @dataclass
+class MissingFileViewItem:
+    """Typed result for missing files view query.
+
+    Replaces dict return from get_missing_files().
+
+    Attributes:
+        id: File primary key.
+        path: Full file path.
+        filename: File name only.
+        size_bytes: File size in bytes (may be None).
+        scanned_at: ISO-8601 timestamp of last scan (may be None).
+    """
+
+    id: int
+    path: str
+    filename: str
+    size_bytes: int | None
+    scanned_at: str | None
+
+
+@dataclass
 class DistributionItem:
     """A single category in a distribution count."""
 

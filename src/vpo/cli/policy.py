@@ -311,46 +311,51 @@ def _format_file_snapshot(snapshot: FileSnapshot, label: str) -> list[str]:
     Returns:
         List of formatted lines.
     """
-    lines = [f"{label}:"]
+    try:
+        lines = [f"{label}:"]
 
-    # Container and size header
-    container = snapshot.container_format
-    if container:
-        container = container.split(",")[0].title()
-    else:
-        container = "Unknown"
-    size = format_file_size(snapshot.size_bytes)
-    lines.append(f"  Container: {container} | Size: {size}")
+        # Container and size header
+        container = snapshot.container_format
+        if container:
+            container = container.split(",")[0].title()
+        else:
+            container = "Unknown"
+        size = format_file_size(snapshot.size_bytes)
+        lines.append(f"  Container: {container} | Size: {size}")
 
-    # Group tracks by type
-    video = [t for t in snapshot.tracks if t.track_type == "video"]
-    audio = [t for t in snapshot.tracks if t.track_type == "audio"]
-    subtitles = [t for t in snapshot.tracks if t.track_type == "subtitle"]
-    other = [
-        t for t in snapshot.tracks if t.track_type not in ("video", "audio", "subtitle")
-    ]
+        # Group tracks by type
+        video = [t for t in snapshot.tracks if t.track_type == "video"]
+        audio = [t for t in snapshot.tracks if t.track_type == "audio"]
+        subtitles = [t for t in snapshot.tracks if t.track_type == "subtitle"]
+        other = [
+            t
+            for t in snapshot.tracks
+            if t.track_type not in ("video", "audio", "subtitle")
+        ]
 
-    if video:
-        lines.append("  Video:")
-        for t in video:
-            lines.append(f"    {format_track_line(t)}")
-    if audio:
-        lines.append("  Audio:")
-        for t in audio:
-            lines.append(f"    {format_track_line(t)}")
-    if subtitles:
-        lines.append("  Subtitles:")
-        for t in subtitles:
-            lines.append(f"    {format_track_line(t)}")
-    if other:
-        lines.append("  Other:")
-        for t in other:
-            lines.append(f"    {format_track_line(t)}")
+        if video:
+            lines.append("  Video:")
+            for t in video:
+                lines.append(f"    {format_track_line(t)}")
+        if audio:
+            lines.append("  Audio:")
+            for t in audio:
+                lines.append(f"    {format_track_line(t)}")
+        if subtitles:
+            lines.append("  Subtitles:")
+            for t in subtitles:
+                lines.append(f"    {format_track_line(t)}")
+        if other:
+            lines.append("  Other:")
+            for t in other:
+                lines.append(f"    {format_track_line(t)}")
 
-    if not snapshot.tracks:
-        lines.append("  (no tracks)")
+        if not snapshot.tracks:
+            lines.append("  (no tracks)")
 
-    return lines
+        return lines
+    except (AttributeError, KeyError, IndexError, TypeError) as e:
+        return [f"{label}: (formatting error: {e})"]
 
 
 def _format_snapshot_json(snapshot: FileSnapshot) -> dict:
@@ -380,83 +385,86 @@ def _format_result_human(result, file_path: Path, verbose: bool = False) -> str:
     Returns:
         Formatted string for terminal output.
     """
-    lines = []
+    try:
+        lines = []
 
-    # Always show file path in verbose mode
-    if verbose:
-        lines.append(f"File: {file_path}")
+        # Always show file path in verbose mode
+        if verbose:
+            lines.append(f"File: {file_path}")
 
-        # Before snapshot
-        lines.append("")
-        if result.file_before:
-            lines.extend(_format_file_snapshot(result.file_before, "Before"))
-        else:
-            lines.append("Before: (file not scanned)")
-
-    if verbose:
-        # Phase details
-        lines.append("")
-        lines.append("Phase details:")
-        for pr in result.phase_results:
-            # Status indicator with outcome awareness
-            if pr.outcome == PhaseOutcome.SKIPPED:
-                status = "SKIP"
-            elif pr.success:
-                status = "OK"
+            # Before snapshot
+            lines.append("")
+            if result.file_before:
+                lines.extend(_format_file_snapshot(result.file_before, "Before"))
             else:
-                status = "FAIL"
+                lines.append("Before: (file not scanned)")
 
-            # Phase summary line
-            change_word = "change" if pr.changes_made == 1 else "changes"
-            lines.append(
-                f"  [{status}] {pr.phase_name}: "
-                f"{pr.changes_made} {change_word}, {pr.duration_seconds:.2f}s"
-            )
+        if verbose:
+            # Phase details
+            lines.append("")
+            lines.append("Phase details:")
+            for pr in result.phase_results:
+                # Status indicator with outcome awareness
+                if pr.outcome == PhaseOutcome.SKIPPED:
+                    status = "SKIP"
+                elif pr.success:
+                    status = "OK"
+                else:
+                    status = "FAIL"
 
-            # Operations list
-            if pr.operations_executed:
-                ops_str = ", ".join(pr.operations_executed)
-                lines.append(f"         Operations: {ops_str}")
+                # Phase summary line
+                change_word = "change" if pr.changes_made == 1 else "changes"
+                lines.append(
+                    f"  [{status}] {pr.phase_name}: "
+                    f"{pr.changes_made} {change_word}, {pr.duration_seconds:.2f}s"
+                )
 
-            # Enhanced detail lines (container change, tracks removed, etc.)
-            detail_lines = format_phase_details(pr)
-            for detail in detail_lines:
-                lines.append(f"         {detail}")
+                # Operations list
+                if pr.operations_executed:
+                    ops_str = ", ".join(pr.operations_executed)
+                    lines.append(f"         Operations: {ops_str}")
 
-            # Skip reason for skipped phases
-            if pr.skip_reason:
-                lines.append(f"         Skip reason: {pr.skip_reason.message}")
+                # Enhanced detail lines (container change, tracks removed, etc.)
+                detail_lines = format_phase_details(pr)
+                for detail in detail_lines:
+                    lines.append(f"         {detail}")
 
-            # Error message for failed phases
-            if pr.error:
-                lines.append(f"         Error: {pr.error}")
+                # Skip reason for skipped phases
+                if pr.skip_reason:
+                    lines.append(f"         Skip reason: {pr.skip_reason.message}")
 
-        # After snapshot
+                # Error message for failed phases
+                if pr.error:
+                    lines.append(f"         Error: {pr.error}")
+
+            # After snapshot
+            lines.append("")
+            if result.file_after:
+                lines.extend(_format_file_snapshot(result.file_after, "After"))
+            elif result.file_before:
+                lines.append("After: (dry-run, no changes applied)")
+
+        # Summary
         lines.append("")
-        if result.file_after:
-            lines.extend(_format_file_snapshot(result.file_after, "After"))
-        elif result.file_before:
-            lines.append("After: (dry-run, no changes applied)")
+        if result.success:
+            lines.append("Status: Success")
+            lines.append(f"Phases completed: {result.phases_completed}")
+            lines.append(f"Total changes: {result.total_changes}")
+        else:
+            lines.append("Status: Failed")
+            lines.append(f"Error: {result.error_message}")
+            if result.failed_phase:
+                lines.append(f"Failed phase: {result.failed_phase}")
+            lines.append(f"Phases completed: {result.phases_completed}")
+            lines.append(f"Phases failed: {result.phases_failed}")
+            lines.append(f"Phases skipped: {result.phases_skipped}")
 
-    # Summary
-    lines.append("")
-    if result.success:
-        lines.append("Status: Success")
-        lines.append(f"Phases completed: {result.phases_completed}")
-        lines.append(f"Total changes: {result.total_changes}")
-    else:
-        lines.append("Status: Failed")
-        lines.append(f"Error: {result.error_message}")
-        if result.failed_phase:
-            lines.append(f"Failed phase: {result.failed_phase}")
-        lines.append(f"Phases completed: {result.phases_completed}")
-        lines.append(f"Phases failed: {result.phases_failed}")
-        lines.append(f"Phases skipped: {result.phases_skipped}")
-
-    lines.append(f"Duration: {result.total_duration_seconds:.1f}s")
-    if result.stats_id:
-        lines.append(f"Stats ID: {result.stats_id}")
-    return "\n".join(lines)
+        lines.append(f"Duration: {result.total_duration_seconds:.1f}s")
+        if result.stats_id:
+            lines.append(f"Stats ID: {result.stats_id}")
+        return "\n".join(lines)
+    except (AttributeError, KeyError, IndexError, TypeError) as e:
+        return f"Result: (formatting error: {e})"
 
 
 def _format_result_json(result, file_path: Path) -> dict:
