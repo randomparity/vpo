@@ -495,8 +495,9 @@ class WorkflowProcessor:
                             skip_reason=phase_result.transcode_skip_reason,
                         )
                     elif phase_result.encoder_type:
-                        # Successful transcode - capture encoder type
+                        # Successful transcode - capture encoder type and target codec
                         stats_collector.set_video_transcode_info(
+                            target_codec=phase_result.video_target_codec,
                             encoder_type=phase_result.encoder_type,
                         )
 
