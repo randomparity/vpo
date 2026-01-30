@@ -1,7 +1,7 @@
 """Unit tests for FFmpeg synthesis executor."""
 
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -349,3 +349,74 @@ class TestSigintHandler:
 
         # Should have completed successfully without error
         assert result == ["completed"]
+
+
+class TestSynthesisExecutorTempDirectory:
+    """Tests for temp directory fallback in synthesis executor."""
+
+    def test_work_dir_uses_source_parent_when_temp_unconfigured(
+        self, sample_plan: SynthesisPlan, tmp_path: Path
+    ) -> None:
+        """Work directory created in source file's parent when temp dir unconfigured."""
+        executor = FFmpegSynthesisExecutor(
+            ffmpeg_path=Path("/usr/bin/ffmpeg"),
+            mkvmerge_path=Path("/usr/bin/mkvmerge"),
+        )
+        source_parent = sample_plan.file_path.parent
+
+        with (
+            patch(
+                "vpo.policy.synthesis.executor.get_temp_directory_for_file",
+                return_value=source_parent,
+            ),
+            patch("subprocess.run") as mock_run,
+        ):
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+            # Execute will create work dir then fail at output check (no real ffmpeg).
+            # Cleanup keeps the dir on error (keep_on_error=True).
+            executor.execute(sample_plan, dry_run=False)
+
+        # Work dir should be in source file's parent
+        work_dirs = [
+            d
+            for d in source_parent.iterdir()
+            if d.is_dir() and d.name.startswith("vpo_synthesis_")
+        ]
+        assert len(work_dirs) == 1
+        assert work_dirs[0].parent == source_parent
+
+    def test_work_dir_uses_configured_temp(
+        self, sample_plan: SynthesisPlan, tmp_path: Path
+    ) -> None:
+        """Work directory created in configured temp dir when available."""
+        custom_temp = tmp_path / "custom_temp"
+        custom_temp.mkdir()
+
+        executor = FFmpegSynthesisExecutor(
+            ffmpeg_path=Path("/usr/bin/ffmpeg"),
+            mkvmerge_path=Path("/usr/bin/mkvmerge"),
+        )
+        source_parent = sample_plan.file_path.parent
+
+        with (
+            patch(
+                "vpo.policy.synthesis.executor.get_temp_directory_for_file",
+                return_value=custom_temp,
+            ),
+            patch("subprocess.run") as mock_run,
+        ):
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+            executor.execute(sample_plan, dry_run=False)
+
+        # Work dir should be in custom temp, not source parent
+        expected_name = f"vpo_synthesis_{sample_plan.file_id[:8]}"
+        work_dir = custom_temp / expected_name
+        assert work_dir.exists()
+
+        # Source parent should NOT contain the work dir
+        source_work_dirs = [
+            d
+            for d in source_parent.iterdir()
+            if d.is_dir() and d.name.startswith("vpo_synthesis_")
+        ]
+        assert len(source_work_dirs) == 0
