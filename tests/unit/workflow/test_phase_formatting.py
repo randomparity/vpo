@@ -1,6 +1,8 @@
 """Tests for phase formatting utilities."""
 
-from vpo.core.phase_formatting import (
+from vpo.executor.transcode.decisions import TranscodeReason, TranscodeReasonCode
+from vpo.policy.types import ContainerChange, PhaseResult, TrackDisposition
+from vpo.workflow.phase_formatting import (
     _format_audio_synthesis,
     _format_container_change,
     _format_operation_failures,
@@ -11,8 +13,6 @@ from vpo.core.phase_formatting import (
     format_phase_details,
     format_transcode_reason,
 )
-from vpo.executor.transcode.decisions import TranscodeReason, TranscodeReasonCode
-from vpo.policy.types import ContainerChange, PhaseResult, TrackDisposition
 
 
 class TestFormatPhaseDetails:

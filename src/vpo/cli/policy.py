@@ -17,7 +17,6 @@ from vpo.cli.exit_codes import ExitCode
 from vpo.cli.output import error_exit
 from vpo.cli.profile_loader import load_profile_or_exit
 from vpo.config.loader import get_config
-from vpo.core.phase_formatting import format_phase_details
 from vpo.db.connection import get_connection
 from vpo.db.queries import get_file_by_path
 from vpo.jobs import (
@@ -35,6 +34,7 @@ from vpo.policy.types import (
     PhaseOutcome,
     PolicySchema,
 )
+from vpo.workflow.phase_formatting import format_phase_details
 
 logger = logging.getLogger(__name__)
 
