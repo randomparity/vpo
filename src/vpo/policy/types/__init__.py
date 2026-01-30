@@ -78,6 +78,7 @@ from vpo.policy.types.plan import (
     ContainerChange,
     ContainerTranscodePlan,
     FileProcessingResult,
+    FileSnapshot,
     IncompatibleTrackPlan,
     PhaseExecutionContext,
     PhaseExecutionError,
@@ -222,6 +223,7 @@ __all__ = [
     "RunIfCondition",
     "PhaseResult",
     "FileProcessingResult",
+    "FileSnapshot",
     "PhaseExecutionContext",
     "PhaseExecutionError",
     # Schema types

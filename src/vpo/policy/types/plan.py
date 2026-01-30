@@ -18,6 +18,7 @@ from vpo.policy.types.enums import (
 )
 
 if TYPE_CHECKING:
+    from vpo.domain.models import FileInfo, TrackInfo
     from vpo.executor.transcode.decisions import TranscodeReason
     from vpo.policy.types.actions import ConditionalResult, SkipFlags
 
@@ -502,6 +503,29 @@ class PhaseResult:
 
 
 @dataclass(frozen=True)
+class FileSnapshot:
+    """Immutable snapshot of a file's track layout at a point in time."""
+
+    container_format: str | None
+    """Container format string (e.g., 'matroska,webm')."""
+
+    size_bytes: int
+    """File size in bytes."""
+
+    tracks: tuple[TrackInfo, ...]
+    """Ordered tuple of track info snapshots."""
+
+    @staticmethod
+    def from_file_info(file_info: FileInfo) -> FileSnapshot:
+        """Create a snapshot from a FileInfo domain object."""
+        return FileSnapshot(
+            container_format=file_info.container_format,
+            size_bytes=file_info.size_bytes,
+            tracks=tuple(file_info.tracks),
+        )
+
+
+@dataclass(frozen=True)
 class FileProcessingResult:
     """Result from processing a file through all phases."""
 
@@ -540,6 +564,13 @@ class FileProcessingResult:
     # Statistics reference
     stats_id: str | None = None
     """UUID of the processing_stats record, for lookup via 'vpo stats detail'."""
+
+    # Before/after snapshots for verbose output
+    file_before: FileSnapshot | None = None
+    """Track layout snapshot before processing (None if file not in DB)."""
+
+    file_after: FileSnapshot | None = None
+    """Track layout snapshot after processing (None if dry-run or failed)."""
 
 
 class PhaseExecutionError(Exception):
