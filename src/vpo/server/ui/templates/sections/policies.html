@@ -32,7 +32,7 @@
     </div>
     {% elif policies_response.total == 0 %}
     {# Directory exists but is empty #}
-    <div class="policies-empty" role="status">
+    <div class="policies-warning" role="alert">
         <p>No policy files found.</p>
         <p class="placeholder-hint">Add <code>.yaml</code> or <code>.yml</code> policy files to <code>{{ policies_context.policies_directory }}</code></p>
     </div>

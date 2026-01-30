@@ -101,6 +101,23 @@ class TestParsePolicyFile:
 
         assert Path(result.file_path).is_absolute()
 
+    def test_flat_format_policy_has_parse_error(self, tmp_path: Path) -> None:
+        """Flat-format policies (no phases key) produce expected parse error."""
+        flat_policy = tmp_path / "flat.yaml"
+        flat_policy.write_text(
+            "schema_version: 12\n"
+            "track_order:\n"
+            "  - video\n"
+            "  - audio\n"
+            "audio_language_preference:\n"
+            "  - eng\n"
+        )
+
+        result = _parse_policy_file(flat_policy)
+
+        assert result.parse_error is not None
+        assert "missing 'phases' key" in result.parse_error
+
     def test_last_modified_is_iso8601(self) -> None:
         """Verify last_modified is ISO-8601 format with UTC."""
         path = FIXTURES_DIR / "valid-basic.yaml"

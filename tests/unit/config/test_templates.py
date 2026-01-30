@@ -145,6 +145,28 @@ class TestTemplates:
         assert "default_flags:" in DEFAULT_POLICY_TEMPLATE
         assert "set_first_video_default:" in DEFAULT_POLICY_TEMPLATE
 
+    def test_policy_template_has_phases_key(self):
+        """Test default policy has phases key for phased format."""
+        assert "phases:" in DEFAULT_POLICY_TEMPLATE
+
+    def test_policy_template_has_config_key(self):
+        """Test default policy has config key for global settings."""
+        assert "config:" in DEFAULT_POLICY_TEMPLATE
+
+    def test_policy_template_parses_as_valid_phased_policy(self, tmp_path):
+        """Test default policy template parses without error in discovery."""
+        from vpo.policy.discovery import _parse_policy_file
+
+        policy_path = tmp_path / "default.yaml"
+        policy_path.write_text(DEFAULT_POLICY_TEMPLATE)
+
+        result = _parse_policy_file(policy_path)
+
+        assert result.parse_error is None, f"Template parse error: {result.parse_error}"
+        assert result.schema_version == 12
+        assert result.audio_languages == ["eng", "und"]
+        assert result.subtitle_languages == ["eng", "und"]
+
     def test_profile_template_has_name(self):
         """Test default profile has name field."""
         assert "name: default" in DEFAULT_PROFILE_TEMPLATE
