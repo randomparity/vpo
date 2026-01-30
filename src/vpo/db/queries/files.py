@@ -92,7 +92,7 @@ def upsert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
             scanned_at = excluded.scanned_at,
             scan_status = excluded.scan_status,
             scan_error = excluded.scan_error,
-            job_id = excluded.job_id,
+            job_id = COALESCE(files.job_id, excluded.job_id),
             plugin_metadata = excluded.plugin_metadata
         RETURNING id
         """,
