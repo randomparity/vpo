@@ -206,10 +206,7 @@ def create_app(
         # - create_schema uses executescript() which commits implicitly
         # - Migrations are idempotent and safe to re-run on failure
         conn = pool.get_connection()
-        try:
-            initialize_database(conn)
-        finally:
-            pool.release_connection(conn)
+        initialize_database(conn)
 
         logger.debug(
             "Created database connection pool for %s with timeout %.1fs",
