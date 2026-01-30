@@ -44,6 +44,7 @@ from .library import (
     get_distinct_audio_languages_typed,
     get_files_filtered,
     get_files_filtered_typed,
+    get_missing_files,
 )
 
 # Plugin data views
@@ -100,6 +101,7 @@ __all__ = [
     "get_distinct_audio_languages_typed",
     "get_files_filtered",
     "get_files_filtered_typed",
+    "get_missing_files",
     # Plugins
     "get_files_with_plugin_data",
     "get_plugin_data_for_file",

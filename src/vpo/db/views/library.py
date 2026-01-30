@@ -212,6 +212,45 @@ def get_files_filtered_typed(
     return [FileListViewItem(**f) for f in result]
 
 
+def get_missing_files(
+    conn: sqlite3.Connection,
+    *,
+    limit: int = 100,
+) -> list[dict]:
+    """Get files with scan_status='missing'.
+
+    Returns files that were previously scanned but are no longer found
+    on the filesystem.
+
+    Args:
+        conn: Database connection.
+        limit: Maximum files to return.
+
+    Returns:
+        List of dicts with id, path, filename, size_bytes, scanned_at.
+    """
+    limit = _clamp_limit(limit)
+
+    query = """
+        SELECT id, path, filename, size_bytes, scanned_at
+        FROM files
+        WHERE scan_status = 'missing'
+        ORDER BY scanned_at DESC
+        LIMIT ?
+    """
+    cursor = conn.execute(query, (limit,))
+    return [
+        {
+            "id": row["id"],
+            "path": row["path"],
+            "filename": row["filename"],
+            "size_bytes": row["size_bytes"],
+            "scanned_at": row["scanned_at"],
+        }
+        for row in cursor.fetchall()
+    ]
+
+
 def get_distinct_audio_languages(
     conn: sqlite3.Connection,
     *,

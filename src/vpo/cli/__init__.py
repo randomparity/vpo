@@ -319,6 +319,7 @@ def _register_commands():
     from vpo.cli.init import init_command
     from vpo.cli.inspect import inspect_command
     from vpo.cli.jobs import jobs_group
+    from vpo.cli.library import library_group
     from vpo.cli.maintain import maintain_group
     from vpo.cli.plugins import plugins
     from vpo.cli.policy import policy_group
@@ -335,6 +336,7 @@ def _register_commands():
     main.add_command(plugins)
     main.add_command(policy_group)
     main.add_command(jobs_group)
+    main.add_command(library_group)
     main.add_command(stats_group)
     main.add_command(profiles_group)
     main.add_command(report_group)
