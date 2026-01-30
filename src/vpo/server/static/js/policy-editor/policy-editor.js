@@ -828,7 +828,8 @@ function announceToScreenReader(message) {
         'audio_language_preference': 'audio-lang-list',
         'subtitle_language_preference': 'subtitle-lang-list',
         'commentary_patterns': 'commentary-patterns-list',
-        'default_flags': 'default-flags-section'
+        'default_flags': 'default-flags-section',
+        'preferred_audio_codec': 'preferred_audio_codec'
     }
 
     /**
