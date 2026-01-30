@@ -478,6 +478,41 @@ async def api_stats_policy_handler(request: web.Request) -> web.Response:
     return web.json_response(asdict(policy))
 
 
+@shutdown_check_middleware
+@database_required_middleware
+async def api_library_distribution_handler(
+    request: web.Request,
+) -> web.Response:
+    """Handle GET /api/stats/library-distribution.
+
+    Returns distribution of container formats, video codecs, and audio codecs
+    across the library for pie chart rendering.
+
+    No query parameters (reflects current library state).
+
+    Returns:
+        JSON response with containers, video_codecs, audio_codecs lists.
+    """
+    from vpo.db.views import get_library_distribution
+
+    pool = request.app.get("connection_pool")
+    conn = pool.get_connection() if pool else None
+    if conn is None:
+        return web.json_response({"error": "Database unavailable"}, status=503)
+
+    try:
+
+        def _query() -> dict:
+            return get_library_distribution(conn)
+
+        distribution = await asyncio.to_thread(_query)
+    finally:
+        if pool:
+            pool.release_connection(conn)
+
+    return web.json_response(asdict(distribution))
+
+
 LIBRARY_TRENDS_ALLOWED_PARAMS = {"since"}
 
 
@@ -539,6 +574,9 @@ def setup_stats_routes(app: web.Application) -> None:
     app.router.add_get("/api/stats/recent", api_stats_recent_handler)
     app.router.add_get("/api/stats/trends", api_stats_trends_handler)
     app.router.add_get("/api/stats/library-trends", api_library_trends_handler)
+    app.router.add_get(
+        "/api/stats/library-distribution", api_library_distribution_handler
+    )
     app.router.add_get("/api/stats/policies", api_stats_policies_handler)
     app.router.add_get("/api/stats/policies/{name}", api_stats_policy_handler)
     app.router.add_get("/api/stats/files/{file_id}", api_stats_file_handler)
