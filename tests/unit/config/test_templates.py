@@ -4,6 +4,7 @@ from pathlib import Path
 
 from vpo.config.templates import (
     DEFAULT_POLICY_TEMPLATE,
+    DEFAULT_PROFILE_TEMPLATE,
     InitializationState,
     InitResult,
     check_initialization_state,
@@ -15,6 +16,7 @@ from vpo.config.templates import (
     validate_data_dir_path,
     write_config_file,
     write_default_policy,
+    write_default_profile,
 )
 
 
@@ -30,12 +32,16 @@ class TestInitializationState:
             policies_dir_exists=True,
             plugins_dir_exists=True,
             default_policy_exists=True,
+            profiles_dir_exists=True,
+            default_profile_exists=True,
             has_partial_state=False,
             existing_files=[],
         )
         assert state.data_dir == Path("/test")
         assert state.is_initialized is True
         assert state.config_exists is True
+        assert state.profiles_dir_exists is True
+        assert state.default_profile_exists is True
 
     def test_default_existing_files(self):
         """Test existing_files defaults to empty list."""
@@ -46,6 +52,8 @@ class TestInitializationState:
             policies_dir_exists=False,
             plugins_dir_exists=False,
             default_policy_exists=False,
+            profiles_dir_exists=False,
+            default_profile_exists=False,
             has_partial_state=False,
         )
         assert state.existing_files == []
@@ -137,6 +145,19 @@ class TestTemplates:
         assert "default_flags:" in DEFAULT_POLICY_TEMPLATE
         assert "set_first_video_default:" in DEFAULT_POLICY_TEMPLATE
 
+    def test_profile_template_has_name(self):
+        """Test default profile has name field."""
+        assert "name: default" in DEFAULT_PROFILE_TEMPLATE
+
+    def test_profile_template_has_default_policy(self):
+        """Test default profile has default_policy field."""
+        assert "default_policy:" in DEFAULT_PROFILE_TEMPLATE
+        assert "policies/default.yaml" in DEFAULT_PROFILE_TEMPLATE
+
+    def test_profile_template_has_header(self):
+        """Test default profile has header comment."""
+        assert "vpo init" in DEFAULT_PROFILE_TEMPLATE
+
 
 class TestCheckInitializationState:
     """Tests for check_initialization_state function."""
@@ -163,6 +184,8 @@ class TestCheckInitializationState:
         (temp_dir / "policies").mkdir()
         (temp_dir / "policies" / "default.yaml").touch()
         (temp_dir / "plugins").mkdir()
+        (temp_dir / "profiles").mkdir()
+        (temp_dir / "profiles" / "default.yaml").touch()
 
         state = check_initialization_state(temp_dir)
         assert state.is_initialized is True
@@ -170,8 +193,10 @@ class TestCheckInitializationState:
         assert state.policies_dir_exists is True
         assert state.plugins_dir_exists is True
         assert state.default_policy_exists is True
+        assert state.profiles_dir_exists is True
+        assert state.default_profile_exists is True
         assert state.has_partial_state is False
-        assert len(state.existing_files) == 4
+        assert len(state.existing_files) == 6
 
     def test_partial_state(self, temp_dir: Path):
         """Test checking a partial state (interrupted init)."""
@@ -322,6 +347,40 @@ class TestWriteDefaultPolicy:
         assert not policy_path.exists()
 
 
+class TestWriteDefaultProfile:
+    """Tests for write_default_profile function."""
+
+    def test_write_profile(self, temp_dir: Path):
+        """Test writing default profile."""
+        success, error = write_default_profile(temp_dir)
+
+        assert success is True
+        assert error is None
+
+        profile_path = temp_dir / "profiles" / "default.yaml"
+        assert profile_path.exists()
+        content = profile_path.read_text()
+        assert "name: default" in content
+        assert "default_policy:" in content
+
+    def test_creates_profiles_directory(self, temp_dir: Path):
+        """Test that profiles directory is created."""
+        profiles_dir = temp_dir / "profiles"
+        assert not profiles_dir.exists()
+
+        success, _ = write_default_profile(temp_dir)
+        assert success is True
+        assert profiles_dir.exists()
+
+    def test_dry_run_does_not_write(self, temp_dir: Path):
+        """Test dry run doesn't write file."""
+        success, error = write_default_profile(temp_dir, dry_run=True)
+
+        assert success is True
+        profile_path = temp_dir / "profiles" / "default.yaml"
+        assert not profile_path.exists()
+
+
 class TestCreatePluginsDirectory:
     """Tests for create_plugins_directory function."""
 
@@ -389,6 +448,7 @@ class TestRunInit:
         assert (data_dir / "policies" / "default.yaml").exists()
         assert (data_dir / "plugins").exists()
         assert (data_dir / "logs").exists()
+        assert (data_dir / "profiles" / "default.yaml").exists()
 
     def test_already_initialized_error(self, temp_dir: Path):
         """Test error when already initialized."""
@@ -480,4 +540,26 @@ class TestRunInit:
             # config.toml should have been rolled back (removed)
             assert not (data_dir / "config.toml").exists()
             # policies/default.yaml should have been rolled back (removed)
+            assert not (data_dir / "policies" / "default.yaml").exists()
+            # profiles/default.yaml should not exist (never reached)
+            assert not (data_dir / "profiles" / "default.yaml").exists()
+
+    def test_rollback_cleans_profile_on_failure(self, temp_dir: Path):
+        """Test that rollback removes profile when profile write fails."""
+        from unittest.mock import patch
+
+        data_dir = temp_dir / "vpo"
+
+        # Mock write_default_profile to fail (after plugins directory succeeds)
+        with patch("vpo.config.templates.write_default_profile") as mock_write:
+            mock_write.return_value = (False, "Simulated profile failure")
+
+            result = run_init(data_dir)
+
+            # Should fail
+            assert result.success is False
+            assert "rolled back" in result.error.lower()
+
+            # Earlier items should have been rolled back
+            assert not (data_dir / "config.toml").exists()
             assert not (data_dir / "policies" / "default.yaml").exists()

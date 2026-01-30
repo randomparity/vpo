@@ -39,6 +39,12 @@ class InitializationState:
     default_policy_exists: bool
     """True if policies/default.yaml exists."""
 
+    profiles_dir_exists: bool
+    """True if profiles/ directory exists."""
+
+    default_profile_exists: bool
+    """True if profiles/default.yaml exists."""
+
     has_partial_state: bool
     """True if directory exists but is incomplete (interrupted init)."""
 
@@ -315,6 +321,24 @@ default_flags:
 
 
 # =============================================================================
+# Default Profile Template
+# =============================================================================
+
+DEFAULT_PROFILE_TEMPLATE = """\
+# Default VPO profile
+#
+# This profile was created by 'vpo init'. It designates the default policy
+# and can be extended with tool paths, behavior settings, and more.
+#
+# For more profiles, create additional YAML files in this directory
+# and use: vpo serve --profile <name>
+
+name: default
+default_policy: ~/.vpo/policies/default.yaml
+"""
+
+
+# =============================================================================
 # Initialization Functions
 # =============================================================================
 
@@ -331,18 +355,22 @@ def check_initialization_state(data_dir: Path) -> InitializationState:
     config_path = data_dir / "config.toml"
     policies_dir = data_dir / "policies"
     plugins_dir = data_dir / "plugins"
+    profiles_dir = data_dir / "profiles"
     default_policy = policies_dir / "default.yaml"
+    default_profile = profiles_dir / "default.yaml"
 
     config_exists = config_path.exists()
     policies_dir_exists = policies_dir.exists()
     plugins_dir_exists = plugins_dir.exists()
+    profiles_dir_exists = profiles_dir.exists()
     default_policy_exists = default_policy.exists()
+    default_profile_exists = default_profile.exists()
 
     # Directory exists but config doesn't = partial state (interrupted init)
     has_partial_state = (
         data_dir.exists()
         and not config_exists
-        and (policies_dir_exists or plugins_dir_exists)
+        and (policies_dir_exists or plugins_dir_exists or profiles_dir_exists)
     )
 
     # Collect existing files for reporting
@@ -353,15 +381,21 @@ def check_initialization_state(data_dir: Path) -> InitializationState:
         existing_files.append(policies_dir)
     if plugins_dir_exists:
         existing_files.append(plugins_dir)
+    if profiles_dir_exists:
+        existing_files.append(profiles_dir)
     if default_policy_exists:
         existing_files.append(default_policy)
+    if default_profile_exists:
+        existing_files.append(default_profile)
 
     logger.debug(
-        "Initialization state for %s: config=%s, policies=%s, plugins=%s, partial=%s",
+        "Initialization state for %s: config=%s, policies=%s, plugins=%s, "
+        "profiles=%s, partial=%s",
         data_dir,
         config_exists,
         policies_dir_exists,
         plugins_dir_exists,
+        profiles_dir_exists,
         has_partial_state,
     )
 
@@ -372,6 +406,8 @@ def check_initialization_state(data_dir: Path) -> InitializationState:
         policies_dir_exists=policies_dir_exists,
         plugins_dir_exists=plugins_dir_exists,
         default_policy_exists=default_policy_exists,
+        profiles_dir_exists=profiles_dir_exists,
+        default_profile_exists=default_profile_exists,
         has_partial_state=has_partial_state,
         existing_files=existing_files,
     )
@@ -594,6 +630,41 @@ def write_default_policy(
         return False, f"Cannot create policy file: {e}"
 
 
+def write_default_profile(
+    data_dir: Path, dry_run: bool = False
+) -> tuple[bool, str | None]:
+    """Write the default profile file to the profiles directory.
+
+    Uses atomic write (temp file + rename) to prevent partial writes.
+
+    Args:
+        data_dir: VPO data directory path.
+        dry_run: If True, don't actually write anything.
+
+    Returns:
+        Tuple of (success, error_message). Error is None on success.
+    """
+    profiles_dir = data_dir / "profiles"
+    profile_path = profiles_dir / "default.yaml"
+
+    if dry_run:
+        logger.debug("Would create profiles directory: %s", profiles_dir)
+        logger.debug("Would create default profile: %s", profile_path)
+        return True, None
+
+    try:
+        profiles_dir.mkdir(parents=True, exist_ok=True)
+        logger.debug("Created profiles directory: %s", profiles_dir)
+
+        _atomic_write_text(profile_path, DEFAULT_PROFILE_TEMPLATE)
+        logger.debug("Created default profile: %s", profile_path)
+        return True, None
+    except PermissionError:
+        return False, f"Permission denied: cannot write to {profiles_dir}"
+    except OSError as e:
+        return False, f"Cannot create profile file: {e}"
+
+
 def create_plugins_directory(
     data_dir: Path, dry_run: bool = False
 ) -> tuple[bool, str | None]:
@@ -767,6 +838,28 @@ def run_init(
         planned_directories.append(plugins_dir)
         if not dry_run:
             actually_created_dirs.append(plugins_dir)
+
+    # Create profiles directory and default profile
+    profiles_dir = data_dir / "profiles"
+    profile_path = profiles_dir / "default.yaml"
+    profiles_dir_existed = profiles_dir.exists()
+    profile_existed = profile_path.exists()
+
+    if profiles_dir_existed:
+        skipped_files.append(profiles_dir)
+    if profile_existed:
+        skipped_files.append(profile_path)
+
+    success, error = write_default_profile(data_dir, dry_run)
+    if not success:
+        return handle_failure(error or "Failed to write default profile.")
+    if not profiles_dir_existed:
+        planned_directories.append(profiles_dir)
+        if not dry_run:
+            actually_created_dirs.append(profiles_dir)
+    planned_files.append(profile_path)
+    if not dry_run and not profile_existed:
+        actually_created_files.append(profile_path)
 
     logger.debug(
         "Init completed: created %d files, %d directories",
