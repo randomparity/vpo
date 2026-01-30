@@ -480,6 +480,7 @@ async def api_stats_policy_handler(request: web.Request) -> web.Response:
 
 @shutdown_check_middleware
 @database_required_middleware
+@validate_query_params(frozenset())
 async def api_library_distribution_handler(
     request: web.Request,
 ) -> web.Response:
@@ -506,7 +507,7 @@ async def api_library_distribution_handler(
     return web.json_response(asdict(distribution))
 
 
-LIBRARY_TRENDS_ALLOWED_PARAMS = {"since"}
+LIBRARY_TRENDS_ALLOWED_PARAMS = frozenset({"since"})
 
 
 @shutdown_check_middleware

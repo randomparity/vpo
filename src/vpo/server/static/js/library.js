@@ -10,6 +10,9 @@
 (function () {
     'use strict'
 
+    // Double-init guard
+    let initialized = false
+
     // State
     let currentOffset = 0
     const pageSize = 50
@@ -116,7 +119,7 @@
         // Show status badge for error or missing files
         const showBadge = file.scan_status === 'error' || file.scan_status === 'missing'
 
-        return '<tr' + rowClass + ' data-file-id="' + escapeHtml(String(file.id)) + '" tabindex="0" role="link" style="cursor: pointer;">' +
+        return '<tr' + rowClass + ' data-file-id="' + escapeHtml(String(file.id)) + '" tabindex="0" style="cursor: pointer;">' +
             '<td class="library-filename"' + (hasFullPath ? ' title="' + escapeHtml(file.path) + '"' : '') + '>' +
             escapeHtml(truncatedFilename) +
             (showBadge ? ' ' + createScanStatusBadge(file.scan_status, file.scan_error) : '') +
@@ -621,6 +624,9 @@
      * Initialize the library dashboard.
      */
     async function init() {
+        if (initialized) return
+        initialized = true
+
         // Initialize DOM element references first
         initElements()
 
