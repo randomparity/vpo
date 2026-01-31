@@ -35,24 +35,23 @@ class ProgressDisplay:
         """
         self._enabled = enabled and sys.stdout.isatty()
         self._phase = ""
-        self._last_line_len = 0
+        self._has_output = False
 
     def _write(self, text: str) -> None:
         """Write text to stdout, clearing previous line."""
         if not self._enabled:
             return
-        # Clear previous line and write new text
-        clear = "\r" + " " * self._last_line_len + "\r"
-        sys.stdout.write(clear + text)
+        # \r moves to start of line, \033[K clears to end of line
+        sys.stdout.write(f"\r\033[K{text}")
         sys.stdout.flush()
-        self._last_line_len = len(text)
+        self._has_output = True
 
     def _finish_line(self) -> None:
         """Finish current line with newline."""
-        if self._enabled and self._last_line_len > 0:
+        if self._enabled and self._has_output:
             sys.stdout.write("\n")
             sys.stdout.flush()
-            self._last_line_len = 0
+            self._has_output = False
 
     def on_discover_progress(self, files_found: int, files_per_sec: int) -> None:
         """Called during discovery with count of files found and rate."""
