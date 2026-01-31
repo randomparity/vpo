@@ -158,51 +158,46 @@ class AutoPruneTask:
                 return
 
             conn = pool.get_connection()
+
+            def _do_prune():
+                job = create_prune_job(conn)
+                service = PruneJobService(conn)
+                result = service.process()
+                summary = {"files_pruned": result.files_pruned}
+                complete_prune_job(
+                    conn,
+                    job.id,
+                    summary,
+                    error_message=result.error_message,
+                )
+                return result
+
             try:
+                result = await asyncio.to_thread(_do_prune)
+            except asyncio.CancelledError:
+                return
 
-                def _do_prune():
-                    job = create_prune_job(conn)
-                    service = PruneJobService(conn)
-                    result = service.process()
-                    summary = {"files_pruned": result.files_pruned}
-                    complete_prune_job(
-                        conn,
-                        job.id,
-                        summary,
-                        error_message=result.error_message,
-                    )
-                    return result
+            duration = (datetime.now(timezone.utc) - start_time).total_seconds()
+            async with self._state_lock:
+                self._last_run = start_time
 
-                try:
-                    result = await asyncio.to_thread(_do_prune)
-                except asyncio.CancelledError:
-                    return
+            # Reset failure tracking on success
+            self._consecutive_failures = 0
+            if not self._is_healthy:
+                self._is_healthy = True
+                logger.info("Auto-prune recovered, marking healthy")
 
-                duration = (datetime.now(timezone.utc) - start_time).total_seconds()
-                async with self._state_lock:
-                    self._last_run = start_time
-
-                # Reset failure tracking on success
-                self._consecutive_failures = 0
-                if not self._is_healthy:
-                    self._is_healthy = True
-                    logger.info("Auto-prune recovered, marking healthy")
-
-                if result.files_pruned > 0:
-                    logger.info(
-                        "Auto-prune completed: pruned %d file(s) in %.1f seconds",
-                        result.files_pruned,
-                        duration,
-                    )
-                else:
-                    logger.info(
-                        "Auto-prune completed: no missing files "
-                        "to prune (%.1f seconds)",
-                        duration,
-                    )
-
-            finally:
-                pool.release_connection(conn)
+            if result.files_pruned > 0:
+                logger.info(
+                    "Auto-prune completed: pruned %d file(s) in %.1f seconds",
+                    result.files_pruned,
+                    duration,
+                )
+            else:
+                logger.info(
+                    "Auto-prune completed: no missing files to prune (%.1f seconds)",
+                    duration,
+                )
 
         except asyncio.CancelledError:
             raise
