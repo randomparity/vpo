@@ -11,6 +11,7 @@ and re-exported here for backward compatibility.
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import NamedTuple
 
 # Import domain types for use in this module and re-export for backward compatibility
 from vpo.domain import (
@@ -1216,6 +1217,22 @@ class DuplicateGroup:
     paths: list[str]
 
 
+class ForeignKeyViolation(NamedTuple):
+    """A single foreign key constraint violation from PRAGMA foreign_key_check.
+
+    Attributes:
+        table: Table containing the violation.
+        rowid: Row ID of the violating row.
+        parent: Referenced parent table.
+        fkid: Foreign key constraint index.
+    """
+
+    table: str
+    rowid: int
+    parent: str
+    fkid: int
+
+
 @dataclass
 class IntegrityResult:
     """Result of SQLite integrity and foreign key checks.
@@ -1224,13 +1241,13 @@ class IntegrityResult:
         integrity_ok: True if PRAGMA integrity_check passed.
         integrity_errors: List of error messages from integrity_check.
         foreign_key_ok: True if PRAGMA foreign_key_check passed.
-        foreign_key_errors: List of (table, rowid, parent, fkid) tuples.
+        foreign_key_errors: List of foreign key violations.
     """
 
     integrity_ok: bool
     integrity_errors: list[str]
     foreign_key_ok: bool
-    foreign_key_errors: list[tuple[str, int, str, int]]
+    foreign_key_errors: list[ForeignKeyViolation]
 
 
 @dataclass

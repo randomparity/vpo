@@ -4,14 +4,13 @@ import sqlite3
 
 import pytest
 
+from vpo.db.maintenance import run_integrity_check, run_optimize
 from vpo.db.queries import insert_file, insert_track
 from vpo.db.schema import create_schema
 from vpo.db.types import FileRecord, TrackRecord
 from vpo.db.views.library_info import (
     get_duplicate_files,
     get_library_info,
-    run_integrity_check,
-    run_optimize,
 )
 
 
@@ -20,8 +19,10 @@ def db_conn():
     """Create an in-memory database with schema."""
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     create_schema(conn)
-    return conn
+    yield conn
+    conn.close()
 
 
 def _insert_file(
@@ -118,6 +119,21 @@ class TestGetLibraryInfo:
         # In-memory DB size is derived from page_size * page_count
         assert info.db_size_bytes == info.db_page_size * info.db_page_count
 
+    def test_missing_schema_version_defaults_to_zero(self, db_conn):
+        """Missing schema_version row in _meta should default to 0."""
+        db_conn.execute("DELETE FROM _meta WHERE key = 'schema_version'")
+        info = get_library_info(db_conn)
+        assert info.schema_version == 0
+
+    def test_pending_scan_status_counted(self, db_conn):
+        """Files with scan_status='pending' should be counted."""
+        _insert_file(db_conn, 1, "/media/pending.mkv", scan_status="pending")
+        _insert_file(db_conn, 2, "/media/ok.mkv", scan_status="ok")
+
+        info = get_library_info(db_conn)
+        assert info.files_pending == 1
+        assert info.total_files == 2
+
 
 class TestGetDuplicateFiles:
     """Tests for get_duplicate_files."""
@@ -152,6 +168,14 @@ class TestGetDuplicateFiles:
         groups = get_duplicate_files(db_conn)
         assert groups == []
 
+    def test_excludes_empty_string_hashes(self, db_conn):
+        """Empty-string content_hash should be excluded like NULL."""
+        _insert_file(db_conn, 1, "/media/a.mkv", content_hash="")
+        _insert_file(db_conn, 2, "/media/b.mkv", content_hash="")
+
+        groups = get_duplicate_files(db_conn)
+        assert groups == []
+
     def test_respects_limit(self, db_conn):
         # Create two duplicate groups
         _insert_file(db_conn, 1, "/media/a1.mkv", content_hash="h1", size_bytes=100)
@@ -160,6 +184,23 @@ class TestGetDuplicateFiles:
         _insert_file(db_conn, 4, "/media/b2.mkv", content_hash="h2", size_bytes=200)
 
         groups = get_duplicate_files(db_conn, limit=1)
+        assert len(groups) == 1
+
+    def test_negative_limit_clamped(self, db_conn):
+        """Negative limit should be clamped to 1."""
+        _insert_file(db_conn, 1, "/media/a1.mkv", content_hash="h1", size_bytes=100)
+        _insert_file(db_conn, 2, "/media/a2.mkv", content_hash="h1", size_bytes=100)
+
+        groups = get_duplicate_files(db_conn, limit=-5)
+        # Should still return results (clamped to 1)
+        assert len(groups) == 1
+
+    def test_zero_limit_clamped(self, db_conn):
+        """Zero limit should be clamped to 1."""
+        _insert_file(db_conn, 1, "/media/a1.mkv", content_hash="h1", size_bytes=100)
+        _insert_file(db_conn, 2, "/media/a2.mkv", content_hash="h1", size_bytes=100)
+
+        groups = get_duplicate_files(db_conn, limit=0)
         assert len(groups) == 1
 
     def test_min_group_size(self, db_conn):

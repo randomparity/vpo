@@ -6,10 +6,12 @@ VPO library database.
 
 import json
 import logging
+import sqlite3
 import sys
 
 import click
 
+from vpo.cli.exit_codes import ExitCode
 from vpo.core import format_file_size
 from vpo.db.views import get_missing_files
 
@@ -180,10 +182,12 @@ def prune_command(
     if conn is None:
         raise click.ClickException("Failed to connect to database.")
 
-    # Check for missing files
-    missing = get_missing_files(conn, limit=1000)
+    from vpo.db.views import get_missing_files_count
 
-    if not missing:
+    # Get exact count for confirmation prompt (unlimited)
+    missing_count = get_missing_files_count(conn)
+
+    if missing_count == 0:
         if json_output:
             click.echo(json.dumps({"files_pruned": 0, "dry_run": dry_run}))
         else:
@@ -191,11 +195,13 @@ def prune_command(
         return
 
     if dry_run:
+        # Fetch limited preview of paths
+        missing = get_missing_files(conn, limit=1000)
         if json_output:
             click.echo(
                 json.dumps(
                     {
-                        "files_pruned": len(missing),
+                        "files_pruned": missing_count,
                         "dry_run": True,
                         "files": [{"id": f["id"], "path": f["path"]} for f in missing],
                     },
@@ -203,15 +209,17 @@ def prune_command(
                 )
             )
         else:
-            click.echo(f"Would prune {len(missing)} missing file(s):")
+            click.echo(f"Would prune {missing_count} missing file(s):")
             for f in missing:
                 click.echo(f"  {f['path']}")
+            if missing_count > len(missing):
+                click.echo(f"  ... and {missing_count - len(missing)} more")
         return
 
     # Confirm unless --yes
     if not yes:
         click.confirm(
-            f"Prune {len(missing)} missing file(s) from the database?",
+            f"Prune {missing_count} missing file(s) from the database?",
             abort=True,
         )
 
@@ -219,9 +227,17 @@ def prune_command(
     from vpo.jobs.services.prune import PruneJobService
     from vpo.jobs.tracking import complete_prune_job, create_prune_job
 
-    job = create_prune_job(conn)
-    service = PruneJobService(conn)
-    result = service.process()
+    try:
+        job = create_prune_job(conn)
+        service = PruneJobService(conn)
+        result = service.process()
+    except sqlite3.OperationalError as e:
+        if "locked" in str(e).lower():
+            raise click.ClickException(
+                "Database is locked by another process. "
+                "Close other VPO instances and try again."
+            ) from e
+        raise
 
     summary = {"files_pruned": result.files_pruned}
     complete_prune_job(conn, job.id, summary, error_message=result.error_message)
@@ -239,7 +255,7 @@ def prune_command(
             )
         else:
             click.echo(f"Prune failed: {result.error_message}", err=True)
-        sys.exit(1)
+        sys.exit(ExitCode.OPERATION_FAILED)
 
     if json_output:
         click.echo(json.dumps({"files_pruned": result.files_pruned, "dry_run": False}))
@@ -380,8 +396,6 @@ def optimize_command(
         # Optimize without confirmation
         vpo library optimize --yes
     """
-    import sqlite3
-
     from vpo.db.views import run_optimize
 
     conn = ctx.obj.get("db_conn")
@@ -474,7 +488,15 @@ def verify_command(
     if conn is None:
         raise click.ClickException("Failed to connect to database.")
 
-    result = run_integrity_check(conn)
+    try:
+        result = run_integrity_check(conn)
+    except sqlite3.OperationalError as e:
+        if "locked" in str(e).lower():
+            raise click.ClickException(
+                "Database is locked by another process. "
+                "Close other VPO instances and try again."
+            ) from e
+        raise
 
     if json_output:
         click.echo(
@@ -485,10 +507,10 @@ def verify_command(
                     "foreign_key_ok": result.foreign_key_ok,
                     "foreign_key_errors": [
                         {
-                            "table": e[0],
-                            "rowid": e[1],
-                            "parent": e[2],
-                            "fkid": e[3],
+                            "table": e.table,
+                            "rowid": e.rowid,
+                            "parent": e.parent,
+                            "fkid": e.fkid,
                         }
                         for e in result.foreign_key_errors
                     ],
@@ -508,11 +530,11 @@ def verify_command(
             click.echo("Foreign key check: OK")
         else:
             click.echo("Foreign key check: FAILED")
-            for table, rowid, parent, fkid in result.foreign_key_errors:
-                click.echo(f"  {table} rowid={rowid} -> {parent} (fk={fkid})")
+            for e in result.foreign_key_errors:
+                click.echo(f"  {e.table} rowid={e.rowid} -> {e.parent} (fk={e.fkid})")
 
     if not result.integrity_ok or not result.foreign_key_ok:
-        sys.exit(1)
+        sys.exit(ExitCode.DATABASE_ERROR)
 
 
 @library_group.command("duplicates")

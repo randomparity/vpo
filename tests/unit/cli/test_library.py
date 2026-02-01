@@ -2,14 +2,16 @@
 
 import json
 import sqlite3
+from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
 
 from vpo.cli import main
+from vpo.cli.exit_codes import ExitCode
 from vpo.db.queries import insert_file, insert_track
 from vpo.db.schema import create_schema
-from vpo.db.types import FileRecord, TrackRecord
+from vpo.db.types import FileRecord, ForeignKeyViolation, IntegrityResult, TrackRecord
 from vpo.db.views import get_missing_files
 
 
@@ -18,8 +20,10 @@ def db_conn():
     """Create an in-memory database with schema."""
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     create_schema(conn)
-    return conn
+    yield conn
+    conn.close()
 
 
 @pytest.fixture
@@ -385,6 +389,53 @@ class TestLibraryPruneCommand:
         files = get_missing_files(db_conn)
         assert len(files) == 1
 
+    def test_prune_failure_json(self, runner, db_conn):
+        """Prune failure with JSON output shows error."""
+        _insert_file(db_conn, 1, "/media/missing.mkv", scan_status="missing")
+
+        from vpo.jobs.services.prune import PruneJobResult
+
+        mock_result = PruneJobResult(
+            success=False, files_pruned=0, error_message="disk error"
+        )
+
+        with patch(
+            "vpo.jobs.services.prune.PruneJobService.process",
+            return_value=mock_result,
+        ):
+            result = runner.invoke(
+                main,
+                ["library", "prune", "--yes", "--json"],
+                obj={"db_conn": db_conn},
+            )
+
+        assert result.exit_code == ExitCode.OPERATION_FAILED
+        data = json.loads(result.output)
+        assert data["files_pruned"] == 0
+        assert data["error"] == "disk error"
+
+    def test_prune_failure_human(self, runner, db_conn):
+        """Prune failure with human output shows error on stderr."""
+        _insert_file(db_conn, 1, "/media/missing.mkv", scan_status="missing")
+
+        from vpo.jobs.services.prune import PruneJobResult
+
+        mock_result = PruneJobResult(
+            success=False, files_pruned=0, error_message="disk error"
+        )
+
+        with patch(
+            "vpo.jobs.services.prune.PruneJobService.process",
+            return_value=mock_result,
+        ):
+            result = runner.invoke(
+                main,
+                ["library", "prune", "--yes"],
+                obj={"db_conn": db_conn},
+            )
+
+        assert result.exit_code == ExitCode.OPERATION_FAILED
+
 
 class TestLibraryVerifyCommand:
     """Tests for vpo library verify command."""
@@ -412,6 +463,53 @@ class TestLibraryVerifyCommand:
         assert data["foreign_key_ok"] is True
         assert data["integrity_errors"] == []
         assert data["foreign_key_errors"] == []
+
+    def test_integrity_failure(self, runner, db_conn):
+        """Integrity check failure produces non-zero exit and error output."""
+        failed_result = IntegrityResult(
+            integrity_ok=False,
+            integrity_errors=["page 42: btree cell underflow"],
+            foreign_key_ok=True,
+            foreign_key_errors=[],
+        )
+
+        with patch("vpo.db.views.run_integrity_check", return_value=failed_result):
+            result = runner.invoke(
+                main,
+                ["library", "verify"],
+                obj={"db_conn": db_conn},
+            )
+
+        assert result.exit_code == ExitCode.DATABASE_ERROR
+        assert "FAILED" in result.output
+        assert "btree cell underflow" in result.output
+
+    def test_fk_failure_json(self, runner, db_conn):
+        """FK violation with JSON output shows structured error."""
+        failed_result = IntegrityResult(
+            integrity_ok=True,
+            integrity_errors=[],
+            foreign_key_ok=False,
+            foreign_key_errors=[
+                ForeignKeyViolation(table="tracks", rowid=99, parent="files", fkid=0)
+            ],
+        )
+
+        with patch("vpo.db.views.run_integrity_check", return_value=failed_result):
+            result = runner.invoke(
+                main,
+                ["library", "verify", "--json"],
+                obj={"db_conn": db_conn},
+            )
+
+        assert result.exit_code == ExitCode.DATABASE_ERROR
+        data = json.loads(result.output)
+        assert data["foreign_key_ok"] is False
+        assert len(data["foreign_key_errors"]) == 1
+        assert data["foreign_key_errors"][0]["table"] == "tracks"
+        assert data["foreign_key_errors"][0]["rowid"] == 99
+        assert data["foreign_key_errors"][0]["parent"] == "files"
+        assert data["foreign_key_errors"][0]["fkid"] == 0
 
 
 class TestLibraryOptimizeCommand:
@@ -555,3 +653,15 @@ class TestScanPruneDeprecation:
         )
         assert result.exit_code == 0
         assert "--prune" not in result.output
+
+    def test_scan_prune_emits_deprecation_warning(self, runner, db_conn, tmp_path):
+        """scan --prune emits deprecation warning."""
+        result = runner.invoke(
+            main,
+            ["scan", "--prune", str(tmp_path)],
+            obj={"db_conn": db_conn},
+        )
+        # CliRunner mixes stderr into output by default.
+        # The deprecation warning should appear in the output.
+        assert "deprecated" in result.output.lower()
+        assert "vpo library prune" in result.output
