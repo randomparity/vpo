@@ -12,7 +12,7 @@ import sys
 import click
 
 from vpo.cli.exit_codes import ExitCode
-from vpo.core import format_file_size
+from vpo.core import format_file_size, truncate_filename
 from vpo.db.views import get_missing_files
 
 logger = logging.getLogger(__name__)
@@ -115,7 +115,7 @@ def missing_command(
     date_width = 20
     size_width = 10
     header = (
-        f"{'Path':<{path_width}}  "
+        f"{'Filename':<{path_width}}  "
         f"{'Last Scanned':<{date_width}}  "
         f"{'Size':>{size_width}}"
     )
@@ -123,9 +123,7 @@ def missing_command(
     click.echo("\u2500" * len(header))
 
     for f in files:
-        path = f["path"] or ""
-        if len(path) > path_width:
-            path = "..." + path[-(path_width - 3) :]
+        path = truncate_filename(f["filename"] or f["path"] or "", path_width)
 
         scanned = (f["scanned_at"] or "")[:19].replace("T", " ")
         size = format_file_size(f["size_bytes"]) if f["size_bytes"] else "\u2014"
