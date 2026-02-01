@@ -227,6 +227,7 @@ def _run_language_analysis(
     "--prune",
     is_flag=True,
     default=False,
+    hidden=True,
     help="Delete database records for missing files.",
 )
 @click.option(
@@ -299,6 +300,12 @@ def scan(
 
         vpo scan --analyze-languages /media/videos
     """
+    if prune:
+        click.echo(
+            "Warning: --prune is deprecated. Use 'vpo library prune' instead.",
+            err=True,
+        )
+
     from vpo.db.connection import (
         DatabaseLockedError,
         get_connection,

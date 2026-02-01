@@ -15,11 +15,15 @@ from ..types import (
     ActionSummary,
     AnalysisStatusSummary,
     DistributionItem,
+    DuplicateGroup,
     FileAnalysisStatus,
     FileListViewItem,
     FileProcessingHistory,
+    IntegrityResult,
     LanguageOption,
     LibraryDistribution,
+    LibraryInfoView,
+    OptimizeResult,
     PolicyStats,
     ScanErrorView,
     StatsDetailView,
@@ -49,6 +53,14 @@ from .library import (
     get_library_distribution,
     get_missing_files,
     get_missing_files_typed,
+)
+
+# Library info and maintenance views
+from .library_info import (
+    get_duplicate_files,
+    get_library_info,
+    run_integrity_check,
+    run_optimize,
 )
 
 # Plugin data views
@@ -88,11 +100,15 @@ __all__ = [
     "ActionSummary",
     "AnalysisStatusSummary",
     "DistributionItem",
+    "DuplicateGroup",
     "FileAnalysisStatus",
     "FileListViewItem",
     "FileProcessingHistory",
+    "IntegrityResult",
     "LanguageOption",
     "LibraryDistribution",
+    "LibraryInfoView",
+    "OptimizeResult",
     "PolicyStats",
     "ScanErrorView",
     "StatsDetailView",
@@ -117,6 +133,11 @@ __all__ = [
     "get_library_distribution",
     "get_missing_files",
     "get_missing_files_typed",
+    # Library info and maintenance
+    "get_duplicate_files",
+    "get_library_info",
+    "run_integrity_check",
+    "run_optimize",
     # Plugins
     "get_files_with_plugin_data",
     "get_plugin_data_for_file",
