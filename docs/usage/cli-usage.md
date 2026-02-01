@@ -7,7 +7,7 @@ This document describes the VPO command-line interface, including available comm
 
 ## Overview
 
-VPO provides a command-line tool `vpo` with subcommands for scanning and inspecting video files. The CLI outputs human-readable text by default, with JSON output available for scripting.
+VPO provides a command-line tool `vpo` with subcommands for scanning, inspecting, and managing video files. The CLI outputs human-readable text by default, with JSON output available for scripting.
 
 ```bash
 vpo [OPTIONS] COMMAND [ARGS]...
@@ -44,9 +44,15 @@ vpo scan [OPTIONS] DIRECTORIES...
 |--------|-------|-------------|
 | `--extensions` | `-e` | Comma-separated list of extensions to scan. Default: `mkv,mp4,avi,webm,m4v,mov` |
 | `--db` | | Custom database path. Default: `~/.vpo/library.db` |
+| `--full` | | Force full scan, bypass incremental detection |
+| `--verify-hash` | | Use content hash for change detection (slower) |
+| `--profile` | | Use named configuration profile from `~/.vpo/profiles/` |
 | `--dry-run` | | Scan without writing to database |
 | `--verbose` | `-v` | Show detailed output including file list |
 | `--json` | | Output results in JSON format |
+| `--analyze-languages` | | Analyze audio tracks for multi-language detection |
+
+> **Deprecated:** The `--prune` flag is deprecated. Use `vpo library prune` instead.
 
 #### Examples
 
@@ -192,6 +198,146 @@ Tracks:
 | `1` | File not found |
 | `2` | ffprobe not installed or not in PATH |
 | `3` | Failed to parse media file |
+
+---
+
+### `vpo library`
+
+Manage the video library database. Subcommands for viewing library status, finding problems, and performing maintenance.
+
+```bash
+vpo library COMMAND [OPTIONS]
+```
+
+#### Subcommands
+
+##### `vpo library info`
+
+Show a summary of the library: file counts by status, track counts by type, database size, and schema version.
+
+```bash
+vpo library info [--json]
+```
+
+**Example output:**
+```text
+Library Summary
+========================================
+
+Files: 1,250
+  OK:      1,200
+  Missing: 45
+  Error:   5
+  Total size: 3.8 TB
+
+Tracks: 4,800
+  Video:      1,250
+  Audio:      2,400
+  Subtitle:   1,100
+  Attachment: 50
+
+Database
+  Size:    48.0 MB
+  Schema:  v26
+  Free:    2.0 MB (reclaimable)
+```
+
+##### `vpo library missing`
+
+List files that were previously scanned but are no longer on disk (`scan_status='missing'`).
+
+```bash
+vpo library missing [--json] [--limit N]
+```
+
+| Option | Description |
+|--------|-------------|
+| `--json` | Output as JSON |
+| `--limit` | Maximum files to return (default: 100) |
+
+##### `vpo library prune`
+
+Remove database records for files with `scan_status='missing'`. This is the replacement for the deprecated `vpo scan --prune` flag.
+
+```bash
+vpo library prune [--dry-run] [--yes] [--json]
+```
+
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--dry-run` | | Show what would be pruned without making changes |
+| `--yes` | `-y` | Skip confirmation prompt |
+| `--json` | | Output as JSON |
+
+```bash
+# Preview what would be pruned
+vpo library prune --dry-run
+
+# Prune without confirmation (for scripts/cron)
+vpo library prune --yes
+
+# JSON output for automation
+vpo library prune --yes --json
+```
+
+##### `vpo library verify`
+
+Run SQLite integrity and foreign key checks on the database. Exits with code 1 if errors are found.
+
+```bash
+vpo library verify [--json]
+```
+
+```bash
+# Quick health check
+vpo library verify
+
+# Machine-readable check
+vpo library verify --json
+```
+
+##### `vpo library optimize`
+
+Compact the database with VACUUM and update query planner statistics with ANALYZE. Requires exclusive database access (no other VPO instances running).
+
+```bash
+vpo library optimize [--dry-run] [--yes] [--json]
+```
+
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--dry-run` | | Show estimated savings without making changes |
+| `--yes` | `-y` | Skip confirmation prompt |
+| `--json` | | Output as JSON |
+
+```bash
+# Check how much space can be reclaimed
+vpo library optimize --dry-run
+
+# Optimize without confirmation
+vpo library optimize --yes
+```
+
+##### `vpo library duplicates`
+
+Find files that share the same content hash. Only files scanned with `--verify-hash` are included (files without a content hash are excluded).
+
+```bash
+vpo library duplicates [--limit N] [--json]
+```
+
+| Option | Description |
+|--------|-------------|
+| `--limit` | Maximum duplicate groups to show (default: 50) |
+| `--json` | Output as JSON |
+
+```bash
+# Find all duplicate groups
+vpo library duplicates
+
+# JSON output with limited results
+vpo library duplicates --limit 10 --json
+```
 
 ---
 
