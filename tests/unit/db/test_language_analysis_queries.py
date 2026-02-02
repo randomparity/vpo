@@ -3,26 +3,13 @@
 import sqlite3
 from datetime import datetime, timezone
 
-import pytest
-
 from vpo.db.queries import (
     get_language_analysis_for_tracks,
     get_language_segments_for_analyses,
     upsert_language_analysis_result,
     upsert_language_segments,
 )
-from vpo.db.schema import create_schema
 from vpo.db.types import LanguageAnalysisResultRecord, LanguageSegmentRecord
-
-
-@pytest.fixture
-def db_conn():
-    """Create an in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
 
 
 def create_file(conn: sqlite3.Connection, path: str) -> int:

@@ -12,22 +12,10 @@ from unittest.mock import patch
 import pytest
 
 from vpo.db.queries import get_file_by_path, insert_file
-from vpo.db.schema import create_schema
 from vpo.db.types import FileRecord
 from vpo.policy.types import PhaseDefinition
 from vpo.workflow.phases.executor.plan_operations import _handle_path_change
 from vpo.workflow.phases.executor.types import PhaseExecutionState
-
-
-@pytest.fixture
-def db_conn():
-    """Create in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    conn.execute("PRAGMA foreign_keys = ON")
-    yield conn
-    conn.close()
 
 
 @pytest.fixture

@@ -1,22 +1,8 @@
 """Tests for library snapshot capture during scan."""
 
-import sqlite3
-
-import pytest
-
 from vpo.db.queries import insert_file
-from vpo.db.schema import create_schema
 from vpo.db.types import FileRecord
 from vpo.scanner.orchestrator import ScannerOrchestrator
-
-
-@pytest.fixture
-def db_conn():
-    """Create an in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    return conn
 
 
 def _insert_test_file(conn, file_id, path, scan_status="ok", size_bytes=1000):

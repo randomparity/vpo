@@ -15,17 +15,6 @@ from vpo.db import (
     insert_track,
     upsert_transcription_result,
 )
-from vpo.db.schema import create_schema
-
-
-@pytest.fixture
-def db_conn():
-    """Create an in-memory database with schema for testing."""
-    conn = sqlite3.connect(":memory:")
-    conn.execute("PRAGMA foreign_keys = ON")
-    create_schema(conn)
-    yield conn
-    conn.close()
 
 
 @pytest.fixture

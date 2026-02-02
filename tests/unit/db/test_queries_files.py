@@ -7,19 +7,7 @@ from pathlib import Path
 import pytest
 
 from vpo.db.queries import get_file_by_path, insert_file, update_file_path
-from vpo.db.schema import create_schema
 from vpo.db.types import FileRecord
-
-
-@pytest.fixture
-def db_conn():
-    """Create an in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    conn.execute("PRAGMA foreign_keys = ON")
-    yield conn
-    conn.close()
 
 
 def create_file(

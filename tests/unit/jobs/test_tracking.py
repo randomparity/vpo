@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+from datetime import datetime, timezone
 
 import pytest
 
@@ -18,6 +19,24 @@ from vpo.jobs.tracking import (
     fail_process_job,
     fail_scan_job,
 )
+
+
+def _insert_dummy_file(conn: sqlite3.Connection) -> int:
+    """Insert a minimal file record and return its rowid."""
+    now = datetime.now(timezone.utc).isoformat()
+    conn.execute(
+        """INSERT INTO files (path, filename, directory, extension,
+           size_bytes, modified_at, scanned_at, scan_status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        ("/videos/movie.mkv", "movie.mkv", "/videos", "mkv", 100, now, now, "ok"),
+    )
+    return conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+
+@pytest.fixture
+def file_id(db_conn: sqlite3.Connection) -> int:
+    """Insert a dummy file record and return its ID for FK-dependent tests."""
+    return _insert_dummy_file(db_conn)
 
 
 class TestCreateScanJob:
@@ -321,17 +340,17 @@ class TestFailScanJob:
 class TestCreateProcessJob:
     """Tests for create_process_job function."""
 
-    def test_creates_job_with_defaults(self, db_conn: sqlite3.Connection):
+    def test_creates_job_with_defaults(self, db_conn: sqlite3.Connection, file_id: int):
         """create_process_job creates a job with default values."""
         job = create_process_job(
             db_conn,
-            file_id=123,
+            file_id=file_id,
             file_path="/videos/movie.mkv",
             policy_name="default.yaml",
         )
 
         assert job.id is not None
-        assert job.file_id == 123
+        assert job.file_id == file_id
         assert job.file_path == "/videos/movie.mkv"
         assert job.job_type == JobType.PROCESS
         assert job.status == JobStatus.RUNNING
@@ -364,12 +383,12 @@ class TestCreateProcessJob:
 
         assert job.batch_id == batch_uuid
 
-    def test_job_persisted_to_database(self, db_conn: sqlite3.Connection):
+    def test_job_persisted_to_database(self, db_conn: sqlite3.Connection, file_id: int):
         """create_process_job persists job to database."""
         batch_uuid = "12345678-1234-1234-1234-123456789abc"
         job = create_process_job(
             db_conn,
-            file_id=456,
+            file_id=file_id,
             file_path="/videos/movie.mkv",
             policy_name="transcode.yaml",
             origin="cli",
@@ -381,7 +400,7 @@ class TestCreateProcessJob:
         row = cursor.fetchone()
 
         assert row is not None
-        assert row["file_id"] == 456
+        assert row["file_id"] == file_id
         assert row["file_path"] == "/videos/movie.mkv"
         assert row["job_type"] == JobType.PROCESS.value
         assert row["status"] == JobStatus.RUNNING.value
@@ -420,7 +439,7 @@ class TestCompleteProcessJob:
         """complete_process_job marks job as COMPLETED on success."""
         job = create_process_job(
             db_conn,
-            file_id=123,
+            file_id=None,
             file_path="/videos/movie.mkv",
             policy_name="default.yaml",
         )
@@ -441,7 +460,7 @@ class TestCompleteProcessJob:
         """complete_process_job marks job as FAILED when success=False."""
         job = create_process_job(
             db_conn,
-            file_id=123,
+            file_id=None,
             file_path="/videos/movie.mkv",
             policy_name="default.yaml",
         )
@@ -466,7 +485,7 @@ class TestCompleteProcessJob:
         """complete_process_job stores summary as JSON."""
         job = create_process_job(
             db_conn,
-            file_id=123,
+            file_id=None,
             file_path="/videos/movie.mkv",
             policy_name="default.yaml",
         )
@@ -493,7 +512,7 @@ class TestCompleteProcessJob:
         """complete_process_job sets completed_at timestamp."""
         job = create_process_job(
             db_conn,
-            file_id=123,
+            file_id=None,
             file_path="/videos/movie.mkv",
             policy_name="default.yaml",
         )
@@ -510,7 +529,7 @@ class TestCompleteProcessJob:
         """complete_process_job sets progress to 100%."""
         job = create_process_job(
             db_conn,
-            file_id=123,
+            file_id=None,
             file_path="/videos/movie.mkv",
             policy_name="default.yaml",
         )
@@ -538,7 +557,7 @@ class TestFailProcessJob:
         """fail_process_job marks job as FAILED."""
         job = create_process_job(
             db_conn,
-            file_id=123,
+            file_id=None,
             file_path="/videos/movie.mkv",
             policy_name="default.yaml",
         )
@@ -553,7 +572,7 @@ class TestFailProcessJob:
         """fail_process_job stores error message."""
         job = create_process_job(
             db_conn,
-            file_id=123,
+            file_id=None,
             file_path="/videos/movie.mkv",
             policy_name="default.yaml",
         )
@@ -570,7 +589,7 @@ class TestFailProcessJob:
         """fail_process_job sets completed_at timestamp."""
         job = create_process_job(
             db_conn,
-            file_id=123,
+            file_id=None,
             file_path="/videos/movie.mkv",
             policy_name="default.yaml",
         )
@@ -598,7 +617,7 @@ class TestCancelProcessJob:
         """cancel_process_job marks job as CANCELLED."""
         job = create_process_job(
             db_conn,
-            file_id=123,
+            file_id=None,
             file_path="/videos/movie.mkv",
             policy_name="default.yaml",
         )
@@ -613,7 +632,7 @@ class TestCancelProcessJob:
         """cancel_process_job uses default cancellation reason."""
         job = create_process_job(
             db_conn,
-            file_id=123,
+            file_id=None,
             file_path="/videos/movie.mkv",
             policy_name="default.yaml",
         )
@@ -630,7 +649,7 @@ class TestCancelProcessJob:
         """cancel_process_job uses custom cancellation reason."""
         job = create_process_job(
             db_conn,
-            file_id=123,
+            file_id=None,
             file_path="/videos/movie.mkv",
             policy_name="default.yaml",
         )
@@ -647,7 +666,7 @@ class TestCancelProcessJob:
         """cancel_process_job sets completed_at timestamp."""
         job = create_process_job(
             db_conn,
-            file_id=123,
+            file_id=None,
             file_path="/videos/movie.mkv",
             policy_name="default.yaml",
         )
@@ -726,7 +745,7 @@ class TestFailJobWithRetry:
         """fail_job_with_retry marks job as failed and returns True."""
         job = create_process_job(
             db_conn,
-            file_id=123,
+            file_id=None,
             file_path="/videos/movie.mkv",
             policy_name="default.yaml",
         )
@@ -748,7 +767,7 @@ class TestFailJobWithRetry:
         """fail_job_with_retry stores the error message."""
         job = create_process_job(
             db_conn,
-            file_id=123,
+            file_id=None,
             file_path="/videos/movie.mkv",
             policy_name="default.yaml",
         )

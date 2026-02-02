@@ -8,25 +8,12 @@ import logging
 import sqlite3
 from datetime import datetime, timezone
 
-import pytest
-
-from vpo.db.schema import create_schema
 from vpo.db.types import (
     LanguageAnalysisResultRecord,
     LanguageSegmentRecord,
     TrackInfo,
 )
 from vpo.workflow.phases.executor.helpers import get_language_results_for_tracks
-
-
-@pytest.fixture
-def db_conn():
-    """Create an in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
 
 
 def create_file(conn: sqlite3.Connection, path: str) -> int:

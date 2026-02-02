@@ -184,6 +184,7 @@ def db_conn() -> sqlite3.Connection:
     """
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     create_schema(conn)
     yield conn
     conn.close()

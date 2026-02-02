@@ -6,22 +6,12 @@ from datetime import datetime, timezone
 import pytest
 
 from vpo.db import PlanStatus
-from vpo.db.schema import create_schema
 from vpo.db.types import PlanRecord
 from vpo.jobs.services.approval import (
     ApprovalResult,
     PlanApprovalService,
     RejectionResult,
 )
-
-
-@pytest.fixture
-def db_conn():
-    """Create an in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    return conn
 
 
 @pytest.fixture
@@ -34,7 +24,7 @@ def insert_test_plan(
     conn: sqlite3.Connection,
     plan_id: str,
     status: PlanStatus = PlanStatus.PENDING,
-    file_id: int | None = 1,
+    file_id: int | None = None,
     file_path: str = "/test/path/file.mkv",
     policy_name: str = "test-policy",
 ) -> None:

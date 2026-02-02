@@ -6,18 +6,8 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from vpo.db.queries import get_all_jobs, insert_job
-from vpo.db.schema import create_schema
 from vpo.db.types import Job, JobStatus, JobType
 from vpo.jobs.maintenance import cleanup_orphaned_cli_jobs, purge_old_jobs
-
-
-@pytest.fixture
-def db_conn():
-    """Create an in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    return conn
 
 
 def create_test_job(

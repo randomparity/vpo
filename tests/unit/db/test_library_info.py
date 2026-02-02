@@ -1,28 +1,12 @@
 """Tests for library info and maintenance view queries."""
 
-import sqlite3
-
-import pytest
-
 from vpo.db.maintenance import run_integrity_check, run_optimize
 from vpo.db.queries import insert_file, insert_track
-from vpo.db.schema import create_schema
 from vpo.db.types import FileRecord, TrackRecord
 from vpo.db.views.library_info import (
     get_duplicate_files,
     get_library_info,
 )
-
-
-@pytest.fixture
-def db_conn():
-    """Create an in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    create_schema(conn)
-    yield conn
-    conn.close()
 
 
 def _insert_file(

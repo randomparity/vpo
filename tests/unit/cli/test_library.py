@@ -1,7 +1,6 @@
 """Tests for the vpo library CLI commands."""
 
 import json
-import sqlite3
 from unittest.mock import patch
 
 import pytest
@@ -10,20 +9,8 @@ from click.testing import CliRunner
 from vpo.cli import main
 from vpo.cli.exit_codes import ExitCode
 from vpo.db.queries import insert_file, insert_track
-from vpo.db.schema import create_schema
 from vpo.db.types import FileRecord, ForeignKeyViolation, IntegrityResult, TrackRecord
 from vpo.db.views import get_missing_files
-
-
-@pytest.fixture
-def db_conn():
-    """Create an in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    create_schema(conn)
-    yield conn
-    conn.close()
 
 
 @pytest.fixture

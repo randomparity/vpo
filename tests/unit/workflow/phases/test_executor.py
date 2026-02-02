@@ -8,14 +8,12 @@ Tests the phase executor including:
 - Error handling and rollback
 """
 
-import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from vpo.db.schema import create_schema
 from vpo.db.types import TrackInfo
 from vpo.executor.transcode import TranscodeResult
 from vpo.policy.types import (
@@ -48,15 +46,6 @@ class MockFileInfo:
     path: Path
     container_format: str
     tracks: list[TrackInfo] = field(default_factory=list)
-
-
-@pytest.fixture
-def db_conn():
-    """Create in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    return conn
 
 
 @pytest.fixture

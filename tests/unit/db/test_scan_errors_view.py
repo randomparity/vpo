@@ -3,21 +3,9 @@
 import sqlite3
 from datetime import datetime, timezone
 
-import pytest
-
 from vpo.db.queries import insert_file, insert_job
-from vpo.db.schema import create_schema
 from vpo.db.types import FileRecord, Job, JobStatus, JobType
 from vpo.db.views import ScanErrorView, get_scan_errors_for_job
-
-
-@pytest.fixture
-def db_conn():
-    """Create an in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    return conn
 
 
 def create_scan_job(conn: sqlite3.Connection, job_id: str = "test-scan-job") -> Job:

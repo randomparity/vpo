@@ -670,7 +670,15 @@ class TestCreateProgressCallback:
     ) -> None:
         """Callback uses actual file duration for progress calculation."""
         worker = JobWorker(conn=db_conn)
-        job = make_test_job(file_id=123)
+        now = datetime.now(timezone.utc).isoformat()
+        db_conn.execute(
+            """INSERT INTO files (path, filename, directory, extension,
+               size_bytes, modified_at, scanned_at, scan_status)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            ("/test/file.mkv", "file.mkv", "/test", "mkv", 100, now, now, "ok"),
+        )
+        fid = db_conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        job = make_test_job(file_id=fid)
         insert_job(db_conn, job)
 
         # Mock video track with known duration

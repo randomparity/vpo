@@ -1,22 +1,7 @@
 """Tests for prune job tracking functions."""
 
-import sqlite3
-
-import pytest
-
-from vpo.db.schema import create_schema
 from vpo.db.types import JobStatus, JobType
 from vpo.jobs.tracking import complete_prune_job, create_prune_job
-
-
-@pytest.fixture
-def db_conn():
-    """Create an in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
 
 
 class TestCreatePruneJob:

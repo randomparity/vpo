@@ -1,22 +1,9 @@
 """Tests for worker prune job processing."""
 
-import sqlite3
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from vpo.db.schema import create_schema
 from vpo.db.types import Job, JobStatus, JobType
 from vpo.jobs.services.prune import PruneJobResult
-
-
-@pytest.fixture
-def db_conn():
-    """Create an in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    return conn
 
 
 def _make_prune_job() -> Job:

@@ -10,21 +10,11 @@ from pathlib import Path
 
 import pytest
 
-from vpo.db.schema import create_schema
 from vpo.db.types import FileInfo, TrackInfo
 from vpo.workflow.phases.context import (
     FileOperationContext,
     OperationContext,
 )
-
-
-@pytest.fixture
-def db_conn():
-    """Create in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    return conn
 
 
 @pytest.fixture

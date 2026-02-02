@@ -1,10 +1,7 @@
 """Unit tests for jobs queue operations."""
 
-import sqlite3
 import uuid
 from datetime import datetime, timedelta, timezone
-
-import pytest
 
 from vpo.db import (
     Job,
@@ -13,7 +10,6 @@ from vpo.db import (
     get_job,
     insert_job,
 )
-from vpo.db.schema import initialize_database
 from vpo.jobs.queue import (
     DEFAULT_HEARTBEAT_TIMEOUT,
     cancel_job,
@@ -26,16 +22,6 @@ from vpo.jobs.queue import (
 )
 
 
-@pytest.fixture
-def db_conn():
-    """Create an in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    initialize_database(conn)
-    yield conn
-    conn.close()
-
-
 def create_test_job(
     status: JobStatus = JobStatus.QUEUED,
     priority: int = 100,
@@ -46,7 +32,7 @@ def create_test_job(
     """Create a test job with defaults."""
     return Job(
         id=str(uuid.uuid4()),
-        file_id=1,
+        file_id=None,
         file_path=file_path,
         job_type=job_type,
         status=status,

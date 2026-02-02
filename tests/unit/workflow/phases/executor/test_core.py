@@ -5,12 +5,10 @@ Tests the core operation execution functions:
 - dispatch_operation: Routes operation types to their specific handlers
 """
 
-import sqlite3
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from vpo.db.schema import create_schema
 from vpo.db.types import TrackInfo
 from vpo.policy.exceptions import PolicyError
 from vpo.policy.types import (
@@ -22,16 +20,6 @@ from vpo.policy.types import (
 )
 from vpo.workflow.phases.executor.core import dispatch_operation, execute_operation
 from vpo.workflow.phases.executor.types import OperationResult, PhaseExecutionState
-
-
-@pytest.fixture
-def db_conn():
-    """Create in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    yield conn
-    conn.close()
 
 
 @pytest.fixture
