@@ -5,7 +5,6 @@ VPO library database.
 """
 
 import json
-import logging
 import sqlite3
 import sys
 
@@ -15,7 +14,17 @@ from vpo.cli.exit_codes import ExitCode
 from vpo.core import format_file_size, truncate_filename
 from vpo.db.views import get_missing_files
 
-logger = logging.getLogger(__name__)
+
+def _get_conn(ctx: click.Context) -> sqlite3.Connection:
+    """Extract the database connection from the Click context.
+
+    Raises:
+        click.ClickException: If no connection is available.
+    """
+    conn = ctx.obj.get("db_conn")
+    if conn is None:
+        raise click.ClickException("Failed to connect to database.")
+    return conn
 
 
 @click.group("library")
@@ -81,9 +90,7 @@ def missing_command(
         # List up to 500 missing files as JSON
         vpo library missing --json --limit 500
     """
-    conn = ctx.obj.get("db_conn")
-    if conn is None:
-        raise click.ClickException("Failed to connect to database.")
+    conn = _get_conn(ctx)
 
     files = get_missing_files(conn, limit=limit)
 
@@ -176,9 +183,7 @@ def prune_command(
         # Prune with JSON output
         vpo library prune --yes --json
     """
-    conn = ctx.obj.get("db_conn")
-    if conn is None:
-        raise click.ClickException("Failed to connect to database.")
+    conn = _get_conn(ctx)
 
     from vpo.db.views import get_missing_files_count
 
@@ -286,9 +291,7 @@ def info_command(
     """
     from vpo.db.views import get_library_info
 
-    conn = ctx.obj.get("db_conn")
-    if conn is None:
-        raise click.ClickException("Failed to connect to database.")
+    conn = _get_conn(ctx)
 
     info = get_library_info(conn)
 
@@ -396,9 +399,7 @@ def optimize_command(
     """
     from vpo.db.views import run_optimize
 
-    conn = ctx.obj.get("db_conn")
-    if conn is None:
-        raise click.ClickException("Failed to connect to database.")
+    conn = _get_conn(ctx)
 
     if dry_run:
         result = run_optimize(conn, dry_run=True)
@@ -482,9 +483,7 @@ def verify_command(
     """
     from vpo.db.views import run_integrity_check
 
-    conn = ctx.obj.get("db_conn")
-    if conn is None:
-        raise click.ClickException("Failed to connect to database.")
+    conn = _get_conn(ctx)
 
     try:
         result = run_integrity_check(conn)
@@ -568,9 +567,7 @@ def duplicates_command(
     """
     from vpo.db.views import get_duplicate_files
 
-    conn = ctx.obj.get("db_conn")
-    if conn is None:
-        raise click.ClickException("Failed to connect to database.")
+    conn = _get_conn(ctx)
 
     groups = get_duplicate_files(conn, limit=limit)
 

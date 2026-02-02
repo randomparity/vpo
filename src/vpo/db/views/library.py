@@ -324,11 +324,7 @@ def get_distinct_audio_languages(
         LIMIT ?
     """
     cursor = conn.execute(query, (limit,))
-    languages = []
-    for (code,) in cursor.fetchall():
-        # Use code as label for now (could map to full names later)
-        languages.append({"code": code, "label": code})
-    return languages
+    return [{"code": row[0], "label": row[0]} for row in cursor.fetchall()]
 
 
 def get_distinct_audio_languages_typed(
