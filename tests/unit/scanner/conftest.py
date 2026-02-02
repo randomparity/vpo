@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
 
 import pytest
 
-from vpo.db import FileRecord, upsert_file
 from vpo.db.types import IntrospectionResult, TrackInfo
 from vpo.scanner.orchestrator import (
     ScannerOrchestrator,
@@ -72,26 +70,15 @@ def mock_hash_results() -> Callable[..., list[dict[str, Any]]]:
 
 
 @pytest.fixture
-def seeded_db(db_conn: sqlite3.Connection) -> sqlite3.Connection:
+def seeded_db(db_conn: sqlite3.Connection, insert_test_file) -> sqlite3.Connection:
     """Database with pre-existing file records."""
-    records = [
-        FileRecord(
-            id=None,
-            path="/media/existing.mkv",
-            filename="existing.mkv",
-            directory="/media",
-            extension="mkv",
-            size_bytes=1000,
-            modified_at=datetime(2024, 1, 1, tzinfo=timezone.utc).isoformat(),
-            content_hash="existing_hash",
-            container_format="matroska",
-            scanned_at=datetime.now(timezone.utc).isoformat(),
-            scan_status="ok",
-            scan_error=None,
-        ),
-    ]
-    for record in records:
-        upsert_file(db_conn, record)
+    insert_test_file(
+        path="/media/existing.mkv",
+        extension="mkv",
+        modified_at="2024-01-01T00:00:00+00:00",
+        content_hash="existing_hash",
+        container_format="matroska",
+    )
     db_conn.commit()
     return db_conn
 

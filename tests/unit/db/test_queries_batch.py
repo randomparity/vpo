@@ -1,44 +1,6 @@
 """Tests for batch file lookup function get_files_by_paths()."""
 
-import sqlite3
-from datetime import datetime, timezone
-
-import pytest
-
-from vpo.db.queries import get_files_by_paths, insert_file
-from vpo.db.schema import create_schema
-from vpo.db.types import FileRecord
-
-
-@pytest.fixture
-def db_conn():
-    """Create an in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
-
-
-def create_file(conn: sqlite3.Connection, path: str) -> int:
-    """Create a file record and return its ID."""
-    file = FileRecord(
-        id=None,
-        path=path,
-        filename=path.split("/")[-1],
-        directory="/".join(path.split("/")[:-1]),
-        extension=".mkv",
-        size_bytes=1000,
-        modified_at=datetime.now(timezone.utc).isoformat(),
-        content_hash=f"hash_{path}",
-        container_format="matroska",
-        scanned_at=datetime.now(timezone.utc).isoformat(),
-        scan_status="ok",
-        scan_error=None,
-        job_id=None,
-        plugin_metadata=None,
-    )
-    return insert_file(conn, file)
+from vpo.db.queries import get_files_by_paths
 
 
 class TestGetFilesByPaths:
@@ -49,10 +11,12 @@ class TestGetFilesByPaths:
         result = get_files_by_paths(db_conn, [])
         assert result == {}
 
-    def test_single_path_found(self, db_conn):
+    def test_single_path_found(self, db_conn, insert_test_file):
         """Single path lookup returns matching record."""
         path = "/media/movies/test.mkv"
-        create_file(db_conn, path)
+        insert_test_file(
+            path=path, content_hash=f"hash_{path}", container_format="matroska"
+        )
 
         result = get_files_by_paths(db_conn, [path])
 
@@ -61,7 +25,7 @@ class TestGetFilesByPaths:
         assert result[path].path == path
         assert result[path].filename == "test.mkv"
 
-    def test_multiple_paths_found(self, db_conn):
+    def test_multiple_paths_found(self, db_conn, insert_test_file):
         """Multiple paths return all matching records."""
         paths = [
             "/media/movies/movie1.mkv",
@@ -69,7 +33,9 @@ class TestGetFilesByPaths:
             "/media/tv/show1.mkv",
         ]
         for path in paths:
-            create_file(db_conn, path)
+            insert_test_file(
+                path=path, content_hash=f"hash_{path}", container_format="matroska"
+            )
 
         result = get_files_by_paths(db_conn, paths)
 
@@ -78,11 +44,15 @@ class TestGetFilesByPaths:
             assert path in result
             assert result[path].path == path
 
-    def test_missing_paths_not_included(self, db_conn):
+    def test_missing_paths_not_included(self, db_conn, insert_test_file):
         """Missing paths are not in result dict."""
         existing_path = "/media/movies/exists.mkv"
         missing_path = "/media/movies/missing.mkv"
-        create_file(db_conn, existing_path)
+        insert_test_file(
+            path=existing_path,
+            content_hash=f"hash_{existing_path}",
+            container_format="matroska",
+        )
 
         result = get_files_by_paths(db_conn, [existing_path, missing_path])
 
@@ -97,12 +67,14 @@ class TestGetFilesByPaths:
         )
         assert result == {}
 
-    def test_chunking_with_many_paths(self, db_conn):
+    def test_chunking_with_many_paths(self, db_conn, insert_test_file):
         """Large path lists are chunked correctly."""
         # Create more paths than the default chunk size
         paths = [f"/media/file{i}.mkv" for i in range(1500)]
         for path in paths:
-            create_file(db_conn, path)
+            insert_test_file(
+                path=path, content_hash=f"hash_{path}", container_format="matroska"
+            )
 
         result = get_files_by_paths(db_conn, paths, chunk_size=500)
 
@@ -110,21 +82,25 @@ class TestGetFilesByPaths:
         for path in paths:
             assert path in result
 
-    def test_custom_chunk_size(self, db_conn):
+    def test_custom_chunk_size(self, db_conn, insert_test_file):
         """Custom chunk size is respected."""
         paths = [f"/media/file{i}.mkv" for i in range(10)]
         for path in paths:
-            create_file(db_conn, path)
+            insert_test_file(
+                path=path, content_hash=f"hash_{path}", container_format="matroska"
+            )
 
         # Use very small chunk size to ensure multiple queries
         result = get_files_by_paths(db_conn, paths, chunk_size=3)
 
         assert len(result) == 10
 
-    def test_returns_correct_file_record_fields(self, db_conn):
+    def test_returns_correct_file_record_fields(self, db_conn, insert_test_file):
         """Returned FileRecord has all expected fields."""
         path = "/media/movies/test.mkv"
-        create_file(db_conn, path)
+        insert_test_file(
+            path=path, content_hash=f"hash_{path}", container_format="matroska"
+        )
 
         result = get_files_by_paths(db_conn, [path])
         record = result[path]
@@ -133,15 +109,17 @@ class TestGetFilesByPaths:
         assert record.path == path
         assert record.filename == "test.mkv"
         assert record.directory == "/media/movies"
-        assert record.extension == ".mkv"
+        assert record.extension == "mkv"
         assert record.size_bytes == 1000
         assert record.container_format == "matroska"
         assert record.scan_status == "ok"
 
-    def test_partial_match_with_duplicates_in_input(self, db_conn):
+    def test_partial_match_with_duplicates_in_input(self, db_conn, insert_test_file):
         """Duplicate paths in input don't cause issues."""
         path = "/media/movies/test.mkv"
-        create_file(db_conn, path)
+        insert_test_file(
+            path=path, content_hash=f"hash_{path}", container_format="matroska"
+        )
 
         result = get_files_by_paths(db_conn, [path, path, path])
 

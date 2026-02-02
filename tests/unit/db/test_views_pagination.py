@@ -1,13 +1,5 @@
 """Tests for pagination enforcement in view functions."""
 
-import sqlite3
-from datetime import datetime, timezone
-
-import pytest
-
-from vpo.db.queries import insert_file
-from vpo.db.schema import create_schema
-from vpo.db.types import FileRecord
 from vpo.db.views import (
     DEFAULT_PAGE_SIZE,
     MAX_PAGE_SIZE,
@@ -16,37 +8,6 @@ from vpo.db.views import (
     get_files_with_plugin_data,
     get_files_with_transcriptions,
 )
-
-
-@pytest.fixture
-def db_conn():
-    """Create an in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
-
-
-def create_file(conn: sqlite3.Connection, index: int) -> int:
-    """Create a file record and return its ID."""
-    file = FileRecord(
-        id=None,
-        path=f"/media/movies/file{index}.mkv",
-        filename=f"file{index}.mkv",
-        directory="/media/movies",
-        extension=".mkv",
-        size_bytes=1000 + index,
-        modified_at=datetime.now(timezone.utc).isoformat(),
-        content_hash=f"hash{index}",
-        container_format="matroska",
-        scanned_at=datetime.now(timezone.utc).isoformat(),
-        scan_status="ok",
-        scan_error=None,
-        job_id=None,
-        plugin_metadata=None,
-    )
-    return insert_file(conn, file)
 
 
 class TestPaginationConstants:
@@ -101,28 +62,43 @@ class TestClampLimit:
 class TestGetFilesFilteredPagination:
     """Tests for pagination in get_files_filtered."""
 
-    def test_default_limit_applied(self, db_conn):
+    def test_default_limit_applied(self, db_conn, insert_test_file):
         """Default limit is applied when None."""
         # Create more files than DEFAULT_PAGE_SIZE
         for i in range(60):
-            create_file(db_conn, i)
+            insert_test_file(
+                path=f"/media/movies/file{i}.mkv",
+                size_bytes=1000 + i,
+                content_hash=f"hash{i}",
+                container_format="matroska",
+            )
 
         result = get_files_filtered(db_conn, limit=None)
         assert len(result) == DEFAULT_PAGE_SIZE
 
-    def test_explicit_limit_respected(self, db_conn):
+    def test_explicit_limit_respected(self, db_conn, insert_test_file):
         """Explicit limit is respected."""
         for i in range(30):
-            create_file(db_conn, i)
+            insert_test_file(
+                path=f"/media/movies/file{i}.mkv",
+                size_bytes=1000 + i,
+                content_hash=f"hash{i}",
+                container_format="matroska",
+            )
 
         result = get_files_filtered(db_conn, limit=10)
         assert len(result) == 10
 
-    def test_max_limit_enforced(self, db_conn):
+    def test_max_limit_enforced(self, db_conn, insert_test_file):
         """Requests exceeding MAX_PAGE_SIZE are clamped."""
         # Just verify clamping works - don't need 1000+ rows
         for i in range(20):
-            create_file(db_conn, i)
+            insert_test_file(
+                path=f"/media/movies/file{i}.mkv",
+                size_bytes=1000 + i,
+                content_hash=f"hash{i}",
+                container_format="matroska",
+            )
 
         # Request more than max, but only 20 exist
         result = get_files_filtered(db_conn, limit=5000)
@@ -132,18 +108,28 @@ class TestGetFilesFilteredPagination:
 class TestGetFilesWithTranscriptionsPagination:
     """Tests for pagination in get_files_with_transcriptions."""
 
-    def test_default_limit_applied(self, db_conn):
+    def test_default_limit_applied(self, db_conn, insert_test_file):
         """Default limit is applied when None."""
         for i in range(60):
-            create_file(db_conn, i)
+            insert_test_file(
+                path=f"/media/movies/file{i}.mkv",
+                size_bytes=1000 + i,
+                content_hash=f"hash{i}",
+                container_format="matroska",
+            )
 
         result = get_files_with_transcriptions(db_conn, limit=None)
         assert len(result) <= DEFAULT_PAGE_SIZE
 
-    def test_explicit_limit_respected(self, db_conn):
+    def test_explicit_limit_respected(self, db_conn, insert_test_file):
         """Explicit limit is respected."""
         for i in range(30):
-            create_file(db_conn, i)
+            insert_test_file(
+                path=f"/media/movies/file{i}.mkv",
+                size_bytes=1000 + i,
+                content_hash=f"hash{i}",
+                container_format="matroska",
+            )
 
         result = get_files_with_transcriptions(db_conn, limit=10)
         assert len(result) <= 10
@@ -152,19 +138,29 @@ class TestGetFilesWithTranscriptionsPagination:
 class TestGetFilesWithPluginDataPagination:
     """Tests for pagination in get_files_with_plugin_data."""
 
-    def test_default_limit_applied(self, db_conn):
+    def test_default_limit_applied(self, db_conn, insert_test_file):
         """Default limit is applied when None."""
         for i in range(60):
-            create_file(db_conn, i)
+            insert_test_file(
+                path=f"/media/movies/file{i}.mkv",
+                size_bytes=1000 + i,
+                content_hash=f"hash{i}",
+                container_format="matroska",
+            )
 
         # plugin_name is required; results will be empty but limit still applies
         result = get_files_with_plugin_data(db_conn, "test-plugin", limit=None)
         assert len(result) <= DEFAULT_PAGE_SIZE
 
-    def test_explicit_limit_respected(self, db_conn):
+    def test_explicit_limit_respected(self, db_conn, insert_test_file):
         """Explicit limit is respected."""
         for i in range(30):
-            create_file(db_conn, i)
+            insert_test_file(
+                path=f"/media/movies/file{i}.mkv",
+                size_bytes=1000 + i,
+                content_hash=f"hash{i}",
+                container_format="matroska",
+            )
 
         result = get_files_with_plugin_data(db_conn, "test-plugin", limit=10)
         assert len(result) <= 10

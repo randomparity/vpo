@@ -7,14 +7,13 @@ and job processing logic that are not covered by integration tests.
 import signal
 import sqlite3
 import time
-import uuid
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from vpo.db.queries import get_job, insert_job
-from vpo.db.types import Job, JobStatus, JobType
+from vpo.db.types import JobStatus, JobType
 from vpo.jobs.worker import (
     JobWorker,
 )
@@ -31,34 +30,6 @@ def mock_transcode_service():
     with patch("vpo.jobs.worker.TranscodeJobService") as mock_service:
         mock_service.return_value = MagicMock()
         yield mock_service
-
-
-# =============================================================================
-# Fixtures
-# =============================================================================
-
-
-def make_test_job(
-    job_id: str | None = None,
-    job_type: JobType = JobType.TRANSCODE,
-    status: JobStatus = JobStatus.QUEUED,
-    file_path: str = "/test/file.mkv",
-    file_id: int | None = None,
-) -> Job:
-    """Create a test Job instance."""
-    return Job(
-        id=job_id or str(uuid.uuid4()),
-        file_id=file_id,
-        file_path=file_path,
-        job_type=job_type,
-        status=status,
-        priority=100,
-        policy_name="test_policy",
-        policy_json="{}",
-        progress_percent=0.0,
-        progress_json=None,
-        created_at=datetime.now(timezone.utc).isoformat(),
-    )
 
 
 # =============================================================================
@@ -280,11 +251,11 @@ class TestHeartbeatManagement:
             yield
 
     def test_start_heartbeat_creates_thread(
-        self, file_backed_db: sqlite3.Connection
+        self, file_backed_db: sqlite3.Connection, make_job
     ) -> None:
         """Starting heartbeat creates a daemon thread."""
         worker = JobWorker(conn=file_backed_db)
-        job = make_test_job()
+        job = make_job()
         insert_job(file_backed_db, job)
 
         try:
@@ -297,11 +268,11 @@ class TestHeartbeatManagement:
             worker._stop_heartbeat()
 
     def test_stop_heartbeat_terminates_thread(
-        self, file_backed_db: sqlite3.Connection
+        self, file_backed_db: sqlite3.Connection, make_job
     ) -> None:
         """Stopping heartbeat terminates the thread."""
         worker = JobWorker(conn=file_backed_db)
-        job = make_test_job()
+        job = make_job()
         insert_job(file_backed_db, job)
 
         worker._start_heartbeat(job.id)
@@ -319,11 +290,11 @@ class TestHeartbeatManagement:
         )
 
     def test_heartbeat_stop_event_cleared_on_start(
-        self, file_backed_db: sqlite3.Connection
+        self, file_backed_db: sqlite3.Connection, make_job
     ) -> None:
         """Heartbeat stop event is cleared when starting."""
         worker = JobWorker(conn=file_backed_db)
-        job = make_test_job()
+        job = make_job()
         insert_job(file_backed_db, job)
 
         # Set the stop event
@@ -337,10 +308,12 @@ class TestHeartbeatManagement:
         finally:
             worker._stop_heartbeat()
 
-    def test_heartbeat_skipped_for_memory_db(self, db_conn: sqlite3.Connection) -> None:
+    def test_heartbeat_skipped_for_memory_db(
+        self, db_conn: sqlite3.Connection, make_job
+    ) -> None:
         """Heartbeat is skipped when using in-memory database."""
         worker = JobWorker(conn=db_conn)
-        job = make_test_job()
+        job = make_job()
         insert_job(db_conn, job)
 
         # db_conn is in-memory, so db_path will be None
@@ -362,10 +335,12 @@ class TestHeartbeatManagement:
 class TestProcessJob:
     """Tests for JobWorker.process_job method."""
 
-    def test_processes_transcode_job(self, db_conn: sqlite3.Connection) -> None:
+    def test_processes_transcode_job(
+        self, db_conn: sqlite3.Connection, make_job
+    ) -> None:
         """Successfully processes a transcode job."""
         worker = JobWorker(conn=db_conn)
-        job = make_test_job(job_type=JobType.TRANSCODE)
+        job = make_job(job_type=JobType.TRANSCODE)
         insert_job(db_conn, job)
 
         # Mock the transcode service
@@ -386,10 +361,10 @@ class TestProcessJob:
         assert updated is not None
         assert updated.status == JobStatus.COMPLETED
 
-    def test_handles_move_job(self, db_conn: sqlite3.Connection) -> None:
+    def test_handles_move_job(self, db_conn: sqlite3.Connection, make_job) -> None:
         """Handles MOVE job type successfully."""
         worker = JobWorker(conn=db_conn)
-        job = make_test_job(job_type=JobType.MOVE)
+        job = make_job(job_type=JobType.MOVE)
         insert_job(db_conn, job)
 
         mock_result = MagicMock()
@@ -406,10 +381,12 @@ class TestProcessJob:
         assert updated is not None
         assert updated.status == JobStatus.COMPLETED
 
-    def test_increments_files_processed(self, db_conn: sqlite3.Connection) -> None:
+    def test_increments_files_processed(
+        self, db_conn: sqlite3.Connection, make_job
+    ) -> None:
         """Increments files_processed counter after job completion."""
         worker = JobWorker(conn=db_conn)
-        job = make_test_job()
+        job = make_job()
         insert_job(db_conn, job)
 
         initial_count = worker._files_processed
@@ -425,10 +402,12 @@ class TestProcessJob:
 
         assert worker._files_processed == initial_count + 1
 
-    def test_starts_and_stops_heartbeat(self, db_conn: sqlite3.Connection) -> None:
+    def test_starts_and_stops_heartbeat(
+        self, db_conn: sqlite3.Connection, make_job
+    ) -> None:
         """Starts heartbeat at beginning and stops at end of job processing."""
         worker = JobWorker(conn=db_conn)
-        job = make_test_job()
+        job = make_job()
         insert_job(db_conn, job)
 
         heartbeat_started = False
@@ -464,11 +443,11 @@ class TestProcessJob:
         assert heartbeat_stopped is True
 
     def test_handles_exception_during_processing(
-        self, db_conn: sqlite3.Connection
+        self, db_conn: sqlite3.Connection, make_job
     ) -> None:
         """Handles exception during job processing gracefully."""
         worker = JobWorker(conn=db_conn)
-        job = make_test_job()
+        job = make_job()
         insert_job(db_conn, job)
 
         with patch.object(worker._transcode_service, "process") as mock_process:
@@ -482,11 +461,11 @@ class TestProcessJob:
         assert "Unexpected error" in updated.error_message
 
     def test_clears_current_job_on_completion(
-        self, db_conn: sqlite3.Connection
+        self, db_conn: sqlite3.Connection, make_job
     ) -> None:
         """Clears _current_job after processing completes."""
         worker = JobWorker(conn=db_conn)
-        job = make_test_job()
+        job = make_job()
         insert_job(db_conn, job)
 
         mock_result = MagicMock()
@@ -500,10 +479,12 @@ class TestProcessJob:
 
         assert worker._current_job is None
 
-    def test_clears_current_job_on_exception(self, db_conn: sqlite3.Connection) -> None:
+    def test_clears_current_job_on_exception(
+        self, db_conn: sqlite3.Connection, make_job
+    ) -> None:
         """Clears _current_job even when exception occurs."""
         worker = JobWorker(conn=db_conn)
-        job = make_test_job()
+        job = make_job()
         insert_job(db_conn, job)
 
         with patch.object(worker._transcode_service, "process") as mock_process:
@@ -639,10 +620,12 @@ class TestGetFileDuration:
 class TestCreateProgressCallback:
     """Tests for JobWorker._create_progress_callback method."""
 
-    def test_callback_updates_job_progress(self, db_conn: sqlite3.Connection) -> None:
+    def test_callback_updates_job_progress(
+        self, db_conn: sqlite3.Connection, make_job
+    ) -> None:
         """Progress callback updates job progress in database."""
         worker = JobWorker(conn=db_conn)
-        job = make_test_job()
+        job = make_job()
         insert_job(db_conn, job)
 
         callback = worker._create_progress_callback(job)
@@ -666,11 +649,12 @@ class TestCreateProgressCallback:
         assert updated.progress_percent < 100
 
     def test_callback_uses_actual_duration_when_available(
-        self, db_conn: sqlite3.Connection
+        self, db_conn: sqlite3.Connection, make_job, insert_test_file
     ) -> None:
         """Callback uses actual file duration for progress calculation."""
         worker = JobWorker(conn=db_conn)
-        job = make_test_job(file_id=123)
+        fid = insert_test_file(path="/test/file.mkv")
+        job = make_job(file_id=fid)
         insert_job(db_conn, job)
 
         # Mock video track with known duration
@@ -697,11 +681,11 @@ class TestCreateProgressCallback:
         mock_progress.get_percent.assert_called_with(1800.0)
 
     def test_callback_handles_missing_file_id(
-        self, db_conn: sqlite3.Connection
+        self, db_conn: sqlite3.Connection, make_job
     ) -> None:
         """Callback handles jobs without file_id."""
         worker = JobWorker(conn=db_conn)
-        job = make_test_job()  # file_id is None by default
+        job = make_job()  # file_id is None by default
         insert_job(db_conn, job)
 
         callback = worker._create_progress_callback(job)
@@ -719,10 +703,12 @@ class TestCreateProgressCallback:
         # Should call get_percent with None (no duration available)
         mock_progress.get_percent.assert_called_with(None)
 
-    def test_callback_caps_at_99_9_percent(self, db_conn: sqlite3.Connection) -> None:
+    def test_callback_caps_at_99_9_percent(
+        self, db_conn: sqlite3.Connection, make_job
+    ) -> None:
         """Callback caps progress at 99.9% to avoid premature 100%."""
         worker = JobWorker(conn=db_conn)
-        job = make_test_job()
+        job = make_job()
         insert_job(db_conn, job)
 
         callback = worker._create_progress_callback(job)
@@ -758,12 +744,14 @@ class TestRun:
 
         assert count == 0
 
-    def test_processes_available_jobs(self, db_conn: sqlite3.Connection) -> None:
+    def test_processes_available_jobs(
+        self, db_conn: sqlite3.Connection, make_job
+    ) -> None:
         """Processes available jobs from queue."""
         worker = JobWorker(conn=db_conn)
 
         # Insert a job
-        job = make_test_job()
+        job = make_job()
         insert_job(db_conn, job)
 
         mock_result = MagicMock()
@@ -777,13 +765,15 @@ class TestRun:
 
         assert count == 1
 
-    def test_respects_max_files_limit(self, db_conn: sqlite3.Connection) -> None:
+    def test_respects_max_files_limit(
+        self, db_conn: sqlite3.Connection, make_job
+    ) -> None:
         """Stops after processing max_files jobs."""
         worker = JobWorker(conn=db_conn, max_files=2)
 
         # Insert 5 jobs
         for i in range(5):
-            job = make_test_job(job_id=f"test-job-{i}")
+            job = make_job(id=f"test-job-{i}")
             insert_job(db_conn, job)
 
         mock_result = MagicMock()

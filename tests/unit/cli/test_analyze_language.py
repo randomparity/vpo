@@ -7,7 +7,6 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from click.testing import CliRunner
 
 from vpo.cli import main
 from vpo.cli.analyze_language import (
@@ -15,12 +14,6 @@ from vpo.cli.analyze_language import (
     _check_plugin_available,
     _resolve_files_from_paths,
 )
-
-
-@pytest.fixture
-def runner():
-    """Create a CLI test runner."""
-    return CliRunner()
 
 
 @pytest.fixture

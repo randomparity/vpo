@@ -7,7 +7,7 @@ This document describes common end-to-end workflows for using VPO.
 
 ## Overview
 
-VPO supports a workflow where you first scan your library to build a database of files and tracks, then apply policies to organize and transform your media. This document covers the currently implemented workflows.
+VPO supports a workflow where you first scan your library to build a database of files and tracks, then apply policies to organize and transform your media. Library maintenance commands help you keep the database clean and healthy. This document covers the currently implemented workflows.
 
 ---
 
@@ -99,6 +99,80 @@ vpo scan --json /media/videos > scan_results.json
 
 # Get file details as JSON
 vpo inspect --format json /media/movies/movie.mkv | jq '.tracks[] | select(.type == "audio")'
+```
+
+### Library Maintenance
+
+VPO provides several commands for inspecting and maintaining the library database.
+
+#### Check Library Status
+
+View a summary of your library to understand its composition:
+
+```bash
+vpo library info
+
+# Output:
+# Library Summary
+# ========================================
+#
+# Files: 500
+#   OK:      490
+#   Missing: 8
+#   Error:   2
+#   Total size: 1.5 TB
+#
+# Tracks: 1,800
+#   Video:      500
+#   Audio:      900
+#   Subtitle:   380
+#   Attachment: 20
+#
+# Database
+#   Size:    12.0 MB
+#   Schema:  v26
+```
+
+#### Clean Up Missing Files
+
+After moving or deleting files on disk, scan first to detect missing files, then prune them:
+
+```bash
+# Re-scan to detect missing files
+vpo scan /media/movies
+
+# See which files are missing
+vpo library missing
+
+# Preview what would be removed
+vpo library prune --dry-run
+
+# Remove the stale records
+vpo library prune --yes
+```
+
+#### Find Duplicate Files
+
+If you scanned with `--verify-hash`, you can find files with identical content:
+
+```bash
+# Scan with content hashing enabled
+vpo scan --verify-hash /media/movies
+
+# Find duplicates
+vpo library duplicates
+```
+
+#### Database Maintenance
+
+Periodically verify and compact the database:
+
+```bash
+# Check database integrity
+vpo library verify
+
+# Reclaim unused space
+vpo library optimize --yes
 ```
 
 ---

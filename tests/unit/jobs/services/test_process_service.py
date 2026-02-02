@@ -1,28 +1,17 @@
 """Unit tests for ProcessJobService."""
 
 import json
-import sqlite3
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from vpo.db.schema import create_schema
 from vpo.db.types import Job, JobStatus, JobType
 from vpo.jobs.services.process import (
     ProcessJobResult,
     ProcessJobService,
 )
-
-
-@pytest.fixture
-def db_conn():
-    """Create in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    return conn
 
 
 @pytest.fixture

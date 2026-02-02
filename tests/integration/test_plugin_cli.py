@@ -43,12 +43,6 @@ plugin = TestAnalyzerPlugin()
 
 
 @pytest.fixture
-def runner() -> CliRunner:
-    """Create a CLI runner."""
-    return CliRunner()
-
-
-@pytest.fixture
 def plugin_dir(tmp_path: Path) -> Path:
     """Create a temporary plugin directory."""
     plugin_path = tmp_path / "plugins"

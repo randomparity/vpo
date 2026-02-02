@@ -11,15 +11,22 @@ New code should use the _typed variants that return dataclasses.
 """
 
 # Re-export types for backward compatibility (originally imported in views.py)
+# Database maintenance operations (re-exported for backward compatibility)
+from ..maintenance import run_integrity_check, run_optimize
 from ..types import (
     ActionSummary,
     AnalysisStatusSummary,
     DistributionItem,
+    DuplicateGroup,
     FileAnalysisStatus,
     FileListViewItem,
     FileProcessingHistory,
+    ForeignKeyViolation,
+    IntegrityResult,
     LanguageOption,
     LibraryDistribution,
+    LibraryInfoView,
+    OptimizeResult,
     PolicyStats,
     ScanErrorView,
     StatsDetailView,
@@ -48,7 +55,14 @@ from .library import (
     get_files_filtered_typed,
     get_library_distribution,
     get_missing_files,
+    get_missing_files_count,
     get_missing_files_typed,
+)
+
+# Library info views
+from .library_info import (
+    get_duplicate_files,
+    get_library_info,
 )
 
 # Plugin data views
@@ -88,11 +102,16 @@ __all__ = [
     "ActionSummary",
     "AnalysisStatusSummary",
     "DistributionItem",
+    "DuplicateGroup",
     "FileAnalysisStatus",
     "FileListViewItem",
     "FileProcessingHistory",
+    "ForeignKeyViolation",
+    "IntegrityResult",
     "LanguageOption",
     "LibraryDistribution",
+    "LibraryInfoView",
+    "OptimizeResult",
     "PolicyStats",
     "ScanErrorView",
     "StatsDetailView",
@@ -116,7 +135,13 @@ __all__ = [
     "get_files_filtered_typed",
     "get_library_distribution",
     "get_missing_files",
+    "get_missing_files_count",
     "get_missing_files_typed",
+    # Library info and maintenance
+    "get_duplicate_files",
+    "get_library_info",
+    "run_integrity_check",
+    "run_optimize",
     # Plugins
     "get_files_with_plugin_data",
     "get_plugin_data_for_file",

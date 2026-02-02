@@ -8,14 +8,12 @@ Tests the phase executor including:
 - Error handling and rollback
 """
 
-import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from vpo.db.schema import create_schema
 from vpo.db.types import TrackInfo
 from vpo.executor.transcode import TranscodeResult
 from vpo.policy.types import (
@@ -48,15 +46,6 @@ class MockFileInfo:
     path: Path
     container_format: str
     tracks: list[TrackInfo] = field(default_factory=list)
-
-
-@pytest.fixture
-def db_conn():
-    """Create in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    return conn
 
 
 @pytest.fixture
@@ -127,49 +116,6 @@ def mock_file_info(test_file, mock_tracks):
         container_format="mkv",
         tracks=mock_tracks,
     )
-
-
-def insert_test_file(conn, file_path: Path) -> int:
-    """Insert a test file record and return its ID."""
-    cursor = conn.execute(
-        """
-        INSERT INTO files (
-            path, filename, directory, extension, size_bytes,
-            container_format, modified_at, scanned_at, scan_status
-        )
-        VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), 'complete')
-        """,
-        (
-            str(file_path),
-            file_path.name,
-            str(file_path.parent),
-            file_path.suffix,
-            100,
-            "mkv",
-        ),
-    )
-    conn.commit()
-    return cursor.lastrowid
-
-
-def insert_test_track(
-    conn, file_id: int, index: int, track_type: str, language: str = "eng"
-) -> int:
-    """Insert a test track record and return its ID."""
-    codec = {"video": "h264", "audio": "aac", "subtitle": "srt"}.get(
-        track_type, "unknown"
-    )
-    cursor = conn.execute(
-        """
-        INSERT INTO tracks (
-            file_id, track_index, track_type, codec, language
-        )
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (file_id, index, track_type, codec, language),
-    )
-    conn.commit()
-    return cursor.lastrowid
 
 
 class TestPhaseExecutorInit:
@@ -425,11 +371,12 @@ class TestDryRunMode:
 
     @patch("vpo.workflow.phases.executor.plan_operations.evaluate_policy")
     def test_dry_run_logs_without_executing(
-        self, mock_evaluate, db_conn, phased_policy, mock_file_info
+        self, mock_evaluate, db_conn, phased_policy, mock_file_info, insert_test_file
     ):
         """Dry-run logs changes but doesn't call executor."""
         # Insert file into database (required for file_id lookup)
-        insert_test_file(db_conn, mock_file_info.path)
+        insert_test_file(path=str(mock_file_info.path), extension="mkv")
+        db_conn.commit()
 
         mock_plan = MagicMock()
         mock_plan.actions = [MagicMock()]
@@ -452,11 +399,12 @@ class TestDryRunMode:
         mock_evaluate.assert_called_once()
 
     def test_dry_run_audio_synthesis_logs_only(
-        self, db_conn, phased_policy, mock_file_info
+        self, db_conn, phased_policy, mock_file_info, insert_test_file
     ):
         """Dry-run for audio synthesis logs without executing."""
         # Insert file into database (required for file_id lookup)
-        insert_test_file(db_conn, mock_file_info.path)
+        insert_test_file(path=str(mock_file_info.path), extension="mkv")
+        db_conn.commit()
 
         executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
@@ -477,30 +425,33 @@ class TestDryRunMode:
         # Returns operation count
         assert result == 2
 
-    def test_dry_run_transcription_logs_only(self, db_conn, phased_policy, test_file):
+    def test_dry_run_transcription_logs_only(
+        self, db_conn, phased_policy, test_file, insert_test_file, insert_test_track
+    ):
         """Dry-run for transcription logs without executing."""
         from unittest.mock import MagicMock
 
         # Insert file and tracks into database (required for context lookup)
         # Transcription requires tracks with duration_seconds set
-        file_id = insert_test_file(db_conn, test_file)
-        insert_test_track(db_conn, file_id, 0, "video")
-        # Insert audio tracks with duration (manually set via SQL)
-        db_conn.execute(
-            """
-            INSERT INTO tracks (
-                file_id, track_index, track_type, codec, language, duration_seconds
-            ) VALUES (?, 1, 'audio', 'aac', 'eng', 120.0)
-            """,
-            (file_id,),
+        file_id = insert_test_file(path=str(test_file), extension="mkv")
+        insert_test_track(
+            file_id=file_id, track_index=0, track_type="video", codec="h264"
         )
-        db_conn.execute(
-            """
-            INSERT INTO tracks (
-                file_id, track_index, track_type, codec, language, duration_seconds
-            ) VALUES (?, 2, 'audio', 'aac', 'spa', 120.0)
-            """,
-            (file_id,),
+        insert_test_track(
+            file_id=file_id,
+            track_index=1,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+            duration_seconds=120.0,
+        )
+        insert_test_track(
+            file_id=file_id,
+            track_index=2,
+            track_type="audio",
+            codec="aac",
+            language="spa",
+            duration_seconds=120.0,
         )
         db_conn.commit()
 
@@ -526,19 +477,21 @@ class TestDryRunMode:
         assert result == 2
 
     def test_transcription_skipped_without_plugin_registry(
-        self, db_conn, phased_policy, test_file
+        self, db_conn, phased_policy, test_file, insert_test_file, insert_test_track
     ):
         """Transcription is skipped when no plugin registry is provided."""
         # Insert file and tracks into database
-        file_id = insert_test_file(db_conn, test_file)
-        insert_test_track(db_conn, file_id, 0, "video")
-        db_conn.execute(
-            """
-            INSERT INTO tracks (
-                file_id, track_index, track_type, codec, language, duration_seconds
-            ) VALUES (?, 1, 'audio', 'aac', 'eng', 120.0)
-            """,
-            (file_id,),
+        file_id = insert_test_file(path=str(test_file), extension="mkv")
+        insert_test_track(
+            file_id=file_id, track_index=0, track_type="video", codec="h264"
+        )
+        insert_test_track(
+            file_id=file_id,
+            track_index=1,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+            duration_seconds=120.0,
         )
         db_conn.commit()
 
@@ -577,11 +530,12 @@ class TestPhaseExecution:
 
     @patch("vpo.workflow.phases.executor.plan_operations.evaluate_policy")
     def test_execute_phase_accumulates_changes(
-        self, mock_evaluate, db_conn, phased_policy, mock_file_info
+        self, mock_evaluate, db_conn, phased_policy, mock_file_info, insert_test_file
     ):
         """Phase accumulates changes from multiple operations."""
         # Insert file into database (required for file_id lookup)
-        insert_test_file(db_conn, mock_file_info.path)
+        insert_test_file(path=str(mock_file_info.path), extension="mkv")
+        db_conn.commit()
 
         mock_plan = MagicMock()
         mock_plan.actions = [MagicMock()]
@@ -1000,13 +954,30 @@ class TestExecuteTranscode:
 class TestGetTracksFromDatabase:
     """Tests for _get_tracks method."""
 
-    def test_get_tracks_success(self, db_conn, phased_policy, test_file):
+    def test_get_tracks_success(
+        self, db_conn, phased_policy, test_file, insert_test_file, insert_test_track
+    ):
         """_get_tracks returns tracks from database."""
         # Insert file and tracks
-        file_id = insert_test_file(db_conn, test_file)
-        insert_test_track(db_conn, file_id, 0, "video")
-        insert_test_track(db_conn, file_id, 1, "audio", "eng")
-        insert_test_track(db_conn, file_id, 2, "subtitle", "eng")
+        file_id = insert_test_file(path=str(test_file), extension="mkv")
+        insert_test_track(
+            file_id=file_id, track_index=0, track_type="video", codec="h264"
+        )
+        insert_test_track(
+            file_id=file_id,
+            track_index=1,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+        )
+        insert_test_track(
+            file_id=file_id,
+            track_index=2,
+            track_type="subtitle",
+            codec="srt",
+            language="eng",
+        )
+        db_conn.commit()
 
         executor = PhaseExecutor(conn=db_conn, policy=phased_policy)
 

@@ -221,6 +221,24 @@ def get_files_filtered_typed(
     return [FileListViewItem(**f) for f in result]
 
 
+def get_missing_files_count(conn: sqlite3.Connection) -> int:
+    """Count files with scan_status='missing'.
+
+    Unlike get_missing_files(), this returns an exact count without a
+    LIMIT, suitable for confirmation prompts where the total matters.
+
+    Args:
+        conn: Database connection.
+
+    Returns:
+        Number of missing files.
+    """
+    row = conn.execute(
+        "SELECT COUNT(*) FROM files WHERE scan_status = 'missing'"
+    ).fetchone()
+    return row[0]
+
+
 def get_missing_files(
     conn: sqlite3.Connection,
     *,
@@ -306,11 +324,7 @@ def get_distinct_audio_languages(
         LIMIT ?
     """
     cursor = conn.execute(query, (limit,))
-    languages = []
-    for (code,) in cursor.fetchall():
-        # Use code as label for now (could map to full names later)
-        languages.append({"code": code, "label": code})
-    return languages
+    return [{"code": row[0], "label": row[0]} for row in cursor.fetchall()]
 
 
 def get_distinct_audio_languages_typed(

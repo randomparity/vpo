@@ -1,6 +1,7 @@
 """Shared test fixtures for Video Policy Orchestrator."""
 
 import json
+import logging
 import os
 import shutil
 import sqlite3
@@ -133,6 +134,38 @@ level = "info"
         yield vpo_data_dir
 
 
+@pytest.fixture(autouse=True)
+def _isolate_logging():
+    """Prevent logging output from contaminating CliRunner results.
+
+    When no log file is configured (the CI default), configure_logging()
+    adds a StreamHandler(sys.stderr).  Click 8.2+ CliRunner mixes stderr
+    into result.output, so ANY log message at INFO+ appears in the CLI
+    output and breaks JSON assertions.
+
+    This fixture sets _logging_configured = True so that _configure_logging()
+    is skipped entirely during CLI invocations — no stderr handler is created
+    and no log output contaminates CliRunner results.  Handlers are cleared
+    to remove any stale references from a previous test's CliRunner.
+    """
+    import vpo.cli as cli_module
+
+    cli_module._logging_configured = True
+    cli_module._startup_logged = True
+
+    root = logging.getLogger()
+    original_handlers = root.handlers[:]
+    original_level = root.level
+    root.handlers.clear()
+
+    yield
+
+    root.handlers[:] = original_handlers
+    root.setLevel(original_level)
+    cli_module._logging_configured = False
+    cli_module._startup_logged = False
+
+
 # =============================================================================
 # Database Fixtures
 # =============================================================================
@@ -150,6 +183,7 @@ def db_conn() -> sqlite3.Connection:
     """
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     create_schema(conn)
     yield conn
     conn.close()
@@ -423,162 +457,6 @@ def make_policy():
     return _make_policy
 
 
-@pytest.fixture
-def make_transcode_result():
-    """Factory for creating TranscodeResult objects with sensible defaults.
-
-    Using this fixture (or spec=TranscodeResult with MagicMock) ensures tests
-    fail if code accesses non-existent attributes on TranscodeResult.
-
-    Example:
-        def test_failure_handling(make_transcode_result):
-            result = make_transcode_result(success=False, error_message="FFmpeg error")
-            assert result.error_message == "FFmpeg error"
-    """
-    from vpo.executor.transcode import TranscodeResult
-
-    def _make_result(
-        success: bool = True,
-        output_path: Path | None = None,
-        error_message: str | None = None,
-        backup_path: Path | None = None,
-    ) -> TranscodeResult:
-        return TranscodeResult(
-            success=success,
-            output_path=output_path,
-            error_message=error_message,
-            backup_path=backup_path,
-        )
-
-    return _make_result
-
-
-# =============================================================================
-# Workflow Phase Execution Fixtures
-# =============================================================================
-
-
-@pytest.fixture
-def make_phase_execution_state():
-    """Factory for creating PhaseExecutionState objects with sensible defaults.
-
-    Creates a mutable execution state for testing phase execution.
-
-    Returns:
-        Callable: Factory function that creates PhaseExecutionState instances.
-
-    Example:
-        def test_phase_state(make_phase_execution_state):
-            state = make_phase_execution_state(
-                file_modified=True,
-                total_changes=5
-            )
-            assert state.file_modified is True
-    """
-    from vpo.policy.types import PhaseDefinition
-    from vpo.workflow.phases.executor.types import PhaseExecutionState
-
-    def _make_state(
-        file_path: Path | str = Path("/videos/movie.mkv"),
-        phase: PhaseDefinition | None = None,
-        backup_path: Path | None = None,
-        operations_completed: list[str] | None = None,
-        file_modified: bool = False,
-        total_changes: int = 0,
-        transcode_skip_reason: str | None = None,
-        encoding_fps: float | None = None,
-        encoding_bitrate_kbps: int | None = None,
-        total_frames: int | None = None,
-        encoder_type: str | None = None,
-        original_mtime: float | None = None,
-    ) -> PhaseExecutionState:
-        if isinstance(file_path, str):
-            file_path = Path(file_path)
-        if phase is None:
-            phase = PhaseDefinition(name="test_phase", conditional=())
-        if operations_completed is None:
-            operations_completed = []
-
-        return PhaseExecutionState(
-            file_path=file_path,
-            phase=phase,
-            backup_path=backup_path,
-            operations_completed=operations_completed,
-            file_modified=file_modified,
-            total_changes=total_changes,
-            transcode_skip_reason=transcode_skip_reason,
-            encoding_fps=encoding_fps,
-            encoding_bitrate_kbps=encoding_bitrate_kbps,
-            total_frames=total_frames,
-            encoder_type=encoder_type,
-            original_mtime=original_mtime,
-        )
-
-    return _make_state
-
-
-@pytest.fixture
-def make_synthesis_plan(make_track_info):
-    """Factory for creating SynthesisPlan objects with sensible defaults.
-
-    Creates a synthesis plan for testing audio synthesis operations.
-
-    Returns:
-        Callable: Factory function that creates SynthesisPlan instances.
-
-    Example:
-        def test_synthesis(make_synthesis_plan):
-            plan = make_synthesis_plan(
-                operations=[...],
-                skipped=[...]
-            )
-            assert plan.has_operations
-    """
-    from vpo.policy.synthesis.models import (
-        SynthesisPlan,
-    )
-
-    def _make_plan(
-        file_id: str = "test-file-uuid",
-        file_path: Path | str = Path("/videos/movie.mkv"),
-        operations: tuple | list | None = None,
-        skipped: tuple | list | None = None,
-        final_track_order: tuple | list | None = None,
-        audio_tracks: tuple | list | None = None,
-    ) -> SynthesisPlan:
-        if isinstance(file_path, str):
-            file_path = Path(file_path)
-        if operations is None:
-            operations = ()
-        if skipped is None:
-            skipped = ()
-        if final_track_order is None:
-            final_track_order = ()
-        if audio_tracks is None:
-            audio_tracks = ()
-
-        # Convert lists to tuples
-        if isinstance(operations, list):
-            operations = tuple(operations)
-        if isinstance(skipped, list):
-            skipped = tuple(skipped)
-        if isinstance(final_track_order, list):
-            final_track_order = tuple(final_track_order)
-        if isinstance(audio_tracks, list):
-            audio_tracks = tuple(audio_tracks)
-
-        return SynthesisPlan(
-            file_id=file_id,
-            file_path=file_path,
-            operations=operations,
-            skipped=skipped,
-            final_track_order=final_track_order,
-            audio_tracks=audio_tracks,
-        )
-
-    return _make_plan
-
-
 # =============================================================================
 # Mocking Fixtures
 # =============================================================================
@@ -618,62 +496,225 @@ def mock_subprocess_run():
     return _mock
 
 
+# =============================================================================
+# CLI Testing Fixtures
+# =============================================================================
+
+
 @pytest.fixture
-def mock_all_phase_handlers():
-    """Mock all phase operation handlers for dispatch testing.
+def runner():
+    """Create a Click CLI test runner."""
+    from click.testing import CliRunner
 
-    Patches all handler functions in workflow.phases.executor.handlers
-    to return success results. Useful for testing dispatch routing
-    without executing actual operations.
+    return CliRunner()
 
-    Returns:
-        Callable: Context manager that yields dict of mock handlers.
 
-    Example:
-        def test_dispatch(mock_all_phase_handlers):
-            with mock_all_phase_handlers() as handlers:
-                # Configure specific handler
-                handlers["execute_transcode"].return_value = 0
-                # ... run dispatch code
-                handlers["execute_transcode"].assert_called_once()
+# =============================================================================
+# Database Record Factories
+# =============================================================================
+#
+# Three abstraction levels for test data:
+#
+# 1. Record factories (make_file_record, make_track_record, make_job):
+#    Create database record dataclasses. Use for tests that need
+#    objects but don't need them persisted.
+#
+# 2. Insertion helpers (insert_test_file, insert_test_track):
+#    Factory + DB insertion. Returns the new row ID. Does NOT commit —
+#    callers manage transactions.
+#
+# 3. Domain model factories (make_file_info, make_track_info — above):
+#    Create domain model objects. Use for business logic / policy tests.
+
+
+@pytest.fixture
+def make_file_record():
+    """Factory for FileRecord with sensible defaults."""
+    from vpo.db.types import FileRecord
+
+    def _make(
+        id: int | None = None,
+        path: str = "/media/test.mkv",
+        filename: str | None = None,
+        directory: str | None = None,
+        extension: str = "mkv",  # no dot — matches scanner convention
+        size_bytes: int = 1000,
+        modified_at: str = "2025-01-15T10:00:00Z",
+        content_hash: str | None = None,
+        container_format: str | None = "mkv",
+        scanned_at: str = "2025-01-15T10:00:00Z",
+        scan_status: str = "ok",
+        scan_error: str | None = None,
+        job_id: str | None = None,
+        plugin_metadata: str | None = None,
+    ) -> FileRecord:
+        if filename is None:
+            filename = path.rsplit("/", 1)[-1]
+        if directory is None:
+            directory = path.rsplit("/", 1)[0] or "/"
+        return FileRecord(
+            id=id,
+            path=path,
+            filename=filename,
+            directory=directory,
+            extension=extension,
+            size_bytes=size_bytes,
+            modified_at=modified_at,
+            content_hash=content_hash,
+            container_format=container_format,
+            scanned_at=scanned_at,
+            scan_status=scan_status,
+            scan_error=scan_error,
+            job_id=job_id,
+            plugin_metadata=plugin_metadata,
+        )
+
+    return _make
+
+
+@pytest.fixture
+def make_track_record():
+    """Factory for TrackRecord with sensible defaults."""
+    from vpo.db.types import TrackRecord
+
+    def _make(
+        file_id: int = 1,
+        track_index: int = 0,
+        track_type: str = "video",
+        codec: str | None = "h264",
+        language: str | None = None,
+        title: str | None = None,
+        is_default: bool = False,
+        is_forced: bool = False,
+        **kwargs,
+    ) -> TrackRecord:
+        return TrackRecord(
+            id=None,
+            file_id=file_id,
+            track_index=track_index,
+            track_type=track_type,
+            codec=codec,
+            language=language,
+            title=title,
+            is_default=is_default,
+            is_forced=is_forced,
+            **kwargs,
+        )
+
+    return _make
+
+
+@pytest.fixture
+def insert_test_file(db_conn, make_file_record):
+    """Create and insert a FileRecord, returning the file ID.
+
+    Does NOT call conn.commit(). Callers that need persistence
+    across rollback boundaries must commit explicitly.
     """
-    from contextlib import contextmanager
-    from unittest.mock import MagicMock, patch
+    from vpo.db.queries import insert_file
 
-    @contextmanager
-    def _mock():
-        handlers = {}
-        patches = []
+    def _insert(**kwargs) -> int:
+        record = make_file_record(**kwargs)
+        return insert_file(db_conn, record)
 
-        # List of handler functions to mock
-        handler_names = [
-            "execute_container",
-            "execute_audio_filter",
-            "execute_subtitle_filter",
-            "execute_attachment_filter",
-            "execute_conditional",
-            "execute_transcode",
-            "execute_audio_synthesis",
-            "execute_metadata",
-            "execute_timestamp",
-            "execute_track_order",
-            "execute_default_flags",
-            "execute_move",
-        ]
+    return _insert
 
-        base_path = "vpo.workflow.phases.executor.core"
 
-        for name in handler_names:
-            mock = MagicMock(return_value=0)
-            patcher = patch(f"{base_path}.{name}", mock)
-            patcher.start()
-            patches.append(patcher)
-            handlers[name] = mock
+@pytest.fixture
+def insert_test_track(db_conn, make_track_record):
+    """Create and insert a TrackRecord, returning the track ID."""
+    from vpo.db.queries import insert_track
 
-        try:
-            yield handlers
-        finally:
-            for patcher in patches:
-                patcher.stop()
+    def _insert(**kwargs) -> int:
+        record = make_track_record(**kwargs)
+        return insert_track(db_conn, record)
 
-    return _mock
+    return _insert
+
+
+@pytest.fixture
+def insert_audio_track(insert_test_track):
+    """Insert an audio track with standard defaults for language analysis tests.
+
+    Wraps insert_test_track with audio-specific defaults so callers
+    only need to specify file_id and the fields they care about.
+    """
+
+    def _insert(
+        file_id: int,
+        track_index: int = 0,
+        language: str = "eng",
+        is_default: bool = True,
+        **kwargs,
+    ) -> int:
+        return insert_test_track(
+            file_id=file_id,
+            track_index=track_index,
+            track_type="audio",
+            codec=kwargs.pop("codec", "aac"),
+            language=language,
+            is_default=is_default,
+            channels=kwargs.pop("channels", 2),
+            channel_layout=kwargs.pop("channel_layout", "stereo"),
+            duration_seconds=kwargs.pop("duration_seconds", 3600.0),
+            **kwargs,
+        )
+
+    return _insert
+
+
+@pytest.fixture
+def make_job():
+    """Factory for Job with sensible defaults."""
+    import uuid
+    from datetime import datetime, timezone
+
+    from vpo.db.types import Job, JobStatus, JobType
+
+    def _make(
+        id: str | None = None,
+        file_id: int | None = None,
+        file_path: str = "/test/file.mkv",
+        job_type: JobType = JobType.TRANSCODE,
+        status: JobStatus = JobStatus.QUEUED,
+        priority: int = 100,
+        policy_name: str | None = "test_policy",
+        policy_json: str = "{}",
+        progress_percent: float = 0.0,
+        progress_json: str | None = None,
+        created_at: str | None = None,
+        **kwargs,
+    ) -> Job:
+        return Job(
+            id=id or str(uuid.uuid4()),
+            file_id=file_id,
+            file_path=file_path,
+            job_type=job_type,
+            status=status,
+            priority=priority,
+            policy_name=policy_name,
+            policy_json=policy_json,
+            progress_percent=progress_percent,
+            progress_json=progress_json,
+            created_at=created_at or datetime.now(timezone.utc).isoformat(),
+            **kwargs,
+        )
+
+    return _make
+
+
+@pytest.fixture
+def insert_test_job(db_conn, make_job):
+    """Create and insert a Job, returning the Job object.
+
+    Does NOT call conn.commit(). Callers that need persistence
+    across rollback boundaries must commit explicitly.
+    """
+    from vpo.db.queries import insert_job
+
+    def _insert(**kwargs):
+        job = make_job(**kwargs)
+        insert_job(db_conn, job)
+        return job
+
+    return _insert

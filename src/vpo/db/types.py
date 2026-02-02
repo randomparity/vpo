@@ -11,6 +11,7 @@ and re-exported here for backward compatibility.
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import NamedTuple
 
 # Import domain types for use in this module and re-export for backward compatibility
 from vpo.domain import (
@@ -1153,3 +1154,116 @@ class TrendDataPoint:
     size_saved: int
     success_count: int
     fail_count: int
+
+
+# ==========================================================================
+# Library Maintenance View Types
+# ==========================================================================
+
+
+@dataclass
+class LibraryInfoView:
+    """Aggregate library statistics for the info command.
+
+    Attributes:
+        total_files: Total number of files in the library.
+        files_ok: Files with scan_status='ok'.
+        files_missing: Files with scan_status='missing'.
+        files_error: Files with scan_status='error'.
+        files_pending: Files with scan_status='pending'.
+        total_size_bytes: Sum of size_bytes for all files.
+        video_tracks: Number of video tracks.
+        audio_tracks: Number of audio tracks.
+        subtitle_tracks: Number of subtitle tracks.
+        attachment_tracks: Number of attachment tracks.
+        db_size_bytes: Database file size in bytes.
+        db_page_size: Database page size in bytes.
+        db_page_count: Total number of database pages.
+        db_freelist_count: Number of free pages in the database.
+        schema_version: Current database schema version.
+    """
+
+    total_files: int
+    files_ok: int
+    files_missing: int
+    files_error: int
+    files_pending: int
+    total_size_bytes: int
+    video_tracks: int
+    audio_tracks: int
+    subtitle_tracks: int
+    attachment_tracks: int
+    db_size_bytes: int
+    db_page_size: int
+    db_page_count: int
+    db_freelist_count: int
+    schema_version: int
+
+
+@dataclass
+class DuplicateGroup:
+    """A group of files sharing the same content_hash.
+
+    Attributes:
+        content_hash: The shared content hash.
+        file_count: Number of files with this hash.
+        total_size_bytes: Total size of all files in the group.
+        paths: List of file paths in the group.
+    """
+
+    content_hash: str
+    file_count: int
+    total_size_bytes: int
+    paths: list[str]
+
+
+class ForeignKeyViolation(NamedTuple):
+    """A single foreign key constraint violation from PRAGMA foreign_key_check.
+
+    Attributes:
+        table: Table containing the violation.
+        rowid: Row ID of the violating row.
+        parent: Referenced parent table.
+        fkid: Foreign key constraint index.
+    """
+
+    table: str
+    rowid: int
+    parent: str
+    fkid: int
+
+
+@dataclass
+class IntegrityResult:
+    """Result of SQLite integrity and foreign key checks.
+
+    Attributes:
+        integrity_ok: True if PRAGMA integrity_check passed.
+        integrity_errors: List of error messages from integrity_check.
+        foreign_key_ok: True if PRAGMA foreign_key_check passed.
+        foreign_key_errors: List of foreign key violations.
+    """
+
+    integrity_ok: bool
+    integrity_errors: list[str]
+    foreign_key_ok: bool
+    foreign_key_errors: list[ForeignKeyViolation]
+
+
+@dataclass
+class OptimizeResult:
+    """Result of a VACUUM + ANALYZE operation.
+
+    Attributes:
+        size_before: Database size in bytes before optimization.
+        size_after: Database size in bytes after optimization.
+        space_saved: Bytes reclaimed by VACUUM.
+        freelist_pages: Number of free pages (before optimization).
+        dry_run: Whether this was a dry-run (no changes made).
+    """
+
+    size_before: int
+    size_after: int
+    space_saved: int
+    freelist_pages: int
+    dry_run: bool

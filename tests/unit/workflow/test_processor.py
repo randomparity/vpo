@@ -7,13 +7,11 @@ Tests the WorkflowProcessor class:
 - Re-introspection after file modifications
 """
 
-import sqlite3
 from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pytest
 
-from vpo.db.schema import create_schema
 from vpo.db.types import FileInfo, TrackInfo
 from vpo.policy.types import (
     GlobalConfig,
@@ -27,16 +25,6 @@ from vpo.policy.types import (
     RunIfCondition,
 )
 from vpo.workflow.processor import WorkflowProcessor
-
-
-@pytest.fixture
-def db_conn():
-    """Create in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    yield conn
-    conn.close()
 
 
 @pytest.fixture

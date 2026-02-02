@@ -1,52 +1,19 @@
 """Tests for library snapshot capture during scan."""
 
-import sqlite3
-
-import pytest
-
-from vpo.db.queries import insert_file
-from vpo.db.schema import create_schema
-from vpo.db.types import FileRecord
 from vpo.scanner.orchestrator import ScannerOrchestrator
-
-
-@pytest.fixture
-def db_conn():
-    """Create an in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    return conn
-
-
-def _insert_test_file(conn, file_id, path, scan_status="ok", size_bytes=1000):
-    """Insert a test file record."""
-    record = FileRecord(
-        id=file_id,
-        path=path,
-        filename=path.split("/")[-1],
-        directory="/media",
-        extension=".mkv",
-        size_bytes=size_bytes,
-        modified_at="2025-01-01T00:00:00Z",
-        content_hash=None,
-        container_format="mkv",
-        scanned_at="2025-01-01T00:00:00Z",
-        scan_status=scan_status,
-        scan_error=None,
-    )
-    return insert_file(conn, record)
 
 
 class TestCaptureLibrarySnapshot:
     """Tests for _capture_library_snapshot."""
 
-    def test_captures_snapshot_with_correct_counts(self, db_conn):
+    def test_captures_snapshot_with_correct_counts(self, db_conn, insert_test_file):
         """Snapshot captures total files, size, and missing/error counts."""
-        _insert_test_file(db_conn, 1, "/media/a.mkv", "ok", 1000)
-        _insert_test_file(db_conn, 2, "/media/b.mkv", "ok", 2000)
-        _insert_test_file(db_conn, 3, "/media/c.mkv", "missing", 500)
-        _insert_test_file(db_conn, 4, "/media/d.mkv", "error", 300)
+        insert_test_file(id=1, path="/media/a.mkv", scan_status="ok", size_bytes=1000)
+        insert_test_file(id=2, path="/media/b.mkv", scan_status="ok", size_bytes=2000)
+        insert_test_file(
+            id=3, path="/media/c.mkv", scan_status="missing", size_bytes=500
+        )
+        insert_test_file(id=4, path="/media/d.mkv", scan_status="error", size_bytes=300)
         db_conn.commit()
 
         scanner = ScannerOrchestrator()

@@ -8,76 +8,12 @@ import logging
 import sqlite3
 from datetime import datetime, timezone
 
-import pytest
-
-from vpo.db.schema import create_schema
 from vpo.db.types import (
     LanguageAnalysisResultRecord,
     LanguageSegmentRecord,
     TrackInfo,
 )
 from vpo.workflow.phases.executor.helpers import get_language_results_for_tracks
-
-
-@pytest.fixture
-def db_conn():
-    """Create an in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
-
-
-def create_file(conn: sqlite3.Connection, path: str) -> int:
-    """Create a file record and return its ID."""
-    cursor = conn.execute(
-        """
-        INSERT INTO files (
-            path, filename, directory, extension, size_bytes,
-            container_format, modified_at, scanned_at, scan_status
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            path,
-            path.split("/")[-1],
-            "/".join(path.split("/")[:-1]),
-            ".mkv",
-            1000,
-            "matroska",
-            datetime.now(timezone.utc).isoformat(),
-            datetime.now(timezone.utc).isoformat(),
-            "ok",
-        ),
-    )
-    conn.commit()
-    return cursor.lastrowid
-
-
-def create_track_record(
-    conn: sqlite3.Connection,
-    file_id: int,
-    track_index: int,
-    track_type: str,
-    language: str = "eng",
-) -> int:
-    """Create a track record and return its ID."""
-    cursor = conn.execute(
-        """
-        INSERT INTO tracks (file_id, track_index, track_type, codec, language)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (
-            file_id,
-            track_index,
-            track_type,
-            "aac" if track_type == "audio" else "h264",
-            language,
-        ),
-    )
-    conn.commit()
-    return cursor.lastrowid
 
 
 def create_language_analysis(
@@ -164,10 +100,21 @@ class TestGetLanguageResultsForTracks:
 
         assert result is None
 
-    def test_no_analysis_results_returns_none(self, db_conn):
+    def test_no_analysis_results_returns_none(
+        self, db_conn, insert_test_file, insert_test_track
+    ):
         """Returns None when no analysis results in database."""
-        file_id = create_file(db_conn, "/media/movies/test.mkv")
-        track_id = create_track_record(db_conn, file_id, 1, "audio", "eng")
+        file_id = insert_test_file(
+            path="/media/movies/test.mkv", container_format="matroska"
+        )
+        track_id = insert_test_track(
+            file_id=file_id,
+            track_index=1,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+        )
+        db_conn.commit()
 
         tracks = [
             TrackInfo(
@@ -179,10 +126,21 @@ class TestGetLanguageResultsForTracks:
 
         assert result is None
 
-    def test_returns_results_with_segments(self, db_conn):
+    def test_returns_results_with_segments(
+        self, db_conn, insert_test_file, insert_test_track
+    ):
         """Returns LanguageAnalysisResult with segments for matching tracks."""
-        file_id = create_file(db_conn, "/media/movies/test.mkv")
-        track_id = create_track_record(db_conn, file_id, 1, "audio", "eng")
+        file_id = insert_test_file(
+            path="/media/movies/test.mkv", container_format="matroska"
+        )
+        track_id = insert_test_track(
+            file_id=file_id,
+            track_index=1,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+        )
+        db_conn.commit()
         create_language_analysis(db_conn, track_id, "eng", 0.85)
 
         tracks = [
@@ -201,12 +159,31 @@ class TestGetLanguageResultsForTracks:
         assert analysis.is_multi_language is True
         assert len(analysis.segments) == 2
 
-    def test_filters_to_audio_tracks_only(self, db_conn):
+    def test_filters_to_audio_tracks_only(
+        self, db_conn, insert_test_file, insert_test_track
+    ):
         """Only queries audio tracks, ignores video and subtitle tracks."""
-        file_id = create_file(db_conn, "/media/movies/test.mkv")
-        video_id = create_track_record(db_conn, file_id, 0, "video")
-        audio_id = create_track_record(db_conn, file_id, 1, "audio", "eng")
-        sub_id = create_track_record(db_conn, file_id, 2, "subtitle", "eng")
+        file_id = insert_test_file(
+            path="/media/movies/test.mkv", container_format="matroska"
+        )
+        video_id = insert_test_track(
+            file_id=file_id, track_index=0, track_type="video", codec="h264"
+        )
+        audio_id = insert_test_track(
+            file_id=file_id,
+            track_index=1,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+        )
+        sub_id = insert_test_track(
+            file_id=file_id,
+            track_index=2,
+            track_type="subtitle",
+            codec="h264",
+            language="eng",
+        )
+        db_conn.commit()
         create_language_analysis(db_conn, audio_id, "eng", 0.85)
 
         tracks = [
@@ -229,11 +206,28 @@ class TestGetLanguageResultsForTracks:
         assert video_id not in result
         assert sub_id not in result
 
-    def test_partial_results_for_multiple_tracks(self, db_conn):
+    def test_partial_results_for_multiple_tracks(
+        self, db_conn, insert_test_file, insert_test_track
+    ):
         """Returns results only for tracks with analysis."""
-        file_id = create_file(db_conn, "/media/movies/test.mkv")
-        audio1_id = create_track_record(db_conn, file_id, 1, "audio", "eng")
-        audio2_id = create_track_record(db_conn, file_id, 2, "audio", "spa")
+        file_id = insert_test_file(
+            path="/media/movies/test.mkv", container_format="matroska"
+        )
+        audio1_id = insert_test_track(
+            file_id=file_id,
+            track_index=1,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+        )
+        audio2_id = insert_test_track(
+            file_id=file_id,
+            track_index=2,
+            track_type="audio",
+            codec="aac",
+            language="spa",
+        )
+        db_conn.commit()
         # Only create analysis for first track
         create_language_analysis(db_conn, audio1_id, "eng", 0.85)
 
@@ -265,10 +259,21 @@ class TestGetLanguageResultsForTracks:
         assert result is None
         assert "No audio tracks with database IDs" in caplog.text
 
-    def test_logs_debug_when_no_analysis_results(self, db_conn, caplog):
+    def test_logs_debug_when_no_analysis_results(
+        self, db_conn, insert_test_file, insert_test_track, caplog
+    ):
         """Verify debug logging when no analysis results in database."""
-        file_id = create_file(db_conn, "/media/movies/test.mkv")
-        track_id = create_track_record(db_conn, file_id, 1, "audio", "eng")
+        file_id = insert_test_file(
+            path="/media/movies/test.mkv", container_format="matroska"
+        )
+        track_id = insert_test_track(
+            file_id=file_id,
+            track_index=1,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+        )
+        db_conn.commit()
 
         tracks = [
             TrackInfo(

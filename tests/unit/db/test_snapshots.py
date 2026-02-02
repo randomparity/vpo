@@ -1,24 +1,10 @@
 """Tests for library snapshot view functions."""
 
-import sqlite3
-
-import pytest
-
-from vpo.db.schema import create_schema
 from vpo.db.views.snapshots import (
     LibrarySnapshotPoint,
     get_library_snapshots,
     insert_library_snapshot,
 )
-
-
-@pytest.fixture
-def db_conn():
-    """Create an in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    return conn
 
 
 class TestInsertLibrarySnapshot:

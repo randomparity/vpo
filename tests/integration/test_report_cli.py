@@ -3,16 +3,7 @@
 import json
 from unittest.mock import patch
 
-import pytest
-from click.testing import CliRunner
-
 from vpo.cli import main
-
-
-@pytest.fixture
-def runner():
-    """Create a CLI runner."""
-    return CliRunner()
 
 
 class TestReportHelp:

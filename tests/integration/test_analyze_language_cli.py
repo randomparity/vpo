@@ -10,7 +10,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
-from click.testing import CliRunner
 
 from vpo.cli import main
 from vpo.db.queries import (
@@ -26,12 +25,6 @@ from vpo.db.views import (
     get_file_analysis_detail,
     get_files_analysis_status,
 )
-
-
-@pytest.fixture
-def runner():
-    """Create a CLI test runner."""
-    return CliRunner()
 
 
 @pytest.fixture
