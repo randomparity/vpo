@@ -10,12 +10,6 @@ from vpo.cli import main
 
 
 @pytest.fixture
-def runner() -> CliRunner:
-    """Create a CLI test runner."""
-    return CliRunner()
-
-
-@pytest.fixture
 def v12_policy(tmp_path: Path) -> Path:
     """Create a V12 policy file (current version) for testing."""
     policy_content = """
