@@ -1,6 +1,7 @@
 """Tests for the vpo library CLI commands."""
 
 import json
+import logging
 import sqlite3
 from unittest.mock import patch
 
@@ -13,6 +14,21 @@ from vpo.db.queries import insert_file, insert_track
 from vpo.db.schema import create_schema
 from vpo.db.types import FileRecord, ForeignKeyViolation, IntegrityResult, TrackRecord
 from vpo.db.views import get_missing_files
+
+
+@pytest.fixture(autouse=True)
+def _clean_logging_handlers():
+    """Remove stale logging handlers to prevent output contamination.
+
+    VPO's CLI configures a StreamHandler on the root logger that persists
+    across tests via a module-level ``_logging_configured`` flag.  On
+    Python 3.10-3.12 the stale handler can write to a previous test's
+    CliRunner stderr, producing logging output that contaminates JSON
+    output parsed by assertions.
+    """
+    logging.getLogger().handlers.clear()
+    yield
+    logging.getLogger().handlers.clear()
 
 
 @pytest.fixture
