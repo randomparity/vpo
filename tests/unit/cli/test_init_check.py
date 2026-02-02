@@ -4,18 +4,12 @@ import os
 from unittest.mock import patch
 
 import pytest
-from click.testing import CliRunner
 
 from vpo.cli import main
 
 
 class TestInitializationCheck:
     """Tests for _check_initialization function."""
-
-    @pytest.fixture
-    def runner(self):
-        """Create a Click test runner."""
-        return CliRunner()
 
     @pytest.fixture
     def temp_data_dir(self, tmp_path):
@@ -95,11 +89,6 @@ class TestInitializationCheck:
 
 class TestInitializationCheckEdgeCases:
     """Edge case tests for initialization check."""
-
-    @pytest.fixture
-    def runner(self):
-        """Create a Click test runner."""
-        return CliRunner()
 
     @pytest.fixture
     def temp_data_dir(self, tmp_path):

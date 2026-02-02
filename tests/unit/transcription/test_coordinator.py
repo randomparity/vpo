@@ -4,14 +4,11 @@ Tests the coordinator layer that uses PluginRegistry instead of
 TranscriptionRegistry for dispatching transcription requests.
 """
 
-import sqlite3
 from datetime import datetime, timezone
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from vpo.db.schema import create_schema
 from vpo.db.types import TrackClassification, TrackInfo
 from vpo.plugin.events import TranscriptionRequestedEvent
 from vpo.plugin.registry import LoadedPlugin, PluginManifest
@@ -31,15 +28,6 @@ from vpo.transcription.models import (
     TranscriptionResult,
 )
 from vpo.transcription.multi_sample import AggregatedResult
-
-
-@pytest.fixture
-def db_conn():
-    """Create in-memory database with schema."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    create_schema(conn)
-    return conn
 
 
 @pytest.fixture
@@ -120,53 +108,6 @@ def create_mock_plugin(
     loaded.events = events
 
     return loaded
-
-
-def insert_test_file(conn: sqlite3.Connection, file_path: Path) -> int:
-    """Insert a test file record and return its ID."""
-    cursor = conn.execute(
-        """
-        INSERT INTO files (
-            path, filename, directory, extension, size_bytes,
-            container_format, modified_at, scanned_at, scan_status
-        )
-        VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), 'complete')
-        """,
-        (
-            str(file_path),
-            file_path.name,
-            str(file_path.parent),
-            file_path.suffix,
-            100,
-            "mkv",
-        ),
-    )
-    conn.commit()
-    return cursor.lastrowid
-
-
-def insert_test_track(
-    conn: sqlite3.Connection,
-    file_id: int,
-    index: int,
-    track_type: str,
-    language: str = "eng",
-) -> int:
-    """Insert a test track record and return its ID."""
-    codec = {"video": "h264", "audio": "aac", "subtitle": "srt"}.get(
-        track_type, "unknown"
-    )
-    cursor = conn.execute(
-        """
-        INSERT INTO tracks (
-            file_id, track_index, track_type, codec, language
-        )
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (file_id, index, track_type, codec, language),
-    )
-    conn.commit()
-    return cursor.lastrowid
 
 
 class TestTranscriptionOptions:
@@ -448,12 +389,25 @@ class TestTranscriptionCoordinatorAnalyzeAndPersist:
     """Tests for analyze_and_persist method."""
 
     def test_persists_result_to_database(
-        self, db_conn, mock_registry, test_file, mock_transcription_result
+        self,
+        db_conn,
+        mock_registry,
+        test_file,
+        mock_transcription_result,
+        insert_test_file,
+        insert_test_track,
     ):
         """analyze_and_persist saves transcription result to database."""
         # Setup: Insert file and track
-        file_id = insert_test_file(db_conn, test_file)
-        track_id = insert_test_track(db_conn, file_id, 1, "audio", "eng")
+        file_id = insert_test_file(path=str(test_file), extension="mkv")
+        track_id = insert_test_track(
+            file_id=file_id,
+            track_index=1,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+        )
+        db_conn.commit()
 
         plugin = create_mock_plugin(
             "whisper-local", transcription_result=mock_transcription_result
@@ -522,11 +476,24 @@ class TestTranscriptionCoordinatorAnalyzeAndPersist:
             )
 
     def test_stores_plugin_name(
-        self, db_conn, mock_registry, test_file, mock_transcription_result
+        self,
+        db_conn,
+        mock_registry,
+        test_file,
+        mock_transcription_result,
+        insert_test_file,
+        insert_test_track,
     ):
         """analyze_and_persist stores plugin name in database."""
-        file_id = insert_test_file(db_conn, test_file)
-        track_id = insert_test_track(db_conn, file_id, 1, "audio", "eng")
+        file_id = insert_test_file(path=str(test_file), extension="mkv")
+        track_id = insert_test_track(
+            file_id=file_id,
+            track_index=1,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+        )
+        db_conn.commit()
 
         plugin = create_mock_plugin(
             "whisper-local", transcription_result=mock_transcription_result
