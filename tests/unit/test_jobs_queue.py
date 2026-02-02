@@ -1,12 +1,9 @@
 """Unit tests for jobs queue operations."""
 
-import uuid
 from datetime import datetime, timedelta, timezone
 
 from vpo.db import (
-    Job,
     JobStatus,
-    JobType,
     get_job,
     insert_job,
 )
@@ -22,35 +19,12 @@ from vpo.jobs.queue import (
 )
 
 
-def create_test_job(
-    status: JobStatus = JobStatus.QUEUED,
-    priority: int = 100,
-    job_type: JobType = JobType.TRANSCODE,
-    file_path: str = "/test/file.mkv",
-    created_at: str | None = None,
-) -> Job:
-    """Create a test job with defaults."""
-    return Job(
-        id=str(uuid.uuid4()),
-        file_id=None,
-        file_path=file_path,
-        job_type=job_type,
-        status=status,
-        priority=priority,
-        policy_name="test_policy",
-        policy_json="{}",
-        progress_percent=0.0,
-        progress_json=None,
-        created_at=created_at or datetime.now(timezone.utc).isoformat(),
-    )
-
-
 class TestClaimNextJob:
     """Tests for claim_next_job function."""
 
-    def test_claims_queued_job(self, db_conn):
+    def test_claims_queued_job(self, db_conn, make_job):
         """Should claim a queued job."""
-        job = create_test_job()
+        job = make_job()
         insert_job(db_conn, job)
         db_conn.commit()
 
@@ -66,10 +40,10 @@ class TestClaimNextJob:
         claimed = claim_next_job(db_conn)
         assert claimed is None
 
-    def test_priority_ordering(self, db_conn):
+    def test_priority_ordering(self, db_conn, make_job):
         """Lower priority number is claimed first."""
-        high_priority = create_test_job(priority=10)
-        low_priority = create_test_job(priority=100)
+        high_priority = make_job(priority=10)
+        low_priority = make_job(priority=100)
 
         insert_job(db_conn, low_priority)
         insert_job(db_conn, high_priority)
@@ -79,13 +53,13 @@ class TestClaimNextJob:
 
         assert claimed.id == high_priority.id
 
-    def test_fifo_for_same_priority(self, db_conn):
+    def test_fifo_for_same_priority(self, db_conn, make_job):
         """Older jobs claimed first for same priority."""
         old_time = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
         new_time = datetime.now(timezone.utc).isoformat()
 
-        old_job = create_test_job(created_at=old_time)
-        new_job = create_test_job(created_at=new_time)
+        old_job = make_job(created_at=old_time)
+        new_job = make_job(created_at=new_time)
 
         insert_job(db_conn, new_job)
         insert_job(db_conn, old_job)
@@ -95,10 +69,10 @@ class TestClaimNextJob:
 
         assert claimed.id == old_job.id
 
-    def test_skips_running_jobs(self, db_conn):
+    def test_skips_running_jobs(self, db_conn, make_job):
         """Doesn't claim already running jobs."""
-        running = create_test_job(status=JobStatus.RUNNING)
-        queued = create_test_job()
+        running = make_job(status=JobStatus.RUNNING)
+        queued = make_job()
 
         insert_job(db_conn, running)
         insert_job(db_conn, queued)
@@ -108,9 +82,9 @@ class TestClaimNextJob:
 
         assert claimed.id == queued.id
 
-    def test_skips_completed_jobs(self, db_conn):
+    def test_skips_completed_jobs(self, db_conn, make_job):
         """Doesn't claim completed jobs."""
-        completed = create_test_job(status=JobStatus.COMPLETED)
+        completed = make_job(status=JobStatus.COMPLETED)
         insert_job(db_conn, completed)
         db_conn.commit()
 
@@ -122,9 +96,9 @@ class TestClaimNextJob:
 class TestReleaseJob:
     """Tests for release_job function."""
 
-    def test_releases_with_completed_status(self, db_conn):
+    def test_releases_with_completed_status(self, db_conn, make_job):
         """Successfully releases job as completed."""
-        job = create_test_job(status=JobStatus.RUNNING)
+        job = make_job(status=JobStatus.RUNNING)
         insert_job(db_conn, job)
 
         result = release_job(db_conn, job.id, JobStatus.COMPLETED)
@@ -134,9 +108,9 @@ class TestReleaseJob:
         assert updated.status == JobStatus.COMPLETED
         assert updated.completed_at is not None
 
-    def test_releases_with_error(self, db_conn):
+    def test_releases_with_error(self, db_conn, make_job):
         """Releases job with error message."""
-        job = create_test_job(status=JobStatus.RUNNING)
+        job = make_job(status=JobStatus.RUNNING)
         insert_job(db_conn, job)
 
         release_job(db_conn, job.id, JobStatus.FAILED, error_message="Test error")
@@ -145,9 +119,9 @@ class TestReleaseJob:
         assert updated.status == JobStatus.FAILED
         assert updated.error_message == "Test error"
 
-    def test_records_output_path(self, db_conn):
+    def test_records_output_path(self, db_conn, make_job):
         """Records output path on success."""
-        job = create_test_job(status=JobStatus.RUNNING)
+        job = make_job(status=JobStatus.RUNNING)
         insert_job(db_conn, job)
 
         release_job(
@@ -162,9 +136,9 @@ class TestReleaseJob:
         result = release_job(db_conn, "nonexistent-id", JobStatus.COMPLETED)
         assert result is False
 
-    def test_records_summary_json(self, db_conn):
+    def test_records_summary_json(self, db_conn, make_job):
         """Records summary_json on completion."""
-        job = create_test_job(status=JobStatus.RUNNING)
+        job = make_job(status=JobStatus.RUNNING)
         insert_job(db_conn, job)
 
         summary = '{"phases_completed": 3, "total_changes": 5}'
@@ -178,9 +152,9 @@ class TestReleaseJob:
         updated = get_job(db_conn, job.id)
         assert updated.summary_json == summary
 
-    def test_set_progress_100_updates_progress(self, db_conn):
+    def test_set_progress_100_updates_progress(self, db_conn, make_job):
         """set_progress_100=True sets progress_percent to 100.0."""
-        job = create_test_job(status=JobStatus.RUNNING)
+        job = make_job(status=JobStatus.RUNNING)
         insert_job(db_conn, job)
 
         # Set partial progress first
@@ -195,9 +169,9 @@ class TestReleaseJob:
         updated = get_job(db_conn, job.id)
         assert updated.progress_percent == 100.0
 
-    def test_set_progress_100_false_preserves_progress(self, db_conn):
+    def test_set_progress_100_false_preserves_progress(self, db_conn, make_job):
         """set_progress_100=False preserves existing progress_percent."""
-        job = create_test_job(status=JobStatus.RUNNING)
+        job = make_job(status=JobStatus.RUNNING)
         insert_job(db_conn, job)
 
         # Set partial progress
@@ -216,9 +190,9 @@ class TestReleaseJob:
 class TestUpdateHeartbeat:
     """Tests for update_heartbeat function."""
 
-    def test_updates_heartbeat(self, db_conn):
+    def test_updates_heartbeat(self, db_conn, make_job):
         """Updates heartbeat timestamp."""
-        job = create_test_job(status=JobStatus.RUNNING)
+        job = make_job(status=JobStatus.RUNNING)
         insert_job(db_conn, job)
 
         result = update_heartbeat(db_conn, job.id, worker_pid=12345)
@@ -228,9 +202,9 @@ class TestUpdateHeartbeat:
         assert updated.worker_pid == 12345
         assert updated.worker_heartbeat is not None
 
-    def test_only_updates_running_jobs(self, db_conn):
+    def test_only_updates_running_jobs(self, db_conn, make_job):
         """Doesn't update heartbeat for non-running jobs."""
-        job = create_test_job(status=JobStatus.QUEUED)
+        job = make_job(status=JobStatus.QUEUED)
         insert_job(db_conn, job)
 
         result = update_heartbeat(db_conn, job.id)
@@ -241,10 +215,10 @@ class TestUpdateHeartbeat:
 class TestRecoverStaleJobs:
     """Tests for recover_stale_jobs function."""
 
-    def test_recovers_stale_jobs(self, db_conn):
+    def test_recovers_stale_jobs(self, db_conn, make_job):
         """Recovers jobs with old heartbeat."""
         # Create a job with old heartbeat
-        job = create_test_job(status=JobStatus.RUNNING)
+        job = make_job(status=JobStatus.RUNNING)
         insert_job(db_conn, job)
 
         # Set old heartbeat directly
@@ -265,9 +239,9 @@ class TestRecoverStaleJobs:
         assert updated.status == JobStatus.QUEUED
         assert updated.worker_pid is None
 
-    def test_does_not_recover_fresh_jobs(self, db_conn):
+    def test_does_not_recover_fresh_jobs(self, db_conn, make_job):
         """Doesn't recover jobs with recent heartbeat."""
-        job = create_test_job(status=JobStatus.RUNNING)
+        job = make_job(status=JobStatus.RUNNING)
         insert_job(db_conn, job)
 
         # Set recent heartbeat
@@ -284,9 +258,9 @@ class TestRecoverStaleJobs:
         updated = get_job(db_conn, job.id)
         assert updated.status == JobStatus.RUNNING
 
-    def test_custom_timeout(self, db_conn):
+    def test_custom_timeout(self, db_conn, make_job):
         """Respects custom timeout value."""
-        job = create_test_job(status=JobStatus.RUNNING)
+        job = make_job(status=JobStatus.RUNNING)
         insert_job(db_conn, job)
 
         # Set heartbeat 10 seconds ago
@@ -320,12 +294,12 @@ class TestGetQueueStats:
         assert "cancelled" in stats
         assert "total" in stats
 
-    def test_counts_correctly(self, db_conn):
+    def test_counts_correctly(self, db_conn, make_job):
         """Counts jobs correctly by status."""
-        insert_job(db_conn, create_test_job(status=JobStatus.QUEUED))
-        insert_job(db_conn, create_test_job(status=JobStatus.QUEUED))
-        insert_job(db_conn, create_test_job(status=JobStatus.RUNNING))
-        insert_job(db_conn, create_test_job(status=JobStatus.COMPLETED))
+        insert_job(db_conn, make_job(status=JobStatus.QUEUED))
+        insert_job(db_conn, make_job(status=JobStatus.QUEUED))
+        insert_job(db_conn, make_job(status=JobStatus.RUNNING))
+        insert_job(db_conn, make_job(status=JobStatus.COMPLETED))
 
         stats = get_queue_stats(db_conn)
 
@@ -339,9 +313,9 @@ class TestGetQueueStats:
 class TestCancelJob:
     """Tests for cancel_job function."""
 
-    def test_cancels_queued_job(self, db_conn):
+    def test_cancels_queued_job(self, db_conn, make_job):
         """Cancels a queued job."""
-        job = create_test_job(status=JobStatus.QUEUED)
+        job = make_job(status=JobStatus.QUEUED)
         insert_job(db_conn, job)
 
         result = cancel_job(db_conn, job.id)
@@ -351,9 +325,9 @@ class TestCancelJob:
         assert updated.status == JobStatus.CANCELLED
         assert updated.completed_at is not None
 
-    def test_cannot_cancel_running_job(self, db_conn):
+    def test_cannot_cancel_running_job(self, db_conn, make_job):
         """Cannot cancel a running job."""
-        job = create_test_job(status=JobStatus.RUNNING)
+        job = make_job(status=JobStatus.RUNNING)
         insert_job(db_conn, job)
 
         result = cancel_job(db_conn, job.id)
@@ -371,9 +345,9 @@ class TestCancelJob:
 class TestRequeueJob:
     """Tests for requeue_job function."""
 
-    def test_requeues_failed_job(self, db_conn):
+    def test_requeues_failed_job(self, db_conn, make_job):
         """Requeues a failed job."""
-        job = create_test_job(status=JobStatus.FAILED)
+        job = make_job(status=JobStatus.FAILED)
         insert_job(db_conn, job)
 
         result = requeue_job(db_conn, job.id)
@@ -384,9 +358,9 @@ class TestRequeueJob:
         assert updated.error_message is None
         assert updated.progress_percent == 0.0
 
-    def test_requeues_cancelled_job(self, db_conn):
+    def test_requeues_cancelled_job(self, db_conn, make_job):
         """Requeues a cancelled job."""
-        job = create_test_job(status=JobStatus.CANCELLED)
+        job = make_job(status=JobStatus.CANCELLED)
         insert_job(db_conn, job)
 
         result = requeue_job(db_conn, job.id)
@@ -395,9 +369,9 @@ class TestRequeueJob:
         updated = get_job(db_conn, job.id)
         assert updated.status == JobStatus.QUEUED
 
-    def test_cannot_requeue_completed_job(self, db_conn):
+    def test_cannot_requeue_completed_job(self, db_conn, make_job):
         """Cannot requeue a completed job."""
-        job = create_test_job(status=JobStatus.COMPLETED)
+        job = make_job(status=JobStatus.COMPLETED)
         insert_job(db_conn, job)
 
         result = requeue_job(db_conn, job.id)
@@ -406,9 +380,9 @@ class TestRequeueJob:
         updated = get_job(db_conn, job.id)
         assert updated.status == JobStatus.COMPLETED
 
-    def test_cannot_requeue_running_job(self, db_conn):
+    def test_cannot_requeue_running_job(self, db_conn, make_job):
         """Cannot requeue a running job."""
-        job = create_test_job(status=JobStatus.RUNNING)
+        job = make_job(status=JobStatus.RUNNING)
         insert_job(db_conn, job)
 
         result = requeue_job(db_conn, job.id)
@@ -419,10 +393,10 @@ class TestRequeueJob:
 class TestConcurrency:
     """Tests for concurrent queue operations."""
 
-    def test_multiple_claims_return_different_jobs(self, db_conn):
+    def test_multiple_claims_return_different_jobs(self, db_conn, make_job):
         """Multiple claims should return different jobs."""
-        job1 = create_test_job()
-        job2 = create_test_job()
+        job1 = make_job()
+        job2 = make_job()
         insert_job(db_conn, job1)
         insert_job(db_conn, job2)
         db_conn.commit()
@@ -434,9 +408,9 @@ class TestConcurrency:
         assert claimed2 is not None
         assert claimed1.id != claimed2.id
 
-    def test_claims_exhaust_queue(self, db_conn):
+    def test_claims_exhaust_queue(self, db_conn, make_job):
         """Claims should exhaust the queue."""
-        job = create_test_job()
+        job = make_job()
         insert_job(db_conn, job)
         db_conn.commit()
 
