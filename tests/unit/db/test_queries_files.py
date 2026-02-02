@@ -12,13 +12,7 @@ class TestUpdateFilePath:
 
     def test_updates_path_fields(self, db_conn, insert_test_file):
         """Updates path, filename, and directory fields."""
-        file_id = insert_test_file(
-            path="/media/movies/movie.avi",
-            extension="avi",
-            content_hash="hash123",
-            container_format="matroska",
-            size_bytes=1000000,
-        )
+        file_id = insert_test_file(path="/media/movies/movie.avi", extension="avi")
         db_conn.commit()
 
         result = update_file_path(db_conn, file_id, "/media/archive/movie.avi")
@@ -33,13 +27,7 @@ class TestUpdateFilePath:
 
     def test_updates_extension_on_container_change(self, db_conn, insert_test_file):
         """Updates extension field when container format changes."""
-        file_id = insert_test_file(
-            path="/media/movies/movie.avi",
-            extension="avi",
-            content_hash="hash123",
-            container_format="matroska",
-            size_bytes=1000000,
-        )
+        file_id = insert_test_file(path="/media/movies/movie.avi", extension="avi")
         db_conn.commit()
 
         result = update_file_path(db_conn, file_id, "/media/movies/movie.mkv")
@@ -52,13 +40,7 @@ class TestUpdateFilePath:
 
     def test_extension_avi_to_mkv(self, db_conn, insert_test_file):
         """Extension updates from avi to mkv during container conversion."""
-        file_id = insert_test_file(
-            path="/media/video.avi",
-            extension="avi",
-            content_hash="hash123",
-            container_format="matroska",
-            size_bytes=1000000,
-        )
+        file_id = insert_test_file(path="/media/video.avi", extension="avi")
         db_conn.commit()
 
         update_file_path(db_conn, file_id, "/media/video.mkv")
@@ -69,13 +51,7 @@ class TestUpdateFilePath:
 
     def test_extension_mp4_to_mkv(self, db_conn, insert_test_file):
         """Extension updates from mp4 to mkv during container conversion."""
-        file_id = insert_test_file(
-            path="/media/video.mp4",
-            extension="mp4",
-            content_hash="hash123",
-            container_format="matroska",
-            size_bytes=1000000,
-        )
+        file_id = insert_test_file(path="/media/video.mp4", extension="mp4")
         db_conn.commit()
 
         update_file_path(db_conn, file_id, "/media/video.mkv")
@@ -86,13 +62,7 @@ class TestUpdateFilePath:
 
     def test_no_extension_raises_integrity_error(self, db_conn, insert_test_file):
         """Raises IntegrityError for paths without extension (NOT NULL constraint)."""
-        file_id = insert_test_file(
-            path="/media/video.mkv",
-            extension="mkv",
-            content_hash="hash123",
-            container_format="matroska",
-            size_bytes=1000000,
-        )
+        file_id = insert_test_file(path="/media/video.mkv")
         db_conn.commit()
 
         with pytest.raises(sqlite3.IntegrityError, match="NOT NULL"):
@@ -106,21 +76,9 @@ class TestUpdateFilePath:
 
     def test_raises_on_duplicate_path(self, db_conn, insert_test_file):
         """Raises IntegrityError when new path already exists."""
-        insert_test_file(
-            path="/media/movie1.mkv",
-            extension="mkv",
-            content_hash="hash123",
-            container_format="matroska",
-            size_bytes=1000000,
-        )
+        insert_test_file(path="/media/movie1.mkv")
         db_conn.commit()
-        file2_id = insert_test_file(
-            path="/media/movie2.mkv",
-            extension="mkv",
-            content_hash="hash123",
-            container_format="matroska",
-            size_bytes=1000000,
-        )
+        file2_id = insert_test_file(path="/media/movie2.mkv")
         db_conn.commit()
 
         with pytest.raises(sqlite3.IntegrityError, match="already exists"):
@@ -128,13 +86,7 @@ class TestUpdateFilePath:
 
     def test_does_not_commit(self, db_conn, insert_test_file):
         """Function does not commit - caller manages transactions."""
-        file_id = insert_test_file(
-            path="/media/movie.avi",
-            extension="avi",
-            content_hash="hash123",
-            container_format="matroska",
-            size_bytes=1000000,
-        )
+        file_id = insert_test_file(path="/media/movie.avi", extension="avi")
         db_conn.commit()
 
         update_file_path(db_conn, file_id, "/media/movie.mkv")
@@ -152,13 +104,7 @@ class TestUpdateFilePath:
 
     def test_handles_path_with_multiple_dots(self, db_conn, insert_test_file):
         """Correctly extracts extension from paths with multiple dots."""
-        file_id = insert_test_file(
-            path="/media/movie.2024.avi",
-            extension="avi",
-            content_hash="hash123",
-            container_format="matroska",
-            size_bytes=1000000,
-        )
+        file_id = insert_test_file(path="/media/movie.2024.avi", extension="avi")
         db_conn.commit()
 
         update_file_path(db_conn, file_id, "/media/movie.2024.mkv")
