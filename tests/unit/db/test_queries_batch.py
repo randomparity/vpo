@@ -109,7 +109,7 @@ class TestGetFilesByPaths:
         assert record.path == path
         assert record.filename == "test.mkv"
         assert record.directory == "/media/movies"
-        assert record.extension == ".mkv"
+        assert record.extension == "mkv"
         assert record.size_bytes == 1000
         assert record.container_format == "matroska"
         assert record.scan_status == "ok"

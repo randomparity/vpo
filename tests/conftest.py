@@ -654,7 +654,7 @@ def mock_subprocess_run():
 
 
 # =============================================================================
-# Database Record Factories
+# CLI Testing Fixtures
 # =============================================================================
 
 
@@ -664,6 +664,24 @@ def runner():
     from click.testing import CliRunner
 
     return CliRunner()
+
+
+# =============================================================================
+# Database Record Factories
+# =============================================================================
+#
+# Three abstraction levels for test data:
+#
+# 1. Record factories (make_file_record, make_track_record, make_job):
+#    Create database record dataclasses. Use for tests that need
+#    objects but don't need them persisted.
+#
+# 2. Insertion helpers (insert_test_file, insert_test_track):
+#    Factory + DB insertion. Returns the new row ID. Does NOT commit —
+#    callers manage transactions.
+#
+# 3. Domain model factories (make_file_info, make_track_info — above):
+#    Create domain model objects. Use for business logic / policy tests.
 
 
 @pytest.fixture
@@ -676,7 +694,7 @@ def make_file_record():
         path: str = "/media/test.mkv",
         filename: str | None = None,
         directory: str | None = None,
-        extension: str = ".mkv",
+        extension: str = "mkv",  # no dot — matches scanner convention
         size_bytes: int = 1000,
         modified_at: str = "2025-01-15T10:00:00Z",
         content_hash: str | None = None,
@@ -745,7 +763,11 @@ def make_track_record():
 
 @pytest.fixture
 def insert_test_file(db_conn, make_file_record):
-    """Create and insert a FileRecord, returning the file ID."""
+    """Create and insert a FileRecord, returning the file ID.
+
+    Does NOT call conn.commit(). Callers that need persistence
+    across rollback boundaries must commit explicitly.
+    """
     from vpo.db.queries import insert_file
 
     def _insert(**kwargs) -> int:
