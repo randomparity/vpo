@@ -138,26 +138,28 @@ level = "info"
 def _isolate_logging():
     """Isolate logging state between tests.
 
-    VPO's CLI uses module-level flags (_logging_configured, _startup_logged)
-    that persist across CliRunner invocations within a pytest session.  The
-    first invocation configures a StreamHandler on the root logger; subsequent
-    invocations skip configuration, leaving a stale handler that writes to a
-    previous CliRunner's stderr stream.
+    VPO's CLI startup logging writes an INFO message ("VPO starting: ...")
+    to the root logger.  When no log file is configured (the CI default),
+    configure_logging() adds a StreamHandler(sys.stderr).  Click 8.2+
+    CliRunner mixes stderr into result.output, so the startup message
+    contaminates JSON assertions (the leading "2026" parses as a JSON
+    number, then fails with "Extra data" at char 4).
 
-    On Python 3.10-3.12 this causes logging output to contaminate
-    CliRunner's result.output, breaking JSON parsing.
-
-    This fixture resets the flags and saves/restores root logger state so
-    no test's logging configuration leaks into the next test.
+    This fixture:
+    - Suppresses the startup log message (_startup_logged = True)
+    - Resets _logging_configured so each test gets handlers bound to the
+      current CliRunner's stderr, not a previous one's
+    - Clears stale handlers that reference a previous CliRunner's stream
     """
     import vpo.cli as cli_module
 
     cli_module._logging_configured = False
-    cli_module._startup_logged = False
+    cli_module._startup_logged = True
 
     root = logging.getLogger()
     original_handlers = root.handlers[:]
     original_level = root.level
+    root.handlers.clear()
 
     yield
 
