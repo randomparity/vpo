@@ -653,6 +653,160 @@ def mock_subprocess_run():
     return _mock
 
 
+# =============================================================================
+# Database Record Factories
+# =============================================================================
+
+
+@pytest.fixture
+def runner():
+    """Create a Click CLI test runner."""
+    from click.testing import CliRunner
+
+    return CliRunner()
+
+
+@pytest.fixture
+def make_file_record():
+    """Factory for FileRecord with sensible defaults."""
+    from vpo.db.types import FileRecord
+
+    def _make(
+        id: int | None = None,
+        path: str = "/media/test.mkv",
+        filename: str | None = None,
+        directory: str | None = None,
+        extension: str = ".mkv",
+        size_bytes: int = 1000,
+        modified_at: str = "2025-01-15T10:00:00Z",
+        content_hash: str | None = None,
+        container_format: str | None = "mkv",
+        scanned_at: str = "2025-01-15T10:00:00Z",
+        scan_status: str = "ok",
+        scan_error: str | None = None,
+        job_id: str | None = None,
+        plugin_metadata: str | None = None,
+    ) -> FileRecord:
+        if filename is None:
+            filename = path.rsplit("/", 1)[-1]
+        if directory is None:
+            directory = path.rsplit("/", 1)[0] or "/"
+        return FileRecord(
+            id=id,
+            path=path,
+            filename=filename,
+            directory=directory,
+            extension=extension,
+            size_bytes=size_bytes,
+            modified_at=modified_at,
+            content_hash=content_hash,
+            container_format=container_format,
+            scanned_at=scanned_at,
+            scan_status=scan_status,
+            scan_error=scan_error,
+            job_id=job_id,
+            plugin_metadata=plugin_metadata,
+        )
+
+    return _make
+
+
+@pytest.fixture
+def make_track_record():
+    """Factory for TrackRecord with sensible defaults."""
+    from vpo.db.types import TrackRecord
+
+    def _make(
+        file_id: int = 1,
+        track_index: int = 0,
+        track_type: str = "video",
+        codec: str | None = "h264",
+        language: str | None = None,
+        title: str | None = None,
+        is_default: bool = False,
+        is_forced: bool = False,
+        **kwargs,
+    ) -> TrackRecord:
+        return TrackRecord(
+            id=None,
+            file_id=file_id,
+            track_index=track_index,
+            track_type=track_type,
+            codec=codec,
+            language=language,
+            title=title,
+            is_default=is_default,
+            is_forced=is_forced,
+            **kwargs,
+        )
+
+    return _make
+
+
+@pytest.fixture
+def insert_test_file(db_conn, make_file_record):
+    """Create and insert a FileRecord, returning the file ID."""
+    from vpo.db.queries import insert_file
+
+    def _insert(**kwargs) -> int:
+        record = make_file_record(**kwargs)
+        return insert_file(db_conn, record)
+
+    return _insert
+
+
+@pytest.fixture
+def insert_test_track(db_conn, make_track_record):
+    """Create and insert a TrackRecord, returning the track ID."""
+    from vpo.db.queries import insert_track
+
+    def _insert(**kwargs) -> int:
+        record = make_track_record(**kwargs)
+        return insert_track(db_conn, record)
+
+    return _insert
+
+
+@pytest.fixture
+def make_job():
+    """Factory for Job with sensible defaults."""
+    import uuid
+    from datetime import datetime, timezone
+
+    from vpo.db.types import Job, JobStatus, JobType
+
+    def _make(
+        id: str | None = None,
+        file_id: int | None = None,
+        file_path: str = "/test/file.mkv",
+        job_type: JobType = JobType.TRANSCODE,
+        status: JobStatus = JobStatus.QUEUED,
+        priority: int = 100,
+        policy_name: str | None = "test_policy",
+        policy_json: str = "{}",
+        progress_percent: float = 0.0,
+        progress_json: str | None = None,
+        created_at: str | None = None,
+        **kwargs,
+    ) -> Job:
+        return Job(
+            id=id or str(uuid.uuid4()),
+            file_id=file_id,
+            file_path=file_path,
+            job_type=job_type,
+            status=status,
+            priority=priority,
+            policy_name=policy_name,
+            policy_json=policy_json,
+            progress_percent=progress_percent,
+            progress_json=progress_json,
+            created_at=created_at or datetime.now(timezone.utc).isoformat(),
+            **kwargs,
+        )
+
+    return _make
+
+
 @pytest.fixture
 def mock_all_phase_handlers():
     """Mock all phase operation handlers for dispatch testing.
