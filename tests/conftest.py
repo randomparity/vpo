@@ -790,6 +790,37 @@ def insert_test_track(db_conn, make_track_record):
 
 
 @pytest.fixture
+def insert_audio_track(insert_test_track):
+    """Insert an audio track with standard defaults for language analysis tests.
+
+    Wraps insert_test_track with audio-specific defaults so callers
+    only need to specify file_id and the fields they care about.
+    """
+
+    def _insert(
+        file_id: int,
+        track_index: int = 0,
+        language: str = "eng",
+        is_default: bool = True,
+        **kwargs,
+    ) -> int:
+        return insert_test_track(
+            file_id=file_id,
+            track_index=track_index,
+            track_type="audio",
+            codec=kwargs.pop("codec", "aac"),
+            language=language,
+            is_default=is_default,
+            channels=kwargs.pop("channels", 2),
+            channel_layout=kwargs.pop("channel_layout", "stereo"),
+            duration_seconds=kwargs.pop("duration_seconds", 3600.0),
+            **kwargs,
+        )
+
+    return _insert
+
+
+@pytest.fixture
 def make_job():
     """Factory for Job with sensible defaults."""
     import uuid

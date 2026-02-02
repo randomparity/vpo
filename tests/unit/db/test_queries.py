@@ -46,40 +46,20 @@ class TestDeleteAnalysisForFile:
     """Tests for delete_analysis_for_file function."""
 
     def test_returns_zero_when_no_results(
-        self, db_conn, insert_test_file, insert_test_track
+        self, db_conn, insert_test_file, insert_audio_track
     ):
         """Returns zero when file has no analysis results."""
         file_id = insert_test_file(id=1, path="/media/movie.mkv", filename="movie.mkv")
-        insert_test_track(
-            file_id=file_id,
-            track_index=0,
-            track_type="audio",
-            codec="aac",
-            language="eng",
-            is_default=True,
-            channels=2,
-            channel_layout="stereo",
-            duration_seconds=3600.0,
-        )
+        insert_audio_track(file_id=file_id)
 
         result = delete_analysis_for_file(db_conn, file_id)
 
         assert result == 0
 
-    def test_deletes_single_result(self, db_conn, insert_test_file, insert_test_track):
+    def test_deletes_single_result(self, db_conn, insert_test_file, insert_audio_track):
         """Deletes single analysis result for file."""
         file_id = insert_test_file(id=1, path="/media/movie.mkv", filename="movie.mkv")
-        track_id = insert_test_track(
-            file_id=file_id,
-            track_index=0,
-            track_type="audio",
-            codec="aac",
-            language="eng",
-            is_default=True,
-            channels=2,
-            channel_layout="stereo",
-            duration_seconds=3600.0,
-        )
+        track_id = insert_audio_track(file_id=file_id)
         create_analysis_result(db_conn, track_id)
 
         assert count_analysis_results(db_conn) == 1
@@ -90,32 +70,12 @@ class TestDeleteAnalysisForFile:
         assert count_analysis_results(db_conn) == 0
 
     def test_deletes_multiple_results(
-        self, db_conn, insert_test_file, insert_test_track
+        self, db_conn, insert_test_file, insert_audio_track
     ):
         """Deletes all analysis results for file with multiple tracks."""
         file_id = insert_test_file(id=1, path="/media/movie.mkv", filename="movie.mkv")
-        track1_id = insert_test_track(
-            file_id=file_id,
-            track_index=0,
-            track_type="audio",
-            codec="aac",
-            language="eng",
-            is_default=True,
-            channels=2,
-            channel_layout="stereo",
-            duration_seconds=3600.0,
-        )
-        track2_id = insert_test_track(
-            file_id=file_id,
-            track_index=1,
-            track_type="audio",
-            codec="aac",
-            language="eng",
-            is_default=False,
-            channels=2,
-            channel_layout="stereo",
-            duration_seconds=3600.0,
-        )
+        track1_id = insert_audio_track(file_id=file_id)
+        track2_id = insert_audio_track(file_id=file_id, track_index=1, is_default=False)
         create_analysis_result(db_conn, track1_id)
         create_analysis_result(db_conn, track2_id)
 
@@ -127,41 +87,21 @@ class TestDeleteAnalysisForFile:
         assert count_analysis_results(db_conn) == 0
 
     def test_only_deletes_for_specified_file(
-        self, db_conn, insert_test_file, insert_test_track
+        self, db_conn, insert_test_file, insert_audio_track
     ):
         """Only deletes results for the specified file, not others."""
         # File 1 with analysis
         file1_id = insert_test_file(
             id=1, path="/media/movie1.mkv", filename="movie1.mkv"
         )
-        track1_id = insert_test_track(
-            file_id=file1_id,
-            track_index=0,
-            track_type="audio",
-            codec="aac",
-            language="eng",
-            is_default=True,
-            channels=2,
-            channel_layout="stereo",
-            duration_seconds=3600.0,
-        )
+        track1_id = insert_audio_track(file_id=file1_id)
         create_analysis_result(db_conn, track1_id)
 
         # File 2 with analysis
         file2_id = insert_test_file(
             id=2, path="/media/movie2.mkv", filename="movie2.mkv"
         )
-        track2_id = insert_test_track(
-            file_id=file2_id,
-            track_index=0,
-            track_type="audio",
-            codec="aac",
-            language="eng",
-            is_default=True,
-            channels=2,
-            channel_layout="stereo",
-            duration_seconds=3600.0,
-        )
+        track2_id = insert_audio_track(file_id=file2_id)
         create_analysis_result(db_conn, track2_id)
 
         assert count_analysis_results(db_conn) == 2
@@ -180,7 +120,7 @@ class TestDeleteAllAnalysis:
         result = delete_all_analysis(db_conn)
         assert result == 0
 
-    def test_deletes_all_results(self, db_conn, insert_test_file, insert_test_track):
+    def test_deletes_all_results(self, db_conn, insert_test_file, insert_audio_track):
         """Deletes all analysis results across all files."""
         # Create multiple files with analysis results
         for i in range(3):
@@ -189,17 +129,7 @@ class TestDeleteAllAnalysis:
                 path=f"/media/movie{i}.mkv",
                 filename=f"movie{i}.mkv",
             )
-            track_id = insert_test_track(
-                file_id=file_id,
-                track_index=0,
-                track_type="audio",
-                codec="aac",
-                language="eng",
-                is_default=True,
-                channels=2,
-                channel_layout="stereo",
-                duration_seconds=3600.0,
-            )
+            track_id = insert_audio_track(file_id=file_id)
             create_analysis_result(db_conn, track_id)
 
         assert count_analysis_results(db_conn) == 3
@@ -214,23 +144,13 @@ class TestDeleteAnalysisByPathPrefix:
     """Tests for delete_analysis_by_path_prefix function."""
 
     def test_returns_zero_when_no_matching_files(
-        self, db_conn, insert_test_file, insert_test_track
+        self, db_conn, insert_test_file, insert_audio_track
     ):
         """Returns zero when no files match the path prefix."""
         file_id = insert_test_file(
             id=1, path="/other/path/movie.mkv", filename="movie.mkv"
         )
-        track_id = insert_test_track(
-            file_id=file_id,
-            track_index=0,
-            track_type="audio",
-            codec="aac",
-            language="eng",
-            is_default=True,
-            channels=2,
-            channel_layout="stereo",
-            duration_seconds=3600.0,
-        )
+        track_id = insert_audio_track(file_id=file_id)
         create_analysis_result(db_conn, track_id)
 
         result = delete_analysis_by_path_prefix(db_conn, "/media/movies/")
@@ -239,41 +159,21 @@ class TestDeleteAnalysisByPathPrefix:
         assert count_analysis_results(db_conn) == 1
 
     def test_deletes_results_for_matching_files(
-        self, db_conn, insert_test_file, insert_test_track
+        self, db_conn, insert_test_file, insert_audio_track
     ):
         """Deletes results for files under the path prefix."""
         # File under target path
         file1_id = insert_test_file(
             id=1, path="/media/movies/movie.mkv", filename="movie.mkv"
         )
-        track1_id = insert_test_track(
-            file_id=file1_id,
-            track_index=0,
-            track_type="audio",
-            codec="aac",
-            language="eng",
-            is_default=True,
-            channels=2,
-            channel_layout="stereo",
-            duration_seconds=3600.0,
-        )
+        track1_id = insert_audio_track(file_id=file1_id)
         create_analysis_result(db_conn, track1_id)
 
         # File under different path
         file2_id = insert_test_file(
             id=2, path="/media/shows/show.mkv", filename="show.mkv"
         )
-        track2_id = insert_test_track(
-            file_id=file2_id,
-            track_index=0,
-            track_type="audio",
-            codec="aac",
-            language="eng",
-            is_default=True,
-            channels=2,
-            channel_layout="stereo",
-            duration_seconds=3600.0,
-        )
+        track2_id = insert_audio_track(file_id=file2_id)
         create_analysis_result(db_conn, track2_id)
 
         assert count_analysis_results(db_conn) == 2
@@ -284,24 +184,14 @@ class TestDeleteAnalysisByPathPrefix:
         assert count_analysis_results(db_conn) == 1
 
     def test_includes_subdirectories(
-        self, db_conn, insert_test_file, insert_test_track
+        self, db_conn, insert_test_file, insert_audio_track
     ):
         """Deletes results for files in subdirectories."""
         # File in subdirectory
         file_id = insert_test_file(
             id=1, path="/media/movies/action/movie.mkv", filename="movie.mkv"
         )
-        track_id = insert_test_track(
-            file_id=file_id,
-            track_index=0,
-            track_type="audio",
-            codec="aac",
-            language="eng",
-            is_default=True,
-            channels=2,
-            channel_layout="stereo",
-            duration_seconds=3600.0,
-        )
+        track_id = insert_audio_track(file_id=file_id)
         create_analysis_result(db_conn, track_id)
 
         result = delete_analysis_by_path_prefix(db_conn, "/media/movies/")

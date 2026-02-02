@@ -62,19 +62,13 @@ class TestGetLanguageAnalysisForTracks:
         result = get_language_analysis_for_tracks(db_conn, [])
         assert result == {}
 
-    def test_single_track_found(self, db_conn, insert_test_file, insert_test_track):
+    def test_single_track_found(self, db_conn, insert_test_file, insert_audio_track):
         """Single track_id lookup returns matching record."""
         file_id = insert_test_file(
             path="/media/movies/test.mkv", container_format="matroska"
         )
         db_conn.commit()
-        track_id = insert_test_track(
-            file_id=file_id,
-            track_index=1,
-            track_type="audio",
-            codec="aac",
-            language="eng",
-        )
+        track_id = insert_audio_track(file_id=file_id, track_index=1)
         db_conn.commit()
         create_language_analysis(db_conn, track_id, "eng", 0.85)
 
@@ -86,7 +80,7 @@ class TestGetLanguageAnalysisForTracks:
         assert result[track_id].primary_language == "eng"
         assert result[track_id].primary_percentage == 0.85
 
-    def test_multiple_tracks_found(self, db_conn, insert_test_file, insert_test_track):
+    def test_multiple_tracks_found(self, db_conn, insert_test_file, insert_audio_track):
         """Multiple track_ids return all matching records."""
         file_id = insert_test_file(
             path="/media/movies/test.mkv", container_format="matroska"
@@ -94,13 +88,7 @@ class TestGetLanguageAnalysisForTracks:
         db_conn.commit()
         track_ids = []
         for i in range(3):
-            track_id = insert_test_track(
-                file_id=file_id,
-                track_index=i + 1,
-                track_type="audio",
-                codec="aac",
-                language="eng",
-            )
+            track_id = insert_audio_track(file_id=file_id, track_index=i + 1)
             db_conn.commit()
             create_language_analysis(db_conn, track_id, "eng", 0.90 - i * 0.05)
             track_ids.append(track_id)
@@ -112,33 +100,15 @@ class TestGetLanguageAnalysisForTracks:
             assert track_id in result
             assert result[track_id].track_id == track_id
 
-    def test_partial_results(self, db_conn, insert_test_file, insert_test_track):
+    def test_partial_results(self, db_conn, insert_test_file, insert_audio_track):
         """Returns only tracks with analysis results."""
         file_id = insert_test_file(
             path="/media/movies/test.mkv", container_format="matroska"
         )
         db_conn.commit()
-        track1 = insert_test_track(
-            file_id=file_id,
-            track_index=1,
-            track_type="audio",
-            codec="aac",
-            language="eng",
-        )
-        track2 = insert_test_track(
-            file_id=file_id,
-            track_index=2,
-            track_type="audio",
-            codec="aac",
-            language="spa",
-        )
-        track3 = insert_test_track(
-            file_id=file_id,
-            track_index=3,
-            track_type="audio",
-            codec="aac",
-            language="fre",
-        )
+        track1 = insert_audio_track(file_id=file_id, track_index=1)
+        track2 = insert_audio_track(file_id=file_id, track_index=2, language="spa")
+        track3 = insert_audio_track(file_id=file_id, track_index=3, language="fre")
         db_conn.commit()
 
         # Only create analysis for track1 and track3
@@ -153,20 +123,14 @@ class TestGetLanguageAnalysisForTracks:
         assert track3 in result
 
     def test_no_matching_tracks_returns_empty(
-        self, db_conn, insert_test_file, insert_test_track
+        self, db_conn, insert_test_file, insert_audio_track
     ):
         """Returns empty dict when no tracks have analysis results."""
         file_id = insert_test_file(
             path="/media/movies/test.mkv", container_format="matroska"
         )
         db_conn.commit()
-        track_id = insert_test_track(
-            file_id=file_id,
-            track_index=1,
-            track_type="audio",
-            codec="aac",
-            language="eng",
-        )
+        track_id = insert_audio_track(file_id=file_id, track_index=1)
         db_conn.commit()
         # No analysis created
 
@@ -180,20 +144,14 @@ class TestGetLanguageAnalysisForTracks:
         assert result == {}
 
     def test_returns_correct_record_fields(
-        self, db_conn, insert_test_file, insert_test_track
+        self, db_conn, insert_test_file, insert_audio_track
     ):
         """Returned record has all expected fields."""
         file_id = insert_test_file(
             path="/media/movies/test.mkv", container_format="matroska"
         )
         db_conn.commit()
-        track_id = insert_test_track(
-            file_id=file_id,
-            track_index=1,
-            track_type="audio",
-            codec="aac",
-            language="eng",
-        )
+        track_id = insert_audio_track(file_id=file_id, track_index=1)
         db_conn.commit()
         create_language_analysis(db_conn, track_id, "eng", 0.85, "MULTI_LANGUAGE")
 
@@ -211,7 +169,7 @@ class TestGetLanguageAnalysisForTracks:
         assert record.updated_at is not None
 
     def test_chunking_with_custom_chunk_size(
-        self, db_conn, insert_test_file, insert_test_track
+        self, db_conn, insert_test_file, insert_audio_track
     ):
         """Verify chunking works with custom chunk size."""
         # Create 6 tracks with analysis
@@ -219,13 +177,7 @@ class TestGetLanguageAnalysisForTracks:
         db_conn.commit()
         track_ids = []
         for i in range(6):
-            track_id = insert_test_track(
-                file_id=file_id,
-                track_index=i,
-                track_type="audio",
-                codec="aac",
-                language="eng",
-            )
+            track_id = insert_audio_track(file_id=file_id, track_index=i)
             db_conn.commit()
             create_language_analysis(db_conn, track_id, "eng", 0.9)
             track_ids.append(track_id)
@@ -238,20 +190,14 @@ class TestGetLanguageAnalysisForTracks:
             assert tid in result
 
     def test_chunking_with_large_chunk_returns_all(
-        self, db_conn, insert_test_file, insert_test_track
+        self, db_conn, insert_test_file, insert_audio_track
     ):
         """Verify chunking with chunk larger than list still works."""
         file_id = insert_test_file(path="/media/test.mkv", container_format="matroska")
         db_conn.commit()
         track_ids = []
         for i in range(3):
-            track_id = insert_test_track(
-                file_id=file_id,
-                track_index=i,
-                track_type="audio",
-                codec="aac",
-                language="eng",
-            )
+            track_id = insert_audio_track(file_id=file_id, track_index=i)
             db_conn.commit()
             create_language_analysis(db_conn, track_id, "eng", 0.9)
             track_ids.append(track_id)
@@ -271,20 +217,14 @@ class TestGetLanguageSegmentsForAnalyses:
         assert result == {}
 
     def test_single_analysis_with_segments(
-        self, db_conn, insert_test_file, insert_test_track
+        self, db_conn, insert_test_file, insert_audio_track
     ):
         """Single analysis_id returns dict with segments."""
         file_id = insert_test_file(
             path="/media/movies/test.mkv", container_format="matroska"
         )
         db_conn.commit()
-        track_id = insert_test_track(
-            file_id=file_id,
-            track_index=1,
-            track_type="audio",
-            codec="aac",
-            language="eng",
-        )
+        track_id = insert_audio_track(file_id=file_id, track_index=1)
         db_conn.commit()
         analysis_id = create_language_analysis(db_conn, track_id, "eng", 0.85)
         create_segments_for_analysis(db_conn, analysis_id, num_segments=3)
@@ -299,7 +239,7 @@ class TestGetLanguageSegmentsForAnalyses:
         assert segments[0].start_time < segments[1].start_time < segments[2].start_time
 
     def test_multiple_analyses_batched(
-        self, db_conn, insert_test_file, insert_test_track
+        self, db_conn, insert_test_file, insert_audio_track
     ):
         """Multiple analysis IDs return all segments grouped correctly."""
         file_id = insert_test_file(
@@ -308,13 +248,7 @@ class TestGetLanguageSegmentsForAnalyses:
         db_conn.commit()
         analysis_ids = []
         for i in range(3):
-            track_id = insert_test_track(
-                file_id=file_id,
-                track_index=i,
-                track_type="audio",
-                codec="aac",
-                language="eng",
-            )
+            track_id = insert_audio_track(file_id=file_id, track_index=i)
             db_conn.commit()
             analysis_id = create_language_analysis(db_conn, track_id, "eng", 0.85)
             create_segments_for_analysis(db_conn, analysis_id, num_segments=i + 1)
@@ -329,20 +263,14 @@ class TestGetLanguageSegmentsForAnalyses:
         assert len(result[analysis_ids[2]]) == 3
 
     def test_analysis_without_segments_returns_empty_list(
-        self, db_conn, insert_test_file, insert_test_track
+        self, db_conn, insert_test_file, insert_audio_track
     ):
         """Analysis without segments returns empty list, not missing key."""
         file_id = insert_test_file(
             path="/media/movies/test.mkv", container_format="matroska"
         )
         db_conn.commit()
-        track_id = insert_test_track(
-            file_id=file_id,
-            track_index=1,
-            track_type="audio",
-            codec="aac",
-            language="eng",
-        )
+        track_id = insert_audio_track(file_id=file_id, track_index=1)
         db_conn.commit()
         analysis_id = create_language_analysis(db_conn, track_id, "eng", 0.85)
         # No segments created
@@ -362,7 +290,7 @@ class TestGetLanguageSegmentsForAnalyses:
         assert result[8888] == []
 
     def test_chunking_with_many_analyses(
-        self, db_conn, insert_test_file, insert_test_track
+        self, db_conn, insert_test_file, insert_audio_track
     ):
         """Verify chunking works with custom chunk size."""
         file_id = insert_test_file(
@@ -371,13 +299,7 @@ class TestGetLanguageSegmentsForAnalyses:
         db_conn.commit()
         analysis_ids = []
         for i in range(6):
-            track_id = insert_test_track(
-                file_id=file_id,
-                track_index=i,
-                track_type="audio",
-                codec="aac",
-                language="eng",
-            )
+            track_id = insert_audio_track(file_id=file_id, track_index=i)
             db_conn.commit()
             analysis_id = create_language_analysis(db_conn, track_id, "eng", 0.85)
             create_segments_for_analysis(db_conn, analysis_id, num_segments=2)
@@ -392,20 +314,14 @@ class TestGetLanguageSegmentsForAnalyses:
             assert len(result[aid]) == 2
 
     def test_returns_correct_segment_fields(
-        self, db_conn, insert_test_file, insert_test_track
+        self, db_conn, insert_test_file, insert_audio_track
     ):
         """Returned segments have all expected fields."""
         file_id = insert_test_file(
             path="/media/movies/test.mkv", container_format="matroska"
         )
         db_conn.commit()
-        track_id = insert_test_track(
-            file_id=file_id,
-            track_index=1,
-            track_type="audio",
-            codec="aac",
-            language="eng",
-        )
+        track_id = insert_audio_track(file_id=file_id, track_index=1)
         db_conn.commit()
         analysis_id = create_language_analysis(db_conn, track_id, "eng", 0.85)
         create_segments_for_analysis(db_conn, analysis_id, num_segments=1)
