@@ -5,14 +5,11 @@ transaction management for container conversion path updates.
 """
 
 import sqlite3
-from datetime import datetime, timezone
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from vpo.db.queries import get_file_by_path, insert_file
-from vpo.db.types import FileRecord
+from vpo.db.queries import get_file_by_path
 from vpo.policy.types import PhaseDefinition
 from vpo.workflow.phases.executor.plan_operations import _handle_path_change
 from vpo.workflow.phases.executor.types import PhaseExecutionState
@@ -24,39 +21,11 @@ def test_phase():
     return PhaseDefinition(name="test")
 
 
-def create_file_record(
-    conn: sqlite3.Connection,
-    path: str,
-    extension: str = "avi",
-) -> int:
-    """Create a file record and return its ID."""
-    p = Path(path)
-    record = FileRecord(
-        id=None,
-        path=str(p),
-        filename=p.name,
-        directory=str(p.parent),
-        extension=extension,
-        size_bytes=1000000,
-        modified_at=datetime.now(timezone.utc).isoformat(),
-        content_hash="hash123",
-        container_format="avi",
-        scanned_at=datetime.now(timezone.utc).isoformat(),
-        scan_status="ok",
-        scan_error=None,
-        job_id=None,
-        plugin_metadata=None,
-    )
-    file_id = insert_file(conn, record)
-    conn.commit()
-    return file_id
-
-
 class TestHandlePathChange:
     """Tests for _handle_path_change function."""
 
     def test_updates_state_after_successful_db_update(
-        self, tmp_path, db_conn, test_phase
+        self, tmp_path, db_conn, test_phase, insert_test_file
     ):
         """State should only update after DB update succeeds."""
         old_path = tmp_path / "movie.avi"
@@ -65,7 +34,8 @@ class TestHandlePathChange:
         new_path.touch()
 
         # Insert file record with old path
-        create_file_record(db_conn, str(old_path), extension="avi")
+        insert_test_file(path=str(old_path), extension="avi", container_format="avi")
+        db_conn.commit()
 
         state = PhaseExecutionState(file_path=old_path, phase=test_phase)
 
@@ -95,7 +65,9 @@ class TestHandlePathChange:
         # State should NOT be updated on failure
         assert state.file_path == old_path
 
-    def test_raises_on_duplicate_path(self, tmp_path, db_conn, test_phase):
+    def test_raises_on_duplicate_path(
+        self, tmp_path, db_conn, test_phase, insert_test_file
+    ):
         """Should raise ValueError when new path already exists in database."""
         old_path = tmp_path / "movie.avi"
         existing_path = tmp_path / "movie.mkv"
@@ -103,8 +75,11 @@ class TestHandlePathChange:
         existing_path.touch()
 
         # Insert both files in database
-        create_file_record(db_conn, str(old_path), extension="avi")
-        create_file_record(db_conn, str(existing_path), extension="mkv")
+        insert_test_file(path=str(old_path), extension="avi", container_format="avi")
+        insert_test_file(
+            path=str(existing_path), extension="mkv", container_format="mkv"
+        )
+        db_conn.commit()
 
         state = PhaseExecutionState(file_path=old_path, phase=test_phase)
 
@@ -114,7 +89,7 @@ class TestHandlePathChange:
         # State should NOT be updated on failure
         assert state.file_path == old_path
 
-    def test_does_not_commit(self, tmp_path, db_conn, test_phase):
+    def test_does_not_commit(self, tmp_path, db_conn, test_phase, insert_test_file):
         """Function should not commit - caller manages transactions."""
         old_path = tmp_path / "movie.avi"
         new_path = tmp_path / "movie.mkv"
@@ -122,7 +97,8 @@ class TestHandlePathChange:
         new_path.touch()
 
         # Insert file record
-        create_file_record(db_conn, str(old_path), extension="avi")
+        insert_test_file(path=str(old_path), extension="avi", container_format="avi")
+        db_conn.commit()
 
         state = PhaseExecutionState(file_path=old_path, phase=test_phase)
 
@@ -140,14 +116,17 @@ class TestHandlePathChange:
         updated = get_file_by_path(db_conn, str(new_path))
         assert updated is None
 
-    def test_state_unchanged_on_db_error(self, tmp_path, db_conn, test_phase):
+    def test_state_unchanged_on_db_error(
+        self, tmp_path, db_conn, test_phase, insert_test_file
+    ):
         """State should remain unchanged when database update fails."""
         old_path = tmp_path / "movie.avi"
         new_path = tmp_path / "movie.mkv"
         old_path.touch()
 
         # Insert file record
-        create_file_record(db_conn, str(old_path), extension="avi")
+        insert_test_file(path=str(old_path), extension="avi", container_format="avi")
+        db_conn.commit()
 
         state = PhaseExecutionState(file_path=old_path, phase=test_phase)
 
@@ -163,7 +142,9 @@ class TestHandlePathChange:
         # State should NOT be updated on failure
         assert state.file_path == old_path
 
-    def test_updates_extension_field(self, tmp_path, db_conn, test_phase):
+    def test_updates_extension_field(
+        self, tmp_path, db_conn, test_phase, insert_test_file
+    ):
         """Extension field should be updated after container conversion."""
         old_path = tmp_path / "movie.avi"
         new_path = tmp_path / "movie.mkv"
@@ -171,7 +152,8 @@ class TestHandlePathChange:
         new_path.touch()
 
         # Insert file record with avi extension
-        create_file_record(db_conn, str(old_path), extension="avi")
+        insert_test_file(path=str(old_path), extension="avi", container_format="avi")
+        db_conn.commit()
 
         state = PhaseExecutionState(file_path=old_path, phase=test_phase)
 
