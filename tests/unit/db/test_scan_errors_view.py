@@ -1,6 +1,5 @@
 """Tests for scan errors view query."""
 
-from vpo.db.queries import insert_job
 from vpo.db.types import JobStatus, JobType
 from vpo.db.views import ScanErrorView, get_scan_errors_for_job
 
@@ -13,36 +12,33 @@ class TestGetScanErrorsForJob:
         result = get_scan_errors_for_job(db_conn, "nonexistent-job-id")
         assert result is None
 
-    def test_returns_none_for_non_scan_job(self, db_conn, make_job):
+    def test_returns_none_for_non_scan_job(self, db_conn, insert_test_job):
         """Returns None when job is not a scan job."""
-        job = make_job(
+        insert_test_job(
             id="transcode-job", job_type=JobType.TRANSCODE, status=JobStatus.COMPLETED
         )
-        insert_job(db_conn, job)
         result = get_scan_errors_for_job(db_conn, "transcode-job")
         assert result is None
 
     def test_returns_empty_list_for_scan_job_without_errors(
-        self, db_conn, make_job, insert_test_file
+        self, db_conn, insert_test_job, insert_test_file
     ):
         """Returns empty list when scan job has no error files."""
-        job = make_job(
+        insert_test_job(
             id="scan-no-errors", job_type=JobType.SCAN, status=JobStatus.COMPLETED
         )
-        insert_job(db_conn, job)
         insert_test_file(id=1, path="/test/path/good-file.mkv", job_id="scan-no-errors")
 
         result = get_scan_errors_for_job(db_conn, "scan-no-errors")
         assert result == []
 
     def test_returns_error_files_for_scan_job(
-        self, db_conn, make_job, insert_test_file
+        self, db_conn, insert_test_job, insert_test_file
     ):
         """Returns list of error files for scan job."""
-        job = make_job(
+        insert_test_job(
             id="scan-with-errors", job_type=JobType.SCAN, status=JobStatus.COMPLETED
         )
-        insert_job(db_conn, job)
         insert_test_file(
             id=1,
             path="/test/path/bad-file.mkv",
@@ -60,12 +56,13 @@ class TestGetScanErrorsForJob:
         assert result[0].error == "Permission denied"
         assert result[0].path == "/test/path/bad-file.mkv"
 
-    def test_returns_multiple_error_files(self, db_conn, make_job, insert_test_file):
+    def test_returns_multiple_error_files(
+        self, db_conn, insert_test_job, insert_test_file
+    ):
         """Returns all error files for scan job."""
-        job = make_job(
+        insert_test_job(
             id="scan-multi-error", job_type=JobType.SCAN, status=JobStatus.COMPLETED
         )
-        insert_job(db_conn, job)
         insert_test_file(
             id=1,
             path="/test/path/file-a.mkv",
@@ -92,16 +89,16 @@ class TestGetScanErrorsForJob:
         assert result[0].filename == "file-a.mkv"
         assert result[1].filename == "file-b.mkv"
 
-    def test_excludes_files_from_other_jobs(self, db_conn, make_job, insert_test_file):
+    def test_excludes_files_from_other_jobs(
+        self, db_conn, insert_test_job, insert_test_file
+    ):
         """Only returns errors from the specified job."""
-        job1 = make_job(
+        insert_test_job(
             id="scan-job-1", job_type=JobType.SCAN, status=JobStatus.COMPLETED
         )
-        job2 = make_job(
+        insert_test_job(
             id="scan-job-2", job_type=JobType.SCAN, status=JobStatus.COMPLETED
         )
-        insert_job(db_conn, job1)
-        insert_job(db_conn, job2)
         insert_test_file(
             id=1,
             path="/test/path/job1-error.mkv",
@@ -123,12 +120,13 @@ class TestGetScanErrorsForJob:
         assert len(result) == 1
         assert result[0].filename == "job1-error.mkv"
 
-    def test_results_ordered_by_filename(self, db_conn, make_job, insert_test_file):
+    def test_results_ordered_by_filename(
+        self, db_conn, insert_test_job, insert_test_file
+    ):
         """Results are ordered alphabetically by filename."""
-        job = make_job(
+        insert_test_job(
             id="scan-ordered", job_type=JobType.SCAN, status=JobStatus.COMPLETED
         )
-        insert_job(db_conn, job)
         insert_test_file(
             id=1,
             path="/test/path/zebra.mkv",

@@ -702,3 +702,20 @@ def make_job():
         )
 
     return _make
+
+
+@pytest.fixture
+def insert_test_job(db_conn, make_job):
+    """Create and insert a Job, returning the Job object.
+
+    Does NOT call conn.commit(). Callers that need persistence
+    across rollback boundaries must commit explicitly.
+    """
+    from vpo.db.queries import insert_job
+
+    def _insert(**kwargs):
+        job = make_job(**kwargs)
+        insert_job(db_conn, job)
+        return job
+
+    return _insert
