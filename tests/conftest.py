@@ -1,6 +1,7 @@
 """Shared test fixtures for Video Policy Orchestrator."""
 
 import json
+import logging
 import os
 import shutil
 import sqlite3
@@ -131,6 +132,39 @@ level = "info"
     # Set the environment variable for this test
     with patch.dict(os.environ, {"VPO_DATA_DIR": str(vpo_data_dir)}):
         yield vpo_data_dir
+
+
+@pytest.fixture(autouse=True)
+def _isolate_logging():
+    """Isolate logging state between tests.
+
+    VPO's CLI uses module-level flags (_logging_configured, _startup_logged)
+    that persist across CliRunner invocations within a pytest session.  The
+    first invocation configures a StreamHandler on the root logger; subsequent
+    invocations skip configuration, leaving a stale handler that writes to a
+    previous CliRunner's stderr stream.
+
+    On Python 3.10-3.12 this causes logging output to contaminate
+    CliRunner's result.output, breaking JSON parsing.
+
+    This fixture resets the flags and saves/restores root logger state so
+    no test's logging configuration leaks into the next test.
+    """
+    import vpo.cli as cli_module
+
+    cli_module._logging_configured = False
+    cli_module._startup_logged = False
+
+    root = logging.getLogger()
+    original_handlers = root.handlers[:]
+    original_level = root.level
+
+    yield
+
+    root.handlers[:] = original_handlers
+    root.setLevel(original_level)
+    cli_module._logging_configured = False
+    cli_module._startup_logged = False
 
 
 # =============================================================================
