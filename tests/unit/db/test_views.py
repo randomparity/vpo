@@ -3,76 +3,16 @@
 import sqlite3
 from datetime import datetime, timezone
 
-from vpo.db.queries import insert_file, insert_track
 from vpo.db.types import (
     AnalysisStatusSummary,
     FileAnalysisStatus,
-    FileRecord,
     TrackAnalysisDetail,
-    TrackRecord,
 )
 from vpo.db.views import (
     get_analysis_status_summary,
     get_file_analysis_detail,
     get_files_analysis_status,
 )
-
-
-def create_file(
-    conn: sqlite3.Connection,
-    file_id: int,
-    filename: str,
-    path: str | None = None,
-) -> int:
-    """Create a file record and return its ID."""
-    file = FileRecord(
-        id=file_id,
-        path=path or f"/test/path/{filename}",
-        filename=filename,
-        directory="/test/path",
-        extension=".mkv",
-        size_bytes=1000,
-        modified_at=datetime.now(timezone.utc).isoformat(),
-        content_hash=f"hash{file_id}",
-        container_format="matroska",
-        scanned_at=datetime.now(timezone.utc).isoformat(),
-        scan_status="ok",
-        scan_error=None,
-        job_id=None,
-        plugin_metadata=None,
-    )
-    return insert_file(conn, file)
-
-
-def create_audio_track(
-    conn: sqlite3.Connection,
-    file_id: int,
-    track_index: int,
-    language: str | None = "eng",
-) -> int:
-    """Create an audio track and return its ID."""
-    track = TrackRecord(
-        id=None,
-        file_id=file_id,
-        track_index=track_index,
-        track_type="audio",
-        codec="aac",
-        language=language,
-        title=None,
-        is_default=track_index == 0,
-        is_forced=False,
-        channels=2,
-        channel_layout="stereo",
-        width=None,
-        height=None,
-        frame_rate=None,
-        color_transfer=None,
-        color_primaries=None,
-        color_space=None,
-        color_range=None,
-        duration_seconds=3600.0,
-    )
-    return insert_track(conn, track)
 
 
 def create_analysis_result(
@@ -121,11 +61,33 @@ class TestGetAnalysisStatusSummary:
         assert result.multi_language_count == 0
         assert result.single_language_count == 0
 
-    def test_counts_files_with_audio_tracks(self, db_conn):
+    def test_counts_files_with_audio_tracks(
+        self, db_conn, insert_test_file, insert_test_track
+    ):
         """Counts files that have audio tracks."""
-        file_id = create_file(db_conn, 1, "movie.mkv")
-        create_audio_track(db_conn, file_id, 0)
-        create_audio_track(db_conn, file_id, 1)
+        file_id = insert_test_file(id=1, path="/test/path/movie.mkv")
+        insert_test_track(
+            file_id=file_id,
+            track_index=0,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+            is_default=True,
+            channels=2,
+            channel_layout="stereo",
+            duration_seconds=3600.0,
+        )
+        insert_test_track(
+            file_id=file_id,
+            track_index=1,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+            is_default=False,
+            channels=2,
+            channel_layout="stereo",
+            duration_seconds=3600.0,
+        )
 
         result = get_analysis_status_summary(db_conn)
 
@@ -134,11 +96,31 @@ class TestGetAnalysisStatusSummary:
         assert result.analyzed_tracks == 0
         assert result.pending_tracks == 2
 
-    def test_counts_analyzed_tracks(self, db_conn):
+    def test_counts_analyzed_tracks(self, db_conn, insert_test_file, insert_test_track):
         """Counts tracks that have analysis results."""
-        file_id = create_file(db_conn, 1, "movie.mkv")
-        track1_id = create_audio_track(db_conn, file_id, 0)
-        create_audio_track(db_conn, file_id, 1)
+        file_id = insert_test_file(id=1, path="/test/path/movie.mkv")
+        track1_id = insert_test_track(
+            file_id=file_id,
+            track_index=0,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+            is_default=True,
+            channels=2,
+            channel_layout="stereo",
+            duration_seconds=3600.0,
+        )
+        insert_test_track(
+            file_id=file_id,
+            track_index=1,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+            is_default=False,
+            channels=2,
+            channel_layout="stereo",
+            duration_seconds=3600.0,
+        )
 
         # Analyze only the first track
         create_analysis_result(db_conn, track1_id)
@@ -149,10 +131,22 @@ class TestGetAnalysisStatusSummary:
         assert result.analyzed_tracks == 1
         assert result.pending_tracks == 1
 
-    def test_counts_single_language_tracks(self, db_conn):
+    def test_counts_single_language_tracks(
+        self, db_conn, insert_test_file, insert_test_track
+    ):
         """Counts tracks classified as single language."""
-        file_id = create_file(db_conn, 1, "movie.mkv")
-        track_id = create_audio_track(db_conn, file_id, 0)
+        file_id = insert_test_file(id=1, path="/test/path/movie.mkv")
+        track_id = insert_test_track(
+            file_id=file_id,
+            track_index=0,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+            is_default=True,
+            channels=2,
+            channel_layout="stereo",
+            duration_seconds=3600.0,
+        )
         create_analysis_result(db_conn, track_id, classification="SINGLE_LANGUAGE")
 
         result = get_analysis_status_summary(db_conn)
@@ -160,10 +154,22 @@ class TestGetAnalysisStatusSummary:
         assert result.single_language_count == 1
         assert result.multi_language_count == 0
 
-    def test_counts_multi_language_tracks(self, db_conn):
+    def test_counts_multi_language_tracks(
+        self, db_conn, insert_test_file, insert_test_track
+    ):
         """Counts tracks classified as multi language."""
-        file_id = create_file(db_conn, 1, "movie.mkv")
-        track_id = create_audio_track(db_conn, file_id, 0)
+        file_id = insert_test_file(id=1, path="/test/path/movie.mkv")
+        track_id = insert_test_track(
+            file_id=file_id,
+            track_index=0,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+            is_default=True,
+            channels=2,
+            channel_layout="stereo",
+            duration_seconds=3600.0,
+        )
         create_analysis_result(db_conn, track_id, classification="MULTI_LANGUAGE")
 
         result = get_analysis_status_summary(db_conn)
@@ -171,18 +177,48 @@ class TestGetAnalysisStatusSummary:
         assert result.single_language_count == 0
         assert result.multi_language_count == 1
 
-    def test_counts_multiple_files(self, db_conn):
+    def test_counts_multiple_files(self, db_conn, insert_test_file, insert_test_track):
         """Correctly counts across multiple files."""
         # File 1 with 2 analyzed tracks
-        file1_id = create_file(db_conn, 1, "movie1.mkv")
-        track1_id = create_audio_track(db_conn, file1_id, 0)
-        track2_id = create_audio_track(db_conn, file1_id, 1)
+        file1_id = insert_test_file(id=1, path="/test/path/movie1.mkv")
+        track1_id = insert_test_track(
+            file_id=file1_id,
+            track_index=0,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+            is_default=True,
+            channels=2,
+            channel_layout="stereo",
+            duration_seconds=3600.0,
+        )
+        track2_id = insert_test_track(
+            file_id=file1_id,
+            track_index=1,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+            is_default=False,
+            channels=2,
+            channel_layout="stereo",
+            duration_seconds=3600.0,
+        )
         create_analysis_result(db_conn, track1_id, classification="SINGLE_LANGUAGE")
         create_analysis_result(db_conn, track2_id, classification="MULTI_LANGUAGE")
 
         # File 2 with 1 pending track
-        file2_id = create_file(db_conn, 2, "movie2.mkv")
-        create_audio_track(db_conn, file2_id, 0)
+        file2_id = insert_test_file(id=2, path="/test/path/movie2.mkv")
+        insert_test_track(
+            file_id=file2_id,
+            track_index=0,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+            is_default=True,
+            channels=2,
+            channel_layout="stereo",
+            duration_seconds=3600.0,
+        )
 
         result = get_analysis_status_summary(db_conn)
 
@@ -202,11 +238,33 @@ class TestGetFilesAnalysisStatus:
         result = get_files_analysis_status(db_conn)
         assert result == []
 
-    def test_returns_file_with_analysis_counts(self, db_conn):
+    def test_returns_file_with_analysis_counts(
+        self, db_conn, insert_test_file, insert_test_track
+    ):
         """Returns file analysis status with counts."""
-        file_id = create_file(db_conn, 1, "movie.mkv", path="/media/movie.mkv")
-        track1_id = create_audio_track(db_conn, file_id, 0)
-        create_audio_track(db_conn, file_id, 1)
+        file_id = insert_test_file(id=1, path="/media/movie.mkv")
+        track1_id = insert_test_track(
+            file_id=file_id,
+            track_index=0,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+            is_default=True,
+            channels=2,
+            channel_layout="stereo",
+            duration_seconds=3600.0,
+        )
+        insert_test_track(
+            file_id=file_id,
+            track_index=1,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+            is_default=False,
+            channels=2,
+            channel_layout="stereo",
+            duration_seconds=3600.0,
+        )
         create_analysis_result(db_conn, track1_id)
 
         result = get_files_analysis_status(db_conn)
@@ -218,16 +276,36 @@ class TestGetFilesAnalysisStatus:
         assert result[0].track_count == 2
         assert result[0].analyzed_count == 1
 
-    def test_filters_multi_language(self, db_conn):
+    def test_filters_multi_language(self, db_conn, insert_test_file, insert_test_track):
         """Filters to files with multi-language tracks."""
         # File with multi-language track
-        file1_id = create_file(db_conn, 1, "multi.mkv")
-        track1_id = create_audio_track(db_conn, file1_id, 0)
+        file1_id = insert_test_file(id=1, path="/test/path/multi.mkv")
+        track1_id = insert_test_track(
+            file_id=file1_id,
+            track_index=0,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+            is_default=True,
+            channels=2,
+            channel_layout="stereo",
+            duration_seconds=3600.0,
+        )
         create_analysis_result(db_conn, track1_id, classification="MULTI_LANGUAGE")
 
         # File with single-language track
-        file2_id = create_file(db_conn, 2, "single.mkv")
-        track2_id = create_audio_track(db_conn, file2_id, 0)
+        file2_id = insert_test_file(id=2, path="/test/path/single.mkv")
+        track2_id = insert_test_track(
+            file_id=file2_id,
+            track_index=0,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+            is_default=True,
+            channels=2,
+            channel_layout="stereo",
+            duration_seconds=3600.0,
+        )
         create_analysis_result(db_conn, track2_id, classification="SINGLE_LANGUAGE")
 
         result = get_files_analysis_status(
@@ -237,27 +315,60 @@ class TestGetFilesAnalysisStatus:
         assert len(result) == 1
         assert result[0].file_id == file1_id
 
-    def test_filters_pending(self, db_conn):
+    def test_filters_pending(self, db_conn, insert_test_file, insert_test_track):
         """Filters to files with pending (unanalyzed) tracks."""
         # File with analyzed track
-        file1_id = create_file(db_conn, 1, "analyzed.mkv")
-        track1_id = create_audio_track(db_conn, file1_id, 0)
+        file1_id = insert_test_file(id=1, path="/test/path/analyzed.mkv")
+        track1_id = insert_test_track(
+            file_id=file1_id,
+            track_index=0,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+            is_default=True,
+            channels=2,
+            channel_layout="stereo",
+            duration_seconds=3600.0,
+        )
         create_analysis_result(db_conn, track1_id)
 
         # File with pending track
-        file2_id = create_file(db_conn, 2, "pending.mkv")
-        create_audio_track(db_conn, file2_id, 0)
+        file2_id = insert_test_file(id=2, path="/test/path/pending.mkv")
+        insert_test_track(
+            file_id=file2_id,
+            track_index=0,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+            is_default=True,
+            channels=2,
+            channel_layout="stereo",
+            duration_seconds=3600.0,
+        )
 
         result = get_files_analysis_status(db_conn, filter_classification="pending")
 
         assert len(result) == 1
         assert result[0].file_id == file2_id
 
-    def test_respects_limit(self, db_conn):
+    def test_respects_limit(self, db_conn, insert_test_file, insert_test_track):
         """Respects the limit parameter."""
         for i in range(5):
-            file_id = create_file(db_conn, i + 1, f"movie{i}.mkv")
-            create_audio_track(db_conn, file_id, 0)
+            file_id = insert_test_file(
+                id=i + 1,
+                path=f"/test/path/movie{i}.mkv",
+            )
+            insert_test_track(
+                file_id=file_id,
+                track_index=0,
+                track_type="audio",
+                codec="aac",
+                language="eng",
+                is_default=True,
+                channels=2,
+                channel_layout="stereo",
+                duration_seconds=3600.0,
+            )
 
         result = get_files_analysis_status(db_conn, limit=3)
 
@@ -272,19 +383,31 @@ class TestGetFileAnalysisDetail:
         result = get_file_analysis_detail(db_conn, "/nonexistent/path.mkv")
         assert result is None
 
-    def test_returns_empty_list_for_file_without_audio(self, db_conn):
+    def test_returns_empty_list_for_file_without_audio(self, db_conn, insert_test_file):
         """Returns empty list for file with no audio tracks."""
-        create_file(db_conn, 1, "video-only.mkv", path="/test/video-only.mkv")
+        insert_test_file(id=1, path="/test/video-only.mkv")
 
         result = get_file_analysis_detail(db_conn, "/test/video-only.mkv")
 
         # File exists but has no audio tracks - should return empty list
         assert result == []
 
-    def test_returns_track_details_with_analysis(self, db_conn):
+    def test_returns_track_details_with_analysis(
+        self, db_conn, insert_test_file, insert_test_track
+    ):
         """Returns detailed analysis for analyzed tracks."""
-        file_id = create_file(db_conn, 1, "movie.mkv", path="/test/movie.mkv")
-        track_id = create_audio_track(db_conn, file_id, 0, language="eng")
+        file_id = insert_test_file(id=1, path="/test/movie.mkv")
+        track_id = insert_test_track(
+            file_id=file_id,
+            track_index=0,
+            track_type="audio",
+            codec="aac",
+            language="eng",
+            is_default=True,
+            channels=2,
+            channel_layout="stereo",
+            duration_seconds=3600.0,
+        )
         create_analysis_result(
             db_conn,
             track_id,
@@ -305,10 +428,22 @@ class TestGetFileAnalysisDetail:
         assert result[0].primary_language == "eng"
         assert result[0].primary_percentage == 0.985
 
-    def test_returns_pending_track_with_nulls(self, db_conn):
+    def test_returns_pending_track_with_nulls(
+        self, db_conn, insert_test_file, insert_test_track
+    ):
         """Returns track with null analysis fields when not analyzed."""
-        file_id = create_file(db_conn, 1, "pending.mkv", path="/test/pending.mkv")
-        track_id = create_audio_track(db_conn, file_id, 0, language="ger")
+        file_id = insert_test_file(id=1, path="/test/pending.mkv")
+        track_id = insert_test_track(
+            file_id=file_id,
+            track_index=0,
+            track_type="audio",
+            codec="aac",
+            language="ger",
+            is_default=True,
+            channels=2,
+            channel_layout="stereo",
+            duration_seconds=3600.0,
+        )
 
         result = get_file_analysis_detail(db_conn, "/test/pending.mkv")
 

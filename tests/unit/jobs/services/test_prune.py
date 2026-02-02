@@ -2,28 +2,7 @@
 
 import sqlite3
 
-from vpo.db.queries import insert_file
-from vpo.db.types import FileRecord
 from vpo.jobs.services.prune import PruneJobResult, PruneJobService
-
-
-def _insert_file(conn, file_id, path, scan_status="ok"):
-    """Insert a test file record."""
-    record = FileRecord(
-        id=file_id,
-        path=path,
-        filename=path.split("/")[-1],
-        directory="/media",
-        extension=".mkv",
-        size_bytes=1000,
-        modified_at="2025-01-01T00:00:00Z",
-        content_hash=None,
-        container_format="mkv",
-        scanned_at="2025-01-01T00:00:00Z",
-        scan_status=scan_status,
-        scan_error=None,
-    )
-    return insert_file(conn, record)
 
 
 class TestPruneJobResult:
@@ -45,12 +24,12 @@ class TestPruneJobResult:
 class TestPruneJobServiceProcess:
     """Tests for PruneJobService.process()."""
 
-    def test_prune_deletes_missing_files(self, db_conn):
+    def test_prune_deletes_missing_files(self, db_conn, insert_test_file):
         """Pruning removes files with scan_status='missing'."""
-        _insert_file(db_conn, 1, "/media/ok.mkv", scan_status="ok")
-        _insert_file(db_conn, 2, "/media/missing1.mkv", scan_status="missing")
-        _insert_file(db_conn, 3, "/media/missing2.mkv", scan_status="missing")
-        _insert_file(db_conn, 4, "/media/error.mkv", scan_status="error")
+        insert_test_file(id=1, path="/media/ok.mkv", scan_status="ok")
+        insert_test_file(id=2, path="/media/missing1.mkv", scan_status="missing")
+        insert_test_file(id=3, path="/media/missing2.mkv", scan_status="missing")
+        insert_test_file(id=4, path="/media/error.mkv", scan_status="error")
 
         service = PruneJobService(db_conn)
         result = service.process()
@@ -62,9 +41,9 @@ class TestPruneJobServiceProcess:
         cursor = db_conn.execute("SELECT COUNT(*) FROM files")
         assert cursor.fetchone()[0] == 2  # ok + error remain
 
-    def test_prune_no_missing_files(self, db_conn):
+    def test_prune_no_missing_files(self, db_conn, insert_test_file):
         """Pruning with no missing files returns zero count."""
-        _insert_file(db_conn, 1, "/media/ok.mkv", scan_status="ok")
+        insert_test_file(id=1, path="/media/ok.mkv", scan_status="ok")
 
         service = PruneJobService(db_conn)
         result = service.process()
@@ -80,11 +59,11 @@ class TestPruneJobServiceProcess:
         assert result.success is True
         assert result.files_pruned == 0
 
-    def test_prune_preserves_ok_and_error_files(self, db_conn):
+    def test_prune_preserves_ok_and_error_files(self, db_conn, insert_test_file):
         """Pruning does not touch ok or error files."""
-        _insert_file(db_conn, 1, "/media/ok.mkv", scan_status="ok")
-        _insert_file(db_conn, 2, "/media/error.mkv", scan_status="error")
-        _insert_file(db_conn, 3, "/media/missing.mkv", scan_status="missing")
+        insert_test_file(id=1, path="/media/ok.mkv", scan_status="ok")
+        insert_test_file(id=2, path="/media/error.mkv", scan_status="error")
+        insert_test_file(id=3, path="/media/missing.mkv", scan_status="missing")
 
         service = PruneJobService(db_conn)
         service.process()
@@ -98,11 +77,11 @@ class TestPruneJobServiceProcess:
 class TestPruneJobServiceErrorPaths:
     """Tests for error handling in PruneJobService.process()."""
 
-    def test_rolls_back_on_delete_failure(self, db_conn):
+    def test_rolls_back_on_delete_failure(self, db_conn, insert_test_file):
         """All deletions roll back if any single delete fails."""
-        _insert_file(db_conn, 1, "/media/missing1.mkv", scan_status="missing")
-        _insert_file(db_conn, 2, "/media/missing2.mkv", scan_status="missing")
-        _insert_file(db_conn, 3, "/media/missing3.mkv", scan_status="missing")
+        insert_test_file(id=1, path="/media/missing1.mkv", scan_status="missing")
+        insert_test_file(id=2, path="/media/missing2.mkv", scan_status="missing")
+        insert_test_file(id=3, path="/media/missing3.mkv", scan_status="missing")
 
         # Commit so files are persisted before we start
         db_conn.commit()
@@ -148,10 +127,10 @@ class TestPruneJobServiceErrorPaths:
         assert result.success is False
         assert result.error_message is not None
 
-    def test_writes_to_job_log(self, db_conn):
+    def test_writes_to_job_log(self, db_conn, insert_test_file):
         """Verifies job_log.write_line is called for progress messages."""
-        _insert_file(db_conn, 1, "/media/missing1.mkv", scan_status="missing")
-        _insert_file(db_conn, 2, "/media/missing2.mkv", scan_status="missing")
+        insert_test_file(id=1, path="/media/missing1.mkv", scan_status="missing")
+        insert_test_file(id=2, path="/media/missing2.mkv", scan_status="missing")
 
         class MockJobLog:
             def __init__(self):
@@ -171,9 +150,9 @@ class TestPruneJobServiceErrorPaths:
         assert any("Pruned:" in line for line in mock_log.lines)
         assert any("Pruned 2" in line for line in mock_log.lines)
 
-    def test_no_missing_files_logs_message(self, db_conn):
+    def test_no_missing_files_logs_message(self, db_conn, insert_test_file):
         """When no files to prune, job log gets a message."""
-        _insert_file(db_conn, 1, "/media/ok.mkv", scan_status="ok")
+        insert_test_file(id=1, path="/media/ok.mkv", scan_status="ok")
 
         class MockJobLog:
             def __init__(self):

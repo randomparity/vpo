@@ -2,7 +2,6 @@
 
 import json
 import sqlite3
-from datetime import datetime, timezone
 
 import pytest
 
@@ -21,22 +20,10 @@ from vpo.jobs.tracking import (
 )
 
 
-def _insert_dummy_file(conn: sqlite3.Connection) -> int:
-    """Insert a minimal file record and return its rowid."""
-    now = datetime.now(timezone.utc).isoformat()
-    conn.execute(
-        """INSERT INTO files (path, filename, directory, extension,
-           size_bytes, modified_at, scanned_at, scan_status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-        ("/videos/movie.mkv", "movie.mkv", "/videos", "mkv", 100, now, now, "ok"),
-    )
-    return conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-
-
 @pytest.fixture
-def file_id(db_conn: sqlite3.Connection) -> int:
+def file_id(insert_test_file) -> int:
     """Insert a dummy file record and return its ID for FK-dependent tests."""
-    return _insert_dummy_file(db_conn)
+    return insert_test_file(path="/videos/movie.mkv", extension="mkv", size_bytes=100)
 
 
 class TestCreateScanJob:

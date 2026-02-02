@@ -3,92 +3,44 @@
 import json
 from unittest.mock import patch
 
-import pytest
-from click.testing import CliRunner
-
 from vpo.cli import main
 from vpo.cli.exit_codes import ExitCode
-from vpo.db.queries import insert_file, insert_track
-from vpo.db.types import FileRecord, ForeignKeyViolation, IntegrityResult, TrackRecord
+from vpo.db.types import ForeignKeyViolation, IntegrityResult
 from vpo.db.views import get_missing_files
-
-
-@pytest.fixture
-def runner():
-    return CliRunner()
-
-
-def _insert_file(
-    conn, file_id, path, scan_status="ok", size_bytes=1000, content_hash=None
-):
-    """Insert a test file record."""
-    record = FileRecord(
-        id=file_id,
-        path=path,
-        filename=path.split("/")[-1],
-        directory="/media",
-        extension=".mkv",
-        size_bytes=size_bytes,
-        modified_at="2025-01-15T08:30:00Z",
-        content_hash=content_hash,
-        container_format="mkv",
-        scanned_at="2025-01-15T08:30:00Z",
-        scan_status=scan_status,
-        scan_error=None,
-    )
-    return insert_file(conn, record)
-
-
-def _insert_track(conn, file_id, track_index, track_type, codec="h264"):
-    """Insert a test track record."""
-    record = TrackRecord(
-        id=None,
-        file_id=file_id,
-        track_index=track_index,
-        track_type=track_type,
-        codec=codec,
-        language=None,
-        title=None,
-        is_default=False,
-        is_forced=False,
-    )
-    return insert_track(conn, record)
 
 
 class TestGetMissingFiles:
     """Tests for the get_missing_files query."""
 
-    def test_returns_missing_files(self, db_conn):
-        _insert_file(db_conn, 1, "/media/ok.mkv", scan_status="ok")
-        _insert_file(db_conn, 2, "/media/missing.mkv", scan_status="missing")
+    def test_returns_missing_files(self, db_conn, insert_test_file):
+        insert_test_file(id=1, path="/media/ok.mkv", scan_status="ok")
+        insert_test_file(id=2, path="/media/missing.mkv", scan_status="missing")
 
         files = get_missing_files(db_conn)
         assert len(files) == 1
         assert files[0]["path"] == "/media/missing.mkv"
 
-    def test_returns_empty_when_no_missing(self, db_conn):
-        _insert_file(db_conn, 1, "/media/ok.mkv", scan_status="ok")
+    def test_returns_empty_when_no_missing(self, db_conn, insert_test_file):
+        insert_test_file(id=1, path="/media/ok.mkv", scan_status="ok")
 
         files = get_missing_files(db_conn)
         assert files == []
 
-    def test_respects_limit(self, db_conn):
+    def test_respects_limit(self, db_conn, insert_test_file):
         for i in range(5):
-            _insert_file(
-                db_conn,
-                i + 1,
-                f"/media/missing{i}.mkv",
+            insert_test_file(
+                id=i + 1,
+                path=f"/media/missing{i}.mkv",
                 scan_status="missing",
             )
 
         files = get_missing_files(db_conn, limit=3)
         assert len(files) == 3
 
-    def test_includes_size_bytes(self, db_conn):
-        _insert_file(
-            db_conn,
-            1,
-            "/media/missing.mkv",
+    def test_includes_size_bytes(self, db_conn, insert_test_file):
+        insert_test_file(
+            id=1,
+            path="/media/missing.mkv",
             scan_status="missing",
             size_bytes=4200000000,
         )
@@ -100,9 +52,9 @@ class TestGetMissingFiles:
 class TestLibraryMissingCommand:
     """Tests for vpo library missing command."""
 
-    def test_human_output_with_files(self, runner, db_conn):
+    def test_human_output_with_files(self, runner, db_conn, insert_test_file):
         """Human output shows table with missing files."""
-        _insert_file(db_conn, 1, "/media/missing.mkv", scan_status="missing")
+        insert_test_file(id=1, path="/media/missing.mkv", scan_status="missing")
 
         result = runner.invoke(
             main,
@@ -123,9 +75,9 @@ class TestLibraryMissingCommand:
         assert result.exit_code == 0
         assert "No missing files found" in result.output
 
-    def test_json_output(self, runner, db_conn):
+    def test_json_output(self, runner, db_conn, insert_test_file):
         """JSON output has correct structure."""
-        _insert_file(db_conn, 1, "/media/missing.mkv", scan_status="missing")
+        insert_test_file(id=1, path="/media/missing.mkv", scan_status="missing")
 
         result = runner.invoke(
             main,
@@ -154,13 +106,12 @@ class TestLibraryMissingCommand:
         assert data["total"] == 0
         assert data["files"] == []
 
-    def test_limit_option(self, runner, db_conn):
+    def test_limit_option(self, runner, db_conn, insert_test_file):
         """--limit restricts output count."""
         for i in range(5):
-            _insert_file(
-                db_conn,
-                i + 1,
-                f"/media/missing{i}.mkv",
+            insert_test_file(
+                id=i + 1,
+                path=f"/media/missing{i}.mkv",
                 scan_status="missing",
             )
 
@@ -178,12 +129,11 @@ class TestLibraryMissingCommand:
 class TestLibraryMissingEdgeCases:
     """Edge case tests for library missing command."""
 
-    def test_human_output_zero_size(self, runner, db_conn):
+    def test_human_output_zero_size(self, runner, db_conn, insert_test_file):
         """Files with zero size_bytes don't crash human output."""
-        _insert_file(
-            db_conn,
-            1,
-            "/media/missing.mkv",
+        insert_test_file(
+            id=1,
+            path="/media/missing.mkv",
             scan_status="missing",
             size_bytes=0,
         )
@@ -196,12 +146,11 @@ class TestLibraryMissingEdgeCases:
         assert result.exit_code == 0
         assert "missing.mkv" in result.output
 
-    def test_json_output_zero_size(self, runner, db_conn):
+    def test_json_output_zero_size(self, runner, db_conn, insert_test_file):
         """JSON output handles zero size_bytes."""
-        _insert_file(
-            db_conn,
-            1,
-            "/media/missing.mkv",
+        insert_test_file(
+            id=1,
+            path="/media/missing.mkv",
             scan_status="missing",
             size_bytes=0,
         )
@@ -215,12 +164,11 @@ class TestLibraryMissingEdgeCases:
         data = json.loads(result.output)
         assert data["files"][0]["size_bytes"] == 0
 
-    def test_human_output_large_size(self, runner, db_conn):
+    def test_human_output_large_size(self, runner, db_conn, insert_test_file):
         """Files with very large size_bytes format correctly."""
-        _insert_file(
-            db_conn,
-            1,
-            "/media/missing.mkv",
+        insert_test_file(
+            id=1,
+            path="/media/missing.mkv",
             scan_status="missing",
             size_bytes=42_000_000_000,
         )
@@ -237,10 +185,10 @@ class TestLibraryMissingEdgeCases:
 class TestLibraryInfoCommand:
     """Tests for vpo library info command."""
 
-    def test_human_output(self, runner, db_conn):
-        fid = _insert_file(db_conn, 1, "/media/movie.mkv", size_bytes=5000)
-        _insert_track(db_conn, fid, 0, "video")
-        _insert_track(db_conn, fid, 1, "audio", codec="aac")
+    def test_human_output(self, runner, db_conn, insert_test_file, insert_test_track):
+        fid = insert_test_file(id=1, path="/media/movie.mkv", size_bytes=5000)
+        insert_test_track(file_id=fid, track_index=0, track_type="video")
+        insert_test_track(file_id=fid, track_index=1, track_type="audio", codec="aac")
 
         result = runner.invoke(
             main,
@@ -253,8 +201,8 @@ class TestLibraryInfoCommand:
         assert "Video:" in result.output
         assert "Audio:" in result.output
 
-    def test_json_output(self, runner, db_conn):
-        _insert_file(db_conn, 1, "/media/movie.mkv", size_bytes=5000)
+    def test_json_output(self, runner, db_conn, insert_test_file):
+        insert_test_file(id=1, path="/media/movie.mkv", size_bytes=5000)
 
         result = runner.invoke(
             main,
@@ -283,8 +231,8 @@ class TestLibraryInfoCommand:
 class TestLibraryPruneCommand:
     """Tests for vpo library prune command."""
 
-    def test_dry_run_human(self, runner, db_conn):
-        _insert_file(db_conn, 1, "/media/missing.mkv", scan_status="missing")
+    def test_dry_run_human(self, runner, db_conn, insert_test_file):
+        insert_test_file(id=1, path="/media/missing.mkv", scan_status="missing")
 
         result = runner.invoke(
             main,
@@ -295,8 +243,8 @@ class TestLibraryPruneCommand:
         assert "Would prune 1" in result.output
         assert "/media/missing.mkv" in result.output
 
-    def test_dry_run_json(self, runner, db_conn):
-        _insert_file(db_conn, 1, "/media/missing.mkv", scan_status="missing")
+    def test_dry_run_json(self, runner, db_conn, insert_test_file):
+        insert_test_file(id=1, path="/media/missing.mkv", scan_status="missing")
 
         result = runner.invoke(
             main,
@@ -309,8 +257,8 @@ class TestLibraryPruneCommand:
         assert data["dry_run"] is True
         assert data["files_pruned"] == 1
 
-    def test_prune_with_yes(self, runner, db_conn):
-        _insert_file(db_conn, 1, "/media/missing.mkv", scan_status="missing")
+    def test_prune_with_yes(self, runner, db_conn, insert_test_file):
+        insert_test_file(id=1, path="/media/missing.mkv", scan_status="missing")
 
         result = runner.invoke(
             main,
@@ -324,8 +272,8 @@ class TestLibraryPruneCommand:
         files = get_missing_files(db_conn)
         assert len(files) == 0
 
-    def test_prune_json_output(self, runner, db_conn):
-        _insert_file(db_conn, 1, "/media/missing.mkv", scan_status="missing")
+    def test_prune_json_output(self, runner, db_conn, insert_test_file):
+        insert_test_file(id=1, path="/media/missing.mkv", scan_status="missing")
 
         result = runner.invoke(
             main,
@@ -338,8 +286,8 @@ class TestLibraryPruneCommand:
         assert data["files_pruned"] == 1
         assert data["dry_run"] is False
 
-    def test_nothing_to_prune(self, runner, db_conn):
-        _insert_file(db_conn, 1, "/media/ok.mkv", scan_status="ok")
+    def test_nothing_to_prune(self, runner, db_conn, insert_test_file):
+        insert_test_file(id=1, path="/media/ok.mkv", scan_status="ok")
 
         result = runner.invoke(
             main,
@@ -360,9 +308,9 @@ class TestLibraryPruneCommand:
         data = json.loads(result.output)
         assert data["files_pruned"] == 0
 
-    def test_prune_aborted(self, runner, db_conn):
+    def test_prune_aborted(self, runner, db_conn, insert_test_file):
         """Prune without --yes prompts and can be aborted."""
-        _insert_file(db_conn, 1, "/media/missing.mkv", scan_status="missing")
+        insert_test_file(id=1, path="/media/missing.mkv", scan_status="missing")
 
         result = runner.invoke(
             main,
@@ -376,9 +324,9 @@ class TestLibraryPruneCommand:
         files = get_missing_files(db_conn)
         assert len(files) == 1
 
-    def test_prune_failure_json(self, runner, db_conn):
+    def test_prune_failure_json(self, runner, db_conn, insert_test_file):
         """Prune failure with JSON output shows error."""
-        _insert_file(db_conn, 1, "/media/missing.mkv", scan_status="missing")
+        insert_test_file(id=1, path="/media/missing.mkv", scan_status="missing")
 
         from vpo.jobs.services.prune import PruneJobResult
 
@@ -401,9 +349,9 @@ class TestLibraryPruneCommand:
         assert data["files_pruned"] == 0
         assert data["error"] == "disk error"
 
-    def test_prune_failure_human(self, runner, db_conn):
+    def test_prune_failure_human(self, runner, db_conn, insert_test_file):
         """Prune failure with human output shows error on stderr."""
-        _insert_file(db_conn, 1, "/media/missing.mkv", scan_status="missing")
+        insert_test_file(id=1, path="/media/missing.mkv", scan_status="missing")
 
         from vpo.jobs.services.prune import PruneJobResult
 
@@ -552,8 +500,8 @@ class TestLibraryOptimizeCommand:
 class TestLibraryDuplicatesCommand:
     """Tests for vpo library duplicates command."""
 
-    def test_no_duplicates(self, runner, db_conn):
-        _insert_file(db_conn, 1, "/media/a.mkv", content_hash="hash_a")
+    def test_no_duplicates(self, runner, db_conn, insert_test_file):
+        insert_test_file(id=1, path="/media/a.mkv", content_hash="hash_a")
 
         result = runner.invoke(
             main,
@@ -563,13 +511,13 @@ class TestLibraryDuplicatesCommand:
         assert result.exit_code == 0
         assert "No duplicate files found" in result.output
 
-    def test_shows_duplicates(self, runner, db_conn):
+    def test_shows_duplicates(self, runner, db_conn, insert_test_file):
         test_hash = "abcdef123456"  # pragma: allowlist secret
-        _insert_file(
-            db_conn, 1, "/media/a.mkv", content_hash=test_hash, size_bytes=1000
+        insert_test_file(
+            id=1, path="/media/a.mkv", content_hash=test_hash, size_bytes=1000
         )
-        _insert_file(
-            db_conn, 2, "/media/b.mkv", content_hash=test_hash, size_bytes=1000
+        insert_test_file(
+            id=2, path="/media/b.mkv", content_hash=test_hash, size_bytes=1000
         )
 
         result = runner.invoke(
@@ -583,9 +531,13 @@ class TestLibraryDuplicatesCommand:
         assert "/media/a.mkv" in result.output
         assert "/media/b.mkv" in result.output
 
-    def test_json_output(self, runner, db_conn):
-        _insert_file(db_conn, 1, "/media/a.mkv", content_hash="hash1", size_bytes=1000)
-        _insert_file(db_conn, 2, "/media/b.mkv", content_hash="hash1", size_bytes=1000)
+    def test_json_output(self, runner, db_conn, insert_test_file):
+        insert_test_file(
+            id=1, path="/media/a.mkv", content_hash="hash1", size_bytes=1000
+        )
+        insert_test_file(
+            id=2, path="/media/b.mkv", content_hash="hash1", size_bytes=1000
+        )
 
         result = runner.invoke(
             main,
@@ -611,12 +563,12 @@ class TestLibraryDuplicatesCommand:
         assert data["total_groups"] == 0
         assert data["groups"] == []
 
-    def test_limit_option(self, runner, db_conn):
+    def test_limit_option(self, runner, db_conn, insert_test_file):
         # Two groups
-        _insert_file(db_conn, 1, "/media/a1.mkv", content_hash="h1")
-        _insert_file(db_conn, 2, "/media/a2.mkv", content_hash="h1")
-        _insert_file(db_conn, 3, "/media/b1.mkv", content_hash="h2")
-        _insert_file(db_conn, 4, "/media/b2.mkv", content_hash="h2")
+        insert_test_file(id=1, path="/media/a1.mkv", content_hash="h1")
+        insert_test_file(id=2, path="/media/a2.mkv", content_hash="h1")
+        insert_test_file(id=3, path="/media/b1.mkv", content_hash="h2")
+        insert_test_file(id=4, path="/media/b2.mkv", content_hash="h2")
 
         result = runner.invoke(
             main,

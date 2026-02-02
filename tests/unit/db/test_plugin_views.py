@@ -1,45 +1,14 @@
 """Tests for plugin data view query functions."""
 
 import json
-import sqlite3
 from datetime import datetime, timezone
 
 import pytest
 
-from vpo.db.queries import insert_file
-from vpo.db.types import FileRecord
 from vpo.db.views import (
     get_files_with_plugin_data,
     get_plugin_data_for_file,
 )
-
-
-def create_file_with_plugin_metadata(
-    conn: sqlite3.Connection,
-    file_id: int,
-    filename: str,
-    plugin_metadata: dict | None = None,
-) -> FileRecord:
-    """Create a file record with optional plugin metadata."""
-    metadata_json = json.dumps(plugin_metadata) if plugin_metadata else None
-    file = FileRecord(
-        id=file_id,
-        path=f"/test/path/{filename}",
-        filename=filename,
-        directory="/test/path",
-        extension=".mkv",
-        size_bytes=1000,
-        modified_at=datetime.now(timezone.utc).isoformat(),
-        content_hash=f"hash{file_id}",
-        container_format="matroska",
-        scanned_at=datetime.now(timezone.utc).isoformat(),
-        scan_status="ok",
-        scan_error=None,
-        job_id=None,
-        plugin_metadata=metadata_json,
-    )
-    insert_file(conn, file)
-    return file
 
 
 class TestGetFilesWithPluginData:
@@ -50,32 +19,36 @@ class TestGetFilesWithPluginData:
         result = get_files_with_plugin_data(db_conn, "whisper-transcriber")
         assert result == []
 
-    def test_returns_empty_list_when_no_plugin_metadata(self, db_conn):
+    def test_returns_empty_list_when_no_plugin_metadata(
+        self, db_conn, insert_test_file
+    ):
         """Returns empty list when files have no plugin metadata."""
-        create_file_with_plugin_metadata(db_conn, 1, "test.mkv", plugin_metadata=None)
+        insert_test_file(id=1, path="/test/path/test.mkv", content_hash="hash1")
         result = get_files_with_plugin_data(db_conn, "whisper-transcriber")
         assert result == []
 
-    def test_returns_empty_list_when_plugin_not_present(self, db_conn):
+    def test_returns_empty_list_when_plugin_not_present(
+        self, db_conn, insert_test_file
+    ):
         """Returns empty list when specific plugin has no data."""
-        create_file_with_plugin_metadata(
-            db_conn,
-            1,
-            "test.mkv",
-            plugin_metadata={"other-plugin": {"field": "value"}},
+        insert_test_file(
+            id=1,
+            path="/test/path/test.mkv",
+            plugin_metadata=json.dumps({"other-plugin": {"field": "value"}}),
+            content_hash="hash1",
         )
         result = get_files_with_plugin_data(db_conn, "whisper-transcriber")
         assert result == []
 
-    def test_returns_files_with_plugin_data(self, db_conn):
+    def test_returns_files_with_plugin_data(self, db_conn, insert_test_file):
         """Returns files that have data from the specified plugin."""
-        create_file_with_plugin_metadata(
-            db_conn,
-            1,
-            "test.mkv",
-            plugin_metadata={
-                "whisper-transcriber": {"language": "en", "confidence": 0.95}
-            },
+        insert_test_file(
+            id=1,
+            path="/test/path/test.mkv",
+            plugin_metadata=json.dumps(
+                {"whisper-transcriber": {"language": "en", "confidence": 0.95}}
+            ),
+            content_hash="hash1",
         )
         result = get_files_with_plugin_data(db_conn, "whisper-transcriber")
         assert len(result) == 1
@@ -83,28 +56,30 @@ class TestGetFilesWithPluginData:
         assert result[0]["filename"] == "test.mkv"
         assert result[0]["plugin_data"] == {"language": "en", "confidence": 0.95}
 
-    def test_filters_to_specific_plugin(self, db_conn):
+    def test_filters_to_specific_plugin(self, db_conn, insert_test_file):
         """Only returns files with data from the requested plugin."""
-        create_file_with_plugin_metadata(
-            db_conn,
-            1,
-            "file1.mkv",
-            plugin_metadata={"whisper-transcriber": {"language": "en"}},
+        insert_test_file(
+            id=1,
+            path="/test/path/file1.mkv",
+            plugin_metadata=json.dumps({"whisper-transcriber": {"language": "en"}}),
+            content_hash="hash1",
         )
-        create_file_with_plugin_metadata(
-            db_conn,
-            2,
-            "file2.mkv",
-            plugin_metadata={"other-plugin": {"data": "value"}},
+        insert_test_file(
+            id=2,
+            path="/test/path/file2.mkv",
+            plugin_metadata=json.dumps({"other-plugin": {"data": "value"}}),
+            content_hash="hash2",
         )
-        create_file_with_plugin_metadata(
-            db_conn,
-            3,
-            "file3.mkv",
-            plugin_metadata={
-                "whisper-transcriber": {"language": "fr"},
-                "other-plugin": {"data": "value"},
-            },
+        insert_test_file(
+            id=3,
+            path="/test/path/file3.mkv",
+            plugin_metadata=json.dumps(
+                {
+                    "whisper-transcriber": {"language": "fr"},
+                    "other-plugin": {"data": "value"},
+                }
+            ),
+            content_hash="hash3",
         )
 
         result = get_files_with_plugin_data(db_conn, "whisper-transcriber")
@@ -114,40 +89,40 @@ class TestGetFilesWithPluginData:
         assert "file3.mkv" in filenames
         assert "file2.mkv" not in filenames
 
-    def test_pagination_limit(self, db_conn):
+    def test_pagination_limit(self, db_conn, insert_test_file):
         """Respects limit parameter."""
         for i in range(5):
-            create_file_with_plugin_metadata(
-                db_conn,
-                i + 1,
-                f"file{i}.mkv",
-                plugin_metadata={"test-plugin": {"index": i}},
+            insert_test_file(
+                id=i + 1,
+                path=f"/test/path/file{i}.mkv",
+                plugin_metadata=json.dumps({"test-plugin": {"index": i}}),
+                content_hash=f"hash{i + 1}",
             )
 
         result = get_files_with_plugin_data(db_conn, "test-plugin", limit=2)
         assert len(result) == 2
 
-    def test_pagination_offset(self, db_conn):
+    def test_pagination_offset(self, db_conn, insert_test_file):
         """Respects offset parameter."""
         for i in range(5):
-            create_file_with_plugin_metadata(
-                db_conn,
-                i + 1,
-                f"file{i}.mkv",
-                plugin_metadata={"test-plugin": {"index": i}},
+            insert_test_file(
+                id=i + 1,
+                path=f"/test/path/file{i}.mkv",
+                plugin_metadata=json.dumps({"test-plugin": {"index": i}}),
+                content_hash=f"hash{i + 1}",
             )
 
         result = get_files_with_plugin_data(db_conn, "test-plugin", limit=2, offset=2)
         assert len(result) == 2
 
-    def test_return_total_count(self, db_conn):
+    def test_return_total_count(self, db_conn, insert_test_file):
         """Returns total count when return_total=True."""
         for i in range(5):
-            create_file_with_plugin_metadata(
-                db_conn,
-                i + 1,
-                f"file{i}.mkv",
-                plugin_metadata={"test-plugin": {"index": i}},
+            insert_test_file(
+                id=i + 1,
+                path=f"/test/path/file{i}.mkv",
+                plugin_metadata=json.dumps({"test-plugin": {"index": i}}),
+                content_hash=f"hash{i + 1}",
             )
 
         result, total = get_files_with_plugin_data(
@@ -184,20 +159,25 @@ class TestGetPluginDataForFile:
         result = get_plugin_data_for_file(db_conn, 999)
         assert result == {}
 
-    def test_returns_empty_dict_for_file_without_metadata(self, db_conn):
+    def test_returns_empty_dict_for_file_without_metadata(
+        self, db_conn, insert_test_file
+    ):
         """Returns empty dict when file has no plugin metadata."""
-        create_file_with_plugin_metadata(db_conn, 1, "test.mkv", plugin_metadata=None)
+        insert_test_file(id=1, path="/test/path/test.mkv", content_hash="hash1")
         result = get_plugin_data_for_file(db_conn, 1)
         assert result == {}
 
-    def test_returns_plugin_metadata(self, db_conn):
+    def test_returns_plugin_metadata(self, db_conn, insert_test_file):
         """Returns all plugin metadata for a file."""
         metadata = {
             "whisper-transcriber": {"language": "en", "confidence": 0.95},
             "other-plugin": {"processed": True},
         }
-        create_file_with_plugin_metadata(
-            db_conn, 1, "test.mkv", plugin_metadata=metadata
+        insert_test_file(
+            id=1,
+            path="/test/path/test.mkv",
+            plugin_metadata=json.dumps(metadata),
+            content_hash="hash1",
         )
 
         result = get_plugin_data_for_file(db_conn, 1)
@@ -236,7 +216,7 @@ class TestGetPluginDataForFile:
         result = get_plugin_data_for_file(conn, 1)
         assert result == {}
 
-    def test_returns_nested_plugin_data(self, db_conn):
+    def test_returns_nested_plugin_data(self, db_conn, insert_test_file):
         """Returns nested plugin data structures correctly."""
         metadata = {
             "analysis-plugin": {
@@ -247,8 +227,11 @@ class TestGetPluginDataForFile:
                 "summary": {"total": 2, "analyzed": True},
             }
         }
-        create_file_with_plugin_metadata(
-            db_conn, 1, "test.mkv", plugin_metadata=metadata
+        insert_test_file(
+            id=1,
+            path="/test/path/test.mkv",
+            plugin_metadata=json.dumps(metadata),
+            content_hash="hash1",
         )
 
         result = get_plugin_data_for_file(db_conn, 1)
@@ -276,15 +259,15 @@ class TestWindowFunctionOptimization:
     correct totals across different pagination scenarios.
     """
 
-    def test_total_count_consistent_across_pages(self, db_conn):
+    def test_total_count_consistent_across_pages(self, db_conn, insert_test_file):
         """Total count remains consistent when paginating through results."""
         # Create test data
         for i in range(20):
-            create_file_with_plugin_metadata(
-                db_conn,
-                i + 1,
-                f"file{i:02d}.mkv",
-                plugin_metadata={"test-plugin": {"index": i}},
+            insert_test_file(
+                id=i + 1,
+                path=f"/test/path/file{i:02d}.mkv",
+                plugin_metadata=json.dumps({"test-plugin": {"index": i}}),
+                content_hash=f"hash{i + 1}",
             )
 
         # Query different pages and verify total is consistent
@@ -301,15 +284,15 @@ class TestWindowFunctionOptimization:
 
         assert all(t == 20 for t in totals), f"Inconsistent totals: {totals}"
 
-    def test_total_correct_when_limit_exceeds_results(self, db_conn):
+    def test_total_correct_when_limit_exceeds_results(self, db_conn, insert_test_file):
         """Total reflects actual count even when limit is larger."""
         # Create only 3 files
         for i in range(3):
-            create_file_with_plugin_metadata(
-                db_conn,
-                i + 1,
-                f"file{i}.mkv",
-                plugin_metadata={"test-plugin": {"index": i}},
+            insert_test_file(
+                id=i + 1,
+                path=f"/test/path/file{i}.mkv",
+                plugin_metadata=json.dumps({"test-plugin": {"index": i}}),
+                content_hash=f"hash{i + 1}",
             )
 
         # Query with limit larger than data
@@ -324,15 +307,15 @@ class TestWindowFunctionOptimization:
         assert len(result) == 3
         assert total == 3
 
-    def test_total_zero_when_no_matches(self, db_conn):
+    def test_total_zero_when_no_matches(self, db_conn, insert_test_file):
         """Total is zero when no files match the plugin filter."""
         # Create files with different plugin
         for i in range(5):
-            create_file_with_plugin_metadata(
-                db_conn,
-                i + 1,
-                f"file{i}.mkv",
-                plugin_metadata={"other-plugin": {"index": i}},
+            insert_test_file(
+                id=i + 1,
+                path=f"/test/path/file{i}.mkv",
+                plugin_metadata=json.dumps({"other-plugin": {"index": i}}),
+                content_hash=f"hash{i + 1}",
             )
 
         result, total = get_files_with_plugin_data(
