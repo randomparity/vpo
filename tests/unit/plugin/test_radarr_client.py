@@ -362,6 +362,13 @@ class TestRadarrClientBuildCache:
         mock_http_client = MagicMock()
         mock_client_class.return_value = mock_http_client
 
+        # Tag response
+        tag_response = MagicMock()
+        tag_response.json.return_value = [
+            {"id": 1, "label": "4k"},
+            {"id": 2, "label": "hdr"},
+        ]
+
         # Movie response
         movie_response = MagicMock()
         movie_response.json.return_value = [
@@ -371,6 +378,7 @@ class TestRadarrClientBuildCache:
                 "year": 2023,
                 "path": "/movies/Test Movie (2023)",
                 "hasFile": True,
+                "tags": [1],
             }
         ]
 
@@ -386,12 +394,14 @@ class TestRadarrClientBuildCache:
             }
         ]
 
-        mock_http_client.get.side_effect = [movie_response, file_response]
+        mock_http_client.get.side_effect = [tag_response, movie_response, file_response]
 
         cache = client.build_cache()
 
         assert 123 in cache.movies
         assert cache.movies[123].title == "Test Movie"
+        assert cache.movies[123].tags == "4k"
+        assert cache.tags == {1: "4k", 2: "hdr"}
         # Path is normalized, so check the movie_id mapping exists
         assert len(cache.path_to_movie) == 1
         assert len(cache.files) == 1
@@ -404,19 +414,375 @@ class TestRadarrClientBuildCache:
         mock_http_client = MagicMock()
         mock_client_class.return_value = mock_http_client
 
+        tag_response = MagicMock()
+        tag_response.json.return_value = []
+
         movie_response = MagicMock()
         movie_response.json.return_value = []
 
         file_response = MagicMock()
         file_response.json.return_value = []
 
-        mock_http_client.get.side_effect = [movie_response, file_response]
+        mock_http_client.get.side_effect = [tag_response, movie_response, file_response]
 
         cache = client.build_cache()
 
         assert cache.movies == {}
         assert cache.files == {}
         assert cache.path_to_movie == {}
+        assert cache.tags == {}
+
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
+    def test_build_cache_tag_failure_continues(
+        self, mock_client_class: MagicMock, client: RadarrClient
+    ):
+        """Test that tag fetch failure doesn't prevent cache building."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+
+        # Tag call fails, movie and file calls succeed
+        tag_response = MagicMock()
+        tag_response.raise_for_status.side_effect = httpx.HTTPError("Tag fetch failed")
+
+        movie_response = MagicMock()
+        movie_response.json.return_value = [
+            {
+                "id": 123,
+                "title": "Test Movie",
+                "year": 2023,
+                "path": "/movies/Test Movie (2023)",
+                "hasFile": True,
+            }
+        ]
+
+        file_response = MagicMock()
+        file_response.json.return_value = []
+
+        mock_http_client.get.side_effect = [tag_response, movie_response, file_response]
+
+        cache = client.build_cache()
+
+        assert 123 in cache.movies
+        assert cache.tags == {}
+
+
+class TestRadarrClientGetTags:
+    """Tests for get_tags method."""
+
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
+    def test_get_tags_success(self, mock_client_class: MagicMock, client: RadarrClient):
+        """Test successful tag retrieval."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {"id": 1, "label": "4k"},
+            {"id": 2, "label": "hdr"},
+            {"id": 3, "label": "anime"},
+        ]
+        mock_http_client.get.return_value = mock_response
+
+        result = client.get_tags()
+
+        assert result == {1: "4k", 2: "hdr", 3: "anime"}
+        mock_http_client.get.assert_called_once_with("/api/v3/tag")
+
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
+    def test_get_tags_empty(self, mock_client_class: MagicMock, client: RadarrClient):
+        """Test empty tag list."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = []
+        mock_http_client.get.return_value = mock_response
+
+        result = client.get_tags()
+
+        assert result == {}
+
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
+    def test_get_tags_http_error(
+        self, mock_client_class: MagicMock, client: RadarrClient
+    ):
+        """Test HTTP error during tag retrieval."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_http_client.get.side_effect = httpx.HTTPError("Request failed")
+
+        with pytest.raises(RadarrConnectionError, match="Failed to get tags"):
+            client.get_tags()
+
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
+    def test_get_tags_skips_malformed_entries(
+        self, mock_client_class: MagicMock, client: RadarrClient
+    ):
+        """Test that entries without id or label are skipped."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {"id": 1, "label": "good"},
+            {"id": 2},  # Missing label
+            {"label": "orphan"},  # Missing id
+        ]
+        mock_http_client.get.return_value = mock_response
+
+        result = client.get_tags()
+
+        assert result == {1: "good"}
+
+
+class TestRadarrClientExpandedParsing:
+    """Tests for expanded movie and movie file parsing."""
+
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
+    def test_parse_movie_genres_flattened(
+        self, mock_client_class: MagicMock, client: RadarrClient
+    ):
+        """Test genre array is flattened to comma-separated string."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {
+                "id": 1,
+                "title": "Test",
+                "year": 2023,
+                "path": "/movies/Test",
+                "hasFile": True,
+                "genres": ["Action", "Sci-Fi", "Thriller"],
+            }
+        ]
+        mock_http_client.get.return_value = mock_response
+
+        result = client.get_movies()
+
+        assert result[0].genres == "Action, Sci-Fi, Thriller"
+
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
+    def test_parse_movie_collection_name(
+        self, mock_client_class: MagicMock, client: RadarrClient
+    ):
+        """Test collection name extracted from nested object."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {
+                "id": 1,
+                "title": "Test",
+                "year": 2023,
+                "path": "/movies/Test",
+                "hasFile": True,
+                "collection": {"name": "Marvel Cinematic Universe", "tmdbId": 529892},
+            }
+        ]
+        mock_http_client.get.return_value = mock_response
+
+        result = client.get_movies()
+
+        assert result[0].collection_name == "Marvel Cinematic Universe"
+
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
+    def test_parse_movie_ratings_flattened(
+        self, mock_client_class: MagicMock, client: RadarrClient
+    ):
+        """Test ratings flattened from nested objects."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {
+                "id": 1,
+                "title": "Test",
+                "year": 2023,
+                "path": "/movies/Test",
+                "hasFile": True,
+                "ratings": {
+                    "tmdb": {"value": 8.2, "votes": 10000},
+                    "imdb": {"value": 7.9, "votes": 50000},
+                },
+            }
+        ]
+        mock_http_client.get.return_value = mock_response
+
+        result = client.get_movies()
+
+        assert result[0].rating_tmdb == 8.2
+        assert result[0].rating_imdb == 7.9
+
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
+    def test_parse_movie_tags_resolved(
+        self, mock_client_class: MagicMock, client: RadarrClient
+    ):
+        """Test tag IDs resolved to names via tag map."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {
+                "id": 1,
+                "title": "Test",
+                "year": 2023,
+                "path": "/movies/Test",
+                "hasFile": True,
+                "tags": [1, 3],
+            }
+        ]
+        mock_http_client.get.return_value = mock_response
+
+        tag_map = {1: "4k", 2: "hdr", 3: "anime"}
+        result = client.get_movies(tag_map=tag_map)
+
+        assert result[0].tags == "4k, anime"
+
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
+    def test_parse_movie_all_new_fields(
+        self, mock_client_class: MagicMock, client: RadarrClient
+    ):
+        """Test all new movie fields are parsed."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {
+                "id": 1,
+                "title": "Test Movie",
+                "year": 2023,
+                "path": "/movies/Test",
+                "hasFile": True,
+                "certification": "PG-13",
+                "genres": ["Action"],
+                "runtime": 148,
+                "status": "released",
+                "studio": "Warner Bros.",
+                "popularity": 42.5,
+                "monitored": True,
+            }
+        ]
+        mock_http_client.get.return_value = mock_response
+
+        result = client.get_movies()
+
+        assert result[0].certification == "PG-13"
+        assert result[0].genres == "Action"
+        assert result[0].runtime == 148
+        assert result[0].status == "released"
+        assert result[0].studio == "Warner Bros."
+        assert result[0].popularity == 42.5
+        assert result[0].monitored is True
+
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
+    def test_parse_movie_missing_new_fields_default_none(
+        self, mock_client_class: MagicMock, client: RadarrClient
+    ):
+        """Test missing new fields default to None."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {
+                "id": 1,
+                "title": "Minimal",
+                "year": 2023,
+                "path": "/movies/Minimal",
+                "hasFile": False,
+            }
+        ]
+        mock_http_client.get.return_value = mock_response
+
+        result = client.get_movies()
+
+        assert result[0].certification is None
+        assert result[0].genres is None
+        assert result[0].runtime is None
+        assert result[0].collection_name is None
+        assert result[0].studio is None
+        assert result[0].rating_tmdb is None
+        assert result[0].rating_imdb is None
+        assert result[0].tags is None
+
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
+    def test_parse_movie_empty_certification_becomes_none(
+        self, mock_client_class: MagicMock, client: RadarrClient
+    ):
+        """Test that empty string certification becomes None."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {
+                "id": 1,
+                "title": "Test",
+                "year": 2023,
+                "path": "/movies/Test",
+                "hasFile": True,
+                "certification": "",
+                "studio": "",
+            }
+        ]
+        mock_http_client.get.return_value = mock_response
+
+        result = client.get_movies()
+
+        assert result[0].certification is None
+        assert result[0].studio is None
+
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
+    def test_parse_movie_file_new_fields(
+        self, mock_client_class: MagicMock, client: RadarrClient
+    ):
+        """Test new movie file fields are parsed."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {
+                "id": 456,
+                "movieId": 123,
+                "path": "/movies/Test/Test.mkv",
+                "relativePath": "Test.mkv",
+                "size": 5000000000,
+                "edition": "Director's Cut",
+                "releaseGroup": "SPARKS",
+                "sceneName": "Test.Movie.2023.Directors.Cut.1080p.BluRay",
+            }
+        ]
+        mock_http_client.get.return_value = mock_response
+
+        result = client.get_movie_files()
+
+        assert result[0].edition == "Director's Cut"
+        assert result[0].release_group == "SPARKS"
+        assert result[0].scene_name == "Test.Movie.2023.Directors.Cut.1080p.BluRay"
+
+    @patch("vpo.plugins.radarr_metadata.client.httpx.Client")
+    def test_parse_movie_file_empty_strings_become_none(
+        self, mock_client_class: MagicMock, client: RadarrClient
+    ):
+        """Test that empty string file fields become None."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {
+                "id": 456,
+                "movieId": 123,
+                "path": "/movies/Test/Test.mkv",
+                "relativePath": "Test.mkv",
+                "size": 1000,
+                "edition": "",
+                "releaseGroup": "",
+                "sceneName": "",
+            }
+        ]
+        mock_http_client.get.return_value = mock_response
+
+        result = client.get_movie_files()
+
+        assert result[0].edition is None
+        assert result[0].release_group is None
+        assert result[0].scene_name is None
 
 
 class TestRadarrClientClose:
