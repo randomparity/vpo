@@ -143,4 +143,4 @@ Local time conversion is performed only at the presentation layer (CLI output).
 - [Documentation Index](../INDEX.md)
 - [Architecture Overview](architecture.md)
 - [Database Design](../design/design-database.md)
-- [Time and Timezones](../internals/time-and-timezones.md) *(planned)*
+- [Time and Timezones](../internals/time-and-timezones.md)

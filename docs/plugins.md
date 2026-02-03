@@ -316,7 +316,7 @@ See `examples/plugins/simple_reorder_plugin/` for a complete example including:
 - Implementation using `BaseAnalyzerPlugin`
 - README with usage instructions
 
-## Related Documentation
+## Related docs
 
 - [quickstart.md](../specs/005-plugin-architecture/quickstart.md) - Plugin quickstart scenarios
 - [contracts/](../specs/005-plugin-architecture/contracts/) - Plugin interface definitions
