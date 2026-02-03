@@ -123,7 +123,7 @@ class SetContainerMetadataActionModel(BaseModel):
         """Validate and normalize field name to lowercase."""
         if not v or not v.strip():
             raise ValueError("field name cannot be empty")
-        return v.strip().lower()
+        return v.strip().casefold()
 
     @model_validator(mode="after")
     def validate_value_source(self) -> "SetContainerMetadataActionModel":

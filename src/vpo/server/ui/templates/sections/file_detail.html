@@ -43,8 +43,8 @@
             <div class="file-detail-dl-row file-detail-dl-row--tags">
                 <dt>Container Tags</dt>
                 <dd>
-                    <dl class="file-detail-tags-dl">
-                        {% for key, value in file.container_tags.items() | sort %}
+                    <dl class="file-detail-tags-dl" aria-label="Container metadata tags">
+                        {% for key, value in file.container_tags | dictsort %}
                         <div class="file-detail-tags-row">
                             <dt>{{ key }}</dt>
                             <dd>{{ value }}</dd>

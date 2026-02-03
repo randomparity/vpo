@@ -98,6 +98,18 @@ _ON_ERROR_MAP = {
     "fail": OnErrorMode.FAIL,
 }
 
+# Shared operator map for plugin_metadata and container_metadata conditions
+_METADATA_OPERATOR_MAP = {
+    "eq": PluginMetadataOperator.EQ,
+    "neq": PluginMetadataOperator.NEQ,
+    "contains": PluginMetadataOperator.CONTAINS,
+    "lt": PluginMetadataOperator.LT,
+    "lte": PluginMetadataOperator.LTE,
+    "gt": PluginMetadataOperator.GT,
+    "gte": PluginMetadataOperator.GTE,
+    "exists": PluginMetadataOperator.EXISTS,
+}
+
 # =============================================================================
 # V4 Conversion Functions for Conditional Rules
 # =============================================================================
@@ -265,22 +277,11 @@ def _convert_plugin_metadata_condition(
     model: PluginMetadataConditionModel,
 ) -> PluginMetadataCondition:
     """Convert PluginMetadataConditionModel to PluginMetadataCondition."""
-    # Convert operator string to enum
-    op_map = {
-        "eq": PluginMetadataOperator.EQ,
-        "neq": PluginMetadataOperator.NEQ,
-        "contains": PluginMetadataOperator.CONTAINS,
-        "lt": PluginMetadataOperator.LT,
-        "lte": PluginMetadataOperator.LTE,
-        "gt": PluginMetadataOperator.GT,
-        "gte": PluginMetadataOperator.GTE,
-        "exists": PluginMetadataOperator.EXISTS,
-    }
     return PluginMetadataCondition(
         plugin=model.plugin,
         field=model.field,
         value=model.value,
-        operator=op_map[model.operator],
+        operator=_METADATA_OPERATOR_MAP[model.operator],
     )
 
 
@@ -288,20 +289,10 @@ def _convert_container_metadata_condition(
     model: ContainerMetadataConditionModel,
 ) -> ContainerMetadataCondition:
     """Convert ContainerMetadataConditionModel to ContainerMetadataCondition."""
-    op_map = {
-        "eq": PluginMetadataOperator.EQ,
-        "neq": PluginMetadataOperator.NEQ,
-        "contains": PluginMetadataOperator.CONTAINS,
-        "lt": PluginMetadataOperator.LT,
-        "lte": PluginMetadataOperator.LTE,
-        "gt": PluginMetadataOperator.GT,
-        "gte": PluginMetadataOperator.GTE,
-        "exists": PluginMetadataOperator.EXISTS,
-    }
     return ContainerMetadataCondition(
         field=model.field,
         value=model.value,
-        operator=op_map[model.operator],
+        operator=_METADATA_OPERATOR_MAP[model.operator],
     )
 
 

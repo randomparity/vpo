@@ -171,10 +171,11 @@ def format_json(result: IntrospectionResult) -> str:
         "file": str(result.file_path),
         "container": result.container_format,
         "duration_seconds": result.duration_seconds,
-        "container_tags": result.container_tags,
         "tracks": [track_to_dict(t) for t in result.tracks],
         "warnings": result.warnings,
     }
+    if result.container_tags is not None:
+        data["container_tags"] = result.container_tags
     return json.dumps(data, indent=2)
 
 
