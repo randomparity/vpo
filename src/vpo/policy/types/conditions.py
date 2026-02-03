@@ -18,10 +18,11 @@ class ComparisonOperator(Enum):
     GTE = "gte"
 
 
-class PluginMetadataOperator(Enum):
-    """Operators for plugin metadata comparisons.
+class MetadataComparisonOperator(Enum):
+    """Operators for metadata comparisons.
 
-    Used in PluginMetadataCondition to compare field values.
+    Used in PluginMetadataCondition and ContainerMetadataCondition
+    to compare field values.
     """
 
     EQ = "eq"  # Equality (string, integer, float, boolean)
@@ -173,7 +174,7 @@ class PluginMetadataCondition:
     plugin: str
     field: str
     value: str | int | float | bool | None = None
-    operator: PluginMetadataOperator = PluginMetadataOperator.EQ
+    operator: MetadataComparisonOperator = MetadataComparisonOperator.EQ
 
 
 @dataclass(frozen=True)
@@ -204,7 +205,7 @@ class ContainerMetadataCondition:
 
     field: str
     value: str | int | float | bool | None = None
-    operator: PluginMetadataOperator = PluginMetadataOperator.EQ
+    operator: MetadataComparisonOperator = MetadataComparisonOperator.EQ
 
 
 @dataclass(frozen=True)

@@ -58,13 +58,13 @@ from vpo.policy.types import (
     IsDubbedCondition,
     IsOriginalCondition,
     LanguageFallbackConfig,
+    MetadataComparisonOperator,
     NotCondition,
     OnErrorMode,
     OrCondition,
     PhaseDefinition,
     PhaseSkipCondition,
     PluginMetadataCondition,
-    PluginMetadataOperator,
     PluginMetadataReference,
     PolicySchema,
     QualityMode,
@@ -100,14 +100,14 @@ _ON_ERROR_MAP = {
 
 # Shared operator map for plugin_metadata and container_metadata conditions
 _METADATA_OPERATOR_MAP = {
-    "eq": PluginMetadataOperator.EQ,
-    "neq": PluginMetadataOperator.NEQ,
-    "contains": PluginMetadataOperator.CONTAINS,
-    "lt": PluginMetadataOperator.LT,
-    "lte": PluginMetadataOperator.LTE,
-    "gt": PluginMetadataOperator.GT,
-    "gte": PluginMetadataOperator.GTE,
-    "exists": PluginMetadataOperator.EXISTS,
+    "eq": MetadataComparisonOperator.EQ,
+    "neq": MetadataComparisonOperator.NEQ,
+    "contains": MetadataComparisonOperator.CONTAINS,
+    "lt": MetadataComparisonOperator.LT,
+    "lte": MetadataComparisonOperator.LTE,
+    "gt": MetadataComparisonOperator.GT,
+    "gte": MetadataComparisonOperator.GTE,
+    "exists": MetadataComparisonOperator.EXISTS,
 }
 
 # =============================================================================

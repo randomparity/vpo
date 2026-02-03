@@ -5,7 +5,7 @@ from __future__ import annotations
 from vpo.policy.conditions import evaluate_container_metadata
 from vpo.policy.types import (
     ContainerMetadataCondition,
-    PluginMetadataOperator,
+    MetadataComparisonOperator,
 )
 
 
@@ -17,7 +17,7 @@ class TestEvaluateContainerMetadata:
         condition = ContainerMetadataCondition(
             field="title",
             value="My Movie",
-            operator=PluginMetadataOperator.EQ,
+            operator=MetadataComparisonOperator.EQ,
         )
         tags = {"title": "my movie"}
 
@@ -31,7 +31,7 @@ class TestEvaluateContainerMetadata:
         condition = ContainerMetadataCondition(
             field="title",
             value="Other Movie",
-            operator=PluginMetadataOperator.EQ,
+            operator=MetadataComparisonOperator.EQ,
         )
         tags = {"title": "my movie"}
 
@@ -45,7 +45,7 @@ class TestEvaluateContainerMetadata:
         condition = ContainerMetadataCondition(
             field="title",
             value="Other Movie",
-            operator=PluginMetadataOperator.NEQ,
+            operator=MetadataComparisonOperator.NEQ,
         )
         tags = {"title": "my movie"}
 
@@ -58,7 +58,7 @@ class TestEvaluateContainerMetadata:
         condition = ContainerMetadataCondition(
             field="title",
             value="my movie",
-            operator=PluginMetadataOperator.NEQ,
+            operator=MetadataComparisonOperator.NEQ,
         )
         tags = {"title": "my movie"}
 
@@ -71,7 +71,7 @@ class TestEvaluateContainerMetadata:
         condition = ContainerMetadataCondition(
             field="title",
             value="720p",
-            operator=PluginMetadataOperator.CONTAINS,
+            operator=MetadataComparisonOperator.CONTAINS,
         )
         tags = {"title": "my movie 720p bluray"}
 
@@ -84,7 +84,7 @@ class TestEvaluateContainerMetadata:
         condition = ContainerMetadataCondition(
             field="title",
             value="1080p",
-            operator=PluginMetadataOperator.CONTAINS,
+            operator=MetadataComparisonOperator.CONTAINS,
         )
         tags = {"title": "my movie 720p bluray"}
 
@@ -96,7 +96,7 @@ class TestEvaluateContainerMetadata:
         """EXISTS returns True when field is present."""
         condition = ContainerMetadataCondition(
             field="encoder",
-            operator=PluginMetadataOperator.EXISTS,
+            operator=MetadataComparisonOperator.EXISTS,
         )
         tags = {"encoder": "libx265"}
 
@@ -109,7 +109,7 @@ class TestEvaluateContainerMetadata:
         """EXISTS returns False when field is absent."""
         condition = ContainerMetadataCondition(
             field="encoder",
-            operator=PluginMetadataOperator.EXISTS,
+            operator=MetadataComparisonOperator.EXISTS,
         )
         tags = {"title": "my movie"}
 
@@ -123,7 +123,7 @@ class TestEvaluateContainerMetadata:
         condition = ContainerMetadataCondition(
             field="bitrate",
             value=5000,
-            operator=PluginMetadataOperator.LT,
+            operator=MetadataComparisonOperator.LT,
         )
         tags = {"bitrate": "3000"}
 
@@ -136,7 +136,7 @@ class TestEvaluateContainerMetadata:
         condition = ContainerMetadataCondition(
             field="bitrate",
             value=2000,
-            operator=PluginMetadataOperator.GT,
+            operator=MetadataComparisonOperator.GT,
         )
         tags = {"bitrate": "3000"}
 
@@ -149,7 +149,7 @@ class TestEvaluateContainerMetadata:
         condition = ContainerMetadataCondition(
             field="bitrate",
             value=3000,
-            operator=PluginMetadataOperator.LTE,
+            operator=MetadataComparisonOperator.LTE,
         )
         tags = {"bitrate": "3000"}
 
@@ -162,7 +162,7 @@ class TestEvaluateContainerMetadata:
         condition = ContainerMetadataCondition(
             field="bitrate",
             value=5000,
-            operator=PluginMetadataOperator.GTE,
+            operator=MetadataComparisonOperator.GTE,
         )
         tags = {"bitrate": "3000"}
 
@@ -175,7 +175,7 @@ class TestEvaluateContainerMetadata:
         condition = ContainerMetadataCondition(
             field="encoder",
             value=5000,
-            operator=PluginMetadataOperator.GT,
+            operator=MetadataComparisonOperator.GT,
         )
         tags = {"encoder": "libx265"}
 
@@ -189,7 +189,7 @@ class TestEvaluateContainerMetadata:
         condition = ContainerMetadataCondition(
             field="title",
             value="test",
-            operator=PluginMetadataOperator.EQ,
+            operator=MetadataComparisonOperator.EQ,
         )
 
         result, reason = evaluate_container_metadata(condition, None)
@@ -202,7 +202,7 @@ class TestEvaluateContainerMetadata:
         condition = ContainerMetadataCondition(
             field="missing_field",
             value="test",
-            operator=PluginMetadataOperator.EQ,
+            operator=MetadataComparisonOperator.EQ,
         )
         tags = {"title": "my movie"}
 
@@ -216,7 +216,7 @@ class TestEvaluateContainerMetadata:
         condition = ContainerMetadataCondition(
             field="TITLE",  # uppercase
             value="my movie",
-            operator=PluginMetadataOperator.EQ,
+            operator=MetadataComparisonOperator.EQ,
         )
         # Parser output has lowercase keys
         tags = {"title": "my movie"}

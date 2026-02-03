@@ -38,10 +38,10 @@ from vpo.policy.types.conditions import (
     ExistsCondition,
     IsDubbedCondition,
     IsOriginalCondition,
+    MetadataComparisonOperator,
     NotCondition,
     OrCondition,
     PluginMetadataCondition,
-    PluginMetadataOperator,
     TitleMatch,
     TrackFilters,
 )
@@ -128,6 +128,9 @@ from vpo.policy.types.transcode import (
     parse_bitrate,
 )
 
+# Backward-compatibility alias
+PluginMetadataOperator = MetadataComparisonOperator
+
 __all__ = [
     # Core enums
     "TrackType",
@@ -181,7 +184,8 @@ __all__ = [
     "TranscriptionPolicyOptions",
     # Condition enums
     "ComparisonOperator",
-    "PluginMetadataOperator",
+    "MetadataComparisonOperator",
+    "PluginMetadataOperator",  # backward-compat alias
     # Condition types
     "Comparison",
     "TitleMatch",
