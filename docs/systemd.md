@@ -137,4 +137,4 @@ sudo chown -R vpo:vpo /home/vpo/.vpo
 ## Related docs
 
 - [Daemon Mode](daemon-mode.md) - Full daemon configuration reference
-- [Configuration](config.md) - Configuration file format
+- [Configuration](usage/configuration.md) - Configuration file format

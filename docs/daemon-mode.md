@@ -190,4 +190,4 @@ vpo serve --bind 0.0.0.0
 ## Related docs
 
 - [Systemd Integration](systemd.md) - Deploy as a system service
-- [Configuration](config.md) - Full configuration reference
+- [Configuration](usage/configuration.md) - Full configuration reference

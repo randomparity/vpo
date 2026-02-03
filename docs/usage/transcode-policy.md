@@ -32,21 +32,19 @@ vpo policy run --policy my-policy.yaml /videos/movie.mkv
 
 | Setting | Type | Description |
 |---------|------|-------------|
-| `target_video_codec` | string | Target codec: `hevc`, `h264`, `vp9`, `av1` |
-| `target_crf` | int (0-51) | Quality level (lower = better, 18-23 typical) |
-| `target_bitrate` | string | Target bitrate: `5M`, `2500k` (overrides CRF) |
-| `max_resolution` | string | Scale down to: `480p`, `720p`, `1080p`, `1440p`, `4k`, `8k` |
-| `max_width` | int | Maximum width in pixels |
-| `max_height` | int | Maximum height in pixels |
+| `transcode.video.target_codec` | string | Target codec: `hevc`, `h264`, `vp9`, `av1` |
+| `transcode.video.quality.crf` | int (0-51) | Quality level (lower = better, 18-23 typical) |
+| `transcode.video.quality.mode` | string | `crf` or `cbr` |
+| `transcode.video.quality.target_bitrate` | string | Target bitrate: `5M`, `2500k` (CBR mode) |
+| `transcode.video.scaling.max_resolution` | string | Scale down to: `480p`, `720p`, `1080p`, `1440p`, `4k`, `8k` |
 
 ### Audio Settings
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `audio_preserve_codecs` | list | `[]` | Codecs to stream-copy (preserve lossless) |
-| `audio_transcode_to` | string | `aac` | Target codec for non-preserved tracks |
-| `audio_transcode_bitrate` | string | `192k` | Bitrate for transcoded audio |
-| `audio_downmix` | string | `null` | Create downmixed track: `stereo`, `5.1` |
+| `transcode.audio.preserve_codecs` | list | `[]` | Codecs to stream-copy (preserve lossless) |
+| `transcode.audio.transcode_to` | string | `aac` | Target codec for non-preserved tracks |
+| `transcode.audio.transcode_bitrate` | string | `192k` | Bitrate for transcoded audio |
 
 ### Destination Settings
 
@@ -503,7 +501,7 @@ VPO detects and warns about these conditions:
 - **Multiple video streams**: Uses first/default stream, warns about others
 - **HDR content**: Warns when scaling may affect HDR quality
 
-## Related Docs
+## Related docs
 
 - [Jobs Guide](jobs.md) - Managing the job queue
 - [CLI Usage](cli-usage.md) - Command reference
