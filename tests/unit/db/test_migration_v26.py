@@ -374,10 +374,11 @@ class TestMigrateV26ToV27:
 
         migrate_v26_to_v27(v26_conn)
 
-        cursor = v26_conn.execute("SELECT path, filename FROM files")
+        cursor = v26_conn.execute("SELECT path, filename, container_tags FROM files")
         row = cursor.fetchone()
         assert row["path"] == "/test/video.mkv"
         assert row["filename"] == "video.mkv"
+        assert row["container_tags"] is None
 
     def test_container_tags_read_write(self, v26_conn):
         """container_tags can be written and read after migration."""
@@ -402,3 +403,27 @@ class TestMigrateV26ToV27:
             ("/test/video.mkv",),
         )
         assert cursor.fetchone()[0] == '{"title": "My Movie"}'
+
+    def test_initialize_database_runs_v26_v27_chain(self):
+        """initialize_database applies both v25→v26 and v26→v27 migrations."""
+        from vpo.db.schema.initialize import initialize_database
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+
+        # Create a v25 schema
+        _create_v25_schema(conn)
+
+        initialize_database(conn)
+
+        # Verify final schema version is current
+        cursor = conn.execute("SELECT value FROM _meta WHERE key = 'schema_version'")
+        version = int(cursor.fetchone()[0])
+        assert version >= 27
+
+        # Verify container_tags column exists
+        cursor = conn.execute("PRAGMA table_info(files)")
+        columns = {row[1] for row in cursor.fetchall()}
+        assert "container_tags" in columns
+
+        conn.close()

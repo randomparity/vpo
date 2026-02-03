@@ -156,18 +156,19 @@ def migrate_v26_to_v27(conn: sqlite3.Connection) -> None:
     Args:
         conn: An open database connection.
     """
+    # Check if column already exists (PRAGMA must run outside transaction)
+    cursor = conn.execute("PRAGMA table_info(files)")
+    columns = {row[1] for row in cursor.fetchall()}
+
     try:
         conn.execute("BEGIN IMMEDIATE")
 
-        # Check if column already exists
-        cursor = conn.execute("PRAGMA table_info(files)")
-        columns = {row[1] for row in cursor.fetchall()}
         if "container_tags" not in columns:
             conn.execute("ALTER TABLE files ADD COLUMN container_tags TEXT")
 
         # Update schema version
         conn.execute("UPDATE _meta SET value = '27' WHERE key = 'schema_version'")
-        conn.commit()
+        conn.execute("COMMIT")
     except Exception:
-        conn.rollback()
+        conn.execute("ROLLBACK")
         raise
