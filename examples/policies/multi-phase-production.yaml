@@ -1,5 +1,5 @@
 # Multi-Phase Production Policy (V12)
-# Enterprise workflow with all operations across 6 phases
+# Enterprise workflow with all operations across 7 phases
 schema_version: 12
 
 config:
@@ -115,6 +115,70 @@ phases:
               track_type: subtitle
               language: eng
               value: true
+
+  # Clean container metadata and set title from Radarr/Sonarr
+  - name: container-tags
+    conditional:
+      # Clear stale encoder and comment tags
+      - name: clear-encoder
+        when:
+          container_metadata:
+            field: encoder
+            operator: exists
+        then:
+          - set_container_metadata:
+              field: encoder
+              value: ""
+      - name: clear-comment
+        when:
+          container_metadata:
+            field: comment
+            operator: exists
+        then:
+          - set_container_metadata:
+              field: comment
+              value: ""
+      # Clear any existing title before setting a fresh one
+      - name: clear-title
+        when:
+          container_metadata:
+            field: title
+            operator: exists
+        then:
+          - set_container_metadata:
+              field: title
+              value: ""
+      # Set container title from Radarr, fall back to Sonarr
+      - name: set-title-from-radarr
+        when:
+          plugin_metadata:
+            plugin: radarr
+            field: external_title
+            operator: exists
+        then:
+          - set_container_metadata:
+              field: title
+              from_plugin_metadata:
+                plugin: radarr
+                field: external_title
+      - name: set-title-from-sonarr
+        when:
+          and:
+            - not:
+                plugin_metadata:
+                  plugin: radarr
+                  field: external_title
+                  operator: exists
+            - plugin_metadata:
+                plugin: sonarr
+                field: external_title
+                operator: exists
+        then:
+          - set_container_metadata:
+              field: title
+              from_plugin_metadata:
+                plugin: sonarr
+                field: external_title
 
   - name: enhance
     audio_synthesis:

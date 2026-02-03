@@ -1,0 +1,112 @@
+# Container Metadata Policy (V12)
+#
+# Demonstrates reading and writing container-level metadata tags using
+# container_metadata conditions and set_container_metadata actions.
+#
+# Container tags are key-value pairs stored in the file container itself
+# (e.g., MKV global tags, MP4 metadata atoms). Common tags include:
+#   title, encoder, creation_time, description, comment
+#
+# Usage:
+#   vpo policy run -p container-metadata.yaml /path/to/videos/ --dry-run
+schema_version: 12
+
+config:
+  on_error: continue
+
+phases:
+  # Phase 1: Clean up stale or unwanted container tags
+  #
+  # Clear encoder strings left by transcoding tools (e.g., "Lavf59.27.100")
+  # and remove any existing title to prepare for a clean title set later.
+  - name: sanitize
+    conditional:
+      # Clear the encoder tag if it exists -- it's noise from muxing tools
+      - name: clear-encoder
+        when:
+          container_metadata:
+            field: encoder
+            operator: exists
+        then:
+          - set_container_metadata:
+              field: encoder
+              value: ""
+
+      # Clear the comment tag if it contains advertising or tracker info
+      - name: clear-spam-comments
+        when:
+          container_metadata:
+            field: comment
+            operator: contains
+            value: "http"
+        then:
+          - set_container_metadata:
+              field: comment
+              value: ""
+
+  # Phase 2: Set container title from Radarr metadata
+  #
+  # Uses from_plugin_metadata to dynamically resolve the title from Radarr.
+  # Falls back to Sonarr for TV content. Skipped if no plugin data available.
+  - name: title
+    depends_on: [sanitize]
+    conditional:
+      # Set title from Radarr's external_title (movie title)
+      - name: set-title-from-radarr
+        when:
+          plugin_metadata:
+            plugin: radarr
+            field: external_title
+            operator: exists
+        then:
+          - set_container_metadata:
+              field: title
+              from_plugin_metadata:
+                plugin: radarr
+                field: external_title
+
+      # Fall back to Sonarr's external_title (series title) for TV content
+      - name: set-title-from-sonarr
+        when:
+          and:
+            - not:
+                plugin_metadata:
+                  plugin: radarr
+                  field: external_title
+                  operator: exists
+            - plugin_metadata:
+                plugin: sonarr
+                field: external_title
+                operator: exists
+        then:
+          - set_container_metadata:
+              field: title
+              from_plugin_metadata:
+                plugin: sonarr
+                field: external_title
+
+  # Phase 3: Conditional tagging based on container metadata
+  #
+  # Demonstrate reading container tags in conditions to make decisions.
+  - name: audit
+    depends_on: [title]
+    conditional:
+      # Warn if the container still has no title after the title phase
+      - name: warn-no-title
+        when:
+          not:
+            container_metadata:
+              field: title
+              operator: exists
+        then:
+          - warn: "No container title set: {filename}"
+
+      # Warn about files with suspiciously old creation dates
+      - name: warn-old-creation-time
+        when:
+          container_metadata:
+            field: creation_time
+            operator: contains
+            value: "200"
+        then:
+          - warn: "Container has pre-2010 creation_time: {filename}"
