@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import fields
+
 import pytest
 
 from vpo.plugin_sdk.models import (
@@ -283,6 +285,59 @@ class TestMetadataEnrichment:
         assert result["season_count"] == 3
         assert result["total_episode_count"] == 72
         assert result["absolute_episode_number"] == 125
+
+    def test_to_dict_covers_all_fields(self) -> None:
+        """Every dataclass field appears in to_dict() output when set."""
+        # Build kwargs with a non-None value for every field
+        kwargs: dict = {}
+        for f in fields(MetadataEnrichment):
+            if f.type in ("str | None", "str"):
+                kwargs[f.name] = f.name  # Use field name as placeholder
+            elif f.type in ("int | None", "int"):
+                kwargs[f.name] = 1
+            elif f.type == "float | None":
+                kwargs[f.name] = 1.0
+            elif f.type == "bool | None":
+                kwargs[f.name] = True
+            else:
+                kwargs[f.name] = f.name
+
+        enrichment = MetadataEnrichment(**kwargs)
+        result = enrichment.to_dict()
+
+        all_field_names = {f.name for f in fields(MetadataEnrichment)}
+        assert set(result.keys()) == all_field_names
+
+    def test_to_dict_includes_monitored_false(self) -> None:
+        """monitored=False is included (not treated as None)."""
+        enrichment = MetadataEnrichment(
+            original_language="eng",
+            external_source="radarr",
+            external_id=123,
+            external_title="Test Movie",
+            monitored=False,
+        )
+        result = enrichment.to_dict()
+        assert "monitored" in result
+        assert result["monitored"] is False
+
+    def test_to_dict_mixed_v110_fields(self) -> None:
+        """Some v1.1.0 fields set, others None — selective inclusion."""
+        enrichment = MetadataEnrichment(
+            original_language="eng",
+            external_source="radarr",
+            external_id=123,
+            external_title="Test Movie",
+            genres="Action",
+            runtime=120,
+            # certification, studio, etc. left as None
+        )
+        result = enrichment.to_dict()
+        assert result["genres"] == "Action"
+        assert result["runtime"] == 120
+        assert "certification" not in result
+        assert "studio" not in result
+        assert "collection_name" not in result
 
 
 class TestMatchResult:

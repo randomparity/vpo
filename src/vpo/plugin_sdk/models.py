@@ -6,7 +6,7 @@ This module provides common dataclasses used by metadata plugins
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from enum import Enum
 from typing import Any
 
@@ -86,59 +86,20 @@ class MetadataEnrichment:
         Returns:
             Dictionary suitable for merging into FileInfo.
         """
-        # Required fields always included
-        result: dict[str, Any] = {
-            "original_language": self.original_language,
-            "external_source": self.external_source,
-            "external_id": self.external_id,
-            "external_title": self.external_title,
+        required = {
+            "original_language",
+            "external_source",
+            "external_id",
+            "external_title",
         }
+        result: dict[str, Any] = {name: getattr(self, name) for name in required}
 
-        # Optional fields only included when present
-        optional_fields = [
-            "external_year",
-            "imdb_id",
-            "tmdb_id",
-            "series_title",
-            "season_number",
-            "episode_number",
-            "episode_title",
-            "tvdb_id",
-            "release_date",
-            "cinema_release",
-            "digital_release",
-            "physical_release",
-            "air_date",
-            "premiere_date",
-            # v1.1.0 common fields
-            "original_title",
-            "certification",
-            "genres",
-            "runtime",
-            "status",
-            "monitored",
-            "tags",
-            "popularity",
-            # v1.1.0 movie fields
-            "collection_name",
-            "studio",
-            "rating_tmdb",
-            "rating_imdb",
-            "edition",
-            "release_group",
-            "scene_name",
-            # v1.1.0 TV fields
-            "network",
-            "series_type",
-            "tvmaze_id",
-            "season_count",
-            "total_episode_count",
-            "absolute_episode_number",
-        ]
-        for field in optional_fields:
-            value = getattr(self, field)
+        for f in fields(self):
+            if f.name in required:
+                continue
+            value = getattr(self, f.name)
             if value is not None:
-                result[field] = value
+                result[f.name] = value
 
         return result
 
