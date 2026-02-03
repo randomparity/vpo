@@ -211,7 +211,7 @@ The Radarr plugin uses a **bulk cache** approach for efficient lookups:
 1. On the first `file.scanned` event, the plugin fetches **all** movies, movie files, and tags from Radarr in three API calls.
 2. It builds an in-memory index mapping normalized file paths to movie and file records.
 3. Subsequent `file.scanned` events are resolved from this cache with no additional API calls.
-4. Path matching uses case-insensitive, OS-normalized path comparison.
+4. Path matching uses OS-normalized path comparison (paths are resolved to absolute form).
 
 This approach is efficient because Radarr's `/api/v3/movie` and `/api/v3/moviefile` endpoints return the entire library in a single response, and most VPO scan operations process many files from the same library.
 
@@ -238,7 +238,7 @@ The plugin never causes VPO to abort a scan. All errors are handled gracefully w
 ### No match found for a file
 
 - Verify the file is managed by Radarr (appears in Radarr's UI)
-- Check that the file path seen by VPO matches the path in Radarr. Path matching is case-insensitive but the directory structure must match.
+- Check that the file path seen by VPO matches the path in Radarr. Paths are resolved to their absolute form for comparison; on case-sensitive filesystems (Linux), case must match exactly.
 - If Radarr and VPO see different mount points (e.g., Docker volume mounts), the paths won't match. Ensure both tools see the same absolute paths.
 - Run `vpo scan` with `-v` (verbose) to see debug logs showing the normalized paths being compared.
 
@@ -260,7 +260,7 @@ The plugin normalizes paths for comparison, but the underlying directory paths m
 
 - **Docker**: Radarr sees `/movies/Film.mkv` but VPO sees `/mnt/media/movies/Film.mkv`
 - **Symlinks**: Radarr stores the real path, VPO follows a symlink to a different path
-- **Case differences**: Handled automatically (matching is case-insensitive)
+- **Case differences**: On macOS (case-insensitive FS by default), handled automatically. On Linux (case-sensitive), paths must match exactly.
 
 ---
 

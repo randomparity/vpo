@@ -156,7 +156,7 @@ If a plugin's version range doesn't include the current API version, it won't lo
 
 ### Current API Version
 
-The current plugin API version is **1.0.0**.
+The current plugin API version is **1.1.0**.
 
 ### Compatibility Guidelines
 

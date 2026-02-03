@@ -15,12 +15,12 @@ This document defines the contract between the Radarr/Sonarr metadata plugins an
 class RadarrMetadataPlugin:
     name: str = "radarr-metadata"
     version: str = "1.1.0"
-    events: list[str] = ["file.scanned"]
+    events: tuple[str, ...] = ("file.scanned",)
 
 class SonarrMetadataPlugin:
     name: str = "sonarr-metadata"
     version: str = "1.1.0"
-    events: list[str] = ["file.scanned"]
+    events: tuple[str, ...] = ("file.scanned",)
 ```
 
 ### Event Handler
