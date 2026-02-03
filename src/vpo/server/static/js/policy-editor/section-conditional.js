@@ -17,6 +17,17 @@
 
 import { showUndoToast } from './policy-editor.js'
 
+/**
+ * Escape a string for safe interpolation into HTML attribute values.
+ * Uses the DOM textContent approach consistent with window.VPOUtils.escapeHtml.
+ */
+function escapeAttr(str) {
+    if (!str && str !== 0) return ''
+    const div = document.createElement('div')
+    div.textContent = str
+    return div.innerHTML
+}
+
 // Constants for condition building
 const TRACK_TYPES = [
     { value: 'video', label: 'Video' },
@@ -524,12 +535,12 @@ function createConditionBuilder(condition, onUpdate, nestingLevel = 0) {
                     <div class="condition-field-row">
                         <label class="form-label-inline">Plugin:</label>
                         <input type="text" class="form-input form-input-small plugin-name-input"
-                               placeholder="e.g., radarr_metadata" value="${condData.plugin || ''}">
+                               placeholder="e.g., radarr_metadata" value="${escapeAttr(condData.plugin || '')}">
                     </div>
                     <div class="condition-field-row">
                         <label class="form-label-inline">Field:</label>
                         <input type="text" class="form-input form-input-small field-input"
-                               placeholder="e.g., title" value="${condData.field || ''}">
+                               placeholder="e.g., title" value="${escapeAttr(condData.field || '')}">
                     </div>
                     <div class="condition-field-row">
                         <label class="form-label-inline">Operator:</label>
@@ -540,7 +551,7 @@ function createConditionBuilder(condition, onUpdate, nestingLevel = 0) {
                     <div class="condition-field-row value-row">
                         <label class="form-label-inline">Value:</label>
                         <input type="text" class="form-input form-input-small value-input"
-                               placeholder="Value to compare" value="${condData.value ?? ''}">
+                               placeholder="Value to compare" value="${escapeAttr(condData.value ?? '')}">
                         <span class="form-hint">Not required for 'exists' operator</span>
                     </div>
                 `
@@ -576,7 +587,7 @@ function createConditionBuilder(condition, onUpdate, nestingLevel = 0) {
                     <div class="condition-field-row">
                         <label class="form-label-inline">Field:</label>
                         <input type="text" class="form-input form-input-small field-input"
-                               placeholder="e.g., title, encoder" value="${condData.field || ''}">
+                               placeholder="e.g., title, encoder" value="${escapeAttr(condData.field || '')}">
                     </div>
                     <div class="condition-field-row">
                         <label class="form-label-inline">Operator:</label>
@@ -587,7 +598,7 @@ function createConditionBuilder(condition, onUpdate, nestingLevel = 0) {
                     <div class="condition-field-row value-row">
                         <label class="form-label-inline">Value:</label>
                         <input type="text" class="form-input form-input-small value-input"
-                               placeholder="Value to compare" value="${condData.value ?? ''}">
+                               placeholder="Value to compare" value="${escapeAttr(condData.value ?? '')}">
                         <span class="form-hint">Not required for 'exists' operator</span>
                     </div>
                 `
@@ -797,12 +808,12 @@ function createActionBuilder(action, onUpdate) {
                     <div class="action-field-row">
                         <label class="form-label-inline">Field:</label>
                         <input type="text" class="form-input form-input-small field-input"
-                               placeholder="e.g., title, encoder" value="${actionData.field || ''}">
+                               placeholder="e.g., title, encoder" value="${escapeAttr(actionData.field || '')}">
                     </div>
                     <div class="action-field-row">
                         <label class="form-label-inline">Value:</label>
                         <input type="text" class="form-input value-input"
-                               placeholder="New value (empty to clear)" value="${actionData.value ?? ''}">
+                               placeholder="New value (empty to clear)" value="${escapeAttr(actionData.value ?? '')}">
                         <span class="form-hint">Leave empty to clear/delete the tag</span>
                     </div>
                 `
