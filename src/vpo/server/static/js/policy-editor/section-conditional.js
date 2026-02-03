@@ -43,6 +43,8 @@ const CONDITION_TYPES = [
     { value: 'or', label: 'OR (any must match)' },
     { value: 'not', label: 'NOT (negate)' },
     { value: 'audio_is_multi_language', label: 'Audio is Multi-Language' },
+    { value: 'is_original', label: 'Is Original Audio (V12)' },
+    { value: 'is_dubbed', label: 'Is Dubbed Audio (V12)' },
     { value: 'plugin_metadata', label: 'Plugin Metadata (V12)' },
     { value: 'container_metadata', label: 'Container Metadata (V12)' }
 ]
@@ -78,6 +80,7 @@ const ACTION_TYPES = [
     { value: 'fail', label: 'Fail (stop with error)' },
     { value: 'set_forced', label: 'Set Forced Flag (V7)' },
     { value: 'set_default', label: 'Set Default Flag (V7)' },
+    { value: 'set_language', label: 'Set Language (V7)' },
     { value: 'set_container_metadata', label: 'Set Container Metadata (V12)' }
 ]
 
@@ -266,6 +269,8 @@ function createConditionBuilder(condition, onUpdate, nestingLevel = 0) {
 
     function getConditionType(cond) {
         if (!cond) return 'exists'
+        if (cond._type === 'is_original') return 'is_original'
+        if (cond._type === 'is_dubbed') return 'is_dubbed'
         if (cond._type === 'plugin_metadata') return 'plugin_metadata'
         if (cond._type === 'container_metadata') return 'container_metadata'
         if (cond.conditions && Array.isArray(cond.conditions)) {
@@ -530,6 +535,44 @@ function createConditionBuilder(condition, onUpdate, nestingLevel = 0) {
                     condData.primary_language = primaryLangInput.value.trim() || null
                     onUpdate(buildCondition())
                 })
+            } else if (type === 'is_original' || type === 'is_dubbed') {
+                const labelPrefix = type === 'is_original' ? 'Original' : 'Dubbed'
+                detailsDiv.innerHTML = `
+                    <div class="condition-field-row">
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="value-checkbox" ${condData.value !== false ? 'checked' : ''}>
+                            Track is ${labelPrefix.toLowerCase()}
+                        </label>
+                    </div>
+                    <div class="condition-field-row">
+                        <label class="form-label-inline">Min Confidence (%):</label>
+                        <input type="number" class="form-input form-input-small confidence-input"
+                               min="0" max="100" step="1" value="${(condData.min_confidence ?? 0.7) * 100}">
+                        <span class="form-hint">Minimum confidence threshold (default 70%)</span>
+                    </div>
+                    <div class="condition-field-row">
+                        <label class="form-label-inline">Language:</label>
+                        <input type="text" class="form-input form-input-small language-input"
+                               placeholder="e.g., eng (optional)" value="${escapeAttr(condData.language || '')}">
+                        <span class="form-hint">Limit check to specific language</span>
+                    </div>
+                `
+                const valueCheckbox = detailsDiv.querySelector('.value-checkbox')
+                const confidenceInput = detailsDiv.querySelector('.confidence-input')
+                const languageInput = detailsDiv.querySelector('.language-input')
+
+                valueCheckbox.addEventListener('change', () => {
+                    condData.value = valueCheckbox.checked
+                    onUpdate(buildCondition())
+                })
+                confidenceInput.addEventListener('input', () => {
+                    condData.min_confidence = (parseFloat(confidenceInput.value) || 70) / 100
+                    onUpdate(buildCondition())
+                })
+                languageInput.addEventListener('input', () => {
+                    condData.language = languageInput.value.trim() || null
+                    onUpdate(buildCondition())
+                })
             } else if (type === 'plugin_metadata') {
                 detailsDiv.innerHTML = `
                     <div class="condition-field-row">
@@ -678,6 +721,19 @@ function createConditionBuilder(condition, onUpdate, nestingLevel = 0) {
                 result.primary_language = condData.primary_language
             }
             return result
+        } else if (type === 'is_original' || type === 'is_dubbed') {
+            const result = {
+                _type: type,
+                value: condData.value !== false
+            }
+            const conf = condData.min_confidence
+            if (conf !== undefined && conf !== null && conf !== 0.7) {
+                result.min_confidence = conf
+            }
+            if (condData.language) {
+                result.language = condData.language
+            }
+            return result
         } else if (type === 'plugin_metadata') {
             const result = {
                 _type: 'plugin_metadata',
@@ -722,6 +778,7 @@ function createActionBuilder(action, onUpdate) {
     function getActionType(act) {
         if (!act) return 'skip'
         if (act._type === 'set_container_metadata') return 'set_container_metadata'
+        if (act._type === 'set_language') return 'set_language'
         if (act.skip_type) return 'skip'
         if (act.message !== undefined && act._type === 'fail') return 'fail'
         if (act.message !== undefined) return 'warn'
@@ -803,6 +860,44 @@ function createActionBuilder(action, onUpdate) {
                     actionData.value = valueCheckbox.checked
                     onUpdate(buildAction())
                 })
+            } else if (type === 'set_language') {
+                detailsDiv.innerHTML = `
+                    <div class="action-field-row">
+                        <label class="form-label-inline">Track Type:</label>
+                        <select class="form-select track-type-select">
+                            ${TRACK_TYPES.map(t => `<option value="${t.value}" ${actionData.track_type === t.value ? 'selected' : ''}>${t.label}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="action-field-row">
+                        <label class="form-label-inline">New Language:</label>
+                        <input type="text" class="form-input form-input-small new-lang-input"
+                               placeholder="e.g., eng" value="${escapeAttr(actionData.new_language || '')}">
+                    </div>
+                    <div class="action-field-row">
+                        <label class="form-label-inline">Match Language:</label>
+                        <input type="text" class="form-input form-input-small match-lang-input"
+                               placeholder="Optional: only match tracks with this language" value="${escapeAttr(actionData.match_language || '')}">
+                        <span class="form-hint">Only apply to tracks with this current language</span>
+                    </div>
+                `
+                const trackSelect = detailsDiv.querySelector('.track-type-select')
+                const newLangInput = detailsDiv.querySelector('.new-lang-input')
+                const matchLangInput = detailsDiv.querySelector('.match-lang-input')
+
+                actionData.track_type = actionData.track_type || 'audio'
+
+                trackSelect.addEventListener('change', () => {
+                    actionData.track_type = trackSelect.value
+                    onUpdate(buildAction())
+                })
+                newLangInput.addEventListener('input', () => {
+                    actionData.new_language = newLangInput.value.trim() || null
+                    onUpdate(buildAction())
+                })
+                matchLangInput.addEventListener('input', () => {
+                    actionData.match_language = matchLangInput.value.trim() || null
+                    onUpdate(buildAction())
+                })
             } else if (type === 'set_container_metadata') {
                 detailsDiv.innerHTML = `
                     <div class="action-field-row">
@@ -858,6 +953,18 @@ function createActionBuilder(action, onUpdate) {
             const result = { _type: 'set_default', track_type: actionData.track_type || 'audio' }
             if (actionData.language) result.language = actionData.language
             if (actionData.value === false) result.value = false
+            return result
+        } else if (type === 'set_language') {
+            const result = {
+                _type: 'set_language',
+                track_type: actionData.track_type || 'audio'
+            }
+            if (actionData.new_language) {
+                result.new_language = actionData.new_language
+            }
+            if (actionData.match_language) {
+                result.match_language = actionData.match_language
+            }
             return result
         } else if (type === 'set_container_metadata') {
             const result = {
@@ -1152,3 +1259,6 @@ export function initConditionalSection(policyData, onUpdate) {
         }
     }
 }
+
+// Export condition builder for reuse by other sections (e.g., synthesis create_if)
+export { createConditionBuilder }
