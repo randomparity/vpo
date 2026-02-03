@@ -202,9 +202,25 @@ def safe_restore_from_backup(
     try:
         restore_from_backup(backup_path, original_path)
         return True
+    except FileNotFoundError as e:
+        logger.error(
+            "Backup file missing, cannot restore %s: %s. "
+            "Original file may need manual recovery.",
+            backup_path,
+            e,
+        )
+        return False
+    except BackupRestorationError as e:
+        logger.error(
+            "Backup restoration verification failed for %s: %s. "
+            "Check disk space and filesystem integrity.",
+            backup_path,
+            e,
+        )
+        return False
     except Exception as e:
         logger.error(
-            "Failed to restore backup %s: %s. "
+            "Unexpected error restoring backup %s: %s. "
             "Original file may be corrupted or missing.",
             backup_path,
             e,

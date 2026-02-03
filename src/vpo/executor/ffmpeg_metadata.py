@@ -157,7 +157,14 @@ class FfmpegMetadataExecutor:
         except subprocess.TimeoutExpired:
             elapsed = time.monotonic() - start_time
             temp_path.unlink(missing_ok=True)
-            safe_restore_from_backup(backup_path)
+            restored = safe_restore_from_backup(backup_path)
+            if not restored:
+                logger.error(
+                    "CRITICAL: Backup restoration failed after ffmpeg timeout "
+                    "for %s - file may need manual recovery from %s",
+                    plan.file_path,
+                    backup_path,
+                )
             timeout_mins = self._timeout // 60 if self._timeout else 0
             logger.warning(
                 "ffmpeg timed out",
@@ -167,15 +174,24 @@ class FfmpegMetadataExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            return ExecutorResult(
-                success=False,
-                message=f"ffmpeg timed out after {timeout_mins} min for "
-                f"{plan.file_path}",
-            )
+            msg = f"ffmpeg timed out after {timeout_mins} min for {plan.file_path}"
+            if not restored:
+                msg += (
+                    "\nWARNING: Could not restore backup - "
+                    "original file may be corrupted"
+                )
+            return ExecutorResult(success=False, message=msg)
         except (subprocess.SubprocessError, OSError) as e:
             elapsed = time.monotonic() - start_time
             temp_path.unlink(missing_ok=True)
-            safe_restore_from_backup(backup_path)
+            restored = safe_restore_from_backup(backup_path)
+            if not restored:
+                logger.error(
+                    "CRITICAL: Backup restoration failed after ffmpeg error "
+                    "for %s - file may need manual recovery from %s",
+                    plan.file_path,
+                    backup_path,
+                )
             logger.error(
                 "ffmpeg execution failed",
                 extra={
@@ -184,10 +200,13 @@ class FfmpegMetadataExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            return ExecutorResult(
-                success=False,
-                message=f"ffmpeg failed for {plan.file_path}: {e}",
-            )
+            msg = f"ffmpeg failed for {plan.file_path}: {e}"
+            if not restored:
+                msg += (
+                    "\nWARNING: Could not restore backup - "
+                    "original file may be corrupted"
+                )
+            return ExecutorResult(success=False, message=msg)
         except Exception as e:
             elapsed = time.monotonic() - start_time
             logger.exception(
@@ -199,16 +218,33 @@ class FfmpegMetadataExecutor:
                 },
             )
             temp_path.unlink(missing_ok=True)
-            safe_restore_from_backup(backup_path)
-            return ExecutorResult(
-                success=False,
-                message=f"Unexpected error for {plan.file_path}: {e}",
-            )
+            restored = safe_restore_from_backup(backup_path)
+            if not restored:
+                logger.error(
+                    "CRITICAL: Backup restoration failed after unexpected error "
+                    "for %s - file may need manual recovery from %s",
+                    plan.file_path,
+                    backup_path,
+                )
+            msg = f"Unexpected error for {plan.file_path}: {e}"
+            if not restored:
+                msg += (
+                    "\nWARNING: Could not restore backup - "
+                    "original file may be corrupted"
+                )
+            return ExecutorResult(success=False, message=msg)
 
         if result.returncode != 0:
             elapsed = time.monotonic() - start_time
             temp_path.unlink(missing_ok=True)
-            safe_restore_from_backup(backup_path)
+            restored = safe_restore_from_backup(backup_path)
+            if not restored:
+                logger.error(
+                    "CRITICAL: Backup restoration failed after ffmpeg non-zero "
+                    "exit for %s - file may need manual recovery from %s",
+                    plan.file_path,
+                    backup_path,
+                )
             logger.error(
                 "ffmpeg returned non-zero exit code",
                 extra={
@@ -217,10 +253,13 @@ class FfmpegMetadataExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            return ExecutorResult(
-                success=False,
-                message=f"ffmpeg failed for {plan.file_path}: {result.stderr}",
-            )
+            msg = f"ffmpeg failed for {plan.file_path}: {result.stderr}"
+            if not restored:
+                msg += (
+                    "\nWARNING: Could not restore backup - "
+                    "original file may be corrupted"
+                )
+            return ExecutorResult(success=False, message=msg)
 
         # Atomic replace: move temp to original
         try:
@@ -228,7 +267,14 @@ class FfmpegMetadataExecutor:
         except Exception as e:
             elapsed = time.monotonic() - start_time
             temp_path.unlink(missing_ok=True)
-            safe_restore_from_backup(backup_path)
+            restored = safe_restore_from_backup(backup_path)
+            if not restored:
+                logger.error(
+                    "CRITICAL: Backup restoration failed after file replace error "
+                    "for %s - file may need manual recovery from %s",
+                    plan.file_path,
+                    backup_path,
+                )
             logger.error(
                 "Failed to replace original file",
                 extra={
@@ -237,10 +283,13 @@ class FfmpegMetadataExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            return ExecutorResult(
-                success=False,
-                message=f"Failed to replace {plan.file_path}: {e}",
-            )
+            msg = f"Failed to replace {plan.file_path}: {e}"
+            if not restored:
+                msg += (
+                    "\nWARNING: Could not restore backup - "
+                    "original file may be corrupted"
+                )
+            return ExecutorResult(success=False, message=msg)
 
         # Success - optionally keep backup
         elapsed = time.monotonic() - start_time
@@ -288,11 +337,11 @@ class FfmpegMetadataExecutor:
         """Convert a PlannedAction to ffmpeg arguments."""
         # Container-level metadata uses -metadata (no stream index)
         if action.action_type == ActionType.SET_CONTAINER_METADATA:
-            field = action.current_value  # field name stored in current_value
-            if not isinstance(field, str) or not field:
+            field = action.container_field
+            if not field:
                 raise ValueError(
-                    f"SET_CONTAINER_METADATA requires a non-empty string field name, "
-                    f"got current_value={field!r}"
+                    f"SET_CONTAINER_METADATA requires container_field to be set, "
+                    f"got container_field={field!r}"
                 )
             value = action.desired_value if action.desired_value is not None else ""
             # Empty value clears the tag in ffmpeg

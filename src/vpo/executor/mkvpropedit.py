@@ -127,7 +127,14 @@ class MkvpropeditExecutor:
         except subprocess.TimeoutExpired:
             # Restore backup on timeout
             elapsed = time.monotonic() - start_time
-            safe_restore_from_backup(backup_path)
+            restored = safe_restore_from_backup(backup_path)
+            if not restored:
+                logger.error(
+                    "CRITICAL: Backup restoration failed after mkvpropedit timeout "
+                    "for %s - file may need manual recovery from %s",
+                    plan.file_path,
+                    backup_path,
+                )
             timeout_mins = self._timeout // 60 if self._timeout else 0
             logger.warning(
                 "mkvpropedit timed out",
@@ -137,15 +144,24 @@ class MkvpropeditExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            return ExecutorResult(
-                success=False,
-                message=f"mkvpropedit timed out after {timeout_mins} min for "
-                f"{plan.file_path}",
-            )
+            msg = f"mkvpropedit timed out after {timeout_mins} min for {plan.file_path}"
+            if not restored:
+                msg += (
+                    "\nWARNING: Could not restore backup - "
+                    "original file may be corrupted"
+                )
+            return ExecutorResult(success=False, message=msg)
         except (subprocess.SubprocessError, OSError) as e:
             # Restore backup on subprocess error
             elapsed = time.monotonic() - start_time
-            safe_restore_from_backup(backup_path)
+            restored = safe_restore_from_backup(backup_path)
+            if not restored:
+                logger.error(
+                    "CRITICAL: Backup restoration failed after mkvpropedit error "
+                    "for %s - file may need manual recovery from %s",
+                    plan.file_path,
+                    backup_path,
+                )
             logger.error(
                 "mkvpropedit execution failed",
                 extra={
@@ -154,10 +170,13 @@ class MkvpropeditExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            return ExecutorResult(
-                success=False,
-                message=f"mkvpropedit failed for {plan.file_path}: {e}",
-            )
+            msg = f"mkvpropedit failed for {plan.file_path}: {e}"
+            if not restored:
+                msg += (
+                    "\nWARNING: Could not restore backup - "
+                    "original file may be corrupted"
+                )
+            return ExecutorResult(success=False, message=msg)
         except Exception as e:
             # Restore backup on unexpected error
             elapsed = time.monotonic() - start_time
@@ -169,16 +188,33 @@ class MkvpropeditExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            safe_restore_from_backup(backup_path)
-            return ExecutorResult(
-                success=False,
-                message=f"Unexpected error for {plan.file_path}: {e}",
-            )
+            restored = safe_restore_from_backup(backup_path)
+            if not restored:
+                logger.error(
+                    "CRITICAL: Backup restoration failed after unexpected error "
+                    "for %s - file may need manual recovery from %s",
+                    plan.file_path,
+                    backup_path,
+                )
+            msg = f"Unexpected error for {plan.file_path}: {e}"
+            if not restored:
+                msg += (
+                    "\nWARNING: Could not restore backup - "
+                    "original file may be corrupted"
+                )
+            return ExecutorResult(success=False, message=msg)
 
         if result.returncode != 0:
             # Restore backup on failure
             elapsed = time.monotonic() - start_time
-            safe_restore_from_backup(backup_path)
+            restored = safe_restore_from_backup(backup_path)
+            if not restored:
+                logger.error(
+                    "CRITICAL: Backup restoration failed after mkvpropedit non-zero "
+                    "exit for %s - file may need manual recovery from %s",
+                    plan.file_path,
+                    backup_path,
+                )
             logger.error(
                 "mkvpropedit returned non-zero exit code",
                 extra={
@@ -187,11 +223,16 @@ class MkvpropeditExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            return ExecutorResult(
-                success=False,
-                message=f"mkvpropedit failed for {plan.file_path}: "
-                f"{result.stderr or result.stdout}",
+            msg = (
+                f"mkvpropedit failed for {plan.file_path}: "
+                f"{result.stderr or result.stdout}"
             )
+            if not restored:
+                msg += (
+                    "\nWARNING: Could not restore backup - "
+                    "original file may be corrupted"
+                )
+            return ExecutorResult(success=False, message=msg)
 
         # Success - optionally keep backup
         elapsed = time.monotonic() - start_time
@@ -227,11 +268,11 @@ class MkvpropeditExecutor:
         """Convert a PlannedAction to mkvpropedit arguments."""
         # Container-level metadata uses --edit info (no track_index needed)
         if action.action_type == ActionType.SET_CONTAINER_METADATA:
-            field = action.current_value  # field name stored in current_value
-            if not isinstance(field, str) or not field:
+            field = action.container_field
+            if not field:
                 raise ValueError(
-                    f"SET_CONTAINER_METADATA requires a non-empty string field name, "
-                    f"got current_value={field!r}"
+                    f"SET_CONTAINER_METADATA requires container_field to be set, "
+                    f"got container_field={field!r}"
                 )
             value = action.desired_value if action.desired_value is not None else ""
             if value == "":
