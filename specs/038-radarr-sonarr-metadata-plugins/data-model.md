@@ -264,18 +264,20 @@ class MatchResult:
 ### MovieCache (Radarr)
 
 ```python
+from dataclasses import dataclass, field
+
 @dataclass
 class RadarrCache:
     """Session cache for Radarr API data."""
 
-    movies: dict[int, RadarrMovie]           # movie_id -> movie
-    files: dict[str, RadarrMovieFile]        # file_path -> file
-    path_to_movie: dict[str, int]            # file_path -> movie_id
-    tags: dict[int, str]                     # tag_id -> tag_label
+    movies: dict[int, RadarrMovie] = field(default_factory=dict)
+    files: dict[str, RadarrMovieFile] = field(default_factory=dict)
+    path_to_movie: dict[str, int] = field(default_factory=dict)
+    tags: dict[int, str] = field(default_factory=dict)
 
     @classmethod
     def empty(cls) -> "RadarrCache":
-        return cls(movies={}, files={}, path_to_movie={}, tags={})
+        return cls()
 
     def lookup_by_path(self, path: str) -> RadarrMovie | None:
         """Look up movie by file path."""
@@ -438,5 +440,11 @@ class SonarrCache:
 ### Path Normalization
 1. Resolve symlinks
 2. Convert to absolute path
-3. Normalize separators to forward slash
-4. Remove trailing slashes
+3. Remove trailing slashes
+
+## Related Docs
+
+- [Plugin Enrichment Contract](contracts/plugin-enrichment.md) — enrichment schema, error handling, and configuration contract
+- [Radarr Metadata Plugin](../../src/vpo/plugins/radarr_metadata/README.md) — user guide for the Radarr plugin
+- [Sonarr Metadata Plugin](../../src/vpo/plugins/sonarr_metadata/README.md) — user guide for the Sonarr plugin
+- [Plugin Development Guide](../../docs/plugins.md) — plugin API reference and SDK usage

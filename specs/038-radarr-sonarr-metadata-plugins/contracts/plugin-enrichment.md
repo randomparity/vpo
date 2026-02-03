@@ -102,7 +102,7 @@ def on_file_scanned(self, event: FileScannedEvent) -> dict[str, Any] | None:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| original_language | string? | Yes* | ISO 639-2/B language code (e.g., "eng", "jpn") |
+| original_language | string? | Yes | ISO 639-2/B language code (e.g., "eng", "jpn") |
 | external_source | string | Yes | "radarr" or "sonarr" |
 | external_id | int | Yes | Movie ID (Radarr) or Series ID (Sonarr) |
 | external_title | string | Yes | Title from external service |
@@ -120,7 +120,11 @@ def on_file_scanned(self, event: FileScannedEvent) -> dict[str, Any] | None:
 | physical_release | string? | No | Physical release date (Radarr) |
 | air_date | string? | No | Episode air date (Sonarr) |
 | premiere_date | string? | No | Series premiere date (Sonarr) |
-| **v1.1.0 Common** | | | |
+
+#### Common Metadata (v1.1.0)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
 | original_title | string? | No | Original title (before translation) |
 | certification | string? | No | Content rating (PG-13, R, TV-MA, etc.) |
 | genres | string? | No | Comma-separated genre list |
@@ -129,7 +133,11 @@ def on_file_scanned(self, event: FileScannedEvent) -> dict[str, Any] | None:
 | monitored | bool? | No | Monitoring status in Radarr/Sonarr |
 | tags | string? | No | Comma-separated tag names |
 | popularity | float? | No | Popularity score |
-| **v1.1.0 Movie** | | | |
+
+#### Movie Metadata (v1.1.0)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
 | collection_name | string? | No | Movie collection name (Radarr) |
 | studio | string? | No | Studio name (Radarr) |
 | rating_tmdb | float? | No | TMDb rating value (Radarr) |
@@ -137,7 +145,11 @@ def on_file_scanned(self, event: FileScannedEvent) -> dict[str, Any] | None:
 | edition | string? | No | Edition (Director's Cut, Extended, etc.) (Radarr) |
 | release_group | string? | No | Release group identifier (Radarr) |
 | scene_name | string? | No | Scene release name (Radarr) |
-| **v1.1.0 TV** | | | |
+
+#### TV Metadata (v1.1.0)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
 | network | string? | No | TV network (HBO, Netflix, etc.) (Sonarr) |
 | series_type | string? | No | standard/daily/anime (Sonarr) |
 | tvmaze_id | int? | No | TVMaze identifier (Sonarr) |
@@ -145,7 +157,7 @@ def on_file_scanned(self, event: FileScannedEvent) -> dict[str, Any] | None:
 | total_episode_count | int? | No | Total episode count (Sonarr) |
 | absolute_episode_number | int? | No | Absolute episode number (Sonarr, anime) |
 
-*original_language is null if not available from external service
+Note: original_language is always present in the enrichment dict but its value is null when the source does not provide language information.
 
 ## Language Code Normalization
 
@@ -216,14 +228,7 @@ Plugin initialization MUST:
 
 ### Accessing Enrichment Data
 
-After plugin enrichment, the data is available in FileInfo:
-
-```python
-# In policy evaluation
-file_info = event.file_info
-original_language = file_info.get("original_language")  # "eng" or None
-external_source = file_info.get("external_source")      # "radarr"/"sonarr" or None
-```
+After plugin enrichment, the data is available for use in policy conditions:
 
 ### Policy Condition Example
 

@@ -2,6 +2,8 @@
 
 The `sonarr-metadata` plugin enriches scanned TV episode files with metadata from your Sonarr instance. When VPO scans a file, this plugin identifies the series and episode through Sonarr's parse endpoint and attaches metadata such as original language, series type, episode info, and air dates. This metadata can then be used in policy conditions and actions.
 
+This plugin is included with VPO and requires no separate installation. Enable it by adding configuration to `~/.vpo/config.toml`.
+
 ---
 
 ## Requirements
@@ -35,7 +37,7 @@ timeout_seconds = 30
 
 ## API Endpoints Used
 
-The plugin uses three Sonarr v3 API endpoints:
+The plugin uses the following Sonarr v3 API endpoints:
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -104,6 +106,8 @@ All dates are in ISO 8601 format (`YYYY-MM-DD`).
 | `tvmaze_id` | `int` | TVMaze identifier |
 | `season_count` | `int` | Number of seasons |
 | `total_episode_count` | `int` | Total number of episodes across all seasons |
+
+> **Note:** The `popularity` field is not available for Sonarr. Popularity scores are only provided by the Radarr plugin for movies.
 
 ### Episode Metadata (v1.1.0)
 

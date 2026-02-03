@@ -2,6 +2,8 @@
 
 The `radarr-metadata` plugin enriches scanned movie files with metadata from your Radarr instance. When VPO scans a file, this plugin looks it up in Radarr's library and attaches metadata such as original language, release dates, ratings, and genre information. This metadata can then be used in policy conditions and actions.
 
+This plugin is included with VPO and requires no separate installation. Enable it by adding configuration to `~/.vpo/config.toml`.
+
 ---
 
 ## Requirements
@@ -35,7 +37,7 @@ timeout_seconds = 30
 
 ## API Endpoints Used
 
-The plugin uses four Radarr v3 API endpoints:
+The plugin uses the following Radarr v3 API endpoints:
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|

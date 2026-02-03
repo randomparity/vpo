@@ -76,6 +76,12 @@ Docs focused on tasks and workflows: how to run the tools, configure them, and p
 - [plugin-author-guide.md](plugin-author-guide.md)
   Plugin development workflow: project setup, testing, packaging, and publishing.
 
+- [Radarr Metadata Plugin](../src/vpo/plugins/radarr_metadata/README.md)
+  Built-in plugin for enriching movie files with Radarr metadata.
+
+- [Sonarr Metadata Plugin](../src/vpo/plugins/sonarr_metadata/README.md)
+  Built-in plugin for enriching TV episode files with Sonarr metadata.
+
 - [daemon-mode.md](daemon-mode.md)
   Running VPO as a daemon: configuration, health endpoint, logging, and signal handling.
 
@@ -105,6 +111,9 @@ Use these when changing behavior or adding new subsystems.
 
 - [design/design-plugins.md](design/design-plugins.md) *(planned feature)*
   Plugin architecture: interfaces, lifecycle, versioning, and compatibility guarantees.
+
+- [Plugin Enrichment Contract](../specs/038-radarr-sonarr-metadata-plugins/contracts/plugin-enrichment.md)
+  Contract for Radarr/Sonarr metadata enrichment: schema, error handling, and configuration.
 
 - [design/design-language-code-input-ux.md](design/design-language-code-input-ux.md)
   UX patterns for ISO 639-2 language code input: autocomplete vs. dropdown, reorderable list patterns, and accessibility guidelines.
