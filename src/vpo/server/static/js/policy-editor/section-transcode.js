@@ -59,8 +59,7 @@ const TUNES = [
 const SCALE_ALGORITHMS = [
     { value: 'lanczos', label: 'Lanczos (Best Quality)' },
     { value: 'bilinear', label: 'Bilinear (Fast)' },
-    { value: 'bicubic', label: 'Bicubic (Balanced)' },
-    { value: 'neighbor', label: 'Nearest Neighbor (Pixel Art)' }
+    { value: 'bicubic', label: 'Bicubic (Balanced)' }
 ]
 
 const HW_ACCEL_MODES = [
@@ -68,8 +67,7 @@ const HW_ACCEL_MODES = [
     { value: 'nvenc', label: 'NVIDIA NVENC' },
     { value: 'qsv', label: 'Intel Quick Sync' },
     { value: 'vaapi', label: 'VA-API (Linux)' },
-    { value: 'videotoolbox', label: 'VideoToolbox (macOS)' },
-    { value: 'disabled', label: 'Disabled (CPU Only)' }
+    { value: 'none', label: 'Disabled (CPU Only)' }
 ]
 
 // Audio codec options for preserve_codecs and transcode_to

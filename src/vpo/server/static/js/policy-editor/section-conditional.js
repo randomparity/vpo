@@ -183,10 +183,16 @@ function createTrackFiltersBuilder(filters, onUpdate, trackType) {
             </div>
             ` : ''}
             <div class="filter-row">
-                <label class="form-label-inline">Title contains:</label>
+                <label class="form-label-inline">Title:</label>
+                <select class="form-select form-select-small" id="${generateId('titlemode')}"
+                        aria-label="Title match mode">
+                    <option value="contains" ${!filtersData.title?.regex ? 'selected' : ''}>Contains</option>
+                    <option value="regex" ${filtersData.title?.regex ? 'selected' : ''}>Regex</option>
+                </select>
                 <input type="text" class="form-input form-input-small" id="${generateId('title')}"
-                       placeholder="Substring match" value="${filtersData.title?.contains || filtersData.title || ''}"
-                       aria-label="Filter by title substring">
+                       placeholder="${filtersData.title?.regex ? 'Regex pattern' : 'Substring match'}"
+                       value="${filtersData.title?.regex || filtersData.title?.contains || filtersData.title || ''}"
+                       aria-label="Filter by title">
             </div>
         `
 
@@ -241,7 +247,13 @@ function createTrackFiltersBuilder(filters, onUpdate, trackType) {
                     newFilters.height = { operator: input.value, value: parseInt(valInput.value, 10) }
                 }
             } else if (id.includes('-title-') && input.value.trim()) {
-                newFilters.title = { contains: input.value.trim() }
+                const modeSelect = container.querySelector('[id*="-titlemode-"]')
+                const mode = modeSelect ? modeSelect.value : 'contains'
+                if (mode === 'regex') {
+                    newFilters.title = { regex: input.value.trim() }
+                } else {
+                    newFilters.title = { contains: input.value.trim() }
+                }
             }
         })
 
