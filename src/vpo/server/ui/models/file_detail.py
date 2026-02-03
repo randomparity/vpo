@@ -125,6 +125,8 @@ class FileDetailItem:
     audio_tracks: list[TrackDetailItem]
     subtitle_tracks: list[TrackDetailItem]
     other_tracks: list[TrackDetailItem]
+    # Container-level metadata tags
+    container_tags: dict[str, str] | None = None
     # Plugin metadata (236-generic-plugin-data-browser)
     plugin_metadata: dict[str, dict] | None = None
 
@@ -142,6 +144,11 @@ class FileDetailItem:
     def has_many_tracks(self) -> bool:
         """Return True if 5+ total tracks (for collapsible UI)."""
         return self.total_tracks >= 5
+
+    @property
+    def has_container_tags(self) -> bool:
+        """Return True if file has container-level metadata tags."""
+        return bool(self.container_tags)
 
     @property
     def has_plugin_data(self) -> bool:
@@ -175,6 +182,8 @@ class FileDetailItem:
             "other_tracks": [t.to_dict() for t in self.other_tracks],
             "total_tracks": self.total_tracks,
             "has_many_tracks": self.has_many_tracks,
+            "container_tags": self.container_tags,
+            "has_container_tags": self.has_container_tags,
             "plugin_metadata": self.plugin_metadata,
             "has_plugin_data": self.has_plugin_data,
             "plugin_count": self.plugin_count,
@@ -261,6 +270,13 @@ def build_file_detail_item(
         tracks, transcriptions
     )
 
+    # Parse container_tags JSON
+    container_tags_result = parse_json_safe(
+        file_record.container_tags,
+        context=f"container_tags for file {file_record.id}",
+    )
+    container_tags = container_tags_result.value
+
     # Parse plugin_metadata JSON
     plugin_result = parse_json_safe(
         file_record.plugin_metadata,
@@ -286,5 +302,6 @@ def build_file_detail_item(
         audio_tracks=audio_tracks,
         subtitle_tracks=subtitle_tracks,
         other_tracks=other_tracks,
+        container_tags=container_tags,
         plugin_metadata=plugin_metadata,
     )

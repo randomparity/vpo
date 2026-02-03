@@ -10,6 +10,8 @@
  * - Track filters: language, codec, is_default, is_forced, channels, width, height, title, not_commentary
  * - Actions: skip_video_transcode, skip_audio_transcode, skip_track_filter, warn, fail
  * - V7 actions: set_forced, set_default
+ * - V12 actions: set_container_metadata
+ * - V12 conditions: plugin_metadata, container_metadata
  * - 2-level nesting enforcement for boolean conditions
  */
 
@@ -29,7 +31,20 @@ const CONDITION_TYPES = [
     { value: 'and', label: 'AND (all must match)' },
     { value: 'or', label: 'OR (any must match)' },
     { value: 'not', label: 'NOT (negate)' },
-    { value: 'audio_is_multi_language', label: 'Audio is Multi-Language' }
+    { value: 'audio_is_multi_language', label: 'Audio is Multi-Language' },
+    { value: 'plugin_metadata', label: 'Plugin Metadata (V12)' },
+    { value: 'container_metadata', label: 'Container Metadata (V12)' }
+]
+
+const METADATA_OPERATORS = [
+    { value: 'eq', label: '= (equals)' },
+    { value: 'neq', label: '!= (not equals)' },
+    { value: 'contains', label: 'Contains (regex)' },
+    { value: 'exists', label: 'Exists (field present)' },
+    { value: 'lt', label: '< (less than)' },
+    { value: 'lte', label: '<= (less or equal)' },
+    { value: 'gt', label: '> (greater than)' },
+    { value: 'gte', label: '>= (greater or equal)' }
 ]
 
 const COMPARISON_OPERATORS = [
@@ -51,7 +66,8 @@ const ACTION_TYPES = [
     { value: 'warn', label: 'Warn (log message)' },
     { value: 'fail', label: 'Fail (stop with error)' },
     { value: 'set_forced', label: 'Set Forced Flag (V7)' },
-    { value: 'set_default', label: 'Set Default Flag (V7)' }
+    { value: 'set_default', label: 'Set Default Flag (V7)' },
+    { value: 'set_container_metadata', label: 'Set Container Metadata (V12)' }
 ]
 
 // Common codec options for quick selection (reserved for future use)
@@ -239,6 +255,8 @@ function createConditionBuilder(condition, onUpdate, nestingLevel = 0) {
 
     function getConditionType(cond) {
         if (!cond) return 'exists'
+        if (cond._type === 'plugin_metadata') return 'plugin_metadata'
+        if (cond._type === 'container_metadata') return 'container_metadata'
         if (cond.conditions && Array.isArray(cond.conditions)) {
             // Check if it's AND or OR based on presence of specific markers
             // In the data model, AndCondition and OrCondition both have 'conditions' array
@@ -501,6 +519,100 @@ function createConditionBuilder(condition, onUpdate, nestingLevel = 0) {
                     condData.primary_language = primaryLangInput.value.trim() || null
                     onUpdate(buildCondition())
                 })
+            } else if (type === 'plugin_metadata') {
+                detailsDiv.innerHTML = `
+                    <div class="condition-field-row">
+                        <label class="form-label-inline">Plugin:</label>
+                        <input type="text" class="form-input form-input-small plugin-name-input"
+                               placeholder="e.g., radarr_metadata" value="${condData.plugin || ''}">
+                    </div>
+                    <div class="condition-field-row">
+                        <label class="form-label-inline">Field:</label>
+                        <input type="text" class="form-input form-input-small field-input"
+                               placeholder="e.g., title" value="${condData.field || ''}">
+                    </div>
+                    <div class="condition-field-row">
+                        <label class="form-label-inline">Operator:</label>
+                        <select class="form-select operator-select">
+                            ${METADATA_OPERATORS.map(op => `<option value="${op.value}" ${condData.operator === op.value ? 'selected' : ''}>${op.label}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="condition-field-row value-row">
+                        <label class="form-label-inline">Value:</label>
+                        <input type="text" class="form-input form-input-small value-input"
+                               placeholder="Value to compare" value="${condData.value ?? ''}">
+                        <span class="form-hint">Not required for 'exists' operator</span>
+                    </div>
+                `
+                const pluginInput = detailsDiv.querySelector('.plugin-name-input')
+                const fieldInput = detailsDiv.querySelector('.field-input')
+                const operatorSelect = detailsDiv.querySelector('.operator-select')
+                const valueInput = detailsDiv.querySelector('.value-input')
+                const valueRow = detailsDiv.querySelector('.value-row')
+
+                condData.operator = condData.operator || 'eq'
+                operatorSelect.value = condData.operator
+                valueRow.style.display = condData.operator === 'exists' ? 'none' : ''
+
+                pluginInput.addEventListener('input', () => {
+                    condData.plugin = pluginInput.value.trim() || null
+                    onUpdate(buildCondition())
+                })
+                fieldInput.addEventListener('input', () => {
+                    condData.field = fieldInput.value.trim() || null
+                    onUpdate(buildCondition())
+                })
+                operatorSelect.addEventListener('change', () => {
+                    condData.operator = operatorSelect.value
+                    valueRow.style.display = condData.operator === 'exists' ? 'none' : ''
+                    onUpdate(buildCondition())
+                })
+                valueInput.addEventListener('input', () => {
+                    condData.value = valueInput.value
+                    onUpdate(buildCondition())
+                })
+            } else if (type === 'container_metadata') {
+                detailsDiv.innerHTML = `
+                    <div class="condition-field-row">
+                        <label class="form-label-inline">Field:</label>
+                        <input type="text" class="form-input form-input-small field-input"
+                               placeholder="e.g., title, encoder" value="${condData.field || ''}">
+                    </div>
+                    <div class="condition-field-row">
+                        <label class="form-label-inline">Operator:</label>
+                        <select class="form-select operator-select">
+                            ${METADATA_OPERATORS.map(op => `<option value="${op.value}" ${condData.operator === op.value ? 'selected' : ''}>${op.label}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="condition-field-row value-row">
+                        <label class="form-label-inline">Value:</label>
+                        <input type="text" class="form-input form-input-small value-input"
+                               placeholder="Value to compare" value="${condData.value ?? ''}">
+                        <span class="form-hint">Not required for 'exists' operator</span>
+                    </div>
+                `
+                const fieldInput = detailsDiv.querySelector('.field-input')
+                const operatorSelect = detailsDiv.querySelector('.operator-select')
+                const valueInput = detailsDiv.querySelector('.value-input')
+                const valueRow = detailsDiv.querySelector('.value-row')
+
+                condData.operator = condData.operator || 'eq'
+                operatorSelect.value = condData.operator
+                valueRow.style.display = condData.operator === 'exists' ? 'none' : ''
+
+                fieldInput.addEventListener('input', () => {
+                    condData.field = fieldInput.value.trim() || null
+                    onUpdate(buildCondition())
+                })
+                operatorSelect.addEventListener('change', () => {
+                    condData.operator = operatorSelect.value
+                    valueRow.style.display = condData.operator === 'exists' ? 'none' : ''
+                    onUpdate(buildCondition())
+                })
+                valueInput.addEventListener('input', () => {
+                    condData.value = valueInput.value
+                    onUpdate(buildCondition())
+                })
             }
         }
 
@@ -555,6 +667,27 @@ function createConditionBuilder(condition, onUpdate, nestingLevel = 0) {
                 result.primary_language = condData.primary_language
             }
             return result
+        } else if (type === 'plugin_metadata') {
+            const result = {
+                _type: 'plugin_metadata',
+                plugin: condData.plugin || '',
+                field: condData.field || '',
+                operator: condData.operator || 'eq'
+            }
+            if (condData.operator !== 'exists' && condData.value !== undefined && condData.value !== '') {
+                result.value = condData.value
+            }
+            return result
+        } else if (type === 'container_metadata') {
+            const result = {
+                _type: 'container_metadata',
+                field: condData.field || '',
+                operator: condData.operator || 'eq'
+            }
+            if (condData.operator !== 'exists' && condData.value !== undefined && condData.value !== '') {
+                result.value = condData.value
+            }
+            return result
         }
         return condData
     }
@@ -577,6 +710,7 @@ function createActionBuilder(action, onUpdate) {
 
     function getActionType(act) {
         if (!act) return 'skip'
+        if (act._type === 'set_container_metadata') return 'set_container_metadata'
         if (act.skip_type) return 'skip'
         if (act.message !== undefined && act._type === 'fail') return 'fail'
         if (act.message !== undefined) return 'warn'
@@ -658,6 +792,31 @@ function createActionBuilder(action, onUpdate) {
                     actionData.value = valueCheckbox.checked
                     onUpdate(buildAction())
                 })
+            } else if (type === 'set_container_metadata') {
+                detailsDiv.innerHTML = `
+                    <div class="action-field-row">
+                        <label class="form-label-inline">Field:</label>
+                        <input type="text" class="form-input form-input-small field-input"
+                               placeholder="e.g., title, encoder" value="${actionData.field || ''}">
+                    </div>
+                    <div class="action-field-row">
+                        <label class="form-label-inline">Value:</label>
+                        <input type="text" class="form-input value-input"
+                               placeholder="New value (empty to clear)" value="${actionData.value ?? ''}">
+                        <span class="form-hint">Leave empty to clear/delete the tag</span>
+                    </div>
+                `
+                const fieldInput = detailsDiv.querySelector('.field-input')
+                const valueInput = detailsDiv.querySelector('.value-input')
+
+                fieldInput.addEventListener('input', () => {
+                    actionData.field = fieldInput.value.trim()
+                    onUpdate(buildAction())
+                })
+                valueInput.addEventListener('input', () => {
+                    actionData.value = valueInput.value
+                    onUpdate(buildAction())
+                })
             }
         }
 
@@ -688,6 +847,15 @@ function createActionBuilder(action, onUpdate) {
             const result = { _type: 'set_default', track_type: actionData.track_type || 'audio' }
             if (actionData.language) result.language = actionData.language
             if (actionData.value === false) result.value = false
+            return result
+        } else if (type === 'set_container_metadata') {
+            const result = {
+                _type: 'set_container_metadata',
+                field: actionData.field || ''
+            }
+            if (actionData.value !== undefined) {
+                result.value = actionData.value
+            }
             return result
         }
         return actionData

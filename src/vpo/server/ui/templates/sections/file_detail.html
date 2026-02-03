@@ -39,6 +39,21 @@
                 <dd>{{ file.container_format }}</dd>
             </div>
             {% endif %}
+            {% if file.has_container_tags %}
+            <div class="file-detail-dl-row file-detail-dl-row--tags">
+                <dt>Container Tags</dt>
+                <dd>
+                    <dl class="file-detail-tags-dl">
+                        {% for key, value in file.container_tags.items() | sort %}
+                        <div class="file-detail-tags-row">
+                            <dt>{{ key }}</dt>
+                            <dd>{{ value }}</dd>
+                        </div>
+                        {% endfor %}
+                    </dl>
+                </dd>
+            </div>
+            {% endif %}
             <div class="file-detail-dl-row">
                 <dt>Size</dt>
                 <dd>{{ file.size_human }} ({{ file.size_bytes | string | format_number }} bytes)</dd>
