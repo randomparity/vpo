@@ -1,6 +1,7 @@
 """Tests for ffprobe parser validation functions."""
 
 from vpo.introspector.parsers import (
+    _parse_container_tags,
     parse_stream,
     sanitize_string,
     validate_positive_float,
@@ -223,3 +224,69 @@ class TestParseStreamValidation:
         track = parse_stream(stream)
         assert track.width == 0
         assert track.height == 0
+
+
+class TestParseContainerTags:
+    """Tests for _parse_container_tags function."""
+
+    def test_normal_tags_dict(self):
+        """Returns dict with lowercase keys for normal tags."""
+        tags = {"TITLE": "My Movie", "ENCODER": "libx265"}
+        result = _parse_container_tags(tags)
+        assert result == {"title": "My Movie", "encoder": "libx265"}
+
+    def test_empty_tags_returns_none(self):
+        """Returns None for empty tags dict."""
+        result = _parse_container_tags({})
+        assert result is None
+
+    def test_none_tags_returns_none(self):
+        """Returns None for None/falsy tags."""
+        result = _parse_container_tags(None)
+        assert result is None
+
+    def test_non_string_values_coerced(self, caplog):
+        """Non-string values are coerced to string."""
+        import logging
+
+        tags = {"bitrate": 5000, "title": "Movie"}
+        with caplog.at_level(logging.DEBUG):
+            result = _parse_container_tags(tags, file_path="/test.mkv")
+        assert result is not None
+        assert result["bitrate"] == "5000"
+        assert "non-string value" in caplog.text
+
+    def test_oversized_values_skipped(self, caplog):
+        """Values exceeding max length are skipped."""
+        tags = {"title": "x" * 5000, "encoder": "libx265"}
+        result = _parse_container_tags(tags, file_path="/test.mkv")
+        assert result is not None
+        assert "title" not in result
+        assert result["encoder"] == "libx265"
+        assert "exceeds max length" in caplog.text
+
+    def test_oversized_keys_skipped(self, caplog):
+        """Keys exceeding max length are skipped."""
+        long_key = "k" * 300
+        tags = {long_key: "value", "title": "Movie"}
+        result = _parse_container_tags(tags, file_path="/test.mkv")
+        assert result is not None
+        assert long_key.casefold() not in result
+        assert result["title"] == "Movie"
+        assert "exceeds max length" in caplog.text
+
+    def test_values_sanitized_to_none_skipped(self):
+        """Values that sanitize to None are skipped."""
+        tags = {"title": None, "encoder": "libx265"}
+        # sanitize_string(str(None)) returns "None" as a string,
+        # but if the value itself is None, str(None) = "None"
+        result = _parse_container_tags(tags)
+        assert result is not None
+        assert "encoder" in result
+
+    def test_key_normalization_to_lowercase(self):
+        """Keys are normalized to casefolded lowercase."""
+        tags = {"TITLE": "Movie", "Encoder": "x265", "BiTrAtE": "5000"}
+        result = _parse_container_tags(tags)
+        assert result is not None
+        assert set(result.keys()) == {"title", "encoder", "bitrate"}

@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from vpo.executor.ffmpeg_metadata import FfmpegMetadataExecutor
 from vpo.executor.ffmpeg_remux import FFmpegRemuxExecutor
 from vpo.executor.mkvmerge import MkvmergeExecutor
 from vpo.executor.mkvpropedit import MkvpropeditExecutor
@@ -214,6 +215,54 @@ class TestMkvpropeditExecutor:
             desired_value=[1, 0],
         )
         with pytest.raises(ValueError, match="requires track_index"):
+            executor._action_to_args(action)
+
+    def test_action_to_args_set_container_metadata(self):
+        """SET_CONTAINER_METADATA with value generates --set args."""
+        executor = MkvpropeditExecutor()
+        action = PlannedAction(
+            action_type=ActionType.SET_CONTAINER_METADATA,
+            track_index=None,
+            current_value="title",
+            desired_value="My Movie",
+        )
+        args = executor._action_to_args(action)
+        assert args == ["--edit", "info", "--set", "title=My Movie"]
+
+    def test_action_to_args_clear_container_metadata(self):
+        """SET_CONTAINER_METADATA with empty value generates --delete args."""
+        executor = MkvpropeditExecutor()
+        action = PlannedAction(
+            action_type=ActionType.SET_CONTAINER_METADATA,
+            track_index=None,
+            current_value="title",
+            desired_value="",
+        )
+        args = executor._action_to_args(action)
+        assert args == ["--edit", "info", "--delete", "title"]
+
+    def test_action_to_args_container_metadata_none_value_deletes(self):
+        """SET_CONTAINER_METADATA with None value treated as deletion."""
+        executor = MkvpropeditExecutor()
+        action = PlannedAction(
+            action_type=ActionType.SET_CONTAINER_METADATA,
+            track_index=None,
+            current_value="title",
+            desired_value=None,
+        )
+        args = executor._action_to_args(action)
+        assert args == ["--edit", "info", "--delete", "title"]
+
+    def test_action_to_args_container_metadata_none_field_raises(self):
+        """SET_CONTAINER_METADATA with None field name raises ValueError."""
+        executor = MkvpropeditExecutor()
+        action = PlannedAction(
+            action_type=ActionType.SET_CONTAINER_METADATA,
+            track_index=None,
+            current_value=None,
+            desired_value="value",
+        )
+        with pytest.raises(ValueError, match="non-empty string field name"):
             executor._action_to_args(action)
 
 
@@ -1052,3 +1101,60 @@ class TestFFmpegRemuxExecutorBackup:
 
         mock_restore.assert_called_once_with(backup_path)
         assert result.success is False
+
+
+# =============================================================================
+# FFmpegMetadataExecutor SET_CONTAINER_METADATA Tests
+# =============================================================================
+
+
+class TestFfmpegMetadataContainerMetadata:
+    """Tests for FfmpegMetadataExecutor SET_CONTAINER_METADATA args."""
+
+    def test_action_to_args_set_tag(self):
+        """SET_CONTAINER_METADATA with value generates -metadata args."""
+        executor = FfmpegMetadataExecutor()
+        action = PlannedAction(
+            action_type=ActionType.SET_CONTAINER_METADATA,
+            track_index=None,
+            current_value="title",
+            desired_value="My Movie",
+        )
+        args = executor._action_to_args(action)
+        assert args == ["-metadata", "title=My Movie"]
+
+    def test_action_to_args_clear_tag(self):
+        """SET_CONTAINER_METADATA with empty value clears the tag."""
+        executor = FfmpegMetadataExecutor()
+        action = PlannedAction(
+            action_type=ActionType.SET_CONTAINER_METADATA,
+            track_index=None,
+            current_value="title",
+            desired_value="",
+        )
+        args = executor._action_to_args(action)
+        assert args == ["-metadata", "title="]
+
+    def test_action_to_args_none_value_clears(self):
+        """SET_CONTAINER_METADATA with None value treated as clear."""
+        executor = FfmpegMetadataExecutor()
+        action = PlannedAction(
+            action_type=ActionType.SET_CONTAINER_METADATA,
+            track_index=None,
+            current_value="title",
+            desired_value=None,
+        )
+        args = executor._action_to_args(action)
+        assert args == ["-metadata", "title="]
+
+    def test_action_to_args_none_field_raises(self):
+        """SET_CONTAINER_METADATA with None field name raises ValueError."""
+        executor = FfmpegMetadataExecutor()
+        action = PlannedAction(
+            action_type=ActionType.SET_CONTAINER_METADATA,
+            track_index=None,
+            current_value=None,
+            desired_value="value",
+        )
+        with pytest.raises(ValueError, match="non-empty string field name"):
+            executor._action_to_args(action)
