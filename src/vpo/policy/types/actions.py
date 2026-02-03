@@ -121,6 +121,27 @@ class SetLanguageAction:
     match_language: str | None = None
 
 
+@dataclass(frozen=True)
+class SetContainerMetadataAction:
+    """Set a container-level metadata tag.
+
+    Used to set or clear container-level metadata such as title, encoder,
+    date, comment, etc.
+
+    Either value OR from_plugin_metadata must be specified, but not both.
+    An empty string value clears the tag.
+
+    Attributes:
+        field: Metadata field name (e.g., "title", "encoder").
+        value: Static value to set (empty string clears the tag).
+        from_plugin_metadata: Reference to plugin metadata for dynamic value.
+    """
+
+    field: str
+    value: str | None = None
+    from_plugin_metadata: PluginMetadataReference | None = None
+
+
 # Type alias for union of all action types
 ConditionalAction = (
     SkipAction
@@ -129,6 +150,7 @@ ConditionalAction = (
     | SetForcedAction
     | SetDefaultAction
     | SetLanguageAction
+    | SetContainerMetadataAction
 )
 
 
@@ -199,6 +221,18 @@ class TrackLanguageChange:
 
 
 @dataclass(frozen=True)
+class ContainerMetadataChange:
+    """A pending change to a container-level metadata tag.
+
+    Represents a set_container_metadata action that should be
+    applied at the container level (not track-level).
+    """
+
+    field: str
+    new_value: str  # Empty string means clear/delete the tag
+
+
+@dataclass(frozen=True)
 class ConditionalResult:
     """Result of conditional rule evaluation.
 
@@ -213,3 +247,6 @@ class ConditionalResult:
     skip_flags: SkipFlags = field(default_factory=SkipFlags)
     track_flag_changes: tuple[TrackFlagChange, ...] = ()  # From set_forced/set_default
     track_language_changes: tuple[TrackLanguageChange, ...] = ()  # From set_language
+    container_metadata_changes: tuple[
+        ContainerMetadataChange, ...
+    ] = ()  # From set_container_metadata

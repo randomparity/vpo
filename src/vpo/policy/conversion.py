@@ -72,6 +72,7 @@ from vpo.policy.types import (
     RunIfCondition,
     ScaleAlgorithm,
     ScalingSettings,
+    SetContainerMetadataAction,
     SetDefaultAction,
     SetForcedAction,
     SetLanguageAction,
@@ -435,6 +436,21 @@ def _convert_action(model: ActionModel) -> tuple[ConditionalAction, ...]:
                 new_language=model.set_language.new_language,
                 from_plugin_metadata=from_plugin_ref,
                 match_language=model.set_language.match_language,
+            )
+        )
+
+    if model.set_container_metadata is not None:
+        from_plugin_ref = None
+        if model.set_container_metadata.from_plugin_metadata is not None:
+            from_plugin_ref = PluginMetadataReference(
+                plugin=model.set_container_metadata.from_plugin_metadata.plugin,
+                field=model.set_container_metadata.from_plugin_metadata.field,
+            )
+        actions.append(
+            SetContainerMetadataAction(
+                field=model.set_container_metadata.field,
+                value=model.set_container_metadata.value,
+                from_plugin_metadata=from_plugin_ref,
             )
         )
 

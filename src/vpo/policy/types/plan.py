@@ -282,6 +282,12 @@ class PlannedAction:
             return f"Track {self.track_index}: Set title '{self.desired_value}'"
         elif self.action_type == ActionType.SET_LANGUAGE:
             return f"Track {self.track_index}: Set language '{self.desired_value}'"
+        elif self.action_type == ActionType.SET_CONTAINER_METADATA:
+            if self.desired_value == "":
+                return f"Container: Clear metadata '{self.current_value}'"
+            field = self.current_value
+            val = self.desired_value
+            return f"Container: Set metadata '{field}' = '{val}'"
         else:
             return f"Track {self.track_index}: {self.action_type.value}"
 

@@ -286,6 +286,13 @@ class FfmpegMetadataExecutor:
 
     def _action_to_args(self, action: PlannedAction) -> list[str]:
         """Convert a PlannedAction to ffmpeg arguments."""
+        # Container-level metadata uses -metadata (no stream index)
+        if action.action_type == ActionType.SET_CONTAINER_METADATA:
+            field = action.current_value  # field name stored in current_value
+            value = action.desired_value
+            # Empty value clears the tag in ffmpeg
+            return ["-metadata", f"{field}={value}"]
+
         if action.track_index is None:
             raise ValueError(f"Action {action.action_type} requires track_index")
 

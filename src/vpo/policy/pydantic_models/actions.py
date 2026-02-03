@@ -103,6 +103,47 @@ class SetLanguageActionModel(BaseModel):
         return self
 
 
+class SetContainerMetadataActionModel(BaseModel):
+    """Pydantic model for set_container_metadata action.
+
+    Sets or clears a container-level metadata tag. Either value or
+    from_plugin_metadata must be specified, but not both.
+    An empty string value clears the tag.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    field: str
+    value: str | None = None
+    from_plugin_metadata: PluginMetadataReferenceModel | None = None
+
+    @field_validator("field")
+    @classmethod
+    def validate_field_name(cls, v: str) -> str:
+        """Validate and normalize field name to lowercase."""
+        if not v or not v.strip():
+            raise ValueError("field name cannot be empty")
+        return v.strip().lower()
+
+    @model_validator(mode="after")
+    def validate_value_source(self) -> "SetContainerMetadataActionModel":
+        """Validate that exactly one value source is specified."""
+        has_static = self.value is not None
+        has_dynamic = self.from_plugin_metadata is not None
+
+        if not has_static and not has_dynamic:
+            raise ValueError(
+                "set_container_metadata must specify either 'value' or "
+                "'from_plugin_metadata'"
+            )
+        if has_static and has_dynamic:
+            raise ValueError(
+                "set_container_metadata cannot specify both 'value' and "
+                "'from_plugin_metadata'"
+            )
+        return self
+
+
 class ActionModel(BaseModel):
     """Pydantic model for conditional action."""
 
@@ -124,6 +165,9 @@ class ActionModel(BaseModel):
     # Track metadata actions
     set_language: SetLanguageActionModel | None = None
 
+    # Container metadata actions
+    set_container_metadata: SetContainerMetadataActionModel | None = None
+
     @model_validator(mode="after")
     def validate_at_least_one_action(self) -> "ActionModel":
         """Validate that at least one action is specified."""
@@ -136,12 +180,14 @@ class ActionModel(BaseModel):
             self.set_forced,
             self.set_default,
             self.set_language,
+            self.set_container_metadata,
         ]
         if not any(a is not None for a in actions):
             raise ValueError(
                 "Action must specify at least one action "
                 "(skip_video_transcode/skip_audio_transcode/skip_track_filter/"
-                "warn/fail/set_forced/set_default/set_language)"
+                "warn/fail/set_forced/set_default/set_language/"
+                "set_container_metadata)"
             )
         return self
 

@@ -18,6 +18,7 @@ from vpo.policy.conditions import PluginMetadataDict
 from vpo.policy.types import (
     ConditionalResult,
     ConditionalRule,
+    ContainerMetadataChange,
     RuleEvaluation,
     SkipFlags,
     TrackFlagChange,
@@ -77,6 +78,7 @@ def evaluate_conditional_rules(
     warnings: list[str] = []
     track_flag_changes: list[TrackFlagChange] = []
     track_language_changes: list[TrackLanguageChange] = []
+    container_metadata_changes: list[ContainerMetadataChange] = []
 
     for i, rule in enumerate(rules):
         # Evaluate the condition, passing all context for condition types
@@ -115,6 +117,7 @@ def evaluate_conditional_rules(
             warnings = context.warnings
             track_flag_changes = context.track_flag_changes
             track_language_changes = context.track_language_changes
+            container_metadata_changes = context.container_metadata_changes
 
             # First match wins - stop evaluation
             break
@@ -147,6 +150,7 @@ def evaluate_conditional_rules(
                 warnings = context.warnings
                 track_flag_changes = context.track_flag_changes
                 track_language_changes = context.track_language_changes
+                container_metadata_changes = context.container_metadata_changes
 
     return ConditionalResult(
         matched_rule=matched_rule,
@@ -156,4 +160,5 @@ def evaluate_conditional_rules(
         skip_flags=skip_flags,
         track_flag_changes=tuple(track_flag_changes),
         track_language_changes=tuple(track_language_changes),
+        container_metadata_changes=tuple(container_metadata_changes),
     )

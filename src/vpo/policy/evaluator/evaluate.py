@@ -242,6 +242,28 @@ def evaluate_policy(
                     )
                 )
 
+    # Convert container metadata changes from conditional rules to PlannedActions
+    if conditional_result is not None and conditional_result.container_metadata_changes:
+        for change in conditional_result.container_metadata_changes:
+            # Idempotency: compare current tag value with desired
+            current_value = None
+            if container_tags is not None:
+                current_value = container_tags.get(change.field.lower())
+            # Skip if already set to desired value
+            if current_value == change.new_value:
+                continue
+            # For clearing: skip if tag doesn't exist
+            if change.new_value == "" and current_value is None:
+                continue
+            actions.append(
+                PlannedAction(
+                    action_type=ActionType.SET_CONTAINER_METADATA,
+                    track_index=None,
+                    current_value=change.field,
+                    desired_value=change.new_value,
+                )
+            )
+
     # Compute desired track order (handles empty tracks gracefully)
     # Pass transcription_results to enable transcription-based commentary detection
     current_order = [t.index for t in sorted(tracks, key=lambda t: t.index)]
