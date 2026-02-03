@@ -98,7 +98,15 @@ Field names must match: `^[a-zA-Z][a-zA-Z0-9_]{0,63}$`
 
 ### Numeric Coercion
 
-The `lt`, `lte`, `gt`, and `gte` operators attempt to parse tag values as numbers. If the tag value is not numeric, the condition evaluates to false.
+The `lt`, `lte`, `gt`, and `gte` operators attempt to parse tag values as numbers. If the tag value is not numeric, the condition evaluates to false. The `value` field in the condition must itself be a number (not a quoted string):
+
+```yaml
+# Correct
+value: 5000
+
+# Incorrect — will cause a validation error
+value: "5000"
+```
 
 ### Examples
 
@@ -257,8 +265,8 @@ Container metadata changes are applied by different executors depending on the f
 
 | Container | Executor | Tool | Notes |
 |-----------|----------|------|-------|
-| MKV (Matroska) | mkvpropedit | mkvtoolnix | Sets/clears tags via `--edit info --set` |
-| MP4, MP3, others | ffmpeg_metadata | ffmpeg | Sets/clears tags via `-metadata field=value` |
+| MKV (Matroska) | mkvpropedit | mkvpropedit | Sets tags via `--edit info --set`; clears via `--edit info --delete` |
+| MP4 and other ffmpeg-supported formats | ffmpeg_metadata | ffmpeg | Sets/clears tags via `-metadata field=value` (empty value clears) |
 
 Both executors support setting tags to a value and clearing tags (empty string). The executor is selected automatically based on the file's container format.
 

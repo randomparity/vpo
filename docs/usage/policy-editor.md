@@ -2,7 +2,7 @@
 
 **Feature**: Visual Policy Editor (024-policy-editor, 036-v9-policy-editor, 037-user-defined-phases)
 **Status**: Production Ready
-**Version**: 3.0 (V3-V11 Schema Support)
+**Version**: 3.0 (V3-V12 Schema Support)
 
 ## Overview
 
@@ -375,6 +375,8 @@ vpo policy run -p policy.yaml --phases cleanup,normalize /path/to/video.mkv
 # Dry-run to preview changes
 vpo policy run -p policy.yaml --dry-run /path/to/video.mkv
 ```
+
+---
 
 ### 15. Container Metadata Conditions and Actions
 
