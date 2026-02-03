@@ -223,8 +223,9 @@ class TestMkvpropeditExecutor:
         action = PlannedAction(
             action_type=ActionType.SET_CONTAINER_METADATA,
             track_index=None,
-            current_value="title",
+            current_value=None,
             desired_value="My Movie",
+            container_field="title",
         )
         args = executor._action_to_args(action)
         assert args == ["--edit", "info", "--set", "title=My Movie"]
@@ -235,8 +236,9 @@ class TestMkvpropeditExecutor:
         action = PlannedAction(
             action_type=ActionType.SET_CONTAINER_METADATA,
             track_index=None,
-            current_value="title",
+            current_value="old title",
             desired_value="",
+            container_field="title",
         )
         args = executor._action_to_args(action)
         assert args == ["--edit", "info", "--delete", "title"]
@@ -247,22 +249,24 @@ class TestMkvpropeditExecutor:
         action = PlannedAction(
             action_type=ActionType.SET_CONTAINER_METADATA,
             track_index=None,
-            current_value="title",
+            current_value="old title",
             desired_value=None,
+            container_field="title",
         )
         args = executor._action_to_args(action)
         assert args == ["--edit", "info", "--delete", "title"]
 
     def test_action_to_args_container_metadata_none_field_raises(self):
-        """SET_CONTAINER_METADATA with None field name raises ValueError."""
+        """SET_CONTAINER_METADATA with None container_field raises ValueError."""
         executor = MkvpropeditExecutor()
         action = PlannedAction(
             action_type=ActionType.SET_CONTAINER_METADATA,
             track_index=None,
             current_value=None,
             desired_value="value",
+            container_field=None,
         )
-        with pytest.raises(ValueError, match="non-empty string field name"):
+        with pytest.raises(ValueError, match="container_field"):
             executor._action_to_args(action)
 
 
@@ -1117,8 +1121,9 @@ class TestFfmpegMetadataContainerMetadata:
         action = PlannedAction(
             action_type=ActionType.SET_CONTAINER_METADATA,
             track_index=None,
-            current_value="title",
+            current_value=None,
             desired_value="My Movie",
+            container_field="title",
         )
         args = executor._action_to_args(action)
         assert args == ["-metadata", "title=My Movie"]
@@ -1129,8 +1134,9 @@ class TestFfmpegMetadataContainerMetadata:
         action = PlannedAction(
             action_type=ActionType.SET_CONTAINER_METADATA,
             track_index=None,
-            current_value="title",
+            current_value="old title",
             desired_value="",
+            container_field="title",
         )
         args = executor._action_to_args(action)
         assert args == ["-metadata", "title="]
@@ -1141,20 +1147,22 @@ class TestFfmpegMetadataContainerMetadata:
         action = PlannedAction(
             action_type=ActionType.SET_CONTAINER_METADATA,
             track_index=None,
-            current_value="title",
+            current_value="old title",
             desired_value=None,
+            container_field="title",
         )
         args = executor._action_to_args(action)
         assert args == ["-metadata", "title="]
 
     def test_action_to_args_none_field_raises(self):
-        """SET_CONTAINER_METADATA with None field name raises ValueError."""
+        """SET_CONTAINER_METADATA with None container_field raises ValueError."""
         executor = FfmpegMetadataExecutor()
         action = PlannedAction(
             action_type=ActionType.SET_CONTAINER_METADATA,
             track_index=None,
             current_value=None,
             desired_value="value",
+            container_field=None,
         )
-        with pytest.raises(ValueError, match="non-empty string field name"):
+        with pytest.raises(ValueError, match="container_field"):
             executor._action_to_args(action)

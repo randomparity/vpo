@@ -262,9 +262,10 @@ class ContainerChange:
 class PlannedAction:
     """A single planned change. Immutable.
 
-    Note: For SET_CONTAINER_METADATA actions, ``current_value`` stores the
-    metadata field name (not the actual current value) and ``desired_value``
-    stores the new value to set. An empty ``desired_value`` means clear/delete.
+    For SET_CONTAINER_METADATA actions, ``container_field`` stores the
+    metadata field name, ``current_value`` stores the actual current tag
+    value (or None), and ``desired_value`` stores the new value to set.
+    An empty ``desired_value`` means clear/delete.
     """
 
     action_type: ActionType
@@ -272,6 +273,7 @@ class PlannedAction:
     current_value: Any
     desired_value: Any
     track_id: str | None = None  # Track UID if available
+    container_field: str | None = None  # Field name for SET_CONTAINER_METADATA
 
     @property
     def description(self) -> str:
@@ -291,9 +293,9 @@ class PlannedAction:
         elif self.action_type == ActionType.SET_LANGUAGE:
             return f"Track {self.track_index}: Set language '{self.desired_value}'"
         elif self.action_type == ActionType.SET_CONTAINER_METADATA:
+            field = self.container_field or "unknown"
             if self.desired_value == "":
-                return f"Container: Clear metadata '{self.current_value}'"
-            field = self.current_value
+                return f"Container: Clear metadata '{field}'"
             val = self.desired_value
             return f"Container: Set metadata '{field}' = '{val}'"
         else:
