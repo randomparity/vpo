@@ -154,8 +154,8 @@ The plugin MUST normalize language names to ISO 639-2/B codes:
 | Input (API) | Output (VPO) |
 |-------------|--------------|
 | "English" | "eng" |
-| "French" | "fra" |
-| "German" | "deu" |
+| "French" | "fre" |
+| "German" | "ger" |
 | "Spanish" | "spa" |
 | "Italian" | "ita" |
 | "Japanese" | "jpn" |
@@ -193,12 +193,12 @@ Use `vpo.language.normalize_language()` for conversion.
 ### Expected Configuration Section
 
 ```toml
-[plugins.radarr]
+[plugins.metadata.radarr]
 enabled = true
 url = "http://localhost:7878"
 api_key = "your-api-key-here"  # pragma: allowlist secret
 
-[plugins.sonarr]
+[plugins.metadata.sonarr]
 enabled = true
 url = "http://localhost:8989"
 api_key = "your-api-key-here"  # pragma: allowlist secret

@@ -14,10 +14,10 @@ The `sonarr-metadata` plugin enriches scanned TV episode files with metadata fro
 
 ## Configuration
 
-Add a `[plugins.sonarr]` section to `~/.vpo/config.toml`:
+Add a `[plugins.metadata.sonarr]` section to `~/.vpo/config.toml`:
 
 ```toml
-[plugins.sonarr]
+[plugins.metadata.sonarr]
 url = "http://localhost:8989"
 api_key = "your-sonarr-api-key"  # pragma: allowlist secret
 enabled = true

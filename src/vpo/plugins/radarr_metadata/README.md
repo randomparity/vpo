@@ -14,10 +14,10 @@ The `radarr-metadata` plugin enriches scanned movie files with metadata from you
 
 ## Configuration
 
-Add a `[plugins.radarr]` section to `~/.vpo/config.toml`:
+Add a `[plugins.metadata.radarr]` section to `~/.vpo/config.toml`:
 
 ```toml
-[plugins.radarr]
+[plugins.metadata.radarr]
 url = "http://localhost:7878"
 api_key = "your-radarr-api-key"  # pragma: allowlist secret
 enabled = true
