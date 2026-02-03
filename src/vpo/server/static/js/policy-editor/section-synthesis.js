@@ -11,6 +11,7 @@
  */
 
 import { showUndoToast } from './policy-editor.js'
+import { createConditionBuilder } from './section-conditional.js'
 
 // Constants for synthesis options
 const SYNTHESIS_CODECS = [
@@ -431,6 +432,7 @@ function createSynthesisTrackBuilder(track, onUpdate, onRemove, trackIndex = 0) 
             </div>
             <div class="source-prefer-container"></div>
             <div class="skip-if-exists-container"></div>
+            <div class="create-if-container"></div>
         `
 
         // Attach main field listeners
@@ -502,6 +504,68 @@ function createSynthesisTrackBuilder(track, onUpdate, onRemove, trackIndex = 0) 
             onUpdate(buildTrack())
         })
         skipContainer.appendChild(skipBuilder)
+
+        // Create-if condition builder
+        const createIfContainer = container.querySelector('.create-if-container')
+        const createIfWrapper = document.createElement('div')
+        createIfWrapper.className = 'create-if-builder'
+
+        const createIfHeader = document.createElement('div')
+        createIfHeader.className = 'create-if-header'
+
+        const createIfCheckbox = document.createElement('input')
+        createIfCheckbox.type = 'checkbox'
+        createIfCheckbox.checked = !!trackData.create_if
+        createIfCheckbox.id = `${idPrefix}-create-if-enabled`
+
+        const createIfLabel = document.createElement('label')
+        createIfLabel.className = 'checkbox-label'
+        createIfLabel.appendChild(createIfCheckbox)
+        createIfLabel.appendChild(document.createTextNode(' Only create if condition is met'))
+
+        createIfHeader.appendChild(createIfLabel)
+        createIfWrapper.appendChild(createIfHeader)
+
+        const createIfBody = document.createElement('div')
+        createIfBody.className = 'create-if-body'
+        createIfBody.style.display = trackData.create_if ? 'block' : 'none'
+        createIfWrapper.appendChild(createIfBody)
+
+        if (trackData.create_if) {
+            const condBuilder = createConditionBuilder(
+                trackData.create_if,
+                (updated) => {
+                    trackData.create_if = updated
+                    onUpdate(buildTrack())
+                },
+                0
+            )
+            createIfBody.appendChild(condBuilder)
+        }
+
+        createIfCheckbox.addEventListener('change', () => {
+            if (createIfCheckbox.checked) {
+                trackData.create_if = { track_type: 'audio' }
+                createIfBody.style.display = 'block'
+                createIfBody.innerHTML = ''
+                const condBuilder = createConditionBuilder(
+                    trackData.create_if,
+                    (updated) => {
+                        trackData.create_if = updated
+                        onUpdate(buildTrack())
+                    },
+                    0
+                )
+                createIfBody.appendChild(condBuilder)
+            } else {
+                trackData.create_if = null
+                createIfBody.style.display = 'none'
+                createIfBody.innerHTML = ''
+            }
+            onUpdate(buildTrack())
+        })
+
+        createIfContainer.appendChild(createIfWrapper)
     }
 
     function buildTrack() {
@@ -530,6 +594,10 @@ function createSynthesisTrackBuilder(track, onUpdate, onRemove, trackIndex = 0) 
 
         if (trackData.skip_if_exists) {
             result.skip_if_exists = trackData.skip_if_exists
+        }
+
+        if (trackData.create_if) {
+            result.create_if = trackData.create_if
         }
 
         return result
