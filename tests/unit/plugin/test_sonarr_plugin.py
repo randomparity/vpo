@@ -97,7 +97,7 @@ class TestSonarrMetadataPluginMetadata:
 
     def test_plugin_version(self, plugin: SonarrMetadataPlugin):
         """Plugin has correct version."""
-        assert plugin.version == "1.0.0"
+        assert plugin.version == "1.1.0"
 
     def test_plugin_events(self, plugin: SonarrMetadataPlugin):
         """Plugin subscribes to file.scanned event."""
@@ -497,6 +497,146 @@ class TestSonarrMetadataPluginEnrichment:
         assert "season_number" not in result
         assert "episode_number" not in result
         assert "episode_title" not in result
+
+
+class TestSonarrMetadataPluginExpandedEnrichment:
+    """Tests for v1.1.0 expanded enrichment fields."""
+
+    def test_enrichment_includes_new_series_fields(
+        self,
+        plugin: SonarrMetadataPlugin,
+        mock_client: MagicMock,
+        tmp_path: Path,
+    ):
+        """Test that new v1.1.0 series fields appear in enrichment dict."""
+        series = SonarrSeries(
+            id=123,
+            title="Test Series",
+            year=2020,
+            path="/tv/Test",
+            original_language=SonarrLanguage(id=1, name="English"),
+            certification="TV-MA",
+            genres="Drama, Sci-Fi",
+            network="HBO",
+            series_type="standard",
+            runtime=60,
+            status="ended",
+            tvmaze_id=12345,
+            season_count=5,
+            total_episode_count=62,
+            monitored=True,
+            tags="hdr, favorite",
+        )
+        episode = SonarrEpisode(
+            id=456,
+            series_id=123,
+            season_number=1,
+            episode_number=1,
+            title="Pilot",
+        )
+        mock_client.parse.return_value = SonarrParseResult(
+            series=series,
+            episodes=(episode,),
+        )
+
+        event = FileScannedEvent(
+            file_path=tmp_path / "test.mkv",
+            file_info=MagicMock(),
+            tracks=[],
+        )
+        result = plugin.on_file_scanned(event)
+
+        assert result is not None
+        assert result["certification"] == "TV-MA"
+        assert result["genres"] == "Drama, Sci-Fi"
+        assert result["network"] == "HBO"
+        assert result["series_type"] == "standard"
+        assert result["runtime"] == 60
+        assert result["status"] == "ended"
+        assert result["tvmaze_id"] == 12345
+        assert result["season_count"] == 5
+        assert result["total_episode_count"] == 62
+        assert result["monitored"] is True
+        assert result["tags"] == "hdr, favorite"
+
+    def test_enrichment_includes_anime_fields(
+        self,
+        plugin: SonarrMetadataPlugin,
+        mock_client: MagicMock,
+        tmp_path: Path,
+    ):
+        """Test anime-specific fields (absolute_episode_number, series_type)."""
+        series = SonarrSeries(
+            id=123,
+            title="Anime Series",
+            year=2020,
+            path="/tv/Anime",
+            original_language=SonarrLanguage(id=2, name="Japanese"),
+            series_type="anime",
+        )
+        episode = SonarrEpisode(
+            id=456,
+            series_id=123,
+            season_number=1,
+            episode_number=5,
+            title="Episode 5",
+            absolute_episode_number=125,
+        )
+        mock_client.parse.return_value = SonarrParseResult(
+            series=series,
+            episodes=(episode,),
+        )
+
+        event = FileScannedEvent(
+            file_path=tmp_path / "test.mkv",
+            file_info=MagicMock(),
+            tracks=[],
+        )
+        result = plugin.on_file_scanned(event)
+
+        assert result is not None
+        assert result["series_type"] == "anime"
+        assert result["absolute_episode_number"] == 125
+
+    def test_enrichment_omits_none_new_fields(
+        self,
+        plugin: SonarrMetadataPlugin,
+        mock_client: MagicMock,
+        tmp_path: Path,
+    ):
+        """Test that None v1.1.0 fields are omitted from dict."""
+        series = SonarrSeries(
+            id=123,
+            title="Minimal Series",
+            year=2020,
+            path="/tv/Minimal",
+        )
+        episode = SonarrEpisode(
+            id=456,
+            series_id=123,
+            season_number=1,
+            episode_number=1,
+            title="Test",
+        )
+        mock_client.parse.return_value = SonarrParseResult(
+            series=series,
+            episodes=(episode,),
+        )
+
+        event = FileScannedEvent(
+            file_path=tmp_path / "test.mkv",
+            file_info=MagicMock(),
+            tracks=[],
+        )
+        result = plugin.on_file_scanned(event)
+
+        assert result is not None
+        assert "certification" not in result
+        assert "genres" not in result
+        assert "network" not in result
+        assert "tags" not in result
+        assert "tvmaze_id" not in result
+        assert "absolute_episode_number" not in result
 
 
 class TestSonarrMetadataPluginOtherMethods:
