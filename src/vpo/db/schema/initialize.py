@@ -127,3 +127,4 @@ def initialize_database(conn: sqlite3.Connection) -> None:
             current_version = 26
         if current_version == 26:
             migrate_v26_to_v27(conn)
+            current_version = 27

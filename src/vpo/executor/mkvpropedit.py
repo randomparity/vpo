@@ -228,7 +228,12 @@ class MkvpropeditExecutor:
         # Container-level metadata uses --edit info (no track_index needed)
         if action.action_type == ActionType.SET_CONTAINER_METADATA:
             field = action.current_value  # field name stored in current_value
-            value = action.desired_value
+            if not isinstance(field, str) or not field:
+                raise ValueError(
+                    f"SET_CONTAINER_METADATA requires a non-empty string field name, "
+                    f"got current_value={field!r}"
+                )
+            value = action.desired_value if action.desired_value is not None else ""
             if value == "":
                 # Clear/delete the tag
                 return ["--edit", "info", "--delete", field]

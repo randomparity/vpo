@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import signal
 import sqlite3
@@ -619,11 +620,16 @@ class ScannerOrchestrator:
                     introspection_result is not None
                     and introspection_result.container_tags
                 ):
-                    import json
-
-                    container_tags_json = json.dumps(
-                        introspection_result.container_tags
-                    )
+                    try:
+                        container_tags_json = json.dumps(
+                            introspection_result.container_tags
+                        )
+                    except (TypeError, ValueError) as e:
+                        logger.error(
+                            "Failed to serialize container_tags for %s: %s",
+                            scanned.path,
+                            e,
+                        )
 
                 record = FileRecord(
                     id=None,

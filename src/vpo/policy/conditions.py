@@ -705,16 +705,10 @@ def evaluate_container_metadata(
             f"container_metadata({field_name}) → False (no container tags available)",
         )
 
-    # Case-insensitive field lookup
-    actual_value: str | None = None
-    field_found = False
-    for key, value in container_tags.items():
-        if key.casefold() == field_name:
-            actual_value = value
-            field_found = True
-            break
+    # Direct lookup — keys are guaranteed lowercase by parser, field_name is casefolded
+    actual_value = container_tags.get(field_name)
 
-    if not field_found:
+    if actual_value is None and field_name not in container_tags:
         return (
             False,
             f"container_metadata({field_name}) → False (tag '{field_name}' not found)",
@@ -734,8 +728,24 @@ def evaluate_container_metadata(
             f"container_metadata({field_name}) → False (tag value is null)",
         )
 
-    # Evaluate using shared operator logic
-    result = _evaluate_plugin_metadata_op(actual_value, expected_value, op)
+    # Coerce string to number for numeric operators (container tags are always str)
+    if op in (
+        PluginMetadataOperator.LT,
+        PluginMetadataOperator.LTE,
+        PluginMetadataOperator.GT,
+        PluginMetadataOperator.GTE,
+    ):
+        try:
+            numeric_actual = float(actual_value)
+        except (ValueError, TypeError):
+            return (
+                False,
+                f"container_metadata({field_name}) {op.value} "
+                f"{expected_value!r} → False (actual={actual_value!r} is not numeric)",
+            )
+        result = _evaluate_plugin_metadata_op(numeric_actual, expected_value, op)
+    else:
+        result = _evaluate_plugin_metadata_op(actual_value, expected_value, op)
 
     op_str = op.value
     if result:
@@ -778,6 +788,8 @@ def evaluate_condition(
             (required for plugin_metadata conditions).
         classification_results: Optional dict mapping track_id to
             TrackClassificationResult (required for is_original/is_dubbed conditions).
+        container_tags: Optional dict of container-level metadata tags
+            (key → value). Required for container_metadata conditions.
 
     Returns:
         Tuple of (result, reason) where result is the boolean outcome
