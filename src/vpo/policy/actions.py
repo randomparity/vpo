@@ -440,6 +440,14 @@ def _resolve_container_metadata_value(
         The resolved value string, or None if not available.
     """
     if action.value is not None:
+        if not isinstance(action.value, str):
+            logger.warning(
+                "set_container_metadata: value for field '%s' is %s, "
+                "converting to string",
+                action.field,
+                type(action.value).__name__,
+            )
+            return str(action.value)
         return action.value
 
     if action.from_plugin_metadata is not None:
@@ -519,10 +527,14 @@ def execute_set_container_metadata_action(
             new_value=new_value,
         )
     )
+    source = (
+        "from_plugin_metadata" if action.from_plugin_metadata is not None else "static"
+    )
     logger.debug(
-        "set_container_metadata: field '%s' = '%s' for %s",
+        "set_container_metadata: field '%s' = '%s' (source=%s) for %s",
         action.field,
         new_value if new_value else "(clear)",
+        source,
         context.file_path,
     )
 

@@ -275,7 +275,11 @@ def build_file_detail_item(
         file_record.container_tags,
         context=f"container_tags for file {file_record.id}",
     )
-    container_tags = container_tags_result.value
+    container_tags = (
+        container_tags_result.value
+        if isinstance(container_tags_result.value, dict)
+        else None
+    )
 
     # Parse plugin_metadata JSON
     plugin_result = parse_json_safe(

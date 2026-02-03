@@ -234,6 +234,7 @@ def parse_streams(
     return tracks, warnings
 
 
+_MAX_TAG_KEY_LENGTH = 255
 _MAX_TAG_VALUE_LENGTH = 4096
 
 
@@ -255,21 +256,38 @@ def _parse_container_tags(
 
     result: dict[str, str] = {}
     for key, value in tags.items():
+        if len(key) > _MAX_TAG_KEY_LENGTH:
+            logger.warning(
+                "Container tag key %r (%d chars) exceeds max length %d, skipping in %s",
+                key[:50] + "...",
+                len(key),
+                _MAX_TAG_KEY_LENGTH,
+                file_path or "unknown",
+            )
+            continue
         if not isinstance(value, str):
+            logger.debug(
+                "Container tag %r has non-string value of type %s, "
+                "coercing to string in %s",
+                key,
+                type(value).__name__,
+                file_path or "unknown",
+            )
             value = str(value)
         sanitized = sanitize_string(value)
         if sanitized is None:
             continue
         if len(sanitized) > _MAX_TAG_VALUE_LENGTH:
             logger.warning(
-                "Container tag %r truncated from %d to %d chars in %s",
+                "Container tag %r value (%d chars) exceeds max length %d, "
+                "skipping in %s",
                 key,
                 len(sanitized),
                 _MAX_TAG_VALUE_LENGTH,
                 file_path or "unknown",
             )
-            sanitized = sanitized[:_MAX_TAG_VALUE_LENGTH]
-        result[key.lower()] = sanitized
+            continue
+        result[key.casefold()] = sanitized
 
     return result if result else None
 
