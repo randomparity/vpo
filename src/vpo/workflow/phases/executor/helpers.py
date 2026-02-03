@@ -97,6 +97,37 @@ def parse_plugin_metadata(
         return None
 
 
+def parse_container_tags(
+    file_record: FileRecord | None,
+    file_path: Path,
+    file_id: str,
+) -> dict[str, str] | None:
+    """Parse container tags JSON from FileRecord.
+
+    Args:
+        file_record: File record from database (may be None).
+        file_path: Path to file (for error logging).
+        file_id: File ID string (for error logging).
+
+    Returns:
+        Parsed container tags dict, or None if unavailable or corrupted.
+    """
+    if not file_record or not file_record.container_tags:
+        return None
+
+    try:
+        return json.loads(file_record.container_tags)
+    except json.JSONDecodeError as e:
+        logger.error(
+            "Corrupted container_tags JSON for file %s (file_id=%s): %s. "
+            "Container metadata conditions will not be evaluated.",
+            file_path,
+            file_id,
+            e,
+        )
+        return None
+
+
 def select_executor(
     plan: Plan,
     container: str,

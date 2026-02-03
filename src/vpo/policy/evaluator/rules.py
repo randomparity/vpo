@@ -32,6 +32,7 @@ def evaluate_conditional_rules(
     language_results: dict[int, LanguageAnalysisResult] | None = None,
     plugin_metadata: PluginMetadataDict | None = None,
     classification_results: dict[int, TrackClassificationResult] | None = None,
+    container_tags: dict[str, str] | None = None,
 ) -> ConditionalResult:
     """Evaluate conditional rules and execute matching actions.
 
@@ -86,6 +87,7 @@ def evaluate_conditional_rules(
             None,
             plugin_metadata,
             classification_results,
+            container_tags,
         )
 
         if result:

@@ -13,6 +13,7 @@ from vpo.policy.pydantic_models import (
     ComparisonModel,
     ConditionalRuleModel,
     ConditionModel,
+    ContainerMetadataConditionModel,
     CountConditionModel,
     ExistsConditionModel,
     HardwareAccelConfigModel,
@@ -45,6 +46,7 @@ from vpo.policy.types import (
     ConditionalAction,
     ConditionalRule,
     ContainerConfig,
+    ContainerMetadataCondition,
     CountCondition,
     DefaultFlagsConfig,
     ExistsCondition,
@@ -281,6 +283,27 @@ def _convert_plugin_metadata_condition(
     )
 
 
+def _convert_container_metadata_condition(
+    model: ContainerMetadataConditionModel,
+) -> ContainerMetadataCondition:
+    """Convert ContainerMetadataConditionModel to ContainerMetadataCondition."""
+    op_map = {
+        "eq": PluginMetadataOperator.EQ,
+        "neq": PluginMetadataOperator.NEQ,
+        "contains": PluginMetadataOperator.CONTAINS,
+        "lt": PluginMetadataOperator.LT,
+        "lte": PluginMetadataOperator.LTE,
+        "gt": PluginMetadataOperator.GT,
+        "gte": PluginMetadataOperator.GTE,
+        "exists": PluginMetadataOperator.EXISTS,
+    }
+    return ContainerMetadataCondition(
+        field=model.field,
+        value=model.value,
+        operator=op_map[model.operator],
+    )
+
+
 def _convert_is_original_condition(
     model: IsOriginalConditionModel | bool,
 ) -> IsOriginalCondition:
@@ -332,6 +355,9 @@ def _convert_condition(model: ConditionModel) -> Condition:
 
     if model.plugin_metadata is not None:
         return _convert_plugin_metadata_condition(model.plugin_metadata)
+
+    if model.container_metadata is not None:
+        return _convert_container_metadata_condition(model.container_metadata)
 
     if model.is_original is not None:
         return _convert_is_original_condition(model.is_original)

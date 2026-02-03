@@ -177,6 +177,37 @@ class PluginMetadataCondition:
 
 
 @dataclass(frozen=True)
+class ContainerMetadataCondition:
+    """Check container-level metadata tags for a file.
+
+    Evaluates container metadata (e.g., title, encoder from format.tags)
+    against specified criteria. Uses the same operator set as
+    PluginMetadataCondition.
+
+    Attributes:
+        field: Tag name to check (e.g., "title", "encoder"). Case-insensitive.
+        operator: Comparison operator (default: eq for equality).
+        value: Value to compare against. Required for all operators except EXISTS.
+
+    Example YAML:
+        when:
+          container_metadata:
+            field: title
+            value: ".*720p.*"
+            operator: contains
+
+        when:
+          container_metadata:
+            field: encoder
+            operator: exists
+    """
+
+    field: str
+    value: str | int | float | bool | None = None
+    operator: PluginMetadataOperator = PluginMetadataOperator.EQ
+
+
+@dataclass(frozen=True)
 class IsOriginalCondition:
     """Check if audio track is classified as original theatrical audio.
 
@@ -254,6 +285,7 @@ Condition = (
     | NotCondition
     | AudioIsMultiLanguageCondition
     | PluginMetadataCondition
+    | ContainerMetadataCondition
     | IsOriginalCondition
     | IsDubbedCondition
 )

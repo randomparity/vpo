@@ -53,6 +53,7 @@ def evaluate_policy(
     language_results: dict[int, LanguageAnalysisResult] | None = None,
     plugin_metadata: PluginMetadataDict | None = None,
     classification_results: dict[int, TrackClassificationResult] | None = None,
+    container_tags: dict[str, str] | None = None,
 ) -> Plan:
     """Evaluate a policy against file tracks to produce an execution plan.
 
@@ -105,6 +106,7 @@ def evaluate_policy(
             language_results=language_results,
             plugin_metadata=plugin_metadata,
             classification_results=classification_results,
+            container_tags=container_tags,
         )
         skip_flags = conditional_result.skip_flags
 

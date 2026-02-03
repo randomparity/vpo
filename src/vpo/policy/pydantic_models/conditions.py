@@ -276,6 +276,69 @@ class PluginMetadataConditionModel(BaseModel):
         return self
 
 
+class ContainerMetadataConditionModel(BaseModel):
+    """Pydantic model for container metadata condition.
+
+    Checks container-level metadata tags (e.g., title, encoder) against
+    expected values. Uses the same operator set as PluginMetadataConditionModel.
+
+    Example YAML:
+        when:
+          container_metadata:
+            field: title
+            value: "My Movie"
+
+        when:
+          container_metadata:
+            field: encoder
+            operator: exists
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    field: str
+    """Tag name to check (e.g., 'title', 'encoder'). Normalized to lowercase."""
+
+    value: str | int | float | bool | None = None
+    """Value to compare against. Required for all operators except 'exists'."""
+
+    operator: Literal["eq", "neq", "contains", "lt", "lte", "gt", "gte", "exists"] = (
+        "eq"
+    )
+    """Comparison operator. Use 'exists' to check if tag is present."""
+
+    @field_validator("field")
+    @classmethod
+    def validate_field_name(cls, v: str) -> str:
+        """Validate field name is non-empty and normalize to lowercase."""
+        if not v or not v.strip():
+            raise ValueError("field name cannot be empty")
+        return v.strip().casefold()
+
+    @model_validator(mode="after")
+    def validate_operator_value_compatibility(
+        self,
+    ) -> ContainerMetadataConditionModel:
+        """Validate that operator is compatible with value type."""
+        if self.operator == "exists":
+            return self
+
+        if self.value is None:
+            raise ValueError(
+                f"Operator '{self.operator}' requires a value. "
+                "Use operator: exists to check if a tag is present."
+            )
+
+        numeric_ops = ("lt", "lte", "gt", "gte")
+        if self.operator in numeric_ops:
+            if not isinstance(self.value, (int, float)):
+                raise ValueError(
+                    f"Operator '{self.operator}' requires a numeric value, "
+                    f"got {type(self.value).__name__}"
+                )
+        return self
+
+
 class IsOriginalConditionModel(BaseModel):
     """Pydantic model for is_original condition.
 
@@ -340,6 +403,7 @@ class ConditionModel(BaseModel):
     count: CountConditionModel | None = None
     audio_is_multi_language: AudioIsMultiLanguageModel | None = None
     plugin_metadata: PluginMetadataConditionModel | None = None  # V12+
+    container_metadata: ContainerMetadataConditionModel | None = None  # V12+
     is_original: IsOriginalConditionModel | bool | None = None  # V12+, 044 feature
     is_dubbed: IsDubbedConditionModel | bool | None = None  # V12+, 044 feature
 
@@ -356,6 +420,7 @@ class ConditionModel(BaseModel):
             ("count", self.count),
             ("audio_is_multi_language", self.audio_is_multi_language),
             ("plugin_metadata", self.plugin_metadata),
+            ("container_metadata", self.container_metadata),
             ("is_original", self.is_original),
             ("is_dubbed", self.is_dubbed),
             ("and", self.all_of),
@@ -369,7 +434,7 @@ class ConditionModel(BaseModel):
                 raise ValueError(
                     "Condition must specify exactly one type "
                     "(exists/count/audio_is_multi_language/plugin_metadata/"
-                    "is_original/is_dubbed/and/or/not)"
+                    "container_metadata/is_original/is_dubbed/and/or/not)"
                 )
             names = [name for name, _ in set_conditions]
             raise ValueError(

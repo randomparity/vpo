@@ -35,6 +35,7 @@ from vpo.policy.types import (
     Comparison,
     ComparisonOperator,
     Condition,
+    ContainerMetadataCondition,
     CountCondition,
     ExistsCondition,
     IsDubbedCondition,
@@ -679,6 +680,78 @@ def _evaluate_plugin_metadata_op(
     return op_func(actual, expected) if op_func else False
 
 
+def evaluate_container_metadata(
+    condition: ContainerMetadataCondition,
+    container_tags: dict[str, str] | None,
+) -> tuple[bool, str]:
+    """Evaluate a container metadata condition.
+
+    Args:
+        condition: The container metadata condition to evaluate.
+        container_tags: Dict of container-level tags (keys lowercase),
+            e.g., {"title": "My Movie", "encoder": "libx265"}.
+
+    Returns:
+        Tuple of (result, reason) where result is True if the condition
+        matches and reason is a human-readable explanation.
+    """
+    field_name = condition.field.casefold()
+    expected_value = condition.value
+    op = condition.operator
+
+    if container_tags is None:
+        return (
+            False,
+            f"container_metadata({field_name}) → False (no container tags available)",
+        )
+
+    # Case-insensitive field lookup
+    actual_value: str | None = None
+    field_found = False
+    for key, value in container_tags.items():
+        if key.casefold() == field_name:
+            actual_value = value
+            field_found = True
+            break
+
+    if not field_found:
+        return (
+            False,
+            f"container_metadata({field_name}) → False (tag '{field_name}' not found)",
+        )
+
+    # Handle EXISTS operator
+    if op == PluginMetadataOperator.EXISTS:
+        return (
+            True,
+            f"container_metadata({field_name}) exists → True",
+        )
+
+    # Handle None values
+    if actual_value is None:
+        return (
+            False,
+            f"container_metadata({field_name}) → False (tag value is null)",
+        )
+
+    # Evaluate using shared operator logic
+    result = _evaluate_plugin_metadata_op(actual_value, expected_value, op)
+
+    op_str = op.value
+    if result:
+        reason = (
+            f"container_metadata({field_name}) {op_str} "
+            f"{expected_value!r} → True (actual={actual_value!r})"
+        )
+    else:
+        reason = (
+            f"container_metadata({field_name}) {op_str} "
+            f"{expected_value!r} → False (actual={actual_value!r})"
+        )
+
+    return (result, reason)
+
+
 def evaluate_condition(
     condition: Condition,
     tracks: list[TrackInfo],
@@ -686,6 +759,7 @@ def evaluate_condition(
     commentary_patterns: tuple[str, ...] | None = None,
     plugin_metadata: PluginMetadataDict | None = None,
     classification_results: dict[int, TrackClassificationResult] | None = None,
+    container_tags: dict[str, str] | None = None,
 ) -> tuple[bool, str]:
     """Evaluate a condition against track metadata.
 
@@ -721,6 +795,9 @@ def evaluate_condition(
     if isinstance(condition, PluginMetadataCondition):
         return evaluate_plugin_metadata(condition, plugin_metadata)
 
+    if isinstance(condition, ContainerMetadataCondition):
+        return evaluate_container_metadata(condition, container_tags)
+
     if isinstance(condition, IsOriginalCondition):
         return evaluate_is_original(condition, tracks, classification_results)
 
@@ -736,6 +813,7 @@ def evaluate_condition(
                 commentary_patterns,
                 plugin_metadata,
                 classification_results,
+                container_tags,
             )
             if not result:
                 return (False, f"and → False ({reason})")
@@ -750,6 +828,7 @@ def evaluate_condition(
                 commentary_patterns,
                 plugin_metadata,
                 classification_results,
+                container_tags,
             )
             if result:
                 return (True, f"or → True ({reason})")
@@ -763,6 +842,7 @@ def evaluate_condition(
             commentary_patterns,
             plugin_metadata,
             classification_results,
+            container_tags,
         )
         return (not result, f"not({reason}) → {not result}")
 
