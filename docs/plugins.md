@@ -295,6 +295,19 @@ Entry point plugins come from installed Python packages and don't require acknow
 4. **Test thoroughly**: Use the SDK testing utilities
 5. **Version conservatively**: Set `max_api_version` to allow minor updates
 
+## Built-in Plugins
+
+VPO ships with built-in metadata enrichment plugins for Radarr and Sonarr:
+
+| Plugin | Description | Documentation |
+|--------|-------------|---------------|
+| `radarr-metadata` | Enriches movie files with Radarr metadata | [Radarr Plugin Docs](../src/vpo/plugins/radarr_metadata/README.md) |
+| `sonarr-metadata` | Enriches TV episode files with Sonarr metadata | [Sonarr Plugin Docs](../src/vpo/plugins/sonarr_metadata/README.md) |
+
+These plugins connect to your Radarr/Sonarr instances via their v3 APIs to provide
+metadata for use in policy conditions and actions. See each plugin's documentation
+for configuration, available metadata fields, and example policies.
+
 ## Example Plugin Project
 
 See `examples/plugins/simple_reorder_plugin/` for a complete example including:
