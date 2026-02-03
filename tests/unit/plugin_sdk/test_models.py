@@ -61,6 +61,28 @@ class TestMetadataEnrichment:
         assert enrichment.episode_number is None
         assert enrichment.episode_title is None
         assert enrichment.tvdb_id is None
+        # v1.1.0 fields
+        assert enrichment.original_title is None
+        assert enrichment.certification is None
+        assert enrichment.genres is None
+        assert enrichment.runtime is None
+        assert enrichment.status is None
+        assert enrichment.monitored is None
+        assert enrichment.tags is None
+        assert enrichment.popularity is None
+        assert enrichment.collection_name is None
+        assert enrichment.studio is None
+        assert enrichment.rating_tmdb is None
+        assert enrichment.rating_imdb is None
+        assert enrichment.edition is None
+        assert enrichment.release_group is None
+        assert enrichment.scene_name is None
+        assert enrichment.network is None
+        assert enrichment.series_type is None
+        assert enrichment.tvmaze_id is None
+        assert enrichment.season_count is None
+        assert enrichment.total_episode_count is None
+        assert enrichment.absolute_episode_number is None
 
     def test_frozen_dataclass(self) -> None:
         """Instance is immutable (frozen=True)."""
@@ -105,6 +127,28 @@ class TestMetadataEnrichment:
         assert "episode_number" not in result
         assert "episode_title" not in result
         assert "tvdb_id" not in result
+        # v1.1.0 fields also excluded when None
+        assert "original_title" not in result
+        assert "certification" not in result
+        assert "genres" not in result
+        assert "runtime" not in result
+        assert "status" not in result
+        assert "monitored" not in result
+        assert "tags" not in result
+        assert "popularity" not in result
+        assert "collection_name" not in result
+        assert "studio" not in result
+        assert "rating_tmdb" not in result
+        assert "rating_imdb" not in result
+        assert "edition" not in result
+        assert "release_group" not in result
+        assert "scene_name" not in result
+        assert "network" not in result
+        assert "series_type" not in result
+        assert "tvmaze_id" not in result
+        assert "season_count" not in result
+        assert "total_episode_count" not in result
+        assert "absolute_episode_number" not in result
 
     def test_to_dict_includes_present_optional_fields(self) -> None:
         """to_dict() includes optional fields when set."""
@@ -177,6 +221,68 @@ class TestMetadataEnrichment:
         )
         result = enrichment.to_dict()
         assert len(result) == 9  # 4 required + 5 TV fields
+
+    def test_v110_movie_fields_in_dict(self) -> None:
+        """v1.1.0 movie-specific fields included when set."""
+        enrichment = MetadataEnrichment(
+            original_language="eng",
+            external_source="radarr",
+            external_id=123,
+            external_title="Test Movie",
+            original_title="Original Title",
+            certification="R",
+            genres="Action, Thriller",
+            runtime=148,
+            status="released",
+            collection_name="Test Collection",
+            studio="Warner Bros.",
+            rating_tmdb=8.2,
+            rating_imdb=7.9,
+            popularity=42.5,
+            monitored=True,
+            tags="4k, hdr",
+            edition="Director's Cut",
+            release_group="SPARKS",
+            scene_name="Test.Movie.2023.DC.1080p",
+        )
+        result = enrichment.to_dict()
+        assert result["original_title"] == "Original Title"
+        assert result["certification"] == "R"
+        assert result["genres"] == "Action, Thriller"
+        assert result["runtime"] == 148
+        assert result["status"] == "released"
+        assert result["collection_name"] == "Test Collection"
+        assert result["studio"] == "Warner Bros."
+        assert result["rating_tmdb"] == 8.2
+        assert result["rating_imdb"] == 7.9
+        assert result["popularity"] == 42.5
+        assert result["monitored"] is True
+        assert result["tags"] == "4k, hdr"
+        assert result["edition"] == "Director's Cut"
+        assert result["release_group"] == "SPARKS"
+        assert result["scene_name"] == "Test.Movie.2023.DC.1080p"
+
+    def test_v110_tv_fields_in_dict(self) -> None:
+        """v1.1.0 TV-specific fields included when set."""
+        enrichment = MetadataEnrichment(
+            original_language="jpn",
+            external_source="sonarr",
+            external_id=456,
+            external_title="Anime Series",
+            network="Crunchyroll",
+            series_type="anime",
+            tvmaze_id=12345,
+            season_count=3,
+            total_episode_count=72,
+            absolute_episode_number=125,
+        )
+        result = enrichment.to_dict()
+        assert result["network"] == "Crunchyroll"
+        assert result["series_type"] == "anime"
+        assert result["tvmaze_id"] == 12345
+        assert result["season_count"] == 3
+        assert result["total_episode_count"] == 72
+        assert result["absolute_episode_number"] == 125
 
 
 class TestMatchResult:
