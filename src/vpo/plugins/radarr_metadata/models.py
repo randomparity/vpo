@@ -51,6 +51,18 @@ class RadarrMovie:
     digital_release: str | None = None  # digitalRelease from API
     physical_release: str | None = None  # physicalRelease from API
     cinema_release: str | None = None  # inCinemas from API
+    # v1.1.0 fields
+    certification: str | None = None
+    genres: str | None = None  # Comma-separated
+    runtime: int | None = None  # Minutes
+    status: str | None = None  # announced/inCinemas/released/deleted
+    collection_name: str | None = None  # From collection.name
+    studio: str | None = None
+    rating_tmdb: float | None = None
+    rating_imdb: float | None = None
+    popularity: float | None = None
+    monitored: bool | None = None
+    tags: str | None = None  # Comma-separated tag names (resolved)
 
 
 @dataclass(frozen=True)
@@ -62,6 +74,10 @@ class RadarrMovieFile:
     path: str  # Full file path
     relative_path: str
     size: int  # Size in bytes
+    # v1.1.0 fields
+    edition: str | None = None
+    release_group: str | None = None
+    scene_name: str | None = None
 
 
 @dataclass
@@ -75,6 +91,7 @@ class RadarrCache:
     movies: dict[int, RadarrMovie] = field(default_factory=dict)
     files: dict[str, RadarrMovieFile] = field(default_factory=dict)
     path_to_movie: dict[str, int] = field(default_factory=dict)
+    tags: dict[int, str] = field(default_factory=dict)
 
     @classmethod
     def empty(cls) -> RadarrCache:
@@ -94,3 +111,14 @@ class RadarrCache:
         if movie_id is None:
             return None
         return self.movies.get(movie_id)
+
+    def lookup_file_by_path(self, path: str) -> RadarrMovieFile | None:
+        """Look up movie file by normalized file path.
+
+        Args:
+            path: Normalized file path to look up.
+
+        Returns:
+            RadarrMovieFile if found, None otherwise.
+        """
+        return self.files.get(path)

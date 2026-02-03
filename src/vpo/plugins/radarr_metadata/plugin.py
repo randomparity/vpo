@@ -22,6 +22,7 @@ from vpo.plugins.radarr_metadata.client import (
 from vpo.plugins.radarr_metadata.models import (
     RadarrCache,
     RadarrMovie,
+    RadarrMovieFile,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,7 +38,7 @@ class RadarrMetadataPlugin:
     """
 
     name: str = "radarr-metadata"
-    version: str = "1.0.0"
+    version: str = "1.1.0"
     events: tuple[str, ...] = ("file.scanned",)
 
     def __init__(self, config: PluginConnectionConfig) -> None:
@@ -109,8 +110,11 @@ class RadarrMetadataPlugin:
                 )
                 return None
 
+            # Look up movie file for file-level metadata
+            movie_file = self._cache.lookup_file_by_path(file_path)
+
             # Create enrichment
-            enrichment = self._create_enrichment(movie)
+            enrichment = self._create_enrichment(movie, movie_file=movie_file)
             logger.debug(
                 "Radarr: matched %s to '%s' (%d)",
                 event.file_path,
@@ -130,11 +134,16 @@ class RadarrMetadataPlugin:
             logger.error("Radarr: unexpected error: %s", e)
             return None
 
-    def _create_enrichment(self, movie: RadarrMovie) -> MetadataEnrichment:
-        """Create enrichment data from Radarr movie.
+    def _create_enrichment(
+        self,
+        movie: RadarrMovie,
+        movie_file: RadarrMovieFile | None = None,
+    ) -> MetadataEnrichment:
+        """Create enrichment data from Radarr movie and optional file.
 
         Args:
             movie: RadarrMovie object.
+            movie_file: Optional RadarrMovieFile for file-level metadata.
 
         Returns:
             MetadataEnrichment with normalized language code.
@@ -165,6 +174,23 @@ class RadarrMetadataPlugin:
             digital_release=movie.digital_release,
             physical_release=movie.physical_release,
             cinema_release=movie.cinema_release,
+            # v1.1.0 movie fields
+            original_title=movie.original_title,
+            certification=movie.certification,
+            genres=movie.genres,
+            runtime=movie.runtime,
+            status=movie.status,
+            collection_name=movie.collection_name,
+            studio=movie.studio,
+            rating_tmdb=movie.rating_tmdb,
+            rating_imdb=movie.rating_imdb,
+            popularity=movie.popularity,
+            monitored=movie.monitored,
+            tags=movie.tags,
+            # v1.1.0 file fields
+            edition=movie_file.edition if movie_file else None,
+            release_group=movie_file.release_group if movie_file else None,
+            scene_name=movie_file.scene_name if movie_file else None,
         )
 
     def on_policy_evaluate(self, event: Any) -> None:
