@@ -15,18 +15,7 @@
  * - 2-level nesting enforcement for boolean conditions
  */
 
-import { showUndoToast } from './policy-editor.js'
-
-/**
- * Escape a string for safe interpolation into HTML attribute values.
- * Uses the DOM textContent approach consistent with window.VPOUtils.escapeHtml.
- */
-function escapeAttr(str) {
-    if (!str && str !== 0) return ''
-    const div = document.createElement('div')
-    div.textContent = str
-    return div.innerHTML
-}
+import { showUndoToast, escapeAttr } from './policy-editor.js'
 
 // Constants for condition building
 const TRACK_TYPES = [
@@ -52,7 +41,7 @@ const CONDITION_TYPES = [
 const METADATA_OPERATORS = [
     { value: 'eq', label: '= (equals)' },
     { value: 'neq', label: '!= (not equals)' },
-    { value: 'contains', label: 'Contains (regex)' },
+    { value: 'contains', label: 'Contains (substring)' },
     { value: 'exists', label: 'Exists (field present)' },
     { value: 'lt', label: '< (less than)' },
     { value: 'lte', label: '<= (less or equal)' },
@@ -117,13 +106,13 @@ function createTrackFiltersBuilder(filters, onUpdate, trackType) {
             <div class="filter-row">
                 <label class="form-label-inline">Language:</label>
                 <input type="text" class="form-input form-input-small" id="${generateId('lang')}"
-                       placeholder="e.g., eng or eng,jpn" value="${filtersData.language || ''}"
+                       placeholder="e.g., eng or eng,jpn" value="${escapeAttr(filtersData.language || '')}"
                        aria-label="Filter by language code (comma-separated)">
             </div>
             <div class="filter-row">
                 <label class="form-label-inline">Codec:</label>
                 <input type="text" class="form-input form-input-small" id="${generateId('codec')}"
-                       placeholder="e.g., hevc or hevc,h264" value="${filtersData.codec || ''}"
+                       placeholder="e.g., hevc or hevc,h264" value="${escapeAttr(filtersData.codec || '')}"
                        aria-label="Filter by codec (comma-separated)">
             </div>
             <div class="filter-row filter-checkboxes">
@@ -191,7 +180,7 @@ function createTrackFiltersBuilder(filters, onUpdate, trackType) {
                 </select>
                 <input type="text" class="form-input form-input-small" id="${generateId('title')}"
                        placeholder="${filtersData.title?.regex ? 'Regex pattern' : 'Substring match'}"
-                       value="${filtersData.title?.regex || filtersData.title?.contains || filtersData.title || ''}"
+                       value="${escapeAttr(filtersData.title?.regex || filtersData.title?.contains || filtersData.title || '')}"
                        aria-label="Filter by title">
             </div>
         `
@@ -835,7 +824,7 @@ function createActionBuilder(action, onUpdate) {
             } else if (type === 'warn' || type === 'fail') {
                 detailsDiv.innerHTML = `
                     <input type="text" class="form-input message-input" placeholder="Message (supports {filename}, {path}, {rule_name})"
-                           value="${actionData.message || ''}">
+                           value="${escapeAttr(actionData.message || '')}">
                 `
                 const msgInput = detailsDiv.querySelector('.message-input')
                 msgInput.addEventListener('input', () => {
@@ -848,7 +837,7 @@ function createActionBuilder(action, onUpdate) {
                         ${TRACK_TYPES.map(t => `<option value="${t.value}" ${actionData.track_type === t.value ? 'selected' : ''}>${t.label}</option>`).join('')}
                     </select>
                     <input type="text" class="form-input form-input-small lang-input" placeholder="Language (optional)"
-                           value="${actionData.language || ''}">
+                           value="${escapeAttr(actionData.language || '')}">
                     <label class="checkbox-label">
                         <input type="checkbox" class="value-checkbox" ${actionData.value !== false ? 'checked' : ''}>
                         Value
@@ -1100,7 +1089,7 @@ function createRuleBuilder(rule, onUpdate, onRemove) {
     function render() {
         container.innerHTML = `
             <div class="rule-header">
-                <input type="text" class="form-input rule-name-input" placeholder="Rule name" value="${ruleData.name || ''}">
+                <input type="text" class="form-input rule-name-input" placeholder="Rule name" value="${escapeAttr(ruleData.name || '')}">
                 <button type="button" class="btn-icon btn-remove-rule" title="Remove rule">\u00d7</button>
             </div>
             <div class="rule-condition">

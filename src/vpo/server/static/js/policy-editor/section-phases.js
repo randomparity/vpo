@@ -46,15 +46,7 @@ const ON_ERROR_OPTIONS = [
     { value: 'fail', label: 'Fail' }
 ]
 
-/**
- * Escape a string for safe interpolation into HTML attribute values.
- */
-function escapeAttr(str) {
-    if (!str && str !== 0) return ''
-    const div = document.createElement('div')
-    div.textContent = str
-    return div.innerHTML
-}
+import { escapeAttr } from './policy-editor.js'
 
 // Phase name validation pattern (same as backend)
 const PHASE_NAME_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/
@@ -73,7 +65,7 @@ export function initPhasesSection(policyData, onUpdate) {
     const configOnError = document.getElementById('config-on-error')
 
     // Only activate for V11 policies
-    if (!container || policyData.schema_version !== 11) {
+    if (!container || policyData.schema_version < 11) {
         return null
     }
 
@@ -289,12 +281,6 @@ export function initPhasesSection(policyData, onUpdate) {
 
         const condExecContent = document.createElement('div')
         condExecContent.className = 'phase-cond-content'
-
-        // Other phase names available for reference (reserved for future dropdown enhancement)
-        const _otherPhaseNames = phases
-            .filter((_, i) => i !== index)
-            .map(p => p.name)
-            .filter(Boolean)
 
         condExecContent.innerHTML = `
             <div class="phase-cond-group">

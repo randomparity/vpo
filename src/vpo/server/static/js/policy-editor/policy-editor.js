@@ -83,6 +83,19 @@ export function hideToast() {
 }
 
 /**
+ * Escape a string for safe interpolation into HTML attribute values.
+ * Uses the DOM textContent approach consistent with window.VPOUtils.escapeHtml.
+ * @param {*} str - Value to escape
+ * @returns {string} Escaped string safe for HTML attribute use
+ */
+export function escapeAttr(str) {
+    if (!str && str !== 0) return ''
+    const div = document.createElement('div')
+    div.textContent = str
+    return div.innerHTML
+}
+
+/**
  * Announce a message to screen readers (H5)
  * @param {string} message - Message to announce
  */
