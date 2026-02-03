@@ -768,6 +768,7 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
             target=phase.container.target,
             on_incompatible_codec=phase.container.on_incompatible_codec,
             codec_mappings=codec_mappings,
+            preserve_metadata=phase.container.preserve_metadata,
         )
 
     # Convert audio_filter

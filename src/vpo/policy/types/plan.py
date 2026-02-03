@@ -254,6 +254,9 @@ class ContainerChange:
     incompatible tracks were found.
     """
 
+    preserve_metadata: bool = True
+    """If True, preserve portable container-level metadata during conversion."""
+
 
 @dataclass(frozen=True)
 class PlannedAction:

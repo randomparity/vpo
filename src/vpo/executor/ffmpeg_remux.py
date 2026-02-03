@@ -399,9 +399,18 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
             "0",  # Copy all streams (filtering already handled by evaluator)
             "-c",
             "copy",  # Lossless stream copy (no re-encoding)
-            "-movflags",
-            "+faststart",  # Move moov atom to front for streaming
         ]
+
+        # Preserve container-level metadata during conversion
+        if plan.container_change and plan.container_change.preserve_metadata:
+            cmd.extend(["-map_metadata", "0"])
+
+        cmd.extend(
+            [
+                "-movflags",
+                "+faststart",  # Move moov atom to front for streaming
+            ]
+        )
 
         # Handle track filtering if dispositions indicate removal
         # Build stream exclusion args based on track_dispositions
@@ -495,6 +504,10 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
 
         # Default: copy all streams
         cmd.extend(["-c", "copy"])
+
+        # Preserve container-level metadata during conversion
+        if plan.container_change and plan.container_change.preserve_metadata:
+            cmd.extend(["-map_metadata", "0"])
 
         # Calculate output stream index for each input index
         # After removing tracks with -map -0:{idx}, output indices shift.
