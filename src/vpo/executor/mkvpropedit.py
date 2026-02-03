@@ -9,7 +9,11 @@ import subprocess  # nosec B404 - subprocess is required for mkvpropedit executi
 import time
 from pathlib import Path
 
-from vpo.executor.backup import create_backup, safe_restore_from_backup
+from vpo.executor.backup import (
+    create_backup,
+    log_restore_failure_and_append_warning,
+    safe_restore_from_backup,
+)
 from vpo.executor.interface import ExecutorResult, require_tool
 from vpo.policy.types import ActionType, Plan, PlannedAction
 
@@ -125,16 +129,7 @@ class MkvpropeditExecutor:
                 errors="replace",
             )
         except subprocess.TimeoutExpired:
-            # Restore backup on timeout
             elapsed = time.monotonic() - start_time
-            restored = safe_restore_from_backup(backup_path)
-            if not restored:
-                logger.error(
-                    "CRITICAL: Backup restoration failed after mkvpropedit timeout "
-                    "for %s - file may need manual recovery from %s",
-                    plan.file_path,
-                    backup_path,
-                )
             timeout_mins = self._timeout // 60 if self._timeout else 0
             logger.warning(
                 "mkvpropedit timed out",
@@ -144,24 +139,18 @@ class MkvpropeditExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            msg = f"mkvpropedit timed out after {timeout_mins} min for {plan.file_path}"
-            if not restored:
-                msg += (
-                    "\nWARNING: Could not restore backup - "
-                    "original file may be corrupted"
-                )
+            restored = safe_restore_from_backup(backup_path)
+            msg = log_restore_failure_and_append_warning(
+                restored,
+                backup_path,
+                plan.file_path,
+                "mkvpropedit",
+                "timeout",
+                f"mkvpropedit timed out after {timeout_mins} min for {plan.file_path}",
+            )
             return ExecutorResult(success=False, message=msg)
         except (subprocess.SubprocessError, OSError) as e:
-            # Restore backup on subprocess error
             elapsed = time.monotonic() - start_time
-            restored = safe_restore_from_backup(backup_path)
-            if not restored:
-                logger.error(
-                    "CRITICAL: Backup restoration failed after mkvpropedit error "
-                    "for %s - file may need manual recovery from %s",
-                    plan.file_path,
-                    backup_path,
-                )
             logger.error(
                 "mkvpropedit execution failed",
                 extra={
@@ -170,15 +159,17 @@ class MkvpropeditExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            msg = f"mkvpropedit failed for {plan.file_path}: {e}"
-            if not restored:
-                msg += (
-                    "\nWARNING: Could not restore backup - "
-                    "original file may be corrupted"
-                )
+            restored = safe_restore_from_backup(backup_path)
+            msg = log_restore_failure_and_append_warning(
+                restored,
+                backup_path,
+                plan.file_path,
+                "mkvpropedit",
+                "error",
+                f"mkvpropedit failed for {plan.file_path}: {e}",
+            )
             return ExecutorResult(success=False, message=msg)
         except Exception as e:
-            # Restore backup on unexpected error
             elapsed = time.monotonic() - start_time
             logger.exception(
                 "Unexpected error during mkvpropedit execution for %s",
@@ -189,32 +180,18 @@ class MkvpropeditExecutor:
                 },
             )
             restored = safe_restore_from_backup(backup_path)
-            if not restored:
-                logger.error(
-                    "CRITICAL: Backup restoration failed after unexpected error "
-                    "for %s - file may need manual recovery from %s",
-                    plan.file_path,
-                    backup_path,
-                )
-            msg = f"Unexpected error for {plan.file_path}: {e}"
-            if not restored:
-                msg += (
-                    "\nWARNING: Could not restore backup - "
-                    "original file may be corrupted"
-                )
+            msg = log_restore_failure_and_append_warning(
+                restored,
+                backup_path,
+                plan.file_path,
+                "mkvpropedit",
+                "unexpected error",
+                f"Unexpected error for {plan.file_path}: {e}",
+            )
             return ExecutorResult(success=False, message=msg)
 
         if result.returncode != 0:
-            # Restore backup on failure
             elapsed = time.monotonic() - start_time
-            restored = safe_restore_from_backup(backup_path)
-            if not restored:
-                logger.error(
-                    "CRITICAL: Backup restoration failed after mkvpropedit non-zero "
-                    "exit for %s - file may need manual recovery from %s",
-                    plan.file_path,
-                    backup_path,
-                )
             logger.error(
                 "mkvpropedit returned non-zero exit code",
                 extra={
@@ -223,15 +200,16 @@ class MkvpropeditExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            msg = (
+            restored = safe_restore_from_backup(backup_path)
+            msg = log_restore_failure_and_append_warning(
+                restored,
+                backup_path,
+                plan.file_path,
+                "mkvpropedit",
+                "non-zero exit",
                 f"mkvpropedit failed for {plan.file_path}: "
-                f"{result.stderr or result.stdout}"
+                f"{result.stderr or result.stdout}",
             )
-            if not restored:
-                msg += (
-                    "\nWARNING: Could not restore backup - "
-                    "original file may be corrupted"
-                )
             return ExecutorResult(success=False, message=msg)
 
         # Success - optionally keep backup

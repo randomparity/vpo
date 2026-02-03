@@ -15,6 +15,7 @@ from vpo.executor.backup import (
     InsufficientDiskSpaceError,
     check_disk_space,
     create_backup,
+    log_restore_failure_and_append_warning,
     safe_restore_from_backup,
 )
 from vpo.executor.ffmpeg_base import FFmpegExecutorBase
@@ -209,30 +210,28 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
                     progress_callback=self.progress_callback,
                 )
                 if not success:
-                    restored = safe_restore_from_backup(backup_path)
-                    if not restored:
-                        logger.error(
-                            "CRITICAL: Backup restoration failed after ffmpeg failure "
-                            "for %s - file may need manual recovery from %s",
-                            plan.file_path,
-                            backup_path,
-                        )
                     if rc == -1:
-                        # Timeout case
                         timeout_mins = timeout // 60 if timeout else 0
-                        msg = (
+                        base_msg = (
                             f"ffmpeg timed out after {timeout_mins} min "
                             f"for {plan.file_path}"
                         )
+                        context = "timeout"
                     else:
-                        # Non-zero return code
                         truncated_stderr = _truncate_stderr("\n".join(stderr_lines))
-                        msg = f"ffmpeg failed for {plan.file_path}: {truncated_stderr}"
-                    if not restored:
-                        msg += (
-                            "\nWARNING: Could not restore backup - "
-                            "original file may be corrupted"
+                        base_msg = (
+                            f"ffmpeg failed for {plan.file_path}: {truncated_stderr}"
                         )
+                        context = "non-zero exit"
+                    restored = safe_restore_from_backup(backup_path)
+                    msg = log_restore_failure_and_append_warning(
+                        restored,
+                        backup_path,
+                        plan.file_path,
+                        "ffmpeg",
+                        context,
+                        base_msg,
+                    )
                     return ExecutorResult(success=False, message=msg)
             else:
                 # Fast path for remux-only (no progress reporting)
@@ -246,40 +245,28 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
                         errors="replace",
                     )
                 except subprocess.TimeoutExpired:
-                    restored = safe_restore_from_backup(backup_path)
-                    if not restored:
-                        logger.error(
-                            "CRITICAL: Backup restoration failed after ffmpeg timeout "
-                            "for %s - file may need manual recovery from %s",
-                            plan.file_path,
-                            backup_path,
-                        )
                     timeout_mins = timeout // 60 if timeout else 0
-                    msg = (
+                    restored = safe_restore_from_backup(backup_path)
+                    msg = log_restore_failure_and_append_warning(
+                        restored,
+                        backup_path,
+                        plan.file_path,
+                        "ffmpeg",
+                        "timeout",
                         f"ffmpeg timed out after {timeout_mins} min "
-                        f"for {plan.file_path}"
+                        f"for {plan.file_path}",
                     )
-                    if not restored:
-                        msg += (
-                            "\nWARNING: Could not restore backup - "
-                            "original file may be corrupted"
-                        )
                     return ExecutorResult(success=False, message=msg)
                 except (subprocess.SubprocessError, OSError) as e:
                     restored = safe_restore_from_backup(backup_path)
-                    if not restored:
-                        logger.error(
-                            "CRITICAL: Backup restoration failed after ffmpeg error "
-                            "for %s - file may need manual recovery from %s",
-                            plan.file_path,
-                            backup_path,
-                        )
-                    msg = f"ffmpeg failed for {plan.file_path}: {e}"
-                    if not restored:
-                        msg += (
-                            "\nWARNING: Could not restore backup - "
-                            "original file may be corrupted"
-                        )
+                    msg = log_restore_failure_and_append_warning(
+                        restored,
+                        backup_path,
+                        plan.file_path,
+                        "ffmpeg",
+                        "error",
+                        f"ffmpeg failed for {plan.file_path}: {e}",
+                    )
                     return ExecutorResult(success=False, message=msg)
                 except Exception as e:
                     logger.exception(
@@ -287,37 +274,27 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
                         plan.file_path,
                     )
                     restored = safe_restore_from_backup(backup_path)
-                    if not restored:
-                        logger.error(
-                            "CRITICAL: Backup restoration failed after unexpected "
-                            "error for %s - file may need manual recovery from %s",
-                            plan.file_path,
-                            backup_path,
-                        )
-                    msg = f"Unexpected error for {plan.file_path}: {e}"
-                    if not restored:
-                        msg += (
-                            "\nWARNING: Could not restore backup - "
-                            "original file may be corrupted"
-                        )
+                    msg = log_restore_failure_and_append_warning(
+                        restored,
+                        backup_path,
+                        plan.file_path,
+                        "ffmpeg",
+                        "unexpected error",
+                        f"Unexpected error for {plan.file_path}: {e}",
+                    )
                     return ExecutorResult(success=False, message=msg)
 
                 if result.returncode != 0:
-                    restored = safe_restore_from_backup(backup_path)
-                    if not restored:
-                        logger.error(
-                            "CRITICAL: Backup restoration failed after ffmpeg non-zero "
-                            "exit for %s - file may need manual recovery from %s",
-                            plan.file_path,
-                            backup_path,
-                        )
                     truncated_stderr = _truncate_stderr(result.stderr)
-                    msg = f"ffmpeg failed for {plan.file_path}: {truncated_stderr}"
-                    if not restored:
-                        msg += (
-                            "\nWARNING: Could not restore backup - "
-                            "original file may be corrupted"
-                        )
+                    restored = safe_restore_from_backup(backup_path)
+                    msg = log_restore_failure_and_append_warning(
+                        restored,
+                        backup_path,
+                        plan.file_path,
+                        "ffmpeg",
+                        "non-zero exit",
+                        f"ffmpeg failed for {plan.file_path}: {truncated_stderr}",
+                    )
                     return ExecutorResult(success=False, message=msg)
 
             # Validate output file using base class method
@@ -329,21 +306,15 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
             is_valid, error_msg = self.validate_output(temp_path, input_size)
             if not is_valid:
                 restored = safe_restore_from_backup(backup_path)
-                if not restored:
-                    logger.error(
-                        "CRITICAL: Backup restoration failed after validation failure "
-                        "for %s - file may need manual recovery from %s",
-                        plan.file_path,
-                        backup_path,
-                    )
-                msg = (
-                    f"ffmpeg output validation failed for {plan.file_path}: {error_msg}"
+                msg = log_restore_failure_and_append_warning(
+                    restored,
+                    backup_path,
+                    plan.file_path,
+                    "ffmpeg",
+                    "validation failure",
+                    f"ffmpeg output validation failed for {plan.file_path}: "
+                    f"{error_msg}",
                 )
-                if not restored:
-                    msg += (
-                        "\nWARNING: Could not restore backup - "
-                        "original file may be corrupted"
-                    )
                 return ExecutorResult(success=False, message=msg)
 
             # Atomic move: move temp to output path
@@ -351,19 +322,14 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
                 temp_path.replace(output_path)
             except Exception as e:
                 restored = safe_restore_from_backup(backup_path)
-                if not restored:
-                    logger.error(
-                        "CRITICAL: Backup restoration failed after move error "
-                        "for %s - file may need manual recovery from %s",
-                        plan.file_path,
-                        backup_path,
-                    )
-                msg = f"Failed to move output for {plan.file_path}: {e}"
-                if not restored:
-                    msg += (
-                        "\nWARNING: Could not restore backup - "
-                        "original file may be corrupted"
-                    )
+                msg = log_restore_failure_and_append_warning(
+                    restored,
+                    backup_path,
+                    plan.file_path,
+                    "ffmpeg",
+                    "move error",
+                    f"Failed to move output for {plan.file_path}: {e}",
+                )
                 return ExecutorResult(success=False, message=msg)
 
         finally:

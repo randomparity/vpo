@@ -613,17 +613,13 @@ class ScannerOrchestrator:
                     scanned.hash_error, introspection_error
                 )
 
-                # Serialize container tags if present
                 from vpo.db.queries.helpers import serialize_container_tags
 
-                container_tags_json = None
-                if (
-                    introspection_result is not None
-                    and introspection_result.container_tags
-                ):
-                    container_tags_json = serialize_container_tags(
-                        introspection_result.container_tags
-                    )
+                container_tags_json = serialize_container_tags(
+                    introspection_result.container_tags
+                    if introspection_result is not None
+                    else None
+                )
 
                 record = FileRecord(
                     id=None,

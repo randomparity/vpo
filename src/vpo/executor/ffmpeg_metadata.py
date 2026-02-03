@@ -14,6 +14,7 @@ from vpo.executor.backup import (
     InsufficientDiskSpaceError,
     check_disk_space,
     create_backup,
+    log_restore_failure_and_append_warning,
     safe_restore_from_backup,
 )
 from vpo.executor.interface import ExecutorResult, require_tool
@@ -157,14 +158,6 @@ class FfmpegMetadataExecutor:
         except subprocess.TimeoutExpired:
             elapsed = time.monotonic() - start_time
             temp_path.unlink(missing_ok=True)
-            restored = safe_restore_from_backup(backup_path)
-            if not restored:
-                logger.error(
-                    "CRITICAL: Backup restoration failed after ffmpeg timeout "
-                    "for %s - file may need manual recovery from %s",
-                    plan.file_path,
-                    backup_path,
-                )
             timeout_mins = self._timeout // 60 if self._timeout else 0
             logger.warning(
                 "ffmpeg timed out",
@@ -174,24 +167,19 @@ class FfmpegMetadataExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            msg = f"ffmpeg timed out after {timeout_mins} min for {plan.file_path}"
-            if not restored:
-                msg += (
-                    "\nWARNING: Could not restore backup - "
-                    "original file may be corrupted"
-                )
+            restored = safe_restore_from_backup(backup_path)
+            msg = log_restore_failure_and_append_warning(
+                restored,
+                backup_path,
+                plan.file_path,
+                "ffmpeg",
+                "timeout",
+                f"ffmpeg timed out after {timeout_mins} min for {plan.file_path}",
+            )
             return ExecutorResult(success=False, message=msg)
         except (subprocess.SubprocessError, OSError) as e:
             elapsed = time.monotonic() - start_time
             temp_path.unlink(missing_ok=True)
-            restored = safe_restore_from_backup(backup_path)
-            if not restored:
-                logger.error(
-                    "CRITICAL: Backup restoration failed after ffmpeg error "
-                    "for %s - file may need manual recovery from %s",
-                    plan.file_path,
-                    backup_path,
-                )
             logger.error(
                 "ffmpeg execution failed",
                 extra={
@@ -200,12 +188,15 @@ class FfmpegMetadataExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            msg = f"ffmpeg failed for {plan.file_path}: {e}"
-            if not restored:
-                msg += (
-                    "\nWARNING: Could not restore backup - "
-                    "original file may be corrupted"
-                )
+            restored = safe_restore_from_backup(backup_path)
+            msg = log_restore_failure_and_append_warning(
+                restored,
+                backup_path,
+                plan.file_path,
+                "ffmpeg",
+                "error",
+                f"ffmpeg failed for {plan.file_path}: {e}",
+            )
             return ExecutorResult(success=False, message=msg)
         except Exception as e:
             elapsed = time.monotonic() - start_time
@@ -219,32 +210,19 @@ class FfmpegMetadataExecutor:
             )
             temp_path.unlink(missing_ok=True)
             restored = safe_restore_from_backup(backup_path)
-            if not restored:
-                logger.error(
-                    "CRITICAL: Backup restoration failed after unexpected error "
-                    "for %s - file may need manual recovery from %s",
-                    plan.file_path,
-                    backup_path,
-                )
-            msg = f"Unexpected error for {plan.file_path}: {e}"
-            if not restored:
-                msg += (
-                    "\nWARNING: Could not restore backup - "
-                    "original file may be corrupted"
-                )
+            msg = log_restore_failure_and_append_warning(
+                restored,
+                backup_path,
+                plan.file_path,
+                "ffmpeg",
+                "unexpected error",
+                f"Unexpected error for {plan.file_path}: {e}",
+            )
             return ExecutorResult(success=False, message=msg)
 
         if result.returncode != 0:
             elapsed = time.monotonic() - start_time
             temp_path.unlink(missing_ok=True)
-            restored = safe_restore_from_backup(backup_path)
-            if not restored:
-                logger.error(
-                    "CRITICAL: Backup restoration failed after ffmpeg non-zero "
-                    "exit for %s - file may need manual recovery from %s",
-                    plan.file_path,
-                    backup_path,
-                )
             logger.error(
                 "ffmpeg returned non-zero exit code",
                 extra={
@@ -253,12 +231,15 @@ class FfmpegMetadataExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            msg = f"ffmpeg failed for {plan.file_path}: {result.stderr}"
-            if not restored:
-                msg += (
-                    "\nWARNING: Could not restore backup - "
-                    "original file may be corrupted"
-                )
+            restored = safe_restore_from_backup(backup_path)
+            msg = log_restore_failure_and_append_warning(
+                restored,
+                backup_path,
+                plan.file_path,
+                "ffmpeg",
+                "non-zero exit",
+                f"ffmpeg failed for {plan.file_path}: {result.stderr}",
+            )
             return ExecutorResult(success=False, message=msg)
 
         # Atomic replace: move temp to original
@@ -267,14 +248,6 @@ class FfmpegMetadataExecutor:
         except Exception as e:
             elapsed = time.monotonic() - start_time
             temp_path.unlink(missing_ok=True)
-            restored = safe_restore_from_backup(backup_path)
-            if not restored:
-                logger.error(
-                    "CRITICAL: Backup restoration failed after file replace error "
-                    "for %s - file may need manual recovery from %s",
-                    plan.file_path,
-                    backup_path,
-                )
             logger.error(
                 "Failed to replace original file",
                 extra={
@@ -283,12 +256,15 @@ class FfmpegMetadataExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            msg = f"Failed to replace {plan.file_path}: {e}"
-            if not restored:
-                msg += (
-                    "\nWARNING: Could not restore backup - "
-                    "original file may be corrupted"
-                )
+            restored = safe_restore_from_backup(backup_path)
+            msg = log_restore_failure_and_append_warning(
+                restored,
+                backup_path,
+                plan.file_path,
+                "ffmpeg",
+                "file replace error",
+                f"Failed to replace {plan.file_path}: {e}",
+            )
             return ExecutorResult(success=False, message=msg)
 
         # Success - optionally keep backup

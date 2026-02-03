@@ -56,6 +56,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _ci_lookup(mapping: dict[str, object], key: str) -> object | None:
+    """Case-insensitive lookup in a dict. Returns the value or None."""
+    target = key.casefold()
+    for k, v in mapping.items():
+        if k.casefold() == target:
+            return v
+    return None
+
+
 @dataclass
 class ActionContext:
     """Context for action execution.
@@ -319,12 +328,7 @@ def _resolve_language_from_action(
             )
             return None
 
-        # Case-insensitive plugin lookup
-        plugin_data = None
-        for key, value in context.plugin_metadata.items():
-            if key.casefold() == plugin_name:
-                plugin_data = value
-                break
+        plugin_data = _ci_lookup(context.plugin_metadata, plugin_name)
         if plugin_data is None:
             logger.warning(
                 "set_language: plugin '%s' not found in metadata, skipping action",
@@ -332,12 +336,7 @@ def _resolve_language_from_action(
             )
             return None
 
-        # Case-insensitive field lookup
-        field_value = None
-        for key, value in plugin_data.items():
-            if key.casefold() == field_name:
-                field_value = value
-                break
+        field_value = _ci_lookup(plugin_data, field_name)
         if field_value is None:
             logger.warning(
                 "set_language: field '%s' not found in plugin '%s' metadata, "
@@ -456,12 +455,7 @@ def _resolve_container_metadata_value(
             )
             return None
 
-        # Case-insensitive plugin lookup
-        plugin_data = None
-        for key, value in context.plugin_metadata.items():
-            if key.casefold() == plugin_name:
-                plugin_data = value
-                break
+        plugin_data = _ci_lookup(context.plugin_metadata, plugin_name)
         if plugin_data is None:
             logger.warning(
                 "set_container_metadata: plugin '%s' not found in metadata, "
@@ -471,12 +465,7 @@ def _resolve_container_metadata_value(
             )
             return None
 
-        # Case-insensitive field lookup
-        field_value = None
-        for key, value in plugin_data.items():
-            if key.casefold() == field_name:
-                field_value = value
-                break
+        field_value = _ci_lookup(plugin_data, field_name)
         if field_value is None:
             logger.warning(
                 "set_container_metadata: field '%s' not found in plugin '%s' "

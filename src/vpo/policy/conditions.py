@@ -407,15 +407,8 @@ def evaluate_audio_is_multi_language(
             if not languages_match(result.primary_language, condition.primary_language):
                 continue
 
-        # Check secondary language percentage threshold
         # A track is multi-language if any secondary language exceeds threshold
-        has_significant_secondary = False
-        for secondary in result.secondary_languages:
-            if secondary.percentage >= condition.threshold:
-                has_significant_secondary = True
-                break
-
-        if has_significant_secondary:
+        if any(s.percentage >= condition.threshold for s in result.secondary_languages):
             reason = (
                 f"audio_is_multi_language → True "
                 f"(track[{track.index}] {result.primary_language} "
@@ -722,18 +715,10 @@ def _evaluate_metadata_comparison(
     else:
         result = _evaluate_metadata_op(actual_value, expected_value, op)
 
-    op_str = op.value
-    if result:
-        reason = (
-            f"{context_label} {op_str} "
-            f"{expected_value!r} → True (actual={actual_value!r})"
-        )
-    else:
-        reason = (
-            f"{context_label} {op_str} "
-            f"{expected_value!r} → False (actual={actual_value!r})"
-        )
-
+    reason = (
+        f"{context_label} {op.value} "
+        f"{expected_value!r} → {result} (actual={actual_value!r})"
+    )
     return (result, reason)
 
 
@@ -762,14 +747,14 @@ def evaluate_container_metadata(
             f"container_metadata({field_name}) → False (no container tags available)",
         )
 
-    # Direct lookup — keys are guaranteed lowercase by parser, field_name is casefolded
-    actual_value = container_tags.get(field_name)
-
-    if actual_value is None and field_name not in container_tags:
+    # Direct lookup -- keys are guaranteed lowercase by parser, field_name is casefolded
+    if field_name not in container_tags:
         return (
             False,
             f"container_metadata({field_name}) → False (tag '{field_name}' not found)",
         )
+
+    actual_value = container_tags[field_name]
 
     return _evaluate_metadata_comparison(
         context_label=f"container_metadata({field_name})",
