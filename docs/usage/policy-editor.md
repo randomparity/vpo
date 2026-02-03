@@ -376,6 +376,28 @@ vpo policy run -p policy.yaml --phases cleanup,normalize /path/to/video.mkv
 vpo policy run -p policy.yaml --dry-run /path/to/video.mkv
 ```
 
+### 15. Container Metadata Conditions and Actions
+
+The policy editor supports `container_metadata` conditions and `set_container_metadata` actions within conditional rules.
+
+**Adding a Container Metadata Condition:**
+
+1. In a conditional rule, select **container_metadata** as the condition type
+2. Enter the **field name** (e.g., `title`, `encoder`) — validated against naming rules
+3. Select an **operator** from the dropdown: eq, neq, contains, lt, lte, gt, gte, or exists
+4. Enter a **value** to compare against (the value input is hidden when the operator is `exists`)
+
+**Adding a Set Container Metadata Action:**
+
+1. In a conditional rule's "then" or "else" actions, select **set_container_metadata**
+2. Enter the **field name** to set (e.g., `title`, `encoder`)
+3. Enter the **value** to set — leave empty to clear/delete the tag
+
+**Notes:**
+- Container metadata conditions and actions are available in V12 policies
+- Field names follow standard validation: must start with a letter, contain only letters/digits/underscores, max 64 characters
+- The value input dynamically shows or hides based on the selected operator
+
 ## Validation Features
 
 The policy editor includes comprehensive validation to help you create correct policy configurations.
@@ -690,6 +712,7 @@ You can edit multiple policies in separate browser tabs, but:
 - [V11 Migration Guide](v11-migration.md) - Upgrading from V10 to V11 policies
 - [Policies Guide](policies.md) - General policy configuration
 - [Conditional Policies](conditional-policies.md) - Conditional rules
+- [Container Metadata](container-metadata.md) - Reading, writing, and clearing container tags
 - [Transcode Policy](transcode-policy.md) - Transcoding settings
 
 ## Support

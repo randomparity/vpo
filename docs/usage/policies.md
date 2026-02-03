@@ -12,6 +12,7 @@ VPO policies are YAML files that define rules for:
 - Default track selection and flags
 - Track filtering (remove unwanted audio, subtitles, attachments)
 - Container format conversion (MKV, MP4)
+- Container metadata reading and writing
 - Transcoding settings
 
 ---
@@ -178,6 +179,47 @@ MKV supports virtually all codecs. MP4 has limitations:
 
 ---
 
+## Container Metadata
+
+Policies can read and write container-level metadata tags (title, encoder, creation_time, etc.) using conditional rules. Use `container_metadata` conditions to check tag values and `set_container_metadata` actions to set or clear them.
+
+```yaml
+schema_version: 12
+phases:
+  - name: metadata
+    conditional:
+      # Clear the encoder tag
+      - name: clear-encoder
+        when:
+          container_metadata:
+            field: encoder
+            operator: exists
+        then:
+          - set_container_metadata:
+              field: encoder
+              value: ""
+
+      # Set title from Radarr plugin metadata
+      - name: set-title
+        when:
+          plugin_metadata:
+            plugin: radarr
+            field: external_title
+            operator: exists
+        then:
+          - set_container_metadata:
+              field: title
+              from_plugin_metadata:
+                plugin: radarr
+                field: external_title
+```
+
+Supported operators for conditions: `eq`, `neq`, `contains`, `exists`, `lt`, `lte`, `gt`, `gte`. MKV files use mkvpropedit; other formats use ffmpeg.
+
+For the full reference — including operator details, field validation rules, and working examples — see [Container Metadata Guide](container-metadata.md).
+
+---
+
 ## Complete Policy Example
 
 ```yaml
@@ -232,6 +274,20 @@ phases:
     container:
       target: mkv
       on_incompatible_codec: error
+
+  # Fourth phase: clean up container metadata
+  - name: metadata
+    depends_on: [convert]
+    conditional:
+      - name: clear-encoder
+        when:
+          container_metadata:
+            field: encoder
+            operator: exists
+        then:
+          - set_container_metadata:
+              field: encoder
+              value: ""
 ```
 
 ---
@@ -337,6 +393,7 @@ Error: Cannot convert to mp4: incompatible tracks: #3 (audio: truehd)
 
 - [CLI Usage](cli-usage.md)
 - [Conditional Policies](conditional-policies.md) - If/then/else rules for smart decisions
+- [Container Metadata](container-metadata.md) - Reading, writing, and clearing container tags
 - [Transcode Policy](transcode-policy.md)
 - [External Tools](external-tools.md)
 - [Policy Editor](policy-editor.md)

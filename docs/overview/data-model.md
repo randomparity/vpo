@@ -26,6 +26,7 @@ Each scanned file is represented with the following fields:
 | `modified_at` | string | ISO 8601 timestamp of last file modification |
 | `content_hash` | string | Partial content hash for change detection |
 | `container_format` | string | Container type (e.g., `matroska`, `mp4`) |
+| `container_tags` | object\|null | Container-level metadata tags (e.g., title, encoder) as key-value pairs, or null if none |
 | `scanned_at` | string | ISO 8601 timestamp of last scan |
 | `scan_status` | string | Status: `ok`, `error`, or `pending` |
 | `scan_error` | string | Error message if `scan_status="error"` |
@@ -79,6 +80,10 @@ A fully scanned media file is represented as:
   "modified_at": "2024-01-15T10:30:00Z",
   "content_hash": "xxh64:a1b2c3d4e5f6a7b8:f8e7d6c5b4a39281:4831838208",
   "container_format": "matroska",
+  "container_tags": {
+    "title": "Example Movie (2024)",
+    "encoder": "libmatroska v1.7.1"
+  },
   "scanned_at": "2024-01-20T14:00:00Z",
   "scan_status": "ok",
   "tracks": [

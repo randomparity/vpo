@@ -12,8 +12,10 @@ VPO supports conditional rules in V12 policies that let you apply different acti
 **Key capabilities:**
 - Check for track existence (e.g., "does English audio exist?")
 - Count tracks matching criteria (e.g., "more than 2 audio tracks")
+- Read and match container-level metadata tags (title, encoder, etc.)
 - Use boolean operators (AND, OR, NOT)
 - Compare numeric properties (resolution, channel count)
+- Set or clear container metadata tags
 - Skip processing when unnecessary
 - Generate warnings or halt processing
 
@@ -169,6 +171,56 @@ when:
       regex: "^Director.*Commentary$"
 ```
 
+### Container Metadata Condition
+
+Check container-level metadata tags (title, encoder, creation_time, etc.):
+
+```yaml
+when:
+  container_metadata:
+    field: <tag_name>        # Tag name (normalized to lowercase)
+    operator: <operator>     # Comparison operator (default: eq)
+    value: <compare_value>   # Required for all operators except exists
+```
+
+**Operators:**
+
+| Operator | Description | Notes |
+|----------|-------------|-------|
+| `eq` | Equal (default) | Case-insensitive for strings |
+| `neq` | Not equal | Case-insensitive for strings |
+| `contains` | Substring match | Case-insensitive |
+| `exists` | Tag exists | No value needed |
+| `lt` / `lte` / `gt` / `gte` | Numeric comparison | Coerces tag value to number |
+
+Field names must start with a letter, contain only letters/digits/underscores, and be 1–64 characters.
+
+**Examples:**
+
+```yaml
+# Check if a title tag exists
+when:
+  container_metadata:
+    field: title
+    operator: exists
+
+# Match encoder substring
+when:
+  container_metadata:
+    field: encoder
+    operator: contains
+    value: "libmatroska"
+
+# Numeric comparison on a tag value
+when:
+  container_metadata:
+    field: bitrate_override
+    operator: gt
+    value: 5000
+```
+
+For the full reference, see [Container Metadata Guide](container-metadata.md).
+
 ---
 
 ## Boolean Operators
@@ -273,6 +325,34 @@ Halt processing with an error:
 then:
   - fail: "Cannot process - missing required tracks"
 ```
+
+### Set Container Metadata Action
+
+Set or clear container-level metadata tags:
+
+```yaml
+# Static value
+then:
+  - set_container_metadata:
+      field: title
+      value: "My Movie"
+
+# Dynamic value from plugin metadata
+then:
+  - set_container_metadata:
+      field: title
+      from_plugin_metadata:
+        plugin: radarr
+        field: external_title
+
+# Clear a tag (empty string deletes it)
+then:
+  - set_container_metadata:
+      field: encoder
+      value: ""
+```
+
+Either `value` or `from_plugin_metadata` must be specified, but not both. Field names follow the same validation rules as `container_metadata` conditions. For the full reference, see [Container Metadata Guide](container-metadata.md).
 
 ### Message Placeholders
 
@@ -523,6 +603,7 @@ Error: Invalid condition at conditional[0].when: Unknown track_type 'invalid'
 ## Related docs
 
 - [Policy Configuration Guide](policies.md)
+- [Container Metadata](container-metadata.md) - Reading, writing, and clearing container tags
 - [CLI Usage](cli-usage.md)
 - [Transcode Policy](transcode-policy.md)
 - [ADR-0004: Conditional Policy Schema](../decisions/ADR-0004-conditional-policy-schema.md)
