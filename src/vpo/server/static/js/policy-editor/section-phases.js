@@ -189,6 +189,89 @@ export function initPhasesSection(policyData, onUpdate) {
         div.appendChild(header)
         div.appendChild(opsSection)
 
+        // Audio/Subtitle pre-processing actions section
+        const actionsSection = document.createElement('div')
+        actionsSection.className = 'phase-track-actions'
+
+        const actionsToggle = document.createElement('details')
+        actionsToggle.className = 'phase-cond-details'
+        if (phase.audio_actions || phase.subtitle_actions) {
+            actionsToggle.open = true
+        }
+
+        const actionsSummary = document.createElement('summary')
+        actionsSummary.className = 'phase-cond-summary'
+        actionsSummary.textContent = 'Track Pre-Processing Actions'
+
+        const actionsContent = document.createElement('div')
+        actionsContent.className = 'phase-cond-content'
+        actionsContent.innerHTML = `
+            <div class="phase-cond-group">
+                <label class="form-label">Audio Actions:</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" class="audio-clear-forced" ${phase.audio_actions?.clear_all_forced ? 'checked' : ''}>
+                        <span>Clear all forced flags</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" class="audio-clear-default" ${phase.audio_actions?.clear_all_default ? 'checked' : ''}>
+                        <span>Clear all default flags</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" class="audio-clear-titles" ${phase.audio_actions?.clear_all_titles ? 'checked' : ''}>
+                        <span>Clear all titles</span>
+                    </label>
+                </div>
+            </div>
+            <div class="phase-cond-group">
+                <label class="form-label">Subtitle Actions:</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" class="sub-clear-forced" ${phase.subtitle_actions?.clear_all_forced ? 'checked' : ''}>
+                        <span>Clear all forced flags</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" class="sub-clear-default" ${phase.subtitle_actions?.clear_all_default ? 'checked' : ''}>
+                        <span>Clear all default flags</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" class="sub-clear-titles" ${phase.subtitle_actions?.clear_all_titles ? 'checked' : ''}>
+                        <span>Clear all titles</span>
+                    </label>
+                </div>
+            </div>
+        `
+
+        function collectAudioActions() {
+            const actions = {}
+            if (actionsContent.querySelector('.audio-clear-forced').checked) actions.clear_all_forced = true
+            if (actionsContent.querySelector('.audio-clear-default').checked) actions.clear_all_default = true
+            if (actionsContent.querySelector('.audio-clear-titles').checked) actions.clear_all_titles = true
+            phases[index].audio_actions = Object.keys(actions).length > 0 ? actions : null
+            notifyUpdate()
+        }
+
+        function collectSubtitleActions() {
+            const actions = {}
+            if (actionsContent.querySelector('.sub-clear-forced').checked) actions.clear_all_forced = true
+            if (actionsContent.querySelector('.sub-clear-default').checked) actions.clear_all_default = true
+            if (actionsContent.querySelector('.sub-clear-titles').checked) actions.clear_all_titles = true
+            phases[index].subtitle_actions = Object.keys(actions).length > 0 ? actions : null
+            notifyUpdate()
+        }
+
+        actionsContent.querySelectorAll('[class^="audio-clear"]').forEach(el => {
+            el.addEventListener('change', collectAudioActions)
+        })
+        actionsContent.querySelectorAll('[class^="sub-clear"]').forEach(el => {
+            el.addEventListener('change', collectSubtitleActions)
+        })
+
+        actionsToggle.appendChild(actionsSummary)
+        actionsToggle.appendChild(actionsContent)
+        actionsSection.appendChild(actionsToggle)
+        div.appendChild(actionsSection)
+
         // Conditional execution section
         const condExecSection = document.createElement('div')
         condExecSection.className = 'phase-conditional-execution'
