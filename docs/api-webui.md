@@ -1,7 +1,7 @@
 # Web UI REST API Reference
 
 **Version**: 1.0.0
-**Base URL**: `http://localhost:8080` (when running `vpo serve --port 8080`)
+**Base URL**: `http://localhost:8321` (default when running `vpo serve`)
 
 This document describes the REST API endpoints available for the VPO Web UI. All endpoints return JSON responses and follow consistent patterns for pagination, error handling, and authentication.
 
@@ -475,7 +475,7 @@ List all policy files from the policies directory.
       "filename": "default.yaml",
       "file_path": "/home/user/.vpo/policies/default.yaml",
       "last_modified": "2025-01-15T10:00:00+00:00",
-      "schema_version": 2,
+      "schema_version": 12,
       "audio_languages": "eng",
       "subtitle_languages": "eng",
       "has_transcode": false,
@@ -516,7 +516,7 @@ Get detailed policy configuration for editing.
   "filename": "default.yaml",
   "file_path": "/home/user/.vpo/policies/default.yaml",
   "last_modified": "2025-01-15T10:00:00+00:00",
-  "schema_version": 2,
+  "schema_version": 12,
   "track_order": ["video", "audio_main", "audio_alternate", "subtitle_main"],
   "audio_language_preference": ["eng", "jpn"],
   "subtitle_language_preference": ["eng"],
@@ -892,7 +892,7 @@ fetch('/api/policies/default', {
 
 ## Authentication
 
-**Note**: VPO is designed as a local tool. The Web UI currently does not require authentication. Future versions may add authentication for deployment scenarios where the UI is exposed to untrusted networks.
+See [Authentication Guide](usage/authentication.md) for details on configuring authentication when the Web UI is exposed beyond localhost.
 
 ---
 

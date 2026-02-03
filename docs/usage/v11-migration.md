@@ -64,6 +64,8 @@ phases:
 
 Change `schema_version: 10` to `schema_version: 11`.
 
+> **Note:** V12 is the current schema version. The V11 migration steps here remain valid as an intermediate step, but new policies should target `schema_version: 12`. See the V12 features documented in [CLAUDE.md](../../CLAUDE.md) for additions beyond V11.
+
 ### 2. Global Configuration
 
 The `workflow` section becomes `config`:

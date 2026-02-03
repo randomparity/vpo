@@ -105,17 +105,19 @@ The policy schema has evolved through multiple versions:
 - **V3-V5**: Track filtering, audio synthesis, container conversion
 - **V6-V8**: Video/audio transcoding with skip conditions, quality settings
 - **V9-V10**: Fixed workflow phases (ANALYZE → APPLY → TRANSCODE)
-- **V11**: User-defined processing phases (current)
+- **V11**: User-defined processing phases
+- **V12**: Conditional phases, plugin metadata conditions, enhanced operators (current)
 
-#### V11 User-Defined Phases
+#### V12 User-Defined Phases
 
-V11 introduces customizable processing phases, allowing users to:
+V12 supports customizable processing phases, allowing users to:
 - Define multiple named phases with arbitrary operations
 - Control the order of phase execution
 - Configure error handling per-policy
+- Conditionally skip phases based on file characteristics
 
 ```yaml
-schema_version: 11
+schema_version: 12
 config:
   on_error: skip
 phases:
@@ -225,8 +227,6 @@ See [External Tools Guide](../usage/external-tools.md) for details.
 ## Future Considerations
 
 - Alternative database backends (PostgreSQL for multi-user)
-- REST API for remote access
-- Web UI for visualization
 - Container image distribution
 
 ---
