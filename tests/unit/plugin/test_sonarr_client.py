@@ -457,6 +457,255 @@ class TestSonarrClientParseResponses:
         assert result.episodes[1].episode_number == 2
 
 
+class TestSonarrClientGetTags:
+    """Tests for get_tags method."""
+
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
+    def test_get_tags_success(self, mock_client_class: MagicMock, client: SonarrClient):
+        """Test successful tag retrieval."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {"id": 1, "label": "anime"},
+            {"id": 2, "label": "4k"},
+        ]
+        mock_http_client.get.return_value = mock_response
+
+        result = client.get_tags()
+
+        assert result == {1: "anime", 2: "4k"}
+        mock_http_client.get.assert_called_once_with("/api/v3/tag")
+
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
+    def test_get_tags_http_error(
+        self, mock_client_class: MagicMock, client: SonarrClient
+    ):
+        """Test HTTP error during tag retrieval."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_http_client.get.side_effect = httpx.HTTPError("Request failed")
+
+        with pytest.raises(SonarrConnectionError, match="Failed to get tags"):
+            client.get_tags()
+
+
+class TestSonarrClientExpandedParsing:
+    """Tests for expanded series and episode parsing."""
+
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
+    def test_parse_series_genres_flattened(
+        self, mock_client_class: MagicMock, client: SonarrClient
+    ):
+        """Test genre array is flattened to comma-separated string."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "series": {
+                "id": 123,
+                "title": "Test Series",
+                "year": 2020,
+                "path": "/tv/Test",
+                "genres": ["Drama", "Sci-Fi", "Thriller"],
+            },
+            "episodes": [],
+        }
+        mock_http_client.get.return_value = mock_response
+
+        result = client.parse("/tv/Test/test.mkv")
+
+        assert result.series is not None
+        assert result.series.genres == "Drama, Sci-Fi, Thriller"
+
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
+    def test_parse_series_all_new_fields(
+        self, mock_client_class: MagicMock, client: SonarrClient
+    ):
+        """Test all new series fields are parsed."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+
+        # First call: parse endpoint, second call: tags endpoint
+        parse_response = MagicMock()
+        parse_response.json.return_value = {
+            "series": {
+                "id": 123,
+                "title": "Test Series",
+                "year": 2020,
+                "path": "/tv/Test",
+                "certification": "TV-MA",
+                "genres": ["Drama"],
+                "network": "HBO",
+                "seriesType": "standard",
+                "runtime": 60,
+                "status": "ended",
+                "tvMazeId": 12345,
+                "seasonCount": 5,
+                "monitored": True,
+                "tags": [1, 2],
+                "statistics": {
+                    "seasonCount": 5,
+                    "totalEpisodeCount": 62,
+                },
+            },
+            "episodes": [],
+        }
+
+        tag_response = MagicMock()
+        tag_response.json.return_value = [
+            {"id": 1, "label": "hdr"},
+            {"id": 2, "label": "favorite"},
+        ]
+
+        mock_http_client.get.side_effect = [parse_response, tag_response]
+
+        result = client.parse("/tv/Test/test.mkv")
+
+        assert result.series is not None
+        assert result.series.certification == "TV-MA"
+        assert result.series.genres == "Drama"
+        assert result.series.network == "HBO"
+        assert result.series.series_type == "standard"
+        assert result.series.runtime == 60
+        assert result.series.status == "ended"
+        assert result.series.tvmaze_id == 12345
+        assert result.series.season_count == 5
+        assert result.series.total_episode_count == 62
+        assert result.series.monitored is True
+        assert result.series.tags == "hdr, favorite"
+
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
+    def test_parse_series_missing_new_fields_default_none(
+        self, mock_client_class: MagicMock, client: SonarrClient
+    ):
+        """Test missing new fields default to None."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "series": {
+                "id": 123,
+                "title": "Minimal",
+                "year": 2020,
+                "path": "/tv/Minimal",
+            },
+            "episodes": [],
+        }
+        mock_http_client.get.return_value = mock_response
+
+        result = client.parse("/tv/Minimal/test.mkv")
+
+        assert result.series is not None
+        assert result.series.certification is None
+        assert result.series.genres is None
+        assert result.series.network is None
+        assert result.series.tags is None
+        assert result.series.tvmaze_id is None
+
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
+    def test_parse_episode_absolute_episode_number(
+        self, mock_client_class: MagicMock, client: SonarrClient
+    ):
+        """Test absoluteEpisodeNumber is parsed."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "series": {"id": 123, "title": "Anime"},
+            "episodes": [
+                {
+                    "id": 456,
+                    "seriesId": 123,
+                    "seasonNumber": 1,
+                    "episodeNumber": 5,
+                    "title": "Episode 5",
+                    "hasFile": True,
+                    "absoluteEpisodeNumber": 5,
+                }
+            ],
+        }
+        mock_http_client.get.return_value = mock_response
+
+        result = client.parse("/tv/Anime/test.mkv")
+
+        assert len(result.episodes) == 1
+        assert result.episodes[0].absolute_episode_number == 5
+
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
+    def test_parse_episode_missing_absolute_number(
+        self, mock_client_class: MagicMock, client: SonarrClient
+    ):
+        """Test missing absoluteEpisodeNumber defaults to None."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "series": {"id": 123, "title": "Regular Show"},
+            "episodes": [
+                {
+                    "id": 456,
+                    "seriesId": 123,
+                    "seasonNumber": 1,
+                    "episodeNumber": 1,
+                    "title": "Pilot",
+                    "hasFile": True,
+                }
+            ],
+        }
+        mock_http_client.get.return_value = mock_response
+
+        result = client.parse("/tv/Regular/test.mkv")
+
+        assert result.episodes[0].absolute_episode_number is None
+
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
+    def test_tag_map_cached_across_calls(
+        self, mock_client_class: MagicMock, client: SonarrClient
+    ):
+        """Test that tag map is fetched once and reused."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+
+        tag_response = MagicMock()
+        tag_response.json.return_value = [{"id": 1, "label": "test"}]
+
+        parse_response1 = MagicMock()
+        parse_response1.json.return_value = {
+            "series": {
+                "id": 1,
+                "title": "Show 1",
+                "tags": [1],
+            },
+            "episodes": [],
+        }
+
+        parse_response2 = MagicMock()
+        parse_response2.json.return_value = {
+            "series": {
+                "id": 2,
+                "title": "Show 2",
+                "tags": [1],
+            },
+            "episodes": [],
+        }
+
+        # First parse: parse call + tag call; second parse: parse call only
+        mock_http_client.get.side_effect = [
+            parse_response1,
+            tag_response,
+            parse_response2,
+        ]
+
+        result1 = client.parse("/tv/Show1/test.mkv")
+        result2 = client.parse("/tv/Show2/test.mkv")
+
+        assert result1.series.tags == "test"
+        assert result2.series.tags == "test"
+        # Tag endpoint called only once
+        assert mock_http_client.get.call_count == 3
+
+
 class TestSonarrClientClose:
     """Tests for close method."""
 
@@ -497,3 +746,262 @@ class TestSonarrClientClose:
         client._get_client()
 
         assert mock_client_class.call_count == 2
+
+    def test_close_resets_tag_map(self, client: SonarrClient):
+        """After close(), _tag_map is reset to None."""
+        # Simulate a cached tag map
+        client._tag_map = {1: "test"}
+
+        client.close()
+
+        assert client._tag_map is None
+
+
+class TestSonarrClientParsingEdgeCases:
+    """Tests for edge cases in series/episode parsing."""
+
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
+    def test_ensure_tag_map_failure_sets_empty_dict(
+        self, mock_client_class: MagicMock, client: SonarrClient
+    ):
+        """_ensure_tag_map() catches error and sets empty dict."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_http_client.get.side_effect = httpx.HTTPError("Request failed")
+
+        result = client._ensure_tag_map()
+
+        assert result == {}
+        assert client._tag_map == {}
+
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
+    def test_ensure_tag_map_no_retry_after_failure(
+        self, mock_client_class: MagicMock, client: SonarrClient
+    ):
+        """After failure, subsequent calls don't retry the API."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_http_client.get.side_effect = httpx.HTTPError("Request failed")
+
+        # First call fails and caches empty dict
+        client._ensure_tag_map()
+        # Reset side_effect to track if called again
+        mock_http_client.get.side_effect = None
+        mock_http_client.get.reset_mock()
+
+        # Second call should use cached empty dict
+        result = client._ensure_tag_map()
+
+        assert result == {}
+        mock_http_client.get.assert_not_called()
+
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
+    def test_parse_series_direct_season_count_overrides_statistics(
+        self, mock_client_class: MagicMock, client: SonarrClient
+    ):
+        """Direct seasonCount field takes precedence over statistics."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "series": {
+                "id": 123,
+                "title": "Test",
+                "seasonCount": 8,
+                "statistics": {
+                    "seasonCount": 5,
+                    "totalEpisodeCount": 62,
+                },
+            },
+            "episodes": [],
+        }
+        mock_http_client.get.return_value = mock_response
+
+        result = client.parse("/tv/Test/test.mkv")
+
+        assert result.series.season_count == 8
+        assert result.series.total_episode_count == 62
+
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
+    def test_parse_series_statistics_partial_keys(
+        self, mock_client_class: MagicMock, client: SonarrClient
+    ):
+        """Stats present but missing seasonCount uses None."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "series": {
+                "id": 123,
+                "title": "Test",
+                "statistics": {
+                    "totalEpisodeCount": 62,
+                },
+            },
+            "episodes": [],
+        }
+        mock_http_client.get.return_value = mock_response
+
+        result = client.parse("/tv/Test/test.mkv")
+
+        assert result.series.season_count is None
+        assert result.series.total_episode_count == 62
+
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
+    def test_parse_series_empty_string_certification_becomes_none(
+        self, mock_client_class: MagicMock, client: SonarrClient
+    ):
+        """certification: '' becomes None."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "series": {
+                "id": 123,
+                "title": "Test",
+                "certification": "",
+            },
+            "episodes": [],
+        }
+        mock_http_client.get.return_value = mock_response
+
+        result = client.parse("/tv/Test/test.mkv")
+
+        assert result.series.certification is None
+
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
+    def test_parse_series_empty_string_network_becomes_none(
+        self, mock_client_class: MagicMock, client: SonarrClient
+    ):
+        """network: '' becomes None."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "series": {
+                "id": 123,
+                "title": "Test",
+                "network": "",
+            },
+            "episodes": [],
+        }
+        mock_http_client.get.return_value = mock_response
+
+        result = client.parse("/tv/Test/test.mkv")
+
+        assert result.series.network is None
+
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
+    def test_parse_series_tags_all_unknown_ids_becomes_none(
+        self, mock_client_class: MagicMock, client: SonarrClient
+    ):
+        """All tag IDs unknown results in tags=None."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+
+        parse_response = MagicMock()
+        parse_response.json.return_value = {
+            "series": {
+                "id": 123,
+                "title": "Test",
+                "tags": [99, 100],
+            },
+            "episodes": [],
+        }
+
+        tag_response = MagicMock()
+        tag_response.json.return_value = [
+            {"id": 1, "label": "anime"},
+            {"id": 2, "label": "4k"},
+        ]
+
+        mock_http_client.get.side_effect = [parse_response, tag_response]
+
+        result = client.parse("/tv/Test/test.mkv")
+
+        assert result.series.tags is None
+
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
+    def test_parse_series_monitored_false(
+        self, mock_client_class: MagicMock, client: SonarrClient
+    ):
+        """monitored: false propagates correctly."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "series": {
+                "id": 123,
+                "title": "Test",
+                "monitored": False,
+            },
+            "episodes": [],
+        }
+        mock_http_client.get.return_value = mock_response
+
+        result = client.parse("/tv/Test/test.mkv")
+
+        assert result.series.monitored is False
+
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
+    def test_parse_series_empty_genres_list_becomes_none(
+        self, mock_client_class: MagicMock, client: SonarrClient
+    ):
+        """genres: [] results in None."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "series": {
+                "id": 123,
+                "title": "Test",
+                "genres": [],
+            },
+            "episodes": [],
+        }
+        mock_http_client.get.return_value = mock_response
+
+        result = client.parse("/tv/Test/test.mkv")
+
+        assert result.series.genres is None
+
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
+    def test_parse_series_runtime_zero_becomes_none(
+        self, mock_client_class: MagicMock, client: SonarrClient
+    ):
+        """runtime: 0 is normalized to None."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "series": {
+                "id": 123,
+                "title": "Test",
+                "runtime": 0,
+            },
+            "episodes": [],
+        }
+        mock_http_client.get.return_value = mock_response
+
+        result = client.parse("/tv/Test/test.mkv")
+
+        assert result.series.runtime is None
+
+    @patch("vpo.plugins.sonarr_metadata.client.httpx.Client")
+    def test_get_tags_skips_malformed_entries(
+        self, mock_client_class: MagicMock, client: SonarrClient
+    ):
+        """Entries without id or label are skipped."""
+        mock_http_client = MagicMock()
+        mock_client_class.return_value = mock_http_client
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {"id": 1, "label": "good"},
+            {"id": 2},  # Missing label
+            {"label": "orphan"},  # Missing id
+        ]
+        mock_http_client.get.return_value = mock_response
+
+        result = client.get_tags()
+
+        assert result == {1: "good"}

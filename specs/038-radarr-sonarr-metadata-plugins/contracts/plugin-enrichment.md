@@ -1,7 +1,7 @@
 # Plugin Enrichment Contract
 
-**Version**: 1.0.0
-**Plugin API Version**: 1.0.0
+**Version**: 1.1.0
+**Plugin API Version**: 1.1.0
 
 ## Overview
 
@@ -14,13 +14,13 @@ This document defines the contract between the Radarr/Sonarr metadata plugins an
 ```python
 class RadarrMetadataPlugin:
     name: str = "radarr-metadata"
-    version: str = "1.0.0"
-    events: list[str] = ["file.scanned"]
+    version: str = "1.1.0"
+    events: tuple[str, ...] = ("file.scanned",)
 
 class SonarrMetadataPlugin:
     name: str = "sonarr-metadata"
-    version: str = "1.0.0"
-    events: list[str] = ["file.scanned"]
+    version: str = "1.1.0"
+    events: tuple[str, ...] = ("file.scanned",)
 ```
 
 ### Event Handler
@@ -50,7 +50,22 @@ def on_file_scanned(self, event: FileScannedEvent) -> dict[str, Any] | None:
   "external_title": "The Matrix",
   "external_year": 1999,
   "imdb_id": "tt0133093",
-  "tmdb_id": 603
+  "tmdb_id": 603,
+  "original_title": "The Matrix",
+  "certification": "R",
+  "genres": "Action, Sci-Fi",
+  "runtime": 136,
+  "status": "released",
+  "collection_name": "The Matrix Collection",
+  "studio": "Warner Bros. Pictures",
+  "rating_tmdb": 8.2,
+  "rating_imdb": 8.7,
+  "popularity": 78.5,
+  "monitored": true,
+  "tags": "4k, hdr",
+  "edition": "Remastered",
+  "release_group": "FGT",
+  "scene_name": "The.Matrix.1999.REMASTERED.2160p.UHD.BluRay"
 }
 ```
 
@@ -68,7 +83,18 @@ def on_file_scanned(self, event: FileScannedEvent) -> dict[str, Any] | None:
   "episode_number": 1,
   "episode_title": "Pilot",
   "imdb_id": "tt0903747",
-  "tvdb_id": 81189
+  "tvdb_id": 81189,
+  "certification": "TV-MA",
+  "genres": "Crime, Drama, Thriller",
+  "network": "AMC",
+  "series_type": "standard",
+  "runtime": 47,
+  "status": "ended",
+  "tvmaze_id": 169,
+  "season_count": 5,
+  "total_episode_count": 62,
+  "monitored": true,
+  "tags": "favorite"
 }
 ```
 
@@ -76,20 +102,62 @@ def on_file_scanned(self, event: FileScannedEvent) -> dict[str, Any] | None:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| original_language | string? | Yes* | ISO 639-2/B language code (e.g., "eng", "jpn") |
+| original_language | string? | Yes | ISO 639-2/B language code (e.g., "eng", "jpn") |
 | external_source | string | Yes | "radarr" or "sonarr" |
 | external_id | int | Yes | Movie ID (Radarr) or Series ID (Sonarr) |
 | external_title | string | Yes | Title from external service |
 | external_year | int? | No | Release year |
+| imdb_id | string? | No | IMDb identifier |
+| tmdb_id | int? | No | TMDb identifier (Radarr only) |
 | series_title | string? | No | Series title (Sonarr only) |
 | season_number | int? | No | Season number (Sonarr only) |
 | episode_number | int? | No | Episode number (Sonarr only) |
 | episode_title | string? | No | Episode title (Sonarr only) |
-| imdb_id | string? | No | IMDb identifier |
-| tmdb_id | int? | No | TMDb identifier (Radarr only) |
 | tvdb_id | int? | No | TVDb identifier (Sonarr only) |
+| release_date | string? | No | Primary release date (ISO 8601 date) |
+| cinema_release | string? | No | Theatrical release date (Radarr) |
+| digital_release | string? | No | Digital release date (Radarr) |
+| physical_release | string? | No | Physical release date (Radarr) |
+| air_date | string? | No | Episode air date (Sonarr) |
+| premiere_date | string? | No | Series premiere date (Sonarr) |
 
-*original_language is null if not available from external service
+#### Common Metadata (v1.1.0)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| original_title | string? | No | Original title (before translation) |
+| certification | string? | No | Content rating (PG-13, R, TV-MA, etc.) |
+| genres | string? | No | Comma-separated genre list |
+| runtime | int? | No | Runtime in minutes |
+| status | string? | No | Release/series status |
+| monitored | bool? | No | Monitoring status in Radarr/Sonarr |
+| tags | string? | No | Comma-separated tag names |
+| popularity | float? | No | Popularity score |
+
+#### Movie Metadata (v1.1.0)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| collection_name | string? | No | Movie collection name (Radarr) |
+| studio | string? | No | Studio name (Radarr) |
+| rating_tmdb | float? | No | TMDb rating value (Radarr) |
+| rating_imdb | float? | No | IMDb rating value (Radarr) |
+| edition | string? | No | Edition (Director's Cut, Extended, etc.) (Radarr) |
+| release_group | string? | No | Release group identifier (Radarr) |
+| scene_name | string? | No | Scene release name (Radarr) |
+
+#### TV Metadata (v1.1.0)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| network | string? | No | TV network (HBO, Netflix, etc.) (Sonarr) |
+| series_type | string? | No | standard/daily/anime (Sonarr) |
+| tvmaze_id | int? | No | TVMaze identifier (Sonarr) |
+| season_count | int? | No | Number of seasons (Sonarr) |
+| total_episode_count | int? | No | Total episode count (Sonarr) |
+| absolute_episode_number | int? | No | Absolute episode number (Sonarr, anime) |
+
+Note: original_language is always present in the enrichment dict but its value is null when the source does not provide language information.
 
 ## Language Code Normalization
 
@@ -98,8 +166,8 @@ The plugin MUST normalize language names to ISO 639-2/B codes:
 | Input (API) | Output (VPO) |
 |-------------|--------------|
 | "English" | "eng" |
-| "French" | "fra" |
-| "German" | "deu" |
+| "French" | "fre" |
+| "German" | "ger" |
 | "Spanish" | "spa" |
 | "Italian" | "ita" |
 | "Japanese" | "jpn" |
@@ -137,12 +205,12 @@ Use `vpo.language.normalize_language()` for conversion.
 ### Expected Configuration Section
 
 ```toml
-[plugins.radarr]
+[plugins.metadata.radarr]
 enabled = true
 url = "http://localhost:7878"
 api_key = "your-api-key-here"  # pragma: allowlist secret
 
-[plugins.sonarr]
+[plugins.metadata.sonarr]
 enabled = true
 url = "http://localhost:8989"
 api_key = "your-api-key-here"  # pragma: allowlist secret
@@ -160,14 +228,7 @@ Plugin initialization MUST:
 
 ### Accessing Enrichment Data
 
-After plugin enrichment, the data is available in FileInfo:
-
-```python
-# In policy evaluation
-file_info = event.file_info
-original_language = file_info.get("original_language")  # "eng" or None
-external_source = file_info.get("external_source")      # "radarr"/"sonarr" or None
-```
+After plugin enrichment, the data is available for use in policy conditions:
 
 ### Policy Condition Example
 

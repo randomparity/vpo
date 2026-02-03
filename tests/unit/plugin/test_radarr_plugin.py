@@ -16,6 +16,7 @@ from vpo.plugins.radarr_metadata.models import (
     RadarrCache,
     RadarrLanguage,
     RadarrMovie,
+    RadarrMovieFile,
 )
 from vpo.plugins.radarr_metadata.plugin import (
     RadarrMetadataPlugin,
@@ -83,7 +84,7 @@ class TestRadarrMetadataPluginMetadata:
 
     def test_plugin_version(self, plugin: RadarrMetadataPlugin):
         """Plugin has correct version."""
-        assert plugin.version == "1.0.0"
+        assert plugin.version == "1.1.0"
 
     def test_plugin_events(self, plugin: RadarrMetadataPlugin):
         """Plugin subscribes to file.scanned event."""
@@ -417,6 +418,165 @@ class TestRadarrMetadataPluginEnrichment:
         assert result is not None
         # external_year is omitted when None (not included in dict)
         assert "external_year" not in result
+
+
+class TestRadarrMetadataPluginExpandedEnrichment:
+    """Tests for v1.1.0 expanded enrichment fields."""
+
+    def test_enrichment_includes_new_movie_fields(
+        self,
+        plugin: RadarrMetadataPlugin,
+        mock_client: MagicMock,
+        tmp_path: Path,
+    ):
+        """Test that new v1.1.0 fields appear in enrichment dict."""
+        movie = RadarrMovie(
+            id=123,
+            title="Test Movie",
+            original_title="Test Film Original",
+            original_language=RadarrLanguage(id=1, name="English"),
+            year=2023,
+            path="/movies/Test",
+            has_file=True,
+            certification="R",
+            genres="Action, Thriller",
+            runtime=148,
+            status="released",
+            collection_name="Test Collection",
+            studio="Test Studio",
+            rating_tmdb=8.2,
+            rating_imdb=7.9,
+            popularity=42.5,
+            monitored=True,
+            tags="4k, hdr",
+        )
+
+        file_path = tmp_path / "test.mkv"
+        normalized_path = str(file_path.resolve())
+
+        cache = RadarrCache(
+            movies={123: movie},
+            files={},
+            path_to_movie={normalized_path: 123},
+        )
+        mock_client.build_cache.return_value = cache
+
+        event = FileScannedEvent(
+            file_path=file_path,
+            file_info=MagicMock(),
+            tracks=[],
+        )
+        result = plugin.on_file_scanned(event)
+
+        assert result is not None
+        assert result["original_title"] == "Test Film Original"
+        assert result["certification"] == "R"
+        assert result["genres"] == "Action, Thriller"
+        assert result["runtime"] == 148
+        assert result["status"] == "released"
+        assert result["collection_name"] == "Test Collection"
+        assert result["studio"] == "Test Studio"
+        assert result["rating_tmdb"] == 8.2
+        assert result["rating_imdb"] == 7.9
+        assert result["popularity"] == 42.5
+        assert result["monitored"] is True
+        assert result["tags"] == "4k, hdr"
+
+    def test_enrichment_includes_movie_file_fields(
+        self,
+        plugin: RadarrMetadataPlugin,
+        mock_client: MagicMock,
+        tmp_path: Path,
+    ):
+        """Test that movie file fields (edition, release_group, scene_name) appear."""
+        movie = RadarrMovie(
+            id=123,
+            title="Test Movie",
+            original_title=None,
+            original_language=None,
+            year=2023,
+            path="/movies/Test",
+            has_file=True,
+        )
+        movie_file = RadarrMovieFile(
+            id=456,
+            movie_id=123,
+            path="/movies/Test/Test.mkv",
+            relative_path="Test.mkv",
+            size=5000000000,
+            edition="Director's Cut",
+            release_group="SPARKS",
+            scene_name="Test.Movie.2023.DC.1080p",
+        )
+
+        file_path = tmp_path / "test.mkv"
+        normalized_path = str(file_path.resolve())
+
+        cache = RadarrCache(
+            movies={123: movie},
+            files={normalized_path: movie_file},
+            path_to_movie={normalized_path: 123},
+        )
+        mock_client.build_cache.return_value = cache
+
+        event = FileScannedEvent(
+            file_path=file_path,
+            file_info=MagicMock(),
+            tracks=[],
+        )
+        result = plugin.on_file_scanned(event)
+
+        assert result is not None
+        assert result["edition"] == "Director's Cut"
+        assert result["release_group"] == "SPARKS"
+        assert result["scene_name"] == "Test.Movie.2023.DC.1080p"
+
+    def test_enrichment_omits_none_new_fields(
+        self,
+        plugin: RadarrMetadataPlugin,
+        mock_client: MagicMock,
+        tmp_path: Path,
+    ):
+        """Test that None v1.1.0 fields are omitted from dict."""
+        movie = RadarrMovie(
+            id=123,
+            title="Minimal Movie",
+            original_title=None,
+            original_language=None,
+            year=2023,
+            path="/movies/Test",
+            has_file=True,
+        )
+
+        file_path = tmp_path / "test.mkv"
+        normalized_path = str(file_path.resolve())
+
+        cache = RadarrCache(
+            movies={123: movie},
+            files={},
+            path_to_movie={normalized_path: 123},
+        )
+        mock_client.build_cache.return_value = cache
+
+        event = FileScannedEvent(
+            file_path=file_path,
+            file_info=MagicMock(),
+            tracks=[],
+        )
+        result = plugin.on_file_scanned(event)
+
+        assert result is not None
+        assert "certification" not in result
+        assert "genres" not in result
+        assert "runtime" not in result
+        assert "collection_name" not in result
+        assert "studio" not in result
+        assert "rating_tmdb" not in result
+        assert "rating_imdb" not in result
+        assert "tags" not in result
+        assert "edition" not in result
+        assert "release_group" not in result
+        assert "scene_name" not in result
 
 
 class TestRadarrMetadataPluginOtherMethods:

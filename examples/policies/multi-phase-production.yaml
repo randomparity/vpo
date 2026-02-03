@@ -1,5 +1,5 @@
 # Multi-Phase Production Policy (V12)
-# Enterprise workflow with all operations across 5 phases
+# Enterprise workflow with all operations across 6 phases
 schema_version: 12
 
 config:
@@ -13,6 +13,68 @@ phases:
     container:
       target: mkv
       on_incompatible_codec: transcode
+
+  - name: compress
+    transcode:
+      video:
+        target_codec: hevc
+        skip_if:
+          codec_matches: [hevc, h265]
+          resolution_within: 1080p
+        quality:
+          mode: crf
+          crf: 20
+          preset: medium
+        scaling:
+          max_resolution: 1080p
+          algorithm: lanczos
+        hardware_acceleration:
+          enabled: auto
+          fallback_to_cpu: true
+        # Custom FFmpeg arguments for complex files with many streams
+        ffmpeg_args:
+          - "-max_muxing_queue_size"
+          - "9999"
+      audio:
+        preserve_codecs: [truehd, dts-hd, flac, aac]
+        transcode_to: aac
+        transcode_bitrate: 128k
+
+  - name: metadata
+    # Set video track language from Radarr/Sonarr original language metadata
+    conditional:
+      - name: tag-original-language
+        when:
+          plugin_metadata:
+            plugin: radarr
+            field: original_language
+            operator: exists
+        then:
+          - set_language:
+              track_type: video
+              from_plugin_metadata:
+                plugin: radarr
+                field: original_language
+        else:
+          # Fall back to Sonarr if Radarr metadata unavailable
+          - set_language:
+              track_type: video
+              from_plugin_metadata:
+                plugin: sonarr
+                field: original_language
+      # Enable forced subs when Radarr reports a non-English original language
+      - name: force-subs-for-foreign-language
+        when:
+          plugin_metadata:
+            plugin: radarr
+            field: original_language
+            operator: neq
+            value: eng
+        then:
+          - set_forced:
+              track_type: subtitle
+              language: eng
+              value: true
 
   - name: cleanup
     audio_filter:
@@ -72,32 +134,9 @@ phases:
       enabled: true
       detect_commentary: true
       reorder_commentary: true
-
-  - name: compress
-    transcode:
-      video:
-        target_codec: hevc
-        skip_if:
-          codec_matches: [hevc, h265]
-          resolution_within: 1080p
-        quality:
-          mode: crf
-          crf: 20
-          preset: medium
-        scaling:
-          max_resolution: 1080p
-          algorithm: lanczos
-        hardware_acceleration:
-          enabled: auto
-          fallback_to_cpu: true
-        # Custom FFmpeg arguments for complex files with many streams
-        ffmpeg_args:
-          - "-max_muxing_queue_size"
-          - "9999"
-      audio:
-        preserve_codecs: [truehd, dts-hd, flac, aac]
-        transcode_to: aac
-        transcode_bitrate: 128k
-    # Preserve original file modification time after all processing
+    # Set file modification time to release/air date from Radarr or Sonarr;
+    # falls back to preserving original mtime if no date is available
     file_timestamp:
-      mode: preserve
+      mode: release_date
+      date_source: auto
+      fallback: preserve

@@ -1,0 +1,211 @@
+# Sonarr Metadata-Driven TV Policy (V12)
+#
+# Demonstrates using Sonarr plugin metadata in policy conditions and actions.
+# Requires the sonarr-metadata plugin to be configured in ~/.vpo/config.toml.
+#
+# Fields used from Sonarr metadata (v1.1.0):
+#   original_language, certification, genres, network, series_type, runtime,
+#   status, tvmaze_id, season_count, total_episode_count, monitored, tags,
+#   absolute_episode_number
+#
+# Usage:
+#   vpo policy run -p sonarr-metadata.yaml /path/to/tv/ --dry-run
+schema_version: 12
+
+config:
+  audio_language_preference: [eng, jpn, und]
+  subtitle_language_preference: [eng, jpn]
+  commentary_patterns: [commentary, director, "audio description"]
+  on_error: continue
+
+phases:
+  # Phase 1: Container normalization
+  - name: prepare
+    skip_when:
+      container: [mkv]
+    container:
+      target: mkv
+      on_incompatible_codec: transcode
+
+  # Phase 2: Metadata-driven conditional rules
+  #
+  # Use Sonarr metadata to set video language, handle anime vs. standard
+  # TV differently, and force subtitles for foreign-language series.
+  - name: metadata
+    conditional:
+      # Set the video track language from Sonarr's original_language field.
+      - name: set-video-language
+        when:
+          plugin_metadata:
+            plugin: sonarr
+            field: original_language
+            operator: exists
+        then:
+          - set_language:
+              track_type: video
+              from_plugin_metadata:
+                plugin: sonarr
+                field: original_language
+
+      # For anime series: force English subtitles and set them as default.
+      # Anime is identified by Sonarr's series_type field.
+      - name: force-subs-for-anime
+        when:
+          and:
+            - plugin_metadata:
+                plugin: sonarr
+                field: series_type
+                operator: eq
+                value: anime
+            - exists:
+                track_type: subtitle
+                language: eng
+        then:
+          - set_forced:
+              track_type: subtitle
+              language: eng
+              value: true
+          - set_default:
+              track_type: subtitle
+              language: eng
+              value: true
+
+      # For non-anime foreign shows: force English subtitles when the
+      # original language isn't English.
+      - name: force-subs-for-foreign-shows
+        when:
+          and:
+            - plugin_metadata:
+                plugin: sonarr
+                field: original_language
+                operator: neq
+                value: eng
+            - not:
+                plugin_metadata:
+                  plugin: sonarr
+                  field: series_type
+                  operator: eq
+                  value: anime
+            - exists:
+                track_type: subtitle
+                language: eng
+        then:
+          - set_forced:
+              track_type: subtitle
+              language: eng
+              value: true
+
+      # Warn about unmonitored series -- these may be stale.
+      - name: warn-unmonitored
+        when:
+          plugin_metadata:
+            plugin: sonarr
+            field: monitored
+            operator: eq
+            value: false
+        then:
+          - warn: "Series is unmonitored in Sonarr: {filename}"
+
+      # Warn about very long-running series (100+ episodes).
+      # These might benefit from a separate, more aggressive compression policy.
+      - name: warn-large-series
+        when:
+          plugin_metadata:
+            plugin: sonarr
+            field: total_episode_count
+            operator: gte
+            value: 100
+        then:
+          - warn: "Large series (100+ episodes), consider dedicated policy: {filename}"
+
+  # Phase 3: Transcoding with anime-aware skip logic
+  #
+  # Standard TV gets compressed to HEVC. Anime is skipped here because
+  # animated content needs different CRF/tune settings (handled by a
+  # dedicated anime policy).
+  - name: compress
+    skip_when:
+      video_codec: [hevc, h265, x265]
+      file_size_under: 300MB
+    on_error: skip
+    conditional:
+      # Skip video transcode for anime -- animated content needs
+      # tune=animation and different CRF values.
+      - name: skip-anime-transcode
+        when:
+          plugin_metadata:
+            plugin: sonarr
+            field: series_type
+            operator: eq
+            value: anime
+        then:
+          - skip_video_transcode: true
+
+      # Skip transcode for episodes tagged "4k" in Sonarr.
+      - name: preserve-4k-tagged
+        when:
+          plugin_metadata:
+            plugin: sonarr
+            field: tags
+            operator: contains
+            value: "4k"
+        then:
+          - skip_video_transcode: true
+
+    transcode:
+      video:
+        target_codec: hevc
+        quality:
+          mode: crf
+          crf: 22
+          preset: medium
+        scaling:
+          max_resolution: 1080p
+          algorithm: lanczos
+        hardware_acceleration:
+          enabled: auto
+          fallback_to_cpu: true
+      audio:
+        preserve_codecs: [truehd, "dts-hd ma", flac, eac3]
+        transcode_to: aac
+        transcode_bitrate: 128k
+
+  # Phase 4: Track cleanup and ordering
+  #
+  # Keep English and Japanese audio for anime; English only for everything else.
+  - name: organize
+    audio_filter:
+      languages: [eng, jpn, und]
+      minimum: 1
+      fallback:
+        mode: content_language
+    subtitle_filter:
+      languages: [eng, jpn]
+      preserve_forced: true
+    attachment_filter:
+      remove_all: false
+    track_order:
+      - video
+      - audio_main
+      - audio_alternate
+      - audio_commentary
+      - subtitle_main
+      - subtitle_forced
+      - subtitle_commentary
+      - attachment
+    default_flags:
+      set_first_video_default: true
+      set_preferred_audio_default: true
+      set_preferred_subtitle_default: false
+      set_subtitle_forced_when_audio_differs: true
+      set_subtitle_default_when_audio_differs: true
+      clear_other_defaults: true
+
+  # Phase 5: Set file timestamp to the episode air date.
+  # Sonarr provides per-episode air dates, making files sort
+  # chronologically in any file manager.
+  - name: timestamp
+    file_timestamp:
+      mode: release_date
+      date_source: sonarr
+      fallback: preserve

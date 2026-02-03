@@ -82,47 +82,7 @@ crates/vpo-core/   # Rust extension for parallel discovery/hashing
 
 ## Jobs Module
 
-The `jobs/` module provides shared utilities for CLI and daemon job processing:
-
-```
-jobs/
-├── progress.py   # Progress reporting protocol and implementations
-├── runner.py     # Unified workflow execution runner
-├── tracking.py   # Job creation, completion, failure tracking
-├── queue.py      # Job queue operations (enqueue, claim, release)
-├── worker.py     # Background job worker
-├── logs.py       # Job log file management
-├── maintenance.py # Job cleanup and purging
-└── services/     # Job type-specific services (process, transcode, etc.)
-```
-
-**Key utilities:**
-
-- `ProgressReporter`: Protocol for progress reporting (CLI/daemon/tests)
-- `StderrProgressReporter`: Progress on stderr for CLI batch operations
-- `DatabaseProgressReporter`: Progress stored in database for daemon
-- `NullProgressReporter`: No-op for dry-run/test modes
-- `WorkflowRunner`: Unified workflow execution with pluggable job lifecycle
-- `WorkflowRunnerConfig`: Configuration for workflow execution
-- `JobLifecycle`: Protocol for job creation/completion management
-
-**Usage patterns:**
-
-```python
-# CLI progress reporting
-from vpo.jobs import StderrProgressReporter
-progress = StderrProgressReporter(enabled=True)
-progress.on_start(total=10)
-progress.on_item_start(0)
-progress.on_item_complete(0, success=True)
-progress.on_complete()
-
-# Workflow execution with lifecycle
-from vpo.jobs import WorkflowRunner, WorkflowRunnerConfig, NullJobLifecycle
-config = WorkflowRunnerConfig(dry_run=False, verbose=True)
-runner = WorkflowRunner(conn, policy, config, lifecycle=NullJobLifecycle())
-result = runner.run_single(file_path)
-```
+The `jobs/` module provides shared utilities for CLI and daemon job processing: progress reporting (`ProgressReporter` protocol with `StderrProgressReporter`, `DatabaseProgressReporter`, `NullProgressReporter` implementations), workflow execution (`WorkflowRunner` with pluggable `JobLifecycle`), job queue operations, and background workers.
 
 ## Development Guidelines
 
@@ -171,51 +131,11 @@ This project has a formal constitution at `.specify/memory/constitution.md` with
 
 ## Core Utilities
 
-The `core/` module provides pure utility functions with no external dependencies:
+The `core/` module provides pure utility functions with no external dependencies. Key functions: `normalize_string(s)` (casefold + strip), `compare_strings_ci(a, b)`, `run_command(args, timeout)`.
 
-```
-core/
-├── __init__.py         # Public API exports
-├── datetime_utils.py   # UTC datetime parsing, duration calculation
-├── formatting.py       # File size, resolution labels, language formatting
-├── string_utils.py     # Case-insensitive string operations using casefold()
-├── subprocess_utils.py # Unified subprocess wrapper with timeout/encoding
-└── validation.py       # UUID validation
-```
+## Database Module
 
-**Key utilities:**
-- `normalize_string(s)`: Casefold + strip for Unicode-safe normalization
-- `compare_strings_ci(a, b)`: Case-insensitive comparison
-- `run_command(args, timeout)`: Subprocess wrapper with standard error handling
-
-## Database Module Structure
-
-The `db/` module is organized into separate files for types, queries, operations, and views:
-
-```
-db/
-├── __init__.py   # Public API - re-exports all types and functions
-├── types.py      # Enums, dataclasses (records, domain models, view models)
-├── queries.py    # CRUD operations (insert, upsert, get, delete)
-├── operations.py # Plan CRUD and operation audit logging
-├── views.py      # Aggregated view queries for UI (library list, transcriptions)
-├── schema.py     # Schema creation and migrations
-└── models.py     # Backward-compat shim (deprecated, re-exports from above)
-```
-
-**Import patterns** (all equivalent):
-```python
-# Preferred: import from package
-from vpo.db import FileRecord, get_file_by_path, create_plan
-
-# Or from specific submodule
-from vpo.db.types import FileRecord
-from vpo.db.queries import get_file_by_path
-from vpo.db.operations import create_plan
-
-# Legacy (still works, but deprecated)
-from vpo.db.models import FileRecord, get_file_by_path
-```
+The `db/` module splits types, queries, operations, and views into separate files. Import from the package (`from vpo.db import FileRecord, get_file_by_path`) or from submodules for internal/test use. `models.py` is a deprecated re-export shim.
 
 **Key types:**
 - Domain models: `TrackInfo`, `FileInfo`, `IntrospectionResult`
@@ -223,31 +143,12 @@ from vpo.db.models import FileRecord, get_file_by_path
 - View models: `FileListViewItem`, `TranscriptionDetailView` (typed alternatives to dict returns)
 - Enums: `JobStatus`, `JobType`, `PlanStatus`, `OperationStatus`
 
-**View queries** return typed dataclasses via `_typed` suffix variants:
-- `get_files_filtered()` returns `list[dict]`
-- `get_files_filtered_typed()` returns `list[FileListViewItem]`
+**View queries** return typed dataclasses via `_typed` suffix variants (e.g., `get_files_filtered_typed()` returns `list[FileListViewItem]`).
 
 ## Import Conventions
 
-### Public vs Private APIs
-- **Public API**: Functions/classes in `__all__` are stable interfaces
-- **Private**: Names starting with `_` are implementation details
-- Tests import private functions from their defining module, not re-exports
-
-### Package Import Patterns
-
-**Public API - Import from package:**
-```python
-from vpo.db import FileRecord, get_file_by_path
-from vpo.policy import evaluate_policy, Plan
-from vpo.executor.transcode import TranscodeExecutor
-```
-
-**Internal/test use - Import from specific module:**
-```python
-from vpo.db.queries.helpers import _escape_like_pattern
-from vpo.executor.transcode.command import _build_stream_maps
-```
+- **Public API**: Import from package (`from vpo.db import FileRecord`). Functions/classes in `__all__` are stable interfaces.
+- **Private/test use**: Import from defining module (`from vpo.db.queries.helpers import _escape_like_pattern`). Tests import private functions from their defining module, not re-exports.
 
 ### Layer Dependencies
 
@@ -414,36 +315,13 @@ phases:
 
 Plugins extend VPO's functionality through a well-defined protocol system:
 
-```
-plugin/
-├── interfaces.py    # AnalyzerPlugin, MutatorPlugin protocols
-├── events.py        # Event types: file.scanned, policy.before_evaluate, etc.
-├── registry.py      # PluginRegistry for loading/managing plugins
-├── loader.py        # Discovery from entry points and ~/.vpo/plugins/
-└── manifest.py      # PluginManifest metadata (name, version, events)
-
-plugins/             # Built-in reference plugins
-├── policy_engine/   # Core policy executor (built-in)
-└── whisper_transcriber/  # Example analyzer plugin
-```
-
 **Plugin types:**
 - `AnalyzerPlugin`: Read-only plugins that enrich metadata (subscribe to `file.scanned`)
 - `MutatorPlugin`: Plugins that can modify files (subscribe to `plan.before_execute`, etc.)
 
-**Creating a plugin:**
-```python
-class MyPlugin:
-    name = "my-plugin"      # kebab-case identifier
-    version = "1.0.0"       # semver
-    events = ["file.scanned"]
+**Built-in plugins** in `plugins/`: `radarr_metadata`, `sonarr_metadata` (metadata enrichment from external services), `policy_engine` (core executor), `whisper_transcriber` (speech-to-text). See each plugin's `README.md` for configuration and usage.
 
-    def on_file_scanned(self, event: FileScannedEvent) -> dict[str, Any] | None:
-        # Return dict to merge into file metadata, or None
-        return {"enriched_field": value}
-```
-
-**Plugin configuration** goes in `~/.vpo/config.toml` under `[plugins.<name>]` sections.
+**Plugin configuration** goes in `~/.vpo/config.toml` under `[plugins.metadata.<name>]` sections for metadata plugins, `[plugins.<name>]` for others. The current plugin API version is **1.1.0**.
 
 ## Condition Evaluation Pattern
 
@@ -456,49 +334,4 @@ When adding new condition types to the policy system:
 
 ## Processing Statistics
 
-VPO captures detailed processing statistics for each file operation:
-
-**Database tables:**
-- `processing_stats`: Core metrics (sizes, track counts, transcode info, timing)
-- `action_results`: Individual action details (track type, before/after state)
-- `performance_metrics`: Per-phase timing data
-
-**Key modules:**
-- `workflow/stats_capture.py`: `StatsCollector` class for capturing metrics during workflow execution
-- `db/views.py`: View queries (`get_stats_summary()`, `get_recent_stats()`, `get_policy_stats()`)
-- `db/types.py`: `ProcessingStatsRecord`, `ActionResultRecord`, `PerformanceMetricsRecord`
-- `cli/stats.py`: CLI commands (`vpo stats summary`, `vpo stats recent`, `vpo stats purge`)
-- `server/ui/routes.py`: REST API endpoints (`/api/stats/*`)
-
-**CLI Commands:**
-```bash
-# View summary statistics
-vpo stats summary --since 7d
-
-# View recent processing history
-vpo stats recent --limit 20
-
-# View per-policy breakdown
-vpo stats policies --since 30d
-
-# View single file history
-vpo stats file 123
-
-# View single record details
-vpo stats detail <stats-id>
-
-# Delete old statistics (purge)
-vpo stats purge --before 90d --dry-run   # Preview
-vpo stats purge --before 90d             # Execute
-vpo stats purge --policy my-policy.yaml  # By policy
-vpo stats purge --all --yes              # Delete all
-```
-
-**REST API Endpoints:**
-- `GET /api/stats/summary` - Aggregate statistics
-- `GET /api/stats/recent` - Recent processing history
-- `GET /api/stats/policies` - Per-policy breakdown
-- `GET /api/stats/policies/{name}` - Single policy stats
-- `GET /api/stats/files/{file_id}` - File processing history
-- `GET /api/stats/{stats_id}` - Single record detail
-- `DELETE /api/stats/purge?before=30d&dry_run=true` - Delete statistics
+VPO captures per-file processing statistics across three database tables (`processing_stats`, `action_results`, `performance_metrics`). Key modules: `workflow/stats_capture.py` (`StatsCollector`), `db/views.py` (aggregate queries), `cli/stats.py` (CLI via `vpo stats`), and `server/ui/routes.py` (REST API at `/api/stats/*`). Use `vpo stats --help` for available subcommands.

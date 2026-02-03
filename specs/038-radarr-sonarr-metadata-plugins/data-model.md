@@ -68,6 +68,22 @@ class RadarrMovie:
     has_file: bool
     imdb_id: str | None
     tmdb_id: int | None
+    # Release dates
+    digital_release: str | None  # digitalRelease from API
+    physical_release: str | None # physicalRelease from API
+    cinema_release: str | None   # inCinemas from API
+    # v1.1.0 fields
+    certification: str | None    # Content rating (PG-13, R, etc.)
+    genres: str | None           # Comma-separated genre list
+    runtime: int | None          # Runtime in minutes
+    status: str | None           # announced/inCinemas/released/deleted
+    collection_name: str | None  # From collection.name
+    studio: str | None           # Studio name
+    rating_tmdb: float | None    # TMDb rating value
+    rating_imdb: float | None    # IMDb rating value
+    popularity: float | None     # Popularity score
+    monitored: bool | None       # Radarr monitoring status
+    tags: str | None             # Comma-separated resolved tag names
 
 
 @dataclass(frozen=True)
@@ -79,6 +95,10 @@ class RadarrMovieFile:
     path: str                    # Full file path
     relative_path: str
     size: int                    # Size in bytes
+    # v1.1.0 fields
+    edition: str | None          # Director's Cut, Extended, etc.
+    release_group: str | None    # Release group identifier
+    scene_name: str | None       # Scene release name
 ```
 
 ### Sonarr Models
@@ -103,6 +123,19 @@ class SonarrSeries:
     original_language: SonarrLanguage | None
     imdb_id: str | None
     tvdb_id: int | None
+    first_aired: str | None      # Series premiere date
+    # v1.1.0 fields
+    certification: str | None    # Content rating (TV-MA, etc.)
+    genres: str | None           # Comma-separated genre list
+    network: str | None          # TV network (HBO, Netflix, etc.)
+    series_type: str | None      # standard/daily/anime
+    runtime: int | None          # Episode runtime in minutes
+    status: str | None           # continuing/ended/upcoming/deleted
+    tvmaze_id: int | None        # TVMaze identifier
+    season_count: int | None     # Number of seasons
+    total_episode_count: int | None  # Total episode count
+    monitored: bool | None       # Sonarr monitoring status
+    tags: str | None             # Comma-separated resolved tag names
 
 
 @dataclass(frozen=True)
@@ -115,6 +148,9 @@ class SonarrEpisode:
     episode_number: int
     title: str
     has_file: bool
+    air_date: str | None         # Episode air date
+    # v1.1.0 fields
+    absolute_episode_number: int | None  # Absolute episode number (anime)
 
 
 @dataclass(frozen=True)
@@ -143,31 +179,58 @@ class MetadataEnrichment:
     external_title: str              # Title from external service
     external_year: int | None        # Year from external service
 
+    # External identifiers
+    imdb_id: str | None = None
+    tmdb_id: int | None = None
+
     # TV-specific fields (Sonarr only)
     series_title: str | None = None
     season_number: int | None = None
     episode_number: int | None = None
     episode_title: str | None = None
+    tvdb_id: int | None = None
+
+    # Release date fields
+    release_date: str | None = None
+    cinema_release: str | None = None
+    digital_release: str | None = None
+    physical_release: str | None = None
+    air_date: str | None = None
+    premiere_date: str | None = None
+
+    # v1.1.0 common fields
+    original_title: str | None = None
+    certification: str | None = None
+    genres: str | None = None
+    runtime: int | None = None
+    status: str | None = None
+    monitored: bool | None = None
+    tags: str | None = None
+    popularity: float | None = None
+
+    # v1.1.0 movie fields (Radarr)
+    collection_name: str | None = None
+    studio: str | None = None
+    rating_tmdb: float | None = None
+    rating_imdb: float | None = None
+    edition: str | None = None
+    release_group: str | None = None
+    scene_name: str | None = None
+
+    # v1.1.0 TV fields (Sonarr)
+    network: str | None = None
+    series_type: str | None = None
+    tvmaze_id: int | None = None
+    season_count: int | None = None
+    total_episode_count: int | None = None
+    absolute_episode_number: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dict for plugin return value."""
-        result = {
-            "original_language": self.original_language,
-            "external_source": self.external_source,
-            "external_id": self.external_id,
-            "external_title": self.external_title,
-            "external_year": self.external_year,
-        }
-        # Add TV fields only if present
-        if self.series_title is not None:
-            result["series_title"] = self.series_title
-        if self.season_number is not None:
-            result["season_number"] = self.season_number
-        if self.episode_number is not None:
-            result["episode_number"] = self.episode_number
-        if self.episode_title is not None:
-            result["episode_title"] = self.episode_title
-        return result
+        """Convert to dict for plugin return value.
+
+        Required fields always included. Optional fields only when non-None.
+        """
+        ...
 ```
 
 ### MatchResult
@@ -201,17 +264,20 @@ class MatchResult:
 ### MovieCache (Radarr)
 
 ```python
+from dataclasses import dataclass, field
+
 @dataclass
 class RadarrCache:
     """Session cache for Radarr API data."""
 
-    movies: dict[int, RadarrMovie]           # movie_id -> movie
-    files: dict[str, RadarrMovieFile]        # file_path -> file
-    path_to_movie: dict[str, int]            # file_path -> movie_id
+    movies: dict[int, RadarrMovie] = field(default_factory=dict)
+    files: dict[str, RadarrMovieFile] = field(default_factory=dict)
+    path_to_movie: dict[str, int] = field(default_factory=dict)
+    tags: dict[int, str] = field(default_factory=dict)
 
     @classmethod
     def empty(cls) -> "RadarrCache":
-        return cls(movies={}, files={}, path_to_movie={})
+        return cls()
 
     def lookup_by_path(self, path: str) -> RadarrMovie | None:
         """Look up movie by file path."""
@@ -219,6 +285,10 @@ class RadarrCache:
         if movie_id is None:
             return None
         return self.movies.get(movie_id)
+
+    def lookup_file_by_path(self, path: str) -> RadarrMovieFile | None:
+        """Look up movie file by normalized file path."""
+        return self.files.get(path)
 ```
 
 ### SeriesCache (Sonarr)
@@ -370,5 +440,11 @@ class SonarrCache:
 ### Path Normalization
 1. Resolve symlinks
 2. Convert to absolute path
-3. Normalize separators to forward slash
-4. Remove trailing slashes
+3. Remove trailing slashes
+
+## Related Docs
+
+- [Plugin Enrichment Contract](contracts/plugin-enrichment.md) — enrichment schema, error handling, and configuration contract
+- [Radarr Metadata Plugin](../../src/vpo/plugins/radarr_metadata/README.md) — user guide for the Radarr plugin
+- [Sonarr Metadata Plugin](../../src/vpo/plugins/sonarr_metadata/README.md) — user guide for the Sonarr plugin
+- [Plugin Development Guide](../../docs/plugins.md) — plugin API reference and SDK usage

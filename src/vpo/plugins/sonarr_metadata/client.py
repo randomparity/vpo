@@ -52,6 +52,7 @@ class SonarrClient:
         self._api_key = config.api_key
         self._timeout = config.timeout_seconds
         self._client: httpx.Client | None = None
+        self._tag_map: dict[int, str] | None = None
 
     def _get_client(self) -> httpx.Client:
         """Get or create HTTP client."""
@@ -76,6 +77,7 @@ class SonarrClient:
         if self._client is not None:
             self._client.close()
             self._client = None
+        self._tag_map = None
 
     def get_status(self) -> dict[str, Any]:
         """Get Sonarr system status.
@@ -125,6 +127,38 @@ class SonarrClient:
         )
         return True
 
+    def get_tags(self) -> dict[int, str]:
+        """Get all tags from Sonarr.
+
+        Returns:
+            Mapping of tag ID to tag label.
+
+        Raises:
+            SonarrConnectionError: If request fails.
+        """
+        client = self._get_client()
+        try:
+            response = client.get("/api/v3/tag")
+            response.raise_for_status()
+            data = response.json()
+            return {t["id"]: t["label"] for t in data if "id" in t and "label" in t}
+        except (httpx.HTTPError, ValueError) as e:
+            raise SonarrConnectionError(f"Failed to get tags: {e}") from e
+
+    def _ensure_tag_map(self) -> dict[int, str]:
+        """Fetch and cache tag map on first use.
+
+        Returns:
+            Mapping of tag ID to tag label.
+        """
+        if self._tag_map is None:
+            try:
+                self._tag_map = self.get_tags()
+            except SonarrConnectionError:
+                logger.warning("Sonarr: failed to fetch tags, continuing without")
+                self._tag_map = {}
+        return self._tag_map
+
     def parse(self, file_path: str) -> SonarrParseResult:
         """Parse a file path to identify series and episodes.
 
@@ -147,7 +181,7 @@ class SonarrClient:
             response.raise_for_status()
             data = response.json()
             return self._parse_parse_result(data)
-        except httpx.HTTPError as e:
+        except (httpx.HTTPError, ValueError) as e:
             raise SonarrConnectionError(f"Failed to parse path: {e}") from e
 
     def _parse_series_response(self, data: dict[str, Any]) -> SonarrSeries:
@@ -176,6 +210,31 @@ class SonarrClient:
         # Parse first aired date
         first_aired = extract_date_from_iso(data.get("firstAired"))
 
+        # Flatten genres array to comma-separated string
+        genres_list = data.get("genres")
+        if genres_list and isinstance(genres_list, list):
+            genres = ", ".join(str(g) for g in genres_list if g is not None)
+            genres = genres or None
+        else:
+            genres = None
+
+        # Resolve tag IDs to names
+        tags = None
+        if tag_ids := data.get("tags"):
+            tag_map = self._ensure_tag_map()
+            tag_names = [tag_map[tid] for tid in tag_ids if tid in tag_map]
+            tags = ", ".join(tag_names) if tag_names else None
+
+        # Statistics may contain season/episode counts
+        season_count = None
+        total_episode_count = None
+        if statistics := data.get("statistics"):
+            season_count = statistics.get("seasonCount")
+            total_episode_count = statistics.get("totalEpisodeCount")
+        # Direct fields take precedence over statistics
+        if data.get("seasonCount") is not None:
+            season_count = data["seasonCount"]
+
         return SonarrSeries(
             id=series_id,
             title=data.get("title", ""),
@@ -185,6 +244,17 @@ class SonarrClient:
             imdb_id=data.get("imdbId"),
             tvdb_id=data.get("tvdbId"),
             first_aired=first_aired,
+            certification=data.get("certification") or None,
+            genres=genres,
+            network=data.get("network") or None,
+            series_type=data.get("seriesType"),
+            runtime=data.get("runtime") or None,
+            status=data.get("status"),
+            tvmaze_id=data.get("tvMazeId"),
+            season_count=season_count,
+            total_episode_count=total_episode_count,
+            monitored=data.get("monitored"),
+            tags=tags,
         )
 
     def _parse_episode_response(self, data: dict[str, Any]) -> SonarrEpisode:
@@ -207,6 +277,7 @@ class SonarrClient:
             title=data.get("title", ""),
             has_file=data.get("hasFile", False),
             air_date=air_date,
+            absolute_episode_number=data.get("absoluteEpisodeNumber"),
         )
 
     def _parse_parse_result(self, data: dict[str, Any]) -> SonarrParseResult:

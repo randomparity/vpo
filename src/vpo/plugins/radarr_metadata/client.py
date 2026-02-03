@@ -123,8 +123,11 @@ class RadarrClient:
         )
         return True
 
-    def get_movies(self) -> list[RadarrMovie]:
+    def get_movies(self, tag_map: dict[int, str] | None = None) -> list[RadarrMovie]:
         """Get all movies from Radarr.
+
+        Args:
+            tag_map: Optional tag ID to label mapping for resolving tag names.
 
         Returns:
             List of RadarrMovie objects.
@@ -137,8 +140,8 @@ class RadarrClient:
             response = client.get("/api/v3/movie")
             response.raise_for_status()
             data = response.json()
-            return [self._parse_movie_response(m) for m in data]
-        except httpx.HTTPError as e:
+            return [self._parse_movie_response(m, tag_map=tag_map) for m in data]
+        except (httpx.HTTPError, ValueError) as e:
             raise RadarrConnectionError(f"Failed to get movies: {e}") from e
 
     def get_movie_files(self) -> list[RadarrMovieFile]:
@@ -156,14 +159,35 @@ class RadarrClient:
             response.raise_for_status()
             data = response.json()
             return [self._parse_movie_file_response(f) for f in data]
-        except httpx.HTTPError as e:
+        except (httpx.HTTPError, ValueError) as e:
             raise RadarrConnectionError(f"Failed to get movie files: {e}") from e
 
-    def _parse_movie_response(self, data: dict[str, Any]) -> RadarrMovie:
+    def get_tags(self) -> dict[int, str]:
+        """Get all tags from Radarr.
+
+        Returns:
+            Mapping of tag ID to tag label.
+
+        Raises:
+            RadarrConnectionError: If request fails.
+        """
+        client = self._get_client()
+        try:
+            response = client.get("/api/v3/tag")
+            response.raise_for_status()
+            data = response.json()
+            return {t["id"]: t["label"] for t in data if "id" in t and "label" in t}
+        except (httpx.HTTPError, ValueError) as e:
+            raise RadarrConnectionError(f"Failed to get tags: {e}") from e
+
+    def _parse_movie_response(
+        self, data: dict[str, Any], tag_map: dict[int, str] | None = None
+    ) -> RadarrMovie:
         """Parse movie JSON response to RadarrMovie.
 
         Args:
             data: Movie JSON object from API.
+            tag_map: Optional tag ID to label mapping for resolving tag names.
 
         Returns:
             RadarrMovie dataclass.
@@ -181,6 +205,36 @@ class RadarrClient:
         physical_release = extract_date_from_iso(data.get("physicalRelease"))
         cinema_release = extract_date_from_iso(data.get("inCinemas"))
 
+        # Flatten genres array to comma-separated string
+        genres_list = data.get("genres")
+        if genres_list and isinstance(genres_list, list):
+            genres = ", ".join(str(g) for g in genres_list if g is not None)
+            genres = genres or None
+        else:
+            genres = None
+
+        # Extract collection name from nested object
+        collection_name = None
+        if collection := data.get("collection"):
+            collection_name = collection.get("name")
+
+        # Flatten nested ratings
+        rating_tmdb = None
+        rating_imdb = None
+        if ratings := data.get("ratings"):
+            if tmdb_rating := ratings.get("tmdb"):
+                rating_tmdb = tmdb_rating.get("value")
+            if imdb_rating := ratings.get("imdb"):
+                rating_imdb = imdb_rating.get("value")
+
+        # Resolve tag IDs to names
+        tags = None
+        if tag_map and (tag_ids := data.get("tags")):
+            tag_names = [tag_map[tid] for tid in tag_ids if tid in tag_map]
+            tags = ", ".join(tag_names) if tag_names else None
+
+        monitored = data.get("monitored")
+
         return RadarrMovie(
             id=data["id"],
             title=data.get("title", ""),
@@ -194,6 +248,17 @@ class RadarrClient:
             digital_release=digital_release,
             physical_release=physical_release,
             cinema_release=cinema_release,
+            certification=data.get("certification") or None,
+            genres=genres,
+            runtime=data.get("runtime") or None,
+            status=data.get("status"),
+            collection_name=collection_name,
+            studio=data.get("studio") or None,
+            rating_tmdb=rating_tmdb,
+            rating_imdb=rating_imdb,
+            popularity=data.get("popularity"),
+            monitored=monitored,
+            tags=tags,
         )
 
     def _parse_movie_file_response(self, data: dict[str, Any]) -> RadarrMovieFile:
@@ -211,24 +276,36 @@ class RadarrClient:
             path=data.get("path", ""),
             relative_path=data.get("relativePath", ""),
             size=data.get("size", 0),
+            edition=data.get("edition") or None,
+            release_group=data.get("releaseGroup") or None,
+            scene_name=data.get("sceneName") or None,
         )
 
     def build_cache(self) -> RadarrCache:
         """Build session cache from Radarr API.
 
-        Fetches all movies and movie files, builds path-to-movie index.
+        Fetches tags, movies, and movie files, builds path-to-movie index.
 
         Returns:
-            RadarrCache with movies, files, and path index.
+            RadarrCache with movies, files, tags, and path index.
 
         Raises:
             RadarrConnectionError: If API requests fail.
         """
         logger.debug("Building Radarr cache...")
-        movies = self.get_movies()
+
+        # Fetch tags first (graceful on failure)
+        tag_map: dict[int, str] = {}
+        try:
+            tag_map = self.get_tags()
+        except RadarrConnectionError:
+            logger.warning("Radarr: failed to fetch tags, continuing without")
+
+        movies = self.get_movies(tag_map=tag_map)
         files = self.get_movie_files()
 
         cache = RadarrCache.empty()
+        cache.tags = tag_map
 
         # Index movies by ID
         for movie in movies:
@@ -241,8 +318,9 @@ class RadarrClient:
             cache.path_to_movie[normalized_path] = file.movie_id
 
         logger.info(
-            "Radarr cache built: %d movies, %d files",
+            "Radarr cache built: %d movies, %d files, %d tags",
             len(cache.movies),
             len(cache.files),
+            len(cache.tags),
         )
         return cache
