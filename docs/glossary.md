@@ -3,6 +3,18 @@
 **Purpose:**
 Definitions of key terms, codecs, and technical terminology used throughout VPO documentation and codebase. This guide helps novices understand media processing concepts.
 
+**Contents:**
+- [VPO Concepts](#vpo-concepts)
+- [Video Codecs](#video-codecs)
+- [Audio Codecs](#audio-codecs)
+- [Subtitle Codecs](#subtitle-codecs)
+- [Video Processing Terms](#video-processing-terms)
+- [Audio Processing Terms](#audio-processing-terms)
+- [Container & Muxing Terms](#container--muxing-terms)
+- [External Tools](#external-tools)
+- [Hardware Acceleration](#hardware-acceleration)
+- [Abbreviations](#abbreviations)
+
 ---
 
 ## VPO Concepts
