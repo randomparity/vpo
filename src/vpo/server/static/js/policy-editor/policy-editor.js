@@ -199,7 +199,9 @@ function announceToScreenReader(message) {
         set_first_video_default: document.getElementById('set_first_video_default'),
         set_preferred_audio_default: document.getElementById('set_preferred_audio_default'),
         set_preferred_subtitle_default: document.getElementById('set_preferred_subtitle_default'),
-        clear_other_defaults: document.getElementById('clear_other_defaults')
+        clear_other_defaults: document.getElementById('clear_other_defaults'),
+        set_subtitle_default_when_audio_differs: document.getElementById('set_subtitle_default_when_audio_differs'),
+        set_subtitle_forced_when_audio_differs: document.getElementById('set_subtitle_forced_when_audio_differs')
     }
 
     // Preferred audio codec input
