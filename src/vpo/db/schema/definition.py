@@ -7,7 +7,7 @@ used by the VPO database.
 
 import sqlite3
 
-SCHEMA_VERSION = 26
+SCHEMA_VERSION = 27
 
 SCHEMA_SQL = """
 -- Schema version tracking
@@ -36,7 +36,9 @@ CREATE TABLE IF NOT EXISTS files (
     -- queries filtering by plugin name require full table scan. For large
     -- libraries (100K+ files), consider: (1) generated column for common
     -- plugin names, or (2) application-level caching. Current scale acceptable.
-    plugin_metadata TEXT
+    plugin_metadata TEXT,
+    -- JSON: container-level metadata tags from format.tags (keys lowercase)
+    container_tags TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_files_directory ON files(directory);

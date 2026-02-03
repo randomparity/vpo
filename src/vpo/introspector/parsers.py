@@ -234,6 +234,46 @@ def parse_streams(
     return tracks, warnings
 
 
+_MAX_TAG_VALUE_LENGTH = 4096
+
+
+def _parse_container_tags(
+    tags: dict,
+    file_path: str | None = None,
+) -> dict[str, str] | None:
+    """Parse and sanitize container-level metadata tags.
+
+    Args:
+        tags: Raw tags dict from ffprobe format.tags.
+        file_path: Optional file path for context in warning messages.
+
+    Returns:
+        Dict of lowercase key → sanitized string value, or None if no tags.
+    """
+    if not tags:
+        return None
+
+    result: dict[str, str] = {}
+    for key, value in tags.items():
+        if not isinstance(value, str):
+            value = str(value)
+        sanitized = sanitize_string(value)
+        if sanitized is None:
+            continue
+        if len(sanitized) > _MAX_TAG_VALUE_LENGTH:
+            logger.warning(
+                "Container tag %r truncated from %d to %d chars in %s",
+                key,
+                len(sanitized),
+                _MAX_TAG_VALUE_LENGTH,
+                file_path or "unknown",
+            )
+            sanitized = sanitized[:_MAX_TAG_VALUE_LENGTH]
+        result[key.lower()] = sanitized
+
+    return result if result else None
+
+
 def parse_ffprobe_output(
     path: Path,
     data: dict,
@@ -253,6 +293,9 @@ def parse_ffprobe_output(
     # Container duration (used as fallback for streams without duration)
     container_duration = parse_duration(format_info.get("duration"))
 
+    # Extract container-level metadata tags
+    container_tags = _parse_container_tags(format_info.get("tags", {}), str(path))
+
     # Parse streams
     streams = data.get("streams", [])
     tracks, warnings = parse_streams(streams, container_duration, str(path))
@@ -265,4 +308,5 @@ def parse_ffprobe_output(
         container_format=container_format,
         tracks=tracks,
         warnings=warnings,
+        container_tags=container_tags,
     )

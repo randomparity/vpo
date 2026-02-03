@@ -613,6 +613,18 @@ class ScannerOrchestrator:
                     scanned.hash_error, introspection_error
                 )
 
+                # Serialize container tags if present
+                container_tags_json = None
+                if (
+                    introspection_result is not None
+                    and introspection_result.container_tags
+                ):
+                    import json
+
+                    container_tags_json = json.dumps(
+                        introspection_result.container_tags
+                    )
+
                 record = FileRecord(
                     id=None,
                     path=scanned.path,
@@ -627,6 +639,7 @@ class ScannerOrchestrator:
                     scan_status=scan_status,
                     scan_error=scan_error,
                     job_id=job_id,
+                    container_tags=container_tags_json,
                 )
 
                 file_id = upsert_file(conn, record)

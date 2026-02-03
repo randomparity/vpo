@@ -63,6 +63,7 @@ def _row_to_file_record(row: sqlite3.Row) -> FileRecord:
         scan_error=row["scan_error"],
         job_id=row["job_id"],
         plugin_metadata=row["plugin_metadata"],
+        container_tags=row["container_tags"],
     )
 
 

@@ -103,8 +103,8 @@ def v25_conn():
 class TestSchemaVersion:
     """Tests for schema version constants."""
 
-    def test_schema_version_is_26(self):
-        assert SCHEMA_VERSION == 26
+    def test_schema_version_is_27(self):
+        assert SCHEMA_VERSION == 27
 
 
 class TestMigrateV25ToV26:

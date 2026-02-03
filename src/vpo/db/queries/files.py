@@ -39,8 +39,9 @@ def insert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
         INSERT INTO files (
             path, filename, directory, extension, size_bytes,
             modified_at, content_hash, container_format,
-            scanned_at, scan_status, scan_error, job_id, plugin_metadata
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            scanned_at, scan_status, scan_error, job_id, plugin_metadata,
+            container_tags
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             record.path,
@@ -56,6 +57,7 @@ def insert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
             record.scan_error,
             record.job_id,
             record.plugin_metadata,
+            record.container_tags,
         ),
     )
     return cursor.lastrowid
@@ -79,8 +81,9 @@ def upsert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
         INSERT INTO files (
             path, filename, directory, extension, size_bytes,
             modified_at, content_hash, container_format,
-            scanned_at, scan_status, scan_error, job_id, plugin_metadata
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            scanned_at, scan_status, scan_error, job_id, plugin_metadata,
+            container_tags
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(path) DO UPDATE SET
             filename = excluded.filename,
             directory = excluded.directory,
@@ -93,7 +96,8 @@ def upsert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
             scan_status = excluded.scan_status,
             scan_error = excluded.scan_error,
             job_id = COALESCE(files.job_id, excluded.job_id),
-            plugin_metadata = excluded.plugin_metadata
+            plugin_metadata = excluded.plugin_metadata,
+            container_tags = excluded.container_tags
         RETURNING id
         """,
         (
@@ -110,6 +114,7 @@ def upsert_file(conn: sqlite3.Connection, record: FileRecord) -> int:
             record.scan_error,
             record.job_id,
             record.plugin_metadata,
+            record.container_tags,
         ),
     )
     result = cursor.fetchone()
@@ -134,7 +139,8 @@ def get_file_by_path(conn: sqlite3.Connection, path: str) -> FileRecord | None:
         """
         SELECT id, path, filename, directory, extension, size_bytes,
                modified_at, content_hash, container_format,
-               scanned_at, scan_status, scan_error, job_id, plugin_metadata
+               scanned_at, scan_status, scan_error, job_id, plugin_metadata,
+               container_tags
         FROM files WHERE path = ?
         """,
         (path,),
@@ -178,7 +184,8 @@ def get_files_by_paths(
             f"""
             SELECT id, path, filename, directory, extension, size_bytes,
                    modified_at, content_hash, container_format,
-                   scanned_at, scan_status, scan_error, job_id, plugin_metadata
+                   scanned_at, scan_status, scan_error, job_id, plugin_metadata,
+                   container_tags
             FROM files WHERE path IN ({placeholders})
             """,
             tuple(chunk),
@@ -204,7 +211,8 @@ def get_file_by_id(conn: sqlite3.Connection, file_id: int) -> FileRecord | None:
         """
         SELECT id, path, filename, directory, extension, size_bytes,
                modified_at, content_hash, container_format,
-               scanned_at, scan_status, scan_error, job_id, plugin_metadata
+               scanned_at, scan_status, scan_error, job_id, plugin_metadata,
+               container_tags
         FROM files WHERE id = ?
         """,
         (file_id,),
