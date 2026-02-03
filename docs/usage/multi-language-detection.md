@@ -290,7 +290,7 @@ vpo inspect --analyze-languages --json /path/to/movie.mkv
 
 **Solution**: This is expected behavior - no language detection is possible without speech.
 
-## Related Documentation
+## Related docs
 
 - [Conditional Policies](conditional-policies.md) - Using conditions and actions
 - [Policy Editor](policy-editor.md) - Visual policy editing

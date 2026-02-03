@@ -34,7 +34,7 @@ uv run vpo serve --port 8080
 3. Enter a policy name (letters, numbers, dashes, underscores only)
 4. Optionally add a description
 5. Click **Create Policy** to create and open the editor
-6. The new policy is created with schema version 10 and sensible defaults
+6. The new policy is created with schema version 12 and sensible defaults
 
 ## Editor Features
 
@@ -685,12 +685,12 @@ You can edit multiple policies in separate browser tabs, but:
 - Add comments to unknown fields (always preserved)
 - Re-add comments manually after UI edits if needed
 
-## Related Documentation
+## Related docs
 
 - [V11 Migration Guide](v11-migration.md) - Upgrading from V10 to V11 policies
-- [Policy Schema Reference](../reference/policy-schema.md)
-- [Policy Loader Documentation](../design/policy-loader.md)
-- [Web UI Overview](../overview/web-ui.md)
+- [Policies Guide](policies.md) - General policy configuration
+- [Conditional Policies](conditional-policies.md) - Conditional rules
+- [Transcode Policy](transcode-policy.md) - Transcoding settings
 
 ## Support
 

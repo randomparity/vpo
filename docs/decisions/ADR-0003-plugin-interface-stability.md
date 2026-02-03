@@ -1,10 +1,8 @@
 # ADR-0003: Plugin Interface Stability
 
-**Status:** Proposed
-**Date:** TBD
+**Status:** Accepted
+**Date:** 2026-02-03
 **Decision Makers:** Project maintainers
-
-> **Note:** This ADR is a placeholder for a future decision. The plugin system has not yet been implemented.
 
 ---
 

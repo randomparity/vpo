@@ -114,7 +114,7 @@ A warning will be logged at startup when authentication is disabled.
 4. **Strong tokens** - Use long, random tokens (e.g., `openssl rand -hex 32`)
 5. **Network isolation** - Deploy on private networks when possible
 
-## Related Documentation
+## Related docs
 
 - [Configuration](configuration.md) - General VPO configuration
 - [CLI Usage](cli-usage.md) - Command-line interface reference

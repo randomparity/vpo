@@ -7,7 +7,7 @@ This document explains how to use conditional logic in VPO policies to make smar
 
 ## Overview
 
-Schema version 4 introduces conditional rules that let you apply different actions based on file properties. This enables a single policy to handle multiple scenarios without needing separate policy files.
+VPO supports conditional rules in V12 policies that let you apply different actions based on file properties. This enables a single policy to handle multiple scenarios without needing separate policy files.
 
 **Key capabilities:**
 - Check for track existence (e.g., "does English audio exist?")
@@ -16,6 +16,18 @@ Schema version 4 introduces conditional rules that let you apply different actio
 - Compare numeric properties (resolution, channel count)
 - Skip processing when unnecessary
 - Generate warnings or halt processing
+
+**Contents:**
+- [Policy Schema Version](#policy-schema-version)
+- [Conditional Rule Structure](#conditional-rule-structure)
+- [Condition Types](#condition-types)
+- [Boolean Operators](#boolean-operators)
+- [Actions](#actions)
+- [Rule Evaluation](#rule-evaluation)
+- [Complete Examples](#complete-examples)
+- [Dry-Run Output](#dry-run-output)
+- [Error Handling](#error-handling)
+- [Best Practices](#best-practices)
 
 ---
 

@@ -887,7 +887,7 @@ Source: [Library of Congress ISO 639-2 Code List](https://www.loc.gov/standards/
 
 ---
 
-## Related Docs
+## Related docs
 
 - [Design: Policy Editor](/docs/design/design-policy-editor.md) *(planned)*
 - [Usage: Policy Authoring](/docs/usage/policy-authoring.md) *(planned)*

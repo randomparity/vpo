@@ -70,6 +70,9 @@ Docs focused on tasks and workflows: how to run the tools, configure them, and p
 - [usage/workflows.md](usage/workflows.md)
   End-to-end workflows for scanning libraries and inspecting files.
 
+- [usage/policy-editor.md](usage/policy-editor.md)
+  Visual policy editor: web-based interface for creating and modifying policy files.
+
 - [plugins.md](plugins.md)
   Plugin API reference: events, base classes, versioning, and SDK usage.
 
@@ -106,10 +109,10 @@ Use these when changing behavior or adding new subsystems.
 - [design/design-media-scanner.md](design/design-media-scanner.md)
   How the directory scanner works: discovery rules, file filters, incremental re-scans, and Rust/Python architecture.
 
-- [design/design-policy-engine.md](design/design-policy-engine.md) *(planned feature)*
+- [design/design-policy-engine.md](design/design-policy-engine.md)
   Policy representation, evaluation order, idempotence, and conflict resolution rules.
 
-- [design/design-plugins.md](design/design-plugins.md) *(planned feature)*
+- [design/design-plugins.md](design/design-plugins.md)
   Plugin architecture: interfaces, lifecycle, versioning, and compatibility guarantees.
 
 - [Plugin Enrichment Contract](../specs/038-radarr-sonarr-metadata-plugins/contracts/plugin-enrichment.md)
@@ -118,10 +121,22 @@ Use these when changing behavior or adding new subsystems.
 - [design/design-language-code-input-ux.md](design/design-language-code-input-ux.md)
   UX patterns for ISO 639-2 language code input: autocomplete vs. dropdown, reorderable list patterns, and accessibility guidelines.
 
+- [design/LANGUAGE-INPUT-RESEARCH-SUMMARY.md](design/LANGUAGE-INPUT-RESEARCH-SUMMARY.md)
+  Research summary for language input UX patterns and library evaluations.
+
+- [design/LANGUAGE-INPUT-IMPLEMENTATION-GUIDE.md](design/LANGUAGE-INPUT-IMPLEMENTATION-GUIDE.md)
+  Implementation guide for the language code input component.
+
+- [design/LANGUAGE-INPUT-SUMMARY.md](design/LANGUAGE-INPUT-SUMMARY.md)
+  Design summary for the language input component.
+
+- [design/LANGUAGE-INPUT-README.md](design/LANGUAGE-INPUT-README.md)
+  README for the language input design artifacts.
+
 - [internals/error-handling.md](internals/error-handling.md)
   Error classification, custom exceptions, exit codes, and error reporting patterns.
 
-- [internals/logging-and-metrics.md](internals/logging-and-metrics.md) *(planned feature)*
+- [internals/logging-and-metrics.md](internals/logging-and-metrics.md)
   Logging format (structured logs), log fields, and metrics for monitoring batch runs.
 
 - [internals/time-and-timezones.md](internals/time-and-timezones.md)
@@ -136,14 +151,17 @@ Each ADR file documents a single decision: context, options, decision, and conse
 - [decisions/ADR-0001-utc-everywhere.md](decisions/ADR-0001-utc-everywhere.md)
   Store all timestamps as timezone-aware UTC, with local-time conversion only at the edges.
 
-- [decisions/ADR-0002-policy-schema-versioning.md](decisions/ADR-0002-policy-schema-versioning.md) *(proposed)*
+- [decisions/ADR-0002-policy-schema-versioning.md](decisions/ADR-0002-policy-schema-versioning.md)
   Versioned policy schema and migration approach when semantics change.
 
-- [decisions/ADR-0003-plugin-interface-stability.md](decisions/ADR-0003-plugin-interface-stability.md) *(proposed)*
+- [decisions/ADR-0003-plugin-interface-stability.md](decisions/ADR-0003-plugin-interface-stability.md)
   Guarantees and expectations for plugin interface changes and version bumps.
 
 - [decisions/ADR-0004-conditional-policy-schema.md](decisions/ADR-0004-conditional-policy-schema.md)
   Design decisions for conditional policy rules: if/then/else structure, condition types, and actions.
+
+- [decisions/vanilla-js-state-management-research.md](decisions/vanilla-js-state-management-research.md)
+  Research on vanilla JavaScript state management patterns for the web UI.
 
 > **When adding a new ADR:**
 > - Use the filename pattern: `ADR-####-short-title.md`

@@ -266,6 +266,6 @@ Files are created with UTF-8 encoding. Parent directories are created if they do
 
 ## Related docs
 
-- [Jobs System](jobs.md) - Background job processing
-- [Scanning](scanning.md) - Library scanning operations
-- [Policy System](policy.md) - Policy definitions and application
+- [Jobs System](usage/jobs.md) - Background job processing
+- [Scanning](usage/workflows.md) - Library scanning operations
+- [Policy System](usage/policies.md) - Policy definitions and application

@@ -237,7 +237,7 @@ Different VPO features require different tools:
 
 If a required tool is missing, VPO will report an error with installation instructions.
 
-## Related Docs
+## Related docs
 
 - [Configuration Guide](configuration.md) - Full configuration reference
 - [CLI Usage](cli-usage.md) - Command reference

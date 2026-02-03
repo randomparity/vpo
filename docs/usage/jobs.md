@@ -251,20 +251,20 @@ vpo jobs start --cpu-cores 4
 
 ## Configuration
 
-Default worker settings in `~/.vpo/config.yaml`:
+Default worker settings in `~/.vpo/config.toml`:
 
-```yaml
-jobs:
-  retention_days: 30      # Days to keep completed jobs
-  auto_purge: true        # Purge old jobs on worker start
-  temp_directory: null    # Temp dir for transcoding (null = source dir)
-  backup_original: true   # Keep backup of original files
+```toml
+[jobs]
+retention_days = 30        # Days to keep completed jobs
+auto_purge = true          # Purge old jobs on worker start
+# temp_directory = "/tmp"  # Temp dir for transcoding (default: source dir)
+backup_original = true     # Keep backup of original files
 
-worker:
-  max_files: null         # No limit by default
-  max_duration: null      # No limit by default
-  end_by: null            # No deadline by default
-  cpu_cores: null         # Use all cores by default
+[worker]
+# max_files = 100          # No limit by default
+# max_duration = "4h"      # No limit by default
+# end_by = "06:00"         # No deadline by default
+# cpu_cores = 4            # Use all cores by default
 ```
 
 ## Monitoring Progress
@@ -344,7 +344,7 @@ This resets stale running jobs to `queued` for reprocessing.
 
 5. **Backup originals**: Enable `backup_original` in config for safety
 
-## Related Docs
+## Related docs
 
 - [Transcode Policy](transcode-policy.md) - Configuring transcoding settings
 - [CLI Usage](cli-usage.md) - Command reference

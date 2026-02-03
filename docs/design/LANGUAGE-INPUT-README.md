@@ -332,7 +332,7 @@ Common issues:
 
 ---
 
-## Related Documentation
+## Related docs
 
 In the VPO project:
 - [`/docs/overview/architecture.md`](../overview/architecture.md) - System architecture

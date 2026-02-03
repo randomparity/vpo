@@ -341,9 +341,24 @@ vpo library duplicates --limit 10 --json
 
 ---
 
+## Additional Commands
+
+The following commands are documented in their dedicated guides:
+
+- **`vpo serve`** — Start the web UI daemon. See [Daemon Mode](../daemon-mode.md).
+- **`vpo doctor`** — Check external tool availability. See [External Tools](external-tools.md).
+- **`vpo stats`** — View processing statistics. See [Reports](../reports.md).
+- **`vpo policy`** — Manage and apply policies. See [Policies](policies.md).
+- **`vpo jobs`** — View and manage background jobs. See [Jobs](jobs.md).
+- **`vpo report`** — Generate reports. See [Reports](../reports.md).
+- **`vpo profiles`** — Manage configuration profiles. See [Configuration](configuration.md).
+- **`vpo classify`** — Classify audio tracks. See [Workflows](workflows.md).
+
+---
+
 ## Environment Variables
 
-VPO does not currently use environment variables for configuration. All options are specified via command-line flags.
+VPO supports environment variables for some settings. See [Configuration](configuration.md) for details.
 
 ---
 

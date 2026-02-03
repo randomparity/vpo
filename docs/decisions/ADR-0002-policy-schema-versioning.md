@@ -1,10 +1,8 @@
 # ADR-0002: Policy Schema Versioning
 
-**Status:** Proposed
-**Date:** TBD
+**Status:** Accepted
+**Date:** 2026-02-03
 **Decision Makers:** Project maintainers
-
-> **Note:** This ADR is a placeholder for a future decision. The policy engine has not yet been implemented.
 
 ---
 
