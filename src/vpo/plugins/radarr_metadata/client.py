@@ -141,7 +141,7 @@ class RadarrClient:
             response.raise_for_status()
             data = response.json()
             return [self._parse_movie_response(m, tag_map=tag_map) for m in data]
-        except httpx.HTTPError as e:
+        except (httpx.HTTPError, ValueError) as e:
             raise RadarrConnectionError(f"Failed to get movies: {e}") from e
 
     def get_movie_files(self) -> list[RadarrMovieFile]:
@@ -159,7 +159,7 @@ class RadarrClient:
             response.raise_for_status()
             data = response.json()
             return [self._parse_movie_file_response(f) for f in data]
-        except httpx.HTTPError as e:
+        except (httpx.HTTPError, ValueError) as e:
             raise RadarrConnectionError(f"Failed to get movie files: {e}") from e
 
     def get_tags(self) -> dict[int, str]:
@@ -177,7 +177,7 @@ class RadarrClient:
             response.raise_for_status()
             data = response.json()
             return {t["id"]: t["label"] for t in data if "id" in t and "label" in t}
-        except httpx.HTTPError as e:
+        except (httpx.HTTPError, ValueError) as e:
             raise RadarrConnectionError(f"Failed to get tags: {e}") from e
 
     def _parse_movie_response(
@@ -207,7 +207,11 @@ class RadarrClient:
 
         # Flatten genres array to comma-separated string
         genres_list = data.get("genres")
-        genres = ", ".join(genres_list) if genres_list else None
+        if genres_list and isinstance(genres_list, list):
+            genres = ", ".join(str(g) for g in genres_list if g is not None)
+            genres = genres or None
+        else:
+            genres = None
 
         # Extract collection name from nested object
         collection_name = None
@@ -229,7 +233,6 @@ class RadarrClient:
             tag_names = [tag_map[tid] for tid in tag_ids if tid in tag_map]
             tags = ", ".join(tag_names) if tag_names else None
 
-        # monitored field
         monitored = data.get("monitored")
 
         return RadarrMovie(
@@ -247,7 +250,7 @@ class RadarrClient:
             cinema_release=cinema_release,
             certification=data.get("certification") or None,
             genres=genres,
-            runtime=data.get("runtime"),
+            runtime=data.get("runtime") or None,
             status=data.get("status"),
             collection_name=collection_name,
             studio=data.get("studio") or None,
