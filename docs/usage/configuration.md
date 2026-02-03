@@ -195,15 +195,6 @@ vpo doctor --refresh
 
 ---
 
-## Planned Configuration
-
-Future releases may include:
-
-- **Policy files:** YAML/JSON files defining library organization rules
-- **Plugin directories:** Custom paths for loading extension plugins
-
----
-
 ## Related docs
 
 - [Documentation Index](../INDEX.md)

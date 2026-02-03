@@ -13,6 +13,8 @@ VPO uses SQLite for all persistent storage. The database is located at `~/.vpo/l
 - Track information
 - Schema versioning metadata
 
+> **Note:** This document covers the foundational schema design. The schema is now at version 20 with additional tables for jobs, plans, processing stats, transcriptions, and plugin metadata. See [`src/vpo/db/schema.py`](../../src/vpo/db/schema.py) for the current schema definition.
+
 ---
 
 ## ER Diagram

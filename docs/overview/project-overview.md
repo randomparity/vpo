@@ -94,7 +94,7 @@ Extensible via plugins:
 
 ## Out of Scope (Initial Release)
 
-- GUI interface (CLI only)
+- Native desktop GUI (web UI is available via `vpo serve`)
 - Cloud storage integration
 - Real-time file monitoring
 - Multi-user collaboration features
@@ -106,4 +106,4 @@ Extensible via plugins:
 - [Documentation Index](../INDEX.md)
 - [Architecture Overview](architecture.md)
 - [Data Model](data-model.md)
-- [CLI Usage](../usage/cli-usage.md) *(planned)*
+- [CLI Usage](../usage/cli-usage.md)
