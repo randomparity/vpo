@@ -32,6 +32,9 @@ export function initContainerSection(policyData, onUpdate) {
         onUpdate(getConfig())
     }
 
+    // preserve_metadata checkbox
+    const preserveMetadataCheckbox = document.getElementById('container-preserve-metadata')
+
     function getConfig() {
         if (!targetSelect.value) {
             return null
@@ -43,6 +46,10 @@ export function initContainerSection(policyData, onUpdate) {
 
         if (onIncompatibleSelect && onIncompatibleSelect.value && onIncompatibleSelect.value !== 'error') {
             config.on_incompatible_codec = onIncompatibleSelect.value
+        }
+
+        if (preserveMetadataCheckbox && !preserveMetadataCheckbox.checked) {
+            config.preserve_metadata = false
         }
 
         return config
@@ -68,6 +75,10 @@ export function initContainerSection(policyData, onUpdate) {
             onIncompatibleSelect.value = 'error'
         }
 
+        if (preserveMetadataCheckbox) {
+            preserveMetadataCheckbox.checked = containerConfig?.preserve_metadata !== false
+        }
+
         updateVisibility()
     }
 
@@ -79,6 +90,10 @@ export function initContainerSection(policyData, onUpdate) {
 
     if (onIncompatibleSelect) {
         onIncompatibleSelect.addEventListener('change', notifyUpdate)
+    }
+
+    if (preserveMetadataCheckbox) {
+        preserveMetadataCheckbox.addEventListener('change', notifyUpdate)
     }
 
     // Set initial values
