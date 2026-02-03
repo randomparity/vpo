@@ -273,10 +273,10 @@ class ContainerConfig:
     """
 
     preserve_metadata: bool = True
-    """If True, preserve portable container-level metadata tags during
-    container conversion. Tags like title, date, comment are carried
-    to the target container. Format-specific tags (encoder, muxing_app)
-    are not preserved as they will be set by the new muxer.
+    """If True, copy all source metadata via ``-map_metadata 0`` during
+    container conversion. FFmpeg will overwrite format-specific tags like
+    ``encoder`` but other source-specific tags (e.g., ``MUXING_APP``) may
+    carry through to the target container.
     """
 
 

@@ -74,6 +74,8 @@ def evaluate_policy(
             Required for plugin_metadata conditions.
         classification_results: Optional dict mapping track_id to
             TrackClassificationResult. Required for is_original/is_dubbed conditions.
+        container_tags: Optional dict of container-level metadata tags
+            (key → value). Required for container_metadata conditions.
 
     Returns:
         Plan describing all changes needed to make tracks conform to policy.

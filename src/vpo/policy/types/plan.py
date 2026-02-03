@@ -260,7 +260,12 @@ class ContainerChange:
 
 @dataclass(frozen=True)
 class PlannedAction:
-    """A single planned change. Immutable."""
+    """A single planned change. Immutable.
+
+    Note: For SET_CONTAINER_METADATA actions, ``current_value`` stores the
+    metadata field name (not the actual current value) and ``desired_value``
+    stores the new value to set. An empty ``desired_value`` means clear/delete.
+    """
 
     action_type: ActionType
     track_index: int | None  # None for REORDER (file-level action)

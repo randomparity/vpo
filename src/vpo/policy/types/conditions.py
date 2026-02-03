@@ -193,8 +193,8 @@ class ContainerMetadataCondition:
         when:
           container_metadata:
             field: title
-            value: ".*720p.*"
-            operator: contains
+            value: "720p"
+            operator: contains  # substring match, not regex
 
         when:
           container_metadata:
