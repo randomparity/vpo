@@ -177,31 +177,14 @@ vpo library optimize --yes
 
 ---
 
-## Planned Workflows
+## Policy and Job Workflows
 
-The following workflows will be available once the policy engine is implemented:
+For workflows involving policy application and job management, see:
 
-### Preview Policy Changes (Dry Run)
-
-```bash
-# NOT YET IMPLEMENTED
-vpo policy run --dry-run --policy normalize-tracks.yaml /media/movies
-```
-
-### Apply Policies to Library
-
-```bash
-# NOT YET IMPLEMENTED
-vpo policy run --policy normalize-tracks.yaml /media/movies
-```
-
-### View and Manage Jobs
-
-```bash
-# NOT YET IMPLEMENTED
-vpo jobs list
-vpo jobs status <job-id>
-```
+- [Policies Guide](policies.md) — defining and applying policies
+- [Jobs Guide](jobs.md) — viewing and managing background jobs
+- [Transcode Policies](transcode-policy.md) — video and audio transcoding workflows
+- [Conditional Policies](conditional-policies.md) — conditional rules and phased execution
 
 ---
 

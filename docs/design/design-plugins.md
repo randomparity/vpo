@@ -3,7 +3,7 @@
 **Purpose:**
 This document describes the design of VPO's plugin system for extending functionality.
 
-> **Status:** This feature is planned but not yet implemented. This document captures the intended design.
+> **Status:** Implemented (Plugin API v1.1.0). See [Plugin Author Guide](../plugin-author-guide.md) for current usage.
 
 ---
 

@@ -3,7 +3,7 @@
 **Purpose:**
 This document describes the design of VPO's policy engine for defining and applying library organization rules.
 
-> **Status:** This feature is planned but not yet implemented. This document captures the intended design.
+> **Status:** Implemented (V12 schema). See [Policies Guide](../usage/policies.md) for current usage.
 
 ---
 
