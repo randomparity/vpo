@@ -77,6 +77,7 @@ class SonarrClient:
         if self._client is not None:
             self._client.close()
             self._client = None
+        self._tag_map = None
 
     def get_status(self) -> dict[str, Any]:
         """Get Sonarr system status.
@@ -141,7 +142,7 @@ class SonarrClient:
             response.raise_for_status()
             data = response.json()
             return {t["id"]: t["label"] for t in data if "id" in t and "label" in t}
-        except httpx.HTTPError as e:
+        except (httpx.HTTPError, ValueError) as e:
             raise SonarrConnectionError(f"Failed to get tags: {e}") from e
 
     def _ensure_tag_map(self) -> dict[int, str]:
@@ -180,7 +181,7 @@ class SonarrClient:
             response.raise_for_status()
             data = response.json()
             return self._parse_parse_result(data)
-        except httpx.HTTPError as e:
+        except (httpx.HTTPError, ValueError) as e:
             raise SonarrConnectionError(f"Failed to parse path: {e}") from e
 
     def _parse_series_response(self, data: dict[str, Any]) -> SonarrSeries:
@@ -211,7 +212,11 @@ class SonarrClient:
 
         # Flatten genres array to comma-separated string
         genres_list = data.get("genres")
-        genres = ", ".join(genres_list) if genres_list else None
+        if genres_list and isinstance(genres_list, list):
+            genres = ", ".join(str(g) for g in genres_list if g is not None)
+            genres = genres or None
+        else:
+            genres = None
 
         # Resolve tag IDs to names
         tags = None
@@ -243,7 +248,7 @@ class SonarrClient:
             genres=genres,
             network=data.get("network") or None,
             series_type=data.get("seriesType"),
-            runtime=data.get("runtime"),
+            runtime=data.get("runtime") or None,
             status=data.get("status"),
             tvmaze_id=data.get("tvMazeId"),
             season_count=season_count,
