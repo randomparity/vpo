@@ -37,7 +37,7 @@ class SonarrMetadataPlugin:
     """
 
     name: str = "sonarr-metadata"
-    version: str = "1.0.0"
+    version: str = "1.1.0"
     events: tuple[str, ...] = ("file.scanned",)
 
     def __init__(self, config: PluginConnectionConfig) -> None:
@@ -178,6 +178,22 @@ class SonarrMetadataPlugin:
             release_date=release_date,
             air_date=episode_air_date,
             premiere_date=premiere_date,
+            # v1.1.0 series fields
+            certification=series.certification if series else None,
+            genres=series.genres if series else None,
+            runtime=series.runtime if series else None,
+            status=series.status if series else None,
+            monitored=series.monitored if series else None,
+            tags=series.tags if series else None,
+            network=series.network if series else None,
+            series_type=series.series_type if series else None,
+            tvmaze_id=series.tvmaze_id if series else None,
+            season_count=series.season_count if series else None,
+            total_episode_count=series.total_episode_count if series else None,
+            # v1.1.0 episode fields
+            absolute_episode_number=(
+                episode.absolute_episode_number if episode else None
+            ),
         )
 
     def on_policy_evaluate(self, event: Any) -> None:

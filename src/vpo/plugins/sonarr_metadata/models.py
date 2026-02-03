@@ -30,6 +30,18 @@ class SonarrSeries:
     tvdb_id: int | None = None
     # Release date (ISO 8601 format from Sonarr API)
     first_aired: str | None = None  # firstAired from API (series premiere)
+    # v1.1.0 fields
+    certification: str | None = None
+    genres: str | None = None  # Comma-separated
+    network: str | None = None  # TV network (HBO, Netflix, etc.)
+    series_type: str | None = None  # standard/daily/anime
+    runtime: int | None = None  # Episode runtime in minutes
+    status: str | None = None  # continuing/ended/upcoming/deleted
+    tvmaze_id: int | None = None
+    season_count: int | None = None
+    total_episode_count: int | None = None
+    monitored: bool | None = None
+    tags: str | None = None  # Comma-separated tag names (resolved)
 
 
 @dataclass(frozen=True)
@@ -44,6 +56,8 @@ class SonarrEpisode:
     has_file: bool = False
     # Air date (ISO 8601 format from Sonarr API)
     air_date: str | None = None  # airDate from API (episode air date)
+    # v1.1.0 fields
+    absolute_episode_number: int | None = None
 
 
 @dataclass(frozen=True)
