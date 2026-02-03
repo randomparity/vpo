@@ -106,17 +106,77 @@ class TestResolveContainerMetadataValue:
 
         assert result is None
 
-    def test_non_string_value_converted(self) -> None:
-        """Non-string action value is converted to string."""
+    def test_static_string_value_returned(self) -> None:
+        """Static string value is returned as-is."""
         action = SetContainerMetadataAction(
             field="year",
-            value=2024,
+            value="2024",
         )
         context = ActionContext(file_path=Path("/test/video.mkv"), rule_name="test")
 
         result = _resolve_container_metadata_value(action, context)
 
         assert result == "2024"
+
+    def test_plugin_resolved_value_sanitized(self) -> None:
+        """Plugin-resolved values are sanitized."""
+        action = SetContainerMetadataAction(
+            field="title",
+            value=None,
+            from_plugin_metadata=PluginMetadataReference(
+                plugin="radarr", field="title"
+            ),
+        )
+        context = ActionContext(
+            file_path=Path("/test/video.mkv"),
+            rule_name="test",
+            plugin_metadata={"radarr": {"title": "  Good Title  "}},
+        )
+
+        result = _resolve_container_metadata_value(action, context)
+
+        assert result is not None
+        assert "Good Title" in result
+
+    def test_plugin_resolved_value_truncated_when_too_long(self) -> None:
+        """Plugin-resolved values exceeding max length are truncated."""
+        long_value = "x" * 5000
+        action = SetContainerMetadataAction(
+            field="title",
+            value=None,
+            from_plugin_metadata=PluginMetadataReference(
+                plugin="radarr", field="title"
+            ),
+        )
+        context = ActionContext(
+            file_path=Path("/test/video.mkv"),
+            rule_name="test",
+            plugin_metadata={"radarr": {"title": long_value}},
+        )
+
+        result = _resolve_container_metadata_value(action, context)
+
+        assert result is not None
+        assert len(result) == 4096
+
+    def test_plugin_resolved_none_field_value_returns_none(self) -> None:
+        """Plugin-resolved value that is None returns None."""
+        action = SetContainerMetadataAction(
+            field="title",
+            value=None,
+            from_plugin_metadata=PluginMetadataReference(
+                plugin="radarr", field="title"
+            ),
+        )
+        context = ActionContext(
+            file_path=Path("/test/video.mkv"),
+            rule_name="test",
+            plugin_metadata={"radarr": {"title": None}},
+        )
+
+        result = _resolve_container_metadata_value(action, context)
+
+        assert result is None
 
 
 class TestExecuteSetContainerMetadataAction:

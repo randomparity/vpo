@@ -121,9 +121,17 @@ class SetContainerMetadataActionModel(BaseModel):
     @classmethod
     def validate_field_name(cls, v: str) -> str:
         """Validate and normalize field name to lowercase."""
-        if not v or not v.strip():
+        import re
+
+        v = v.strip()
+        if not v:
             raise ValueError("field name cannot be empty")
-        return v.strip().casefold()
+        if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]{0,63}$", v):
+            raise ValueError(
+                f"Invalid field name '{v}': must start with a letter, "
+                "contain only letters/digits/underscores, and be 1-64 characters"
+            )
+        return v.casefold()
 
     @model_validator(mode="after")
     def validate_value_source(self) -> "SetContainerMetadataActionModel":

@@ -250,7 +250,7 @@ def evaluate_policy(
             # Idempotency: compare current tag value with desired
             current_value = None
             if container_tags is not None:
-                current_value = container_tags.get(change.field.lower())
+                current_value = container_tags.get(change.field.casefold())
             # Skip if already set to desired value
             if current_value == change.new_value:
                 continue
@@ -261,8 +261,9 @@ def evaluate_policy(
                 PlannedAction(
                     action_type=ActionType.SET_CONTAINER_METADATA,
                     track_index=None,
-                    current_value=change.field,
+                    current_value=current_value,
                     desired_value=change.new_value,
+                    container_field=change.field,
                 )
             )
 

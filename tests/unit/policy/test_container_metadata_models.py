@@ -98,6 +98,42 @@ class TestContainerMetadataConditionModel:
         )
         assert model.field == "title"
 
+    def test_field_name_starting_with_digit_raises(self) -> None:
+        """Field name starting with digit is rejected."""
+        with pytest.raises(ValidationError, match="Invalid field name"):
+            ContainerMetadataConditionModel(
+                field="123bad",
+                value="test",
+                operator="eq",
+            )
+
+    def test_field_name_with_spaces_raises(self) -> None:
+        """Field name with spaces is rejected."""
+        with pytest.raises(ValidationError, match="Invalid field name"):
+            ContainerMetadataConditionModel(
+                field="foo bar",
+                value="test",
+                operator="eq",
+            )
+
+    def test_field_name_too_long_raises(self) -> None:
+        """Field name exceeding 64 characters is rejected."""
+        with pytest.raises(ValidationError, match="Invalid field name"):
+            ContainerMetadataConditionModel(
+                field="x" * 65,
+                value="test",
+                operator="eq",
+            )
+
+    def test_field_name_with_special_chars_raises(self) -> None:
+        """Field name with special characters is rejected."""
+        with pytest.raises(ValidationError, match="Invalid field name"):
+            ContainerMetadataConditionModel(
+                field="field=evil",
+                value="test",
+                operator="eq",
+            )
+
 
 class TestSetContainerMetadataActionModel:
     """Tests for SetContainerMetadataActionModel validation."""
@@ -158,6 +194,22 @@ class TestSetContainerMetadataActionModel:
             value="test",
         )
         assert model.field == "title"
+
+    def test_field_name_starting_with_digit_raises(self) -> None:
+        """Field name starting with digit is rejected."""
+        with pytest.raises(ValidationError, match="Invalid field name"):
+            SetContainerMetadataActionModel(
+                field="123bad",
+                value="test",
+            )
+
+    def test_field_name_with_special_chars_raises(self) -> None:
+        """Field name with special characters is rejected."""
+        with pytest.raises(ValidationError, match="Invalid field name"):
+            SetContainerMetadataActionModel(
+                field="field=evil",
+                value="test",
+            )
 
 
 class TestConvertContainerMetadataCondition:

@@ -31,6 +31,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from vpo.introspector.parsers import sanitize_string
 from vpo.language import languages_match
 from vpo.policy.exceptions import ConditionalFailError
 from vpo.policy.types import (
@@ -440,14 +441,6 @@ def _resolve_container_metadata_value(
         The resolved value string, or None if not available.
     """
     if action.value is not None:
-        if not isinstance(action.value, str):
-            logger.warning(
-                "set_container_metadata: value for field '%s' is %s, "
-                "converting to string",
-                action.field,
-                type(action.value).__name__,
-            )
-            return str(action.value)
         return action.value
 
     if action.from_plugin_metadata is not None:
@@ -494,7 +487,26 @@ def _resolve_container_metadata_value(
             )
             return None
 
-        return str(field_value)
+        resolved = str(field_value)
+        sanitized = sanitize_string(resolved)
+        if sanitized is None:
+            logger.warning(
+                "set_container_metadata: plugin-resolved value for field '%s' "
+                "was empty after sanitization, skipping",
+                action.field,
+            )
+            return None
+        max_value_length = 4096
+        if len(sanitized) > max_value_length:
+            logger.warning(
+                "set_container_metadata: plugin-resolved value for field '%s' "
+                "(%d chars) exceeds max length %d, truncating",
+                action.field,
+                len(sanitized),
+                max_value_length,
+            )
+            sanitized = sanitized[:max_value_length]
+        return sanitized
 
     return None
 
