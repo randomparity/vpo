@@ -122,9 +122,9 @@ class FileRecord:
         if info.plugin_metadata:
             plugin_metadata_json = json.dumps(info.plugin_metadata)
 
-        container_tags_json: str | None = None
-        if info.container_tags is not None:
-            container_tags_json = json.dumps(info.container_tags)
+        from vpo.db.queries.helpers import serialize_container_tags
+
+        container_tags_json = serialize_container_tags(info.container_tags)
 
         return cls(
             id=None,

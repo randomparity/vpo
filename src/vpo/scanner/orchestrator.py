@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import signal
 import sqlite3
@@ -615,21 +614,16 @@ class ScannerOrchestrator:
                 )
 
                 # Serialize container tags if present
+                from vpo.db.queries.helpers import serialize_container_tags
+
                 container_tags_json = None
                 if (
                     introspection_result is not None
                     and introspection_result.container_tags
                 ):
-                    try:
-                        container_tags_json = json.dumps(
-                            introspection_result.container_tags
-                        )
-                    except (TypeError, ValueError) as e:
-                        logger.error(
-                            "Failed to serialize container_tags for %s: %s",
-                            scanned.path,
-                            e,
-                        )
+                    container_tags_json = serialize_container_tags(
+                        introspection_result.container_tags
+                    )
 
                 record = FileRecord(
                     id=None,

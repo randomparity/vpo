@@ -271,15 +271,9 @@ def build_file_detail_item(
     )
 
     # Parse container_tags JSON
-    container_tags_result = parse_json_safe(
-        file_record.container_tags,
-        context=f"container_tags for file {file_record.id}",
-    )
-    container_tags = (
-        container_tags_result.value
-        if isinstance(container_tags_result.value, dict)
-        else None
-    )
+    from vpo.db.queries.helpers import deserialize_container_tags
+
+    container_tags = deserialize_container_tags(file_record.container_tags)
 
     # Parse plugin_metadata JSON
     plugin_result = parse_json_safe(
