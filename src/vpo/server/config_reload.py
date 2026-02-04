@@ -9,6 +9,7 @@ Hot-Reloadable:
 - worker.* - max_files, max_duration, end_by, cpu_cores
 - processing.workers - worker count for batch operations
 - logging.level - can update dynamically
+- server.rate_limit.* - applied to RateLimiter immediately
 - transcription.* - read per request
 - language.*, behavior.* - read per operation
 
@@ -33,6 +34,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from vpo.config.models import VPOConfig
+    from vpo.server.rate_limit import RateLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -43,10 +45,6 @@ REQUIRES_RESTART_FIELDS = frozenset(
         "server.bind",
         "server.port",
         "server.auth_token",
-        "server.rate_limit.enabled",
-        "server.rate_limit.get_max_requests",
-        "server.rate_limit.mutate_max_requests",
-        "server.rate_limit.window_seconds",
         "database_path",
         "tools.ffmpeg",
         "tools.ffprobe",
@@ -261,6 +259,15 @@ class ConfigReloader:
         self._config_path = config_path
         self._current_config: VPOConfig | None = None
         self._reload_lock = asyncio.Lock()
+        self._rate_limiter: RateLimiter | None = None
+
+    def set_rate_limiter(self, rate_limiter: RateLimiter) -> None:
+        """Set the rate limiter instance for dynamic reconfiguration.
+
+        Args:
+            rate_limiter: RateLimiter to reconfigure on reload.
+        """
+        self._rate_limiter = rate_limiter
 
     def set_current_config(self, config: VPOConfig) -> None:
         """Set the current configuration snapshot.
@@ -411,3 +418,11 @@ class ConfigReloader:
                     logger.warning("Invalid log level '%s', not updating", new_level)
             except Exception as e:
                 logger.error("Failed to update log level: %s", e)
+
+        # Update rate limiter if any rate_limit fields changed
+        rate_limit_fields = [f for f in changes if f.startswith("server.rate_limit.")]
+        if rate_limit_fields and self._rate_limiter is not None:
+            try:
+                self._rate_limiter.reconfigure(new_config.server.rate_limit)
+            except Exception as e:
+                logger.error("Failed to update rate limiter: %s", e)

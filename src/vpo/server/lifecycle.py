@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from vpo.config.models import VPOConfig
     from vpo.server.config_reload import ReloadResult, ReloadState
+    from vpo.server.rate_limit import RateLimiter
 
 
 @dataclass
@@ -106,6 +107,16 @@ class DaemonLifecycle:
             config_path=self.config_path,
         )
         self._config_reloader.set_current_config(config)
+
+    def set_rate_limiter(self, rate_limiter: RateLimiter) -> None:
+        """Pass the rate limiter to the config reloader for hot-reload.
+
+        Args:
+            rate_limiter: RateLimiter instance to reconfigure on SIGHUP.
+        """
+        if not hasattr(self, "_config_reloader"):
+            return
+        self._config_reloader.set_rate_limiter(rate_limiter)
 
     @property
     def reload_state(self) -> ReloadState | None:

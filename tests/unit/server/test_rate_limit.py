@@ -234,6 +234,69 @@ class TestRateLimiter:
         assert "1.2.3.4" in limiter._get_counters
 
 
+class TestRateLimiterReconfigure:
+    """Tests for RateLimiter.reconfigure()."""
+
+    def test_reconfigured_limits_take_effect(self) -> None:
+        """New limits should apply to subsequent check() calls."""
+        limiter = RateLimiter(RateLimitConfig(get_max_requests=2))
+
+        # Exhaust the original limit
+        assert limiter.check("1.2.3.4", "GET", "/api/files")[0] is True
+        assert limiter.check("1.2.3.4", "GET", "/api/files")[0] is True
+        assert limiter.check("1.2.3.4", "GET", "/api/files")[0] is False
+
+        # Reconfigure with a higher limit
+        limiter.reconfigure(RateLimitConfig(get_max_requests=10))
+
+        # Previously blocked IP should now be allowed (only 2 in window, limit is 10)
+        assert limiter.check("1.2.3.4", "GET", "/api/files")[0] is True
+
+    def test_reconfigure_preserves_existing_counters(self) -> None:
+        """Per-IP counters should survive reconfiguration."""
+        limiter = RateLimiter(RateLimitConfig(get_max_requests=5))
+
+        # Record 3 requests
+        for _ in range(3):
+            limiter.check("1.2.3.4", "GET", "/api/files")
+
+        # Reconfigure with same limit
+        limiter.reconfigure(RateLimitConfig(get_max_requests=5))
+
+        # Should only allow 2 more (3 already recorded)
+        assert limiter.check("1.2.3.4", "GET", "/api/files")[0] is True
+        assert limiter.check("1.2.3.4", "GET", "/api/files")[0] is True
+        assert limiter.check("1.2.3.4", "GET", "/api/files")[0] is False
+
+    def test_reconfigure_disable_bypasses_checks(self) -> None:
+        """Disabling via reconfigure should allow all requests."""
+        limiter = RateLimiter(RateLimitConfig(get_max_requests=1))
+
+        # Exhaust the limit
+        limiter.check("1.2.3.4", "GET", "/api/files")
+        assert limiter.check("1.2.3.4", "GET", "/api/files")[0] is False
+
+        # Disable via reconfigure
+        limiter.reconfigure(RateLimitConfig(enabled=False))
+
+        # All requests should now pass
+        for _ in range(10):
+            assert limiter.check("1.2.3.4", "GET", "/api/files")[0] is True
+
+    def test_reconfigure_tighter_limit_blocks_immediately(self) -> None:
+        """Lowering the limit should block IPs that already exceed it."""
+        limiter = RateLimiter(RateLimitConfig(get_max_requests=10))
+
+        # Record 5 requests
+        for _ in range(5):
+            limiter.check("1.2.3.4", "GET", "/api/files")
+
+        # Reconfigure with a limit of 3 (already have 5 in window)
+        limiter.reconfigure(RateLimitConfig(get_max_requests=3))
+
+        assert limiter.check("1.2.3.4", "GET", "/api/files")[0] is False
+
+
 class TestRateLimitMiddleware:
     """Tests for _rate_limit_middleware."""
 

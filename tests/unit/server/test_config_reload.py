@@ -11,6 +11,7 @@ from vpo.config.models import (
     JobsConfig,
     LoggingConfig,
     ProcessingConfig,
+    RateLimitConfig,
     ServerConfig,
     ToolPathsConfig,
     VPOConfig,
@@ -207,6 +208,13 @@ class TestRequiresRestartFields:
         assert "tools.ffprobe" in REQUIRES_RESTART_FIELDS
         assert "tools.mkvmerge" in REQUIRES_RESTART_FIELDS
         assert "tools.mkvpropedit" in REQUIRES_RESTART_FIELDS
+
+    def test_rate_limit_fields_not_in_requires_restart(self) -> None:
+        """Test that rate limit fields are hot-reloadable."""
+        assert "server.rate_limit.enabled" not in REQUIRES_RESTART_FIELDS
+        assert "server.rate_limit.get_max_requests" not in REQUIRES_RESTART_FIELDS
+        assert "server.rate_limit.mutate_max_requests" not in REQUIRES_RESTART_FIELDS
+        assert "server.rate_limit.window_seconds" not in REQUIRES_RESTART_FIELDS
 
     def test_jobs_config_not_in_requires_restart(self) -> None:
         """Test that jobs config fields are hot-reloadable."""
@@ -529,3 +537,82 @@ class TestConfigReloader:
         assert result.success is False
         assert "RuntimeError" in result.error
         assert "Something went wrong" in result.error
+
+    @pytest.mark.asyncio
+    async def test_reload_applies_rate_limit_changes(self) -> None:
+        """Test that rate limit config changes are applied dynamically."""
+        from vpo.server.rate_limit import RateLimiter
+
+        state = ReloadState()
+        reloader = ConfigReloader(state)
+        rate_limiter = RateLimiter(RateLimitConfig(get_max_requests=100))
+        reloader.set_rate_limiter(rate_limiter)
+
+        old_config = VPOConfig(
+            server=ServerConfig(rate_limit=RateLimitConfig(get_max_requests=100))
+        )
+        new_config = VPOConfig(
+            server=ServerConfig(rate_limit=RateLimitConfig(get_max_requests=50))
+        )
+        reloader.set_current_config(old_config)
+
+        with patch("vpo.config.loader.get_config", return_value=new_config):
+            with patch("vpo.config.loader.clear_config_cache"):
+                result = await reloader.reload()
+
+        assert result.success is True
+        assert "server.rate_limit.get_max_requests" in result.changes
+        assert "server.rate_limit.get_max_requests" not in result.requires_restart
+        # Rate limiter should have the new config
+        assert rate_limiter._config.get_max_requests == 50
+
+    @pytest.mark.asyncio
+    async def test_reload_calls_reconfigure_on_rate_limiter(self) -> None:
+        """Test that reconfigure() is called on the rate limiter during reload."""
+        from unittest.mock import MagicMock
+
+        from vpo.server.rate_limit import RateLimiter
+
+        state = ReloadState()
+        reloader = ConfigReloader(state)
+
+        rate_limiter = RateLimiter(RateLimitConfig())
+        rate_limiter.reconfigure = MagicMock()  # type: ignore[assignment]
+        reloader.set_rate_limiter(rate_limiter)
+
+        old_config = VPOConfig(
+            server=ServerConfig(rate_limit=RateLimitConfig(enabled=True))
+        )
+        new_config = VPOConfig(
+            server=ServerConfig(rate_limit=RateLimitConfig(enabled=False))
+        )
+        reloader.set_current_config(old_config)
+
+        with patch("vpo.config.loader.get_config", return_value=new_config):
+            with patch("vpo.config.loader.clear_config_cache"):
+                await reloader.reload()
+
+        rate_limiter.reconfigure.assert_called_once_with(new_config.server.rate_limit)
+
+    @pytest.mark.asyncio
+    async def test_reload_skips_rate_limiter_when_not_set(self) -> None:
+        """Test that reload works when no rate limiter is wired up."""
+        state = ReloadState()
+        reloader = ConfigReloader(state)
+        # Don't call set_rate_limiter
+
+        old_config = VPOConfig(
+            server=ServerConfig(rate_limit=RateLimitConfig(enabled=True))
+        )
+        new_config = VPOConfig(
+            server=ServerConfig(rate_limit=RateLimitConfig(enabled=False))
+        )
+        reloader.set_current_config(old_config)
+
+        with patch("vpo.config.loader.get_config", return_value=new_config):
+            with patch("vpo.config.loader.clear_config_cache"):
+                result = await reloader.reload()
+
+        # Should succeed without error even though no rate limiter set
+        assert result.success is True
+        assert "server.rate_limit.enabled" in result.changes

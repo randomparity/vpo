@@ -118,6 +118,7 @@ async def run_server(
     # Create the application with database path for connection pooling
     app = create_app(db_path=db_path, auth_token=auth_token)
     app["lifecycle"] = lifecycle
+    lifecycle.set_rate_limiter(app["rate_limiter"])
 
     # Validate and store profile name (must be alphanumeric with - or _)
     validated_profile = profile_name or "Default"
