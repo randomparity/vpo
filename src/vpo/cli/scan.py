@@ -1,7 +1,9 @@
 """Scan command for VPO CLI."""
 
 import json
+import os
 import sys
+import time
 from pathlib import Path
 
 import click
@@ -75,14 +77,17 @@ class ProgressDisplay:
         self._write(f"Scanning... {processed:,}/{total:,} ({files_per_sec:,}/sec)")
 
     def on_language_progress(
-        self, processed: int, total: int, current_file: str
+        self, processed: int, total: int, current_file: str, files_per_sec: int
     ) -> None:
-        """Called during language analysis with progress counts."""
+        """Called during language analysis with progress counts and rate."""
         if self._phase != "language":
             self._finish_line()
             self._phase = "language"
         current_file = truncate_filename(current_file, 40)
-        self._write(f"Analyzing languages... {processed:,}/{total:,} [{current_file}]")
+        self._write(
+            f"Analyzing languages... {processed:,}/{total:,} "
+            f"({files_per_sec:,}/sec) [{current_file}]"
+        )
 
     def finish(self) -> None:
         """Finish all progress display."""
@@ -104,20 +109,23 @@ def validate_directories(ctx, param, value):
 
 
 def _run_language_analysis(
-    conn,
     files,
     progress: ProgressDisplay,
     verbose: bool,
     json_output: bool,
+    *,
+    db_path: Path,
+    workers: int = 1,
 ) -> dict:
     """Run language analysis on scanned files with audio tracks.
 
     Args:
-        conn: Database connection.
         files: List of ScannedFile objects.
         progress: Progress display object.
         verbose: Whether to show verbose output.
         json_output: Whether output is in JSON mode.
+        db_path: Path to the database file.
+        workers: Number of parallel workers (1 = sequential).
 
     Returns:
         Dictionary with 'analyzed', 'skipped', 'errors' counts.
@@ -126,70 +134,190 @@ def _run_language_analysis(
         get_file_by_path,
         get_tracks_for_file,
     )
-    from vpo.language_analysis.orchestrator import (
-        AnalysisProgress,
-    )
+    from vpo.db.connection import get_connection
 
     stats = {"analyzed": 0, "skipped": 0, "errors": 0}
-
-    # Create orchestrator with plugin registry for transcription
     registry = get_default_registry()
-    orchestrator = LanguageAnalysisOrchestrator(plugin_registry=registry)
-
-    # Track progress across all files
     total_files = len(files)
-    files_processed = 0
+    start_time = time.monotonic()
 
-    for scanned_file in files:
-        file_record = get_file_by_path(conn, scanned_file.path)
-        if file_record is None or file_record.id is None:
-            continue
-
-        track_records = get_tracks_for_file(conn, file_record.id)
-        file_path = Path(scanned_file.path)
-
-        # Update progress display
-        files_processed += 1
-        progress.on_language_progress(files_processed, total_files, file_path.name)
-
-        # Progress callback for verbose output
-        def on_track_progress(p: AnalysisProgress) -> None:
-            if not verbose or json_output:
-                return
-            if p.status == "cached" and p.result:
-                click.echo(
-                    f"  Track {p.track_index}: {p.result.classification.value} (cached)"
-                )
-            elif p.status == "analyzed" and p.result:
-                click.echo(
-                    f"  Track {p.track_index}: {p.result.classification.value} "
-                    f"({p.result.primary_language} {p.result.primary_percentage:.0%})"
-                )
-
-        result = orchestrator.analyze_tracks_for_file(
-            conn=conn,
-            file_record=file_record,
-            track_records=track_records,
-            file_path=file_path,
-            progress_callback=on_track_progress if verbose else None,
+    if workers <= 1:
+        return _run_language_analysis_sequential(
+            files,
+            progress,
+            verbose,
+            json_output,
+            db_path=db_path,
+            registry=registry,
+            total_files=total_files,
+            start_time=start_time,
         )
 
-        # Check if transcriber is available (only need to check once)
-        if not result.transcriber_available:
-            warning_output(
-                "Transcription plugin unavailable or lacks multi-language support. "
-                "Language analysis skipped.",
-                json_output=json_output,
+    # Parallel processing with ThreadPoolExecutor
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def analyze_single_file(scanned_file):
+        """Worker function for parallel language analysis."""
+        file_stats = {
+            "analyzed": 0,
+            "skipped": 0,
+            "errors": 0,
+            "transcriber_available": True,
+        }
+        with get_connection(db_path) as worker_conn:
+            file_record = get_file_by_path(worker_conn, scanned_file.path)
+            if file_record is None or file_record.id is None:
+                return file_stats
+
+            track_records = get_tracks_for_file(worker_conn, file_record.id)
+            file_path = Path(scanned_file.path)
+            orchestrator = LanguageAnalysisOrchestrator(plugin_registry=registry)
+            result = orchestrator.analyze_tracks_for_file(
+                conn=worker_conn,
+                file_record=file_record,
+                track_records=track_records,
+                file_path=file_path,
             )
-            return stats
 
-        # Accumulate stats
-        stats["analyzed"] += result.analyzed
-        stats["skipped"] += result.skipped + result.cached
-        stats["errors"] += result.errors
+            file_stats["transcriber_available"] = result.transcriber_available
+            file_stats["analyzed"] = result.analyzed
+            file_stats["skipped"] = result.skipped + result.cached
+            file_stats["errors"] = result.errors
 
-    # Commit any persisted results
-    conn.commit()
+            if result.analyzed > 0:
+                worker_conn.commit()
+
+        return file_stats
+
+    files_completed = 0
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {}
+        for scanned_file in files:
+            future = executor.submit(analyze_single_file, scanned_file)
+            futures[future] = scanned_file
+
+        for future in as_completed(futures):
+            scanned_file = futures[future]
+            files_completed += 1
+            elapsed = time.monotonic() - start_time
+            rate = int(files_completed / elapsed) if elapsed > 0 else 0
+            progress.on_language_progress(
+                files_completed,
+                total_files,
+                Path(scanned_file.path).name,
+                rate,
+            )
+
+            try:
+                file_result = future.result()
+            except Exception:
+                stats["errors"] += 1
+                continue
+
+            if not file_result["transcriber_available"]:
+                for f in futures:
+                    f.cancel()
+                warning_output(
+                    "Transcription plugin unavailable or lacks multi-language "
+                    "support. Language analysis skipped.",
+                    json_output=json_output,
+                )
+                return stats
+
+            stats["analyzed"] += file_result["analyzed"]
+            stats["skipped"] += file_result["skipped"]
+            stats["errors"] += file_result["errors"]
+
+    return stats
+
+
+def _run_language_analysis_sequential(
+    files,
+    progress: ProgressDisplay,
+    verbose: bool,
+    json_output: bool,
+    *,
+    db_path: Path,
+    registry,
+    total_files: int,
+    start_time: float,
+) -> dict:
+    """Sequential language analysis with verbose per-track output.
+
+    Separated from the parallel path to keep verbose per-track callbacks
+    (which are not thread-safe) available in single-worker mode.
+    """
+    from vpo.db import (
+        get_file_by_path,
+        get_tracks_for_file,
+    )
+    from vpo.db.connection import get_connection
+    from vpo.language_analysis.orchestrator import AnalysisProgress
+
+    stats = {"analyzed": 0, "skipped": 0, "errors": 0}
+    files_processed = 0
+
+    with get_connection(db_path) as conn:
+        orchestrator = LanguageAnalysisOrchestrator(plugin_registry=registry)
+
+        for scanned_file in files:
+            file_record = get_file_by_path(conn, scanned_file.path)
+            if file_record is None or file_record.id is None:
+                continue
+
+            track_records = get_tracks_for_file(conn, file_record.id)
+            file_path = Path(scanned_file.path)
+
+            # Show which file is being analyzed with rate from completed files
+            elapsed = time.monotonic() - start_time
+            rate = (
+                int(files_processed / elapsed)
+                if elapsed > 0 and files_processed > 0
+                else 0
+            )
+            progress.on_language_progress(
+                files_processed + 1, total_files, file_path.name, rate
+            )
+
+            # Progress callback for verbose output
+            def on_track_progress(p: AnalysisProgress) -> None:
+                if not verbose or json_output:
+                    return
+                if p.status == "cached" and p.result:
+                    click.echo(
+                        f"  Track {p.track_index}: "
+                        f"{p.result.classification.value} (cached)"
+                    )
+                elif p.status == "analyzed" and p.result:
+                    click.echo(
+                        f"  Track {p.track_index}: "
+                        f"{p.result.classification.value} "
+                        f"({p.result.primary_language} "
+                        f"{p.result.primary_percentage:.0%})"
+                    )
+
+            result = orchestrator.analyze_tracks_for_file(
+                conn=conn,
+                file_record=file_record,
+                track_records=track_records,
+                file_path=file_path,
+                progress_callback=on_track_progress if verbose else None,
+            )
+
+            if not result.transcriber_available:
+                warning_output(
+                    "Transcription plugin unavailable or lacks multi-language "
+                    "support. Language analysis skipped.",
+                    json_output=json_output,
+                )
+                return stats
+
+            stats["analyzed"] += result.analyzed
+            stats["skipped"] += result.skipped + result.cached
+            stats["errors"] += result.errors
+            files_processed += 1
+
+        conn.commit()
 
     return stats
 
@@ -262,6 +390,12 @@ def _run_language_analysis(
     help="Output results in JSON format.",
 )
 @click.option(
+    "--workers",
+    type=click.IntRange(min=1),
+    default=None,
+    help="Number of parallel workers for language analysis. Default: from config.",
+)
+@click.option(
     "--analyze-languages",
     is_flag=True,
     default=False,
@@ -278,6 +412,7 @@ def scan(
     dry_run: bool,
     verbose: bool,
     json_output: bool,
+    workers: int | None,
     analyze_languages: bool,
 ) -> None:
     """Scan directories for video files.
@@ -386,12 +521,27 @@ def scan(
                     # Run language analysis if requested
                     language_stats = {"analyzed": 0, "skipped": 0, "errors": 0}
                     if analyze_languages and not result.interrupted:
+                        # Resolve worker count from CLI or config
+                        from vpo.config import get_config
+
+                        config = get_config()
+                        max_w = max(1, (os.cpu_count() or 2) // 2)
+                        effective_workers = min(
+                            max(
+                                1,
+                                workers
+                                if workers is not None
+                                else config.processing.workers,
+                            ),
+                            max_w,
+                        )
                         language_stats = _run_language_analysis(
-                            conn,
                             files,
                             progress,
                             verbose,
                             json_output,
+                            db_path=effective_db_path,
+                            workers=effective_workers,
                         )
 
                     # job_id is already set in result by scan_and_persist
