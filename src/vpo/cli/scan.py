@@ -1,13 +1,19 @@
 """Scan command for VPO CLI."""
 
+from __future__ import annotations
+
 import json
 import logging
 import os
 import sys
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
+
+if TYPE_CHECKING:
+    from vpo.plugin import PluginRegistry
 
 from vpo.cli.exit_codes import ExitCode
 from vpo.cli.output import warning_output
@@ -144,7 +150,7 @@ def _resolve_language_workers(requested: int | None, config_default: int) -> int
 def _analyze_file_language(
     scanned_file,
     db_path: Path,
-    registry,
+    registry: PluginRegistry,
 ) -> dict:
     """Analyze language for a single file. Thread-safe worker function.
 
@@ -297,7 +303,7 @@ def _run_language_analysis_sequential(
     json_output: bool,
     *,
     db_path: Path,
-    registry,
+    registry: PluginRegistry,
     total_files: int,
     start_time: float,
 ) -> dict:
@@ -375,6 +381,10 @@ def _run_language_analysis_sequential(
             stats["skipped"] += result.skipped + result.cached
             stats["errors"] += result.errors
             files_processed += 1
+
+            # Checkpoint every 100 files so progress survives interruption
+            if files_processed % 100 == 0:
+                conn.commit()
 
         conn.commit()
 
