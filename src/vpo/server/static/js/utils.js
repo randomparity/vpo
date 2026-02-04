@@ -138,23 +138,58 @@
     }
 
     /**
+     * Show visual feedback on a copy button after a clipboard operation.
+     *
+     * @param {HTMLElement} buttonEl - Button element for visual feedback
+     * @param {boolean} success - Whether the copy succeeded
+     */
+    function showCopyFeedback(buttonEl, success) {
+        if (!buttonEl) return
+        var originalLabel = buttonEl.getAttribute('aria-label')
+        buttonEl.classList.add(success ? 'btn-copy--copied' : 'btn-copy--failed')
+        buttonEl.setAttribute('aria-label', success ? 'Copied!' : 'Copy failed')
+        var statusEl = document.getElementById('copy-status')
+        if (statusEl) {
+            statusEl.textContent = success ? 'Copied to clipboard' : 'Copy failed'
+        }
+        clearTimeout(buttonEl._copyTimeout)
+        buttonEl._copyTimeout = setTimeout(function () {
+            buttonEl.classList.remove('btn-copy--copied', 'btn-copy--failed')
+            buttonEl.setAttribute('aria-label', originalLabel || '')
+            if (statusEl) {
+                statusEl.textContent = ''
+            }
+        }, 1500)
+    }
+
+    /**
      * Copy text to clipboard and show brief visual feedback on the button.
+     * Falls back to execCommand for non-secure contexts (HTTP).
      *
      * @param {string} text - Text to copy
      * @param {HTMLElement} [buttonEl] - Button element for visual feedback
      */
     function copyToClipboard(text, buttonEl) {
-        if (!navigator.clipboard) return
+        if (!navigator.clipboard) {
+            try {
+                var textarea = document.createElement('textarea')
+                textarea.value = text
+                textarea.style.position = 'fixed'
+                textarea.style.opacity = '0'
+                document.body.appendChild(textarea)
+                textarea.select()
+                document.execCommand('copy')
+                document.body.removeChild(textarea)
+                showCopyFeedback(buttonEl, true)
+            } catch {
+                showCopyFeedback(buttonEl, false)
+            }
+            return
+        }
         navigator.clipboard.writeText(text).then(function () {
-            if (!buttonEl) return
-            buttonEl.classList.add('btn-copy--copied')
-            buttonEl.setAttribute('aria-label', 'Copied!')
-            setTimeout(function () {
-                buttonEl.classList.remove('btn-copy--copied')
-                buttonEl.setAttribute('aria-label', 'Copy job ID to clipboard')
-            }, 1500)
+            showCopyFeedback(buttonEl, true)
         }).catch(function () {
-            // Silent failure — clipboard API may be blocked in some contexts
+            showCopyFeedback(buttonEl, false)
         })
     }
 
