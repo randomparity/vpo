@@ -1,6 +1,8 @@
 # Simple HEVC Transcoding Policy (V12)
 # Minimal single-phase policy for video transcoding
 schema_version: 12
+name: Simple HEVC Transcode
+description: Single-phase HEVC transcoding capped at 1080p with sensible defaults.
 
 config:
   on_error: skip

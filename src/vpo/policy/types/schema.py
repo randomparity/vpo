@@ -400,6 +400,9 @@ class PolicySchema:
     phases: tuple[PhaseDefinition, ...]
     """Ordered list of named phases."""
 
+    name: str | None = None
+    """Optional display name for UI presentation."""
+
     description: str | None = None
     """Optional policy description for documentation purposes."""
 

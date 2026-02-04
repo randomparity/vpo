@@ -15,6 +15,25 @@
         return _formatDuration(seconds, { fractionalSeconds: true })
     }
 
+    /**
+     * Extract a friendly policy display name from a policy_name value.
+     * For old stats that stored full paths, extracts the filename stem.
+     * For new stats that store the display name directly, returns as-is.
+     * @param {string|null} policyName - The raw policy_name from stats data
+     * @returns {string|null} A user-friendly display name
+     */
+    function extractPolicyDisplayName(policyName) {
+        if (!policyName) return null
+        // If it looks like a file path (contains / or \), extract the stem
+        if (policyName.includes('/') || policyName.includes('\\')) {
+            var parts = policyName.replace(/\\/g, '/').split('/')
+            var filename = parts[parts.length - 1] || policyName
+            // Remove .yaml or .yml extension
+            return filename.replace(/\.(ya?ml)$/i, '')
+        }
+        return policyName
+    }
+
     // State management
     const state = {
         timeFilter: '7d',
@@ -441,7 +460,7 @@
                 .slice(0, 5)
                 .map(function (p) {
                     return {
-                        label: p.policy_name || 'Unknown',
+                        label: extractPolicyDisplayName(p.policy_name) || 'Unknown',
                         value: p.total_size_saved,
                         color: p.total_size_saved > 0 ? window.VPOCharts.CHART_COLORS.success : window.VPOCharts.CHART_COLORS.muted
                     }
@@ -509,7 +528,8 @@
 
             // Policy
             var policyCell = document.createElement('td')
-            policyCell.textContent = entry.policy_name || '-'
+            policyCell.textContent = extractPolicyDisplayName(entry.policy_name) || '-'
+            policyCell.title = entry.policy_name || ''
             policyCell.classList.add('stats-policy-cell')
             row.appendChild(policyCell)
 
@@ -575,7 +595,8 @@
 
             // Policy name
             var nameCell = document.createElement('td')
-            nameCell.textContent = policy.policy_name || '-'
+            nameCell.textContent = extractPolicyDisplayName(policy.policy_name) || '-'
+            nameCell.title = policy.policy_name || ''
             nameCell.classList.add('stats-policy-cell')
             row.appendChild(nameCell)
 

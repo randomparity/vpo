@@ -11,6 +11,10 @@
 # Usage:
 #   vpo policy run -p sonarr-metadata.yaml /path/to/tv/ --dry-run
 schema_version: 12
+name: Sonarr TV Pipeline
+description: >-
+  Metadata-driven TV processing using Sonarr for anime detection,
+  subtitle forcing, and smart transcoding with per-episode timestamps.
 
 config:
   audio_language_preference: [eng, jpn, und]

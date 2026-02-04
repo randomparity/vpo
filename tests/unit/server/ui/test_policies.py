@@ -57,6 +57,7 @@ class TestPolicyListItem:
             file_path="/path/to/test.yaml",
             last_modified="2025-01-01T00:00:00+00:00",
             schema_version=12,
+            display_name="My Test Policy",
             description="Test policy description",
             category="organize",
             audio_languages="eng, jpn",
@@ -74,6 +75,7 @@ class TestPolicyListItem:
         assert d["file_path"] == "/path/to/test.yaml"
         assert d["last_modified"] == "2025-01-01T00:00:00+00:00"
         assert d["schema_version"] == 12
+        assert d["display_name"] == "My Test Policy"
         assert d["description"] == "Test policy description"
         assert d["category"] == "organize"
         assert d["audio_languages"] == "eng, jpn"
@@ -91,6 +93,7 @@ class TestPolicyListItem:
             file_path="/path/broken.yaml",
             last_modified="",
             schema_version=None,
+            display_name=None,
             description=None,
             category=None,
             audio_languages="\u2014",
@@ -123,6 +126,7 @@ class TestPolicyListResponse:
                     file_path="/path/test.yaml",
                     last_modified="2025-01-01T00:00:00+00:00",
                     schema_version=12,
+                    display_name=None,
                     description="Test description",
                     category="organize",
                     audio_languages="eng",

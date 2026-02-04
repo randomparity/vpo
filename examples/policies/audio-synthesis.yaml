@@ -1,6 +1,8 @@
 # Audio Synthesis Policy (V12)
 # Create compatibility audio tracks from lossless sources
 schema_version: 12
+name: Audio Compatibility Tracks
+description: Create AAC stereo and EAC3 5.1 tracks from lossless sources for device compatibility.
 
 config:
   audio_language_preference: [eng, und]

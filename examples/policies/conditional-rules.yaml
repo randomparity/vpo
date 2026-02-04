@@ -1,6 +1,8 @@
 # Conditional Rules Policy (V12)
 # Advanced conditional logic with boolean operators
 schema_version: 12
+name: Smart Conditional Rules
+description: Force subtitles for foreign audio, skip transcode for compliant files, and set track defaults automatically.
 
 config:
   audio_language_preference: [eng, jpn, und]

@@ -10,6 +10,30 @@ import pytest
 
 from vpo.server.ui.models import PolicyEditorRequest
 
+# All optional PolicyEditorRequest fields defaulted to None.
+# Tests merge overrides on top of this to set only the fields they care about.
+_OPTIONAL_NONE = {
+    "transcode": None,
+    "transcription": None,
+    "audio_filter": None,
+    "subtitle_filter": None,
+    "attachment_filter": None,
+    "container": None,
+    "conditional": None,
+    "audio_synthesis": None,
+    "workflow": None,
+    "phases": None,
+    "config": None,
+    "display_name": None,
+    "description": None,
+    "category": None,
+}
+
+
+def _make_request(base_fields, **overrides):
+    """Create a PolicyEditorRequest with optional fields defaulted to None."""
+    return PolicyEditorRequest(**base_fields, **{**_OPTIONAL_NONE, **overrides})
+
 
 class TestPolicyEditorRequestV12:
     """Tests for PolicyEditorRequest V12 support."""
@@ -50,17 +74,8 @@ class TestPolicyEditorRequestV12:
 
     def test_to_policy_dict_v12_with_phases(self, base_fields):
         """Test to_policy_dict produces V12 structure when phases present."""
-        request = PolicyEditorRequest(
-            **base_fields,
-            transcode=None,
-            transcription=None,
-            audio_filter=None,
-            subtitle_filter=None,
-            attachment_filter=None,
-            container=None,
-            conditional=None,
-            audio_synthesis=None,
-            workflow=None,
+        request = _make_request(
+            base_fields,
             phases=[{"name": "test", "audio_filter": {"languages": ["eng"]}}],
             config={"on_error": "skip"},
         )
@@ -77,19 +92,9 @@ class TestPolicyEditorRequestV12:
 
     def test_to_policy_dict_v12_without_explicit_config(self, base_fields):
         """Test to_policy_dict builds config from legacy fields if not provided."""
-        request = PolicyEditorRequest(
-            **base_fields,
-            transcode=None,
-            transcription=None,
-            audio_filter=None,
-            subtitle_filter=None,
-            attachment_filter=None,
-            container=None,
-            conditional=None,
-            audio_synthesis=None,
-            workflow=None,
+        request = _make_request(
+            base_fields,
             phases=[{"name": "test"}],
-            config=None,  # No explicit config
         )
         result = request.to_policy_dict()
 
@@ -101,20 +106,7 @@ class TestPolicyEditorRequestV12:
 
     def test_to_policy_dict_legacy_without_phases(self, base_fields):
         """Test to_policy_dict produces legacy structure when no V12 features used."""
-        request = PolicyEditorRequest(
-            **base_fields,
-            transcode=None,
-            transcription=None,
-            audio_filter=None,
-            subtitle_filter=None,
-            attachment_filter=None,
-            container=None,
-            conditional=None,
-            audio_synthesis=None,
-            workflow=None,
-            phases=None,
-            config=None,
-        )
+        request = _make_request(base_fields)
         result = request.to_policy_dict()
 
         assert result["schema_version"] == 12
@@ -124,19 +116,9 @@ class TestPolicyEditorRequestV12:
 
     def test_to_policy_dict_v9_with_workflow(self, base_fields):
         """Test to_policy_dict produces V9 when workflow is set."""
-        request = PolicyEditorRequest(
-            **base_fields,
-            transcode=None,
-            transcription=None,
-            audio_filter=None,
-            subtitle_filter=None,
-            attachment_filter=None,
-            container=None,
-            conditional=None,
-            audio_synthesis=None,
+        request = _make_request(
+            base_fields,
             workflow={"phases": ["ANALYZE", "APPLY"], "on_error": "skip"},
-            phases=None,
-            config=None,
         )
         result = request.to_policy_dict()
 
@@ -160,17 +142,7 @@ class TestPolicyEditorRequestVersionDetection:
             "subtitle_language_preference": ["eng"],
             "commentary_patterns": [],
             "default_flags": {},
-            "transcode": None,
-            "transcription": None,
-            "audio_filter": None,
-            "subtitle_filter": None,
-            "attachment_filter": None,
-            "container": None,
-            "conditional": None,
-            "audio_synthesis": None,
-            "workflow": None,
-            "phases": None,
-            "config": None,
+            **_OPTIONAL_NONE,
             "last_modified_timestamp": "2024-01-01T00:00:00Z",
         }
 
@@ -195,3 +167,88 @@ class TestPolicyEditorRequestVersionDetection:
         # Legacy fields should not appear at top level
         assert "workflow" not in result
         assert "audio_filter" not in result
+
+
+class TestPolicyEditorRequestMetadata:
+    """Tests for metadata fields in PolicyEditorRequest round-trip."""
+
+    @pytest.fixture
+    def base_fields(self):
+        """Base fields required for all PolicyEditorRequest instances."""
+        return {
+            "track_order": ["video", "audio_main"],
+            "audio_language_preference": ["eng"],
+            "subtitle_language_preference": ["eng"],
+            "commentary_patterns": [],
+            "default_flags": {},
+            "last_modified_timestamp": "2024-01-01T00:00:00Z",
+        }
+
+    def test_phased_policy_dict_includes_metadata(self, base_fields):
+        """Phased policy dict emits metadata when set."""
+        request = _make_request(
+            base_fields,
+            phases=[{"name": "test"}],
+            config={"on_error": "skip"},
+            display_name="My Policy",
+            description="A test policy",
+            category="organize",
+        )
+        result = request.to_policy_dict()
+
+        assert result["name"] == "My Policy"
+        assert result["description"] == "A test policy"
+        assert result["category"] == "organize"
+
+    def test_phased_policy_dict_omits_null_metadata(self, base_fields):
+        """Phased policy dict does not include metadata keys when None."""
+        request = _make_request(
+            base_fields,
+            phases=[{"name": "test"}],
+            config={"on_error": "skip"},
+        )
+        result = request.to_policy_dict()
+
+        assert "name" not in result
+        assert "description" not in result
+        assert "category" not in result
+
+    def test_legacy_policy_dict_includes_metadata(self, base_fields):
+        """Legacy policy dict emits metadata when set."""
+        request = _make_request(
+            base_fields,
+            display_name="My Legacy Policy",
+            description="Legacy desc",
+            category="archive",
+        )
+        result = request.to_policy_dict()
+
+        assert result["name"] == "My Legacy Policy"
+        assert result["description"] == "Legacy desc"
+        assert result["category"] == "archive"
+
+    def test_legacy_policy_dict_omits_null_metadata(self, base_fields):
+        """Legacy policy dict does not include metadata keys when None."""
+        request = _make_request(base_fields)
+        result = request.to_policy_dict()
+
+        assert "name" not in result
+        assert "description" not in result
+        assert "category" not in result
+
+    def test_from_dict_preserves_metadata(self, base_fields):
+        """from_dict round-trips metadata through to_policy_dict."""
+        data = {
+            **base_fields,
+            "phases": [{"name": "test"}],
+            "config": {"on_error": "skip"},
+            "display_name": "Round Trip Name",
+            "description": "Round trip desc",
+            "category": "transcode",
+        }
+        request = PolicyEditorRequest.from_dict(data)
+        result = request.to_policy_dict()
+
+        assert result["name"] == "Round Trip Name"
+        assert result["description"] == "Round trip desc"
+        assert result["category"] == "transcode"

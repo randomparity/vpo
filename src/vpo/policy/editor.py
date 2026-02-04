@@ -57,6 +57,7 @@ KNOWN_POLICY_FIELDS = {
     "phases",
     "config",
     # Policy metadata fields
+    "name",
     "description",
     "category",
 }

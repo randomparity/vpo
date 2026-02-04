@@ -71,6 +71,7 @@ def list_policies(policies_dir: Path | None = None) -> PolicyListResponse:
             file_path=s.file_path,
             last_modified=s.last_modified,
             schema_version=s.schema_version,
+            display_name=s.display_name,
             description=s.description,
             category=s.category,
             audio_languages=format_language_preferences(s.audio_languages),

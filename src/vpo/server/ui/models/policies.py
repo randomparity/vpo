@@ -37,6 +37,7 @@ class PolicyEditorContext:
         file_path: Absolute path to the policy file.
         last_modified: ISO-8601 UTC timestamp for concurrency check.
         schema_version: Policy schema version (read-only).
+        display_name: Optional display name from YAML 'name' field.
         description: Optional policy description.
         category: Optional category for filtering/grouping.
         track_order: List of track type strings.
@@ -70,6 +71,7 @@ class PolicyEditorContext:
     transcode: dict | None
     transcription: dict | None
     # Policy metadata fields
+    display_name: str | None = None
     description: str | None = None
     category: str | None = None
     # V3+ fields (036-v9-policy-editor)
@@ -98,6 +100,7 @@ class PolicyEditorContext:
             "file_path": self.file_path,
             "last_modified": self.last_modified,
             "schema_version": self.schema_version,
+            "display_name": self.display_name,
             "description": self.description,
             "category": self.category,
             "track_order": self.track_order,
@@ -176,6 +179,10 @@ class PolicyEditorRequest:
     # Phased policy fields (user-defined phases)
     phases: list | None
     config: dict | None
+    # Policy metadata fields
+    display_name: str | None
+    description: str | None
+    category: str | None
     last_modified_timestamp: str
 
     @classmethod
@@ -243,6 +250,9 @@ class PolicyEditorRequest:
                 workflow=data.get("workflow"),
                 phases=phases,
                 config=config,
+                display_name=data.get("display_name"),
+                description=data.get("description"),
+                category=data.get("category"),
                 last_modified_timestamp=data["last_modified_timestamp"],
             )
 
@@ -281,6 +291,10 @@ class PolicyEditorRequest:
             # Phased policy fields
             phases=phases,
             config=config,
+            # Policy metadata fields
+            display_name=data.get("display_name"),
+            description=data.get("description"),
+            category=data.get("category"),
             last_modified_timestamp=data["last_modified_timestamp"],
         )
 
@@ -315,6 +329,7 @@ class PolicyEditorRequest:
                 "commentary_patterns": self.commentary_patterns,
                 "on_error": "continue",  # Default
             }
+        self._add_metadata_fields(result)
         return result
 
     def _to_legacy_policy_dict(self) -> dict:
@@ -364,7 +379,21 @@ class PolicyEditorRequest:
         if self.workflow is not None:
             result["workflow"] = self.workflow
 
+        self._add_metadata_fields(result)
+
         return result
+
+    def _add_metadata_fields(self, result: dict) -> None:
+        """Add non-None metadata fields to a policy dict.
+
+        Maps display_name to the YAML key 'name'.
+        """
+        if self.display_name is not None:
+            result["name"] = self.display_name
+        if self.description is not None:
+            result["description"] = self.description
+        if self.category is not None:
+            result["category"] = self.category
 
 
 @dataclass

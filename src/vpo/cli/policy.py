@@ -893,7 +893,7 @@ def run_command(
         dry_run=dry_run,
         verbose=verbose,
         selected_phases=selected_phases,
-        policy_name=str(policy_path),
+        policy_name=policy.name or policy_path.stem,
     )
 
     try:

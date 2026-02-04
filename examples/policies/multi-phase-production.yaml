@@ -1,6 +1,10 @@
 # Multi-Phase Production Policy (V12)
 # Enterprise workflow with all operations across 7 phases
 schema_version: 12
+name: Multi-Phase Production
+description: >-
+  Full production workflow: container prep, HEVC transcoding, metadata tagging,
+  track filtering, ordering, container tag cleanup, and audio synthesis.
 
 config:
   audio_language_preference: [eng, jpn, und]

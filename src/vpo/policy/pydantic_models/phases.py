@@ -315,6 +315,9 @@ class PolicyModel(BaseModel):
     schema_version: Literal[12] = 12
     """Schema version, must be exactly 12."""
 
+    name: str | None = Field(None, max_length=200)
+    """Optional display name for UI presentation (max 200 chars)."""
+
     description: str | None = None
     """Optional policy description for documentation purposes."""
 
@@ -326,6 +329,17 @@ class PolicyModel(BaseModel):
 
     phases: list[PhaseModel] = Field(..., min_length=1)
     """List of phase definitions (at least one required)."""
+
+    @field_validator("name")
+    @classmethod
+    def validate_display_name(cls, v: str | None) -> str | None:
+        """Validate display name: strip whitespace, reject empty strings."""
+        if v is None:
+            return None
+        v = v.strip()
+        if not v:
+            raise ValueError("name must not be empty (use null to omit)")
+        return v
 
     @field_validator("phases")
     @classmethod

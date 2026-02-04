@@ -148,6 +148,7 @@ async def api_policy_detail_handler(request: web.Request) -> web.Response:
         transcode=policy_data.get("transcode"),
         transcription=policy_data.get("transcription"),
         # Policy metadata fields
+        display_name=policy_data.get("name"),
         description=policy_data.get("description"),
         category=policy_data.get("category"),
         # V3+ fields (036-v9-policy-editor)
@@ -358,6 +359,7 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
         transcode=policy_data.get("transcode"),
         transcription=policy_data.get("transcription"),
         # Policy metadata fields
+        display_name=policy_data.get("name"),
         description=policy_data.get("description"),
         category=policy_data.get("category"),
         # V3+ fields (036-v9-policy-editor)
@@ -560,7 +562,16 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
         ],
     }
 
-    # Add optional description and category if provided
+    # Add optional metadata fields if provided
+    display_name = request_data.get("display_name", "").strip()
+    if display_name:
+        if len(display_name) > 200:
+            return web.json_response(
+                {"error": "Display name must be 200 characters or fewer"},
+                status=400,
+            )
+        policy_data["name"] = display_name
+
     description = request_data.get("description", "").strip()
     if description:
         policy_data["description"] = description
@@ -618,6 +629,7 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
         transcode=created_data.get("transcode"),
         transcription=created_data.get("transcription"),
         # Policy metadata fields
+        display_name=created_data.get("name"),
         description=created_data.get("description"),
         category=created_data.get("category"),
         audio_filter=created_data.get("audio_filter"),

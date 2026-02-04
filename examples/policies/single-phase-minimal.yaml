@@ -1,6 +1,8 @@
 # Single Phase Minimal Policy (V12)
 # Simplest possible V12 policy structure
 schema_version: 12
+name: Minimal Track Filter
+description: Keep only English audio and subtitles — the simplest possible policy.
 
 config:
   audio_language_preference: [eng, und]
