@@ -578,6 +578,15 @@
         // Initialize scan errors section
         initScanErrors()
 
+        // Copy job ID button
+        var copyBtn = document.getElementById('copy-job-id')
+        if (copyBtn) {
+            copyBtn.addEventListener('click', function () {
+                var value = copyBtn.getAttribute('data-copy-value')
+                window.VPOUtils.copyToClipboard(value, copyBtn)
+            })
+        }
+
         // Update timestamps periodically (every minute)
         setInterval(updateTimestamps, 60000)
 
