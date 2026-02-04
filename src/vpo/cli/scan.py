@@ -111,6 +111,90 @@ def validate_directories(ctx, param, value):
     return paths
 
 
+def _resolve_language_workers(requested: int | None, config_default: int) -> int:
+    """Resolve effective worker count for language analysis.
+
+    Uses the CLI ``--workers`` value if provided, otherwise the
+    ``processing.workers`` config value. Result is capped at half the
+    available CPU cores (minimum 1).
+
+    Args:
+        requested: Worker count from CLI (None if not specified).
+        config_default: Default from ``processing.workers`` config.
+
+    Returns:
+        Effective worker count.
+    """
+    max_workers = max(1, (os.cpu_count() or 2) // 2)
+    effective = requested if requested is not None else config_default
+    effective = max(1, effective)
+
+    if effective > max_workers:
+        logger.info(
+            "Requested %d workers, capped to %d (half of %d CPUs)",
+            effective,
+            max_workers,
+            os.cpu_count() or 2,
+        )
+        return max_workers
+
+    return effective
+
+
+def _analyze_file_language(
+    scanned_file,
+    db_path: Path,
+    registry,
+) -> dict:
+    """Analyze language for a single file. Thread-safe worker function.
+
+    Each invocation opens its own DB connection and orchestrator instance,
+    so this function can safely run in a ``ThreadPoolExecutor``.
+
+    Args:
+        scanned_file: ScannedFile object with ``path`` attribute.
+        db_path: Path to the database file.
+        registry: PluginRegistry (read-only during parallel processing).
+
+    Returns:
+        Dict with ``analyzed``, ``skipped``, ``errors``,
+        and ``transcriber_available`` counts.
+    """
+    from vpo.db import get_file_by_path, get_tracks_for_file
+    from vpo.db.connection import get_connection
+
+    file_stats = {
+        "analyzed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "transcriber_available": True,
+    }
+    with get_connection(db_path) as worker_conn:
+        file_record = get_file_by_path(worker_conn, scanned_file.path)
+        if file_record is None or file_record.id is None:
+            return file_stats
+
+        track_records = get_tracks_for_file(worker_conn, file_record.id)
+        file_path = Path(scanned_file.path)
+        orchestrator = LanguageAnalysisOrchestrator(plugin_registry=registry)
+        result = orchestrator.analyze_tracks_for_file(
+            conn=worker_conn,
+            file_record=file_record,
+            track_records=track_records,
+            file_path=file_path,
+        )
+
+        file_stats["transcriber_available"] = result.transcriber_available
+        file_stats["analyzed"] = result.analyzed
+        file_stats["skipped"] = result.skipped + result.cached
+        file_stats["errors"] = result.errors
+
+        if result.analyzed > 0:
+            worker_conn.commit()
+
+    return file_stats
+
+
 def _run_language_analysis(
     files,
     progress: ProgressDisplay,
@@ -133,13 +217,9 @@ def _run_language_analysis(
     Returns:
         Dictionary with 'analyzed', 'skipped', 'errors' counts.
     """
-    from vpo.db import (
-        get_file_by_path,
-        get_tracks_for_file,
-    )
-    from vpo.db.connection import get_connection
-
     stats = {"analyzed": 0, "skipped": 0, "errors": 0}
+    # Registry is initialized once and shared read-only across workers.
+    # Do not call mutating methods (register/enable/disable) after this point.
     registry = get_default_registry()
     total_files = len(files)
     start_time = time.monotonic()
@@ -159,44 +239,13 @@ def _run_language_analysis(
     # Parallel processing with ThreadPoolExecutor
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    def analyze_single_file(scanned_file):
-        """Worker function for parallel language analysis."""
-        file_stats = {
-            "analyzed": 0,
-            "skipped": 0,
-            "errors": 0,
-            "transcriber_available": True,
-        }
-        with get_connection(db_path) as worker_conn:
-            file_record = get_file_by_path(worker_conn, scanned_file.path)
-            if file_record is None or file_record.id is None:
-                return file_stats
-
-            track_records = get_tracks_for_file(worker_conn, file_record.id)
-            file_path = Path(scanned_file.path)
-            orchestrator = LanguageAnalysisOrchestrator(plugin_registry=registry)
-            result = orchestrator.analyze_tracks_for_file(
-                conn=worker_conn,
-                file_record=file_record,
-                track_records=track_records,
-                file_path=file_path,
-            )
-
-            file_stats["transcriber_available"] = result.transcriber_available
-            file_stats["analyzed"] = result.analyzed
-            file_stats["skipped"] = result.skipped + result.cached
-            file_stats["errors"] = result.errors
-
-            if result.analyzed > 0:
-                worker_conn.commit()
-
-        return file_stats
-
     files_completed = 0
     with ThreadPoolExecutor(max_workers=workers) as executor:
         futures = {}
         for scanned_file in files:
-            future = executor.submit(analyze_single_file, scanned_file)
+            future = executor.submit(
+                _analyze_file_language, scanned_file, db_path, registry
+            )
             futures[future] = scanned_file
 
         for future in as_completed(futures):
@@ -222,6 +271,9 @@ def _run_language_analysis(
                 continue
 
             if not file_result["transcriber_available"]:
+                # Best-effort cancellation: only pending futures are cancelled.
+                # Already-running workers will complete; the executor context
+                # manager waits for them on exit.
                 for f in futures:
                     f.cancel()
                 warning_output(
@@ -528,19 +580,11 @@ def scan(
                     # Run language analysis if requested
                     language_stats = {"analyzed": 0, "skipped": 0, "errors": 0}
                     if analyze_languages and not result.interrupted:
-                        # Resolve worker count from CLI or config
                         from vpo.config import get_config
 
                         config = get_config()
-                        max_w = max(1, (os.cpu_count() or 2) // 2)
-                        effective_workers = min(
-                            max(
-                                1,
-                                workers
-                                if workers is not None
-                                else config.processing.workers,
-                            ),
-                            max_w,
+                        effective_workers = _resolve_language_workers(
+                            workers, config.processing.workers
                         )
                         language_stats = _run_language_analysis(
                             files,
