@@ -117,6 +117,14 @@ def validate_directories(ctx, param, value):
     return paths
 
 
+def _compute_rate(completed: int, start_time: float) -> int:
+    """Compute files-per-second rate from count and monotonic start time."""
+    elapsed = time.monotonic() - start_time
+    if elapsed <= 0:
+        return 0
+    return int(completed / elapsed)
+
+
 def _resolve_language_workers(requested: int | None, config_default: int) -> int:
     """Resolve effective worker count for language analysis.
 
@@ -131,20 +139,20 @@ def _resolve_language_workers(requested: int | None, config_default: int) -> int
     Returns:
         Effective worker count.
     """
-    max_workers = max(1, (os.cpu_count() or 2) // 2)
-    effective = requested if requested is not None else config_default
-    effective = max(1, effective)
+    cpu_count = os.cpu_count() or 2
+    max_workers = max(1, cpu_count // 2)
+    effective = max(1, requested if requested is not None else config_default)
 
-    if effective > max_workers:
-        logger.info(
-            "Requested %d workers, capped to %d (half of %d CPUs)",
-            effective,
-            max_workers,
-            os.cpu_count() or 2,
-        )
-        return max_workers
+    if effective <= max_workers:
+        return effective
 
-    return effective
+    logger.info(
+        "Requested %d workers, capped to %d (half of %d CPUs)",
+        effective,
+        max_workers,
+        cpu_count,
+    )
+    return max_workers
 
 
 def _analyze_file_language(
@@ -169,36 +177,31 @@ def _analyze_file_language(
     from vpo.db import get_file_by_path, get_tracks_for_file
     from vpo.db.connection import get_connection
 
-    file_stats = {
-        "analyzed": 0,
-        "skipped": 0,
-        "errors": 0,
-        "transcriber_available": True,
-    }
+    _empty = {"analyzed": 0, "skipped": 0, "errors": 0, "transcriber_available": True}
+
     with get_connection(db_path) as worker_conn:
         file_record = get_file_by_path(worker_conn, scanned_file.path)
         if file_record is None or file_record.id is None:
-            return file_stats
+            return _empty
 
         track_records = get_tracks_for_file(worker_conn, file_record.id)
-        file_path = Path(scanned_file.path)
         orchestrator = LanguageAnalysisOrchestrator(plugin_registry=registry)
         result = orchestrator.analyze_tracks_for_file(
             conn=worker_conn,
             file_record=file_record,
             track_records=track_records,
-            file_path=file_path,
+            file_path=Path(scanned_file.path),
         )
-
-        file_stats["transcriber_available"] = result.transcriber_available
-        file_stats["analyzed"] = result.analyzed
-        file_stats["skipped"] = result.skipped + result.cached
-        file_stats["errors"] = result.errors
 
         if result.analyzed > 0:
             worker_conn.commit()
 
-    return file_stats
+    return {
+        "analyzed": result.analyzed,
+        "skipped": result.skipped + result.cached,
+        "errors": result.errors,
+        "transcriber_available": result.transcriber_available,
+    }
 
 
 def _run_language_analysis(
@@ -257,13 +260,11 @@ def _run_language_analysis(
         for future in as_completed(futures):
             scanned_file = futures[future]
             files_completed += 1
-            elapsed = time.monotonic() - start_time
-            rate = int(files_completed / elapsed) if elapsed > 0 else 0
             progress.on_language_progress(
                 files_completed,
                 total_files,
                 Path(scanned_file.path).name,
-                rate,
+                _compute_rate(files_completed, start_time),
             )
 
             try:
@@ -333,15 +334,11 @@ def _run_language_analysis_sequential(
             track_records = get_tracks_for_file(conn, file_record.id)
             file_path = Path(scanned_file.path)
 
-            # Show which file is being analyzed with rate from completed files
-            elapsed = time.monotonic() - start_time
-            rate = (
-                int(files_processed / elapsed)
-                if elapsed > 0 and files_processed > 0
-                else 0
-            )
             progress.on_language_progress(
-                files_processed + 1, total_files, file_path.name, rate
+                files_processed + 1,
+                total_files,
+                file_path.name,
+                _compute_rate(files_processed, start_time),
             )
 
             # Progress callback for verbose output
@@ -587,8 +584,6 @@ def scan(
                         job_id=job.id,
                     )
 
-                    # Run language analysis if requested
-                    language_stats = {"analyzed": 0, "skipped": 0, "errors": 0}
                     if analyze_languages and not result.interrupted:
                         from vpo.config import get_config
 
@@ -671,6 +666,18 @@ def scan(
             sys.exit(ExitCode.SUCCESS)
 
 
+def _has_language_stats(language_stats: dict | None) -> bool:
+    """Return True if language_stats contains any non-zero counts."""
+    return bool(
+        language_stats
+        and (
+            language_stats["analyzed"]
+            or language_stats["skipped"]
+            or language_stats["errors"]
+        )
+    )
+
+
 def output_json(
     result,
     files,
@@ -698,12 +705,7 @@ def output_json(
     if result.errors:
         data["errors"] = [{"path": p, "error": e} for p, e in result.errors]
 
-    # Add language analysis stats if any tracks were analyzed
-    if language_stats and (
-        language_stats["analyzed"] > 0
-        or language_stats["skipped"] > 0
-        or language_stats["errors"] > 0
-    ):
+    if _has_language_stats(language_stats):
         data["language_analysis"] = {
             "analyzed": language_stats["analyzed"],
             "skipped": language_stats["skipped"],
@@ -756,12 +758,7 @@ def output_human(
     else:
         click.echo("  (dry run - no database changes)")
 
-    # Show language analysis stats if any tracks were analyzed
-    if language_stats and (
-        language_stats["analyzed"] > 0
-        or language_stats["skipped"] > 0
-        or language_stats["errors"] > 0
-    ):
+    if _has_language_stats(language_stats):
         click.echo("\nLanguage analysis:")
         click.echo(f"  Analyzed: {language_stats['analyzed']:,} tracks")
         if language_stats["skipped"] > 0:
