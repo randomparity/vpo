@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from collections import deque
 from unittest.mock import AsyncMock
 
 import pytest
@@ -23,13 +24,13 @@ class TestSlidingWindowCounter:
     def test_first_request_allowed(self) -> None:
         """First request should always be allowed."""
         counter = SlidingWindowCounter()
-        now = time.time()
+        now = time.monotonic()
         assert counter.record_and_check(now, max_requests=10, window_seconds=60) is True
 
     def test_within_limit_allowed(self) -> None:
         """Requests within the limit should be allowed."""
         counter = SlidingWindowCounter()
-        now = time.time()
+        now = time.monotonic()
         for i in range(10):
             assert (
                 counter.record_and_check(
@@ -41,7 +42,7 @@ class TestSlidingWindowCounter:
     def test_over_limit_blocked(self) -> None:
         """Requests over the limit should be blocked."""
         counter = SlidingWindowCounter()
-        now = time.time()
+        now = time.monotonic()
         for i in range(10):
             counter.record_and_check(now + i * 0.01, max_requests=10, window_seconds=60)
         assert (
@@ -52,7 +53,7 @@ class TestSlidingWindowCounter:
     def test_window_expiration_resets(self) -> None:
         """Expired requests should be pruned, allowing new ones."""
         counter = SlidingWindowCounter()
-        now = time.time()
+        now = time.monotonic()
         # Fill up the window
         for i in range(10):
             counter.record_and_check(now, max_requests=10, window_seconds=60)
@@ -70,15 +71,32 @@ class TestSlidingWindowCounter:
     def test_seconds_until_available_empty(self) -> None:
         """Empty counter should return 0."""
         counter = SlidingWindowCounter()
-        assert counter.seconds_until_available(time.time(), window_seconds=60) == 0.0
+        assert (
+            counter.seconds_until_available(time.monotonic(), window_seconds=60) == 0.0
+        )
 
     def test_seconds_until_available_with_requests(self) -> None:
         """Should return time until oldest request expires."""
         counter = SlidingWindowCounter()
-        now = time.time()
-        counter.requests = [now - 50]  # 50 seconds ago
+        now = time.monotonic()
+        counter.requests = deque([now - 50])  # 50 seconds ago
         result = counter.seconds_until_available(now, window_seconds=60)
         assert 9.0 <= result <= 11.0  # ~10 seconds remaining
+
+    def test_uses_deque(self) -> None:
+        """Counter should use deque for O(1) popleft."""
+        counter = SlidingWindowCounter()
+        assert isinstance(counter.requests, deque)
+
+    def test_popleft_pruning(self) -> None:
+        """Only expired entries at the front should be removed."""
+        counter = SlidingWindowCounter()
+        now = time.monotonic()
+        # Add old and new timestamps
+        counter.requests = deque([now - 100, now - 90, now - 5, now - 1])
+        counter.record_and_check(now, max_requests=100, window_seconds=60)
+        # Old entries removed, new entries + the new one remain
+        assert len(counter.requests) == 3
 
 
 class TestRateLimiter:
@@ -120,6 +138,14 @@ class TestRateLimiter:
 
         assert limiter.check("1.2.3.4", "DELETE", "/api/something")[0] is True
         assert limiter.check("1.2.3.4", "DELETE", "/api/something")[0] is False
+
+    def test_patch_uses_mutate_limit(self) -> None:
+        """PATCH requests should use mutate_max_requests limit."""
+        config = self._make_config(mutate_max_requests=1)
+        limiter = RateLimiter(config)
+
+        assert limiter.check("1.2.3.4", "PATCH", "/api/something")[0] is True
+        assert limiter.check("1.2.3.4", "PATCH", "/api/something")[0] is False
 
     def test_separate_clients_independent(self) -> None:
         """Different client IPs should have independent counters."""
@@ -171,6 +197,44 @@ class TestRateLimiter:
         allowed, retry_after = limiter.check("1.2.3.4", "GET", "/api/files")
         assert allowed is False
         assert retry_after > 0
+
+    def test_cleanup_removes_stale_counters(self) -> None:
+        """Stale counters should be removed after cleanup interval."""
+        config = self._make_config(get_max_requests=10, window_seconds=60)
+        limiter = RateLimiter(config)
+
+        # Create counters for several IPs
+        for i in range(5):
+            limiter.check(f"1.2.3.{i}", "GET", "/api/files")
+        assert len(limiter._get_counters) == 5
+
+        # Force cleanup by advancing past the interval and window
+        limiter._last_cleanup = time.monotonic() - 400
+        # Make all existing timestamps old enough to be stale
+        for counter in limiter._get_counters.values():
+            counter.requests = deque([time.monotonic() - 120])
+
+        # Next check triggers cleanup
+        limiter.check("10.0.0.1", "GET", "/api/files")
+
+        # Stale IPs removed, only the new one remains
+        assert "1.2.3.0" not in limiter._get_counters
+        assert "10.0.0.1" in limiter._get_counters
+
+    def test_cleanup_preserves_active_counters(self) -> None:
+        """Active counters should not be removed during cleanup."""
+        config = self._make_config(get_max_requests=10, window_seconds=60)
+        limiter = RateLimiter(config)
+
+        # Make a recent request
+        limiter.check("1.2.3.4", "GET", "/api/files")
+
+        # Force cleanup
+        limiter._last_cleanup = time.monotonic() - 400
+        limiter.check("10.0.0.1", "GET", "/api/files")
+
+        # Active counter preserved
+        assert "1.2.3.4" in limiter._get_counters
 
 
 class TestRateLimitMiddleware:
@@ -284,3 +348,24 @@ class TestRateLimitMiddleware:
             request._match_info = {}
             response = await middleware(request, handler)
             assert response.status == 200
+
+    @pytest.mark.asyncio
+    async def test_fails_open_on_exception(self) -> None:
+        """Middleware should allow request if rate limiter throws."""
+        config = RateLimitConfig(get_max_requests=10)
+        limiter = RateLimiter(config)
+
+        # Break the limiter's check method
+        def broken_check(*args, **kwargs):
+            raise RuntimeError("simulated failure")
+
+        limiter.check = broken_check  # type: ignore[assignment]
+        middleware = create_rate_limit_middleware(limiter)
+
+        handler = AsyncMock(return_value=web.Response(text="ok"))
+        request = make_mocked_request("GET", "/api/files")
+        request._match_info = {}
+
+        response = await middleware(request, handler)
+        handler.assert_called_once()
+        assert response.status == 200

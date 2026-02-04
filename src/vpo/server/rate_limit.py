@@ -1,25 +1,36 @@
 """Rate limiting middleware for API endpoints.
 
 Provides per-IP sliding window rate limiting with separate counters
-for GET (read) and mutating (POST/PUT/DELETE) requests.
+for GET (read) and mutating (POST/PUT/DELETE/PATCH) requests.
+
+Note: Rate limiter state is in-memory and per-process. If the daemon
+is deployed with multiple worker processes, each process has its own
+independent rate limiter.
 """
 
 from __future__ import annotations
 
+import logging
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from dataclasses import dataclass, field
 
 from aiohttp import web
 
 from vpo.config.models import RateLimitConfig
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class SlidingWindowCounter:
-    """Sliding window counter for rate limiting."""
+    """Sliding window counter for rate limiting.
 
-    requests: list[float] = field(default_factory=list)
+    Uses a deque of monotonic timestamps for O(1) amortized expiry.
+    Timestamps are appended in order, so the oldest is always at the left.
+    """
+
+    requests: deque[float] = field(default_factory=deque)
 
     def record_and_check(
         self, now: float, max_requests: int, window_seconds: int
@@ -27,14 +38,16 @@ class SlidingWindowCounter:
         """Record a request and check if within limit.
 
         Args:
-            now: Current timestamp.
+            now: Current monotonic timestamp.
             max_requests: Maximum allowed requests in window.
             window_seconds: Window duration in seconds.
 
         Returns:
             True if the request is allowed, False if rate limited.
         """
-        self.requests = [t for t in self.requests if now - t < window_seconds]
+        cutoff = now - window_seconds
+        while self.requests and self.requests[0] < cutoff:
+            self.requests.popleft()
         if len(self.requests) >= max_requests:
             return False
         self.requests.append(now)
@@ -43,8 +56,10 @@ class SlidingWindowCounter:
     def seconds_until_available(self, now: float, window_seconds: int) -> float:
         """Calculate seconds until the next request slot opens.
 
+        Must be called after record_and_check() which prunes expired entries.
+
         Args:
-            now: Current timestamp.
+            now: Current monotonic timestamp.
             window_seconds: Window duration in seconds.
 
         Returns:
@@ -52,13 +67,15 @@ class SlidingWindowCounter:
         """
         if not self.requests:
             return 0.0
-        return max(0.0, window_seconds - (now - min(self.requests)))
+        # Oldest entry is always at index 0 (monotonic append order)
+        return max(0.0, window_seconds - (now - self.requests[0]))
 
 
 class RateLimiter:
     """Per-IP rate limiter with separate GET and mutate counters."""
 
     EXEMPT_PATHS: frozenset[str] = frozenset({"/health", "/api/about"})
+    _CLEANUP_INTERVAL = 300  # seconds between stale counter cleanup
 
     def __init__(self, config: RateLimitConfig) -> None:
         self._config = config
@@ -68,6 +85,7 @@ class RateLimiter:
         self._mutate_counters: dict[str, SlidingWindowCounter] = defaultdict(
             SlidingWindowCounter
         )
+        self._last_cleanup = time.monotonic()
 
     def check(self, client_ip: str, method: str, path: str) -> tuple[bool, float]:
         """Check if a request is allowed.
@@ -83,7 +101,10 @@ class RateLimiter:
         if not self._config.enabled or path in self.EXEMPT_PATHS:
             return (True, 0.0)
 
-        is_mutating = method in ("POST", "PUT", "DELETE")
+        now = time.monotonic()
+        self._maybe_cleanup(now)
+
+        is_mutating = method in ("POST", "PUT", "DELETE", "PATCH")
         counters = self._mutate_counters if is_mutating else self._get_counters
         max_req = (
             self._config.mutate_max_requests
@@ -91,7 +112,6 @@ class RateLimiter:
             else self._config.get_max_requests
         )
         counter = counters[client_ip]
-        now = time.time()
         allowed = counter.record_and_check(now, max_req, self._config.window_seconds)
         retry_after = (
             0.0
@@ -99,6 +119,21 @@ class RateLimiter:
             else counter.seconds_until_available(now, self._config.window_seconds)
         )
         return (allowed, retry_after)
+
+    def _maybe_cleanup(self, now: float) -> None:
+        """Remove counters with no recent requests (amortized)."""
+        if now - self._last_cleanup < self._CLEANUP_INTERVAL:
+            return
+        self._last_cleanup = now
+        window = self._config.window_seconds
+        for store in (self._get_counters, self._mutate_counters):
+            stale_keys = [
+                ip
+                for ip, counter in store.items()
+                if not counter.requests or (now - counter.requests[-1]) >= window
+            ]
+            for key in stale_keys:
+                del store[key]
 
 
 def create_rate_limit_middleware(
@@ -120,17 +155,28 @@ def create_rate_limit_middleware(
         if not request.path.startswith("/api/"):
             return await handler(request)
 
-        client_ip = request.remote or "unknown"
-        allowed, retry_after = rate_limiter.check(
-            client_ip, request.method, request.path
-        )
-        if not allowed:
-            retry_after_int = max(1, int(retry_after) + 1)
-            return web.json_response(
-                {"error": "Rate limit exceeded. Please wait before retrying."},
-                status=429,
-                headers={"Retry-After": str(retry_after_int)},
+        try:
+            client_ip = request.remote or "unknown"
+            allowed, retry_after = rate_limiter.check(
+                client_ip, request.method, request.path
             )
+            if not allowed:
+                retry_after_int = max(1, int(retry_after) + 1)
+                logger.warning(
+                    "Rate limited %s %s from %s (retry_after=%ds)",
+                    request.method,
+                    request.path,
+                    client_ip,
+                    retry_after_int,
+                )
+                return web.json_response(
+                    {"error": "Rate limit exceeded. Please wait before retrying."},
+                    status=429,
+                    headers={"Retry-After": str(retry_after_int)},
+                )
+        except Exception:
+            logger.exception("Rate limiter error, allowing request through")
+
         return await handler(request)
 
     return rate_limit_middleware
