@@ -594,5 +594,5 @@ class TestKnownPolicyFields:
 
     def test_contains_metadata_fields(self):
         """KNOWN_POLICY_FIELDS includes metadata fields."""
-        expected = {"description", "category"}
+        expected = {"name", "description", "category"}
         assert expected.issubset(KNOWN_POLICY_FIELDS)

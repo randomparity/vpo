@@ -63,6 +63,9 @@ class TestPolicyEditorRequestV12:
             workflow=None,
             phases=[{"name": "test", "audio_filter": {"languages": ["eng"]}}],
             config={"on_error": "skip"},
+            display_name=None,
+            description=None,
+            category=None,
         )
         result = request.to_policy_dict()
 
@@ -90,6 +93,9 @@ class TestPolicyEditorRequestV12:
             workflow=None,
             phases=[{"name": "test"}],
             config=None,  # No explicit config
+            display_name=None,
+            description=None,
+            category=None,
         )
         result = request.to_policy_dict()
 
@@ -114,6 +120,9 @@ class TestPolicyEditorRequestV12:
             workflow=None,
             phases=None,
             config=None,
+            display_name=None,
+            description=None,
+            category=None,
         )
         result = request.to_policy_dict()
 
@@ -137,6 +146,9 @@ class TestPolicyEditorRequestV12:
             workflow={"phases": ["ANALYZE", "APPLY"], "on_error": "skip"},
             phases=None,
             config=None,
+            display_name=None,
+            description=None,
+            category=None,
         )
         result = request.to_policy_dict()
 
@@ -171,6 +183,9 @@ class TestPolicyEditorRequestVersionDetection:
             "workflow": None,
             "phases": None,
             "config": None,
+            "display_name": None,
+            "description": None,
+            "category": None,
             "last_modified_timestamp": "2024-01-01T00:00:00Z",
         }
 
