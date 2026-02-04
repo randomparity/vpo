@@ -12,11 +12,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from vpo.server.config_reload import ConfigReloader, ReloadState
-
 if TYPE_CHECKING:
     from vpo.config.models import VPOConfig
-    from vpo.server.config_reload import ReloadResult
+    from vpo.server.config_reload import ConfigReloader, ReloadResult, ReloadState
     from vpo.server.rate_limit import RateLimiter
 
 logger = logging.getLogger(__name__)
@@ -109,6 +107,8 @@ class DaemonLifecycle:
         Args:
             config: Current configuration to use as baseline for reload comparison.
         """
+        from vpo.server.config_reload import ConfigReloader, ReloadState
+
         self._reload_state = ReloadState()
         self._config_reloader = ConfigReloader(
             state=self._reload_state,
