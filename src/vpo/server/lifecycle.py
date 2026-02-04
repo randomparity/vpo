@@ -6,6 +6,7 @@ graceful shutdown coordination, and configuration reload.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,6 +16,8 @@ if TYPE_CHECKING:
     from vpo.config.models import VPOConfig
     from vpo.server.config_reload import ReloadResult, ReloadState
     from vpo.server.rate_limit import RateLimiter
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -114,10 +117,8 @@ class DaemonLifecycle:
         Args:
             rate_limiter: RateLimiter instance to reconfigure on SIGHUP.
         """
-        import logging
-
         if not hasattr(self, "_config_reloader"):
-            logging.getLogger(__name__).debug(
+            logger.debug(
                 "set_rate_limiter called before init_reload_support; "
                 "rate limiter will not be hot-reloadable"
             )
