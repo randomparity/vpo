@@ -89,6 +89,41 @@ class RateLimiter:
         )
         self._last_cleanup = time.monotonic()
 
+    def reconfigure(self, new_config: RateLimitConfig) -> None:
+        """Replace rate limit configuration.
+
+        Existing per-IP counters are preserved; only the config reference
+        changes. Takes effect on the next ``check()`` call.
+
+        Note: When ``window_seconds`` changes, timestamps already pruned
+        under the old window cannot be recovered. Expanding the window
+        therefore behaves as if clients had less recent history than they
+        actually had, while shrinking applies immediately to all remaining
+        timestamps.
+
+        Args:
+            new_config: New rate limit configuration to apply.
+        """
+        old_enabled = self._config.enabled
+        active_get = len(self._get_counters)
+        active_mutate = len(self._mutate_counters)
+        self._config = new_config
+        logger.info(
+            "Rate limiter reconfigured: enabled=%s, "
+            "get_max=%d, mutate_max=%d, window=%ds "
+            "(preserved: %d GET IPs, %d mutate IPs)",
+            new_config.enabled,
+            new_config.get_max_requests,
+            new_config.mutate_max_requests,
+            new_config.window_seconds,
+            active_get,
+            active_mutate,
+        )
+        if old_enabled and not new_config.enabled:
+            logger.info("Rate limiting disabled via config reload")
+        elif not old_enabled and new_config.enabled:
+            logger.info("Rate limiting enabled via config reload")
+
     def check(self, client_ip: str, method: str, path: str) -> tuple[bool, float]:
         """Check if a request is allowed.
 

@@ -90,3 +90,27 @@ class TestDaemonLifecycle:
 
         expected_deadline = lifecycle.shutdown_state.initiated + timedelta(seconds=45.0)
         assert lifecycle.shutdown_state.timeout_deadline == expected_deadline
+
+    def test_set_rate_limiter_before_init_is_noop(self) -> None:
+        """set_rate_limiter without init_reload_support should not error."""
+        from vpo.config.models import RateLimitConfig
+        from vpo.server.rate_limit import RateLimiter
+
+        lifecycle = DaemonLifecycle()
+        rate_limiter = RateLimiter(RateLimitConfig())
+        # Should silently return — no error, no crash
+        lifecycle.set_rate_limiter(rate_limiter)
+
+    def test_set_rate_limiter_after_init_delegates(self) -> None:
+        """set_rate_limiter after init_reload_support should wire through."""
+        from vpo.config.models import RateLimitConfig, VPOConfig
+        from vpo.server.rate_limit import RateLimiter
+
+        lifecycle = DaemonLifecycle()
+        config = VPOConfig()
+        lifecycle.init_reload_support(config)
+
+        rate_limiter = RateLimiter(RateLimitConfig())
+        lifecycle.set_rate_limiter(rate_limiter)
+
+        assert lifecycle._config_reloader._rate_limiter is rate_limiter
