@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from vpo.config.models import VPOConfig
-    from vpo.server.config_reload import ReloadResult, ReloadState
+    from vpo.server.config_reload import ConfigReloader, ReloadResult, ReloadState
     from vpo.server.rate_limit import RateLimiter
 
 logger = logging.getLogger(__name__)
@@ -65,6 +65,11 @@ class DaemonLifecycle:
 
     config_path: Path | None = None
     """Path to configuration file for reload."""
+
+    _config_reloader: ConfigReloader | None = field(
+        default=None, init=False, repr=False
+    )
+    _reload_state: ReloadState | None = field(default=None, init=False, repr=False)
 
     @property
     def uptime_seconds(self) -> float:
@@ -117,7 +122,7 @@ class DaemonLifecycle:
         Args:
             rate_limiter: RateLimiter instance to reconfigure on SIGHUP.
         """
-        if not hasattr(self, "_config_reloader"):
+        if self._config_reloader is None:
             logger.debug(
                 "set_rate_limiter called before init_reload_support; "
                 "rate limiter will not be hot-reloadable"
@@ -128,7 +133,7 @@ class DaemonLifecycle:
     @property
     def reload_state(self) -> ReloadState | None:
         """Get the current reload state, or None if not initialized."""
-        return getattr(self, "_reload_state", None)
+        return self._reload_state
 
     async def reload_config(self) -> ReloadResult:
         """Reload configuration from file.
@@ -141,7 +146,7 @@ class DaemonLifecycle:
         """
         from vpo.server.config_reload import ReloadResult
 
-        if not hasattr(self, "_config_reloader"):
+        if self._config_reloader is None:
             return ReloadResult(
                 success=False,
                 changes=[],

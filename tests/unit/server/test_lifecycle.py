@@ -91,6 +91,12 @@ class TestDaemonLifecycle:
         expected_deadline = lifecycle.shutdown_state.initiated + timedelta(seconds=45.0)
         assert lifecycle.shutdown_state.timeout_deadline == expected_deadline
 
+    def test_reload_fields_none_before_init(self) -> None:
+        """Reload fields should be None before init_reload_support."""
+        lifecycle = DaemonLifecycle()
+        assert lifecycle.reload_state is None
+        assert lifecycle._config_reloader is None
+
     def test_set_rate_limiter_before_init_is_noop(self) -> None:
         """set_rate_limiter without init_reload_support should not error."""
         from vpo.config.models import RateLimitConfig
