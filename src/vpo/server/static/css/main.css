@@ -1133,6 +1133,11 @@ html, body {
     opacity: 1;
 }
 
+.btn-copy--failed {
+    color: var(--color-error);
+    opacity: 1;
+}
+
 /* Path styling with truncation */
 .job-detail-path {
     max-width: 400px;
