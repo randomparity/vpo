@@ -84,6 +84,12 @@ crates/vpo-core/   # Rust extension for parallel discovery/hashing
 
 The `jobs/` module provides shared utilities for CLI and daemon job processing: progress reporting (`ProgressReporter` protocol with `StderrProgressReporter`, `DatabaseProgressReporter`, `NullProgressReporter` implementations), workflow execution (`WorkflowRunner` with pluggable `JobLifecycle`), job queue operations, and background workers.
 
+## Code Quality
+
+- After editing Python files, always run `ruff check --fix` (or the project's configured linter) before committing. Pay special attention to import ordering (E402, isort) as these are the most common post-edit failures.
+- When making multi-file changes, run the full test suite before committing. Do not commit partial batches without confirming tests pass. If tests exceed 5000+, run targeted tests vs. running the full suite.
+- When delegating to review agents, always consolidate findings into a single prioritized implementation plan with batched commits. Use TodoWrite to track batch progress.
+
 ## Development Guidelines
 
 - Prefer explicit, well-typed dataclasses/models over dicts
