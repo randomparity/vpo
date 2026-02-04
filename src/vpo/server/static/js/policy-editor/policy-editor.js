@@ -141,6 +141,7 @@ function announceToScreenReader(message) {
     // State management
     let formState = {
         name: window.POLICY_DATA.name,
+        display_name: window.POLICY_DATA.display_name || '',
         last_modified: window.POLICY_DATA.last_modified,
         track_order: [...window.POLICY_DATA.track_order],
         audio_language_preference: [...window.POLICY_DATA.audio_language_preference],
@@ -206,6 +207,15 @@ function announceToScreenReader(message) {
     const cancelBtn = document.getElementById('cancel-btn')
     const saveStatus = document.getElementById('save-status')
     const validationErrors = document.getElementById('validation-errors')
+
+    // Display name input
+    const displayNameInput = document.getElementById('policy-display-name')
+    if (displayNameInput) {
+        displayNameInput.addEventListener('input', () => {
+            formState.display_name = displayNameInput.value.trim()
+            markDirty()
+        })
+    }
 
     // Default flags checkboxes
     const defaultFlagCheckboxes = {
@@ -986,6 +996,8 @@ function announceToScreenReader(message) {
             // V11 fields (037-user-defined-phases)
             phases: phasesController ? phasesController.getConfig().phases : formState.phases,
             config: phasesController ? phasesController.getConfig().config : formState.config,
+            // Policy metadata
+            display_name: formState.display_name || null,
             last_modified_timestamp: formState.last_modified
         }
 

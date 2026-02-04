@@ -35,6 +35,7 @@
         const submitBtn = document.getElementById('submit-create-btn')
         const errorDiv = document.getElementById('create-policy-error')
         const nameInput = document.getElementById('policy-name')
+        const displayNameInput = document.getElementById('policy-display-name')
         const descriptionInput = document.getElementById('policy-description')
         const categoryInput = document.getElementById('policy-category')
 
@@ -84,6 +85,9 @@
             submitBtn.disabled = loading
             cancelBtn.disabled = loading
             nameInput.disabled = loading
+            if (displayNameInput) {
+                displayNameInput.disabled = loading
+            }
             descriptionInput.disabled = loading
             if (categoryInput) {
                 categoryInput.disabled = loading
@@ -118,6 +122,7 @@
             setLoading(true)
 
             try {
+                const displayName = displayNameInput ? displayNameInput.value.trim() : ''
                 const category = categoryInput ? categoryInput.value : ''
                 const response = await fetch('/api/policies', {
                     method: 'POST',
@@ -126,6 +131,7 @@
                     },
                     body: JSON.stringify({
                         name: name,
+                        display_name: displayName || undefined,
                         description: description || undefined,
                         category: category || undefined
                     })

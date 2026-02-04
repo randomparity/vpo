@@ -64,8 +64,8 @@
             <tbody>
                 {% for policy in policies_response.policies %}
                 <tr class="{% if policy.parse_error %}policy-error{% endif %}" data-category="{{ (policy.category or '')|e }}">
-                    <td class="policy-name">
-                        {{ policy.name }}
+                    <td class="policy-name" title="{{ policy.filename }}">
+                        {{ policy.display_name or policy.name }}
                         {% if policy.is_default %}
                         <span class="badge badge-default" aria-label="Default policy">Default</span>
                         {% endif %}
@@ -144,6 +144,15 @@
                 <small id="name-help" class="form-hint">
                     Letters, numbers, dashes, and underscores only.
                 </small>
+            </div>
+
+            <div class="form-group">
+                <label for="policy-display-name">Display Name (optional)</label>
+                <input type="text"
+                       id="policy-display-name"
+                       name="display_name"
+                       placeholder="Friendly name shown in the UI"
+                       autocomplete="off">
             </div>
 
             <div class="form-group">

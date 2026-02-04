@@ -36,6 +36,23 @@
         <!-- Validation errors (at top for visibility) -->
         <div id="validation-errors" class="validation-errors" role="alert" aria-live="assertive"></div>
 
+        <!-- Policy Metadata Section -->
+        <section class="editor-section">
+            <h2>Policy Metadata</h2>
+            <p class="section-description">Optional display name shown in the UI instead of the filename.</p>
+
+            <div class="form-group">
+                <label for="policy-display-name">Display Name</label>
+                <input
+                    type="text"
+                    id="policy-display-name"
+                    value="{{ (policy.display_name or '')|e }}"
+                    placeholder="e.g., My Anime Policy"
+                    aria-label="Policy display name"
+                />
+            </div>
+        </section>
+
         <!-- Track Ordering Section (US1) -->
         <section class="editor-section">
             <h2>Track Ordering</h2>
