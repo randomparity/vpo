@@ -147,15 +147,19 @@ def create_app(
     Returns:
         Configured aiohttp Application instance.
     """
+    from vpo.config import get_config
     from vpo.db.connection import DaemonConnectionPool
     from vpo.server.auth import (
         create_auth_middleware,
         is_auth_enabled,
     )
+    from vpo.server.rate_limit import RateLimiter, _rate_limit_middleware
 
     app = web.Application()
 
-    # Setup auth middleware if token is configured
+    # Setup auth middleware if token is configured.
+    # Auth runs first so unauthenticated requests are rejected
+    # before consuming rate limit quota.
     if is_auth_enabled(auth_token):
         auth_middleware = create_auth_middleware(auth_token)  # type: ignore[arg-type]
         app.middlewares.append(auth_middleware)
@@ -164,6 +168,12 @@ def create_app(
         logger.warning(
             "Authentication is disabled. Set VPO_AUTH_TOKEN to protect the web UI."
         )
+
+    # Setup rate limit middleware (after auth).
+    # The middleware reads the RateLimiter from app["rate_limiter"].
+    config = get_config()
+    app["rate_limiter"] = RateLimiter(config.server.rate_limit)
+    app.middlewares.append(_rate_limit_middleware)
 
     # Setup session middleware with encrypted cookie storage
     # Use environment variable for secret key, or generate one for development

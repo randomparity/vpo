@@ -2,7 +2,7 @@
 
 import pytest
 
-from vpo.config.models import JobsConfig, ProcessingConfig
+from vpo.config.models import JobsConfig, ProcessingConfig, RateLimitConfig
 
 
 class TestProcessingConfig:
@@ -87,3 +87,65 @@ class TestJobsConfig:
         """Should accept very small positive values."""
         config = JobsConfig(min_free_disk_percent=0.001)
         assert config.min_free_disk_percent == pytest.approx(0.001)
+
+
+class TestRateLimitConfig:
+    """Tests for RateLimitConfig dataclass."""
+
+    def test_default_values(self) -> None:
+        """Default values should be applied."""
+        config = RateLimitConfig()
+        assert config.enabled is True
+        assert config.get_max_requests == 120
+        assert config.mutate_max_requests == 30
+        assert config.window_seconds == 60
+
+    def test_custom_values(self) -> None:
+        """Custom values should be accepted."""
+        config = RateLimitConfig(
+            enabled=False,
+            get_max_requests=200,
+            mutate_max_requests=50,
+            window_seconds=120,
+        )
+        assert config.enabled is False
+        assert config.get_max_requests == 200
+        assert config.mutate_max_requests == 50
+        assert config.window_seconds == 120
+
+    def test_frozen(self) -> None:
+        """RateLimitConfig should be frozen (immutable)."""
+        config = RateLimitConfig()
+        with pytest.raises(AttributeError):
+            config.enabled = False  # type: ignore[misc]
+
+    def test_get_max_requests_zero_raises(self) -> None:
+        """get_max_requests < 1 should raise."""
+        with pytest.raises(ValueError, match="get_max_requests must be at least 1"):
+            RateLimitConfig(get_max_requests=0)
+
+    def test_get_max_requests_negative_raises(self) -> None:
+        """Negative get_max_requests should raise."""
+        with pytest.raises(ValueError, match="get_max_requests must be at least 1"):
+            RateLimitConfig(get_max_requests=-1)
+
+    def test_mutate_max_requests_zero_raises(self) -> None:
+        """mutate_max_requests < 1 should raise."""
+        with pytest.raises(ValueError, match="mutate_max_requests must be at least 1"):
+            RateLimitConfig(mutate_max_requests=0)
+
+    def test_window_seconds_zero_raises(self) -> None:
+        """window_seconds < 1 should raise."""
+        with pytest.raises(ValueError, match="window_seconds must be at least 1"):
+            RateLimitConfig(window_seconds=0)
+
+    def test_boundary_values(self) -> None:
+        """Minimum valid values (1) should be accepted."""
+        config = RateLimitConfig(
+            get_max_requests=1,
+            mutate_max_requests=1,
+            window_seconds=1,
+        )
+        assert config.get_max_requests == 1
+        assert config.mutate_max_requests == 1
+        assert config.window_seconds == 1

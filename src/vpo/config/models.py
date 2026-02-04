@@ -333,6 +333,39 @@ class TranscriptionPluginConfig:
             )
 
 
+@dataclass(frozen=True)
+class RateLimitConfig:
+    """Configuration for API rate limiting."""
+
+    enabled: bool = True
+    """Whether rate limiting is active."""
+
+    get_max_requests: int = 120
+    """Maximum GET requests per window per client IP."""
+
+    mutate_max_requests: int = 30
+    """Maximum POST/PUT/DELETE requests per window per client IP."""
+
+    window_seconds: int = 60
+    """Sliding window duration in seconds."""
+
+    def __post_init__(self) -> None:
+        """Validate configuration."""
+        if self.get_max_requests < 1:
+            raise ValueError(
+                f"get_max_requests must be at least 1, got {self.get_max_requests}"
+            )
+        if self.mutate_max_requests < 1:
+            raise ValueError(
+                f"mutate_max_requests must be at least 1, "
+                f"got {self.mutate_max_requests}"
+            )
+        if self.window_seconds < 1:
+            raise ValueError(
+                f"window_seconds must be at least 1, got {self.window_seconds}"
+            )
+
+
 @dataclass
 class ServerConfig:
     """Configuration for daemon server mode (012-daemon-systemd-server).
@@ -351,6 +384,9 @@ class ServerConfig:
 
     auth_token: str | None = None
     """Shared secret for HTTP Basic Auth. None or empty disables authentication."""
+
+    rate_limit: RateLimitConfig = field(default_factory=RateLimitConfig)
+    """Rate limiting configuration for API endpoints."""
 
     def __post_init__(self) -> None:
         """Validate configuration."""
