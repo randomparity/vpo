@@ -1,6 +1,8 @@
 # Transcription Analysis Policy (V12)
 # Two-phase workflow for language detection and track organization
 schema_version: 12
+name: Transcription & Organize
+description: Detect audio languages and commentary via transcription, then sort tracks and set defaults.
 
 config:
   audio_language_preference: [eng, jpn, und]

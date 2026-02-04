@@ -11,6 +11,10 @@
 # Usage:
 #   vpo policy run -p radarr-metadata.yaml /path/to/movies/ --dry-run
 schema_version: 12
+name: Radarr Movie Pipeline
+description: >-
+  Metadata-driven movie processing using Radarr for language tagging,
+  subtitle forcing, and smart transcoding with 4k/anime skip logic.
 
 config:
   audio_language_preference: [eng, und]

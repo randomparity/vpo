@@ -1,6 +1,8 @@
 # Two Phase Workflow Policy (V12)
 # Demonstrates cleanup-then-organize pattern
 schema_version: 12
+name: Cleanup & Organize
+description: Two-phase pattern — filter unwanted tracks, then sort and set defaults.
 
 config:
   audio_language_preference: [eng, jpn, und]

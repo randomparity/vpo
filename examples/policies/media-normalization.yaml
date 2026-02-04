@@ -7,6 +7,10 @@
 # - run_if: Run phase only if previous phase modified file
 # - depends_on: Skip phase if dependencies didn't complete
 schema_version: 12
+name: Full Media Normalization
+description: >-
+  Production pipeline: container prep, transcription analysis, track filtering,
+  ordering, audio synthesis, HEVC transcoding, and post-transcode verification.
 
 config:
   audio_language_preference: [eng, und]

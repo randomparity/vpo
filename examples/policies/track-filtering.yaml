@@ -1,6 +1,8 @@
 # Track Filtering Policy (V12)
 # Comprehensive audio, subtitle, and attachment filtering
 schema_version: 12
+name: Multi-Language Track Filter
+description: Filter to English, Japanese, French, and German audio with music track preservation.
 
 config:
   audio_language_preference: [eng, jpn, fra, deu, und]

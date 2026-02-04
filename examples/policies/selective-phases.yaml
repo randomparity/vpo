@@ -1,6 +1,8 @@
 # Selective Phases Policy (V12)
 # Designed for CLI phase selection: vpo policy run -p selective-phases.yaml --phases quick-fix
 schema_version: 12
+name: Selective Phase Toolkit
+description: Three independent phases for CLI selection — quick metadata fix, full normalization, or archive-quality transcoding.
 
 config:
   audio_language_preference: [eng, und]

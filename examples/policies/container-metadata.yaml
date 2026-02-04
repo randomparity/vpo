@@ -10,6 +10,8 @@
 # Usage:
 #   vpo policy run -p container-metadata.yaml /path/to/videos/ --dry-run
 schema_version: 12
+name: Container Metadata Cleanup
+description: Sanitize container tags and set titles from Radarr/Sonarr metadata.
 
 config:
   on_error: continue

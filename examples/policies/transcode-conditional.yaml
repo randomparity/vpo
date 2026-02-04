@@ -1,6 +1,8 @@
 # Conditional Transcoding Policy (V12)
 # Two-phase workflow with smart skip conditions and hardware acceleration
 schema_version: 12
+name: Smart HEVC Transcode
+description: Two-phase transcode to MKV/HEVC with skip conditions for compliant files and hardware acceleration.
 
 config:
   on_error: skip
