@@ -893,8 +893,6 @@ def run_command(
         dry_run=dry_run,
         verbose=verbose,
         selected_phases=selected_phases,
-        # Use display name from YAML 'name' field if set, else filename stem.
-        # This changes stats storage from full paths to friendly names going forward.
         policy_name=policy.name or policy_path.stem,
     )
 

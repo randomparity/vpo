@@ -329,13 +329,7 @@ class PolicyEditorRequest:
                 "commentary_patterns": self.commentary_patterns,
                 "on_error": "continue",  # Default
             }
-        # Include metadata fields (YAML key is "name" for display_name)
-        if self.display_name is not None:
-            result["name"] = self.display_name
-        if self.description is not None:
-            result["description"] = self.description
-        if self.category is not None:
-            result["category"] = self.category
+        self._add_metadata_fields(result)
         return result
 
     def _to_legacy_policy_dict(self) -> dict:
@@ -385,15 +379,21 @@ class PolicyEditorRequest:
         if self.workflow is not None:
             result["workflow"] = self.workflow
 
-        # Include metadata fields (YAML key is "name" for display_name)
+        self._add_metadata_fields(result)
+
+        return result
+
+    def _add_metadata_fields(self, result: dict) -> None:
+        """Add non-None metadata fields to a policy dict.
+
+        Maps display_name to the YAML key 'name'.
+        """
         if self.display_name is not None:
             result["name"] = self.display_name
         if self.description is not None:
             result["description"] = self.description
         if self.category is not None:
             result["category"] = self.category
-
-        return result
 
 
 @dataclass

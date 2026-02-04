@@ -194,15 +194,15 @@ def _parse_policy_file(path: Path) -> PolicySummary:
 
         # Extract display name, description and category metadata
         display_name = data.get("name")
-        if display_name is not None and not isinstance(display_name, str):
+        if isinstance(display_name, str):
+            display_name = display_name.strip() or None
+        elif display_name is not None:
             logger.warning(
                 "Policy %s has non-string 'name' field (type=%s), ignoring",
                 path.name,
                 type(display_name).__name__,
             )
             display_name = None
-        elif isinstance(display_name, str):
-            display_name = display_name.strip() or None
         description = data.get("description")
         if description is not None and not isinstance(description, str):
             description = None  # Invalid type, ignore
