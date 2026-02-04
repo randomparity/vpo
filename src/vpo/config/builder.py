@@ -19,6 +19,7 @@ from vpo.config.models import (
     LoggingConfig,
     PluginConfig,
     ProcessingConfig,
+    RateLimitConfig,
     ServerConfig,
     ToolPathsConfig,
     TranscriptionPluginConfig,
@@ -83,6 +84,12 @@ class ConfigSource:
     server_port: int | None = None
     server_shutdown_timeout: float | None = None
     server_auth_token: str | None = None
+
+    # Rate limit config
+    server_rate_limit_enabled: bool | None = None
+    server_rate_limit_get_max_requests: int | None = None
+    server_rate_limit_mutate_max_requests: int | None = None
+    server_rate_limit_window_seconds: int | None = None
 
     # Language config
     language_standard: str | None = None
@@ -250,12 +257,21 @@ class ConfigBuilder:
             cpu_cores=worker_cpu_cores if worker_cpu_cores else None,
         )
 
+        # Build rate limit config
+        rate_limit = RateLimitConfig(
+            enabled=self._get("server_rate_limit_enabled", True),
+            get_max_requests=self._get("server_rate_limit_get_max_requests", 120),
+            mutate_max_requests=self._get("server_rate_limit_mutate_max_requests", 30),
+            window_seconds=self._get("server_rate_limit_window_seconds", 60),
+        )
+
         # Build server config
         server = ServerConfig(
             bind=self._get("server_bind", "127.0.0.1"),
             port=self._get("server_port", 8321),
             shutdown_timeout=self._get("server_shutdown_timeout", 30.0),
             auth_token=self._get("server_auth_token", None),
+            rate_limit=rate_limit,
         )
 
         # Build language config
@@ -328,6 +344,7 @@ def source_from_file(file_config: dict[str, Any]) -> ConfigSource:
     jobs = file_config.get("jobs", {})
     worker = file_config.get("worker", {})
     server = file_config.get("server", {})
+    rate_limit = server.get("rate_limit", {})
     language = file_config.get("language", {})
     logging_conf = file_config.get("logging", {})
     transcription = file_config.get("transcription", {})
@@ -375,6 +392,11 @@ def source_from_file(file_config: dict[str, Any]) -> ConfigSource:
         server_port=server.get("port"),
         server_shutdown_timeout=server.get("shutdown_timeout"),
         server_auth_token=server.get("auth_token"),
+        # Rate limit
+        server_rate_limit_enabled=rate_limit.get("enabled"),
+        server_rate_limit_get_max_requests=rate_limit.get("get_max_requests"),
+        server_rate_limit_mutate_max_requests=rate_limit.get("mutate_max_requests"),
+        server_rate_limit_window_seconds=rate_limit.get("window_seconds"),
         # Language
         language_standard=language.get("standard"),
         language_warn_on_conversion=language.get("warn_on_conversion"),
@@ -446,6 +468,17 @@ def source_from_env(reader: EnvReader) -> ConfigSource:
         server_port=reader.get_int("VPO_SERVER_PORT"),
         server_shutdown_timeout=reader.get_float("VPO_SERVER_SHUTDOWN_TIMEOUT"),
         server_auth_token=reader.get_str("VPO_AUTH_TOKEN"),
+        # Rate limit
+        server_rate_limit_enabled=reader.get_bool("VPO_RATE_LIMIT_ENABLED"),
+        server_rate_limit_get_max_requests=reader.get_int(
+            "VPO_RATE_LIMIT_GET_MAX_REQUESTS"
+        ),
+        server_rate_limit_mutate_max_requests=reader.get_int(
+            "VPO_RATE_LIMIT_MUTATE_MAX_REQUESTS"
+        ),
+        server_rate_limit_window_seconds=reader.get_int(
+            "VPO_RATE_LIMIT_WINDOW_SECONDS"
+        ),
         # Language
         language_standard=reader.get_str("VPO_LANGUAGE_STANDARD"),
         language_warn_on_conversion=reader.get_bool("VPO_LANGUAGE_WARN_ON_CONVERSION"),

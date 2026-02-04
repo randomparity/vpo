@@ -11,8 +11,6 @@ Endpoints:
 from __future__ import annotations
 
 import asyncio
-import time
-from collections import defaultdict
 from dataclasses import dataclass
 
 from aiohttp import web
@@ -258,46 +256,6 @@ async def api_plan_reject_handler(request: web.Request) -> web.Response:
     return web.json_response(response.to_dict())
 
 
-# Rate limiting for bulk operations
-@dataclass
-class RateLimitState:
-    """Track rate limit state for bulk operations."""
-
-    requests: list[float]  # Timestamps of recent requests
-    window_seconds: int = 60  # Time window for rate limiting
-    max_requests: int = 10  # Max requests per window
-
-
-# Global rate limit state per client IP
-_rate_limit_state: dict[str, RateLimitState] = defaultdict(
-    lambda: RateLimitState(requests=[])
-)
-
-
-def _check_rate_limit(client_ip: str) -> bool:
-    """Check if a client is within rate limits.
-
-    Args:
-        client_ip: Client's IP address.
-
-    Returns:
-        True if request is allowed, False if rate limited.
-    """
-    now = time.time()
-    state = _rate_limit_state[client_ip]
-
-    # Remove old requests outside the window
-    state.requests = [t for t in state.requests if now - t < state.window_seconds]
-
-    # Check if under limit
-    if len(state.requests) >= state.max_requests:
-        return False
-
-    # Record this request
-    state.requests.append(now)
-    return True
-
-
 @dataclass
 class BulkActionResponse:
     """Response for bulk approve/reject operations.
@@ -342,14 +300,6 @@ async def api_plans_bulk_approve_handler(request: web.Request) -> web.Response:
         JSON response with BulkActionResponse payload.
     """
     from vpo.jobs.services import PlanApprovalService
-
-    # Rate limiting
-    client_ip = request.remote or "unknown"
-    if not _check_rate_limit(client_ip):
-        return web.json_response(
-            {"error": "Rate limit exceeded. Please wait before retrying."},
-            status=429,
-        )
 
     # Parse request body
     try:
@@ -430,14 +380,6 @@ async def api_plans_bulk_reject_handler(request: web.Request) -> web.Response:
         JSON response with BulkActionResponse payload.
     """
     from vpo.jobs.services import PlanApprovalService
-
-    # Rate limiting
-    client_ip = request.remote or "unknown"
-    if not _check_rate_limit(client_ip):
-        return web.json_response(
-            {"error": "Rate limit exceeded. Please wait before retrying."},
-            status=429,
-        )
 
     # Parse request body
     try:
