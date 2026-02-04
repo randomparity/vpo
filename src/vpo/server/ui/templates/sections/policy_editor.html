@@ -118,6 +118,14 @@
                     <input type="checkbox" id="clear_other_defaults" name="clear_other_defaults">
                     <span>Clear other default flags</span>
                 </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="set_subtitle_default_when_audio_differs" name="set_subtitle_default_when_audio_differs">
+                    <span>Set subtitle default when audio language differs from preference</span>
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="set_subtitle_forced_when_audio_differs" name="set_subtitle_forced_when_audio_differs">
+                    <span>Set subtitle forced when audio language differs from preference</span>
+                </label>
             </div>
 
             <div class="form-group" style="margin-top: var(--spacing-md);">
@@ -168,6 +176,16 @@
                         <input type="checkbox" id="reorder_commentary" name="reorder_commentary">
                         <span>Move commentary tracks to end (requires detection enabled)</span>
                     </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="update_language_from_transcription" name="update_language_from_transcription">
+                        <span>Update track language tags from transcription results</span>
+                    </label>
+                </div>
+                <div class="form-group" style="margin-top: var(--spacing-sm);">
+                    <label for="confidence_threshold">Confidence Threshold (%)</label>
+                    <input type="number" id="confidence_threshold" name="confidence_threshold"
+                           min="0" max="100" step="1" placeholder="80">
+                    <p class="form-hint">Minimum confidence for language updates (default 80%).</p>
                 </div>
             </div>
         </section>
@@ -311,6 +329,13 @@
                                 <option value="transcode">Transcode (convert codec)</option>
                             </select>
                             <p class="form-hint">Action when a track's codec isn't compatible with the target container.</p>
+                        </div>
+                        <div class="checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="container-preserve-metadata" checked>
+                                <span>Preserve source metadata during container conversion</span>
+                            </label>
+                            <p class="form-hint">Copy metadata tags from source file. Disable to start with clean metadata.</p>
                         </div>
                     </div>
                 </div>

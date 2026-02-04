@@ -10,7 +10,8 @@
  *
  * Operation types in canonical order:
  * container, audio_filter, subtitle_filter, attachment_filter,
- * track_order, default_flags, conditional, audio_synthesis, transcode, transcription
+ * track_order, default_flags, conditional, audio_synthesis, transcode,
+ * transcription, file_timestamp
  */
 
 // Valid operation types in canonical execution order
@@ -24,8 +25,28 @@ const OPERATION_TYPES = [
     { id: 'conditional', label: 'Conditional Rules', description: 'Apply conditional logic' },
     { id: 'audio_synthesis', label: 'Audio Synthesis', description: 'Create synthesized audio tracks' },
     { id: 'transcode', label: 'Transcode', description: 'Transcode video/audio' },
-    { id: 'transcription', label: 'Transcription', description: 'Transcription analysis' }
+    { id: 'transcription', label: 'Transcription', description: 'Transcription analysis' },
+    { id: 'file_timestamp', label: 'File Timestamp', description: 'Set file modification timestamp' }
 ]
+
+const RESOLUTION_OPTIONS = [
+    { value: '', label: '-- None --' },
+    { value: '480p', label: '480p' },
+    { value: '720p', label: '720p' },
+    { value: '1080p', label: '1080p' },
+    { value: '1440p', label: '1440p' },
+    { value: '4k', label: '4K' },
+    { value: '8k', label: '8K' }
+]
+
+const ON_ERROR_OPTIONS = [
+    { value: '', label: '(inherit global)' },
+    { value: 'skip', label: 'Skip' },
+    { value: 'continue', label: 'Continue' },
+    { value: 'fail', label: 'Fail' }
+]
+
+import { escapeAttr } from './policy-editor.js'
 
 // Phase name validation pattern (same as backend)
 const PHASE_NAME_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/
@@ -44,7 +65,7 @@ export function initPhasesSection(policyData, onUpdate) {
     const configOnError = document.getElementById('config-on-error')
 
     // Only activate for V11 policies
-    if (!container || policyData.schema_version !== 11) {
+    if (!container || policyData.schema_version < 11) {
         return null
     }
 
@@ -160,6 +181,246 @@ export function initPhasesSection(policyData, onUpdate) {
         div.appendChild(header)
         div.appendChild(opsSection)
 
+        // Audio/Subtitle pre-processing actions section
+        const actionsSection = document.createElement('div')
+        actionsSection.className = 'phase-track-actions'
+
+        const actionsToggle = document.createElement('details')
+        actionsToggle.className = 'phase-cond-details'
+        if (phase.audio_actions || phase.subtitle_actions) {
+            actionsToggle.open = true
+        }
+
+        const actionsSummary = document.createElement('summary')
+        actionsSummary.className = 'phase-cond-summary'
+        actionsSummary.textContent = 'Track Pre-Processing Actions'
+
+        const actionsContent = document.createElement('div')
+        actionsContent.className = 'phase-cond-content'
+        actionsContent.innerHTML = `
+            <div class="phase-cond-group">
+                <label class="form-label">Audio Actions:</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" class="audio-clear-forced" ${phase.audio_actions?.clear_all_forced ? 'checked' : ''}>
+                        <span>Clear all forced flags</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" class="audio-clear-default" ${phase.audio_actions?.clear_all_default ? 'checked' : ''}>
+                        <span>Clear all default flags</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" class="audio-clear-titles" ${phase.audio_actions?.clear_all_titles ? 'checked' : ''}>
+                        <span>Clear all titles</span>
+                    </label>
+                </div>
+            </div>
+            <div class="phase-cond-group">
+                <label class="form-label">Subtitle Actions:</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" class="sub-clear-forced" ${phase.subtitle_actions?.clear_all_forced ? 'checked' : ''}>
+                        <span>Clear all forced flags</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" class="sub-clear-default" ${phase.subtitle_actions?.clear_all_default ? 'checked' : ''}>
+                        <span>Clear all default flags</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" class="sub-clear-titles" ${phase.subtitle_actions?.clear_all_titles ? 'checked' : ''}>
+                        <span>Clear all titles</span>
+                    </label>
+                </div>
+            </div>
+        `
+
+        function collectAudioActions() {
+            const actions = {}
+            if (actionsContent.querySelector('.audio-clear-forced').checked) actions.clear_all_forced = true
+            if (actionsContent.querySelector('.audio-clear-default').checked) actions.clear_all_default = true
+            if (actionsContent.querySelector('.audio-clear-titles').checked) actions.clear_all_titles = true
+            phases[index].audio_actions = Object.keys(actions).length > 0 ? actions : null
+            notifyUpdate()
+        }
+
+        function collectSubtitleActions() {
+            const actions = {}
+            if (actionsContent.querySelector('.sub-clear-forced').checked) actions.clear_all_forced = true
+            if (actionsContent.querySelector('.sub-clear-default').checked) actions.clear_all_default = true
+            if (actionsContent.querySelector('.sub-clear-titles').checked) actions.clear_all_titles = true
+            phases[index].subtitle_actions = Object.keys(actions).length > 0 ? actions : null
+            notifyUpdate()
+        }
+
+        actionsContent.querySelectorAll('[class^="audio-clear"]').forEach(el => {
+            el.addEventListener('change', collectAudioActions)
+        })
+        actionsContent.querySelectorAll('[class^="sub-clear"]').forEach(el => {
+            el.addEventListener('change', collectSubtitleActions)
+        })
+
+        actionsToggle.appendChild(actionsSummary)
+        actionsToggle.appendChild(actionsContent)
+        actionsSection.appendChild(actionsToggle)
+        div.appendChild(actionsSection)
+
+        // Conditional execution section
+        const condExecSection = document.createElement('div')
+        condExecSection.className = 'phase-conditional-execution'
+
+        const condExecToggle = document.createElement('details')
+        condExecToggle.className = 'phase-cond-details'
+
+        const condExecSummary = document.createElement('summary')
+        condExecSummary.className = 'phase-cond-summary'
+        condExecSummary.textContent = 'Conditional Execution'
+        // Auto-open if phase has any conditional fields
+        if (phase.skip_when || phase.depends_on || phase.run_if || phase.on_error) {
+            condExecToggle.open = true
+        }
+
+        const condExecContent = document.createElement('div')
+        condExecContent.className = 'phase-cond-content'
+
+        condExecContent.innerHTML = `
+            <div class="phase-cond-group">
+                <label class="form-label">Per-Phase On Error:</label>
+                <select class="form-select form-select-small phase-on-error-select">
+                    ${ON_ERROR_OPTIONS.map(o => `<option value="${o.value}" ${(phase.on_error || '') === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
+                </select>
+            </div>
+            <div class="phase-cond-group">
+                <label class="form-label">Depends On:</label>
+                <input type="text" class="form-input form-input-small phase-depends-on"
+                       placeholder="Comma-separated phase names"
+                       value="${escapeAttr((phase.depends_on || []).join(', '))}">
+                <span class="form-hint">Phase names that must complete before this runs</span>
+            </div>
+            <div class="phase-cond-group">
+                <label class="form-label">Run If:</label>
+                <select class="form-select form-select-small phase-run-if-type">
+                    <option value="">Always run</option>
+                    <option value="phase_modified" ${phase.run_if?.phase_modified ? 'selected' : ''}>Phase modified file</option>
+                    <option value="phase_completed" ${phase.run_if?.phase_completed ? 'selected' : ''}>Phase completed</option>
+                </select>
+                <input type="text" class="form-input form-input-small phase-run-if-value"
+                       placeholder="Phase name"
+                       value="${escapeAttr(phase.run_if?.phase_modified || phase.run_if?.phase_completed || '')}"
+                       style="display: ${phase.run_if ? 'inline-block' : 'none'}">
+            </div>
+            <div class="phase-cond-group">
+                <label class="form-label">Skip When:</label>
+                <div class="skip-when-fields">
+                    <div class="filter-row">
+                        <label class="form-label-inline">Video Codec:</label>
+                        <input type="text" class="form-input form-input-small skip-when-video-codec"
+                               placeholder="e.g., hevc, h265"
+                               value="${escapeAttr((phase.skip_when?.video_codec || []).join(', '))}">
+                    </div>
+                    <div class="filter-row">
+                        <label class="form-label-inline">Audio Codec Exists:</label>
+                        <input type="text" class="form-input form-input-small skip-when-audio-codec"
+                               placeholder="e.g., truehd"
+                               value="${escapeAttr(phase.skip_when?.audio_codec_exists || '')}">
+                    </div>
+                    <div class="filter-row">
+                        <label class="form-label-inline">Container:</label>
+                        <input type="text" class="form-input form-input-small skip-when-container"
+                               placeholder="e.g., mkv, mp4"
+                               value="${escapeAttr((phase.skip_when?.container || []).join(', '))}">
+                    </div>
+                    <div class="filter-row">
+                        <label class="form-label-inline">Resolution Under:</label>
+                        <select class="form-select form-select-small skip-when-resolution">
+                            ${RESOLUTION_OPTIONS.map(r => `<option value="${r.value}" ${phase.skip_when?.resolution_under === r.value ? 'selected' : ''}>${r.label}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="filter-row">
+                        <label class="form-label-inline">File Size Under:</label>
+                        <input type="text" class="form-input form-input-small skip-when-file-size"
+                               placeholder="e.g., 1GB, 500MB"
+                               value="${escapeAttr(phase.skip_when?.file_size_under || '')}">
+                    </div>
+                    <div class="filter-row">
+                        <label class="form-label-inline">Duration Under:</label>
+                        <input type="text" class="form-input form-input-small skip-when-duration"
+                               placeholder="e.g., 30m, 1h"
+                               value="${escapeAttr(phase.skip_when?.duration_under || '')}">
+                    </div>
+                </div>
+            </div>
+        `
+
+        condExecToggle.appendChild(condExecSummary)
+        condExecToggle.appendChild(condExecContent)
+        condExecSection.appendChild(condExecToggle)
+        div.appendChild(condExecSection)
+
+        // Conditional execution event listeners
+        const onErrorSelect = condExecContent.querySelector('.phase-on-error-select')
+        const dependsOnInput = condExecContent.querySelector('.phase-depends-on')
+        const runIfTypeSelect = condExecContent.querySelector('.phase-run-if-type')
+        const runIfValueInput = condExecContent.querySelector('.phase-run-if-value')
+        const skipVideoCodec = condExecContent.querySelector('.skip-when-video-codec')
+        const skipAudioCodec = condExecContent.querySelector('.skip-when-audio-codec')
+        const skipContainer = condExecContent.querySelector('.skip-when-container')
+        const skipResolution = condExecContent.querySelector('.skip-when-resolution')
+        const skipFileSize = condExecContent.querySelector('.skip-when-file-size')
+        const skipDuration = condExecContent.querySelector('.skip-when-duration')
+
+        onErrorSelect.addEventListener('change', () => {
+            phases[index].on_error = onErrorSelect.value || null
+            notifyUpdate()
+        })
+
+        dependsOnInput.addEventListener('input', () => {
+            const names = dependsOnInput.value.split(',').map(s => s.trim()).filter(Boolean)
+            phases[index].depends_on = names.length > 0 ? names : null
+            notifyUpdate()
+        })
+
+        runIfTypeSelect.addEventListener('change', () => {
+            const type = runIfTypeSelect.value
+            runIfValueInput.style.display = type ? 'inline-block' : 'none'
+            if (!type) {
+                phases[index].run_if = null
+            } else {
+                phases[index].run_if = { [type]: runIfValueInput.value.trim() || '' }
+            }
+            notifyUpdate()
+        })
+
+        runIfValueInput.addEventListener('input', () => {
+            const type = runIfTypeSelect.value
+            if (type) {
+                phases[index].run_if = { [type]: runIfValueInput.value.trim() || '' }
+                notifyUpdate()
+            }
+        })
+
+        function collectSkipWhen() {
+            const skipWhen = {}
+            const vCodecs = skipVideoCodec.value.split(',').map(s => s.trim()).filter(Boolean)
+            if (vCodecs.length > 0) skipWhen.video_codec = vCodecs
+            const aCodec = skipAudioCodec.value.trim()
+            if (aCodec) skipWhen.audio_codec_exists = aCodec
+            const containers = skipContainer.value.split(',').map(s => s.trim()).filter(Boolean)
+            if (containers.length > 0) skipWhen.container = containers
+            if (skipResolution.value) skipWhen.resolution_under = skipResolution.value
+            const fSize = skipFileSize.value.trim()
+            if (fSize) skipWhen.file_size_under = fSize
+            const dur = skipDuration.value.trim()
+            if (dur) skipWhen.duration_under = dur
+
+            phases[index].skip_when = Object.keys(skipWhen).length > 0 ? skipWhen : null
+            notifyUpdate()
+        }
+
+        ;[skipVideoCodec, skipAudioCodec, skipContainer, skipFileSize, skipDuration].forEach(el => {
+            el.addEventListener('input', collectSkipWhen)
+        })
+        skipResolution.addEventListener('change', collectSkipWhen)
+
         // Name input change
         nameInput.addEventListener('blur', () => {
             const error = validatePhaseName(nameInput.value, index)
@@ -254,6 +515,7 @@ export function initPhasesSection(policyData, onUpdate) {
         case 'audio_synthesis': return !!phase.audio_synthesis
         case 'transcode': return !!phase.transcode || !!phase.audio_transcode
         case 'transcription': return !!phase.transcription
+        case 'file_timestamp': return !!phase.file_timestamp
         default: return false
         }
     }
@@ -294,6 +556,9 @@ export function initPhasesSection(policyData, onUpdate) {
                 break
             case 'transcription':
                 phase.transcription = { enabled: true }
+                break
+            case 'file_timestamp':
+                phase.file_timestamp = { mode: 'preserve' }
                 break
             }
         } else {

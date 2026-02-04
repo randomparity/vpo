@@ -28,6 +28,13 @@ def format_human(result: IntrospectionResult) -> str:
         # Make container format more readable
         container = result.container_format.split(",")[0].title()
         lines.append(f"Container: {container}")
+
+    # Container-level metadata tags
+    if result.container_tags:
+        lines.append("Container Tags:")
+        for key, value in sorted(result.container_tags.items()):
+            lines.append(f"  {key}: {value}")
+
     lines.append("")
 
     # Group tracks by type
@@ -160,13 +167,15 @@ def format_json(result: IntrospectionResult) -> str:
     Returns:
         JSON string.
     """
-    data = {
+    data: dict[str, Any] = {
         "file": str(result.file_path),
         "container": result.container_format,
         "duration_seconds": result.duration_seconds,
         "tracks": [track_to_dict(t) for t in result.tracks],
         "warnings": result.warnings,
     }
+    if result.container_tags is not None:
+        data["container_tags"] = result.container_tags
     return json.dumps(data, indent=2)
 
 

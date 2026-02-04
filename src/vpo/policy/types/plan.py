@@ -254,16 +254,26 @@ class ContainerChange:
     incompatible tracks were found.
     """
 
+    preserve_metadata: bool = True
+    """If True, preserve portable container-level metadata during conversion."""
+
 
 @dataclass(frozen=True)
 class PlannedAction:
-    """A single planned change. Immutable."""
+    """A single planned change. Immutable.
+
+    For SET_CONTAINER_METADATA actions, ``container_field`` stores the
+    metadata field name, ``current_value`` stores the actual current tag
+    value (or None), and ``desired_value`` stores the new value to set.
+    An empty ``desired_value`` means clear/delete.
+    """
 
     action_type: ActionType
     track_index: int | None  # None for REORDER (file-level action)
     current_value: Any
     desired_value: Any
     track_id: str | None = None  # Track UID if available
+    container_field: str | None = None  # Field name for SET_CONTAINER_METADATA
 
     @property
     def description(self) -> str:
@@ -282,6 +292,12 @@ class PlannedAction:
             return f"Track {self.track_index}: Set title '{self.desired_value}'"
         elif self.action_type == ActionType.SET_LANGUAGE:
             return f"Track {self.track_index}: Set language '{self.desired_value}'"
+        elif self.action_type == ActionType.SET_CONTAINER_METADATA:
+            field = self.container_field or "unknown"
+            if self.desired_value == "":
+                return f"Container: Clear metadata '{field}'"
+            val = self.desired_value
+            return f"Container: Set metadata '{field}' = '{val}'"
         else:
             return f"Track {self.track_index}: {self.action_type.value}"
 

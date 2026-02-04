@@ -84,7 +84,7 @@ def parse_plugin_metadata(
         return None
 
     try:
-        return json.loads(file_record.plugin_metadata)
+        parsed = json.loads(file_record.plugin_metadata)
     except json.JSONDecodeError as e:
         logger.error(
             "Corrupted plugin_metadata JSON for file %s (file_id=%s): %s. "
@@ -95,6 +95,50 @@ def parse_plugin_metadata(
             context,
         )
         return None
+
+    if not isinstance(parsed, dict):
+        logger.error(
+            "plugin_metadata for file %s (file_id=%s) is not a JSON object "
+            "(got %s). Plugin metadata conditions in %s will not be evaluated.",
+            file_path,
+            file_id,
+            type(parsed).__name__,
+            context,
+        )
+        return None
+
+    return parsed
+
+
+def parse_container_tags(
+    file_record: FileRecord | None,
+    file_path: Path,
+    file_id: str,
+) -> dict[str, str] | None:
+    """Parse container tags JSON from FileRecord.
+
+    Args:
+        file_record: File record from database (may be None).
+        file_path: Path to file (for error logging).
+        file_id: File ID string (for error logging).
+
+    Returns:
+        Parsed container tags dict, or None if unavailable or corrupted.
+    """
+    from vpo.db.queries.helpers import deserialize_container_tags
+
+    if not file_record or not file_record.container_tags:
+        return None
+
+    result = deserialize_container_tags(file_record.container_tags)
+    if result is None:
+        logger.error(
+            "Invalid container_tags for file %s (file_id=%s). "
+            "Container metadata conditions will not be evaluated.",
+            file_path,
+            file_id,
+        )
+    return result
 
 
 def select_executor(
@@ -130,6 +174,13 @@ def select_executor(
         elif target in ("mkv", "matroska"):
             if tools.get("mkvmerge"):
                 return MkvmergeExecutor()
+        logger.warning(
+            "No executor available for container conversion to '%s' "
+            "(ffmpeg=%s, mkvmerge=%s)",
+            target,
+            tools.get("ffmpeg", False),
+            tools.get("mkvmerge", False),
+        )
         return None
 
     # Track filtering or reordering requires remux
@@ -138,6 +189,12 @@ def select_executor(
             return MkvmergeExecutor()
         elif tools.get("ffmpeg"):
             return FFmpegRemuxExecutor()
+        logger.warning(
+            "No executor available for remux (container=%s, mkvmerge=%s, ffmpeg=%s)",
+            container,
+            tools.get("mkvmerge", False),
+            tools.get("ffmpeg", False),
+        )
         return None
 
     # Metadata-only changes
@@ -146,6 +203,13 @@ def select_executor(
     elif tools.get("ffmpeg"):
         return FfmpegMetadataExecutor()
 
+    logger.warning(
+        "No executor available for metadata changes (container=%s, "
+        "mkvpropedit=%s, ffmpeg=%s)",
+        container,
+        tools.get("mkvpropedit", False),
+        tools.get("ffmpeg", False),
+    )
     return None
 
 

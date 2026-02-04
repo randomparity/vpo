@@ -3,8 +3,11 @@
 This module provides utility functions used across multiple query modules:
 - SQL pattern escaping for LIKE queries
 - Row mapping functions to convert database rows to typed dataclasses
+- JSON serialization helpers for container tags
 """
 
+import json
+import logging
 import sqlite3
 
 from vpo.db.types import (
@@ -14,6 +17,8 @@ from vpo.db.types import (
     JobType,
     TrackRecord,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _escape_like_pattern(value: str) -> str:
@@ -63,6 +68,7 @@ def _row_to_file_record(row: sqlite3.Row) -> FileRecord:
         scan_error=row["scan_error"],
         job_id=row["job_id"],
         plugin_metadata=row["plugin_metadata"],
+        container_tags=row["container_tags"],
     )
 
 
@@ -137,3 +143,54 @@ def _row_to_job(row: sqlite3.Row) -> Job:
         origin=origin,
         batch_id=batch_id,
     )
+
+
+def serialize_container_tags(tags: dict[str, str] | None) -> str | None:
+    """Serialize container tags dict to JSON string for database storage.
+
+    Args:
+        tags: Container tags dict with string keys and values, or None.
+
+    Returns:
+        JSON string representation, or None if tags is None/empty.
+    """
+    if not tags:
+        return None
+    try:
+        return json.dumps(tags)
+    except (TypeError, ValueError) as e:
+        logger.error("Failed to serialize container_tags: %s", e)
+        return None
+
+
+def deserialize_container_tags(json_str: str | None) -> dict[str, str] | None:
+    """Deserialize container tags JSON string from database.
+
+    Validates that the result is a dict with string values.
+
+    Args:
+        json_str: JSON string from database, or None.
+
+    Returns:
+        Parsed dict with string keys and values, or None if invalid.
+    """
+    if not json_str:
+        return None
+    try:
+        parsed = json.loads(json_str)
+    except json.JSONDecodeError as e:
+        logger.error("Corrupted container_tags JSON: %s", e)
+        return None
+
+    if not isinstance(parsed, dict):
+        logger.error(
+            "container_tags is not a JSON object (got %s)",
+            type(parsed).__name__,
+        )
+        return None
+
+    if not all(isinstance(v, str) for v in parsed.values()):
+        logger.error("container_tags contains non-string values")
+        return None
+
+    return parsed

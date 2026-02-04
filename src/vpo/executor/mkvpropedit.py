@@ -9,7 +9,11 @@ import subprocess  # nosec B404 - subprocess is required for mkvpropedit executi
 import time
 from pathlib import Path
 
-from vpo.executor.backup import create_backup, safe_restore_from_backup
+from vpo.executor.backup import (
+    create_backup,
+    log_restore_failure_and_append_warning,
+    safe_restore_from_backup,
+)
 from vpo.executor.interface import ExecutorResult, require_tool
 from vpo.policy.types import ActionType, Plan, PlannedAction
 
@@ -125,9 +129,7 @@ class MkvpropeditExecutor:
                 errors="replace",
             )
         except subprocess.TimeoutExpired:
-            # Restore backup on timeout
             elapsed = time.monotonic() - start_time
-            safe_restore_from_backup(backup_path)
             timeout_mins = self._timeout // 60 if self._timeout else 0
             logger.warning(
                 "mkvpropedit timed out",
@@ -137,15 +139,18 @@ class MkvpropeditExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            return ExecutorResult(
-                success=False,
-                message=f"mkvpropedit timed out after {timeout_mins} min for "
-                f"{plan.file_path}",
+            restored = safe_restore_from_backup(backup_path)
+            msg = log_restore_failure_and_append_warning(
+                restored,
+                backup_path,
+                plan.file_path,
+                "mkvpropedit",
+                "timeout",
+                f"mkvpropedit timed out after {timeout_mins} min for {plan.file_path}",
             )
+            return ExecutorResult(success=False, message=msg)
         except (subprocess.SubprocessError, OSError) as e:
-            # Restore backup on subprocess error
             elapsed = time.monotonic() - start_time
-            safe_restore_from_backup(backup_path)
             logger.error(
                 "mkvpropedit execution failed",
                 extra={
@@ -154,12 +159,17 @@ class MkvpropeditExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            return ExecutorResult(
-                success=False,
-                message=f"mkvpropedit failed for {plan.file_path}: {e}",
+            restored = safe_restore_from_backup(backup_path)
+            msg = log_restore_failure_and_append_warning(
+                restored,
+                backup_path,
+                plan.file_path,
+                "mkvpropedit",
+                "error",
+                f"mkvpropedit failed for {plan.file_path}: {e}",
             )
+            return ExecutorResult(success=False, message=msg)
         except Exception as e:
-            # Restore backup on unexpected error
             elapsed = time.monotonic() - start_time
             logger.exception(
                 "Unexpected error during mkvpropedit execution for %s",
@@ -169,16 +179,19 @@ class MkvpropeditExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            safe_restore_from_backup(backup_path)
-            return ExecutorResult(
-                success=False,
-                message=f"Unexpected error for {plan.file_path}: {e}",
+            restored = safe_restore_from_backup(backup_path)
+            msg = log_restore_failure_and_append_warning(
+                restored,
+                backup_path,
+                plan.file_path,
+                "mkvpropedit",
+                "unexpected error",
+                f"Unexpected error for {plan.file_path}: {e}",
             )
+            return ExecutorResult(success=False, message=msg)
 
         if result.returncode != 0:
-            # Restore backup on failure
             elapsed = time.monotonic() - start_time
-            safe_restore_from_backup(backup_path)
             logger.error(
                 "mkvpropedit returned non-zero exit code",
                 extra={
@@ -187,11 +200,17 @@ class MkvpropeditExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            return ExecutorResult(
-                success=False,
-                message=f"mkvpropedit failed for {plan.file_path}: "
+            restored = safe_restore_from_backup(backup_path)
+            msg = log_restore_failure_and_append_warning(
+                restored,
+                backup_path,
+                plan.file_path,
+                "mkvpropedit",
+                "non-zero exit",
+                f"mkvpropedit failed for {plan.file_path}: "
                 f"{result.stderr or result.stdout}",
             )
+            return ExecutorResult(success=False, message=msg)
 
         # Success - optionally keep backup
         elapsed = time.monotonic() - start_time
@@ -225,6 +244,20 @@ class MkvpropeditExecutor:
 
     def _action_to_args(self, action: PlannedAction) -> list[str]:
         """Convert a PlannedAction to mkvpropedit arguments."""
+        # Container-level metadata uses --edit info (no track_index needed)
+        if action.action_type == ActionType.SET_CONTAINER_METADATA:
+            field = action.container_field
+            if not field:
+                raise ValueError(
+                    f"SET_CONTAINER_METADATA requires container_field to be set, "
+                    f"got container_field={field!r}"
+                )
+            value = action.desired_value if action.desired_value is not None else ""
+            if value == "":
+                # Clear/delete the tag
+                return ["--edit", "info", "--delete", field]
+            return ["--edit", "info", "--set", f"{field}={value}"]
+
         if action.track_index is None:
             raise ValueError(f"Action {action.action_type} requires track_index")
 

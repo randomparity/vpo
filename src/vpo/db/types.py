@@ -110,6 +110,8 @@ class FileRecord:
     # Plugin-provided metadata (039-plugin-metadata-policy)
     # JSON-serialized dict keyed by plugin name
     plugin_metadata: str | None = None
+    # Container-level metadata tags (JSON-serialized dict, keys lowercase)
+    container_tags: str | None = None
 
     @classmethod
     def from_file_info(cls, info: FileInfo, job_id: str | None = None) -> "FileRecord":
@@ -119,6 +121,10 @@ class FileRecord:
         plugin_metadata_json: str | None = None
         if info.plugin_metadata:
             plugin_metadata_json = json.dumps(info.plugin_metadata)
+
+        from vpo.db.queries.helpers import serialize_container_tags
+
+        container_tags_json = serialize_container_tags(info.container_tags)
 
         return cls(
             id=None,
@@ -135,6 +141,7 @@ class FileRecord:
             scan_error=info.scan_error,
             job_id=job_id,
             plugin_metadata=plugin_metadata_json,
+            container_tags=container_tags_json,
         )
 
 

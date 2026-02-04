@@ -10,10 +10,12 @@
  * - Track filters: language, codec, is_default, is_forced, channels, width, height, title, not_commentary
  * - Actions: skip_video_transcode, skip_audio_transcode, skip_track_filter, warn, fail
  * - V7 actions: set_forced, set_default
+ * - V12 actions: set_container_metadata
+ * - V12 conditions: plugin_metadata, container_metadata
  * - 2-level nesting enforcement for boolean conditions
  */
 
-import { showUndoToast } from './policy-editor.js'
+import { showUndoToast, escapeAttr } from './policy-editor.js'
 
 // Constants for condition building
 const TRACK_TYPES = [
@@ -29,7 +31,22 @@ const CONDITION_TYPES = [
     { value: 'and', label: 'AND (all must match)' },
     { value: 'or', label: 'OR (any must match)' },
     { value: 'not', label: 'NOT (negate)' },
-    { value: 'audio_is_multi_language', label: 'Audio is Multi-Language' }
+    { value: 'audio_is_multi_language', label: 'Audio is Multi-Language' },
+    { value: 'is_original', label: 'Is Original Audio (V12)' },
+    { value: 'is_dubbed', label: 'Is Dubbed Audio (V12)' },
+    { value: 'plugin_metadata', label: 'Plugin Metadata (V12)' },
+    { value: 'container_metadata', label: 'Container Metadata (V12)' }
+]
+
+const METADATA_OPERATORS = [
+    { value: 'eq', label: '= (equals)' },
+    { value: 'neq', label: '!= (not equals)' },
+    { value: 'contains', label: 'Contains (substring)' },
+    { value: 'exists', label: 'Exists (field present)' },
+    { value: 'lt', label: '< (less than)' },
+    { value: 'lte', label: '<= (less or equal)' },
+    { value: 'gt', label: '> (greater than)' },
+    { value: 'gte', label: '>= (greater or equal)' }
 ]
 
 const COMPARISON_OPERATORS = [
@@ -51,7 +68,9 @@ const ACTION_TYPES = [
     { value: 'warn', label: 'Warn (log message)' },
     { value: 'fail', label: 'Fail (stop with error)' },
     { value: 'set_forced', label: 'Set Forced Flag (V7)' },
-    { value: 'set_default', label: 'Set Default Flag (V7)' }
+    { value: 'set_default', label: 'Set Default Flag (V7)' },
+    { value: 'set_language', label: 'Set Language (V7)' },
+    { value: 'set_container_metadata', label: 'Set Container Metadata (V12)' }
 ]
 
 // Common codec options for quick selection (reserved for future use)
@@ -87,13 +106,13 @@ function createTrackFiltersBuilder(filters, onUpdate, trackType) {
             <div class="filter-row">
                 <label class="form-label-inline">Language:</label>
                 <input type="text" class="form-input form-input-small" id="${generateId('lang')}"
-                       placeholder="e.g., eng or eng,jpn" value="${filtersData.language || ''}"
+                       placeholder="e.g., eng or eng,jpn" value="${escapeAttr(filtersData.language || '')}"
                        aria-label="Filter by language code (comma-separated)">
             </div>
             <div class="filter-row">
                 <label class="form-label-inline">Codec:</label>
                 <input type="text" class="form-input form-input-small" id="${generateId('codec')}"
-                       placeholder="e.g., hevc or hevc,h264" value="${filtersData.codec || ''}"
+                       placeholder="e.g., hevc or hevc,h264" value="${escapeAttr(filtersData.codec || '')}"
                        aria-label="Filter by codec (comma-separated)">
             </div>
             <div class="filter-row filter-checkboxes">
@@ -153,10 +172,16 @@ function createTrackFiltersBuilder(filters, onUpdate, trackType) {
             </div>
             ` : ''}
             <div class="filter-row">
-                <label class="form-label-inline">Title contains:</label>
+                <label class="form-label-inline">Title:</label>
+                <select class="form-select form-select-small" id="${generateId('titlemode')}"
+                        aria-label="Title match mode">
+                    <option value="contains" ${!filtersData.title?.regex ? 'selected' : ''}>Contains</option>
+                    <option value="regex" ${filtersData.title?.regex ? 'selected' : ''}>Regex</option>
+                </select>
                 <input type="text" class="form-input form-input-small" id="${generateId('title')}"
-                       placeholder="Substring match" value="${filtersData.title?.contains || filtersData.title || ''}"
-                       aria-label="Filter by title substring">
+                       placeholder="${filtersData.title?.regex ? 'Regex pattern' : 'Substring match'}"
+                       value="${escapeAttr(filtersData.title?.regex || filtersData.title?.contains || filtersData.title || '')}"
+                       aria-label="Filter by title">
             </div>
         `
 
@@ -211,7 +236,13 @@ function createTrackFiltersBuilder(filters, onUpdate, trackType) {
                     newFilters.height = { operator: input.value, value: parseInt(valInput.value, 10) }
                 }
             } else if (id.includes('-title-') && input.value.trim()) {
-                newFilters.title = { contains: input.value.trim() }
+                const modeSelect = container.querySelector('[id*="-titlemode-"]')
+                const mode = modeSelect ? modeSelect.value : 'contains'
+                if (mode === 'regex') {
+                    newFilters.title = { regex: input.value.trim() }
+                } else {
+                    newFilters.title = { contains: input.value.trim() }
+                }
             }
         })
 
@@ -239,6 +270,10 @@ function createConditionBuilder(condition, onUpdate, nestingLevel = 0) {
 
     function getConditionType(cond) {
         if (!cond) return 'exists'
+        if (cond._type === 'is_original') return 'is_original'
+        if (cond._type === 'is_dubbed') return 'is_dubbed'
+        if (cond._type === 'plugin_metadata') return 'plugin_metadata'
+        if (cond._type === 'container_metadata') return 'container_metadata'
         if (cond.conditions && Array.isArray(cond.conditions)) {
             // Check if it's AND or OR based on presence of specific markers
             // In the data model, AndCondition and OrCondition both have 'conditions' array
@@ -501,6 +536,138 @@ function createConditionBuilder(condition, onUpdate, nestingLevel = 0) {
                     condData.primary_language = primaryLangInput.value.trim() || null
                     onUpdate(buildCondition())
                 })
+            } else if (type === 'is_original' || type === 'is_dubbed') {
+                const labelPrefix = type === 'is_original' ? 'Original' : 'Dubbed'
+                detailsDiv.innerHTML = `
+                    <div class="condition-field-row">
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="value-checkbox" ${condData.value !== false ? 'checked' : ''}>
+                            Track is ${labelPrefix.toLowerCase()}
+                        </label>
+                    </div>
+                    <div class="condition-field-row">
+                        <label class="form-label-inline">Min Confidence (%):</label>
+                        <input type="number" class="form-input form-input-small confidence-input"
+                               min="0" max="100" step="1" value="${(condData.min_confidence ?? 0.7) * 100}">
+                        <span class="form-hint">Minimum confidence threshold (default 70%)</span>
+                    </div>
+                    <div class="condition-field-row">
+                        <label class="form-label-inline">Language:</label>
+                        <input type="text" class="form-input form-input-small language-input"
+                               placeholder="e.g., eng (optional)" value="${escapeAttr(condData.language || '')}">
+                        <span class="form-hint">Limit check to specific language</span>
+                    </div>
+                `
+                const valueCheckbox = detailsDiv.querySelector('.value-checkbox')
+                const confidenceInput = detailsDiv.querySelector('.confidence-input')
+                const languageInput = detailsDiv.querySelector('.language-input')
+
+                valueCheckbox.addEventListener('change', () => {
+                    condData.value = valueCheckbox.checked
+                    onUpdate(buildCondition())
+                })
+                confidenceInput.addEventListener('input', () => {
+                    condData.min_confidence = (parseFloat(confidenceInput.value) || 70) / 100
+                    onUpdate(buildCondition())
+                })
+                languageInput.addEventListener('input', () => {
+                    condData.language = languageInput.value.trim() || null
+                    onUpdate(buildCondition())
+                })
+            } else if (type === 'plugin_metadata') {
+                detailsDiv.innerHTML = `
+                    <div class="condition-field-row">
+                        <label class="form-label-inline">Plugin:</label>
+                        <input type="text" class="form-input form-input-small plugin-name-input"
+                               placeholder="e.g., radarr_metadata" value="${escapeAttr(condData.plugin || '')}">
+                    </div>
+                    <div class="condition-field-row">
+                        <label class="form-label-inline">Field:</label>
+                        <input type="text" class="form-input form-input-small field-input"
+                               placeholder="e.g., title" value="${escapeAttr(condData.field || '')}">
+                    </div>
+                    <div class="condition-field-row">
+                        <label class="form-label-inline">Operator:</label>
+                        <select class="form-select operator-select">
+                            ${METADATA_OPERATORS.map(op => `<option value="${op.value}" ${condData.operator === op.value ? 'selected' : ''}>${op.label}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="condition-field-row value-row">
+                        <label class="form-label-inline">Value:</label>
+                        <input type="text" class="form-input form-input-small value-input"
+                               placeholder="Value to compare" value="${escapeAttr(condData.value ?? '')}">
+                        <span class="form-hint">Not required for 'exists' operator</span>
+                    </div>
+                `
+                const pluginInput = detailsDiv.querySelector('.plugin-name-input')
+                const fieldInput = detailsDiv.querySelector('.field-input')
+                const operatorSelect = detailsDiv.querySelector('.operator-select')
+                const valueInput = detailsDiv.querySelector('.value-input')
+                const valueRow = detailsDiv.querySelector('.value-row')
+
+                condData.operator = condData.operator || 'eq'
+                operatorSelect.value = condData.operator
+                valueRow.style.display = condData.operator === 'exists' ? 'none' : ''
+
+                pluginInput.addEventListener('input', () => {
+                    condData.plugin = pluginInput.value.trim() || null
+                    onUpdate(buildCondition())
+                })
+                fieldInput.addEventListener('input', () => {
+                    condData.field = fieldInput.value.trim() || null
+                    onUpdate(buildCondition())
+                })
+                operatorSelect.addEventListener('change', () => {
+                    condData.operator = operatorSelect.value
+                    valueRow.style.display = condData.operator === 'exists' ? 'none' : ''
+                    onUpdate(buildCondition())
+                })
+                valueInput.addEventListener('input', () => {
+                    condData.value = valueInput.value
+                    onUpdate(buildCondition())
+                })
+            } else if (type === 'container_metadata') {
+                detailsDiv.innerHTML = `
+                    <div class="condition-field-row">
+                        <label class="form-label-inline">Field:</label>
+                        <input type="text" class="form-input form-input-small field-input"
+                               placeholder="e.g., title, encoder" value="${escapeAttr(condData.field || '')}">
+                    </div>
+                    <div class="condition-field-row">
+                        <label class="form-label-inline">Operator:</label>
+                        <select class="form-select operator-select">
+                            ${METADATA_OPERATORS.map(op => `<option value="${op.value}" ${condData.operator === op.value ? 'selected' : ''}>${op.label}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="condition-field-row value-row">
+                        <label class="form-label-inline">Value:</label>
+                        <input type="text" class="form-input form-input-small value-input"
+                               placeholder="Value to compare" value="${escapeAttr(condData.value ?? '')}">
+                        <span class="form-hint">Not required for 'exists' operator</span>
+                    </div>
+                `
+                const fieldInput = detailsDiv.querySelector('.field-input')
+                const operatorSelect = detailsDiv.querySelector('.operator-select')
+                const valueInput = detailsDiv.querySelector('.value-input')
+                const valueRow = detailsDiv.querySelector('.value-row')
+
+                condData.operator = condData.operator || 'eq'
+                operatorSelect.value = condData.operator
+                valueRow.style.display = condData.operator === 'exists' ? 'none' : ''
+
+                fieldInput.addEventListener('input', () => {
+                    condData.field = fieldInput.value.trim() || null
+                    onUpdate(buildCondition())
+                })
+                operatorSelect.addEventListener('change', () => {
+                    condData.operator = operatorSelect.value
+                    valueRow.style.display = condData.operator === 'exists' ? 'none' : ''
+                    onUpdate(buildCondition())
+                })
+                valueInput.addEventListener('input', () => {
+                    condData.value = valueInput.value
+                    onUpdate(buildCondition())
+                })
             }
         }
 
@@ -555,6 +722,40 @@ function createConditionBuilder(condition, onUpdate, nestingLevel = 0) {
                 result.primary_language = condData.primary_language
             }
             return result
+        } else if (type === 'is_original' || type === 'is_dubbed') {
+            const result = {
+                _type: type,
+                value: condData.value !== false
+            }
+            const conf = condData.min_confidence
+            if (conf !== undefined && conf !== null && conf !== 0.7) {
+                result.min_confidence = conf
+            }
+            if (condData.language) {
+                result.language = condData.language
+            }
+            return result
+        } else if (type === 'plugin_metadata') {
+            const result = {
+                _type: 'plugin_metadata',
+                plugin: condData.plugin || '',
+                field: condData.field || '',
+                operator: condData.operator || 'eq'
+            }
+            if (condData.operator !== 'exists' && condData.value !== undefined && condData.value !== '') {
+                result.value = condData.value
+            }
+            return result
+        } else if (type === 'container_metadata') {
+            const result = {
+                _type: 'container_metadata',
+                field: condData.field || '',
+                operator: condData.operator || 'eq'
+            }
+            if (condData.operator !== 'exists' && condData.value !== undefined && condData.value !== '') {
+                result.value = condData.value
+            }
+            return result
         }
         return condData
     }
@@ -577,6 +778,8 @@ function createActionBuilder(action, onUpdate) {
 
     function getActionType(act) {
         if (!act) return 'skip'
+        if (act._type === 'set_container_metadata') return 'set_container_metadata'
+        if (act._type === 'set_language') return 'set_language'
         if (act.skip_type) return 'skip'
         if (act.message !== undefined && act._type === 'fail') return 'fail'
         if (act.message !== undefined) return 'warn'
@@ -621,7 +824,7 @@ function createActionBuilder(action, onUpdate) {
             } else if (type === 'warn' || type === 'fail') {
                 detailsDiv.innerHTML = `
                     <input type="text" class="form-input message-input" placeholder="Message (supports {filename}, {path}, {rule_name})"
-                           value="${actionData.message || ''}">
+                           value="${escapeAttr(actionData.message || '')}">
                 `
                 const msgInput = detailsDiv.querySelector('.message-input')
                 msgInput.addEventListener('input', () => {
@@ -634,7 +837,7 @@ function createActionBuilder(action, onUpdate) {
                         ${TRACK_TYPES.map(t => `<option value="${t.value}" ${actionData.track_type === t.value ? 'selected' : ''}>${t.label}</option>`).join('')}
                     </select>
                     <input type="text" class="form-input form-input-small lang-input" placeholder="Language (optional)"
-                           value="${actionData.language || ''}">
+                           value="${escapeAttr(actionData.language || '')}">
                     <label class="checkbox-label">
                         <input type="checkbox" class="value-checkbox" ${actionData.value !== false ? 'checked' : ''}>
                         Value
@@ -656,6 +859,69 @@ function createActionBuilder(action, onUpdate) {
                 })
                 valueCheckbox.addEventListener('change', () => {
                     actionData.value = valueCheckbox.checked
+                    onUpdate(buildAction())
+                })
+            } else if (type === 'set_language') {
+                detailsDiv.innerHTML = `
+                    <div class="action-field-row">
+                        <label class="form-label-inline">Track Type:</label>
+                        <select class="form-select track-type-select">
+                            ${TRACK_TYPES.map(t => `<option value="${t.value}" ${actionData.track_type === t.value ? 'selected' : ''}>${t.label}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="action-field-row">
+                        <label class="form-label-inline">New Language:</label>
+                        <input type="text" class="form-input form-input-small new-lang-input"
+                               placeholder="e.g., eng" value="${escapeAttr(actionData.new_language || '')}">
+                    </div>
+                    <div class="action-field-row">
+                        <label class="form-label-inline">Match Language:</label>
+                        <input type="text" class="form-input form-input-small match-lang-input"
+                               placeholder="Optional: only match tracks with this language" value="${escapeAttr(actionData.match_language || '')}">
+                        <span class="form-hint">Only apply to tracks with this current language</span>
+                    </div>
+                `
+                const trackSelect = detailsDiv.querySelector('.track-type-select')
+                const newLangInput = detailsDiv.querySelector('.new-lang-input')
+                const matchLangInput = detailsDiv.querySelector('.match-lang-input')
+
+                actionData.track_type = actionData.track_type || 'audio'
+
+                trackSelect.addEventListener('change', () => {
+                    actionData.track_type = trackSelect.value
+                    onUpdate(buildAction())
+                })
+                newLangInput.addEventListener('input', () => {
+                    actionData.new_language = newLangInput.value.trim() || null
+                    onUpdate(buildAction())
+                })
+                matchLangInput.addEventListener('input', () => {
+                    actionData.match_language = matchLangInput.value.trim() || null
+                    onUpdate(buildAction())
+                })
+            } else if (type === 'set_container_metadata') {
+                detailsDiv.innerHTML = `
+                    <div class="action-field-row">
+                        <label class="form-label-inline">Field:</label>
+                        <input type="text" class="form-input form-input-small field-input"
+                               placeholder="e.g., title, encoder" value="${escapeAttr(actionData.field || '')}">
+                    </div>
+                    <div class="action-field-row">
+                        <label class="form-label-inline">Value:</label>
+                        <input type="text" class="form-input value-input"
+                               placeholder="New value (empty to clear)" value="${escapeAttr(actionData.value ?? '')}">
+                        <span class="form-hint">Leave empty to clear/delete the tag</span>
+                    </div>
+                `
+                const fieldInput = detailsDiv.querySelector('.field-input')
+                const valueInput = detailsDiv.querySelector('.value-input')
+
+                fieldInput.addEventListener('input', () => {
+                    actionData.field = fieldInput.value.trim()
+                    onUpdate(buildAction())
+                })
+                valueInput.addEventListener('input', () => {
+                    actionData.value = valueInput.value
                     onUpdate(buildAction())
                 })
             }
@@ -688,6 +954,27 @@ function createActionBuilder(action, onUpdate) {
             const result = { _type: 'set_default', track_type: actionData.track_type || 'audio' }
             if (actionData.language) result.language = actionData.language
             if (actionData.value === false) result.value = false
+            return result
+        } else if (type === 'set_language') {
+            const result = {
+                _type: 'set_language',
+                track_type: actionData.track_type || 'audio'
+            }
+            if (actionData.new_language) {
+                result.new_language = actionData.new_language
+            }
+            if (actionData.match_language) {
+                result.match_language = actionData.match_language
+            }
+            return result
+        } else if (type === 'set_container_metadata') {
+            const result = {
+                _type: 'set_container_metadata',
+                field: actionData.field || ''
+            }
+            if (actionData.value !== undefined) {
+                result.value = actionData.value
+            }
             return result
         }
         return actionData
@@ -802,7 +1089,7 @@ function createRuleBuilder(rule, onUpdate, onRemove) {
     function render() {
         container.innerHTML = `
             <div class="rule-header">
-                <input type="text" class="form-input rule-name-input" placeholder="Rule name" value="${ruleData.name || ''}">
+                <input type="text" class="form-input rule-name-input" placeholder="Rule name" value="${escapeAttr(ruleData.name || '')}">
                 <button type="button" class="btn-icon btn-remove-rule" title="Remove rule">\u00d7</button>
             </div>
             <div class="rule-condition">
@@ -973,3 +1260,6 @@ export function initConditionalSection(policyData, onUpdate) {
         }
     }
 }
+
+// Export condition builder for reuse by other sections (e.g., synthesis create_if)
+export { createConditionBuilder }

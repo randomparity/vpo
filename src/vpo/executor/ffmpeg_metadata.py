@@ -14,6 +14,7 @@ from vpo.executor.backup import (
     InsufficientDiskSpaceError,
     check_disk_space,
     create_backup,
+    log_restore_failure_and_append_warning,
     safe_restore_from_backup,
 )
 from vpo.executor.interface import ExecutorResult, require_tool
@@ -157,7 +158,6 @@ class FfmpegMetadataExecutor:
         except subprocess.TimeoutExpired:
             elapsed = time.monotonic() - start_time
             temp_path.unlink(missing_ok=True)
-            safe_restore_from_backup(backup_path)
             timeout_mins = self._timeout // 60 if self._timeout else 0
             logger.warning(
                 "ffmpeg timed out",
@@ -167,15 +167,19 @@ class FfmpegMetadataExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            return ExecutorResult(
-                success=False,
-                message=f"ffmpeg timed out after {timeout_mins} min for "
-                f"{plan.file_path}",
+            restored = safe_restore_from_backup(backup_path)
+            msg = log_restore_failure_and_append_warning(
+                restored,
+                backup_path,
+                plan.file_path,
+                "ffmpeg",
+                "timeout",
+                f"ffmpeg timed out after {timeout_mins} min for {plan.file_path}",
             )
+            return ExecutorResult(success=False, message=msg)
         except (subprocess.SubprocessError, OSError) as e:
             elapsed = time.monotonic() - start_time
             temp_path.unlink(missing_ok=True)
-            safe_restore_from_backup(backup_path)
             logger.error(
                 "ffmpeg execution failed",
                 extra={
@@ -184,10 +188,16 @@ class FfmpegMetadataExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            return ExecutorResult(
-                success=False,
-                message=f"ffmpeg failed for {plan.file_path}: {e}",
+            restored = safe_restore_from_backup(backup_path)
+            msg = log_restore_failure_and_append_warning(
+                restored,
+                backup_path,
+                plan.file_path,
+                "ffmpeg",
+                "error",
+                f"ffmpeg failed for {plan.file_path}: {e}",
             )
+            return ExecutorResult(success=False, message=msg)
         except Exception as e:
             elapsed = time.monotonic() - start_time
             logger.exception(
@@ -199,16 +209,20 @@ class FfmpegMetadataExecutor:
                 },
             )
             temp_path.unlink(missing_ok=True)
-            safe_restore_from_backup(backup_path)
-            return ExecutorResult(
-                success=False,
-                message=f"Unexpected error for {plan.file_path}: {e}",
+            restored = safe_restore_from_backup(backup_path)
+            msg = log_restore_failure_and_append_warning(
+                restored,
+                backup_path,
+                plan.file_path,
+                "ffmpeg",
+                "unexpected error",
+                f"Unexpected error for {plan.file_path}: {e}",
             )
+            return ExecutorResult(success=False, message=msg)
 
         if result.returncode != 0:
             elapsed = time.monotonic() - start_time
             temp_path.unlink(missing_ok=True)
-            safe_restore_from_backup(backup_path)
             logger.error(
                 "ffmpeg returned non-zero exit code",
                 extra={
@@ -217,10 +231,16 @@ class FfmpegMetadataExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            return ExecutorResult(
-                success=False,
-                message=f"ffmpeg failed for {plan.file_path}: {result.stderr}",
+            restored = safe_restore_from_backup(backup_path)
+            msg = log_restore_failure_and_append_warning(
+                restored,
+                backup_path,
+                plan.file_path,
+                "ffmpeg",
+                "non-zero exit",
+                f"ffmpeg failed for {plan.file_path}: {result.stderr}",
             )
+            return ExecutorResult(success=False, message=msg)
 
         # Atomic replace: move temp to original
         try:
@@ -228,7 +248,6 @@ class FfmpegMetadataExecutor:
         except Exception as e:
             elapsed = time.monotonic() - start_time
             temp_path.unlink(missing_ok=True)
-            safe_restore_from_backup(backup_path)
             logger.error(
                 "Failed to replace original file",
                 extra={
@@ -237,10 +256,16 @@ class FfmpegMetadataExecutor:
                     "elapsed_seconds": round(elapsed, 3),
                 },
             )
-            return ExecutorResult(
-                success=False,
-                message=f"Failed to replace {plan.file_path}: {e}",
+            restored = safe_restore_from_backup(backup_path)
+            msg = log_restore_failure_and_append_warning(
+                restored,
+                backup_path,
+                plan.file_path,
+                "ffmpeg",
+                "file replace error",
+                f"Failed to replace {plan.file_path}: {e}",
             )
+            return ExecutorResult(success=False, message=msg)
 
         # Success - optionally keep backup
         elapsed = time.monotonic() - start_time
@@ -286,6 +311,18 @@ class FfmpegMetadataExecutor:
 
     def _action_to_args(self, action: PlannedAction) -> list[str]:
         """Convert a PlannedAction to ffmpeg arguments."""
+        # Container-level metadata uses -metadata (no stream index)
+        if action.action_type == ActionType.SET_CONTAINER_METADATA:
+            field = action.container_field
+            if not field:
+                raise ValueError(
+                    f"SET_CONTAINER_METADATA requires container_field to be set, "
+                    f"got container_field={field!r}"
+                )
+            value = action.desired_value if action.desired_value is not None else ""
+            # Empty value clears the tag in ffmpeg
+            return ["-metadata", f"{field}={value}"]
+
         if action.track_index is None:
             raise ValueError(f"Action {action.action_type} requires track_index")
 

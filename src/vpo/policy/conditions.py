@@ -20,6 +20,7 @@ Usage:
 
 from __future__ import annotations
 
+import functools
 import re
 from typing import TYPE_CHECKING
 
@@ -35,14 +36,15 @@ from vpo.policy.types import (
     Comparison,
     ComparisonOperator,
     Condition,
+    ContainerMetadataCondition,
     CountCondition,
     ExistsCondition,
     IsDubbedCondition,
     IsOriginalCondition,
+    MetadataComparisonOperator,
     NotCondition,
     OrCondition,
     PluginMetadataCondition,
-    PluginMetadataOperator,
     TitleMatch,
     TrackFilters,
 )
@@ -56,6 +58,15 @@ if TYPE_CHECKING:
 
 # Default patterns for identifying commentary tracks
 DEFAULT_COMMENTARY_PATTERNS = ("commentary", "director", "cast")
+
+
+@functools.lru_cache(maxsize=32)
+def _compile_pattern(pattern: str) -> re.Pattern[str] | None:
+    """Compile a regex pattern with caching. Returns None for invalid patterns."""
+    try:
+        return re.compile(pattern, re.IGNORECASE)
+    except re.error:
+        return None
 
 
 def _is_commentary_track(
@@ -78,11 +89,11 @@ def _is_commentary_track(
     title_lower = track.title.casefold()
 
     for pattern in patterns:
-        try:
-            compiled = re.compile(pattern, re.IGNORECASE)
+        compiled = _compile_pattern(pattern)
+        if compiled is not None:
             if compiled.search(title_lower):
                 return True
-        except re.error:
+        else:
             # Invalid regex, fall back to substring match
             if pattern.casefold() in title_lower:
                 return True
@@ -396,15 +407,8 @@ def evaluate_audio_is_multi_language(
             if not languages_match(result.primary_language, condition.primary_language):
                 continue
 
-        # Check secondary language percentage threshold
         # A track is multi-language if any secondary language exceeds threshold
-        has_significant_secondary = False
-        for secondary in result.secondary_languages:
-            if secondary.percentage >= condition.threshold:
-                has_significant_secondary = True
-                break
-
-        if has_significant_secondary:
+        if any(s.percentage >= condition.threshold for s in result.secondary_languages):
             reason = (
                 f"audio_is_multi_language → True "
                 f"(track[{track.index}] {result.primary_language} "
@@ -601,48 +605,24 @@ def evaluate_plugin_metadata(
             f"(field '{field_name}' not found)",
         )
 
-    # Handle EXISTS operator - field was found, so it exists
-    if op == PluginMetadataOperator.EXISTS:
-        return (
-            True,
-            f"plugin_metadata({plugin_name}.{field_name}) exists → True",
-        )
-
-    # Handle None values
-    if actual_value is None:
-        return (
-            False,
-            f"plugin_metadata({plugin_name}.{field_name}) → False "
-            "(field value is null)",
-        )
-
-    # Evaluate based on operator
-    result = _evaluate_plugin_metadata_op(actual_value, expected_value, op)
-
-    op_str = op.value
-    if result:
-        reason = (
-            f"plugin_metadata({plugin_name}.{field_name}) {op_str} "
-            f"{expected_value!r} → True (actual={actual_value!r})"
-        )
-    else:
-        reason = (
-            f"plugin_metadata({plugin_name}.{field_name}) {op_str} "
-            f"{expected_value!r} → False (actual={actual_value!r})"
-        )
-
-    return (result, reason)
+    return _evaluate_metadata_comparison(
+        context_label=f"plugin_metadata({plugin_name}.{field_name})",
+        field_name=field_name,
+        actual_value=actual_value,
+        expected_value=expected_value,
+        op=op,
+    )
 
 
-def _evaluate_plugin_metadata_op(
+def _evaluate_metadata_op(
     actual: str | int | float | bool,
     expected: str | int | float | bool,
-    op: PluginMetadataOperator,
+    op: MetadataComparisonOperator,
 ) -> bool:
-    """Evaluate a plugin metadata comparison operation.
+    """Evaluate a metadata comparison operation.
 
     Args:
-        actual: The actual value from plugin metadata.
+        actual: The actual value from metadata.
         expected: The expected value from the condition.
         op: The comparison operator.
 
@@ -650,17 +630,17 @@ def _evaluate_plugin_metadata_op(
         True if the comparison succeeds, False otherwise.
     """
     # Handle equality operators with case-insensitive string comparison
-    if op == PluginMetadataOperator.EQ:
+    if op == MetadataComparisonOperator.EQ:
         if isinstance(actual, str) and isinstance(expected, str):
             return actual.casefold() == expected.casefold()
         return actual == expected
 
-    if op == PluginMetadataOperator.NEQ:
+    if op == MetadataComparisonOperator.NEQ:
         if isinstance(actual, str) and isinstance(expected, str):
             return actual.casefold() != expected.casefold()
         return actual != expected
 
-    if op == PluginMetadataOperator.CONTAINS:
+    if op == MetadataComparisonOperator.CONTAINS:
         return str(expected).casefold() in str(actual).casefold()
 
     # Numeric comparisons require numeric types
@@ -670,13 +650,120 @@ def _evaluate_plugin_metadata_op(
     import operator
 
     numeric_ops = {
-        PluginMetadataOperator.LT: operator.lt,
-        PluginMetadataOperator.LTE: operator.le,
-        PluginMetadataOperator.GT: operator.gt,
-        PluginMetadataOperator.GTE: operator.ge,
+        MetadataComparisonOperator.LT: operator.lt,
+        MetadataComparisonOperator.LTE: operator.le,
+        MetadataComparisonOperator.GT: operator.gt,
+        MetadataComparisonOperator.GTE: operator.ge,
     }
     op_func = numeric_ops.get(op)
     return op_func(actual, expected) if op_func else False
+
+
+def _evaluate_metadata_comparison(
+    context_label: str,
+    field_name: str,
+    actual_value: str | int | float | bool | None,
+    expected_value: str | int | float | bool | None,
+    op: MetadataComparisonOperator,
+    *,
+    coerce_numeric: bool = False,
+) -> tuple[bool, str]:
+    """Shared helper for evaluating metadata field comparisons.
+
+    Handles EXISTS check, None value guard, optional numeric coercion
+    (for string tag values), delegation to _evaluate_metadata_op,
+    and reason string formatting.
+
+    Args:
+        context_label: Label for reason strings (e.g. "plugin_metadata(radarr.field)").
+        field_name: Field name for reason strings.
+        actual_value: The actual value from metadata.
+        expected_value: The expected value from the condition.
+        op: The comparison operator.
+        coerce_numeric: If True, coerce string actual values to float for numeric ops.
+
+    Returns:
+        Tuple of (result, reason).
+    """
+    # Handle EXISTS operator
+    if op == MetadataComparisonOperator.EXISTS:
+        return (True, f"{context_label} exists → True")
+
+    # Handle None values
+    if actual_value is None:
+        return (
+            False,
+            f"{context_label} → False (field value is null)",
+        )
+
+    # Coerce string to number for numeric operators (container tags are always str)
+    if coerce_numeric and op in (
+        MetadataComparisonOperator.LT,
+        MetadataComparisonOperator.LTE,
+        MetadataComparisonOperator.GT,
+        MetadataComparisonOperator.GTE,
+    ):
+        try:
+            numeric_actual: int | float = float(actual_value)
+        except (ValueError, TypeError):
+            return (
+                False,
+                f"{context_label} {op.value} "
+                f"{expected_value!r} → False (actual={actual_value!r} is not numeric)",
+            )
+        result = _evaluate_metadata_op(numeric_actual, expected_value, op)
+    else:
+        result = _evaluate_metadata_op(actual_value, expected_value, op)
+
+    reason = (
+        f"{context_label} {op.value} "
+        f"{expected_value!r} → {result} (actual={actual_value!r})"
+    )
+    return (result, reason)
+
+
+def evaluate_container_metadata(
+    condition: ContainerMetadataCondition,
+    container_tags: dict[str, str] | None,
+) -> tuple[bool, str]:
+    """Evaluate a container metadata condition.
+
+    Args:
+        condition: The container metadata condition to evaluate.
+        container_tags: Dict of container-level tags (keys lowercase),
+            e.g., {"title": "My Movie", "encoder": "libx265"}.
+
+    Returns:
+        Tuple of (result, reason) where result is True if the condition
+        matches and reason is a human-readable explanation.
+    """
+    field_name = condition.field.casefold()
+    expected_value = condition.value
+    op = condition.operator
+
+    if container_tags is None:
+        return (
+            False,
+            f"container_metadata({field_name}) → False (no container tags available)",
+        )
+
+    # Direct lookup -- keys are guaranteed lowercase by parser, field_name is casefolded
+    if field_name not in container_tags:
+        return (
+            False,
+            f"container_metadata({field_name}) → False (tag '{field_name}' not found)",
+        )
+
+    actual_value = container_tags[field_name]
+
+    return _evaluate_metadata_comparison(
+        context_label=f"container_metadata({field_name})",
+        field_name=field_name,
+        actual_value=actual_value,
+        expected_value=expected_value,
+        op=op,
+        coerce_numeric=True,
+    )
 
 
 def evaluate_condition(
@@ -686,6 +773,7 @@ def evaluate_condition(
     commentary_patterns: tuple[str, ...] | None = None,
     plugin_metadata: PluginMetadataDict | None = None,
     classification_results: dict[int, TrackClassificationResult] | None = None,
+    container_tags: dict[str, str] | None = None,
 ) -> tuple[bool, str]:
     """Evaluate a condition against track metadata.
 
@@ -704,6 +792,8 @@ def evaluate_condition(
             (required for plugin_metadata conditions).
         classification_results: Optional dict mapping track_id to
             TrackClassificationResult (required for is_original/is_dubbed conditions).
+        container_tags: Optional dict of container-level metadata tags
+            (key → value). Required for container_metadata conditions.
 
     Returns:
         Tuple of (result, reason) where result is the boolean outcome
@@ -721,6 +811,9 @@ def evaluate_condition(
     if isinstance(condition, PluginMetadataCondition):
         return evaluate_plugin_metadata(condition, plugin_metadata)
 
+    if isinstance(condition, ContainerMetadataCondition):
+        return evaluate_container_metadata(condition, container_tags)
+
     if isinstance(condition, IsOriginalCondition):
         return evaluate_is_original(condition, tracks, classification_results)
 
@@ -736,6 +829,7 @@ def evaluate_condition(
                 commentary_patterns,
                 plugin_metadata,
                 classification_results,
+                container_tags,
             )
             if not result:
                 return (False, f"and → False ({reason})")
@@ -750,6 +844,7 @@ def evaluate_condition(
                 commentary_patterns,
                 plugin_metadata,
                 classification_results,
+                container_tags,
             )
             if result:
                 return (True, f"or → True ({reason})")
@@ -763,6 +858,7 @@ def evaluate_condition(
             commentary_patterns,
             plugin_metadata,
             classification_results,
+            container_tags,
         )
         return (not result, f"not({reason}) → {not result}")
 

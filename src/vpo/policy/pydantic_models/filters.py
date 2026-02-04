@@ -229,6 +229,8 @@ class ContainerModel(BaseModel):
     on_incompatible_codec: Literal["error", "skip", "transcode"] = "error"
     codec_mappings: dict[str, CodecTranscodeMappingModel] | None = None
     """Per-codec transcode settings, keyed by source codec name."""
+    preserve_metadata: bool = True
+    """Preserve container-level metadata tags during conversion."""
 
     @field_validator("codec_mappings", mode="before")
     @classmethod

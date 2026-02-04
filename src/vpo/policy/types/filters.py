@@ -272,6 +272,13 @@ class ContainerConfig:
     If a codec is not in this mapping, default settings are used.
     """
 
+    preserve_metadata: bool = True
+    """If True, copy all source metadata via ``-map_metadata 0`` during
+    container conversion. FFmpeg will overwrite format-specific tags like
+    ``encoder`` but other source-specific tags (e.g., ``MUXING_APP``) may
+    carry through to the target container.
+    """
+
 
 @dataclass(frozen=True)
 class FileTimestampConfig:

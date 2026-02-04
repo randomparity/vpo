@@ -53,6 +53,7 @@ def evaluate_policy(
     language_results: dict[int, LanguageAnalysisResult] | None = None,
     plugin_metadata: PluginMetadataDict | None = None,
     classification_results: dict[int, TrackClassificationResult] | None = None,
+    container_tags: dict[str, str] | None = None,
 ) -> Plan:
     """Evaluate a policy against file tracks to produce an execution plan.
 
@@ -73,6 +74,8 @@ def evaluate_policy(
             Required for plugin_metadata conditions.
         classification_results: Optional dict mapping track_id to
             TrackClassificationResult. Required for is_original/is_dubbed conditions.
+        container_tags: Optional dict of container-level metadata tags
+            (key → value). Required for container_metadata conditions.
 
     Returns:
         Plan describing all changes needed to make tracks conform to policy.
@@ -105,6 +108,7 @@ def evaluate_policy(
             language_results=language_results,
             plugin_metadata=plugin_metadata,
             classification_results=classification_results,
+            container_tags=container_tags,
         )
         skip_flags = conditional_result.skip_flags
 
@@ -239,6 +243,29 @@ def evaluate_policy(
                         desired_value=change.new_language,
                     )
                 )
+
+    # Convert container metadata changes from conditional rules to PlannedActions
+    if conditional_result is not None and conditional_result.container_metadata_changes:
+        for change in conditional_result.container_metadata_changes:
+            # Idempotency: compare current tag value with desired
+            current_value = None
+            if container_tags is not None:
+                current_value = container_tags.get(change.field.casefold())
+            # Skip if already set to desired value
+            if current_value == change.new_value:
+                continue
+            # For clearing: skip if tag doesn't exist
+            if change.new_value == "" and current_value is None:
+                continue
+            actions.append(
+                PlannedAction(
+                    action_type=ActionType.SET_CONTAINER_METADATA,
+                    track_index=None,
+                    current_value=current_value,
+                    desired_value=change.new_value,
+                    container_field=change.field,
+                )
+            )
 
     # Compute desired track order (handles empty tracks gracefully)
     # Pass transcription_results to enable transcription-based commentary detection

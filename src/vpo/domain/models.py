@@ -64,6 +64,9 @@ class FileInfo:
     # Plugin-provided metadata (039-plugin-metadata-policy)
     # Dict keyed by plugin name, e.g., {"radarr": {"original_language": "jpn", ...}}
     plugin_metadata: PluginMetadataDict | None = None
+    # Container-level metadata tags from format.tags (e.g., title, encoder)
+    # Keys are lowercase, values are sanitized strings
+    container_tags: dict[str, str] | None = None
 
 
 @dataclass
@@ -75,6 +78,8 @@ class IntrospectionResult:
     tracks: list[TrackInfo]
     warnings: list[str] = field(default_factory=list)
     error: str | None = None
+    # Container-level metadata tags from format.tags
+    container_tags: dict[str, str] | None = None
 
     @property
     def success(self) -> bool:

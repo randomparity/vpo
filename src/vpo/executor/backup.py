@@ -202,14 +202,74 @@ def safe_restore_from_backup(
     try:
         restore_from_backup(backup_path, original_path)
         return True
+    except FileNotFoundError as e:
+        logger.error(
+            "Backup file missing, cannot restore %s: %s. "
+            "Original file may need manual recovery.",
+            backup_path,
+            e,
+        )
+        return False
+    except BackupRestorationError as e:
+        logger.error(
+            "Backup restoration verification failed for %s: %s. "
+            "Check disk space and filesystem integrity.",
+            backup_path,
+            e,
+        )
+        return False
     except Exception as e:
         logger.error(
-            "Failed to restore backup %s: %s. "
+            "Unexpected error restoring backup %s: %s. "
             "Original file may be corrupted or missing.",
             backup_path,
             e,
         )
         return False
+
+
+_RESTORE_FAILURE_WARNING = (
+    "\nWARNING: Could not restore backup - original file may be corrupted"
+)
+
+
+def log_restore_failure_and_append_warning(
+    restored: bool,
+    backup_path: Path,
+    file_path: Path,
+    tool_name: str,
+    error_context: str,
+    message: str,
+) -> str:
+    """Log a CRITICAL message if backup restoration failed, and append a warning.
+
+    This is a post-restore helper that executors call after
+    safe_restore_from_backup(). It centralizes the CRITICAL logging
+    pattern and the warning message appended to error results.
+
+    Args:
+        restored: Return value from safe_restore_from_backup().
+        backup_path: Path to the backup file (for logging).
+        file_path: Path to the original file (for logging).
+        tool_name: Name of the tool that failed (e.g., "mkvpropedit", "ffmpeg").
+        error_context: Brief description of the failure
+            (e.g., "timeout", "non-zero exit").
+        message: Base error message to return.
+
+    Returns:
+        The message, with a warning appended if restoration failed.
+    """
+    if not restored:
+        logger.error(
+            "CRITICAL: Backup restoration failed after %s %s "
+            "for %s - file may need manual recovery from %s",
+            tool_name,
+            error_context,
+            file_path,
+            backup_path,
+        )
+        return message + _RESTORE_FAILURE_WARNING
+    return message
 
 
 def cleanup_backup(backup_path: Path) -> None:
@@ -255,8 +315,6 @@ def has_backup(file_path: Path) -> bool:
 
 class InsufficientDiskSpaceError(Exception):
     """Raised when there is not enough disk space for the operation."""
-
-    pass
 
 
 def check_min_free_disk_percent(

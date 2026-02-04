@@ -45,6 +45,9 @@ class ActionType(Enum):
     SET_LANGUAGE = "set_language"  # Change language tag
     TRANSCODE = "transcode"  # Transcode video/audio
     MOVE = "move"  # Move file to new location
+    SET_CONTAINER_METADATA = (
+        "set_container_metadata"  # Set container-level metadata tag
+    )
 
 
 class OperationType(Enum):

@@ -13,6 +13,7 @@ from vpo.policy.pydantic_models import (
     ComparisonModel,
     ConditionalRuleModel,
     ConditionModel,
+    ContainerMetadataConditionModel,
     CountConditionModel,
     ExistsConditionModel,
     HardwareAccelConfigModel,
@@ -45,6 +46,7 @@ from vpo.policy.types import (
     ConditionalAction,
     ConditionalRule,
     ContainerConfig,
+    ContainerMetadataCondition,
     CountCondition,
     DefaultFlagsConfig,
     ExistsCondition,
@@ -56,13 +58,13 @@ from vpo.policy.types import (
     IsDubbedCondition,
     IsOriginalCondition,
     LanguageFallbackConfig,
+    MetadataComparisonOperator,
     NotCondition,
     OnErrorMode,
     OrCondition,
     PhaseDefinition,
     PhaseSkipCondition,
     PluginMetadataCondition,
-    PluginMetadataOperator,
     PluginMetadataReference,
     PolicySchema,
     QualityMode,
@@ -70,6 +72,7 @@ from vpo.policy.types import (
     RunIfCondition,
     ScaleAlgorithm,
     ScalingSettings,
+    SetContainerMetadataAction,
     SetDefaultAction,
     SetForcedAction,
     SetLanguageAction,
@@ -93,6 +96,18 @@ _ON_ERROR_MAP = {
     "skip": OnErrorMode.SKIP,
     "continue": OnErrorMode.CONTINUE,
     "fail": OnErrorMode.FAIL,
+}
+
+# Shared operator map for plugin_metadata and container_metadata conditions
+_METADATA_OPERATOR_MAP = {
+    "eq": MetadataComparisonOperator.EQ,
+    "neq": MetadataComparisonOperator.NEQ,
+    "contains": MetadataComparisonOperator.CONTAINS,
+    "lt": MetadataComparisonOperator.LT,
+    "lte": MetadataComparisonOperator.LTE,
+    "gt": MetadataComparisonOperator.GT,
+    "gte": MetadataComparisonOperator.GTE,
+    "exists": MetadataComparisonOperator.EXISTS,
 }
 
 # =============================================================================
@@ -262,22 +277,22 @@ def _convert_plugin_metadata_condition(
     model: PluginMetadataConditionModel,
 ) -> PluginMetadataCondition:
     """Convert PluginMetadataConditionModel to PluginMetadataCondition."""
-    # Convert operator string to enum
-    op_map = {
-        "eq": PluginMetadataOperator.EQ,
-        "neq": PluginMetadataOperator.NEQ,
-        "contains": PluginMetadataOperator.CONTAINS,
-        "lt": PluginMetadataOperator.LT,
-        "lte": PluginMetadataOperator.LTE,
-        "gt": PluginMetadataOperator.GT,
-        "gte": PluginMetadataOperator.GTE,
-        "exists": PluginMetadataOperator.EXISTS,
-    }
     return PluginMetadataCondition(
         plugin=model.plugin,
         field=model.field,
         value=model.value,
-        operator=op_map[model.operator],
+        operator=_METADATA_OPERATOR_MAP[model.operator],
+    )
+
+
+def _convert_container_metadata_condition(
+    model: ContainerMetadataConditionModel,
+) -> ContainerMetadataCondition:
+    """Convert ContainerMetadataConditionModel to ContainerMetadataCondition."""
+    return ContainerMetadataCondition(
+        field=model.field,
+        value=model.value,
+        operator=_METADATA_OPERATOR_MAP[model.operator],
     )
 
 
@@ -332,6 +347,9 @@ def _convert_condition(model: ConditionModel) -> Condition:
 
     if model.plugin_metadata is not None:
         return _convert_plugin_metadata_condition(model.plugin_metadata)
+
+    if model.container_metadata is not None:
+        return _convert_container_metadata_condition(model.container_metadata)
 
     if model.is_original is not None:
         return _convert_is_original_condition(model.is_original)
@@ -409,6 +427,21 @@ def _convert_action(model: ActionModel) -> tuple[ConditionalAction, ...]:
                 new_language=model.set_language.new_language,
                 from_plugin_metadata=from_plugin_ref,
                 match_language=model.set_language.match_language,
+            )
+        )
+
+    if model.set_container_metadata is not None:
+        from_plugin_ref = None
+        if model.set_container_metadata.from_plugin_metadata is not None:
+            from_plugin_ref = PluginMetadataReference(
+                plugin=model.set_container_metadata.from_plugin_metadata.plugin,
+                field=model.set_container_metadata.from_plugin_metadata.field,
+            )
+        actions.append(
+            SetContainerMetadataAction(
+                field=model.set_container_metadata.field,
+                value=model.set_container_metadata.value,
+                from_plugin_metadata=from_plugin_ref,
             )
         )
 
@@ -726,6 +759,7 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
             target=phase.container.target,
             on_incompatible_codec=phase.container.on_incompatible_codec,
             codec_mappings=codec_mappings,
+            preserve_metadata=phase.container.preserve_metadata,
         )
 
     # Convert audio_filter

@@ -613,6 +613,14 @@ class ScannerOrchestrator:
                     scanned.hash_error, introspection_error
                 )
 
+                from vpo.db.queries.helpers import serialize_container_tags
+
+                container_tags_json = serialize_container_tags(
+                    introspection_result.container_tags
+                    if introspection_result is not None
+                    else None
+                )
+
                 record = FileRecord(
                     id=None,
                     path=scanned.path,
@@ -627,6 +635,7 @@ class ScannerOrchestrator:
                     scan_status=scan_status,
                     scan_error=scan_error,
                     job_id=job_id,
+                    container_tags=container_tags_json,
                 )
 
                 file_id = upsert_file(conn, record)

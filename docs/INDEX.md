@@ -46,6 +46,9 @@ Docs focused on tasks and workflows: how to run the tools, configure them, and p
 - [usage/conditional-policies.md](usage/conditional-policies.md)
   Conditional policy guide: if/then/else rules, conditions, actions, and examples for smart file-based decisions.
 
+- [usage/container-metadata.md](usage/container-metadata.md)
+  Container metadata guide: reading, writing, and clearing container-level tags in policies.
+
 - [usage/multi-language-detection.md](usage/multi-language-detection.md)
   Multi-language audio detection: detecting mixed-language content, the `audio_is_multi_language` condition, and automatic forced subtitle enablement.
 

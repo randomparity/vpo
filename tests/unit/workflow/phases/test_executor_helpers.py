@@ -2,18 +2,24 @@
 
 Tests the get_language_results_for_tracks helper that fetches language
 analysis results from the database for policy evaluation.
+Also tests parse_container_tags for JSON deserialization.
 """
 
 import logging
 import sqlite3
 from datetime import datetime, timezone
+from pathlib import Path
 
 from vpo.db.types import (
+    FileRecord,
     LanguageAnalysisResultRecord,
     LanguageSegmentRecord,
     TrackInfo,
 )
-from vpo.workflow.phases.executor.helpers import get_language_results_for_tracks
+from vpo.workflow.phases.executor.helpers import (
+    get_language_results_for_tracks,
+    parse_container_tags,
+)
 
 
 def create_language_analysis(
@@ -287,3 +293,58 @@ class TestGetLanguageResultsForTracks:
         assert result is None
         assert "No language analysis results found for" in caplog.text
         assert "1 audio track(s)" in caplog.text
+
+
+def _make_file_record(**overrides) -> FileRecord:
+    """Create a minimal FileRecord for testing."""
+    defaults = {
+        "id": 1,
+        "path": "/test/video.mkv",
+        "filename": "video.mkv",
+        "directory": "/test",
+        "extension": "mkv",
+        "size_bytes": 1000000,
+        "modified_at": "2025-01-01T00:00:00Z",
+        "content_hash": "abc123",
+        "container_format": "matroska",
+        "scanned_at": "2025-01-01T00:00:00Z",
+        "scan_status": "ok",
+        "scan_error": None,
+    }
+    defaults.update(overrides)
+    return FileRecord(**defaults)
+
+
+class TestParseContainerTags:
+    """Tests for parse_container_tags helper function."""
+
+    def test_valid_json_dict(self) -> None:
+        """Returns parsed dict for valid JSON."""
+        record = _make_file_record(container_tags='{"title": "My Movie"}')
+        result = parse_container_tags(record, Path("/test/video.mkv"), "file-1")
+        assert result == {"title": "My Movie"}
+
+    def test_none_record_returns_none(self) -> None:
+        """Returns None when file_record is None."""
+        result = parse_container_tags(None, Path("/test/video.mkv"), "file-1")
+        assert result is None
+
+    def test_none_container_tags_returns_none(self) -> None:
+        """Returns None when container_tags is None."""
+        record = _make_file_record(container_tags=None)
+        result = parse_container_tags(record, Path("/test/video.mkv"), "file-1")
+        assert result is None
+
+    def test_corrupted_json_returns_none(self, caplog) -> None:
+        """Returns None and logs error for corrupted JSON."""
+        record = _make_file_record(container_tags="not valid json{{{")
+        with caplog.at_level(logging.ERROR):
+            result = parse_container_tags(record, Path("/test/video.mkv"), "file-1")
+        assert result is None
+        assert "Corrupted container_tags JSON" in caplog.text
+
+    def test_empty_string_returns_none(self) -> None:
+        """Returns None for empty string container_tags."""
+        record = _make_file_record(container_tags="")
+        result = parse_container_tags(record, Path("/test/video.mkv"), "file-1")
+        assert result is None

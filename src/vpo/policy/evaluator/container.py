@@ -229,11 +229,16 @@ def _evaluate_container_change(
 
     # MKV accepts all codecs - no compatibility checking needed
 
+    preserve_metadata = True
+    if policy.container is not None:
+        preserve_metadata = policy.container.preserve_metadata
+
     return ContainerChange(
         source_format=source,
         target_format=target,
         warnings=tuple(warnings),
         incompatible_tracks=tuple(incompatible_tracks),
+        preserve_metadata=preserve_metadata,
     )
 
 
@@ -315,6 +320,7 @@ def evaluate_container_change_with_policy(
                 warnings=change.warnings + transcode_plan.warnings,
                 incompatible_tracks=change.incompatible_tracks,
                 transcode_plan=transcode_plan,
+                preserve_metadata=change.preserve_metadata,
             )
 
     return change

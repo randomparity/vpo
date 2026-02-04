@@ -31,11 +31,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from vpo.introspector.parsers import sanitize_string
 from vpo.language import languages_match
 from vpo.policy.exceptions import ConditionalFailError
 from vpo.policy.types import (
     ConditionalAction,
+    ContainerMetadataChange,
     FailAction,
+    SetContainerMetadataAction,
     SetDefaultAction,
     SetForcedAction,
     SetLanguageAction,
@@ -51,6 +54,15 @@ if TYPE_CHECKING:
     from vpo.domain import TrackInfo
 
 logger = logging.getLogger(__name__)
+
+
+def _ci_lookup(mapping: dict[str, object], key: str) -> object | None:
+    """Case-insensitive lookup in a dict. Returns the value or None."""
+    target = key.casefold()
+    for k, v in mapping.items():
+        if k.casefold() == target:
+            return v
+    return None
 
 
 @dataclass
@@ -76,6 +88,9 @@ class ActionContext:
     warnings: list[str] = field(default_factory=list)
     track_flag_changes: list[TrackFlagChange] = field(default_factory=list)
     track_language_changes: list[TrackLanguageChange] = field(default_factory=list)
+    container_metadata_changes: list[ContainerMetadataChange] = field(
+        default_factory=list
+    )
 
     @property
     def filename(self) -> str:
@@ -313,12 +328,7 @@ def _resolve_language_from_action(
             )
             return None
 
-        # Case-insensitive plugin lookup
-        plugin_data = None
-        for key, value in context.plugin_metadata.items():
-            if key.casefold() == plugin_name:
-                plugin_data = value
-                break
+        plugin_data = _ci_lookup(context.plugin_metadata, plugin_name)
         if plugin_data is None:
             logger.warning(
                 "set_language: plugin '%s' not found in metadata, skipping action",
@@ -326,12 +336,7 @@ def _resolve_language_from_action(
             )
             return None
 
-        # Case-insensitive field lookup
-        field_value = None
-        for key, value in plugin_data.items():
-            if key.casefold() == field_name:
-                field_value = value
-                break
+        field_value = _ci_lookup(plugin_data, field_name)
         if field_value is None:
             logger.warning(
                 "set_language: field '%s' not found in plugin '%s' metadata, "
@@ -419,6 +424,124 @@ def execute_set_language_action(
     return context
 
 
+def _resolve_container_metadata_value(
+    action: SetContainerMetadataAction, context: ActionContext
+) -> str | None:
+    """Resolve the target value for a set_container_metadata action.
+
+    If value is specified, returns it directly.
+    If from_plugin_metadata is specified, looks up the value from context.
+
+    Args:
+        action: The set_container_metadata action.
+        context: Action context with optional plugin_metadata.
+
+    Returns:
+        The resolved value string, or None if not available.
+    """
+    if action.value is not None:
+        return action.value
+
+    if action.from_plugin_metadata is not None:
+        ref = action.from_plugin_metadata
+        plugin_name = ref.plugin.casefold()
+        field_name = ref.field.casefold()
+
+        if context.plugin_metadata is None:
+            logger.warning(
+                "set_container_metadata: no plugin_metadata in context, "
+                "skipping action for field '%s'",
+                action.field,
+            )
+            return None
+
+        plugin_data = _ci_lookup(context.plugin_metadata, plugin_name)
+        if plugin_data is None:
+            logger.warning(
+                "set_container_metadata: plugin '%s' not found in metadata, "
+                "skipping action for field '%s'",
+                plugin_name,
+                action.field,
+            )
+            return None
+
+        field_value = _ci_lookup(plugin_data, field_name)
+        if field_value is None:
+            logger.warning(
+                "set_container_metadata: field '%s' not found in plugin '%s' "
+                "metadata, skipping action for container field '%s'",
+                field_name,
+                plugin_name,
+                action.field,
+            )
+            return None
+
+        resolved = str(field_value)
+        sanitized = sanitize_string(resolved)
+        if sanitized is None:
+            logger.warning(
+                "set_container_metadata: plugin-resolved value for field '%s' "
+                "was empty after sanitization, skipping",
+                action.field,
+            )
+            return None
+        max_value_length = 4096
+        if len(sanitized) > max_value_length:
+            logger.warning(
+                "set_container_metadata: plugin-resolved value for field '%s' "
+                "(%d chars) exceeds max length %d, truncating",
+                action.field,
+                len(sanitized),
+                max_value_length,
+            )
+            sanitized = sanitized[:max_value_length]
+        return sanitized
+
+    return None
+
+
+def execute_set_container_metadata_action(
+    action: SetContainerMetadataAction, context: ActionContext
+) -> ActionContext:
+    """Execute a set_container_metadata action.
+
+    Args:
+        action: The set_container_metadata action to execute.
+        context: Current action context.
+
+    Returns:
+        Updated context with container metadata change recorded.
+    """
+    new_value = _resolve_container_metadata_value(action, context)
+    if new_value is None:
+        logger.debug(
+            "set_container_metadata action skipped: could not resolve value "
+            "for field '%s' in %s",
+            action.field,
+            context.file_path,
+        )
+        return context
+
+    context.container_metadata_changes.append(
+        ContainerMetadataChange(
+            field=action.field,
+            new_value=new_value,
+        )
+    )
+    source = (
+        "from_plugin_metadata" if action.from_plugin_metadata is not None else "static"
+    )
+    logger.debug(
+        "set_container_metadata: field '%s' = '%s' (source=%s) for %s",
+        action.field,
+        new_value if new_value else "(clear)",
+        source,
+        context.file_path,
+    )
+
+    return context
+
+
 def execute_actions(
     actions: tuple[ConditionalAction, ...],
     context: ActionContext,
@@ -449,6 +572,8 @@ def execute_actions(
             context = execute_set_default_action(action, context)
         elif isinstance(action, SetLanguageAction):
             context = execute_set_language_action(action, context)
+        elif isinstance(action, SetContainerMetadataAction):
+            context = execute_set_container_metadata_action(action, context)
         elif isinstance(action, FailAction):
             execute_fail_action(action, context)
 

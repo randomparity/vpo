@@ -6,6 +6,7 @@ All functions are pure (no I/O, no side effects) for easy testing.
 
 import logging
 from pathlib import Path
+from typing import Any
 
 from vpo.db.types import IntrospectionResult, TrackInfo
 from vpo.introspector.mappings import (
@@ -234,6 +235,63 @@ def parse_streams(
     return tracks, warnings
 
 
+_MAX_TAG_KEY_LENGTH = 255
+_MAX_TAG_VALUE_LENGTH = 4096
+
+
+def _parse_container_tags(
+    tags: dict[str, Any],
+    file_path: str | None = None,
+) -> tuple[dict[str, str] | None, list[str]]:
+    """Parse and sanitize container-level metadata tags.
+
+    Args:
+        tags: Raw tags dict from ffprobe format.tags.
+        file_path: Optional file path for context in warning messages.
+
+    Returns:
+        Tuple of (dict of lowercase key → sanitized string value or None,
+        list of warning messages about dropped tags).
+    """
+    tag_warnings: list[str] = []
+    if not tags:
+        return None, tag_warnings
+
+    result: dict[str, str] = {}
+    for key, value in tags.items():
+        if len(key) > _MAX_TAG_KEY_LENGTH:
+            msg = (
+                f"Container tag key {key[:50]!r}... ({len(key)} chars) "
+                f"exceeds max length {_MAX_TAG_KEY_LENGTH}, skipping"
+            )
+            logger.warning("%s in %s", msg, file_path or "unknown")
+            tag_warnings.append(msg)
+            continue
+        if not isinstance(value, str):
+            logger.debug(
+                "Container tag %r has non-string value of type %s, "
+                "coercing to string in %s",
+                key,
+                type(value).__name__,
+                file_path or "unknown",
+            )
+            value = str(value)
+        sanitized = sanitize_string(value)
+        if sanitized is None:
+            continue
+        if len(sanitized) > _MAX_TAG_VALUE_LENGTH:
+            msg = (
+                f"Container tag {key!r} value ({len(sanitized)} chars) "
+                f"exceeds max length {_MAX_TAG_VALUE_LENGTH}, skipping"
+            )
+            logger.warning("%s in %s", msg, file_path or "unknown")
+            tag_warnings.append(msg)
+            continue
+        result[key.casefold()] = sanitized
+
+    return (result if result else None), tag_warnings
+
+
 def parse_ffprobe_output(
     path: Path,
     data: dict,
@@ -253,9 +311,15 @@ def parse_ffprobe_output(
     # Container duration (used as fallback for streams without duration)
     container_duration = parse_duration(format_info.get("duration"))
 
+    # Extract container-level metadata tags
+    container_tags, tag_warnings = _parse_container_tags(
+        format_info.get("tags", {}), str(path)
+    )
+
     # Parse streams
     streams = data.get("streams", [])
     tracks, warnings = parse_streams(streams, container_duration, str(path))
+    warnings.extend(tag_warnings)
 
     if not tracks:
         warnings.append("No streams found in file")
@@ -265,4 +329,5 @@ def parse_ffprobe_output(
         container_format=container_format,
         tracks=tracks,
         warnings=warnings,
+        container_tags=container_tags,
     )

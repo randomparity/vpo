@@ -1895,6 +1895,41 @@ html, body {
     color: var(--color-text);
 }
 
+/* Container tags nested definition list */
+.file-detail-dl-row--tags {
+    flex-direction: column;
+}
+
+.file-detail-dl-row--tags > dt {
+    margin-bottom: var(--spacing-xs);
+}
+
+.file-detail-tags-dl {
+    margin: 0;
+    padding: 0;
+}
+
+.file-detail-tags-row {
+    display: flex;
+    gap: var(--spacing-sm);
+    padding: 2px 0;
+}
+
+.file-detail-tags-row dt {
+    flex: 0 0 auto;
+    min-width: 100px;
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+}
+
+.file-detail-tags-row dd {
+    flex: 1;
+    margin: 0;
+    font-size: var(--font-size-sm);
+    word-break: break-word;
+}
+
 /* Path styling with horizontal scroll */
 .file-detail-path {
     overflow-x: auto;

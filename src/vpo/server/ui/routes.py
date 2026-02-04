@@ -925,6 +925,7 @@ def setup_ui_routes(app: web.Application) -> None:
     env = aiohttp_jinja2.setup(
         app,
         loader=jinja2.FileSystemLoader(str(TEMPLATES_DIR)),
+        autoescape=jinja2.select_autoescape(["html", "htm", "xml"]),
     )
 
     # Add custom Jinja2 filters (020-file-detail-view)

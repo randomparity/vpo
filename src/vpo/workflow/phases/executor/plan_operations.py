@@ -21,6 +21,7 @@ from vpo.tools.ffmpeg_progress import FFmpegProgress
 from .helpers import (
     get_language_results_for_tracks,
     get_tracks,
+    parse_container_tags,
     parse_plugin_metadata,
     select_executor,
 )
@@ -83,6 +84,9 @@ def execute_with_plan(
         file_record, file_path, file_id, "policy evaluation"
     )
 
+    # Parse container tags from FileRecord
+    container_tags = parse_container_tags(file_record, file_path, file_id)
+
     # Get language analysis results for audio tracks
     language_results = get_language_results_for_tracks(conn, tracks)
 
@@ -96,6 +100,7 @@ def execute_with_plan(
         policy=eval_policy,
         plugin_metadata=plugin_metadata,
         language_results=language_results,
+        container_tags=container_tags,
     )
 
     # Capture plan details in state for enhanced logging

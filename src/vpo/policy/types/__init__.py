@@ -10,9 +10,11 @@ from vpo.policy.types.actions import (
     ConditionalAction,
     ConditionalResult,
     ConditionalRule,
+    ContainerMetadataChange,
     FailAction,
     PluginMetadataReference,
     RuleEvaluation,
+    SetContainerMetadataAction,
     SetDefaultAction,
     SetForcedAction,
     SetLanguageAction,
@@ -31,14 +33,15 @@ from vpo.policy.types.conditions import (
     Comparison,
     ComparisonOperator,
     Condition,
+    ContainerMetadataCondition,
     CountCondition,
     ExistsCondition,
     IsDubbedCondition,
     IsOriginalCondition,
+    MetadataComparisonOperator,
     NotCondition,
     OrCondition,
     PluginMetadataCondition,
-    PluginMetadataOperator,
     TitleMatch,
     TrackFilters,
 )
@@ -125,6 +128,9 @@ from vpo.policy.types.transcode import (
     parse_bitrate,
 )
 
+# Backward-compatibility alias
+PluginMetadataOperator = MetadataComparisonOperator
+
 __all__ = [
     # Core enums
     "TrackType",
@@ -178,7 +184,8 @@ __all__ = [
     "TranscriptionPolicyOptions",
     # Condition enums
     "ComparisonOperator",
-    "PluginMetadataOperator",
+    "MetadataComparisonOperator",
+    "PluginMetadataOperator",  # backward-compat alias
     # Condition types
     "Comparison",
     "TitleMatch",
@@ -190,6 +197,7 @@ __all__ = [
     "NotCondition",
     "AudioIsMultiLanguageCondition",
     "PluginMetadataCondition",
+    "ContainerMetadataCondition",
     "IsOriginalCondition",
     "IsDubbedCondition",
     "Condition",
@@ -203,12 +211,14 @@ __all__ = [
     "SetDefaultAction",
     "PluginMetadataReference",
     "SetLanguageAction",
+    "SetContainerMetadataAction",
     "ConditionalAction",
     # Rule types
     "ConditionalRule",
     "RuleEvaluation",
     "TrackFlagChange",
     "TrackLanguageChange",
+    "ContainerMetadataChange",
     "SkipFlags",
     "ConditionalResult",
     # Plan types

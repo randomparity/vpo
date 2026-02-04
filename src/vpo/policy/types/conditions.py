@@ -18,10 +18,11 @@ class ComparisonOperator(Enum):
     GTE = "gte"
 
 
-class PluginMetadataOperator(Enum):
-    """Operators for plugin metadata comparisons.
+class MetadataComparisonOperator(Enum):
+    """Operators for metadata comparisons.
 
-    Used in PluginMetadataCondition to compare field values.
+    Used in PluginMetadataCondition and ContainerMetadataCondition
+    to compare field values.
     """
 
     EQ = "eq"  # Equality (string, integer, float, boolean)
@@ -173,7 +174,38 @@ class PluginMetadataCondition:
     plugin: str
     field: str
     value: str | int | float | bool | None = None
-    operator: PluginMetadataOperator = PluginMetadataOperator.EQ
+    operator: MetadataComparisonOperator = MetadataComparisonOperator.EQ
+
+
+@dataclass(frozen=True)
+class ContainerMetadataCondition:
+    """Check container-level metadata tags for a file.
+
+    Evaluates container metadata (e.g., title, encoder from format.tags)
+    against specified criteria. Uses the same operator set as
+    PluginMetadataCondition.
+
+    Attributes:
+        field: Tag name to check (e.g., "title", "encoder"). Case-insensitive.
+        operator: Comparison operator (default: eq for equality).
+        value: Value to compare against. Required for all operators except EXISTS.
+
+    Example YAML:
+        when:
+          container_metadata:
+            field: title
+            value: "720p"
+            operator: contains  # substring match, not regex
+
+        when:
+          container_metadata:
+            field: encoder
+            operator: exists
+    """
+
+    field: str
+    value: str | int | float | bool | None = None
+    operator: MetadataComparisonOperator = MetadataComparisonOperator.EQ
 
 
 @dataclass(frozen=True)
@@ -254,6 +286,7 @@ Condition = (
     | NotCondition
     | AudioIsMultiLanguageCondition
     | PluginMetadataCondition
+    | ContainerMetadataCondition
     | IsOriginalCondition
     | IsDubbedCondition
 )

@@ -83,6 +83,19 @@ export function hideToast() {
 }
 
 /**
+ * Escape a string for safe interpolation into HTML attribute values.
+ * Uses the DOM textContent approach consistent with window.VPOUtils.escapeHtml.
+ * @param {*} str - Value to escape
+ * @returns {string} Escaped string safe for HTML attribute use
+ */
+export function escapeAttr(str) {
+    if (!str && str !== 0) return ''
+    const div = document.createElement('div')
+    div.textContent = str
+    return div.innerHTML
+}
+
+/**
  * Announce a message to screen readers (H5)
  * @param {string} message - Message to announce
  */
@@ -199,7 +212,9 @@ function announceToScreenReader(message) {
         set_first_video_default: document.getElementById('set_first_video_default'),
         set_preferred_audio_default: document.getElementById('set_preferred_audio_default'),
         set_preferred_subtitle_default: document.getElementById('set_preferred_subtitle_default'),
-        clear_other_defaults: document.getElementById('clear_other_defaults')
+        clear_other_defaults: document.getElementById('clear_other_defaults'),
+        set_subtitle_default_when_audio_differs: document.getElementById('set_subtitle_default_when_audio_differs'),
+        set_subtitle_forced_when_audio_differs: document.getElementById('set_subtitle_forced_when_audio_differs')
     }
 
     // Preferred audio codec input
@@ -576,6 +591,10 @@ function announceToScreenReader(message) {
         markDirty()
     }
 
+    // Transcription controls
+    const updateLangCheckbox = document.getElementById('update_language_from_transcription')
+    const confidenceThresholdInput = document.getElementById('confidence_threshold')
+
     /**
      * Update transcription checkboxes state
      */
@@ -588,6 +607,13 @@ function announceToScreenReader(message) {
                 reorderCommentaryCheckbox.checked = formState.transcription.reorder_commentary || false
                 // Disable reorder if detect is not enabled
                 reorderCommentaryCheckbox.disabled = !formState.transcription.detect_commentary
+            }
+            if (updateLangCheckbox) {
+                updateLangCheckbox.checked = formState.transcription.update_language_from_transcription || false
+            }
+            if (confidenceThresholdInput) {
+                const threshold = formState.transcription.confidence_threshold
+                confidenceThresholdInput.value = threshold !== undefined ? Math.round(threshold * 100) : 80
             }
         }
     }
@@ -1349,6 +1375,23 @@ function announceToScreenReader(message) {
             reorderCommentaryCheckbox.addEventListener('change', () => {
                 formState.transcription.reorder_commentary = reorderCommentaryCheckbox.checked
                 markDirty()
+            })
+        }
+
+        if (updateLangCheckbox && formState.transcription) {
+            updateLangCheckbox.addEventListener('change', () => {
+                formState.transcription.update_language_from_transcription = updateLangCheckbox.checked
+                markDirty()
+            })
+        }
+
+        if (confidenceThresholdInput && formState.transcription) {
+            confidenceThresholdInput.addEventListener('input', () => {
+                const pct = parseFloat(confidenceThresholdInput.value)
+                if (!isNaN(pct) && pct >= 0 && pct <= 100) {
+                    formState.transcription.confidence_threshold = pct / 100
+                    markDirty()
+                }
             })
         }
 

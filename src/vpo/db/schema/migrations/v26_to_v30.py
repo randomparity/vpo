@@ -2,6 +2,7 @@
 
 This module contains migrations for missing file management features:
 - v25→v26: Add 'prune' job type, create library_snapshots table
+- v26→v27: Add container_tags column to files table
 """
 
 import sqlite3
@@ -142,3 +143,32 @@ def migrate_v25_to_v26(conn: sqlite3.Connection) -> None:
     # Update schema version
     conn.execute("UPDATE _meta SET value = '26' WHERE key = 'schema_version'")
     conn.commit()
+
+
+def migrate_v26_to_v27(conn: sqlite3.Connection) -> None:
+    """Migrate database from schema version 26 to version 27.
+
+    Adds:
+    - container_tags TEXT column to files table for container-level metadata
+
+    This migration is idempotent - safe to run multiple times.
+
+    Args:
+        conn: An open database connection.
+    """
+    # Check if column already exists (PRAGMA must run outside transaction)
+    cursor = conn.execute("PRAGMA table_info(files)")
+    columns = {row[1] for row in cursor.fetchall()}
+
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+
+        if "container_tags" not in columns:
+            conn.execute("ALTER TABLE files ADD COLUMN container_tags TEXT")
+
+        # Update schema version
+        conn.execute("UPDATE _meta SET value = '27' WHERE key = 'schema_version'")
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
