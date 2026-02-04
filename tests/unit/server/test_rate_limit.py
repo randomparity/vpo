@@ -14,8 +14,17 @@ from vpo.config.models import RateLimitConfig
 from vpo.server.rate_limit import (
     RateLimiter,
     SlidingWindowCounter,
-    create_rate_limit_middleware,
+    _rate_limit_middleware,
 )
+
+
+def _make_api_request(
+    method: str, path: str, *, rate_limiter: RateLimiter
+) -> web.Request:
+    """Create a mocked request with a rate limiter attached to its app."""
+    app = web.Application()
+    app["rate_limiter"] = rate_limiter
+    return make_mocked_request(method, path, app=app)
 
 
 class TestSlidingWindowCounter:
@@ -102,12 +111,9 @@ class TestSlidingWindowCounter:
 class TestRateLimiter:
     """Tests for RateLimiter class."""
 
-    def _make_config(self, **kwargs) -> RateLimitConfig:
-        return RateLimitConfig(**kwargs)
-
     def test_get_uses_get_limit(self) -> None:
         """GET requests should use get_max_requests limit."""
-        config = self._make_config(get_max_requests=2, mutate_max_requests=100)
+        config = RateLimitConfig(get_max_requests=2, mutate_max_requests=100)
         limiter = RateLimiter(config)
 
         assert limiter.check("1.2.3.4", "GET", "/api/files")[0] is True
@@ -116,7 +122,7 @@ class TestRateLimiter:
 
     def test_post_uses_mutate_limit(self) -> None:
         """POST requests should use mutate_max_requests limit."""
-        config = self._make_config(get_max_requests=100, mutate_max_requests=2)
+        config = RateLimitConfig(get_max_requests=100, mutate_max_requests=2)
         limiter = RateLimiter(config)
 
         assert limiter.check("1.2.3.4", "POST", "/api/plans/bulk-approve")[0] is True
@@ -125,32 +131,28 @@ class TestRateLimiter:
 
     def test_put_uses_mutate_limit(self) -> None:
         """PUT requests should use mutate_max_requests limit."""
-        config = self._make_config(mutate_max_requests=1)
-        limiter = RateLimiter(config)
+        limiter = RateLimiter(RateLimitConfig(mutate_max_requests=1))
 
         assert limiter.check("1.2.3.4", "PUT", "/api/policies/test")[0] is True
         assert limiter.check("1.2.3.4", "PUT", "/api/policies/test")[0] is False
 
     def test_delete_uses_mutate_limit(self) -> None:
         """DELETE requests should use mutate_max_requests limit."""
-        config = self._make_config(mutate_max_requests=1)
-        limiter = RateLimiter(config)
+        limiter = RateLimiter(RateLimitConfig(mutate_max_requests=1))
 
         assert limiter.check("1.2.3.4", "DELETE", "/api/something")[0] is True
         assert limiter.check("1.2.3.4", "DELETE", "/api/something")[0] is False
 
     def test_patch_uses_mutate_limit(self) -> None:
         """PATCH requests should use mutate_max_requests limit."""
-        config = self._make_config(mutate_max_requests=1)
-        limiter = RateLimiter(config)
+        limiter = RateLimiter(RateLimitConfig(mutate_max_requests=1))
 
         assert limiter.check("1.2.3.4", "PATCH", "/api/something")[0] is True
         assert limiter.check("1.2.3.4", "PATCH", "/api/something")[0] is False
 
     def test_separate_clients_independent(self) -> None:
         """Different client IPs should have independent counters."""
-        config = self._make_config(get_max_requests=1)
-        limiter = RateLimiter(config)
+        limiter = RateLimiter(RateLimitConfig(get_max_requests=1))
 
         assert limiter.check("1.1.1.1", "GET", "/api/files")[0] is True
         assert limiter.check("1.1.1.1", "GET", "/api/files")[0] is False
@@ -159,7 +161,7 @@ class TestRateLimiter:
 
     def test_get_and_mutate_counters_independent(self) -> None:
         """GET and mutate counters should not interfere."""
-        config = self._make_config(get_max_requests=1, mutate_max_requests=1)
+        config = RateLimitConfig(get_max_requests=1, mutate_max_requests=1)
         limiter = RateLimiter(config)
 
         assert limiter.check("1.2.3.4", "GET", "/api/files")[0] is True
@@ -169,8 +171,7 @@ class TestRateLimiter:
 
     def test_exempt_paths_bypass(self) -> None:
         """Exempt paths should always be allowed."""
-        config = self._make_config(get_max_requests=1)
-        limiter = RateLimiter(config)
+        limiter = RateLimiter(RateLimitConfig(get_max_requests=1))
 
         # Exhaust the limit
         limiter.check("1.2.3.4", "GET", "/api/files")
@@ -182,16 +183,14 @@ class TestRateLimiter:
 
     def test_disabled_config_passes_all(self) -> None:
         """When disabled, all requests should be allowed."""
-        config = self._make_config(enabled=False, get_max_requests=1)
-        limiter = RateLimiter(config)
+        limiter = RateLimiter(RateLimitConfig(enabled=False, get_max_requests=1))
 
         for _ in range(100):
             assert limiter.check("1.2.3.4", "GET", "/api/files")[0] is True
 
     def test_retry_after_returned_when_blocked(self) -> None:
         """When blocked, retry_after should be positive."""
-        config = self._make_config(get_max_requests=1, window_seconds=60)
-        limiter = RateLimiter(config)
+        limiter = RateLimiter(RateLimitConfig(get_max_requests=1, window_seconds=60))
 
         limiter.check("1.2.3.4", "GET", "/api/files")
         allowed, retry_after = limiter.check("1.2.3.4", "GET", "/api/files")
@@ -200,8 +199,7 @@ class TestRateLimiter:
 
     def test_cleanup_removes_stale_counters(self) -> None:
         """Stale counters should be removed after cleanup interval."""
-        config = self._make_config(get_max_requests=10, window_seconds=60)
-        limiter = RateLimiter(config)
+        limiter = RateLimiter(RateLimitConfig(get_max_requests=10, window_seconds=60))
 
         # Create counters for several IPs
         for i in range(5):
@@ -223,8 +221,7 @@ class TestRateLimiter:
 
     def test_cleanup_preserves_active_counters(self) -> None:
         """Active counters should not be removed during cleanup."""
-        config = self._make_config(get_max_requests=10, window_seconds=60)
-        limiter = RateLimiter(config)
+        limiter = RateLimiter(RateLimitConfig(get_max_requests=10, window_seconds=60))
 
         # Make a recent request
         limiter.check("1.2.3.4", "GET", "/api/files")
@@ -238,56 +235,43 @@ class TestRateLimiter:
 
 
 class TestRateLimitMiddleware:
-    """Tests for rate limit middleware."""
+    """Tests for _rate_limit_middleware."""
 
     @pytest.mark.asyncio
     async def test_allows_non_api_paths(self) -> None:
         """Non-API paths should bypass rate limiting."""
-        config = RateLimitConfig(get_max_requests=1)
-        limiter = RateLimiter(config)
-        middleware = create_rate_limit_middleware(limiter)
-
+        limiter = RateLimiter(RateLimitConfig(get_max_requests=1))
         handler = AsyncMock(return_value=web.Response(text="ok"))
-        request = make_mocked_request("GET", "/files")
-        request._match_info = {}
+        request = _make_api_request("GET", "/files", rate_limiter=limiter)
 
-        response = await middleware(request, handler)
+        response = await _rate_limit_middleware(request, handler)
         handler.assert_called_once()
         assert response.text == "ok"
 
     @pytest.mark.asyncio
     async def test_allows_within_limit(self) -> None:
         """API requests within limit should pass through."""
-        config = RateLimitConfig(get_max_requests=10)
-        limiter = RateLimiter(config)
-        middleware = create_rate_limit_middleware(limiter)
-
+        limiter = RateLimiter(RateLimitConfig(get_max_requests=10))
         handler = AsyncMock(return_value=web.Response(text="ok"))
-        request = make_mocked_request("GET", "/api/files")
-        request._match_info = {}
+        request = _make_api_request("GET", "/api/files", rate_limiter=limiter)
 
-        response = await middleware(request, handler)
+        response = await _rate_limit_middleware(request, handler)
         handler.assert_called_once()
         assert response.text == "ok"
 
     @pytest.mark.asyncio
     async def test_returns_429_when_blocked(self) -> None:
         """Should return 429 with Retry-After when rate limited."""
-        config = RateLimitConfig(get_max_requests=1, window_seconds=60)
-        limiter = RateLimiter(config)
-        middleware = create_rate_limit_middleware(limiter)
-
+        limiter = RateLimiter(RateLimitConfig(get_max_requests=1, window_seconds=60))
         handler = AsyncMock(return_value=web.Response(text="ok"))
 
         # First request allowed
-        request1 = make_mocked_request("GET", "/api/files")
-        request1._match_info = {}
-        await middleware(request1, handler)
+        req1 = _make_api_request("GET", "/api/files", rate_limiter=limiter)
+        await _rate_limit_middleware(req1, handler)
 
         # Second request should be blocked
-        request2 = make_mocked_request("GET", "/api/files")
-        request2._match_info = {}
-        response = await middleware(request2, handler)
+        req2 = _make_api_request("GET", "/api/files", rate_limiter=limiter)
+        response = await _rate_limit_middleware(req2, handler)
 
         assert response.status == 429
         assert "Retry-After" in response.headers
@@ -296,76 +280,70 @@ class TestRateLimitMiddleware:
     @pytest.mark.asyncio
     async def test_429_response_body_format(self) -> None:
         """429 response should have JSON error body."""
-        config = RateLimitConfig(get_max_requests=1, window_seconds=60)
-        limiter = RateLimiter(config)
-        middleware = create_rate_limit_middleware(limiter)
-
+        limiter = RateLimiter(RateLimitConfig(get_max_requests=1, window_seconds=60))
         handler = AsyncMock(return_value=web.Response(text="ok"))
 
         # Exhaust limit
-        request1 = make_mocked_request("GET", "/api/files")
-        request1._match_info = {}
-        await middleware(request1, handler)
+        req1 = _make_api_request("GET", "/api/files", rate_limiter=limiter)
+        await _rate_limit_middleware(req1, handler)
 
         # Get blocked response
-        request2 = make_mocked_request("GET", "/api/files")
-        request2._match_info = {}
-        response = await middleware(request2, handler)
+        req2 = _make_api_request("GET", "/api/files", rate_limiter=limiter)
+        response = await _rate_limit_middleware(req2, handler)
 
         assert response.content_type == "application/json"
 
     @pytest.mark.asyncio
     async def test_exempt_paths_pass_through(self) -> None:
         """Exempt API paths should bypass rate limiting."""
-        config = RateLimitConfig(get_max_requests=1)
-        limiter = RateLimiter(config)
-        middleware = create_rate_limit_middleware(limiter)
-
+        limiter = RateLimiter(RateLimitConfig(get_max_requests=1))
         handler = AsyncMock(return_value=web.Response(text="ok"))
 
         # Exhaust limit on regular API path
-        request1 = make_mocked_request("GET", "/api/files")
-        request1._match_info = {}
-        await middleware(request1, handler)
+        req1 = _make_api_request("GET", "/api/files", rate_limiter=limiter)
+        await _rate_limit_middleware(req1, handler)
 
         # /api/about should still work (exempt)
-        request2 = make_mocked_request("GET", "/api/about")
-        request2._match_info = {}
-        response = await middleware(request2, handler)
+        req2 = _make_api_request("GET", "/api/about", rate_limiter=limiter)
+        response = await _rate_limit_middleware(req2, handler)
         assert response.status == 200
 
     @pytest.mark.asyncio
     async def test_disabled_passes_all(self) -> None:
         """When disabled, all API requests should pass through."""
-        config = RateLimitConfig(enabled=False, get_max_requests=1)
-        limiter = RateLimiter(config)
-        middleware = create_rate_limit_middleware(limiter)
-
+        limiter = RateLimiter(RateLimitConfig(enabled=False, get_max_requests=1))
         handler = AsyncMock(return_value=web.Response(text="ok"))
 
         for _ in range(10):
-            request = make_mocked_request("GET", "/api/files")
-            request._match_info = {}
-            response = await middleware(request, handler)
+            request = _make_api_request("GET", "/api/files", rate_limiter=limiter)
+            response = await _rate_limit_middleware(request, handler)
             assert response.status == 200
 
     @pytest.mark.asyncio
     async def test_fails_open_on_exception(self) -> None:
         """Middleware should allow request if rate limiter throws."""
-        config = RateLimitConfig(get_max_requests=10)
-        limiter = RateLimiter(config)
+        limiter = RateLimiter(RateLimitConfig(get_max_requests=10))
 
         # Break the limiter's check method
         def broken_check(*args, **kwargs):
             raise RuntimeError("simulated failure")
 
         limiter.check = broken_check  # type: ignore[assignment]
-        middleware = create_rate_limit_middleware(limiter)
 
         handler = AsyncMock(return_value=web.Response(text="ok"))
-        request = make_mocked_request("GET", "/api/files")
-        request._match_info = {}
+        request = _make_api_request("GET", "/api/files", rate_limiter=limiter)
 
-        response = await middleware(request, handler)
+        response = await _rate_limit_middleware(request, handler)
+        handler.assert_called_once()
+        assert response.status == 200
+
+    @pytest.mark.asyncio
+    async def test_no_rate_limiter_in_app_passes_through(self) -> None:
+        """When no rate limiter is in the app dict, requests pass through."""
+        app = web.Application()
+        handler = AsyncMock(return_value=web.Response(text="ok"))
+        request = make_mocked_request("GET", "/api/files", app=app)
+
+        response = await _rate_limit_middleware(request, handler)
         handler.assert_called_once()
         assert response.status == 200

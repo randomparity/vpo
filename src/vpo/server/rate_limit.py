@@ -11,6 +11,7 @@ independent rate limiter.
 from __future__ import annotations
 
 import logging
+import math
 import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
@@ -75,6 +76,7 @@ class RateLimiter:
     """Per-IP rate limiter with separate GET and mutate counters."""
 
     EXEMPT_PATHS: frozenset[str] = frozenset({"/health", "/api/about"})
+    _MUTATING_METHODS: frozenset[str] = frozenset({"POST", "PUT", "DELETE", "PATCH"})
     _CLEANUP_INTERVAL = 300  # seconds between stale counter cleanup
 
     def __init__(self, config: RateLimitConfig) -> None:
@@ -104,21 +106,19 @@ class RateLimiter:
         now = time.monotonic()
         self._maybe_cleanup(now)
 
-        is_mutating = method in ("POST", "PUT", "DELETE", "PATCH")
-        counters = self._mutate_counters if is_mutating else self._get_counters
-        max_req = (
-            self._config.mutate_max_requests
-            if is_mutating
-            else self._config.get_max_requests
-        )
+        if method in self._MUTATING_METHODS:
+            counters = self._mutate_counters
+            max_req = self._config.mutate_max_requests
+        else:
+            counters = self._get_counters
+            max_req = self._config.get_max_requests
+
         counter = counters[client_ip]
-        allowed = counter.record_and_check(now, max_req, self._config.window_seconds)
-        retry_after = (
-            0.0
-            if allowed
-            else counter.seconds_until_available(now, self._config.window_seconds)
-        )
-        return (allowed, retry_after)
+        window = self._config.window_seconds
+        allowed = counter.record_and_check(now, max_req, window)
+        if allowed:
+            return (True, 0.0)
+        return (False, counter.seconds_until_available(now, window))
 
     def _maybe_cleanup(self, now: float) -> None:
         """Remove counters with no recent requests (amortized)."""
@@ -136,47 +136,44 @@ class RateLimiter:
                 del store[key]
 
 
-def create_rate_limit_middleware(
-    rate_limiter: RateLimiter,
-) -> web.middleware:
-    """Create aiohttp middleware for rate limiting API requests.
+@web.middleware
+async def _rate_limit_middleware(
+    request: web.Request, handler: web.RequestHandler
+) -> web.StreamResponse:
+    """Rate limiting middleware for API requests.
 
-    Args:
-        rate_limiter: RateLimiter instance to use for checks.
-
-    Returns:
-        aiohttp middleware function.
+    Checks per-IP rate limits for /api/* paths. Non-API paths and
+    requests that pass the limit are forwarded to the handler. If
+    the rate limiter itself raises, the request is allowed through
+    (fail-open).
     """
-
-    @web.middleware
-    async def rate_limit_middleware(
-        request: web.Request, handler: web.RequestHandler
-    ) -> web.StreamResponse:
-        if not request.path.startswith("/api/"):
-            return await handler(request)
-
-        try:
-            client_ip = request.remote or "unknown"
-            allowed, retry_after = rate_limiter.check(
-                client_ip, request.method, request.path
-            )
-            if not allowed:
-                retry_after_int = max(1, int(retry_after) + 1)
-                logger.warning(
-                    "Rate limited %s %s from %s (retry_after=%ds)",
-                    request.method,
-                    request.path,
-                    client_ip,
-                    retry_after_int,
-                )
-                return web.json_response(
-                    {"error": "Rate limit exceeded. Please wait before retrying."},
-                    status=429,
-                    headers={"Retry-After": str(retry_after_int)},
-                )
-        except Exception:
-            logger.exception("Rate limiter error, allowing request through")
-
+    if not request.path.startswith("/api/"):
         return await handler(request)
 
-    return rate_limit_middleware
+    rate_limiter: RateLimiter | None = request.app.get("rate_limiter")
+    if rate_limiter is None:
+        return await handler(request)
+
+    try:
+        client_ip = request.remote or "unknown"
+        allowed, retry_after = rate_limiter.check(
+            client_ip, request.method, request.path
+        )
+        if not allowed:
+            retry_after_int = max(1, math.ceil(retry_after))
+            logger.warning(
+                "Rate limited %s %s from %s (retry_after=%ds)",
+                request.method,
+                request.path,
+                client_ip,
+                retry_after_int,
+            )
+            return web.json_response(
+                {"error": "Rate limit exceeded. Please wait before retrying."},
+                status=429,
+                headers={"Retry-After": str(retry_after_int)},
+            )
+    except Exception:
+        logger.exception("Rate limiter error, allowing request through")
+
+    return await handler(request)
