@@ -1087,12 +1087,35 @@ html, body {
     color: var(--color-text);
 }
 
-/* Job ID styling */
+/* Job ID with copy button */
+.job-detail-id-group {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
 .job-detail-id {
     font-family: monospace;
     font-size: 0.8rem;
     color: var(--color-text-muted);
     word-break: break-all;
+}
+
+.btn-copy {
+    padding: var(--spacing-xs);
+    min-width: 24px;
+    height: 24px;
+    opacity: 0.5;
+    transition: opacity var(--transition-fast);
+}
+
+.btn-copy:hover {
+    opacity: 1;
+}
+
+.btn-copy--copied {
+    color: #27ae60;
+    opacity: 1;
 }
 
 /* Path styling with truncation */

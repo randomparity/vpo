@@ -137,10 +137,32 @@
         return hours + 'h ' + remainingMin + 'm'
     }
 
+    /**
+     * Copy text to clipboard and show brief visual feedback on the button.
+     *
+     * @param {string} text - Text to copy
+     * @param {HTMLElement} [buttonEl] - Button element for visual feedback
+     */
+    function copyToClipboard(text, buttonEl) {
+        if (!navigator.clipboard) return
+        navigator.clipboard.writeText(text).then(function () {
+            if (!buttonEl) return
+            buttonEl.classList.add('btn-copy--copied')
+            buttonEl.setAttribute('aria-label', 'Copied!')
+            setTimeout(function () {
+                buttonEl.classList.remove('btn-copy--copied')
+                buttonEl.setAttribute('aria-label', 'Copy job ID to clipboard')
+            }, 1500)
+        }).catch(function () {
+            // Silent failure — clipboard API may be blocked in some contexts
+        })
+    }
+
     window.VPOUtils = {
         escapeHtml: escapeHtml,
         formatRelativeTime: formatRelativeTime,
         truncateFilename: truncateFilename,
-        formatDuration: formatDuration
+        formatDuration: formatDuration,
+        copyToClipboard: copyToClipboard
     }
 })()
