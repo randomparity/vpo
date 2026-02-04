@@ -59,6 +59,7 @@ class PolicySummary:
     file_path: str = ""
     last_modified: str = ""  # ISO-8601 UTC
     schema_version: int | None = None
+    display_name: str | None = None
     description: str | None = None
     category: str | None = None
     audio_languages: list[str] = field(default_factory=list)
@@ -76,6 +77,7 @@ class PolicySummary:
             "file_path": self.file_path,
             "last_modified": self.last_modified,
             "schema_version": self.schema_version,
+            "display_name": self.display_name,
             "description": self.description,
             "category": self.category,
             "audio_languages": self.audio_languages,
@@ -189,7 +191,12 @@ def _parse_policy_file(path: Path) -> PolicySummary:
                     has_transcode = True
                     break
 
-        # Extract description and category metadata
+        # Extract display name, description and category metadata
+        display_name = data.get("name")
+        if display_name is not None and not isinstance(display_name, str):
+            display_name = None  # Invalid type, ignore
+        elif isinstance(display_name, str):
+            display_name = display_name.strip() or None
         description = data.get("description")
         if description is not None and not isinstance(description, str):
             description = None  # Invalid type, ignore
@@ -203,6 +210,7 @@ def _parse_policy_file(path: Path) -> PolicySummary:
             file_path=cache_key,
             last_modified=last_modified,
             schema_version=data.get("schema_version"),
+            display_name=display_name,
             description=description,
             category=category,
             audio_languages=list(audio_languages),

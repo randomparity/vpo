@@ -52,6 +52,7 @@ class PolicyListItem:
     file_path: str
     last_modified: str
     schema_version: int | None
+    display_name: str | None
     description: str | None
     category: str | None
     audio_languages: str
@@ -69,6 +70,7 @@ class PolicyListItem:
             "file_path": self.file_path,
             "last_modified": self.last_modified,
             "schema_version": self.schema_version,
+            "display_name": self.display_name,
             "description": self.description,
             "category": self.category,
             "audio_languages": self.audio_languages,
