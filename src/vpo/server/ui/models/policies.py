@@ -384,6 +384,14 @@ class PolicyEditorRequest:
         if self.workflow is not None:
             result["workflow"] = self.workflow
 
+        # Include metadata fields (YAML key is "name" for display_name)
+        if self.display_name is not None:
+            result["name"] = self.display_name
+        if self.description is not None:
+            result["description"] = self.description
+        if self.category is not None:
+            result["category"] = self.category
+
         return result
 
 

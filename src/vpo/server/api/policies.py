@@ -565,6 +565,11 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
     # Add optional metadata fields if provided
     display_name = request_data.get("display_name", "").strip()
     if display_name:
+        if len(display_name) > 200:
+            return web.json_response(
+                {"error": "Display name must be 200 characters or fewer"},
+                status=400,
+            )
         policy_data["name"] = display_name
 
     description = request_data.get("description", "").strip()

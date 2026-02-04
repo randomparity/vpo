@@ -95,6 +95,31 @@ class TestPolicyModelNameValidation:
                 }
             )
 
+    def test_name_at_max_length_accepted(self):
+        """Name at exactly 200 chars is accepted."""
+        name = "A" * 200
+        policy = load_policy_from_dict(
+            {
+                "schema_version": 12,
+                "name": name,
+                "config": {"on_error": "continue"},
+                "phases": [{"name": "apply", "track_order": ["video"]}],
+            }
+        )
+        assert policy.name == name
+
+    def test_name_over_max_length_rejected(self):
+        """Name over 200 chars is rejected."""
+        with pytest.raises(PolicyValidationError):
+            load_policy_from_dict(
+                {
+                    "schema_version": 12,
+                    "name": "A" * 201,
+                    "config": {"on_error": "continue"},
+                    "phases": [{"name": "apply", "track_order": ["video"]}],
+                }
+            )
+
     def test_null_name_accepted(self):
         """Null (None) name is accepted."""
         policy = load_policy_from_dict(

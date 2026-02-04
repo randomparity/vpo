@@ -212,7 +212,7 @@ function announceToScreenReader(message) {
     const displayNameInput = document.getElementById('policy-display-name')
     if (displayNameInput) {
         displayNameInput.addEventListener('input', () => {
-            formState.display_name = displayNameInput.value.trim()
+            formState.display_name = displayNameInput.value
             markDirty()
         })
     }
@@ -632,7 +632,14 @@ function announceToScreenReader(message) {
      * Generate YAML from form state
      */
     function generateYAML() {
-        let yaml = `schema_version: ${window.POLICY_DATA.schema_version}\n\n`
+        let yaml = `schema_version: ${window.POLICY_DATA.schema_version}\n`
+
+        // Display name
+        const trimmedName = (formState.display_name || '').trim()
+        if (trimmedName) {
+            yaml += `name: ${trimmedName}\n`
+        }
+        yaml += '\n'
 
         // Track order
         yaml += 'track_order:\n'
@@ -997,7 +1004,7 @@ function announceToScreenReader(message) {
             phases: phasesController ? phasesController.getConfig().phases : formState.phases,
             config: phasesController ? phasesController.getConfig().config : formState.config,
             // Policy metadata
-            display_name: formState.display_name || null,
+            display_name: (formState.display_name || '').trim() || null,
             last_modified_timestamp: formState.last_modified
         }
 

@@ -315,8 +315,8 @@ class PolicyModel(BaseModel):
     schema_version: Literal[12] = 12
     """Schema version, must be exactly 12."""
 
-    name: str | None = None
-    """Optional display name for UI presentation."""
+    name: str | None = Field(None, max_length=200)
+    """Optional display name for UI presentation (max 200 chars)."""
 
     description: str | None = None
     """Optional policy description for documentation purposes."""
