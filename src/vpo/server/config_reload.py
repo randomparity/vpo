@@ -423,6 +423,14 @@ class ConfigReloader:
         rate_limit_fields = [f for f in changes if f.startswith("server.rate_limit.")]
         if rate_limit_fields and self._rate_limiter is not None:
             try:
+                logger.info(
+                    "Applying rate limit config changes: %s",
+                    ", ".join(rate_limit_fields),
+                )
                 self._rate_limiter.reconfigure(new_config.server.rate_limit)
             except Exception as e:
-                logger.error("Failed to update rate limiter: %s", e)
+                logger.error(
+                    "Failed to update rate limiter (changed: %s): %s",
+                    ", ".join(rate_limit_fields),
+                    e,
+                )

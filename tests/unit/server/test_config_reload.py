@@ -3,7 +3,7 @@
 import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -569,8 +569,6 @@ class TestConfigReloader:
     @pytest.mark.asyncio
     async def test_reload_calls_reconfigure_on_rate_limiter(self) -> None:
         """Test that reconfigure() is called on the rate limiter during reload."""
-        from unittest.mock import MagicMock
-
         from vpo.server.rate_limit import RateLimiter
 
         state = ReloadState()
@@ -616,3 +614,80 @@ class TestConfigReloader:
         # Should succeed without error even though no rate limiter set
         assert result.success is True
         assert "server.rate_limit.enabled" in result.changes
+
+    @pytest.mark.asyncio
+    async def test_reload_succeeds_when_reconfigure_raises(self) -> None:
+        """Test that reload succeeds even if reconfigure() raises."""
+        from vpo.server.rate_limit import RateLimiter
+
+        state = ReloadState()
+        reloader = ConfigReloader(state)
+
+        rate_limiter = RateLimiter(RateLimitConfig())
+        rate_limiter.reconfigure = MagicMock(  # type: ignore[assignment]
+            side_effect=ValueError("bad config")
+        )
+        reloader.set_rate_limiter(rate_limiter)
+
+        old_config = VPOConfig(
+            server=ServerConfig(rate_limit=RateLimitConfig(enabled=True))
+        )
+        new_config = VPOConfig(
+            server=ServerConfig(rate_limit=RateLimitConfig(enabled=False))
+        )
+        reloader.set_current_config(old_config)
+
+        with patch("vpo.config.loader.get_config", return_value=new_config):
+            with patch("vpo.config.loader.clear_config_cache"):
+                result = await reloader.reload()
+
+        # Reload overall succeeds; the rate limiter error is logged, not raised
+        assert result.success is True
+        assert "server.rate_limit.enabled" in result.changes
+
+    @pytest.mark.asyncio
+    async def test_reload_applies_multiple_rate_limit_fields(self) -> None:
+        """Test that changing all rate limit fields at once works."""
+        from vpo.server.rate_limit import RateLimiter
+
+        state = ReloadState()
+        reloader = ConfigReloader(state)
+        rate_limiter = RateLimiter(RateLimitConfig())
+        reloader.set_rate_limiter(rate_limiter)
+
+        old_config = VPOConfig(
+            server=ServerConfig(
+                rate_limit=RateLimitConfig(
+                    enabled=True,
+                    get_max_requests=120,
+                    mutate_max_requests=30,
+                    window_seconds=60,
+                )
+            )
+        )
+        new_config = VPOConfig(
+            server=ServerConfig(
+                rate_limit=RateLimitConfig(
+                    enabled=False,
+                    get_max_requests=60,
+                    mutate_max_requests=15,
+                    window_seconds=30,
+                )
+            )
+        )
+        reloader.set_current_config(old_config)
+
+        with patch("vpo.config.loader.get_config", return_value=new_config):
+            with patch("vpo.config.loader.clear_config_cache"):
+                result = await reloader.reload()
+
+        assert result.success is True
+        assert "server.rate_limit.enabled" in result.changes
+        assert "server.rate_limit.get_max_requests" in result.changes
+        assert "server.rate_limit.mutate_max_requests" in result.changes
+        assert "server.rate_limit.window_seconds" in result.changes
+        # All new values should be on the rate limiter
+        assert rate_limiter._config.enabled is False
+        assert rate_limiter._config.get_max_requests == 60
+        assert rate_limiter._config.mutate_max_requests == 15
+        assert rate_limiter._config.window_seconds == 30

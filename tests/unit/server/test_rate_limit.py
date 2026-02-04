@@ -296,6 +296,74 @@ class TestRateLimiterReconfigure:
 
         assert limiter.check("1.2.3.4", "GET", "/api/files")[0] is False
 
+    def test_reconfigure_applies_to_mutate_counters(self) -> None:
+        """Reconfigured mutate limits should take effect."""
+        limiter = RateLimiter(RateLimitConfig(mutate_max_requests=2))
+
+        # Exhaust the original mutate limit
+        assert limiter.check("1.2.3.4", "POST", "/api/jobs")[0] is True
+        assert limiter.check("1.2.3.4", "POST", "/api/jobs")[0] is True
+        assert limiter.check("1.2.3.4", "POST", "/api/jobs")[0] is False
+
+        # Reconfigure with a higher mutate limit
+        limiter.reconfigure(RateLimitConfig(mutate_max_requests=10))
+
+        # Previously blocked IP should now be allowed
+        assert limiter.check("1.2.3.4", "POST", "/api/jobs")[0] is True
+
+    def test_reconfigure_window_change_prunes_old_timestamps(self) -> None:
+        """Shrinking the window should cause old timestamps to be pruned."""
+        limiter = RateLimiter(RateLimitConfig(get_max_requests=10, window_seconds=60))
+        now = time.monotonic()
+
+        # Manually inject timestamps 15 seconds ago (within 60s window)
+        counter = limiter._get_counters["1.2.3.4"]
+        for i in range(5):
+            counter.requests.append(now - 15 + i * 0.01)
+
+        # Reconfigure with a 10s window — those 15s-old timestamps are now stale
+        limiter.reconfigure(RateLimitConfig(get_max_requests=10, window_seconds=10))
+
+        # Next check should prune the old timestamps, so all 10 slots open
+        allowed, _ = limiter.check("1.2.3.4", "GET", "/api/files")
+        assert allowed is True
+        # Only the fresh request should remain (old ones pruned)
+        assert len(limiter._get_counters["1.2.3.4"].requests) == 1
+
+    def test_reconfigure_logs_disable_transition(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Disabling should log a specific transition message."""
+        import logging
+
+        limiter = RateLimiter(RateLimitConfig(enabled=True))
+        with caplog.at_level(logging.INFO):
+            limiter.reconfigure(RateLimitConfig(enabled=False))
+        assert "Rate limiting disabled via config reload" in caplog.text
+
+    def test_reconfigure_logs_enable_transition(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Enabling should log a specific transition message."""
+        import logging
+
+        limiter = RateLimiter(RateLimitConfig(enabled=False))
+        with caplog.at_level(logging.INFO):
+            limiter.reconfigure(RateLimitConfig(enabled=True))
+        assert "Rate limiting enabled via config reload" in caplog.text
+
+    def test_reconfigure_no_transition_log_when_unchanged(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """No transition message when enabled state doesn't change."""
+        import logging
+
+        limiter = RateLimiter(RateLimitConfig(enabled=True))
+        with caplog.at_level(logging.INFO):
+            limiter.reconfigure(RateLimitConfig(enabled=True))
+        assert "disabled via config reload" not in caplog.text
+        assert "enabled via config reload" not in caplog.text
+
 
 class TestRateLimitMiddleware:
     """Tests for _rate_limit_middleware."""

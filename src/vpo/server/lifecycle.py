@@ -114,7 +114,13 @@ class DaemonLifecycle:
         Args:
             rate_limiter: RateLimiter instance to reconfigure on SIGHUP.
         """
+        import logging
+
         if not hasattr(self, "_config_reloader"):
+            logging.getLogger(__name__).debug(
+                "set_rate_limiter called before init_reload_support; "
+                "rate limiter will not be hot-reloadable"
+            )
             return
         self._config_reloader.set_rate_limiter(rate_limiter)
 
