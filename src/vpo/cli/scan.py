@@ -1,6 +1,7 @@
 """Scan command for VPO CLI."""
 
 import json
+import logging
 import os
 import sys
 import time
@@ -20,6 +21,8 @@ from vpo.scanner.orchestrator import (
     DEFAULT_EXTENSIONS,
     ScannerOrchestrator,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ProgressDisplay:
@@ -211,6 +214,10 @@ def _run_language_analysis(
             try:
                 file_result = future.result()
             except Exception:
+                logger.exception(
+                    "Language analysis failed for %s",
+                    scanned_file.path,
+                )
                 stats["errors"] += 1
                 continue
 
