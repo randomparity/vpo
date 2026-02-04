@@ -1005,6 +1005,8 @@ function announceToScreenReader(message) {
             config: phasesController ? phasesController.getConfig().config : formState.config,
             // Policy metadata
             display_name: (formState.display_name || '').trim() || null,
+            description: formState.description || null,
+            category: formState.category || null,
             last_modified_timestamp: formState.last_modified
         }
 

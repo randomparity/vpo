@@ -44,6 +44,7 @@ class PolicySummary:
         file_path: Absolute path to the policy file.
         last_modified: File modification time (UTC ISO-8601).
         schema_version: Policy schema version if parseable.
+        display_name: Optional display name from YAML 'name' field.
         description: Optional policy description.
         category: Optional category for filtering/grouping.
         audio_languages: Audio language preferences list.
@@ -194,7 +195,12 @@ def _parse_policy_file(path: Path) -> PolicySummary:
         # Extract display name, description and category metadata
         display_name = data.get("name")
         if display_name is not None and not isinstance(display_name, str):
-            display_name = None  # Invalid type, ignore
+            logger.warning(
+                "Policy %s has non-string 'name' field (type=%s), ignoring",
+                path.name,
+                type(display_name).__name__,
+            )
+            display_name = None
         elif isinstance(display_name, str):
             display_name = display_name.strip() or None
         description = data.get("description")

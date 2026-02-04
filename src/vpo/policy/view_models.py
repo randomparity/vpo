@@ -37,6 +37,7 @@ class PolicyListItem:
         file_path: Absolute path to the policy file.
         last_modified: ISO-8601 UTC timestamp.
         schema_version: Policy schema version (null if parse error).
+        display_name: Optional display name from YAML 'name' field.
         description: Optional policy description.
         category: Optional category for filtering/grouping.
         audio_languages: Formatted audio language preferences.

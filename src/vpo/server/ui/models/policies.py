@@ -37,6 +37,7 @@ class PolicyEditorContext:
         file_path: Absolute path to the policy file.
         last_modified: ISO-8601 UTC timestamp for concurrency check.
         schema_version: Policy schema version (read-only).
+        display_name: Optional display name from YAML 'name' field.
         description: Optional policy description.
         category: Optional category for filtering/grouping.
         track_order: List of track type strings.
