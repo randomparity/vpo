@@ -109,8 +109,6 @@ class DaemonLifecycle:
         Args:
             config: Current configuration to use as baseline for reload comparison.
         """
-        from vpo.server.config_reload import ConfigReloader, ReloadState
-
         self._reload_state = ReloadState()
         self._config_reloader = ConfigReloader(
             state=self._reload_state,
