@@ -12,4 +12,4 @@ def test_package_version():
     """Test that the package has a version string."""
     from vpo import __version__
 
-    assert __version__ == "0.1.0"
+    assert __version__ == "0.2.0"
