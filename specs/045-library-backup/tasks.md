@@ -19,12 +19,12 @@
 
 **Purpose**: Create the backup module structure and shared data types
 
-- [ ] T001 [P] Create backup module file at src/vpo/db/backup.py with module docstring
-- [ ] T002 [P] Define BackupMetadata dataclass in src/vpo/db/backup.py per data-model.md
-- [ ] T003 [P] Define BackupInfo dataclass in src/vpo/db/backup.py per data-model.md
-- [ ] T004 [P] Define BackupResult dataclass in src/vpo/db/backup.py per data-model.md
-- [ ] T005 [P] Define RestoreResult dataclass in src/vpo/db/backup.py per data-model.md
-- [ ] T006 [P] Define exception hierarchy (BackupError, BackupIOError, BackupValidationError, BackupSchemaError, BackupLockError, InsufficientSpaceError) in src/vpo/db/backup.py
+- [x] T001 [P] Create backup module file at src/vpo/db/backup.py with module docstring
+- [x] T002 [P] Define BackupMetadata dataclass in src/vpo/db/backup.py per data-model.md
+- [x] T003 [P] Define BackupInfo dataclass in src/vpo/db/backup.py per data-model.md
+- [x] T004 [P] Define BackupResult dataclass in src/vpo/db/backup.py per data-model.md
+- [x] T005 [P] Define RestoreResult dataclass in src/vpo/db/backup.py per data-model.md
+- [x] T006 [P] Define exception hierarchy (BackupError, BackupIOError, BackupValidationError, BackupSchemaError, BackupLockError, InsufficientSpaceError) in src/vpo/db/backup.py
 
 ---
 
