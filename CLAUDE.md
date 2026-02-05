@@ -54,7 +54,7 @@ uv run vpo doctor                       # Runtime tool check
 
 ```
 src/vpo/
-├── cli/           # Click commands: scan, inspect, process, doctor, serve, stats
+├── cli/           # Click commands: scan, inspect, process, doctor, serve, report, db, analyze, policy, plugin, config
 ├── config/        # Configuration loading and models
 ├── db/            # SQLite schema, models, and query functions (see below)
 ├── executor/      # Tool executors: mkvpropedit, mkvmerge, ffmpeg_metadata, transcode
@@ -340,4 +340,11 @@ When adding new condition types to the policy system:
 
 ## Processing Statistics
 
-VPO captures per-file processing statistics across three database tables (`processing_stats`, `action_results`, `performance_metrics`). Key modules: `workflow/stats_capture.py` (`StatsCollector`), `db/views.py` (aggregate queries), `cli/stats.py` (CLI via `vpo stats`), and `server/ui/routes.py` (REST API at `/api/stats/*`). Use `vpo stats --help` for available subcommands.
+VPO captures per-file processing statistics across three database tables (`processing_stats`, `action_results`, `performance_metrics`). Key modules: `workflow/stats_capture.py` (`StatsCollector`), `db/views.py` (aggregate queries), `cli/report.py` (CLI via `vpo report`), and `server/ui/routes.py` (REST API at `/api/stats/*`). Use `vpo report --help` for available subcommands.
+
+## Active Technologies
+- Python 3.10-3.13 + click (CLI), tarfile (stdlib), json (stdlib), shutil (stdlib) (045-library-backup)
+- SQLite database at `~/.vpo/library.db`, backups at `~/.vpo/backups/` (045-library-backup)
+
+## Recent Changes
+- 045-library-backup: Added Python 3.10-3.13 + click (CLI), tarfile (stdlib), json (stdlib), shutil (stdlib)

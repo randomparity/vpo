@@ -66,6 +66,8 @@ class TestGetAboutInfo:
 
     def test_get_about_info_returns_version(self) -> None:
         """Test that get_about_info returns the package version."""
+        from vpo import __version__
+
         # Create mock request
         mock_app = {"profile_name": "Default"}
         mock_url = MagicMock()
@@ -78,7 +80,7 @@ class TestGetAboutInfo:
         info = get_about_info(mock_request)
 
         # Version should be from __version__
-        assert info.version == "0.1.0"
+        assert info.version == __version__
 
     def test_get_about_info_uses_profile_from_app_context(self) -> None:
         """Test that get_about_info reads profile from app context."""

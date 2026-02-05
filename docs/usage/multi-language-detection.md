@@ -51,54 +51,64 @@ vpo scan --analyze-languages /media/videos
 
 ### Dedicated Analysis Command
 
-Use the `analyze-language` command group for more control:
+Use the `analyze` command group for more control:
 
 ```bash
-# Run analysis on a file (requires Whisper plugin)
-vpo analyze-language run /path/to/movie.mkv
+# Run language analysis on a file (requires Whisper plugin)
+vpo analyze language /path/to/movie.mkv
 
 # Run analysis on a directory
-vpo analyze-language run /media/movies/ --recursive
+vpo analyze language /media/movies/ --recursive
 
 # Force re-analysis (ignore cache)
-vpo analyze-language run /path/to/movie.mkv --force
+vpo analyze language /path/to/movie.mkv --force
 
 # Output results as JSON
-vpo analyze-language run /path/to/movie.mkv --json
+vpo analyze language /path/to/movie.mkv --json
 ```
 
 #### View Analysis Status
 
 ```bash
 # Show library-wide summary
-vpo analyze-language status
+vpo analyze status
 
 # Filter by classification
-vpo analyze-language status --filter multi-language
-vpo analyze-language status --filter single-language
-vpo analyze-language status --filter pending
+vpo analyze status --filter multi-language
+vpo analyze status --filter single-language
+vpo analyze status --filter pending
 
 # Show details for a specific file
-vpo analyze-language status /path/to/movie.mkv
+vpo analyze status /path/to/movie.mkv
 
 # Output as JSON
-vpo analyze-language status --json
+vpo analyze status --json
 ```
 
 #### Clear Cached Results
 
 ```bash
 # Preview what would be cleared (dry run)
-vpo analyze-language clear /media/movies/ --dry-run
+vpo analyze clear /media/movies/ --dry-run
 
 # Clear results for a directory
-vpo analyze-language clear /media/movies/ --yes
+vpo analyze clear /media/movies/ --yes
 
 # Clear all results in library
-vpo analyze-language clear --all --yes
+vpo analyze clear --all --yes
 
 # Clear with JSON output
-vpo analyze-language clear --all --yes --json
+vpo analyze clear --all --yes --json
+```
+
+#### Classify Audio Tracks
+
+```bash
+# Classify audio tracks (commentary detection, etc.)
+vpo analyze classify /path/to/movie.mkv
+
+# Classify all files in a directory
+vpo analyze classify /media/movies/ --recursive
 ```
 
 ## Policy Integration
@@ -190,7 +200,7 @@ then:
 Automatically run language analysis before applying a policy:
 
 ```bash
-vpo policy run --policy multi-language.yaml --auto-analyze /path/to/movie.mkv
+vpo process --policy multi-language.yaml --auto-analyze /path/to/movie.mkv
 ```
 
 This ensures language analysis results are available for `audio_is_multi_language` conditions.

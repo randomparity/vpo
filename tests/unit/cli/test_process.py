@@ -1,10 +1,14 @@
-"""Tests for policy run command worker utilities."""
+"""Tests for process command worker utilities.
+
+Renamed as part of CLI reorganization. The `policy run` command
+was promoted to top-level `process` command.
+"""
 
 from unittest.mock import patch
 
 import pytest
 
-from vpo.cli.policy import (
+from vpo.cli.process import (
     get_max_workers,
     resolve_worker_count,
 )

@@ -111,7 +111,7 @@ curl http://127.0.0.1:8321/health
   "status": "healthy",
   "database": "connected",
   "uptime_seconds": 3661.5,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "shutting_down": false
 }
 ```

@@ -1,4 +1,4 @@
-"""Integration tests for policy run command."""
+"""Integration tests for process command."""
 
 import json
 from pathlib import Path
@@ -64,27 +64,25 @@ phases:
     return policy_path
 
 
-class TestPolicyRunCommandHelp:
-    """Tests for policy run command help and basic invocation."""
+class TestProcessCommandHelp:
+    """Tests for process command help and basic invocation."""
 
-    def test_policy_run_help(self):
-        """Test that policy run --help works."""
+    def test_process_help(self):
+        """Test that process --help works."""
         runner = CliRunner()
-        result = runner.invoke(main, ["policy", "run", "--help"])
+        result = runner.invoke(main, ["process", "--help"])
         assert result.exit_code == 0
-        assert "Run a policy against media files" in result.output
+        assert "Apply a policy to media files" in result.output
 
-    def test_policy_run_requires_policy_or_profile(self, temp_video_dir: Path):
-        """Test that policy run requires --policy or --profile."""
+    def test_process_requires_policy_or_profile(self, temp_video_dir: Path):
+        """Test that process requires --policy or --profile."""
         runner = CliRunner()
-        result = runner.invoke(
-            main, ["policy", "run", str(temp_video_dir / "movie.mkv")]
-        )
+        result = runner.invoke(main, ["process", str(temp_video_dir / "movie.mkv")])
         assert result.exit_code != 0
         assert "No policy specified" in result.output
 
 
-class TestPolicyRunCommandArgumentParsing:
+class TestProcessCommandArgumentParsing:
     """Tests for argument parsing and validation."""
 
     def test_invalid_phase_name(self, temp_video_dir: Path, policy_file: Path):
@@ -93,8 +91,7 @@ class TestPolicyRunCommandArgumentParsing:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(policy_file),
                 "--phases",
@@ -112,8 +109,7 @@ class TestPolicyRunCommandArgumentParsing:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(policy_file),
                 "--phases",
@@ -132,8 +128,7 @@ class TestPolicyRunCommandArgumentParsing:
             result = runner.invoke(
                 main,
                 [
-                    "policy",
-                    "run",
+                    "process",
                     "--policy",
                     str(policy_file),
                     "--on-error",
@@ -150,8 +145,7 @@ class TestPolicyRunCommandArgumentParsing:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(policy_file),
                 "--on-error",
@@ -163,7 +157,7 @@ class TestPolicyRunCommandArgumentParsing:
         assert "Invalid value" in result.output or "invalid" in result.output.lower()
 
 
-class TestPolicyRunCommandFileDiscovery:
+class TestProcessCommandFileDiscovery:
     """Tests for file discovery functionality."""
 
     def test_single_file(self, temp_video_dir: Path, policy_file: Path):
@@ -172,8 +166,7 @@ class TestPolicyRunCommandFileDiscovery:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(policy_file),
                 "--dry-run",
@@ -191,8 +184,7 @@ class TestPolicyRunCommandFileDiscovery:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(policy_file),
                 "--dry-run",
@@ -210,8 +202,7 @@ class TestPolicyRunCommandFileDiscovery:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(policy_file),
                 "--dry-run",
@@ -231,8 +222,7 @@ class TestPolicyRunCommandFileDiscovery:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(policy_file),
                 "/nonexistent/path/file.mkv",
@@ -249,8 +239,7 @@ class TestPolicyRunCommandFileDiscovery:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(policy_file),
                 str(empty_dir),
@@ -260,7 +249,7 @@ class TestPolicyRunCommandFileDiscovery:
         assert "No video files found" in result.output
 
 
-class TestPolicyRunCommandOutputFormats:
+class TestProcessCommandOutputFormats:
     """Tests for output formatting."""
 
     def test_json_output_format(self, temp_video_dir: Path, policy_file: Path):
@@ -269,8 +258,7 @@ class TestPolicyRunCommandOutputFormats:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(policy_file),
                 "--dry-run",
@@ -307,8 +295,7 @@ class TestPolicyRunCommandOutputFormats:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(policy_file),
                 "--dry-run",
@@ -321,7 +308,7 @@ class TestPolicyRunCommandOutputFormats:
         assert "Policy:" in result.output or "policy" in result.output.lower()
 
 
-class TestPolicyRunCommandErrorHandling:
+class TestProcessCommandErrorHandling:
     """Tests for error handling."""
 
     def test_missing_policy_file(self, temp_video_dir: Path):
@@ -330,8 +317,7 @@ class TestPolicyRunCommandErrorHandling:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 "/nonexistent/policy.yaml",
                 str(temp_video_dir / "movie.mkv"),
@@ -349,8 +335,7 @@ class TestPolicyRunCommandErrorHandling:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(bad_policy),
                 str(temp_video_dir / "movie.mkv"),
@@ -359,7 +344,7 @@ class TestPolicyRunCommandErrorHandling:
         assert result.exit_code != 0
 
 
-class TestPolicyRunCommandDryRun:
+class TestProcessCommandDryRun:
     """Tests for dry-run mode."""
 
     def test_dry_run_does_not_modify_files(
@@ -373,8 +358,7 @@ class TestPolicyRunCommandDryRun:
         runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(policy_file),
                 "--dry-run",
@@ -391,8 +375,7 @@ class TestPolicyRunCommandDryRun:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(policy_file),
                 "--dry-run",
@@ -406,10 +389,10 @@ class TestPolicyRunCommandDryRun:
         assert "dry" in result.output.lower() or "Mode:" in result.output
 
 
-class TestPolicyRunCommandOnErrorBehavior:
+class TestProcessCommandOnErrorBehavior:
     """Tests for on_error behavior differentiation."""
 
-    @patch("vpo.cli.policy.WorkflowRunner")
+    @patch("vpo.cli.process.WorkflowRunner")
     def test_on_error_skip_continues_batch(
         self, mock_runner_cls, temp_video_dir: Path, policy_file_with_fail: Path
     ):
@@ -453,8 +436,7 @@ class TestPolicyRunCommandOnErrorBehavior:
         runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(policy_file_with_fail),
                 "--on-error",
@@ -468,7 +450,7 @@ class TestPolicyRunCommandOnErrorBehavior:
         # Both files should be processed despite failures (on_error=skip)
         assert call_count["n"] == 2
 
-    @patch("vpo.cli.policy.WorkflowRunner")
+    @patch("vpo.cli.process.WorkflowRunner")
     def test_on_error_fail_stops_batch(
         self, mock_runner_cls, temp_video_dir: Path, policy_file: Path
     ):
@@ -501,8 +483,7 @@ class TestPolicyRunCommandOnErrorBehavior:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(policy_file),
                 "--on-error",
@@ -526,10 +507,10 @@ class TestPolicyRunCommandOnErrorBehavior:
         )
 
 
-class TestPolicyRunCommandWorkflow:
+class TestProcessCommandWorkflow:
     """Tests for workflow execution."""
 
-    @patch("vpo.cli.policy.WorkflowRunner")
+    @patch("vpo.cli.process.WorkflowRunner")
     def test_phases_override(
         self, mock_runner_cls, temp_video_dir: Path, policy_file: Path
     ):
@@ -562,8 +543,7 @@ class TestPolicyRunCommandWorkflow:
         runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(policy_file),
                 "--phases",
@@ -580,10 +560,10 @@ class TestPolicyRunCommandWorkflow:
         assert runner_config.selected_phases == ["apply"]
 
 
-class TestPolicyRunCommandSummary:
+class TestProcessCommandSummary:
     """Tests for summary output."""
 
-    @patch("vpo.cli.policy.WorkflowRunner")
+    @patch("vpo.cli.process.WorkflowRunner")
     def test_summary_counts(
         self, mock_runner_cls, temp_video_dir: Path, policy_file: Path
     ):
@@ -623,8 +603,7 @@ class TestPolicyRunCommandSummary:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(policy_file),
                 str(temp_video_dir),  # Non-recursive, should find 2 files

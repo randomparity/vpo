@@ -52,7 +52,7 @@ vpo scan [OPTIONS] DIRECTORIES...
 | `--json` | | Output results in JSON format |
 | `--analyze-languages` | | Analyze audio tracks for multi-language detection |
 
-> **Deprecated:** The `--prune` flag is deprecated. Use `vpo library prune` instead.
+> **Deprecated:** The `--prune` flag is deprecated. Use `vpo db prune` instead.
 
 #### Examples
 
@@ -201,22 +201,22 @@ Tracks:
 
 ---
 
-### `vpo library`
+### `vpo db`
 
 Manage the video library database. Subcommands for viewing library status, finding problems, and performing maintenance.
 
 ```bash
-vpo library COMMAND [OPTIONS]
+vpo db COMMAND [OPTIONS]
 ```
 
 #### Subcommands
 
-##### `vpo library info`
+##### `vpo db info`
 
 Show a summary of the library: file counts by status, track counts by type, database size, and schema version.
 
 ```bash
-vpo library info [--json]
+vpo db info [--json]
 ```
 
 **Example output:**
@@ -242,12 +242,12 @@ Database
   Free:    2.0 MB (reclaimable)
 ```
 
-##### `vpo library missing`
+##### `vpo db missing`
 
 List files that were previously scanned but are no longer on disk (`scan_status='missing'`).
 
 ```bash
-vpo library missing [--json] [--limit N]
+vpo db missing [--json] [--limit N]
 ```
 
 | Option | Description |
@@ -255,12 +255,12 @@ vpo library missing [--json] [--limit N]
 | `--json` | Output as JSON |
 | `--limit` | Maximum files to return (default: 100) |
 
-##### `vpo library prune`
+##### `vpo db prune`
 
 Remove database records for files with `scan_status='missing'`. This is the replacement for the deprecated `vpo scan --prune` flag.
 
 ```bash
-vpo library prune [--dry-run] [--yes] [--json]
+vpo db prune [--dry-run] [--yes] [--json]
 ```
 
 | Option | Short | Description |
@@ -271,37 +271,37 @@ vpo library prune [--dry-run] [--yes] [--json]
 
 ```bash
 # Preview what would be pruned
-vpo library prune --dry-run
+vpo db prune --dry-run
 
 # Prune without confirmation (for scripts/cron)
-vpo library prune --yes
+vpo db prune --yes
 
 # JSON output for automation
-vpo library prune --yes --json
+vpo db prune --yes --json
 ```
 
-##### `vpo library verify`
+##### `vpo db verify`
 
 Run SQLite integrity and foreign key checks on the database. Exits with code 1 if errors are found.
 
 ```bash
-vpo library verify [--json]
+vpo db verify [--json]
 ```
 
 ```bash
 # Quick health check
-vpo library verify
+vpo db verify
 
 # Machine-readable check
-vpo library verify --json
+vpo db verify --json
 ```
 
-##### `vpo library optimize`
+##### `vpo db optimize`
 
 Compact the database with VACUUM and update query planner statistics with ANALYZE. Requires exclusive database access (no other VPO instances running).
 
 ```bash
-vpo library optimize [--dry-run] [--yes] [--json]
+vpo db optimize [--dry-run] [--yes] [--json]
 ```
 
 | Option | Short | Description |
@@ -312,18 +312,18 @@ vpo library optimize [--dry-run] [--yes] [--json]
 
 ```bash
 # Check how much space can be reclaimed
-vpo library optimize --dry-run
+vpo db optimize --dry-run
 
 # Optimize without confirmation
-vpo library optimize --yes
+vpo db optimize --yes
 ```
 
-##### `vpo library duplicates`
+##### `vpo db duplicates`
 
 Find files that share the same content hash. Only files scanned with `--verify-hash` are included (files without a content hash are excluded).
 
 ```bash
-vpo library duplicates [--limit N] [--json]
+vpo db duplicates [--limit N] [--json]
 ```
 
 | Option | Description |
@@ -333,10 +333,36 @@ vpo library duplicates [--limit N] [--json]
 
 ```bash
 # Find all duplicate groups
-vpo library duplicates
+vpo db duplicates
 
 # JSON output with limited results
-vpo library duplicates --limit 10 --json
+vpo db duplicates --limit 10 --json
+```
+
+##### `vpo db logs`
+
+Manage job and processing logs in the database.
+
+```bash
+vpo db logs [OPTIONS]
+```
+
+| Option | Description |
+|--------|-------------|
+| `--clear` | Clear old log entries |
+| `--older-than DAYS` | Clear logs older than N days (default: 30) |
+| `--dry-run` | Preview what would be cleared |
+| `--json` | Output as JSON |
+
+```bash
+# View log summary
+vpo db logs
+
+# Clear logs older than 7 days
+vpo db logs --clear --older-than 7
+
+# Preview what would be cleared
+vpo db logs --clear --dry-run
 ```
 
 ---
@@ -347,12 +373,13 @@ The following commands are documented in their dedicated guides:
 
 - **`vpo serve`** — Start the web UI daemon. See [Daemon Mode](../daemon-mode.md).
 - **`vpo doctor`** — Check external tool availability. See [External Tools](external-tools.md).
-- **`vpo stats`** — View processing statistics. See [Reports](../reports.md).
-- **`vpo policy`** — Manage and apply policies. See [Policies](policies.md).
+- **`vpo process`** — Apply policies to files. See [Policies](policies.md).
+- **`vpo policy`** — Manage policy files (list, validate). See [Policies](policies.md).
 - **`vpo jobs`** — View and manage background jobs. See [Jobs](jobs.md).
-- **`vpo report`** — Generate reports. See [Reports](../reports.md).
-- **`vpo profiles`** — Manage configuration profiles. See [Configuration](configuration.md).
-- **`vpo classify`** — Classify audio tracks. See [Workflows](workflows.md).
+- **`vpo report`** — Generate reports and view processing statistics. See [Reports](../reports.md).
+- **`vpo config`** — Manage configuration profiles. See [Configuration](configuration.md).
+- **`vpo analyze`** — Analyze and classify tracks. See [Multi-Language Detection](multi-language-detection.md).
+- **`vpo plugin`** — Manage plugins (list, enable, disable). See [Plugin Development](../plugins.md).
 
 ---
 

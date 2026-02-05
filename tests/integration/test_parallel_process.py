@@ -1,4 +1,4 @@
-"""Integration tests for parallel file processing with policy run command."""
+"""Integration tests for parallel file processing with process command."""
 
 import json
 from pathlib import Path
@@ -46,7 +46,7 @@ class TestParallelProcessingCLI:
 
     def test_workers_option_shown_in_help(self, runner: CliRunner) -> None:
         """--workers option should appear in help."""
-        result = runner.invoke(main, ["policy", "run", "--help"])
+        result = runner.invoke(main, ["process", "--help"])
         assert result.exit_code == 0
         assert "--workers" in result.output
         assert "-w" in result.output
@@ -62,8 +62,7 @@ class TestParallelProcessingCLI:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(v12_policy),
                 "--workers",
@@ -89,8 +88,7 @@ class TestParallelProcessingJSON:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(v12_policy),
                 "--workers",
@@ -121,8 +119,7 @@ class TestParallelProcessingJSON:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(v12_policy),
                 "--dry-run",
@@ -152,8 +149,7 @@ class TestParallelProcessingBehavior:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(v12_policy),
                 "--dry-run",
@@ -179,8 +175,7 @@ class TestParallelProcessingBehavior:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(v12_policy),
                 "--workers",
@@ -207,8 +202,7 @@ class TestSequentialMode:
         result = runner.invoke(
             main,
             [
-                "policy",
-                "run",
+                "process",
                 "--policy",
                 str(v12_policy),
                 "--workers",

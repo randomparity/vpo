@@ -90,6 +90,27 @@ def _get_db_connection() -> sqlite3.Connection | None:
         return None
 
 
+def get_db_conn_from_context(ctx: click.Context) -> sqlite3.Connection:
+    """Extract database connection from Click context.
+
+    This is the standard way to get the database connection in command handlers.
+    The connection is set up by the main CLI callback and stored in ctx.obj.
+
+    Args:
+        ctx: Click context containing the database connection.
+
+    Returns:
+        Database connection.
+
+    Raises:
+        click.ClickException: If database connection is not available.
+    """
+    conn = ctx.obj.get("db_conn")
+    if conn is None:
+        raise click.ClickException("Database connection not available")
+    return conn
+
+
 def _configure_logging(
     log_level: str | None,
     log_file: Path | None,
@@ -313,35 +334,31 @@ def main(
 # Defer import to avoid circular dependency
 def _register_commands():
     from vpo.cli import scan  # noqa: F401
-    from vpo.cli.analyze_language import analyze_language_group
-    from vpo.cli.classify import classify_group
+    from vpo.cli.analyze import analyze_group
+    from vpo.cli.config import config_group
+    from vpo.cli.db import db_group
     from vpo.cli.doctor import doctor_command
     from vpo.cli.init import init_command
     from vpo.cli.inspect import inspect_command
     from vpo.cli.jobs import jobs_group
-    from vpo.cli.library import library_group
-    from vpo.cli.maintain import maintain_group
-    from vpo.cli.plugins import plugins
+    from vpo.cli.plugin import plugin_group
     from vpo.cli.policy import policy_group
-    from vpo.cli.profiles import profiles_group
+    from vpo.cli.process import process_command
     from vpo.cli.report import report_group
     from vpo.cli.serve import serve_command
-    from vpo.cli.stats import stats_group
 
-    main.add_command(analyze_language_group)
-    main.add_command(classify_group)
+    main.add_command(analyze_group)
+    main.add_command(config_group)
+    main.add_command(db_group)
+    main.add_command(doctor_command)
     main.add_command(init_command)
     main.add_command(inspect_command)
-    main.add_command(doctor_command)
-    main.add_command(plugins)
-    main.add_command(policy_group)
     main.add_command(jobs_group)
-    main.add_command(library_group)
-    main.add_command(stats_group)
-    main.add_command(profiles_group)
+    main.add_command(plugin_group)
+    main.add_command(policy_group)
+    main.add_command(process_command)
     main.add_command(report_group)
     main.add_command(serve_command)
-    main.add_command(maintain_group)
 
 
 _register_commands()

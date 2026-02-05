@@ -99,11 +99,11 @@ VPO uses a centralized exit code system defined in `src/vpo/cli/exit_codes.py`. 
 
 **`vpo inspect`**: `SUCCESS`, `TARGET_NOT_FOUND`, `FFPROBE_NOT_FOUND`, `PARSE_ERROR`, `ANALYSIS_ERROR`
 
-**`vpo classify`**: `SUCCESS`, `TARGET_NOT_FOUND`, `NO_TRACKS_FOUND`, `ANALYSIS_ERROR`
+**`vpo analyze classify`**: `SUCCESS`, `TARGET_NOT_FOUND`, `NO_TRACKS_FOUND`, `ANALYSIS_ERROR`
 
 **`vpo doctor`**: `SUCCESS`, `WARNINGS`, `CRITICAL`
 
-**`vpo policy run`**: `SUCCESS`, `GENERAL_ERROR`, `POLICY_VALIDATION_ERROR`, `TARGET_NOT_FOUND`, `TOOL_NOT_AVAILABLE`, `OPERATION_FAILED`
+**`vpo process`**: `SUCCESS`, `GENERAL_ERROR`, `POLICY_VALIDATION_ERROR`, `TARGET_NOT_FOUND`, `TOOL_NOT_AVAILABLE`, `OPERATION_FAILED`
 
 ### Using Exit Codes in Code
 

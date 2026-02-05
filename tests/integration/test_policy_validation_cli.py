@@ -19,7 +19,7 @@ class TestPolicyValidateHelp:
         result = runner.invoke(main, ["policy", "--help"])
 
         assert result.exit_code == 0
-        assert "Manage and validate policy files" in result.output
+        assert "Manage policy files" in result.output
         assert "validate" in result.output
 
     def test_policy_validate_help(self) -> None:

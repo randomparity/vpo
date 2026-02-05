@@ -1,7 +1,7 @@
 # Container Conversion Policy for Video Policy Orchestrator
 # This policy converts files to MKV format with track filtering.
 #
-# Usage: vpo policy run --policy container-conversion-policy.yaml [--dry-run] <file.avi>
+# Usage: vpo process --policy container-conversion-policy.yaml [--dry-run] <file.avi>
 
 schema_version: 3
 

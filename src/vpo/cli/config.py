@@ -1,9 +1,15 @@
-"""CLI commands for configuration profiles management."""
+"""CLI commands for configuration management.
+
+This module provides commands for managing configuration profiles.
+Renamed from profiles.py for more intuitive naming.
+"""
 
 import json
+import logging
 
 import click
 
+from vpo.cli.exit_codes import ExitCode
 from vpo.config.profiles import (
     ProfileError,
     ProfileNotFoundError,
@@ -13,21 +19,38 @@ from vpo.config.profiles import (
     validate_profile,
 )
 
+logger = logging.getLogger(__name__)
 
-@click.group("profiles")
-def profiles_group() -> None:
-    """Manage configuration profiles for different libraries."""
+
+@click.group("config")
+def config_group() -> None:
+    """Manage configuration profiles.
+
+    Profiles allow different settings for different libraries or use cases.
+    Profiles are stored in ~/.vpo/profiles/ as YAML files.
+
+    Examples:
+
+        # List all profiles
+        vpo config list
+
+        # Show profile details
+        vpo config show movies
+
+        # Validate a profile
+        vpo config validate movies
+    """
     pass
 
 
-@profiles_group.command("list")
+@config_group.command("list")
 @click.option(
     "--json",
     "json_output",
     is_flag=True,
     help="Output in JSON format.",
 )
-def list_profiles_cmd(json_output: bool) -> None:
+def list_config_cmd(json_output: bool) -> None:
     """List available configuration profiles.
 
     Profiles are stored in ~/.vpo/profiles/ as YAML files.
@@ -35,10 +58,10 @@ def list_profiles_cmd(json_output: bool) -> None:
     Examples:
 
         # List all profiles
-        vpo profiles list
+        vpo config list
 
         # Output as JSON
-        vpo profiles list --json
+        vpo config list --json
     """
     profile_names = list_profiles()
 
@@ -67,6 +90,7 @@ def list_profiles_cmd(json_output: bool) -> None:
                 }
             )
         except ProfileError as e:
+            logger.debug("Failed to load profile '%s': %s", name, e)
             profiles_data.append(
                 {
                     "name": name,
@@ -121,6 +145,7 @@ def _output_profiles_json(profile_names: list[str]) -> None:
 
             data.append(profile_data)
         except ProfileError as e:
+            logger.debug("Failed to load profile '%s': %s", name, e)
             data.append(
                 {
                     "name": name,
@@ -130,7 +155,7 @@ def _output_profiles_json(profile_names: list[str]) -> None:
     click.echo(json.dumps(data, indent=2))
 
 
-@profiles_group.command("show")
+@config_group.command("show")
 @click.argument("profile_name")
 @click.option(
     "--json",
@@ -138,7 +163,7 @@ def _output_profiles_json(profile_names: list[str]) -> None:
     is_flag=True,
     help="Output in JSON format.",
 )
-def show_profile(profile_name: str, json_output: bool) -> None:
+def show_config(profile_name: str, json_output: bool) -> None:
     """Show detailed information about a profile.
 
     PROFILE_NAME is the name of the profile (without .yaml extension).
@@ -146,10 +171,10 @@ def show_profile(profile_name: str, json_output: bool) -> None:
     Examples:
 
         # Show profile details
-        vpo profiles show movies
+        vpo config show movies
 
         # Output as JSON
-        vpo profiles show movies --json
+        vpo config show movies --json
     """
     try:
         profile = load_profile(profile_name)
@@ -283,3 +308,123 @@ def _output_profile_human(profile) -> None:
         click.echo("\n  " + click.style("Validation: OK", fg="green"))
 
     click.echo("")
+
+
+@config_group.command("validate")
+@click.argument("profile_name")
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    help="Output in JSON format.",
+)
+def validate_config(profile_name: str, json_output: bool) -> None:
+    """Validate a configuration profile.
+
+    PROFILE_NAME is the name of the profile (without .yaml extension).
+
+    Examples:
+
+        # Validate a profile
+        vpo config validate movies
+
+        # Output as JSON
+        vpo config validate movies --json
+    """
+    try:
+        profile = load_profile(profile_name)
+    except ProfileNotFoundError:
+        if json_output:
+            click.echo(json.dumps({"valid": False, "error": "Profile not found"}))
+        else:
+            click.echo(f"Error: Profile '{profile_name}' not found.", err=True)
+        raise SystemExit(ExitCode.PROFILE_NOT_FOUND)
+    except ProfileError as e:
+        if json_output:
+            click.echo(json.dumps({"valid": False, "error": str(e)}))
+        else:
+            click.echo(f"Error: {e}", err=True)
+        raise SystemExit(ExitCode.CONFIG_ERROR)
+
+    errors = validate_profile(profile)
+
+    if json_output:
+        click.echo(
+            json.dumps(
+                {
+                    "name": profile.name,
+                    "valid": len(errors) == 0,
+                    "errors": errors,
+                },
+                indent=2,
+            )
+        )
+    else:
+        if errors:
+            click.echo(f"Profile '{profile_name}' has validation errors:")
+            for error in errors:
+                click.echo(f"  - {error}")
+            raise SystemExit(ExitCode.CONFIG_ERROR)
+        else:
+            click.echo(f"Profile '{profile_name}' is valid.")
+
+
+@config_group.command("create")
+@click.argument("profile_name")
+@click.option(
+    "--policy",
+    "-p",
+    type=click.Path(exists=True),
+    help="Default policy file for this profile.",
+)
+@click.option(
+    "--description",
+    "-d",
+    help="Description of this profile.",
+)
+def create_config(
+    profile_name: str, policy: str | None, description: str | None
+) -> None:
+    """Create a new configuration profile.
+
+    PROFILE_NAME is the name for the new profile (without .yaml extension).
+
+    Examples:
+
+        # Create a basic profile
+        vpo config create movies
+
+        # Create with default policy
+        vpo config create movies --policy ~/.vpo/policies/normalize.yaml
+
+        # Create with description
+        vpo config create movies -d "Profile for movie library"
+    """
+    from pathlib import Path
+
+    profiles_dir = get_profiles_directory()
+    profile_path = profiles_dir / f"{profile_name}.yaml"
+
+    if profile_path.exists():
+        raise click.ClickException(f"Profile '{profile_name}' already exists.")
+
+    # Build profile content
+    content_lines = [
+        f"name: {profile_name}",
+    ]
+
+    if description:
+        content_lines.append(f"description: {description}")
+
+    if policy:
+        policy_path = Path(policy).resolve()
+        content_lines.append(f"default_policy: {policy_path}")
+
+    content = "\n".join(content_lines) + "\n"
+
+    # Ensure profiles directory exists
+    profiles_dir.mkdir(parents=True, exist_ok=True)
+
+    # Write profile
+    profile_path.write_text(content)
+    click.echo(f"Created profile: {profile_path}")

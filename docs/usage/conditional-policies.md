@@ -556,7 +556,7 @@ phases:
 Use `--dry-run` to preview conditional rule evaluation:
 
 ```bash
-vpo policy run --policy policy.yaml --dry-run /path/to/file.mkv
+vpo process --policy policy.yaml --dry-run /path/to/file.mkv
 ```
 
 The output shows:

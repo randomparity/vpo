@@ -367,13 +367,13 @@ V11 policies can be executed with selective phase filtering:
 
 ```bash
 # Execute all phases
-vpo policy run -p policy.yaml /path/to/video.mkv
+vpo process -p policy.yaml /path/to/video.mkv
 
 # Execute specific phases only
-vpo policy run -p policy.yaml --phases cleanup,normalize /path/to/video.mkv
+vpo process -p policy.yaml --phases cleanup,normalize /path/to/video.mkv
 
 # Dry-run to preview changes
-vpo policy run -p policy.yaml --dry-run /path/to/video.mkv
+vpo process -p policy.yaml --dry-run /path/to/video.mkv
 ```
 
 ---
@@ -620,7 +620,7 @@ Validation errors are displayed with field-level detail:
 
 **"Invalid phase name(s): ..."** (CLI)
 - Cause: `--phases` option specified names not in the policy
-- Solution: Check available phase names with `vpo policy run -p policy.yaml --help` or review the policy file
+- Solution: Check available phase names with `vpo process -p policy.yaml --help` or review the policy file
 
 ## Best Practices
 
@@ -631,7 +631,7 @@ Validation errors are displayed with field-level detail:
 3. **Edit** - Make one logical set of changes
 4. **Preview** - Verify YAML looks correct
 5. **Save** - Save and wait for confirmation
-6. **Test** - Test changes with `vpo policy run --dry-run`
+6. **Test** - Test changes with `vpo process --dry-run`
 
 ### Organization
 
@@ -664,7 +664,7 @@ The Visual Policy Editor fully supports V6+ transcode configuration:
 2. Configure codec, quality, and skip conditions
 3. Preview changes in the YAML panel
 4. Test with **Test Policy** before saving
-5. Validate with `vpo policy run --dry-run` after saving
+5. Validate with `vpo process --dry-run` after saving
 
 ### Multiple Policies
 
