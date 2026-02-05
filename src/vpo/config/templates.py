@@ -108,6 +108,10 @@ def get_config_template(data_dir: Path) -> str:
 # This file controls VPO's behavior. Uncomment and modify settings as needed.
 # Environment variables (VPO_*) take precedence over this file.
 
+# Database file location (default: ~/.vpo/library.db)
+# Environment variable: VPO_DATABASE_PATH
+# database_path = ""
+
 # =============================================================================
 # Tool Paths
 # =============================================================================
@@ -191,12 +195,26 @@ def get_config_template(data_dir: Path) -> str:
 # auto_purge = true              # Purge old jobs on worker start
 # temp_directory = ""            # Temp directory (empty = source file dir)
 # backup_original = true         # Keep backup of original after transcode
+# disk_space_ratio_hevc = 0.5    # Estimated output/input size ratio for HEVC/AV1
+# disk_space_ratio_other = 0.8   # Estimated output/input size ratio for other codecs
+# disk_space_buffer = 1.2        # Buffer multiplier for disk space estimation
 # log_compression_days = 7       # Days before compressing job log files
 # log_deletion_days = 90         # Days before deleting old job logs
 # Minimum % of disk that must remain free (0 = disable)
 # NOTE: In daemon mode with parallel jobs, set higher to account for
 # simultaneous space usage from concurrent operations.
 # min_free_disk_percent = 5.0
+# auto_prune_enabled = false      # Periodically prune files with scan_status='missing'
+# auto_prune_interval_hours = 168 # Hours between auto-prune runs (default: 7 days)
+
+# =============================================================================
+# Processing
+# =============================================================================
+# Batch processing behavior for `vpo policy run`.
+# Environment variable: VPO_PROCESSING_WORKERS
+
+[processing]
+# workers = 2                     # Parallel workers (1 = sequential)
 
 # =============================================================================
 # Worker
@@ -247,6 +265,12 @@ file = "{log_file_path}"         # Log file path (empty = stderr only)
 # port = 8321                    # HTTP port (default: 8321)
 # shutdown_timeout = 30.0        # Seconds to wait for graceful shutdown
 # auth_token = ""                # Shared secret for HTTP Basic Auth (empty = no auth)
+
+[server.rate_limit]
+# enabled = true                  # Enable API rate limiting
+# get_max_requests = 120          # Max GET requests per window per client IP
+# mutate_max_requests = 30        # Max POST/PUT/DELETE requests per window per client
+# window_seconds = 60             # Sliding window duration in seconds
 
 # =============================================================================
 # Language
