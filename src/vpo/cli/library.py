@@ -764,10 +764,12 @@ def backup_command(
         sys.exit(ExitCode.OPERATION_FAILED)
 
     # Output result
+    db_size_bytes = result.metadata.database_size_bytes
     if json_output:
-        db_size = result.metadata.database_size_bytes
         compression_ratio = (
-            (db_size - result.archive_size_bytes) / db_size if db_size > 0 else 0.0
+            (db_size_bytes - result.archive_size_bytes) / db_size_bytes
+            if db_size_bytes > 0
+            else 0.0
         )
         click.echo(
             json.dumps(
@@ -775,7 +777,7 @@ def backup_command(
                     "success": True,
                     "path": str(result.path),
                     "archive_size_bytes": result.archive_size_bytes,
-                    "database_size_bytes": db_size,
+                    "database_size_bytes": db_size_bytes,
                     "compression_ratio": round(compression_ratio, 3),
                     "file_count": result.metadata.file_count,
                     "schema_version": result.metadata.schema_version,
@@ -785,17 +787,17 @@ def backup_command(
             )
         )
     else:
-        db_size = result.metadata.database_size_bytes
         compression_pct = (
-            int(100 * (db_size - result.archive_size_bytes) / db_size)
-            if db_size > 0
+            int(100 * (db_size_bytes - result.archive_size_bytes) / db_size_bytes)
+            if db_size_bytes > 0
             else 0
         )
         click.echo(f"Backup created: {result.path}")
-        db_size = format_file_size(result.metadata.database_size_bytes)
-        archive_size = format_file_size(result.archive_size_bytes)
-        click.echo(f"  Database size: {db_size}")
-        click.echo(f"  Archive size:  {archive_size} ({compression_pct}% compression)")
+        click.echo(f"  Database size: {format_file_size(db_size_bytes)}")
+        click.echo(
+            f"  Archive size:  {format_file_size(result.archive_size_bytes)} "
+            f"({compression_pct}% compression)"
+        )
         click.echo(f"  Files in library: {result.metadata.file_count:,}")
 
 
@@ -881,7 +883,6 @@ def restore_command(
 
     # Check schema version
     schema_mismatch = metadata.schema_version != SCHEMA_VERSION
-    schema_newer = metadata.schema_version > SCHEMA_VERSION
 
     if dry_run:
         # Just validate and show info
@@ -919,7 +920,20 @@ def restore_command(
             click.echo("No changes made (dry run).")
         return
 
-    # Show restore info and handle schema mismatch warning
+    # Reject backups from newer schema versions
+    if metadata.schema_version > SCHEMA_VERSION:
+        error_msg = (
+            f"Backup schema version ({metadata.schema_version}) is newer "
+            f"than current VPO schema ({SCHEMA_VERSION}). "
+            "Update VPO before restoring this backup."
+        )
+        if json_output:
+            click.echo(json.dumps({"success": False, "error": error_msg}))
+        else:
+            click.echo(f"Error: {error_msg}", err=True)
+        sys.exit(ExitCode.SCHEMA_INCOMPATIBLE)
+
+    # Show restore info
     if not json_output:
         click.echo(f"Restoring from: {backup_path}")
         created_display = metadata.created_at.replace("T", " ").replace("Z", " UTC")
@@ -928,15 +942,6 @@ def restore_command(
         click.echo(f"  Schema: v{metadata.schema_version}")
         click.echo()
 
-        if schema_newer:
-            click.echo(
-                f"Error: Backup schema version ({metadata.schema_version}) is newer "
-                f"than current VPO schema ({SCHEMA_VERSION}).",
-                err=True,
-            )
-            click.echo("Update VPO before restoring this backup.", err=True)
-            sys.exit(ExitCode.SCHEMA_INCOMPATIBLE)
-
         if schema_mismatch:
             click.echo(
                 f"Warning: Backup schema version ({metadata.schema_version}) differs "
@@ -944,18 +949,6 @@ def restore_command(
             )
             click.echo("  The database will be migrated after restore.")
             click.echo()
-
-    elif schema_newer:
-        click.echo(
-            json.dumps(
-                {
-                    "success": False,
-                    "error": f"Backup schema ({metadata.schema_version}) is newer "
-                    f"than current VPO ({SCHEMA_VERSION})",
-                }
-            )
-        )
-        sys.exit(ExitCode.SCHEMA_INCOMPATIBLE)
 
     # Confirm unless --yes
     if not yes and not json_output:

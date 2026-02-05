@@ -354,36 +354,25 @@ def _read_backup_metadata(archive_path: Path) -> BackupMetadata:
             except json.JSONDecodeError as e:
                 raise BackupValidationError(f"Invalid metadata JSON: {e}") from e
 
-            # Validate required fields
-            required_fields = [
-                "vpo_version",
-                "schema_version",
-                "created_at",
-                "database_size_bytes",
-                "file_count",
-                "total_library_size_bytes",
-            ]
-            missing = [f for f in required_fields if f not in data]
+            # Validate required fields and types
+            field_types = {
+                "vpo_version": str,
+                "schema_version": int,
+                "created_at": str,
+                "database_size_bytes": int,
+                "file_count": int,
+                "total_library_size_bytes": int,
+            }
+            missing = [f for f in field_types if f not in data]
             if missing:
                 raise BackupValidationError(
                     f"Metadata missing required fields: {missing}"
                 )
 
-            # Validate field types
-            if not isinstance(data["vpo_version"], str):
-                raise BackupValidationError("vpo_version must be a string")
-            if not isinstance(data["schema_version"], int):
-                raise BackupValidationError("schema_version must be an integer")
-            if not isinstance(data["created_at"], str):
-                raise BackupValidationError("created_at must be a string")
-            if not isinstance(data["database_size_bytes"], int):
-                raise BackupValidationError("database_size_bytes must be an integer")
-            if not isinstance(data["file_count"], int):
-                raise BackupValidationError("file_count must be an integer")
-            if not isinstance(data["total_library_size_bytes"], int):
-                raise BackupValidationError(
-                    "total_library_size_bytes must be an integer"
-                )
+            for field, expected_type in field_types.items():
+                if not isinstance(data[field], expected_type):
+                    type_name = expected_type.__name__
+                    raise BackupValidationError(f"{field} must be {type_name}")
 
             return BackupMetadata(
                 vpo_version=data["vpo_version"],
