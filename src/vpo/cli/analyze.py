@@ -18,6 +18,7 @@ from pathlib import Path
 
 import click
 
+from vpo.cli import get_db_conn_from_context
 from vpo.cli.exit_codes import ExitCode
 from vpo.db import (
     FileRecord,
@@ -40,24 +41,6 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Shared Utilities
 # =============================================================================
-
-
-def _get_db_conn(ctx: click.Context) -> sqlite3.Connection:
-    """Get database connection from context.
-
-    Args:
-        ctx: Click context.
-
-    Returns:
-        Database connection.
-
-    Raises:
-        click.ClickException: If database connection not available.
-    """
-    conn = ctx.obj.get("db_conn")
-    if conn is None:
-        raise click.ClickException("Database connection not available")
-    return conn
 
 
 def _check_plugin_available() -> bool:
@@ -372,7 +355,7 @@ def classify_command(
         vpo analyze classify --force movie.mkv
         vpo analyze classify --json movie.mkv
     """
-    conn = _get_db_conn(ctx)
+    conn = get_db_conn_from_context(ctx)
 
     # Look up file in database
     file_record = get_file_by_path(conn, str(path))
@@ -511,7 +494,7 @@ def language_command(
         # Output as JSON
         vpo analyze language movie.mkv --json
     """
-    conn = _get_db_conn(ctx)
+    conn = get_db_conn_from_context(ctx)
 
     # Check plugin availability
     if not _check_plugin_available():
@@ -699,7 +682,7 @@ def status_command(
         # Output as JSON
         vpo analyze status --json
     """
-    conn = _get_db_conn(ctx)
+    conn = get_db_conn_from_context(ctx)
 
     # Handle specific file path
     if path:
@@ -998,7 +981,7 @@ def clear_command(
         # Clear all analysis results
         vpo analyze clear --all --yes
     """
-    conn = _get_db_conn(ctx)
+    conn = get_db_conn_from_context(ctx)
 
     if not path and not clear_all:
         click.echo("Error: Specify a PATH or use --all to clear all results.", err=True)

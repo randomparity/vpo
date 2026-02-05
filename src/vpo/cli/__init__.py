@@ -90,6 +90,27 @@ def _get_db_connection() -> sqlite3.Connection | None:
         return None
 
 
+def get_db_conn_from_context(ctx: click.Context) -> sqlite3.Connection:
+    """Extract database connection from Click context.
+
+    This is the standard way to get the database connection in command handlers.
+    The connection is set up by the main CLI callback and stored in ctx.obj.
+
+    Args:
+        ctx: Click context containing the database connection.
+
+    Returns:
+        Database connection.
+
+    Raises:
+        click.ClickException: If database connection is not available.
+    """
+    conn = ctx.obj.get("db_conn")
+    if conn is None:
+        raise click.ClickException("Database connection not available")
+    return conn
+
+
 def _configure_logging(
     log_level: str | None,
     log_file: Path | None,

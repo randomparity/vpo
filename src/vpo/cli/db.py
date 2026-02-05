@@ -16,6 +16,7 @@ import sys
 
 import click
 
+from vpo.cli import get_db_conn_from_context
 from vpo.cli.exit_codes import ExitCode
 from vpo.config import get_config
 from vpo.core import format_file_size, truncate_filename
@@ -28,18 +29,6 @@ from vpo.jobs.logs import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _get_conn(ctx: click.Context) -> sqlite3.Connection:
-    """Extract the database connection from the Click context.
-
-    Raises:
-        click.ClickException: If no connection is available.
-    """
-    conn = ctx.obj.get("db_conn")
-    if conn is None:
-        raise click.ClickException("Failed to connect to database.")
-    return conn
 
 
 @click.group("db")
@@ -117,7 +106,7 @@ def missing_command(
         # List up to 500 missing files as JSON
         vpo db missing --json --limit 500
     """
-    conn = _get_conn(ctx)
+    conn = get_db_conn_from_context(ctx)
 
     files = get_missing_files(conn, limit=limit)
 
@@ -210,7 +199,7 @@ def prune_command(
         # Prune with JSON output
         vpo db prune --yes --json
     """
-    conn = _get_conn(ctx)
+    conn = get_db_conn_from_context(ctx)
 
     from vpo.db.views import get_missing_files_count
 
@@ -318,7 +307,7 @@ def info_command(
     """
     from vpo.db.views import get_library_info
 
-    conn = _get_conn(ctx)
+    conn = get_db_conn_from_context(ctx)
 
     info = get_library_info(conn)
 
@@ -426,7 +415,7 @@ def optimize_command(
     """
     from vpo.db.views import run_optimize
 
-    conn = _get_conn(ctx)
+    conn = get_db_conn_from_context(ctx)
 
     if dry_run:
         result = run_optimize(conn, dry_run=True)
@@ -510,7 +499,7 @@ def verify_command(
     """
     from vpo.db.views import run_integrity_check
 
-    conn = _get_conn(ctx)
+    conn = get_db_conn_from_context(ctx)
 
     try:
         result = run_integrity_check(conn)
@@ -594,7 +583,7 @@ def duplicates_command(
     """
     from vpo.db.views import get_duplicate_files
 
-    conn = _get_conn(ctx)
+    conn = get_db_conn_from_context(ctx)
 
     groups = get_duplicate_files(conn, limit=limit)
 
@@ -707,7 +696,7 @@ def backup_command(
     )
     from vpo.db.schema import SCHEMA_VERSION
 
-    conn = _get_conn(ctx)
+    conn = get_db_conn_from_context(ctx)
     db_path = _get_db_path(ctx)
 
     # Determine output path
