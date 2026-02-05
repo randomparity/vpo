@@ -525,3 +525,205 @@ def create_backup(
         duration_seconds=duration,
         metadata=metadata,
     )
+
+
+def validate_backup(backup_path: Path) -> BackupMetadata:
+    """Validate a backup archive and return its metadata.
+
+    Checks:
+    - Archive is a valid tar.gz file
+    - Contains required files (library.db, backup_metadata.json)
+    - Metadata JSON is valid and complete
+    - Database passes SQLite integrity check (quick_check)
+
+    Args:
+        backup_path: Path to the backup archive
+
+    Returns:
+        BackupMetadata from the archive
+
+    Raises:
+        BackupValidationError: If archive is invalid or corrupted
+        BackupIOError: If archive cannot be read
+    """
+    import tempfile
+
+    backup_path = Path(backup_path).resolve()
+
+    # Validate file exists and is readable
+    if not backup_path.exists():
+        raise BackupIOError(f"Backup file not found: {backup_path}")
+
+    if not backup_path.is_file():
+        raise BackupValidationError(f"Not a file: {backup_path}")
+
+    # Check it's a tar.gz file
+    if not backup_path.name.endswith(".tar.gz"):
+        raise BackupValidationError(
+            f"Invalid backup format: expected .tar.gz file, got {backup_path.name}"
+        )
+
+    # Try to open as tar.gz
+    try:
+        with tarfile.open(backup_path, "r:gz") as tf:
+            members = tf.getnames()
+    except tarfile.TarError as e:
+        raise BackupValidationError(f"Invalid tar archive: {e}") from e
+    except OSError as e:
+        raise BackupIOError(f"Failed to read archive: {e}") from e
+
+    # Check required files
+    if ARCHIVE_DB_NAME not in members:
+        raise BackupValidationError(
+            f"Invalid backup archive: missing {ARCHIVE_DB_NAME}"
+        )
+    if ARCHIVE_METADATA_NAME not in members:
+        raise BackupValidationError(
+            f"Invalid backup archive: missing {ARCHIVE_METADATA_NAME}"
+        )
+
+    # Read and validate metadata
+    metadata = _read_backup_metadata(backup_path)
+
+    # Extract database to temp file and run integrity check
+    with tempfile.TemporaryDirectory(prefix="vpo-validate-") as temp_dir:
+        temp_path = Path(temp_dir)
+        temp_db = temp_path / ARCHIVE_DB_NAME
+
+        try:
+            with tarfile.open(backup_path, "r:gz") as tf:
+                tf.extract(ARCHIVE_DB_NAME, temp_path)
+        except (tarfile.TarError, OSError) as e:
+            raise BackupValidationError(
+                f"Failed to extract database for validation: {e}"
+            ) from e
+
+        # Run SQLite integrity check
+        try:
+            conn = sqlite3.connect(temp_db)
+            cursor = conn.execute("PRAGMA quick_check")
+            result = cursor.fetchone()
+            conn.close()
+
+            if result[0] != "ok":
+                raise BackupValidationError(
+                    f"Database integrity check failed: {result[0]}"
+                )
+        except sqlite3.Error as e:
+            raise BackupValidationError(f"Database integrity check failed: {e}") from e
+
+    return metadata
+
+
+def restore_backup(
+    backup_path: Path,
+    db_path: Path,
+    force: bool = False,
+) -> RestoreResult:
+    """Restore database from a backup archive.
+
+    Extracts the database from the backup archive and replaces the
+    current database atomically (extract to temp, then rename).
+
+    Args:
+        backup_path: Path to the backup archive
+        db_path: Path where database should be restored
+        force: If True, skip schema version check for newer backups
+
+    Returns:
+        RestoreResult with details about the restore
+
+    Raises:
+        BackupValidationError: If archive is invalid
+        BackupSchemaError: If backup schema is newer than current VPO
+        BackupLockError: If the database is locked
+        InsufficientSpaceError: If there isn't enough disk space
+        BackupIOError: If an IO error occurs
+    """
+    import time
+
+    from vpo.db.schema import SCHEMA_VERSION
+
+    start_time = time.monotonic()
+
+    backup_path = Path(backup_path).resolve()
+    db_path = Path(db_path).resolve()
+
+    # Validate backup
+    metadata = validate_backup(backup_path)
+
+    # Check schema version
+    schema_mismatch = metadata.schema_version != SCHEMA_VERSION
+    if metadata.schema_version > SCHEMA_VERSION and not force:
+        raise BackupSchemaError(
+            f"Backup schema version ({metadata.schema_version}) is newer than "
+            f"current VPO schema ({SCHEMA_VERSION}). "
+            "Update VPO before restoring this backup."
+        )
+
+    # Check if database exists and is locked
+    if db_path.exists():
+        _check_database_lock(db_path)
+
+    # Check disk space
+    _check_disk_space(db_path.parent, metadata.database_size_bytes * 2)
+
+    # Create parent directory if needed
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Extract to temp file in same directory (for atomic rename)
+    temp_db = db_path.with_suffix(".db.restore-tmp")
+    try:
+        with tarfile.open(backup_path, "r:gz") as tf:
+            # Extract database to temp file
+            member = tf.getmember(ARCHIVE_DB_NAME)
+            f = tf.extractfile(member)
+            if f is None:
+                raise BackupValidationError("Failed to extract database from archive")
+
+            # Write to temp file
+            with open(temp_db, "wb") as out:
+                shutil.copyfileobj(f, out)
+
+        # Verify extracted database
+        try:
+            conn = sqlite3.connect(temp_db)
+            cursor = conn.execute("PRAGMA quick_check")
+            result = cursor.fetchone()
+            conn.close()
+
+            if result[0] != "ok":
+                raise BackupValidationError(
+                    f"Restored database integrity check failed: {result[0]}"
+                )
+        except sqlite3.Error as e:
+            raise BackupValidationError(
+                f"Restored database integrity check failed: {e}"
+            ) from e
+
+        # Atomic rename to final destination
+        # Remove WAL and SHM files if they exist
+        for ext in ["-wal", "-shm"]:
+            wal_file = Path(f"{db_path}{ext}")
+            if wal_file.exists():
+                wal_file.unlink()
+
+        # Replace database
+        temp_db.replace(db_path)
+
+    except Exception:
+        # Clean up temp file on error
+        if temp_db.exists():
+            temp_db.unlink()
+        raise
+
+    duration = time.monotonic() - start_time
+
+    return RestoreResult(
+        success=True,
+        source_path=backup_path,
+        database_path=db_path,
+        duration_seconds=duration,
+        metadata=metadata,
+        schema_mismatch=schema_mismatch,
+    )

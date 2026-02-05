@@ -787,3 +787,216 @@ def backup_command(
         click.echo(f"  Database size: {db_size}")
         click.echo(f"  Archive size:  {archive_size} ({compression_pct}% compression)")
         click.echo(f"  Files in library: {result.metadata.file_count:,}")
+
+
+@library_group.command("restore")
+@click.argument(
+    "backup_file",
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+)
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Skip confirmation prompt.",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Validate archive without restoring.",
+)
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    help="Output as JSON.",
+)
+@click.pass_context
+def restore_command(
+    ctx: click.Context,
+    backup_file: str,
+    yes: bool,
+    dry_run: bool,
+    json_output: bool,
+) -> None:
+    """Restore the library database from a backup archive.
+
+    Validates the backup archive and replaces the current database
+    with the backup contents. Uses atomic operations to prevent
+    corruption.
+
+    Examples:
+
+        # Restore with confirmation prompt
+        vpo library restore backup.tar.gz
+
+        # Restore without prompt
+        vpo library restore --yes backup.tar.gz
+
+        # Validate only (don't restore)
+        vpo library restore --dry-run backup.tar.gz
+    """
+    from pathlib import Path
+
+    from vpo.db.backup import (
+        BackupIOError,
+        BackupLockError,
+        BackupValidationError,
+        InsufficientSpaceError,
+        restore_backup,
+        validate_backup,
+    )
+    from vpo.db.schema import SCHEMA_VERSION
+
+    db_path = _get_db_path(ctx)
+    backup_path = Path(backup_file).resolve()
+
+    # Validate backup first
+    try:
+        metadata = validate_backup(backup_path)
+    except BackupValidationError as e:
+        if json_output:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            click.echo(f"Error: Invalid backup archive - {e}", err=True)
+        sys.exit(ExitCode.INVALID_ARCHIVE)
+    except BackupIOError as e:
+        if json_output:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            click.echo(f"Error: {e}", err=True)
+        sys.exit(ExitCode.OPERATION_FAILED)
+
+    # Check schema version
+    schema_mismatch = metadata.schema_version != SCHEMA_VERSION
+    schema_newer = metadata.schema_version > SCHEMA_VERSION
+
+    if dry_run:
+        # Just validate and show info
+        if json_output:
+            click.echo(
+                json.dumps(
+                    {
+                        "dry_run": True,
+                        "valid": True,
+                        "backup_path": str(backup_path),
+                        "created_at": metadata.created_at,
+                        "vpo_version": metadata.vpo_version,
+                        "schema_version": metadata.schema_version,
+                        "current_schema_version": SCHEMA_VERSION,
+                        "schema_mismatch": schema_mismatch,
+                        "database_size_bytes": metadata.database_size_bytes,
+                        "file_count": metadata.file_count,
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            click.echo(f"Validating backup: {backup_path}")
+            click.echo()
+            click.echo("Archive valid:")
+            created_str = metadata.created_at.replace("T", " ").replace("Z", " UTC")
+            click.echo(f"  Created: {created_str}")
+            click.echo(f"  VPO version: {metadata.vpo_version}")
+            schema_status = f"{metadata.schema_version} (current: {SCHEMA_VERSION})"
+            click.echo(f"  Schema version: {schema_status}")
+            db_size_str = format_file_size(metadata.database_size_bytes)
+            click.echo(f"  Database size: {db_size_str}")
+            click.echo(f"  Files in backup: {metadata.file_count:,}")
+            click.echo()
+            click.echo("No changes made (dry run).")
+        return
+
+    # Show restore info and handle schema mismatch warning
+    if not json_output:
+        click.echo(f"Restoring from: {backup_path}")
+        created_display = metadata.created_at.replace("T", " ").replace("Z", " UTC")
+        click.echo(f"  Created: {created_display}")
+        click.echo(f"  Files: {metadata.file_count:,}")
+        click.echo(f"  Schema: v{metadata.schema_version}")
+        click.echo()
+
+        if schema_newer:
+            click.echo(
+                f"Error: Backup schema version ({metadata.schema_version}) is newer "
+                f"than current VPO schema ({SCHEMA_VERSION}).",
+                err=True,
+            )
+            click.echo("Update VPO before restoring this backup.", err=True)
+            sys.exit(ExitCode.SCHEMA_INCOMPATIBLE)
+
+        if schema_mismatch:
+            click.echo(
+                f"Warning: Backup schema version ({metadata.schema_version}) differs "
+                f"from current VPO schema ({SCHEMA_VERSION})."
+            )
+            click.echo("  The database will be migrated after restore.")
+            click.echo()
+
+    elif schema_newer:
+        click.echo(
+            json.dumps(
+                {
+                    "success": False,
+                    "error": f"Backup schema ({metadata.schema_version}) is newer "
+                    f"than current VPO ({SCHEMA_VERSION})",
+                }
+            )
+        )
+        sys.exit(ExitCode.SCHEMA_INCOMPATIBLE)
+
+    # Confirm unless --yes
+    if not yes and not json_output:
+        click.confirm(
+            "This will replace your current library database. Continue?",
+            abort=True,
+        )
+
+    # Perform restore
+    try:
+        result = restore_backup(
+            backup_path=backup_path,
+            db_path=db_path,
+            force=False,
+        )
+    except BackupLockError as e:
+        if json_output:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            click.echo(f"Error: {e}", err=True)
+        sys.exit(ExitCode.DATABASE_LOCKED)
+    except InsufficientSpaceError as e:
+        if json_output:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            click.echo(f"Error: {e}", err=True)
+        sys.exit(ExitCode.INSUFFICIENT_SPACE)
+    except (BackupValidationError, BackupIOError) as e:
+        if json_output:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            click.echo(f"Error: {e}", err=True)
+        sys.exit(ExitCode.OPERATION_FAILED)
+
+    # Output result
+    if json_output:
+        click.echo(
+            json.dumps(
+                {
+                    "success": True,
+                    "source_path": str(result.source_path),
+                    "database_path": str(result.database_path),
+                    "duration_seconds": round(result.duration_seconds, 2),
+                    "schema_mismatch": result.schema_mismatch,
+                    "file_count": result.metadata.file_count,
+                },
+                indent=2,
+            )
+        )
+    else:
+        click.echo()
+        click.echo("Restore complete.")
+        click.echo(f"  Database restored to: {result.database_path}")
+        click.echo(f"  Duration: {result.duration_seconds:.1f} seconds")

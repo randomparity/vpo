@@ -77,21 +77,21 @@
 
 ### Implementation for User Story 2
 
-- [ ] T024 [US2] Implement `validate_backup(backup_path)` function in src/vpo/db/backup.py to check archive structure and metadata
-- [ ] T025 [US2] Add SQLite integrity check (quick_check) to validate_backup() in src/vpo/db/backup.py
-- [ ] T025a [US2] Add archive format validation to validate_backup() in src/vpo/db/backup.py that raises BackupValidationError for non-tar.gz files
-- [ ] T026 [US2] Implement `restore_backup(backup_path, db_path, force)` function in src/vpo/db/backup.py with atomic temp-file-then-rename
-- [ ] T027 [US2] Add schema version comparison and warning for mismatches in restore_backup() in src/vpo/db/backup.py
-- [ ] T028 [US2] Add disk space check before restore in src/vpo/db/backup.py
-- [ ] T029 [US2] Add database lock detection before restore in src/vpo/db/backup.py
-- [ ] T030 [US2] Block restore if backup schema version is newer than current VPO schema in src/vpo/db/backup.py
-- [ ] T031 [US2] Implement `restore_command()` CLI command in src/vpo/cli/library.py with BACKUP_FILE argument, --yes, --dry-run, --json options
-- [ ] T032 [US2] Add confirmation prompt (unless --yes) to restore_command() in src/vpo/cli/library.py
-- [ ] T033 [US2] Add schema mismatch warning to restore_command() in src/vpo/cli/library.py
-- [ ] T034 [US2] Add normal output formatting to restore_command() in src/vpo/cli/library.py
-- [ ] T035 [US2] Add JSON output formatting to restore_command() in src/vpo/cli/library.py
-- [ ] T036 [US2] Add dry-run mode to restore_command() validating archive without restoring in src/vpo/cli/library.py
-- [ ] T037 [US2] Add error handling for BackupValidationError, BackupSchemaError, BackupLockError in src/vpo/cli/library.py
+- [x] T024 [US2] Implement `validate_backup(backup_path)` function in src/vpo/db/backup.py to check archive structure and metadata
+- [x] T025 [US2] Add SQLite integrity check (quick_check) to validate_backup() in src/vpo/db/backup.py
+- [x] T025a [US2] Add archive format validation to validate_backup() in src/vpo/db/backup.py that raises BackupValidationError for non-tar.gz files
+- [x] T026 [US2] Implement `restore_backup(backup_path, db_path, force)` function in src/vpo/db/backup.py with atomic temp-file-then-rename
+- [x] T027 [US2] Add schema version comparison and warning for mismatches in restore_backup() in src/vpo/db/backup.py
+- [x] T028 [US2] Add disk space check before restore in src/vpo/db/backup.py
+- [x] T029 [US2] Add database lock detection before restore in src/vpo/db/backup.py
+- [x] T030 [US2] Block restore if backup schema version is newer than current VPO schema in src/vpo/db/backup.py
+- [x] T031 [US2] Implement `restore_command()` CLI command in src/vpo/cli/library.py with BACKUP_FILE argument, --yes, --dry-run, --json options
+- [x] T032 [US2] Add confirmation prompt (unless --yes) to restore_command() in src/vpo/cli/library.py
+- [x] T033 [US2] Add schema mismatch warning to restore_command() in src/vpo/cli/library.py
+- [x] T034 [US2] Add normal output formatting to restore_command() in src/vpo/cli/library.py
+- [x] T035 [US2] Add JSON output formatting to restore_command() in src/vpo/cli/library.py
+- [x] T036 [US2] Add dry-run mode to restore_command() validating archive without restoring in src/vpo/cli/library.py
+- [x] T037 [US2] Add error handling for BackupValidationError, BackupSchemaError, BackupLockError in src/vpo/cli/library.py
 
 **Checkpoint**: User Stories 1 AND 2 complete - full backup/restore cycle works
 
