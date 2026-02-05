@@ -28,7 +28,7 @@ import shutil
 import sqlite3
 import tarfile
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -232,7 +232,7 @@ def _generate_backup_filename() -> str:
     Returns:
         Filename string like "vpo-library-2026-02-05T143022Z.tar.gz"
     """
-    timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H%M%SZ")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%SZ")
     return f"{BACKUP_FILENAME_PREFIX}{timestamp}{BACKUP_EXTENSION}"
 
 
@@ -495,7 +495,7 @@ def create_backup(
             metadata = BackupMetadata(
                 vpo_version=vpo_version,
                 schema_version=SCHEMA_VERSION,
-                created_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                created_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 database_size_bytes=db_size,
                 file_count=file_count,
                 total_library_size_bytes=total_library_size,
@@ -862,7 +862,7 @@ def list_backups(backup_dir: Path | None = None) -> list[BackupInfo]:
             else:
                 # Use file modification time as fallback
                 mtime = path.stat().st_mtime
-                created_at = datetime.fromtimestamp(mtime, UTC).strftime(
+                created_at = datetime.fromtimestamp(mtime, timezone.utc).strftime(
                     "%Y-%m-%dT%H:%M:%SZ"
                 )
 
