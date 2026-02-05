@@ -121,10 +121,10 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T045 [P] Export backup types (BackupMetadata, BackupInfo, BackupResult, RestoreResult, exceptions) from src/vpo/db/__init__.py
-- [ ] T046 [P] Add structured logging for backup operations in src/vpo/db/backup.py
-- [ ] T047 [P] Add structured logging for restore operations in src/vpo/db/backup.py
-- [ ] T048 Update CLI help text with backup command examples in src/vpo/cli/library.py docstrings
+- [x] T045 [P] Export backup types (BackupMetadata, BackupInfo, BackupResult, RestoreResult, exceptions) from src/vpo/db/__init__.py
+- [x] T046 [P] Add structured logging for backup operations in src/vpo/db/backup.py
+- [x] T047 [P] Add structured logging for restore operations in src/vpo/db/backup.py
+- [x] T048 Update CLI help text with backup command examples in src/vpo/cli/library.py docstrings
 - [ ] T049 Run manual validation: create backup, restore, list backups per quickstart.md
 
 ---

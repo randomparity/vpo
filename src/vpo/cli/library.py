@@ -53,6 +53,15 @@ def library_group() -> None:
 
         # Find duplicate files
         vpo library duplicates
+
+        # Create a database backup
+        vpo library backup
+
+        # Restore from a backup
+        vpo library restore backup.tar.gz
+
+        # List available backups
+        vpo library backups
     """
     pass
 

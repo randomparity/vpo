@@ -23,12 +23,15 @@ Usage:
 """
 
 import json
+import logging
 import shutil
 import sqlite3
 import tarfile
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Exceptions
@@ -442,6 +445,11 @@ def create_backup(
         output_path = Path(output_path).resolve()
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    logger.info(
+        "Starting backup",
+        extra={"db_path": str(db_path), "output": str(output_path)},
+    )
+
     # Check database accessibility and lock status
     _check_database_lock(db_path)
 
@@ -517,6 +525,17 @@ def create_backup(
             conn.close()
 
     duration = time.monotonic() - start_time
+
+    logger.info(
+        "Backup complete",
+        extra={
+            "output": str(output_path),
+            "archive_size": archive_size,
+            "db_size": metadata.database_size_bytes,
+            "file_count": metadata.file_count,
+            "duration_seconds": round(duration, 2),
+        },
+    )
 
     return BackupResult(
         success=True,
@@ -649,6 +668,11 @@ def restore_backup(
     backup_path = Path(backup_path).resolve()
     db_path = Path(db_path).resolve()
 
+    logger.info(
+        "Starting restore",
+        extra={"backup": str(backup_path), "target": str(db_path)},
+    )
+
     # Validate backup
     metadata = validate_backup(backup_path)
 
@@ -719,6 +743,17 @@ def restore_backup(
 
     duration = time.monotonic() - start_time
 
+    logger.info(
+        "Restore complete",
+        extra={
+            "backup": str(backup_path),
+            "target": str(db_path),
+            "file_count": metadata.file_count,
+            "schema_mismatch": schema_mismatch,
+            "duration_seconds": round(duration, 2),
+        },
+    )
+
     return RestoreResult(
         success=True,
         source_path=backup_path,
@@ -747,10 +782,7 @@ def list_backups(backup_dir: Path | None = None) -> list[BackupInfo]:
     Raises:
         BackupIOError: If directory cannot be read
     """
-    import logging
     import re
-
-    logger = logging.getLogger(__name__)
 
     if backup_dir is None:
         backup_dir = _get_default_backup_dir()
