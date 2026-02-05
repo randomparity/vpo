@@ -765,16 +765,17 @@ def backup_command(
 
     # Output result
     if json_output:
+        db_size = result.metadata.database_size_bytes
         compression_ratio = (
-            result.metadata.database_size_bytes - result.archive_size_bytes
-        ) / result.metadata.database_size_bytes
+            (db_size - result.archive_size_bytes) / db_size if db_size > 0 else 0.0
+        )
         click.echo(
             json.dumps(
                 {
                     "success": True,
                     "path": str(result.path),
                     "archive_size_bytes": result.archive_size_bytes,
-                    "database_size_bytes": result.metadata.database_size_bytes,
+                    "database_size_bytes": db_size,
                     "compression_ratio": round(compression_ratio, 3),
                     "file_count": result.metadata.file_count,
                     "schema_version": result.metadata.schema_version,
@@ -784,10 +785,11 @@ def backup_command(
             )
         )
     else:
-        compression_pct = int(
-            100
-            * (result.metadata.database_size_bytes - result.archive_size_bytes)
-            / result.metadata.database_size_bytes
+        db_size = result.metadata.database_size_bytes
+        compression_pct = (
+            int(100 * (db_size - result.archive_size_bytes) / db_size)
+            if db_size > 0
+            else 0
         )
         click.echo(f"Backup created: {result.path}")
         db_size = format_file_size(result.metadata.database_size_bytes)

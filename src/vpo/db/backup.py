@@ -349,7 +349,8 @@ def _read_backup_metadata(archive_path: Path) -> BackupMetadata:
                 )
 
             try:
-                data = json.load(f)
+                with f:
+                    data = json.load(f)
             except json.JSONDecodeError as e:
                 raise BackupValidationError(f"Invalid metadata JSON: {e}") from e
 
@@ -366,6 +367,22 @@ def _read_backup_metadata(archive_path: Path) -> BackupMetadata:
             if missing:
                 raise BackupValidationError(
                     f"Metadata missing required fields: {missing}"
+                )
+
+            # Validate field types
+            if not isinstance(data["vpo_version"], str):
+                raise BackupValidationError("vpo_version must be a string")
+            if not isinstance(data["schema_version"], int):
+                raise BackupValidationError("schema_version must be an integer")
+            if not isinstance(data["created_at"], str):
+                raise BackupValidationError("created_at must be a string")
+            if not isinstance(data["database_size_bytes"], int):
+                raise BackupValidationError("database_size_bytes must be an integer")
+            if not isinstance(data["file_count"], int):
+                raise BackupValidationError("file_count must be an integer")
+            if not isinstance(data["total_library_size_bytes"], int):
+                raise BackupValidationError(
+                    "total_library_size_bytes must be an integer"
                 )
 
             return BackupMetadata(
@@ -611,18 +628,32 @@ def validate_backup(backup_path: Path) -> BackupMetadata:
 
         try:
             with tarfile.open(backup_path, "r:gz") as tf:
-                tf.extract(ARCHIVE_DB_NAME, temp_path)
+                # Get the member safely
+                member = tf.getmember(ARCHIVE_DB_NAME)
+                # Validate member name to prevent path traversal
+                if member.name != ARCHIVE_DB_NAME or ".." in member.name:
+                    raise BackupValidationError(
+                        f"Invalid archive member name: {member.name}"
+                    )
+                # Extract file content directly instead of using tf.extract()
+                f = tf.extractfile(member)
+                if f is None:
+                    raise BackupValidationError(
+                        "Failed to extract database from archive"
+                    )
+                with f, open(temp_db, "wb") as out:
+                    shutil.copyfileobj(f, out)
         except (tarfile.TarError, OSError) as e:
             raise BackupValidationError(
                 f"Failed to extract database for validation: {e}"
             ) from e
 
         # Run SQLite integrity check
+        conn = None
         try:
             conn = sqlite3.connect(temp_db)
             cursor = conn.execute("PRAGMA quick_check")
             result = cursor.fetchone()
-            conn.close()
 
             if result[0] != "ok":
                 raise BackupValidationError(
@@ -630,6 +661,9 @@ def validate_backup(backup_path: Path) -> BackupMetadata:
                 )
         except sqlite3.Error as e:
             raise BackupValidationError(f"Database integrity check failed: {e}") from e
+        finally:
+            if conn is not None:
+                conn.close()
 
     return metadata
 
@@ -701,20 +735,25 @@ def restore_backup(
         with tarfile.open(backup_path, "r:gz") as tf:
             # Extract database to temp file
             member = tf.getmember(ARCHIVE_DB_NAME)
+            # Validate member name to prevent path traversal
+            if member.name != ARCHIVE_DB_NAME or ".." in member.name:
+                raise BackupValidationError(
+                    f"Invalid archive member name: {member.name}"
+                )
             f = tf.extractfile(member)
             if f is None:
                 raise BackupValidationError("Failed to extract database from archive")
 
-            # Write to temp file
-            with open(temp_db, "wb") as out:
+            # Write to temp file, properly closing the extracted file handle
+            with f, open(temp_db, "wb") as out:
                 shutil.copyfileobj(f, out)
 
         # Verify extracted database
+        conn = None
         try:
             conn = sqlite3.connect(temp_db)
             cursor = conn.execute("PRAGMA quick_check")
             result = cursor.fetchone()
-            conn.close()
 
             if result[0] != "ok":
                 raise BackupValidationError(
@@ -724,6 +763,9 @@ def restore_backup(
             raise BackupValidationError(
                 f"Restored database integrity check failed: {e}"
             ) from e
+        finally:
+            if conn is not None:
+                conn.close()
 
         # Atomic rename to final destination
         # Remove WAL and SHM files if they exist
