@@ -53,6 +53,15 @@ def library_group() -> None:
 
         # Find duplicate files
         vpo library duplicates
+
+        # Create a database backup
+        vpo library backup
+
+        # Restore from a backup
+        vpo library restore backup.tar.gz
+
+        # List available backups
+        vpo library backups
     """
     pass
 
@@ -605,3 +614,522 @@ def duplicates_command(
         for path in g.paths:
             click.echo(f"  {path}")
         click.echo()
+
+
+def _get_db_path(ctx: click.Context):
+    """Extract the database path from the Click context or use default.
+
+    Returns:
+        Path object for the database path.
+    """
+    from vpo.db.connection import get_default_db_path
+
+    db_path = ctx.obj.get("db_path")
+    if db_path is not None:
+        from pathlib import Path
+
+        return Path(db_path)
+    return get_default_db_path()
+
+
+@library_group.command("backup")
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(dir_okay=False, writable=True),
+    help="Output path for backup file (default: ~/.vpo/backups/).",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Show what would be backed up without creating archive.",
+)
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    help="Output as JSON.",
+)
+@click.pass_context
+def backup_command(
+    ctx: click.Context,
+    output: str | None,
+    dry_run: bool,
+    json_output: bool,
+) -> None:
+    """Create a compressed backup of the library database.
+
+    Creates a tar.gz archive containing the SQLite database and
+    metadata JSON. Uses the SQLite online backup API to safely
+    copy the database even if it's in use.
+
+    Examples:
+
+        # Create backup in default location
+        vpo library backup
+
+        # Create backup at custom path
+        vpo library backup --output /path/to/backup.tar.gz
+
+        # Preview without creating
+        vpo library backup --dry-run
+    """
+    from pathlib import Path
+
+    from vpo.db.backup import (
+        ESTIMATED_COMPRESSION_RATIO,
+        BackupIOError,
+        BackupLockError,
+        InsufficientSpaceError,
+        _generate_backup_filename,
+        _get_default_backup_dir,
+        _get_library_stats,
+        create_backup,
+    )
+    from vpo.db.schema import SCHEMA_VERSION
+
+    conn = _get_conn(ctx)
+    db_path = _get_db_path(ctx)
+
+    # Determine output path
+    if output:
+        output_path = Path(output).resolve()
+    else:
+        output_path = _get_default_backup_dir() / _generate_backup_filename()
+
+    if dry_run:
+        # Show what would be backed up
+        try:
+            db_size = db_path.stat().st_size
+        except OSError as e:
+            raise click.ClickException(f"Failed to read database: {e}") from e
+
+        file_count, total_library_size = _get_library_stats(conn)
+        estimated_archive = int(db_size * ESTIMATED_COMPRESSION_RATIO)
+        estimated_min = int(estimated_archive * 0.7)
+        estimated_max = int(estimated_archive * 1.3)
+
+        if json_output:
+            click.echo(
+                json.dumps(
+                    {
+                        "dry_run": True,
+                        "database_path": str(db_path),
+                        "database_size_bytes": db_size,
+                        "output_path": str(output_path),
+                        "estimated_archive_min_bytes": estimated_min,
+                        "estimated_archive_max_bytes": estimated_max,
+                        "file_count": file_count,
+                        "schema_version": SCHEMA_VERSION,
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            click.echo("Would create backup:")
+            click.echo(f"  Database: {db_path} ({format_file_size(db_size)})")
+            click.echo(f"  Output: {output_path}")
+            min_size = format_file_size(estimated_min)
+            max_size = format_file_size(estimated_max)
+            click.echo(f"  Estimated archive size: ~{min_size}-{max_size}")
+            click.echo(f"  Files in library: {file_count:,}")
+            click.echo(f"  Schema version: {SCHEMA_VERSION}")
+        return
+
+    # Create backup
+    try:
+        result = create_backup(
+            db_path=db_path,
+            output_path=output_path if output else None,
+            conn=conn,
+        )
+    except BackupLockError as e:
+        if json_output:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            click.echo(f"Error: {e}", err=True)
+        sys.exit(ExitCode.DATABASE_LOCKED)
+    except InsufficientSpaceError as e:
+        if json_output:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            click.echo(f"Error: {e}", err=True)
+        sys.exit(ExitCode.INSUFFICIENT_SPACE)
+    except BackupIOError as e:
+        if json_output:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            click.echo(f"Error: {e}", err=True)
+        sys.exit(ExitCode.OPERATION_FAILED)
+
+    # Output result
+    db_size_bytes = result.metadata.database_size_bytes
+    if json_output:
+        compression_ratio = (
+            (db_size_bytes - result.archive_size_bytes) / db_size_bytes
+            if db_size_bytes > 0
+            else 0.0
+        )
+        click.echo(
+            json.dumps(
+                {
+                    "success": True,
+                    "path": str(result.path),
+                    "archive_size_bytes": result.archive_size_bytes,
+                    "database_size_bytes": db_size_bytes,
+                    "compression_ratio": round(compression_ratio, 3),
+                    "file_count": result.metadata.file_count,
+                    "schema_version": result.metadata.schema_version,
+                    "created_at": result.metadata.created_at,
+                },
+                indent=2,
+            )
+        )
+    else:
+        compression_pct = (
+            int(100 * (db_size_bytes - result.archive_size_bytes) / db_size_bytes)
+            if db_size_bytes > 0
+            else 0
+        )
+        click.echo(f"Backup created: {result.path}")
+        click.echo(f"  Database size: {format_file_size(db_size_bytes)}")
+        click.echo(
+            f"  Archive size:  {format_file_size(result.archive_size_bytes)} "
+            f"({compression_pct}% compression)"
+        )
+        click.echo(f"  Files in library: {result.metadata.file_count:,}")
+
+
+@library_group.command("restore")
+@click.argument(
+    "backup_file",
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+)
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Skip confirmation prompt.",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Validate archive without restoring.",
+)
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    help="Output as JSON.",
+)
+@click.pass_context
+def restore_command(
+    ctx: click.Context,
+    backup_file: str,
+    yes: bool,
+    dry_run: bool,
+    json_output: bool,
+) -> None:
+    """Restore the library database from a backup archive.
+
+    Validates the backup archive and replaces the current database
+    with the backup contents. Uses atomic operations to prevent
+    corruption.
+
+    Examples:
+
+        # Restore with confirmation prompt
+        vpo library restore backup.tar.gz
+
+        # Restore without prompt
+        vpo library restore --yes backup.tar.gz
+
+        # Validate only (don't restore)
+        vpo library restore --dry-run backup.tar.gz
+    """
+    from pathlib import Path
+
+    from vpo.db.backup import (
+        BackupIOError,
+        BackupLockError,
+        BackupValidationError,
+        InsufficientSpaceError,
+        restore_backup,
+        validate_backup,
+    )
+    from vpo.db.schema import SCHEMA_VERSION
+
+    db_path = _get_db_path(ctx)
+    backup_path = Path(backup_file).resolve()
+
+    # Validate backup first
+    try:
+        metadata = validate_backup(backup_path)
+    except BackupValidationError as e:
+        if json_output:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            click.echo(f"Error: Invalid backup archive - {e}", err=True)
+        sys.exit(ExitCode.INVALID_ARCHIVE)
+    except BackupIOError as e:
+        if json_output:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            click.echo(f"Error: {e}", err=True)
+        sys.exit(ExitCode.OPERATION_FAILED)
+
+    # Check schema version
+    schema_mismatch = metadata.schema_version != SCHEMA_VERSION
+
+    if dry_run:
+        # Just validate and show info
+        if json_output:
+            click.echo(
+                json.dumps(
+                    {
+                        "dry_run": True,
+                        "valid": True,
+                        "backup_path": str(backup_path),
+                        "created_at": metadata.created_at,
+                        "vpo_version": metadata.vpo_version,
+                        "schema_version": metadata.schema_version,
+                        "current_schema_version": SCHEMA_VERSION,
+                        "schema_mismatch": schema_mismatch,
+                        "database_size_bytes": metadata.database_size_bytes,
+                        "file_count": metadata.file_count,
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            click.echo(f"Validating backup: {backup_path}")
+            click.echo()
+            click.echo("Archive valid:")
+            created_str = metadata.created_at.replace("T", " ").replace("Z", " UTC")
+            click.echo(f"  Created: {created_str}")
+            click.echo(f"  VPO version: {metadata.vpo_version}")
+            schema_status = f"{metadata.schema_version} (current: {SCHEMA_VERSION})"
+            click.echo(f"  Schema version: {schema_status}")
+            db_size_str = format_file_size(metadata.database_size_bytes)
+            click.echo(f"  Database size: {db_size_str}")
+            click.echo(f"  Files in backup: {metadata.file_count:,}")
+            click.echo()
+            click.echo("No changes made (dry run).")
+        return
+
+    # Reject backups from newer schema versions
+    if metadata.schema_version > SCHEMA_VERSION:
+        error_msg = (
+            f"Backup schema version ({metadata.schema_version}) is newer "
+            f"than current VPO schema ({SCHEMA_VERSION}). "
+            "Update VPO before restoring this backup."
+        )
+        if json_output:
+            click.echo(json.dumps({"success": False, "error": error_msg}))
+        else:
+            click.echo(f"Error: {error_msg}", err=True)
+        sys.exit(ExitCode.SCHEMA_INCOMPATIBLE)
+
+    # Show restore info
+    if not json_output:
+        click.echo(f"Restoring from: {backup_path}")
+        created_display = metadata.created_at.replace("T", " ").replace("Z", " UTC")
+        click.echo(f"  Created: {created_display}")
+        click.echo(f"  Files: {metadata.file_count:,}")
+        click.echo(f"  Schema: v{metadata.schema_version}")
+        click.echo()
+
+        if schema_mismatch:
+            click.echo(
+                f"Warning: Backup schema version ({metadata.schema_version}) differs "
+                f"from current VPO schema ({SCHEMA_VERSION})."
+            )
+            click.echo("  The database will be migrated after restore.")
+            click.echo()
+
+    # Confirm unless --yes
+    if not yes and not json_output:
+        click.confirm(
+            "This will replace your current library database. Continue?",
+            abort=True,
+        )
+
+    # Perform restore
+    try:
+        result = restore_backup(
+            backup_path=backup_path,
+            db_path=db_path,
+            force=False,
+        )
+    except BackupLockError as e:
+        if json_output:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            click.echo(f"Error: {e}", err=True)
+        sys.exit(ExitCode.DATABASE_LOCKED)
+    except InsufficientSpaceError as e:
+        if json_output:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            click.echo(f"Error: {e}", err=True)
+        sys.exit(ExitCode.INSUFFICIENT_SPACE)
+    except (BackupValidationError, BackupIOError) as e:
+        if json_output:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            click.echo(f"Error: {e}", err=True)
+        sys.exit(ExitCode.OPERATION_FAILED)
+
+    # Output result
+    if json_output:
+        click.echo(
+            json.dumps(
+                {
+                    "success": True,
+                    "source_path": str(result.source_path),
+                    "database_path": str(result.database_path),
+                    "duration_seconds": round(result.duration_seconds, 2),
+                    "schema_mismatch": result.schema_mismatch,
+                    "file_count": result.metadata.file_count,
+                },
+                indent=2,
+            )
+        )
+    else:
+        click.echo()
+        click.echo("Restore complete.")
+        click.echo(f"  Database restored to: {result.database_path}")
+        click.echo(f"  Duration: {result.duration_seconds:.1f} seconds")
+
+
+@library_group.command("backups")
+@click.option(
+    "--path",
+    "-p",
+    type=click.Path(exists=True, file_okay=False, readable=True),
+    help="Directory to scan for backups (default: ~/.vpo/backups/).",
+)
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    help="Output as JSON.",
+)
+@click.pass_context
+def backups_command(
+    ctx: click.Context,
+    path: str | None,
+    json_output: bool,
+) -> None:
+    """List available backups in the backup directory.
+
+    Scans for vpo-library-*.tar.gz files and displays metadata
+    including creation date, size, and file count.
+
+    Examples:
+
+        # List backups in default location
+        vpo library backups
+
+        # List backups in custom directory
+        vpo library backups --path /mnt/external/vpo-backups/
+    """
+    from pathlib import Path
+
+    from vpo.db.backup import BackupIOError, _get_default_backup_dir, list_backups
+
+    backup_dir = Path(path) if path else _get_default_backup_dir()
+
+    try:
+        backups = list_backups(backup_dir)
+    except BackupIOError as e:
+        if json_output:
+            click.echo(json.dumps({"error": str(e)}))
+        else:
+            click.echo(f"Error: {e}", err=True)
+        sys.exit(ExitCode.OPERATION_FAILED)
+
+    if json_output:
+        total_size = sum(b.archive_size_bytes for b in backups)
+        click.echo(
+            json.dumps(
+                {
+                    "directory": str(backup_dir),
+                    "total_count": len(backups),
+                    "total_size_bytes": total_size,
+                    "backups": [
+                        {
+                            "filename": b.filename,
+                            "path": str(b.path),
+                            "created_at": b.created_at,
+                            "archive_size_bytes": b.archive_size_bytes,
+                            "database_size_bytes": (
+                                b.metadata.database_size_bytes if b.metadata else None
+                            ),
+                            "file_count": b.metadata.file_count if b.metadata else None,
+                            "schema_version": (
+                                b.metadata.schema_version if b.metadata else None
+                            ),
+                        }
+                        for b in backups
+                    ],
+                },
+                indent=2,
+            )
+        )
+        return
+
+    if not backups:
+        click.echo(f"No backups found in {backup_dir}")
+        click.echo()
+        click.echo("Create a backup with: vpo library backup")
+        return
+
+    click.echo(f"Backups in {backup_dir}:")
+    click.echo()
+
+    # Table header
+    name_width = 44
+    date_width = 18
+    size_width = 10
+    files_width = 8
+    header = (
+        f"{'Filename':<{name_width}}  "
+        f"{'Created':<{date_width}}  "
+        f"{'Size':>{size_width}}  "
+        f"{'Files':>{files_width}}"
+    )
+    click.echo(header)
+    click.echo("\u2500" * len(header))
+
+    for b in backups:
+        # Format filename
+        filename = b.filename
+        if len(filename) > name_width:
+            filename = filename[: name_width - 3] + "..."
+
+        # Format date (remove T and Z, truncate seconds)
+        created = b.created_at.replace("T", " ").replace("Z", "")[:16]
+
+        # Format size
+        size = format_file_size(b.archive_size_bytes)
+
+        # Format file count
+        if b.metadata:
+            files = f"{b.metadata.file_count:,}"
+        else:
+            files = "\u2014"
+
+        click.echo(
+            f"{filename:<{name_width}}  "
+            f"{created:<{date_width}}  "
+            f"{size:>{size_width}}  "
+            f"{files:>{files_width}}"
+        )
+
+    click.echo()
+    total_size = sum(b.archive_size_bytes for b in backups)
+    click.echo(f"Total: {len(backups)} backup(s) ({format_file_size(total_size)})")

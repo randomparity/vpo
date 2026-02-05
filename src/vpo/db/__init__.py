@@ -9,11 +9,31 @@ Module organization:
 - views.py: Aggregated view query functions for UI
 - operations.py: Plan CRUD and operation audit logging
 - schema.py: Schema creation and migrations
+- backup.py: Backup and restore functionality
 
 Usage:
     from vpo.db import FileRecord, get_file_by_path
     from vpo.db import FileListViewItem, get_files_filtered_typed
+    from vpo.db import BackupMetadata, create_backup, restore_backup
 """
+
+# Backup: Types and functions
+from .backup import (
+    BackupError,
+    BackupInfo,
+    BackupIOError,
+    BackupLockError,
+    BackupMetadata,
+    BackupResult,
+    BackupSchemaError,
+    BackupValidationError,
+    InsufficientSpaceError,
+    RestoreResult,
+    create_backup,
+    list_backups,
+    restore_backup,
+    validate_backup,
+)
 
 # Types: Enums
 # Queries: File operations
@@ -352,4 +372,19 @@ __all__ = [
     # Pagination constants
     "DEFAULT_PAGE_SIZE",
     "MAX_PAGE_SIZE",
+    # Backup types and functions
+    "BackupError",
+    "BackupInfo",
+    "BackupIOError",
+    "BackupLockError",
+    "BackupMetadata",
+    "BackupResult",
+    "BackupSchemaError",
+    "BackupValidationError",
+    "InsufficientSpaceError",
+    "RestoreResult",
+    "create_backup",
+    "list_backups",
+    "restore_backup",
+    "validate_backup",
 ]
