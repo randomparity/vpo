@@ -7,6 +7,7 @@ import logging
 
 import click
 
+from vpo.cli.exit_codes import ExitCode
 from vpo.config.loader import get_config
 
 logger = logging.getLogger(__name__)
@@ -265,7 +266,7 @@ def info_plugin(ctx: click.Context, name: str) -> None:
             continue
 
     click.echo(f"Plugin '{name}' not found.")
-    raise SystemExit(1)
+    raise SystemExit(ExitCode.TARGET_NOT_FOUND)
 
 
 @plugin_group.command("enable")
@@ -290,7 +291,7 @@ def enable_plugin(ctx: click.Context, name: str, yes: bool) -> None:
 
     if db_conn is None:
         click.echo("Error: Database connection required for plugin acknowledgment.")
-        raise SystemExit(1)
+        raise SystemExit(ExitCode.DATABASE_ERROR)
 
     # Find the plugin
     from vpo.plugin.loader import (
@@ -350,7 +351,7 @@ def enable_plugin(ctx: click.Context, name: str, yes: bool) -> None:
             continue
 
     click.echo(f"Plugin '{name}' not found.")
-    raise SystemExit(1)
+    raise SystemExit(ExitCode.TARGET_NOT_FOUND)
 
 
 @plugin_group.command("disable")
@@ -371,7 +372,7 @@ def disable_plugin(ctx: click.Context, name: str) -> None:
 
     if db_conn is None:
         click.echo("Error: Database connection required for plugin management.")
-        raise SystemExit(1)
+        raise SystemExit(ExitCode.DATABASE_ERROR)
 
     # Remove acknowledgment if it exists
     from vpo.db import delete_plugin_acknowledgment

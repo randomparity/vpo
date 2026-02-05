@@ -8,6 +8,7 @@ import json
 
 import click
 
+from vpo.cli.exit_codes import ExitCode
 from vpo.config.profiles import (
     ProfileError,
     ProfileNotFoundError,
@@ -332,13 +333,13 @@ def validate_config(profile_name: str, json_output: bool) -> None:
             click.echo(json.dumps({"valid": False, "error": "Profile not found"}))
         else:
             click.echo(f"Error: Profile '{profile_name}' not found.", err=True)
-        raise SystemExit(1)
+        raise SystemExit(ExitCode.PROFILE_NOT_FOUND)
     except ProfileError as e:
         if json_output:
             click.echo(json.dumps({"valid": False, "error": str(e)}))
         else:
             click.echo(f"Error: {e}", err=True)
-        raise SystemExit(1)
+        raise SystemExit(ExitCode.CONFIG_ERROR)
 
     errors = validate_profile(profile)
 
@@ -358,7 +359,7 @@ def validate_config(profile_name: str, json_output: bool) -> None:
             click.echo(f"Profile '{profile_name}' has validation errors:")
             for error in errors:
                 click.echo(f"  - {error}")
-            raise SystemExit(1)
+            raise SystemExit(ExitCode.CONFIG_ERROR)
         else:
             click.echo(f"Profile '{profile_name}' is valid.")
 

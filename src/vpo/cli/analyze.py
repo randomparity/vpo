@@ -502,7 +502,7 @@ def language_command(
             "Install with: pip install vpo-whisper-transcriber",
             err=True,
         )
-        raise SystemExit(1)
+        raise SystemExit(ExitCode.PLUGIN_UNAVAILABLE)
 
     # Resolve files from paths
     files, not_found = _resolve_files_from_paths(conn, paths, recursive)
@@ -515,7 +515,7 @@ def language_command(
 
     if not files:
         click.echo("Error: No valid files found to analyze.", err=True)
-        raise SystemExit(2)
+        raise SystemExit(ExitCode.TARGET_NOT_FOUND)
 
     # Run analysis on each file
     results: list[LanguageAnalysisRunResult] = []
@@ -574,9 +574,9 @@ def language_command(
 
     # Exit code based on results
     if failed == total_files:
-        raise SystemExit(2)
+        raise SystemExit(ExitCode.OPERATION_FAILED)
     elif failed > 0:
-        raise SystemExit(1)
+        raise SystemExit(ExitCode.GENERAL_ERROR)
 
 
 def _format_language_run_results(
@@ -981,7 +981,7 @@ def clear_command(
 
     if not path and not clear_all:
         click.echo("Error: Specify a PATH or use --all to clear all results.", err=True)
-        raise SystemExit(2)
+        raise SystemExit(ExitCode.INVALID_ARGUMENTS)
 
     # Track totals
     files_affected = 0
@@ -1071,7 +1071,7 @@ def clear_command(
         click.echo("")
         if not click.confirm("Continue?"):
             click.echo("Operation cancelled.")
-            raise SystemExit(2)
+            raise SystemExit(ExitCode.INTERRUPTED)
 
     # Execute deletion
     actual_classify = 0

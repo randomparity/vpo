@@ -16,6 +16,7 @@ from vpo.cli.analyze import (
     _check_plugin_available,
     _resolve_files_from_paths,
 )
+from vpo.cli.exit_codes import ExitCode
 
 
 @pytest.fixture
@@ -103,7 +104,7 @@ class TestLanguageCommand:
             obj={"db_conn": mock_conn},
         )
 
-        assert result.exit_code == 1
+        assert result.exit_code == ExitCode.PLUGIN_UNAVAILABLE
         assert "Whisper transcription plugin not installed" in result.output
 
     @patch("vpo.cli.analyze._check_plugin_available")
@@ -123,7 +124,7 @@ class TestLanguageCommand:
             obj={"db_conn": mock_conn},
         )
 
-        assert result.exit_code == 2
+        assert result.exit_code == ExitCode.TARGET_NOT_FOUND
         assert "No valid files found" in result.output
 
     @patch("vpo.cli.analyze._check_plugin_available")
@@ -251,7 +252,7 @@ class TestClearCommand:
             obj={"db_conn": mock_conn},
         )
 
-        assert result.exit_code == 2
+        assert result.exit_code == ExitCode.INVALID_ARGUMENTS
         assert "Specify a PATH or use --all" in result.output
 
     @patch("vpo.cli.analyze._count_language_results")
