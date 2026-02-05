@@ -228,11 +228,12 @@ def _generate_backup_filename() -> str:
     """Generate a unique backup filename using UTC timestamp.
 
     Format: vpo-library-{ISO8601_timestamp}.tar.gz
+    Uses hyphens instead of colons for filesystem compatibility.
 
     Returns:
-        Filename string like "vpo-library-2026-02-05T143022Z.tar.gz"
+        Filename string like "vpo-library-2026-02-05T14-30-22Z.tar.gz"
     """
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%SZ")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
     return f"{BACKUP_FILENAME_PREFIX}{timestamp}{BACKUP_EXTENSION}"
 
 
@@ -491,11 +492,12 @@ def create_backup(
             finally:
                 backup_conn.close()
 
-            # Create metadata
+            # Create metadata - use ISO-8601 format with Z suffix for UTC
+            now = datetime.now(timezone.utc)
             metadata = BackupMetadata(
                 vpo_version=vpo_version,
                 schema_version=SCHEMA_VERSION,
-                created_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                created_at=now.strftime("%Y-%m-%dT%H:%M:%SZ"),
                 database_size_bytes=db_size,
                 file_count=file_count,
                 total_library_size_bytes=total_library_size,
@@ -850,21 +852,47 @@ def list_backups(backup_dir: Path | None = None) -> list[BackupInfo]:
             created_at = metadata.created_at
         except (BackupValidationError, BackupIOError) as e:
             logger.debug("Failed to read metadata from %s: %s", path, e)
-            # Try to extract timestamp from filename
+            # Try to extract timestamp from filename (new format with hyphens)
             match = re.search(
-                rf"{BACKUP_FILENAME_PREFIX}(\d{{4}}-\d{{2}}-\d{{2}}T\d{{6}}Z)",
+                rf"{BACKUP_FILENAME_PREFIX}(\d{{4}}-\d{{2}}-\d{{2}}T\d{{2}}-\d{{2}}-\d{{2}}Z)",
                 path.name,
             )
             if match:
-                # Convert YYYYMMDDTHHMMSSZ to ISO-8601
-                ts = match.group(1)
-                created_at = f"{ts[:10]}T{ts[11:13]}:{ts[13:15]}:{ts[15:17]}Z"
+                # Parse filesystem-safe format and convert to ISO-8601
+                ts_str = match.group(1)
+                try:
+                    dt = datetime.strptime(ts_str, "%Y-%m-%dT%H-%M-%SZ")
+                    dt = dt.replace(tzinfo=timezone.utc)
+                    created_at = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+                except ValueError:
+                    # Fall back to mtime if parsing fails
+                    mtime = path.stat().st_mtime
+                    created_at = datetime.fromtimestamp(mtime, timezone.utc).strftime(
+                        "%Y-%m-%dT%H:%M:%SZ"
+                    )
             else:
-                # Use file modification time as fallback
-                mtime = path.stat().st_mtime
-                created_at = datetime.fromtimestamp(mtime, timezone.utc).strftime(
-                    "%Y-%m-%dT%H:%M:%SZ"
+                # Try legacy format (compact, no hyphens in time)
+                match = re.search(
+                    rf"{BACKUP_FILENAME_PREFIX}(\d{{4}}-\d{{2}}-\d{{2}}T\d{{6}}Z)",
+                    path.name,
                 )
+                if match:
+                    ts_str = match.group(1)
+                    try:
+                        dt = datetime.strptime(ts_str, "%Y-%m-%dT%H%M%SZ")
+                        dt = dt.replace(tzinfo=timezone.utc)
+                        created_at = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+                    except ValueError:
+                        mtime = path.stat().st_mtime
+                        created_at = datetime.fromtimestamp(
+                            mtime, timezone.utc
+                        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+                else:
+                    # Use file modification time as last resort
+                    mtime = path.stat().st_mtime
+                    created_at = datetime.fromtimestamp(mtime, timezone.utc).strftime(
+                        "%Y-%m-%dT%H:%M:%SZ"
+                    )
 
         backups.append(
             BackupInfo(
