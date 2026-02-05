@@ -105,13 +105,13 @@
 
 ### Implementation for User Story 3
 
-- [ ] T038 [US3] Implement `list_backups(backup_dir)` function in src/vpo/db/backup.py that scans for vpo-library-*.tar.gz files
-- [ ] T039 [US3] Add metadata extraction from each archive in list_backups() in src/vpo/db/backup.py
-- [ ] T040 [US3] Add sorting by creation date (newest first) in list_backups() in src/vpo/db/backup.py
-- [ ] T041 [US3] Implement `backups_command()` CLI command in src/vpo/cli/library.py with --path, --json options
-- [ ] T042 [US3] Add tabular output formatting with filename, date, size, file count to backups_command() in src/vpo/cli/library.py
-- [ ] T043 [US3] Add JSON output formatting to backups_command() in src/vpo/cli/library.py
-- [ ] T044 [US3] Add "no backups found" message with help hint to backups_command() in src/vpo/cli/library.py
+- [x] T038 [US3] Implement `list_backups(backup_dir)` function in src/vpo/db/backup.py that scans for vpo-library-*.tar.gz files
+- [x] T039 [US3] Add metadata extraction from each archive in list_backups() in src/vpo/db/backup.py
+- [x] T040 [US3] Add sorting by creation date (newest first) in list_backups() in src/vpo/db/backup.py
+- [x] T041 [US3] Implement `backups_command()` CLI command in src/vpo/cli/library.py with --path, --json options
+- [x] T042 [US3] Add tabular output formatting with filename, date, size, file count to backups_command() in src/vpo/cli/library.py
+- [x] T043 [US3] Add JSON output formatting to backups_command() in src/vpo/cli/library.py
+- [x] T044 [US3] Add "no backups found" message with help hint to backups_command() in src/vpo/cli/library.py
 
 **Checkpoint**: All user stories complete - backup, restore, and list all work independently
 

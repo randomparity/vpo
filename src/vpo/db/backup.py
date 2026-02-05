@@ -727,3 +727,93 @@ def restore_backup(
         metadata=metadata,
         schema_mismatch=schema_mismatch,
     )
+
+
+def list_backups(backup_dir: Path | None = None) -> list[BackupInfo]:
+    """List available backups in a directory.
+
+    Scans for vpo-library-*.tar.gz files and extracts metadata from
+    each valid archive. Returns results sorted by creation date
+    (newest first).
+
+    Args:
+        backup_dir: Directory to scan. If None, uses default backup
+            directory (~/.vpo/backups/).
+
+    Returns:
+        List of BackupInfo for each found backup, sorted newest first.
+        Backups with unreadable metadata will have metadata=None.
+
+    Raises:
+        BackupIOError: If directory cannot be read
+    """
+    import logging
+    import re
+
+    logger = logging.getLogger(__name__)
+
+    if backup_dir is None:
+        backup_dir = _get_default_backup_dir()
+    else:
+        backup_dir = Path(backup_dir).resolve()
+
+    # Check directory exists
+    if not backup_dir.exists():
+        return []
+
+    if not backup_dir.is_dir():
+        raise BackupIOError(f"Not a directory: {backup_dir}")
+
+    # Find backup files
+    pattern = f"{BACKUP_FILENAME_PREFIX}*{BACKUP_EXTENSION}"
+    backup_files = list(backup_dir.glob(pattern))
+
+    # Collect backup info
+    backups: list[BackupInfo] = []
+
+    for path in backup_files:
+        try:
+            archive_size = path.stat().st_size
+        except OSError as e:
+            logger.warning("Failed to read backup file %s: %s", path, e)
+            continue
+
+        # Try to extract metadata
+        metadata: BackupMetadata | None = None
+        created_at: str = ""
+
+        try:
+            metadata = _read_backup_metadata(path)
+            created_at = metadata.created_at
+        except (BackupValidationError, BackupIOError) as e:
+            logger.debug("Failed to read metadata from %s: %s", path, e)
+            # Try to extract timestamp from filename
+            match = re.search(
+                rf"{BACKUP_FILENAME_PREFIX}(\d{{4}}-\d{{2}}-\d{{2}}T\d{{6}}Z)",
+                path.name,
+            )
+            if match:
+                # Convert YYYYMMDDTHHMMSSZ to ISO-8601
+                ts = match.group(1)
+                created_at = f"{ts[:10]}T{ts[11:13]}:{ts[13:15]}:{ts[15:17]}Z"
+            else:
+                # Use file modification time as fallback
+                mtime = path.stat().st_mtime
+                created_at = datetime.fromtimestamp(mtime, UTC).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                )
+
+        backups.append(
+            BackupInfo(
+                path=path,
+                filename=path.name,
+                created_at=created_at,
+                archive_size_bytes=archive_size,
+                metadata=metadata,
+            )
+        )
+
+    # Sort by creation date (newest first)
+    backups.sort(key=lambda b: b.created_at, reverse=True)
+
+    return backups

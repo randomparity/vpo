@@ -1000,3 +1000,133 @@ def restore_command(
         click.echo("Restore complete.")
         click.echo(f"  Database restored to: {result.database_path}")
         click.echo(f"  Duration: {result.duration_seconds:.1f} seconds")
+
+
+@library_group.command("backups")
+@click.option(
+    "--path",
+    "-p",
+    type=click.Path(exists=True, file_okay=False, readable=True),
+    help="Directory to scan for backups (default: ~/.vpo/backups/).",
+)
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    help="Output as JSON.",
+)
+@click.pass_context
+def backups_command(
+    ctx: click.Context,
+    path: str | None,
+    json_output: bool,
+) -> None:
+    """List available backups in the backup directory.
+
+    Scans for vpo-library-*.tar.gz files and displays metadata
+    including creation date, size, and file count.
+
+    Examples:
+
+        # List backups in default location
+        vpo library backups
+
+        # List backups in custom directory
+        vpo library backups --path /mnt/external/vpo-backups/
+    """
+    from pathlib import Path
+
+    from vpo.db.backup import BackupIOError, _get_default_backup_dir, list_backups
+
+    backup_dir = Path(path) if path else _get_default_backup_dir()
+
+    try:
+        backups = list_backups(backup_dir)
+    except BackupIOError as e:
+        if json_output:
+            click.echo(json.dumps({"error": str(e)}))
+        else:
+            click.echo(f"Error: {e}", err=True)
+        sys.exit(ExitCode.OPERATION_FAILED)
+
+    if json_output:
+        total_size = sum(b.archive_size_bytes for b in backups)
+        click.echo(
+            json.dumps(
+                {
+                    "directory": str(backup_dir),
+                    "total_count": len(backups),
+                    "total_size_bytes": total_size,
+                    "backups": [
+                        {
+                            "filename": b.filename,
+                            "path": str(b.path),
+                            "created_at": b.created_at,
+                            "archive_size_bytes": b.archive_size_bytes,
+                            "database_size_bytes": (
+                                b.metadata.database_size_bytes if b.metadata else None
+                            ),
+                            "file_count": b.metadata.file_count if b.metadata else None,
+                            "schema_version": (
+                                b.metadata.schema_version if b.metadata else None
+                            ),
+                        }
+                        for b in backups
+                    ],
+                },
+                indent=2,
+            )
+        )
+        return
+
+    if not backups:
+        click.echo(f"No backups found in {backup_dir}")
+        click.echo()
+        click.echo("Create a backup with: vpo library backup")
+        return
+
+    click.echo(f"Backups in {backup_dir}:")
+    click.echo()
+
+    # Table header
+    name_width = 44
+    date_width = 18
+    size_width = 10
+    files_width = 8
+    header = (
+        f"{'Filename':<{name_width}}  "
+        f"{'Created':<{date_width}}  "
+        f"{'Size':>{size_width}}  "
+        f"{'Files':>{files_width}}"
+    )
+    click.echo(header)
+    click.echo("\u2500" * len(header))
+
+    for b in backups:
+        # Format filename
+        filename = b.filename
+        if len(filename) > name_width:
+            filename = filename[: name_width - 3] + "..."
+
+        # Format date (remove T and Z, truncate seconds)
+        created = b.created_at.replace("T", " ").replace("Z", "")[:16]
+
+        # Format size
+        size = format_file_size(b.archive_size_bytes)
+
+        # Format file count
+        if b.metadata:
+            files = f"{b.metadata.file_count:,}"
+        else:
+            files = "\u2014"
+
+        click.echo(
+            f"{filename:<{name_width}}  "
+            f"{created:<{date_width}}  "
+            f"{size:>{size_width}}  "
+            f"{files:>{files_width}}"
+        )
+
+    click.echo()
+    total_size = sum(b.archive_size_bytes for b in backups)
+    click.echo(f"Total: {len(backups)} backup(s) ({format_file_size(total_size)})")
