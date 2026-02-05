@@ -142,6 +142,14 @@ def _handle_release_date_mode(
         file_record, file_path, file_id, "file_timestamp"
     )
 
+    if plugin_metadata is None:
+        logger.debug(
+            "file_timestamp: No plugin metadata for %s, using fallback: %s",
+            file_path.name,
+            config.fallback,
+        )
+        return _apply_fallback(state, config.fallback, dry_run)
+
     # Find release date from plugin metadata
     release_date = _get_release_date(plugin_metadata, config.date_source)
 
