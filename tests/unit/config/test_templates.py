@@ -469,6 +469,7 @@ class TestRunInit:
         assert (data_dir / "config.toml").exists()
         assert (data_dir / "policies" / "default.yaml").exists()
         assert (data_dir / "plugins").exists()
+        assert (data_dir / "backups").exists()
         assert (data_dir / "logs").exists()
         assert (data_dir / "profiles" / "default.yaml").exists()
 

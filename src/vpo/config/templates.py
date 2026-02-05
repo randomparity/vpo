@@ -698,6 +698,21 @@ def create_plugins_directory(
     return _create_directory(data_dir / "plugins", "plugins", dry_run)
 
 
+def create_backups_directory(
+    data_dir: Path, dry_run: bool = False
+) -> tuple[bool, str | None]:
+    """Create the backups directory for database backups.
+
+    Args:
+        data_dir: VPO data directory path.
+        dry_run: If True, don't actually create anything.
+
+    Returns:
+        Tuple of (success, error_message). Error is None on success.
+    """
+    return _create_directory(data_dir / "backups", "backups", dry_run)
+
+
 def create_logs_directory(
     data_dir: Path, dry_run: bool = False
 ) -> tuple[bool, str | None]:
@@ -865,6 +880,20 @@ def run_init(
         planned_directories.append(plugins_dir)
         if not dry_run:
             actually_created_dirs.append(plugins_dir)
+
+    # Create backups directory
+    backups_dir = data_dir / "backups"
+    backups_dir_existed = backups_dir.exists()
+    if backups_dir_existed:
+        skipped_files.append(backups_dir)
+
+    success, error = create_backups_directory(data_dir, dry_run)
+    if not success:
+        return handle_failure(error or "Failed to create backups directory.")
+    if not backups_dir_existed:
+        planned_directories.append(backups_dir)
+        if not dry_run:
+            actually_created_dirs.append(backups_dir)
 
     # Create profiles directory and default profile
     profiles_dir = data_dir / "profiles"
