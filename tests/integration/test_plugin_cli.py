@@ -61,7 +61,7 @@ def db_path(tmp_path: Path) -> Path:
 
 
 class TestPluginListCommand:
-    """Tests for 'vpo plugins list' command."""
+    """Tests for 'vpo plugin list' command."""
 
     def test_plugins_list_no_plugins(
         self, runner: CliRunner, plugin_dir: Path, monkeypatch
@@ -73,7 +73,7 @@ class TestPluginListCommand:
             plugin_dir,
         )
 
-        result = runner.invoke(main, ["plugins", "list"])
+        result = runner.invoke(main, ["plugin", "list"])
 
         assert result.exit_code == 0
         has_no_plugins = "No plugins found" in result.output
@@ -94,9 +94,9 @@ class TestPluginListCommand:
 
             return VPOConfig(plugins=PluginConfig(plugin_dirs=[plugin_dir]))
 
-        monkeypatch.setattr("vpo.cli.plugins.get_config", mock_get_config)
+        monkeypatch.setattr("vpo.cli.plugin.get_config", mock_get_config)
 
-        result = runner.invoke(main, ["plugins", "list"])
+        result = runner.invoke(main, ["plugin", "list"])
 
         assert result.exit_code == 0
         assert "test-analyzer" in result.output
@@ -115,9 +115,9 @@ class TestPluginListCommand:
 
             return VPOConfig(plugins=PluginConfig(plugin_dirs=[plugin_dir]))
 
-        monkeypatch.setattr("vpo.cli.plugins.get_config", mock_get_config)
+        monkeypatch.setattr("vpo.cli.plugin.get_config", mock_get_config)
 
-        result = runner.invoke(main, ["plugins", "list", "-v"])
+        result = runner.invoke(main, ["plugin", "list", "-v"])
 
         assert result.exit_code == 0
         assert "test-analyzer" in result.output
@@ -127,7 +127,7 @@ class TestPluginListCommand:
 
 
 class TestPluginAcknowledgeCommand:
-    """Tests for 'vpo plugins acknowledge' command."""
+    """Tests for 'vpo plugin acknowledge' command."""
 
     def test_acknowledge_plugin_not_found(self, runner: CliRunner, monkeypatch):
         """Acknowledge a plugin that doesn't exist."""
@@ -140,11 +140,11 @@ class TestPluginAcknowledgeCommand:
 
             return VPOConfig(plugins=PluginConfig(plugin_dirs=[]))
 
-        monkeypatch.setattr("vpo.cli.plugins.get_config", mock_get_config)
+        monkeypatch.setattr("vpo.cli.plugin.get_config", mock_get_config)
 
         result = runner.invoke(
             main,
-            ["plugins", "acknowledge", "nonexistent-plugin"],
+            ["plugin", "acknowledge", "nonexistent-plugin"],
             obj={"db_conn": conn},
         )
 
@@ -164,10 +164,10 @@ class TestPluginAcknowledgeCommand:
 
             return VPOConfig(plugins=PluginConfig(plugin_dirs=[plugin_dir]))
 
-        monkeypatch.setattr("vpo.cli.plugins.get_config", mock_get_config)
+        monkeypatch.setattr("vpo.cli.plugin.get_config", mock_get_config)
 
         # Ensure db_conn is None (simulating missing database)
-        result = runner.invoke(main, ["plugins", "acknowledge", "test-analyzer"])
+        result = runner.invoke(main, ["plugin", "acknowledge", "test-analyzer"])
 
         # Should fail because db_conn is None in the test context
         assert result.exit_code == 1
@@ -177,18 +177,18 @@ class TestPluginAcknowledgeCommand:
 
 
 class TestPluginEnableDisableCommands:
-    """Tests for 'vpo plugins enable/disable' commands."""
+    """Tests for 'vpo plugin enable/disable' commands."""
 
     def test_enable_plugin(self, runner: CliRunner):
         """Enable a plugin (placeholder command)."""
-        result = runner.invoke(main, ["plugins", "enable", "some-plugin"])
+        result = runner.invoke(main, ["plugin", "enable", "some-plugin"])
 
         assert result.exit_code == 0
         assert "enabled" in result.output.lower()
 
     def test_disable_plugin(self, runner: CliRunner):
         """Disable a plugin (placeholder command)."""
-        result = runner.invoke(main, ["plugins", "disable", "some-plugin"])
+        result = runner.invoke(main, ["plugin", "disable", "some-plugin"])
 
         assert result.exit_code == 0
         assert "disabled" in result.output.lower()
@@ -234,9 +234,9 @@ plugin = BadPlugin()
 
             return VPOConfig(plugins=PluginConfig(plugin_dirs=[plugin_dir]))
 
-        monkeypatch.setattr("vpo.cli.plugins.get_config", mock_get_config)
+        monkeypatch.setattr("vpo.cli.plugin.get_config", mock_get_config)
 
-        result = runner.invoke(main, ["plugins", "list"])
+        result = runner.invoke(main, ["plugin", "list"])
 
         # Should still succeed and show valid plugins
         assert result.exit_code == 0

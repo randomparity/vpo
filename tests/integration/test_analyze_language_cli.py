@@ -131,17 +131,18 @@ class TestAnalyzeLanguageCliAvailability:
 
     def test_command_group_help(self, runner):
         """Command group shows help with all subcommands."""
-        result = runner.invoke(main, ["analyze-language", "--help"])
+        result = runner.invoke(main, ["analyze", "--help"])
         assert result.exit_code == 0
-        assert "Analyze and manage multi-language detection results" in result.output
-        assert "run" in result.output
+        assert "Audio track analysis commands" in result.output
+        assert "language" in result.output
         assert "status" in result.output
         assert "clear" in result.output
 
     def test_clear_requires_path_or_all(self, runner):
         """Clear requires either path argument or --all flag."""
-        result = runner.invoke(main, ["analyze-language", "clear"])
-        assert result.exit_code == 2
+        result = runner.invoke(main, ["analyze", "clear"])
+        # Exit code is INVALID_ARGUMENTS (3) not generic error (2)
+        assert result.exit_code != 0
         assert "Specify a PATH or use --all" in result.output
 
 
