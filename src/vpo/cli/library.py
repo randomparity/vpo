@@ -605,3 +605,185 @@ def duplicates_command(
         for path in g.paths:
             click.echo(f"  {path}")
         click.echo()
+
+
+def _get_db_path(ctx: click.Context):
+    """Extract the database path from the Click context.
+
+    Returns:
+        Path object for the database path.
+
+    Raises:
+        click.ClickException: If no database path is available.
+    """
+    from pathlib import Path
+
+    db_path = ctx.obj.get("db_path")
+    if db_path is None:
+        raise click.ClickException("No database path configured.")
+    return Path(db_path)
+
+
+@library_group.command("backup")
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(dir_okay=False, writable=True),
+    help="Output path for backup file (default: ~/.vpo/backups/).",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Show what would be backed up without creating archive.",
+)
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    help="Output as JSON.",
+)
+@click.pass_context
+def backup_command(
+    ctx: click.Context,
+    output: str | None,
+    dry_run: bool,
+    json_output: bool,
+) -> None:
+    """Create a compressed backup of the library database.
+
+    Creates a tar.gz archive containing the SQLite database and
+    metadata JSON. Uses the SQLite online backup API to safely
+    copy the database even if it's in use.
+
+    Examples:
+
+        # Create backup in default location
+        vpo library backup
+
+        # Create backup at custom path
+        vpo library backup --output /path/to/backup.tar.gz
+
+        # Preview without creating
+        vpo library backup --dry-run
+    """
+    from pathlib import Path
+
+    from vpo.db.backup import (
+        ESTIMATED_COMPRESSION_RATIO,
+        BackupIOError,
+        BackupLockError,
+        InsufficientSpaceError,
+        _generate_backup_filename,
+        _get_default_backup_dir,
+        _get_library_stats,
+        create_backup,
+    )
+    from vpo.db.schema import SCHEMA_VERSION
+
+    conn = _get_conn(ctx)
+    db_path = _get_db_path(ctx)
+
+    # Determine output path
+    if output:
+        output_path = Path(output).resolve()
+    else:
+        output_path = _get_default_backup_dir() / _generate_backup_filename()
+
+    if dry_run:
+        # Show what would be backed up
+        try:
+            db_size = db_path.stat().st_size
+        except OSError as e:
+            raise click.ClickException(f"Failed to read database: {e}") from e
+
+        file_count, total_library_size = _get_library_stats(conn)
+        estimated_archive = int(db_size * ESTIMATED_COMPRESSION_RATIO)
+        estimated_min = int(estimated_archive * 0.7)
+        estimated_max = int(estimated_archive * 1.3)
+
+        if json_output:
+            click.echo(
+                json.dumps(
+                    {
+                        "dry_run": True,
+                        "database_path": str(db_path),
+                        "database_size_bytes": db_size,
+                        "output_path": str(output_path),
+                        "estimated_archive_min_bytes": estimated_min,
+                        "estimated_archive_max_bytes": estimated_max,
+                        "file_count": file_count,
+                        "schema_version": SCHEMA_VERSION,
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            click.echo("Would create backup:")
+            click.echo(f"  Database: {db_path} ({format_file_size(db_size)})")
+            click.echo(f"  Output: {output_path}")
+            min_size = format_file_size(estimated_min)
+            max_size = format_file_size(estimated_max)
+            click.echo(f"  Estimated archive size: ~{min_size}-{max_size}")
+            click.echo(f"  Files in library: {file_count:,}")
+            click.echo(f"  Schema version: {SCHEMA_VERSION}")
+        return
+
+    # Create backup
+    try:
+        result = create_backup(
+            db_path=db_path,
+            output_path=output_path if output else None,
+            conn=conn,
+        )
+    except BackupLockError as e:
+        if json_output:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            click.echo(f"Error: {e}", err=True)
+        sys.exit(ExitCode.DATABASE_LOCKED)
+    except InsufficientSpaceError as e:
+        if json_output:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            click.echo(f"Error: {e}", err=True)
+        sys.exit(ExitCode.INSUFFICIENT_SPACE)
+    except BackupIOError as e:
+        if json_output:
+            click.echo(json.dumps({"success": False, "error": str(e)}))
+        else:
+            click.echo(f"Error: {e}", err=True)
+        sys.exit(ExitCode.OPERATION_FAILED)
+
+    # Output result
+    if json_output:
+        compression_ratio = (
+            result.metadata.database_size_bytes - result.archive_size_bytes
+        ) / result.metadata.database_size_bytes
+        click.echo(
+            json.dumps(
+                {
+                    "success": True,
+                    "path": str(result.path),
+                    "archive_size_bytes": result.archive_size_bytes,
+                    "database_size_bytes": result.metadata.database_size_bytes,
+                    "compression_ratio": round(compression_ratio, 3),
+                    "file_count": result.metadata.file_count,
+                    "schema_version": result.metadata.schema_version,
+                    "created_at": result.metadata.created_at,
+                },
+                indent=2,
+            )
+        )
+    else:
+        compression_pct = int(
+            100
+            * (result.metadata.database_size_bytes - result.archive_size_bytes)
+            / result.metadata.database_size_bytes
+        )
+        click.echo(f"Backup created: {result.path}")
+        db_size = format_file_size(result.metadata.database_size_bytes)
+        archive_size = format_file_size(result.archive_size_bytes)
+        click.echo(f"  Database size: {db_size}")
+        click.echo(f"  Archive size:  {archive_size} ({compression_pct}% compression)")
+        click.echo(f"  Files in library: {result.metadata.file_count:,}")

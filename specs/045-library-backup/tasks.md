@@ -54,16 +54,16 @@
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] Implement `create_backup(db_path, output_path, conn)` function in src/vpo/db/backup.py that uses sqlite3 backup API
-- [ ] T015 [US1] Add metadata collection (schema version, file count, sizes) to create_backup() in src/vpo/db/backup.py
-- [ ] T016 [US1] Add tar.gz archive creation with library.db and backup_metadata.json to create_backup() in src/vpo/db/backup.py
-- [ ] T017 [US1] Add disk space check before backup creation in src/vpo/db/backup.py
-- [ ] T018 [US1] Add database lock detection before backup creation in src/vpo/db/backup.py
-- [ ] T019 [US1] Implement `backup_command()` CLI command in src/vpo/cli/library.py with --output, --dry-run, --json options
-- [ ] T020 [US1] Add normal output formatting (file sizes, compression ratio) to backup_command() in src/vpo/cli/library.py
-- [ ] T021 [US1] Add JSON output formatting to backup_command() in src/vpo/cli/library.py
-- [ ] T022 [US1] Add dry-run mode to backup_command() showing what would be backed up in src/vpo/cli/library.py
-- [ ] T023 [US1] Add error handling for BackupLockError, InsufficientSpaceError, BackupIOError in src/vpo/cli/library.py
+- [x] T014 [US1] Implement `create_backup(db_path, output_path, conn)` function in src/vpo/db/backup.py that uses sqlite3 backup API
+- [x] T015 [US1] Add metadata collection (schema version, file count, sizes) to create_backup() in src/vpo/db/backup.py
+- [x] T016 [US1] Add tar.gz archive creation with library.db and backup_metadata.json to create_backup() in src/vpo/db/backup.py
+- [x] T017 [US1] Add disk space check before backup creation in src/vpo/db/backup.py
+- [x] T018 [US1] Add database lock detection before backup creation in src/vpo/db/backup.py
+- [x] T019 [US1] Implement `backup_command()` CLI command in src/vpo/cli/library.py with --output, --dry-run, --json options
+- [x] T020 [US1] Add normal output formatting (file sizes, compression ratio) to backup_command() in src/vpo/cli/library.py
+- [x] T021 [US1] Add JSON output formatting to backup_command() in src/vpo/cli/library.py
+- [x] T022 [US1] Add dry-run mode to backup_command() showing what would be backed up in src/vpo/cli/library.py
+- [x] T023 [US1] Add error handling for BackupLockError, InsufficientSpaceError, BackupIOError in src/vpo/cli/library.py
 
 **Checkpoint**: User Story 1 complete - users can create backups. This is the MVP.
 

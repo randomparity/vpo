@@ -390,3 +390,138 @@ def _serialize_metadata(metadata: BackupMetadata) -> str:
         JSON string
     """
     return json.dumps(asdict(metadata), indent=2)
+
+
+# =============================================================================
+# Public API - Backup Operations
+# =============================================================================
+
+
+def create_backup(
+    db_path: Path,
+    output_path: Path | None = None,
+    conn: sqlite3.Connection | None = None,
+) -> BackupResult:
+    """Create a backup archive of the database.
+
+    Uses the SQLite online backup API to safely copy the database,
+    then creates a compressed tar.gz archive with the database and
+    metadata JSON.
+
+    Args:
+        db_path: Path to the source database file
+        output_path: Optional output path for the backup archive.
+            If not provided, creates backup in default directory with
+            auto-generated timestamp filename.
+        conn: Optional existing connection to use for stats query.
+            If not provided, opens a new connection.
+
+    Returns:
+        BackupResult with details about the created backup
+
+    Raises:
+        BackupLockError: If the database is locked
+        InsufficientSpaceError: If there isn't enough disk space
+        BackupIOError: If an IO error occurs during backup
+    """
+    import tempfile
+    import time
+
+    from vpo import __version__ as vpo_version
+    from vpo.db.schema import SCHEMA_VERSION
+
+    start_time = time.monotonic()
+
+    # Resolve paths
+    db_path = Path(db_path).resolve()
+    if output_path is None:
+        backup_dir = _get_default_backup_dir()
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        output_path = backup_dir / _generate_backup_filename()
+    else:
+        output_path = Path(output_path).resolve()
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Check database accessibility and lock status
+    _check_database_lock(db_path)
+
+    # Get database size for space check
+    try:
+        db_size = db_path.stat().st_size
+    except OSError as e:
+        raise BackupIOError(f"Failed to read database: {e}") from e
+
+    # Check disk space (need space for temp copy + archive)
+    estimated_archive_size = int(db_size * ESTIMATED_COMPRESSION_RATIO)
+    required_space = int(db_size + estimated_archive_size * SPACE_MULTIPLIER)
+    _check_disk_space(output_path.parent, required_space)
+
+    # Get library stats
+    close_conn = False
+    if conn is None:
+        conn = sqlite3.connect(db_path)
+        close_conn = True
+
+    try:
+        file_count, total_library_size = _get_library_stats(conn)
+
+        # Create temp directory for backup operations
+        with tempfile.TemporaryDirectory(prefix="vpo-backup-") as temp_dir:
+            temp_path = Path(temp_dir)
+            temp_db = temp_path / ARCHIVE_DB_NAME
+
+            # Use SQLite online backup API
+            backup_conn = sqlite3.connect(temp_db)
+            try:
+                conn.backup(backup_conn)
+            finally:
+                backup_conn.close()
+
+            # Create metadata
+            metadata = BackupMetadata(
+                vpo_version=vpo_version,
+                schema_version=SCHEMA_VERSION,
+                created_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                database_size_bytes=db_size,
+                file_count=file_count,
+                total_library_size_bytes=total_library_size,
+                compression="gzip",
+            )
+
+            # Write metadata JSON
+            metadata_path = temp_path / ARCHIVE_METADATA_NAME
+            metadata_path.write_text(_serialize_metadata(metadata))
+
+            # Create tar.gz archive
+            temp_archive = temp_path / "archive.tar.gz"
+            try:
+                with tarfile.open(temp_archive, "w:gz") as tf:
+                    tf.add(temp_db, arcname=ARCHIVE_DB_NAME)
+                    tf.add(metadata_path, arcname=ARCHIVE_METADATA_NAME)
+            except (tarfile.TarError, OSError) as e:
+                raise BackupIOError(f"Failed to create archive: {e}") from e
+
+            # Move to final destination
+            try:
+                shutil.move(str(temp_archive), str(output_path))
+            except OSError as e:
+                raise BackupIOError(
+                    f"Failed to move archive to destination: {e}"
+                ) from e
+
+        # Get archive size
+        archive_size = output_path.stat().st_size
+
+    finally:
+        if close_conn:
+            conn.close()
+
+    duration = time.monotonic() - start_time
+
+    return BackupResult(
+        success=True,
+        path=output_path,
+        archive_size_bytes=archive_size,
+        duration_seconds=duration,
+        metadata=metadata,
+    )
