@@ -125,7 +125,7 @@
 - [x] T046 [P] Add structured logging for backup operations in src/vpo/db/backup.py
 - [x] T047 [P] Add structured logging for restore operations in src/vpo/db/backup.py
 - [x] T048 Update CLI help text with backup command examples in src/vpo/cli/library.py docstrings
-- [ ] T049 Run manual validation: create backup, restore, list backups per quickstart.md
+- [x] T049 Run manual validation: create backup, restore, list backups per quickstart.md
 
 ---
 

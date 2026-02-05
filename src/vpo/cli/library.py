@@ -617,20 +617,19 @@ def duplicates_command(
 
 
 def _get_db_path(ctx: click.Context):
-    """Extract the database path from the Click context.
+    """Extract the database path from the Click context or use default.
 
     Returns:
         Path object for the database path.
-
-    Raises:
-        click.ClickException: If no database path is available.
     """
-    from pathlib import Path
+    from vpo.db.connection import get_default_db_path
 
     db_path = ctx.obj.get("db_path")
-    if db_path is None:
-        raise click.ClickException("No database path configured.")
-    return Path(db_path)
+    if db_path is not None:
+        from pathlib import Path
+
+        return Path(db_path)
+    return get_default_db_path()
 
 
 @library_group.command("backup")
