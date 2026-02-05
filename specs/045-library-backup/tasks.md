@@ -34,13 +34,13 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T007 Implement `_get_default_backup_dir()` helper in src/vpo/db/backup.py that returns ~/.vpo/backups/ as Path
-- [ ] T008 Implement `_generate_backup_filename()` helper in src/vpo/db/backup.py using UTC ISO-8601 timestamp format
-- [ ] T009 Implement `_check_disk_space()` helper in src/vpo/db/backup.py using shutil.disk_usage()
-- [ ] T010 Implement `_check_database_lock()` helper in src/vpo/db/backup.py checking WAL files and attempting exclusive lock
-- [ ] T011 Implement `_get_library_stats()` helper in src/vpo/db/backup.py to query file count and total size from database
-- [ ] T012 Implement `_read_backup_metadata()` helper in src/vpo/db/backup.py to extract and parse metadata JSON from archive
-- [ ] T013 Add new exit codes DATABASE_LOCKED and INSUFFICIENT_SPACE to src/vpo/cli/exit_codes.py if not present
+- [x] T007 Implement `_get_default_backup_dir()` helper in src/vpo/db/backup.py that returns ~/.vpo/backups/ as Path
+- [x] T008 Implement `_generate_backup_filename()` helper in src/vpo/db/backup.py using UTC ISO-8601 timestamp format
+- [x] T009 Implement `_check_disk_space()` helper in src/vpo/db/backup.py using shutil.disk_usage()
+- [x] T010 Implement `_check_database_lock()` helper in src/vpo/db/backup.py checking WAL files and attempting exclusive lock
+- [x] T011 Implement `_get_library_stats()` helper in src/vpo/db/backup.py to query file count and total size from database
+- [x] T012 Implement `_read_backup_metadata()` helper in src/vpo/db/backup.py to extract and parse metadata JSON from archive
+- [x] T013 Add new exit codes DATABASE_LOCKED and INSUFFICIENT_SPACE to src/vpo/cli/exit_codes.py if not present
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
