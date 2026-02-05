@@ -13,6 +13,7 @@ import json
 import logging
 import sqlite3
 import sys
+from pathlib import Path
 
 import click
 
@@ -623,8 +624,11 @@ def duplicates_command(
         click.echo()
 
 
-def _get_db_path(ctx: click.Context):
+def _get_db_path(ctx: click.Context) -> Path:
     """Extract the database path from the Click context or use default.
+
+    Args:
+        ctx: Click context that may contain a custom db_path.
 
     Returns:
         Path object for the database path.
@@ -633,8 +637,6 @@ def _get_db_path(ctx: click.Context):
 
     db_path = ctx.obj.get("db_path")
     if db_path is not None:
-        from pathlib import Path
-
         return Path(db_path)
     return get_default_db_path()
 

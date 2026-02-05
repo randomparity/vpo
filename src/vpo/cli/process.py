@@ -232,18 +232,15 @@ def _format_result_human(result, file_path: Path, verbose: bool = False) -> str:
     try:
         lines = []
 
-        # Always show file path in verbose mode
         if verbose:
+            # File path and before snapshot
             lines.append(f"File: {file_path}")
-
-            # Before snapshot
             lines.append("")
             if result.file_before:
                 lines.extend(_format_file_snapshot(result.file_before, "Before"))
             else:
                 lines.append("Before: (file not scanned)")
 
-        if verbose:
             # Phase details
             lines.append("")
             lines.append("Phase details:")

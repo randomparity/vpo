@@ -4,6 +4,8 @@ Renamed from plugins.py for consistency with other singular group names.
 """
 
 import logging
+from dataclasses import dataclass
+from pathlib import Path
 
 import click
 
@@ -11,6 +13,68 @@ from vpo.cli.exit_codes import ExitCode
 from vpo.config.loader import get_config
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DiscoveredPlugin:
+    """Information about a discovered plugin."""
+
+    name: str
+    instance: object
+    source: str
+    path: Path | None = None
+
+
+def _find_plugin_by_name(
+    name: str,
+    entry_point_group: str,
+    plugin_dirs: list[Path],
+) -> DiscoveredPlugin | None:
+    """Find a plugin by name across all sources.
+
+    Args:
+        name: Plugin name to find.
+        entry_point_group: Entry point group to search.
+        plugin_dirs: Directories to search for directory plugins.
+
+    Returns:
+        DiscoveredPlugin if found, None otherwise.
+    """
+    from vpo.plugin.loader import (
+        discover_directory_plugins,
+        discover_entry_point_plugins,
+        load_plugin_from_path,
+    )
+
+    # Search entry points
+    for ep_name, plugin_obj, source in discover_entry_point_plugins(entry_point_group):
+        instance = plugin_obj() if isinstance(plugin_obj, type) else plugin_obj
+        plugin_name = getattr(instance, "name", ep_name)
+        if plugin_name == name:
+            return DiscoveredPlugin(
+                name=plugin_name,
+                instance=instance,
+                source=source.value,
+                path=None,
+            )
+
+    # Search directory plugins
+    for path, module_name in discover_directory_plugins(plugin_dirs):
+        try:
+            plugin_obj = load_plugin_from_path(path, module_name)
+            instance = plugin_obj() if isinstance(plugin_obj, type) else plugin_obj
+            plugin_name = getattr(instance, "name", module_name)
+            if plugin_name == name:
+                return DiscoveredPlugin(
+                    name=plugin_name,
+                    instance=instance,
+                    source="directory",
+                    path=path,
+                )
+        except Exception:  # nosec B112 - skip failed plugin loads during search
+            continue
+
+    return None
 
 
 @click.group("plugin")
@@ -205,68 +269,42 @@ def info_plugin(ctx: click.Context, name: str) -> None:
     config = get_config()
     db_conn = ctx.obj.get("db_conn") if ctx.obj else None
 
-    from vpo.plugin.loader import (
-        compute_plugin_hash,
-        discover_directory_plugins,
-        discover_entry_point_plugins,
-        load_plugin_from_path,
+    plugin = _find_plugin_by_name(
+        name,
+        config.plugins.entry_point_group,
+        config.plugins.plugin_dirs,
     )
 
-    # Search entry points
-    for ep_name, plugin_obj, source in discover_entry_point_plugins(
-        config.plugins.entry_point_group
-    ):
-        instance = plugin_obj() if isinstance(plugin_obj, type) else plugin_obj
-        plugin_name = getattr(instance, "name", ep_name)
+    if plugin is None:
+        click.echo(f"Plugin '{name}' not found.")
+        raise SystemExit(ExitCode.TARGET_NOT_FOUND)
 
-        if plugin_name == name:
-            click.echo(f"\nPlugin: {plugin_name}")
-            click.echo("-" * 50)
-            click.echo(f"  Version:     {getattr(instance, 'version', '?')}")
-            click.echo(f"  Type:        {_get_plugin_type(instance)}")
-            click.echo(f"  Source:      {source.value}")
-            if hasattr(instance, "description") and instance.description:
-                click.echo(f"  Description: {instance.description}")
-            if hasattr(instance, "events") and instance.events:
-                click.echo(f"  Events:      {', '.join(instance.events)}")
-            click.echo()
-            return
+    instance = plugin.instance
+    click.echo(f"\nPlugin: {plugin.name}")
+    click.echo("-" * 50)
+    click.echo(f"  Version:     {getattr(instance, 'version', '?')}")
+    click.echo(f"  Type:        {_get_plugin_type(instance)}")
+    click.echo(f"  Source:      {plugin.source}")
 
-    # Search directory plugins
-    for path, module_name in discover_directory_plugins(config.plugins.plugin_dirs):
-        try:
-            plugin_obj = load_plugin_from_path(path, module_name)
-            instance = plugin_obj() if isinstance(plugin_obj, type) else plugin_obj
-            plugin_name = getattr(instance, "name", module_name)
+    if plugin.path:
+        click.echo(f"  Path:        {plugin.path}")
 
-            if plugin_name == name:
-                click.echo(f"\nPlugin: {plugin_name}")
-                click.echo("-" * 50)
-                click.echo(f"  Version:     {getattr(instance, 'version', '?')}")
-                click.echo(f"  Type:        {_get_plugin_type(instance)}")
-                click.echo("  Source:      directory")
-                click.echo(f"  Path:        {path}")
-                if hasattr(instance, "description") and instance.description:
-                    click.echo(f"  Description: {instance.description}")
-                if hasattr(instance, "events") and instance.events:
-                    click.echo(f"  Events:      {', '.join(instance.events)}")
+    if hasattr(instance, "description") and instance.description:
+        click.echo(f"  Description: {instance.description}")
+    if hasattr(instance, "events") and instance.events:
+        click.echo(f"  Events:      {', '.join(instance.events)}")
 
-                # Check acknowledgment
-                if db_conn is not None:
-                    from vpo.db import is_plugin_acknowledged
+    # Check acknowledgment for directory plugins
+    if plugin.path and db_conn is not None:
+        from vpo.db import is_plugin_acknowledged
+        from vpo.plugin.loader import compute_plugin_hash
 
-                    plugin_hash = compute_plugin_hash(path)
-                    acknowledged = is_plugin_acknowledged(db_conn, name, plugin_hash)
-                    status = "enabled" if acknowledged else "unacknowledged"
-                    click.echo(f"  Status:      {status}")
+        plugin_hash = compute_plugin_hash(plugin.path)
+        acknowledged = is_plugin_acknowledged(db_conn, name, plugin_hash)
+        status = "enabled" if acknowledged else "unacknowledged"
+        click.echo(f"  Status:      {status}")
 
-                click.echo()
-                return
-        except Exception:  # nosec B112 - skip failed plugin loads during search
-            continue
-
-    click.echo(f"Plugin '{name}' not found.")
-    raise SystemExit(ExitCode.TARGET_NOT_FOUND)
+    click.echo()
 
 
 @plugin_group.command("enable")
@@ -293,65 +331,51 @@ def enable_plugin(ctx: click.Context, name: str, yes: bool) -> None:
         click.echo("Error: Database connection required for plugin acknowledgment.")
         raise SystemExit(ExitCode.DATABASE_ERROR)
 
-    # Find the plugin
-    from vpo.plugin.loader import (
-        compute_plugin_hash,
-        discover_directory_plugins,
-        load_plugin_from_path,
+    plugin = _find_plugin_by_name(
+        name,
+        config.plugins.entry_point_group,
+        config.plugins.plugin_dirs,
     )
 
-    for path, module_name in discover_directory_plugins(config.plugins.plugin_dirs):
-        try:
-            plugin_obj = load_plugin_from_path(path, module_name)
-            instance = plugin_obj() if isinstance(plugin_obj, type) else plugin_obj
-            plugin_name = getattr(instance, "name", module_name)
+    if plugin is None:
+        click.echo(f"Plugin '{name}' not found.")
+        raise SystemExit(ExitCode.TARGET_NOT_FOUND)
 
-            if plugin_name == name:
-                # Found the plugin
-                if not yes:
-                    click.echo(f"Plugin: {plugin_name} v{instance.version}")
-                    click.echo(f"Path: {path}")
-                    click.echo()
-                    warn_msg = (
-                        "Directory plugins run with full application permissions."
-                    )
-                    click.echo(f"Warning: {warn_msg}")
-                    click.echo()
-                    if not click.confirm(
-                        f"Allow plugin '{plugin_name}'?", default=False
-                    ):
-                        click.echo("Cancelled.")
-                        return
+    # Entry point plugins are always enabled
+    if plugin.path is None:
+        click.echo(f"Plugin '{name}' is an entry point plugin and is always enabled.")
+        return
 
-                # Record acknowledgment
-                from datetime import datetime, timezone
+    instance = plugin.instance
 
-                from vpo.db import (
-                    PluginAcknowledgment,
-                    insert_plugin_acknowledgment,
-                )
-                from vpo.plugin_sdk.helpers import (
-                    get_host_identifier,
-                )
+    # Confirm enablement
+    if not yes:
+        click.echo(f"Plugin: {plugin.name} v{getattr(instance, 'version', '?')}")
+        click.echo(f"Path: {plugin.path}")
+        click.echo()
+        click.echo("Warning: Directory plugins run with full application permissions.")
+        click.echo()
+        if not click.confirm(f"Allow plugin '{plugin.name}'?", default=False):
+            click.echo("Cancelled.")
+            return
 
-                plugin_hash = compute_plugin_hash(path)
-                record = PluginAcknowledgment(
-                    id=None,
-                    plugin_name=plugin_name,
-                    plugin_hash=plugin_hash,
-                    acknowledged_at=datetime.now(timezone.utc).isoformat(),
-                    acknowledged_by=get_host_identifier(),
-                )
-                insert_plugin_acknowledgment(db_conn, record)
-                click.echo(f"Plugin '{plugin_name}' enabled.")
-                return
-        except Exception as e:
-            # Log the error but continue searching for matching plugin
-            logger.debug("Error loading plugin '%s': %s", module_name, e)
-            continue
+    # Record acknowledgment
+    from datetime import datetime, timezone
 
-    click.echo(f"Plugin '{name}' not found.")
-    raise SystemExit(ExitCode.TARGET_NOT_FOUND)
+    from vpo.db import PluginAcknowledgment, insert_plugin_acknowledgment
+    from vpo.plugin.loader import compute_plugin_hash
+    from vpo.plugin_sdk.helpers import get_host_identifier
+
+    plugin_hash = compute_plugin_hash(plugin.path)
+    record = PluginAcknowledgment(
+        id=None,
+        plugin_name=plugin.name,
+        plugin_hash=plugin_hash,
+        acknowledged_at=datetime.now(timezone.utc).isoformat(),
+        acknowledged_by=get_host_identifier(),
+    )
+    insert_plugin_acknowledgment(db_conn, record)
+    click.echo(f"Plugin '{plugin.name}' enabled.")
 
 
 @plugin_group.command("disable")
