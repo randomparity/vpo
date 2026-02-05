@@ -31,6 +31,7 @@ from vpo.db.queries import (
 )
 from vpo.db.queries.helpers import _escape_like_pattern
 from vpo.plugin import get_default_registry
+from vpo.track_classification.models import ClassificationError
 from vpo.track_classification.service import classify_file_tracks
 
 logger = logging.getLogger(__name__)
@@ -217,7 +218,8 @@ def _run_language_analysis_for_file(
                 duration_ms=int((time.monotonic() - start_time) * 1000),
             )
         transcriber = transcriber_plugin.instance
-    except Exception as e:
+    except (ImportError, RuntimeError, AttributeError) as e:
+        logger.debug("Failed to get transcription plugin: %s", e, exc_info=True)
         return LanguageAnalysisRunResult(
             file_path=str(file_path),
             success=False,
@@ -260,7 +262,18 @@ def _run_language_analysis_for_file(
 
         except LanguageAnalysisError as e:
             errors.append(f"Track {track.track_index}: {e}")
+        except (OSError, sqlite3.Error) as e:
+            # Transient errors - log and continue to next track
+            logger.warning("Track %d analysis failed: %s", track.track_index, e)
+            errors.append(f"Track {track.track_index}: {type(e).__name__}: {e}")
         except Exception as e:
+            # Unexpected errors - log with traceback for debugging
+            logger.debug(
+                "Unexpected error analyzing track %d: %s",
+                track.track_index,
+                e,
+                exc_info=True,
+            )
             errors.append(f"Track {track.track_index}: {type(e).__name__}: {e}")
 
     duration_ms = int((time.monotonic() - start_time) * 1000)
@@ -445,8 +458,16 @@ def classify_command(
             click.echo("")
             click.echo(f"Classified {len(results)} audio track(s)")
 
+    except ClassificationError as e:
+        logger.error("Classification failed: %s", e)
+        click.echo(f"Error: Classification failed: {e}", err=True)
+        ctx.exit(ExitCode.ANALYSIS_ERROR)
+    except sqlite3.Error as e:
+        logger.error("Classification failed due to database error: %s", e)
+        click.echo(f"Error: Classification failed (database error): {e}", err=True)
+        ctx.exit(ExitCode.DATABASE_ERROR)
     except Exception as e:
-        logger.exception("Classification failed")
+        logger.exception("Classification failed unexpectedly")
         click.echo(f"Error: Classification failed: {e}", err=True)
         ctx.exit(ExitCode.ANALYSIS_ERROR)
 
