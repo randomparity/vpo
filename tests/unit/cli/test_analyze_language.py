@@ -1,6 +1,8 @@
-"""Unit tests for analyze-language CLI commands.
+"""Unit tests for analyze CLI commands (language analysis).
 
-Tests cover the run, status, and clear subcommands with various options.
+Tests cover the language subcommand and related status/clear commands.
+Updated from test_analyze_language.py as part of CLI reorganization.
+The `analyze-language` command was merged into `analyze language`.
 """
 
 import json
@@ -9,8 +11,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from vpo.cli import main
-from vpo.cli.analyze_language import (
-    AnalysisRunResult,
+from vpo.cli.analyze import (
+    LanguageAnalysisRunResult,
     _check_plugin_available,
     _resolve_files_from_paths,
 )
@@ -64,33 +66,32 @@ def mock_track_record():
     )
 
 
-class TestAnalyzeLanguageGroup:
-    """Tests for the analyze-language command group."""
+class TestAnalyzeGroup:
+    """Tests for the analyze command group."""
 
     def test_group_help(self, runner):
         """Test that group help is displayed."""
-        result = runner.invoke(main, ["analyze-language", "--help"])
+        result = runner.invoke(main, ["analyze", "--help"])
         assert result.exit_code == 0
-        assert "Analyze and manage multi-language detection results" in result.output
-        assert "run" in result.output
+        assert "classify" in result.output
+        assert "language" in result.output
         assert "status" in result.output
         assert "clear" in result.output
 
 
-class TestRunCommand:
-    """Tests for the analyze-language run subcommand."""
+class TestLanguageCommand:
+    """Tests for the analyze language subcommand."""
 
-    def test_run_help(self, runner):
-        """Test that run help is displayed."""
-        result = runner.invoke(main, ["analyze-language", "run", "--help"])
+    def test_language_help(self, runner):
+        """Test that language help is displayed."""
+        result = runner.invoke(main, ["analyze", "language", "--help"])
         assert result.exit_code == 0
-        assert "Run language analysis on files" in result.output
         assert "--force" in result.output
         assert "--recursive" in result.output
         assert "--json" in result.output
 
-    @patch("vpo.cli.analyze_language._check_plugin_available")
-    def test_run_no_plugin(self, mock_plugin, runner, mock_conn, tmp_path):
+    @patch("vpo.cli.analyze._check_plugin_available")
+    def test_language_no_plugin(self, mock_plugin, runner, mock_conn, tmp_path):
         """Test error when transcription plugin not available."""
         mock_plugin.return_value = False
         test_file = tmp_path / "test.mkv"
@@ -98,16 +99,16 @@ class TestRunCommand:
 
         result = runner.invoke(
             main,
-            ["analyze-language", "run", str(test_file)],
+            ["analyze", "language", str(test_file)],
             obj={"db_conn": mock_conn},
         )
 
         assert result.exit_code == 1
         assert "Whisper transcription plugin not installed" in result.output
 
-    @patch("vpo.cli.analyze_language._check_plugin_available")
-    @patch("vpo.cli.analyze_language._resolve_files_from_paths")
-    def test_run_no_files_found(
+    @patch("vpo.cli.analyze._check_plugin_available")
+    @patch("vpo.cli.analyze._resolve_files_from_paths")
+    def test_language_no_files_found(
         self, mock_resolve, mock_plugin, runner, mock_conn, tmp_path
     ):
         """Test error when no files found in database."""
@@ -118,17 +119,17 @@ class TestRunCommand:
 
         result = runner.invoke(
             main,
-            ["analyze-language", "run", str(test_file)],
+            ["analyze", "language", str(test_file)],
             obj={"db_conn": mock_conn},
         )
 
         assert result.exit_code == 2
         assert "No valid files found" in result.output
 
-    @patch("vpo.cli.analyze_language._check_plugin_available")
-    @patch("vpo.cli.analyze_language._resolve_files_from_paths")
-    @patch("vpo.cli.analyze_language._run_analysis_for_file")
-    def test_run_success_json(
+    @patch("vpo.cli.analyze._check_plugin_available")
+    @patch("vpo.cli.analyze._resolve_files_from_paths")
+    @patch("vpo.cli.analyze._run_language_analysis_for_file")
+    def test_language_success_json(
         self,
         mock_run,
         mock_resolve,
@@ -141,7 +142,7 @@ class TestRunCommand:
         """Test successful run with JSON output."""
         mock_plugin.return_value = True
         mock_resolve.return_value = ([mock_file_record], [])
-        mock_run.return_value = AnalysisRunResult(
+        mock_run.return_value = LanguageAnalysisRunResult(
             file_path=mock_file_record.path,
             success=True,
             track_count=2,
@@ -154,7 +155,7 @@ class TestRunCommand:
 
         result = runner.invoke(
             main,
-            ["analyze-language", "run", str(test_file), "--json"],
+            ["analyze", "language", str(test_file), "--json"],
             obj={"db_conn": mock_conn},
             catch_exceptions=False,
         )
@@ -167,14 +168,13 @@ class TestRunCommand:
 
 
 class TestStatusCommand:
-    """Tests for the analyze-language status subcommand."""
+    """Tests for the analyze status subcommand."""
 
     def test_status_help(self, runner):
         """Test that status help is displayed."""
-        result = runner.invoke(main, ["analyze-language", "status", "--help"])
+        result = runner.invoke(main, ["analyze", "status", "--help"])
         assert result.exit_code == 0
-        assert "View language analysis status" in result.output
-        assert "--filter" in result.output
+        assert "--type" in result.output
         assert "--json" in result.output
         assert "--limit" in result.output
 
@@ -194,7 +194,7 @@ class TestStatusCommand:
 
         result = runner.invoke(
             main,
-            ["analyze-language", "status", "--json"],
+            ["analyze", "status", "--type", "language", "--json"],
             obj={"db_conn": mock_conn},
         )
 
@@ -220,7 +220,7 @@ class TestStatusCommand:
 
         result = runner.invoke(
             main,
-            ["analyze-language", "status"],
+            ["analyze", "status", "--type", "language"],
             obj={"db_conn": mock_conn},
         )
 
@@ -232,13 +232,12 @@ class TestStatusCommand:
 
 
 class TestClearCommand:
-    """Tests for the analyze-language clear subcommand."""
+    """Tests for the analyze clear subcommand."""
 
     def test_clear_help(self, runner):
         """Test that clear help is displayed."""
-        result = runner.invoke(main, ["analyze-language", "clear", "--help"])
+        result = runner.invoke(main, ["analyze", "clear", "--help"])
         assert result.exit_code == 0
-        assert "Clear cached analysis results" in result.output
         assert "--all" in result.output
         assert "--recursive" in result.output
         assert "--yes" in result.output
@@ -248,21 +247,21 @@ class TestClearCommand:
         """Test error when neither path nor --all specified."""
         result = runner.invoke(
             main,
-            ["analyze-language", "clear"],
+            ["analyze", "clear", "--type", "language"],
             obj={"db_conn": mock_conn},
         )
 
         assert result.exit_code == 2
         assert "Specify a PATH or use --all" in result.output
 
-    @patch("vpo.cli.analyze_language._count_affected_results")
+    @patch("vpo.cli.analyze._count_language_results")
     def test_clear_dry_run(self, mock_count, runner, mock_conn):
         """Test dry-run output."""
         mock_count.return_value = (10, 25)
 
         result = runner.invoke(
             main,
-            ["analyze-language", "clear", "--all", "--dry-run"],
+            ["analyze", "clear", "--type", "language", "--all", "--dry-run"],
             obj={"db_conn": mock_conn},
         )
 
@@ -271,14 +270,14 @@ class TestClearCommand:
         assert "10" in result.output
         assert "25" in result.output
 
-    @patch("vpo.cli.analyze_language._count_affected_results")
+    @patch("vpo.cli.analyze._count_language_results")
     def test_clear_dry_run_json(self, mock_count, runner, mock_conn):
         """Test dry-run with JSON output."""
         mock_count.return_value = (10, 25)
 
         result = runner.invoke(
             main,
-            ["analyze-language", "clear", "--all", "--dry-run", "--json"],
+            ["analyze", "clear", "--type", "language", "--all", "--dry-run", "--json"],
             obj={"db_conn": mock_conn},
         )
 
@@ -286,38 +285,39 @@ class TestClearCommand:
         data = json.loads(result.output)
         assert data["dry_run"] is True
         assert data["files_affected"] == 10
-        assert data["tracks_cleared"] == 25
+        assert data["language_cleared"] == 25
 
-    @patch("vpo.cli.analyze_language._count_affected_results")
+    @patch("vpo.cli.analyze._count_language_results")
     def test_clear_nothing_to_clear(self, mock_count, runner, mock_conn):
         """Test when there's nothing to clear."""
         mock_count.return_value = (0, 0)
 
         result = runner.invoke(
             main,
-            ["analyze-language", "clear", "--all"],
+            ["analyze", "clear", "--type", "language", "--all"],
             obj={"db_conn": mock_conn},
         )
 
         assert result.exit_code == 0
         assert "No analysis results to clear" in result.output
 
-    @patch("vpo.cli.analyze_language._count_affected_results")
-    @patch("vpo.db.queries.delete_all_analysis")
-    def test_clear_all_confirmed(self, mock_delete, mock_count, runner, mock_conn):
+    @patch("vpo.cli.analyze._count_language_results")
+    @patch("vpo.cli.analyze._clear_language_results")
+    def test_clear_all_confirmed(self, mock_clear, mock_count, runner, mock_conn):
         """Test clear all with confirmation."""
         mock_count.return_value = (10, 25)
-        mock_delete.return_value = 25
+        mock_clear.return_value = 25
 
         result = runner.invoke(
             main,
-            ["analyze-language", "clear", "--all", "--yes"],
+            ["analyze", "clear", "--type", "language", "--all", "--yes"],
             obj={"db_conn": mock_conn},
         )
 
         assert result.exit_code == 0
-        assert "Cleared 25 analysis results" in result.output
-        mock_delete.assert_called_once()
+        assert "Cleared analysis results" in result.output
+        assert "10" in result.output
+        mock_clear.assert_called_once()
 
 
 class TestHelperFunctions:
@@ -326,7 +326,7 @@ class TestHelperFunctions:
     def test_check_plugin_available_no_registry(self):
         """Test plugin check when registry not available."""
         with patch(
-            "vpo.cli.analyze_language.get_default_registry",
+            "vpo.cli.analyze.get_default_registry",
             side_effect=ImportError,
         ):
             assert _check_plugin_available() is False
@@ -337,7 +337,7 @@ class TestHelperFunctions:
         mock_coordinator = MagicMock()
         mock_coordinator.is_available.return_value = False
         with (
-            patch("vpo.cli.analyze_language.get_default_registry") as mock_get_registry,
+            patch("vpo.cli.analyze.get_default_registry") as mock_get_registry,
             patch(
                 "vpo.transcription.coordinator.TranscriptionCoordinator"
             ) as mock_coord_class,
@@ -352,7 +352,7 @@ class TestHelperFunctions:
         mock_coordinator = MagicMock()
         mock_coordinator.is_available.return_value = True
         with (
-            patch("vpo.cli.analyze_language.get_default_registry") as mock_get_registry,
+            patch("vpo.cli.analyze.get_default_registry") as mock_get_registry,
             patch(
                 "vpo.transcription.coordinator.TranscriptionCoordinator"
             ) as mock_coord_class,
@@ -366,7 +366,7 @@ class TestHelperFunctions:
         test_file = tmp_path / "test.mkv"
         test_file.touch()
 
-        with patch("vpo.cli.analyze_language.get_file_by_path") as mock_get:
+        with patch("vpo.cli.analyze.get_file_by_path") as mock_get:
             mock_get.return_value = mock_file_record
             files, not_found = _resolve_files_from_paths(
                 mock_conn, (str(test_file),), recursive=False
@@ -381,7 +381,7 @@ class TestHelperFunctions:
         test_file = tmp_path / "test.mkv"
         test_file.touch()
 
-        with patch("vpo.cli.analyze_language.get_file_by_path") as mock_get:
+        with patch("vpo.cli.analyze.get_file_by_path") as mock_get:
             mock_get.return_value = None
             files, not_found = _resolve_files_from_paths(
                 mock_conn, (str(test_file),), recursive=False
@@ -392,12 +392,12 @@ class TestHelperFunctions:
         assert str(test_file) in not_found[0]
 
 
-class TestAnalysisRunResult:
-    """Tests for AnalysisRunResult dataclass."""
+class TestLanguageAnalysisRunResult:
+    """Tests for LanguageAnalysisRunResult dataclass."""
 
     def test_dataclass_defaults(self):
         """Test that dataclass has correct defaults."""
-        result = AnalysisRunResult(
+        result = LanguageAnalysisRunResult(
             file_path="/test.mkv",
             success=True,
             track_count=2,
@@ -410,7 +410,7 @@ class TestAnalysisRunResult:
 
     def test_dataclass_with_error(self):
         """Test dataclass with error set."""
-        result = AnalysisRunResult(
+        result = LanguageAnalysisRunResult(
             file_path="/test.mkv",
             success=False,
             track_count=2,

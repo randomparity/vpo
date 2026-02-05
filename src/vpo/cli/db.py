@@ -1,18 +1,33 @@
-"""CLI commands for managing the video library.
+"""CLI commands for managing the VPO database.
 
-This module provides commands for listing and managing files in the
-VPO library database.
+This module provides commands for database operations including:
+- Library statistics and integrity checks
+- File tracking (missing, prune, duplicates)
+- Database maintenance (optimize, backup, restore)
+- Log file maintenance
+
+Renamed from library.py for clearer scope - these are database operations.
 """
 
 import json
+import logging
 import sqlite3
 import sys
 
 import click
 
 from vpo.cli.exit_codes import ExitCode
+from vpo.config import get_config
 from vpo.core import format_file_size, truncate_filename
 from vpo.db.views import get_missing_files
+from vpo.jobs.logs import (
+    LogMaintenanceStats,
+    compress_old_logs,
+    delete_old_logs,
+    get_log_stats,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def _get_conn(ctx: click.Context) -> sqlite3.Connection:
@@ -27,46 +42,49 @@ def _get_conn(ctx: click.Context) -> sqlite3.Connection:
     return conn
 
 
-@click.group("library")
-def library_group() -> None:
-    """Manage video library.
+@click.group("db")
+def db_group() -> None:
+    """Manage VPO database.
 
-    Commands for listing, filtering, and managing files tracked
-    in the VPO library database.
+    Commands for viewing statistics, checking integrity, and managing
+    files tracked in the VPO database.
 
     Examples:
 
-        # Show library summary
-        vpo library info
+        # Show database summary
+        vpo db info
 
         # List files missing from the filesystem
-        vpo library missing
+        vpo db missing
 
         # Remove DB records for missing files
-        vpo library prune --dry-run
+        vpo db prune --dry-run
 
         # Check database integrity
-        vpo library verify
+        vpo db verify
 
         # Compact the database
-        vpo library optimize --dry-run
+        vpo db optimize --dry-run
 
         # Find duplicate files
-        vpo library duplicates
+        vpo db duplicates
 
         # Create a database backup
-        vpo library backup
+        vpo db backup
 
         # Restore from a backup
-        vpo library restore backup.tar.gz
+        vpo db restore backup.tar.gz
 
         # List available backups
-        vpo library backups
+        vpo db backups
+
+        # Manage log files
+        vpo db logs --compress-days 7
     """
     pass
 
 
-@library_group.command("missing")
+@db_group.command("missing")
 @click.option(
     "--json",
     "json_output",
@@ -89,15 +107,15 @@ def missing_command(
 
     Shows files that were previously scanned but are no longer found
     on disk (scan_status='missing'). These files can be pruned with
-    'vpo library prune'.
+    'vpo db prune'.
 
     Examples:
 
         # List missing files
-        vpo library missing
+        vpo db missing
 
         # List up to 500 missing files as JSON
-        vpo library missing --json --limit 500
+        vpo db missing --json --limit 500
     """
     conn = _get_conn(ctx)
 
@@ -149,7 +167,7 @@ def missing_command(
         )
 
 
-@library_group.command("prune")
+@db_group.command("prune")
 @click.option(
     "--dry-run",
     is_flag=True,
@@ -179,18 +197,18 @@ def prune_command(
     """Remove database records for missing files.
 
     Deletes records for files with scan_status='missing' from the
-    library database. Use --dry-run to preview what would be removed.
+    database. Use --dry-run to preview what would be removed.
 
     Examples:
 
         # Preview what would be pruned
-        vpo library prune --dry-run
+        vpo db prune --dry-run
 
         # Prune without confirmation
-        vpo library prune --yes
+        vpo db prune --yes
 
         # Prune with JSON output
-        vpo library prune --yes --json
+        vpo db prune --yes --json
     """
     conn = _get_conn(ctx)
 
@@ -275,7 +293,7 @@ def prune_command(
         click.echo(f"Pruned {result.files_pruned} missing file(s).")
 
 
-@library_group.command("info")
+@db_group.command("info")
 @click.option(
     "--json",
     "json_output",
@@ -287,16 +305,16 @@ def info_command(
     ctx: click.Context,
     json_output: bool,
 ) -> None:
-    """Show library summary statistics.
+    """Show database summary statistics.
 
     Displays file counts by scan status, track counts by type,
     database size, and schema version.
 
     Examples:
 
-        vpo library info
+        vpo db info
 
-        vpo library info --json
+        vpo db info --json
     """
     from vpo.db.views import get_library_info
 
@@ -335,7 +353,7 @@ def info_command(
         )
         return
 
-    click.echo("Library Summary")
+    click.echo("Database Summary")
     click.echo("=" * 40)
 
     click.echo(f"\nFiles: {info.total_files:,}")
@@ -366,7 +384,7 @@ def info_command(
         click.echo(f"  Free:    {format_file_size(free_bytes)} (reclaimable)")
 
 
-@library_group.command("optimize")
+@db_group.command("optimize")
 @click.option(
     "--dry-run",
     is_flag=True,
@@ -401,10 +419,10 @@ def optimize_command(
     Examples:
 
         # Preview estimated savings
-        vpo library optimize --dry-run
+        vpo db optimize --dry-run
 
         # Optimize without confirmation
-        vpo library optimize --yes
+        vpo db optimize --yes
     """
     from vpo.db.views import run_optimize
 
@@ -467,7 +485,7 @@ def optimize_command(
         click.echo(f"Saved:  {format_file_size(result.space_saved)}")
 
 
-@library_group.command("verify")
+@db_group.command("verify")
 @click.option(
     "--json",
     "json_output",
@@ -486,9 +504,9 @@ def verify_command(
 
     Examples:
 
-        vpo library verify
+        vpo db verify
 
-        vpo library verify --json
+        vpo db verify --json
     """
     from vpo.db.views import run_integrity_check
 
@@ -543,7 +561,7 @@ def verify_command(
         sys.exit(ExitCode.DATABASE_ERROR)
 
 
-@library_group.command("duplicates")
+@db_group.command("duplicates")
 @click.option(
     "--limit",
     default=50,
@@ -570,9 +588,9 @@ def duplicates_command(
 
     Examples:
 
-        vpo library duplicates
+        vpo db duplicates
 
-        vpo library duplicates --limit 10 --json
+        vpo db duplicates --limit 10 --json
     """
     from vpo.db.views import get_duplicate_files
 
@@ -632,7 +650,7 @@ def _get_db_path(ctx: click.Context):
     return get_default_db_path()
 
 
-@library_group.command("backup")
+@db_group.command("backup")
 @click.option(
     "--output",
     "-o",
@@ -658,7 +676,7 @@ def backup_command(
     dry_run: bool,
     json_output: bool,
 ) -> None:
-    """Create a compressed backup of the library database.
+    """Create a compressed backup of the database.
 
     Creates a tar.gz archive containing the SQLite database and
     metadata JSON. Uses the SQLite online backup API to safely
@@ -667,13 +685,13 @@ def backup_command(
     Examples:
 
         # Create backup in default location
-        vpo library backup
+        vpo db backup
 
         # Create backup at custom path
-        vpo library backup --output /path/to/backup.tar.gz
+        vpo db backup --output /path/to/backup.tar.gz
 
         # Preview without creating
-        vpo library backup --dry-run
+        vpo db backup --dry-run
     """
     from pathlib import Path
 
@@ -801,7 +819,7 @@ def backup_command(
         click.echo(f"  Files in library: {result.metadata.file_count:,}")
 
 
-@library_group.command("restore")
+@db_group.command("restore")
 @click.argument(
     "backup_file",
     type=click.Path(exists=True, dir_okay=False, readable=True),
@@ -833,7 +851,7 @@ def restore_command(
     dry_run: bool,
     json_output: bool,
 ) -> None:
-    """Restore the library database from a backup archive.
+    """Restore the database from a backup archive.
 
     Validates the backup archive and replaces the current database
     with the backup contents. Uses atomic operations to prevent
@@ -842,13 +860,13 @@ def restore_command(
     Examples:
 
         # Restore with confirmation prompt
-        vpo library restore backup.tar.gz
+        vpo db restore backup.tar.gz
 
         # Restore without prompt
-        vpo library restore --yes backup.tar.gz
+        vpo db restore --yes backup.tar.gz
 
         # Validate only (don't restore)
-        vpo library restore --dry-run backup.tar.gz
+        vpo db restore --dry-run backup.tar.gz
     """
     from pathlib import Path
 
@@ -1005,7 +1023,7 @@ def restore_command(
         click.echo(f"  Duration: {result.duration_seconds:.1f} seconds")
 
 
-@library_group.command("backups")
+@db_group.command("backups")
 @click.option(
     "--path",
     "-p",
@@ -1032,10 +1050,10 @@ def backups_command(
     Examples:
 
         # List backups in default location
-        vpo library backups
+        vpo db backups
 
         # List backups in custom directory
-        vpo library backups --path /mnt/external/vpo-backups/
+        vpo db backups --path /mnt/external/vpo-backups/
     """
     from pathlib import Path
 
@@ -1085,7 +1103,7 @@ def backups_command(
     if not backups:
         click.echo(f"No backups found in {backup_dir}")
         click.echo()
-        click.echo("Create a backup with: vpo library backup")
+        click.echo("Create a backup with: vpo db backup")
         return
 
     click.echo(f"Backups in {backup_dir}:")
@@ -1133,3 +1151,192 @@ def backups_command(
     click.echo()
     total_size = sum(b.archive_size_bytes for b in backups)
     click.echo(f"Total: {len(backups)} backup(s) ({format_file_size(total_size)})")
+
+
+# =============================================================================
+# Log Maintenance (absorbed from maintain.py)
+# =============================================================================
+
+
+def _stats_to_dict(stats: LogMaintenanceStats) -> dict:
+    """Convert LogMaintenanceStats to dict for JSON output."""
+    return {
+        "compressed_count": stats.compressed_count,
+        "compressed_bytes_before": stats.compressed_bytes_before,
+        "compressed_bytes_after": stats.compressed_bytes_after,
+        "compression_ratio": stats.compression_ratio,
+        "deleted_count": stats.deleted_count,
+        "deleted_bytes": stats.deleted_bytes,
+        "errors": stats.errors or [],
+    }
+
+
+@db_group.command(name="logs")
+@click.option(
+    "--compress-days",
+    type=int,
+    default=None,
+    help="Compress logs older than N days (default: from config, 7 days).",
+)
+@click.option(
+    "--delete-days",
+    type=int,
+    default=None,
+    help="Delete logs older than N days (default: from config, 90 days).",
+)
+@click.option(
+    "--compress-only",
+    is_flag=True,
+    help="Only compress logs, don't delete.",
+)
+@click.option(
+    "--delete-only",
+    is_flag=True,
+    help="Only delete logs, don't compress.",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Show what would be done without making changes.",
+)
+@click.option(
+    "--json",
+    "output_json",
+    is_flag=True,
+    help="Output results as JSON.",
+)
+def logs_command(
+    compress_days: int | None,
+    delete_days: int | None,
+    compress_only: bool,
+    delete_only: bool,
+    dry_run: bool,
+    output_json: bool,
+) -> None:
+    """Compress and delete old job log files.
+
+    By default, logs are:
+    - Compressed (gzip) after 7 days
+    - Deleted after 90 days
+
+    These defaults can be changed in config.toml under [jobs]:
+
+    \b
+        [jobs]
+        log_compression_days = 7
+        log_deletion_days = 90
+
+    Or via environment variables:
+
+    \b
+        VPO_LOG_COMPRESSION_DAYS=7
+        VPO_LOG_DELETION_DAYS=90
+
+    Examples:
+
+    \b
+        # Run with defaults from config
+        vpo db logs
+
+    \b
+        # Preview what would happen
+        vpo db logs --dry-run
+
+    \b
+        # Compress logs older than 3 days
+        vpo db logs --compress-days 3 --compress-only
+
+    \b
+        # Delete logs older than 30 days
+        vpo db logs --delete-days 30 --delete-only
+    """
+    if compress_only and delete_only:
+        raise click.UsageError("Cannot use both --compress-only and --delete-only")
+
+    # Get defaults from config
+    config = get_config()
+    if compress_days is None:
+        compress_days = config.jobs.log_compression_days
+    if delete_days is None:
+        delete_days = config.jobs.log_deletion_days
+
+    # Get current stats
+    before_stats = get_log_stats()
+
+    results: dict = {
+        "dry_run": dry_run,
+        "before": before_stats,
+        "compression": None,
+        "deletion": None,
+    }
+
+    compression_stats: LogMaintenanceStats | None = None
+    deletion_stats: LogMaintenanceStats | None = None
+
+    # Run operations
+    if not delete_only:
+        compression_stats = compress_old_logs(compress_days, dry_run=dry_run)
+        results["compression"] = _stats_to_dict(compression_stats)
+
+    if not compress_only:
+        deletion_stats = delete_old_logs(delete_days, dry_run=dry_run)
+        results["deletion"] = _stats_to_dict(deletion_stats)
+
+    # Get after stats
+    if not dry_run:
+        after_stats = get_log_stats()
+        results["after"] = after_stats
+    else:
+        results["after"] = before_stats
+
+    # Output
+    if output_json:
+        click.echo(json.dumps(results, indent=2))
+        return
+
+    # Human-readable output
+    action = "Would" if dry_run else "Did"
+
+    if dry_run:
+        click.echo("Dry run mode - no changes made\n")
+
+    click.echo(
+        f"Log directory: {before_stats['total_count']} files, "
+        f"{format_file_size(before_stats['total_bytes'])}"
+    )
+    click.echo()
+
+    if compression_stats:
+        click.echo(f"Compression (logs older than {compress_days} days):")
+        if compression_stats.compressed_count > 0:
+            count = compression_stats.compressed_count
+            click.echo(f"  {action} compress {count} file(s)")
+            before = format_file_size(compression_stats.compressed_bytes_before)
+            after = format_file_size(compression_stats.compressed_bytes_after)
+            click.echo(f"  Before: {before}")
+            click.echo(f"  After:  {after}")
+            if compression_stats.compressed_bytes_before > 0:
+                ratio = compression_stats.compression_ratio * 100
+                click.echo(f"  Ratio:  {ratio:.1f}% of original")
+        else:
+            click.echo("  No logs to compress")
+
+        if compression_stats.errors:
+            click.echo(f"  Errors: {len(compression_stats.errors)}")
+            for err in compression_stats.errors[:5]:
+                click.echo(f"    - {err}")
+
+        click.echo()
+
+    if deletion_stats:
+        click.echo(f"Deletion (logs older than {delete_days} days):")
+        if deletion_stats.deleted_count > 0:
+            click.echo(f"  {action} delete {deletion_stats.deleted_count} file(s)")
+            click.echo(f"  Freed: {format_file_size(deletion_stats.deleted_bytes)}")
+        else:
+            click.echo("  No logs to delete")
+
+        if deletion_stats.errors:
+            click.echo(f"  Errors: {len(deletion_stats.errors)}")
+            for err in deletion_stats.errors[:5]:
+                click.echo(f"    - {err}")

@@ -1,8 +1,12 @@
-"""Tests for policy run command formatting helpers."""
+"""Tests for process command formatting helpers.
+
+Renamed from test_policy_run_formatting.py as part of CLI reorganization.
+The `policy run` command was promoted to top-level `process` command.
+"""
 
 from pathlib import Path
 
-from vpo.cli.policy import (
+from vpo.cli.process import (
     _format_file_snapshot,
     _format_result_human,
     _format_result_json,

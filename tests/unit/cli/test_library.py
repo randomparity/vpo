@@ -58,7 +58,7 @@ class TestLibraryMissingCommand:
 
         result = runner.invoke(
             main,
-            ["library", "missing"],
+            ["db", "missing"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -69,7 +69,7 @@ class TestLibraryMissingCommand:
         """Empty result shows friendly message."""
         result = runner.invoke(
             main,
-            ["library", "missing"],
+            ["db", "missing"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -81,7 +81,7 @@ class TestLibraryMissingCommand:
 
         result = runner.invoke(
             main,
-            ["library", "missing", "--json"],
+            ["db", "missing", "--json"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -97,7 +97,7 @@ class TestLibraryMissingCommand:
         """Empty JSON output has zero total."""
         result = runner.invoke(
             main,
-            ["library", "missing", "--json"],
+            ["db", "missing", "--json"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -117,7 +117,7 @@ class TestLibraryMissingCommand:
 
         result = runner.invoke(
             main,
-            ["library", "missing", "--json", "--limit", "2"],
+            ["db", "missing", "--json", "--limit", "2"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -140,7 +140,7 @@ class TestLibraryMissingEdgeCases:
 
         result = runner.invoke(
             main,
-            ["library", "missing"],
+            ["db", "missing"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -157,7 +157,7 @@ class TestLibraryMissingEdgeCases:
 
         result = runner.invoke(
             main,
-            ["library", "missing", "--json"],
+            ["db", "missing", "--json"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -175,7 +175,7 @@ class TestLibraryMissingEdgeCases:
 
         result = runner.invoke(
             main,
-            ["library", "missing"],
+            ["db", "missing"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -192,11 +192,11 @@ class TestLibraryInfoCommand:
 
         result = runner.invoke(
             main,
-            ["library", "info"],
+            ["db", "info"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
-        assert "Library Summary" in result.output
+        assert "Database Summary" in result.output
         assert "Files: 1" in result.output
         assert "Video:" in result.output
         assert "Audio:" in result.output
@@ -206,7 +206,7 @@ class TestLibraryInfoCommand:
 
         result = runner.invoke(
             main,
-            ["library", "info", "--json"],
+            ["db", "info", "--json"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -221,7 +221,7 @@ class TestLibraryInfoCommand:
     def test_empty_library(self, runner, db_conn):
         result = runner.invoke(
             main,
-            ["library", "info"],
+            ["db", "info"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -236,7 +236,7 @@ class TestLibraryPruneCommand:
 
         result = runner.invoke(
             main,
-            ["library", "prune", "--dry-run"],
+            ["db", "prune", "--dry-run"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -248,7 +248,7 @@ class TestLibraryPruneCommand:
 
         result = runner.invoke(
             main,
-            ["library", "prune", "--dry-run", "--json"],
+            ["db", "prune", "--dry-run", "--json"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -262,7 +262,7 @@ class TestLibraryPruneCommand:
 
         result = runner.invoke(
             main,
-            ["library", "prune", "--yes"],
+            ["db", "prune", "--yes"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -277,7 +277,7 @@ class TestLibraryPruneCommand:
 
         result = runner.invoke(
             main,
-            ["library", "prune", "--yes", "--json"],
+            ["db", "prune", "--yes", "--json"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -291,7 +291,7 @@ class TestLibraryPruneCommand:
 
         result = runner.invoke(
             main,
-            ["library", "prune", "--yes"],
+            ["db", "prune", "--yes"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -300,7 +300,7 @@ class TestLibraryPruneCommand:
     def test_nothing_to_prune_json(self, runner, db_conn):
         result = runner.invoke(
             main,
-            ["library", "prune", "--yes", "--json"],
+            ["db", "prune", "--yes", "--json"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -314,7 +314,7 @@ class TestLibraryPruneCommand:
 
         result = runner.invoke(
             main,
-            ["library", "prune"],
+            ["db", "prune"],
             obj={"db_conn": db_conn},
             input="n\n",
         )
@@ -340,7 +340,7 @@ class TestLibraryPruneCommand:
         ):
             result = runner.invoke(
                 main,
-                ["library", "prune", "--yes", "--json"],
+                ["db", "prune", "--yes", "--json"],
                 obj={"db_conn": db_conn},
             )
 
@@ -365,7 +365,7 @@ class TestLibraryPruneCommand:
         ):
             result = runner.invoke(
                 main,
-                ["library", "prune", "--yes"],
+                ["db", "prune", "--yes"],
                 obj={"db_conn": db_conn},
             )
 
@@ -378,7 +378,7 @@ class TestLibraryVerifyCommand:
     def test_healthy_database(self, runner, db_conn):
         result = runner.invoke(
             main,
-            ["library", "verify"],
+            ["db", "verify"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -388,7 +388,7 @@ class TestLibraryVerifyCommand:
     def test_json_output(self, runner, db_conn):
         result = runner.invoke(
             main,
-            ["library", "verify", "--json"],
+            ["db", "verify", "--json"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -411,7 +411,7 @@ class TestLibraryVerifyCommand:
         with patch("vpo.db.views.run_integrity_check", return_value=failed_result):
             result = runner.invoke(
                 main,
-                ["library", "verify"],
+                ["db", "verify"],
                 obj={"db_conn": db_conn},
             )
 
@@ -433,7 +433,7 @@ class TestLibraryVerifyCommand:
         with patch("vpo.db.views.run_integrity_check", return_value=failed_result):
             result = runner.invoke(
                 main,
-                ["library", "verify", "--json"],
+                ["db", "verify", "--json"],
                 obj={"db_conn": db_conn},
             )
 
@@ -453,7 +453,7 @@ class TestLibraryOptimizeCommand:
     def test_dry_run_human(self, runner, db_conn):
         result = runner.invoke(
             main,
-            ["library", "optimize", "--dry-run"],
+            ["db", "optimize", "--dry-run"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -463,7 +463,7 @@ class TestLibraryOptimizeCommand:
     def test_dry_run_json(self, runner, db_conn):
         result = runner.invoke(
             main,
-            ["library", "optimize", "--dry-run", "--json"],
+            ["db", "optimize", "--dry-run", "--json"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -476,7 +476,7 @@ class TestLibraryOptimizeCommand:
     def test_optimize_with_yes(self, runner, db_conn):
         result = runner.invoke(
             main,
-            ["library", "optimize", "--yes"],
+            ["db", "optimize", "--yes"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -486,7 +486,7 @@ class TestLibraryOptimizeCommand:
     def test_optimize_json(self, runner, db_conn):
         result = runner.invoke(
             main,
-            ["library", "optimize", "--yes", "--json"],
+            ["db", "optimize", "--yes", "--json"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -505,7 +505,7 @@ class TestLibraryDuplicatesCommand:
 
         result = runner.invoke(
             main,
-            ["library", "duplicates"],
+            ["db", "duplicates"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -522,7 +522,7 @@ class TestLibraryDuplicatesCommand:
 
         result = runner.invoke(
             main,
-            ["library", "duplicates"],
+            ["db", "duplicates"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -541,7 +541,7 @@ class TestLibraryDuplicatesCommand:
 
         result = runner.invoke(
             main,
-            ["library", "duplicates", "--json"],
+            ["db", "duplicates", "--json"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -554,7 +554,7 @@ class TestLibraryDuplicatesCommand:
     def test_json_empty(self, runner, db_conn):
         result = runner.invoke(
             main,
-            ["library", "duplicates", "--json"],
+            ["db", "duplicates", "--json"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
@@ -572,7 +572,7 @@ class TestLibraryDuplicatesCommand:
 
         result = runner.invoke(
             main,
-            ["library", "duplicates", "--json", "--limit", "1"],
+            ["db", "duplicates", "--json", "--limit", "1"],
             obj={"db_conn": db_conn},
         )
         assert result.exit_code == 0
