@@ -5,6 +5,7 @@ Renamed from profiles.py for more intuitive naming.
 """
 
 import json
+import logging
 
 import click
 
@@ -17,6 +18,8 @@ from vpo.config.profiles import (
     load_profile,
     validate_profile,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @click.group("config")
@@ -87,6 +90,7 @@ def list_config_cmd(json_output: bool) -> None:
                 }
             )
         except ProfileError as e:
+            logger.debug("Failed to load profile '%s': %s", name, e)
             profiles_data.append(
                 {
                     "name": name,
@@ -141,6 +145,7 @@ def _output_profiles_json(profile_names: list[str]) -> None:
 
             data.append(profile_data)
         except ProfileError as e:
+            logger.debug("Failed to load profile '%s': %s", name, e)
             data.append(
                 {
                     "name": name,

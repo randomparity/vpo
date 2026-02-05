@@ -686,6 +686,12 @@ def process_command(
     # Resolve worker count from config and CLI
     config = get_config()
     effective_workers = resolve_worker_count(workers, config.processing.workers)
+    logger.debug(
+        "Worker count resolved: requested=%s, config=%d, effective=%d",
+        workers,
+        config.processing.workers,
+        effective_workers,
+    )
 
     # Auto-enable verbose for dry-run (seeing changes is the whole point)
     if dry_run and not json_output:
