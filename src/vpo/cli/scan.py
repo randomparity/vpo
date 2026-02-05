@@ -503,7 +503,7 @@ def scan(
     """
     if prune:
         click.echo(
-            "Warning: --prune is deprecated. Use 'vpo library prune' instead.",
+            "Warning: --prune is deprecated. Use 'vpo db prune' instead.",
             err=True,
         )
 

@@ -603,4 +603,4 @@ class TestScanPruneDeprecation:
         # CliRunner mixes stderr into output by default.
         # The deprecation warning should appear in the output.
         assert "deprecated" in result.output.lower()
-        assert "vpo library prune" in result.output
+        assert "vpo db prune" in result.output

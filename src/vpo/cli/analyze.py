@@ -71,7 +71,8 @@ def _check_plugin_available() -> bool:
 
         coordinator = TranscriptionCoordinator(registry)
         return coordinator.is_available()
-    except Exception:
+    except Exception as e:
+        logger.debug("Transcription plugin check failed: %s", e, exc_info=True)
         return False
 
 
