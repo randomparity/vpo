@@ -367,6 +367,24 @@ class WorkflowProcessor:
         # Get initial file info from database
         file_info = self._get_file_info(file_path)
 
+        # Early bail-out: file not in database
+        if file_info is None:
+            logger.warning(
+                "Skipping %s: file not in database (run 'vpo scan' first)",
+                file_path.name,
+            )
+            return FileProcessingResult(
+                file_path=file_path,
+                success=False,
+                phase_results=(),
+                total_duration_seconds=time.time() - start_time,
+                total_changes=0,
+                phases_completed=0,
+                phases_failed=0,
+                phases_skipped=len(self.phases_to_execute),
+                error_message="File not in database (run 'vpo scan' first)",
+            )
+
         # Capture before snapshot for verbose output
         file_before_snapshot: FileSnapshot | None = None
         if file_info is not None:

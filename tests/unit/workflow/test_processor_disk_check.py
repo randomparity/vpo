@@ -100,7 +100,7 @@ class TestWorkflowProcessorDiskCheck:
 
         with (
             patch.object(processor, "_check_min_free_disk_threshold", check_mock),
-            patch.object(processor, "_get_file_info", return_value=None),
+            patch.object(processor, "_get_file_info", return_value=MagicMock()),
             patch.object(processor._executor, "execute_phase") as exec_mock,
             caplog.at_level(logging.WARNING),
         ):
@@ -138,7 +138,7 @@ class TestWorkflowProcessorDiskCheck:
             patch(
                 "vpo.workflow.processor.check_min_free_disk_percent", return_value=None
             ) as check_mock,
-            patch.object(processor, "_get_file_info", return_value=None),
+            patch.object(processor, "_get_file_info", return_value=MagicMock()),
             patch.object(processor._executor, "execute_phase") as exec_mock,
         ):
             exec_mock.return_value = make_mock_phase_result()
@@ -171,7 +171,7 @@ class TestWorkflowProcessorDiskCheck:
         with (
             patch("vpo.workflow.processor.get_config", return_value=mock_config),
             patch("vpo.workflow.processor.check_min_free_disk_percent") as check_mock,
-            patch.object(processor, "_get_file_info", return_value=None),
+            patch.object(processor, "_get_file_info", return_value=MagicMock()),
             patch.object(processor._executor, "execute_phase") as exec_mock,
         ):
             exec_mock.return_value = make_mock_phase_result()
@@ -207,7 +207,7 @@ class TestWorkflowProcessorDiskCheck:
                 "_check_min_free_disk_threshold",
                 side_effect=InsufficientDiskSpaceError("Disk space too low"),
             ),
-            patch.object(processor, "_get_file_info", return_value=None),
+            patch.object(processor, "_get_file_info", return_value=MagicMock()),
             patch.object(processor._executor, "execute_phase") as exec_mock,
             caplog.at_level(logging.WARNING),
         ):
