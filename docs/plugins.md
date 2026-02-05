@@ -38,7 +38,7 @@ plugin = MyPlugin()
 ### 2. List Available Plugins
 
 ```bash
-vpo plugins list
+vpo plugin list
 ```
 
 The first time you use a directory plugin, VPO will ask for acknowledgment.
@@ -246,16 +246,16 @@ class TestMyPlugin(PluginTestCase):
 
 ```bash
 # List all plugins
-vpo plugins list
+vpo plugin list
 
 # List with verbose output
-vpo plugins list -v
+vpo plugin list -v
 
 # Enable a disabled plugin
-vpo plugins enable my-plugin
+vpo plugin enable my-plugin
 
 # Disable a plugin
-vpo plugins disable my-plugin
+vpo plugin disable my-plugin
 
 # Force load incompatible plugins
 vpo --force-load-plugins scan /path

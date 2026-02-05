@@ -231,9 +231,9 @@ Different VPO features require different tools:
 | Feature | Required Tools |
 |---------|----------------|
 | `vpo inspect` | ffprobe |
-| `vpo policy run` (MKV metadata) | mkvpropedit |
-| `vpo policy run` (MKV reorder) | mkvmerge |
-| `vpo policy run` (MP4/AVI metadata) | ffmpeg |
+| `vpo process` (MKV metadata) | mkvpropedit |
+| `vpo process` (MKV reorder) | mkvmerge |
+| `vpo process` (MP4/AVI metadata) | ffmpeg |
 
 If a required tool is missing, VPO will report an error with installation instructions.
 

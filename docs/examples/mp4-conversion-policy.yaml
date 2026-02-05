@@ -1,7 +1,7 @@
 # MP4 Conversion Policy for Video Policy Orchestrator
 # This policy converts MKV files to MP4 for device compatibility.
 #
-# Usage: vpo policy run --policy mp4-conversion-policy.yaml [--dry-run] <file.mkv>
+# Usage: vpo process --policy mp4-conversion-policy.yaml [--dry-run] <file.mkv>
 #
 # Note: MP4 has codec limitations. This policy will skip files with:
 # - TrueHD or DTS-HD MA audio

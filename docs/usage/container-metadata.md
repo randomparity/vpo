@@ -279,7 +279,7 @@ Both executors support setting tags to a value and clearing tags (empty string).
 3. **Combine with plugin metadata for dynamic titles** — Use `from_plugin_metadata` to pull titles from Radarr or Sonarr rather than hardcoding values.
 4. **Always dry-run first** — Preview container metadata changes before applying:
    ```bash
-   vpo policy run -p policy.yaml --dry-run /path/to/file.mkv
+   vpo process -p policy.yaml --dry-run /path/to/file.mkv
    ```
 5. **Use `depends_on` for phase ordering** — When later phases depend on tags set by earlier phases, use `depends_on` to enforce execution order.
 

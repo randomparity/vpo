@@ -110,7 +110,7 @@ VPO provides several commands for inspecting and maintaining the library databas
 View a summary of your library to understand its composition:
 
 ```bash
-vpo library info
+vpo db info
 
 # Output:
 # Library Summary
@@ -142,13 +142,13 @@ After moving or deleting files on disk, scan first to detect missing files, then
 vpo scan /media/movies
 
 # See which files are missing
-vpo library missing
+vpo db missing
 
 # Preview what would be removed
-vpo library prune --dry-run
+vpo db prune --dry-run
 
 # Remove the stale records
-vpo library prune --yes
+vpo db prune --yes
 ```
 
 #### Find Duplicate Files
@@ -160,7 +160,7 @@ If you scanned with `--verify-hash`, you can find files with identical content:
 vpo scan --verify-hash /media/movies
 
 # Find duplicates
-vpo library duplicates
+vpo db duplicates
 ```
 
 #### Database Maintenance
@@ -169,10 +169,10 @@ Periodically verify and compact the database:
 
 ```bash
 # Check database integrity
-vpo library verify
+vpo db verify
 
 # Reclaim unused space
-vpo library optimize --yes
+vpo db optimize --yes
 ```
 
 ---

@@ -18,7 +18,7 @@ mv src/hello_world src/my_plugin
 pip install -e ".[dev]"
 
 # Verify it loads
-vpo plugins list
+vpo plugin list
 ```
 
 ## Project Structure
@@ -259,7 +259,7 @@ ruff format src/
 pip install -e .
 
 # Verify plugin loads
-vpo plugins list
+vpo plugin list
 
 # Should show your plugin
 ```
