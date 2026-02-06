@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -740,3 +741,63 @@ class TestPluginMetadataConfig:
         config = builder.build(default_plugins_dir=tmp_path / "plugins")
         assert config.plugins.metadata.radarr is None
         assert config.plugins.metadata.sonarr is None
+
+
+class TestUnknownKeyWarnings:
+    """Tests for unknown key detection in config.toml parsing."""
+
+    def test_known_keys_produce_no_warnings(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Known keys should not produce any warnings."""
+        config = {
+            "tools": {"ffmpeg": "/usr/bin/ffmpeg"},
+            "server": {"port": 9000},
+            "behavior": {"warn_on_missing_features": True},
+        }
+        with caplog.at_level(logging.WARNING):
+            source_from_file(config)
+        assert "Unknown key" not in caplog.text
+
+    def test_unknown_top_level_section_warns(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Unknown top-level section should produce a warning."""
+        config = {"bogus_section": {"key": "value"}}
+        with caplog.at_level(logging.WARNING):
+            source_from_file(config)
+        assert "Unknown key 'bogus_section' in [top-level]" in caplog.text
+
+    def test_unknown_key_within_section_warns(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Unknown key within a known section should produce a warning."""
+        config = {"server": {"port": 9000, "typo_key": "oops"}}
+        with caplog.at_level(logging.WARNING):
+            source_from_file(config)
+        assert "Unknown key 'typo_key' in [server]" in caplog.text
+
+    def test_parsing_succeeds_despite_unknown_keys(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Parsing should succeed even with unknown keys (warning only)."""
+        config = {
+            "server": {"port": 9000, "extra": True},
+            "unknown_section": {},
+        }
+        with caplog.at_level(logging.WARNING):
+            source = source_from_file(config)
+        # Parsing still works — known values are extracted
+        assert source.server_port == 9000
+        # Warnings were logged
+        assert "Unknown key" in caplog.text
+
+    def test_multiple_unknown_keys_all_warned(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Each unknown key should produce its own warning."""
+        config = {"jobs": {"retention_days": 7, "foo": 1, "bar": 2}}
+        with caplog.at_level(logging.WARNING):
+            source_from_file(config)
+        assert "Unknown key 'bar' in [jobs]" in caplog.text
+        assert "Unknown key 'foo' in [jobs]" in caplog.text

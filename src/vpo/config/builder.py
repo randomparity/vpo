@@ -6,6 +6,7 @@ multiple configuration sources with explicit precedence handling.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,8 @@ from vpo.config.models import (
     VPOConfig,
     WorkerConfig,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -371,6 +374,113 @@ def _get_path(config: dict[str, Any], key: str) -> Path | None:
     return Path(value).expanduser() if value else None
 
 
+def _warn_unknown_keys(
+    section: str,
+    known_keys: set[str],
+    actual_keys: set[str],
+) -> None:
+    """Log warnings for unknown configuration keys.
+
+    This helps catch typos in config.toml that would otherwise be
+    silently ignored.
+
+    Args:
+        section: Section name for the warning message (e.g., "server").
+        known_keys: Set of recognized key names.
+        actual_keys: Set of keys found in the config.
+    """
+    unknown = actual_keys - known_keys
+    for key in sorted(unknown):
+        logger.warning(
+            "Unknown key '%s' in [%s] config section (ignored)",
+            key,
+            section,
+        )
+
+
+# Known top-level keys in config.toml
+_KNOWN_TOP_LEVEL_KEYS = {
+    "tools",
+    "behavior",
+    "plugins",
+    "jobs",
+    "worker",
+    "server",
+    "language",
+    "logging",
+    "transcription",
+    "processing",
+    "database_path",
+}
+
+# Known keys within each section
+_KNOWN_SECTION_KEYS: dict[str, set[str]] = {
+    "tools": {
+        "ffmpeg",
+        "ffprobe",
+        "mkvmerge",
+        "mkvpropedit",
+        "detection",
+    },
+    "tools.detection": {"cache_ttl_hours", "auto_detect_on_startup"},
+    "behavior": {"warn_on_missing_features", "show_upgrade_suggestions"},
+    "plugins": {
+        "plugin_dirs",
+        "entry_point_group",
+        "auto_load",
+        "warn_unacknowledged",
+        "metadata",
+    },
+    "jobs": {
+        "retention_days",
+        "auto_purge",
+        "temp_directory",
+        "backup_original",
+        "disk_space_ratio_hevc",
+        "disk_space_ratio_other",
+        "disk_space_buffer",
+        "log_compression_days",
+        "log_deletion_days",
+        "min_free_disk_percent",
+        "auto_prune_enabled",
+        "auto_prune_interval_hours",
+    },
+    "worker": {"max_files", "max_duration", "end_by", "cpu_cores"},
+    "server": {
+        "bind",
+        "port",
+        "shutdown_timeout",
+        "auth_token",
+        "rate_limit",
+    },
+    "server.rate_limit": {
+        "enabled",
+        "get_max_requests",
+        "mutate_max_requests",
+        "window_seconds",
+    },
+    "language": {"standard", "warn_on_conversion"},
+    "logging": {
+        "level",
+        "file",
+        "format",
+        "include_stderr",
+        "max_bytes",
+        "backup_count",
+    },
+    "transcription": {
+        "plugin",
+        "model_size",
+        "sample_duration",
+        "gpu_enabled",
+        "max_samples",
+        "confidence_threshold",
+        "incumbent_bonus",
+    },
+    "processing": {"workers"},
+}
+
+
 def source_from_file(file_config: dict[str, Any]) -> ConfigSource:
     """Create ConfigSource from parsed TOML config file.
 
@@ -397,6 +507,33 @@ def source_from_file(file_config: dict[str, Any]) -> ConfigSource:
     metadata = plugins.get("metadata", {})
     radarr = metadata.get("radarr", {})
     sonarr = metadata.get("sonarr", {})
+
+    # Warn about unknown keys in config sections
+    _warn_unknown_keys(
+        "top-level",
+        _KNOWN_TOP_LEVEL_KEYS,
+        set(file_config.keys()),
+    )
+    for section_name, section_dict in [
+        ("tools", tools),
+        ("tools.detection", detection),
+        ("behavior", behavior),
+        ("plugins", plugins),
+        ("jobs", jobs),
+        ("worker", worker),
+        ("server", server),
+        ("server.rate_limit", rate_limit),
+        ("language", language),
+        ("logging", logging_conf),
+        ("transcription", transcription),
+        ("processing", processing),
+    ]:
+        if section_dict and section_name in _KNOWN_SECTION_KEYS:
+            _warn_unknown_keys(
+                section_name,
+                _KNOWN_SECTION_KEYS[section_name],
+                set(section_dict.keys()),
+            )
 
     # Parse plugin directories
     plugin_dirs: list[Path] | None = None
