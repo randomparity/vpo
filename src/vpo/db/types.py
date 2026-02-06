@@ -743,8 +743,8 @@ class TranscriptionDetailView:
         title: Track title from metadata.
         channels: Number of audio channels.
         channel_layout: Audio channel layout string.
-        is_default: Whether track is marked as default (0 or 1).
-        is_forced: Whether track is marked as forced (0 or 1).
+        is_default: Whether track is marked as default.
+        is_forced: Whether track is marked as forced.
         file_id: Foreign key to files table.
         filename: File name only.
         path: Full file path.
@@ -765,8 +765,8 @@ class TranscriptionDetailView:
     title: str | None
     channels: int | None
     channel_layout: str | None
-    is_default: int
-    is_forced: int
+    is_default: bool
+    is_forced: bool
     file_id: int
     filename: str
     path: str

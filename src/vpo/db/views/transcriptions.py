@@ -167,8 +167,8 @@ def get_transcription_detail(
             "title": str | None,
             "channels": int | None,
             "channel_layout": str | None,
-            "is_default": int,
-            "is_forced": int,
+            "is_default": bool,
+            "is_forced": bool,
             "file_id": int,
             "filename": str,
             "path": str,
@@ -206,7 +206,13 @@ def get_transcription_detail(
         (transcription_id,),
     )
     row = cursor.fetchone()
-    return dict(row) if row else None
+    if row is None:
+        return None
+    result = dict(row)
+    # SQLite stores booleans as int 0/1; coerce to Python bool for API consumers
+    result["is_default"] = bool(result["is_default"])
+    result["is_forced"] = bool(result["is_forced"])
+    return result
 
 
 def get_transcription_detail_typed(

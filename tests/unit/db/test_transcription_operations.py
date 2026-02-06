@@ -10,6 +10,8 @@ from vpo.db import (
     TrackRecord,
     TranscriptionResultRecord,
     delete_transcription_results_for_file,
+    get_transcription_detail,
+    get_transcription_detail_typed,
     get_transcription_result,
     insert_file,
     insert_track,
@@ -529,3 +531,53 @@ class TestConfidenceConstraint:
                 """,
                 (sample_track, "en", 1.5, "main", None, "test", now, now),
             )
+
+
+class TestTranscriptionDetailBoolCoercion:
+    """Tests that is_default/is_forced are returned as bool, not int."""
+
+    def test_dict_returns_bool(self, db_conn, sample_track):
+        """get_transcription_detail returns bool for is_default/is_forced."""
+        now = datetime.now(timezone.utc).isoformat()
+        record = TranscriptionResultRecord(
+            id=None,
+            track_id=sample_track,
+            detected_language="en",
+            confidence_score=0.95,
+            track_type="main",
+            transcript_sample="Hello",
+            plugin_name="test",
+            created_at=now,
+            updated_at=now,
+        )
+        tr_id = upsert_transcription_result(db_conn, record)
+
+        result = get_transcription_detail(db_conn, tr_id)
+        assert result is not None
+        assert isinstance(result["is_default"], bool)
+        assert isinstance(result["is_forced"], bool)
+        assert result["is_default"] is True
+        assert result["is_forced"] is False
+
+    def test_typed_returns_bool(self, db_conn, sample_track):
+        """get_transcription_detail_typed returns bool for is_default/is_forced."""
+        now = datetime.now(timezone.utc).isoformat()
+        record = TranscriptionResultRecord(
+            id=None,
+            track_id=sample_track,
+            detected_language="en",
+            confidence_score=0.95,
+            track_type="main",
+            transcript_sample="Hello",
+            plugin_name="test",
+            created_at=now,
+            updated_at=now,
+        )
+        tr_id = upsert_transcription_result(db_conn, record)
+
+        result = get_transcription_detail_typed(db_conn, tr_id)
+        assert result is not None
+        assert isinstance(result.is_default, bool)
+        assert isinstance(result.is_forced, bool)
+        assert result.is_default is True
+        assert result.is_forced is False
