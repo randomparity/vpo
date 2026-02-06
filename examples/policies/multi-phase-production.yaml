@@ -202,6 +202,7 @@ phases:
       enabled: true
       detect_commentary: true
       reorder_commentary: true
+      update_title_from_classification: true
     # Set file modification time to release/air date from Radarr or Sonarr;
     # falls back to preserving original mtime if no date is available
     file_timestamp:
