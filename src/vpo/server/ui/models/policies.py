@@ -5,7 +5,7 @@ This module defines models for policy list, editor, and validation views.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -265,9 +265,9 @@ class PolicyEditorRequest:
             "default_flags",
         ]
 
-        for field in required_fields:
-            if field not in data:
-                raise ValueError(f"Missing required field: {field}")
+        for field_name in required_fields:
+            if field_name not in data:
+                raise ValueError(f"Missing required field: {field_name}")
 
         return cls(
             track_order=data["track_order"],
@@ -427,18 +427,21 @@ class ValidationErrorResponse:
 
     Attributes:
         error: Generic error message summary.
+        code: Machine-readable error code.
         errors: List of field-level validation errors.
         details: Optional additional context.
     """
 
     error: str
-    errors: list[ValidationErrorItem]
+    code: str = "VALIDATION_FAILED"
+    errors: list[ValidationErrorItem] = field(default_factory=list)
     details: str | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         result = {
             "error": self.error,
+            "code": self.code,
             "errors": [e.to_dict() for e in self.errors],
         }
         if self.details is not None:

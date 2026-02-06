@@ -17,6 +17,15 @@ from aiohttp import web
 
 from vpo.core.datetime_utils import parse_time_filter
 from vpo.core.validation import is_valid_uuid
+from vpo.server.api.errors import (
+    BATCH_SIZE_EXCEEDED,
+    INVALID_ID_FORMAT,
+    INVALID_JSON,
+    INVALID_PARAMETER,
+    INVALID_REQUEST,
+    NOT_FOUND,
+    api_error,
+)
 from vpo.server.middleware import PLANS_ALLOWED_PARAMS, validate_query_params
 from vpo.server.ui.models import (
     PlanActionResponse,
@@ -59,17 +68,17 @@ async def api_plans_handler(request: web.Request) -> web.Response:
         try:
             status_enum = PlanStatus(params.status)
         except ValueError:
-            return web.json_response(
-                {"error": f"Invalid status value: '{params.status}'"},
-                status=400,
+            return api_error(
+                f"Invalid status value: '{params.status}'",
+                code=INVALID_PARAMETER,
             )
 
     # Parse time filter (returns None for invalid values)
     since_timestamp = parse_time_filter(params.since)
     if params.since and since_timestamp is None:
-        return web.json_response(
-            {"error": f"Invalid since value: '{params.since}'"},
-            status=400,
+        return api_error(
+            f"Invalid since value: '{params.since}'",
+            code=INVALID_PARAMETER,
         )
 
     # Get connection pool from middleware
@@ -125,10 +134,7 @@ async def api_plan_detail_handler(request: web.Request) -> web.Response:
 
     # Validate UUID format
     if not is_valid_uuid(plan_id):
-        return web.json_response(
-            {"error": "Invalid plan ID format"},
-            status=400,
-        )
+        return api_error("Invalid plan ID format", code=INVALID_ID_FORMAT)
 
     # Get connection pool from middleware
     connection_pool = request["connection_pool"]
@@ -141,10 +147,7 @@ async def api_plan_detail_handler(request: web.Request) -> web.Response:
     plan = await asyncio.to_thread(_query_plan)
 
     if plan is None:
-        return web.json_response(
-            {"error": "Plan not found"},
-            status=404,
-        )
+        return api_error("Plan not found", code=NOT_FOUND, status=404)
 
     # Convert to detail item with deserialized actions
     detail_item = PlanDetailItem.from_plan_record(plan)
@@ -172,7 +175,11 @@ async def api_plan_approve_handler(request: web.Request) -> web.Response:
     # Validate UUID format
     if not is_valid_uuid(plan_id):
         return web.json_response(
-            PlanActionResponse(success=False, error="Invalid plan ID format").to_dict(),
+            PlanActionResponse(
+                success=False,
+                error="Invalid plan ID format",
+                code=INVALID_ID_FORMAT,
+            ).to_dict(),
             status=400,
         )
 
@@ -190,8 +197,14 @@ async def api_plan_approve_handler(request: web.Request) -> web.Response:
 
     if not result.success:
         status_code = 404 if result.error == "Plan not found" else 409
+        not_found = result.error == "Plan not found"
+        error_code = NOT_FOUND if not_found else "RESOURCE_CONFLICT"
         return web.json_response(
-            PlanActionResponse(success=False, error=result.error).to_dict(),
+            PlanActionResponse(
+                success=False,
+                error=result.error,
+                code=error_code,
+            ).to_dict(),
             status=status_code,
         )
 
@@ -226,7 +239,11 @@ async def api_plan_reject_handler(request: web.Request) -> web.Response:
     # Validate UUID format
     if not is_valid_uuid(plan_id):
         return web.json_response(
-            PlanActionResponse(success=False, error="Invalid plan ID format").to_dict(),
+            PlanActionResponse(
+                success=False,
+                error="Invalid plan ID format",
+                code=INVALID_ID_FORMAT,
+            ).to_dict(),
             status=400,
         )
 
@@ -244,8 +261,14 @@ async def api_plan_reject_handler(request: web.Request) -> web.Response:
 
     if not result.success:
         status_code = 404 if result.error == "Plan not found" else 409
+        not_found = result.error == "Plan not found"
+        error_code = NOT_FOUND if not_found else "RESOURCE_CONFLICT"
         return web.json_response(
-            PlanActionResponse(success=False, error=result.error).to_dict(),
+            PlanActionResponse(
+                success=False,
+                error=result.error,
+                code=error_code,
+            ).to_dict(),
             status=status_code,
         )
 
@@ -305,32 +328,26 @@ async def api_plans_bulk_approve_handler(request: web.Request) -> web.Response:
     try:
         body = await request.json()
     except Exception:
-        return web.json_response(
-            {"error": "Invalid JSON body"},
-            status=400,
-        )
+        return api_error("Invalid JSON body", code=INVALID_JSON)
 
     plan_ids = body.get("plan_ids", [])
     if not isinstance(plan_ids, list):
-        return web.json_response(
-            {"error": "plan_ids must be a list"},
-            status=400,
-        )
+        return api_error("plan_ids must be a list", code=INVALID_REQUEST)
 
     # Limit batch size
     max_batch_size = 100
     if len(plan_ids) > max_batch_size:
-        return web.json_response(
-            {"error": f"Maximum batch size is {max_batch_size} plans"},
-            status=400,
+        return api_error(
+            f"Maximum batch size is {max_batch_size} plans",
+            code=BATCH_SIZE_EXCEEDED,
         )
 
     # Validate UUIDs
     for plan_id in plan_ids:
         if not is_valid_uuid(plan_id):
-            return web.json_response(
-                {"error": f"Invalid plan ID format: {plan_id}"},
-                status=400,
+            return api_error(
+                f"Invalid plan ID format: {plan_id}",
+                code=INVALID_ID_FORMAT,
             )
 
     # Get connection pool
@@ -385,32 +402,26 @@ async def api_plans_bulk_reject_handler(request: web.Request) -> web.Response:
     try:
         body = await request.json()
     except Exception:
-        return web.json_response(
-            {"error": "Invalid JSON body"},
-            status=400,
-        )
+        return api_error("Invalid JSON body", code=INVALID_JSON)
 
     plan_ids = body.get("plan_ids", [])
     if not isinstance(plan_ids, list):
-        return web.json_response(
-            {"error": "plan_ids must be a list"},
-            status=400,
-        )
+        return api_error("plan_ids must be a list", code=INVALID_REQUEST)
 
     # Limit batch size
     max_batch_size = 100
     if len(plan_ids) > max_batch_size:
-        return web.json_response(
-            {"error": f"Maximum batch size is {max_batch_size} plans"},
-            status=400,
+        return api_error(
+            f"Maximum batch size is {max_batch_size} plans",
+            code=BATCH_SIZE_EXCEEDED,
         )
 
     # Validate UUIDs
     for plan_id in plan_ids:
         if not is_valid_uuid(plan_id):
-            return web.json_response(
-                {"error": f"Invalid plan ID format: {plan_id}"},
-                status=400,
+            return api_error(
+                f"Invalid plan ID format: {plan_id}",
+                code=INVALID_ID_FORMAT,
             )
 
     # Get connection pool

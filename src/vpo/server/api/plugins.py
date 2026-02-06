@@ -16,6 +16,12 @@ import re
 from aiohttp import web
 
 from vpo.db.connection import DaemonConnectionPool
+from vpo.server.api.errors import (
+    INVALID_ID_FORMAT,
+    INVALID_REQUEST,
+    NOT_FOUND,
+    api_error,
+)
 from vpo.server.ui.models import (
     FilePluginDataResponse,
     PluginFileItem,
@@ -118,10 +124,7 @@ async def api_plugin_files_handler(request: web.Request) -> web.Response:
 
     # Validate plugin name (alphanumeric, dash, underscore only)
     if not re.match(r"^[a-zA-Z0-9_-]+$", plugin_name):
-        return web.json_response(
-            {"error": "Invalid plugin name format"},
-            status=400,
-        )
+        return api_error("Invalid plugin name format", code=INVALID_REQUEST)
 
     # Parse pagination parameters
     try:
@@ -195,10 +198,7 @@ async def api_file_plugin_data_handler(request: web.Request) -> web.Response:
         if file_id < 1:
             raise ValueError("Invalid ID")
     except ValueError:
-        return web.json_response(
-            {"error": "Invalid file ID format"},
-            status=400,
-        )
+        return api_error("Invalid file ID format", code=INVALID_ID_FORMAT)
 
     # Get connection pool from middleware
     connection_pool = request["connection_pool"]
@@ -208,10 +208,7 @@ async def api_file_plugin_data_handler(request: web.Request) -> web.Response:
     file_record, plugin_data = await asyncio.to_thread(query_fn)
 
     if file_record is None:
-        return web.json_response(
-            {"error": "File not found"},
-            status=404,
-        )
+        return api_error("File not found", code=NOT_FOUND, status=404)
 
     response = FilePluginDataResponse(
         file_id=file_id,
@@ -243,17 +240,11 @@ async def api_file_plugin_data_single_handler(request: web.Request) -> web.Respo
         if file_id < 1:
             raise ValueError("Invalid ID")
     except ValueError:
-        return web.json_response(
-            {"error": "Invalid file ID format"},
-            status=400,
-        )
+        return api_error("Invalid file ID format", code=INVALID_ID_FORMAT)
 
     # Validate plugin name
     if not re.match(r"^[a-zA-Z0-9_-]+$", plugin_name):
-        return web.json_response(
-            {"error": "Invalid plugin name format"},
-            status=400,
-        )
+        return api_error("Invalid plugin name format", code=INVALID_REQUEST)
 
     # Get connection pool from middleware
     connection_pool = request["connection_pool"]
@@ -263,16 +254,14 @@ async def api_file_plugin_data_single_handler(request: web.Request) -> web.Respo
     file_record, plugin_data = await asyncio.to_thread(query_fn)
 
     if file_record is None:
-        return web.json_response(
-            {"error": "File not found"},
-            status=404,
-        )
+        return api_error("File not found", code=NOT_FOUND, status=404)
 
     # Get specific plugin's data
     specific_data = plugin_data.get(plugin_name)
     if specific_data is None:
-        return web.json_response(
-            {"error": f"No data from plugin '{plugin_name}' for this file"},
+        return api_error(
+            f"No data from plugin '{plugin_name}' for this file",
+            code=NOT_FOUND,
             status=404,
         )
 

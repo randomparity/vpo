@@ -28,6 +28,13 @@ from vpo.db.views import (
     get_stats_summary,
     get_stats_trends,
 )
+from vpo.server.api.errors import (
+    INVALID_ID_FORMAT,
+    INVALID_PARAMETER,
+    INVALID_REQUEST,
+    NOT_FOUND,
+    api_error,
+)
 from vpo.server.middleware import (
     STATS_ALLOWED_PARAMS,
     STATS_PURGE_ALLOWED_PARAMS,
@@ -63,18 +70,18 @@ async def api_stats_summary_handler(request: web.Request) -> web.Response:
     if since_str:
         since_ts = parse_time_filter(since_str)
         if since_ts is None:
-            return web.json_response(
-                {"error": f"Invalid since value: '{since_str}'"},
-                status=400,
+            return api_error(
+                f"Invalid since value: '{since_str}'",
+                code=INVALID_PARAMETER,
             )
 
     until_ts = None
     if until_str:
         until_ts = parse_time_filter(until_str)
         if until_ts is None:
-            return web.json_response(
-                {"error": f"Invalid until value: '{until_str}'"},
-                status=400,
+            return api_error(
+                f"Invalid until value: '{until_str}'",
+                code=INVALID_PARAMETER,
             )
 
     # Get connection pool from middleware
@@ -154,18 +161,18 @@ async def api_stats_policies_handler(request: web.Request) -> web.Response:
     if since_str:
         since_ts = parse_time_filter(since_str)
         if since_ts is None:
-            return web.json_response(
-                {"error": f"Invalid since value: '{since_str}'"},
-                status=400,
+            return api_error(
+                f"Invalid since value: '{since_str}'",
+                code=INVALID_PARAMETER,
             )
 
     until_ts = None
     if until_str:
         until_ts = parse_time_filter(until_str)
         if until_ts is None:
-            return web.json_response(
-                {"error": f"Invalid until value: '{until_str}'"},
-                status=400,
+            return api_error(
+                f"Invalid until value: '{until_str}'",
+                code=INVALID_PARAMETER,
             )
 
     # Get connection pool from middleware
@@ -204,12 +211,9 @@ async def api_stats_trends_handler(request: web.Request) -> web.Response:
 
     # Validate group_by
     if group_by not in ("day", "week", "month"):
-        return web.json_response(
-            {
-                "error": f"Invalid group_by value: '{group_by}'. "
-                "Must be 'day', 'week', or 'month'."
-            },
-            status=400,
+        return api_error(
+            f"Invalid group_by value: '{group_by}'. Must be 'day', 'week', or 'month'.",
+            code=INVALID_PARAMETER,
         )
 
     # Parse time filters
@@ -217,9 +221,9 @@ async def api_stats_trends_handler(request: web.Request) -> web.Response:
     if since_str:
         since_ts = parse_time_filter(since_str)
         if since_ts is None:
-            return web.json_response(
-                {"error": f"Invalid since value: '{since_str}'"},
-                status=400,
+            return api_error(
+                f"Invalid since value: '{since_str}'",
+                code=INVALID_PARAMETER,
             )
 
     # Get connection pool from middleware
@@ -251,10 +255,7 @@ async def api_stats_detail_handler(request: web.Request) -> web.Response:
     """
     stats_id = request.match_info.get("stats_id")
     if not stats_id or not is_valid_uuid(stats_id):
-        return web.json_response(
-            {"error": "Invalid stats_id"},
-            status=400,
-        )
+        return api_error("Invalid stats_id", code=INVALID_ID_FORMAT)
 
     # Get connection pool from middleware
     connection_pool = request["connection_pool"]
@@ -266,8 +267,9 @@ async def api_stats_detail_handler(request: web.Request) -> web.Response:
     detail = await asyncio.to_thread(_query_detail)
 
     if detail is None:
-        return web.json_response(
-            {"error": f"Stats record not found: {stats_id}"},
+        return api_error(
+            f"Stats record not found: {stats_id}",
+            code=NOT_FOUND,
             status=404,
         )
 
@@ -286,18 +288,12 @@ async def api_stats_file_handler(request: web.Request) -> web.Response:
     """
     file_id_str = request.match_info.get("file_id")
     if not file_id_str:
-        return web.json_response(
-            {"error": "file_id is required"},
-            status=400,
-        )
+        return api_error("file_id is required", code=INVALID_REQUEST)
 
     try:
         file_id = int(file_id_str)
     except ValueError:
-        return web.json_response(
-            {"error": "file_id must be an integer"},
-            status=400,
-        )
+        return api_error("file_id must be an integer", code=INVALID_ID_FORMAT)
 
     # Get connection pool from middleware
     connection_pool = request["connection_pool"]
@@ -340,21 +336,21 @@ async def api_stats_purge_handler(request: web.Request) -> web.Response:
 
     # Validate options
     if not before_str and not policy_name and not delete_all:
-        return web.json_response(
-            {"error": "Must specify at least one of: before, policy, or all"},
-            status=400,
+        return api_error(
+            "Must specify at least one of: before, policy, or all",
+            code=INVALID_REQUEST,
         )
 
     if delete_all and (before_str or policy_name):
-        return web.json_response(
-            {"error": "all cannot be combined with before or policy"},
-            status=400,
+        return api_error(
+            "all cannot be combined with before or policy",
+            code=INVALID_REQUEST,
         )
 
     if before_str and policy_name:
-        return web.json_response(
-            {"error": "before and policy cannot be combined. Use separate requests."},
-            status=400,
+        return api_error(
+            "before and policy cannot be combined. Use separate requests.",
+            code=INVALID_REQUEST,
         )
 
     # Parse time filter if provided
@@ -362,9 +358,9 @@ async def api_stats_purge_handler(request: web.Request) -> web.Response:
     if before_str:
         before_ts = parse_time_filter(before_str)
         if before_ts is None:
-            return web.json_response(
-                {"error": f"Invalid before value: '{before_str}'"},
-                status=400,
+            return api_error(
+                f"Invalid before value: '{before_str}'",
+                code=INVALID_PARAMETER,
             )
 
     # Get connection pool from middleware
@@ -427,10 +423,7 @@ async def api_stats_policy_handler(request: web.Request) -> web.Response:
     """
     policy_name = request.match_info.get("name")
     if not policy_name:
-        return web.json_response(
-            {"error": "Policy name is required"},
-            status=400,
-        )
+        return api_error("Policy name is required", code=INVALID_REQUEST)
 
     # Parse query parameters
     since_str = request.query.get("since")
@@ -441,18 +434,18 @@ async def api_stats_policy_handler(request: web.Request) -> web.Response:
     if since_str:
         since_ts = parse_time_filter(since_str)
         if since_ts is None:
-            return web.json_response(
-                {"error": f"Invalid since value: '{since_str}'"},
-                status=400,
+            return api_error(
+                f"Invalid since value: '{since_str}'",
+                code=INVALID_PARAMETER,
             )
 
     until_ts = None
     if until_str:
         until_ts = parse_time_filter(until_str)
         if until_ts is None:
-            return web.json_response(
-                {"error": f"Invalid until value: '{until_str}'"},
-                status=400,
+            return api_error(
+                f"Invalid until value: '{until_str}'",
+                code=INVALID_PARAMETER,
             )
 
     # Get connection pool from middleware
@@ -470,8 +463,9 @@ async def api_stats_policy_handler(request: web.Request) -> web.Response:
     policy = await asyncio.to_thread(_query_policy)
 
     if policy is None:
-        return web.json_response(
-            {"error": f"No statistics found for policy: {policy_name}"},
+        return api_error(
+            f"No statistics found for policy: {policy_name}",
+            code=NOT_FOUND,
             status=404,
         )
 
@@ -534,9 +528,9 @@ async def api_library_trends_handler(
     if since_str:
         since_ts = parse_time_filter(since_str)
         if since_ts is None:
-            return web.json_response(
-                {"error": f"Invalid since value: '{since_str}'"},
-                status=400,
+            return api_error(
+                f"Invalid since value: '{since_str}'",
+                code=INVALID_PARAMETER,
             )
 
     connection_pool = request["connection_pool"]

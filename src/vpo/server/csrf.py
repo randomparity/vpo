@@ -11,6 +11,8 @@ from collections.abc import Awaitable, Callable
 from aiohttp import web
 from aiohttp_session import get_session
 
+from vpo.server.api.errors import CSRF_ERROR
+
 logger = logging.getLogger(__name__)
 
 # CSRF token header name
@@ -88,7 +90,7 @@ async def csrf_middleware(
                 extra={"method": request.method, "path": request.path},
             )
             return web.json_response(
-                {"error": "CSRF token missing from session"},
+                {"error": "CSRF token missing from session", "code": CSRF_ERROR},
                 status=403,
             )
 
@@ -101,7 +103,10 @@ async def csrf_middleware(
                 extra={"method": request.method, "path": request.path},
             )
             return web.json_response(
-                {"error": f"CSRF token required in {CSRF_HEADER} header"},
+                {
+                    "error": f"CSRF token required in {CSRF_HEADER} header",
+                    "code": CSRF_ERROR,
+                },
                 status=403,
             )
 
@@ -112,7 +117,7 @@ async def csrf_middleware(
                 extra={"method": request.method, "path": request.path},
             )
             return web.json_response(
-                {"error": "Invalid CSRF token"},
+                {"error": "Invalid CSRF token", "code": CSRF_ERROR},
                 status=403,
             )
 

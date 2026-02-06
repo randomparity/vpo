@@ -19,6 +19,12 @@ from vpo.core.datetime_utils import (
 )
 from vpo.core.validation import is_valid_uuid
 from vpo.db.views import get_scan_errors_for_job
+from vpo.server.api.errors import (
+    INVALID_ID_FORMAT,
+    INVALID_PARAMETER,
+    NOT_FOUND,
+    api_error,
+)
 from vpo.server.middleware import JOBS_ALLOWED_PARAMS, validate_query_params
 from vpo.server.ui.models import (
     JobFilterParams,
@@ -62,9 +68,9 @@ async def api_jobs_handler(request: web.Request) -> web.Response:
         try:
             status_enum = JobStatus(params.status)
         except ValueError:
-            return web.json_response(
-                {"error": f"Invalid status value: '{params.status}'"},
-                status=400,
+            return api_error(
+                f"Invalid status value: '{params.status}'",
+                code=INVALID_PARAMETER,
             )
 
     # Validate job_type parameter
@@ -73,17 +79,17 @@ async def api_jobs_handler(request: web.Request) -> web.Response:
         try:
             job_type_enum = JobType(params.job_type)
         except ValueError:
-            return web.json_response(
-                {"error": f"Invalid type value: '{params.job_type}'"},
-                status=400,
+            return api_error(
+                f"Invalid type value: '{params.job_type}'",
+                code=INVALID_PARAMETER,
             )
 
     # Parse time filter (returns None for invalid values)
     since_timestamp = parse_time_filter(params.since)
     if params.since and since_timestamp is None:
-        return web.json_response(
-            {"error": f"Invalid since value: '{params.since}'"},
-            status=400,
+        return api_error(
+            f"Invalid since value: '{params.since}'",
+            code=INVALID_PARAMETER,
         )
 
     # Get connection pool from middleware
@@ -168,10 +174,7 @@ async def api_job_detail_handler(request: web.Request) -> web.Response:
 
     # Validate UUID format
     if not is_valid_uuid(job_id):
-        return web.json_response(
-            {"error": "Invalid job ID format"},
-            status=400,
-        )
+        return api_error("Invalid job ID format", code=INVALID_ID_FORMAT)
 
     # Get connection pool from middleware
     connection_pool = request["connection_pool"]
@@ -186,10 +189,7 @@ async def api_job_detail_handler(request: web.Request) -> web.Response:
     job = await asyncio.to_thread(_query_job)
 
     if job is None:
-        return web.json_response(
-            {"error": "Job not found"},
-            status=404,
-        )
+        return api_error("Job not found", code=NOT_FOUND, status=404)
 
     # Check if log file exists
     has_logs = log_file_exists(job_id)
@@ -225,10 +225,7 @@ async def api_job_logs_handler(request: web.Request) -> web.Response:
 
     # Validate UUID format
     if not is_valid_uuid(job_id):
-        return web.json_response(
-            {"error": "Invalid job ID format"},
-            status=400,
-        )
+        return api_error("Invalid job ID format", code=INVALID_ID_FORMAT)
 
     # Parse query parameters
     try:
@@ -275,10 +272,7 @@ async def api_job_errors_handler(request: web.Request) -> web.Response:
 
     # Validate UUID format
     if not is_valid_uuid(job_id):
-        return web.json_response(
-            {"error": "Invalid job ID format"},
-            status=400,
-        )
+        return api_error("Invalid job ID format", code=INVALID_ID_FORMAT)
 
     # Get connection pool from middleware
     pool = request["connection_pool"]

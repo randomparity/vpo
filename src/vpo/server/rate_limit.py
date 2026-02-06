@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from aiohttp import web
 
 from vpo.config.models import RateLimitConfig
+from vpo.server.api.errors import RATE_LIMITED
 
 logger = logging.getLogger(__name__)
 
@@ -208,7 +209,10 @@ async def _rate_limit_middleware(
                 retry_after_int,
             )
             return web.json_response(
-                {"error": "Rate limit exceeded. Please wait before retrying."},
+                {
+                    "error": "Rate limit exceeded. Please wait before retrying.",
+                    "code": RATE_LIMITED,
+                },
                 status=429,
                 headers={"Retry-After": str(retry_after_int)},
             )

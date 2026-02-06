@@ -19,6 +19,7 @@ from typing import Any
 from aiohttp import web
 
 from vpo.core.datetime_utils import parse_iso_timestamp, parse_time_filter
+from vpo.server.api.errors import SERVICE_UNAVAILABLE
 from vpo.server.ui.models import JobFilterParams, JobListItem
 from vpo.server.ui.routes import shutdown_check_middleware
 
@@ -112,9 +113,12 @@ async def sse_jobs_handler(request: web.Request) -> web.StreamResponse:
             client_ip,
             request_id,
         )
-        return web.Response(
+        return web.json_response(
+            {
+                "error": "Service temporarily unavailable - too many connections",
+                "code": SERVICE_UNAVAILABLE,
+            },
             status=503,
-            text="Service temporarily unavailable - too many connections",
             headers={"Retry-After": "10"},
         )
 

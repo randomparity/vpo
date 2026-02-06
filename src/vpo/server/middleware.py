@@ -19,6 +19,8 @@ from functools import wraps
 
 from aiohttp import web
 
+from vpo.server.api.errors import UNKNOWN_PARAMETERS, api_error
+
 logger = logging.getLogger(__name__)
 
 Handler = Callable[[web.Request], Awaitable[web.StreamResponse]]
@@ -51,9 +53,9 @@ def validate_query_params(
             unknown = set(request.query.keys()) - allowed_params
             if unknown:
                 if strict:
-                    return web.json_response(
-                        {"error": f"Unknown query parameters: {sorted(unknown)}"},
-                        status=400,
+                    return api_error(
+                        f"Unknown query parameters: {sorted(unknown)}",
+                        code=UNKNOWN_PARAMETERS,
                     )
                 else:
                     logger.warning(

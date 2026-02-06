@@ -15,6 +15,7 @@ import logging
 
 from aiohttp import web
 
+from vpo.server.api.errors import INVALID_ID_FORMAT, NOT_FOUND, api_error
 from vpo.server.middleware import TRANSCRIPTIONS_ALLOWED_PARAMS, validate_query_params
 from vpo.server.ui.models import (
     FileDetailResponse,
@@ -185,10 +186,7 @@ async def api_file_detail_handler(request: web.Request) -> web.Response:
         if file_id < 1:
             raise ValueError("Invalid ID")
     except ValueError:
-        return web.json_response(
-            {"error": "Invalid file ID format"},
-            status=400,
-        )
+        return api_error("Invalid file ID format", code=INVALID_ID_FORMAT)
 
     # Get connection pool from middleware
     connection_pool = request["connection_pool"]
@@ -208,10 +206,7 @@ async def api_file_detail_handler(request: web.Request) -> web.Response:
     file_record, tracks, transcriptions = await asyncio.to_thread(_query_file)
 
     if file_record is None:
-        return web.json_response(
-            {"error": "File not found"},
-            status=404,
-        )
+        return api_error("File not found", code=NOT_FOUND, status=404)
 
     # Build FileDetailItem
     detail_item = build_file_detail_item(file_record, tracks, transcriptions)
@@ -307,10 +302,7 @@ async def api_transcription_detail_handler(request: web.Request) -> web.Response
         if transcription_id < 1:
             raise ValueError("Invalid ID")
     except ValueError:
-        return web.json_response(
-            {"error": "Invalid transcription ID format"},
-            status=400,
-        )
+        return api_error("Invalid transcription ID format", code=INVALID_ID_FORMAT)
 
     # Get connection pool from middleware
     connection_pool = request["connection_pool"]
@@ -323,10 +315,7 @@ async def api_transcription_detail_handler(request: web.Request) -> web.Response
     data = await asyncio.to_thread(_query_transcription)
 
     if data is None:
-        return web.json_response(
-            {"error": "Transcription not found"},
-            status=404,
-        )
+        return api_error("Transcription not found", code=NOT_FOUND, status=404)
 
     # Build detail item
     detail_item = build_transcription_detail_item(data)

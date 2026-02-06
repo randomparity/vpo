@@ -17,6 +17,16 @@ from datetime import datetime, timezone
 
 from aiohttp import web
 
+from vpo.server.api.errors import (
+    CONCURRENT_MODIFICATION,
+    INTERNAL_ERROR,
+    INVALID_JSON,
+    INVALID_REQUEST,
+    NOT_FOUND,
+    RESOURCE_CONFLICT,
+    VALIDATION_FAILED,
+    api_error,
+)
 from vpo.server.ui.routes import shutdown_check_middleware
 
 logger = logging.getLogger(__name__)
@@ -74,10 +84,7 @@ async def api_policy_detail_handler(request: web.Request) -> web.Response:
 
     # Validate policy name
     if not re.match(r"^[a-zA-Z0-9_-]+$", policy_name):
-        return web.json_response(
-            {"error": "Invalid policy name format"},
-            status=400,
-        )
+        return api_error("Invalid policy name format", code=INVALID_REQUEST)
 
     # Get policy directory (allow test override)
     policies_dir = request.app.get("policy_dir", DEFAULT_POLICIES_DIR)
@@ -88,10 +95,7 @@ async def api_policy_detail_handler(request: web.Request) -> web.Response:
         policy_path = policies_dir / f"{policy_name}.yml"
 
     if not policy_path.exists():
-        return web.json_response(
-            {"error": "Policy not found"},
-            status=404,
-        )
+        return api_error("Policy not found", code=NOT_FOUND, status=404)
 
     # Verify resolved path is within allowed directory (prevent path traversal)
     try:
@@ -99,10 +103,7 @@ async def api_policy_detail_handler(request: web.Request) -> web.Response:
         resolved_dir = policies_dir.resolve()
         resolved_path.relative_to(resolved_dir)
     except (ValueError, OSError):
-        return web.json_response(
-            {"error": "Invalid policy path"},
-            status=400,
-        )
+        return api_error("Invalid policy path", code=INVALID_REQUEST)
 
     # Load policy
     def _load_policy():
@@ -123,10 +124,7 @@ async def api_policy_detail_handler(request: web.Request) -> web.Response:
     policy_data, last_modified, parse_error = await asyncio.to_thread(_load_policy)
 
     if policy_data is None and parse_error:
-        return web.json_response(
-            {"error": parse_error},
-            status=400,
-        )
+        return api_error(parse_error, code=VALIDATION_FAILED)
 
     # Build response with V3-V10 fields (036-v9-policy-editor T010)
     # Get unknown fields for warning banner
@@ -199,25 +197,16 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
 
     # Validate policy name
     if not re.match(r"^[a-zA-Z0-9_-]+$", policy_name):
-        return web.json_response(
-            {"error": "Invalid policy name format"},
-            status=400,
-        )
+        return api_error("Invalid policy name format", code=INVALID_REQUEST)
 
     # Parse request body
     try:
         request_data = await request.json()
         editor_request = PolicyEditorRequest.from_dict(request_data)
     except ValueError as e:
-        return web.json_response(
-            {"error": f"Invalid request: {e}"},
-            status=400,
-        )
+        return api_error(f"Invalid request: {e}", code=INVALID_REQUEST)
     except Exception:
-        return web.json_response(
-            {"error": "Invalid JSON payload"},
-            status=400,
-        )
+        return api_error("Invalid JSON payload", code=INVALID_JSON)
 
     # Get policy directory (allow test override)
     policies_dir = request.app.get("policy_dir", DEFAULT_POLICIES_DIR)
@@ -228,10 +217,7 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
         policy_path = policies_dir / f"{policy_name}.yml"
 
     if not policy_path.exists():
-        return web.json_response(
-            {"error": "Policy not found"},
-            status=404,
-        )
+        return api_error("Policy not found", code=NOT_FOUND, status=404)
 
     # Verify resolved path is within allowed directory (prevent path traversal)
     try:
@@ -239,10 +225,7 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
         resolved_dir = policies_dir.resolve()
         resolved_path.relative_to(resolved_dir)
     except (ValueError, OSError):
-        return web.json_response(
-            {"error": "Invalid policy path"},
-            status=400,
-        )
+        return api_error("Invalid policy path", code=INVALID_REQUEST)
 
     # Validate policy data BEFORE attempting save (T015)
     policy_dict = editor_request.to_policy_dict()
@@ -260,6 +243,7 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
         ]
         error_response = ValidationErrorResponse(
             error="Validation failed",
+            code=VALIDATION_FAILED,
             errors=error_items,
             details=f"{len(error_items)} validation error(s) found",
         )
@@ -306,21 +290,21 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
     policy_data, last_modified, error = await asyncio.to_thread(_check_and_save)
 
     if error == "concurrent_modification":
-        return web.json_response(
-            {
-                "error": "Concurrent modification detected",
-                "details": (
-                    "Policy was modified since you loaded it. "
-                    "Please reload and try again."
-                ),
-            },
+        return api_error(
+            "Concurrent modification detected",
+            code=CONCURRENT_MODIFICATION,
             status=409,
+            details=(
+                "Policy was modified since you loaded it. Please reload and try again."
+            ),
         )
 
     if error:
-        return web.json_response(
-            {"error": "Save failed", "details": error},
+        return api_error(
+            "Save failed",
+            code=INTERNAL_ERROR,
             status=500,
+            details=error,
         )
 
     # Calculate diff summary (T017)
@@ -415,25 +399,16 @@ async def api_policy_validate_handler(request: web.Request) -> web.Response:
 
     # Validate policy name format
     if not re.match(r"^[a-zA-Z0-9_-]+$", policy_name):
-        return web.json_response(
-            {"error": "Invalid policy name format"},
-            status=400,
-        )
+        return api_error("Invalid policy name format", code=INVALID_REQUEST)
 
     # Parse request body
     try:
         request_data = await request.json()
         editor_request = PolicyEditorRequest.from_dict(request_data)
     except ValueError as e:
-        return web.json_response(
-            {"error": f"Invalid request: {e}"},
-            status=400,
-        )
+        return api_error(f"Invalid request: {e}", code=INVALID_REQUEST)
     except Exception:
-        return web.json_response(
-            {"error": "Invalid JSON payload"},
-            status=400,
-        )
+        return api_error("Invalid JSON payload", code=INVALID_JSON)
 
     # Validate policy data (does NOT save)
     policy_dict = editor_request.to_policy_dict()
@@ -490,28 +465,18 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
     try:
         request_data = await request.json()
     except Exception:
-        return web.json_response(
-            {"error": "Invalid JSON payload"},
-            status=400,
-        )
+        return api_error("Invalid JSON payload", code=INVALID_JSON)
 
     # Extract and validate policy name
     policy_name = request_data.get("name", "").strip()
     if not policy_name:
-        return web.json_response(
-            {"error": "Policy name is required"},
-            status=400,
-        )
+        return api_error("Policy name is required", code=INVALID_REQUEST)
 
     if not re.match(r"^[a-zA-Z0-9_-]+$", policy_name):
-        return web.json_response(
-            {
-                "error": (
-                    "Invalid policy name format. "
-                    "Use only letters, numbers, dashes, and underscores."
-                )
-            },
-            status=400,
+        return api_error(
+            "Invalid policy name format. "
+            "Use only letters, numbers, dashes, and underscores.",
+            code=INVALID_REQUEST,
         )
 
     # Get policy directory (allow test override)
@@ -525,8 +490,9 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
     alt_path = policies_dir / f"{policy_name}.yml"
 
     if policy_path.exists() or alt_path.exists():
-        return web.json_response(
-            {"error": f"Policy '{policy_name}' already exists"},
+        return api_error(
+            f"Policy '{policy_name}' already exists",
+            code=RESOURCE_CONFLICT,
             status=409,
         )
 
@@ -536,10 +502,7 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
         resolved_dir = policies_dir.resolve()
         resolved_path.relative_to(resolved_dir)
     except (ValueError, OSError):
-        return web.json_response(
-            {"error": "Invalid policy path"},
-            status=400,
-        )
+        return api_error("Invalid policy path", code=INVALID_REQUEST)
 
     # Create default policy data with current schema version (phased format)
     policy_data = {
@@ -566,9 +529,9 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
     display_name = request_data.get("display_name", "").strip()
     if display_name:
         if len(display_name) > 200:
-            return web.json_response(
-                {"error": "Display name must be 200 characters or fewer"},
-                status=400,
+            return api_error(
+                "Display name must be 200 characters or fewer",
+                code=INVALID_REQUEST,
             )
         policy_data["name"] = display_name
 
@@ -605,9 +568,11 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
     created_data, last_modified, error = await asyncio.to_thread(_create_policy)
 
     if error:
-        return web.json_response(
-            {"error": "Failed to create policy", "details": error},
+        return api_error(
+            "Failed to create policy",
+            code=INTERNAL_ERROR,
             status=500,
+            details=error,
         )
 
     # Build response with policy editor context
