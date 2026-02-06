@@ -4,9 +4,33 @@ This module contains types for track filtering, pre-processing actions,
 container conversion, default flag handling, and transcription options.
 """
 
+from __future__ import annotations
+
 import re
 from dataclasses import dataclass
 from typing import Literal
+
+
+@dataclass(frozen=True)
+class TranscriptionInfo:
+    """Domain model for transcription data needed by policy evaluation.
+
+    Contains only the fields the evaluator uses, decoupled from the
+    database record (TranscriptionResultRecord).
+    """
+
+    detected_language: str | None
+    confidence_score: float
+    track_type: str  # "main", "commentary", "alternate", "music", "sfx", "non_speech"
+
+    @classmethod
+    def from_record(cls, record: object) -> TranscriptionInfo:
+        """Create from a TranscriptionResultRecord or similar object."""
+        return cls(
+            detected_language=record.detected_language,  # type: ignore[attr-defined]
+            confidence_score=record.confidence_score,  # type: ignore[attr-defined]
+            track_type=record.track_type,  # type: ignore[attr-defined]
+        )
 
 
 @dataclass(frozen=True)

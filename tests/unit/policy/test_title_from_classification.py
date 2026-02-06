@@ -2,7 +2,7 @@
 
 import pytest
 
-from vpo.db import TrackRecord, TranscriptionResultRecord
+from vpo.db import TrackInfo
 from vpo.policy.evaluator.transcription import (
     CLASSIFICATION_TITLES,
     _is_generic_title,
@@ -10,6 +10,7 @@ from vpo.policy.evaluator.transcription import (
 )
 from vpo.policy.types import (
     EvaluationPolicy,
+    TranscriptionInfo,
     TranscriptionPolicyOptions,
 )
 
@@ -75,31 +76,24 @@ class TestComputeTitleUpdates:
     @pytest.fixture
     def audio_track(self):
         """Audio track with generic title."""
-        return TrackRecord(
+        return TrackInfo(
+            index=1,
             id=1,
-            file_id=100,
             track_type="audio",
             codec="pcm_s16le",
-            track_index=1,
             language="eng",
             title="Stereo",
-            is_default=False,
-            is_forced=False,
         )
 
     @pytest.fixture
     def audio_track_no_title(self):
         """Audio track with no title."""
-        return TrackRecord(
+        return TrackInfo(
+            index=2,
             id=2,
-            file_id=100,
             track_type="audio",
             codec="aac",
-            track_index=2,
             language="eng",
-            title=None,
-            is_default=False,
-            is_forced=False,
         )
 
     @pytest.fixture
@@ -125,54 +119,48 @@ class TestComputeTitleUpdates:
 
     def _make_transcription_result(
         self, track_id: int, track_type: str, confidence: float = 0.95
-    ) -> TranscriptionResultRecord:
-        return TranscriptionResultRecord(
-            id=track_id,
-            track_id=track_id,
+    ) -> TranscriptionInfo:
+        return TranscriptionInfo(
             detected_language="eng",
             confidence_score=confidence,
             track_type=track_type,
-            transcript_sample=None,
-            plugin_name="whisper-local",
-            created_at="2025-01-01T00:00:00Z",
-            updated_at="2025-01-01T00:00:00Z",
         )
 
     def test_generates_title_for_main(self, audio_track, policy_enabled):
         """Main classification sets title 'Main'."""
         results = {audio_track.id: self._make_transcription_result(1, "main")}
         updates = compute_title_updates([audio_track], results, policy_enabled)
-        assert updates[audio_track.track_index] == "Main"
+        assert updates[audio_track.index] == "Main"
 
     def test_generates_title_for_commentary(self, audio_track, policy_enabled):
         """Commentary classification sets title 'Commentary'."""
         results = {audio_track.id: self._make_transcription_result(1, "commentary")}
         updates = compute_title_updates([audio_track], results, policy_enabled)
-        assert updates[audio_track.track_index] == "Commentary"
+        assert updates[audio_track.index] == "Commentary"
 
     def test_generates_title_for_music(self, audio_track, policy_enabled):
         """Music classification sets title 'Music'."""
         results = {audio_track.id: self._make_transcription_result(1, "music")}
         updates = compute_title_updates([audio_track], results, policy_enabled)
-        assert updates[audio_track.track_index] == "Music"
+        assert updates[audio_track.index] == "Music"
 
     def test_generates_title_for_sfx(self, audio_track, policy_enabled):
         """SFX classification sets title 'Sound Effects'."""
         results = {audio_track.id: self._make_transcription_result(1, "sfx")}
         updates = compute_title_updates([audio_track], results, policy_enabled)
-        assert updates[audio_track.track_index] == "Sound Effects"
+        assert updates[audio_track.index] == "Sound Effects"
 
     def test_generates_title_for_non_speech(self, audio_track, policy_enabled):
         """Non-speech classification sets title 'Non-Speech'."""
         results = {audio_track.id: self._make_transcription_result(1, "non_speech")}
         updates = compute_title_updates([audio_track], results, policy_enabled)
-        assert updates[audio_track.track_index] == "Non-Speech"
+        assert updates[audio_track.index] == "Non-Speech"
 
     def test_generates_title_for_alternate(self, audio_track, policy_enabled):
         """Alternate classification sets title 'Alternate'."""
         results = {audio_track.id: self._make_transcription_result(1, "alternate")}
         updates = compute_title_updates([audio_track], results, policy_enabled)
-        assert updates[audio_track.track_index] == "Alternate"
+        assert updates[audio_track.index] == "Alternate"
 
     def test_all_classification_types_covered(self):
         """All known classification types have a title mapping."""
@@ -209,16 +197,13 @@ class TestComputeTitleUpdates:
 
     def test_skips_non_audio_tracks(self, policy_enabled):
         """Does not process video tracks."""
-        video_track = TrackRecord(
+        video_track = TrackInfo(
+            index=0,
             id=1,
-            file_id=100,
             track_type="video",
             codec="h264",
-            track_index=0,
             language="und",
-            title=None,
             is_default=True,
-            is_forced=False,
         )
         results = {video_track.id: self._make_transcription_result(1, "main")}
         updates = compute_title_updates([video_track], results, policy_enabled)
@@ -226,16 +211,13 @@ class TestComputeTitleUpdates:
 
     def test_skips_descriptive_titles(self, policy_enabled):
         """Does not overwrite descriptive (non-generic) titles."""
-        track = TrackRecord(
+        track = TrackInfo(
+            index=1,
             id=1,
-            file_id=100,
             track_type="audio",
             codec="aac",
-            track_index=1,
             language="eng",
             title="Director's Commentary",
-            is_default=False,
-            is_forced=False,
         )
         results = {track.id: self._make_transcription_result(1, "commentary")}
         updates = compute_title_updates([track], results, policy_enabled)
@@ -259,7 +241,7 @@ class TestComputeTitleUpdates:
             audio_track.id: self._make_transcription_result(1, "main", confidence=0.7)
         }
         updates = compute_title_updates([audio_track], results, policy_low)
-        assert audio_track.track_index in updates
+        assert audio_track.index in updates
 
         policy_high = EvaluationPolicy(
             transcription=TranscriptionPolicyOptions(
@@ -284,16 +266,13 @@ class TestComputeTitleUpdates:
 
     def test_idempotent_already_set(self, policy_enabled):
         """Track already titled 'Commentary' is not updated again."""
-        track = TrackRecord(
+        track = TrackInfo(
+            index=1,
             id=1,
-            file_id=100,
             track_type="audio",
             codec="aac",
-            track_index=1,
             language="eng",
             title="Commentary",
-            is_default=False,
-            is_forced=False,
         )
         results = {track.id: self._make_transcription_result(1, "commentary")}
         updates = compute_title_updates([track], results, policy_enabled)
@@ -303,31 +282,25 @@ class TestComputeTitleUpdates:
         """Track with None title gets updated."""
         results = {audio_track_no_title.id: self._make_transcription_result(2, "main")}
         updates = compute_title_updates([audio_track_no_title], results, policy_enabled)
-        assert updates[audio_track_no_title.track_index] == "Main"
+        assert updates[audio_track_no_title.index] == "Main"
 
     def test_multiple_tracks(self, policy_enabled):
         """Multiple tracks get independent title updates."""
-        track1 = TrackRecord(
+        track1 = TrackInfo(
+            index=1,
             id=1,
-            file_id=100,
             track_type="audio",
             codec="aac",
-            track_index=1,
             language="eng",
             title="Stereo",
             is_default=True,
-            is_forced=False,
         )
-        track2 = TrackRecord(
+        track2 = TrackInfo(
+            index=2,
             id=2,
-            file_id=100,
             track_type="audio",
             codec="aac",
-            track_index=2,
             language="eng",
-            title=None,
-            is_default=False,
-            is_forced=False,
         )
         results = {
             1: self._make_transcription_result(1, "main"),

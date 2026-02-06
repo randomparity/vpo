@@ -8,10 +8,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from vpo.db import (
-    TrackInfo,
-    TranscriptionResultRecord,
-)
+from vpo.db import TrackInfo
 from vpo.language import languages_match
 from vpo.policy.evaluator.classification import classify_track
 from vpo.policy.exceptions import InsufficientTracksError
@@ -23,6 +20,7 @@ from vpo.policy.types import (
     SubtitleFilterConfig,
     TrackDisposition,
     TrackType,
+    TranscriptionInfo,
 )
 from vpo.transcription.models import (
     is_music_by_metadata,
@@ -276,7 +274,7 @@ def _apply_fallback(
 def compute_track_dispositions(
     tracks: list[TrackInfo],
     policy: EvaluationPolicy,
-    transcription_results: dict[int, TranscriptionResultRecord] | None = None,
+    transcription_results: dict[int, TranscriptionInfo] | None = None,
     subtitle_forced_will_be_cleared: bool = False,
 ) -> tuple[TrackDisposition, ...]:
     """Compute disposition for each track based on policy filters.

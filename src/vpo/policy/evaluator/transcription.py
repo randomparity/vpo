@@ -6,13 +6,9 @@ and title updates from transcription results.
 
 from __future__ import annotations
 
-from vpo.db import (
-    TrackInfo,
-    TrackRecord,
-    TranscriptionResultRecord,
-)
+from vpo.db import TrackInfo
 from vpo.language import languages_match, normalize_language
-from vpo.policy.types import EvaluationPolicy
+from vpo.policy.types import EvaluationPolicy, TranscriptionInfo
 
 # Mapping from transcription track_type to display title
 CLASSIFICATION_TITLES: dict[str, str] = {
@@ -68,37 +64,17 @@ GENERIC_TITLE_PATTERNS: set[str] = {
 }
 
 
-def _get_track_lookup_id(track: TrackInfo | TrackRecord) -> int:
-    """Get the ID to use for transcription result lookup.
-
-    TrackRecord uses its database ID; TrackInfo falls back to track_index or index.
-    """
-    track_id = getattr(track, "id", None)
-    if track_id is not None:
-        return track_id
-    return getattr(track, "track_index", track.index)
-
-
-def _get_track_index(track: TrackInfo | TrackRecord) -> int | None:
-    """Get the track index for output mapping.
-
-    TrackRecord has track_index; TrackInfo has index.
-    """
-    return getattr(track, "track_index", getattr(track, "index", None))
-
-
 def compute_language_updates(
-    tracks: list[TrackInfo | TrackRecord],
-    transcription_results: dict[int, TranscriptionResultRecord],
+    tracks: list[TrackInfo],
+    transcription_results: dict[int, TranscriptionInfo],
     policy: EvaluationPolicy,
 ) -> dict[int, str]:
     """Compute desired language updates from transcription results.
 
     Args:
-        tracks: List of track metadata (either TrackInfo or TrackRecord).
-        transcription_results: Map of track_id (database ID) to transcription result.
-            For TrackRecord tracks, uses track.id.
-            For TrackInfo tracks, uses track.index as fallback key.
+        tracks: List of track metadata.
+        transcription_results: Map of track ID to transcription info.
+            Uses track.id if available, otherwise track.index.
         policy: Policy configuration with transcription settings.
 
     Returns:
@@ -119,7 +95,8 @@ def compute_language_updates(
         if track.track_type.casefold() != "audio":
             continue
 
-        tr_result = transcription_results.get(_get_track_lookup_id(track))
+        lookup_id = track.id if track.id is not None else track.index
+        tr_result = transcription_results.get(lookup_id)
         if tr_result is None:
             continue
 
@@ -137,11 +114,10 @@ def compute_language_updates(
         if languages_match(current_lang, detected_lang):
             continue
 
-        track_index = _get_track_index(track)
         detected_lang_normalized = normalize_language(detected_lang)
 
         if current_lang == "und" or not languages_match(current_lang, detected_lang):
-            result[track_index] = detected_lang_normalized
+            result[track.index] = detected_lang_normalized
 
     return result
 
@@ -162,17 +138,16 @@ def _is_generic_title(title: str | None) -> bool:
 
 
 def compute_title_updates(
-    tracks: list[TrackInfo | TrackRecord],
-    transcription_results: dict[int, TranscriptionResultRecord],
+    tracks: list[TrackInfo],
+    transcription_results: dict[int, TranscriptionInfo],
     policy: EvaluationPolicy,
 ) -> dict[int, str]:
     """Compute desired title updates from transcription classification results.
 
     Args:
-        tracks: List of track metadata (either TrackInfo or TrackRecord).
-        transcription_results: Map of track_id (database ID) to transcription result.
-            For TrackRecord tracks, uses track.id.
-            For TrackInfo tracks, uses track.index as fallback key.
+        tracks: List of track metadata.
+        transcription_results: Map of track ID to transcription info.
+            Uses track.id if available, otherwise track.index.
         policy: Policy configuration with transcription settings.
 
     Returns:
@@ -193,16 +168,13 @@ def compute_title_updates(
         if track.track_type.casefold() != "audio":
             continue
 
-        tr_result = transcription_results.get(_get_track_lookup_id(track))
+        lookup_id = track.id if track.id is not None else track.index
+        tr_result = transcription_results.get(lookup_id)
         if tr_result is None or tr_result.confidence_score < threshold:
             continue
 
         desired_title = CLASSIFICATION_TITLES.get(tr_result.track_type)
         if desired_title is None:
-            continue
-
-        track_index = _get_track_index(track)
-        if track_index is None:
             continue
 
         # Skip tracks with descriptive (non-generic) existing titles
@@ -214,6 +186,6 @@ def compute_title_updates(
         if current_title == desired_title:
             continue
 
-        result[track_index] = desired_title
+        result[track.index] = desired_title
 
     return result

@@ -14,10 +14,7 @@ if TYPE_CHECKING:
     from vpo.language_analysis.models import LanguageAnalysisResult
     from vpo.track_classification.models import TrackClassificationResult
 
-from vpo.db import (
-    TrackInfo,
-    TranscriptionResultRecord,
-)
+from vpo.db import TrackInfo
 from vpo.policy.conditions import PluginMetadataDict
 from vpo.policy.evaluator.classification import (
     _audio_matches_language_preference,
@@ -43,6 +40,7 @@ from vpo.policy.types import (
     PlannedAction,
     SkipFlags,
     TrackDisposition,
+    TranscriptionInfo,
 )
 
 
@@ -52,7 +50,7 @@ def evaluate_policy(
     container: str,
     tracks: list[TrackInfo],
     policy: EvaluationPolicy,
-    transcription_results: dict[int, TranscriptionResultRecord] | None = None,
+    transcription_results: dict[int, TranscriptionInfo] | None = None,
     language_results: dict[int, LanguageAnalysisResult] | None = None,
     plugin_metadata: PluginMetadataDict | None = None,
     classification_results: dict[int, TrackClassificationResult] | None = None,

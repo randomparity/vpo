@@ -2,7 +2,7 @@
 
 import pytest
 
-from vpo.db import TrackRecord, TranscriptionResultRecord
+from vpo.db import TrackInfo
 from vpo.policy.evaluator import compute_language_updates
 from vpo.policy.loader import (
     PolicyValidationError,
@@ -10,6 +10,7 @@ from vpo.policy.loader import (
 )
 from vpo.policy.types import (
     EvaluationPolicy,
+    TranscriptionInfo,
     TranscriptionPolicyOptions,
 )
 
@@ -262,31 +263,21 @@ class TestComputeLanguageUpdates:
     @pytest.fixture
     def audio_track(self):
         """Create a sample audio track."""
-        return TrackRecord(
+        return TrackInfo(
+            index=1,
             id=1,
-            file_id=100,
             track_type="audio",
             codec="aac",
-            track_index=1,
             language="und",
-            title=None,
-            is_default=False,
-            is_forced=False,
         )
 
     @pytest.fixture
     def transcription_result(self):
         """Create a sample transcription result."""
-        return TranscriptionResultRecord(
-            id=1,
-            track_id=1,
+        return TranscriptionInfo(
             detected_language="eng",
             confidence_score=0.95,
             track_type="main",
-            transcript_sample=None,
-            plugin_name="whisper-local",
-            created_at="2025-01-01T00:00:00Z",
-            updated_at="2025-01-01T00:00:00Z",
         )
 
     @pytest.fixture
@@ -316,8 +307,8 @@ class TestComputeLanguageUpdates:
         results = {audio_track.id: transcription_result}
         updates = compute_language_updates([audio_track], results, policy_enabled)
 
-        assert audio_track.track_index in updates
-        assert updates[audio_track.track_index] == "eng"
+        assert audio_track.index in updates
+        assert updates[audio_track.index] == "eng"
 
     def test_no_updates_when_disabled(
         self, audio_track, transcription_result, policy_disabled
@@ -332,16 +323,12 @@ class TestComputeLanguageUpdates:
         self, transcription_result, policy_enabled
     ):
         """Should not update when current language matches detected."""
-        track = TrackRecord(
+        track = TrackInfo(
+            index=1,
             id=1,
-            file_id=100,
             track_type="audio",
             codec="aac",
-            track_index=1,
             language="eng",  # Already matches
-            title=None,
-            is_default=False,
-            is_forced=False,
         )
         results = {track.id: transcription_result}
         updates = compute_language_updates([track], results, policy_enabled)
@@ -350,16 +337,10 @@ class TestComputeLanguageUpdates:
 
     def test_no_updates_below_threshold(self, audio_track, policy_enabled):
         """Should not update when confidence is below threshold."""
-        low_confidence_result = TranscriptionResultRecord(
-            id=1,
-            track_id=1,
+        low_confidence_result = TranscriptionInfo(
             detected_language="eng",
             confidence_score=0.5,  # Below 0.8 threshold
             track_type="main",
-            transcript_sample=None,
-            plugin_name="whisper-local",
-            created_at="2025-01-01T00:00:00Z",
-            updated_at="2025-01-01T00:00:00Z",
         )
         results = {audio_track.id: low_confidence_result}
         updates = compute_language_updates([audio_track], results, policy_enabled)
@@ -368,16 +349,13 @@ class TestComputeLanguageUpdates:
 
     def test_no_updates_for_video_tracks(self, transcription_result, policy_enabled):
         """Should not process video tracks."""
-        video_track = TrackRecord(
+        video_track = TrackInfo(
+            index=0,
             id=1,
-            file_id=100,
             track_type="video",
             codec="h264",
-            track_index=0,
             language="und",
-            title=None,
             is_default=True,
-            is_forced=False,
         )
         results = {video_track.id: transcription_result}
         updates = compute_language_updates([video_track], results, policy_enabled)
@@ -406,16 +384,10 @@ class TestComputeLanguageUpdates:
 
     def test_custom_confidence_threshold(self, audio_track):
         """Should respect custom confidence threshold."""
-        result = TranscriptionResultRecord(
-            id=1,
-            track_id=1,
+        result = TranscriptionInfo(
             detected_language="eng",
             confidence_score=0.7,  # Between 0.5 and 0.8
             track_type="main",
-            transcript_sample=None,
-            plugin_name="whisper-local",
-            created_at="2025-01-01T00:00:00Z",
-            updated_at="2025-01-01T00:00:00Z",
         )
 
         # With 0.5 threshold, should update
@@ -428,7 +400,7 @@ class TestComputeLanguageUpdates:
         )
         results = {audio_track.id: result}
         updates = compute_language_updates([audio_track], results, policy_low)
-        assert audio_track.track_index in updates
+        assert audio_track.index in updates
 
         # With 0.8 threshold, should not update
         policy_high = EvaluationPolicy(
@@ -451,16 +423,10 @@ class TestComputeLanguageUpdates:
 
     def test_no_detected_language_skipped(self, audio_track, policy_enabled):
         """Should skip tracks where detected_language is None."""
-        result = TranscriptionResultRecord(
-            id=1,
-            track_id=1,
+        result = TranscriptionInfo(
             detected_language=None,  # No language detected
             confidence_score=0.95,
             track_type="main",
-            transcript_sample=None,
-            plugin_name="whisper-local",
-            created_at="2025-01-01T00:00:00Z",
-            updated_at="2025-01-01T00:00:00Z",
         )
         results = {audio_track.id: result}
         updates = compute_language_updates([audio_track], results, policy_enabled)
