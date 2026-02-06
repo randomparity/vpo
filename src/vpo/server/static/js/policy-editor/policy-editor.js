@@ -1652,6 +1652,14 @@ function announceToScreenReader(message) {
 
         // Initialize accessible language autocomplete (T023)
         initLanguageAutocomplete()
+
+        // Ctrl+S / Cmd+S keyboard shortcut for save
+        document.addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault()
+                savePolicy()
+            }
+        })
     }
 
     // Start the editor
