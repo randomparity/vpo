@@ -1,7 +1,7 @@
 # ============================================================================
 # Stage 1: build toolchains, external libs, and FFmpeg from source
 # ============================================================================
-FROM ubuntu:24.04 AS builder
+FROM ubuntu:24.04.2 AS builder
 ARG DEBIAN_FRONTEND=noninteractive
 ARG FFMPEG_BRANCH=n7.1.3
 ARG MAKE_JOBS=8
@@ -121,7 +121,7 @@ RUN make -j"${MAKE_JOBS}" && make install && ldconfig
 # ============================================================================
 # Stage 2: runtime
 # ============================================================================
-FROM ubuntu:24.04 AS runtime
+FROM ubuntu:24.04.2 AS runtime
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
