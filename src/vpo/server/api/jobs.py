@@ -43,7 +43,7 @@ from vpo.server.ui.routes import (
 
 @shutdown_check_middleware
 @database_required_middleware
-@validate_query_params(JOBS_ALLOWED_PARAMS)
+@validate_query_params(JOBS_ALLOWED_PARAMS, strict=True)
 async def api_jobs_handler(request: web.Request) -> web.Response:
     """Handle GET /api/jobs - JSON API for jobs listing.
 

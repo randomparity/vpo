@@ -48,7 +48,7 @@ from vpo.server.ui.routes import (
 
 @shutdown_check_middleware
 @database_required_middleware
-@validate_query_params(STATS_ALLOWED_PARAMS)
+@validate_query_params(STATS_ALLOWED_PARAMS, strict=True)
 async def api_stats_summary_handler(request: web.Request) -> web.Response:
     """Handle GET /api/stats/summary - JSON API for statistics summary.
 
@@ -194,7 +194,7 @@ async def api_stats_policies_handler(request: web.Request) -> web.Response:
 
 @shutdown_check_middleware
 @database_required_middleware
-@validate_query_params(STATS_ALLOWED_PARAMS)
+@validate_query_params(STATS_ALLOWED_PARAMS, strict=True)
 async def api_stats_trends_handler(request: web.Request) -> web.Response:
     """Handle GET /api/stats/trends - JSON API for processing trends.
 
@@ -309,7 +309,7 @@ async def api_stats_file_handler(request: web.Request) -> web.Response:
 
 @shutdown_check_middleware
 @database_required_middleware
-@validate_query_params(STATS_PURGE_ALLOWED_PARAMS)
+@validate_query_params(STATS_PURGE_ALLOWED_PARAMS, strict=True)
 async def api_stats_purge_handler(request: web.Request) -> web.Response:
     """Handle DELETE /api/stats/purge - Delete processing statistics.
 
@@ -474,7 +474,7 @@ async def api_stats_policy_handler(request: web.Request) -> web.Response:
 
 @shutdown_check_middleware
 @database_required_middleware
-@validate_query_params(frozenset())
+@validate_query_params(frozenset(), strict=True)
 async def api_library_distribution_handler(
     request: web.Request,
 ) -> web.Response:
@@ -506,7 +506,7 @@ LIBRARY_TRENDS_ALLOWED_PARAMS = frozenset({"since"})
 
 @shutdown_check_middleware
 @database_required_middleware
-@validate_query_params(LIBRARY_TRENDS_ALLOWED_PARAMS)
+@validate_query_params(LIBRARY_TRENDS_ALLOWED_PARAMS, strict=True)
 async def api_library_trends_handler(
     request: web.Request,
 ) -> web.Response:

@@ -339,6 +339,7 @@ class TestValidateQueryParams:
         data = json.loads(body)
         assert "Unknown query parameters" in data["error"]
         assert "unknown" in data["error"]
+        assert data["code"] == "UNKNOWN_PARAMETERS"
 
     @pytest.mark.asyncio
     async def test_strict_mode_allows_valid_params(self, mock_handler):

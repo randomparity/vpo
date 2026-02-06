@@ -303,6 +303,7 @@ class TestJobListResponse:
         assert result["limit"] == 50
         assert result["offset"] == 0
         assert result["has_filters"] is False
+        assert result["max_page_size"] == 100
 
     def test_to_dict_with_jobs(self):
         """Serializes response with job list."""

@@ -42,7 +42,7 @@ from vpo.server.ui.routes import (
 
 @shutdown_check_middleware
 @database_required_middleware
-@validate_query_params(PLANS_ALLOWED_PARAMS)
+@validate_query_params(PLANS_ALLOWED_PARAMS, strict=True)
 async def api_plans_handler(request: web.Request) -> web.Response:
     """Handle GET /api/plans - JSON API for plans listing.
 

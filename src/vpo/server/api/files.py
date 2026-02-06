@@ -16,7 +16,11 @@ import logging
 from aiohttp import web
 
 from vpo.server.api.errors import INVALID_ID_FORMAT, NOT_FOUND, api_error
-from vpo.server.middleware import TRANSCRIPTIONS_ALLOWED_PARAMS, validate_query_params
+from vpo.server.middleware import (
+    LIBRARY_ALLOWED_PARAMS,
+    TRANSCRIPTIONS_ALLOWED_PARAMS,
+    validate_query_params,
+)
 from vpo.server.ui.models import (
     FileDetailResponse,
     FileListItem,
@@ -43,6 +47,7 @@ logger = logging.getLogger(__name__)
 
 @shutdown_check_middleware
 @database_required_middleware
+@validate_query_params(LIBRARY_ALLOWED_PARAMS, strict=True)
 async def library_api_handler(request: web.Request) -> web.Response:
     """Handle GET /api/library - JSON API for library files listing.
 
@@ -219,7 +224,7 @@ async def api_file_detail_handler(request: web.Request) -> web.Response:
 
 @shutdown_check_middleware
 @database_required_middleware
-@validate_query_params(TRANSCRIPTIONS_ALLOWED_PARAMS)
+@validate_query_params(TRANSCRIPTIONS_ALLOWED_PARAMS, strict=True)
 async def api_transcriptions_handler(request: web.Request) -> web.Response:
     """Handle GET /api/transcriptions - JSON API for transcriptions listing.
 
