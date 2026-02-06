@@ -46,24 +46,6 @@ phases:
     return policy_path
 
 
-@pytest.fixture
-def policy_file_with_continue(temp_dir: Path) -> Path:
-    """Create a policy file with on_error: continue."""
-    policy_path = temp_dir / "continue_policy.yaml"
-    policy_path.write_text(
-        """
-schema_version: 12
-config:
-  on_error: continue
-phases:
-  - name: apply
-    audio_filter:
-      languages: [eng]
-"""
-    )
-    return policy_path
-
-
 class TestProcessCommandHelp:
     """Tests for process command help and basic invocation."""
 
@@ -119,42 +101,6 @@ class TestProcessCommandArgumentParsing:
         )
         # Should not fail on argument parsing (may fail later on DB lookup)
         assert "Invalid phase" not in result.output
-
-    def test_on_error_choices(self, temp_video_dir: Path, policy_file: Path):
-        """Test that --on-error accepts valid choices."""
-        runner = CliRunner()
-
-        for choice in ["skip", "fail", "continue"]:
-            result = runner.invoke(
-                main,
-                [
-                    "process",
-                    "--policy",
-                    str(policy_file),
-                    "--on-error",
-                    choice,
-                    "--help",  # Use --help to avoid actual processing
-                ],
-            )
-            # Help should still work with valid choice
-            assert result.exit_code == 0
-
-    def test_on_error_invalid_choice(self, temp_video_dir: Path, policy_file: Path):
-        """Test that --on-error rejects invalid choices."""
-        runner = CliRunner()
-        result = runner.invoke(
-            main,
-            [
-                "process",
-                "--policy",
-                str(policy_file),
-                "--on-error",
-                "invalid",
-                str(temp_video_dir / "movie.mkv"),
-            ],
-        )
-        assert result.exit_code != 0
-        assert "Invalid value" in result.output or "invalid" in result.output.lower()
 
 
 class TestProcessCommandFileDiscovery:
@@ -392,11 +338,15 @@ class TestProcessCommandDryRun:
 class TestProcessCommandOnErrorBehavior:
     """Tests for on_error behavior differentiation."""
 
-    @patch("vpo.cli.process.WorkflowRunner")
+    @patch("vpo.workflow.multi_policy.WorkflowRunner")
     def test_on_error_skip_continues_batch(
-        self, mock_runner_cls, temp_video_dir: Path, policy_file_with_fail: Path
+        self, mock_runner_cls, temp_video_dir: Path, policy_file: Path
     ):
-        """Test that on_error=skip allows batch to continue after failures."""
+        """Test that on_error=skip allows batch to continue after failures.
+
+        Uses a policy with on_error=skip (in the YAML), which means individual
+        file failures do not abort the batch.
+        """
         import threading
 
         from vpo.jobs.runner import WorkflowRunResult
@@ -407,13 +357,13 @@ class TestProcessCommandOnErrorBehavior:
         lock = threading.Lock()
 
         def make_run_result(*args, **kwargs):
-            """Generate a failure result (batch_should_stop=False to continue)."""
+            """Generate a failure result (on_error=skip continues batch)."""
             with lock:
                 call_count["n"] += 1
 
             file_result = MagicMock(spec=FileProcessingResult)
             file_result.success = False
-            file_result.batch_should_stop = False  # Key: skip mode continues
+            file_result.batch_should_stop = False
             file_result.failed_phase = "apply"
             file_result.phases_completed = 0
             file_result.phases_failed = 1
@@ -422,6 +372,7 @@ class TestProcessCommandOnErrorBehavior:
             file_result.file_path = args[0] if args else "unknown"
             file_result.total_duration_seconds = 0.1
             file_result.total_changes = 0
+            file_result.error_message = "test failure"
 
             run_result = MagicMock(spec=WorkflowRunResult)
             run_result.result = file_result
@@ -438,9 +389,7 @@ class TestProcessCommandOnErrorBehavior:
             [
                 "process",
                 "--policy",
-                str(policy_file_with_fail),
-                "--on-error",
-                "skip",
+                str(policy_file),
                 "--workers",
                 "1",  # Sequential processing for deterministic behavior
                 str(temp_video_dir),  # Directory with multiple files
@@ -450,9 +399,9 @@ class TestProcessCommandOnErrorBehavior:
         # Both files should be processed despite failures (on_error=skip)
         assert call_count["n"] == 2
 
-    @patch("vpo.cli.process.WorkflowRunner")
+    @patch("vpo.workflow.multi_policy.WorkflowRunner")
     def test_on_error_fail_stops_batch(
-        self, mock_runner_cls, temp_video_dir: Path, policy_file: Path
+        self, mock_runner_cls, temp_video_dir: Path, policy_file_with_fail: Path
     ):
         """Test that on_error=fail stops batch processing."""
         from vpo.jobs.runner import WorkflowRunResult
@@ -485,9 +434,7 @@ class TestProcessCommandOnErrorBehavior:
             [
                 "process",
                 "--policy",
-                str(policy_file),
-                "--on-error",
-                "fail",
+                str(policy_file_with_fail),
                 "--workers",
                 "1",  # Sequential processing to test stop behavior
                 str(temp_video_dir),  # Directory with multiple files
@@ -510,7 +457,7 @@ class TestProcessCommandOnErrorBehavior:
 class TestProcessCommandWorkflow:
     """Tests for workflow execution."""
 
-    @patch("vpo.cli.process.WorkflowRunner")
+    @patch("vpo.workflow.multi_policy.WorkflowRunner")
     def test_phases_override(
         self, mock_runner_cls, temp_video_dir: Path, policy_file: Path
     ):
@@ -563,7 +510,7 @@ class TestProcessCommandWorkflow:
 class TestProcessCommandSummary:
     """Tests for summary output."""
 
-    @patch("vpo.cli.process.WorkflowRunner")
+    @patch("vpo.workflow.multi_policy.WorkflowRunner")
     def test_summary_counts(
         self, mock_runner_cls, temp_video_dir: Path, policy_file: Path
     ):

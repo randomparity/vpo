@@ -7,15 +7,13 @@ computing desired track order based on policy preferences.
 from __future__ import annotations
 
 from vpo.core.codecs import audio_codec_matches
-from vpo.db import (
-    TrackInfo,
-    TranscriptionResultRecord,
-)
+from vpo.db import TrackInfo
 from vpo.language import languages_match
 from vpo.policy.matchers import CommentaryMatcher
 from vpo.policy.types import (
     EvaluationPolicy,
     TrackType,
+    TranscriptionInfo,
 )
 from vpo.transcription.models import (
     is_music_by_metadata,
@@ -48,7 +46,7 @@ def classify_track(
     track: TrackInfo,
     policy: EvaluationPolicy,
     matcher: CommentaryMatcher,
-    transcription_results: dict[int, TranscriptionResultRecord] | None = None,
+    transcription_results: dict[int, TranscriptionInfo] | None = None,
 ) -> TrackType:
     """Classify a track according to policy rules.
 
@@ -140,7 +138,7 @@ def compute_desired_order(
     tracks: list[TrackInfo],
     policy: EvaluationPolicy,
     matcher: CommentaryMatcher,
-    transcription_results: dict[int, TranscriptionResultRecord] | None = None,
+    transcription_results: dict[int, TranscriptionInfo] | None = None,
 ) -> list[int]:
     """Compute desired track order according to policy.
 

@@ -1,5 +1,13 @@
 # Multi-Phase Production Policy (V12)
 # Enterprise workflow with all operations across 7 phases
+#
+# A comprehensive production pipeline covering container conversion, video
+# transcoding, metadata tagging from external services, track filtering,
+# track ordering, container tag cleanup, audio synthesis, transcription
+# analysis, and file timestamp management.
+#
+# Usage:
+#   vpo policy run -p multi-phase-production.yaml /path/to/videos/ --dry-run
 schema_version: 12
 name: Multi-Phase Production
 description: >-
@@ -10,21 +18,25 @@ config:
   audio_language_preference: [eng, jpn, und]
   subtitle_language_preference: [eng, jpn]
   commentary_patterns: [commentary, director, "audio description"]
-  on_error: continue
+  on_error: continue  # Log errors and keep going through all phases
 
 phases:
+  # Phase 1: Ensure MKV container (supports all codecs, best metadata support).
   - name: prepare
     container:
       target: mkv
       on_incompatible_codec: transcode
 
+  # Phase 2: Transcode video to HEVC for storage efficiency.
   - name: compress
     transcode:
       video:
         target_codec: hevc
+
+        # Skip transcoding if ALL conditions are already satisfied.
         skip_if:
-          codec_matches: [hevc, h265]
-          resolution_within: 1080p
+          codec_matches: [hevc, h265]  # Already HEVC
+          resolution_within: 1080p     # At or below 1080p
         quality:
           mode: crf
           crf: 20
@@ -35,38 +47,43 @@ phases:
         hardware_acceleration:
           enabled: auto
           fallback_to_cpu: true
-        # Custom FFmpeg arguments for complex files with many streams
+        # Custom FFmpeg arguments for complex files with many streams.
+        # Prevents muxing queue overflow when processing files with 10+ tracks.
         ffmpeg_args:
           - "-max_muxing_queue_size"
           - "9999"
       audio:
+        # Preserve high-quality codecs; transcode everything else to AAC.
         preserve_codecs: [truehd, dts-hd, flac, aac]
         transcode_to: aac
         transcode_bitrate: 128k
 
+  # Phase 3: Set video language tags from Radarr/Sonarr plugin metadata.
+  # The plugin_metadata condition reads data from configured metadata plugins.
   - name: metadata
-    # Set video track language from Radarr/Sonarr original language metadata
     conditional:
+      # Set video track language from Radarr. Uses "else" to fall back to Sonarr.
       - name: tag-original-language
         when:
           plugin_metadata:
             plugin: radarr
             field: original_language
-            operator: exists
+            operator: exists  # Operators: exists, eq, neq, contains, gt, lt, gte, lte
         then:
           - set_language:
               track_type: video
-              from_plugin_metadata:
+              from_plugin_metadata:  # Dynamically resolve value from plugin data
                 plugin: radarr
                 field: original_language
         else:
-          # Fall back to Sonarr if Radarr metadata unavailable
+          # Fall back to Sonarr if Radarr metadata is unavailable (TV content).
           - set_language:
               track_type: video
               from_plugin_metadata:
                 plugin: sonarr
                 field: original_language
-      # Enable forced subs when Radarr reports a non-English original language
+
+      # Force English subtitles when Radarr reports a non-English original language.
       - name: force-subs-for-foreign-language
         when:
           plugin_metadata:
@@ -80,18 +97,20 @@ phases:
               language: eng
               value: true
 
+  # Phase 4: Remove unwanted language tracks.
   - name: cleanup
     audio_filter:
       languages: [eng, jpn, und]
       minimum: 1
       fallback:
-        mode: content_language
+        mode: content_language  # Keep content-language tracks if nothing matches
     subtitle_filter:
       languages: [eng, jpn]
-      preserve_forced: true
+      preserve_forced: true  # Keep forced subs even if language doesn't match
     attachment_filter:
-      remove_all: false
+      remove_all: false  # Keep fonts for styled subtitles
 
+  # Phase 5: Reorder tracks and set default flags.
   - name: organize
     track_order:
       - video
@@ -108,6 +127,7 @@ phases:
       set_preferred_subtitle_default: false
       clear_other_defaults: true
     conditional:
+      # Force English subs when the file has no English audio at all.
       - name: force-subs-for-foreign
         when:
           not:
@@ -120,10 +140,11 @@ phases:
               language: eng
               value: true
 
-  # Clean container metadata and set title from Radarr/Sonarr
+  # Phase 6: Clean container-level metadata tags (title, encoder, comments).
+  # Uses set_container_metadata with value: "" to clear tags.
   - name: container-tags
     conditional:
-      # Clear stale encoder and comment tags
+      # Clear stale encoder strings left by muxing tools (e.g., "Lavf59.27.100").
       - name: clear-encoder
         when:
           container_metadata:
@@ -132,7 +153,7 @@ phases:
         then:
           - set_container_metadata:
               field: encoder
-              value: ""
+              value: ""  # Empty string clears the tag
       - name: clear-comment
         when:
           container_metadata:
@@ -142,7 +163,7 @@ phases:
           - set_container_metadata:
               field: comment
               value: ""
-      # Clear any existing title before setting a fresh one
+      # Clear existing title before setting a fresh one from plugin metadata.
       - name: clear-title
         when:
           container_metadata:
@@ -152,7 +173,7 @@ phases:
           - set_container_metadata:
               field: title
               value: ""
-      # Set container title from Radarr, fall back to Sonarr
+      # Set container title from Radarr (movie title), fall back to Sonarr (series title).
       - name: set-title-from-radarr
         when:
           plugin_metadata:
@@ -184,7 +205,9 @@ phases:
                 plugin: sonarr
                 field: external_title
 
+  # Phase 7: Create compatibility audio, analyze tracks, set file timestamps.
   - name: enhance
+    # Create an AAC stereo downmix from the best available lossless source.
     audio_synthesis:
       tracks:
         - name: "AAC Stereo"
@@ -198,13 +221,20 @@ phases:
             prefer:
               - codec: [truehd, dts-hd, flac]
               - codec: [dts, ac3]
+
+    # Transcription analysis: detect commentary tracks and auto-label them.
     transcription:
       enabled: true
       detect_commentary: true
       reorder_commentary: true
-    # Set file modification time to release/air date from Radarr or Sonarr;
-    # falls back to preserving original mtime if no date is available
+      # Set track titles from classification results (e.g., "Main", "Commentary",
+      # "Music", "Sound Effects"). Only replaces generic titles like "Stereo" or
+      # "AAC"; descriptive titles like "Director's Commentary" are preserved.
+      update_title_from_classification: true
+
+    # Set file modification time to release/air date from Radarr or Sonarr.
+    # Falls back to preserving original mtime if no date is available.
     file_timestamp:
-      mode: release_date
-      date_source: auto
-      fallback: preserve
+      mode: release_date   # Options: preserve (keep original), release_date, now
+      date_source: auto    # Options: auto (detect), radarr, sonarr
+      fallback: preserve   # Options: preserve, now, skip

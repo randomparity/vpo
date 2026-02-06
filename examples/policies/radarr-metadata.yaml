@@ -3,10 +3,24 @@
 # Demonstrates using Radarr plugin metadata in policy conditions and actions.
 # Requires the radarr-metadata plugin to be configured in ~/.vpo/config.toml.
 #
-# Fields used from Radarr metadata (v1.1.0):
-#   original_language, original_title, certification, genres, runtime,
-#   status, collection_name, studio, rating_tmdb, rating_imdb, popularity,
-#   monitored, tags, edition, release_group, scene_name
+# Fields available from Radarr metadata (plugin API v1.1.0):
+#   original_language  - movie's original language (ISO code)
+#   original_title     - original-language title
+#   external_title     - display title from Radarr
+#   certification      - content rating (PG, R, etc.)
+#   genres             - comma-separated genre list
+#   runtime            - runtime in minutes
+#   status             - release status (released, announced, etc.)
+#   collection_name    - movie collection/franchise name
+#   studio             - production studio
+#   rating_tmdb        - TMDb rating (0.0-10.0)
+#   rating_imdb        - IMDb rating (0.0-10.0)
+#   popularity         - TMDb popularity score
+#   monitored          - whether Radarr is monitoring (true/false)
+#   tags               - Radarr tag list (comma-separated)
+#   edition            - release edition (Director's Cut, etc.)
+#   release_group      - release group name
+#   scene_name         - scene release name
 #
 # Usage:
 #   vpo policy run -p radarr-metadata.yaml /path/to/movies/ --dry-run
@@ -23,7 +37,8 @@ config:
   on_error: continue
 
 phases:
-  # Phase 1: Container normalization
+  # Phase 1: Container normalization.
+  # Skip if already MKV — no work to do.
   - name: prepare
     skip_when:
       container: [mkv]
@@ -31,7 +46,7 @@ phases:
       target: mkv
       on_incompatible_codec: transcode
 
-  # Phase 2: Metadata-driven conditional rules
+  # Phase 2: Metadata-driven conditional rules.
   #
   # Use Radarr metadata to set video language, force subtitles for
   # foreign films, and flag special editions or low-quality releases.
@@ -54,6 +69,7 @@ phases:
                 field: original_language
 
       # Force English subtitles when the movie is not originally in English.
+      # Uses "and" to require both: foreign language AND English subs exist.
       # Viewers watching a Japanese or French film will get subs by default.
       - name: force-subs-for-foreign-films
         when:
@@ -76,7 +92,7 @@ phases:
               language: eng
               value: true
 
-      # Warn about unmonitored movies -- these may be stale or unwanted.
+      # Warn about unmonitored movies — these may be stale or unwanted.
       - name: warn-unmonitored
         when:
           plugin_metadata:
@@ -99,9 +115,10 @@ phases:
         then:
           - warn: "Low TMDb rating (<5.0): {filename}"
 
-  # Phase 3: Smart transcoding
+  # Phase 3: Smart transcoding.
   #
-  # Skip transcoding for files tagged "4k" in Radarr (preserve full quality).
+  # Skip transcoding for files tagged "4k" in Radarr (preserve full quality)
+  # or anime (needs different CRF/tune settings).
   # For everything else, compress to HEVC at reasonable quality.
   - name: compress
     skip_when:
@@ -122,8 +139,8 @@ phases:
           - skip_video_transcode: true
           - warn: "Skipping video transcode for 4k-tagged movie: {filename}"
 
-      # Skip transcode for anime movies -- they benefit from different
-      # encoding settings that this policy doesn't cover.
+      # Skip transcode for anime movies — they benefit from different
+      # encoding settings (tune=animation) that this policy doesn't cover.
       - name: skip-anime-transcode
         when:
           plugin_metadata:
@@ -152,7 +169,7 @@ phases:
         transcode_to: aac
         transcode_bitrate: 192k
 
-  # Phase 4: Track cleanup and ordering
+  # Phase 4: Track cleanup and ordering.
   - name: organize
     audio_filter:
       languages: [eng, und]
@@ -163,7 +180,7 @@ phases:
       languages: [eng, und]
       preserve_forced: true
     attachment_filter:
-      remove_all: true
+      remove_all: true  # Strip fonts and cover art for cleaner files
     track_order:
       - video
       - audio_main
@@ -180,9 +197,9 @@ phases:
 
   # Phase 5: Set file timestamp to the movie release date.
   # Radarr provides digital, physical, and cinema release dates;
-  # "auto" picks the best available one.
+  # "radarr" source picks the best available one.
   - name: timestamp
     file_timestamp:
       mode: release_date
-      date_source: radarr
-      fallback: preserve
+      date_source: radarr   # Use Radarr-provided release dates
+      fallback: preserve     # Keep original mtime if no date available

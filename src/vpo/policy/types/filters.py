@@ -4,9 +4,24 @@ This module contains types for track filtering, pre-processing actions,
 container conversion, default flag handling, and transcription options.
 """
 
+from __future__ import annotations
+
 import re
 from dataclasses import dataclass
 from typing import Literal
+
+
+@dataclass(frozen=True)
+class TranscriptionInfo:
+    """Domain model for transcription data needed by policy evaluation.
+
+    Contains only the fields the evaluator uses, decoupled from the
+    database record (TranscriptionResultRecord).
+    """
+
+    detected_language: str | None
+    confidence_score: float
+    track_type: str  # "main", "commentary", "alternate", "music", "sfx", "non_speech"
 
 
 @dataclass(frozen=True)
@@ -18,6 +33,7 @@ class TranscriptionPolicyOptions:
 
     enabled: bool = False  # Enable transcription analysis during policy application
     update_language_from_transcription: bool = False  # Update track language tags
+    update_title_from_classification: bool = False  # Set titles from classification
     confidence_threshold: float = 0.8  # Min confidence for updates (0.0-1.0)
     detect_commentary: bool = False  # Enable commentary detection
     reorder_commentary: bool = False  # Move commentary tracks to end

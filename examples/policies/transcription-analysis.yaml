@@ -1,5 +1,15 @@
 # Transcription Analysis Policy (V12)
 # Two-phase workflow for language detection and track organization
+#
+# Uses whisper-based transcription to analyze audio tracks and detect:
+#   - Actual spoken language (overrides incorrect/missing language tags)
+#   - Track purpose: main dialog, commentary, music, SFX, non-speech
+#
+# Requires the whisper_transcriber plugin to be installed and configured.
+# See: vpo plugin list
+#
+# Usage:
+#   vpo policy run -p transcription-analysis.yaml /path/to/videos/ --dry-run
 schema_version: 12
 name: Transcription & Organize
 description: Detect audio languages and commentary via transcription, then sort tracks and set defaults.
@@ -7,19 +17,39 @@ description: Detect audio languages and commentary via transcription, then sort 
 config:
   audio_language_preference: [eng, jpn, und]
   subtitle_language_preference: [eng, jpn, und]
+
+  # Commentary patterns are regex patterns matched against track titles.
+  # Tracks matching any pattern are classified as commentary for ordering/filtering.
   commentary_patterns: [commentary, director, cast, crew, "behind.*scenes", "making.*of"]
   on_error: continue
 
 phases:
+  # Phase 1: Analyze audio tracks using speech-to-text transcription.
+  # This runs the whisper model on each audio track to detect language and purpose.
   - name: analyze
     transcription:
-      enabled: true
+      enabled: true  # Master switch — must be true for any transcription features
+
+      # Overwrite track language tags with detected language when they differ.
+      # Useful for fixing "und" (undefined) or mislabeled tracks.
       update_language_from_transcription: true
+
+      # Minimum confidence score (0.0-1.0) required before applying changes.
+      # Higher = more conservative. 0.8 means 80% confidence required.
       confidence_threshold: 0.8
+
+      # Detect whether each track is commentary (vs. main audio).
+      # Uses whisper analysis to identify commentary characteristics.
       detect_commentary: true
+
+      # Move detected commentary tracks to end of track list.
+      # Requires detect_commentary: true.
       reorder_commentary: true
 
+  # Phase 2: Organize tracks based on analysis results.
   - name: organize
+    # Track order: commentary tracks are placed after main/alternate audio
+    # because reorder_commentary in the analyze phase classified them.
     track_order:
       - video
       - audio_main
@@ -29,8 +59,9 @@ phases:
       - subtitle_main
       - subtitle_commentary
       - attachment
+
     default_flags:
       set_first_video_default: true
-      set_preferred_audio_default: true
-      set_preferred_subtitle_default: false
-      clear_other_defaults: true
+      set_preferred_audio_default: true    # Best language-match gets default
+      set_preferred_subtitle_default: false # Don't auto-enable subtitles
+      clear_other_defaults: true            # Clean up stale default flags

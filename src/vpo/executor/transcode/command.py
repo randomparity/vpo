@@ -384,7 +384,9 @@ def _needs_explicit_mapping(audio_plan: AudioPlan | None) -> bool:
     """Check if explicit stream mapping is needed.
 
     Explicit mapping is required when any audio track is marked for removal,
-    as FFmpeg's default behavior copies all streams.
+    or when multiple audio tracks exist. Without explicit -map arguments,
+    FFmpeg selects only one "best" stream per type, silently dropping
+    additional audio, subtitle, and attachment streams.
 
     Args:
         audio_plan: Audio plan with track actions.
@@ -394,7 +396,9 @@ def _needs_explicit_mapping(audio_plan: AudioPlan | None) -> bool:
     """
     if audio_plan is None:
         return False
-    return any(t.action == AudioAction.REMOVE for t in audio_plan.tracks)
+    return len(audio_plan.tracks) > 1 or any(
+        t.action == AudioAction.REMOVE for t in audio_plan.tracks
+    )
 
 
 def _build_stream_maps(

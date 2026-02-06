@@ -14,10 +14,7 @@ if TYPE_CHECKING:
     from vpo.language_analysis.models import LanguageAnalysisResult
     from vpo.track_classification.models import TrackClassificationResult
 
-from vpo.db import (
-    TrackInfo,
-    TranscriptionResultRecord,
-)
+from vpo.db import TrackInfo
 from vpo.policy.conditions import PluginMetadataDict
 from vpo.policy.evaluator.classification import (
     _audio_matches_language_preference,
@@ -29,7 +26,10 @@ from vpo.policy.evaluator.container import evaluate_container_change_with_policy
 from vpo.policy.evaluator.exceptions import NoTracksError
 from vpo.policy.evaluator.filtering import compute_track_dispositions
 from vpo.policy.evaluator.rules import evaluate_conditional_rules
-from vpo.policy.evaluator.transcription import compute_language_updates
+from vpo.policy.evaluator.transcription import (
+    compute_language_updates,
+    compute_title_updates,
+)
 from vpo.policy.matchers import CommentaryMatcher
 from vpo.policy.types import (
     ActionType,
@@ -40,6 +40,7 @@ from vpo.policy.types import (
     PlannedAction,
     SkipFlags,
     TrackDisposition,
+    TranscriptionInfo,
 )
 
 
@@ -49,7 +50,7 @@ def evaluate_policy(
     container: str,
     tracks: list[TrackInfo],
     policy: EvaluationPolicy,
-    transcription_results: dict[int, TranscriptionResultRecord] | None = None,
+    transcription_results: dict[int, TranscriptionInfo] | None = None,
     language_results: dict[int, LanguageAnalysisResult] | None = None,
     plugin_metadata: PluginMetadataDict | None = None,
     classification_results: dict[int, TrackClassificationResult] | None = None,
@@ -348,6 +349,28 @@ def evaluate_policy(
                         track_index=track.index,
                         current_value=current_lang,
                         desired_value=new_lang,
+                    )
+                )
+
+    # Compute title updates from transcription classification.
+    # Skip tracks that already have an explicit SET_TITLE action
+    # (e.g. from clear_all_titles) to avoid conflicting actions.
+    if transcription_results is not None:
+        tracks_with_title_action = frozenset(
+            a.track_index for a in actions if a.action_type == ActionType.SET_TITLE
+        )
+        title_updates = compute_title_updates(tracks, transcription_results, policy)
+        for track in tracks:
+            if track.index in tracks_with_title_action:
+                continue
+            new_title = title_updates.get(track.index)
+            if new_title is not None:
+                actions.append(
+                    PlannedAction(
+                        action_type=ActionType.SET_TITLE,
+                        track_index=track.index,
+                        current_value=track.title,
+                        desired_value=new_title,
                     )
                 )
 

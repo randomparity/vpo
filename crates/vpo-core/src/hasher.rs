@@ -123,9 +123,9 @@ pub fn hash_files(
             // Call progress callback (holding GIL)
             let elapsed = start_time.elapsed().as_secs_f64();
             let rate = if elapsed > 0.0 {
-                (processed as f64 / elapsed) as u64
+                processed as f64 / elapsed
             } else {
-                0
+                0.0
             };
             cb.call1(py, (processed, total, rate))?;
         }

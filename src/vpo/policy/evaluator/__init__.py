@@ -23,7 +23,10 @@ from vpo.policy.evaluator.exceptions import (
 )
 from vpo.policy.evaluator.filtering import compute_track_dispositions
 from vpo.policy.evaluator.rules import evaluate_conditional_rules
-from vpo.policy.evaluator.transcription import compute_language_updates
+from vpo.policy.evaluator.transcription import (
+    compute_language_updates,
+    compute_title_updates,
+)
 
 # Re-export Plan for backward compatibility (imported by evaluate.py from types)
 from vpo.policy.types import Plan
@@ -39,6 +42,7 @@ __all__ = [
     "compute_desired_order",
     # Transcription
     "compute_language_updates",
+    "compute_title_updates",
     # Filtering
     "compute_track_dispositions",
     # Container

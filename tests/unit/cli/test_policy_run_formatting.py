@@ -54,12 +54,14 @@ def _make_snapshot(
     tracks: list[TrackInfo] | None = None,
     container_format: str | None = "matroska,webm",
     size_bytes: int = 8_589_934_592,
+    container_tags: tuple[tuple[str, str], ...] | None = None,
 ) -> FileSnapshot:
     """Create a FileSnapshot for testing."""
     return FileSnapshot(
         container_format=container_format,
         size_bytes=size_bytes,
         tracks=tuple(tracks or []),
+        container_tags=container_tags,
     )
 
 
@@ -151,6 +153,38 @@ class TestFormatFileSnapshot:
         text = "\n".join(lines)
         assert "Other:" in text
 
+    def test_metadata_section_shown_when_tags_present(self):
+        snap = _make_snapshot(
+            container_tags=(
+                ("encoder", "libebml v1.4.2"),
+                ("title", "Movie Title"),
+            ),
+        )
+        lines = _format_file_snapshot(snap, "Before")
+        text = "\n".join(lines)
+        assert "  Metadata:" in text
+        assert "    encoder: libebml v1.4.2" in text
+        assert "    title: Movie Title" in text
+
+    def test_metadata_section_absent_when_no_tags(self):
+        snap = _make_snapshot(container_tags=None)
+        lines = _format_file_snapshot(snap, "Before")
+        text = "\n".join(lines)
+        assert "Metadata:" not in text
+
+    def test_metadata_appears_between_container_and_tracks(self):
+        tracks = [_make_track(0, "video", "h264", width=1920, height=1080)]
+        snap = _make_snapshot(
+            tracks=tracks,
+            container_tags=(("title", "Test"),),
+        )
+        lines = _format_file_snapshot(snap, "Before")
+        # Find indices: Container line, Metadata line, Video line
+        container_idx = next(i for i, line in enumerate(lines) if "Container:" in line)
+        metadata_idx = next(i for i, line in enumerate(lines) if "Metadata:" in line)
+        video_idx = next(i for i, line in enumerate(lines) if "Video:" in line)
+        assert container_idx < metadata_idx < video_idx
+
 
 # =============================================================================
 # _format_result_human tests
@@ -237,6 +271,24 @@ class TestFormatSnapshotJson:
         snap = _make_snapshot(tracks=[])
         data = _format_snapshot_json(snap)
         assert data["tracks"] == []
+
+    def test_includes_container_tags_as_dict(self):
+        snap = _make_snapshot(
+            container_tags=(
+                ("encoder", "libebml v1.4.2"),
+                ("title", "Movie Title"),
+            ),
+        )
+        data = _format_snapshot_json(snap)
+        assert data["container_tags"] == {
+            "encoder": "libebml v1.4.2",
+            "title": "Movie Title",
+        }
+
+    def test_omits_container_tags_when_none(self):
+        snap = _make_snapshot(container_tags=None)
+        data = _format_snapshot_json(snap)
+        assert "container_tags" not in data
 
 
 # =============================================================================

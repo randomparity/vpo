@@ -926,11 +926,10 @@ class TestTrackDispositionTranscriptionStatus:
 
     def test_audio_track_with_transcription_shows_status(self):
         """Audio tracks with transcription show type and confidence."""
-        from vpo.db.types import TranscriptionResultRecord
         from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
-        from vpo.policy.types import AudioFilterConfig
+        from vpo.policy.types import AudioFilterConfig, TranscriptionInfo
 
         tracks = [
             TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="eng"),
@@ -940,16 +939,10 @@ class TestTrackDispositionTranscriptionStatus:
             audio_filter=AudioFilterConfig(languages=("eng",)),
         )
         transcription_results = {
-            100: TranscriptionResultRecord(
-                id=1,
-                track_id=100,
+            100: TranscriptionInfo(
                 detected_language="eng",
                 confidence_score=0.95,
                 track_type="main",
-                transcript_sample=None,
-                plugin_name="test",
-                created_at="2025-01-01T00:00:00Z",
-                updated_at="2025-01-01T00:00:00Z",
             )
         }
 
@@ -1021,11 +1014,10 @@ class TestTrackDispositionTranscriptionStatus:
 
     def test_commentary_transcription_status(self):
         """Commentary audio tracks show commentary status."""
-        from vpo.db.types import TranscriptionResultRecord
         from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
-        from vpo.policy.types import AudioFilterConfig
+        from vpo.policy.types import AudioFilterConfig, TranscriptionInfo
 
         tracks = [
             TrackInfo(index=0, id=100, track_type="audio", codec="aac", language="eng"),
@@ -1043,27 +1035,15 @@ class TestTrackDispositionTranscriptionStatus:
             audio_filter=AudioFilterConfig(languages=("eng",)),
         )
         transcription_results = {
-            100: TranscriptionResultRecord(
-                id=1,
-                track_id=100,
+            100: TranscriptionInfo(
                 detected_language="eng",
                 confidence_score=0.95,
                 track_type="main",
-                transcript_sample=None,
-                plugin_name="test",
-                created_at="2025-01-01T00:00:00Z",
-                updated_at="2025-01-01T00:00:00Z",
             ),
-            101: TranscriptionResultRecord(
-                id=2,
-                track_id=101,
+            101: TranscriptionInfo(
                 detected_language="eng",
                 confidence_score=0.88,
                 track_type="commentary",
-                transcript_sample=None,
-                plugin_name="test",
-                created_at="2025-01-01T00:00:00Z",
-                updated_at="2025-01-01T00:00:00Z",
             ),
         }
 
@@ -1077,13 +1057,13 @@ class TestTrackDispositionTranscriptionStatus:
 
     def test_transcription_status_preserved_on_fallback(self):
         """Transcription status is preserved when fallback is applied."""
-        from vpo.db.types import TranscriptionResultRecord
         from vpo.policy.evaluator import (
             compute_track_dispositions,
         )
         from vpo.policy.types import (
             AudioFilterConfig,
             LanguageFallbackConfig,
+            TranscriptionInfo,
         )
 
         tracks = [
@@ -1097,16 +1077,10 @@ class TestTrackDispositionTranscriptionStatus:
             ),
         )
         transcription_results = {
-            100: TranscriptionResultRecord(
-                id=1,
-                track_id=100,
+            100: TranscriptionInfo(
                 detected_language="fra",
                 confidence_score=0.92,
                 track_type="main",
-                transcript_sample=None,
-                plugin_name="test",
-                created_at="2025-01-01T00:00:00Z",
-                updated_at="2025-01-01T00:00:00Z",
             ),
         }
 

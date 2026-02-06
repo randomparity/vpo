@@ -256,7 +256,7 @@ class PolicyEnginePlugin:
             tracks: List of track metadata.
             policy: Validated policy configuration.
             transcription_results: Optional dict mapping track_id to
-                TranscriptionResultRecord for displaying transcription status.
+                TranscriptionInfo for transcription-based evaluation.
             language_results: Optional dict mapping track_id to
                 LanguageAnalysisResult for audio_is_multi_language conditions.
             plugin_metadata: Optional dict of plugin metadata keyed by plugin name

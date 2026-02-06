@@ -1,34 +1,57 @@
 # Track Filtering Policy (V12)
 # Comprehensive audio, subtitle, and attachment filtering
+#
+# Demonstrates all available track filtering options including multi-language
+# support, music/SFX track handling, and fallback behavior.
+#
+# Usage:
+#   vpo policy run -p track-filtering.yaml /path/to/videos/ --dry-run
 schema_version: 12
 name: Multi-Language Track Filter
 description: Filter to English, Japanese, French, and German audio with music track preservation.
 
 config:
+  # Language preferences determine default flag priority (first = highest).
+  # These are ISO 639-2/B codes: eng, jpn, fra, deu, spa, ita, por, rus, etc.
   audio_language_preference: [eng, jpn, fra, deu, und]
   subtitle_language_preference: [eng, jpn, fra]
   on_error: skip
 
 phases:
+  # Phase 1: Filter tracks by language and type.
   - name: filter
+    # Audio filter removes tracks whose language doesn't match the list.
     audio_filter:
-      languages: [eng, jpn, fra, deu, und]
-      minimum: 1
-      fallback:
-        mode: content_language
-      keep_music_tracks: true
-      exclude_music_from_language_filter: true
-      keep_sfx_tracks: false
-      keep_non_speech_tracks: false
+      languages: [eng, jpn, fra, deu, und]  # Keep these languages
+      minimum: 1  # Guaranteed minimum — never remove the last audio track
 
+      # Fallback when zero tracks match the language list.
+      fallback:
+        mode: content_language  # Keep tracks matching the file's detected language
+
+      # Music tracks (score, soundtrack) often have no dialog and may be tagged
+      # with a language that doesn't match your preference list.
+      keep_music_tracks: true                    # Keep music tracks regardless of language
+      exclude_music_from_language_filter: true    # Don't count music tracks in language filtering
+
+      # SFX tracks contain only sound effects (no dialog). Usually safe to remove.
+      keep_sfx_tracks: false                     # Remove SFX-only tracks
+      # (exclude_sfx_from_language_filter only matters when keep_sfx_tracks is true)
+
+      # Non-speech tracks are unlabeled tracks detected as containing no dialog.
+      keep_non_speech_tracks: false               # Remove non-speech tracks
+
+    # Subtitle filter removes subtitle tracks not matching these languages.
     subtitle_filter:
       languages: [eng, jpn, fra]
-      preserve_forced: true
-      remove_all: false
+      preserve_forced: true  # Always keep forced subs (foreign-text translations)
+      remove_all: false      # Set to true to strip ALL subtitles regardless of language
 
+    # Attachment filter controls fonts, cover art, and other embedded files.
     attachment_filter:
-      remove_all: false
+      remove_all: false  # Keep attachments (fonts needed for styled subtitles)
 
+  # Phase 2: Organize remaining tracks.
   - name: organize
     track_order:
       - video
@@ -37,6 +60,7 @@ phases:
       - subtitle_main
       - subtitle_forced
       - attachment
+
     default_flags:
       set_first_video_default: true
-      set_preferred_audio_default: true
+      set_preferred_audio_default: true  # Uses audio_language_preference order

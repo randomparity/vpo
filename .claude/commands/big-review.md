@@ -54,6 +54,12 @@ Read all agent definitions from `.claude/agents/*.md` and select agents based on
 | File handles / connections / pools | `resource-lifecycle-reviewer` |
 | Datetime / timezone / scheduling code | `timezone-datetime-reviewer` |
 | Text processing / user input / i18n | `unicode-text-reviewer` |
+| Secrets / auth / injection / CSP / env vars | `security-secrets-reviewer` |
+| API endpoints / response schemas / contracts | `api-contract-reviewer` |
+| Config files / env vars / feature flags | `config-flags-reviewer` |
+| Dependencies / Dockerfiles / lockfiles / CI | `supply-chain-hygiene-reviewer` |
+| CLI commands / argparse / click / Makefiles | `cli-dx-reviewer` |
+| HTML templates / ARIA / keyboard / a11y | `a11y-deep-dive-reviewer` |
 
 **Selection rules:**
 - `python-code-reviewer` is ALWAYS included if any Python files changed (it's the generalist)

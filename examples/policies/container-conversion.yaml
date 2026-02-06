@@ -1,14 +1,27 @@
 # Container Conversion Policy (V12)
 # Convert container format with codec compatibility handling
+#
+# Remuxes files into MKV without re-encoding video or audio. If a codec
+# is incompatible with the target container, it is automatically transcoded.
+#
+# Supported target containers: mkv, mp4
+#
+# Usage:
+#   vpo policy run -p container-conversion.yaml /path/to/videos/ --dry-run
 schema_version: 12
 name: MKV Container Conversion
 description: Convert files to MKV with automatic codec compatibility handling.
 
 config:
-  on_error: skip
+  on_error: skip  # Skip file on error, continue with next
 
 phases:
   - name: convert
     container:
-      target: mkv
+      target: mkv  # Target container format: "mkv" or "mp4"
+
+      # What to do when the source has codecs the target can't hold:
+      #   error     - fail with an error listing the incompatible tracks
+      #   skip      - skip the entire file with a warning
+      #   transcode - automatically transcode incompatible tracks to compatible codecs
       on_incompatible_codec: transcode

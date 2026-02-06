@@ -1,5 +1,16 @@
 # Selective Phases Policy (V12)
-# Designed for CLI phase selection: vpo policy run -p selective-phases.yaml --phases quick-fix
+# Designed for CLI phase selection
+#
+# Contains three independent phases that can be run individually or combined.
+# Use --phases on the CLI to pick which one(s) to execute:
+#
+#   vpo policy run -p selective-phases.yaml --phases quick-fix video.mkv
+#   vpo policy run -p selective-phases.yaml --phases full-normalize video.mkv
+#   vpo policy run -p selective-phases.yaml --phases archive video.mkv
+#   vpo policy run -p selective-phases.yaml --phases quick-fix,archive video.mkv
+#
+# This pattern lets you keep a single policy file with multiple "modes"
+# instead of maintaining separate files for each workflow.
 schema_version: 12
 name: Selective Phase Toolkit
 description: Three independent phases for CLI selection — quick metadata fix, full normalization, or archive-quality transcoding.
@@ -10,15 +21,21 @@ config:
   on_error: skip
 
 phases:
-  # Quick metadata fixes only (no transcoding)
+  # Phase: quick-fix
+  # Lightweight metadata-only pass — no filtering, no transcoding, no remuxing.
+  # Just sets default flags so the right tracks auto-play in media players.
+  #
   # Usage: vpo policy run -p selective-phases.yaml --phases quick-fix video.mkv
   - name: quick-fix
     default_flags:
       set_first_video_default: true
       set_preferred_audio_default: true
-      clear_other_defaults: true
+      clear_other_defaults: true  # Remove stale default flags from other tracks
 
-  # Full normalization without transcoding
+  # Phase: full-normalize
+  # Removes unwanted language tracks, reorders remaining tracks, and sets defaults.
+  # Does not transcode — only metadata and track structure changes.
+  #
   # Usage: vpo policy run -p selective-phases.yaml --phases full-normalize video.mkv
   - name: full-normalize
     audio_filter:
@@ -28,7 +45,7 @@ phases:
       languages: [eng]
       preserve_forced: true
     attachment_filter:
-      remove_all: true
+      remove_all: true  # Strip fonts and cover art
     track_order:
       - video
       - audio_main
@@ -40,18 +57,22 @@ phases:
       set_preferred_audio_default: true
       clear_other_defaults: true
 
-  # Archive quality transcoding for long-term storage
+  # Phase: archive
+  # High-quality HEVC transcode for long-term storage. Uses slow preset and
+  # lower CRF (18) for near-lossless quality at the cost of encoding time.
+  # Preserves all lossless audio codecs.
+  #
   # Usage: vpo policy run -p selective-phases.yaml --phases archive video.mkv
   - name: archive
     transcode:
       video:
         target_codec: hevc
         skip_if:
-          codec_matches: [hevc, h265]
+          codec_matches: [hevc, h265]  # Don't re-encode already-HEVC files
         quality:
           mode: crf
-          crf: 18
-          preset: slow
+          crf: 18        # Near-lossless quality (lower = better, 18 is very high)
+          preset: slow   # Slower encoding = better compression efficiency
         scaling:
           max_resolution: 1080p
           algorithm: lanczos
@@ -59,6 +80,6 @@ phases:
           enabled: auto
           fallback_to_cpu: true
       audio:
-        preserve_codecs: [truehd, dts-hd, flac]
+        preserve_codecs: [truehd, dts-hd, flac]  # Keep all lossless audio
         transcode_to: aac
-        transcode_bitrate: 256k
+        transcode_bitrate: 256k  # Higher bitrate for archival quality

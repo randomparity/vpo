@@ -844,6 +844,7 @@ def _convert_phase_model(phase: PhaseModel) -> PhaseDefinition:
         transcription = TranscriptionPolicyOptions(
             enabled=phase.transcription.enabled,
             update_language_from_transcription=phase.transcription.update_language_from_transcription,
+            update_title_from_classification=phase.transcription.update_title_from_classification,
             confidence_threshold=phase.transcription.confidence_threshold,
             detect_commentary=phase.transcription.detect_commentary,
             reorder_commentary=phase.transcription.reorder_commentary,
