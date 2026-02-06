@@ -1,6 +1,15 @@
 # Video Policy Orchestrator
 
-A spec-driven tool for scanning, organizing, and transforming video libraries using user-defined policies and an extensible plugin architecture.
+Welcome to Video Policy Orchestrator (VPO), a vibe-coded, spec-driven tool for scanning, organizing,
+and transforming video libraries using user-defined policies and an extensible plugin architecture.
+VPO was created to scratch two itches I had:
+
+- Existing apps for maintaining libraries always seemed to lack one or more features I though were important
+- I needed a project to kickstart my agentic coding education
+
+The result is this unstable, work-in-progress project. If you're interested in something that "just works"
+then keep looking. We're still evolving large features and will continue doing so for the forseeable
+future. Breaking changes are still the norm.  You've been warned.
 
 ## Quickstart
 
