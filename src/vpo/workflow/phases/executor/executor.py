@@ -42,6 +42,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_FILTER_OPS = frozenset(
+    {
+        OperationType.AUDIO_FILTER,
+        OperationType.SUBTITLE_FILTER,
+        OperationType.ATTACHMENT_FILTER,
+    }
+)
+
 
 class PhaseExecutor:
     """Executor for user-defined phases.
@@ -415,11 +423,6 @@ class PhaseExecutor:
             Number of changes made.
         """
         # Consolidate filter operations into a single execution
-        _FILTER_OPS = {
-            OperationType.AUDIO_FILTER,
-            OperationType.SUBTITLE_FILTER,
-            OperationType.ATTACHMENT_FILTER,
-        }
         if op_type in _FILTER_OPS:
             if state.filters_executed:
                 return 0
@@ -467,45 +470,6 @@ class PhaseExecutor:
             self.dry_run,
             tools,
             ffmpeg_progress_callback=self._ffmpeg_progress_callback,
-        )
-
-    def _execute_audio_filter(
-        self,
-        state: PhaseExecutionState,
-        file_info: "FileInfo | None",
-    ) -> int:
-        """Execute audio filter operation."""
-        from .plan_operations import execute_audio_filter
-
-        tools = self._get_tools()
-        return execute_audio_filter(
-            state, file_info, self.conn, self.policy, self.dry_run, tools
-        )
-
-    def _execute_subtitle_filter(
-        self,
-        state: PhaseExecutionState,
-        file_info: "FileInfo | None",
-    ) -> int:
-        """Execute subtitle filter operation."""
-        from .plan_operations import execute_subtitle_filter
-
-        tools = self._get_tools()
-        return execute_subtitle_filter(
-            state, file_info, self.conn, self.policy, self.dry_run, tools
-        )
-
-    def _execute_attachment_filter(
-        self,
-        state: PhaseExecutionState,
-        file_info: "FileInfo | None",
-    ) -> int:
-        """Execute attachment filter operation."""
-        from .plan_operations import execute_attachment_filter
-
-        tools = self._get_tools()
-        return execute_attachment_filter(
-            state, file_info, self.conn, self.policy, self.dry_run, tools
         )
 
     def _execute_filters(

@@ -52,6 +52,10 @@ from vpo.workflow.stats_capture import (
     StatsCollector,
 )
 
+#: Error message for files not found in the database.
+#: Used in cli/process.py to detect this specific skip reason.
+NOT_IN_DB_MESSAGE = "File not in database (run 'vpo scan' first)"
+
 logger = logging.getLogger(__name__)
 
 # Space estimation multiplier for backup + temp + buffer
@@ -382,17 +386,15 @@ class WorkflowProcessor:
                 phases_completed=0,
                 phases_failed=0,
                 phases_skipped=len(self.phases_to_execute),
-                error_message="File not in database (run 'vpo scan' first)",
+                error_message=NOT_IN_DB_MESSAGE,
             )
 
         # Capture before snapshot for verbose output
-        file_before_snapshot: FileSnapshot | None = None
-        if file_info is not None:
-            file_before_snapshot = FileSnapshot.from_file_info(file_info)
+        file_before_snapshot = FileSnapshot.from_file_info(file_info)
 
         # Initialize stats collector for non-dry-run processing
         stats_collector: StatsCollector | None = None
-        if not self.dry_run and file_info:
+        if not self.dry_run:
             # Get file_id from database
             file_record = get_file_by_path(self.conn, str(file_path))
             if file_record and file_record.id:

@@ -391,7 +391,7 @@ class TestDryRunMode:
         )
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
 
-        result = executor._execute_audio_filter(state, mock_file_info)
+        result = executor._execute_filters(state, mock_file_info)
 
         # Returns change count
         assert result == 2  # 1 action + 1 track removed
@@ -694,34 +694,14 @@ class TestOperationHandlerNoConfig:
         result = executor._execute_container(state, mock_file_info)
         assert result == 0
 
-    def test_audio_filter_no_config(self, db_conn, phased_policy, mock_file_info):
-        """_execute_audio_filter returns 0 when phase.audio_filter is None."""
+    def test_filters_no_config(self, db_conn, phased_policy, mock_file_info):
+        """_execute_filters returns 0 when no filter configs are set."""
         executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
-        phase = PhaseDefinition(name="test")  # No audio filter config
+        phase = PhaseDefinition(name="test")  # No filter configs
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
 
-        result = executor._execute_audio_filter(state, mock_file_info)
-        assert result == 0
-
-    def test_subtitle_filter_no_config(self, db_conn, phased_policy, mock_file_info):
-        """_execute_subtitle_filter returns 0 when phase.subtitle_filter is None."""
-        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
-
-        phase = PhaseDefinition(name="test")
-        state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
-
-        result = executor._execute_subtitle_filter(state, mock_file_info)
-        assert result == 0
-
-    def test_attachment_filter_no_config(self, db_conn, phased_policy, mock_file_info):
-        """_execute_attachment_filter returns 0 when phase.attachment_filter is None."""
-        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
-
-        phase = PhaseDefinition(name="test")
-        state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
-
-        result = executor._execute_attachment_filter(state, mock_file_info)
+        result = executor._execute_filters(state, mock_file_info)
         assert result == 0
 
     def test_track_order_no_config(self, db_conn, phased_policy, mock_file_info):

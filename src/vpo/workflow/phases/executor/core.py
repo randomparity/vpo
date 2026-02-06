@@ -29,6 +29,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_FILTER_OPS = frozenset(
+    {
+        OperationType.AUDIO_FILTER,
+        OperationType.SUBTITLE_FILTER,
+        OperationType.ATTACHMENT_FILTER,
+    }
+)
+
 
 def execute_operation(
     op_type: OperationType,
@@ -119,11 +127,6 @@ def dispatch_operation(
     plan_args = (state, file_info, conn, policy, dry_run, tools)
 
     # Consolidate filter operations into a single execution
-    _FILTER_OPS = {
-        OperationType.AUDIO_FILTER,
-        OperationType.SUBTITLE_FILTER,
-        OperationType.ATTACHMENT_FILTER,
-    }
     if op_type in _FILTER_OPS:
         if state.filters_executed:
             return 0

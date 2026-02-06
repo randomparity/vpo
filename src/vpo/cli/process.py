@@ -43,6 +43,7 @@ from vpo.policy.types import (
     PolicySchema,
 )
 from vpo.workflow.phase_formatting import format_phase_details
+from vpo.workflow.processor import NOT_IN_DB_MESSAGE
 
 logger = logging.getLogger(__name__)
 
@@ -793,10 +794,7 @@ def process_command(
                         _, result, success = future.result()
                         if result is not None:
                             results.append(result)
-                            is_not_in_db = (
-                                result.error_message
-                                == "File not in database (run 'vpo scan' first)"
-                            )
+                            is_not_in_db = result.error_message == NOT_IN_DB_MESSAGE
                             if is_not_in_db:
                                 not_in_db_count += 1
                             elif success:
