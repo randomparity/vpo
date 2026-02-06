@@ -64,29 +64,36 @@ class ProgressDisplay:
             sys.stdout.flush()
             self._has_output = False
 
-    def on_discover_progress(self, files_found: int, files_per_sec: int) -> None:
+    def on_discover_progress(self, files_found: int, files_per_sec: float) -> None:
         """Called during discovery with count of files found and rate."""
         if self._phase != "discover":
             self._finish_line()
             self._phase = "discover"
-        self._write(f"Discovering... {files_found:,} files ({files_per_sec:,}/sec)")
+        rate = _format_rate(files_per_sec)
+        self._write(f"Discovering... {files_found:,} files ({rate})")
 
-    def on_hash_progress(self, processed: int, total: int, files_per_sec: int) -> None:
+    def on_hash_progress(
+        self, processed: int, total: int, files_per_sec: float
+    ) -> None:
         """Called during hashing with processed/total counts and rate."""
         if self._phase != "hash":
             self._finish_line()
             self._phase = "hash"
-        self._write(f"Hashing... {processed:,}/{total:,} ({files_per_sec:,}/sec)")
+        rate = _format_rate(files_per_sec)
+        self._write(f"Hashing... {processed:,}/{total:,} ({rate})")
 
-    def on_scan_progress(self, processed: int, total: int, files_per_sec: int) -> None:
-        """Called during scanning/introspection with processed/total counts and rate."""
+    def on_scan_progress(
+        self, processed: int, total: int, files_per_sec: float
+    ) -> None:
+        """Called during scanning/introspection."""
         if self._phase != "scan":
             self._finish_line()
             self._phase = "scan"
-        self._write(f"Scanning... {processed:,}/{total:,} ({files_per_sec:,}/sec)")
+        rate = _format_rate(files_per_sec)
+        self._write(f"Scanning... {processed:,}/{total:,} ({rate})")
 
     def on_language_progress(
-        self, processed: int, total: int, current_file: str, files_per_sec: int
+        self, processed: int, total: int, current_file: str, files_per_sec: float
     ) -> None:
         """Called during language analysis with progress counts and rate."""
         if self._phase != "language":
@@ -95,7 +102,7 @@ class ProgressDisplay:
         current_file = truncate_filename(current_file, 40)
         self._write(
             f"Analyzing languages... {processed:,}/{total:,} "
-            f"({files_per_sec:,}/sec) [{current_file}]"
+            f"({_format_rate(files_per_sec)}) [{current_file}]"
         )
 
     def finish(self) -> None:
@@ -117,12 +124,23 @@ def validate_directories(ctx, param, value):
     return paths
 
 
-def _compute_rate(completed: int, start_time: float) -> int:
+def _compute_rate(completed: int, start_time: float) -> float:
     """Compute files-per-second rate from count and monotonic start time."""
     elapsed = time.monotonic() - start_time
     if elapsed <= 0:
-        return 0
-    return int(completed / elapsed)
+        return 0.0
+    return completed / elapsed
+
+
+def _format_rate(rate: float) -> str:
+    """Format a files-per-second rate for display.
+
+    Rates >= 1 are shown as comma-separated integers (e.g. '7,440/sec').
+    Rates < 1 are shown with one decimal place (e.g. '0.3/sec').
+    """
+    if rate >= 1.0:
+        return f"{int(rate):,}/sec"
+    return f"{rate:.1f}/sec"
 
 
 def _resolve_language_workers(requested: int | None, config_default: int) -> int:

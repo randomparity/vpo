@@ -118,9 +118,9 @@ pub fn discover_videos(
                         if let Some(ref cb) = progress_callback {
                             let elapsed = start_time.elapsed().as_secs_f64();
                             let rate = if elapsed > 0.0 {
-                                (files_found as f64 / elapsed) as u64
+                                files_found as f64 / elapsed
                             } else {
-                                0
+                                0.0
                             };
                             cb.call1(py, (files_found, rate))?;
                         }
@@ -137,9 +137,9 @@ pub fn discover_videos(
         if files_found != last_reported {
             let elapsed = start_time.elapsed().as_secs_f64();
             let rate = if elapsed > 0.0 {
-                (files_found as f64 / elapsed) as u64
+                files_found as f64 / elapsed
             } else {
-                0
+                0.0
             };
             cb.call1(py, (files_found, rate))?;
         }

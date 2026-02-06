@@ -26,16 +26,20 @@ if TYPE_CHECKING:
 class ScanProgressCallback(Protocol):
     """Protocol for scan progress callbacks."""
 
-    def on_discover_progress(self, files_found: int, files_per_sec: int) -> None:
+    def on_discover_progress(self, files_found: int, files_per_sec: float) -> None:
         """Called during discovery with count of files found and rate."""
         ...
 
-    def on_hash_progress(self, processed: int, total: int, files_per_sec: int) -> None:
+    def on_hash_progress(
+        self, processed: int, total: int, files_per_sec: float
+    ) -> None:
         """Called during hashing with processed/total counts and rate."""
         ...
 
-    def on_scan_progress(self, processed: int, total: int, files_per_sec: int) -> None:
-        """Called during scanning/introspection with processed/total counts and rate."""
+    def on_scan_progress(
+        self, processed: int, total: int, files_per_sec: float
+    ) -> None:
+        """Called during scanning/introspection."""
         ...
 
 
@@ -667,7 +671,7 @@ class ScannerOrchestrator:
                     # Use new scan_progress callback if available
                     if scan_progress is not None:
                         elapsed = time.time() - scan_start_time
-                        rate = int(processed / elapsed) if elapsed > 0 else 0
+                        rate = processed / elapsed if elapsed > 0 else 0.0
                         scan_progress.on_scan_progress(
                             processed, total_to_process, rate
                         )
