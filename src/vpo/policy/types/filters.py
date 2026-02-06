@@ -18,6 +18,7 @@ class TranscriptionPolicyOptions:
 
     enabled: bool = False  # Enable transcription analysis during policy application
     update_language_from_transcription: bool = False  # Update track language tags
+    update_title_from_classification: bool = False  # Set titles from classification
     confidence_threshold: float = 0.8  # Min confidence for updates (0.0-1.0)
     detect_commentary: bool = False  # Enable commentary detection
     reorder_commentary: bool = False  # Move commentary tracks to end

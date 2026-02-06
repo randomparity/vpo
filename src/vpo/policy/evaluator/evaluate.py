@@ -29,7 +29,10 @@ from vpo.policy.evaluator.container import evaluate_container_change_with_policy
 from vpo.policy.evaluator.exceptions import NoTracksError
 from vpo.policy.evaluator.filtering import compute_track_dispositions
 from vpo.policy.evaluator.rules import evaluate_conditional_rules
-from vpo.policy.evaluator.transcription import compute_language_updates
+from vpo.policy.evaluator.transcription import (
+    compute_language_updates,
+    compute_title_updates,
+)
 from vpo.policy.matchers import CommentaryMatcher
 from vpo.policy.types import (
     ActionType,
@@ -348,6 +351,21 @@ def evaluate_policy(
                         track_index=track.index,
                         current_value=current_lang,
                         desired_value=new_lang,
+                    )
+                )
+
+    # Compute title updates from transcription classification
+    if transcription_results is not None:
+        title_updates = compute_title_updates(tracks, transcription_results, policy)
+        for track in tracks:
+            new_title = title_updates.get(track.index)
+            if new_title is not None:
+                actions.append(
+                    PlannedAction(
+                        action_type=ActionType.SET_TITLE,
+                        track_index=track.index,
+                        current_value=track.title,
+                        desired_value=new_title,
                     )
                 )
 

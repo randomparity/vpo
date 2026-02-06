@@ -26,6 +26,7 @@ class TestTranscriptionPolicyOptionsModel:
         options = TranscriptionPolicyOptions()
         assert options.enabled is False
         assert options.update_language_from_transcription is False
+        assert options.update_title_from_classification is False
         assert options.confidence_threshold == 0.8
         assert options.detect_commentary is False
         assert options.reorder_commentary is False
@@ -35,12 +36,14 @@ class TestTranscriptionPolicyOptionsModel:
         options = TranscriptionPolicyOptions(
             enabled=True,
             update_language_from_transcription=True,
+            update_title_from_classification=True,
             confidence_threshold=0.9,
             detect_commentary=True,
             reorder_commentary=True,
         )
         assert options.enabled is True
         assert options.update_language_from_transcription is True
+        assert options.update_title_from_classification is True
         assert options.confidence_threshold == 0.9
         assert options.detect_commentary is True
         assert options.reorder_commentary is True
@@ -184,6 +187,26 @@ class TestTranscriptionPolicyLoading:
                     ],
                 }
             )
+
+    def test_load_policy_with_title_from_classification(self):
+        """Loading policy with update_title_from_classification should work."""
+        policy = load_policy_from_dict(
+            {
+                "schema_version": 12,
+                "phases": [
+                    {
+                        "name": "transcribe",
+                        "transcription": {
+                            "enabled": True,
+                            "update_title_from_classification": True,
+                        },
+                    }
+                ],
+            }
+        )
+        transcription = policy.phases[0].transcription
+        assert transcription is not None
+        assert transcription.update_title_from_classification is True
 
     def test_has_transcription_settings_property(self):
         """has_transcription_settings indicates if transcription is enabled."""

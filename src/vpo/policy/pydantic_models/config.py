@@ -49,6 +49,7 @@ class TranscriptionPolicyModel(BaseModel):
 
     enabled: bool = False
     update_language_from_transcription: bool = False
+    update_title_from_classification: bool = False
     confidence_threshold: float = Field(default=0.8, ge=0.0, le=1.0)
     detect_commentary: bool = False
     reorder_commentary: bool = False
