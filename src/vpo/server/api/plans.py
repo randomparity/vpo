@@ -459,18 +459,26 @@ async def api_plans_bulk_reject_handler(request: web.Request) -> web.Response:
     return web.json_response(response.to_dict())
 
 
+def get_plan_routes() -> list[tuple[str, str, object]]:
+    """Return plan API route definitions as (method, path_suffix, handler) tuples.
+
+    Note: Bulk operations must be registered before parameterized routes.
+    """
+    return [
+        ("GET", "/plans", api_plans_handler),
+        ("POST", "/plans/bulk-approve", api_plans_bulk_approve_handler),
+        ("POST", "/plans/bulk-reject", api_plans_bulk_reject_handler),
+        ("GET", "/plans/{plan_id}", api_plan_detail_handler),
+        ("POST", "/plans/{plan_id}/approve", api_plan_approve_handler),
+        ("POST", "/plans/{plan_id}/reject", api_plan_reject_handler),
+    ]
+
+
 def setup_plan_routes(app: web.Application) -> None:
     """Register plan API routes with the application.
 
     Args:
         app: aiohttp Application to configure.
     """
-    # Plans list routes (026-plans-list-view)
-    app.router.add_get("/api/plans", api_plans_handler)
-    app.router.add_get("/api/plans/{plan_id}", api_plan_detail_handler)
-    app.router.add_post("/api/plans/{plan_id}/approve", api_plan_approve_handler)
-    app.router.add_post("/api/plans/{plan_id}/reject", api_plan_reject_handler)
-
-    # Bulk operations (must be registered before parameterized routes)
-    app.router.add_post("/api/plans/bulk-approve", api_plans_bulk_approve_handler)
-    app.router.add_post("/api/plans/bulk-reject", api_plans_bulk_reject_handler)
+    for method, suffix, handler in get_plan_routes():
+        app.router.add_route(method, f"/api{suffix}", handler)

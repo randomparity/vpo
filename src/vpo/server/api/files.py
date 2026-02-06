@@ -326,19 +326,22 @@ async def api_transcription_detail_handler(request: web.Request) -> web.Response
     return web.json_response(response.to_dict())
 
 
+def get_file_routes() -> list[tuple[str, str, object]]:
+    """Return file/library API route definitions."""
+    return [
+        ("GET", "/library", library_api_handler),
+        ("GET", "/library/languages", api_library_languages_handler),
+        ("GET", "/library/{file_id}", api_file_detail_handler),
+        ("GET", "/transcriptions", api_transcriptions_handler),
+        ("GET", "/transcriptions/{transcription_id}", api_transcription_detail_handler),
+    ]
+
+
 def setup_file_routes(app: web.Application) -> None:
     """Register file/library API routes with the application.
 
     Args:
         app: aiohttp Application to configure.
     """
-    # Library API routes (018-library-list-view, 019-library-filters-search)
-    app.router.add_get("/api/library", library_api_handler)
-    app.router.add_get("/api/library/languages", api_library_languages_handler)
-    # File detail route (020-file-detail-view)
-    app.router.add_get("/api/library/{file_id}", api_file_detail_handler)
-    # Transcription routes
-    app.router.add_get("/api/transcriptions", api_transcriptions_handler)
-    app.router.add_get(
-        "/api/transcriptions/{transcription_id}", api_transcription_detail_handler
-    )
+    for method, suffix, handler in get_file_routes():
+        app.router.add_route(method, f"/api{suffix}", handler)

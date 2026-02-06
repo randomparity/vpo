@@ -299,13 +299,21 @@ async def api_job_errors_handler(request: web.Request) -> web.Response:
     return web.json_response(response.to_dict())
 
 
+def get_job_routes() -> list[tuple[str, str, object]]:
+    """Return job API route definitions as (method, path_suffix, handler) tuples."""
+    return [
+        ("GET", "/jobs", api_jobs_handler),
+        ("GET", "/jobs/{job_id}", api_job_detail_handler),
+        ("GET", "/jobs/{job_id}/logs", api_job_logs_handler),
+        ("GET", "/jobs/{job_id}/errors", api_job_errors_handler),
+    ]
+
+
 def setup_job_routes(app: web.Application) -> None:
     """Register job API routes with the application.
 
     Args:
         app: aiohttp Application to configure.
     """
-    app.router.add_get("/api/jobs", api_jobs_handler)
-    app.router.add_get("/api/jobs/{job_id}", api_job_detail_handler)
-    app.router.add_get("/api/jobs/{job_id}/logs", api_job_logs_handler)
-    app.router.add_get("/api/jobs/{job_id}/errors", api_job_errors_handler)
+    for method, suffix, handler in get_job_routes():
+        app.router.add_route(method, f"/api{suffix}", handler)

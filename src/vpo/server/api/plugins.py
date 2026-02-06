@@ -275,16 +275,25 @@ async def api_file_plugin_data_single_handler(request: web.Request) -> web.Respo
     )
 
 
+def get_plugin_routes() -> list[tuple[str, str, object]]:
+    """Return plugin API route definitions as (method, path_suffix, handler) tuples."""
+    return [
+        ("GET", "/plugins", api_plugins_list_handler),
+        ("GET", "/plugins/{name}/files", api_plugin_files_handler),
+        ("GET", "/files/{file_id}/plugin-data", api_file_plugin_data_handler),
+        (
+            "GET",
+            "/files/{file_id}/plugin-data/{plugin}",
+            api_file_plugin_data_single_handler,
+        ),
+    ]
+
+
 def setup_plugin_routes(app: web.Application) -> None:
     """Register plugin API routes with the application.
 
     Args:
         app: aiohttp Application to configure.
     """
-    # Plugin data browser API routes (236-generic-plugin-data-browser)
-    app.router.add_get("/api/plugins", api_plugins_list_handler)
-    app.router.add_get("/api/plugins/{name}/files", api_plugin_files_handler)
-    app.router.add_get("/api/files/{file_id}/plugin-data", api_file_plugin_data_handler)
-    app.router.add_get(
-        "/api/files/{file_id}/plugin-data/{plugin}", api_file_plugin_data_single_handler
-    )
+    for method, suffix, handler in get_plugin_routes():
+        app.router.add_route(method, f"/api{suffix}", handler)

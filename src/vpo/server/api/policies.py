@@ -629,21 +629,27 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
     )
 
 
+def get_policy_routes() -> list[tuple[str, str, object]]:
+    """Return policy API route definitions as (method, path_suffix, handler) tuples.
+
+    Note: Order matters — /policies/schema must be before /policies/{name}
+    to avoid matching "schema" as a name.
+    """
+    return [
+        ("GET", "/policies", policies_api_handler),
+        ("POST", "/policies", api_policy_create_handler),
+        ("GET", "/policies/schema", api_policy_schema_handler),
+        ("GET", "/policies/{name}", api_policy_detail_handler),
+        ("PUT", "/policies/{name}", api_policy_update_handler),
+        ("POST", "/policies/{name}/validate", api_policy_validate_handler),
+    ]
+
+
 def setup_policy_routes(app: web.Application) -> None:
     """Register policy API routes with the application.
 
     Args:
         app: aiohttp Application to configure.
     """
-    # Policies API route (023-policies-list-view)
-    app.router.add_get("/api/policies", policies_api_handler)
-    # Create new policy endpoint (036-v9-policy-editor T068)
-    app.router.add_post("/api/policies", api_policy_create_handler)
-    # JSON Schema endpoint (256-policy-editor-enhancements T029)
-    # Must be before {name} route to avoid matching "schema" as a name
-    app.router.add_get("/api/policies/schema", api_policy_schema_handler)
-    # Policy detail routes (024-policy-editor)
-    app.router.add_get("/api/policies/{name}", api_policy_detail_handler)
-    app.router.add_put("/api/policies/{name}", api_policy_update_handler)
-    # Policy validation endpoint (025-policy-validation T029)
-    app.router.add_post("/api/policies/{name}/validate", api_policy_validate_handler)
+    for method, suffix, handler in get_policy_routes():
+        app.router.add_route(method, f"/api{suffix}", handler)

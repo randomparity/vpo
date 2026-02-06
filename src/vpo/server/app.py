@@ -240,6 +240,7 @@ def create_app(
     # Register API routes
     app.router.add_get("/health", health_handler)
     app.router.add_get("/api/about", api_about_handler)
+    app.router.add_get("/api/v1/about", api_about_handler)
     # Setup UI routes and templates (includes API routes via setup_api_routes)
     setup_ui_routes(app)
 

@@ -10,29 +10,49 @@ for better organization. Each module handles a specific domain:
 - stats.py: Processing statistics endpoints
 - plugins.py: Plugin data browser endpoints
 - events.py: Server-Sent Events (SSE) for real-time updates
+
+API Versioning:
+    All endpoints are available under both ``/api/`` (unversioned, backward
+    compatible) and ``/api/v1/`` (versioned). Both prefixes resolve to the
+    same handler.
 """
 
 from aiohttp import web
 
-from vpo.server.api.events import setup_events_routes
-from vpo.server.api.files import setup_file_routes
-from vpo.server.api.jobs import setup_job_routes
-from vpo.server.api.plans import setup_plan_routes
-from vpo.server.api.plugins import setup_plugin_routes
-from vpo.server.api.policies import setup_policy_routes
-from vpo.server.api.stats import setup_stats_routes
+from vpo.server.api.events import get_events_routes, setup_events_routes
+from vpo.server.api.files import get_file_routes, setup_file_routes
+from vpo.server.api.jobs import get_job_routes, setup_job_routes
+from vpo.server.api.plans import get_plan_routes, setup_plan_routes
+from vpo.server.api.plugins import get_plugin_routes, setup_plugin_routes
+from vpo.server.api.policies import get_policy_routes, setup_policy_routes
+from vpo.server.api.stats import get_stats_routes, setup_stats_routes
 
 __all__ = [
     "setup_api_routes",
+]
+
+# All route getter functions for dual-prefix registration
+_ROUTE_GETTERS = [
+    get_job_routes,
+    get_file_routes,
+    get_policy_routes,
+    get_plan_routes,
+    get_stats_routes,
+    get_plugin_routes,
+    get_events_routes,
 ]
 
 
 def setup_api_routes(app: web.Application) -> None:
     """Register all API routes with the application.
 
+    Registers each route under both ``/api/`` (backward compatible) and
+    ``/api/v1/`` (versioned) prefixes.
+
     Args:
         app: aiohttp Application to configure.
     """
+    # Register under /api/ (backward compat)
     setup_job_routes(app)
     setup_file_routes(app)
     setup_policy_routes(app)
@@ -40,3 +60,8 @@ def setup_api_routes(app: web.Application) -> None:
     setup_stats_routes(app)
     setup_plugin_routes(app)
     setup_events_routes(app)
+
+    # Register under /api/v1/ (versioned)
+    for get_routes in _ROUTE_GETTERS:
+        for method, suffix, handler in get_routes():
+            app.router.add_route(method, f"/api/v1{suffix}", handler)

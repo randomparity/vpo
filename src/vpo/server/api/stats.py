@@ -544,22 +544,31 @@ async def api_library_trends_handler(
     return web.json_response([asdict(s) for s in snapshots])
 
 
+def get_stats_routes() -> list[tuple[str, str, object]]:
+    """Return stats API route definitions as (method, path_suffix, handler) tuples.
+
+    Note: Named routes (/policies/{name}, /files/{file_id}, /{stats_id})
+    must come after fixed routes to avoid matching conflicts.
+    """
+    return [
+        ("GET", "/stats/summary", api_stats_summary_handler),
+        ("GET", "/stats/recent", api_stats_recent_handler),
+        ("GET", "/stats/trends", api_stats_trends_handler),
+        ("GET", "/stats/library-trends", api_library_trends_handler),
+        ("GET", "/stats/library-distribution", api_library_distribution_handler),
+        ("GET", "/stats/policies", api_stats_policies_handler),
+        ("GET", "/stats/policies/{name}", api_stats_policy_handler),
+        ("GET", "/stats/files/{file_id}", api_stats_file_handler),
+        ("GET", "/stats/{stats_id}", api_stats_detail_handler),
+        ("DELETE", "/stats/purge", api_stats_purge_handler),
+    ]
+
+
 def setup_stats_routes(app: web.Application) -> None:
     """Register stats API routes with the application.
 
     Args:
         app: aiohttp Application to configure.
     """
-    # Processing statistics routes (040-processing-stats)
-    app.router.add_get("/api/stats/summary", api_stats_summary_handler)
-    app.router.add_get("/api/stats/recent", api_stats_recent_handler)
-    app.router.add_get("/api/stats/trends", api_stats_trends_handler)
-    app.router.add_get("/api/stats/library-trends", api_library_trends_handler)
-    app.router.add_get(
-        "/api/stats/library-distribution", api_library_distribution_handler
-    )
-    app.router.add_get("/api/stats/policies", api_stats_policies_handler)
-    app.router.add_get("/api/stats/policies/{name}", api_stats_policy_handler)
-    app.router.add_get("/api/stats/files/{file_id}", api_stats_file_handler)
-    app.router.add_get("/api/stats/{stats_id}", api_stats_detail_handler)
-    app.router.add_delete("/api/stats/purge", api_stats_purge_handler)
+    for method, suffix, handler in get_stats_routes():
+        app.router.add_route(method, f"/api{suffix}", handler)

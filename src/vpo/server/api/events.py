@@ -399,10 +399,18 @@ def _compute_jobs_hash(jobs_data: dict[str, Any]) -> str:
     return hashlib.sha256(content.encode()).hexdigest()[:16]
 
 
+def get_events_routes() -> list[tuple[str, str, object]]:
+    """Return SSE event route definitions as (method, path_suffix, handler) tuples."""
+    return [
+        ("GET", "/events/jobs", sse_jobs_handler),
+    ]
+
+
 def setup_events_routes(app: web.Application) -> None:
     """Register SSE event routes with the application.
 
     Args:
         app: aiohttp Application to configure.
     """
-    app.router.add_get("/api/events/jobs", sse_jobs_handler)
+    for method, suffix, handler in get_events_routes():
+        app.router.add_route(method, f"/api{suffix}", handler)
