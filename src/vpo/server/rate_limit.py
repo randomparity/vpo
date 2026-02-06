@@ -178,9 +178,13 @@ async def _rate_limit_middleware(
     """Rate limiting middleware for API requests.
 
     Checks per-IP rate limits for /api/* paths. Non-API paths and
-    requests that pass the limit are forwarded to the handler. If
-    the rate limiter itself raises, the request is allowed through
-    (fail-open).
+    requests that pass the limit are forwarded to the handler.
+
+    Fail-open design: If the rate limiter itself raises an unexpected
+    exception, the request is allowed through. This is intentional —
+    VPO is a local tool where availability matters more than strict
+    rate enforcement. A bug in the limiter should not block the user
+    from accessing their own media library.
     """
     if not request.path.startswith("/api/"):
         return await handler(request)
@@ -189,8 +193,8 @@ async def _rate_limit_middleware(
     if rate_limiter is None:
         return await handler(request)
 
+    client_ip = request.remote or "unknown"
     try:
-        client_ip = request.remote or "unknown"
         allowed, retry_after = rate_limiter.check(
             client_ip, request.method, request.path
         )
@@ -209,6 +213,12 @@ async def _rate_limit_middleware(
                 headers={"Retry-After": str(retry_after_int)},
             )
     except Exception:
-        logger.exception("Rate limiter error, allowing request through")
+        # Fail-open: allow the request through on internal errors.
+        # Availability > strict limiting for a local tool.
+        logger.exception(
+            "Rate limiter error, allowing request through (client=%s, path=%s)",
+            client_ip,
+            request.path,
+        )
 
     return await handler(request)
