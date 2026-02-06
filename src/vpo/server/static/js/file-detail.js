@@ -55,9 +55,7 @@
                 }
             })
 
-            // Set initial ARIA state
-            header.setAttribute('aria-expanded', 'true')
-            header.style.cursor = 'pointer'
+            // Initial ARIA state and cursor are set in the template HTML/CSS
         })
     }
 

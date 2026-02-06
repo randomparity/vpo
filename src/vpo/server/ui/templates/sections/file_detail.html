@@ -161,11 +161,17 @@
     <!-- Video tracks section (US2) -->
     {% if file.video_tracks %}
     <section class="file-detail-tracks {% if file.has_many_tracks %}collapsible{% endif %}" data-track-type="video">
-        <h2 class="{% if file.has_many_tracks %}collapsible-header{% endif %}">
-            {% if file.has_many_tracks %}<span class="collapse-icon">▼</span>{% endif %}
+        <h2>
+            {% if file.has_many_tracks %}
+            <button type="button" class="collapsible-header" aria-expanded="true" aria-controls="video-tracks-content">
+                <span class="collapse-icon" aria-hidden="true">▼</span>
+                Video Tracks ({{ file.video_tracks | length }})
+            </button>
+            {% else %}
             Video Tracks ({{ file.video_tracks | length }})
+            {% endif %}
         </h2>
-        <div class="track-list {% if file.has_many_tracks %}collapsible-content{% endif %}">
+        <div id="video-tracks-content" class="track-list {% if file.has_many_tracks %}collapsible-content{% endif %}">
             {% for track in file.video_tracks %}
             <div class="track-item track-item--video">
                 <div class="track-header">
@@ -194,11 +200,17 @@
     <!-- Audio tracks section (US2, US5) -->
     {% if file.audio_tracks %}
     <section class="file-detail-tracks {% if file.has_many_tracks %}collapsible{% endif %}" data-track-type="audio">
-        <h2 class="{% if file.has_many_tracks %}collapsible-header{% endif %}">
-            {% if file.has_many_tracks %}<span class="collapse-icon">▼</span>{% endif %}
+        <h2>
+            {% if file.has_many_tracks %}
+            <button type="button" class="collapsible-header" aria-expanded="true" aria-controls="audio-tracks-content">
+                <span class="collapse-icon" aria-hidden="true">▼</span>
+                Audio Tracks ({{ file.audio_tracks | length }})
+            </button>
+            {% else %}
             Audio Tracks ({{ file.audio_tracks | length }})
+            {% endif %}
         </h2>
-        <div class="track-list {% if file.has_many_tracks %}collapsible-content{% endif %}">
+        <div id="audio-tracks-content" class="track-list {% if file.has_many_tracks %}collapsible-content{% endif %}">
             {% for track in file.audio_tracks %}
             <div class="track-item track-item--audio">
                 <div class="track-header">
@@ -231,11 +243,17 @@
     <!-- Subtitle tracks section (US2) -->
     {% if file.subtitle_tracks %}
     <section class="file-detail-tracks {% if file.has_many_tracks %}collapsible{% endif %}" data-track-type="subtitle">
-        <h2 class="{% if file.has_many_tracks %}collapsible-header{% endif %}">
-            {% if file.has_many_tracks %}<span class="collapse-icon">▼</span>{% endif %}
+        <h2>
+            {% if file.has_many_tracks %}
+            <button type="button" class="collapsible-header" aria-expanded="true" aria-controls="subtitle-tracks-content">
+                <span class="collapse-icon" aria-hidden="true">▼</span>
+                Subtitle Tracks ({{ file.subtitle_tracks | length }})
+            </button>
+            {% else %}
             Subtitle Tracks ({{ file.subtitle_tracks | length }})
+            {% endif %}
         </h2>
-        <div class="track-list {% if file.has_many_tracks %}collapsible-content{% endif %}">
+        <div id="subtitle-tracks-content" class="track-list {% if file.has_many_tracks %}collapsible-content{% endif %}">
             {% for track in file.subtitle_tracks %}
             <div class="track-item track-item--subtitle">
                 <div class="track-header">
@@ -259,11 +277,17 @@
     <!-- Other tracks section (attachments, etc.) -->
     {% if file.other_tracks %}
     <section class="file-detail-tracks {% if file.has_many_tracks %}collapsible{% endif %}" data-track-type="other">
-        <h2 class="{% if file.has_many_tracks %}collapsible-header{% endif %}">
-            {% if file.has_many_tracks %}<span class="collapse-icon">▼</span>{% endif %}
+        <h2>
+            {% if file.has_many_tracks %}
+            <button type="button" class="collapsible-header" aria-expanded="true" aria-controls="other-tracks-content">
+                <span class="collapse-icon" aria-hidden="true">▼</span>
+                Other Tracks ({{ file.other_tracks | length }})
+            </button>
+            {% else %}
             Other Tracks ({{ file.other_tracks | length }})
+            {% endif %}
         </h2>
-        <div class="track-list {% if file.has_many_tracks %}collapsible-content{% endif %}">
+        <div id="other-tracks-content" class="track-list {% if file.has_many_tracks %}collapsible-content{% endif %}">
             {% for track in file.other_tracks %}
             <div class="track-item track-item--other">
                 <div class="track-header">
