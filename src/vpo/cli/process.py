@@ -43,6 +43,7 @@ from vpo.policy.types import (
     PolicySchema,
 )
 from vpo.workflow.phase_formatting import format_phase_details
+from vpo.workflow.processor import NOT_IN_DB_MESSAGE
 
 logger = logging.getLogger(__name__)
 
@@ -705,6 +706,7 @@ def process_command(
     results = []
     success_count = 0
     fail_count = 0
+    not_in_db_count = 0
     stopped_early = False
     batch_start_time = time.time()
 
@@ -792,27 +794,40 @@ def process_command(
                         _, result, success = future.result()
                         if result is not None:
                             results.append(result)
-                            if success:
+                            is_not_in_db = result.error_message == NOT_IN_DB_MESSAGE
+                            if is_not_in_db:
+                                not_in_db_count += 1
+                            elif success:
                                 success_count += 1
                             else:
                                 fail_count += 1
 
-                            # Output result if verbose (use lock for thread safety)
+                            # Output result (use lock for thread safety)
                             if not json_output and verbose:
-                                formatted = _format_result_human(
-                                    result, file_path, verbose
-                                )
+                                if is_not_in_db:
+                                    output = f"[SKIP] {file_path.name}: not in database"
+                                else:
+                                    output = _format_result_human(
+                                        result, file_path, verbose
+                                    )
                                 with _output_lock:
-                                    click.echo(formatted)
+                                    click.echo(output)
                                     click.echo("")
                             elif not json_output and not progress.enabled:
-                                # Not verbose, not progress mode - show status
-                                status = "OK" if success else "FAILED"
+                                if is_not_in_db:
+                                    status = "SKIP"
+                                else:
+                                    status = "OK" if success else "FAILED"
                                 with _output_lock:
                                     click.echo(f"[{status}] {file_path.name}")
 
                             # Handle on_error=fail mode
-                            if not success and policy_on_error == OnErrorMode.FAIL:
+                            # Unscanned files are not real failures - don't abort batch
+                            if (
+                                not success
+                                and not is_not_in_db
+                                and policy_on_error == OnErrorMode.FAIL
+                            ):
                                 stop_event.set()
                                 stopped_early = True
                                 if not json_output:
@@ -886,6 +901,7 @@ def process_command(
                 "total": len(results),
                 "success": success_count,
                 "failed": fail_count,
+                "skipped_not_in_db": not_in_db_count,
                 "duration_seconds": round(batch_duration, 2),
                 "stopped_early": stopped_early,
             },
@@ -898,6 +914,11 @@ def process_command(
         duration_str = f" in {batch_duration:.1f}s" if batch_duration > 0 else ""
         msg = f"Processed {n} file(s): {success_count} ok, {fail_count} failed"
         click.echo(f"{msg}{duration_str}")
+        if not_in_db_count > 0:
+            click.echo(
+                f"Skipped {not_in_db_count} file(s) not in database"
+                " (run 'vpo scan' first)"
+            )
         if stopped_early:
             click.echo("(Batch stopped early due to error)")
 

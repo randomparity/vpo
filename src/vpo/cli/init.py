@@ -225,6 +225,7 @@ def init_command(
     - policies/: Directory for policy files
     - policies/default.yaml: Starter policy demonstrating common patterns
     - plugins/: Directory for user plugins
+    - backups/: Directory for database backups
 
     \b
     Examples:

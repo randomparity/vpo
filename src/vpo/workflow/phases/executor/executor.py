@@ -27,7 +27,7 @@ from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 from .backup import cleanup_backup, create_backup, handle_phase_failure
 from .helpers import get_tools, get_tracks, parse_plugin_metadata, select_executor
-from .types import OperationResult, PhaseExecutionState
+from .types import FILTER_OPS, OperationResult, PhaseExecutionState
 
 if TYPE_CHECKING:
     from vpo.db.types import FileInfo
@@ -402,6 +402,10 @@ class PhaseExecutor:
     ) -> int:
         """Dispatch an operation to the appropriate handler.
 
+        Filter operations (audio_filter, subtitle_filter, attachment_filter) are
+        consolidated: the first filter dispatched executes all filters in one
+        pass via execute_with_plan(). Subsequent filter dispatches return 0.
+
         Args:
             op_type: The type of operation.
             state: Current execution state.
@@ -410,12 +414,17 @@ class PhaseExecutor:
         Returns:
             Number of changes made.
         """
+        # Consolidate filter operations into a single execution
+        if op_type in FILTER_OPS:
+            if state.filters_executed:
+                return 0
+            result = self._execute_filters(state, file_info)
+            state.filters_executed = True
+            return result
+
         # Route to instance methods for testability (allows patching)
         handlers = {
             OperationType.CONTAINER: self._execute_container,
-            OperationType.AUDIO_FILTER: self._execute_audio_filter,
-            OperationType.SUBTITLE_FILTER: self._execute_subtitle_filter,
-            OperationType.ATTACHMENT_FILTER: self._execute_attachment_filter,
             OperationType.TRACK_ORDER: self._execute_track_order,
             OperationType.DEFAULT_FLAGS: self._execute_default_flags,
             OperationType.CONDITIONAL: self._execute_conditional,
@@ -455,42 +464,16 @@ class PhaseExecutor:
             ffmpeg_progress_callback=self._ffmpeg_progress_callback,
         )
 
-    def _execute_audio_filter(
+    def _execute_filters(
         self,
         state: PhaseExecutionState,
         file_info: "FileInfo | None",
     ) -> int:
-        """Execute audio filter operation."""
-        from .plan_operations import execute_audio_filter
+        """Execute all filter operations in a single consolidated pass."""
+        from .plan_operations import execute_filters
 
         tools = self._get_tools()
-        return execute_audio_filter(
-            state, file_info, self.conn, self.policy, self.dry_run, tools
-        )
-
-    def _execute_subtitle_filter(
-        self,
-        state: PhaseExecutionState,
-        file_info: "FileInfo | None",
-    ) -> int:
-        """Execute subtitle filter operation."""
-        from .plan_operations import execute_subtitle_filter
-
-        tools = self._get_tools()
-        return execute_subtitle_filter(
-            state, file_info, self.conn, self.policy, self.dry_run, tools
-        )
-
-    def _execute_attachment_filter(
-        self,
-        state: PhaseExecutionState,
-        file_info: "FileInfo | None",
-    ) -> int:
-        """Execute attachment filter operation."""
-        from .plan_operations import execute_attachment_filter
-
-        tools = self._get_tools()
-        return execute_attachment_filter(
+        return execute_filters(
             state, file_info, self.conn, self.policy, self.dry_run, tools
         )
 

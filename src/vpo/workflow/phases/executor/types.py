@@ -11,6 +11,15 @@ from typing import TYPE_CHECKING
 
 from vpo.policy.types import OperationType, PhaseDefinition
 
+FILTER_OPS = frozenset(
+    {
+        OperationType.AUDIO_FILTER,
+        OperationType.SUBTITLE_FILTER,
+        OperationType.ATTACHMENT_FILTER,
+    }
+)
+"""Operation types that are consolidated into a single filter execution pass."""
+
 if TYPE_CHECKING:
     from vpo.executor.transcode.decisions import TranscodeReason
     from vpo.policy.types import ContainerChange, TrackDisposition
@@ -73,6 +82,9 @@ class PhaseExecutionState:
     original_mtime: float | None = None
     """Original file modification time (Unix timestamp) captured at phase start.
     Used by file_timestamp operation to restore original mtime after processing."""
+
+    filters_executed: bool = False
+    """True if filter operations have already been consolidated and executed."""
 
     # Enhanced workflow logging - accumulated details during execution
     track_dispositions: list[TrackDisposition] = field(default_factory=list)

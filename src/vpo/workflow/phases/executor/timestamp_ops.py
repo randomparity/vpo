@@ -142,11 +142,22 @@ def _handle_release_date_mode(
         file_record, file_path, file_id, "file_timestamp"
     )
 
+    # Use info-level logging for non-skip fallbacks so they're visible
+    _log_fallback = logger.info if config.fallback != "skip" else logger.debug
+
+    if plugin_metadata is None:
+        _log_fallback(
+            "file_timestamp: No plugin metadata for %s, using fallback: %s",
+            file_path.name,
+            config.fallback,
+        )
+        return _apply_fallback(state, config.fallback, dry_run)
+
     # Find release date from plugin metadata
     release_date = _get_release_date(plugin_metadata, config.date_source)
 
     if release_date is None:
-        logger.debug(
+        _log_fallback(
             "No release date found in plugin metadata, using fallback: %s",
             config.fallback,
         )
