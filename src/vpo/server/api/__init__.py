@@ -80,9 +80,9 @@ def setup_api_routes(app: web.Application) -> None:
 
 
 _OPENAPI_PATH = Path(__file__).parent / "openapi.yaml"
+_OPENAPI_TEXT = _OPENAPI_PATH.read_text()
 
 
 async def _openapi_handler(request: web.Request) -> web.Response:
     """Serve the bundled OpenAPI specification."""
-    text = _OPENAPI_PATH.read_text()
-    return web.Response(text=text, content_type="text/yaml")
+    return web.Response(text=_OPENAPI_TEXT, content_type="text/yaml")

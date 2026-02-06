@@ -76,7 +76,7 @@ class SlidingWindowCounter:
 class RateLimiter:
     """Per-IP rate limiter with separate GET and mutate counters."""
 
-    EXEMPT_PATHS: frozenset[str] = frozenset({"/health", "/api/about"})
+    EXEMPT_PATHS: frozenset[str] = frozenset({"/health", "/api/about", "/api/v1/about"})
     _MUTATING_METHODS: frozenset[str] = frozenset({"POST", "PUT", "DELETE", "PATCH"})
     _CLEANUP_INTERVAL = 300  # seconds between stale counter cleanup
 

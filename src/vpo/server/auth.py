@@ -99,7 +99,7 @@ def create_auth_middleware(
     """Create auth middleware for the given token.
 
     The returned middleware:
-    - Allows /health endpoint without authentication (for load balancers)
+    - Allows /health and /api/about endpoints without authentication
     - Requires valid Basic Auth credentials for all other endpoints
     - Returns 401 with WWW-Authenticate header on auth failure
 
@@ -109,6 +109,13 @@ def create_auth_middleware(
     Returns:
         aiohttp middleware function.
     """
+    exempt_paths = frozenset(
+        {
+            "/health",
+            "/api/about",
+            "/api/v1/about",
+        }
+    )
 
     @web.middleware
     async def auth_middleware(
@@ -116,8 +123,8 @@ def create_auth_middleware(
         handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
     ) -> web.StreamResponse:
         """Authenticate requests using HTTP Basic Auth."""
-        # Skip auth for health endpoint (load balancer probes)
-        if request.path == "/health":
+        # Skip auth for health/about endpoints (load balancer probes, version checks)
+        if request.path in exempt_paths:
             return await handler(request)
 
         # Check Authorization header

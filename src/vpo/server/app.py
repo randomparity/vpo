@@ -200,7 +200,16 @@ def create_app(
         # Assume it's a Fernet-compatible base64-encoded key
         import base64
 
-        secret_key = base64.urlsafe_b64decode(secret_key_str)
+        try:
+            secret_key = base64.urlsafe_b64decode(secret_key_str)
+        except Exception:
+            logger.error(
+                "VPO_SESSION_SECRET is not valid base64. "
+                "Generate one with: python -c "
+                "'from cryptography.fernet import Fernet; "
+                "print(Fernet.generate_key().decode())'"
+            )
+            raise SystemExit(1)
         logger.info("Session persistence: enabled")
 
     setup_session(app, EncryptedCookieStorage(secret_key))

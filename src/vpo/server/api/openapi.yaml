@@ -4,8 +4,8 @@ info:
   description: REST API for the Video Policy Orchestrator Web UI
   version: "1.0.0"
 servers:
-  - url: http://localhost:8080
-    description: Local development server
+  - url: /
+    description: Current server
 
 paths:
   /api/jobs:
