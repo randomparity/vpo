@@ -16,7 +16,8 @@ from vpo.cli.process import (
     get_max_workers,
     resolve_worker_count,
 )
-from vpo.policy.types import FileProcessingResult, GlobalConfig, OnErrorMode
+from vpo.policy.types import FileProcessingResult
+from vpo.workflow.multi_policy import MultiPolicyResult
 
 
 class TestGetMaxWorkers:
@@ -112,57 +113,47 @@ def _make_result(
 
 
 class TestProcessSingleFileMultiPolicy:
-    """Tests for _process_single_file with multiple policies."""
+    """Tests for _process_single_file delegation to run_policies_for_file.
 
-    def _make_run_result(self, success: bool = True, result=None):
-        """Create a mock RunResult."""
-        mock = MagicMock()
-        mock.success = success
-        mock.result = result or _make_result(success=success)
-        return mock
+    Detailed multi-policy orchestration tests (on_error modes, stop_event,
+    transaction cleanup) live in tests/unit/workflow/test_multi_policy.py.
+    These tests verify that the CLI wrapper correctly delegates and
+    translates the result.
+    """
 
     @patch("vpo.cli.process.get_connection")
-    @patch("vpo.cli.process.WorkflowRunner")
+    @patch("vpo.cli.process.run_policies_for_file")
     @patch("vpo.cli.process.worker_context")
-    def test_sequential_execution_order(
-        self, mock_ctx, mock_runner_cls, mock_conn, make_policy
+    def test_delegates_to_run_policies_for_file(
+        self, mock_ctx, mock_run, mock_conn, make_policy
     ):
-        """Policies execute in order on the file."""
-        policy_a = make_policy()
-        policy_b = make_policy()
-        path_a = Path("/tmp/a.yaml")
-        path_b = Path("/tmp/b.yaml")
-
-        call_order = []
-
-        def make_runner(conn, policy, config, lifecycle):
-            mock_runner = MagicMock()
-            call_order.append(config.policy_name)
-            mock_runner.run_single.return_value = self._make_run_result()
-            return mock_runner
-
-        mock_runner_cls.for_cli.side_effect = make_runner
+        """_process_single_file delegates to run_policies_for_file."""
+        result_a = _make_result()
+        result_b = _make_result()
+        mock_run.return_value = MultiPolicyResult(
+            policy_results=(("policy_a", result_a), ("policy_b", result_b)),
+            overall_success=True,
+        )
         mock_conn.return_value.__enter__ = MagicMock()
         mock_conn.return_value.__exit__ = MagicMock(return_value=False)
 
         from vpo.jobs import WorkflowRunnerConfig
 
+        policy_a = make_policy()
+        policy_b = make_policy()
         configs = [
             WorkflowRunnerConfig(dry_run=True, policy_name="policy_a"),
             WorkflowRunnerConfig(dry_run=True, policy_name="policy_b"),
         ]
 
-        progress = MagicMock()
-        stop_event = threading.Event()
-
         _, results, success = _process_single_file(
             Path("/tmp/test.mkv"),
             0,
             Path("/tmp/db.sqlite"),
-            [(path_a, policy_a), (path_b, policy_b)],
+            [(Path("/tmp/a.yaml"), policy_a), (Path("/tmp/b.yaml"), policy_b)],
             configs,
-            progress,
-            stop_event,
+            MagicMock(),
+            threading.Event(),
             "01",
             "F001",
             None,
@@ -172,170 +163,61 @@ class TestProcessSingleFileMultiPolicy:
         assert len(results) == 2
         assert results[0][0] == "policy_a"
         assert results[1][0] == "policy_b"
-        assert call_order == ["policy_a", "policy_b"]
+        mock_run.assert_called_once()
 
     @patch("vpo.cli.process.get_connection")
-    @patch("vpo.cli.process.WorkflowRunner")
+    @patch("vpo.cli.process.run_policies_for_file")
     @patch("vpo.cli.process.worker_context")
-    def test_on_error_skip_stops_remaining_policies(
-        self, mock_ctx, mock_runner_cls, mock_conn, make_policy
+    def test_failure_result_propagated(
+        self, mock_ctx, mock_run, mock_conn, make_policy
     ):
-        """on_error=skip stops remaining policies for this file."""
-        policy_a = make_policy(config=GlobalConfig(on_error=OnErrorMode.SKIP))
-        policy_b = make_policy()
-
-        mock_runner = MagicMock()
-        mock_runner.run_single.return_value = self._make_run_result(
-            success=False,
-            result=_make_result(success=False, error_message="fail"),
+        """Failure result from run_policies_for_file is propagated."""
+        fail_result = _make_result(success=False, error_message="fail")
+        mock_run.return_value = MultiPolicyResult(
+            policy_results=(("policy_a", fail_result),),
+            overall_success=False,
         )
-        mock_runner_cls.for_cli.return_value = mock_runner
         mock_conn.return_value.__enter__ = MagicMock()
         mock_conn.return_value.__exit__ = MagicMock(return_value=False)
 
         from vpo.jobs import WorkflowRunnerConfig
 
-        configs = [
-            WorkflowRunnerConfig(dry_run=True, policy_name="policy_a"),
-            WorkflowRunnerConfig(dry_run=True, policy_name="policy_b"),
-        ]
-
-        _, results, success = _process_single_file(
-            Path("/tmp/test.mkv"),
-            0,
-            Path("/tmp/db.sqlite"),
-            [(Path("/tmp/a.yaml"), policy_a), (Path("/tmp/b.yaml"), policy_b)],
-            configs,
-            MagicMock(),
-            threading.Event(),
-            "01",
-            "F001",
-            None,
-        )
-
-        assert success is False
-        # Only the first policy ran (skip stops remaining)
-        assert len(results) == 1
-        assert results[0][0] == "policy_a"
-
-    @patch("vpo.cli.process.get_connection")
-    @patch("vpo.cli.process.WorkflowRunner")
-    @patch("vpo.cli.process.worker_context")
-    def test_on_error_continue_runs_next_policy(
-        self, mock_ctx, mock_runner_cls, mock_conn, make_policy
-    ):
-        """on_error=continue proceeds to next policy after failure."""
-        policy_a = make_policy(config=GlobalConfig(on_error=OnErrorMode.CONTINUE))
-        policy_b = make_policy()
-
-        call_count = [0]
-
-        def make_runner(conn, policy, config, lifecycle):
-            mock_r = MagicMock()
-            call_count[0] += 1
-            if call_count[0] == 1:
-                mock_r.run_single.return_value = self._make_run_result(
-                    success=False,
-                    result=_make_result(success=False, error_message="fail"),
-                )
-            else:
-                mock_r.run_single.return_value = self._make_run_result()
-            return mock_r
-
-        mock_runner_cls.for_cli.side_effect = make_runner
-        mock_conn.return_value.__enter__ = MagicMock()
-        mock_conn.return_value.__exit__ = MagicMock(return_value=False)
-
-        from vpo.jobs import WorkflowRunnerConfig
-
-        configs = [
-            WorkflowRunnerConfig(dry_run=True, policy_name="policy_a"),
-            WorkflowRunnerConfig(dry_run=True, policy_name="policy_b"),
-        ]
-
-        _, results, success = _process_single_file(
-            Path("/tmp/test.mkv"),
-            0,
-            Path("/tmp/db.sqlite"),
-            [(Path("/tmp/a.yaml"), policy_a), (Path("/tmp/b.yaml"), policy_b)],
-            configs,
-            MagicMock(),
-            threading.Event(),
-            "01",
-            "F001",
-            None,
-        )
-
-        assert success is False  # overall fails because policy_a failed
-        assert len(results) == 2  # both ran
-        assert not results[0][1].success
-        assert results[1][1].success
-
-    @patch("vpo.cli.process.get_connection")
-    @patch("vpo.cli.process.WorkflowRunner")
-    @patch("vpo.cli.process.worker_context")
-    def test_on_error_fail_skips_remaining_policies(
-        self, mock_ctx, mock_runner_cls, mock_conn, make_policy
-    ):
-        """on_error=fail skips remaining policies for this file.
-
-        Batch-level stop_event is set by the outer result collection loop,
-        not by _process_single_file. This preserves backward compatibility
-        with single-policy behavior.
-        """
-        policy_a = make_policy(config=GlobalConfig(on_error=OnErrorMode.FAIL))
-        policy_b = make_policy()
-
-        mock_runner = MagicMock()
-        mock_runner.run_single.return_value = self._make_run_result(
-            success=False,
-            result=_make_result(success=False, error_message="fatal"),
-        )
-        mock_runner_cls.for_cli.return_value = mock_runner
-        mock_conn.return_value.__enter__ = MagicMock()
-        mock_conn.return_value.__exit__ = MagicMock(return_value=False)
-
-        from vpo.jobs import WorkflowRunnerConfig
-
-        configs = [
-            WorkflowRunnerConfig(dry_run=True, policy_name="policy_a"),
-            WorkflowRunnerConfig(dry_run=True, policy_name="policy_b"),
-        ]
-
-        stop_event = threading.Event()
-        _, results, success = _process_single_file(
-            Path("/tmp/test.mkv"),
-            0,
-            Path("/tmp/db.sqlite"),
-            [(Path("/tmp/a.yaml"), policy_a), (Path("/tmp/b.yaml"), policy_b)],
-            configs,
-            MagicMock(),
-            stop_event,
-            "01",
-            "F001",
-            None,
-        )
-
-        assert success is False
-        assert not stop_event.is_set()  # batch stop handled by outer loop
-        assert len(results) == 1  # only first policy ran
-
-    @patch("vpo.cli.process.get_connection")
-    @patch("vpo.cli.process.WorkflowRunner")
-    @patch("vpo.cli.process.worker_context")
-    def test_single_policy_works_unchanged(
-        self, mock_ctx, mock_runner_cls, mock_conn, make_policy
-    ):
-        """Single policy in a list works the same as before."""
         policy = make_policy()
-        mock_runner = MagicMock()
-        mock_runner.run_single.return_value = self._make_run_result()
-        mock_runner_cls.for_cli.return_value = mock_runner
+        configs = [WorkflowRunnerConfig(dry_run=True, policy_name="policy_a")]
+
+        _, results, success = _process_single_file(
+            Path("/tmp/test.mkv"),
+            0,
+            Path("/tmp/db.sqlite"),
+            [(Path("/tmp/a.yaml"), policy)],
+            configs,
+            MagicMock(),
+            threading.Event(),
+            "01",
+            "F001",
+            None,
+        )
+
+        assert success is False
+        assert len(results) == 1
+        assert not results[0][1].success
+
+    @patch("vpo.cli.process.get_connection")
+    @patch("vpo.cli.process.run_policies_for_file")
+    @patch("vpo.cli.process.worker_context")
+    def test_single_policy_works(self, mock_ctx, mock_run, mock_conn, make_policy):
+        """Single policy in a list works fine."""
+        ok_result = _make_result()
+        mock_run.return_value = MultiPolicyResult(
+            policy_results=(("test", ok_result),),
+            overall_success=True,
+        )
         mock_conn.return_value.__enter__ = MagicMock()
         mock_conn.return_value.__exit__ = MagicMock(return_value=False)
 
         from vpo.jobs import WorkflowRunnerConfig
 
+        policy = make_policy()
         configs = [WorkflowRunnerConfig(dry_run=True, policy_name="test")]
 
         _, results, success = _process_single_file(

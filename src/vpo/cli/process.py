@@ -30,7 +30,6 @@ from vpo.jobs import (
     CLIJobLifecycle,
     NullJobLifecycle,
     StderrProgressReporter,
-    WorkflowRunner,
     WorkflowRunnerConfig,
 )
 from vpo.logging import worker_context
@@ -41,6 +40,11 @@ from vpo.policy.types import (
     OnErrorMode,
     PhaseOutcome,
     PolicySchema,
+)
+from vpo.workflow.multi_policy import (
+    PolicyEntry,
+    run_policies_for_file,
+    strictest_error_mode,
 )
 from vpo.workflow.phase_formatting import format_phase_details
 from vpo.workflow.processor import NOT_IN_DB_MESSAGE
@@ -467,29 +471,6 @@ def _format_multi_policy_result_human(
 # Parallel Processing Helpers
 # =============================================================================
 
-_ON_ERROR_SEVERITY = {
-    OnErrorMode.CONTINUE: 0,
-    OnErrorMode.SKIP: 1,
-    OnErrorMode.FAIL: 2,
-}
-
-
-def _strictest_error_mode(
-    policies: list[tuple[Path, PolicySchema]],
-) -> OnErrorMode:
-    """Select the strictest on_error mode across multiple policies.
-
-    Priority (strictest to most lenient):
-    1. FAIL  -- abort entire batch on first error
-    2. SKIP  -- skip remaining files on error
-    3. CONTINUE -- process all files regardless of errors
-    """
-    return max(
-        (schema.config.on_error for _, schema in policies),
-        key=lambda m: _ON_ERROR_SEVERITY[m],
-    )
-
-
 # Lock for synchronizing verbose output across worker threads
 _output_lock = threading.Lock()
 
@@ -554,102 +535,39 @@ def _process_single_file(
                     if file_record:
                         db_file_id = file_record.id
 
-                policy_results: list[tuple[str, FileProcessingResult]] = []
-                overall_success = True
+                # Build policy entries
+                entries = [
+                    PolicyEntry(policy=schema, config=config)
+                    for (_, schema), config in zip(
+                        policies, runner_configs, strict=True
+                    )
+                ]
 
-                for (policy_path, policy_schema), runner_config in zip(
-                    policies, runner_configs, strict=True
-                ):
-                    if stop_event.is_set():
-                        break
+                # Build lifecycle factory (dry-run vs live)
+                if runner_configs[0].dry_run:
 
-                    policy_name = runner_config.policy_name
-                    current_policy_name = policy_name
+                    def make_lifecycle(pn: str) -> NullJobLifecycle:
+                        return NullJobLifecycle()
+                else:
 
-                    if len(policies) > 1:
-                        logger.info("--- Policy %s: %s", policy_name, policy_path)
-
-                    # Create lifecycle for job management (or no-op for dry-run)
-                    if runner_config.dry_run:
-                        lifecycle: CLIJobLifecycle | NullJobLifecycle = (
-                            NullJobLifecycle()
-                        )
-                    else:
-                        lifecycle = CLIJobLifecycle(
+                    def make_lifecycle(pn: str) -> CLIJobLifecycle:
+                        return CLIJobLifecycle(
                             conn,
                             batch_id=batch_id,
-                            policy_name=policy_name,
+                            policy_name=pn,
                             save_logs=save_logs,
                         )
 
-                    try:
-                        # Create and run workflow
-                        runner = WorkflowRunner.for_cli(
-                            conn, policy_schema, runner_config, lifecycle
-                        )
-                        run_result = runner.run_single(file_path, file_id=db_file_id)
-
-                        policy_results.append((policy_name, run_result.result))
-
-                        if not run_result.success:
-                            overall_success = False
-                            # For multi-policy, the failing policy's on_error
-                            # controls whether to continue. Batch-level stop
-                            # (on_error=fail) is handled by the caller.
-                            if len(policies) > 1:
-                                on_error = policy_schema.config.on_error
-                                if on_error != OnErrorMode.CONTINUE:
-                                    logger.warning(
-                                        "Policy '%s' failed for %s, skipping "
-                                        "remaining policies (on_error=%s)",
-                                        policy_name,
-                                        file_path.name,
-                                        on_error.value,
-                                    )
-                                    break
-                                logger.warning(
-                                    "Policy '%s' failed for %s, continuing "
-                                    "to next policy (on_error=continue)",
-                                    policy_name,
-                                    file_path.name,
-                                )
-
-                        # Early exit for not-in-db (no point running more policies)
-                        if (
-                            run_result.result
-                            and run_result.result.error_message == NOT_IN_DB_MESSAGE
-                        ):
-                            break
-
-                    finally:
-                        # Clean up connection state before next policy
-                        if conn.in_transaction:
-                            logger.warning(
-                                "Connection left in transaction after "
-                                "policy '%s', rolling back",
-                                policy_name,
-                            )
-                            conn.rollback()
-                        # Ensure job log is closed
-                        if isinstance(lifecycle, CLIJobLifecycle):
-                            lifecycle.close_job_log()
-
-                # Guard: if stop_event fired before any policy ran,
-                # create a placeholder so callers never see an empty list.
-                if not policy_results:
-                    placeholder = FileProcessingResult(
-                        file_path=file_path,
-                        success=False,
-                        phase_results=(),
-                        total_duration_seconds=0.0,
-                        total_changes=0,
-                        phases_completed=0,
-                        phases_failed=0,
-                        phases_skipped=0,
-                        error_message="Batch stopped before processing",
-                    )
-                    policy_results = [(current_policy_name, placeholder)]
-                    overall_success = False
+                result = run_policies_for_file(
+                    conn=conn,
+                    file_path=file_path,
+                    entries=entries,
+                    lifecycle_factory=make_lifecycle,
+                    stop_event=stop_event,
+                    file_id=db_file_id,
+                )
+                policy_results = list(result.policy_results)
+                overall_success = result.overall_success
 
                 progress.on_item_complete(file_index, success=overall_success)
                 return file_path, policy_results, overall_success
@@ -908,7 +826,7 @@ def process_command(
 
     try:
         # The strictest on_error mode across all policies governs the batch.
-        batch_on_error = _strictest_error_mode(policies)
+        batch_on_error = strictest_error_mode(schema for _, schema in policies)
 
         with ThreadPoolExecutor(max_workers=effective_workers) as executor:
             # Submit all files as futures
