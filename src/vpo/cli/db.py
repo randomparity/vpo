@@ -19,6 +19,7 @@ import click
 
 from vpo.cli import get_db_conn_from_context
 from vpo.cli.exit_codes import ExitCode
+from vpo.cli.output import format_option
 from vpo.config import get_config
 from vpo.core import format_file_size, truncate_filename
 from vpo.db.views import get_missing_files
@@ -75,12 +76,7 @@ def db_group() -> None:
 
 
 @db_group.command("missing")
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output as JSON.",
-)
+@format_option
 @click.option(
     "--limit",
     default=100,
@@ -90,7 +86,7 @@ def db_group() -> None:
 @click.pass_context
 def missing_command(
     ctx: click.Context,
-    json_output: bool,
+    output_format: str,
     limit: int,
 ) -> None:
     """List files missing from the filesystem.
@@ -107,6 +103,7 @@ def missing_command(
         # List up to 500 missing files as JSON
         vpo db missing --json --limit 500
     """
+    json_output = output_format == "json"
     conn = get_db_conn_from_context(ctx)
 
     files = get_missing_files(conn, limit=limit)
@@ -171,18 +168,13 @@ def missing_command(
     default=False,
     help="Skip confirmation prompt.",
 )
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output as JSON.",
-)
+@format_option
 @click.pass_context
 def prune_command(
     ctx: click.Context,
     dry_run: bool,
     yes: bool,
-    json_output: bool,
+    output_format: str,
 ) -> None:
     """Remove database records for missing files.
 
@@ -200,6 +192,7 @@ def prune_command(
         # Prune with JSON output
         vpo db prune --yes --json
     """
+    json_output = output_format == "json"
     conn = get_db_conn_from_context(ctx)
 
     from vpo.db.views import get_missing_files_count
@@ -284,16 +277,11 @@ def prune_command(
 
 
 @db_group.command("info")
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output as JSON.",
-)
+@format_option
 @click.pass_context
 def info_command(
     ctx: click.Context,
-    json_output: bool,
+    output_format: str,
 ) -> None:
     """Show database summary statistics.
 
@@ -306,6 +294,7 @@ def info_command(
 
         vpo db info --json
     """
+    json_output = output_format == "json"
     from vpo.db.views import get_library_info
 
     conn = get_db_conn_from_context(ctx)
@@ -388,18 +377,13 @@ def info_command(
     default=False,
     help="Skip confirmation prompt.",
 )
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output as JSON.",
-)
+@format_option
 @click.pass_context
 def optimize_command(
     ctx: click.Context,
     dry_run: bool,
     yes: bool,
-    json_output: bool,
+    output_format: str,
 ) -> None:
     """Compact and optimize the database.
 
@@ -414,6 +398,7 @@ def optimize_command(
         # Optimize without confirmation
         vpo db optimize --yes
     """
+    json_output = output_format == "json"
     from vpo.db.views import run_optimize
 
     conn = get_db_conn_from_context(ctx)
@@ -476,16 +461,11 @@ def optimize_command(
 
 
 @db_group.command("verify")
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output as JSON.",
-)
+@format_option
 @click.pass_context
 def verify_command(
     ctx: click.Context,
-    json_output: bool,
+    output_format: str,
 ) -> None:
     """Check database integrity.
 
@@ -498,6 +478,7 @@ def verify_command(
 
         vpo db verify --json
     """
+    json_output = output_format == "json"
     from vpo.db.views import run_integrity_check
 
     conn = get_db_conn_from_context(ctx)
@@ -558,17 +539,12 @@ def verify_command(
     type=int,
     help="Maximum duplicate groups to show (default: 50).",
 )
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output as JSON.",
-)
+@format_option
 @click.pass_context
 def duplicates_command(
     ctx: click.Context,
     limit: int,
-    json_output: bool,
+    output_format: str,
 ) -> None:
     """Find files with duplicate content hashes.
 
@@ -582,6 +558,7 @@ def duplicates_command(
 
         vpo db duplicates --limit 10 --json
     """
+    json_output = output_format == "json"
     from vpo.db.views import get_duplicate_files
 
     conn = get_db_conn_from_context(ctx)
@@ -654,18 +631,13 @@ def _get_db_path(ctx: click.Context) -> Path:
     default=False,
     help="Show what would be backed up without creating archive.",
 )
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output as JSON.",
-)
+@format_option
 @click.pass_context
 def backup_command(
     ctx: click.Context,
     output: str | None,
     dry_run: bool,
-    json_output: bool,
+    output_format: str,
 ) -> None:
     """Create a compressed backup of the database.
 
@@ -684,6 +656,7 @@ def backup_command(
         # Preview without creating
         vpo db backup --dry-run
     """
+    json_output = output_format == "json"
     from pathlib import Path
 
     from vpo.db.backup import (
@@ -828,19 +801,14 @@ def backup_command(
     default=False,
     help="Validate archive without restoring.",
 )
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output as JSON.",
-)
+@format_option
 @click.pass_context
 def restore_command(
     ctx: click.Context,
     backup_file: str,
     yes: bool,
     dry_run: bool,
-    json_output: bool,
+    output_format: str,
 ) -> None:
     """Restore the database from a backup archive.
 
@@ -859,6 +827,7 @@ def restore_command(
         # Validate only (don't restore)
         vpo db restore --dry-run backup.tar.gz
     """
+    json_output = output_format == "json"
     from pathlib import Path
 
     from vpo.db.backup import (
@@ -1021,17 +990,12 @@ def restore_command(
     type=click.Path(exists=True, file_okay=False, readable=True),
     help="Directory to scan for backups (default: ~/.vpo/backups/).",
 )
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output as JSON.",
-)
+@format_option
 @click.pass_context
 def backups_command(
     ctx: click.Context,
     path: str | None,
-    json_output: bool,
+    output_format: str,
 ) -> None:
     """List available backups in the backup directory.
 
@@ -1046,6 +1010,7 @@ def backups_command(
         # List backups in custom directory
         vpo db backups --path /mnt/external/vpo-backups/
     """
+    json_output = output_format == "json"
     from pathlib import Path
 
     from vpo.db.backup import BackupIOError, _get_default_backup_dir, list_backups
@@ -1190,19 +1155,14 @@ def _stats_to_dict(stats: LogMaintenanceStats) -> dict:
     is_flag=True,
     help="Show what would be done without making changes.",
 )
-@click.option(
-    "--json",
-    "output_json",
-    is_flag=True,
-    help="Output results as JSON.",
-)
+@format_option
 def logs_command(
     compress_days: int | None,
     delete_days: int | None,
     compress_only: bool,
     delete_only: bool,
     dry_run: bool,
-    output_json: bool,
+    output_format: str,
 ) -> None:
     """Compress and delete old job log files.
 
@@ -1241,6 +1201,7 @@ def logs_command(
         # Delete logs older than 30 days
         vpo db logs --delete-days 30 --delete-only
     """
+    output_json = output_format == "json"
     if compress_only and delete_only:
         raise click.UsageError("Cannot use both --compress-only and --delete-only")
 

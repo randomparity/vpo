@@ -8,6 +8,7 @@ from pathlib import Path
 import click
 
 from vpo.cli.formatting import get_status_color
+from vpo.cli.output import format_option
 from vpo.config import get_config
 from vpo.core import parse_relative_time, truncate_filename
 from vpo.db import (
@@ -111,12 +112,7 @@ def jobs_group() -> None:
     default=50,
     help="Maximum number of jobs to show.",
 )
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output in JSON format.",
-)
+@format_option
 @click.pass_context
 def list_jobs(
     ctx: click.Context,
@@ -124,7 +120,7 @@ def list_jobs(
     job_type: str,
     since: str | None,
     limit: int,
-    json_output: bool,
+    output_format: str,
 ) -> None:
     """List jobs in the queue.
 
@@ -142,6 +138,7 @@ def list_jobs(
         # List jobs from last week in JSON
         vpo jobs list --since 1w --json
     """
+    json_output = output_format == "json"
     conn = ctx.obj.get("db_conn")
     if conn is None:
         raise click.ClickException("Failed to connect to database.")
@@ -217,14 +214,9 @@ def _output_jobs_json(jobs: list[Job]) -> None:
 
 @jobs_group.command("show")
 @click.argument("job_id")
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output in JSON format.",
-)
+@format_option
 @click.pass_context
-def show_job(ctx: click.Context, job_id: str, json_output: bool) -> None:
+def show_job(ctx: click.Context, job_id: str, output_format: str) -> None:
     """Show detailed information about a job.
 
     JOB_ID can be the full UUID or a prefix (minimum 4 characters).
@@ -238,8 +230,9 @@ def show_job(ctx: click.Context, job_id: str, json_output: bool) -> None:
         vpo jobs show 1234
 
         # Output as JSON
-        vpo jobs show 1234 --json
+        vpo jobs show 1234 --format json
     """
+    json_output = output_format == "json"
     conn = ctx.obj.get("db_conn")
     if conn is None:
         raise click.ClickException("Failed to connect to database.")

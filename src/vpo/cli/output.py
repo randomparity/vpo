@@ -6,6 +6,7 @@ across all CLI commands, replacing scattered per-module implementations.
 
 from __future__ import annotations
 
+import functools
 import json
 import sys
 from typing import TYPE_CHECKING, NoReturn
@@ -76,3 +77,31 @@ def warning_output(
     """
     if not json_output:
         click.echo(f"Warning: {message}", err=True)
+
+
+def format_option(func):
+    """Unified --format/-f option with hidden --json backward compat.
+
+    Replaces per-command ``--json`` flags with a single ``--format``
+    option that accepts ``text`` or ``json``.  The old ``--json`` flag
+    is kept as a hidden alias for backward compatibility.
+
+    The decorated function receives ``output_format: str`` (either
+    ``"text"`` or ``"json"``).
+    """
+
+    @click.option(
+        "--format",
+        "output_format",
+        type=click.Choice(["text", "json"]),
+        default="text",
+        help="Output format.",
+    )
+    @click.option("--json", "json_compat", is_flag=True, hidden=True)
+    @functools.wraps(func)
+    def wrapper(*args, output_format, json_compat, **kwargs):
+        if json_compat:
+            output_format = "json"
+        return func(*args, output_format=output_format, **kwargs)
+
+    return wrapper

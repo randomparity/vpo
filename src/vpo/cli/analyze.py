@@ -20,6 +20,7 @@ import click
 
 from vpo.cli import get_db_conn_from_context
 from vpo.cli.exit_codes import ExitCode
+from vpo.cli.output import format_option
 from vpo.db import (
     FileRecord,
     get_file_by_id,
@@ -330,19 +331,14 @@ def analyze_group() -> None:
     help="Force reclassification even if results exist",
 )
 @click.option("--force", is_flag=True, hidden=True)
-@click.option(
-    "--json",
-    "output_json",
-    is_flag=True,
-    help="Output results as JSON",
-)
+@format_option
 @click.pass_context
 def classify_command(
     ctx: click.Context,
     path: Path,
     reanalyze: bool,
     force: bool,
-    output_json: bool,
+    output_format: str,
 ) -> None:
     """Classify audio tracks as original/dubbed/commentary.
 
@@ -355,8 +351,9 @@ def classify_command(
     Examples:
         vpo analyze classify movie.mkv
         vpo analyze classify --reanalyze movie.mkv
-        vpo analyze classify --json movie.mkv
+        vpo analyze classify --format json movie.mkv
     """
+    output_json = output_format == "json"
     conn = get_db_conn_from_context(ctx)
 
     # Look up file in database
@@ -467,7 +464,7 @@ def classify_command(
 @click.option("--reanalyze", "-r", is_flag=True, help="Re-analyze even if cached")
 @click.option("--force", is_flag=True, hidden=True)
 @click.option("--recursive", "-R", is_flag=True, help="Process directories recursively")
-@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
+@format_option
 @click.pass_context
 def language_command(
     ctx: click.Context,
@@ -475,7 +472,7 @@ def language_command(
     reanalyze: bool,
     force: bool,
     recursive: bool,
-    output_json: bool,
+    output_format: str,
 ) -> None:
     """Run multi-language detection on audio tracks.
 
@@ -494,8 +491,9 @@ def language_command(
         vpo analyze language /media/movies/ -R
 
         # Output as JSON
-        vpo analyze language movie.mkv --json
+        vpo analyze language movie.mkv --format json
     """
+    output_json = output_format == "json"
     conn = get_db_conn_from_context(ctx)
 
     # Check plugin availability
@@ -653,7 +651,7 @@ def _format_language_run_results(
     default="all",
     help="Filter files by classification (language analysis only)",
 )
-@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
+@format_option
 @click.option("--limit", "-n", default=50, help="Maximum files to show")
 @click.pass_context
 def status_command(
@@ -661,7 +659,7 @@ def status_command(
     path: str | None,
     analysis_type: str,
     filter_type: str,
-    output_json: bool,
+    output_format: str,
     limit: int,
 ) -> None:
     """View analysis status for files.
@@ -684,8 +682,9 @@ def status_command(
         vpo analyze status --type language --filter multi-language
 
         # Output as JSON
-        vpo analyze status --json
+        vpo analyze status --format json
     """
+    output_json = output_format == "json"
     conn = get_db_conn_from_context(ctx)
 
     # Handle specific file path
@@ -949,7 +948,7 @@ def _format_language_file_list(files: list, filter_type: str, limit: int) -> Non
 @click.option("--recursive", "-R", is_flag=True, help="Include subdirectories")
 @click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
 @click.option("--dry-run", "-n", is_flag=True, help="Preview without deleting")
-@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
+@format_option
 @click.pass_context
 def clear_command(
     ctx: click.Context,
@@ -959,7 +958,7 @@ def clear_command(
     recursive: bool,
     yes: bool,
     dry_run: bool,
-    output_json: bool,
+    output_format: str,
 ) -> None:
     """Clear cached analysis results.
 
@@ -986,6 +985,7 @@ def clear_command(
         # Clear all analysis results
         vpo analyze clear --all --yes
     """
+    output_json = output_format == "json"
     conn = get_db_conn_from_context(ctx)
 
     if not path and not clear_all:

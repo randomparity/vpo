@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from vpo.plugin import PluginRegistry
 
 from vpo.cli.exit_codes import ExitCode
-from vpo.cli.output import warning_output
+from vpo.cli.output import format_option, warning_output
 from vpo.cli.profile_loader import load_profile_or_exit
 from vpo.core import truncate_filename
 from vpo.language_analysis.orchestrator import (
@@ -469,13 +469,7 @@ def _run_language_analysis_sequential(
     default=False,
     help="Show verbose output.",
 )
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    default=False,
-    help="Output results in JSON format.",
-)
+@format_option
 @click.option(
     "--workers",
     type=click.IntRange(min=1),
@@ -498,7 +492,7 @@ def scan(
     profile: str | None,
     dry_run: bool,
     verbose: bool,
-    json_output: bool,
+    output_format: str,
     workers: int | None,
     analyze_languages: bool,
 ) -> None:
@@ -522,6 +516,8 @@ def scan(
 
         vpo scan --analyze-languages /media/videos
     """
+    json_output = output_format == "json"
+
     if prune:
         raise click.UsageError(
             "--prune is no longer supported. Use 'vpo db prune' instead."

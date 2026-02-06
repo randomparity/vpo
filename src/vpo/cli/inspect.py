@@ -9,6 +9,7 @@ from typing import Any
 import click
 
 from vpo.cli.exit_codes import ExitCode
+from vpo.cli.output import format_option
 from vpo.introspector import (
     FFprobeIntrospector,
     MediaIntrospectionError,
@@ -58,14 +59,7 @@ def _get_plugin_registry_or_error():
 
 @click.command("inspect")
 @click.argument("file", type=click.Path(exists=False))
-@click.option(
-    "--format",
-    "-f",
-    "output_format",
-    type=click.Choice(["human", "json"]),
-    default="human",
-    help="Output format (default: human)",
-)
+@format_option
 @click.option(
     "--analyze-languages",
     "-a",

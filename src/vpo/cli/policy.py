@@ -16,6 +16,7 @@ from pathlib import Path
 import click
 
 from vpo.cli.exit_codes import ExitCode
+from vpo.cli.output import format_option
 from vpo.config.loader import get_config
 from vpo.policy.loader import PolicyValidationError, load_policy
 
@@ -105,13 +106,8 @@ def policy_group() -> None:
 
 
 @policy_group.command("list")
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output in JSON format.",
-)
-def list_policies_cmd(json_output: bool) -> None:
+@format_option
+def list_policies_cmd(output_format: str) -> None:
     """List available policy files.
 
     Scans ~/.vpo/policies/ for YAML policy files and shows their
@@ -123,8 +119,9 @@ def list_policies_cmd(json_output: bool) -> None:
         vpo policy list
 
         # Output as JSON
-        vpo policy list --json
+        vpo policy list --format json
     """
+    json_output = output_format == "json"
     policies = _discover_policies()
 
     if json_output:
@@ -180,18 +177,13 @@ def list_policies_cmd(json_output: bool) -> None:
 
 @policy_group.command("show")
 @click.argument("policy_name_or_path")
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output policy as JSON (parsed structure).",
-)
+@format_option
 @click.option(
     "--raw",
     is_flag=True,
     help="Output raw YAML without parsing.",
 )
-def show_policy_cmd(policy_name_or_path: str, json_output: bool, raw: bool) -> None:
+def show_policy_cmd(policy_name_or_path: str, output_format: str, raw: bool) -> None:
     """Display contents of a policy file.
 
     POLICY_NAME_OR_PATH can be either:
@@ -207,11 +199,12 @@ def show_policy_cmd(policy_name_or_path: str, json_output: bool, raw: bool) -> N
         vpo policy show /path/to/policy.yaml
 
         # Output as parsed JSON
-        vpo policy show normalize --json
+        vpo policy show normalize --format json
 
         # Output raw YAML
         vpo policy show normalize --raw
     """
+    json_output = output_format == "json"
     if json_output and raw:
         raise click.ClickException("Cannot use both --json and --raw")
 
@@ -417,13 +410,8 @@ def _output_policy_human(policy, policy_path: Path) -> None:
 
 @policy_group.command("validate")
 @click.argument("policy_file", type=click.Path(exists=False, path_type=Path))
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output validation result in JSON format.",
-)
-def validate_policy_cmd(policy_file: Path, json_output: bool) -> None:
+@format_option
+def validate_policy_cmd(policy_file: Path, output_format: str) -> None:
     """Validate a policy YAML file.
 
     Checks that the policy file has valid YAML syntax, uses the correct
@@ -439,8 +427,9 @@ def validate_policy_cmd(policy_file: Path, json_output: bool) -> None:
         vpo policy validate my-policy.yaml
 
         # Validate with JSON output (for CI/tooling)
-        vpo policy validate my-policy.yaml --json
+        vpo policy validate my-policy.yaml --format json
     """
+    json_output = output_format == "json"
     result = _validate_policy(policy_file)
 
     if json_output:

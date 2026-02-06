@@ -89,7 +89,7 @@ class TestLanguageCommand:
         assert result.exit_code == 0
         assert "--reanalyze" in result.output
         assert "--recursive" in result.output
-        assert "--json" in result.output
+        assert "--format" in result.output
 
     @patch("vpo.cli.analyze._check_plugin_available")
     def test_language_no_plugin(self, mock_plugin, runner, mock_conn, tmp_path):
@@ -176,7 +176,7 @@ class TestStatusCommand:
         result = runner.invoke(main, ["analyze", "status", "--help"])
         assert result.exit_code == 0
         assert "--type" in result.output
-        assert "--json" in result.output
+        assert "--format" in result.output
         assert "--limit" in result.output
 
     @patch("vpo.db.views.get_analysis_status_summary")

@@ -484,7 +484,7 @@ class TestJobsCLIHelp:
         assert "--status" in result.output
         assert "--type" in result.output
         assert "--since" in result.output
-        assert "--json" in result.output
+        assert "--format" in result.output
 
     def test_jobs_show_help(self) -> None:
         """Test that jobs show --help works."""
@@ -492,4 +492,4 @@ class TestJobsCLIHelp:
         result = runner.invoke(main, ["jobs", "show", "--help"])
         assert result.exit_code == 0
         assert "JOB_ID" in result.output
-        assert "--json" in result.output
+        assert "--format" in result.output
