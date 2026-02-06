@@ -62,7 +62,25 @@ def _format_job_row(job: Job) -> tuple[str, str, str, str, str, str, str]:
 
 @click.group("jobs")
 def jobs_group() -> None:
-    """Manage job queue for transcoding and file operations."""
+    """Manage job queue for transcoding and file operations.
+
+    Examples:
+
+        # List all jobs
+        vpo jobs list
+
+        # List only running jobs
+        vpo jobs list --status running
+
+        # Show details for a specific job
+        vpo jobs show <job-id>
+
+        # Cancel a running job
+        vpo jobs cancel <job-id>
+
+        # Clean up old completed jobs
+        vpo jobs clean --before 30d
+    """
     pass
 
 
