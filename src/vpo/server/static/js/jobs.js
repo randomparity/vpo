@@ -196,7 +196,7 @@
         }
 
         // Make row clickable - link to job detail view (016-job-detail-view)
-        return '<tr class="job-row-clickable" data-job-id="' + escapeHtml(job.id) + '" tabindex="0" role="link" aria-label="View job ' + escapeHtml(shortId) + '">' +
+        return '<tr class="job-row-clickable" data-job-id="' + escapeHtml(job.id) + '" tabindex="0" aria-label="View job ' + escapeHtml(shortId) + '">' +
             '<td class="job-id" title="' + escapeHtml(job.id) + '">' + escapeHtml(shortId) + '</td>' +
             '<td class="job-type">' + createTypeBadge(job.job_type) + '</td>' +
             '<td class="job-status">' + createStatusBadge(job.status) + '</td>' +

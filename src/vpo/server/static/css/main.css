@@ -82,7 +82,7 @@
         --color-body-bg: #1e1e1e;
         --color-text: #e0e0e0;
         --color-text-muted: #b0b0b0;
-        --color-text-hint: #999;
+        --color-text-hint: #aaa;
         --color-border: #404040;
 
         /* Colors - Error */
@@ -2041,6 +2041,12 @@ html, body {
 
 .collapsible .collapsible-header:hover {
     color: var(--color-primary);
+}
+
+.collapsible .collapsible-header:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 2px;
 }
 
 .collapse-icon {
