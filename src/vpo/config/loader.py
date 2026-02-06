@@ -272,3 +272,41 @@ def get_config(
         builder.set_plugin_dirs_from_env(plugin_dirs_from_env)
 
     return builder.build(default_plugins_dir=DEFAULT_PLUGINS_DIR)
+
+
+def validate_config(config: VPOConfig) -> list[str]:
+    """Validate cross-field configuration constraints.
+
+    Checks beyond what individual __post_init__ methods validate,
+    such as relationships between different config sections.
+
+    Args:
+        config: The configuration to validate.
+
+    Returns:
+        List of error strings. Empty list means configuration is valid.
+    """
+    errors: list[str] = []
+
+    # Check radarr: if enabled, url and api_key must be set
+    radarr = config.plugins.metadata.radarr
+    if radarr is not None and radarr.enabled:
+        if not radarr.url:
+            errors.append("Radarr is enabled but url is not set")
+        if not radarr.api_key:
+            errors.append("Radarr is enabled but api_key is not set")
+
+    # Check sonarr: if enabled, url and api_key must be set
+    sonarr = config.plugins.metadata.sonarr
+    if sonarr is not None and sonarr.enabled:
+        if not sonarr.url:
+            errors.append("Sonarr is enabled but url is not set")
+        if not sonarr.api_key:
+            errors.append("Sonarr is enabled but api_key is not set")
+
+    # Warn about non-existent plugin directories
+    for plugin_dir in config.plugins.plugin_dirs:
+        if not plugin_dir.exists():
+            errors.append(f"Plugin directory does not exist: {plugin_dir}")
+
+    return errors

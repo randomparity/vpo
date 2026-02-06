@@ -1,11 +1,12 @@
 """CLI commands for configuration management.
 
-This module provides commands for managing configuration profiles.
-Renamed from profiles.py for more intuitive naming.
+This module provides commands for managing configuration profiles
+and validating the base config.toml file.
 """
 
 import json
 import logging
+from pathlib import Path
 
 import click
 
@@ -428,3 +429,78 @@ def create_config(
     # Write profile
     profile_path.write_text(content)
     click.echo(f"Created profile: {profile_path}")
+
+
+@config_group.command("check")
+@click.option(
+    "--config",
+    "config_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Path to config.toml (default: ~/.vpo/config.toml).",
+)
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    help="Output in JSON format.",
+)
+def check_config(config_path: Path | None, json_output: bool) -> None:
+    """Validate the base config.toml file.
+
+    Loads the config file with strict parsing, constructs the full
+    VPOConfig, and runs cross-field validation checks.
+
+    Examples:
+
+        # Check default config
+        vpo config check
+
+        # Check specific config file
+        vpo config check --config /path/to/config.toml
+
+        # Output as JSON
+        vpo config check --json
+    """
+    from vpo.config.loader import get_config, validate_config
+    from vpo.config.toml_parser import TomlParseError
+
+    errors: list[str] = []
+
+    # Load with strict=True to catch parse errors
+    try:
+        config = get_config(config_path=config_path, strict=True)
+    except TomlParseError as e:
+        errors.append(f"TOML parse error: {e}")
+        if json_output:
+            click.echo(json.dumps({"valid": False, "errors": errors}, indent=2))
+        else:
+            click.echo(click.style("Config file has errors:", fg="red"), err=True)
+            for error in errors:
+                click.echo(f"  - {error}", err=True)
+        raise SystemExit(ExitCode.CONFIG_ERROR)
+    except ValueError as e:
+        errors.append(f"Validation error: {e}")
+        if json_output:
+            click.echo(json.dumps({"valid": False, "errors": errors}, indent=2))
+        else:
+            click.echo(click.style("Config file has errors:", fg="red"), err=True)
+            for error in errors:
+                click.echo(f"  - {error}", err=True)
+        raise SystemExit(ExitCode.CONFIG_ERROR)
+
+    # Run cross-field validation
+    errors = validate_config(config)
+
+    if json_output:
+        click.echo(json.dumps({"valid": len(errors) == 0, "errors": errors}, indent=2))
+        if errors:
+            raise SystemExit(ExitCode.CONFIG_ERROR)
+    else:
+        if errors:
+            click.echo(click.style("Config file has errors:", fg="red"), err=True)
+            for error in errors:
+                click.echo(f"  - {error}", err=True)
+            raise SystemExit(ExitCode.CONFIG_ERROR)
+        else:
+            click.echo(click.style("Configuration is valid.", fg="green"))

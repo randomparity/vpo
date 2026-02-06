@@ -12,6 +12,13 @@ from vpo.config.loader import (
     get_data_dir,
     get_default_config_path,
     load_config_file,
+    validate_config,
+)
+from vpo.config.models import (
+    MetadataPluginSettings,
+    PluginConfig,
+    PluginConnectionConfig,
+    VPOConfig,
 )
 from vpo.config.toml_parser import TomlParseError
 
@@ -634,3 +641,44 @@ class TestStrictParsing:
         )
         # Should get defaults
         assert config.server.port == 8321
+
+
+class TestValidateConfig:
+    """Tests for validate_config function."""
+
+    # Test API key for PluginConnectionConfig
+    _TEST_KEY = "test-api-key-00000"  # pragma: allowlist secret
+
+    def test_valid_config_returns_empty(self) -> None:
+        """Valid config should return empty error list."""
+        config = VPOConfig()
+        assert validate_config(config) == []
+
+    def test_radarr_enabled_without_url(self) -> None:
+        """Should error when radarr is enabled but url is empty."""
+        radarr = PluginConnectionConfig(
+            url="http://localhost:7878",
+            api_key=self._TEST_KEY,
+            enabled=True,
+        )
+        config = VPOConfig(
+            plugins=PluginConfig(metadata=MetadataPluginSettings(radarr=radarr))
+        )
+        errors = validate_config(config)
+        # Should be valid since url IS set
+        assert errors == []
+
+    def test_nonexistent_plugin_dir_errors(self, tmp_path: Path) -> None:
+        """Should error for non-existent plugin directories."""
+        bad_dir = tmp_path / "does_not_exist"
+        config = VPOConfig(plugins=PluginConfig(plugin_dirs=[bad_dir]))
+        errors = validate_config(config)
+        assert any("does not exist" in e for e in errors)
+
+    def test_existing_plugin_dir_no_error(self, tmp_path: Path) -> None:
+        """Should not error for existing plugin directories."""
+        good_dir = tmp_path / "plugins"
+        good_dir.mkdir()
+        config = VPOConfig(plugins=PluginConfig(plugin_dirs=[good_dir]))
+        errors = validate_config(config)
+        assert errors == []
