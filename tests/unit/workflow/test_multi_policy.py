@@ -4,6 +4,8 @@ import threading
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from vpo.policy.types import FileProcessingResult, GlobalConfig, OnErrorMode
 from vpo.workflow.multi_policy import (
     MultiPolicyResult,
@@ -80,6 +82,11 @@ class TestStrictestErrorMode:
         p1 = make_policy(config=GlobalConfig(on_error=OnErrorMode.CONTINUE))
         p2 = make_policy(config=GlobalConfig(on_error=OnErrorMode.SKIP))
         assert strictest_error_mode([p1, p2]) == OnErrorMode.SKIP
+
+    def test_empty_policies_raises(self):
+        """Empty policies iterable raises ValueError."""
+        with pytest.raises(ValueError, match="empty"):
+            strictest_error_mode([])
 
 
 # ---------------------------------------------------------------------------
@@ -432,3 +439,79 @@ class TestRunPoliciesForFile:
 
         assert isinstance(result, MultiPolicyResult)
         assert isinstance(result.policy_results, tuple)
+
+    @patch("vpo.workflow.multi_policy.WorkflowRunner")
+    def test_empty_entries_returns_placeholder(self, mock_runner_cls):
+        """Empty entries list returns a placeholder result."""
+        conn = MagicMock()
+        conn.in_transaction = False
+
+        result = run_policies_for_file(
+            conn=conn,
+            file_path=Path("/tmp/test.mkv"),
+            entries=[],
+            lifecycle_factory=lambda pn: MagicMock(),
+        )
+
+        assert result.overall_success is False
+        assert len(result.policy_results) == 1
+        assert result.policy_results[0][0] == "unknown"
+        assert (
+            result.policy_results[0][1].error_message
+            == "Batch stopped before processing"
+        )
+        mock_runner_cls.for_cli.assert_not_called()
+
+    @patch("vpo.workflow.multi_policy.WorkflowRunner")
+    def test_runner_exception_triggers_finally_cleanup(
+        self, mock_runner_cls, make_policy
+    ):
+        """When runner.run_single raises, finally block still runs."""
+        entry = _entry(make_policy, policy_name="a")
+
+        mock_r = MagicMock()
+        mock_r.run_single.side_effect = RuntimeError("ffmpeg crashed")
+        mock_runner_cls.for_cli.return_value = mock_r
+
+        conn = MagicMock()
+        conn.in_transaction = True
+
+        lifecycle = MagicMock()
+
+        with pytest.raises(RuntimeError, match="ffmpeg crashed"):
+            run_policies_for_file(
+                conn=conn,
+                file_path=Path("/tmp/test.mkv"),
+                entries=[entry],
+                lifecycle_factory=lambda pn: lifecycle,
+            )
+
+        # Finally block should have run despite exception
+        conn.rollback.assert_called_once()
+        lifecycle.close_job_log.assert_called_once()
+
+    @patch("vpo.workflow.multi_policy.WorkflowRunner")
+    def test_lifecycle_without_close_job_log_no_error(
+        self, mock_runner_cls, make_policy
+    ):
+        """Lifecycle without close_job_log attribute does not error."""
+        entry = _entry(make_policy, policy_name="a")
+
+        mock_r = MagicMock()
+        mock_r.run_single.return_value = _make_run_result()
+        mock_runner_cls.for_cli.return_value = mock_r
+
+        conn = MagicMock()
+        conn.in_transaction = False
+
+        # Use a simple object without close_job_log
+        lifecycle = object()
+
+        result = run_policies_for_file(
+            conn=conn,
+            file_path=Path("/tmp/test.mkv"),
+            entries=[entry],
+            lifecycle_factory=lambda pn: lifecycle,
+        )
+
+        assert result.overall_success is True

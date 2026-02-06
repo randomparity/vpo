@@ -237,6 +237,76 @@ class TestProcessSingleFileMultiPolicy:
         assert len(results) == 1
         assert results[0][0] == "test"
 
+    @patch("vpo.cli.process.get_connection")
+    @patch("vpo.cli.process.run_policies_for_file")
+    @patch("vpo.cli.process.worker_context")
+    def test_stop_event_returns_none_results(
+        self, mock_ctx, mock_run, mock_conn, make_policy
+    ):
+        """When stop_event is set before entry, returns None results."""
+        from vpo.jobs import WorkflowRunnerConfig
+
+        policy = make_policy()
+        configs = [WorkflowRunnerConfig(dry_run=True, policy_name="test")]
+
+        stop = threading.Event()
+        stop.set()
+
+        path, results, success = _process_single_file(
+            Path("/tmp/test.mkv"),
+            0,
+            Path("/tmp/db.sqlite"),
+            [(Path("/tmp/test.yaml"), policy)],
+            configs,
+            MagicMock(),
+            stop,
+            "01",
+            "F001",
+            None,
+        )
+
+        assert path == Path("/tmp/test.mkv")
+        assert results is None
+        assert success is False
+        mock_run.assert_not_called()
+
+    @patch("vpo.cli.process.get_connection")
+    @patch("vpo.cli.process.run_policies_for_file")
+    @patch("vpo.cli.process.worker_context")
+    def test_exception_returns_error_result(
+        self, mock_ctx, mock_run, mock_conn, make_policy
+    ):
+        """Unhandled exception in processing returns error result tuple."""
+        mock_run.side_effect = RuntimeError("disk full")
+        mock_conn.return_value.__enter__ = MagicMock()
+        mock_conn.return_value.__exit__ = MagicMock(return_value=False)
+
+        from vpo.jobs import WorkflowRunnerConfig
+
+        policy = make_policy()
+        configs = [WorkflowRunnerConfig(dry_run=True, policy_name="test")]
+
+        path, results, success = _process_single_file(
+            Path("/tmp/test.mkv"),
+            0,
+            Path("/tmp/db.sqlite"),
+            [(Path("/tmp/test.yaml"), policy)],
+            configs,
+            MagicMock(),
+            threading.Event(),
+            "01",
+            "F001",
+            None,
+        )
+
+        assert path == Path("/tmp/test.mkv")
+        assert success is False
+        assert results is not None
+        assert len(results) == 1
+        _, result = results[0]
+        assert result.success is False
+        assert "disk full" in result.error_message
+
 
 class TestFormatMultiPolicyResult:
     """Tests for _format_multi_policy_result_human."""
