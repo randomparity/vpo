@@ -682,7 +682,7 @@ html, body {
 }
 
 .jobs-filter select:focus {
-    outline: 2px solid transparent;
+    outline: 2px solid var(--color-primary);
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
@@ -708,7 +708,7 @@ html, body {
 }
 
 .jobs-filter input[type="text"]:focus {
-    outline: 2px solid transparent;
+    outline: 2px solid var(--color-primary);
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
@@ -1533,7 +1533,7 @@ html, body {
 }
 
 .library-filter select:focus {
-    outline: 2px solid transparent;
+    outline: 2px solid var(--color-primary);
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
@@ -1559,7 +1559,7 @@ html, body {
 }
 
 .library-filter input[type="text"]:focus {
-    outline: 2px solid transparent;
+    outline: 2px solid var(--color-primary);
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
@@ -3067,7 +3067,7 @@ html, body {
 }
 
 .create-policy-dialog .form-group input:focus {
-    outline: 2px solid transparent;
+    outline: 2px solid var(--color-primary);
     border-color: var(--color-accent);
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
@@ -3715,7 +3715,7 @@ input.valid:focus {
 }
 
 .yaml-preview-textarea:focus {
-    outline: 2px solid transparent;
+    outline: 2px solid var(--color-primary);
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
@@ -3913,7 +3913,7 @@ input.valid:focus {
 }
 
 .accordion-content select:focus {
-    outline: 2px solid transparent;
+    outline: 2px solid var(--color-primary);
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
@@ -3932,7 +3932,7 @@ input.valid:focus {
 
 .accordion-content input[type="text"]:focus,
 .accordion-content input[type="number"]:focus {
-    outline: 2px solid transparent;
+    outline: 2px solid var(--color-primary);
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
@@ -5510,7 +5510,7 @@ input.valid:focus {
 }
 
 .phase-name-input:focus {
-    outline: 2px solid transparent;
+    outline: 2px solid var(--color-primary);
     border-color: var(--color-primary, #3498db);
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
@@ -6624,7 +6624,7 @@ input.valid:focus {
 }
 
 .language-autocomplete-input:focus {
-    outline: 2px solid transparent;
+    outline: 2px solid var(--color-primary);
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb, 59, 130, 246), 0.2);
 }
