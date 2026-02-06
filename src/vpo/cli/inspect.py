@@ -319,5 +319,3 @@ def inspect_command(
     # Output JSON at the end (consolidates all JSON output in one place)
     if output_format == "json" and output_data is not None:
         click.echo(json.dumps(output_data, indent=2))
-
-    sys.exit(ExitCode.SUCCESS)

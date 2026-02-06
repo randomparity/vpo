@@ -676,14 +676,11 @@ def scan(
     if getattr(result, "interrupted", False):
         click.echo("\nScan interrupted. Partial results saved.", err=True)
         sys.exit(ExitCode.INTERRUPTED)
-    elif result.errors:
+    elif result.errors and not files:
         # Exit with error only if errors occurred AND no files were found
         # (complete failure). Exit success if some files were processed
         # despite errors (partial success).
-        if not files:
-            sys.exit(ExitCode.GENERAL_ERROR)
-        else:
-            sys.exit(ExitCode.SUCCESS)
+        sys.exit(ExitCode.GENERAL_ERROR)
 
 
 def _has_language_stats(language_stats: dict | None) -> bool:

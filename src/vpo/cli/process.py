@@ -1055,4 +1055,3 @@ def process_command(
     # Exit code
     if fail_count > 0:
         sys.exit(ExitCode.OPERATION_FAILED)
-    sys.exit(ExitCode.SUCCESS)

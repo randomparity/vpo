@@ -456,8 +456,6 @@ def classify_command(
         click.echo(f"Error: Classification failed: {e}", err=True)
         ctx.exit(ExitCode.ANALYSIS_ERROR)
 
-    ctx.exit(ExitCode.SUCCESS)
-
 
 # =============================================================================
 # Language Subcommand
