@@ -284,7 +284,7 @@ def serve_command(
     _configure_daemon_logging(log_level, log_format, config_path)
 
     # Load configuration with CLI overrides
-    config = get_config(config_path=config_path)
+    config = get_config(config_path=config_path, strict=True)
 
     # Apply CLI overrides (CLI > config file > env vars > defaults)
     server_bind = bind if bind is not None else config.server.bind

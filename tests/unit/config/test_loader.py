@@ -13,6 +13,7 @@ from vpo.config.loader import (
     get_default_config_path,
     load_config_file,
 )
+from vpo.config.toml_parser import TomlParseError
 
 
 class TestGetDefaultConfigPath:
@@ -570,3 +571,66 @@ class TestGetTempDirectoryForFile:
         source = tmp_path / "videos" / "movie.mkv"
         result = get_temp_directory_for_file(source)
         assert result == source.parent
+
+
+class TestStrictParsing:
+    """Tests for strict TOML parsing mode."""
+
+    def test_strict_raises_on_malformed_toml(self, tmp_path: Path) -> None:
+        """strict=True should raise TomlParseError on malformed TOML."""
+        from vpo.config.loader import clear_config_cache
+
+        clear_config_cache()
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("this is not [valid toml\n= broken")
+
+        with pytest.raises(TomlParseError):
+            load_config_file(config_file, strict=True)
+
+    def test_non_strict_returns_empty_on_malformed_toml(self, tmp_path: Path) -> None:
+        """strict=False should return empty dict on malformed TOML."""
+        from vpo.config.loader import clear_config_cache
+
+        clear_config_cache()
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("this is not [valid toml\n= broken")
+
+        result = load_config_file(config_file, strict=False)
+        assert result == {}
+
+    def test_get_config_strict_raises_on_malformed_toml(self, tmp_path: Path) -> None:
+        """get_config(strict=True) should raise on malformed config."""
+        from vpo.config.loader import clear_config_cache
+
+        clear_config_cache()
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("this is not [valid toml\n= broken")
+
+        with pytest.raises(TomlParseError):
+            get_config(
+                config_path=config_file,
+                env_reader=EnvReader(env={}),
+                strict=True,
+            )
+
+    def test_get_config_non_strict_returns_defaults_on_malformed(
+        self, tmp_path: Path
+    ) -> None:
+        """get_config(strict=False) should return defaults on malformed config."""
+        from vpo.config.loader import clear_config_cache
+
+        clear_config_cache()
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("this is not [valid toml\n= broken")
+
+        config = get_config(
+            config_path=config_file,
+            env_reader=EnvReader(env={}),
+            strict=False,
+        )
+        # Should get defaults
+        assert config.server.port == 8321

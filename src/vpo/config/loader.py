@@ -131,7 +131,7 @@ def get_temp_directory_for_file(source_file: Path) -> Path:
     return temp if temp is not None else source_file.parent
 
 
-def load_config_file(path: Path | None = None) -> dict:
+def load_config_file(path: Path | None = None, *, strict: bool = False) -> dict:
     """Load configuration from TOML file.
 
     Results are cached with mtime-based invalidation. The cache automatically
@@ -142,9 +142,14 @@ def load_config_file(path: Path | None = None) -> dict:
 
     Args:
         path: Path to config file. If None, uses default location.
+        strict: If True, raise TomlParseError on parse failures.
+                If False (default), return empty dict on errors.
 
     Returns:
         Parsed configuration dict. Empty dict if file doesn't exist.
+
+    Raises:
+        TomlParseError: When strict=True and the file cannot be parsed.
     """
     if path is None:
         path = get_default_config_path()
@@ -174,7 +179,7 @@ def load_config_file(path: Path | None = None) -> dict:
                 return cached_config
 
         # Load and cache with mtime
-        result = load_toml_file(path)
+        result = load_toml_file(path, strict=strict)
         _config_cache[path] = (result, current_mtime)
         return result
 
@@ -201,6 +206,8 @@ def get_config(
     database_path: Path | None = None,
     # Optional dependency injection for testing
     env_reader: EnvReader | None = None,
+    *,
+    strict: bool = False,
 ) -> VPOConfig:
     """Get VPO configuration with full precedence handling.
 
@@ -218,15 +225,20 @@ def get_config(
         mkvpropedit_path: CLI override for mkvpropedit path.
         database_path: CLI override for database path.
         env_reader: Optional EnvReader for testing (uses os.environ if None).
+        strict: If True, raise TomlParseError on config file parse failures.
+                If False (default), use defaults for unparseable config.
 
     Returns:
         VPOConfig with merged configuration.
+
+    Raises:
+        TomlParseError: When strict=True and the config file cannot be parsed.
     """
     # Use injected reader or create default
     reader = env_reader or EnvReader()
 
     # Load config file
-    file_config = load_config_file(config_path)
+    file_config = load_config_file(config_path, strict=strict)
 
     # Create sources
     file_source = source_from_file(file_config)
