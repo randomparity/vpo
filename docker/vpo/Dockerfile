@@ -30,7 +30,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Install maturin for building the Rust extension
-RUN pip install --no-cache-dir maturin
+RUN pip install --no-cache-dir "maturin>=1.7,<2"
 
 # Copy source code
 WORKDIR /build
