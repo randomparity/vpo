@@ -165,8 +165,7 @@
         </div>
 
         <!-- Stats detail modal -->
-        <div id="stats-detail-modal" class="stats-modal initially-hidden" role="dialog" aria-labelledby="stats-detail-title" aria-modal="true">
-            <div class="stats-modal-backdrop" aria-hidden="true"></div>
+        <dialog id="stats-detail-modal" class="stats-modal-dialog" aria-labelledby="stats-detail-title">
             <div class="stats-modal-content">
                 <div class="stats-modal-header">
                     <h3 id="stats-detail-title" class="stats-modal-title">Processing Details</h3>
@@ -177,7 +176,7 @@
                     <div class="stats-detail-loading">Loading details...</div>
                 </div>
             </div>
-        </div>
+        </dialog>
 
         <!-- Policy comparison table -->
         <div id="stats-policies-section" class="stats-section" aria-live="polite">

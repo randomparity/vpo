@@ -122,13 +122,19 @@
             elements.detailClose.addEventListener('click', closeDetailModal)
         }
         if (elements.detailModal) {
-        // Close on backdrop click
-            elements.detailModal.querySelector('.stats-modal-backdrop').addEventListener('click', closeDetailModal)
-            // Close on Escape key
-            document.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape' && elements.detailModal.style.display !== 'none') {
+            // Close on backdrop click (native dialog pattern)
+            elements.detailModal.addEventListener('click', function (e) {
+                if (e.target === elements.detailModal) {
                     closeDetailModal()
                 }
+            })
+            // Restore focus when dialog is closed (handles Escape natively)
+            elements.detailModal.addEventListener('close', function () {
+                if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+                    lastFocusedElement.focus()
+                }
+                lastFocusedElement = null
+                state.selectedDetail = null
             })
         }
 
@@ -694,29 +700,6 @@
     // =====================
 
     /**
- * Trap focus within the modal for accessibility
- */
-    function trapFocusInModal(e) {
-        if (e.key !== 'Tab') return
-
-        var focusableElements = elements.detailModal.querySelectorAll(
-            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        )
-        if (focusableElements.length === 0) return
-
-        var first = focusableElements[0]
-        var last = focusableElements[focusableElements.length - 1]
-
-        if (e.shiftKey && document.activeElement === first) {
-            e.preventDefault()
-            last.focus()
-        } else if (!e.shiftKey && document.activeElement === last) {
-            e.preventDefault()
-            first.focus()
-        }
-    }
-
-    /**
  * Show the detail modal for a stats entry
  */
     async function showDetailModal(statsId) {
@@ -726,15 +709,12 @@
         lastFocusedElement = document.activeElement
 
         state.detailLoading = true
-        elements.detailModal.style.display = 'flex'
+        elements.detailModal.showModal()
         elements.detailBody.innerHTML =
         '<div class="stats-detail-loading">' +
             '<div class="stats-loading-spinner"></div>' +
             '<span>Loading details...</span>' +
         '</div>'
-
-        // Add focus trap listener
-        document.addEventListener('keydown', trapFocusInModal)
 
         // Move focus to close button
         if (elements.detailClose) {
@@ -772,17 +752,7 @@
  */
     function closeDetailModal() {
         if (elements.detailModal) {
-            elements.detailModal.style.display = 'none'
-            state.selectedDetail = null
-
-            // Remove focus trap listener
-            document.removeEventListener('keydown', trapFocusInModal)
-
-            // Restore focus to the element that triggered the modal
-            if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
-                lastFocusedElement.focus()
-            }
-            lastFocusedElement = null
+            elements.detailModal.close()
         }
     }
 

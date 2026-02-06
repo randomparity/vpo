@@ -5936,31 +5936,24 @@ input.valid:focus {
     cursor: pointer;
 }
 
-/* Stats detail modal */
-.stats-modal {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-}
-
-.stats-modal-backdrop {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-}
-
-.stats-modal-content {
-    position: relative;
-    background: var(--color-content-bg);
+/* Stats detail modal (native dialog) */
+dialog.stats-modal-dialog {
+    border: none;
     border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    padding: 0;
     max-width: 700px;
     width: 90%;
     max-height: 85vh;
     overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    background: var(--color-content-bg);
+}
+
+dialog.stats-modal-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.stats-modal-content {
     display: flex;
     flex-direction: column;
 }
