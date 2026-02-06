@@ -6776,3 +6776,23 @@ input.valid:focus {
     color: #8b949e;
     font-style: italic;
 }
+
+/* ==========================================================================
+   Utility Classes
+   ========================================================================== */
+
+.initially-hidden {
+    display: none;
+}
+
+.mt-sm {
+    margin-top: var(--spacing-sm);
+}
+
+.mt-md {
+    margin-top: var(--spacing-md);
+}
+
+.mb-lg {
+    margin-bottom: var(--spacing-lg);
+}

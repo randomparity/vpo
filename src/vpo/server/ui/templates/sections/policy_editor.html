@@ -23,7 +23,7 @@
     </section>
     {% else %}
     <!-- Unknown fields warning banner (T076) -->
-    <div id="unknown-fields-warning" class="unknown-fields-warning" style="display: none;">
+    <div id="unknown-fields-warning" class="unknown-fields-warning initially-hidden">
         <strong>Note:</strong> This policy contains fields not shown in the editor.
         These fields will be preserved when saving.
     </div>
@@ -144,7 +144,7 @@
                 </label>
             </div>
 
-            <div class="form-group" style="margin-top: var(--spacing-md);">
+            <div class="form-group mt-md">
                 <label for="preferred_audio_codec">Preferred Audio Codec</label>
                 <p id="preferred-audio-codec-description" class="section-description">Comma-separated list of preferred audio codecs when selecting the default audio track (e.g., eac3, ac3). Language preference always takes priority.</p>
                 <input
@@ -197,7 +197,7 @@
                         <span>Update track language tags from transcription results</span>
                     </label>
                 </div>
-                <div class="form-group" style="margin-top: var(--spacing-sm);">
+                <div class="form-group mt-sm">
                     <label for="confidence_threshold">Confidence Threshold (%)</label>
                     <input type="number" id="confidence_threshold" name="confidence_threshold"
                            min="0" max="100" step="1" placeholder="80">
@@ -232,7 +232,7 @@
                                 <option value="av1">AV1</option>
                             </select>
                         </div>
-                        <div id="video-transcode-options" style="display: none;">
+                        <div id="video-transcode-options" class="initially-hidden">
                             <!-- Dynamic options populated by JS -->
                         </div>
                     </div>
@@ -252,7 +252,7 @@
                                 <option value="flac">FLAC</option>
                             </select>
                         </div>
-                        <div id="audio-transcode-options" style="display: none;">
+                        <div id="audio-transcode-options" class="initially-hidden">
                             <!-- Dynamic options populated by JS -->
                         </div>
                     </div>
@@ -295,7 +295,7 @@
                     <div id="conditional-rules-list">
                         <p class="accordion-list-empty">No conditional rules configured. Click "Add Rule" to create one.</p>
                     </div>
-                    <button type="button" id="add-conditional-rule-btn" class="btn-secondary" style="margin-top: var(--spacing-md);">
+                    <button type="button" id="add-conditional-rule-btn" class="btn-secondary mt-md">
                         Add Rule
                     </button>
                 </div>
@@ -313,7 +313,7 @@
                     <div id="synthesis-tracks-list">
                         <p class="accordion-list-empty">No synthesis tracks configured. Click "Add Track" to create one.</p>
                     </div>
-                    <button type="button" id="add-synthesis-track-btn" class="btn-secondary" style="margin-top: var(--spacing-md);">
+                    <button type="button" id="add-synthesis-track-btn" class="btn-secondary mt-md">
                         Add Track
                     </button>
                 </div>
@@ -336,7 +336,7 @@
                             <option value="mp4">MP4</option>
                         </select>
                     </div>
-                    <div id="container-options" style="display: none;">
+                    <div id="container-options" class="initially-hidden">
                         <div class="form-group">
                             <label for="container-on-incompatible">On Incompatible Codec</label>
                             <select id="container-on-incompatible">
@@ -367,7 +367,7 @@
                     <p class="accordion-description">Define custom processing phases with specific operations (V11 feature).</p>
 
                     <!-- Global config for V11 -->
-                    <div class="form-group" style="margin-bottom: var(--spacing-lg);">
+                    <div class="form-group mb-lg">
                         <label for="config-on-error">On Error</label>
                         <select id="config-on-error">
                             <option value="skip">Skip (continue to next file)</option>
@@ -381,14 +381,14 @@
                     <div id="phases-list">
                         <p class="accordion-list-empty">No phases configured. Click "Add Phase" to create one.</p>
                     </div>
-                    <button type="button" id="add-phase-btn" class="btn-secondary" style="margin-top: var(--spacing-md);">
+                    <button type="button" id="add-phase-btn" class="btn-secondary mt-md">
                         Add Phase
                     </button>
                 </div>
             </details>
 
             <!-- V9 Workflow Section (US7) - for V1-V10 policies -->
-            <details id="section-workflow" class="accordion-section" {% if policy.schema_version == 11 %}style="display: none;"{% endif %}>
+            <details id="section-workflow" class="accordion-section{% if policy.schema_version == 11 %} initially-hidden{% endif %}">
                 <summary class="accordion-header">
                     <h3 class="accordion-title">Workflow Configuration</h3>
                     <span class="accordion-icon">▼</span>
@@ -468,11 +468,9 @@
     <span id="sr-save-status" class="sr-only" aria-live="polite"></span>
 </div>
 
-<!-- Pass policy data and CSRF token to JavaScript -->
-<script>
-    window.POLICY_DATA = {{ policy.to_dict() | tojson }};
-    window.CSRF_TOKEN = {{ csrf_token | tojson }};
-</script>
+<!-- Pass policy data and CSRF token to JavaScript (no inline script for CSP) -->
+<meta name="csrf-token" content="{{ csrf_token }}">
+<script type="application/json" id="policy-data">{{ policy.to_dict() | tojson }}</script>
 <link rel="stylesheet" href="/static/css/components/confirmation-modal.css">
 <script src="/static/js/components/confirmation-modal.js"></script>
 <!-- CDN libraries for policy editor (256-policy-editor-enhancements) -->

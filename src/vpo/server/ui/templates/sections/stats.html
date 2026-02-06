@@ -9,7 +9,7 @@
     </div>
 
     <!-- Error state (hidden by default) -->
-    <div id="stats-error" class="stats-error" style="display: none;" role="alert">
+    <div id="stats-error" class="stats-error initially-hidden" role="alert">
         <div class="stats-error-icon" aria-hidden="true">!</div>
         <div class="stats-error-title">Error loading statistics</div>
         <div class="stats-error-message" id="stats-error-message">Failed to load statistics.</div>
@@ -17,7 +17,7 @@
     </div>
 
     <!-- Main content (hidden until loaded) -->
-    <div id="stats-content" style="display: none;">
+    <div id="stats-content" class="initially-hidden">
         <!-- Time filter -->
         <div class="stats-filters">
             <label for="stats-time-filter">Time range:</label>
@@ -131,7 +131,7 @@
         </div>
 
         <!-- Empty state for no data -->
-        <div id="stats-empty" class="stats-empty" style="display: none;" role="status" aria-live="polite">
+        <div id="stats-empty" class="stats-empty initially-hidden" role="status" aria-live="polite">
             <div class="stats-empty-icon" aria-hidden="true">&#128200;</div>
             <div class="stats-empty-title">No processing statistics</div>
             <div class="stats-empty-hint">
@@ -165,7 +165,7 @@
         </div>
 
         <!-- Stats detail modal -->
-        <div id="stats-detail-modal" class="stats-modal" style="display: none;" role="dialog" aria-labelledby="stats-detail-title" aria-modal="true">
+        <div id="stats-detail-modal" class="stats-modal initially-hidden" role="dialog" aria-labelledby="stats-detail-title" aria-modal="true">
             <div class="stats-modal-backdrop" aria-hidden="true"></div>
             <div class="stats-modal-content">
                 <div class="stats-modal-header">

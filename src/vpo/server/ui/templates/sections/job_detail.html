@@ -64,7 +64,7 @@
                 <dd>
                     <div class="job-detail-progress">
                         <div class="job-detail-progress-track">
-                            <div class="job-detail-progress-bar" style="width: {{ job.progress_percent }}%"></div>
+                            <div class="job-detail-progress-bar" data-progress="{{ job.progress_percent }}"></div>
                         </div>
                         <span class="job-detail-progress-text">{{ job.progress_percent | round(1) }}%</span>
                     </div>
@@ -131,7 +131,7 @@
         <div id="logs-container" class="logs-container">
             <div class="logs-loading">Loading logs...</div>
         </div>
-        <div id="logs-pagination" class="logs-pagination" style="display: none;">
+        <div id="logs-pagination" class="logs-pagination initially-hidden">
             <span id="logs-info" class="logs-info"></span>
             <button id="load-more-logs" class="jobs-pagination-btn">Load More</button>
         </div>

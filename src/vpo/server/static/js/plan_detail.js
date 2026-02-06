@@ -177,7 +177,7 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': window.CSRF_TOKEN
+                    'X-CSRF-Token': window.VPOUtils.getCsrfToken()
                 }
             })
 
@@ -254,7 +254,7 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': window.CSRF_TOKEN
+                    'X-CSRF-Token': window.VPOUtils.getCsrfToken()
                 }
             })
 

@@ -9,7 +9,7 @@
     </div>
 
     <!-- Error state (hidden by default) -->
-    <div id="library-error" class="library-error" style="display: none;" role="alert">
+    <div id="library-error" class="library-error initially-hidden" role="alert">
         <div class="library-error-icon" aria-hidden="true">!</div>
         <div class="library-error-title">Error loading library</div>
         <div class="library-error-message" id="library-error-message">Failed to load library files.</div>
@@ -17,7 +17,7 @@
     </div>
 
     <!-- Main content (hidden until loaded) -->
-    <div id="library-content" style="display: none;">
+    <div id="library-content" class="initially-hidden">
         <!-- Filter bar (019-library-filters-search) -->
         <div id="library-filters" class="library-filters">
             <!-- Text search -->
@@ -62,7 +62,7 @@
             </div>
             <!-- Clear filters button -->
             <div class="library-filter library-filter-actions">
-                <button type="button" id="clear-filters-btn" class="library-clear-filters-btn" style="display: none;">
+                <button type="button" id="clear-filters-btn" class="library-clear-filters-btn initially-hidden">
                     Clear filters
                 </button>
             </div>
@@ -88,7 +88,7 @@
         </div>
 
         <!-- Empty state (hidden by default) -->
-        <div id="library-empty" class="library-empty" style="display: none;" role="status" aria-live="polite">
+        <div id="library-empty" class="library-empty initially-hidden" role="status" aria-live="polite">
             <div class="library-empty-icon" aria-hidden="true">📁</div>
             <div class="library-empty-title" id="library-empty-title">No files in library</div>
             <div class="library-empty-hint" id="library-empty-hint">
@@ -98,7 +98,7 @@
         </div>
 
         <!-- Pagination (hidden until needed) -->
-        <div id="library-pagination" class="library-pagination" style="display: none;">
+        <div id="library-pagination" class="library-pagination initially-hidden">
             <div class="library-pagination-info" id="library-pagination-info">
                 Showing 1-50 of 100 files
             </div>

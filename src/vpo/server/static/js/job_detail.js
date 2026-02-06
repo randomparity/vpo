@@ -566,6 +566,12 @@
      * Initialize the job detail page.
      */
     function init() {
+        // Set initial progress bar width from data attribute (CSP disallows inline styles)
+        var progressBar = document.querySelector('.job-detail-progress-bar[data-progress]')
+        if (progressBar) {
+            progressBar.style.width = progressBar.getAttribute('data-progress') + '%'
+        }
+
         // Update timestamps to relative format
         updateTimestamps()
 

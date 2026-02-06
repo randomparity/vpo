@@ -9,13 +9,13 @@
     </div>
 
     <!-- Main content (hidden until loaded) -->
-    <div id="approvals-content" style="display: none;">
+    <div id="approvals-content" class="initially-hidden">
         <!-- Header with count and bulk actions -->
         <div class="approvals-header">
             <div class="approvals-count">
                 <span id="approvals-count-text">0 pending approvals</span>
             </div>
-            <div class="approvals-bulk-actions" id="approvals-bulk-actions" style="display: none;">
+            <div class="approvals-bulk-actions initially-hidden" id="approvals-bulk-actions">
                 <button type="button" class="plan-action-btn plan-action-approve" id="bulk-approve-btn"
                         aria-label="Approve selected pending plans">
                     <span class="btn-text">Approve Selected</span>
@@ -66,14 +66,14 @@
         </div>
 
         <!-- Empty state (hidden by default) -->
-        <div id="approvals-empty" class="plans-empty" style="display: none;" role="status" aria-live="polite">
+        <div id="approvals-empty" class="plans-empty initially-hidden" role="status" aria-live="polite">
             <div class="plans-empty-icon" aria-hidden="true">&#9989;</div>
             <div class="plans-empty-title" id="approvals-empty-title">No pending approvals</div>
             <div class="plans-empty-hint" id="approvals-empty-hint">All plans have been reviewed. New plans will appear here when policies are evaluated.</div>
         </div>
 
         <!-- Pagination (hidden until needed) -->
-        <div id="approvals-pagination" class="plans-pagination" style="display: none;">
+        <div id="approvals-pagination" class="plans-pagination initially-hidden">
             <div class="plans-pagination-info" id="approvals-pagination-info">
                 Showing 1-50 of 100 pending
             </div>
@@ -85,11 +85,11 @@
     </div>
 
     <!-- Toast container for notifications -->
-    <div id="approvals-toast" class="plans-toast" role="alert" aria-live="assertive" style="display: none;"></div>
+    <div id="approvals-toast" class="plans-toast initially-hidden" role="alert" aria-live="assertive"></div>
 </div>
 
 <link rel="stylesheet" href="/static/css/components/confirmation-modal.css">
-<script>window.CSRF_TOKEN = {{ csrf_token | tojson }};</script>
+<meta name="csrf-token" content="{{ csrf_token }}">
 <script src="/static/js/polling.js"></script>
 <script src="/static/js/components/toast-manager.js"></script>
 <script src="/static/js/components/confirmation-modal.js"></script>
