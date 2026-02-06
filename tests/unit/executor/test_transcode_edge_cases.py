@@ -584,8 +584,12 @@ class TestNeedsExplicitMapping:
 
         assert result is True
 
-    def test_returns_false_when_no_remove(self) -> None:
-        """Returns False when no tracks are marked for removal."""
+    def test_returns_true_when_multiple_tracks_no_remove(self) -> None:
+        """Returns True when multiple tracks exist even without removal.
+
+        Without explicit -map, FFmpeg selects only one "best" stream per type,
+        silently dropping additional audio tracks.
+        """
         audio_plan = AudioPlan(
             tracks=[
                 AudioTrackPlan(
@@ -606,6 +610,26 @@ class TestNeedsExplicitMapping:
                     channel_layout="stereo",
                     action=AudioAction.TRANSCODE,
                     target_codec="aac",
+                ),
+            ]
+        )
+
+        result = _needs_explicit_mapping(audio_plan)
+
+        assert result is True
+
+    def test_returns_false_for_single_track_no_remove(self) -> None:
+        """Returns False when only one track exists and none are removed."""
+        audio_plan = AudioPlan(
+            tracks=[
+                AudioTrackPlan(
+                    track_index=1,
+                    stream_index=0,
+                    codec="aac",
+                    language="eng",
+                    channels=2,
+                    channel_layout="stereo",
+                    action=AudioAction.COPY,
                 ),
             ]
         )
