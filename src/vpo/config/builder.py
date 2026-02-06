@@ -156,7 +156,7 @@ class ConfigBuilder:
     # Fields with special handling (merge instead of override)
     _SPECIAL_FIELDS = frozenset({"plugin_dirs"})
 
-    def apply(self, source: ConfigSource) -> None:
+    def apply(self, source: ConfigSource, source_name: str = "unknown") -> None:
         """Apply configuration source, overriding existing values.
 
         Non-None values from the source override existing values.
@@ -164,6 +164,7 @@ class ConfigBuilder:
 
         Args:
             source: Configuration source to apply.
+            source_name: Label for logging (e.g., "file", "env", "cli").
         """
         # Iterate through all fields using dataclasses introspection
         for field_obj in fields(source):
@@ -174,6 +175,12 @@ class ConfigBuilder:
             value = getattr(source, field_obj.name)
             if value is not None:
                 self._values[field_obj.name] = value
+                logger.debug(
+                    "Config %s = %r (from %s)",
+                    field_obj.name,
+                    value,
+                    source_name,
+                )
 
         # Plugin dirs handled specially (they merge, not override)
         # Tracked via set_plugin_dirs_from_file/env methods

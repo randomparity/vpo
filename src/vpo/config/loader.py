@@ -253,9 +253,9 @@ def get_config(
 
     # Build with precedence: file < env < cli
     builder = ConfigBuilder()
-    builder.apply(file_source)
-    builder.apply(env_source)
-    builder.apply(cli_source)
+    builder.apply(file_source, source_name="file")
+    builder.apply(env_source, source_name="env")
+    builder.apply(cli_source, source_name="cli")
 
     # Handle plugin directories specially (they have merge semantics)
     # Parse plugin directories from config file

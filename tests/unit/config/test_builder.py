@@ -801,3 +801,25 @@ class TestUnknownKeyWarnings:
             source_from_file(config)
         assert "Unknown key 'bar' in [jobs]" in caplog.text
         assert "Unknown key 'foo' in [jobs]" in caplog.text
+
+
+class TestConfigSourceLogging:
+    """Tests for DEBUG logging of config source application."""
+
+    def test_apply_logs_non_none_values(self, caplog: pytest.LogCaptureFixture) -> None:
+        """apply() should log each non-None value at DEBUG level."""
+        builder = ConfigBuilder()
+        source = ConfigSource(server_port=9000)
+        with caplog.at_level(logging.DEBUG):
+            builder.apply(source, source_name="test")
+        assert "Config server_port = 9000 (from test)" in caplog.text
+
+    def test_apply_does_not_log_none_values(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """apply() should not log None values."""
+        builder = ConfigBuilder()
+        source = ConfigSource()  # all None
+        with caplog.at_level(logging.DEBUG):
+            builder.apply(source, source_name="test")
+        assert "from test" not in caplog.text
