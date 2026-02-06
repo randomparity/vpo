@@ -592,3 +592,151 @@ class TestMinFreeDiskPercentConfig:
         config = builder.build(default_plugins_dir=tmp_path / "plugins")
 
         assert config.jobs.min_free_disk_percent == 0.0
+
+
+class TestPluginMetadataConfig:
+    """Tests for plugin metadata configuration parsing."""
+
+    # Test API keys (not real secrets)
+    _RADARR_KEY = "radarr-test-0000"  # pragma: allowlist secret
+    _SONARR_KEY = "sonarr-test-0000"  # pragma: allowlist secret
+
+    def test_source_from_file_parses_radarr_section(self) -> None:
+        """Should parse [plugins.metadata.radarr] section from TOML."""
+        config = {
+            "plugins": {
+                "metadata": {
+                    "radarr": {
+                        "url": "http://localhost:7878",
+                        "api_key": self._RADARR_KEY,
+                        "enabled": True,
+                        "timeout_seconds": 60,
+                    }
+                }
+            }
+        }
+        source = source_from_file(config)
+        assert source.plugin_metadata_radarr_url == "http://localhost:7878"
+        assert source.plugin_metadata_radarr_api_key == self._RADARR_KEY
+        assert source.plugin_metadata_radarr_enabled is True
+        assert source.plugin_metadata_radarr_timeout == 60
+
+    def test_source_from_file_parses_sonarr_section(self) -> None:
+        """Should parse [plugins.metadata.sonarr] section from TOML."""
+        config = {
+            "plugins": {
+                "metadata": {
+                    "sonarr": {
+                        "url": "http://localhost:8989",
+                        "api_key": self._SONARR_KEY,
+                        "enabled": False,
+                        "timeout_seconds": 45,
+                    }
+                }
+            }
+        }
+        source = source_from_file(config)
+        assert source.plugin_metadata_sonarr_url == "http://localhost:8989"
+        assert source.plugin_metadata_sonarr_api_key == self._SONARR_KEY
+        assert source.plugin_metadata_sonarr_enabled is False
+        assert source.plugin_metadata_sonarr_timeout == 45
+
+    def test_source_from_env_reads_radarr_vars(self) -> None:
+        """Should read VPO_RADARR_* env vars."""
+        reader = EnvReader(
+            env={
+                "VPO_RADARR_URL": "http://radarr:7878",
+                "VPO_RADARR_API_KEY": self._RADARR_KEY,
+                "VPO_RADARR_ENABLED": "true",
+                "VPO_RADARR_TIMEOUT": "90",
+            }
+        )
+        source = source_from_env(reader)
+        assert source.plugin_metadata_radarr_url == "http://radarr:7878"
+        assert source.plugin_metadata_radarr_api_key == self._RADARR_KEY
+        assert source.plugin_metadata_radarr_enabled is True
+        assert source.plugin_metadata_radarr_timeout == 90
+
+    def test_source_from_env_reads_sonarr_vars(self) -> None:
+        """Should read VPO_SONARR_* env vars."""
+        reader = EnvReader(
+            env={
+                "VPO_SONARR_URL": "http://sonarr:8989",
+                "VPO_SONARR_API_KEY": self._SONARR_KEY,
+                "VPO_SONARR_ENABLED": "false",
+                "VPO_SONARR_TIMEOUT": "15",
+            }
+        )
+        source = source_from_env(reader)
+        assert source.plugin_metadata_sonarr_url == "http://sonarr:8989"
+        assert source.plugin_metadata_sonarr_api_key == self._SONARR_KEY
+        assert source.plugin_metadata_sonarr_enabled is False
+        assert source.plugin_metadata_sonarr_timeout == 15
+
+    def test_build_constructs_metadata_settings(self, tmp_path: Path) -> None:
+        """Should build MetadataPluginSettings when url+api_key provided."""
+        builder = ConfigBuilder()
+        builder.apply(
+            ConfigSource(
+                plugin_metadata_radarr_url="http://localhost:7878",
+                plugin_metadata_radarr_api_key=self._RADARR_KEY,
+                plugin_metadata_radarr_enabled=True,
+                plugin_metadata_radarr_timeout=60,
+            )
+        )
+        config = builder.build(default_plugins_dir=tmp_path / "plugins")
+
+        radarr = config.plugins.metadata.radarr
+        assert radarr is not None
+        assert radarr.url == "http://localhost:7878"
+        assert radarr.api_key == self._RADARR_KEY
+        assert radarr.enabled is True
+        assert radarr.timeout_seconds == 60
+        assert config.plugins.metadata.sonarr is None
+
+    def test_build_without_api_key_does_not_create_connection(
+        self, tmp_path: Path
+    ) -> None:
+        """URL without api_key should not create a broken connection config."""
+        builder = ConfigBuilder()
+        builder.apply(
+            ConfigSource(
+                plugin_metadata_radarr_url="http://localhost:7878",
+            )
+        )
+        config = builder.build(default_plugins_dir=tmp_path / "plugins")
+        assert config.plugins.metadata.radarr is None
+
+    def test_build_without_url_does_not_create_connection(self, tmp_path: Path) -> None:
+        """API key without URL should not create connection config."""
+        builder = ConfigBuilder()
+        builder.apply(
+            ConfigSource(
+                plugin_metadata_radarr_api_key=self._RADARR_KEY,
+            )
+        )
+        config = builder.build(default_plugins_dir=tmp_path / "plugins")
+        assert config.plugins.metadata.radarr is None
+
+    def test_build_defaults_for_optional_fields(self, tmp_path: Path) -> None:
+        """Should use defaults for enabled/timeout when not specified."""
+        builder = ConfigBuilder()
+        builder.apply(
+            ConfigSource(
+                plugin_metadata_sonarr_url="http://localhost:8989",
+                plugin_metadata_sonarr_api_key=self._SONARR_KEY,
+            )
+        )
+        config = builder.build(default_plugins_dir=tmp_path / "plugins")
+
+        sonarr = config.plugins.metadata.sonarr
+        assert sonarr is not None
+        assert sonarr.enabled is True  # default
+        assert sonarr.timeout_seconds == 30  # default
+
+    def test_no_metadata_config_produces_empty_settings(self, tmp_path: Path) -> None:
+        """No metadata config produces MetadataPluginSettings with None."""
+        builder = ConfigBuilder()
+        config = builder.build(default_plugins_dir=tmp_path / "plugins")
+        assert config.plugins.metadata.radarr is None
+        assert config.plugins.metadata.sonarr is None

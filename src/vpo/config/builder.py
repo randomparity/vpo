@@ -17,7 +17,9 @@ from vpo.config.models import (
     JobsConfig,
     LanguageConfig,
     LoggingConfig,
+    MetadataPluginSettings,
     PluginConfig,
+    PluginConnectionConfig,
     ProcessingConfig,
     RateLimitConfig,
     ServerConfig,
@@ -111,6 +113,18 @@ class ConfigSource:
     transcription_max_samples: int | None = None
     transcription_confidence_threshold: float | None = None
     transcription_incumbent_bonus: float | None = None
+
+    # Plugin metadata: Radarr
+    plugin_metadata_radarr_url: str | None = None
+    plugin_metadata_radarr_api_key: str | None = None
+    plugin_metadata_radarr_enabled: bool | None = None
+    plugin_metadata_radarr_timeout: int | None = None
+
+    # Plugin metadata: Sonarr
+    plugin_metadata_sonarr_url: str | None = None
+    plugin_metadata_sonarr_api_key: str | None = None
+    plugin_metadata_sonarr_enabled: bool | None = None
+    plugin_metadata_sonarr_timeout: int | None = None
 
     # Processing config
     processing_workers: int | None = None
@@ -224,11 +238,40 @@ class ConfigBuilder:
         if default_plugins_dir not in plugin_dirs:
             plugin_dirs = plugin_dirs + [default_plugins_dir]
 
+        # Build metadata plugin connections
+        radarr_conn: PluginConnectionConfig | None = None
+        radarr_url = self._get("plugin_metadata_radarr_url", None)
+        radarr_api_key = self._get("plugin_metadata_radarr_api_key", None)
+        if radarr_url and radarr_api_key:
+            radarr_conn = PluginConnectionConfig(
+                url=radarr_url,
+                api_key=radarr_api_key,
+                enabled=self._get("plugin_metadata_radarr_enabled", True),
+                timeout_seconds=self._get("plugin_metadata_radarr_timeout", 30),
+            )
+
+        sonarr_conn: PluginConnectionConfig | None = None
+        sonarr_url = self._get("plugin_metadata_sonarr_url", None)
+        sonarr_api_key = self._get("plugin_metadata_sonarr_api_key", None)
+        if sonarr_url and sonarr_api_key:
+            sonarr_conn = PluginConnectionConfig(
+                url=sonarr_url,
+                api_key=sonarr_api_key,
+                enabled=self._get("plugin_metadata_sonarr_enabled", True),
+                timeout_seconds=self._get("plugin_metadata_sonarr_timeout", 30),
+            )
+
+        metadata = MetadataPluginSettings(
+            radarr=radarr_conn,
+            sonarr=sonarr_conn,
+        )
+
         plugins = PluginConfig(
             plugin_dirs=plugin_dirs,
             entry_point_group=self._get("entry_point_group", "vpo.plugins"),
             auto_load=self._get("plugin_auto_load", True),
             warn_unacknowledged=self._get("plugin_warn_unacknowledged", True),
+            metadata=metadata,
         )
 
         # Build jobs config
@@ -350,6 +393,11 @@ def source_from_file(file_config: dict[str, Any]) -> ConfigSource:
     transcription = file_config.get("transcription", {})
     processing = file_config.get("processing", {})
 
+    # Plugin metadata sections
+    metadata = plugins.get("metadata", {})
+    radarr = metadata.get("radarr", {})
+    sonarr = metadata.get("sonarr", {})
+
     # Parse plugin directories
     plugin_dirs: list[Path] | None = None
     if plugins.get("plugin_dirs"):
@@ -415,6 +463,16 @@ def source_from_file(file_config: dict[str, Any]) -> ConfigSource:
         transcription_max_samples=transcription.get("max_samples"),
         transcription_confidence_threshold=transcription.get("confidence_threshold"),
         transcription_incumbent_bonus=transcription.get("incumbent_bonus"),
+        # Plugin metadata: Radarr
+        plugin_metadata_radarr_url=radarr.get("url"),
+        plugin_metadata_radarr_api_key=radarr.get("api_key"),
+        plugin_metadata_radarr_enabled=radarr.get("enabled"),
+        plugin_metadata_radarr_timeout=radarr.get("timeout_seconds"),
+        # Plugin metadata: Sonarr
+        plugin_metadata_sonarr_url=sonarr.get("url"),
+        plugin_metadata_sonarr_api_key=sonarr.get("api_key"),
+        plugin_metadata_sonarr_enabled=sonarr.get("enabled"),
+        plugin_metadata_sonarr_timeout=sonarr.get("timeout_seconds"),
         # Processing
         processing_workers=processing.get("workers"),
     )
@@ -503,6 +561,16 @@ def source_from_env(reader: EnvReader) -> ConfigSource:
         transcription_incumbent_bonus=reader.get_float(
             "VPO_TRANSCRIPTION_INCUMBENT_BONUS"
         ),
+        # Plugin metadata: Radarr
+        plugin_metadata_radarr_url=reader.get_str("VPO_RADARR_URL"),
+        plugin_metadata_radarr_api_key=reader.get_str("VPO_RADARR_API_KEY"),
+        plugin_metadata_radarr_enabled=reader.get_bool("VPO_RADARR_ENABLED"),
+        plugin_metadata_radarr_timeout=reader.get_int("VPO_RADARR_TIMEOUT"),
+        # Plugin metadata: Sonarr
+        plugin_metadata_sonarr_url=reader.get_str("VPO_SONARR_URL"),
+        plugin_metadata_sonarr_api_key=reader.get_str("VPO_SONARR_API_KEY"),
+        plugin_metadata_sonarr_enabled=reader.get_bool("VPO_SONARR_ENABLED"),
+        plugin_metadata_sonarr_timeout=reader.get_int("VPO_SONARR_TIMEOUT"),
         # Processing
         processing_workers=reader.get_int("VPO_PROCESSING_WORKERS"),
     )
