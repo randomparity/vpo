@@ -16,6 +16,7 @@ from vpo.cli.process import (
     get_max_workers,
     resolve_worker_count,
 )
+from vpo.jobs import WorkflowRunnerConfig
 from vpo.policy.types import FileProcessingResult
 from vpo.workflow.multi_policy import MultiPolicyResult
 
@@ -137,8 +138,6 @@ class TestProcessSingleFileMultiPolicy:
         mock_conn.return_value.__enter__ = MagicMock()
         mock_conn.return_value.__exit__ = MagicMock(return_value=False)
 
-        from vpo.jobs import WorkflowRunnerConfig
-
         policy_a = make_policy()
         policy_b = make_policy()
         configs = [
@@ -180,8 +179,6 @@ class TestProcessSingleFileMultiPolicy:
         mock_conn.return_value.__enter__ = MagicMock()
         mock_conn.return_value.__exit__ = MagicMock(return_value=False)
 
-        from vpo.jobs import WorkflowRunnerConfig
-
         policy = make_policy()
         configs = [WorkflowRunnerConfig(dry_run=True, policy_name="policy_a")]
 
@@ -215,8 +212,6 @@ class TestProcessSingleFileMultiPolicy:
         mock_conn.return_value.__enter__ = MagicMock()
         mock_conn.return_value.__exit__ = MagicMock(return_value=False)
 
-        from vpo.jobs import WorkflowRunnerConfig
-
         policy = make_policy()
         configs = [WorkflowRunnerConfig(dry_run=True, policy_name="test")]
 
@@ -244,8 +239,6 @@ class TestProcessSingleFileMultiPolicy:
         self, mock_ctx, mock_run, mock_conn, make_policy
     ):
         """When stop_event is set before entry, returns None results."""
-        from vpo.jobs import WorkflowRunnerConfig
-
         policy = make_policy()
         configs = [WorkflowRunnerConfig(dry_run=True, policy_name="test")]
 
@@ -280,8 +273,6 @@ class TestProcessSingleFileMultiPolicy:
         mock_run.side_effect = RuntimeError("disk full")
         mock_conn.return_value.__enter__ = MagicMock()
         mock_conn.return_value.__exit__ = MagicMock(return_value=False)
-
-        from vpo.jobs import WorkflowRunnerConfig
 
         policy = make_policy()
         configs = [WorkflowRunnerConfig(dry_run=True, policy_name="test")]

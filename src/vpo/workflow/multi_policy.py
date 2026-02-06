@@ -136,10 +136,7 @@ def run_policies_for_file(
                     )
 
             # Early exit for not-in-db (no point running more policies)
-            if (
-                run_result.result
-                and run_result.result.error_message == NOT_IN_DB_MESSAGE
-            ):
+            if run_result.result.error_message == NOT_IN_DB_MESSAGE:
                 break
 
         finally:

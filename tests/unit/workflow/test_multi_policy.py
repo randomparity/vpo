@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from vpo.jobs.runner import WorkflowRunnerConfig
 from vpo.policy.types import FileProcessingResult, GlobalConfig, OnErrorMode
 from vpo.workflow.multi_policy import (
     MultiPolicyResult,
@@ -46,8 +47,6 @@ def _make_run_result(success: bool = True, result=None):
 
 
 def _entry(make_policy, *, on_error=OnErrorMode.SKIP, policy_name="policy"):
-    from vpo.jobs.runner import WorkflowRunnerConfig
-
     policy = make_policy(config=GlobalConfig(on_error=on_error))
     config = WorkflowRunnerConfig(dry_run=True, policy_name=policy_name)
     return PolicyEntry(policy=policy, config=config)
