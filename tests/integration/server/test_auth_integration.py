@@ -130,7 +130,7 @@ class TestAuthDisabledWarning:
         self, caplog_with_info: pytest.LogCaptureFixture
     ) -> None:
         """No warning when server starts with auth token."""
-        create_app(db_path=None, auth_token="secret123")
+        create_app(db_path=None, auth_token="secret-token-16ch")
 
         # Check that no warning about disabled auth was logged
         assert not any(

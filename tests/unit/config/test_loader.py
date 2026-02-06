@@ -243,10 +243,10 @@ class TestGetConfig:
 
         config = get_config(
             config_path=config_file,
-            env_reader=EnvReader(env={"VPO_AUTH_TOKEN": "secret123"}),
+            env_reader=EnvReader(env={"VPO_AUTH_TOKEN": "secret-token-16ch"}),
         )
 
-        assert config.server.auth_token == "secret123"
+        assert config.server.auth_token == "secret-token-16ch"
 
     def test_jobs_config(self, tmp_path: Path) -> None:
         """Should load jobs configuration."""

@@ -216,7 +216,7 @@ class TestConfigBuilder:
                 server_bind="0.0.0.0",
                 server_port=8080,
                 server_shutdown_timeout=60.0,
-                server_auth_token="secret",
+                server_auth_token="secret-token-16ch",
             )
         )
         config = builder.build(default_plugins_dir=tmp_path / "plugins")
@@ -224,7 +224,7 @@ class TestConfigBuilder:
         assert config.server.bind == "0.0.0.0"
         assert config.server.port == 8080
         assert config.server.shutdown_timeout == 60.0
-        assert config.server.auth_token == "secret"
+        assert config.server.auth_token == "secret-token-16ch"
 
     def test_language_config(self, tmp_path: Path) -> None:
         """Should configure language settings correctly."""

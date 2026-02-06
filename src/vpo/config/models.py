@@ -396,6 +396,14 @@ class ServerConfig:
             raise ValueError(
                 f"shutdown_timeout must be positive, got {self.shutdown_timeout}"
             )
+        # Normalize whitespace-only auth_token to None
+        if self.auth_token is not None and not self.auth_token.strip():
+            self.auth_token = None
+        # Validate minimum token length for security
+        if self.auth_token is not None and len(self.auth_token) < 16:
+            raise ValueError(
+                f"auth_token must be at least 16 characters, got {len(self.auth_token)}"
+            )
 
 
 @dataclass
