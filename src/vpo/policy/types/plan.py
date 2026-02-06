@@ -531,13 +531,20 @@ class FileSnapshot:
     tracks: tuple[TrackInfo, ...]
     """Ordered tuple of track info snapshots."""
 
+    container_tags: tuple[tuple[str, str], ...] | None = None
+    """Container-level metadata tags as sorted (key, value) pairs."""
+
     @staticmethod
     def from_file_info(file_info: FileInfo) -> FileSnapshot:
         """Create a snapshot from a FileInfo domain object."""
+        tags = None
+        if file_info.container_tags:
+            tags = tuple(sorted(file_info.container_tags.items()))
         return FileSnapshot(
             container_format=file_info.container_format,
             size_bytes=file_info.size_bytes,
             tracks=tuple(file_info.tracks),
+            container_tags=tags,
         )
 
 

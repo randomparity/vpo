@@ -168,6 +168,12 @@ def _format_file_snapshot(snapshot: FileSnapshot, label: str) -> list[str]:
         size = format_file_size(snapshot.size_bytes)
         lines.append(f"  Container: {container} | Size: {size}")
 
+        # Container metadata tags
+        if snapshot.container_tags:
+            lines.append("  Metadata:")
+            for key, value in snapshot.container_tags:
+                lines.append(f"    {key}: {value}")
+
         # Group tracks by type
         video = [t for t in snapshot.tracks if t.track_type == "video"]
         audio = [t for t in snapshot.tracks if t.track_type == "audio"]
@@ -212,11 +218,14 @@ def _format_snapshot_json(snapshot: FileSnapshot) -> dict:
     Returns:
         Dictionary for JSON serialization.
     """
-    return {
+    data: dict = {
         "container_format": snapshot.container_format,
         "size_bytes": snapshot.size_bytes,
         "tracks": [track_to_dict(t) for t in snapshot.tracks],
     }
+    if snapshot.container_tags:
+        data["container_tags"] = dict(snapshot.container_tags)
+    return data
 
 
 def _format_result_human(result, file_path: Path, verbose: bool = False) -> str:

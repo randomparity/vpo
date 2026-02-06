@@ -72,6 +72,28 @@ class TestFileSnapshotFromFileInfo:
         snap = FileSnapshot.from_file_info(info)
         assert snap.tracks == ()
 
+    def test_extracts_container_tags_sorted(self):
+        info = _make_file_info()
+        # Manually set container_tags (FileInfo is not frozen)
+        info.container_tags = {"title": "Movie Title", "encoder": "libebml v1.4.2"}
+        snap = FileSnapshot.from_file_info(info)
+        assert snap.container_tags == (
+            ("encoder", "libebml v1.4.2"),
+            ("title", "Movie Title"),
+        )
+
+    def test_none_container_tags(self):
+        info = _make_file_info()
+        info.container_tags = None
+        snap = FileSnapshot.from_file_info(info)
+        assert snap.container_tags is None
+
+    def test_empty_container_tags(self):
+        info = _make_file_info()
+        info.container_tags = {}
+        snap = FileSnapshot.from_file_info(info)
+        assert snap.container_tags is None
+
 
 class TestFileSnapshotFrozen:
     """Tests that FileSnapshot is immutable."""
