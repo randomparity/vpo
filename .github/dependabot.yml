@@ -1,5 +1,7 @@
 version: 2
 updates:
+  # Note: Dependabot updates pyproject.toml but does NOT update uv.lock.
+  # After merging Dependabot PRs, run `uv lock` to sync the lockfile.
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
