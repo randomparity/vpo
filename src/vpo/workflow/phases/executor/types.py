@@ -11,6 +11,15 @@ from typing import TYPE_CHECKING
 
 from vpo.policy.types import OperationType, PhaseDefinition
 
+FILTER_OPS = frozenset(
+    {
+        OperationType.AUDIO_FILTER,
+        OperationType.SUBTITLE_FILTER,
+        OperationType.ATTACHMENT_FILTER,
+    }
+)
+"""Operation types that are consolidated into a single filter execution pass."""
+
 if TYPE_CHECKING:
     from vpo.executor.transcode.decisions import TranscodeReason
     from vpo.policy.types import ContainerChange, TrackDisposition

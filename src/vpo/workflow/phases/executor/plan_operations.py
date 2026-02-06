@@ -233,54 +233,6 @@ def execute_container(
     )
 
 
-def execute_audio_filter(
-    state: PhaseExecutionState,
-    file_info: "FileInfo | None",
-    conn: Connection,
-    policy: PolicySchema,
-    dry_run: bool,
-    tools: dict[str, bool],
-) -> int:
-    """Execute audio filter operation."""
-    if not state.phase.audio_filter:
-        return 0
-    return execute_with_plan(
-        state, file_info, "audio filter", conn, policy, dry_run, tools
-    )
-
-
-def execute_subtitle_filter(
-    state: PhaseExecutionState,
-    file_info: "FileInfo | None",
-    conn: Connection,
-    policy: PolicySchema,
-    dry_run: bool,
-    tools: dict[str, bool],
-) -> int:
-    """Execute subtitle filter operation."""
-    if not state.phase.subtitle_filter:
-        return 0
-    return execute_with_plan(
-        state, file_info, "subtitle filter", conn, policy, dry_run, tools
-    )
-
-
-def execute_attachment_filter(
-    state: PhaseExecutionState,
-    file_info: "FileInfo | None",
-    conn: Connection,
-    policy: PolicySchema,
-    dry_run: bool,
-    tools: dict[str, bool],
-) -> int:
-    """Execute attachment filter operation."""
-    if not state.phase.attachment_filter:
-        return 0
-    return execute_with_plan(
-        state, file_info, "attachment filter", conn, policy, dry_run, tools
-    )
-
-
 def execute_filters(
     state: PhaseExecutionState,
     file_info: "FileInfo | None",

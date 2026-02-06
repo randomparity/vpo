@@ -21,21 +21,13 @@ from .plan_operations import (
 )
 from .timestamp_ops import execute_file_timestamp
 from .transcode_ops import execute_transcode
-from .types import OperationResult, PhaseExecutionState
+from .types import FILTER_OPS, OperationResult, PhaseExecutionState
 
 if TYPE_CHECKING:
     from vpo.db.types import FileInfo
     from vpo.plugin import PluginRegistry
 
 logger = logging.getLogger(__name__)
-
-_FILTER_OPS = frozenset(
-    {
-        OperationType.AUDIO_FILTER,
-        OperationType.SUBTITLE_FILTER,
-        OperationType.ATTACHMENT_FILTER,
-    }
-)
 
 
 def execute_operation(
@@ -127,7 +119,7 @@ def dispatch_operation(
     plan_args = (state, file_info, conn, policy, dry_run, tools)
 
     # Consolidate filter operations into a single execution
-    if op_type in _FILTER_OPS:
+    if op_type in FILTER_OPS:
         if state.filters_executed:
             return 0
         result = execute_filters(*plan_args)

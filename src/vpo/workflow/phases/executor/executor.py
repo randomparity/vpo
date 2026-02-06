@@ -27,7 +27,7 @@ from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 from .backup import cleanup_backup, create_backup, handle_phase_failure
 from .helpers import get_tools, get_tracks, parse_plugin_metadata, select_executor
-from .types import OperationResult, PhaseExecutionState
+from .types import FILTER_OPS, OperationResult, PhaseExecutionState
 
 if TYPE_CHECKING:
     from vpo.db.types import FileInfo
@@ -41,14 +41,6 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
-
-_FILTER_OPS = frozenset(
-    {
-        OperationType.AUDIO_FILTER,
-        OperationType.SUBTITLE_FILTER,
-        OperationType.ATTACHMENT_FILTER,
-    }
-)
 
 
 class PhaseExecutor:
@@ -423,7 +415,7 @@ class PhaseExecutor:
             Number of changes made.
         """
         # Consolidate filter operations into a single execution
-        if op_type in _FILTER_OPS:
+        if op_type in FILTER_OPS:
             if state.filters_executed:
                 return 0
             result = self._execute_filters(state, file_info)

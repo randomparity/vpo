@@ -802,23 +802,18 @@ def process_command(
                             else:
                                 fail_count += 1
 
-                            # Output result if verbose (use lock for thread safety)
+                            # Output result (use lock for thread safety)
                             if not json_output and verbose:
                                 if is_not_in_db:
-                                    with _output_lock:
-                                        click.echo(
-                                            f"[SKIP] {file_path.name}: not in database"
-                                        )
-                                        click.echo("")
+                                    output = f"[SKIP] {file_path.name}: not in database"
                                 else:
-                                    formatted = _format_result_human(
+                                    output = _format_result_human(
                                         result, file_path, verbose
                                     )
-                                    with _output_lock:
-                                        click.echo(formatted)
-                                        click.echo("")
+                                with _output_lock:
+                                    click.echo(output)
+                                    click.echo("")
                             elif not json_output and not progress.enabled:
-                                # Not verbose, not progress mode - show status
                                 if is_not_in_db:
                                     status = "SKIP"
                                 else:
