@@ -194,12 +194,14 @@ def create_app(
             "with: python -c 'from cryptography.fernet import Fernet; "
             "print(Fernet.generate_key().decode())')."
         )
+        logger.info("Session persistence: disabled (ephemeral key)")
     else:
         # Environment variable is a string, encode it to bytes
         # Assume it's a Fernet-compatible base64-encoded key
         import base64
 
         secret_key = base64.urlsafe_b64decode(secret_key_str)
+        logger.info("Session persistence: enabled")
 
     setup_session(app, EncryptedCookieStorage(secret_key))
 
