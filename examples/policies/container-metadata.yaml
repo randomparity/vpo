@@ -7,6 +7,13 @@
 # (e.g., MKV global tags, MP4 metadata atoms). Common tags include:
 #   title, encoder, creation_time, description, comment
 #
+# Condition operators for container_metadata:
+#   exists   - true if the tag exists (any value)
+#   eq       - true if tag value equals the specified value
+#   neq      - true if tag value does not equal the specified value
+#   contains - true if tag value contains the specified substring
+#   gt / lt / gte / lte - numeric comparisons
+#
 # Usage:
 #   vpo policy run -p container-metadata.yaml /path/to/videos/ --dry-run
 schema_version: 12
@@ -14,16 +21,16 @@ name: Container Metadata Cleanup
 description: Sanitize container tags and set titles from Radarr/Sonarr metadata.
 
 config:
-  on_error: continue
+  on_error: continue  # Don't stop on metadata errors — best-effort cleanup
 
 phases:
-  # Phase 1: Clean up stale or unwanted container tags
+  # Phase 1: Clean up stale or unwanted container tags.
   #
   # Clear encoder strings left by transcoding tools (e.g., "Lavf59.27.100")
   # and remove any existing title to prepare for a clean title set later.
   - name: sanitize
     conditional:
-      # Clear the encoder tag if it exists -- it's noise from muxing tools
+      # Clear the encoder tag if it exists — it's noise from muxing tools.
       - name: clear-encoder
         when:
           container_metadata:
@@ -32,9 +39,10 @@ phases:
         then:
           - set_container_metadata:
               field: encoder
-              value: ""
+              value: ""  # Setting to "" clears the tag
 
-      # Clear the comment tag if it contains advertising or tracker info
+      # Clear the comment tag if it contains advertising or tracker info.
+      # Uses "contains" operator for substring matching.
       - name: clear-spam-comments
         when:
           container_metadata:
@@ -46,14 +54,15 @@ phases:
               field: comment
               value: ""
 
-  # Phase 2: Set container title from Radarr metadata
+  # Phase 2: Set container title from Radarr metadata.
   #
   # Uses from_plugin_metadata to dynamically resolve the title from Radarr.
   # Falls back to Sonarr for TV content. Skipped if no plugin data available.
   - name: title
+    # depends_on: skip this phase if named phases didn't complete successfully.
     depends_on: [sanitize]
     conditional:
-      # Set title from Radarr's external_title (movie title)
+      # Set title from Radarr's external_title (movie title).
       - name: set-title-from-radarr
         when:
           plugin_metadata:
@@ -63,11 +72,14 @@ phases:
         then:
           - set_container_metadata:
               field: title
+              # from_plugin_metadata dynamically resolves the value at runtime
+              # from the named plugin's metadata for this file.
               from_plugin_metadata:
                 plugin: radarr
                 field: external_title
 
-      # Fall back to Sonarr's external_title (series title) for TV content
+      # Fall back to Sonarr's external_title (series title) for TV content.
+      # Uses "and" + "not" to ensure we only fall back when Radarr has no data.
       - name: set-title-from-sonarr
         when:
           and:
@@ -87,13 +99,13 @@ phases:
                 plugin: sonarr
                 field: external_title
 
-  # Phase 3: Conditional tagging based on container metadata
+  # Phase 3: Conditional tagging based on container metadata.
   #
   # Demonstrate reading container tags in conditions to make decisions.
   - name: audit
     depends_on: [title]
     conditional:
-      # Warn if the container still has no title after the title phase
+      # Warn if the container still has no title after the title phase.
       - name: warn-no-title
         when:
           not:
@@ -103,12 +115,12 @@ phases:
         then:
           - warn: "No container title set: {filename}"
 
-      # Warn about files with suspiciously old creation dates
+      # Warn about files with suspiciously old creation dates.
       - name: warn-old-creation-time
         when:
           container_metadata:
             field: creation_time
             operator: contains
-            value: "200"
+            value: "200"  # Matches years 2000-2009
         then:
           - warn: "Container has pre-2010 creation_time: {filename}"

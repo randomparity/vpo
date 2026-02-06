@@ -1,11 +1,14 @@
 # Media Normalization Policy (V12)
 # Production-ready policy for standardizing media files
 #
-# This policy demonstrates conditional phase execution features:
-# - skip_when: Skip phases based on file characteristics
-# - on_error: Per-phase error handling (skip, continue, fail)
-# - run_if: Run phase only if previous phase modified file
-# - depends_on: Skip phase if dependencies didn't complete
+# A 7-phase pipeline that demonstrates conditional phase execution:
+#   - skip_when:  skip phases based on file characteristics (OR logic — any match skips)
+#   - on_error:   per-phase error handling override (skip, continue, fail)
+#   - run_if:     run phase only if a previous phase modified the file
+#   - depends_on: skip phase if named dependencies didn't complete
+#
+# Usage:
+#   vpo policy run -p media-normalization.yaml /path/to/videos/ --dry-run
 schema_version: 12
 name: Full Media Normalization
 description: >-
@@ -16,37 +19,51 @@ config:
   audio_language_preference: [eng, und]
   subtitle_language_preference: [eng, und]
   commentary_patterns: [commentary, director, "audio description", cast]
+
+  # Global on_error applies to phases that don't override it.
   on_error: skip
 
 phases:
-  # Migrate all container types to MKV
-  # Skip if already in MKV format
+  # Phase 1: Migrate all container types to MKV.
+  # skip_when conditions use OR logic — if ANY condition matches, the phase is skipped.
+  # Available skip_when conditions:
+  #   container: [mkv]           - skip if container format matches
+  #   video_codec: [hevc, h265]  - skip if video codec matches
+  #   file_size_under: 500MB     - skip if file is under threshold
+  #   resolution_under: 1080p    - skip if resolution is below
+  #   duration_under: 30m        - skip if duration is under
+  #   audio_codec_exists: truehd - skip if audio codec is present
   - name: prepare
     skip_when:
-      container: [mkv]
+      container: [mkv]  # Already MKV — no conversion needed
     container:
       target: mkv
       on_incompatible_codec: transcode
 
-  # Analyze audio tracks to detect actual language content
-  # and purpose (main audio vs. commentary audio)
-  # Skip for short clips (under 5 minutes) - not worth analyzing
+  # Phase 2: Analyze audio tracks to detect actual language content
+  # and purpose (main audio vs. commentary audio).
+  # Skip for short clips (under 5 minutes) — not worth the analysis time.
   - name: analyze
     skip_when:
       duration_under: 5m
-    on_error: continue  # Don't fail entire file if transcription fails
+    # Per-phase on_error overrides the global setting.
+    # "continue" here means: if transcription fails, log it and move on
+    # to the next phase rather than skipping the rest of the file.
+    on_error: continue
     transcription:
       enabled: true
       update_language_from_transcription: true
       confidence_threshold: 0.8
       detect_commentary: true
 
-  # Clear track settings, remove unwanted language tracks
+  # Phase 3: Clear stale track metadata, remove unwanted language tracks.
   - name: cleanup
+    # audio_actions / subtitle_actions run BEFORE filters in the same phase.
+    # This lets you clear flags before filtering decisions are made.
     audio_actions:
-      clear_all_forced: true
-      clear_all_default: true
-      clear_all_titles: false
+      clear_all_forced: true    # Remove forced flag from all audio tracks
+      clear_all_default: true   # Remove default flag from all audio tracks
+      clear_all_titles: false   # Keep existing track titles
     audio_filter:
       languages: [eng, und]
       minimum: 1
@@ -58,11 +75,11 @@ phases:
       clear_all_titles: false
     subtitle_filter:
       languages: [eng, und]
-      preserve_forced: false
+      preserve_forced: false  # Don't preserve forced subs (we cleared forced above)
     attachment_filter:
-      remove_all: true
+      remove_all: true  # Strip fonts and cover art
 
-  # Organize track ordering, set track defaults
+  # Phase 4: Organize track ordering, set track defaults, apply metadata rules.
   - name: organize
     track_order:
       - video
@@ -76,10 +93,13 @@ phases:
       set_first_video_default: true
       set_preferred_audio_default: true
       set_preferred_subtitle_default: false
+      # Auto-force and auto-default subtitles when the default audio track's
+      # language doesn't match the audio_language_preference list.
+      # Useful for foreign-language content in mixed libraries.
       set_subtitle_forced_when_audio_differs: true
       set_subtitle_default_when_audio_differs: true
     conditional:
-      # If the plugin reports an original_language, use it for the video track
+      # Set video track language from Radarr's metadata (movie original language).
       - name: sync_video_language_from_radarr
         when:
           plugin_metadata:
@@ -93,6 +113,7 @@ phases:
                 plugin: radarr
                 field: original_language
 
+      # Fall back to Sonarr for TV content.
       - name: sync_video_language_from_sonarr
         when:
           plugin_metadata:
@@ -106,7 +127,7 @@ phases:
                 plugin: sonarr
                 field: original_language
 
-  # Improve audio compatability
+  # Phase 5: Create an EAC3 5.1 compatibility track from lossless surround sources.
   - name: enhance
     audio_synthesis:
       tracks:
@@ -118,7 +139,7 @@ phases:
             codec: [eac3]
             channels: { gte: 6 }
             language: [eng, und]
-            not_commentary: true
+            not_commentary: true  # Don't count commentary tracks
           source:
             prefer:
               - language: [eng, und]
@@ -134,13 +155,13 @@ phases:
           language: inherit
           position: 1
 
-  # Convert video to a more modern, space saving format
-  # Skip if already HEVC or file is small (under 500MB)
+  # Phase 6: Convert video to HEVC for space savings.
+  # skip_when uses OR logic: skip if ALREADY HEVC or file is small.
   - name: compress
     skip_when:
-      video_codec: [hevc, h265, x265]
-      file_size_under: 500MB
-    on_error: skip  # Don't process remaining phases if transcode fails
+      video_codec: [hevc, h265, x265]  # Already in efficient codec
+      file_size_under: 500MB            # Small files aren't worth transcoding
+    on_error: skip  # If transcode fails, skip remaining phases for this file
     transcode:
       video:
         target_codec: hevc
@@ -156,11 +177,13 @@ phases:
         transcode_to: aac
         transcode_bitrate: 192k
 
-  # Verify transcode completed - only runs if compress phase modified the file
+  # Phase 7: Verify transcode completed successfully.
+  # run_if: only execute if the named phase actually modified the file.
+  # depends_on: skip if named phases didn't complete (failed or were skipped).
   - name: verify
     run_if:
-      phase_modified: compress
-    depends_on: [compress]
+      phase_modified: compress  # Only run if compress changed the file
+    depends_on: [compress]      # Skip if compress didn't complete
     conditional:
       - name: transcode_complete
         when:

@@ -1,5 +1,15 @@
 # Audio Synthesis Policy (V12)
 # Create compatibility audio tracks from lossless sources
+#
+# Generates new audio tracks by downmixing/transcoding existing lossless sources.
+# Useful for creating device-compatible tracks (AAC stereo, EAC3 5.1) while
+# keeping the original lossless audio intact.
+#
+# Each synthesized track has skip_if_exists to avoid creating duplicates,
+# and source preferences to pick the best available source track.
+#
+# Usage:
+#   vpo policy run -p audio-synthesis.yaml /path/to/videos/ --dry-run
 schema_version: 12
 name: Audio Compatibility Tracks
 description: Create AAC stereo and EAC3 5.1 tracks from lossless sources for device compatibility.
@@ -12,41 +22,62 @@ phases:
   - name: synthesize
     audio_synthesis:
       tracks:
+        # Track 1: AAC Stereo downmix for mobile/web playback.
+        # Source: best available lossless English track, downmixed to stereo.
         - name: "AAC Stereo Downmix"
-          codec: aac
-          channels: stereo
-          bitrate: "192k"
+          codec: aac              # Output codec
+          channels: stereo        # Output channel layout: "mono", "stereo", "5.1", "7.1"
+          bitrate: "192k"         # Output bitrate
+
+          # Don't create this track if a matching one already exists.
+          # All conditions must match (AND logic) for the skip to trigger.
           skip_if_exists:
             codec: aac
-            channels: 2
-            language: [eng, und]
+            channels: 2           # Channel count (numeric) or layout name
+            language: [eng, und]  # Only consider tracks in these languages
+
+          # Source track selection: ordered list of preferences.
+          # VPO tries each preference in order, picking the first matching track.
           source:
             prefer:
-              - language: [eng, und]
-              - codec: [truehd, "truehd atmos", dts-hd, flac]
-              - channels: max
-          title: "Stereo (AAC)"
-          language: inherit
+              - language: [eng, und]                        # Must be English or undefined
+              - codec: [truehd, "truehd atmos", dts-hd, flac]  # Prefer lossless sources
+              - channels: max                               # Pick the track with most channels
+
+          title: "Stereo (AAC)"    # Title tag set on the new track
+          language: inherit        # Copy language from the source track ("inherit" or ISO code)
+
+          # Where to place the new track relative to the source:
+          #   after_source - immediately after the source track it was created from
+          #   <number>     - absolute position among audio tracks (0-indexed)
           position: after_source
 
+        # Track 2: EAC3 5.1 surround for streaming devices (Apple TV, Roku, etc.).
+        # Only created if a 5.1+ surround source exists — no upmixing from stereo.
         - name: "EAC3 5.1 Surround"
           codec: eac3
           channels: "5.1"
           bitrate: "640k"
+
           skip_if_exists:
-            codec: [eac3, ac3]
-            channels: { gte: 6 }
+            codec: [eac3, ac3]     # Skip if EAC3 or AC3 already present
+            channels: { gte: 6 }   # With 6+ channels (5.1 or higher)
             language: [eng, und]
-            not_commentary: true
+            not_commentary: true   # Don't count commentary tracks as existing
+
           source:
             prefer:
               - codec: [truehd, "truehd atmos", "dts-hd ma", dts, flac]
               - channels: max
+
+          # Only create this track if a surround source actually exists.
+          # Without this, VPO would skip silently; with it, you get explicit control.
           create_if:
             exists:
               track_type: audio
-              channels: { gte: 6 }
+              channels: { gte: 6 }   # Must have a 5.1+ source to downmix from
               language: [eng, und]
+
           title: "Dolby Digital Plus 5.1"
           language: inherit
-          position: 1
+          position: 1  # Place as the second audio track (after the main track)
