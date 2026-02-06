@@ -55,11 +55,13 @@ def strictest_error_mode(policies: Iterable[PolicySchema]) -> OnErrorMode:
     1. FAIL  -- abort entire batch on first error
     2. SKIP  -- skip remaining files on error
     3. CONTINUE -- process all files regardless of errors
+
+    Raises ValueError if *policies* is empty.
     """
-    return max(
-        (p.config.on_error for p in policies),
-        key=lambda m: _ON_ERROR_SEVERITY[m],
-    )
+    modes = [p.config.on_error for p in policies]
+    if not modes:
+        raise ValueError("Cannot determine strictest error mode from empty policies")
+    return max(modes, key=lambda m: _ON_ERROR_SEVERITY[m])
 
 
 def run_policies_for_file(

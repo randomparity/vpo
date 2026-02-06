@@ -23,15 +23,6 @@ class TranscriptionInfo:
     confidence_score: float
     track_type: str  # "main", "commentary", "alternate", "music", "sfx", "non_speech"
 
-    @classmethod
-    def from_record(cls, record: object) -> TranscriptionInfo:
-        """Create from a TranscriptionResultRecord or similar object."""
-        return cls(
-            detected_language=record.detected_language,  # type: ignore[attr-defined]
-            confidence_score=record.confidence_score,  # type: ignore[attr-defined]
-            track_type=record.track_type,  # type: ignore[attr-defined]
-        )
-
 
 @dataclass(frozen=True)
 class TranscriptionPolicyOptions:

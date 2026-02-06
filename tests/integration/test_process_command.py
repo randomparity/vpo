@@ -356,7 +356,7 @@ class TestProcessCommandDryRun:
 class TestProcessCommandOnErrorBehavior:
     """Tests for on_error behavior differentiation."""
 
-    @patch("vpo.cli.process.WorkflowRunner")
+    @patch("vpo.workflow.multi_policy.WorkflowRunner")
     def test_on_error_skip_continues_batch(
         self, mock_runner_cls, temp_video_dir: Path, policy_file: Path
     ):
@@ -417,9 +417,9 @@ class TestProcessCommandOnErrorBehavior:
         # Both files should be processed despite failures (on_error=skip)
         assert call_count["n"] == 2
 
-    @patch("vpo.cli.process.WorkflowRunner")
+    @patch("vpo.workflow.multi_policy.WorkflowRunner")
     def test_on_error_fail_stops_batch(
-        self, mock_runner_cls, temp_video_dir: Path, policy_file: Path
+        self, mock_runner_cls, temp_video_dir: Path, policy_file_with_fail: Path
     ):
         """Test that on_error=fail stops batch processing."""
         from vpo.jobs.runner import WorkflowRunResult
@@ -452,7 +452,7 @@ class TestProcessCommandOnErrorBehavior:
             [
                 "process",
                 "--policy",
-                str(policy_file),
+                str(policy_file_with_fail),
                 "--workers",
                 "1",  # Sequential processing to test stop behavior
                 str(temp_video_dir),  # Directory with multiple files
@@ -475,7 +475,7 @@ class TestProcessCommandOnErrorBehavior:
 class TestProcessCommandWorkflow:
     """Tests for workflow execution."""
 
-    @patch("vpo.cli.process.WorkflowRunner")
+    @patch("vpo.workflow.multi_policy.WorkflowRunner")
     def test_phases_override(
         self, mock_runner_cls, temp_video_dir: Path, policy_file: Path
     ):
@@ -528,7 +528,7 @@ class TestProcessCommandWorkflow:
 class TestProcessCommandSummary:
     """Tests for summary output."""
 
-    @patch("vpo.cli.process.WorkflowRunner")
+    @patch("vpo.workflow.multi_policy.WorkflowRunner")
     def test_summary_counts(
         self, mock_runner_cls, temp_video_dir: Path, policy_file: Path
     ):
