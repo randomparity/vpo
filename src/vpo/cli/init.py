@@ -210,11 +210,18 @@ def _display_existing_state(data_dir: Path) -> None:
     default=False,
     help="Suppress output except for errors.",
 )
+@click.option(
+    "--minimal",
+    is_flag=True,
+    default=False,
+    help="Generate a minimal config.toml with essential settings only.",
+)
 def init_command(
     data_dir: Path | None,
     force: bool,
     dry_run: bool,
     quiet: bool,
+    minimal: bool,
 ) -> None:
     """Initialize VPO configuration directory.
 
@@ -255,7 +262,7 @@ def init_command(
     )
 
     # Run initialization
-    result = run_init(target_dir, force=force, dry_run=dry_run)
+    result = run_init(target_dir, force=force, dry_run=dry_run, minimal=minimal)
 
     # Display results (unless quiet mode, but always show errors)
     if not quiet or not result.success:

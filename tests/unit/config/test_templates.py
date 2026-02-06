@@ -12,6 +12,7 @@ from vpo.config.templates import (
     create_logs_directory,
     create_plugins_directory,
     get_config_template,
+    get_minimal_config_template,
     run_init,
     validate_data_dir_path,
     write_config_file,
@@ -644,3 +645,40 @@ class TestRunInit:
             # Earlier items should have been rolled back
             assert not (data_dir / "config.toml").exists()
             assert not (data_dir / "policies" / "default.yaml").exists()
+
+
+class TestMinimalConfigTemplate:
+    """Tests for get_minimal_config_template function."""
+
+    def test_is_valid_toml(self):
+        """Minimal template should be valid TOML."""
+        from vpo.config.toml_parser import parse_toml
+
+        content = get_minimal_config_template()
+        parsed = parse_toml(content)
+        assert isinstance(parsed, dict)
+
+    def test_contains_expected_sections(self):
+        """Minimal template should contain tools, behavior, processing."""
+        content = get_minimal_config_template()
+        assert "[tools]" in content
+        assert "[behavior]" in content
+        assert "[processing]" in content
+
+    def test_shorter_than_full_template(self):
+        """Minimal template should be shorter than the full template."""
+        full = get_config_template(Path.home() / ".vpo")
+        minimal = get_minimal_config_template()
+        assert len(minimal) < len(full)
+
+    def test_write_config_file_minimal(self, tmp_path: Path):
+        """write_config_file(minimal=True) should write the minimal template."""
+        data_dir = tmp_path / "vpo"
+        data_dir.mkdir()
+        success, error = write_config_file(data_dir, minimal=True)
+        assert success
+        assert error is None
+        content = (data_dir / "config.toml").read_text()
+        assert "[tools]" in content
+        # Should NOT contain server section (minimal omits it)
+        assert "[server]" not in content
