@@ -1,19 +1,25 @@
-.PHONY: help test lint format clean setup hooks-run hooks-update \
+.PHONY: help test test-unit test-quick lint format clean setup dev hooks-run hooks-update \
         docker-ffmpeg-build docker-ffmpeg-shell docker-ffmpeg-version check-deps
 
 help:  ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
 test:  ## Run test suite
-	pytest
+	uv run pytest
+
+test-unit:  ## Run unit tests only (fast)
+	uv run pytest tests/unit/ -x -q
+
+test-quick:  ## Run unit tests (minimal output)
+	uv run pytest tests/unit/ -x -q --no-header
 
 lint:  ## Run linter (Python + Rust)
-	ruff check .
+	uv run ruff check .
 	cargo clippy --manifest-path crates/vpo-core/Cargo.toml --all-targets -- -D warnings
 
 format:  ## Format code (Python + Rust)
-	ruff format .
-	ruff check --fix .
+	uv run ruff format .
+	uv run ruff check --fix .
 	cargo fmt --manifest-path crates/vpo-core/Cargo.toml
 
 clean:  ## Remove build artifacts
@@ -60,11 +66,14 @@ setup:  ## Setup complete dev environment (venv, install, hooks)
 	@echo ""
 	@echo "Setup complete! Run 'source .venv/bin/activate' to activate the environment."
 
+dev:  ## Sync deps and rebuild Rust extension
+	uv sync --extra dev && uv run maturin develop
+
 hooks-run:  ## Run all pre-commit hooks manually
-	pre-commit run --all-files
+	uv run pre-commit run --all-files
 
 hooks-update:  ## Update pre-commit hook versions
-	pre-commit autoupdate
+	uv run pre-commit autoupdate
 
 # =============================================================================
 # Dependency checking
