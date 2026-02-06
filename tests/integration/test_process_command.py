@@ -120,42 +120,6 @@ class TestProcessCommandArgumentParsing:
         # Should not fail on argument parsing (may fail later on DB lookup)
         assert "Invalid phase" not in result.output
 
-    def test_on_error_choices(self, temp_video_dir: Path, policy_file: Path):
-        """Test that --on-error accepts valid choices."""
-        runner = CliRunner()
-
-        for choice in ["skip", "fail", "continue"]:
-            result = runner.invoke(
-                main,
-                [
-                    "process",
-                    "--policy",
-                    str(policy_file),
-                    "--on-error",
-                    choice,
-                    "--help",  # Use --help to avoid actual processing
-                ],
-            )
-            # Help should still work with valid choice
-            assert result.exit_code == 0
-
-    def test_on_error_invalid_choice(self, temp_video_dir: Path, policy_file: Path):
-        """Test that --on-error rejects invalid choices."""
-        runner = CliRunner()
-        result = runner.invoke(
-            main,
-            [
-                "process",
-                "--policy",
-                str(policy_file),
-                "--on-error",
-                "invalid",
-                str(temp_video_dir / "movie.mkv"),
-            ],
-        )
-        assert result.exit_code != 0
-        assert "Invalid value" in result.output or "invalid" in result.output.lower()
-
 
 class TestProcessCommandFileDiscovery:
     """Tests for file discovery functionality."""
@@ -489,8 +453,6 @@ class TestProcessCommandOnErrorBehavior:
                 "process",
                 "--policy",
                 str(policy_file),
-                "--on-error",
-                "fail",
                 "--workers",
                 "1",  # Sequential processing to test stop behavior
                 str(temp_video_dir),  # Directory with multiple files

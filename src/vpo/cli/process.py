@@ -713,13 +713,6 @@ def _process_single_file(
     help="Override phases to run (comma-separated: analyze,apply,transcode)",
 )
 @click.option(
-    "--on-error",
-    "on_error",
-    type=click.Choice(["skip", "continue", "fail"]),
-    default=None,
-    help="Error handling mode (default: from policy)",
-)
-@click.option(
     "--verbose",
     "-v",
     is_flag=True,
@@ -763,7 +756,6 @@ def process_command(
     recursive: bool,
     dry_run: bool,
     phases_str: str | None,
-    on_error: str | None,
     verbose: bool,
     json_output: bool,
     workers: int | None,
