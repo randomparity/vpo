@@ -15,7 +15,15 @@ API Versioning:
     All endpoints are available under both ``/api/`` (unversioned, backward
     compatible) and ``/api/v1/`` (versioned). Both prefixes resolve to the
     same handler.
+
+Resource ID Schemes:
+    - Jobs, plans, stats: UUIDv4 string (e.g. ``/api/jobs/{job_id}``)
+    - Files, transcriptions: Auto-increment integer (e.g. ``/api/library/{file_id}``)
+    - Policies: Filesystem name string (e.g. ``/api/policies/{name}``)
+    - Plugins: Registry name string (e.g. ``/api/plugins/{name}``)
 """
+
+from pathlib import Path
 
 from aiohttp import web
 
@@ -65,3 +73,16 @@ def setup_api_routes(app: web.Application) -> None:
     for get_routes in _ROUTE_GETTERS:
         for method, suffix, handler in get_routes():
             app.router.add_route(method, f"/api/v1{suffix}", handler)
+
+    # Serve OpenAPI spec under both prefixes
+    app.router.add_get("/api/openapi.yaml", _openapi_handler)
+    app.router.add_get("/api/v1/openapi.yaml", _openapi_handler)
+
+
+_OPENAPI_PATH = Path(__file__).parent / "openapi.yaml"
+
+
+async def _openapi_handler(request: web.Request) -> web.Response:
+    """Serve the bundled OpenAPI specification."""
+    text = _OPENAPI_PATH.read_text()
+    return web.Response(text=text, content_type="text/yaml")

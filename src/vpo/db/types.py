@@ -40,7 +40,11 @@ __all__ = [
 
 
 class OperationStatus(Enum):
-    """Status of a policy operation."""
+    """Status of a policy operation.
+
+    Note: This enum may be extended in future versions.
+    Clients should handle unknown values gracefully.
+    """
 
     PENDING = "PENDING"
     IN_PROGRESS = "IN_PROGRESS"
@@ -50,7 +54,11 @@ class OperationStatus(Enum):
 
 
 class JobType(Enum):
-    """Type of job in the queue."""
+    """Type of job in the queue.
+
+    Note: This enum may be extended in future versions.
+    Clients should handle unknown values gracefully.
+    """
 
     TRANSCODE = "transcode"
     MOVE = "move"
@@ -61,7 +69,11 @@ class JobType(Enum):
 
 
 class JobStatus(Enum):
-    """Status of a job in the queue."""
+    """Status of a job in the queue.
+
+    Note: This enum may be extended in future versions.
+    Clients should handle unknown values gracefully.
+    """
 
     QUEUED = "queued"
     RUNNING = "running"
@@ -72,6 +84,9 @@ class JobStatus(Enum):
 
 class PlanStatus(Enum):
     """Status of a plan in the approval workflow.
+
+    Note: This enum may be extended in future versions.
+    Clients should handle unknown values gracefully.
 
     State transitions:
         pending → approved   (approve action)
