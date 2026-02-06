@@ -101,7 +101,7 @@ def missing_command(
         vpo db missing
 
         # List up to 500 missing files as JSON
-        vpo db missing --json --limit 500
+        vpo db missing --format json --limit 500
     """
     json_output = output_format == "json"
     conn = get_db_conn_from_context(ctx)
@@ -190,7 +190,7 @@ def prune_command(
         vpo db prune --yes
 
         # Prune with JSON output
-        vpo db prune --yes --json
+        vpo db prune --yes --format json
     """
     json_output = output_format == "json"
     conn = get_db_conn_from_context(ctx)
@@ -292,7 +292,7 @@ def info_command(
 
         vpo db info
 
-        vpo db info --json
+        vpo db info --format json
     """
     json_output = output_format == "json"
     from vpo.db.views import get_library_info
@@ -476,7 +476,7 @@ def verify_command(
 
         vpo db verify
 
-        vpo db verify --json
+        vpo db verify --format json
     """
     json_output = output_format == "json"
     from vpo.db.views import run_integrity_check
@@ -556,7 +556,7 @@ def duplicates_command(
 
         vpo db duplicates
 
-        vpo db duplicates --limit 10 --json
+        vpo db duplicates --limit 10 --format json
     """
     json_output = output_format == "json"
     from vpo.db.views import get_duplicate_files

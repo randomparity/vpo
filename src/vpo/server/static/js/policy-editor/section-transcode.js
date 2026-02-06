@@ -193,13 +193,13 @@ export function initTranscodeSection(policyData, onUpdate) {
                         <input type="number" id="video-quality-crf" min="0" max="51" placeholder="18-28 typical">
                         <p class="form-hint">Lower = better quality. HEVC: 20-28, H.264: 18-23</p>
                     </div>
-                    <div class="form-group" id="video-bitrate-group" style="display: none;">
+                    <div class="form-group initially-hidden" id="video-bitrate-group">
                         <label for="video-quality-bitrate">Target Bitrate</label>
                         <input type="text" id="video-quality-bitrate" placeholder="e.g., 5M or 2500k">
                     </div>
                 </div>
 
-                <div class="form-row" id="video-constrained-group" style="display: none;">
+                <div class="form-row initially-hidden" id="video-constrained-group">
                     <div class="form-group">
                         <label for="video-quality-min-bitrate">Min Bitrate</label>
                         <input type="text" id="video-quality-min-bitrate" placeholder="e.g., 2M">

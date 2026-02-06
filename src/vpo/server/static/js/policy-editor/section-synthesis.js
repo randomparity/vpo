@@ -271,7 +271,7 @@ function createSkipIfExistsBuilder(skipIfExists, onUpdate) {
                     Skip if matching track exists (V8)
                 </label>
             </div>
-            <div class="skip-if-exists-fields" style="display: ${criteria ? 'block' : 'none'}">
+            <div class="skip-if-exists-fields${criteria ? '' : ' initially-hidden'}"
                 <div class="filter-row">
                     <label class="form-label-inline">Codec:</label>
                     <input type="text" class="form-input form-input-small skip-codec" placeholder="e.g., aac, ac3" value="${criteria?.codec || ''}">

@@ -303,10 +303,10 @@ export function initPhasesSection(policyData, onUpdate) {
                     <option value="phase_modified" ${phase.run_if?.phase_modified ? 'selected' : ''}>Phase modified file</option>
                     <option value="phase_completed" ${phase.run_if?.phase_completed ? 'selected' : ''}>Phase completed</option>
                 </select>
-                <input type="text" class="form-input form-input-small phase-run-if-value"
+                <input type="text"
+                       class="form-input form-input-small phase-run-if-value${phase.run_if ? '' : ' initially-hidden'}"
                        placeholder="Phase name"
-                       value="${escapeAttr(phase.run_if?.phase_modified || phase.run_if?.phase_completed || '')}"
-                       style="display: ${phase.run_if ? 'inline-block' : 'none'}">
+                       value="${escapeAttr(phase.run_if?.phase_modified || phase.run_if?.phase_completed || '')}">
             </div>
             <div class="phase-cond-group">
                 <label class="form-label">Skip When:</label>

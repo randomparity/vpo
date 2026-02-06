@@ -136,7 +136,7 @@ def list_jobs(
         vpo jobs list --since 1d
 
         # List jobs from last week in JSON
-        vpo jobs list --since 1w --json
+        vpo jobs list --since 1w --format json
     """
     json_output = output_format == "json"
     conn = ctx.obj.get("db_conn")

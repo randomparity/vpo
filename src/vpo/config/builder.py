@@ -156,6 +156,15 @@ class ConfigBuilder:
     # Fields with special handling (merge instead of override)
     _SPECIAL_FIELDS = frozenset({"plugin_dirs"})
 
+    # Fields that should be masked in debug logs
+    _SENSITIVE_FIELDS = frozenset(
+        {
+            "server_auth_token",
+            "plugin_metadata_radarr_api_key",
+            "plugin_metadata_sonarr_api_key",
+        }
+    )
+
     def apply(self, source: ConfigSource, source_name: str = "unknown") -> None:
         """Apply configuration source, overriding existing values.
 
@@ -175,10 +184,12 @@ class ConfigBuilder:
             value = getattr(source, field_obj.name)
             if value is not None:
                 self._values[field_obj.name] = value
+                is_sensitive = field_obj.name in self._SENSITIVE_FIELDS
+                display_value = "***" if is_sensitive else repr(value)
                 logger.debug(
-                    "Config %s = %r (from %s)",
+                    "Config %s = %s (from %s)",
                     field_obj.name,
-                    value,
+                    display_value,
                     source_name,
                 )
 

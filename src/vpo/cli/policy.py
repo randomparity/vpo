@@ -206,7 +206,7 @@ def show_policy_cmd(policy_name_or_path: str, output_format: str, raw: bool) -> 
     """
     json_output = output_format == "json"
     if json_output and raw:
-        raise click.ClickException("Cannot use both --json and --raw")
+        raise click.ClickException("Cannot use both --format json and --raw")
 
     # Find policy file
     policy_path = _resolve_policy_path(policy_name_or_path)

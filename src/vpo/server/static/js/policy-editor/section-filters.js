@@ -317,13 +317,13 @@ export function initFiltersSection(policyData, onUpdate) {
                 </div>
                 <div class="form-group">
                     <label for="audio-minimum" class="form-label">Minimum Tracks</label>
-                    <input type="number" id="audio-minimum" class="form-input" value="1" min="1" max="99" style="width: 80px;">
+                    <input type="number" id="audio-minimum" class="form-input form-input-narrow" value="1" min="1" max="99">
                     <span class="form-hint">Minimum audio tracks to keep (default: 1)</span>
                 </div>
             </div>
 
-            <div class="accordion-subsection" style="margin-top: var(--spacing-md);">
-                <h5 class="accordion-subsection-title" style="font-size: 0.9rem;">V10: Special Track Handling</h5>
+            <div class="accordion-subsection accordion-subsection--spaced">
+                <h5 class="accordion-subsection-title accordion-subsection-title--small">V10: Special Track Handling</h5>
 
                 <div class="form-row">
                     <div class="form-group">
@@ -331,7 +331,7 @@ export function initFiltersSection(policyData, onUpdate) {
                             <input type="checkbox" id="audio-keep-music" checked>
                             Keep music tracks
                         </label>
-                        <label class="checkbox-label" style="margin-left: var(--spacing-lg);">
+                        <label class="checkbox-label checkbox-label--indented">
                             <input type="checkbox" id="audio-exclude-music" checked>
                             Exclude from language filter
                         </label>
@@ -344,7 +344,7 @@ export function initFiltersSection(policyData, onUpdate) {
                             <input type="checkbox" id="audio-keep-sfx" checked>
                             Keep SFX tracks
                         </label>
-                        <label class="checkbox-label" style="margin-left: var(--spacing-lg);">
+                        <label class="checkbox-label checkbox-label--indented">
                             <input type="checkbox" id="audio-exclude-sfx" checked>
                             Exclude from language filter
                         </label>
@@ -357,7 +357,7 @@ export function initFiltersSection(policyData, onUpdate) {
                             <input type="checkbox" id="audio-keep-non-speech" checked>
                             Keep non-speech tracks
                         </label>
-                        <label class="checkbox-label" style="margin-left: var(--spacing-lg);">
+                        <label class="checkbox-label checkbox-label--indented">
                             <input type="checkbox" id="audio-exclude-non-speech" checked>
                             Exclude from language filter
                         </label>
