@@ -380,6 +380,7 @@ def _register_commands():
     from vpo.cli.process import process_command
     from vpo.cli.report import report_group
     from vpo.cli.serve import serve_command
+    from vpo.cli.status import status_command
 
     main.add_command(analyze_group)
     main.add_command(config_group)
@@ -393,6 +394,7 @@ def _register_commands():
     main.add_command(process_command)
     main.add_command(report_group)
     main.add_command(serve_command)
+    main.add_command(status_command)
 
 
 _register_commands()
