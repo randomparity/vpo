@@ -447,26 +447,18 @@ def check_config(config_path: Path | None, output_format: str) -> None:
         vpo config check --format json
     """
     from vpo.config.loader import get_config, validate_config
-
-    json_output = output_format == "json"
     from vpo.config.toml_parser import TomlParseError
 
+    json_output = output_format == "json"
     errors: list[str] = []
 
     # Load with strict=True to catch parse errors
     try:
         config = get_config(config_path=config_path, strict=True)
-    except TomlParseError as e:
-        errors.append(f"TOML parse error: {e}")
-        if json_output:
-            click.echo(json.dumps({"valid": False, "errors": errors}, indent=2))
-        else:
-            click.echo(click.style("Config file has errors:", fg="red"), err=True)
-            for error in errors:
-                click.echo(f"  - {error}", err=True)
-        raise SystemExit(ExitCode.CONFIG_ERROR)
-    except ValueError as e:
-        errors.append(f"Validation error: {e}")
+    except (TomlParseError, ValueError) as e:
+        is_parse = isinstance(e, TomlParseError)
+        prefix = "TOML parse error" if is_parse else "Validation error"
+        errors.append(f"{prefix}: {e}")
         if json_output:
             click.echo(json.dumps({"valid": False, "errors": errors}, indent=2))
         else:

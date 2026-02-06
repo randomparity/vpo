@@ -233,8 +233,8 @@ def _check_initialization(ctx: click.Context) -> None:
     Args:
         ctx: Click context with invoked_subcommand.
     """
-    # Skip check for init command
-    if ctx.invoked_subcommand == "init":
+    # Skip check for init and completion commands
+    if ctx.invoked_subcommand in ("init", "completion"):
         return
 
     from vpo.config.loader import get_data_dir
@@ -321,13 +321,13 @@ def main(
     # Configure logging from CLI options
     _configure_logging(log_level, log_file, log_json)
 
-    # Log startup settings (skip for init command - it should be silent)
-    # ctx.invoked_subcommand is the name of the subcommand being invoked
-    if ctx.invoked_subcommand != "init":
+    # Log startup settings (skip for init/completion - they should be lightweight)
+    _skip_init = {"init", "completion"}
+    if ctx.invoked_subcommand not in _skip_init:
         _log_startup_settings(log_level, log_file)
 
     # Initialize database connection for subcommands (preserve mock if passed by tests)
-    if "db_conn" not in ctx.obj:
+    if ctx.invoked_subcommand not in _skip_init and "db_conn" not in ctx.obj:
         ctx.obj["db_conn"] = _get_db_connection()
 
 

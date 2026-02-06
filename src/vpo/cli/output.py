@@ -92,6 +92,7 @@ def format_option(func):
 
     @click.option(
         "--format",
+        "-f",
         "output_format",
         type=click.Choice(["text", "json"]),
         default="text",
