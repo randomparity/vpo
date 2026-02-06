@@ -314,6 +314,16 @@ def serve_command(
     if server_port < 1024:
         logger.warning("Port %d is privileged and may require root", server_port)
 
+    # Warn when binding to non-loopback address
+    if server_bind not in {"127.0.0.1", "::1", "localhost"}:
+        logger.warning("Binding to %s exposes VPO to the network.", server_bind)
+        if not auth_token:
+            logger.warning(
+                "Server bound to %s with authentication DISABLED. "
+                "Set VPO_AUTH_TOKEN to protect access.",
+                server_bind,
+            )
+
     logger.info(
         "Starting VPO daemon (bind=%s, port=%d, timeout=%.1fs)",
         server_bind,
