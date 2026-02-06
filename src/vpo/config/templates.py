@@ -173,6 +173,9 @@ def get_config_template(data_dir: Path) -> str:
 #               plugin: radarr
 #               field: original_language
 
+# For production, prefer environment variables for API keys:
+#   VPO_RADARR_URL, VPO_RADARR_API_KEY, VPO_SONARR_URL, VPO_SONARR_API_KEY
+
 # [plugins.metadata.radarr]
 # url = "http://localhost:7878"  # Radarr server URL
 # api_key = ""                   # Radarr API key (Settings > General > Security)
