@@ -394,9 +394,13 @@ class TestProcessCommandOnErrorBehavior:
 
     @patch("vpo.cli.process.WorkflowRunner")
     def test_on_error_skip_continues_batch(
-        self, mock_runner_cls, temp_video_dir: Path, policy_file_with_fail: Path
+        self, mock_runner_cls, temp_video_dir: Path, policy_file: Path
     ):
-        """Test that on_error=skip allows batch to continue after failures."""
+        """Test that on_error=skip allows batch to continue after failures.
+
+        Uses a policy with on_error=skip (in the YAML), which means individual
+        file failures do not abort the batch.
+        """
         import threading
 
         from vpo.jobs.runner import WorkflowRunResult
@@ -407,13 +411,13 @@ class TestProcessCommandOnErrorBehavior:
         lock = threading.Lock()
 
         def make_run_result(*args, **kwargs):
-            """Generate a failure result (batch_should_stop=False to continue)."""
+            """Generate a failure result (on_error=skip continues batch)."""
             with lock:
                 call_count["n"] += 1
 
             file_result = MagicMock(spec=FileProcessingResult)
             file_result.success = False
-            file_result.batch_should_stop = False  # Key: skip mode continues
+            file_result.batch_should_stop = False
             file_result.failed_phase = "apply"
             file_result.phases_completed = 0
             file_result.phases_failed = 1
@@ -422,6 +426,7 @@ class TestProcessCommandOnErrorBehavior:
             file_result.file_path = args[0] if args else "unknown"
             file_result.total_duration_seconds = 0.1
             file_result.total_changes = 0
+            file_result.error_message = "test failure"
 
             run_result = MagicMock(spec=WorkflowRunResult)
             run_result.result = file_result
@@ -438,9 +443,7 @@ class TestProcessCommandOnErrorBehavior:
             [
                 "process",
                 "--policy",
-                str(policy_file_with_fail),
-                "--on-error",
-                "skip",
+                str(policy_file),
                 "--workers",
                 "1",  # Sequential processing for deterministic behavior
                 str(temp_video_dir),  # Directory with multiple files

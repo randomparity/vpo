@@ -420,6 +420,41 @@ def _format_phase_result_json(pr) -> dict:
     return result
 
 
+def _format_multi_policy_result_human(
+    policy_results: list[tuple[str, FileProcessingResult]],
+    file_path: Path,
+    verbose: bool = False,
+) -> str:
+    """Format processing results from multiple policies for human-readable output.
+
+    For a single policy, delegates to _format_result_human directly.
+    For multiple policies, groups results under the file with per-policy sections.
+
+    Args:
+        policy_results: List of (policy_name, result) pairs.
+        file_path: Path to the processed file.
+        verbose: If True, show detailed output.
+
+    Returns:
+        Formatted string for terminal output.
+    """
+    if len(policy_results) == 1:
+        _, result = policy_results[0]
+        return _format_result_human(result, file_path, verbose)
+
+    lines = [f"File: {file_path}", ""]
+    for policy_name, result in policy_results:
+        lines.append(f"  Policy: {policy_name}")
+        # Indent the result output under the policy name
+        result_text = _format_result_human(result, file_path, verbose)
+        for line in result_text.split("\n"):
+            if line:
+                lines.append(f"    {line}")
+            else:
+                lines.append("")
+    return "\n".join(lines)
+
+
 # =============================================================================
 # Parallel Processing Worker
 # =============================================================================
@@ -433,25 +468,29 @@ def _process_single_file(
     file_path: Path,
     file_index: int,
     db_path: Path,
-    policy: PolicySchema,
-    runner_config: WorkflowRunnerConfig,
+    policies: list[tuple[Path, PolicySchema]],
+    runner_configs: list[WorkflowRunnerConfig],
     progress: StderrProgressReporter,
     stop_event: threading.Event,
     worker_id: str,
     file_id: str,
     batch_id: str | None,
     save_logs: bool = False,
-) -> tuple[Path, FileProcessingResult | None, bool]:
-    """Process a single file using WorkflowRunner.
+) -> tuple[Path, list[tuple[str, FileProcessingResult]] | None, bool]:
+    """Process a single file through one or more policies sequentially.
 
     Each worker creates its own database connection for thread safety.
+    When multiple policies are provided, they run in order on the file.
+    If a policy fails, the failing policy's on_error setting determines
+    whether to continue to the next policy (continue), skip remaining
+    policies for this file (skip), or abort the entire batch (fail).
 
     Args:
         file_path: Path to the video file.
         file_index: Zero-based index for progress tracking.
         db_path: Path to the database file.
-        policy: Policy schema.
-        runner_config: WorkflowRunner configuration.
+        policies: List of (policy_path, policy_schema) pairs.
+        runner_configs: List of WorkflowRunnerConfig (one per policy).
         progress: Progress reporter for display.
         stop_event: Event signaling batch should stop.
         worker_id: Worker identifier for logging (e.g., "01").
@@ -460,7 +499,7 @@ def _process_single_file(
         save_logs: If True, save detailed logs to ~/.vpo/logs/.
 
     Returns:
-        Tuple of (file_path, result, success).
+        Tuple of (file_path, list of (policy_name, result) pairs, overall_success).
     """
     if stop_event.is_set():
         return file_path, None, False
@@ -477,37 +516,90 @@ def _process_single_file(
             with get_connection(db_path) as conn:
                 # Get database file_id if file exists in DB
                 db_file_id: int | None = None
-                if not runner_config.dry_run:
+                if not runner_configs[0].dry_run:
                     file_record = get_file_by_path(conn, str(file_path))
                     if file_record:
                         db_file_id = file_record.id
 
-                # Create lifecycle for job management (or no-op for dry-run)
-                if runner_config.dry_run:
-                    lifecycle: CLIJobLifecycle | NullJobLifecycle = NullJobLifecycle()
-                else:
-                    lifecycle = CLIJobLifecycle(
-                        conn,
-                        batch_id=batch_id,
-                        policy_name=runner_config.policy_name,
-                        save_logs=save_logs,
-                    )
+                policy_results: list[tuple[str, FileProcessingResult]] = []
+                overall_success = True
 
-                try:
-                    # Create and run workflow
-                    # job_log is created in on_job_start() if save_logs=True;
-                    # run_single() gets it from lifecycle dynamically
-                    runner = WorkflowRunner.for_cli(
-                        conn, policy, runner_config, lifecycle
-                    )
-                    run_result = runner.run_single(file_path, file_id=db_file_id)
+                for (policy_path, policy_schema), runner_config in zip(
+                    policies, runner_configs, strict=True
+                ):
+                    if stop_event.is_set():
+                        break
 
-                    progress.on_item_complete(file_index, success=run_result.success)
-                    return file_path, run_result.result, run_result.success
-                finally:
-                    # Ensure job log is closed
-                    if isinstance(lifecycle, CLIJobLifecycle):
-                        lifecycle.close_job_log()
+                    policy_name = runner_config.policy_name
+
+                    if len(policies) > 1:
+                        logger.info("--- Policy %s: %s", policy_name, policy_path)
+
+                    # Create lifecycle for job management (or no-op for dry-run)
+                    if runner_config.dry_run:
+                        lifecycle: CLIJobLifecycle | NullJobLifecycle = (
+                            NullJobLifecycle()
+                        )
+                    else:
+                        lifecycle = CLIJobLifecycle(
+                            conn,
+                            batch_id=batch_id,
+                            policy_name=policy_name,
+                            save_logs=save_logs,
+                        )
+
+                    try:
+                        # Create and run workflow
+                        runner = WorkflowRunner.for_cli(
+                            conn, policy_schema, runner_config, lifecycle
+                        )
+                        run_result = runner.run_single(file_path, file_id=db_file_id)
+
+                        policy_results.append((policy_name, run_result.result))
+
+                        if not run_result.success:
+                            overall_success = False
+                            # For multi-policy, check the failing policy's
+                            # on_error to decide whether to continue to the
+                            # next policy. Batch-level stop (on_error=fail)
+                            # is handled by the outer result collection loop.
+                            if len(policies) > 1:
+                                on_error = policy_schema.config.on_error
+                                if on_error in (
+                                    OnErrorMode.FAIL,
+                                    OnErrorMode.SKIP,
+                                ):
+                                    logger.warning(
+                                        "Policy '%s' failed for %s, skipping "
+                                        "remaining policies (on_error=%s)",
+                                        policy_name,
+                                        file_path.name,
+                                        on_error.value,
+                                    )
+                                    break
+                                else:
+                                    # on_error=continue: proceed to next policy
+                                    logger.warning(
+                                        "Policy '%s' failed for %s, continuing "
+                                        "to next policy (on_error=continue)",
+                                        policy_name,
+                                        file_path.name,
+                                    )
+
+                        # Early exit for not-in-db (no point running more policies)
+                        if (
+                            run_result.result
+                            and run_result.result.error_message == NOT_IN_DB_MESSAGE
+                        ):
+                            break
+
+                    finally:
+                        # Ensure job log is closed
+                        if isinstance(lifecycle, CLIJobLifecycle):
+                            lifecycle.close_job_log()
+
+                progress.on_item_complete(file_index, success=overall_success)
+                return file_path, policy_results, overall_success
 
     except Exception as e:
         logger.exception("Worker error processing %s: %s", file_path, e)
@@ -525,7 +617,8 @@ def _process_single_file(
             phases_skipped=0,
             error_message=str(e),
         )
-        return file_path, result, False
+        policy_name = policies[0][1].name or policies[0][0].stem
+        return file_path, [(policy_name, result)], False
 
 
 # =============================================================================
@@ -537,10 +630,10 @@ def _process_single_file(
 @click.option(
     "--policy",
     "-p",
-    "policy_path",
-    required=False,
+    "policy_paths",
+    multiple=True,
     type=click.Path(exists=False, path_type=Path),
-    help="Path to YAML policy file (or use --profile for default)",
+    help="Path to YAML policy file(s). Can be repeated for sequential application.",
 )
 @click.option(
     "--profile",
@@ -613,7 +706,7 @@ def _process_single_file(
     required=True,
 )
 def process_command(
-    policy_path: Path | None,
+    policy_paths: tuple[Path, ...],
     profile: str | None,
     recursive: bool,
     dry_run: bool,
@@ -633,6 +726,10 @@ def process_command(
     Each phase is optional and controlled by the policy's workflow section
     or the --phases option.
 
+    Multiple policies can be applied sequentially:
+
+        vpo process -p normalize.yaml -p transcode.yaml movie.mkv
+
     Examples:
 
         vpo process --policy policy.yaml movie.mkv
@@ -648,29 +745,33 @@ def process_command(
     if profile:
         loaded_profile = load_profile_or_exit(profile, json_output, verbose)
 
-    # Determine policy path
-    if policy_path is None:
-        if loaded_profile and loaded_profile.default_policy:
-            policy_path = loaded_profile.default_policy
-        else:
-            error_exit(
-                "No policy specified. Use --policy or --profile with default_policy.",
-                ExitCode.POLICY_VALIDATION_ERROR,
-                json_output,
-            )
-
-    # Resolve and load policy
-    policy_path = policy_path.expanduser().resolve()
-    try:
-        policy = load_policy(policy_path)
-    except FileNotFoundError:
+    # Determine policy path(s)
+    if policy_paths:
+        resolved_paths = list(policy_paths)
+    elif loaded_profile and loaded_profile.default_policy:
+        resolved_paths = [loaded_profile.default_policy]
+    else:
         error_exit(
-            f"Policy file not found: {policy_path}",
+            "No policy specified. Use --policy or --profile with default_policy.",
             ExitCode.POLICY_VALIDATION_ERROR,
             json_output,
         )
-    except PolicyValidationError as e:
-        error_exit(str(e), ExitCode.POLICY_VALIDATION_ERROR, json_output)
+
+    # Load all policies upfront (fail fast on any invalid policy)
+    policies: list[tuple[Path, PolicySchema]] = []
+    for p in resolved_paths:
+        p = p.expanduser().resolve()
+        try:
+            schema = load_policy(p)
+        except FileNotFoundError:
+            error_exit(
+                f"Policy file not found: {p}",
+                ExitCode.POLICY_VALIDATION_ERROR,
+                json_output,
+            )
+        except PolicyValidationError as e:
+            error_exit(str(e), ExitCode.POLICY_VALIDATION_ERROR, json_output)
+        policies.append((p, schema))
 
     # Discover files
     file_paths = _discover_files(list(paths), recursive)
@@ -696,7 +797,13 @@ def process_command(
         verbose = True
 
     if verbose and not json_output:
-        click.echo(f"Policy: {policy_path} (v{policy.schema_version})")
+        if len(policies) == 1:
+            policy_path, policy = policies[0]
+            click.echo(f"Policy: {policy_path} (v{policy.schema_version})")
+        else:
+            click.echo(f"Policies ({len(policies)}):")
+            for policy_path, policy in policies:
+                click.echo(f"  - {policy_path} (v{policy.schema_version})")
         click.echo(f"Files: {len(file_paths)}")
         click.echo(f"Mode: {'dry-run' if dry_run else 'live'}")
         click.echo(f"Workers: {effective_workers}")
@@ -713,9 +820,16 @@ def process_command(
     # Validate phase names before processing
     selected_phases = None
     if phases_str:
+        if len(policies) > 1:
+            error_exit(
+                "--phases cannot be used with multiple policies.",
+                ExitCode.INVALID_ARGUMENTS,
+                json_output,
+            )
         selected_phases = [p.strip() for p in phases_str.split(",") if p.strip()]
         # Validate phase names against policy's phases list
-        valid_names = set(policy.phase_names)
+        _, first_policy = policies[0]
+        valid_names = set(first_policy.phase_names)
         invalid_names = [name for name in selected_phases if name not in valid_names]
         if invalid_names:
             error_msg = (
@@ -737,18 +851,25 @@ def process_command(
     # Generate batch_id for CLI batch operations (skip for dry-run)
     batch_id = str(uuid.uuid4()) if not dry_run else None
 
-    # Create shared runner configuration
-    runner_config = WorkflowRunnerConfig(
-        dry_run=dry_run,
-        verbose=verbose,
-        selected_phases=selected_phases,
-        policy_name=policy.name or policy_path.stem,
-    )
+    # Create runner configurations (one per policy)
+    runner_configs = [
+        WorkflowRunnerConfig(
+            dry_run=dry_run,
+            verbose=verbose,
+            selected_phases=selected_phases,
+            policy_name=schema.name or path.stem,
+        )
+        for path, schema in policies
+    ]
 
     try:
         # Parallel processing with ThreadPoolExecutor
-        # Determine on_error mode from policy config
-        policy_on_error = policy.config.on_error
+        # For batch-level on_error=fail, use the last policy's setting
+        # (any policy with fail will abort the batch on failure)
+        batch_on_error = max(
+            (schema.config.on_error for _, schema in policies),
+            key=lambda m: (m == OnErrorMode.FAIL, m == OnErrorMode.SKIP),
+        )
 
         with ThreadPoolExecutor(max_workers=effective_workers) as executor:
             # Submit all files as futures
@@ -775,8 +896,8 @@ def process_command(
                     file_path,
                     file_idx - 1,  # 0-based index for progress
                     db_path,
-                    policy,
-                    runner_config,
+                    policies,
+                    runner_configs,
                     progress,
                     stop_event,
                     worker_id,
@@ -791,10 +912,14 @@ def process_command(
                 for future in as_completed(futures):
                     file_path = futures[future]
                     try:
-                        _, result, success = future.result()
-                        if result is not None:
-                            results.append(result)
-                            is_not_in_db = result.error_message == NOT_IN_DB_MESSAGE
+                        _, policy_results, success = future.result()
+                        if policy_results is not None:
+                            results.append((file_path, policy_results))
+                            # Check for not-in-db (first policy result will show it)
+                            first_result = policy_results[0][1]
+                            is_not_in_db = (
+                                first_result.error_message == NOT_IN_DB_MESSAGE
+                            )
                             if is_not_in_db:
                                 not_in_db_count += 1
                             elif success:
@@ -807,8 +932,8 @@ def process_command(
                                 if is_not_in_db:
                                     output = f"[SKIP] {file_path.name}: not in database"
                                 else:
-                                    output = _format_result_human(
-                                        result, file_path, verbose
+                                    output = _format_multi_policy_result_human(
+                                        policy_results, file_path, verbose
                                     )
                                 with _output_lock:
                                     click.echo(output)
@@ -821,19 +946,28 @@ def process_command(
                                 with _output_lock:
                                     click.echo(f"[{status}] {file_path.name}")
 
-                            # Handle on_error=fail mode
+                            # Handle on_error=fail mode at batch level
                             # Unscanned files are not real failures - don't abort batch
                             if (
                                 not success
                                 and not is_not_in_db
-                                and policy_on_error == OnErrorMode.FAIL
+                                and batch_on_error == OnErrorMode.FAIL
                             ):
                                 stop_event.set()
                                 stopped_early = True
+                                # Find the error message from the failed policy
+                                error_msg = next(
+                                    (
+                                        r.error_message
+                                        for _, r in policy_results
+                                        if not r.success and r.error_message
+                                    ),
+                                    "unknown error",
+                                )
                                 if not json_output:
                                     click.echo(
                                         "Stopping batch due to error "
-                                        f"(on_error='fail'): {result.error_message}"
+                                        f"(on_error='fail'): {error_msg}"
                                     )
                                 # Cancel pending futures and shutdown executor
                                 for f in futures:
@@ -855,7 +989,8 @@ def process_command(
                             phases_skipped=0,
                             error_message=str(e),
                         )
-                        results.append(error_result)
+                        policy_name = policies[0][1].name or policies[0][0].stem
+                        results.append((file_path, [(policy_name, error_result)]))
 
             except KeyboardInterrupt:
                 # User pressed CTRL-C, cancel remaining work
@@ -885,16 +1020,52 @@ def process_command(
 
     # Output summary
     if json_output:
-        policy_info = {
-            "path": str(policy_path),
-            "version": policy.schema_version,
-            "phases": list(policy.phase_names),
-        }
-        # Add filtered phases if selective execution was used
-        if selected_phases:
-            policy_info["phases_filtered"] = selected_phases
+        # Build policy info - single key for backward compat, list for multi
+        if len(policies) == 1:
+            policy_path, policy_schema = policies[0]
+            policy_info = {
+                "path": str(policy_path),
+                "version": policy_schema.schema_version,
+                "phases": list(policy_schema.phase_names),
+            }
+            if selected_phases:
+                policy_info["phases_filtered"] = selected_phases
+            policy_key = {"policy": policy_info}
+        else:
+            policies_info = [
+                {
+                    "path": str(p),
+                    "version": s.schema_version,
+                    "phases": list(s.phase_names),
+                }
+                for p, s in policies
+            ]
+            policy_key = {"policies": policies_info}
+
+        # Format per-file results
+        json_results = []
+        for file_path, policy_results in results:
+            if len(policies) == 1:
+                # Single policy: preserve existing flat structure
+                _, result = policy_results[0]
+                json_results.append(_format_result_json(result, file_path))
+            else:
+                # Multiple policies: nest results under each policy name
+                file_entry = {
+                    "file": str(file_path),
+                    "policies": [
+                        {
+                            "policy": pname,
+                            **_format_result_json(result, file_path),
+                        }
+                        for pname, result in policy_results
+                    ],
+                    "success": all(r.success for _, r in policy_results),
+                }
+                json_results.append(file_entry)
+
         output = {
-            "policy": policy_info,
+            **policy_key,
             "dry_run": dry_run,
             "workers": effective_workers,
             "summary": {
@@ -905,7 +1076,7 @@ def process_command(
                 "duration_seconds": round(batch_duration, 2),
                 "stopped_early": stopped_early,
             },
-            "results": [_format_result_json(r, r.file_path) for r in results],
+            "results": json_results,
         }
         click.echo(json.dumps(output, indent=2))
     else:
@@ -913,6 +1084,8 @@ def process_command(
         n = len(results)
         duration_str = f" in {batch_duration:.1f}s" if batch_duration > 0 else ""
         msg = f"Processed {n} file(s): {success_count} ok, {fail_count} failed"
+        if len(policies) > 1:
+            msg += f" ({len(policies)} policies)"
         click.echo(f"{msg}{duration_str}")
         if not_in_db_count > 0:
             click.echo(
