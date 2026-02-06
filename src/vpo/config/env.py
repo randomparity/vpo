@@ -60,16 +60,28 @@ class EnvReader:
             return default
         return value
 
-    def get_int(self, var: str, default: int | None = None) -> int | None:
+    def get_int(
+        self,
+        var: str,
+        default: int | None = None,
+        *,
+        strict: bool = False,
+    ) -> int | None:
         """Get an integer from environment variable.
 
         Args:
             var: Environment variable name.
             default: Default value if not set or invalid.
+            strict: If True, raise ValueError on invalid values
+                instead of logging a warning and returning default.
 
         Returns:
             Parsed integer value, or default if not set or invalid.
-            Logs a warning if the value is set but cannot be parsed.
+            Logs a warning if the value is set but cannot be parsed
+            (when strict=False).
+
+        Raises:
+            ValueError: When strict=True and value cannot be parsed.
         """
         value = self._env.get(var)
         if value is None:
@@ -77,40 +89,54 @@ class EnvReader:
         try:
             return int(value)
         except ValueError:
+            if strict:
+                raise ValueError(f"Invalid integer value for {var}: {value}")
             logger.warning("Invalid integer value for %s: %s", var, value)
             return default
 
-    def get_float(self, var: str, default: float | None = None) -> float | None:
+    def get_float(
+        self,
+        var: str,
+        default: float | None = None,
+        *,
+        strict: bool = False,
+    ) -> float | None:
         """Get a float from environment variable.
 
         Args:
             var: Environment variable name.
             default: Default value if not set or invalid.
+            strict: If True, raise ValueError on invalid values
+                instead of logging a warning and returning default.
 
         Returns:
             Parsed float value, or default if not set or invalid.
             Logs a warning if the value is set but cannot be parsed,
-            or if the value is NaN or infinity.
+            or if the value is NaN or infinity (when strict=False).
+
+        Raises:
+            ValueError: When strict=True and value cannot be parsed.
         """
         value = self._env.get(var)
         if value is None:
             return default
         try:
             result = float(value)
-            # Reject NaN and infinity - these are rarely intentional in config
-            import math
-
-            if math.isnan(result) or math.isinf(result):
-                logger.warning(
-                    "Invalid float value for %s: %s (NaN/infinity not allowed)",
-                    var,
-                    value,
-                )
-                return default
-            return result
         except ValueError:
+            if strict:
+                raise ValueError(f"Invalid float value for {var}: {value}")
             logger.warning("Invalid float value for %s: %s", var, value)
             return default
+        # Reject NaN and infinity - these are rarely intentional in config
+        import math
+
+        if math.isnan(result) or math.isinf(result):
+            msg = f"Invalid float value for {var}: {value} (NaN/infinity not allowed)"
+            if strict:
+                raise ValueError(msg)
+            logger.warning(msg)
+            return default
+        return result
 
     def get_bool(self, var: str, default: bool | None = None) -> bool | None:
         """Get a boolean from environment variable.
@@ -119,16 +145,17 @@ class EnvReader:
         - "true", "1", "yes", "on"
 
         All other non-empty values are treated as false.
+        Empty string is treated as unset (returns default).
 
         Args:
             var: Environment variable name.
-            default: Default value if not set.
+            default: Default value if not set or empty.
 
         Returns:
-            Boolean value, or default if not set.
+            Boolean value, or default if not set or empty.
         """
         value = self._env.get(var)
-        if value is None:
+        if value is None or value == "":
             return default
         return value.casefold() in ("true", "1", "yes", "on")
 

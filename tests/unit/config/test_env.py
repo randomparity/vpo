@@ -82,6 +82,22 @@ class TestEnvReaderGetInt:
         assert result == 100
         assert "Invalid integer value" in caplog.text
 
+    def test_strict_raises_on_invalid(self) -> None:
+        """strict=True should raise ValueError on invalid int."""
+        reader = EnvReader(env={"MY_VAR": "not_a_number"})
+        with pytest.raises(ValueError, match="Invalid integer value"):
+            reader.get_int("MY_VAR", strict=True)
+
+    def test_strict_false_preserves_default_behavior(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """strict=False should log warning and return default."""
+        reader = EnvReader(env={"MY_VAR": "bad"})
+        with caplog.at_level(logging.WARNING):
+            result = reader.get_int("MY_VAR", 42, strict=False)
+        assert result == 42
+        assert "Invalid integer value" in caplog.text
+
 
 class TestEnvReaderGetFloat:
     """Tests for EnvReader.get_float method."""
@@ -145,6 +161,28 @@ class TestEnvReaderGetFloat:
         assert result == 1.0
         assert "NaN/infinity not allowed" in caplog.text
 
+    def test_strict_raises_on_invalid(self) -> None:
+        """strict=True should raise ValueError on invalid float."""
+        reader = EnvReader(env={"MY_VAR": "not_a_number"})
+        with pytest.raises(ValueError, match="Invalid float value"):
+            reader.get_float("MY_VAR", strict=True)
+
+    def test_strict_raises_on_nan(self) -> None:
+        """strict=True should raise ValueError on NaN."""
+        reader = EnvReader(env={"MY_VAR": "nan"})
+        with pytest.raises(ValueError, match="NaN/infinity"):
+            reader.get_float("MY_VAR", strict=True)
+
+    def test_strict_false_preserves_default_behavior(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """strict=False should log warning and return default."""
+        reader = EnvReader(env={"MY_VAR": "bad"})
+        with caplog.at_level(logging.WARNING):
+            result = reader.get_float("MY_VAR", 1.0, strict=False)
+        assert result == 1.0
+        assert "Invalid float value" in caplog.text
+
 
 class TestEnvReaderGetBool:
     """Tests for EnvReader.get_bool method."""
@@ -169,12 +207,19 @@ class TestEnvReaderGetBool:
         assert reader.get_bool("MY_VAR") is True
 
     @pytest.mark.parametrize(
-        "value", ["false", "False", "FALSE", "0", "no", "NO", "off", "OFF", ""]
+        "value", ["false", "False", "FALSE", "0", "no", "NO", "off", "OFF"]
     )
     def test_recognizes_false_values(self, value: str) -> None:
         """Should treat non-true values as false."""
         reader = EnvReader(env={"MY_VAR": value})
         assert reader.get_bool("MY_VAR") is False
+
+    def test_empty_string_returns_default(self) -> None:
+        """Empty string should be treated as unset (return default)."""
+        reader = EnvReader(env={"MY_VAR": ""})
+        assert reader.get_bool("MY_VAR") is None
+        assert reader.get_bool("MY_VAR", True) is True
+        assert reader.get_bool("MY_VAR", False) is False
 
     def test_unknown_string_is_false(self) -> None:
         """Should treat unknown strings as false."""
