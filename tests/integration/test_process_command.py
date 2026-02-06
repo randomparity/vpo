@@ -46,24 +46,6 @@ phases:
     return policy_path
 
 
-@pytest.fixture
-def policy_file_with_continue(temp_dir: Path) -> Path:
-    """Create a policy file with on_error: continue."""
-    policy_path = temp_dir / "continue_policy.yaml"
-    policy_path.write_text(
-        """
-schema_version: 12
-config:
-  on_error: continue
-phases:
-  - name: apply
-    audio_filter:
-      languages: [eng]
-"""
-    )
-    return policy_path
-
-
 class TestProcessCommandHelp:
     """Tests for process command help and basic invocation."""
 

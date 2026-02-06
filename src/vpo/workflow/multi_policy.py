@@ -145,16 +145,28 @@ def run_policies_for_file(
                     "Connection left in transaction after policy '%s', rolling back",
                     policy_name,
                 )
-                conn.rollback()
+                try:
+                    conn.rollback()
+                except Exception:
+                    logger.exception(
+                        "Failed to rollback transaction for policy '%s'",
+                        policy_name,
+                    )
             # Ensure job log is closed if lifecycle supports it
             close_fn = getattr(lifecycle, "close_job_log", None)
             if close_fn is not None:
-                close_fn()
+                try:
+                    close_fn()
+                except Exception:
+                    logger.exception(
+                        "Failed to close job log for policy '%s'",
+                        policy_name,
+                    )
 
     # Guard: if stop_event fired before any policy ran,
     # create a placeholder so callers never see an empty list.
     if not policy_results:
-        last_name = entries[-1].config.policy_name if entries else "unknown"
+        first_name = entries[0].config.policy_name if entries else "unknown"
         placeholder = FileProcessingResult(
             file_path=file_path,
             success=False,
@@ -166,7 +178,7 @@ def run_policies_for_file(
             phases_skipped=0,
             error_message="Batch stopped before processing",
         )
-        policy_results = [(last_name, placeholder)]
+        policy_results = [(first_name, placeholder)]
         overall_success = False
 
     return MultiPolicyResult(
