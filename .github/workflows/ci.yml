@@ -45,6 +45,11 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          workspaces: "crates/vpo-core -> target"
+
       - name: Check formatting
         run: cargo fmt --manifest-path crates/vpo-core/Cargo.toml -- --check
 
@@ -59,6 +64,11 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@4be9e76fd7c4901c61fb841f559994984270fce7 # stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          workspaces: "crates/vpo-core -> target"
 
       - name: Build
         run: cargo build --manifest-path crates/vpo-core/Cargo.toml
@@ -84,6 +94,11 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@4be9e76fd7c4901c61fb841f559994984270fce7 # stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          workspaces: "crates/vpo-core -> target"
 
       - name: Install dependencies
         run: |
