@@ -244,15 +244,34 @@ def report_group() -> None:
     Reports are read-only views of job history, library metadata,
     scan operations, transcodes, and policy applications.
 
+    \b
+    Activity reports:
+      jobs           List recent jobs (transcode, scan, etc.)
+      scans          Scan operation history
+      transcodes     Transcode job history
+      history        Processing history for the library
+
+    \b
+    Library reports:
+      library        Library file listing with metadata
+      file           Detailed report for a single file
+      detail         Extended detail view for a file
+      summary        Aggregate library statistics
+
+    \b
+    Policy reports:
+      policies       List policies that have been applied
+      policy-apply   Policy application history
+      policy-stats   Per-policy success/failure statistics
+
+    \b
+    Maintenance:
+      purge          Remove old report data
+
     Examples:
 
-        # List recent jobs
         vpo report jobs
-
-        # Export library to CSV
         vpo report library --format csv --output library.csv
-
-        # View scan history from last week
         vpo report scans --since 7d
     """
     pass
