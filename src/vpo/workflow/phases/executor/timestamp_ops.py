@@ -143,7 +143,8 @@ def _handle_release_date_mode(
     )
 
     if plugin_metadata is None:
-        logger.debug(
+        _log = logger.info if config.fallback != "skip" else logger.debug
+        _log(
             "file_timestamp: No plugin metadata for %s, using fallback: %s",
             file_path.name,
             config.fallback,
@@ -154,7 +155,8 @@ def _handle_release_date_mode(
     release_date = _get_release_date(plugin_metadata, config.date_source)
 
     if release_date is None:
-        logger.debug(
+        _log = logger.info if config.fallback != "skip" else logger.debug
+        _log(
             "No release date found in plugin metadata, using fallback: %s",
             config.fallback,
         )

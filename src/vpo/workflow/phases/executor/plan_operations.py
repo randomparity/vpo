@@ -313,6 +313,10 @@ def execute_filters(
         or state.phase.attachment_filter
     )
     if not has_filter:
+        logger.warning(
+            "execute_filters called but phase '%s' has no filter config",
+            state.phase.name,
+        )
         return 0
     return execute_with_plan(state, file_info, "filters", conn, policy, dry_run, tools)
 
