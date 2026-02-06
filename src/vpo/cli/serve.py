@@ -267,6 +267,11 @@ def serve_command(
       3. Environment variables (VPO_SERVER_*)
       4. Default values
 
+    Environment variables:
+      VPO_AUTH_TOKEN       - Bearer token for HTTP authentication.
+      VPO_SESSION_SECRET   - Fernet-compatible base64 key for session cookies.
+                             Without this, sessions are lost on restart.
+
     \b
     Examples:
         vpo serve                           # Start with defaults

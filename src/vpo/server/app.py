@@ -189,7 +189,10 @@ def create_app(
         secret_key = base64.urlsafe_b64decode(encoded_key)
         logger.warning(
             "VPO_SESSION_SECRET not set, using randomly generated session key. "
-            "Sessions will not persist across restarts."
+            "Sessions will not persist across restarts. For production, set "
+            "VPO_SESSION_SECRET to a Fernet-compatible base64 key (generate "
+            "with: python -c 'from cryptography.fernet import Fernet; "
+            "print(Fernet.generate_key().decode())')."
         )
     else:
         # Environment variable is a string, encode it to bytes
