@@ -402,6 +402,10 @@ class PhaseExecutor:
     ) -> int:
         """Dispatch an operation to the appropriate handler.
 
+        Filter operations (audio_filter, subtitle_filter, attachment_filter) are
+        consolidated: the first filter dispatched executes all filters in one
+        pass via execute_with_plan(). Subsequent filter dispatches return 0.
+
         Args:
             op_type: The type of operation.
             state: Current execution state.
@@ -410,12 +414,21 @@ class PhaseExecutor:
         Returns:
             Number of changes made.
         """
+        # Consolidate filter operations into a single execution
+        _FILTER_OPS = {
+            OperationType.AUDIO_FILTER,
+            OperationType.SUBTITLE_FILTER,
+            OperationType.ATTACHMENT_FILTER,
+        }
+        if op_type in _FILTER_OPS:
+            if state.filters_executed:
+                return 0
+            state.filters_executed = True
+            return self._execute_filters(state, file_info)
+
         # Route to instance methods for testability (allows patching)
         handlers = {
             OperationType.CONTAINER: self._execute_container,
-            OperationType.AUDIO_FILTER: self._execute_audio_filter,
-            OperationType.SUBTITLE_FILTER: self._execute_subtitle_filter,
-            OperationType.ATTACHMENT_FILTER: self._execute_attachment_filter,
             OperationType.TRACK_ORDER: self._execute_track_order,
             OperationType.DEFAULT_FLAGS: self._execute_default_flags,
             OperationType.CONDITIONAL: self._execute_conditional,
@@ -491,6 +504,19 @@ class PhaseExecutor:
 
         tools = self._get_tools()
         return execute_attachment_filter(
+            state, file_info, self.conn, self.policy, self.dry_run, tools
+        )
+
+    def _execute_filters(
+        self,
+        state: PhaseExecutionState,
+        file_info: "FileInfo | None",
+    ) -> int:
+        """Execute all filter operations in a single consolidated pass."""
+        from .plan_operations import execute_filters
+
+        tools = self._get_tools()
+        return execute_filters(
             state, file_info, self.conn, self.policy, self.dry_run, tools
         )
 

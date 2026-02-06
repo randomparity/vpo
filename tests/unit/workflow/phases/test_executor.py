@@ -17,6 +17,7 @@ import pytest
 from vpo.db.types import TrackInfo
 from vpo.executor.transcode import TranscodeResult
 from vpo.policy.types import (
+    AttachmentFilterConfig,
     AudioFilterConfig,
     ContainerConfig,
     GlobalConfig,
@@ -194,10 +195,10 @@ class TestOperationDispatch:
         mock_handler.assert_called_once_with(state, mock_file_info)
         assert result == 1
 
-    def test_dispatch_routes_to_audio_filter_handler(
+    def test_dispatch_routes_audio_filter_to_consolidated_filters(
         self, db_conn, phased_policy, mock_file_info
     ):
-        """Audio filter operation routes to _execute_audio_filter."""
+        """Audio filter operation routes to _execute_filters (consolidated)."""
         executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
 
         phase = PhaseDefinition(
@@ -206,15 +207,14 @@ class TestOperationDispatch:
         )
         state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
 
-        with patch.object(
-            executor, "_execute_audio_filter", return_value=2
-        ) as mock_handler:
+        with patch.object(executor, "_execute_filters", return_value=2) as mock_handler:
             result = executor._dispatch_operation(
                 OperationType.AUDIO_FILTER, state, mock_file_info
             )
 
         mock_handler.assert_called_once_with(state, mock_file_info)
         assert result == 2
+        assert state.filters_executed is True
 
     def test_dispatch_unknown_operation_returns_zero(
         self, db_conn, phased_policy, mock_file_info
@@ -552,8 +552,10 @@ class TestPhaseExecution:
         result = executor.execute_phase(phase, mock_file_info.path, mock_file_info)
 
         assert result.success is True
-        # Each operation returns 2 changes (1 action + 1 track removed)
-        assert result.changes_made == 4
+        # Filters are consolidated: one execute_with_plan() call for both
+        # audio_filter and subtitle_filter, so 2 changes total (1 action + 1 removed).
+        # The second filter dispatch returns 0 (already executed).
+        assert result.changes_made == 2
         assert len(result.operations_executed) == 2
 
     def test_execute_phase_skips_on_error_skip_mode(
@@ -579,9 +581,9 @@ class TestPhaseExecution:
             subtitle_filter=SubtitleFilterConfig(languages=("eng",)),
         )
 
-        # Make first operation fail
+        # Make consolidated filter execution fail
         with patch.object(
-            executor, "_execute_audio_filter", side_effect=Exception("Test error")
+            executor, "_execute_filters", side_effect=Exception("Test error")
         ):
             result = executor.execute_phase(phase, mock_file_info.path, mock_file_info)
 
@@ -589,7 +591,7 @@ class TestPhaseExecution:
         assert result.success is True
         assert (
             len(result.operations_executed) == 0
-        )  # Audio filter failed, subtitle skipped
+        )  # Consolidated filter failed, subtitle skipped
 
     def test_execute_phase_raises_on_error_fail_mode(
         self, db_conn, global_config, mock_file_info
@@ -613,9 +615,9 @@ class TestPhaseExecution:
             audio_filter=AudioFilterConfig(languages=("eng",)),
         )
 
-        # Make operation fail
+        # Make consolidated filter execution fail
         with patch.object(
-            executor, "_execute_audio_filter", side_effect=Exception("Test error")
+            executor, "_execute_filters", side_effect=Exception("Test error")
         ):
             with pytest.raises(PhaseExecutionError) as exc_info:
                 executor.execute_phase(phase, mock_file_info.path, mock_file_info)
@@ -1104,3 +1106,99 @@ class TestProgressCallbackThreading:
         mock_select.assert_called_once_with(
             mock_plan, "mkv", {"ffmpeg": True}, mock_callback
         )
+
+
+class TestFilterConsolidation:
+    """Tests for consolidated filter execution."""
+
+    def test_multiple_filters_execute_once(
+        self, db_conn, phased_policy, mock_file_info
+    ):
+        """Multiple filter operations are consolidated into one execution."""
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
+
+        phase = PhaseDefinition(
+            name="test",
+            audio_filter=AudioFilterConfig(languages=("eng",)),
+            subtitle_filter=SubtitleFilterConfig(languages=("eng",)),
+            attachment_filter=AttachmentFilterConfig(remove_all=True),
+        )
+        state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
+
+        with patch.object(executor, "_execute_filters", return_value=3) as mock_exec:
+            # First filter op executes all filters
+            r1 = executor._dispatch_operation(
+                OperationType.AUDIO_FILTER, state, mock_file_info
+            )
+            # Subsequent filter ops return 0
+            r2 = executor._dispatch_operation(
+                OperationType.SUBTITLE_FILTER, state, mock_file_info
+            )
+            r3 = executor._dispatch_operation(
+                OperationType.ATTACHMENT_FILTER, state, mock_file_info
+            )
+
+        assert r1 == 3
+        assert r2 == 0
+        assert r3 == 0
+        mock_exec.assert_called_once_with(state, mock_file_info)
+        assert state.filters_executed is True
+
+    def test_single_filter_works(self, db_conn, phased_policy, mock_file_info):
+        """A single filter operation still goes through consolidated path."""
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
+
+        phase = PhaseDefinition(
+            name="test",
+            audio_filter=AudioFilterConfig(languages=("eng",)),
+        )
+        state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
+
+        with patch.object(executor, "_execute_filters", return_value=2) as mock_exec:
+            result = executor._dispatch_operation(
+                OperationType.AUDIO_FILTER, state, mock_file_info
+            )
+
+        assert result == 2
+        mock_exec.assert_called_once()
+        assert state.filters_executed is True
+
+    def test_flag_prevents_re_execution(self, db_conn, phased_policy, mock_file_info):
+        """Setting filters_executed=True prevents filter execution."""
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
+
+        phase = PhaseDefinition(
+            name="test",
+            audio_filter=AudioFilterConfig(languages=("eng",)),
+        )
+        state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
+        state.filters_executed = True  # Pre-set the flag
+
+        with patch.object(executor, "_execute_filters") as mock_exec:
+            result = executor._dispatch_operation(
+                OperationType.AUDIO_FILTER, state, mock_file_info
+            )
+
+        assert result == 0
+        mock_exec.assert_not_called()
+
+    def test_non_filter_operations_unaffected(
+        self, db_conn, phased_policy, mock_file_info
+    ):
+        """Non-filter operations are not affected by filter consolidation."""
+        executor = PhaseExecutor(conn=db_conn, policy=phased_policy, dry_run=True)
+
+        phase = PhaseDefinition(
+            name="test",
+            container=ContainerConfig(target="mp4"),
+        )
+        state = PhaseExecutionState(file_path=mock_file_info.path, phase=phase)
+
+        with patch.object(executor, "_execute_container", return_value=1) as mock_exec:
+            result = executor._dispatch_operation(
+                OperationType.CONTAINER, state, mock_file_info
+            )
+
+        assert result == 1
+        mock_exec.assert_called_once()
+        assert state.filters_executed is False

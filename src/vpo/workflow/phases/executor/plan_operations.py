@@ -281,6 +281,42 @@ def execute_attachment_filter(
     )
 
 
+def execute_filters(
+    state: PhaseExecutionState,
+    file_info: "FileInfo | None",
+    conn: Connection,
+    policy: PolicySchema,
+    dry_run: bool,
+    tools: dict[str, bool],
+) -> int:
+    """Execute all filter operations (audio, subtitle, attachment) in one pass.
+
+    Since EvaluationPolicy.from_phase() includes all filter configs from the
+    phase, a single execute_with_plan() call evaluates all filters together.
+    This avoids stale track indices and duplicated dispositions from running
+    filters as separate operations.
+
+    Args:
+        state: Current execution state.
+        file_info: FileInfo from database.
+        conn: Database connection.
+        policy: PolicySchema configuration.
+        dry_run: If True, preview without making changes.
+        tools: Dict of tool availability.
+
+    Returns:
+        Number of changes made.
+    """
+    has_filter = (
+        state.phase.audio_filter
+        or state.phase.subtitle_filter
+        or state.phase.attachment_filter
+    )
+    if not has_filter:
+        return 0
+    return execute_with_plan(state, file_info, "filters", conn, policy, dry_run, tools)
+
+
 def execute_track_order(
     state: PhaseExecutionState,
     file_info: "FileInfo | None",

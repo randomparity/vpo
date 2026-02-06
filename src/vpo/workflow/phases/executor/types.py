@@ -74,6 +74,9 @@ class PhaseExecutionState:
     """Original file modification time (Unix timestamp) captured at phase start.
     Used by file_timestamp operation to restore original mtime after processing."""
 
+    filters_executed: bool = False
+    """True if filter operations have already been consolidated and executed."""
+
     # Enhanced workflow logging - accumulated details during execution
     track_dispositions: list[TrackDisposition] = field(default_factory=list)
     """Tracks removed/kept during filter operations (accumulated)."""

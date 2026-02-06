@@ -13,12 +13,10 @@ from vpo.policy.types import OperationType, PolicySchema
 
 from .advanced_ops import execute_audio_synthesis, execute_transcription
 from .plan_operations import (
-    execute_attachment_filter,
-    execute_audio_filter,
     execute_conditional,
     execute_container,
     execute_default_flags,
-    execute_subtitle_filter,
+    execute_filters,
     execute_track_order,
 )
 from .timestamp_ops import execute_file_timestamp
@@ -120,14 +118,20 @@ def dispatch_operation(
     # Plan-based operations share common args
     plan_args = (state, file_info, conn, policy, dry_run, tools)
 
+    # Consolidate filter operations into a single execution
+    _FILTER_OPS = {
+        OperationType.AUDIO_FILTER,
+        OperationType.SUBTITLE_FILTER,
+        OperationType.ATTACHMENT_FILTER,
+    }
+    if op_type in _FILTER_OPS:
+        if state.filters_executed:
+            return 0
+        state.filters_executed = True
+        return execute_filters(*plan_args)
+
     if op_type == OperationType.CONTAINER:
         return execute_container(*plan_args)
-    elif op_type == OperationType.AUDIO_FILTER:
-        return execute_audio_filter(*plan_args)
-    elif op_type == OperationType.SUBTITLE_FILTER:
-        return execute_subtitle_filter(*plan_args)
-    elif op_type == OperationType.ATTACHMENT_FILTER:
-        return execute_attachment_filter(*plan_args)
     elif op_type == OperationType.TRACK_ORDER:
         return execute_track_order(*plan_args)
     elif op_type == OperationType.DEFAULT_FLAGS:

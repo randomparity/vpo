@@ -265,13 +265,11 @@ class TestDispatchOperation:
         mock_handler.assert_called_once()
         assert result == 1
 
-    def test_dispatches_audio_filter_operation(
+    def test_dispatches_audio_filter_via_consolidated_filters(
         self, phase_state, mock_file_info, db_conn, policy, tools
     ):
-        """AUDIO_FILTER operation routes to execute_audio_filter handler."""
-        with patch(
-            "vpo.workflow.phases.executor.core.execute_audio_filter"
-        ) as mock_handler:
+        """AUDIO_FILTER operation routes to execute_filters (consolidated)."""
+        with patch("vpo.workflow.phases.executor.core.execute_filters") as mock_handler:
             mock_handler.return_value = 3
 
             result = dispatch_operation(
@@ -287,16 +285,15 @@ class TestDispatchOperation:
 
         mock_handler.assert_called_once()
         assert result == 3
+        assert phase_state.filters_executed is True
 
-    def test_dispatches_subtitle_filter_operation(
+    def test_subsequent_filter_returns_zero(
         self, phase_state, mock_file_info, db_conn, policy, tools
     ):
-        """SUBTITLE_FILTER operation routes to execute_subtitle_filter handler."""
-        with patch(
-            "vpo.workflow.phases.executor.core.execute_subtitle_filter"
-        ) as mock_handler:
-            mock_handler.return_value = 2
+        """Second filter dispatch returns 0 without calling handler."""
+        phase_state.filters_executed = True  # Already executed
 
+        with patch("vpo.workflow.phases.executor.core.execute_filters") as mock_handler:
             result = dispatch_operation(
                 op_type=OperationType.SUBTITLE_FILTER,
                 state=phase_state,
@@ -308,16 +305,14 @@ class TestDispatchOperation:
                 plugin_registry=None,
             )
 
-        mock_handler.assert_called_once()
-        assert result == 2
+        mock_handler.assert_not_called()
+        assert result == 0
 
-    def test_dispatches_attachment_filter_operation(
+    def test_dispatches_attachment_filter_via_consolidated_filters(
         self, phase_state, mock_file_info, db_conn, policy, tools
     ):
-        """ATTACHMENT_FILTER operation routes to execute_attachment_filter handler."""
-        with patch(
-            "vpo.workflow.phases.executor.core.execute_attachment_filter"
-        ) as mock_handler:
+        """ATTACHMENT_FILTER routes to execute_filters (consolidated)."""
+        with patch("vpo.workflow.phases.executor.core.execute_filters") as mock_handler:
             mock_handler.return_value = 1
 
             result = dispatch_operation(
@@ -333,6 +328,7 @@ class TestDispatchOperation:
 
         mock_handler.assert_called_once()
         assert result == 1
+        assert phase_state.filters_executed is True
 
     def test_dispatches_track_order_operation(
         self, phase_state, mock_file_info, db_conn, policy, tools
@@ -532,12 +528,12 @@ class TestDispatchOperation:
     ):
         """Plan-based handlers receive correct arguments tuple."""
         with patch(
-            "vpo.workflow.phases.executor.core.execute_audio_filter"
+            "vpo.workflow.phases.executor.core.execute_track_order"
         ) as mock_handler:
             mock_handler.return_value = 0
 
             dispatch_operation(
-                op_type=OperationType.AUDIO_FILTER,
+                op_type=OperationType.TRACK_ORDER,
                 state=phase_state,
                 file_info=mock_file_info,
                 conn=db_conn,
@@ -622,9 +618,7 @@ class TestExecuteOperationIntegration:
         self, phase_state, mock_file_info, db_conn, policy, tools
     ):
         """Handler raising PolicyError results in constraint_skipped=True."""
-        with patch(
-            "vpo.workflow.phases.executor.core.execute_audio_filter"
-        ) as mock_handler:
+        with patch("vpo.workflow.phases.executor.core.execute_filters") as mock_handler:
             mock_handler.side_effect = PolicyError("No English audio tracks")
 
             result = execute_operation(
