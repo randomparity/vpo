@@ -745,9 +745,9 @@ def report_policy_apply(
     "--format",
     "-f",
     "output_format",
-    type=click.Choice(["table", "json", "csv"], case_sensitive=False),
-    default="table",
-    help="Output format (default: table).",
+    type=click.Choice(["text", "json", "csv"], case_sensitive=False),
+    default="text",
+    help="Output format (default: text).",
 )
 @click.pass_context
 def report_summary(
@@ -804,7 +804,7 @@ def report_summary(
 
 
 def _output_summary_table(summary, since, until, policy_name) -> None:
-    """Output summary in table format."""
+    """Output summary in text format."""
     # Header
     click.echo("")
     click.echo("Processing Statistics Summary")
@@ -951,9 +951,9 @@ def _output_summary_csv(summary) -> None:
     "--format",
     "-f",
     "output_format",
-    type=click.Choice(["table", "json", "csv"], case_sensitive=False),
-    default="table",
-    help="Output format (default: table).",
+    type=click.Choice(["text", "json", "csv"], case_sensitive=False),
+    default="text",
+    help="Output format (default: text).",
 )
 @click.pass_context
 def report_history(
@@ -1083,9 +1083,9 @@ def _output_history_csv(entries) -> None:
     "--format",
     "-f",
     "output_format",
-    type=click.Choice(["table", "json", "csv"], case_sensitive=False),
-    default="table",
-    help="Output format (default: table).",
+    type=click.Choice(["text", "json", "csv"], case_sensitive=False),
+    default="text",
+    help="Output format (default: text).",
 )
 @click.pass_context
 def report_policies(
@@ -1219,9 +1219,9 @@ def _output_policies_stats_csv(policies) -> None:
     "--format",
     "-f",
     "output_format",
-    type=click.Choice(["table", "json"], case_sensitive=False),
-    default="table",
-    help="Output format (default: table).",
+    type=click.Choice(["text", "json"], case_sensitive=False),
+    default="text",
+    help="Output format (default: text).",
 )
 @click.pass_context
 def report_policy_stats(
@@ -1324,9 +1324,9 @@ def report_policy_stats(
     "--format",
     "-f",
     "output_format",
-    type=click.Choice(["table", "json", "csv"], case_sensitive=False),
-    default="table",
-    help="Output format (default: table).",
+    type=click.Choice(["text", "json", "csv"], case_sensitive=False),
+    default="text",
+    help="Output format (default: text).",
 )
 @click.pass_context
 def report_file(
@@ -1405,9 +1405,9 @@ def report_file(
     "--format",
     "-f",
     "output_format",
-    type=click.Choice(["table", "json"], case_sensitive=False),
-    default="table",
-    help="Output format (default: table).",
+    type=click.Choice(["text", "json"], case_sensitive=False),
+    default="text",
+    help="Output format (default: text).",
 )
 @click.pass_context
 def report_detail(
@@ -1446,7 +1446,7 @@ def report_detail(
 
 
 def _output_detail_table(detail) -> None:
-    """Output detailed stats in table format."""
+    """Output detailed stats in text format."""
     click.echo("")
     click.echo("Processing Details")
     click.echo("=" * 60)
