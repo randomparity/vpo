@@ -332,6 +332,40 @@ def main(
 
 
 # Defer import to avoid circular dependency
+@main.command("completion")
+@click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]))
+def completion_command(shell: str) -> None:
+    """Generate shell completion script.
+
+    Print a completion script for the given SHELL. To enable completions,
+    add the output to your shell's startup file.
+
+    Examples:
+
+    \b
+        # Bash (~/.bashrc)
+        eval "$(vpo completion bash)"
+
+    \b
+        # Zsh (~/.zshrc)
+        eval "$(vpo completion zsh)"
+
+    \b
+        # Fish (~/.config/fish/completions/vpo.fish)
+        vpo completion fish > ~/.config/fish/completions/vpo.fish
+    """
+    from click.shell_completion import BashComplete, FishComplete, ZshComplete
+
+    shell_classes = {
+        "bash": BashComplete,
+        "zsh": ZshComplete,
+        "fish": FishComplete,
+    }
+    cls = shell_classes[shell]
+    comp = cls(main, {}, "vpo", "_VPO_COMPLETE")
+    click.echo(comp.source())
+
+
 def _register_commands():
     from vpo.cli import scan  # noqa: F401
     from vpo.cli.analyze import analyze_group
