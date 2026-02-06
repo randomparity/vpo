@@ -115,32 +115,35 @@
             <h2>Default Flags</h2>
             <p class="section-description">Configure which tracks are marked as default.</p>
 
-            <div class="checkbox-group">
-                <label class="checkbox-label">
-                    <input type="checkbox" id="set_first_video_default" name="set_first_video_default">
-                    <span>Set first video track as default</span>
-                </label>
-                <label class="checkbox-label">
-                    <input type="checkbox" id="set_preferred_audio_default" name="set_preferred_audio_default">
-                    <span>Set preferred audio track as default</span>
-                </label>
-                <label class="checkbox-label">
-                    <input type="checkbox" id="set_preferred_subtitle_default" name="set_preferred_subtitle_default">
-                    <span>Set preferred subtitle track as default</span>
-                </label>
-                <label class="checkbox-label">
-                    <input type="checkbox" id="clear_other_defaults" name="clear_other_defaults">
-                    <span>Clear other default flags</span>
-                </label>
-                <label class="checkbox-label">
-                    <input type="checkbox" id="set_subtitle_default_when_audio_differs" name="set_subtitle_default_when_audio_differs">
-                    <span>Set subtitle default when audio language differs from preference</span>
-                </label>
-                <label class="checkbox-label">
-                    <input type="checkbox" id="set_subtitle_forced_when_audio_differs" name="set_subtitle_forced_when_audio_differs">
-                    <span>Set subtitle forced when audio language differs from preference</span>
-                </label>
-            </div>
+            <fieldset class="checkbox-fieldset">
+                <legend class="visually-hidden">Default Flags</legend>
+                <div class="checkbox-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="set_first_video_default" name="set_first_video_default">
+                        <span>Set first video track as default</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="set_preferred_audio_default" name="set_preferred_audio_default">
+                        <span>Set preferred audio track as default</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="set_preferred_subtitle_default" name="set_preferred_subtitle_default">
+                        <span>Set preferred subtitle track as default</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="clear_other_defaults" name="clear_other_defaults">
+                        <span>Clear other default flags</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="set_subtitle_default_when_audio_differs" name="set_subtitle_default_when_audio_differs">
+                        <span>Set subtitle default when audio language differs from preference</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="set_subtitle_forced_when_audio_differs" name="set_subtitle_forced_when_audio_differs">
+                        <span>Set subtitle forced when audio language differs from preference</span>
+                    </label>
+                </div>
+            </fieldset>
 
             <div class="form-group mt-md">
                 <label for="preferred_audio_codec">Preferred Audio Codec</label>
@@ -180,20 +183,23 @@
 
             <div class="transcription-settings">
                 <h3>Transcription Settings</h3>
-                <div class="checkbox-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="detect_commentary" name="detect_commentary">
-                        <span>Enable commentary detection</span>
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="reorder_commentary" name="reorder_commentary">
-                        <span>Move commentary tracks to end (requires detection enabled)</span>
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="update_language_from_transcription" name="update_language_from_transcription">
-                        <span>Update track language tags from transcription results</span>
-                    </label>
-                </div>
+                <fieldset class="checkbox-fieldset">
+                    <legend class="visually-hidden">Transcription Settings</legend>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="detect_commentary" name="detect_commentary">
+                            <span>Enable commentary detection</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="reorder_commentary" name="reorder_commentary">
+                            <span>Move commentary tracks to end (requires detection enabled)</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="update_language_from_transcription" name="update_language_from_transcription">
+                            <span>Update track language tags from transcription results</span>
+                        </label>
+                    </div>
+                </fieldset>
                 <div class="form-group mt-sm">
                     <label for="confidence_threshold">Confidence Threshold (%)</label>
                     <input type="number" id="confidence_threshold" name="confidence_threshold"
@@ -393,8 +399,8 @@
                 <div class="accordion-content">
                     <p class="accordion-description">Configure workflow phases and error handling (V9+ features).</p>
                     <!-- Populated by section-workflow.js -->
-                    <div class="form-group">
-                        <label>Processing Phases</label>
+                    <fieldset class="checkbox-fieldset">
+                        <legend>Processing Phases</legend>
                         <div class="checkbox-group" id="workflow-phases">
                             <label class="checkbox-label">
                                 <input type="checkbox" id="phase-analyze" name="phases" value="analyze" checked>
@@ -410,7 +416,7 @@
                             </label>
                         </div>
                         <p class="form-hint">Select which phases to include in the workflow.</p>
-                    </div>
+                    </fieldset>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="workflow-auto-process">Auto Process</label>

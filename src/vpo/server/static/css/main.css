@@ -3463,6 +3463,13 @@ html, body {
     text-decoration: underline;
 }
 
+/* Checkbox Fieldset (a11y grouping) */
+.checkbox-fieldset {
+    border: none;
+    padding: 0;
+    margin: 0;
+}
+
 /* Checkbox Group */
 .checkbox-group {
     display: flex;
