@@ -829,7 +829,12 @@ def process_command(
                                     click.echo(f"[{status}] {file_path.name}")
 
                             # Handle on_error=fail mode
-                            if not success and policy_on_error == OnErrorMode.FAIL:
+                            # Unscanned files are not real failures - don't abort batch
+                            if (
+                                not success
+                                and not is_not_in_db
+                                and policy_on_error == OnErrorMode.FAIL
+                            ):
                                 stop_event.set()
                                 stopped_early = True
                                 if not json_output:

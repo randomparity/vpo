@@ -127,8 +127,9 @@ def dispatch_operation(
     if op_type in _FILTER_OPS:
         if state.filters_executed:
             return 0
+        result = execute_filters(*plan_args)
         state.filters_executed = True
-        return execute_filters(*plan_args)
+        return result
 
     if op_type == OperationType.CONTAINER:
         return execute_container(*plan_args)

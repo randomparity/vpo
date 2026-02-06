@@ -423,8 +423,9 @@ class PhaseExecutor:
         if op_type in _FILTER_OPS:
             if state.filters_executed:
                 return 0
+            result = self._execute_filters(state, file_info)
             state.filters_executed = True
-            return self._execute_filters(state, file_info)
+            return result
 
         # Route to instance methods for testability (allows patching)
         handlers = {
