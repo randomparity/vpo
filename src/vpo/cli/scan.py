@@ -100,9 +100,9 @@ class ProgressDisplay:
             self._finish_line()
             self._phase = "language"
         current_file = truncate_filename(current_file, 40)
+        rate = _format_rate(files_per_sec)
         self._write(
-            f"Analyzing languages... {processed:,}/{total:,} "
-            f"({_format_rate(files_per_sec)}) [{current_file}]"
+            f"Analyzing languages... {processed:,}/{total:,} ({rate}) [{current_file}]"
         )
 
     def finish(self) -> None:

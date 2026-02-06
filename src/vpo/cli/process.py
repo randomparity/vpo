@@ -454,16 +454,12 @@ def _format_multi_policy_result_human(
     lines = [f"File: {file_path}", ""]
     for policy_name, result in policy_results:
         lines.append(f"  Policy: {policy_name}")
-        # Indent the result output under the policy name.
-        # Strip the inner "File:" line to avoid duplication in verbose mode.
         result_text = _format_result_human(result, file_path, verbose)
         for line in result_text.split("\n"):
+            # Skip the inner "File:" line to avoid duplication in verbose mode
             if line.startswith("File: "):
                 continue
-            if line:
-                lines.append(f"    {line}")
-            else:
-                lines.append("")
+            lines.append(f"    {line}" if line else "")
     return "\n".join(lines)
 
 
@@ -471,7 +467,6 @@ def _format_multi_policy_result_human(
 # Parallel Processing Helpers
 # =============================================================================
 
-# Priority ordering for OnErrorMode: FAIL > SKIP > CONTINUE
 _ON_ERROR_SEVERITY = {
     OnErrorMode.CONTINUE: 0,
     OnErrorMode.SKIP: 1,
@@ -598,16 +593,12 @@ def _process_single_file(
 
                         if not run_result.success:
                             overall_success = False
-                            # For multi-policy, check the failing policy's
-                            # on_error to decide whether to continue to the
-                            # next policy. Batch-level stop (on_error=fail)
-                            # is handled by the outer result collection loop.
+                            # For multi-policy, the failing policy's on_error
+                            # controls whether to continue. Batch-level stop
+                            # (on_error=fail) is handled by the caller.
                             if len(policies) > 1:
                                 on_error = policy_schema.config.on_error
-                                if on_error in (
-                                    OnErrorMode.FAIL,
-                                    OnErrorMode.SKIP,
-                                ):
+                                if on_error != OnErrorMode.CONTINUE:
                                     logger.warning(
                                         "Policy '%s' failed for %s, skipping "
                                         "remaining policies (on_error=%s)",
@@ -616,14 +607,12 @@ def _process_single_file(
                                         on_error.value,
                                     )
                                     break
-                                else:
-                                    # on_error=continue: proceed to next policy
-                                    logger.warning(
-                                        "Policy '%s' failed for %s, continuing "
-                                        "to next policy (on_error=continue)",
-                                        policy_name,
-                                        file_path.name,
-                                    )
+                                logger.warning(
+                                    "Policy '%s' failed for %s, continuing "
+                                    "to next policy (on_error=continue)",
+                                    policy_name,
+                                    file_path.name,
+                                )
 
                         # Early exit for not-in-db (no point running more policies)
                         if (
@@ -659,8 +648,7 @@ def _process_single_file(
                         phases_skipped=0,
                         error_message="Batch stopped before processing",
                     )
-                    pname = policies[0][1].name or policies[0][0].stem
-                    policy_results = [(pname, placeholder)]
+                    policy_results = [(current_policy_name, placeholder)]
                     overall_success = False
 
                 progress.on_item_complete(file_index, success=overall_success)
@@ -1014,7 +1002,6 @@ def process_command(
                             ):
                                 stop_event.set()
                                 stopped_early = True
-                                # Find the error message from the failed policy
                                 error_msg = next(
                                     (
                                         r.error_message

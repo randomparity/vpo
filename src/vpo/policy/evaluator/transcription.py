@@ -68,6 +68,25 @@ GENERIC_TITLE_PATTERNS: set[str] = {
 }
 
 
+def _get_track_lookup_id(track: TrackInfo | TrackRecord) -> int:
+    """Get the ID to use for transcription result lookup.
+
+    TrackRecord uses its database ID; TrackInfo falls back to track_index or index.
+    """
+    track_id = getattr(track, "id", None)
+    if track_id is not None:
+        return track_id
+    return getattr(track, "track_index", track.index)
+
+
+def _get_track_index(track: TrackInfo | TrackRecord) -> int | None:
+    """Get the track index for output mapping.
+
+    TrackRecord has track_index; TrackInfo has index.
+    """
+    return getattr(track, "track_index", getattr(track, "index", None))
+
+
 def compute_language_updates(
     tracks: list[TrackInfo | TrackRecord],
     transcription_results: dict[int, TranscriptionResultRecord],
@@ -97,47 +116,30 @@ def compute_language_updates(
     threshold = policy.transcription.confidence_threshold
 
     for track in tracks:
-        # Only process audio tracks
         if track.track_type.casefold() != "audio":
             continue
 
-        # Get track ID for lookup - TrackRecord has 'id', TrackInfo doesn't
-        # For TrackRecord, use database ID; for TrackInfo, use index as key
-        track_id = getattr(track, "id", None)
-        if track_id is None:
-            # Fallback for TrackInfo: use track_index if it exists, else index
-            track_id = getattr(track, "track_index", track.index)
-
-        # Check if we have a transcription result for this track
-        tr_result = transcription_results.get(track_id)
+        tr_result = transcription_results.get(_get_track_lookup_id(track))
         if tr_result is None:
             continue
 
-        # Skip if no language was detected
         if tr_result.detected_language is None:
             continue
 
-        # Check confidence threshold
         if tr_result.confidence_score < threshold:
             continue
 
-        # Check if update is needed (language differs or is undefined)
         current_lang = track.language or "und"
         detected_lang = tr_result.detected_language
 
-        # Skip if language already matches (cross-standard comparison)
-        # This handles cases where "ger" == "de" == "deu" (all German)
+        # Skip if language already matches (cross-standard comparison,
+        # e.g. "ger" == "de" == "deu")
         if languages_match(current_lang, detected_lang):
             continue
 
-        # Get track index for output (TrackRecord has track_index, TrackInfo has index)
-        track_index = getattr(track, "track_index", getattr(track, "index", None))
-
-        # Normalize detected language to project standard before storing
+        track_index = _get_track_index(track)
         detected_lang_normalized = normalize_language(detected_lang)
 
-        # Only update if current language is undefined or explicitly differs
-        # This prevents overwriting known-correct language tags
         if current_lang == "und" or not languages_match(current_lang, detected_lang):
             result[track_index] = detected_lang_normalized
 
@@ -145,16 +147,10 @@ def compute_language_updates(
 
 
 def _is_generic_title(title: str | None) -> bool:
-    """Check if a track title is generic (auto-generated or uninformative).
+    """Return True if the title is None, empty, or composed entirely of format tokens.
 
-    A title is generic if it is None, empty, or composed entirely of
-    codec names, channel layout descriptors, and similar format tokens.
-
-    Args:
-        title: The track title to check.
-
-    Returns:
-        True if the title is generic and safe to overwrite.
+    Format tokens include codec names (aac, dts-hd), channel layouts (5.1, stereo),
+    and bit depths (24-bit). Such titles are safe to overwrite with classification.
     """
     if not title or not title.strip():
         return True
@@ -194,31 +190,18 @@ def compute_title_updates(
     threshold = policy.transcription.confidence_threshold
 
     for track in tracks:
-        # Only process audio tracks
         if track.track_type.casefold() != "audio":
             continue
 
-        # Get track ID for lookup - TrackRecord has 'id', TrackInfo doesn't
-        track_id = getattr(track, "id", None)
-        if track_id is None:
-            track_id = getattr(track, "track_index", track.index)
-
-        # Check if we have a transcription result for this track
-        tr_result = transcription_results.get(track_id)
-        if tr_result is None:
+        tr_result = transcription_results.get(_get_track_lookup_id(track))
+        if tr_result is None or tr_result.confidence_score < threshold:
             continue
 
-        # Check confidence threshold
-        if tr_result.confidence_score < threshold:
-            continue
-
-        # Map classification to display title
         desired_title = CLASSIFICATION_TITLES.get(tr_result.track_type)
         if desired_title is None:
             continue
 
-        # Get track index for output
-        track_index = getattr(track, "track_index", getattr(track, "index", None))
+        track_index = _get_track_index(track)
         if track_index is None:
             continue
 
@@ -227,7 +210,7 @@ def compute_title_updates(
         if not _is_generic_title(current_title):
             continue
 
-        # Idempotent: skip if title already matches desired value
+        # Idempotent: skip if title already matches
         if current_title == desired_title:
             continue
 
