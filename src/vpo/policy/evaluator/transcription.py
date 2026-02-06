@@ -43,12 +43,16 @@ GENERIC_TITLE_PATTERNS: set[str] = {
     "e-ac-3",
     "dts",
     "dts-hd",
+    "dts:x",
+    "dts-x",
     "flac",
     "mp3",
     "opus",
     "pcm",
     "truehd",
     "vorbis",
+    "alac",
+    "atmos",
     "pcm_s16le",
     "pcm_s24le",
     "pcm_s32le",
@@ -59,6 +63,8 @@ GENERIC_TITLE_PATTERNS: set[str] = {
     "16bit",
     "24bit",
     "32bit",
+    "lossless",
+    "lossy",
 }
 
 
@@ -213,6 +219,8 @@ def compute_title_updates(
 
         # Get track index for output
         track_index = getattr(track, "track_index", getattr(track, "index", None))
+        if track_index is None:
+            continue
 
         # Skip tracks with descriptive (non-generic) existing titles
         current_title = track.title

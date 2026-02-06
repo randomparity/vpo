@@ -454,9 +454,12 @@ def _format_multi_policy_result_human(
     lines = [f"File: {file_path}", ""]
     for policy_name, result in policy_results:
         lines.append(f"  Policy: {policy_name}")
-        # Indent the result output under the policy name
+        # Indent the result output under the policy name.
+        # Strip the inner "File:" line to avoid duplication in verbose mode.
         result_text = _format_result_human(result, file_path, verbose)
         for line in result_text.split("\n"):
+            if line.startswith("File: "):
+                continue
             if line:
                 lines.append(f"    {line}")
             else:
@@ -465,8 +468,31 @@ def _format_multi_policy_result_human(
 
 
 # =============================================================================
-# Parallel Processing Worker
+# Parallel Processing Helpers
 # =============================================================================
+
+# Priority ordering for OnErrorMode: FAIL > SKIP > CONTINUE
+_ON_ERROR_SEVERITY = {
+    OnErrorMode.CONTINUE: 0,
+    OnErrorMode.SKIP: 1,
+    OnErrorMode.FAIL: 2,
+}
+
+
+def _strictest_error_mode(
+    policies: list[tuple[Path, PolicySchema]],
+) -> OnErrorMode:
+    """Select the strictest on_error mode across multiple policies.
+
+    Priority (strictest to most lenient):
+    1. FAIL  -- abort entire batch on first error
+    2. SKIP  -- skip remaining files on error
+    3. CONTINUE -- process all files regardless of errors
+    """
+    return max(
+        (schema.config.on_error for _, schema in policies),
+        key=lambda m: _ON_ERROR_SEVERITY[m],
+    )
 
 
 # Lock for synchronizing verbose output across worker threads
@@ -513,6 +539,9 @@ def _process_single_file(
     if stop_event.is_set():
         return file_path, None, False
 
+    # Track which policy is being processed for error attribution
+    current_policy_name = policies[0][1].name or policies[0][0].stem
+
     progress.on_item_start(file_index)
     try:
         # Set worker context for logging - all logs within this context
@@ -540,6 +569,7 @@ def _process_single_file(
                         break
 
                     policy_name = runner_config.policy_name
+                    current_policy_name = policy_name
 
                     if len(policies) > 1:
                         logger.info("--- Policy %s: %s", policy_name, policy_path)
@@ -603,9 +633,35 @@ def _process_single_file(
                             break
 
                     finally:
+                        # Clean up connection state before next policy
+                        if conn.in_transaction:
+                            logger.warning(
+                                "Connection left in transaction after "
+                                "policy '%s', rolling back",
+                                policy_name,
+                            )
+                            conn.rollback()
                         # Ensure job log is closed
                         if isinstance(lifecycle, CLIJobLifecycle):
                             lifecycle.close_job_log()
+
+                # Guard: if stop_event fired before any policy ran,
+                # create a placeholder so callers never see an empty list.
+                if not policy_results:
+                    placeholder = FileProcessingResult(
+                        file_path=file_path,
+                        success=False,
+                        phase_results=(),
+                        total_duration_seconds=0.0,
+                        total_changes=0,
+                        phases_completed=0,
+                        phases_failed=0,
+                        phases_skipped=0,
+                        error_message="Batch stopped before processing",
+                    )
+                    pname = policies[0][1].name or policies[0][0].stem
+                    policy_results = [(pname, placeholder)]
+                    overall_success = False
 
                 progress.on_item_complete(file_index, success=overall_success)
                 return file_path, policy_results, overall_success
@@ -626,8 +682,7 @@ def _process_single_file(
             phases_skipped=0,
             error_message=str(e),
         )
-        policy_name = policies[0][1].name or policies[0][0].stem
-        return file_path, [(policy_name, result)], False
+        return file_path, [(current_policy_name, result)], False
 
 
 # =============================================================================
@@ -872,13 +927,8 @@ def process_command(
     ]
 
     try:
-        # Parallel processing with ThreadPoolExecutor
-        # For batch-level on_error=fail, use the last policy's setting
-        # (any policy with fail will abort the batch on failure)
-        batch_on_error = max(
-            (schema.config.on_error for _, schema in policies),
-            key=lambda m: (m == OnErrorMode.FAIL, m == OnErrorMode.SKIP),
-        )
+        # The strictest on_error mode across all policies governs the batch.
+        batch_on_error = _strictest_error_mode(policies)
 
         with ThreadPoolExecutor(max_workers=effective_workers) as executor:
             # Submit all files as futures
@@ -1075,6 +1125,7 @@ def process_command(
 
         output = {
             **policy_key,
+            "multi_policy": len(policies) > 1,
             "dry_run": dry_run,
             "workers": effective_workers,
             "summary": {

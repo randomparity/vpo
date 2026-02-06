@@ -536,7 +536,11 @@ class FileSnapshot:
 
     @staticmethod
     def from_file_info(file_info: FileInfo) -> FileSnapshot:
-        """Create a snapshot from a FileInfo domain object."""
+        """Create a snapshot from a FileInfo domain object.
+
+        Empty container_tags dicts are normalized to None (no distinction
+        between absent and empty).
+        """
         tags = None
         if file_info.container_tags:
             tags = tuple(sorted(file_info.container_tags.items()))

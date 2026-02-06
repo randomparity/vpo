@@ -136,10 +136,13 @@ def _format_rate(rate: float) -> str:
     """Format a files-per-second rate for display.
 
     Rates >= 1 are shown as comma-separated integers (e.g. '7,440/sec').
-    Rates < 1 are shown with one decimal place (e.g. '0.3/sec').
+    Rates < 1 (but > 0) are shown with one decimal place (e.g. '0.3/sec').
+    Zero rate shows as '0/sec'.
     """
     if rate >= 1.0:
         return f"{int(rate):,}/sec"
+    if rate == 0.0:
+        return "0/sec"
     return f"{rate:.1f}/sec"
 
 

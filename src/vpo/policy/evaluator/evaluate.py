@@ -354,10 +354,17 @@ def evaluate_policy(
                     )
                 )
 
-    # Compute title updates from transcription classification
+    # Compute title updates from transcription classification.
+    # Skip tracks that already have an explicit SET_TITLE action
+    # (e.g. from clear_all_titles) to avoid conflicting actions.
     if transcription_results is not None:
+        tracks_with_title_action = frozenset(
+            a.track_index for a in actions if a.action_type == ActionType.SET_TITLE
+        )
         title_updates = compute_title_updates(tracks, transcription_results, policy)
         for track in tracks:
+            if track.index in tracks_with_title_action:
+                continue
             new_title = title_updates.get(track.index)
             if new_title is not None:
                 actions.append(
