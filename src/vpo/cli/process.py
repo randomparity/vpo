@@ -622,7 +622,7 @@ def _process_single_file(
     "-n",
     is_flag=True,
     default=False,
-    help="Preview changes without modifying files",
+    help="Simulate processing without making changes (implies --verbose)",
 )
 @click.option(
     "--phases",
