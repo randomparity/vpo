@@ -523,9 +523,8 @@ def scan(
         vpo scan --analyze-languages /media/videos
     """
     if prune:
-        click.echo(
-            "Warning: --prune is deprecated. Use 'vpo db prune' instead.",
-            err=True,
+        raise click.UsageError(
+            "--prune is no longer supported. Use 'vpo db prune' instead."
         )
 
     from vpo.db.connection import (

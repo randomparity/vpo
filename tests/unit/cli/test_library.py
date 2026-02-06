@@ -593,14 +593,13 @@ class TestScanPruneDeprecation:
         assert result.exit_code == 0
         assert "--prune" not in result.output
 
-    def test_scan_prune_emits_deprecation_warning(self, runner, db_conn, tmp_path):
-        """scan --prune emits deprecation warning."""
+    def test_scan_prune_produces_usage_error(self, runner, db_conn, tmp_path):
+        """scan --prune produces a UsageError directing to 'vpo db prune'."""
         result = runner.invoke(
             main,
             ["scan", "--prune", str(tmp_path)],
             obj={"db_conn": db_conn},
         )
-        # CliRunner mixes stderr into output by default.
-        # The deprecation warning should appear in the output.
-        assert "deprecated" in result.output.lower()
+        assert result.exit_code != 0
+        assert "no longer supported" in result.output.lower()
         assert "vpo db prune" in result.output
