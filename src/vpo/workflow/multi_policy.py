@@ -81,11 +81,15 @@ def run_policies_for_file(
     for this file (skip/fail).
 
     Args:
-        conn: Database connection (caller owns lifetime).
+        conn: Database connection (caller owns lifetime, must be created
+            on the same thread that calls this function).
         file_path: Path to the video file.
         entries: Ordered list of PolicyEntry (policy + config).
         lifecycle_factory: Creates a JobLifecycle for each policy name.
-        stop_event: Optional event signaling batch should stop.
+            If the factory raises, the exception propagates to the caller.
+        stop_event: Optional event signaling batch should stop. Checked
+            between policies only; a long-running policy will complete
+            before the event takes effect.
         file_id: Database ID of the file (if known).
 
     Returns:

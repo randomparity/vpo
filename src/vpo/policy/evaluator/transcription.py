@@ -114,10 +114,8 @@ def compute_language_updates(
         if languages_match(current_lang, detected_lang):
             continue
 
-        detected_lang_normalized = normalize_language(detected_lang)
-
-        if current_lang == "und" or not languages_match(current_lang, detected_lang):
-            result[track.index] = detected_lang_normalized
+        # At this point languages don't match (guarded above), so update.
+        result[track.index] = normalize_language(detected_lang)
 
     return result
 
