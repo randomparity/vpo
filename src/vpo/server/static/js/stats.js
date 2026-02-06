@@ -336,6 +336,21 @@
     }
 
     /**
+ * Populate a visually-hidden data table for a chart.
+ * @param {string} tableId - The ID of the table element
+ * @param {Array} rows - Array of [label, value] pairs
+ */
+    function populateChartDataTable(tableId, rows) {
+        var table = document.getElementById(tableId)
+        if (!table) return
+        var tbody = table.querySelector('tbody')
+        if (!tbody) return
+        tbody.innerHTML = rows.map(function (row) {
+            return '<tr><td>' + escapeHtml(String(row[0])) + '</td><td>' + escapeHtml(String(row[1])) + '</td></tr>'
+        }).join('')
+    }
+
+    /**
  * Render library overview charts (file count + size over time)
  */
     function renderLibraryCharts() {
@@ -369,6 +384,9 @@
                 height: 200,
                 showArea: true
             })
+            populateChartDataTable('stats-chart-library-files-data', fileData.map(function (d) {
+                return [d.date, formatNumber(d.value)]
+            }))
         }
 
         // Size chart
@@ -386,6 +404,9 @@
                 height: 200,
                 showArea: true
             })
+            populateChartDataTable('stats-chart-library-size-data', sizeData.map(function (d) {
+                return [d.date, formatBytes(d.value)]
+            }))
         }
     }
 
@@ -410,12 +431,21 @@
 
         if (elements.chartContainers) {
             renderPieChart(elements.chartContainers, data.containers, { size: 180 })
+            populateChartDataTable('stats-chart-containers-data', data.containers.map(function (d) {
+                return [d.label, formatNumber(d.value)]
+            }))
         }
         if (elements.chartVideoCodecs) {
             renderPieChart(elements.chartVideoCodecs, data.video_codecs, { size: 180 })
+            populateChartDataTable('stats-chart-video-codecs-data', data.video_codecs.map(function (d) {
+                return [d.label, formatNumber(d.value)]
+            }))
         }
         if (elements.chartAudioCodecs) {
             renderPieChart(elements.chartAudioCodecs, data.audio_codecs, { size: 180 })
+            populateChartDataTable('stats-chart-audio-codecs-data', data.audio_codecs.map(function (d) {
+                return [d.label, formatNumber(d.value)]
+            }))
         }
     }
 
@@ -454,6 +484,9 @@
                 height: 200,
                 showArea: true
             })
+            populateChartDataTable('stats-chart-trend-data', trendData.map(function (d) {
+                return [d.date, formatNumber(d.value)]
+            }))
         } else if (elements.chartTrend) {
             elements.chartTrend.innerHTML = '<div class="chart-empty">No trend data available</div>'
         }
@@ -477,6 +510,9 @@
                 valueFormat: 'bytes',
                 height: 200
             })
+            populateChartDataTable('stats-chart-policy-data', policyData.map(function (d) {
+                return [d.label, formatBytes(d.value)]
+            }))
         } else if (elements.chartPolicy) {
             elements.chartPolicy.innerHTML = '<div class="chart-empty">No policy data available</div>'
         }
@@ -491,6 +527,9 @@
                 title: 'Avg Savings',
                 size: 140
             })
+            populateChartDataTable('stats-chart-gauge-data', [
+                ['Average Savings', formatPercent(savingsPercent)]
+            ])
         } else if (elements.chartGauge) {
             elements.chartGauge.innerHTML = '<div class="chart-empty">No data</div>'
         }

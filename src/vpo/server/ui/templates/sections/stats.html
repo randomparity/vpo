@@ -78,11 +78,21 @@
             <div class="stats-charts-grid">
                 <div class="stats-chart-container">
                     <h4 class="stats-chart-title">File Count Over Time</h4>
-                    <div id="stats-chart-library-files" class="stats-chart" aria-label="Library file count chart"></div>
+                    <div id="stats-chart-library-files" class="stats-chart" aria-label="Library file count chart" aria-describedby="stats-chart-library-files-data"></div>
+                    <table class="visually-hidden" id="stats-chart-library-files-data" aria-label="Library file count data">
+                        <caption>File count over time</caption>
+                        <thead><tr><th>Date</th><th>Count</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
                 </div>
                 <div class="stats-chart-container">
                     <h4 class="stats-chart-title">Library Size Over Time</h4>
-                    <div id="stats-chart-library-size" class="stats-chart" aria-label="Library size chart"></div>
+                    <div id="stats-chart-library-size" class="stats-chart" aria-label="Library size chart" aria-describedby="stats-chart-library-size-data"></div>
+                    <table class="visually-hidden" id="stats-chart-library-size-data" aria-label="Library size data">
+                        <caption>Library size over time</caption>
+                        <thead><tr><th>Date</th><th>Size</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -93,15 +103,30 @@
             <div class="stats-charts-grid stats-charts-grid--3col">
                 <div class="stats-chart-container">
                     <h4 class="stats-chart-title">Container Types</h4>
-                    <div id="stats-chart-containers" class="stats-chart stats-chart--pie" aria-label="Container type distribution chart"></div>
+                    <div id="stats-chart-containers" class="stats-chart stats-chart--pie" aria-label="Container type distribution chart" aria-describedby="stats-chart-containers-data"></div>
+                    <table class="visually-hidden" id="stats-chart-containers-data" aria-label="Container type data">
+                        <caption>Container type distribution</caption>
+                        <thead><tr><th>Type</th><th>Count</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
                 </div>
                 <div class="stats-chart-container">
                     <h4 class="stats-chart-title">Video Codecs</h4>
-                    <div id="stats-chart-video-codecs" class="stats-chart stats-chart--pie" aria-label="Video codec distribution chart"></div>
+                    <div id="stats-chart-video-codecs" class="stats-chart stats-chart--pie" aria-label="Video codec distribution chart" aria-describedby="stats-chart-video-codecs-data"></div>
+                    <table class="visually-hidden" id="stats-chart-video-codecs-data" aria-label="Video codec data">
+                        <caption>Video codec distribution</caption>
+                        <thead><tr><th>Codec</th><th>Count</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
                 </div>
                 <div class="stats-chart-container">
                     <h4 class="stats-chart-title">Audio Codecs</h4>
-                    <div id="stats-chart-audio-codecs" class="stats-chart stats-chart--pie" aria-label="Audio codec distribution chart"></div>
+                    <div id="stats-chart-audio-codecs" class="stats-chart stats-chart--pie" aria-label="Audio codec distribution chart" aria-describedby="stats-chart-audio-codecs-data"></div>
+                    <table class="visually-hidden" id="stats-chart-audio-codecs-data" aria-label="Audio codec data">
+                        <caption>Audio codec distribution</caption>
+                        <thead><tr><th>Codec</th><th>Count</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -113,19 +138,34 @@
                 <!-- Processing trend chart (files over time) -->
                 <div class="stats-chart-container">
                     <h4 class="stats-chart-title">Files Processed Over Time</h4>
-                    <div id="stats-chart-trend" class="stats-chart" aria-label="Processing trend line chart"></div>
+                    <div id="stats-chart-trend" class="stats-chart" aria-label="Processing trend line chart" aria-describedby="stats-chart-trend-data"></div>
+                    <table class="visually-hidden" id="stats-chart-trend-data" aria-label="Processing trend data">
+                        <caption>Files processed over time</caption>
+                        <thead><tr><th>Date</th><th>Files</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
                 </div>
 
                 <!-- Size savings by policy chart -->
                 <div class="stats-chart-container">
                     <h4 class="stats-chart-title">Space Savings by Policy</h4>
-                    <div id="stats-chart-policy" class="stats-chart" aria-label="Policy savings bar chart"></div>
+                    <div id="stats-chart-policy" class="stats-chart" aria-label="Policy savings bar chart" aria-describedby="stats-chart-policy-data"></div>
+                    <table class="visually-hidden" id="stats-chart-policy-data" aria-label="Policy savings data">
+                        <caption>Space savings by policy</caption>
+                        <thead><tr><th>Policy</th><th>Savings</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
                 </div>
 
                 <!-- Compression gauge -->
                 <div class="stats-chart-container stats-chart-gauge-container">
                     <h4 class="stats-chart-title">Average Savings</h4>
-                    <div id="stats-chart-gauge" class="stats-chart-gauge" aria-label="Compression ratio gauge"></div>
+                    <div id="stats-chart-gauge" class="stats-chart-gauge" aria-label="Compression ratio gauge" aria-describedby="stats-chart-gauge-data"></div>
+                    <table class="visually-hidden" id="stats-chart-gauge-data" aria-label="Compression ratio data">
+                        <caption>Average compression savings</caption>
+                        <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
                 </div>
             </div>
         </div>
