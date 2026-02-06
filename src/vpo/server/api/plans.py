@@ -14,16 +14,16 @@ import asyncio
 from dataclasses import dataclass
 
 from aiohttp import web
+from pydantic import BaseModel, Field, field_validator
 
 from vpo.core.datetime_utils import parse_time_filter
 from vpo.core.validation import is_valid_uuid
 from vpo.server.api.errors import (
-    BATCH_SIZE_EXCEEDED,
     INVALID_ID_FORMAT,
     INVALID_JSON,
     INVALID_PARAMETER,
-    INVALID_REQUEST,
     NOT_FOUND,
+    VALIDATION_FAILED,
     api_error,
 )
 from vpo.server.middleware import PLANS_ALLOWED_PARAMS, validate_query_params
@@ -311,6 +311,40 @@ class BulkActionResponse:
         return result
 
 
+MAX_BULK_BATCH_SIZE = 100
+
+
+class BulkActionRequest(BaseModel):
+    """Validated request body for bulk plan approve/reject."""
+
+    plan_ids: list[str] = Field(..., min_length=1, max_length=MAX_BULK_BATCH_SIZE)
+
+    @field_validator("plan_ids")
+    @classmethod
+    def validate_uuids(cls, v: list[str]) -> list[str]:
+        for plan_id in v:
+            if not is_valid_uuid(plan_id):
+                msg = f"Invalid plan ID format: {plan_id}"
+                raise ValueError(msg)
+        return v
+
+
+async def _parse_bulk_request(request: web.Request) -> BulkActionRequest | web.Response:
+    """Parse and validate a bulk action request body.
+
+    Returns BulkActionRequest on success, or a web.Response error on failure.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return api_error("Invalid JSON body", code=INVALID_JSON)
+
+    try:
+        return BulkActionRequest.model_validate(body)
+    except Exception as e:
+        return api_error(str(e), code=VALIDATION_FAILED)
+
+
 @shutdown_check_middleware
 @database_required_middleware
 async def api_plans_bulk_approve_handler(request: web.Request) -> web.Response:
@@ -324,31 +358,10 @@ async def api_plans_bulk_approve_handler(request: web.Request) -> web.Response:
     """
     from vpo.jobs.services import PlanApprovalService
 
-    # Parse request body
-    try:
-        body = await request.json()
-    except Exception:
-        return api_error("Invalid JSON body", code=INVALID_JSON)
-
-    plan_ids = body.get("plan_ids", [])
-    if not isinstance(plan_ids, list):
-        return api_error("plan_ids must be a list", code=INVALID_REQUEST)
-
-    # Limit batch size
-    max_batch_size = 100
-    if len(plan_ids) > max_batch_size:
-        return api_error(
-            f"Maximum batch size is {max_batch_size} plans",
-            code=BATCH_SIZE_EXCEEDED,
-        )
-
-    # Validate UUIDs
-    for plan_id in plan_ids:
-        if not is_valid_uuid(plan_id):
-            return api_error(
-                f"Invalid plan ID format: {plan_id}",
-                code=INVALID_ID_FORMAT,
-            )
+    result = await _parse_bulk_request(request)
+    if isinstance(result, web.Response):
+        return result
+    plan_ids = result.plan_ids
 
     # Get connection pool
     connection_pool = request["connection_pool"]
@@ -398,31 +411,10 @@ async def api_plans_bulk_reject_handler(request: web.Request) -> web.Response:
     """
     from vpo.jobs.services import PlanApprovalService
 
-    # Parse request body
-    try:
-        body = await request.json()
-    except Exception:
-        return api_error("Invalid JSON body", code=INVALID_JSON)
-
-    plan_ids = body.get("plan_ids", [])
-    if not isinstance(plan_ids, list):
-        return api_error("plan_ids must be a list", code=INVALID_REQUEST)
-
-    # Limit batch size
-    max_batch_size = 100
-    if len(plan_ids) > max_batch_size:
-        return api_error(
-            f"Maximum batch size is {max_batch_size} plans",
-            code=BATCH_SIZE_EXCEEDED,
-        )
-
-    # Validate UUIDs
-    for plan_id in plan_ids:
-        if not is_valid_uuid(plan_id):
-            return api_error(
-                f"Invalid plan ID format: {plan_id}",
-                code=INVALID_ID_FORMAT,
-            )
+    result = await _parse_bulk_request(request)
+    if isinstance(result, web.Response):
+        return result
+    plan_ids = result.plan_ids
 
     # Get connection pool
     connection_pool = request["connection_pool"]
