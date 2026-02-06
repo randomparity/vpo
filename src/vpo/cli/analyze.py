@@ -324,11 +324,12 @@ def analyze_group() -> None:
 @analyze_group.command(name="classify")
 @click.argument("path", type=click.Path(exists=True, path_type=Path))
 @click.option(
-    "--force",
-    "-f",
+    "--reanalyze",
+    "-r",
     is_flag=True,
     help="Force reclassification even if results exist",
 )
+@click.option("--force", is_flag=True, hidden=True)
 @click.option(
     "--json",
     "output_json",
@@ -339,6 +340,7 @@ def analyze_group() -> None:
 def classify_command(
     ctx: click.Context,
     path: Path,
+    reanalyze: bool,
     force: bool,
     output_json: bool,
 ) -> None:
@@ -352,7 +354,7 @@ def classify_command(
 
     Examples:
         vpo analyze classify movie.mkv
-        vpo analyze classify --force movie.mkv
+        vpo analyze classify --reanalyze movie.mkv
         vpo analyze classify --json movie.mkv
     """
     conn = get_db_conn_from_context(ctx)
@@ -379,7 +381,7 @@ def classify_command(
             file_record=file_record,
             plugin_metadata=None,
             language_analysis=None,
-            force_reclassify=force,
+            force_reclassify=reanalyze or force,
         )
 
         if output_json:
@@ -464,13 +466,15 @@ def classify_command(
 
 @analyze_group.command(name="language")
 @click.argument("paths", nargs=-1, required=True, type=click.Path(exists=True))
-@click.option("--force", "-f", is_flag=True, help="Re-analyze even if cached")
+@click.option("--reanalyze", "-r", is_flag=True, help="Re-analyze even if cached")
+@click.option("--force", is_flag=True, hidden=True)
 @click.option("--recursive", "-R", is_flag=True, help="Process directories recursively")
 @click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 @click.pass_context
 def language_command(
     ctx: click.Context,
     paths: tuple[str, ...],
+    reanalyze: bool,
     force: bool,
     recursive: bool,
     output_json: bool,
@@ -486,7 +490,7 @@ def language_command(
         vpo analyze language movie.mkv
 
         # Analyze with force re-analysis
-        vpo analyze language movie.mkv --force
+        vpo analyze language movie.mkv --reanalyze
 
         # Analyze a directory recursively
         vpo analyze language /media/movies/ -R
@@ -534,7 +538,9 @@ def language_command(
         """Process files from iterator, accumulating results."""
         nonlocal successful, failed, cached, tracks_analyzed
         for file_record in file_iter:
-            result = _run_language_analysis_for_file(conn, file_record, force)
+            result = _run_language_analysis_for_file(
+                conn, file_record, reanalyze or force
+            )
             results.append(result)
 
             if result.success:
@@ -602,7 +608,7 @@ def _format_language_run_results(
             if result.track_count == 0:
                 click.echo(f"  {path}: no audio tracks")
             elif result.cached_count > 0 and result.analyzed_count == 0:
-                cached_msg = f"{result.cached_count} tracks cached (use --force)"
+                cached_msg = f"{result.cached_count} tracks cached (use --reanalyze)"
                 click.echo(f"  {path}: {cached_msg}")
             else:
                 ac = result.analyzed_count

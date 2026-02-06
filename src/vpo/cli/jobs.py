@@ -522,9 +522,10 @@ def retry_job_cmd(ctx: click.Context, job_id: str) -> None:
     default="completed",
     help="Which jobs to clear.",
 )
-@click.option("--force", "-f", is_flag=True, help="Don't ask for confirmation.")
+@click.option("--yes", "-y", is_flag=True, help="Don't ask for confirmation.")
+@click.option("--force", is_flag=True, hidden=True)
 @click.pass_context
-def clear_jobs(ctx: click.Context, status: str, force: bool) -> None:
+def clear_jobs(ctx: click.Context, status: str, yes: bool, force: bool) -> None:
     """Clear old jobs from the queue.
 
     By default only clears completed jobs. Use --status to clear
@@ -550,7 +551,7 @@ def clear_jobs(ctx: click.Context, status: str, force: bool) -> None:
         click.echo("No jobs to clear.")
         return
 
-    if not force:
+    if not (yes or force):
         if not click.confirm(f"Clear {total} {status} job(s)?"):
             click.echo("Cancelled.")
             return
@@ -607,7 +608,8 @@ def recover_jobs(ctx: click.Context) -> None:
     help="Directory to scan for temp files (default: ~/.vpo/).",
 )
 @click.option("--dry-run", "-n", is_flag=True, help="Show what would be removed.")
-@click.option("--force", "-f", is_flag=True, help="Don't ask for confirmation.")
+@click.option("--yes", "-y", is_flag=True, help="Don't ask for confirmation.")
+@click.option("--force", is_flag=True, hidden=True)
 @click.pass_context
 def cleanup_jobs(
     ctx: click.Context,
@@ -616,6 +618,7 @@ def cleanup_jobs(
     remove_temp: bool,
     temp_dir: Path | None,
     dry_run: bool,
+    yes: bool,
     force: bool,
 ) -> None:
     """Clean up old jobs, backups, and temp files.
@@ -709,7 +712,7 @@ def cleanup_jobs(
             click.echo(f"  ... and {len(temp_files) - 5} more temp files")
         return
 
-    if not force:
+    if not (yes or force):
         if not click.confirm(f"Remove {total} item(s)?"):
             click.echo("Cancelled.")
             return

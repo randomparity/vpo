@@ -87,7 +87,7 @@ class TestLanguageCommand:
         """Test that language help is displayed."""
         result = runner.invoke(main, ["analyze", "language", "--help"])
         assert result.exit_code == 0
-        assert "--force" in result.output
+        assert "--reanalyze" in result.output
         assert "--recursive" in result.output
         assert "--json" in result.output
 
