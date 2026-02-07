@@ -124,7 +124,7 @@ jobs:
 
       - name: Python dependency audit
         run: |
-          uv pip install "pip-audit>=2.7,<3" --system
+          uv pip install "pip-audit>=2.7.3,<2.8" --system
           uv export --frozen --no-hashes | pip-audit -r /dev/stdin
 
       - name: Install Rust toolchain
