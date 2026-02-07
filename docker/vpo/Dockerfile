@@ -16,7 +16,7 @@
 # ----------------------------------------------------------------------------
 # Stage 1: Build VPO with Rust extension
 # ----------------------------------------------------------------------------
-FROM python:3.12.11-slim AS builder
+FROM python:3.14.0-slim AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -42,7 +42,7 @@ RUN maturin build --release --strip --out dist
 # ----------------------------------------------------------------------------
 # Stage 2: Runtime image
 # ----------------------------------------------------------------------------
-FROM python:3.12.11-slim AS runtime
+FROM python:3.14.0-slim AS runtime
 
 # Labels
 LABEL org.opencontainers.image.source="https://github.com/randomparity/vpo"
