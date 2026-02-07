@@ -1523,7 +1523,7 @@ requires-dist = [
     { name = "aiohttp-session", specifier = ">=2.12" },
     { name = "bandit", extras = ["toml"], marker = "extra == 'dev'", specifier = ">=1.8.0" },
     { name = "click", specifier = ">=8.0,<9" },
-    { name = "cryptography", specifier = ">=41.0,<45" },
+    { name = "cryptography", specifier = ">=41.0,<47" },
     { name = "detect-secrets", marker = "extra == 'dev'", specifier = ">=1.5.0" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "jinja2", specifier = ">=3.1,<4" },
