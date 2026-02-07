@@ -24,8 +24,8 @@ class TestInitializationCheck:
         (temp_data_dir / "config.toml").write_text("[logging]\nlevel = 'info'\n")
 
         with patch.dict(os.environ, {"VPO_DATA_DIR": str(temp_data_dir)}):
-            # Run doctor command (simple command that should work)
-            result = runner.invoke(main, ["doctor"])
+            # Run status command (simple command that should work)
+            result = runner.invoke(main, ["status"])
 
         # Should not show initialization prompt
         assert "VPO is not initialized" not in result.output
@@ -48,7 +48,7 @@ class TestInitializationCheck:
         # Don't create config.toml - not initialized
         # sys.stdin.isatty() returns False by default in test environment
         with patch.dict(os.environ, {"VPO_DATA_DIR": str(temp_data_dir)}):
-            result = runner.invoke(main, ["doctor"])
+            result = runner.invoke(main, ["status"])
 
         assert result.exit_code == 1
         # Error message should be present (may be in stderr which gets mixed in)
@@ -63,7 +63,7 @@ class TestInitializationCheck:
             patch("vpo.cli._is_interactive", return_value=True),
         ):
             # Simulate user typing 'n' to decline
-            result = runner.invoke(main, ["doctor"], input="n\n")
+            result = runner.invoke(main, ["status"], input="n\n")
 
         assert result.exit_code == 1
         assert "VPO requires initialization before use" in result.output
@@ -76,7 +76,7 @@ class TestInitializationCheck:
             patch("vpo.cli._is_interactive", return_value=True),
         ):
             # Simulate user typing 'y' to accept
-            result = runner.invoke(main, ["doctor"], input="y\n")
+            result = runner.invoke(main, ["status"], input="y\n")
 
         # Should show init output (either success or created files)
         assert (
@@ -84,7 +84,7 @@ class TestInitializationCheck:
             or "Created" in result.output
         )
         # Should continue with the command
-        assert "Continuing with doctor" in result.output
+        assert "Continuing with status" in result.output
 
 
 class TestInitializationCheckEdgeCases:
@@ -107,11 +107,11 @@ class TestInitializationCheckEdgeCases:
             ),
         ):
             # Simulate user typing 'y' to accept
-            result = runner.invoke(main, ["doctor"], input="y\n")
+            result = runner.invoke(main, ["status"], input="y\n")
 
         # Should still succeed despite tool detection cache error
         # (falls back to detect_all_tools)
-        assert result.exit_code == 0 or "Continuing with doctor" in result.output
+        assert result.exit_code == 0 or "Continuing with status" in result.output
         # Should show init output
         assert (
             "VPO initialized successfully" in result.output

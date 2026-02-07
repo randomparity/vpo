@@ -132,5 +132,5 @@ jobs:
 
       - name: Rust dependency audit
         run: |
-          cargo install "cargo-audit@0.21"
+          cargo install "cargo-audit@0.21.0"
           cargo audit

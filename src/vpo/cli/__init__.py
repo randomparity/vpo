@@ -233,8 +233,8 @@ def _check_initialization(ctx: click.Context) -> None:
     Args:
         ctx: Click context with invoked_subcommand.
     """
-    # Skip check for init and completion commands
-    if ctx.invoked_subcommand in ("init", "completion"):
+    # Skip check for init, completion, and doctor commands
+    if ctx.invoked_subcommand in ("init", "completion", "doctor"):
         return
 
     from vpo.config.loader import get_data_dir
@@ -321,8 +321,8 @@ def main(
     # Configure logging from CLI options
     _configure_logging(log_level, log_file, log_json)
 
-    # Log startup settings (skip for init/completion - they should be lightweight)
-    _skip_init = {"init", "completion"}
+    # Log startup settings (skip for lightweight commands)
+    _skip_init = {"init", "completion", "doctor"}
     if ctx.invoked_subcommand not in _skip_init:
         _log_startup_settings(log_level, log_file)
 
