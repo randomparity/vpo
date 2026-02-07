@@ -1,11 +1,14 @@
 """VPO status dashboard command."""
 
 import json
+import logging
 
 import click
 
 from vpo.cli.output import format_option
 from vpo.core.formatting import format_file_size
+
+logger = logging.getLogger(__name__)
 
 
 @click.command("status")
@@ -69,6 +72,7 @@ def status_command(ctx: click.Context, output_format: str) -> None:
             ]
         }
     except Exception:
+        logger.debug("Tool detection failed", exc_info=True)
         data["tools"] = None
 
     if output_format == "json":

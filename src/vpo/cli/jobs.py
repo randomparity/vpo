@@ -524,6 +524,12 @@ def clear_jobs(ctx: click.Context, status: str, yes: bool, force: bool) -> None:
     By default only clears completed jobs. Use --status to clear
     failed or cancelled jobs, or --status all for everything
     (except queued and running).
+
+    \b
+    Examples:
+        vpo jobs clear
+        vpo jobs clear --status failed --yes
+        vpo jobs clear --status all --yes
     """
     conn = ctx.obj.get("db_conn")
     if conn is None:
