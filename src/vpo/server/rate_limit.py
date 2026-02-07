@@ -173,7 +173,7 @@ class RateLimiter:
 
 
 @web.middleware
-async def _rate_limit_middleware(
+async def rate_limit_middleware(
     request: web.Request, handler: web.RequestHandler
 ) -> web.StreamResponse:
     """Rate limiting middleware for API requests.

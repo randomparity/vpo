@@ -14,7 +14,7 @@ from vpo.config.models import RateLimitConfig
 from vpo.server.rate_limit import (
     RateLimiter,
     SlidingWindowCounter,
-    _rate_limit_middleware,
+    rate_limit_middleware,
 )
 
 
@@ -366,7 +366,7 @@ class TestRateLimiterReconfigure:
 
 
 class TestRateLimitMiddleware:
-    """Tests for _rate_limit_middleware."""
+    """Tests for rate_limit_middleware."""
 
     @pytest.mark.asyncio
     async def test_allows_non_api_paths(self) -> None:
@@ -375,7 +375,7 @@ class TestRateLimitMiddleware:
         handler = AsyncMock(return_value=web.Response(text="ok"))
         request = _make_api_request("GET", "/files", rate_limiter=limiter)
 
-        response = await _rate_limit_middleware(request, handler)
+        response = await rate_limit_middleware(request, handler)
         handler.assert_called_once()
         assert response.text == "ok"
 
@@ -386,7 +386,7 @@ class TestRateLimitMiddleware:
         handler = AsyncMock(return_value=web.Response(text="ok"))
         request = _make_api_request("GET", "/api/files", rate_limiter=limiter)
 
-        response = await _rate_limit_middleware(request, handler)
+        response = await rate_limit_middleware(request, handler)
         handler.assert_called_once()
         assert response.text == "ok"
 
@@ -398,11 +398,11 @@ class TestRateLimitMiddleware:
 
         # First request allowed
         req1 = _make_api_request("GET", "/api/files", rate_limiter=limiter)
-        await _rate_limit_middleware(req1, handler)
+        await rate_limit_middleware(req1, handler)
 
         # Second request should be blocked
         req2 = _make_api_request("GET", "/api/files", rate_limiter=limiter)
-        response = await _rate_limit_middleware(req2, handler)
+        response = await rate_limit_middleware(req2, handler)
 
         assert response.status == 429
         assert "Retry-After" in response.headers
@@ -416,11 +416,11 @@ class TestRateLimitMiddleware:
 
         # Exhaust limit
         req1 = _make_api_request("GET", "/api/files", rate_limiter=limiter)
-        await _rate_limit_middleware(req1, handler)
+        await rate_limit_middleware(req1, handler)
 
         # Get blocked response
         req2 = _make_api_request("GET", "/api/files", rate_limiter=limiter)
-        response = await _rate_limit_middleware(req2, handler)
+        response = await rate_limit_middleware(req2, handler)
 
         assert response.content_type == "application/json"
 
@@ -432,11 +432,11 @@ class TestRateLimitMiddleware:
 
         # Exhaust limit on regular API path
         req1 = _make_api_request("GET", "/api/files", rate_limiter=limiter)
-        await _rate_limit_middleware(req1, handler)
+        await rate_limit_middleware(req1, handler)
 
         # /api/about should still work (exempt)
         req2 = _make_api_request("GET", "/api/about", rate_limiter=limiter)
-        response = await _rate_limit_middleware(req2, handler)
+        response = await rate_limit_middleware(req2, handler)
         assert response.status == 200
 
     @pytest.mark.asyncio
@@ -447,7 +447,7 @@ class TestRateLimitMiddleware:
 
         for _ in range(10):
             request = _make_api_request("GET", "/api/files", rate_limiter=limiter)
-            response = await _rate_limit_middleware(request, handler)
+            response = await rate_limit_middleware(request, handler)
             assert response.status == 200
 
     @pytest.mark.asyncio
@@ -464,7 +464,7 @@ class TestRateLimitMiddleware:
         handler = AsyncMock(return_value=web.Response(text="ok"))
         request = _make_api_request("GET", "/api/files", rate_limiter=limiter)
 
-        response = await _rate_limit_middleware(request, handler)
+        response = await rate_limit_middleware(request, handler)
         handler.assert_called_once()
         assert response.status == 200
 
@@ -475,6 +475,6 @@ class TestRateLimitMiddleware:
         handler = AsyncMock(return_value=web.Response(text="ok"))
         request = make_mocked_request("GET", "/api/files", app=app)
 
-        response = await _rate_limit_middleware(request, handler)
+        response = await rate_limit_middleware(request, handler)
         handler.assert_called_once()
         assert response.status == 200

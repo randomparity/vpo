@@ -496,6 +496,8 @@ _KNOWN_SECTION_KEYS: dict[str, set[str]] = {
         "incumbent_bonus",
     },
     "processing": {"workers"},
+    "plugins.metadata.radarr": {"url", "api_key", "enabled", "timeout_seconds"},
+    "plugins.metadata.sonarr": {"url", "api_key", "enabled", "timeout_seconds"},
 }
 
 
@@ -545,6 +547,8 @@ def source_from_file(file_config: dict[str, Any]) -> ConfigSource:
         ("logging", logging_conf),
         ("transcription", transcription),
         ("processing", processing),
+        ("plugins.metadata.radarr", radarr),
+        ("plugins.metadata.sonarr", sonarr),
     ]:
         if section_dict and section_name in _KNOWN_SECTION_KEYS:
             _warn_unknown_keys(

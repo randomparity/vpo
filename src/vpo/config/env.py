@@ -8,6 +8,7 @@ for testing by accepting an optional env mapping.
 from __future__ import annotations
 
 import logging
+import math
 import os
 from collections.abc import Mapping
 from pathlib import Path
@@ -128,8 +129,6 @@ class EnvReader:
             logger.warning("Invalid float value for %s: %s", var, value)
             return default
         # Reject NaN and infinity - these are rarely intentional in config
-        import math
-
         if math.isnan(result) or math.isinf(result):
             msg = f"Invalid float value for {var}: {value} (NaN/infinity not allowed)"
             if strict:

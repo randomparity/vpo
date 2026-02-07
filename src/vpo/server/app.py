@@ -153,7 +153,7 @@ def create_app(
         create_auth_middleware,
         is_auth_enabled,
     )
-    from vpo.server.rate_limit import RateLimiter, _rate_limit_middleware
+    from vpo.server.rate_limit import RateLimiter, rate_limit_middleware
 
     app = web.Application()
 
@@ -173,7 +173,7 @@ def create_app(
     # The middleware reads the RateLimiter from app["rate_limiter"].
     config = get_config()
     app["rate_limiter"] = RateLimiter(config.server.rate_limit)
-    app.middlewares.append(_rate_limit_middleware)
+    app.middlewares.append(rate_limit_middleware)
 
     # Setup session middleware with encrypted cookie storage
     # Use environment variable for secret key, or generate one for development

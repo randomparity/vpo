@@ -286,6 +286,13 @@ def serve_command(
     # Load configuration with CLI overrides
     config = get_config(config_path=config_path, strict=True)
 
+    # Validate cross-field config constraints (non-blocking)
+    from vpo.config.loader import validate_config
+
+    config_warnings = validate_config(config)
+    for warning in config_warnings:
+        logger.warning("Config issue: %s", warning)
+
     # Apply CLI overrides (CLI > config file > env vars > defaults)
     server_bind = bind if bind is not None else config.server.bind
     server_port = port if port is not None else config.server.port
