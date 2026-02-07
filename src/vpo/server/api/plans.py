@@ -23,6 +23,7 @@ from vpo.server.api.errors import (
     INVALID_JSON,
     INVALID_PARAMETER,
     NOT_FOUND,
+    RESOURCE_CONFLICT,
     VALIDATION_FAILED,
     api_error,
 )
@@ -198,7 +199,7 @@ async def api_plan_approve_handler(request: web.Request) -> web.Response:
     if not result.success:
         status_code = 404 if result.error == "Plan not found" else 409
         not_found = result.error == "Plan not found"
-        error_code = NOT_FOUND if not_found else "RESOURCE_CONFLICT"
+        error_code = NOT_FOUND if not_found else RESOURCE_CONFLICT
         return web.json_response(
             PlanActionResponse(
                 success=False,
@@ -262,7 +263,7 @@ async def api_plan_reject_handler(request: web.Request) -> web.Response:
     if not result.success:
         status_code = 404 if result.error == "Plan not found" else 409
         not_found = result.error == "Plan not found"
-        error_code = NOT_FOUND if not_found else "RESOURCE_CONFLICT"
+        error_code = NOT_FOUND if not_found else RESOURCE_CONFLICT
         return web.json_response(
             PlanActionResponse(
                 success=False,
@@ -299,16 +300,13 @@ class BulkActionResponse:
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
-        result = {"success": self.success}
-        if self.approved > 0:
-            result["approved"] = self.approved
-        if self.rejected > 0:
-            result["rejected"] = self.rejected
-        if self.failed > 0:
-            result["failed"] = self.failed
-        if self.errors:
-            result["errors"] = self.errors
-        return result
+        return {
+            "success": self.success,
+            "approved": self.approved,
+            "rejected": self.rejected,
+            "failed": self.failed,
+            "errors": self.errors or [],
+        }
 
 
 MAX_BULK_BATCH_SIZE = 100

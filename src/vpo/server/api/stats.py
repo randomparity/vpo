@@ -104,6 +104,7 @@ async def api_stats_summary_handler(request: web.Request) -> web.Response:
 
 @shutdown_check_middleware
 @database_required_middleware
+@validate_query_params(frozenset({"limit", "policy"}), strict=True)
 async def api_stats_recent_handler(request: web.Request) -> web.Response:
     """Handle GET /api/stats/recent - JSON API for recent processing history.
 
@@ -142,6 +143,7 @@ async def api_stats_recent_handler(request: web.Request) -> web.Response:
 
 @shutdown_check_middleware
 @database_required_middleware
+@validate_query_params(STATS_ALLOWED_PARAMS, strict=True)
 async def api_stats_policies_handler(request: web.Request) -> web.Response:
     """Handle GET /api/stats/policies - JSON API for per-policy statistics.
 
@@ -373,12 +375,14 @@ async def api_stats_purge_handler(request: web.Request) -> web.Response:
                 return delete_all_processing_stats(conn, dry_run=dry_run)
             elif before_ts:
                 return delete_processing_stats_before(conn, before_ts, dry_run=dry_run)
-            else:
+            elif policy_name is not None:
                 return delete_processing_stats_by_policy(
                     conn,
                     policy_name,
-                    dry_run=dry_run,  # type: ignore
+                    dry_run=dry_run,
                 )
+            else:
+                return 0
 
     deleted = await asyncio.to_thread(_execute_purge)
 

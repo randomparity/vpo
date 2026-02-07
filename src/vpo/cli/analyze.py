@@ -831,7 +831,6 @@ def _show_classification_summary(conn, output_json: bool, limit: int) -> None:
         click.echo("=" * 50)
         click.echo("\nUse 'vpo analyze status <file>' to view classification.")
         click.echo("Use 'vpo analyze classify <file>' to classify tracks.")
-    raise SystemExit(ExitCode.GENERAL_ERROR)
 
 
 def _show_language_summary(

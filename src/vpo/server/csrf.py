@@ -11,7 +11,7 @@ from collections.abc import Awaitable, Callable
 from aiohttp import web
 from aiohttp_session import get_session
 
-from vpo.server.api.errors import CSRF_ERROR
+from vpo.server.api.errors import CSRF_ERROR, api_error
 
 logger = logging.getLogger(__name__)
 
@@ -89,9 +89,8 @@ async def csrf_middleware(
                 "CSRF validation failed: no session token",
                 extra={"method": request.method, "path": request.path},
             )
-            return web.json_response(
-                {"error": "CSRF token missing from session", "code": CSRF_ERROR},
-                status=403,
+            return api_error(
+                "CSRF token missing from session", code=CSRF_ERROR, status=403
             )
 
         # Get token from request header
@@ -102,11 +101,9 @@ async def csrf_middleware(
                 "CSRF validation failed: no token in request",
                 extra={"method": request.method, "path": request.path},
             )
-            return web.json_response(
-                {
-                    "error": f"CSRF token required in {CSRF_HEADER} header",
-                    "code": CSRF_ERROR,
-                },
+            return api_error(
+                f"CSRF token required in {CSRF_HEADER} header",
+                code=CSRF_ERROR,
                 status=403,
             )
 
@@ -116,10 +113,7 @@ async def csrf_middleware(
                 "CSRF validation failed: token mismatch",
                 extra={"method": request.method, "path": request.path},
             )
-            return web.json_response(
-                {"error": "Invalid CSRF token", "code": CSRF_ERROR},
-                status=403,
-            )
+            return api_error("Invalid CSRF token", code=CSRF_ERROR, status=403)
 
         # Store validated token in request context
         request["csrf_token"] = session_token

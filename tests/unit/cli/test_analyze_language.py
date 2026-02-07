@@ -231,23 +231,23 @@ class TestStatusCommand:
         assert "100" in result.output
         assert "Multi-language:" in result.output
 
-    def test_classify_status_exits_nonzero(self, runner, mock_conn):
-        """analyze status --type classify exits non-zero (not yet implemented)."""
+    def test_classify_status_shows_help(self, runner, mock_conn):
+        """analyze status --type classify shows usage guidance."""
         result = runner.invoke(
             main,
             ["analyze", "status", "--type", "classify"],
             obj={"db_conn": mock_conn},
         )
-        assert result.exit_code != 0
+        assert result.exit_code == 0
 
-    def test_classify_status_json_exits_nonzero(self, runner, mock_conn):
-        """analyze status --type classify --json exits non-zero."""
+    def test_classify_status_json_shows_not_implemented(self, runner, mock_conn):
+        """analyze status --type classify --json returns not implemented message."""
         result = runner.invoke(
             main,
             ["analyze", "status", "--type", "classify", "--json"],
             obj={"db_conn": mock_conn},
         )
-        assert result.exit_code != 0
+        assert result.exit_code == 0
         assert "not yet implemented" in result.output.lower()
 
 
