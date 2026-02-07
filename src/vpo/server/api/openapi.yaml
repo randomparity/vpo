@@ -22,12 +22,12 @@ paths:
           in: query
           schema:
             type: string
-            enum: [scan, apply, transcode, move]
+            enum: [scan, apply, transcode, move, process, prune]
         - name: since
           in: query
           schema:
             type: string
-            enum: [24h, 7d]
+            enum: [24h, 7d, 30d]
         - name: limit
           in: query
           schema:
@@ -1023,11 +1023,15 @@ components:
           type: string
         error:
           type: string
+        code:
+          type: string
 
     ErrorResponse:
       type: object
       properties:
         error:
+          type: string
+        code:
           type: string
         details:
           type: string
