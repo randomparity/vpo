@@ -34,20 +34,21 @@ class TestAuthEnabledIntegration(AioHTTPTestCase):
 
     async def test_protected_endpoint_rejects_unauthenticated(self) -> None:
         """Protected endpoint returns 401 without credentials."""
-        async with self.client.get("/api/about") as response:
+        async with self.client.get("/api/jobs") as response:
             assert response.status == 401
             assert response.headers.get("WWW-Authenticate") == 'Basic realm="VPO"'
 
     async def test_protected_endpoint_accepts_valid_auth(self) -> None:
-        """Protected endpoint returns 200 with valid credentials."""
+        """Protected endpoint returns non-401 with valid credentials."""
         headers = {"Authorization": self._make_auth_header(self.AUTH_TOKEN)}
-        async with self.client.get("/api/about", headers=headers) as response:
-            assert response.status == 200
+        async with self.client.get("/api/jobs", headers=headers) as response:
+            # May be 503 (no db) but must not be 401
+            assert response.status != 401
 
     async def test_protected_endpoint_rejects_invalid_auth(self) -> None:
         """Protected endpoint returns 401 with invalid credentials."""
         headers = {"Authorization": self._make_auth_header("wrong-token")}
-        async with self.client.get("/api/about", headers=headers) as response:
+        async with self.client.get("/api/jobs", headers=headers) as response:
             assert response.status == 401
 
     async def test_health_endpoint_allows_unauthenticated(self) -> None:
@@ -79,7 +80,7 @@ class TestAuthEnabledIntegration(AioHTTPTestCase):
 
     async def test_401_response_triggers_browser_dialog(self) -> None:
         """401 response includes proper WWW-Authenticate header for browser dialog."""
-        async with self.client.get("/api/about") as response:
+        async with self.client.get("/api/jobs") as response:
             assert response.status == 401
             # This exact format triggers browser's native login dialog
             www_auth = response.headers.get("WWW-Authenticate")
