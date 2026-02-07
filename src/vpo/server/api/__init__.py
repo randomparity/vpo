@@ -27,19 +27,19 @@ from pathlib import Path
 
 from aiohttp import web
 
-from vpo.server.api.events import get_events_routes, setup_events_routes
-from vpo.server.api.files import get_file_routes, setup_file_routes
-from vpo.server.api.jobs import get_job_routes, setup_job_routes
-from vpo.server.api.plans import get_plan_routes, setup_plan_routes
-from vpo.server.api.plugins import get_plugin_routes, setup_plugin_routes
-from vpo.server.api.policies import get_policy_routes, setup_policy_routes
-from vpo.server.api.stats import get_stats_routes, setup_stats_routes
+from vpo.server.api.events import get_events_routes
+from vpo.server.api.files import get_file_routes
+from vpo.server.api.jobs import get_job_routes
+from vpo.server.api.plans import get_plan_routes
+from vpo.server.api.plugins import get_plugin_routes
+from vpo.server.api.policies import get_policy_routes
+from vpo.server.api.stats import get_stats_routes
 
 __all__ = [
     "setup_api_routes",
 ]
 
-# All route getter functions for dual-prefix registration
+# All route getter functions — order matters for parameterized route matching
 _ROUTE_GETTERS = [
     get_job_routes,
     get_file_routes,
@@ -49,6 +49,9 @@ _ROUTE_GETTERS = [
     get_plugin_routes,
     get_events_routes,
 ]
+
+# Both prefixes serve the same handlers
+_API_PREFIXES = ("/api", "/api/v1")
 
 
 def setup_api_routes(app: web.Application) -> None:
@@ -60,23 +63,14 @@ def setup_api_routes(app: web.Application) -> None:
     Args:
         app: aiohttp Application to configure.
     """
-    # Register under /api/ (backward compat)
-    setup_job_routes(app)
-    setup_file_routes(app)
-    setup_policy_routes(app)
-    setup_plan_routes(app)
-    setup_stats_routes(app)
-    setup_plugin_routes(app)
-    setup_events_routes(app)
-
-    # Register under /api/v1/ (versioned)
     for get_routes in _ROUTE_GETTERS:
         for method, suffix, handler in get_routes():
-            app.router.add_route(method, f"/api/v1{suffix}", handler)
+            for prefix in _API_PREFIXES:
+                app.router.add_route(method, f"{prefix}{suffix}", handler)
 
     # Serve OpenAPI spec under both prefixes
-    app.router.add_get("/api/openapi.yaml", _openapi_handler)
-    app.router.add_get("/api/v1/openapi.yaml", _openapi_handler)
+    for prefix in _API_PREFIXES:
+        app.router.add_get(f"{prefix}/openapi.yaml", _openapi_handler)
 
 
 _OPENAPI_PATH = Path(__file__).parent / "openapi.yaml"

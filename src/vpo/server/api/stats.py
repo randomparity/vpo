@@ -46,6 +46,31 @@ from vpo.server.ui.routes import (
 )
 
 
+def _parse_time_param(
+    value: str | None, param_name: str
+) -> tuple[str | None, web.Response | None]:
+    """Parse an optional time filter query parameter.
+
+    Args:
+        value: Raw query string value, or None.
+        param_name: Parameter name for error messages (e.g. "since", "until").
+
+    Returns:
+        Tuple of (parsed_timestamp, error_response). If parsing fails,
+        the first element is None and the second is a 400 error response.
+        On success, the second element is None.
+    """
+    if not value:
+        return None, None
+    parsed = parse_time_filter(value)
+    if parsed is None:
+        return None, api_error(
+            f"Invalid {param_name} value: '{value}'",
+            code=INVALID_PARAMETER,
+        )
+    return parsed, None
+
+
 @shutdown_check_middleware
 @database_required_middleware
 @validate_query_params(STATS_ALLOWED_PARAMS, strict=True)
@@ -60,29 +85,14 @@ async def api_stats_summary_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with StatsSummary payload.
     """
-    # Parse query parameters
-    since_str = request.query.get("since")
-    until_str = request.query.get("until")
     policy_name = request.query.get("policy")
 
-    # Parse time filters
-    since_ts = None
-    if since_str:
-        since_ts = parse_time_filter(since_str)
-        if since_ts is None:
-            return api_error(
-                f"Invalid since value: '{since_str}'",
-                code=INVALID_PARAMETER,
-            )
-
-    until_ts = None
-    if until_str:
-        until_ts = parse_time_filter(until_str)
-        if until_ts is None:
-            return api_error(
-                f"Invalid until value: '{until_str}'",
-                code=INVALID_PARAMETER,
-            )
+    since_ts, err = _parse_time_param(request.query.get("since"), "since")
+    if err:
+        return err
+    until_ts, err = _parse_time_param(request.query.get("until"), "until")
+    if err:
+        return err
 
     # Get connection pool from middleware
     connection_pool = request["connection_pool"]
@@ -154,28 +164,12 @@ async def api_stats_policies_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with list of PolicyStats items.
     """
-    # Parse query parameters
-    since_str = request.query.get("since")
-    until_str = request.query.get("until")
-
-    # Parse time filters
-    since_ts = None
-    if since_str:
-        since_ts = parse_time_filter(since_str)
-        if since_ts is None:
-            return api_error(
-                f"Invalid since value: '{since_str}'",
-                code=INVALID_PARAMETER,
-            )
-
-    until_ts = None
-    if until_str:
-        until_ts = parse_time_filter(until_str)
-        if until_ts is None:
-            return api_error(
-                f"Invalid until value: '{until_str}'",
-                code=INVALID_PARAMETER,
-            )
+    since_ts, err = _parse_time_param(request.query.get("since"), "since")
+    if err:
+        return err
+    until_ts, err = _parse_time_param(request.query.get("until"), "until")
+    if err:
+        return err
 
     # Get connection pool from middleware
     connection_pool = request["connection_pool"]
@@ -207,8 +201,6 @@ async def api_stats_trends_handler(request: web.Request) -> web.Response:
     Returns:
         JSON response with list of TrendDataPoint items for charting.
     """
-    # Parse query parameters
-    since_str = request.query.get("since")
     group_by = request.query.get("group_by", "day")
 
     # Validate group_by
@@ -218,15 +210,9 @@ async def api_stats_trends_handler(request: web.Request) -> web.Response:
             code=INVALID_PARAMETER,
         )
 
-    # Parse time filters
-    since_ts = None
-    if since_str:
-        since_ts = parse_time_filter(since_str)
-        if since_ts is None:
-            return api_error(
-                f"Invalid since value: '{since_str}'",
-                code=INVALID_PARAMETER,
-            )
+    since_ts, err = _parse_time_param(request.query.get("since"), "since")
+    if err:
+        return err
 
     # Get connection pool from middleware
     connection_pool = request["connection_pool"]
@@ -355,15 +341,9 @@ async def api_stats_purge_handler(request: web.Request) -> web.Response:
             code=INVALID_REQUEST,
         )
 
-    # Parse time filter if provided
-    before_ts = None
-    if before_str:
-        before_ts = parse_time_filter(before_str)
-        if before_ts is None:
-            return api_error(
-                f"Invalid before value: '{before_str}'",
-                code=INVALID_PARAMETER,
-            )
+    before_ts, err = _parse_time_param(before_str, "before")
+    if err:
+        return err
 
     # Get connection pool from middleware
     connection_pool = request["connection_pool"]
@@ -429,28 +409,12 @@ async def api_stats_policy_handler(request: web.Request) -> web.Response:
     if not policy_name:
         return api_error("Policy name is required", code=INVALID_REQUEST)
 
-    # Parse query parameters
-    since_str = request.query.get("since")
-    until_str = request.query.get("until")
-
-    # Parse time filters
-    since_ts = None
-    if since_str:
-        since_ts = parse_time_filter(since_str)
-        if since_ts is None:
-            return api_error(
-                f"Invalid since value: '{since_str}'",
-                code=INVALID_PARAMETER,
-            )
-
-    until_ts = None
-    if until_str:
-        until_ts = parse_time_filter(until_str)
-        if until_ts is None:
-            return api_error(
-                f"Invalid until value: '{until_str}'",
-                code=INVALID_PARAMETER,
-            )
+    since_ts, err = _parse_time_param(request.query.get("since"), "since")
+    if err:
+        return err
+    until_ts, err = _parse_time_param(request.query.get("until"), "until")
+    if err:
+        return err
 
     # Get connection pool from middleware
     connection_pool = request["connection_pool"]
@@ -527,15 +491,9 @@ async def api_library_trends_handler(
     """
     from vpo.db.views import get_library_snapshots
 
-    since_str = request.query.get("since")
-    since_ts = None
-    if since_str:
-        since_ts = parse_time_filter(since_str)
-        if since_ts is None:
-            return api_error(
-                f"Invalid since value: '{since_str}'",
-                code=INVALID_PARAMETER,
-            )
+    since_ts, err = _parse_time_param(request.query.get("since"), "since")
+    if err:
+        return err
 
     connection_pool = request["connection_pool"]
 
@@ -566,13 +524,3 @@ def get_stats_routes() -> list[tuple[str, str, object]]:
         ("GET", "/stats/{stats_id}", api_stats_detail_handler),
         ("DELETE", "/stats/purge", api_stats_purge_handler),
     ]
-
-
-def setup_stats_routes(app: web.Application) -> None:
-    """Register stats API routes with the application.
-
-    Args:
-        app: aiohttp Application to configure.
-    """
-    for method, suffix, handler in get_stats_routes():
-        app.router.add_route(method, f"/api{suffix}", handler)

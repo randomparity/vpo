@@ -3283,11 +3283,6 @@ html, body {
     gap: var(--spacing-xl);
 }
 
-/* Policy editor utility classes (CSP-safe replacements for inline styles) */
-.initially-hidden {
-    display: none;
-}
-
 .form-input-narrow {
     width: 80px;
 }

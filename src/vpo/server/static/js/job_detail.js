@@ -428,7 +428,6 @@
         if (header) {
             var msg = document.createElement('div')
             msg.className = 'job-detail-deleted-notice'
-            msg.className = 'job-detail-deleted-notice'
             msg.textContent = 'This job no longer exists. It may have been deleted.'
             header.parentNode.insertBefore(msg, header.nextSibling)
         }

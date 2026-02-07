@@ -307,13 +307,3 @@ def get_job_routes() -> list[tuple[str, str, object]]:
         ("GET", "/jobs/{job_id}/logs", api_job_logs_handler),
         ("GET", "/jobs/{job_id}/errors", api_job_errors_handler),
     ]
-
-
-def setup_job_routes(app: web.Application) -> None:
-    """Register job API routes with the application.
-
-    Args:
-        app: aiohttp Application to configure.
-    """
-    for method, suffix, handler in get_job_routes():
-        app.router.add_route(method, f"/api{suffix}", handler)

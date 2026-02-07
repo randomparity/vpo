@@ -459,26 +459,18 @@ def check_config(config_path: Path | None, output_format: str) -> None:
         is_parse = isinstance(e, TomlParseError)
         prefix = "TOML parse error" if is_parse else "Validation error"
         errors.append(f"{prefix}: {e}")
-        if json_output:
-            click.echo(json.dumps({"valid": False, "errors": errors}, indent=2))
-        else:
-            click.echo(click.style("Config file has errors:", fg="red"), err=True)
-            for error in errors:
-                click.echo(f"  - {error}", err=True)
-        raise SystemExit(ExitCode.CONFIG_ERROR)
-
-    # Run cross-field validation
-    errors = validate_config(config)
+    else:
+        # Run cross-field validation
+        errors = validate_config(config)
 
     if json_output:
-        click.echo(json.dumps({"valid": len(errors) == 0, "errors": errors}, indent=2))
-        if errors:
-            raise SystemExit(ExitCode.CONFIG_ERROR)
+        click.echo(json.dumps({"valid": not errors, "errors": errors}, indent=2))
+    elif errors:
+        click.echo(click.style("Config file has errors:", fg="red"), err=True)
+        for error in errors:
+            click.echo(f"  - {error}", err=True)
     else:
-        if errors:
-            click.echo(click.style("Config file has errors:", fg="red"), err=True)
-            for error in errors:
-                click.echo(f"  - {error}", err=True)
-            raise SystemExit(ExitCode.CONFIG_ERROR)
-        else:
-            click.echo(click.style("Configuration is valid.", fg="green"))
+        click.echo(click.style("Configuration is valid.", fg="green"))
+
+    if errors:
+        raise SystemExit(ExitCode.CONFIG_ERROR)

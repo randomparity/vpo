@@ -287,13 +287,3 @@ def get_plugin_routes() -> list[tuple[str, str, object]]:
             api_file_plugin_data_single_handler,
         ),
     ]
-
-
-def setup_plugin_routes(app: web.Application) -> None:
-    """Register plugin API routes with the application.
-
-    Args:
-        app: aiohttp Application to configure.
-    """
-    for method, suffix, handler in get_plugin_routes():
-        app.router.add_route(method, f"/api{suffix}", handler)

@@ -224,6 +224,20 @@ class ConfigBuilder:
         """
         return self._values.get(key, default)
 
+    def _build_plugin_connection(self, name: str) -> PluginConnectionConfig | None:
+        """Build a plugin connection config from prefix-based keys."""
+        prefix = f"plugin_metadata_{name}"
+        url = self._get(f"{prefix}_url", None)
+        api_key = self._get(f"{prefix}_api_key", None)
+        if url and api_key:
+            return PluginConnectionConfig(
+                url=url,
+                api_key=api_key,
+                enabled=self._get(f"{prefix}_enabled", True),
+                timeout_seconds=self._get(f"{prefix}_timeout", 30),
+            )
+        return None
+
     def build(self, default_plugins_dir: Path) -> VPOConfig:
         """Build the final VPOConfig with defaults for unset values.
 
@@ -260,31 +274,9 @@ class ConfigBuilder:
             plugin_dirs = plugin_dirs + [default_plugins_dir]
 
         # Build metadata plugin connections
-        radarr_conn: PluginConnectionConfig | None = None
-        radarr_url = self._get("plugin_metadata_radarr_url", None)
-        radarr_api_key = self._get("plugin_metadata_radarr_api_key", None)
-        if radarr_url and radarr_api_key:
-            radarr_conn = PluginConnectionConfig(
-                url=radarr_url,
-                api_key=radarr_api_key,
-                enabled=self._get("plugin_metadata_radarr_enabled", True),
-                timeout_seconds=self._get("plugin_metadata_radarr_timeout", 30),
-            )
-
-        sonarr_conn: PluginConnectionConfig | None = None
-        sonarr_url = self._get("plugin_metadata_sonarr_url", None)
-        sonarr_api_key = self._get("plugin_metadata_sonarr_api_key", None)
-        if sonarr_url and sonarr_api_key:
-            sonarr_conn = PluginConnectionConfig(
-                url=sonarr_url,
-                api_key=sonarr_api_key,
-                enabled=self._get("plugin_metadata_sonarr_enabled", True),
-                timeout_seconds=self._get("plugin_metadata_sonarr_timeout", 30),
-            )
-
         metadata = MetadataPluginSettings(
-            radarr=radarr_conn,
-            sonarr=sonarr_conn,
+            radarr=self._build_plugin_connection("radarr"),
+            sonarr=self._build_plugin_connection("sonarr"),
         )
 
         plugins = PluginConfig(
@@ -550,7 +542,7 @@ def source_from_file(file_config: dict[str, Any]) -> ConfigSource:
         ("plugins.metadata.radarr", radarr),
         ("plugins.metadata.sonarr", sonarr),
     ]:
-        if section_dict and section_name in _KNOWN_SECTION_KEYS:
+        if section_dict:
             _warn_unknown_keys(
                 section_name,
                 _KNOWN_SECTION_KEYS[section_name],

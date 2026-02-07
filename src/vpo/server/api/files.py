@@ -340,13 +340,3 @@ def get_file_routes() -> list[tuple[str, str, object]]:
         ("GET", "/transcriptions", api_transcriptions_handler),
         ("GET", "/transcriptions/{transcription_id}", api_transcription_detail_handler),
     ]
-
-
-def setup_file_routes(app: web.Application) -> None:
-    """Register file/library API routes with the application.
-
-    Args:
-        app: aiohttp Application to configure.
-    """
-    for method, suffix, handler in get_file_routes():
-        app.router.add_route(method, f"/api{suffix}", handler)

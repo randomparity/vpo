@@ -14,7 +14,7 @@ import asyncio
 from dataclasses import dataclass
 
 from aiohttp import web
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from vpo.core.datetime_utils import parse_time_filter
 from vpo.core.validation import is_valid_uuid
@@ -156,6 +156,35 @@ async def api_plan_detail_handler(request: web.Request) -> web.Response:
     return web.json_response(detail_item.to_dict())
 
 
+def _plan_action_error_response(
+    error: str | None, code: str | None = None
+) -> web.Response:
+    """Build a PlanActionResponse error for approve/reject handlers.
+
+    Args:
+        error: Error message from the service or validation.
+        code: Explicit error code. If None, inferred from the error message.
+
+    Returns:
+        JSON response with appropriate status code.
+    """
+    if code is None:
+        is_not_found = error == "Plan not found"
+        code = NOT_FOUND if is_not_found else RESOURCE_CONFLICT
+
+    if code == NOT_FOUND:
+        status = 404
+    elif code == INVALID_ID_FORMAT:
+        status = 400
+    else:
+        status = 409
+
+    return web.json_response(
+        PlanActionResponse(success=False, error=error, code=code).to_dict(),
+        status=status,
+    )
+
+
 @shutdown_check_middleware
 @database_required_middleware
 async def api_plan_approve_handler(request: web.Request) -> web.Response:
@@ -175,14 +204,7 @@ async def api_plan_approve_handler(request: web.Request) -> web.Response:
 
     # Validate UUID format
     if not is_valid_uuid(plan_id):
-        return web.json_response(
-            PlanActionResponse(
-                success=False,
-                error="Invalid plan ID format",
-                code=INVALID_ID_FORMAT,
-            ).to_dict(),
-            status=400,
-        )
+        return _plan_action_error_response("Invalid plan ID format", INVALID_ID_FORMAT)
 
     # Get connection pool from middleware
     connection_pool = request["connection_pool"]
@@ -197,26 +219,13 @@ async def api_plan_approve_handler(request: web.Request) -> web.Response:
     result = await asyncio.to_thread(_approve)
 
     if not result.success:
-        status_code = 404 if result.error == "Plan not found" else 409
-        not_found = result.error == "Plan not found"
-        error_code = NOT_FOUND if not_found else RESOURCE_CONFLICT
-        return web.json_response(
-            PlanActionResponse(
-                success=False,
-                error=result.error,
-                code=error_code,
-            ).to_dict(),
-            status=status_code,
-        )
-
-    # Build job URL
-    job_url = f"/jobs/{result.job_id}"
+        return _plan_action_error_response(result.error)
 
     response = PlanActionResponse(
         success=True,
         plan=PlanListItem.from_plan_record(result.plan),
         job_id=result.job_id,
-        job_url=job_url,
+        job_url=f"/jobs/{result.job_id}",
         warning=result.warning,
     )
     return web.json_response(response.to_dict())
@@ -239,14 +248,7 @@ async def api_plan_reject_handler(request: web.Request) -> web.Response:
 
     # Validate UUID format
     if not is_valid_uuid(plan_id):
-        return web.json_response(
-            PlanActionResponse(
-                success=False,
-                error="Invalid plan ID format",
-                code=INVALID_ID_FORMAT,
-            ).to_dict(),
-            status=400,
-        )
+        return _plan_action_error_response("Invalid plan ID format", INVALID_ID_FORMAT)
 
     # Get connection pool from middleware
     connection_pool = request["connection_pool"]
@@ -261,17 +263,7 @@ async def api_plan_reject_handler(request: web.Request) -> web.Response:
     result = await asyncio.to_thread(_reject)
 
     if not result.success:
-        status_code = 404 if result.error == "Plan not found" else 409
-        not_found = result.error == "Plan not found"
-        error_code = NOT_FOUND if not_found else RESOURCE_CONFLICT
-        return web.json_response(
-            PlanActionResponse(
-                success=False,
-                error=result.error,
-                code=error_code,
-            ).to_dict(),
-            status=status_code,
-        )
+        return _plan_action_error_response(result.error)
 
     response = PlanActionResponse(
         success=True,
@@ -339,17 +331,17 @@ async def _parse_bulk_request(request: web.Request) -> BulkActionRequest | web.R
 
     try:
         return BulkActionRequest.model_validate(body)
-    except Exception as e:
-        details = None
-        if hasattr(e, "errors"):
-            details = [
-                {
-                    "field": ".".join(str(loc) for loc in err["loc"]),
-                    "message": err["msg"],
-                }
-                for err in e.errors()
-            ]
+    except ValidationError as e:
+        details = [
+            {
+                "field": ".".join(str(loc) for loc in err["loc"]),
+                "message": err["msg"],
+            }
+            for err in e.errors()
+        ]
         return api_error(str(e), code=VALIDATION_FAILED, details=details)
+    except Exception as e:
+        return api_error(str(e), code=VALIDATION_FAILED)
 
 
 @shutdown_check_middleware
@@ -471,13 +463,3 @@ def get_plan_routes() -> list[tuple[str, str, object]]:
         ("POST", "/plans/{plan_id}/approve", api_plan_approve_handler),
         ("POST", "/plans/{plan_id}/reject", api_plan_reject_handler),
     ]
-
-
-def setup_plan_routes(app: web.Application) -> None:
-    """Register plan API routes with the application.
-
-    Args:
-        app: aiohttp Application to configure.
-    """
-    for method, suffix, handler in get_plan_routes():
-        app.router.add_route(method, f"/api{suffix}", handler)

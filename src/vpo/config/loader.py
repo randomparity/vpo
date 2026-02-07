@@ -288,21 +288,16 @@ def validate_config(config: VPOConfig) -> list[str]:
     """
     errors: list[str] = []
 
-    # Check radarr: if enabled, url and api_key must be set
-    radarr = config.plugins.metadata.radarr
-    if radarr is not None and radarr.enabled:
-        if not radarr.url:
-            errors.append("Radarr is enabled but url is not set")
-        if not radarr.api_key:
-            errors.append("Radarr is enabled but api_key is not set")
-
-    # Check sonarr: if enabled, url and api_key must be set
-    sonarr = config.plugins.metadata.sonarr
-    if sonarr is not None and sonarr.enabled:
-        if not sonarr.url:
-            errors.append("Sonarr is enabled but url is not set")
-        if not sonarr.api_key:
-            errors.append("Sonarr is enabled but api_key is not set")
+    # Check metadata plugin connections: if enabled, url and api_key must be set
+    for name, conn in [
+        ("Radarr", config.plugins.metadata.radarr),
+        ("Sonarr", config.plugins.metadata.sonarr),
+    ]:
+        if conn is not None and conn.enabled:
+            if not conn.url:
+                errors.append(f"{name} is enabled but url is not set")
+            if not conn.api_key:
+                errors.append(f"{name} is enabled but api_key is not set")
 
     # Warn about non-existent plugin directories
     for plugin_dir in config.plugins.plugin_dirs:

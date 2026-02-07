@@ -643,13 +643,3 @@ def get_policy_routes() -> list[tuple[str, str, object]]:
         ("PUT", "/policies/{name}", api_policy_update_handler),
         ("POST", "/policies/{name}/validate", api_policy_validate_handler),
     ]
-
-
-def setup_policy_routes(app: web.Application) -> None:
-    """Register policy API routes with the application.
-
-    Args:
-        app: aiohttp Application to configure.
-    """
-    for method, suffix, handler in get_policy_routes():
-        app.router.add_route(method, f"/api{suffix}", handler)
