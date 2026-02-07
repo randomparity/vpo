@@ -19,6 +19,7 @@ from typing import Any
 from aiohttp import web
 
 from vpo.core.datetime_utils import parse_iso_timestamp, parse_time_filter
+from vpo.server.api.errors import SERVICE_UNAVAILABLE, api_error
 from vpo.server.ui.models import JobFilterParams, JobListItem
 from vpo.server.ui.routes import shutdown_check_middleware
 
@@ -112,11 +113,13 @@ async def sse_jobs_handler(request: web.Request) -> web.StreamResponse:
             client_ip,
             request_id,
         )
-        return web.Response(
+        resp = api_error(
+            "Service temporarily unavailable - too many connections",
+            code=SERVICE_UNAVAILABLE,
             status=503,
-            text="Service temporarily unavailable - too many connections",
-            headers={"Retry-After": "10"},
         )
+        resp.headers["Retry-After"] = "10"
+        return resp
 
     # Increment connection count
     sse_connections["count"] += 1
@@ -395,10 +398,8 @@ def _compute_jobs_hash(jobs_data: dict[str, Any]) -> str:
     return hashlib.sha256(content.encode()).hexdigest()[:16]
 
 
-def setup_events_routes(app: web.Application) -> None:
-    """Register SSE event routes with the application.
-
-    Args:
-        app: aiohttp Application to configure.
-    """
-    app.router.add_get("/api/events/jobs", sse_jobs_handler)
+def get_events_routes() -> list[tuple[str, str, object]]:
+    """Return SSE event route definitions as (method, path_suffix, handler) tuples."""
+    return [
+        ("GET", "/events/jobs", sse_jobs_handler),
+    ]

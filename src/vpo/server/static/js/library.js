@@ -119,7 +119,7 @@
         // Show status badge for error or missing files
         const showBadge = file.scan_status === 'error' || file.scan_status === 'missing'
 
-        return '<tr' + rowClass + ' data-file-id="' + escapeHtml(String(file.id)) + '" tabindex="0" style="cursor: pointer;">' +
+        return '<tr' + rowClass + ' data-file-id="' + escapeHtml(String(file.id)) + '" tabindex="0" aria-label="View file ' + escapeHtml(truncatedFilename) + '">' +
             '<td class="library-filename"' + (hasFullPath ? ' title="' + escapeHtml(file.path) + '"' : '') + '>' +
             escapeHtml(truncatedFilename) +
             (showBadge ? ' ' + createScanStatusBadge(file.scan_status, file.scan_error) : '') +

@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from aiohttp import web
 
 from vpo.config.models import RateLimitConfig
+from vpo.server.api.errors import RATE_LIMITED, api_error
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +76,7 @@ class SlidingWindowCounter:
 class RateLimiter:
     """Per-IP rate limiter with separate GET and mutate counters."""
 
-    EXEMPT_PATHS: frozenset[str] = frozenset({"/health", "/api/about"})
+    EXEMPT_PATHS: frozenset[str] = frozenset({"/health", "/api/about", "/api/v1/about"})
     _MUTATING_METHODS: frozenset[str] = frozenset({"POST", "PUT", "DELETE", "PATCH"})
     _CLEANUP_INTERVAL = 300  # seconds between stale counter cleanup
 
@@ -172,15 +173,19 @@ class RateLimiter:
 
 
 @web.middleware
-async def _rate_limit_middleware(
+async def rate_limit_middleware(
     request: web.Request, handler: web.RequestHandler
 ) -> web.StreamResponse:
     """Rate limiting middleware for API requests.
 
     Checks per-IP rate limits for /api/* paths. Non-API paths and
-    requests that pass the limit are forwarded to the handler. If
-    the rate limiter itself raises, the request is allowed through
-    (fail-open).
+    requests that pass the limit are forwarded to the handler.
+
+    Fail-open design: If the rate limiter itself raises an unexpected
+    exception, the request is allowed through. This is intentional —
+    VPO is a local tool where availability matters more than strict
+    rate enforcement. A bug in the limiter should not block the user
+    from accessing their own media library.
     """
     if not request.path.startswith("/api/"):
         return await handler(request)
@@ -189,8 +194,8 @@ async def _rate_limit_middleware(
     if rate_limiter is None:
         return await handler(request)
 
+    client_ip = request.remote or "unknown"
     try:
-        client_ip = request.remote or "unknown"
         allowed, retry_after = rate_limiter.check(
             client_ip, request.method, request.path
         )
@@ -203,12 +208,20 @@ async def _rate_limit_middleware(
                 client_ip,
                 retry_after_int,
             )
-            return web.json_response(
-                {"error": "Rate limit exceeded. Please wait before retrying."},
+            resp = api_error(
+                "Rate limit exceeded. Please wait before retrying.",
+                code=RATE_LIMITED,
                 status=429,
-                headers={"Retry-After": str(retry_after_int)},
             )
+            resp.headers["Retry-After"] = str(retry_after_int)
+            return resp
     except Exception:
-        logger.exception("Rate limiter error, allowing request through")
+        # Fail-open: allow the request through on internal errors.
+        # Availability > strict limiting for a local tool.
+        logger.exception(
+            "Rate limiter error, allowing request through (client=%s, path=%s)",
+            client_ip,
+            request.path,
+        )
 
     return await handler(request)

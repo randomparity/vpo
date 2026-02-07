@@ -130,7 +130,7 @@
         if (status === 'completed') {
             return '<div class="job-progress">' +
                 '<div class="job-progress-track">' +
-                '<div class="job-progress-bar job-progress-bar--completed" style="width: 100%"></div>' +
+                '<div class="job-progress-bar job-progress-bar--completed job-progress-bar--w100"></div>' +
                 '</div>' +
                 '<span class="job-progress-text">100%</span>' +
                 '</div>'
@@ -141,7 +141,7 @@
             const displayPercent = percent !== null && percent !== undefined ? percent : 0
             return '<div class="job-progress">' +
                 '<div class="job-progress-track">' +
-                '<div class="job-progress-bar ' + barClass + '" style="width: ' + displayPercent + '%"></div>' +
+                '<div class="job-progress-bar ' + barClass + '" data-width="' + displayPercent + '"></div>' +
                 '</div>' +
                 '<span class="job-progress-text">' + displayPercent + '%</span>' +
                 '</div>'
@@ -151,7 +151,7 @@
         if (status === 'queued') {
             return '<div class="job-progress">' +
                 '<div class="job-progress-track">' +
-                '<div class="job-progress-bar" style="width: 0%"></div>' +
+                '<div class="job-progress-bar job-progress-bar--w0"></div>' +
                 '</div>' +
                 '<span class="job-progress-text">—</span>' +
                 '</div>'
@@ -170,7 +170,7 @@
         // For running jobs with progress data
         return '<div class="job-progress">' +
             '<div class="job-progress-track">' +
-            '<div class="job-progress-bar" style="width: ' + percent + '%"></div>' +
+            '<div class="job-progress-bar" data-width="' + percent + '"></div>' +
             '</div>' +
             '<span class="job-progress-text">' + percent + '%</span>' +
             '</div>'
@@ -196,7 +196,7 @@
         }
 
         // Make row clickable - link to job detail view (016-job-detail-view)
-        return '<tr class="job-row-clickable" data-job-id="' + escapeHtml(job.id) + '" tabindex="0" role="link" aria-label="View job ' + escapeHtml(shortId) + '">' +
+        return '<tr class="job-row-clickable" data-job-id="' + escapeHtml(job.id) + '" tabindex="0" aria-label="View job ' + escapeHtml(shortId) + '">' +
             '<td class="job-id" title="' + escapeHtml(job.id) + '">' + escapeHtml(shortId) + '</td>' +
             '<td class="job-type">' + createTypeBadge(job.job_type) + '</td>' +
             '<td class="job-status">' + createStatusBadge(job.status) + '</td>' +
@@ -232,6 +232,17 @@
 
         const html = jobs.map(renderJobRow).join('')
         tableBodyEl.innerHTML = html
+        applyDataWidths(tableBodyEl)
+    }
+
+    /**
+     * Apply data-width attributes as inline style.width via CSSOM (CSP-safe).
+     */
+    function applyDataWidths(container) {
+        var bars = container.querySelectorAll('.job-progress-bar[data-width]')
+        for (var i = 0; i < bars.length; i++) {
+            bars[i].style.width = bars[i].getAttribute('data-width') + '%'
+        }
     }
 
     /**
@@ -381,6 +392,7 @@
         const progressCell = row.querySelector('.job-progress-cell')
         if (progressCell) {
             progressCell.innerHTML = createProgressBar(newData)
+            applyDataWidths(progressCell)
         }
 
         // Update duration cell

@@ -19,7 +19,7 @@ from pathlib import Path
 import click
 
 from vpo.cli.exit_codes import ExitCode
-from vpo.cli.output import error_exit
+from vpo.cli.output import error_exit, format_option
 from vpo.cli.profile_loader import load_profile_or_exit
 from vpo.config.loader import get_config
 from vpo.core.formatting import format_file_size
@@ -622,7 +622,7 @@ def _process_single_file(
     "-n",
     is_flag=True,
     default=False,
-    help="Preview changes without modifying files",
+    help="Simulate processing without making changes (implies --verbose)",
 )
 @click.option(
     "--phases",
@@ -637,14 +637,8 @@ def _process_single_file(
     default=False,
     help="Show detailed output",
 )
-@click.option(
-    "--json",
-    "-j",
-    "json_output",
-    is_flag=True,
-    default=False,
-    help="Output in JSON format",
-)
+@format_option
+@click.option("-j", "json_short", is_flag=True, hidden=True)
 @click.option(
     "--workers",
     "-w",
@@ -675,7 +669,8 @@ def process_command(
     dry_run: bool,
     phases_str: str | None,
     verbose: bool,
-    json_output: bool,
+    output_format: str,
+    json_short: bool,
     workers: int | None,
     save_logs: bool,
     paths: tuple[Path, ...],
@@ -702,6 +697,10 @@ def process_command(
 
         vpo process -p policy.yaml --dry-run movie.mkv
     """
+    if json_short:
+        output_format = "json"
+    json_output = output_format == "json"
+
     # Load profile if specified
     loaded_profile = None
     if profile:
@@ -1055,4 +1054,3 @@ def process_command(
     # Exit code
     if fail_count > 0:
         sys.exit(ExitCode.OPERATION_FAILED)
-    sys.exit(ExitCode.SUCCESS)

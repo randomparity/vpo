@@ -6,6 +6,7 @@ multiple configuration sources with explicit precedence handling.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Any
@@ -17,7 +18,9 @@ from vpo.config.models import (
     JobsConfig,
     LanguageConfig,
     LoggingConfig,
+    MetadataPluginSettings,
     PluginConfig,
+    PluginConnectionConfig,
     ProcessingConfig,
     RateLimitConfig,
     ServerConfig,
@@ -26,6 +29,8 @@ from vpo.config.models import (
     VPOConfig,
     WorkerConfig,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -112,6 +117,18 @@ class ConfigSource:
     transcription_confidence_threshold: float | None = None
     transcription_incumbent_bonus: float | None = None
 
+    # Plugin metadata: Radarr
+    plugin_metadata_radarr_url: str | None = None
+    plugin_metadata_radarr_api_key: str | None = None
+    plugin_metadata_radarr_enabled: bool | None = None
+    plugin_metadata_radarr_timeout: int | None = None
+
+    # Plugin metadata: Sonarr
+    plugin_metadata_sonarr_url: str | None = None
+    plugin_metadata_sonarr_api_key: str | None = None
+    plugin_metadata_sonarr_enabled: bool | None = None
+    plugin_metadata_sonarr_timeout: int | None = None
+
     # Processing config
     processing_workers: int | None = None
 
@@ -139,7 +156,16 @@ class ConfigBuilder:
     # Fields with special handling (merge instead of override)
     _SPECIAL_FIELDS = frozenset({"plugin_dirs"})
 
-    def apply(self, source: ConfigSource) -> None:
+    # Fields that should be masked in debug logs
+    _SENSITIVE_FIELDS = frozenset(
+        {
+            "server_auth_token",
+            "plugin_metadata_radarr_api_key",
+            "plugin_metadata_sonarr_api_key",
+        }
+    )
+
+    def apply(self, source: ConfigSource, source_name: str = "unknown") -> None:
         """Apply configuration source, overriding existing values.
 
         Non-None values from the source override existing values.
@@ -147,6 +173,7 @@ class ConfigBuilder:
 
         Args:
             source: Configuration source to apply.
+            source_name: Label for logging (e.g., "file", "env", "cli").
         """
         # Iterate through all fields using dataclasses introspection
         for field_obj in fields(source):
@@ -157,6 +184,14 @@ class ConfigBuilder:
             value = getattr(source, field_obj.name)
             if value is not None:
                 self._values[field_obj.name] = value
+                is_sensitive = field_obj.name in self._SENSITIVE_FIELDS
+                display_value = "***" if is_sensitive else repr(value)
+                logger.debug(
+                    "Config %s = %s (from %s)",
+                    field_obj.name,
+                    display_value,
+                    source_name,
+                )
 
         # Plugin dirs handled specially (they merge, not override)
         # Tracked via set_plugin_dirs_from_file/env methods
@@ -188,6 +223,20 @@ class ConfigBuilder:
             The configured value or default.
         """
         return self._values.get(key, default)
+
+    def _build_plugin_connection(self, name: str) -> PluginConnectionConfig | None:
+        """Build a plugin connection config from prefix-based keys."""
+        prefix = f"plugin_metadata_{name}"
+        url = self._get(f"{prefix}_url", None)
+        api_key = self._get(f"{prefix}_api_key", None)
+        if url and api_key:
+            return PluginConnectionConfig(
+                url=url,
+                api_key=api_key,
+                enabled=self._get(f"{prefix}_enabled", True),
+                timeout_seconds=self._get(f"{prefix}_timeout", 30),
+            )
+        return None
 
     def build(self, default_plugins_dir: Path) -> VPOConfig:
         """Build the final VPOConfig with defaults for unset values.
@@ -224,11 +273,18 @@ class ConfigBuilder:
         if default_plugins_dir not in plugin_dirs:
             plugin_dirs = plugin_dirs + [default_plugins_dir]
 
+        # Build metadata plugin connections
+        metadata = MetadataPluginSettings(
+            radarr=self._build_plugin_connection("radarr"),
+            sonarr=self._build_plugin_connection("sonarr"),
+        )
+
         plugins = PluginConfig(
             plugin_dirs=plugin_dirs,
             entry_point_group=self._get("entry_point_group", "vpo.plugins"),
             auto_load=self._get("plugin_auto_load", True),
             warn_unacknowledged=self._get("plugin_warn_unacknowledged", True),
+            metadata=metadata,
         )
 
         # Build jobs config
@@ -328,6 +384,115 @@ def _get_path(config: dict[str, Any], key: str) -> Path | None:
     return Path(value).expanduser() if value else None
 
 
+def _warn_unknown_keys(
+    section: str,
+    known_keys: set[str],
+    actual_keys: set[str],
+) -> None:
+    """Log warnings for unknown configuration keys.
+
+    This helps catch typos in config.toml that would otherwise be
+    silently ignored.
+
+    Args:
+        section: Section name for the warning message (e.g., "server").
+        known_keys: Set of recognized key names.
+        actual_keys: Set of keys found in the config.
+    """
+    unknown = actual_keys - known_keys
+    for key in sorted(unknown):
+        logger.warning(
+            "Unknown key '%s' in [%s] config section (ignored)",
+            key,
+            section,
+        )
+
+
+# Known top-level keys in config.toml
+_KNOWN_TOP_LEVEL_KEYS = {
+    "tools",
+    "behavior",
+    "plugins",
+    "jobs",
+    "worker",
+    "server",
+    "language",
+    "logging",
+    "transcription",
+    "processing",
+    "database_path",
+}
+
+# Known keys within each section
+_KNOWN_SECTION_KEYS: dict[str, set[str]] = {
+    "tools": {
+        "ffmpeg",
+        "ffprobe",
+        "mkvmerge",
+        "mkvpropedit",
+        "detection",
+    },
+    "tools.detection": {"cache_ttl_hours", "auto_detect_on_startup"},
+    "behavior": {"warn_on_missing_features", "show_upgrade_suggestions"},
+    "plugins": {
+        "plugin_dirs",
+        "entry_point_group",
+        "auto_load",
+        "warn_unacknowledged",
+        "metadata",
+    },
+    "jobs": {
+        "retention_days",
+        "auto_purge",
+        "temp_directory",
+        "backup_original",
+        "disk_space_ratio_hevc",
+        "disk_space_ratio_other",
+        "disk_space_buffer",
+        "log_compression_days",
+        "log_deletion_days",
+        "min_free_disk_percent",
+        "auto_prune_enabled",
+        "auto_prune_interval_hours",
+    },
+    "worker": {"max_files", "max_duration", "end_by", "cpu_cores"},
+    "server": {
+        "bind",
+        "port",
+        "shutdown_timeout",
+        "auth_token",
+        "rate_limit",
+    },
+    "server.rate_limit": {
+        "enabled",
+        "get_max_requests",
+        "mutate_max_requests",
+        "window_seconds",
+    },
+    "language": {"standard", "warn_on_conversion"},
+    "logging": {
+        "level",
+        "file",
+        "format",
+        "include_stderr",
+        "max_bytes",
+        "backup_count",
+    },
+    "transcription": {
+        "plugin",
+        "model_size",
+        "sample_duration",
+        "gpu_enabled",
+        "max_samples",
+        "confidence_threshold",
+        "incumbent_bonus",
+    },
+    "processing": {"workers"},
+    "plugins.metadata.radarr": {"url", "api_key", "enabled", "timeout_seconds"},
+    "plugins.metadata.sonarr": {"url", "api_key", "enabled", "timeout_seconds"},
+}
+
+
 def source_from_file(file_config: dict[str, Any]) -> ConfigSource:
     """Create ConfigSource from parsed TOML config file.
 
@@ -349,6 +514,40 @@ def source_from_file(file_config: dict[str, Any]) -> ConfigSource:
     logging_conf = file_config.get("logging", {})
     transcription = file_config.get("transcription", {})
     processing = file_config.get("processing", {})
+
+    # Plugin metadata sections
+    metadata = plugins.get("metadata", {})
+    radarr = metadata.get("radarr", {})
+    sonarr = metadata.get("sonarr", {})
+
+    # Warn about unknown keys in config sections
+    _warn_unknown_keys(
+        "top-level",
+        _KNOWN_TOP_LEVEL_KEYS,
+        set(file_config.keys()),
+    )
+    for section_name, section_dict in [
+        ("tools", tools),
+        ("tools.detection", detection),
+        ("behavior", behavior),
+        ("plugins", plugins),
+        ("jobs", jobs),
+        ("worker", worker),
+        ("server", server),
+        ("server.rate_limit", rate_limit),
+        ("language", language),
+        ("logging", logging_conf),
+        ("transcription", transcription),
+        ("processing", processing),
+        ("plugins.metadata.radarr", radarr),
+        ("plugins.metadata.sonarr", sonarr),
+    ]:
+        if section_dict:
+            _warn_unknown_keys(
+                section_name,
+                _KNOWN_SECTION_KEYS[section_name],
+                set(section_dict.keys()),
+            )
 
     # Parse plugin directories
     plugin_dirs: list[Path] | None = None
@@ -415,6 +614,16 @@ def source_from_file(file_config: dict[str, Any]) -> ConfigSource:
         transcription_max_samples=transcription.get("max_samples"),
         transcription_confidence_threshold=transcription.get("confidence_threshold"),
         transcription_incumbent_bonus=transcription.get("incumbent_bonus"),
+        # Plugin metadata: Radarr
+        plugin_metadata_radarr_url=radarr.get("url"),
+        plugin_metadata_radarr_api_key=radarr.get("api_key"),
+        plugin_metadata_radarr_enabled=radarr.get("enabled"),
+        plugin_metadata_radarr_timeout=radarr.get("timeout_seconds"),
+        # Plugin metadata: Sonarr
+        plugin_metadata_sonarr_url=sonarr.get("url"),
+        plugin_metadata_sonarr_api_key=sonarr.get("api_key"),
+        plugin_metadata_sonarr_enabled=sonarr.get("enabled"),
+        plugin_metadata_sonarr_timeout=sonarr.get("timeout_seconds"),
         # Processing
         processing_workers=processing.get("workers"),
     )
@@ -503,6 +712,16 @@ def source_from_env(reader: EnvReader) -> ConfigSource:
         transcription_incumbent_bonus=reader.get_float(
             "VPO_TRANSCRIPTION_INCUMBENT_BONUS"
         ),
+        # Plugin metadata: Radarr
+        plugin_metadata_radarr_url=reader.get_str("VPO_RADARR_URL"),
+        plugin_metadata_radarr_api_key=reader.get_str("VPO_RADARR_API_KEY"),
+        plugin_metadata_radarr_enabled=reader.get_bool("VPO_RADARR_ENABLED"),
+        plugin_metadata_radarr_timeout=reader.get_int("VPO_RADARR_TIMEOUT"),
+        # Plugin metadata: Sonarr
+        plugin_metadata_sonarr_url=reader.get_str("VPO_SONARR_URL"),
+        plugin_metadata_sonarr_api_key=reader.get_str("VPO_SONARR_API_KEY"),
+        plugin_metadata_sonarr_enabled=reader.get_bool("VPO_SONARR_ENABLED"),
+        plugin_metadata_sonarr_timeout=reader.get_int("VPO_SONARR_TIMEOUT"),
         # Processing
         processing_workers=reader.get_int("VPO_PROCESSING_WORKERS"),
     )

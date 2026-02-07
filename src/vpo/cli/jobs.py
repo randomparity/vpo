@@ -8,6 +8,7 @@ from pathlib import Path
 import click
 
 from vpo.cli.formatting import get_status_color
+from vpo.cli.output import format_option
 from vpo.config import get_config
 from vpo.core import parse_relative_time, truncate_filename
 from vpo.db import (
@@ -62,7 +63,25 @@ def _format_job_row(job: Job) -> tuple[str, str, str, str, str, str, str]:
 
 @click.group("jobs")
 def jobs_group() -> None:
-    """Manage job queue for transcoding and file operations."""
+    """Manage job queue for transcoding and file operations.
+
+    Examples:
+
+        # List all jobs
+        vpo jobs list
+
+        # List only running jobs
+        vpo jobs list --status running
+
+        # Show details for a specific job
+        vpo jobs show <job-id>
+
+        # Cancel a running job
+        vpo jobs cancel <job-id>
+
+        # Clean up old completed jobs
+        vpo jobs clean --before 30d
+    """
     pass
 
 
@@ -93,12 +112,7 @@ def jobs_group() -> None:
     default=50,
     help="Maximum number of jobs to show.",
 )
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output in JSON format.",
-)
+@format_option
 @click.pass_context
 def list_jobs(
     ctx: click.Context,
@@ -106,7 +120,7 @@ def list_jobs(
     job_type: str,
     since: str | None,
     limit: int,
-    json_output: bool,
+    output_format: str,
 ) -> None:
     """List jobs in the queue.
 
@@ -122,8 +136,9 @@ def list_jobs(
         vpo jobs list --since 1d
 
         # List jobs from last week in JSON
-        vpo jobs list --since 1w --json
+        vpo jobs list --since 1w --format json
     """
+    json_output = output_format == "json"
     conn = ctx.obj.get("db_conn")
     if conn is None:
         raise click.ClickException("Failed to connect to database.")
@@ -199,14 +214,9 @@ def _output_jobs_json(jobs: list[Job]) -> None:
 
 @jobs_group.command("show")
 @click.argument("job_id")
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output in JSON format.",
-)
+@format_option
 @click.pass_context
-def show_job(ctx: click.Context, job_id: str, json_output: bool) -> None:
+def show_job(ctx: click.Context, job_id: str, output_format: str) -> None:
     """Show detailed information about a job.
 
     JOB_ID can be the full UUID or a prefix (minimum 4 characters).
@@ -220,8 +230,9 @@ def show_job(ctx: click.Context, job_id: str, json_output: bool) -> None:
         vpo jobs show 1234
 
         # Output as JSON
-        vpo jobs show 1234 --json
+        vpo jobs show 1234 --format json
     """
+    json_output = output_format == "json"
     conn = ctx.obj.get("db_conn")
     if conn is None:
         raise click.ClickException("Failed to connect to database.")
@@ -504,14 +515,21 @@ def retry_job_cmd(ctx: click.Context, job_id: str) -> None:
     default="completed",
     help="Which jobs to clear.",
 )
-@click.option("--force", "-f", is_flag=True, help="Don't ask for confirmation.")
+@click.option("--yes", "-y", is_flag=True, help="Don't ask for confirmation.")
+@click.option("--force", is_flag=True, hidden=True)
 @click.pass_context
-def clear_jobs(ctx: click.Context, status: str, force: bool) -> None:
+def clear_jobs(ctx: click.Context, status: str, yes: bool, force: bool) -> None:
     """Clear old jobs from the queue.
 
     By default only clears completed jobs. Use --status to clear
     failed or cancelled jobs, or --status all for everything
     (except queued and running).
+
+    \b
+    Examples:
+        vpo jobs clear
+        vpo jobs clear --status failed --yes
+        vpo jobs clear --status all --yes
     """
     conn = ctx.obj.get("db_conn")
     if conn is None:
@@ -532,7 +550,7 @@ def clear_jobs(ctx: click.Context, status: str, force: bool) -> None:
         click.echo("No jobs to clear.")
         return
 
-    if not force:
+    if not (yes or force):
         if not click.confirm(f"Clear {total} {status} job(s)?"):
             click.echo("Cancelled.")
             return
@@ -589,7 +607,8 @@ def recover_jobs(ctx: click.Context) -> None:
     help="Directory to scan for temp files (default: ~/.vpo/).",
 )
 @click.option("--dry-run", "-n", is_flag=True, help="Show what would be removed.")
-@click.option("--force", "-f", is_flag=True, help="Don't ask for confirmation.")
+@click.option("--yes", "-y", is_flag=True, help="Don't ask for confirmation.")
+@click.option("--force", is_flag=True, hidden=True)
 @click.pass_context
 def cleanup_jobs(
     ctx: click.Context,
@@ -598,6 +617,7 @@ def cleanup_jobs(
     remove_temp: bool,
     temp_dir: Path | None,
     dry_run: bool,
+    yes: bool,
     force: bool,
 ) -> None:
     """Clean up old jobs, backups, and temp files.
@@ -691,7 +711,7 @@ def cleanup_jobs(
             click.echo(f"  ... and {len(temp_files) - 5} more temp files")
         return
 
-    if not force:
+    if not (yes or force):
         if not click.confirm(f"Remove {total} item(s)?"):
             click.echo("Cancelled.")
             return

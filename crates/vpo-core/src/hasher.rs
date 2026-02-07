@@ -20,13 +20,17 @@ pub struct FileHash {
     pub error: Option<String>,
 }
 
-impl IntoPy<PyObject> for FileHash {
-    fn into_py(self, py: Python<'_>) -> PyObject {
-        let dict = PyDict::new_bound(py);
-        dict.set_item("path", self.path).unwrap();
-        dict.set_item("hash", self.hash).unwrap();
-        dict.set_item("error", self.error).unwrap();
-        dict.into()
+impl<'py> IntoPyObject<'py> for FileHash {
+    type Target = PyDict;
+    type Output = Bound<'py, PyDict>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        let dict = PyDict::new(py);
+        dict.set_item("path", self.path)?;
+        dict.set_item("hash", self.hash)?;
+        dict.set_item("error", self.error)?;
+        Ok(dict)
     }
 }
 

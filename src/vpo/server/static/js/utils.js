@@ -193,11 +193,21 @@
         })
     }
 
+    /**
+     * Read the CSRF token from the <meta name="csrf-token"> tag.
+     * @returns {string} The CSRF token value, or empty string if not found.
+     */
+    function getCsrfToken() {
+        var meta = document.querySelector('meta[name="csrf-token"]')
+        return meta ? meta.getAttribute('content') : ''
+    }
+
     window.VPOUtils = {
         escapeHtml: escapeHtml,
         formatRelativeTime: formatRelativeTime,
         truncateFilename: truncateFilename,
         formatDuration: formatDuration,
-        copyToClipboard: copyToClipboard
+        copyToClipboard: copyToClipboard,
+        getCsrfToken: getCsrfToken
     }
 })()

@@ -405,7 +405,7 @@
         try {
             const response = await fetch('/api/plans/' + planId + '/approve', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window.CSRF_TOKEN }
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window.VPOUtils.getCsrfToken() }
             })
             const data = await response.json()
 
@@ -470,7 +470,7 @@
         try {
             const response = await fetch('/api/plans/' + planId + '/reject', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window.CSRF_TOKEN }
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window.VPOUtils.getCsrfToken() }
             })
             const data = await response.json()
 
@@ -547,7 +547,7 @@
             try {
                 const response = await fetch('/api/plans/' + planId + '/approve', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window.CSRF_TOKEN },
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window.VPOUtils.getCsrfToken() },
                     signal: bulkOperationController.signal
                 })
                 const data = await response.json()
@@ -628,7 +628,7 @@
             try {
                 const response = await fetch('/api/plans/' + planId + '/reject', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window.CSRF_TOKEN },
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window.VPOUtils.getCsrfToken() },
                     signal: bulkOperationController.signal
                 })
                 const data = await response.json()

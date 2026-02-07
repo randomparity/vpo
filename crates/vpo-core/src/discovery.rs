@@ -17,13 +17,17 @@ pub struct DiscoveredFile {
     pub modified: f64,
 }
 
-impl IntoPy<PyObject> for DiscoveredFile {
-    fn into_py(self, py: Python<'_>) -> PyObject {
-        let dict = PyDict::new_bound(py);
-        dict.set_item("path", self.path).unwrap();
-        dict.set_item("size", self.size).unwrap();
-        dict.set_item("modified", self.modified).unwrap();
-        dict.into()
+impl<'py> IntoPyObject<'py> for DiscoveredFile {
+    type Target = PyDict;
+    type Output = Bound<'py, PyDict>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        let dict = PyDict::new(py);
+        dict.set_item("path", self.path)?;
+        dict.set_item("size", self.size)?;
+        dict.set_item("modified", self.modified)?;
+        Ok(dict)
     }
 }
 

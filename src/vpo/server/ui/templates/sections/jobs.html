@@ -9,7 +9,7 @@
     </div>
 
     <!-- Error state -->
-    <div id="jobs-error" class="jobs-error" style="display: none;" role="alert">
+    <div id="jobs-error" class="jobs-error initially-hidden" role="alert">
         <div class="jobs-error-icon" aria-hidden="true">!</div>
         <div class="jobs-error-title">Error loading jobs</div>
         <div class="jobs-error-message" id="jobs-error-message">Failed to load jobs.</div>
@@ -17,7 +17,7 @@
     </div>
 
     <!-- Main content (hidden until loaded) -->
-    <div id="jobs-content" style="display: none;">
+    <div id="jobs-content" class="initially-hidden">
         <!-- Filter bar -->
         <div id="jobs-filters" class="jobs-filters">
             <div class="jobs-filter jobs-filter-search">
@@ -75,14 +75,14 @@
         <div id="sort-status" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
 
         <!-- Empty state (hidden by default) -->
-        <div id="jobs-empty" class="jobs-empty" style="display: none;" role="status" aria-live="polite">
+        <div id="jobs-empty" class="jobs-empty initially-hidden" role="status" aria-live="polite">
             <div class="jobs-empty-icon" aria-hidden="true">📋</div>
             <div class="jobs-empty-title" id="jobs-empty-title">No jobs found</div>
             <div class="jobs-empty-hint" id="jobs-empty-hint">Jobs will appear here when you run scan, apply, or transcode operations.</div>
         </div>
 
         <!-- Pagination (hidden until needed) -->
-        <div id="jobs-pagination" class="jobs-pagination" style="display: none;">
+        <div id="jobs-pagination" class="jobs-pagination initially-hidden">
             <div class="jobs-pagination-info" id="jobs-pagination-info">
                 Showing 1-50 of 100 jobs
             </div>

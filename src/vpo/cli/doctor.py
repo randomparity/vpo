@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 import click
 
 from vpo.cli.exit_codes import ExitCode
+from vpo.cli.output import format_option
 from vpo.config import get_config
 from vpo.core.formatting import format_file_size
 from vpo.tools import (
@@ -50,13 +51,8 @@ def _format_version(version: str | None) -> str:
     is_flag=True,
     help="Force refresh of tool detection (ignore cache)",
 )
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output results as JSON",
-)
-def doctor_command(verbose: bool, refresh: bool, json_output: bool) -> None:
+@format_option
+def doctor_command(verbose: bool, refresh: bool, output_format: str) -> None:
     """Check external tool availability and capabilities.
 
     Verifies that all required external tools (ffmpeg, ffprobe, mkvmerge,
@@ -67,6 +63,7 @@ def doctor_command(verbose: bool, refresh: bool, json_output: bool) -> None:
       1 - Some warnings (outdated versions, missing optional features)
       2 - Critical issues (required tools missing)
     """
+    json_output = output_format == "json"
     config = get_config()
 
     # Get tool registry (with optional refresh)

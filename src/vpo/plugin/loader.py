@@ -6,6 +6,13 @@ This module handles discovering plugins from:
 
 And loading them into the plugin registry.
 
+Security model:
+    Plugins execute with full process permissions. There is no sandboxing,
+    capability restriction, or filesystem isolation. Users should only load
+    plugins from trusted sources. Directory-based plugins require explicit
+    acknowledgment (via ``vpo plugin ack``), but this is an audit gate only
+    — it does not restrict what the plugin can do once loaded.
+
 Note on imports:
     Some imports from db.models are deferred to inside methods to avoid circular
     imports. The plugin system is imported early in the application lifecycle,

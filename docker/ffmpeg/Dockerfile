@@ -1,10 +1,14 @@
 # ============================================================================
 # Stage 1: build toolchains, external libs, and FFmpeg from source
 # ============================================================================
-FROM ubuntu:24.04 AS builder
+FROM ubuntu:24.04.2 AS builder
 ARG DEBIAN_FRONTEND=noninteractive
-ARG FFMPEG_BRANCH=master
+ARG FFMPEG_BRANCH=n7.1.3
 ARG MAKE_JOBS=8
+ARG FDK_AAC_VERSION=v2.0.3
+ARG NV_CODEC_HEADERS_VERSION=n12.2.72.0
+ARG VMAF_VERSION=v3.0.0
+ARG LIBPLACEBO_VERSION=v7.349.0
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     software-properties-common \
@@ -49,25 +53,25 @@ ENV PATH=${PREFIX}/bin:$PATH
 WORKDIR /tmp/src
 
 # --- Build fdk-aac (nonfree) ---
-RUN git clone --depth=1 https://github.com/mstorsjo/fdk-aac.git \
+RUN git clone --depth=1 -b "${FDK_AAC_VERSION}" https://github.com/mstorsjo/fdk-aac.git \
  && cd fdk-aac && autoreconf -fiv \
  && ./configure --prefix="${PREFIX}" --enable-shared \
  && make -j"${MAKE_JOBS}" && make install && ldconfig
 
 # --- NVENC headers ---
-RUN git clone --depth=1 https://github.com/FFmpeg/nv-codec-headers.git \
+RUN git clone --depth=1 -b "${NV_CODEC_HEADERS_VERSION}" https://github.com/FFmpeg/nv-codec-headers.git \
  && cd nv-codec-headers && make PREFIX="${PREFIX}" && make install PREFIX="${PREFIX}"
 
 # --- Build libvmaf from source (models included) ---
 # Official repo & build system: meson/ninja
-RUN git clone --depth=1 https://github.com/Netflix/vmaf.git \
+RUN git clone --depth=1 -b "${VMAF_VERSION}" https://github.com/Netflix/vmaf.git \
  && cd vmaf/libvmaf \
  && meson setup build --prefix="${PREFIX}" --buildtype=release \
  && ninja -C build && ninja -C build install && ldconfig \
  && mkdir -p /usr/local/share/model && cp -a /tmp/src/vmaf/model/* /usr/local/share/model/
 
 # --- Build libplacebo from source (FFmpeg 8 requires newer API than Ubuntu 24.04 provides) ---
-RUN git clone --depth=1 --recursive https://code.videolan.org/videolan/libplacebo.git \
+RUN git clone --depth=1 --recursive -b "${LIBPLACEBO_VERSION}" https://code.videolan.org/videolan/libplacebo.git \
  && cd libplacebo \
  && meson setup build --prefix="${PREFIX}" --buildtype=release \
     -Dvulkan=enabled -Dshaderc=disabled -Dglslang=enabled -Ddemos=false -Dtests=false \
@@ -117,7 +121,7 @@ RUN make -j"${MAKE_JOBS}" && make install && ldconfig
 # ============================================================================
 # Stage 2: runtime
 # ============================================================================
-FROM ubuntu:24.04 AS runtime
+FROM ubuntu:24.04.2 AS runtime
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

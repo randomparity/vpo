@@ -125,6 +125,56 @@ class TestPluginListCommand:
         # Verbose mode shows more details
         assert "Type:" in result.output or "analyzer" in result.output
 
+    def test_plugins_list_format_json(
+        self, runner: CliRunner, plugin_dir: Path, monkeypatch
+    ):
+        """List plugins with --format json produces valid JSON."""
+        # Create a plugin file
+        plugin_file = plugin_dir / "my_analyzer.py"
+        plugin_file.write_text(VALID_ANALYZER_PLUGIN)
+
+        def mock_get_config():
+            from vpo.config.models import PluginConfig, VPOConfig
+
+            return VPOConfig(plugins=PluginConfig(plugin_dirs=[plugin_dir]))
+
+        monkeypatch.setattr("vpo.cli.plugin.get_config", mock_get_config)
+
+        result = runner.invoke(main, ["plugin", "list", "--format", "json"])
+
+        assert result.exit_code == 0
+        import json
+
+        data = json.loads(result.output)
+        assert isinstance(data, list)
+        assert len(data) >= 1
+        names = {p["name"] for p in data}
+        assert "test-analyzer" in names
+        test_plugin = next(p for p in data if p["name"] == "test-analyzer")
+        assert test_plugin["version"] == "1.0.0"
+
+    def test_plugins_list_json_backward_compat(
+        self, runner: CliRunner, plugin_dir: Path, monkeypatch
+    ):
+        """List plugins with --json (hidden backward compat) produces valid JSON."""
+        plugin_file = plugin_dir / "my_analyzer.py"
+        plugin_file.write_text(VALID_ANALYZER_PLUGIN)
+
+        def mock_get_config():
+            from vpo.config.models import PluginConfig, VPOConfig
+
+            return VPOConfig(plugins=PluginConfig(plugin_dirs=[plugin_dir]))
+
+        monkeypatch.setattr("vpo.cli.plugin.get_config", mock_get_config)
+
+        result = runner.invoke(main, ["plugin", "list", "--json"])
+
+        assert result.exit_code == 0
+        import json
+
+        data = json.loads(result.output)
+        assert isinstance(data, list)
+
 
 class TestPluginInfoCommand:
     """Tests for 'vpo plugin info' command."""

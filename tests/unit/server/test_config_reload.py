@@ -180,12 +180,12 @@ class TestFormatChangeLog:
 
     def test_format_auth_token_sanitized(self) -> None:
         """Test that auth_token values are sanitized."""
-        config1 = VPOConfig(server=ServerConfig(auth_token="secret123"))
-        config2 = VPOConfig(server=ServerConfig(auth_token="newsecret456"))
+        config1 = VPOConfig(server=ServerConfig(auth_token="secret-token-16ch"))
+        config2 = VPOConfig(server=ServerConfig(auth_token="new-secret-token1"))
         msg = _format_change_log("server.auth_token", config1, config2)
         assert "server.auth_token" in msg
-        assert "secret123" not in msg
-        assert "newsecret456" not in msg
+        assert "secret-token-16ch" not in msg
+        assert "new-secret-token1" not in msg
         assert "****" in msg
 
 

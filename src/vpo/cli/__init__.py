@@ -233,8 +233,8 @@ def _check_initialization(ctx: click.Context) -> None:
     Args:
         ctx: Click context with invoked_subcommand.
     """
-    # Skip check for init command
-    if ctx.invoked_subcommand == "init":
+    # Skip check for init, completion, and doctor commands
+    if ctx.invoked_subcommand in ("init", "completion", "doctor"):
         return
 
     from vpo.config.loader import get_data_dir
@@ -321,17 +321,51 @@ def main(
     # Configure logging from CLI options
     _configure_logging(log_level, log_file, log_json)
 
-    # Log startup settings (skip for init command - it should be silent)
-    # ctx.invoked_subcommand is the name of the subcommand being invoked
-    if ctx.invoked_subcommand != "init":
+    # Log startup settings (skip for lightweight commands)
+    _skip_init = {"init", "completion", "doctor"}
+    if ctx.invoked_subcommand not in _skip_init:
         _log_startup_settings(log_level, log_file)
 
     # Initialize database connection for subcommands (preserve mock if passed by tests)
-    if "db_conn" not in ctx.obj:
+    if ctx.invoked_subcommand not in _skip_init and "db_conn" not in ctx.obj:
         ctx.obj["db_conn"] = _get_db_connection()
 
 
 # Defer import to avoid circular dependency
+@main.command("completion")
+@click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]))
+def completion_command(shell: str) -> None:
+    """Generate shell completion script.
+
+    Print a completion script for the given SHELL. To enable completions,
+    add the output to your shell's startup file.
+
+    Examples:
+
+    \b
+        # Bash (~/.bashrc)
+        eval "$(vpo completion bash)"
+
+    \b
+        # Zsh (~/.zshrc)
+        eval "$(vpo completion zsh)"
+
+    \b
+        # Fish (~/.config/fish/completions/vpo.fish)
+        vpo completion fish > ~/.config/fish/completions/vpo.fish
+    """
+    from click.shell_completion import BashComplete, FishComplete, ZshComplete
+
+    shell_classes = {
+        "bash": BashComplete,
+        "zsh": ZshComplete,
+        "fish": FishComplete,
+    }
+    cls = shell_classes[shell]
+    comp = cls(main, {}, "vpo", "_VPO_COMPLETE")
+    click.echo(comp.source())
+
+
 def _register_commands():
     from vpo.cli import scan  # noqa: F401
     from vpo.cli.analyze import analyze_group
@@ -346,6 +380,7 @@ def _register_commands():
     from vpo.cli.process import process_command
     from vpo.cli.report import report_group
     from vpo.cli.serve import serve_command
+    from vpo.cli.status import status_command
 
     main.add_command(analyze_group)
     main.add_command(config_group)
@@ -359,6 +394,7 @@ def _register_commands():
     main.add_command(process_command)
     main.add_command(report_group)
     main.add_command(serve_command)
+    main.add_command(status_command)
 
 
 _register_commands()

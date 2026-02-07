@@ -173,6 +173,9 @@ def get_config_template(data_dir: Path) -> str:
 #               plugin: radarr
 #               field: original_language
 
+# For production, prefer environment variables for API keys:
+#   VPO_RADARR_URL, VPO_RADARR_API_KEY, VPO_SONARR_URL, VPO_SONARR_API_KEY
+
 # [plugins.metadata.radarr]
 # url = "http://localhost:7878"  # Radarr server URL
 # api_key = ""                   # Radarr API key (Settings > General > Security)
@@ -280,6 +283,35 @@ file = "{log_file_path}"         # Log file path (empty = stderr only)
 [language]
 # standard = "639-2/B"           # ISO standard: 639-1, 639-2/B, 639-2/T
 # warn_on_conversion = true      # Warn when converting between standards
+"""
+
+
+def get_minimal_config_template() -> str:
+    """Generate a minimal configuration template.
+
+    Returns a compact template with only essential sections, suitable
+    for users who prefer to start small and add settings as needed.
+
+    Returns:
+        The minimal config template string.
+    """
+    return """\
+# Video Policy Orchestrator — Minimal Configuration
+# For the full template, reinitialize with: vpo init --force
+# Environment variables (VPO_*) take precedence over this file.
+
+[tools]
+# ffmpeg = "/usr/local/bin/ffmpeg"
+# ffprobe = "/usr/local/bin/ffprobe"
+# mkvmerge = "/usr/local/bin/mkvmerge"
+# mkvpropedit = "/usr/local/bin/mkvpropedit"
+
+[behavior]
+# warn_on_missing_features = true
+# show_upgrade_suggestions = true
+
+[processing]
+# workers = 2  # Parallel workers for batch processing (1 = sequential)
 """
 
 
@@ -609,7 +641,9 @@ def create_data_directory(
     return _create_directory(data_dir, "data", dry_run)
 
 
-def write_config_file(data_dir: Path, dry_run: bool = False) -> tuple[bool, str | None]:
+def write_config_file(
+    data_dir: Path, dry_run: bool = False, *, minimal: bool = False
+) -> tuple[bool, str | None]:
     """Write the config.toml file to the data directory.
 
     Uses atomic write (temp file + rename) to prevent partial writes.
@@ -617,6 +651,7 @@ def write_config_file(data_dir: Path, dry_run: bool = False) -> tuple[bool, str 
     Args:
         data_dir: VPO data directory path.
         dry_run: If True, don't actually write anything.
+        minimal: If True, write the minimal template instead of the full one.
 
     Returns:
         Tuple of (success, error_message). Error is None on success.
@@ -628,7 +663,11 @@ def write_config_file(data_dir: Path, dry_run: bool = False) -> tuple[bool, str 
         return True, None
 
     try:
-        _atomic_write_text(config_path, get_config_template(data_dir))
+        if minimal:
+            content = get_minimal_config_template()
+        else:
+            content = get_config_template(data_dir)
+        _atomic_write_text(config_path, content)
         logger.debug("Created config file: %s", config_path)
         return True, None
     except PermissionError:
@@ -756,6 +795,8 @@ def run_init(
     data_dir: Path,
     force: bool = False,
     dry_run: bool = False,
+    *,
+    minimal: bool = False,
 ) -> InitResult:
     """Run VPO initialization.
 
@@ -767,15 +808,17 @@ def run_init(
         data_dir: Path where to initialize VPO.
         force: If True, overwrite existing configuration.
         dry_run: If True, don't actually create anything.
+        minimal: If True, use the minimal config template.
 
     Returns:
         InitResult describing what was done.
     """
     logger.debug(
-        "Running init: data_dir=%s, force=%s, dry_run=%s",
+        "Running init: data_dir=%s, force=%s, dry_run=%s, minimal=%s",
         data_dir,
         force,
         dry_run,
+        minimal,
     )
 
     # Validate the path first
@@ -862,7 +905,7 @@ def run_init(
     config_existed = config_path.exists()
     if config_existed:
         skipped_files.append(config_path)
-    success, error = write_config_file(data_dir, dry_run)
+    success, error = write_config_file(data_dir, dry_run, minimal=minimal)
     if not success:
         return handle_failure(error or "Failed to write config file.")
     planned_files.append(config_path)

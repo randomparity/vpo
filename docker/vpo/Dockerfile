@@ -16,7 +16,7 @@
 # ----------------------------------------------------------------------------
 # Stage 1: Build VPO with Rust extension
 # ----------------------------------------------------------------------------
-FROM python:3.12-slim AS builder
+FROM python:3.12.11-slim AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -26,11 +26,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Rust toolchain
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85.0
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Install maturin for building the Rust extension
-RUN pip install --no-cache-dir maturin
+RUN pip install --no-cache-dir "maturin>=1.7,<2"
 
 # Copy source code
 WORKDIR /build
@@ -42,7 +42,7 @@ RUN maturin build --release --strip --out dist
 # ----------------------------------------------------------------------------
 # Stage 2: Runtime image
 # ----------------------------------------------------------------------------
-FROM python:3.12-slim AS runtime
+FROM python:3.12.11-slim AS runtime
 
 # Labels
 LABEL org.opencontainers.image.source="https://github.com/randomparity/vpo"

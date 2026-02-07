@@ -109,6 +109,16 @@ function announceToScreenReader(message) {
 (function () {
     'use strict'
 
+    // Load policy data from JSON data block (CSP disallows inline scripts)
+    var policyDataEl = document.getElementById('policy-data')
+    if (policyDataEl) {
+        try {
+            window.POLICY_DATA = JSON.parse(policyDataEl.textContent)
+        } catch (e) {
+            console.error('Failed to parse policy data:', e)
+        }
+    }
+
     // Validate that POLICY_DATA is available
     if (typeof window.POLICY_DATA === 'undefined') {
         console.error('POLICY_DATA not found')
@@ -1015,7 +1025,7 @@ function announceToScreenReader(message) {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': window.CSRF_TOKEN
+                    'X-CSRF-Token': window.VPOUtils.getCsrfToken()
                 },
                 body: JSON.stringify(requestData)
             })
@@ -1190,7 +1200,7 @@ function announceToScreenReader(message) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': window.CSRF_TOKEN
+                    'X-CSRF-Token': window.VPOUtils.getCsrfToken()
                 },
                 body: JSON.stringify(requestData)
             })
@@ -1642,6 +1652,14 @@ function announceToScreenReader(message) {
 
         // Initialize accessible language autocomplete (T023)
         initLanguageAutocomplete()
+
+        // Ctrl+S / Cmd+S keyboard shortcut for save
+        document.addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault()
+                savePolicy()
+            }
+        })
     }
 
     // Start the editor

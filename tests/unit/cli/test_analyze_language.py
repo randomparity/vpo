@@ -87,9 +87,9 @@ class TestLanguageCommand:
         """Test that language help is displayed."""
         result = runner.invoke(main, ["analyze", "language", "--help"])
         assert result.exit_code == 0
-        assert "--force" in result.output
+        assert "--reanalyze" in result.output
         assert "--recursive" in result.output
-        assert "--json" in result.output
+        assert "--format" in result.output
 
     @patch("vpo.cli.analyze._check_plugin_available")
     def test_language_no_plugin(self, mock_plugin, runner, mock_conn, tmp_path):
@@ -176,7 +176,7 @@ class TestStatusCommand:
         result = runner.invoke(main, ["analyze", "status", "--help"])
         assert result.exit_code == 0
         assert "--type" in result.output
-        assert "--json" in result.output
+        assert "--format" in result.output
         assert "--limit" in result.output
 
     @patch("vpo.db.views.get_analysis_status_summary")
@@ -230,6 +230,25 @@ class TestStatusCommand:
         assert "Total files:" in result.output
         assert "100" in result.output
         assert "Multi-language:" in result.output
+
+    def test_classify_status_shows_help(self, runner, mock_conn):
+        """analyze status --type classify shows usage guidance."""
+        result = runner.invoke(
+            main,
+            ["analyze", "status", "--type", "classify"],
+            obj={"db_conn": mock_conn},
+        )
+        assert result.exit_code == 0
+
+    def test_classify_status_json_shows_not_implemented(self, runner, mock_conn):
+        """analyze status --type classify --json returns not implemented message."""
+        result = runner.invoke(
+            main,
+            ["analyze", "status", "--type", "classify", "--json"],
+            obj={"db_conn": mock_conn},
+        )
+        assert result.exit_code == 0
+        assert "not yet implemented" in result.output.lower()
 
 
 class TestClearCommand:

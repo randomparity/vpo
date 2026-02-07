@@ -145,6 +145,7 @@ def _detect_tool_generic(
     if not path:
         info.status = ToolStatus.MISSING
         info.status_message = f"{config.name} not found in PATH"
+        logger.debug("%s not found in PATH", config.name)
         return info
 
     info.path = path
@@ -153,6 +154,12 @@ def _detect_tool_generic(
     if rc != 0:
         info.status = ToolStatus.ERROR
         info.status_message = f"Failed to get {config.name} version: {stderr}"
+        logger.warning(
+            "%s found at %s but version check failed: %s",
+            config.name,
+            path,
+            stderr,
+        )
         return info
 
     version_match = re.search(config.version_pattern, stdout)

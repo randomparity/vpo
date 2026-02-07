@@ -267,6 +267,11 @@ def serve_command(
       3. Environment variables (VPO_SERVER_*)
       4. Default values
 
+    Environment variables:
+      VPO_AUTH_TOKEN       - Bearer token for HTTP authentication.
+      VPO_SESSION_SECRET   - Fernet-compatible base64 key for session cookies.
+                             Without this, sessions are lost on restart.
+
     \b
     Examples:
         vpo serve                           # Start with defaults
@@ -279,7 +284,14 @@ def serve_command(
     _configure_daemon_logging(log_level, log_format, config_path)
 
     # Load configuration with CLI overrides
-    config = get_config(config_path=config_path)
+    config = get_config(config_path=config_path, strict=True)
+
+    # Validate cross-field config constraints (non-blocking)
+    from vpo.config.loader import validate_config
+
+    config_warnings = validate_config(config)
+    for warning in config_warnings:
+        logger.warning("Config issue: %s", warning)
 
     # Apply CLI overrides (CLI > config file > env vars > defaults)
     server_bind = bind if bind is not None else config.server.bind
@@ -313,6 +325,16 @@ def serve_command(
     # Warn about privileged ports
     if server_port < 1024:
         logger.warning("Port %d is privileged and may require root", server_port)
+
+    # Warn when binding to non-loopback address
+    if server_bind not in {"127.0.0.1", "::1", "localhost"}:
+        logger.warning("Binding to %s exposes VPO to the network.", server_bind)
+        if not auth_token:
+            logger.warning(
+                "Server bound to %s with authentication DISABLED. "
+                "Set VPO_AUTH_TOKEN to protect access.",
+                server_bind,
+            )
 
     logger.info(
         "Starting VPO daemon (bind=%s, port=%d, timeout=%.1fs)",

@@ -55,14 +55,17 @@ SECURITY_HEADERS = {
     "Content-Security-Policy": (
         "default-src 'self'; "
         # Allow CDN for Ajv and Highlight.js
-        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "script-src 'self' https://cdn.jsdelivr.net; "
+        "style-src 'self' https://cdn.jsdelivr.net; "
         "img-src 'self' data:; "
         "connect-src 'self'; "
         "font-src 'self'; "
         "object-src 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
         "frame-ancestors 'self'"
     ),
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
 }
 
 # Template directory path
@@ -148,8 +151,11 @@ def shutdown_check_middleware(handler: Handler) -> Handler:
     async def wrapper(request: web.Request) -> web.StreamResponse:
         lifecycle = request.app.get("lifecycle")
         if lifecycle and lifecycle.is_shutting_down:
-            return web.json_response(
-                {"error": "Service is shutting down"},
+            from vpo.server.api.errors import SHUTTING_DOWN, api_error
+
+            return api_error(
+                "Service is shutting down",
+                code=SHUTTING_DOWN,
                 status=503,
             )
         return await handler(request)
@@ -175,8 +181,11 @@ def database_required_middleware(handler: Handler) -> Handler:
     async def wrapper(request: web.Request) -> web.StreamResponse:
         pool: DaemonConnectionPool | None = request.app.get("connection_pool")
         if pool is None:
-            return web.json_response(
-                {"error": "Database not available"},
+            from vpo.server.api.errors import DATABASE_UNAVAILABLE, api_error
+
+            return api_error(
+                "Database not available",
+                code=DATABASE_UNAVAILABLE,
                 status=503,
             )
         # Store in request for handler access

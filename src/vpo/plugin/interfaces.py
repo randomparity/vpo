@@ -119,6 +119,11 @@ class MutatorPlugin(Protocol):
     They are called during plan.before_execute and can modify or replace
     the plan, or perform additional modifications.
 
+    Security note:
+        Mutators can modify execution plans and write to the filesystem.
+        They run with full process permissions. Only load mutator plugins
+        from trusted sources.
+
     Required attributes (can be class attributes or properties):
         name: str - Unique plugin identifier
         version: str - Plugin version (semver)

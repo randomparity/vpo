@@ -1,15 +1,17 @@
 """CLI commands for configuration management.
 
-This module provides commands for managing configuration profiles.
-Renamed from profiles.py for more intuitive naming.
+This module provides commands for managing configuration profiles
+and validating the base config.toml file.
 """
 
 import json
 import logging
+from pathlib import Path
 
 import click
 
 from vpo.cli.exit_codes import ExitCode
+from vpo.cli.output import format_option
 from vpo.config.profiles import (
     ProfileError,
     ProfileNotFoundError,
@@ -44,13 +46,8 @@ def config_group() -> None:
 
 
 @config_group.command("list")
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output in JSON format.",
-)
-def list_config_cmd(json_output: bool) -> None:
+@format_option
+def list_config_cmd(output_format: str) -> None:
     """List available configuration profiles.
 
     Profiles are stored in ~/.vpo/profiles/ as YAML files.
@@ -61,8 +58,9 @@ def list_config_cmd(json_output: bool) -> None:
         vpo config list
 
         # Output as JSON
-        vpo config list --json
+        vpo config list --format json
     """
+    json_output = output_format == "json"
     profile_names = list_profiles()
 
     if json_output:
@@ -157,13 +155,8 @@ def _output_profiles_json(profile_names: list[str]) -> None:
 
 @config_group.command("show")
 @click.argument("profile_name")
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output in JSON format.",
-)
-def show_config(profile_name: str, json_output: bool) -> None:
+@format_option
+def show_config(profile_name: str, output_format: str) -> None:
     """Show detailed information about a profile.
 
     PROFILE_NAME is the name of the profile (without .yaml extension).
@@ -174,8 +167,9 @@ def show_config(profile_name: str, json_output: bool) -> None:
         vpo config show movies
 
         # Output as JSON
-        vpo config show movies --json
+        vpo config show movies --format json
     """
+    json_output = output_format == "json"
     try:
         profile = load_profile(profile_name)
     except ProfileNotFoundError:
@@ -312,13 +306,8 @@ def _output_profile_human(profile) -> None:
 
 @config_group.command("validate")
 @click.argument("profile_name")
-@click.option(
-    "--json",
-    "json_output",
-    is_flag=True,
-    help="Output in JSON format.",
-)
-def validate_config(profile_name: str, json_output: bool) -> None:
+@format_option
+def validate_config(profile_name: str, output_format: str) -> None:
     """Validate a configuration profile.
 
     PROFILE_NAME is the name of the profile (without .yaml extension).
@@ -329,8 +318,9 @@ def validate_config(profile_name: str, json_output: bool) -> None:
         vpo config validate movies
 
         # Output as JSON
-        vpo config validate movies --json
+        vpo config validate movies --format json
     """
+    json_output = output_format == "json"
     try:
         profile = load_profile(profile_name)
     except ProfileNotFoundError:
@@ -428,3 +418,59 @@ def create_config(
     # Write profile
     profile_path.write_text(content)
     click.echo(f"Created profile: {profile_path}")
+
+
+@config_group.command("check")
+@click.option(
+    "--config",
+    "config_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Path to config.toml (default: ~/.vpo/config.toml).",
+)
+@format_option
+def check_config(config_path: Path | None, output_format: str) -> None:
+    """Validate the base config.toml file.
+
+    Loads the config file with strict parsing, constructs the full
+    VPOConfig, and runs cross-field validation checks.
+
+    Examples:
+
+        # Check default config
+        vpo config check
+
+        # Check specific config file
+        vpo config check --config /path/to/config.toml
+
+        # Output as JSON
+        vpo config check --format json
+    """
+    from vpo.config.loader import get_config, validate_config
+    from vpo.config.toml_parser import TomlParseError
+
+    json_output = output_format == "json"
+    errors: list[str] = []
+
+    # Load with strict=True to catch parse errors
+    try:
+        config = get_config(config_path=config_path, strict=True)
+    except (TomlParseError, ValueError) as e:
+        is_parse = isinstance(e, TomlParseError)
+        prefix = "TOML parse error" if is_parse else "Validation error"
+        errors.append(f"{prefix}: {e}")
+    else:
+        # Run cross-field validation
+        errors = validate_config(config)
+
+    if json_output:
+        click.echo(json.dumps({"valid": not errors, "errors": errors}, indent=2))
+    elif errors:
+        click.echo(click.style("Config file has errors:", fg="red"), err=True)
+        for error in errors:
+            click.echo(f"  - {error}", err=True)
+    else:
+        click.echo(click.style("Configuration is valid.", fg="green"))
+
+    if errors:
+        raise SystemExit(ExitCode.CONFIG_ERROR)

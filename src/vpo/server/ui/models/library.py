@@ -172,6 +172,7 @@ class FileListResponse:
     limit: int
     offset: int
     has_filters: bool
+    max_page_size: int = 100
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -181,6 +182,7 @@ class FileListResponse:
             "limit": self.limit,
             "offset": self.offset,
             "has_filters": self.has_filters,
+            "max_page_size": self.max_page_size,
         }
 
 

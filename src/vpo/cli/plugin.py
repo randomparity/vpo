@@ -3,6 +3,7 @@
 Renamed from plugins.py for consistency with other singular group names.
 """
 
+import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,6 +11,7 @@ from pathlib import Path
 import click
 
 from vpo.cli.exit_codes import ExitCode
+from vpo.cli.output import format_option
 from vpo.config.loader import get_config
 
 logger = logging.getLogger(__name__)
@@ -102,8 +104,9 @@ def plugin_group() -> None:
 
 @plugin_group.command("list")
 @click.option("-v", "--verbose", is_flag=True, help="Show detailed plugin information")
+@format_option
 @click.pass_context
-def list_plugins(ctx: click.Context, verbose: bool) -> None:
+def list_plugins(ctx: click.Context, verbose: bool, output_format: str) -> None:
     """List installed plugins."""
     config = get_config()
 
@@ -214,6 +217,10 @@ def list_plugins(ctx: click.Context, verbose: bool) -> None:
             )
 
     # Display results
+    if output_format == "json":
+        click.echo(json.dumps(plugins_info, indent=2))
+        return
+
     if not plugins_info:
         click.echo("No plugins found.")
         dirs_str = ", ".join(str(d) for d in config.plugins.plugin_dirs)

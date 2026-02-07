@@ -122,13 +122,19 @@
             elements.detailClose.addEventListener('click', closeDetailModal)
         }
         if (elements.detailModal) {
-        // Close on backdrop click
-            elements.detailModal.querySelector('.stats-modal-backdrop').addEventListener('click', closeDetailModal)
-            // Close on Escape key
-            document.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape' && elements.detailModal.style.display !== 'none') {
+            // Close on backdrop click (native dialog pattern)
+            elements.detailModal.addEventListener('click', function (e) {
+                if (e.target === elements.detailModal) {
                     closeDetailModal()
                 }
+            })
+            // Restore focus when dialog is closed (handles Escape natively)
+            elements.detailModal.addEventListener('close', function () {
+                if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+                    lastFocusedElement.focus()
+                }
+                lastFocusedElement = null
+                state.selectedDetail = null
             })
         }
 
@@ -330,6 +336,21 @@
     }
 
     /**
+ * Populate a visually-hidden data table for a chart.
+ * @param {string} tableId - The ID of the table element
+ * @param {Array} rows - Array of [label, value] pairs
+ */
+    function populateChartDataTable(tableId, rows) {
+        var table = document.getElementById(tableId)
+        if (!table) return
+        var tbody = table.querySelector('tbody')
+        if (!tbody) return
+        tbody.innerHTML = rows.map(function (row) {
+            return '<tr><td>' + escapeHtml(String(row[0])) + '</td><td>' + escapeHtml(String(row[1])) + '</td></tr>'
+        }).join('')
+    }
+
+    /**
  * Render library overview charts (file count + size over time)
  */
     function renderLibraryCharts() {
@@ -363,6 +384,9 @@
                 height: 200,
                 showArea: true
             })
+            populateChartDataTable('stats-chart-library-files-data', fileData.map(function (d) {
+                return [d.date, formatNumber(d.value)]
+            }))
         }
 
         // Size chart
@@ -380,6 +404,9 @@
                 height: 200,
                 showArea: true
             })
+            populateChartDataTable('stats-chart-library-size-data', sizeData.map(function (d) {
+                return [d.date, formatBytes(d.value)]
+            }))
         }
     }
 
@@ -404,12 +431,21 @@
 
         if (elements.chartContainers) {
             renderPieChart(elements.chartContainers, data.containers, { size: 180 })
+            populateChartDataTable('stats-chart-containers-data', data.containers.map(function (d) {
+                return [d.label, formatNumber(d.value)]
+            }))
         }
         if (elements.chartVideoCodecs) {
             renderPieChart(elements.chartVideoCodecs, data.video_codecs, { size: 180 })
+            populateChartDataTable('stats-chart-video-codecs-data', data.video_codecs.map(function (d) {
+                return [d.label, formatNumber(d.value)]
+            }))
         }
         if (elements.chartAudioCodecs) {
             renderPieChart(elements.chartAudioCodecs, data.audio_codecs, { size: 180 })
+            populateChartDataTable('stats-chart-audio-codecs-data', data.audio_codecs.map(function (d) {
+                return [d.label, formatNumber(d.value)]
+            }))
         }
     }
 
@@ -448,6 +484,9 @@
                 height: 200,
                 showArea: true
             })
+            populateChartDataTable('stats-chart-trend-data', trendData.map(function (d) {
+                return [d.date, formatNumber(d.value)]
+            }))
         } else if (elements.chartTrend) {
             elements.chartTrend.innerHTML = '<div class="chart-empty">No trend data available</div>'
         }
@@ -471,6 +510,9 @@
                 valueFormat: 'bytes',
                 height: 200
             })
+            populateChartDataTable('stats-chart-policy-data', policyData.map(function (d) {
+                return [d.label, formatBytes(d.value)]
+            }))
         } else if (elements.chartPolicy) {
             elements.chartPolicy.innerHTML = '<div class="chart-empty">No policy data available</div>'
         }
@@ -485,6 +527,9 @@
                 title: 'Avg Savings',
                 size: 140
             })
+            populateChartDataTable('stats-chart-gauge-data', [
+                ['Average Savings', formatPercent(savingsPercent)]
+            ])
         } else if (elements.chartGauge) {
             elements.chartGauge.innerHTML = '<div class="chart-empty">No data</div>'
         }
@@ -694,29 +739,6 @@
     // =====================
 
     /**
- * Trap focus within the modal for accessibility
- */
-    function trapFocusInModal(e) {
-        if (e.key !== 'Tab') return
-
-        var focusableElements = elements.detailModal.querySelectorAll(
-            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        )
-        if (focusableElements.length === 0) return
-
-        var first = focusableElements[0]
-        var last = focusableElements[focusableElements.length - 1]
-
-        if (e.shiftKey && document.activeElement === first) {
-            e.preventDefault()
-            last.focus()
-        } else if (!e.shiftKey && document.activeElement === last) {
-            e.preventDefault()
-            first.focus()
-        }
-    }
-
-    /**
  * Show the detail modal for a stats entry
  */
     async function showDetailModal(statsId) {
@@ -726,15 +748,12 @@
         lastFocusedElement = document.activeElement
 
         state.detailLoading = true
-        elements.detailModal.style.display = 'flex'
+        elements.detailModal.showModal()
         elements.detailBody.innerHTML =
         '<div class="stats-detail-loading">' +
             '<div class="stats-loading-spinner"></div>' +
             '<span>Loading details...</span>' +
         '</div>'
-
-        // Add focus trap listener
-        document.addEventListener('keydown', trapFocusInModal)
 
         // Move focus to close button
         if (elements.detailClose) {
@@ -772,17 +791,7 @@
  */
     function closeDetailModal() {
         if (elements.detailModal) {
-            elements.detailModal.style.display = 'none'
-            state.selectedDetail = null
-
-            // Remove focus trap listener
-            document.removeEventListener('keydown', trapFocusInModal)
-
-            // Restore focus to the element that triggered the modal
-            if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
-                lastFocusedElement.focus()
-            }
-            lastFocusedElement = null
+            elements.detailModal.close()
         }
     }
 

@@ -428,7 +428,6 @@
         if (header) {
             var msg = document.createElement('div')
             msg.className = 'job-detail-deleted-notice'
-            msg.style.cssText = 'background: #fee2e2; color: #991b1b; padding: 1rem; border-radius: 4px; margin-top: 1rem;'
             msg.textContent = 'This job no longer exists. It may have been deleted.'
             header.parentNode.insertBefore(msg, header.nextSibling)
         }
@@ -566,6 +565,12 @@
      * Initialize the job detail page.
      */
     function init() {
+        // Set initial progress bar width from data attribute (CSP disallows inline styles)
+        var progressBar = document.querySelector('.job-detail-progress-bar[data-progress]')
+        if (progressBar) {
+            progressBar.style.width = progressBar.getAttribute('data-progress') + '%'
+        }
+
         // Update timestamps to relative format
         updateTimestamps()
 

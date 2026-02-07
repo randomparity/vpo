@@ -153,7 +153,7 @@ def create_app(
         create_auth_middleware,
         is_auth_enabled,
     )
-    from vpo.server.rate_limit import RateLimiter, _rate_limit_middleware
+    from vpo.server.rate_limit import RateLimiter, rate_limit_middleware
 
     app = web.Application()
 
@@ -173,7 +173,7 @@ def create_app(
     # The middleware reads the RateLimiter from app["rate_limiter"].
     config = get_config()
     app["rate_limiter"] = RateLimiter(config.server.rate_limit)
-    app.middlewares.append(_rate_limit_middleware)
+    app.middlewares.append(rate_limit_middleware)
 
     # Setup session middleware with encrypted cookie storage
     # Use environment variable for secret key, or generate one for development
@@ -189,14 +189,37 @@ def create_app(
         secret_key = base64.urlsafe_b64decode(encoded_key)
         logger.warning(
             "VPO_SESSION_SECRET not set, using randomly generated session key. "
-            "Sessions will not persist across restarts."
+            "Sessions will not persist across restarts. For production, set "
+            "VPO_SESSION_SECRET to a Fernet-compatible base64 key (generate "
+            "with: python -c 'from cryptography.fernet import Fernet; "
+            "print(Fernet.generate_key().decode())')."
         )
+        logger.info("Session persistence: disabled (ephemeral key)")
     else:
         # Environment variable is a string, encode it to bytes
         # Assume it's a Fernet-compatible base64-encoded key
         import base64
 
-        secret_key = base64.urlsafe_b64decode(secret_key_str)
+        try:
+            secret_key = base64.urlsafe_b64decode(secret_key_str)
+        except Exception:
+            logger.error(
+                "VPO_SESSION_SECRET is not valid base64. "
+                "Generate one with: python -c "
+                "'from cryptography.fernet import Fernet; "
+                "print(Fernet.generate_key().decode())'"
+            )
+            raise SystemExit(1)
+        if len(secret_key) != 32:
+            logger.error(
+                "VPO_SESSION_SECRET must decode to exactly 32 bytes "
+                "(got %d). Generate a valid key with: python -c "
+                "'from cryptography.fernet import Fernet; "
+                "print(Fernet.generate_key().decode())'",
+                len(secret_key),
+            )
+            raise SystemExit(1)
+        logger.info("Session persistence: enabled")
 
     setup_session(app, EncryptedCookieStorage(secret_key))
 
@@ -237,6 +260,7 @@ def create_app(
     # Register API routes
     app.router.add_get("/health", health_handler)
     app.router.add_get("/api/about", api_about_handler)
+    app.router.add_get("/api/v1/about", api_about_handler)
     # Setup UI routes and templates (includes API routes via setup_api_routes)
     setup_ui_routes(app)
 

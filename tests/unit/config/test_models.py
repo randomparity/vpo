@@ -2,7 +2,12 @@
 
 import pytest
 
-from vpo.config.models import JobsConfig, ProcessingConfig, RateLimitConfig
+from vpo.config.models import (
+    JobsConfig,
+    ProcessingConfig,
+    RateLimitConfig,
+    ServerConfig,
+)
 
 
 class TestProcessingConfig:
@@ -149,3 +154,43 @@ class TestRateLimitConfig:
         assert config.get_max_requests == 1
         assert config.mutate_max_requests == 1
         assert config.window_seconds == 1
+
+
+class TestServerConfig:
+    """Tests for ServerConfig auth_token validation."""
+
+    def test_none_auth_token_remains_none(self) -> None:
+        """None auth_token should remain None."""
+        config = ServerConfig(auth_token=None)
+        assert config.auth_token is None
+
+    def test_short_token_raises(self) -> None:
+        """Token shorter than 16 chars should raise ValueError."""
+        with pytest.raises(ValueError, match="at least 16 characters"):
+            ServerConfig(auth_token="short")
+
+    def test_whitespace_only_normalized_to_none(self) -> None:
+        """Whitespace-only auth_token should be normalized to None."""
+        config = ServerConfig(auth_token="   ")
+        assert config.auth_token is None
+
+    def test_empty_string_normalized_to_none(self) -> None:
+        """Empty string auth_token should be normalized to None."""
+        config = ServerConfig(auth_token="")
+        assert config.auth_token is None
+
+    def test_valid_token_accepted(self) -> None:
+        """Valid 16+ char token should be accepted."""
+        config = ServerConfig(auth_token="abcdefghijklmnop")
+        assert config.auth_token == "abcdefghijklmnop"
+
+    def test_exactly_16_char_token_accepted(self) -> None:
+        """Exactly 16 character token should be accepted."""
+        token = "a" * 16
+        config = ServerConfig(auth_token=token)
+        assert config.auth_token == token
+
+    def test_15_char_token_raises(self) -> None:
+        """15 character token should raise."""
+        with pytest.raises(ValueError, match="at least 16 characters"):
+            ServerConfig(auth_token="a" * 15)

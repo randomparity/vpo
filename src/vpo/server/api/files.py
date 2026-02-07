@@ -15,7 +15,12 @@ import logging
 
 from aiohttp import web
 
-from vpo.server.middleware import TRANSCRIPTIONS_ALLOWED_PARAMS, validate_query_params
+from vpo.server.api.errors import INVALID_ID_FORMAT, NOT_FOUND, api_error
+from vpo.server.middleware import (
+    LIBRARY_ALLOWED_PARAMS,
+    TRANSCRIPTIONS_ALLOWED_PARAMS,
+    validate_query_params,
+)
 from vpo.server.ui.models import (
     FileDetailResponse,
     FileListItem,
@@ -42,6 +47,7 @@ logger = logging.getLogger(__name__)
 
 @shutdown_check_middleware
 @database_required_middleware
+@validate_query_params(LIBRARY_ALLOWED_PARAMS, strict=True)
 async def library_api_handler(request: web.Request) -> web.Response:
     """Handle GET /api/library - JSON API for library files listing.
 
@@ -185,10 +191,7 @@ async def api_file_detail_handler(request: web.Request) -> web.Response:
         if file_id < 1:
             raise ValueError("Invalid ID")
     except ValueError:
-        return web.json_response(
-            {"error": "Invalid file ID format"},
-            status=400,
-        )
+        return api_error("Invalid file ID format", code=INVALID_ID_FORMAT)
 
     # Get connection pool from middleware
     connection_pool = request["connection_pool"]
@@ -208,10 +211,7 @@ async def api_file_detail_handler(request: web.Request) -> web.Response:
     file_record, tracks, transcriptions = await asyncio.to_thread(_query_file)
 
     if file_record is None:
-        return web.json_response(
-            {"error": "File not found"},
-            status=404,
-        )
+        return api_error("File not found", code=NOT_FOUND, status=404)
 
     # Build FileDetailItem
     detail_item = build_file_detail_item(file_record, tracks, transcriptions)
@@ -224,7 +224,7 @@ async def api_file_detail_handler(request: web.Request) -> web.Response:
 
 @shutdown_check_middleware
 @database_required_middleware
-@validate_query_params(TRANSCRIPTIONS_ALLOWED_PARAMS)
+@validate_query_params(TRANSCRIPTIONS_ALLOWED_PARAMS, strict=True)
 async def api_transcriptions_handler(request: web.Request) -> web.Response:
     """Handle GET /api/transcriptions - JSON API for transcriptions listing.
 
@@ -307,10 +307,7 @@ async def api_transcription_detail_handler(request: web.Request) -> web.Response
         if transcription_id < 1:
             raise ValueError("Invalid ID")
     except ValueError:
-        return web.json_response(
-            {"error": "Invalid transcription ID format"},
-            status=400,
-        )
+        return api_error("Invalid transcription ID format", code=INVALID_ID_FORMAT)
 
     # Get connection pool from middleware
     connection_pool = request["connection_pool"]
@@ -323,10 +320,7 @@ async def api_transcription_detail_handler(request: web.Request) -> web.Response
     data = await asyncio.to_thread(_query_transcription)
 
     if data is None:
-        return web.json_response(
-            {"error": "Transcription not found"},
-            status=404,
-        )
+        return api_error("Transcription not found", code=NOT_FOUND, status=404)
 
     # Build detail item
     detail_item = build_transcription_detail_item(data)
@@ -337,19 +331,12 @@ async def api_transcription_detail_handler(request: web.Request) -> web.Response
     return web.json_response(response.to_dict())
 
 
-def setup_file_routes(app: web.Application) -> None:
-    """Register file/library API routes with the application.
-
-    Args:
-        app: aiohttp Application to configure.
-    """
-    # Library API routes (018-library-list-view, 019-library-filters-search)
-    app.router.add_get("/api/library", library_api_handler)
-    app.router.add_get("/api/library/languages", api_library_languages_handler)
-    # File detail route (020-file-detail-view)
-    app.router.add_get("/api/library/{file_id}", api_file_detail_handler)
-    # Transcription routes
-    app.router.add_get("/api/transcriptions", api_transcriptions_handler)
-    app.router.add_get(
-        "/api/transcriptions/{transcription_id}", api_transcription_detail_handler
-    )
+def get_file_routes() -> list[tuple[str, str, object]]:
+    """Return file/library API route definitions."""
+    return [
+        ("GET", "/library", library_api_handler),
+        ("GET", "/library/languages", api_library_languages_handler),
+        ("GET", "/library/{file_id}", api_file_detail_handler),
+        ("GET", "/transcriptions", api_transcriptions_handler),
+        ("GET", "/transcriptions/{transcription_id}", api_transcription_detail_handler),
+    ]

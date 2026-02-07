@@ -29,7 +29,7 @@ class TestPolicyValidateHelp:
 
         assert result.exit_code == 0
         assert "Validate a policy YAML file" in result.output
-        assert "--json" in result.output
+        assert "--format" in result.output
         assert "POLICY_FILE" in result.output
 
 
