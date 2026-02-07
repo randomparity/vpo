@@ -210,6 +210,15 @@ def create_app(
                 "print(Fernet.generate_key().decode())'"
             )
             raise SystemExit(1)
+        if len(secret_key) != 32:
+            logger.error(
+                "VPO_SESSION_SECRET must decode to exactly 32 bytes "
+                "(got %d). Generate a valid key with: python -c "
+                "'from cryptography.fernet import Fernet; "
+                "print(Fernet.generate_key().decode())'",
+                len(secret_key),
+            )
+            raise SystemExit(1)
         logger.info("Session persistence: enabled")
 
     setup_session(app, EncryptedCookieStorage(secret_key))

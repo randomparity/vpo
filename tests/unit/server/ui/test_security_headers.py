@@ -61,3 +61,22 @@ class TestSecurityHeaders:
             if "style-src" in directive:
                 assert "'unsafe-inline'" not in directive
                 break
+
+    def test_csp_includes_base_uri(self) -> None:
+        """Test that CSP includes base-uri directive."""
+        csp = SECURITY_HEADERS.get("Content-Security-Policy", "")
+        assert "base-uri 'self'" in csp
+
+    def test_csp_includes_form_action(self) -> None:
+        """Test that CSP includes form-action directive."""
+        csp = SECURITY_HEADERS.get("Content-Security-Policy", "")
+        assert "form-action 'self'" in csp
+
+    def test_permissions_policy_header(self) -> None:
+        """Test that Permissions-Policy header is present."""
+        assert "Permissions-Policy" in SECURITY_HEADERS
+        policy = SECURITY_HEADERS["Permissions-Policy"]
+        assert "camera=()" in policy
+        assert "microphone=()" in policy
+        assert "geolocation=()" in policy
+        assert "payment=()" in policy

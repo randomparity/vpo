@@ -65,6 +65,7 @@ SECURITY_HEADERS = {
         "form-action 'self'; "
         "frame-ancestors 'self'"
     ),
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
 }
 
 # Template directory path

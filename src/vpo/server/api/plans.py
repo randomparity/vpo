@@ -340,7 +340,16 @@ async def _parse_bulk_request(request: web.Request) -> BulkActionRequest | web.R
     try:
         return BulkActionRequest.model_validate(body)
     except Exception as e:
-        return api_error(str(e), code=VALIDATION_FAILED)
+        details = None
+        if hasattr(e, "errors"):
+            details = [
+                {
+                    "field": ".".join(str(loc) for loc in err["loc"]),
+                    "message": err["msg"],
+                }
+                for err in e.errors()
+            ]
+        return api_error(str(e), code=VALIDATION_FAILED, details=details)
 
 
 @shutdown_check_middleware
