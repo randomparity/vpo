@@ -88,7 +88,7 @@ fn compute_file_hash(path: &str) -> Result<String, String> {
 pub fn hash_files(
     py: Python<'_>,
     paths: Vec<String>,
-    progress_callback: Option<PyObject>,
+    progress_callback: Option<Py<PyAny>>,
 ) -> PyResult<Vec<FileHash>> {
     let total = paths.len();
 
@@ -103,7 +103,7 @@ pub fn hash_files(
             py.check_signals()?;
 
             // Release GIL during parallel hashing
-            let chunk_results: Vec<FileHash> = py.allow_threads(|| {
+            let chunk_results: Vec<FileHash> = py.detach(|| {
                 chunk
                     .par_iter()
                     .map(|path| match compute_file_hash(path) {
@@ -144,7 +144,7 @@ pub fn hash_files(
             py.check_signals()?;
 
             // Release GIL during parallel hashing
-            let chunk_results: Vec<FileHash> = py.allow_threads(|| {
+            let chunk_results: Vec<FileHash> = py.detach(|| {
                 chunk
                     .par_iter()
                     .map(|path| match compute_file_hash(path) {
