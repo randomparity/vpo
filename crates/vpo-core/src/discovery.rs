@@ -49,7 +49,7 @@ pub fn discover_videos(
     root_path: &str,
     extensions: Vec<String>,
     follow_symlinks: bool,
-    progress_callback: Option<PyObject>,
+    progress_callback: Option<Py<PyAny>>,
 ) -> PyResult<Vec<DiscoveredFile>> {
     let extensions: HashSet<String> = extensions.into_iter().map(|e| e.to_lowercase()).collect();
     let root = PathBuf::from(root_path);
