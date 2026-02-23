@@ -526,3 +526,115 @@ class TestUpdateFileAttributesNoCommit:
             update_file_attributes(
                 test_conn, file_id, 1000, "2025-01-01T00:00:00+00:00", ""
             )
+
+    def test_update_file_attributes_with_container_tags(
+        self, test_conn: sqlite3.Connection
+    ) -> None:
+        """update_file_attributes should update container_tags when provided."""
+        record = make_test_file_record()
+        file_id = insert_file(test_conn, record)
+        test_conn.commit()
+
+        import json
+
+        tags_json = json.dumps({"title": "My Movie", "encoder": "libx265"})
+        result = update_file_attributes(
+            test_conn,
+            file_id,
+            2000,
+            "2025-06-20T15:45:00+00:00",
+            "newhash",
+            container_tags_json=tags_json,
+        )
+
+        assert result is True
+
+        cursor = test_conn.execute(
+            "SELECT container_tags FROM files WHERE id = ?",
+            (file_id,),
+        )
+        row = cursor.fetchone()
+        assert json.loads(row[0]) == {"title": "My Movie", "encoder": "libx265"}
+
+    def test_update_file_attributes_without_container_tags_preserves_existing(
+        self, test_conn: sqlite3.Connection
+    ) -> None:
+        """update_file_attributes should not touch container_tags when omitted."""
+        import json
+
+        record = make_test_file_record()
+        record = FileRecord(
+            id=record.id,
+            path=record.path,
+            filename=record.filename,
+            directory=record.directory,
+            extension=record.extension,
+            size_bytes=record.size_bytes,
+            modified_at=record.modified_at,
+            content_hash=record.content_hash,
+            container_format=record.container_format,
+            scanned_at=record.scanned_at,
+            scan_status=record.scan_status,
+            scan_error=record.scan_error,
+            job_id=record.job_id,
+            plugin_metadata=record.plugin_metadata,
+            container_tags=json.dumps({"title": "Original"}),
+        )
+        file_id = insert_file(test_conn, record)
+        test_conn.commit()
+
+        # Update without container_tags_json (sentinel default)
+        update_file_attributes(
+            test_conn, file_id, 2000, "2025-06-20T15:45:00+00:00", "newhash"
+        )
+
+        cursor = test_conn.execute(
+            "SELECT container_tags FROM files WHERE id = ?",
+            (file_id,),
+        )
+        row = cursor.fetchone()
+        assert json.loads(row[0]) == {"title": "Original"}
+
+    def test_update_file_attributes_clears_container_tags_with_none(
+        self, test_conn: sqlite3.Connection
+    ) -> None:
+        """update_file_attributes should clear container_tags when None is passed."""
+        import json
+
+        record = make_test_file_record()
+        record = FileRecord(
+            id=record.id,
+            path=record.path,
+            filename=record.filename,
+            directory=record.directory,
+            extension=record.extension,
+            size_bytes=record.size_bytes,
+            modified_at=record.modified_at,
+            content_hash=record.content_hash,
+            container_format=record.container_format,
+            scanned_at=record.scanned_at,
+            scan_status=record.scan_status,
+            scan_error=record.scan_error,
+            job_id=record.job_id,
+            plugin_metadata=record.plugin_metadata,
+            container_tags=json.dumps({"title": "Original"}),
+        )
+        file_id = insert_file(test_conn, record)
+        test_conn.commit()
+
+        # Explicitly pass None to clear
+        update_file_attributes(
+            test_conn,
+            file_id,
+            2000,
+            "2025-06-20T15:45:00+00:00",
+            "newhash",
+            container_tags_json=None,
+        )
+
+        cursor = test_conn.execute(
+            "SELECT container_tags FROM files WHERE id = ?",
+            (file_id,),
+        )
+        row = cursor.fetchone()
+        assert row[0] is None

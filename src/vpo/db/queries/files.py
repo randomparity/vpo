@@ -286,12 +286,16 @@ def update_file_path(conn: sqlite3.Connection, file_id: int, new_path: str) -> b
         raise
 
 
+_SENTINEL = object()
+
+
 def update_file_attributes(
     conn: sqlite3.Connection,
     file_id: int,
     size_bytes: int,
     modified_at: str,
     content_hash: str | None,
+    container_tags_json: str | None = _SENTINEL,
 ) -> bool:
     """Update file physical attributes after processing.
 
@@ -301,6 +305,9 @@ def update_file_attributes(
         size_bytes: New file size in bytes.
         modified_at: New modification time (ISO 8601 UTC).
         content_hash: New content hash (may be None if hashing failed).
+        container_tags_json: JSON string of container tags. When provided
+            (including None), updates the column. When omitted (sentinel),
+            leaves the column unchanged.
 
     Returns:
         True if file was updated, False if not found.
@@ -319,16 +326,29 @@ def update_file_attributes(
     if content_hash is not None and not content_hash:
         raise ValueError("content_hash cannot be empty string (use None)")
 
-    cursor = conn.execute(
-        """
-        UPDATE files SET
-            size_bytes = ?,
-            modified_at = ?,
-            content_hash = ?
-        WHERE id = ?
-        """,
-        (size_bytes, modified_at, content_hash, file_id),
-    )
+    if container_tags_json is _SENTINEL:
+        cursor = conn.execute(
+            """
+            UPDATE files SET
+                size_bytes = ?,
+                modified_at = ?,
+                content_hash = ?
+            WHERE id = ?
+            """,
+            (size_bytes, modified_at, content_hash, file_id),
+        )
+    else:
+        cursor = conn.execute(
+            """
+            UPDATE files SET
+                size_bytes = ?,
+                modified_at = ?,
+                content_hash = ?,
+                container_tags = ?
+            WHERE id = ?
+            """,
+            (size_bytes, modified_at, content_hash, container_tags_json, file_id),
+        )
     return cursor.rowcount > 0
 
 
