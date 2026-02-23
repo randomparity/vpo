@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from vpo.track_classification.models import TrackClassificationResult
 
 from vpo.db import TrackInfo
+from vpo.plugin_sdk.helpers import is_mkv_container
 from vpo.policy.conditions import PluginMetadataDict
 from vpo.policy.evaluator.classification import (
     _audio_matches_language_preference,
@@ -278,7 +279,7 @@ def evaluate_policy(
     # Check if reordering is needed
     if current_order != desired_order:
         # Only MKV supports track reordering
-        if container.casefold() in ("mkv", "matroska"):
+        if is_mkv_container(container):
             actions.append(
                 PlannedAction(
                     action_type=ActionType.REORDER,
