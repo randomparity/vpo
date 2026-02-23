@@ -429,12 +429,9 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
         if plan.container_change and plan.container_change.preserve_metadata:
             cmd.extend(["-map_metadata", "0"])
 
-        cmd.extend(
-            [
-                "-movflags",
-                "+faststart",  # Move moov atom to front for streaming
-            ]
-        )
+        # -movflags +faststart is MP4-specific (moves moov atom for streaming)
+        if plan.container_change and plan.container_change.target_format == "mp4":
+            cmd.extend(["-movflags", "+faststart"])
 
         # Handle track filtering if dispositions indicate removal
         # Build stream exclusion args based on track_dispositions
