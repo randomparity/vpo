@@ -200,7 +200,11 @@ class TestInitCommand:
         result = runner.invoke(init_command, ["--data-dir", "/root/vpo-test"])
 
         assert result.exit_code == 1
-        assert "permission denied" in result.output.lower()
+        output_lower = result.output.lower()
+        assert (
+            "permission denied" in output_lower
+            or "no accessible parent" in output_lower
+        )
 
     def test_path_is_file_error(self, temp_dir: Path):
         """Test error when path is a file."""

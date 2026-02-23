@@ -600,8 +600,9 @@ class TestRunInit:
         if os.geteuid() != 0:  # Skip if running as root
             result = run_init(Path("/root/vpo_test_rollback"))
             assert result.success is False
-            # Permission errors should be returned
-            assert "permission" in result.error.lower()
+            # Permission or inaccessible path errors should be returned
+            error_lower = result.error.lower()
+            assert "permission" in error_lower or "no accessible parent" in error_lower
 
     def test_rollback_cleans_created_files(self, temp_dir: Path):
         """Test that rollback actually removes created files."""
