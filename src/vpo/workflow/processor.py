@@ -780,7 +780,9 @@ class WorkflowProcessor:
                 file_path,
             )
 
-            # Update file attributes in database
+            # Update file attributes in database.
+            # serialize_container_tags returns None for empty/None dicts;
+            # both store as SQL NULL (empty and absent tags are equivalent).
             container_tags_json = serialize_container_tags(result.container_tags)
             updated = update_file_attributes(
                 self.conn,

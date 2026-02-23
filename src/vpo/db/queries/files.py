@@ -286,7 +286,16 @@ def update_file_path(conn: sqlite3.Connection, file_id: int, new_path: str) -> b
         raise
 
 
-_SENTINEL = object()
+class _Unset:
+    """Sentinel type distinguishing 'not provided' from None."""
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return "<UNSET>"
+
+
+_SENTINEL = _Unset()
 
 
 def update_file_attributes(
@@ -295,7 +304,7 @@ def update_file_attributes(
     size_bytes: int,
     modified_at: str,
     content_hash: str | None,
-    container_tags_json: str | None = _SENTINEL,
+    container_tags_json: str | None | _Unset = _SENTINEL,
 ) -> bool:
     """Update file physical attributes after processing.
 
@@ -326,7 +335,7 @@ def update_file_attributes(
     if content_hash is not None and not content_hash:
         raise ValueError("content_hash cannot be empty string (use None)")
 
-    if container_tags_json is _SENTINEL:
+    if isinstance(container_tags_json, _Unset):
         cursor = conn.execute(
             """
             UPDATE files SET

@@ -148,19 +148,25 @@ def _row_to_job(row: sqlite3.Row) -> Job:
 def serialize_container_tags(tags: dict[str, str] | None) -> str | None:
     """Serialize container tags dict to JSON string for database storage.
 
+    Both ``None`` and empty dicts serialize to ``None`` (stored as SQL NULL).
+    This is intentional: an empty tags dict and absent tags are equivalent
+    for policy evaluation purposes.
+
     Args:
         tags: Container tags dict with string keys and values, or None.
 
     Returns:
         JSON string representation, or None if tags is None/empty.
+
+    Raises:
+        ValueError: If tags cannot be serialized to JSON.
     """
     if not tags:
         return None
     try:
         return json.dumps(tags)
     except (TypeError, ValueError) as e:
-        logger.error("Failed to serialize container_tags: %s", e)
-        return None
+        raise ValueError(f"Failed to serialize container_tags: {e}") from e
 
 
 def deserialize_container_tags(json_str: str | None) -> dict[str, str] | None:
