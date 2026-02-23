@@ -269,7 +269,8 @@ class TestMkvpropeditExecutor:
             container_field="encoder",
         )
         args = executor._action_to_args(action)
-        assert args == ["--edit", "info", "--delete", "writing-application"]
+        # writing-application is mandatory, so --set with empty instead of --delete
+        assert args == ["--edit", "info", "--set", "writing-application="]
 
     def test_action_to_args_container_metadata_maps_creation_time_to_date(self):
         """SET_CONTAINER_METADATA maps ffprobe 'creation_time' to mkvpropedit 'date'."""

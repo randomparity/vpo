@@ -26,6 +26,15 @@ _FFPROBE_TO_MKVPROPEDIT_FIELD: dict[str, str] = {
     "creation_time": "date",
 }
 
+# Mandatory Matroska segment info properties that cannot be deleted via
+# --delete. Use --set with an empty string to clear them instead.
+_MANDATORY_PROPERTIES: frozenset[str] = frozenset(
+    {
+        "writing-application",
+        "muxing-application",
+    }
+)
+
 
 class MkvpropeditExecutor:
     """Executor for MKV metadata changes using mkvpropedit.
@@ -263,7 +272,9 @@ class MkvpropeditExecutor:
             prop_name = _FFPROBE_TO_MKVPROPEDIT_FIELD.get(field, field)
             value = action.desired_value if action.desired_value is not None else ""
             if value == "":
-                # Clear/delete the tag
+                # Mandatory properties cannot be deleted; clear with --set
+                if prop_name in _MANDATORY_PROPERTIES:
+                    return ["--edit", "info", "--set", f"{prop_name}="]
                 return ["--edit", "info", "--delete", prop_name]
             return ["--edit", "info", "--set", f"{prop_name}={value}"]
 
