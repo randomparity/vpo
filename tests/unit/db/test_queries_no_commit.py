@@ -621,3 +621,21 @@ class TestUpdateFileAttributesNoCommit:
             container_tags_json=tags_json,
         )
         assert result is False
+
+    def test_update_file_attributes_empty_container_tags_json_raises(
+        self, test_conn: sqlite3.Connection
+    ) -> None:
+        """update_file_attributes should raise ValueError for empty string tags."""
+        record = make_test_file_record()
+        file_id = insert_file(test_conn, record)
+        test_conn.commit()
+
+        with pytest.raises(ValueError, match="container_tags_json cannot be empty"):
+            update_file_attributes(
+                test_conn,
+                file_id,
+                1000,
+                "2025-01-01T00:00:00+00:00",
+                "hash",
+                container_tags_json="",
+            )

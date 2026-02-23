@@ -334,6 +334,14 @@ def update_file_attributes(
         raise ValueError(f"size_bytes must be non-negative, got {size_bytes}")
     if content_hash is not None and not content_hash:
         raise ValueError("content_hash cannot be empty string (use None)")
+    if (
+        not isinstance(container_tags_json, _Unset)
+        and container_tags_json is not None
+        and not container_tags_json
+    ):
+        raise ValueError(
+            "container_tags_json cannot be empty string (use None to clear)"
+        )
 
     if isinstance(container_tags_json, _Unset):
         cursor = conn.execute(

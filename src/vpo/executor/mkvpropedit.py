@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 
 # Map ffprobe/container_tags field names to mkvpropedit segment info property names.
 # ffprobe reports MKV segment info using different names than mkvpropedit expects.
+# Fields NOT in this map pass through unchanged (ffprobe and mkvpropedit use the
+# same name for those, e.g. "title", "comment").
 _FFPROBE_TO_MKVPROPEDIT_FIELD: dict[str, str] = {
     "encoder": "writing-application",
     "creation_time": "date",
@@ -28,6 +30,9 @@ _FFPROBE_TO_MKVPROPEDIT_FIELD: dict[str, str] = {
 
 # Mandatory Matroska segment info properties that cannot be deleted via
 # --delete. Use --set with an empty string to clear them instead.
+# "writing-application" originates from the "encoder" ffprobe field.
+# "muxing-application" has no standard ffprobe tag equivalent; listed here
+# defensively in case it is supplied as a container_field directly.
 _MANDATORY_PROPERTIES: frozenset[str] = frozenset(
     {
         "writing-application",
