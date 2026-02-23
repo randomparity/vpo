@@ -28,6 +28,7 @@ from vpo.plugin.events import (
     PolicyEvaluateEvent,
 )
 from vpo.plugin.manifest import PluginSource
+from vpo.plugin_sdk.helpers import is_mkv_container
 from vpo.policy.evaluator import evaluate_policy
 from vpo.policy.types import ActionType, EvaluationPolicy, Plan
 
@@ -309,14 +310,14 @@ class PolicyEnginePlugin:
                 if not tools.get("ffmpeg"):
                     return None
                 return FFmpegRemuxExecutor()
-            elif target == "mkv":
+            elif is_mkv_container(target):
                 if not tools.get("mkvmerge"):
                     return None
                 return MkvmergeExecutor()
 
         # Priority 2: Track filtering requires remux
         if plan.tracks_removed > 0:
-            if container in ("mkv", "matroska"):
+            if is_mkv_container(container):
                 if not tools.get("mkvmerge"):
                     return None
                 return MkvmergeExecutor()
@@ -326,7 +327,7 @@ class PolicyEnginePlugin:
             return FFmpegRemuxExecutor()
 
         # Priority 3: Track reordering (MKV only)
-        if container in ("mkv", "matroska"):
+        if is_mkv_container(container):
             if plan.requires_remux:
                 has_reorder = any(
                     a.action_type == ActionType.REORDER for a in plan.actions
@@ -366,18 +367,18 @@ class PolicyEnginePlugin:
             target = plan.container_change.target_format
             if target == "mp4" and not tools.get("ffmpeg"):
                 return "MP4 conversion requires ffmpeg. Install ffmpeg."
-            if target == "mkv" and not tools.get("mkvmerge"):
+            if is_mkv_container(target) and not tools.get("mkvmerge"):
                 return "MKV conversion requires mkvmerge. Install mkvtoolnix."
 
         # Track filtering
         if plan.tracks_removed > 0:
-            if container in ("mkv", "matroska") and not tools.get("mkvmerge"):
+            if is_mkv_container(container) and not tools.get("mkvmerge"):
                 return "Track filtering requires mkvmerge. Install mkvtoolnix."
             if not tools.get("ffmpeg"):
                 return "Track filtering requires ffmpeg. Install ffmpeg."
 
         # MKV-specific operations
-        if container in ("mkv", "matroska"):
+        if is_mkv_container(container):
             if plan.requires_remux and not tools.get("mkvmerge"):
                 return "Track reordering requires mkvmerge. Install mkvtoolnix."
             if not tools.get("mkvpropedit"):

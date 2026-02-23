@@ -29,6 +29,7 @@ from vpo.executor import (
     MkvpropeditExecutor,
     check_tool_availability,
 )
+from vpo.plugin_sdk.helpers import is_mkv_container
 from vpo.policy.evaluator import Plan
 from vpo.tools.ffmpeg_progress import FFmpegProgress
 
@@ -171,7 +172,7 @@ def select_executor(
         if target == "mp4":
             if tools.get("ffmpeg"):
                 return FFmpegRemuxExecutor(progress_callback=ffmpeg_progress_callback)
-        elif target in ("mkv", "matroska"):
+        elif is_mkv_container(target):
             if tools.get("mkvmerge"):
                 return MkvmergeExecutor()
         logger.warning(
@@ -185,7 +186,7 @@ def select_executor(
 
     # Track filtering or reordering requires remux
     if plan.tracks_removed > 0 or plan.requires_remux:
-        if container in ("mkv", "matroska") and tools.get("mkvmerge"):
+        if is_mkv_container(container) and tools.get("mkvmerge"):
             return MkvmergeExecutor()
         elif tools.get("ffmpeg"):
             return FFmpegRemuxExecutor()
@@ -198,7 +199,7 @@ def select_executor(
         return None
 
     # Metadata-only changes
-    if container in ("mkv", "matroska") and tools.get("mkvpropedit"):
+    if is_mkv_container(container) and tools.get("mkvpropedit"):
         return MkvpropeditExecutor()
     elif tools.get("ffmpeg"):
         return FfmpegMetadataExecutor()

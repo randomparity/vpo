@@ -59,25 +59,18 @@ def _truncate_stderr(stderr: str, max_lines: int = 20, head_lines: int = 5) -> s
 
 
 class FFmpegRemuxExecutor(FFmpegExecutorBase):
-    """Executor for container conversion using FFmpeg.
+    """Executor for container conversion and filter-only remux using FFmpeg.
 
-    This executor handles container conversion to MP4 using lossless
-    stream copy, with optional selective transcoding for incompatible
-    tracks when on_incompatible_codec is set to 'transcode'.
-
-    It is used when:
-    - Plan has container_change with target=mp4
-
-    When a transcode_plan is present, the executor:
-    - Transcodes incompatible audio tracks to AAC
-    - Converts text subtitles to mov_text
-    - Removes bitmap subtitles (PGS, DVD) that cannot be converted
-    - Copies all compatible tracks losslessly
+    This executor handles:
+    - Container conversion to MP4 using lossless stream copy, with optional
+      selective transcoding for incompatible tracks
+    - Filter-only remux (track removal without container change) as a
+      fallback when mkvmerge is unavailable
 
     The executor:
     1. Creates a backup of the original file
     2. Writes to a temp file with -c copy (lossless) or selective transcoding
-    3. Uses -movflags +faststart for streaming optimization
+    3. Uses -movflags +faststart for MP4 output
     4. Atomically moves the output to the final location
     """
 
@@ -100,12 +93,12 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
         """Check if this executor can handle the given plan.
 
         Returns True if:
-        - Plan has container_change with target=mp4
+        - Plan has container_change with target=mp4, OR
+        - Plan has track removals requiring remux (filter-only)
         """
-        if plan.container_change is None:
-            return False
-
-        return plan.container_change.target_format == "mp4"
+        if plan.container_change is not None:
+            return plan.container_change.target_format == "mp4"
+        return plan.tracks_removed > 0
 
     def _compute_timeout_for_plan(self, plan: Plan) -> int | None:
         """Compute appropriate timeout based on plan and file size.
@@ -153,7 +146,7 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
         Returns:
             ExecutorResult with success status.
         """
-        if plan.is_empty or plan.container_change is None:
+        if plan.is_empty:
             return ExecutorResult(success=True, message="No changes to apply")
 
         # Pre-flight disk space check
@@ -162,8 +155,12 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
         except InsufficientDiskSpaceError as e:
             return ExecutorResult(success=False, message=str(e))
 
-        # Compute output path with .mp4 extension
-        output_path = plan.file_path.with_suffix(".mp4")
+        # Compute output path: change extension for container conversion,
+        # keep original extension for filter-only operations
+        if plan.container_change:
+            output_path = plan.file_path.with_suffix(".mp4")
+        else:
+            output_path = plan.file_path
 
         # Create backup
         try:
@@ -174,8 +171,9 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
             )
 
         # Create temp output file
+        temp_suffix = ".mp4" if plan.container_change else plan.file_path.suffix
         with tempfile.NamedTemporaryFile(
-            suffix=".mp4", delete=False, dir=plan.file_path.parent
+            suffix=temp_suffix, delete=False, dir=plan.file_path.parent
         ) as tmp:
             temp_path = Path(tmp.name)
 
@@ -353,29 +351,38 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
             backup_path.unlink(missing_ok=True)
 
         # Build success message
-        src = plan.container_change.source_format
-        transcode_plan = plan.container_change.transcode_plan
-        if transcode_plan and transcode_plan.track_plans:
-            transcode_count = sum(
-                1 for p in transcode_plan.track_plans if p.action == "transcode"
-            )
-            convert_count = sum(
-                1 for p in transcode_plan.track_plans if p.action == "convert"
-            )
-            remove_count = sum(
-                1 for p in transcode_plan.track_plans if p.action == "remove"
-            )
-            details = []
-            if transcode_count:
-                details.append(f"{transcode_count} transcoded")
-            if convert_count:
-                details.append(f"{convert_count} converted")
-            if remove_count:
-                details.append(f"{remove_count} removed")
-            detail_str = ", ".join(details)
-            message = f"Converted {src} → mp4 ({detail_str})"
+        if plan.container_change:
+            src = plan.container_change.source_format
+            transcode_plan = plan.container_change.transcode_plan
+            if transcode_plan and transcode_plan.track_plans:
+                transcode_count = sum(
+                    1 for p in transcode_plan.track_plans if p.action == "transcode"
+                )
+                convert_count = sum(
+                    1 for p in transcode_plan.track_plans if p.action == "convert"
+                )
+                remove_count = sum(
+                    1 for p in transcode_plan.track_plans if p.action == "remove"
+                )
+                details = []
+                if transcode_count:
+                    details.append(f"{transcode_count} transcoded")
+                if convert_count:
+                    details.append(f"{convert_count} converted")
+                if remove_count:
+                    details.append(f"{remove_count} removed")
+                detail_str = ", ".join(details)
+                message = f"Converted {src} → mp4 ({detail_str})"
+            else:
+                message = f"Converted {src} → mp4"
         else:
-            message = f"Converted {src} → mp4"
+            parts = []
+            if plan.tracks_removed > 0:
+                parts.append(f"{plan.tracks_removed} tracks removed")
+            if plan.requires_remux:
+                parts.append("reordered")
+            detail = ", ".join(parts) if parts else "remuxed"
+            message = f"Remuxed {plan.file_path.name} ({detail})"
 
         # Report output_path if container conversion changed the path
         result_output_path = output_path if output_path != plan.file_path else None
@@ -420,12 +427,9 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
         if plan.container_change and plan.container_change.preserve_metadata:
             cmd.extend(["-map_metadata", "0"])
 
-        cmd.extend(
-            [
-                "-movflags",
-                "+faststart",  # Move moov atom to front for streaming
-            ]
-        )
+        # -movflags +faststart is MP4-specific (moves moov atom for streaming)
+        if plan.container_change and plan.container_change.target_format == "mp4":
+            cmd.extend(["-movflags", "+faststart"])
 
         # Handle track filtering if dispositions indicate removal
         # Build stream exclusion args based on track_dispositions
