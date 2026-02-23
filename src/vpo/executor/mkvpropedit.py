@@ -19,6 +19,13 @@ from vpo.policy.types import ActionType, Plan, PlannedAction
 
 logger = logging.getLogger(__name__)
 
+# Map ffprobe/container_tags field names to mkvpropedit segment info property names.
+# ffprobe reports MKV segment info using different names than mkvpropedit expects.
+_FFPROBE_TO_MKVPROPEDIT_FIELD: dict[str, str] = {
+    "encoder": "writing-application",
+    "creation_time": "date",
+}
+
 
 class MkvpropeditExecutor:
     """Executor for MKV metadata changes using mkvpropedit.
@@ -252,11 +259,13 @@ class MkvpropeditExecutor:
                     f"SET_CONTAINER_METADATA requires container_field to be set, "
                     f"got container_field={field!r}"
                 )
+            # Map ffprobe field names to mkvpropedit property names
+            prop_name = _FFPROBE_TO_MKVPROPEDIT_FIELD.get(field, field)
             value = action.desired_value if action.desired_value is not None else ""
             if value == "":
                 # Clear/delete the tag
-                return ["--edit", "info", "--delete", field]
-            return ["--edit", "info", "--set", f"{field}={value}"]
+                return ["--edit", "info", "--delete", prop_name]
+            return ["--edit", "info", "--set", f"{prop_name}={value}"]
 
         if action.track_index is None:
             raise ValueError(f"Action {action.action_type} requires track_index")
