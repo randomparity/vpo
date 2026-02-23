@@ -153,7 +153,7 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
         Returns:
             ExecutorResult with success status.
         """
-        if plan.is_empty or plan.container_change is None:
+        if plan.is_empty:
             return ExecutorResult(success=True, message="No changes to apply")
 
         # Pre-flight disk space check
@@ -162,8 +162,12 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
         except InsufficientDiskSpaceError as e:
             return ExecutorResult(success=False, message=str(e))
 
-        # Compute output path with .mp4 extension
-        output_path = plan.file_path.with_suffix(".mp4")
+        # Compute output path: change extension for container conversion,
+        # keep original extension for filter-only operations
+        if plan.container_change:
+            output_path = plan.file_path.with_suffix(".mp4")
+        else:
+            output_path = plan.file_path
 
         # Create backup
         try:
@@ -174,8 +178,9 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
             )
 
         # Create temp output file
+        temp_suffix = ".mp4" if plan.container_change else plan.file_path.suffix
         with tempfile.NamedTemporaryFile(
-            suffix=".mp4", delete=False, dir=plan.file_path.parent
+            suffix=temp_suffix, delete=False, dir=plan.file_path.parent
         ) as tmp:
             temp_path = Path(tmp.name)
 
@@ -353,29 +358,33 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
             backup_path.unlink(missing_ok=True)
 
         # Build success message
-        src = plan.container_change.source_format
-        transcode_plan = plan.container_change.transcode_plan
-        if transcode_plan and transcode_plan.track_plans:
-            transcode_count = sum(
-                1 for p in transcode_plan.track_plans if p.action == "transcode"
-            )
-            convert_count = sum(
-                1 for p in transcode_plan.track_plans if p.action == "convert"
-            )
-            remove_count = sum(
-                1 for p in transcode_plan.track_plans if p.action == "remove"
-            )
-            details = []
-            if transcode_count:
-                details.append(f"{transcode_count} transcoded")
-            if convert_count:
-                details.append(f"{convert_count} converted")
-            if remove_count:
-                details.append(f"{remove_count} removed")
-            detail_str = ", ".join(details)
-            message = f"Converted {src} → mp4 ({detail_str})"
+        if plan.container_change:
+            src = plan.container_change.source_format
+            transcode_plan = plan.container_change.transcode_plan
+            if transcode_plan and transcode_plan.track_plans:
+                transcode_count = sum(
+                    1 for p in transcode_plan.track_plans if p.action == "transcode"
+                )
+                convert_count = sum(
+                    1 for p in transcode_plan.track_plans if p.action == "convert"
+                )
+                remove_count = sum(
+                    1 for p in transcode_plan.track_plans if p.action == "remove"
+                )
+                details = []
+                if transcode_count:
+                    details.append(f"{transcode_count} transcoded")
+                if convert_count:
+                    details.append(f"{convert_count} converted")
+                if remove_count:
+                    details.append(f"{remove_count} removed")
+                detail_str = ", ".join(details)
+                message = f"Converted {src} → mp4 ({detail_str})"
+            else:
+                message = f"Converted {src} → mp4"
         else:
-            message = f"Converted {src} → mp4"
+            removed = plan.tracks_removed
+            message = f"Remuxed {plan.file_path.name} ({removed} tracks removed)"
 
         # Report output_path if container conversion changed the path
         result_output_path = output_path if output_path != plan.file_path else None

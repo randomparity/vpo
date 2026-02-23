@@ -30,6 +30,7 @@ from vpo.plugin.events import (
 from vpo.plugin.manifest import PluginSource
 from vpo.policy.evaluator import evaluate_policy
 from vpo.policy.types import ActionType, EvaluationPolicy, Plan
+from vpo.workflow.phases.executor.helpers import is_mkv_container
 
 logger = logging.getLogger(__name__)
 
@@ -316,7 +317,7 @@ class PolicyEnginePlugin:
 
         # Priority 2: Track filtering requires remux
         if plan.tracks_removed > 0:
-            if container in ("mkv", "matroska"):
+            if is_mkv_container(container):
                 if not tools.get("mkvmerge"):
                     return None
                 return MkvmergeExecutor()
@@ -326,7 +327,7 @@ class PolicyEnginePlugin:
             return FFmpegRemuxExecutor()
 
         # Priority 3: Track reordering (MKV only)
-        if container in ("mkv", "matroska"):
+        if is_mkv_container(container):
             if plan.requires_remux:
                 has_reorder = any(
                     a.action_type == ActionType.REORDER for a in plan.actions
@@ -371,13 +372,13 @@ class PolicyEnginePlugin:
 
         # Track filtering
         if plan.tracks_removed > 0:
-            if container in ("mkv", "matroska") and not tools.get("mkvmerge"):
+            if is_mkv_container(container) and not tools.get("mkvmerge"):
                 return "Track filtering requires mkvmerge. Install mkvtoolnix."
             if not tools.get("ffmpeg"):
                 return "Track filtering requires ffmpeg. Install ffmpeg."
 
         # MKV-specific operations
-        if container in ("mkv", "matroska"):
+        if is_mkv_container(container):
             if plan.requires_remux and not tools.get("mkvmerge"):
                 return "Track reordering requires mkvmerge. Install mkvtoolnix."
             if not tools.get("mkvpropedit"):

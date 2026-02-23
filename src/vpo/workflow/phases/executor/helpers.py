@@ -35,6 +35,16 @@ from vpo.tools.ffmpeg_progress import FFmpegProgress
 logger = logging.getLogger(__name__)
 
 
+def is_mkv_container(container: str) -> bool:
+    """Check if container format string represents an MKV/Matroska container.
+
+    ffprobe reports MKV as "matroska,webm", file extensions give "mkv",
+    and internal references may use "matroska".
+    """
+    c = container.casefold()
+    return c in ("mkv", "matroska") or c.startswith("matroska,")
+
+
 def get_tools(cache: dict[str, bool] | None) -> dict[str, bool]:
     """Get tool availability, using cache if available.
 
@@ -171,7 +181,7 @@ def select_executor(
         if target == "mp4":
             if tools.get("ffmpeg"):
                 return FFmpegRemuxExecutor(progress_callback=ffmpeg_progress_callback)
-        elif target in ("mkv", "matroska"):
+        elif is_mkv_container(target):
             if tools.get("mkvmerge"):
                 return MkvmergeExecutor()
         logger.warning(
@@ -185,7 +195,7 @@ def select_executor(
 
     # Track filtering or reordering requires remux
     if plan.tracks_removed > 0 or plan.requires_remux:
-        if container in ("mkv", "matroska") and tools.get("mkvmerge"):
+        if is_mkv_container(container) and tools.get("mkvmerge"):
             return MkvmergeExecutor()
         elif tools.get("ffmpeg"):
             return FFmpegRemuxExecutor()
@@ -198,7 +208,7 @@ def select_executor(
         return None
 
     # Metadata-only changes
-    if container in ("mkv", "matroska") and tools.get("mkvpropedit"):
+    if is_mkv_container(container) and tools.get("mkvpropedit"):
         return MkvpropeditExecutor()
     elif tools.get("ffmpeg"):
         return FfmpegMetadataExecutor()
