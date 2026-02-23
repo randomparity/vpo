@@ -59,25 +59,18 @@ def _truncate_stderr(stderr: str, max_lines: int = 20, head_lines: int = 5) -> s
 
 
 class FFmpegRemuxExecutor(FFmpegExecutorBase):
-    """Executor for container conversion using FFmpeg.
+    """Executor for container conversion and filter-only remux using FFmpeg.
 
-    This executor handles container conversion to MP4 using lossless
-    stream copy, with optional selective transcoding for incompatible
-    tracks when on_incompatible_codec is set to 'transcode'.
-
-    It is used when:
-    - Plan has container_change with target=mp4
-
-    When a transcode_plan is present, the executor:
-    - Transcodes incompatible audio tracks to AAC
-    - Converts text subtitles to mov_text
-    - Removes bitmap subtitles (PGS, DVD) that cannot be converted
-    - Copies all compatible tracks losslessly
+    This executor handles:
+    - Container conversion to MP4 using lossless stream copy, with optional
+      selective transcoding for incompatible tracks
+    - Filter-only remux (track removal without container change) as a
+      fallback when mkvmerge is unavailable
 
     The executor:
     1. Creates a backup of the original file
     2. Writes to a temp file with -c copy (lossless) or selective transcoding
-    3. Uses -movflags +faststart for streaming optimization
+    3. Uses -movflags +faststart for MP4 output
     4. Atomically moves the output to the final location
     """
 
@@ -100,12 +93,12 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
         """Check if this executor can handle the given plan.
 
         Returns True if:
-        - Plan has container_change with target=mp4
+        - Plan has container_change with target=mp4, OR
+        - Plan has track removals requiring remux (filter-only)
         """
-        if plan.container_change is None:
-            return False
-
-        return plan.container_change.target_format == "mp4"
+        if plan.container_change is not None:
+            return plan.container_change.target_format == "mp4"
+        return plan.tracks_removed > 0
 
     def _compute_timeout_for_plan(self, plan: Plan) -> int | None:
         """Compute appropriate timeout based on plan and file size.
@@ -383,8 +376,13 @@ class FFmpegRemuxExecutor(FFmpegExecutorBase):
             else:
                 message = f"Converted {src} → mp4"
         else:
-            removed = plan.tracks_removed
-            message = f"Remuxed {plan.file_path.name} ({removed} tracks removed)"
+            parts = []
+            if plan.tracks_removed > 0:
+                parts.append(f"{plan.tracks_removed} tracks removed")
+            if plan.requires_remux:
+                parts.append("reordered")
+            detail = ", ".join(parts) if parts else "remuxed"
+            message = f"Remuxed {plan.file_path.name} ({detail})"
 
         # Report output_path if container conversion changed the path
         result_output_path = output_path if output_path != plan.file_path else None

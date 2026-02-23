@@ -310,7 +310,7 @@ class PolicyEnginePlugin:
                 if not tools.get("ffmpeg"):
                     return None
                 return FFmpegRemuxExecutor()
-            elif target == "mkv":
+            elif is_mkv_container(target):
                 if not tools.get("mkvmerge"):
                     return None
                 return MkvmergeExecutor()
@@ -367,7 +367,7 @@ class PolicyEnginePlugin:
             target = plan.container_change.target_format
             if target == "mp4" and not tools.get("ffmpeg"):
                 return "MP4 conversion requires ffmpeg. Install ffmpeg."
-            if target == "mkv" and not tools.get("mkvmerge"):
+            if is_mkv_container(target) and not tools.get("mkvmerge"):
                 return "MKV conversion requires mkvmerge. Install mkvtoolnix."
 
         # Track filtering
