@@ -5,6 +5,8 @@ conn.commit(), allowing callers to manage transactions explicitly. This
 enables atomic multi-operation transactions.
 """
 
+import dataclasses
+import json
 import sqlite3
 import uuid
 from datetime import datetime, timezone
@@ -535,8 +537,6 @@ class TestUpdateFileAttributesNoCommit:
         file_id = insert_file(test_conn, record)
         test_conn.commit()
 
-        import json
-
         tags_json = json.dumps({"title": "My Movie", "encoder": "libx265"})
         result = update_file_attributes(
             test_conn,
@@ -560,24 +560,8 @@ class TestUpdateFileAttributesNoCommit:
         self, test_conn: sqlite3.Connection
     ) -> None:
         """update_file_attributes should not touch container_tags when omitted."""
-        import json
-
-        record = make_test_file_record()
-        record = FileRecord(
-            id=record.id,
-            path=record.path,
-            filename=record.filename,
-            directory=record.directory,
-            extension=record.extension,
-            size_bytes=record.size_bytes,
-            modified_at=record.modified_at,
-            content_hash=record.content_hash,
-            container_format=record.container_format,
-            scanned_at=record.scanned_at,
-            scan_status=record.scan_status,
-            scan_error=record.scan_error,
-            job_id=record.job_id,
-            plugin_metadata=record.plugin_metadata,
+        record = dataclasses.replace(
+            make_test_file_record(),
             container_tags=json.dumps({"title": "Original"}),
         )
         file_id = insert_file(test_conn, record)
@@ -599,24 +583,8 @@ class TestUpdateFileAttributesNoCommit:
         self, test_conn: sqlite3.Connection
     ) -> None:
         """update_file_attributes should clear container_tags when None is passed."""
-        import json
-
-        record = make_test_file_record()
-        record = FileRecord(
-            id=record.id,
-            path=record.path,
-            filename=record.filename,
-            directory=record.directory,
-            extension=record.extension,
-            size_bytes=record.size_bytes,
-            modified_at=record.modified_at,
-            content_hash=record.content_hash,
-            container_format=record.container_format,
-            scanned_at=record.scanned_at,
-            scan_status=record.scan_status,
-            scan_error=record.scan_error,
-            job_id=record.job_id,
-            plugin_metadata=record.plugin_metadata,
+        record = dataclasses.replace(
+            make_test_file_record(),
             container_tags=json.dumps({"title": "Original"}),
         )
         file_id = insert_file(test_conn, record)
@@ -638,3 +606,18 @@ class TestUpdateFileAttributesNoCommit:
         )
         row = cursor.fetchone()
         assert row[0] is None
+
+    def test_update_file_attributes_with_container_tags_returns_false_for_nonexistent(
+        self, test_conn: sqlite3.Connection
+    ) -> None:
+        """update_file_attributes returns False for nonexistent file_id with tags."""
+        tags_json = json.dumps({"title": "Phantom"})
+        result = update_file_attributes(
+            test_conn,
+            99999,
+            1000,
+            "2025-01-01T00:00:00+00:00",
+            "hash",
+            container_tags_json=tags_json,
+        )
+        assert result is False
