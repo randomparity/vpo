@@ -81,7 +81,10 @@ def execute_transcode(
         transcode_policy = TranscodePolicyConfig(
             target_video_codec=vt.to,
             target_crf=vt.crf,
+            target_bitrate=vt.target_bitrate,
             max_resolution=vt.max_resolution,
+            max_width=vt.max_width,
+            max_height=vt.max_height,
         )
 
         # Get video track info

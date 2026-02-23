@@ -8,6 +8,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from vpo.policy.loader import SCHEMA_VERSION
+
 
 @dataclass
 class PoliciesContext:
@@ -316,7 +318,7 @@ class PolicyEditorRequest:
             Dictionary in PolicySchema format with phases.
         """
         result: dict = {
-            "schema_version": 13,
+            "schema_version": SCHEMA_VERSION,
             "phases": self.phases,
         }
         if self.config is not None:
@@ -335,12 +337,14 @@ class PolicyEditorRequest:
     def _to_legacy_policy_dict(self) -> dict:
         """Convert to flat policy dictionary format.
 
+        Note: V13 requires phased format. This method wraps flat fields
+        into a single phase for forward compatibility.
+
         Returns:
-            Dictionary in PolicyModel format.
+            Dictionary in PolicyModel format with phases wrapper.
         """
-        # Always use schema_version 13
         result = {
-            "schema_version": 13,
+            "schema_version": SCHEMA_VERSION,
             "track_order": self.track_order,
             "audio_languages": self.audio_languages,
             "subtitle_languages": self.subtitle_languages,
