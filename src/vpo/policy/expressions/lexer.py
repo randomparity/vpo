@@ -15,6 +15,24 @@ from vpo.policy.expressions.tokens import KEYWORDS, Token, TokenType
 # then a size unit. Matched BEFORE plain numbers during lexing.
 _SIZE_SUFFIX_RE = re.compile(r"\d+(\.\d+)?(GB|MB|TB|KB|gb|mb|tb|kb|[kKmMgGtT])\b")
 
+# Lookup tables for operator and punctuation tokens
+_TWO_CHAR_OPS: dict[str, TokenType] = {
+    "==": TokenType.OP_EQ,
+    "!=": TokenType.OP_NEQ,
+    "<=": TokenType.OP_LTE,
+    ">=": TokenType.OP_GTE,
+}
+
+_SINGLE_CHAR_TOKENS: dict[str, TokenType] = {
+    "<": TokenType.OP_LT,
+    ">": TokenType.OP_GT,
+    "(": TokenType.LPAREN,
+    ")": TokenType.RPAREN,
+    "[": TokenType.LBRACKET,
+    "]": TokenType.RBRACKET,
+    ",": TokenType.COMMA,
+}
+
 
 def tokenize(source: str) -> list[Token]:
     """Tokenize a policy expression string.
@@ -53,60 +71,17 @@ def tokenize(source: str) -> list[Token]:
         # Two-character operators (check before single-char)
         if pos + 1 < length:
             two = source[pos : pos + 2]
-            if two == "==":
-                tokens.append(Token(TokenType.OP_EQ, "==", start_pos, line, start_col))
-                pos += 2
-                col += 2
-                continue
-            if two == "!=":
-                tokens.append(Token(TokenType.OP_NEQ, "!=", start_pos, line, start_col))
-                pos += 2
-                col += 2
-                continue
-            if two == "<=":
-                tokens.append(Token(TokenType.OP_LTE, "<=", start_pos, line, start_col))
-                pos += 2
-                col += 2
-                continue
-            if two == ">=":
-                tokens.append(Token(TokenType.OP_GTE, ">=", start_pos, line, start_col))
+            two_type = _TWO_CHAR_OPS.get(two)
+            if two_type is not None:
+                tokens.append(Token(two_type, two, start_pos, line, start_col))
                 pos += 2
                 col += 2
                 continue
 
         # Single-character tokens
-        if ch == "<":
-            tokens.append(Token(TokenType.OP_LT, "<", start_pos, line, start_col))
-            pos += 1
-            col += 1
-            continue
-        if ch == ">":
-            tokens.append(Token(TokenType.OP_GT, ">", start_pos, line, start_col))
-            pos += 1
-            col += 1
-            continue
-        if ch == "(":
-            tokens.append(Token(TokenType.LPAREN, "(", start_pos, line, start_col))
-            pos += 1
-            col += 1
-            continue
-        if ch == ")":
-            tokens.append(Token(TokenType.RPAREN, ")", start_pos, line, start_col))
-            pos += 1
-            col += 1
-            continue
-        if ch == "[":
-            tokens.append(Token(TokenType.LBRACKET, "[", start_pos, line, start_col))
-            pos += 1
-            col += 1
-            continue
-        if ch == "]":
-            tokens.append(Token(TokenType.RBRACKET, "]", start_pos, line, start_col))
-            pos += 1
-            col += 1
-            continue
-        if ch == ",":
-            tokens.append(Token(TokenType.COMMA, ",", start_pos, line, start_col))
+        single_type = _SINGLE_CHAR_TOKENS.get(ch)
+        if single_type is not None:
+            tokens.append(Token(single_type, ch, start_pos, line, start_col))
             pos += 1
             col += 1
             continue

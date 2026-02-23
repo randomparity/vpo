@@ -7,9 +7,8 @@ in policy definitions and executing matched actions.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from vpo.language_analysis.models import LanguageAnalysisResult
@@ -71,9 +70,6 @@ def evaluate_conditional_rules(
     Raises:
         ConditionalFailError: If a matched rule has a fail action.
     """
-    from vpo.policy.actions import ActionContext, execute_actions
-    from vpo.policy.conditions import evaluate_condition
-
     items = rules.items
 
     # Empty rules - return empty result
@@ -94,23 +90,16 @@ def evaluate_conditional_rules(
             plugin_metadata,
             classification_results,
             container_tags,
-            evaluate_condition,
-            ActionContext,
-            execute_actions,
         )
-    else:
-        return _evaluate_all_match(
-            items,
-            tracks,
-            file_path,
-            language_results,
-            plugin_metadata,
-            classification_results,
-            container_tags,
-            evaluate_condition,
-            ActionContext,
-            execute_actions,
-        )
+    return _evaluate_all_match(
+        items,
+        tracks,
+        file_path,
+        language_results,
+        plugin_metadata,
+        classification_results,
+        container_tags,
+    )
 
 
 def _evaluate_first_match(
@@ -121,11 +110,11 @@ def _evaluate_first_match(
     plugin_metadata: PluginMetadataDict | None,
     classification_results: dict[int, TrackClassificationResult] | None,
     container_tags: dict[str, str] | None,
-    evaluate_condition: Callable[..., tuple[bool, str]],
-    action_context_cls: type,
-    execute_actions: Callable[..., Any],
 ) -> ConditionalResult:
     """First-match-wins evaluation: stop on first matching rule."""
+    from vpo.policy.actions import ActionContext, execute_actions
+    from vpo.policy.conditions import evaluate_condition
+
     evaluation_trace: list[RuleEvaluation] = []
     matched_rule: str | None = None
     matched_branch: Literal["then", "else"] | None = None
@@ -153,7 +142,7 @@ def _evaluate_first_match(
             matched_rule = rule.name
             matched_branch = "then"
 
-            context = action_context_cls(
+            context = ActionContext(
                 file_path=file_path,
                 rule_name=rule.name,
                 tracks=tracks,
@@ -174,7 +163,7 @@ def _evaluate_first_match(
             if is_last_rule and rule.else_actions is not None:
                 matched_rule = rule.name
                 matched_branch = "else"
-                context = action_context_cls(
+                context = ActionContext(
                     file_path=file_path,
                     rule_name=rule.name,
                     tracks=tracks,
@@ -207,13 +196,13 @@ def _evaluate_all_match(
     plugin_metadata: PluginMetadataDict | None,
     classification_results: dict[int, TrackClassificationResult] | None,
     container_tags: dict[str, str] | None,
-    evaluate_condition: Callable[..., tuple[bool, str]],
-    action_context_cls: type,
-    execute_actions: Callable[..., Any],
 ) -> ConditionalResult:
     """All-match evaluation: evaluate every rule, accumulate results."""
+    from vpo.policy.actions import ActionContext, execute_actions
+    from vpo.policy.conditions import evaluate_condition
+
     # Warn about else_actions on non-last rules (ignored in ALL mode)
-    for i, rule in enumerate(rules[:-1]):
+    for rule in rules[:-1]:
         if rule.else_actions is not None:
             logger.warning(
                 "Rule '%s' has else_actions but is not the last rule in ALL "
@@ -231,7 +220,7 @@ def _evaluate_all_match(
     container_metadata_changes: list[ContainerMetadataChange] = []
     any_matched = False
 
-    for i, rule in enumerate(rules):
+    for rule in rules:
         result, reason = evaluate_condition(
             rule.when,
             tracks,
@@ -250,7 +239,7 @@ def _evaluate_all_match(
             last_matched_rule = rule.name
             matched_branch = "then"
 
-            context = action_context_cls(
+            context = ActionContext(
                 file_path=file_path,
                 rule_name=rule.name,
                 tracks=tracks,
@@ -281,7 +270,7 @@ def _evaluate_all_match(
         if last_rule.else_actions is not None:
             last_matched_rule = last_rule.name
             matched_branch = "else"
-            context = action_context_cls(
+            context = ActionContext(
                 file_path=file_path,
                 rule_name=last_rule.name,
                 tracks=tracks,

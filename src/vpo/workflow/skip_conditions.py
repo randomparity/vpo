@@ -84,8 +84,6 @@ def _check_video_codec(
     video_track: TrackInfo | None,
     file_size: int | None,
 ) -> SkipReason | None:
-    if not condition.video_codec:
-        return None
     if video_track is None:
         logger.debug("Cannot evaluate video_codec condition: no video track found")
         return None
@@ -109,8 +107,6 @@ def _check_audio_codec_exists(
     video_track: TrackInfo | None,
     file_size: int | None,
 ) -> SkipReason | None:
-    if not condition.audio_codec_exists:
-        return None
     target_codec = condition.audio_codec_exists.casefold()
     for track in file_info.tracks:
         if track.track_type == "audio" and track.codec:
@@ -130,8 +126,6 @@ def _check_subtitle_language_exists(
     video_track: TrackInfo | None,
     file_size: int | None,
 ) -> SkipReason | None:
-    if not condition.subtitle_language_exists:
-        return None
     target_lang = condition.subtitle_language_exists.casefold()
     for track in file_info.tracks:
         if track.track_type == "subtitle" and track.language:
@@ -151,7 +145,7 @@ def _check_container(
     video_track: TrackInfo | None,
     file_size: int | None,
 ) -> SkipReason | None:
-    if not condition.container or not file_info.container_format:
+    if not file_info.container_format:
         return None
     normalized_container = normalize_container_format(file_info.container_format)
     for target in condition.container:
@@ -171,8 +165,6 @@ def _check_resolution(
     video_track: TrackInfo | None,
     file_size: int | None,
 ) -> SkipReason | None:
-    if not condition.resolution:
-        return None
     if video_track is None:
         logger.debug("Cannot evaluate resolution condition: no video track found")
         return None
@@ -197,8 +189,6 @@ def _check_resolution_under(
     video_track: TrackInfo | None,
     file_size: int | None,
 ) -> SkipReason | None:
-    if not condition.resolution_under:
-        return None
     if video_track is None:
         logger.debug("Cannot evaluate resolution_under condition: no video track found")
         return None
@@ -224,8 +214,6 @@ def _check_file_size_under(
     video_track: TrackInfo | None,
     file_size: int | None,
 ) -> SkipReason | None:
-    if not condition.file_size_under:
-        return None
     threshold_bytes = parse_file_size(condition.file_size_under)
     if threshold_bytes is None:
         logger.warning(
@@ -248,8 +236,6 @@ def _check_file_size_over(
     video_track: TrackInfo | None,
     file_size: int | None,
 ) -> SkipReason | None:
-    if not condition.file_size_over:
-        return None
     threshold_bytes = parse_file_size(condition.file_size_over)
     if threshold_bytes is None:
         logger.warning(
@@ -272,8 +258,6 @@ def _check_duration_under(
     video_track: TrackInfo | None,
     file_size: int | None,
 ) -> SkipReason | None:
-    if not condition.duration_under:
-        return None
     threshold_seconds = parse_duration(condition.duration_under)
     if threshold_seconds is None:
         logger.warning(
@@ -300,8 +284,6 @@ def _check_duration_over(
     video_track: TrackInfo | None,
     file_size: int | None,
 ) -> SkipReason | None:
-    if not condition.duration_over:
-        return None
     threshold_seconds = parse_duration(condition.duration_over)
     if threshold_seconds is None:
         logger.warning("Cannot parse duration_over value: %r", condition.duration_over)
@@ -410,8 +392,8 @@ def _evaluate_skip_when_all(
         else:
             return None  # At least one active condition didn't match
 
-    # All active conditions matched
-    if active_conditions > 0 and len(matched_reasons) == active_conditions:
+    # All active conditions matched (loop completes without early return)
+    if active_conditions > 0:
         return SkipReason(
             reason_type=SkipReasonType.CONDITION,
             message=f"all conditions matched: {', '.join(matched_reasons)}",

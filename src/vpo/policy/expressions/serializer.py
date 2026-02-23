@@ -201,46 +201,52 @@ def _serialize_multi_language(cond: AudioIsMultiLanguageCondition) -> str:
     return f"multi_language({', '.join(parts)})"
 
 
-def _serialize_plugin(cond: PluginMetadataCondition) -> str:
-    base = f"plugin({cond.plugin}, {cond.field})"
-    if cond.operator == MetadataComparisonOperator.EXISTS:
+def _serialize_metadata_condition(
+    base: str,
+    operator: MetadataComparisonOperator,
+    value: str | int | float | bool | None,
+) -> str:
+    """Serialize a metadata condition (plugin or container_meta) with operator."""
+    if operator == MetadataComparisonOperator.EXISTS:
         return base
-    op_str = _META_OP_STR.get(cond.operator)
+    op_str = _META_OP_STR.get(operator)
     if op_str is None:
-        raise ValueError(f"Cannot serialize metadata operator: {cond.operator!r}")
-    return f"{base} {op_str} {_format_value(cond.value)}"
+        raise ValueError(f"Cannot serialize metadata operator: {operator!r}")
+    return f"{base} {op_str} {_format_value(value)}"
+
+
+def _serialize_plugin(cond: PluginMetadataCondition) -> str:
+    return _serialize_metadata_condition(
+        f"plugin({cond.plugin}, {cond.field})", cond.operator, cond.value
+    )
 
 
 def _serialize_container_meta(cond: ContainerMetadataCondition) -> str:
-    base = f"container_meta({cond.field})"
-    if cond.operator == MetadataComparisonOperator.EXISTS:
-        return base
-    op_str = _META_OP_STR.get(cond.operator)
-    if op_str is None:
-        raise ValueError(f"Cannot serialize metadata operator: {cond.operator!r}")
-    return f"{base} {op_str} {_format_value(cond.value)}"
+    return _serialize_metadata_condition(
+        f"container_meta({cond.field})", cond.operator, cond.value
+    )
+
+
+def _serialize_original_or_dubbed(
+    cond: IsOriginalCondition | IsDubbedCondition, func_name: str
+) -> str:
+    """Serialize is_original() or is_dubbed() — identical structure."""
+    parts: list[str] = []
+    if cond.value is not True:
+        parts.append(f"value == {str(cond.value).lower()}")
+    if cond.min_confidence != 0.7:
+        parts.append(f"confidence == {cond.min_confidence}")
+    if cond.language is not None:
+        parts.append(f"lang == {cond.language}")
+    return f"{func_name}({', '.join(parts)})"
 
 
 def _serialize_is_original(cond: IsOriginalCondition) -> str:
-    parts: list[str] = []
-    if cond.value is not True:
-        parts.append(f"value == {str(cond.value).lower()}")
-    if cond.min_confidence != 0.7:
-        parts.append(f"confidence == {cond.min_confidence}")
-    if cond.language is not None:
-        parts.append(f"lang == {cond.language}")
-    return f"is_original({', '.join(parts)})"
+    return _serialize_original_or_dubbed(cond, "is_original")
 
 
 def _serialize_is_dubbed(cond: IsDubbedCondition) -> str:
-    parts: list[str] = []
-    if cond.value is not True:
-        parts.append(f"value == {str(cond.value).lower()}")
-    if cond.min_confidence != 0.7:
-        parts.append(f"confidence == {cond.min_confidence}")
-    if cond.language is not None:
-        parts.append(f"lang == {cond.language}")
-    return f"is_dubbed({', '.join(parts)})"
+    return _serialize_original_or_dubbed(cond, "is_dubbed")
 
 
 def _format_value(value: str | int | float | bool | None) -> str:

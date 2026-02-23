@@ -130,38 +130,12 @@ async def api_policy_detail_handler(request: web.Request) -> web.Response:
     # Get unknown fields for warning banner
     unknown_fields = [k for k in policy_data.keys() if k not in KNOWN_POLICY_FIELDS]
 
-    response = PolicyEditorContext(
+    response = PolicyEditorContext.from_policy_data(
         name=policy_name,
         filename=policy_path.name,
         file_path=str(policy_path),
         last_modified=last_modified,
-        schema_version=policy_data.get("schema_version", 2),
-        track_order=policy_data.get("track_order", []),
-        audio_languages=policy_data.get("audio_languages", []),
-        subtitle_languages=policy_data.get("subtitle_languages", []),
-        commentary_patterns=policy_data.get("commentary_patterns", []),
-        default_flags=policy_data.get("default_flags", {}),
-        transcode=policy_data.get("transcode"),
-        transcription=policy_data.get("transcription"),
-        # Policy metadata fields
-        display_name=policy_data.get("name"),
-        description=policy_data.get("description"),
-        category=policy_data.get("category"),
-        # Track filtering fields
-        keep_audio=policy_data.get("keep_audio"),
-        keep_subtitles=policy_data.get("keep_subtitles"),
-        filter_attachments=policy_data.get("filter_attachments"),
-        container=policy_data.get("container"),
-        # Conditional rules
-        rules=policy_data.get("rules"),
-        # V5+ fields
-        audio_synthesis=policy_data.get("audio_synthesis"),
-        # V9+ fields
-        workflow=policy_data.get("workflow"),
-        # Phased policy fields (user-defined phases)
-        phases=policy_data.get("phases"),
-        config=policy_data.get("config"),
-        # Meta
+        policy_data=policy_data,
         unknown_fields=unknown_fields if unknown_fields else None,
         parse_error=parse_error,
     )
@@ -325,40 +299,13 @@ async def api_policy_update_handler(request: web.Request) -> web.Response:
     # Get unknown fields
     unknown_fields = [k for k in policy_data.keys() if k not in KNOWN_POLICY_FIELDS]
 
-    policy_context = PolicyEditorContext(
+    policy_context = PolicyEditorContext.from_policy_data(
         name=policy_name,
         filename=policy_path.name,
         file_path=str(policy_path),
         last_modified=last_modified,
-        schema_version=policy_data.get("schema_version", 2),
-        track_order=policy_data.get("track_order", []),
-        audio_languages=policy_data.get("audio_languages", []),
-        subtitle_languages=policy_data.get("subtitle_languages", []),
-        commentary_patterns=policy_data.get("commentary_patterns", []),
-        default_flags=policy_data.get("default_flags", {}),
-        transcode=policy_data.get("transcode"),
-        transcription=policy_data.get("transcription"),
-        # Policy metadata fields
-        display_name=policy_data.get("name"),
-        description=policy_data.get("description"),
-        category=policy_data.get("category"),
-        # Track filtering fields
-        keep_audio=policy_data.get("keep_audio"),
-        keep_subtitles=policy_data.get("keep_subtitles"),
-        filter_attachments=policy_data.get("filter_attachments"),
-        container=policy_data.get("container"),
-        # Conditional rules
-        rules=policy_data.get("rules"),
-        # V5+ fields
-        audio_synthesis=policy_data.get("audio_synthesis"),
-        # V9+ fields
-        workflow=policy_data.get("workflow"),
-        # Phased policy fields (user-defined phases)
-        phases=policy_data.get("phases"),
-        config=policy_data.get("config"),
-        # Meta
+        policy_data=policy_data,
         unknown_fields=unknown_fields if unknown_fields else None,
-        parse_error=None,
     )
 
     response = PolicySaveSuccessResponse(
@@ -574,35 +521,13 @@ async def api_policy_create_handler(request: web.Request) -> web.Response:
     # Build response with policy editor context
     unknown_fields = [k for k in created_data.keys() if k not in KNOWN_POLICY_FIELDS]
 
-    policy_context = PolicyEditorContext(
+    policy_context = PolicyEditorContext.from_policy_data(
         name=policy_name,
         filename=policy_path.name,
         file_path=str(policy_path),
         last_modified=last_modified,
-        schema_version=created_data.get("schema_version", SCHEMA_VERSION),
-        track_order=created_data.get("track_order", []),
-        audio_languages=created_data.get("audio_languages", []),
-        subtitle_languages=created_data.get("subtitle_languages", []),
-        commentary_patterns=created_data.get("commentary_patterns", []),
-        default_flags=created_data.get("default_flags", {}),
-        transcode=created_data.get("transcode"),
-        transcription=created_data.get("transcription"),
-        # Policy metadata fields
-        display_name=created_data.get("name"),
-        description=created_data.get("description"),
-        category=created_data.get("category"),
-        keep_audio=created_data.get("keep_audio"),
-        keep_subtitles=created_data.get("keep_subtitles"),
-        filter_attachments=created_data.get("filter_attachments"),
-        container=created_data.get("container"),
-        rules=created_data.get("rules"),
-        audio_synthesis=created_data.get("audio_synthesis"),
-        workflow=created_data.get("workflow"),
-        # Phased policy fields
-        phases=created_data.get("phases"),
-        config=created_data.get("config"),
+        policy_data=created_data,
         unknown_fields=unknown_fields if unknown_fields else None,
-        parse_error=None,
     )
 
     logger.info(

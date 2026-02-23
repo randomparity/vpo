@@ -94,6 +94,52 @@ class PolicyEditorContext:
     unknown_fields: list[str] | None = None
     parse_error: str | None = None
 
+    @classmethod
+    def from_policy_data(
+        cls,
+        *,
+        name: str,
+        filename: str,
+        file_path: str,
+        last_modified: str,
+        policy_data: dict,
+        unknown_fields: list[str] | None = None,
+        parse_error: str | None = None,
+    ) -> PolicyEditorContext:
+        """Build context from raw policy data dict.
+
+        Centralizes the mapping from a raw YAML dict to editor context,
+        used by GET, PUT, and POST policy API handlers.
+        """
+        return cls(
+            name=name,
+            filename=filename,
+            file_path=file_path,
+            last_modified=last_modified,
+            schema_version=policy_data.get("schema_version", SCHEMA_VERSION),
+            track_order=policy_data.get("track_order", []),
+            audio_languages=policy_data.get("audio_languages", []),
+            subtitle_languages=policy_data.get("subtitle_languages", []),
+            commentary_patterns=policy_data.get("commentary_patterns", []),
+            default_flags=policy_data.get("default_flags", {}),
+            transcode=policy_data.get("transcode"),
+            transcription=policy_data.get("transcription"),
+            display_name=policy_data.get("name"),
+            description=policy_data.get("description"),
+            category=policy_data.get("category"),
+            keep_audio=policy_data.get("keep_audio"),
+            keep_subtitles=policy_data.get("keep_subtitles"),
+            filter_attachments=policy_data.get("filter_attachments"),
+            container=policy_data.get("container"),
+            rules=policy_data.get("rules"),
+            audio_synthesis=policy_data.get("audio_synthesis"),
+            workflow=policy_data.get("workflow"),
+            phases=policy_data.get("phases"),
+            config=policy_data.get("config"),
+            unknown_fields=unknown_fields,
+            parse_error=parse_error,
+        )
+
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         result = {

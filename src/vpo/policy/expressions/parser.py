@@ -144,10 +144,6 @@ class _Parser:
         """Return the current token without consuming it."""
         return self._tokens[self._pos]
 
-    def peek(self) -> Token:
-        """Alias for current()."""
-        return self.current()
-
     def advance(self) -> Token:
         """Consume and return the current token."""
         tok = self._tokens[self._pos]
@@ -760,7 +756,7 @@ class _Parser:
                         column=name_tok.column,
                     )
 
-            elif field in ("is_default", "is_forced"):
+            elif field in ("is_default", "is_forced", "not_commentary"):
                 # Boolean
                 if op != TokenType.OP_EQ:
                     raise ParseError(
@@ -787,19 +783,5 @@ class _Parser:
                         line=name_tok.line,
                         column=name_tok.column,
                     )
-
-            elif field == "not_commentary":
-                if op != TokenType.OP_EQ:
-                    raise ParseError(
-                        "Filter 'not_commentary' only supports == operator",
-                        source=self._source,
-                        position=name_tok.position,
-                        line=name_tok.line,
-                        column=name_tok.column,
-                    )
-                if isinstance(value, bool):
-                    kwargs[field] = value
-                else:
-                    kwargs[field] = str(value).lower() == "true"
 
         return TrackFilters(**kwargs)

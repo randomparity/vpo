@@ -4,6 +4,7 @@ This module contains all _convert_*() functions that transform validated
 Pydantic models into the frozen dataclasses defined in types.py.
 """
 
+from vpo.policy.expressions import parse_expression
 from vpo.policy.pydantic_models import (
     ActionModel,
     AudioIsMultiLanguageModel,
@@ -469,8 +470,6 @@ def _convert_when_condition(when: str | ConditionModel) -> Condition:
         Parsed Condition dataclass.
     """
     if isinstance(when, str):
-        from vpo.policy.expressions import parse_expression
-
         return parse_expression(when)
     return _convert_condition(when)
 
