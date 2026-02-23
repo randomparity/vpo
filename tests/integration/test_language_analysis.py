@@ -351,7 +351,7 @@ class TestAudioIsMultiLanguageCondition:
         language_results = {1: multi_language_analysis_result}
 
         result = evaluate_conditional_rules(
-            policy.phases[0].rules.items,
+            policy.phases[0].rules,
             tracks,
             Path("/test/movie.mkv"),
             language_results=language_results,
@@ -375,7 +375,7 @@ class TestAudioIsMultiLanguageCondition:
         language_results = {1: single_language_analysis_result}
 
         result = evaluate_conditional_rules(
-            policy.phases[0].rules.items,
+            policy.phases[0].rules,
             tracks,
             Path("/test/movie.mkv"),
             language_results=language_results,
@@ -445,7 +445,7 @@ phases:
         language_results = {1: french_primary_result}
 
         result = evaluate_conditional_rules(
-            policy.phases[0].rules.items,
+            policy.phases[0].rules,
             tracks,
             Path("/test/movie.mkv"),
             language_results=language_results,
@@ -513,7 +513,7 @@ phases:
         language_results = {1: minimal_secondary}
 
         result = evaluate_conditional_rules(
-            policy.phases[0].rules.items,
+            policy.phases[0].rules,
             tracks,
             Path("/test/movie.mkv"),
             language_results=language_results,
@@ -545,7 +545,7 @@ class TestForcedSubtitleEnablement:
         language_results = {1: multi_language_analysis_result}
 
         result = evaluate_conditional_rules(
-            policy.phases[0].rules.items,
+            policy.phases[0].rules,
             tracks,
             Path("/test/movie.mkv"),
             language_results=language_results,
@@ -568,7 +568,7 @@ class TestForcedSubtitleEnablement:
         language_results = {1: multi_language_analysis_result}
 
         result = evaluate_conditional_rules(
-            policy.phases[0].rules.items,
+            policy.phases[0].rules,
             tracks,
             Path("/test/movie.mkv"),
             language_results=language_results,

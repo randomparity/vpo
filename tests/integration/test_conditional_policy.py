@@ -278,7 +278,7 @@ class TestConditionalRuleEvaluation:
         tracks = [video_track_4k_hevc, audio_track_eng, subtitle_track_eng]
 
         result = evaluate_conditional_rules(
-            rules=policy.phases[0].rules.items,
+            rules=policy.phases[0].rules,
             tracks=tracks,
             file_path=Path("/test/movie.mkv"),
         )
@@ -308,7 +308,7 @@ class TestConditionalRuleEvaluation:
         ]
 
         result = evaluate_conditional_rules(
-            rules=policy.phases[0].rules.items,
+            rules=policy.phases[0].rules,
             tracks=tracks,
             file_path=Path("/test/movie.mkv"),
         )
@@ -332,7 +332,7 @@ class TestConditionalRuleEvaluation:
         tracks = [video_track_1080p_h264, audio_track_eng, subtitle_track_eng]
 
         result = evaluate_conditional_rules(
-            rules=policy.phases[0].rules.items,
+            rules=policy.phases[0].rules,
             tracks=tracks,
             file_path=Path("/test/movie.mkv"),
         )
@@ -355,7 +355,7 @@ class TestConditionalRuleEvaluation:
         tracks = [video_track_1080p_h264, audio_track_eng, subtitle_track_eng]
 
         result = evaluate_conditional_rules(
-            rules=policy.phases[0].rules.items,
+            rules=policy.phases[0].rules,
             tracks=tracks,
             file_path=Path("/test/movie.mkv"),
         )
@@ -383,7 +383,7 @@ class TestConditionalFailAction:
 
         with pytest.raises(ConditionalFailError) as exc_info:
             evaluate_conditional_rules(
-                rules=policy.phases[0].rules.items,
+                rules=policy.phases[0].rules,
                 tracks=tracks,
                 file_path=Path("/test/anime.mkv"),
             )
@@ -403,7 +403,7 @@ class TestConditionalFailAction:
         tracks = [video_track_1080p_h264, audio_track_eng]
 
         result = evaluate_conditional_rules(
-            rules=policy.phases[0].rules.items,
+            rules=policy.phases[0].rules,
             tracks=tracks,
             file_path=Path("/test/movie.mkv"),
         )
