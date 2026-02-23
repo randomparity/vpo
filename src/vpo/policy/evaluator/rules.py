@@ -6,8 +6,10 @@ in policy definitions and executing matched actions.
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from vpo.language_analysis.models import LanguageAnalysisResult
@@ -17,6 +19,7 @@ from vpo.domain import TrackInfo
 from vpo.policy.conditions import PluginMetadataDict
 from vpo.policy.types import (
     ConditionalResult,
+    ConditionalRule,
     ContainerMetadataChange,
     MatchMode,
     RuleEvaluation,
@@ -25,6 +28,8 @@ from vpo.policy.types import (
     TrackFlagChange,
     TrackLanguageChange,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def evaluate_conditional_rules(
@@ -109,16 +114,16 @@ def evaluate_conditional_rules(
 
 
 def _evaluate_first_match(
-    rules,
-    tracks,
-    file_path,
-    language_results,
-    plugin_metadata,
-    classification_results,
-    container_tags,
-    evaluate_condition,
-    ActionContext,
-    execute_actions,
+    rules: tuple[ConditionalRule, ...],
+    tracks: list[TrackInfo],
+    file_path: Path,
+    language_results: dict[int, LanguageAnalysisResult] | None,
+    plugin_metadata: PluginMetadataDict | None,
+    classification_results: dict[int, TrackClassificationResult] | None,
+    container_tags: dict[str, str] | None,
+    evaluate_condition: Callable[..., tuple[bool, str]],
+    action_context_cls: type,
+    execute_actions: Callable[..., Any],
 ) -> ConditionalResult:
     """First-match-wins evaluation: stop on first matching rule."""
     evaluation_trace: list[RuleEvaluation] = []
@@ -148,7 +153,7 @@ def _evaluate_first_match(
             matched_rule = rule.name
             matched_branch = "then"
 
-            context = ActionContext(
+            context = action_context_cls(
                 file_path=file_path,
                 rule_name=rule.name,
                 tracks=tracks,
@@ -169,7 +174,7 @@ def _evaluate_first_match(
             if is_last_rule and rule.else_actions is not None:
                 matched_rule = rule.name
                 matched_branch = "else"
-                context = ActionContext(
+                context = action_context_cls(
                     file_path=file_path,
                     rule_name=rule.name,
                     tracks=tracks,
@@ -195,18 +200,27 @@ def _evaluate_first_match(
 
 
 def _evaluate_all_match(
-    rules,
-    tracks,
-    file_path,
-    language_results,
-    plugin_metadata,
-    classification_results,
-    container_tags,
-    evaluate_condition,
-    ActionContext,
-    execute_actions,
+    rules: tuple[ConditionalRule, ...],
+    tracks: list[TrackInfo],
+    file_path: Path,
+    language_results: dict[int, LanguageAnalysisResult] | None,
+    plugin_metadata: PluginMetadataDict | None,
+    classification_results: dict[int, TrackClassificationResult] | None,
+    container_tags: dict[str, str] | None,
+    evaluate_condition: Callable[..., tuple[bool, str]],
+    action_context_cls: type,
+    execute_actions: Callable[..., Any],
 ) -> ConditionalResult:
     """All-match evaluation: evaluate every rule, accumulate results."""
+    # Warn about else_actions on non-last rules (ignored in ALL mode)
+    for i, rule in enumerate(rules[:-1]):
+        if rule.else_actions is not None:
+            logger.warning(
+                "Rule '%s' has else_actions but is not the last rule in ALL "
+                "mode — else_actions will be ignored (only the last rule's "
+                "else clause fires when no rules match)",
+                rule.name,
+            )
     evaluation_trace: list[RuleEvaluation] = []
     last_matched_rule: str | None = None
     matched_branch: Literal["then", "else"] | None = None
@@ -236,7 +250,7 @@ def _evaluate_all_match(
             last_matched_rule = rule.name
             matched_branch = "then"
 
-            context = ActionContext(
+            context = action_context_cls(
                 file_path=file_path,
                 rule_name=rule.name,
                 tracks=tracks,
@@ -267,7 +281,7 @@ def _evaluate_all_match(
         if last_rule.else_actions is not None:
             last_matched_rule = last_rule.name
             matched_branch = "else"
-            context = ActionContext(
+            context = action_context_cls(
                 file_path=file_path,
                 rule_name=last_rule.name,
                 tracks=tracks,
