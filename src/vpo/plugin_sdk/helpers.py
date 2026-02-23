@@ -169,18 +169,23 @@ def is_supported_container(container: str) -> bool:
 
 
 def is_mkv_container(container: str) -> bool:
-    """Check if a container is MKV/Matroska.
+    """Check if a container format string represents an MKV/Matroska container.
 
-    MKV has full support for track manipulation.
+    ffprobe reports MKV as "matroska,webm", file extensions give "mkv",
+    and internal references may use "matroska". All are matched.
+
+    Note: "webm" alone is NOT matched — WebM files reported as
+    "matroska,webm" by ffprobe ARE matched.
 
     Args:
-        container: Container format.
+        container: Container format string.
 
     Returns:
         True if MKV/Matroska.
 
     """
-    return container.casefold() in {"mkv", "matroska"}
+    c = container.casefold()
+    return c in ("mkv", "matroska") or c.startswith("matroska,")
 
 
 def get_host_identifier() -> str:

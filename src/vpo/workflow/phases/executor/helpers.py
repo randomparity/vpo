@@ -29,20 +29,11 @@ from vpo.executor import (
     MkvpropeditExecutor,
     check_tool_availability,
 )
+from vpo.plugin_sdk.helpers import is_mkv_container
 from vpo.policy.evaluator import Plan
 from vpo.tools.ffmpeg_progress import FFmpegProgress
 
 logger = logging.getLogger(__name__)
-
-
-def is_mkv_container(container: str) -> bool:
-    """Check if container format string represents an MKV/Matroska container.
-
-    ffprobe reports MKV as "matroska,webm", file extensions give "mkv",
-    and internal references may use "matroska".
-    """
-    c = container.casefold()
-    return c in ("mkv", "matroska") or c.startswith("matroska,")
 
 
 def get_tools(cache: dict[str, bool] | None) -> dict[str, bool]:

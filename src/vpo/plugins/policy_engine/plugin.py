@@ -28,9 +28,9 @@ from vpo.plugin.events import (
     PolicyEvaluateEvent,
 )
 from vpo.plugin.manifest import PluginSource
+from vpo.plugin_sdk.helpers import is_mkv_container
 from vpo.policy.evaluator import evaluate_policy
 from vpo.policy.types import ActionType, EvaluationPolicy, Plan
-from vpo.workflow.phases.executor.helpers import is_mkv_container
 
 logger = logging.getLogger(__name__)
 
