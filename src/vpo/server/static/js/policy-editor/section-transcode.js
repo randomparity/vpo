@@ -13,6 +13,13 @@
  * - Audio: preserve list, to codec, and bitrate
  */
 
+// HTML escaping for safe interpolation into templates
+function _escHtml(str) {
+    const div = document.createElement('div')
+    div.textContent = str
+    return div.innerHTML
+}
+
 // Constants for video transcode options
 const _VIDEO_CODECS = [
     { value: '', label: '-- Not configured --' },
@@ -337,8 +344,8 @@ export function initTranscodeSection(policyData, onUpdate) {
 
         container.innerHTML = codecs.map(codec => `
             <span class="codec-tag">
-                ${codec.toUpperCase()}
-                <button type="button" class="codec-tag-remove" data-codec="${codec}" aria-label="Remove ${codec}">&times;</button>
+                ${_escHtml(codec.toUpperCase())}
+                <button type="button" class="codec-tag-remove" data-codec="${_escHtml(codec)}" aria-label="Remove ${_escHtml(codec)}">&times;</button>
             </span>
         `).join('')
 
@@ -525,13 +532,14 @@ export function initTranscodeSection(policyData, onUpdate) {
                 skipBitrate.value = state.video.skip_if.bitrate_under
             }
 
+            const onRemoveSkipCodec = (codec) => {
+                state.video.skip_if.codec_matches = state.video.skip_if.codec_matches.filter(c => c !== codec)
+                renderCodecTags('video-skip-codec-tags', state.video.skip_if.codec_matches, onRemoveSkipCodec)
+                updateState()
+            }
             renderCodecTags('video-skip-codec-tags',
                 state.video.skip_if.codec_matches,
-                (codec) => {
-                    state.video.skip_if.codec_matches = state.video.skip_if.codec_matches.filter(c => c !== codec)
-                    renderCodecTags('video-skip-codec-tags', state.video.skip_if.codec_matches, arguments.callee)
-                    updateState()
-                }
+                onRemoveSkipCodec
             )
         }
 
@@ -628,13 +636,14 @@ export function initTranscodeSection(policyData, onUpdate) {
                 bitrateInput.value = state.audio.bitrate
             }
 
+            const onRemovePreserveCodec = (codec) => {
+                state.audio.preserve = state.audio.preserve.filter(c => c !== codec)
+                renderCodecTags('audio-preserve-codec-tags', state.audio.preserve, onRemovePreserveCodec)
+                updateState()
+            }
             renderCodecTags('audio-preserve-codec-tags',
                 state.audio.preserve,
-                (codec) => {
-                    state.audio.preserve = state.audio.preserve.filter(c => c !== codec)
-                    renderCodecTags('audio-preserve-codec-tags', state.audio.preserve, arguments.callee)
-                    updateState()
-                }
+                onRemovePreserveCodec
             )
         }
     }
@@ -706,13 +715,14 @@ export function initTranscodeSection(policyData, onUpdate) {
 
             if (!state.video.skip_if.codec_matches.includes(codec)) {
                 state.video.skip_if.codec_matches.push(codec)
+                const onRemove = (c) => {
+                    state.video.skip_if.codec_matches = state.video.skip_if.codec_matches.filter(x => x !== c)
+                    renderCodecTags('video-skip-codec-tags', state.video.skip_if.codec_matches, onRemove)
+                    updateState()
+                }
                 renderCodecTags('video-skip-codec-tags',
                     state.video.skip_if.codec_matches,
-                    (c) => {
-                        state.video.skip_if.codec_matches = state.video.skip_if.codec_matches.filter(x => x !== c)
-                        renderCodecTags('video-skip-codec-tags', state.video.skip_if.codec_matches, arguments.callee)
-                        updateState()
-                    }
+                    onRemove
                 )
                 updateState()
             }
@@ -743,13 +753,14 @@ export function initTranscodeSection(policyData, onUpdate) {
 
             if (!state.audio.preserve.includes(codec)) {
                 state.audio.preserve.push(codec)
+                const onRemovePreserve = (c) => {
+                    state.audio.preserve = state.audio.preserve.filter(x => x !== c)
+                    renderCodecTags('audio-preserve-codec-tags', state.audio.preserve, onRemovePreserve)
+                    updateState()
+                }
                 renderCodecTags('audio-preserve-codec-tags',
                     state.audio.preserve,
-                    (c) => {
-                        state.audio.preserve = state.audio.preserve.filter(x => x !== c)
-                        renderCodecTags('audio-preserve-codec-tags', state.audio.preserve, arguments.callee)
-                        updateState()
-                    }
+                    onRemovePreserve
                 )
                 updateState()
             }
